@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Customization;
 using ERP.Application.Platform;
 using ERP.Application.Security;
 using ERP.Application.Templates;
@@ -17,7 +18,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Infrastructure.Services;
 
 /// <summary>Creates a workspace from an industry template: org, first legal entity, core + industry seed, modules and the admin user.</summary>
-public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> users, IOrgContext org, ModuleRegistry modules, CountryPackRegistry countryPacks, Microsoft.Extensions.Caching.Memory.IMemoryCache cache, Microsoft.Extensions.Configuration.IConfiguration config) : IOnboardingService
+public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> users, IOrgContext org, ModuleRegistry modules, CountryPackRegistry countryPacks, ICustomizableEntityRegistry customizableEntities, Microsoft.Extensions.Caching.Memory.IMemoryCache cache, Microsoft.Extensions.Configuration.IConfiguration config) : IOnboardingService
 {
     public bool SelfSignupEnabled => bool.TryParse(config["Onboarding:AllowSelfSignup"], out var enabled) && enabled;
 
@@ -85,7 +86,8 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
             foreach (var t in pack?.Taxes ?? TaxTemplates.ForCountry(organization.CountryCode))
                 db.TaxCodes.Add(new TaxCode { Code = t.Code, Name = t.Name, Kind = t.Kind, Rate = t.Rate, IsDefault = t.IsDefault, IsRecoverable = t.IsRecoverable });
 
-            foreach (var f in pack?.CustomFields ?? [])
+            // Only record types that exist in this deployment (a pack can describe modules that are not installed).
+            foreach (var f in (pack?.CustomFields ?? []).Where(f => customizableEntities.Find(f.EntityType) is not null))
                 db.CustomFieldDefinitions.Add(new CustomFieldDefinition
                 {
                     EntityType = f.EntityType, Key = f.Key, Label = f.Label, DataType = f.DataType, Required = f.Required,

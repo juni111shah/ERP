@@ -1,3 +1,4 @@
+using ERP.Application.Organizations;
 using ERP.Application.Workflow;
 using ERP.Application.Settings;
 using ERP.Application.Customization;
@@ -25,6 +26,7 @@ public static class DependencyInjection
         services.AddTransient(typeof(IRequestHandler<,>), typeof(ListRequestHandler<,>));
         services.AddScoped<ICustomFieldService, CustomFieldService>();
         services.AddScoped<INumberingService, NumberingService>();
+        services.AddScoped<ILegalEntityGuard, LegalEntityGuard>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<INotifier, Notifier>();
         services.AddScoped<ISettingsService, SettingsService>();

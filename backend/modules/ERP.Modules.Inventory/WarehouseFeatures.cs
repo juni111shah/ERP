@@ -1,7 +1,7 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Security;
-using ERP.Domain.Organizations;
+using ERP.Application.Organizations;
 using FluentValidation;
 using MediatR;
 
@@ -23,14 +23,13 @@ public sealed class CreateWarehouseValidator : AbstractValidator<CreateWarehouse
     }
 }
 
-internal sealed class WarehouseHandlers(IRepository<Warehouse> warehouses, IReadRepository<LegalEntity> legalEntities, ICurrentUser user) :
+internal sealed class WarehouseHandlers(IRepository<Warehouse> warehouses, ILegalEntityGuard legalEntityGuard) :
     IRequestHandler<CreateWarehouse, WarehouseDto>
 {
     public async Task<WarehouseDto> Handle(CreateWarehouse cmd, CancellationToken ct)
     {
         var i = cmd.Input;
-        if (!await legalEntities.AnyAsync(e => e.Id == i.LegalEntityId, ct) || (user.AllowedLegalEntityIds is { } allowed && !allowed.Contains(i.LegalEntityId)))
-            throw new FieldValidationException("legalEntityId", "Legal entity not found.");
+        await legalEntityGuard.RequireAsync(i.LegalEntityId, ct);
         var warehouse = new Warehouse { Code = i.Code.Trim(), Name = i.Name.Trim(), LegalEntityId = i.LegalEntityId, Address = i.Address };
         warehouses.Add(warehouse);
         await warehouses.SaveChangesAsync(ct);
