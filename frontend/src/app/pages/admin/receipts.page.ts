@@ -50,6 +50,7 @@ import { PartiesApi } from '../parties.page';
           <nz-form-item><nz-form-label nzRequired>Deposit to</nz-form-label><nz-form-control [nzErrorTip]="err('bankAccountId')">
             <nz-select formControlName="bankAccountId" data-testid="rc-bank">@for (a of banks(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Amount</nz-form-label><nz-form-control [nzErrorTip]="err('amount')"><nz-input-number formControlName="amount" [nzMin]="0.01" [nzPrecision]="2" style="width:100%" data-testid="rc-amount"></nz-input-number></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Allocation</nz-form-label><nz-form-control><label><input type="checkbox" formControlName="autoAllocate" data-testid="rc-auto" /> Settle the oldest invoices first (the rest stays on account)</label></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Reference</nz-form-label><nz-form-control><input nz-input formControlName="reference" /></nz-form-control></nz-form-item>
         </form>
         @if (receipt(); as r) {
@@ -106,7 +107,7 @@ export class ReceiptsPage {
   readonly editableAllocation = computed(() => !this.receipt() || (this.receipt()!.status === 'issued' && this.receipt()!.unallocated > 0));
   readonly form = this.fb.group({
     legalEntityId: ['', Validators.required], partyId: ['', Validators.required], date: [null as Date | null, Validators.required], method: ['bankTransfer', Validators.required],
-    bankAccountId: ['', Validators.required], amount: [null as number | null, [Validators.required, Validators.min(0.01)]], reference: [''],
+    bankAccountId: ['', Validators.required], amount: [null as number | null, [Validators.required, Validators.min(0.01)]], reference: [''], autoAllocate: [false],
   });
 
   err(name: string): string { return controlError(this.form.get(name)); }
@@ -132,7 +133,7 @@ export class ReceiptsPage {
     if (!row) {
       this.receipt.set(null);
       const entities = this.entities();
-      this.form.reset({ legalEntityId: entities.length === 1 ? entities[0].id : '', partyId: '', date: new Date(), method: 'bankTransfer', bankAccountId: this.banks().find((b) => b.systemRole === 'bank')?.id ?? '', amount: null, reference: '' });
+      this.form.reset({ legalEntityId: entities.length === 1 ? entities[0].id : '', partyId: '', date: new Date(), method: 'bankTransfer', bankAccountId: this.banks().find((b) => b.systemRole === 'bank')?.id ?? '', amount: null, reference: '', autoAllocate: false });
       this.form.enable();
       this.searchParties('');
       this.drawerOpen.set(true);
@@ -141,7 +142,7 @@ export class ReceiptsPage {
     this.api.detail(row.id).subscribe((r) => {
       this.receipt.set(r);
       this.partyOptions.set([{ value: r.partyId, label: r.partyName ?? r.partyId }]);
-      this.form.reset({ legalEntityId: r.legalEntityId, partyId: r.partyId, date: new Date(r.date + 'T00:00:00'), method: r.method, bankAccountId: r.bankAccountId ?? '', amount: r.amount, reference: r.reference ?? '' });
+      this.form.reset({ legalEntityId: r.legalEntityId, partyId: r.partyId, date: new Date(r.date + 'T00:00:00'), method: r.method, bankAccountId: r.bankAccountId ?? '', amount: r.amount, reference: r.reference ?? '', autoAllocate: false });
       this.form.disable();
       if (r.status === 'issued' && r.unallocated > 0) this.loadOpen(r.partyId);
       this.drawerOpen.set(true);

@@ -28,6 +28,7 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Reports (16 in the spec) | Partial | 15 built: P&L, balance sheet, trial balance, GL, tax summary, AR/AP ageing, rent roll, occupancy, portfolio performance, lease expiries, cash movements, cash forecast, maintenance costs, commissions. Gratuity comes with HR. CSV and Print on each. |
 | Global search, notification centre | Partial | Notifications API exists; no UI. |
 | Tenant portal | Missing | |
-| Lease-expiry scheduler | Missing | Settings for alert days exist. |
+| Lease-expiry scheduler | Done | Generic `IScheduledJob` runner (per workspace, per enabled module); the RE job ends expired leases. |
+| Security deposits, termination credit notes, brokerage commission invoicing and payout | Done | Deposit register with settle/rollover, credit notes for rent beyond termination, deal Invoiced/Collected/Agent paid driven by finance. |
 
 Planned order: Finance ledger → invoices and billing run → receipts and AR → PDC register → dashboard KPIs → payables → reports → HR → acquisitions.

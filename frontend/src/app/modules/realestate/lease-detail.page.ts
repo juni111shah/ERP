@@ -18,6 +18,7 @@ import { MasterDataState } from '../../shared/master-data-state';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { leaseFields } from './leases.page';
 import { DESCRIPTION_COLUMNS, LeaseDto, LeasesApi, PAYMENT_PLANS, RealEstateLookups, TerminationResult, humanize } from './realestate.api';
+import { LeaseDepositComponent } from './lease-deposit.component';
 import { StatusTagComponent } from './status-tag.component';
 
 type Action = 'terminate' | 'renew';
@@ -27,7 +28,7 @@ type Action = 'terminate' | 'renew';
   selector: 'erp-lease-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
+  imports: [DatePipe, RouterLink, LeaseDepositComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
     NzStatisticModule, NzTableModule, NzTagModule],
   template: `
     @if (lease(); as l) {
@@ -45,6 +46,9 @@ type Action = 'terminate' | 'renew';
         }
         @if (l.status === 'active') {
           <button *erpHasPermission="'realestate.leases.edit'" nz-button [disabled]="busy()" (click)="toggleHoldingOver(l)" data-testid="lease-holding-over">{{ l.holdingOverFlag ? 'Tenant is leaving' : 'Tenant will hold over' }}</button>
+        }
+        @if (l.status === 'terminated') {
+          <button *erpHasPermission="'realestate.leases.terminate'" nz-button nzType="primary" [disabled]="busy()" (click)="creditNotes()" data-testid="lease-credit-notes">Raise credit notes for rent after termination</button>
         }
         @if (l.status === 'holdingOver') {
           <button *erpHasPermission="'realestate.leases.terminate'" nz-button [disabled]="busy()" (click)="moveOut()" data-testid="lease-move-out">Confirm move-out</button>
@@ -83,6 +87,7 @@ type Action = 'terminate' | 'renew';
           </nz-table>
         } @else { <p>The rent schedule is generated when the lease is activated.</p> }
       </nz-card>
+      @if (l.status !== 'draft') { <erp-lease-deposit [lease]="l" /> }
       <erp-record-drawer title="Edit draft lease" [open]="state.open()" [fields]="editFields" [value]="$any(state.editing())" customFieldEntityType="realestate.lease"
                          [saving]="state.saving()" [errors]="state.errors()" testId="lease-form" (submitted)="state.submit($event)" (closed)="state.close()" />
       <erp-record-drawer [title]="action() === 'renew' ? 'Renew lease' : 'Terminate lease'" [open]="!!action()" [fields]="actionFields()" [saving]="actionSaving()" [errors]="actionErrors()"
@@ -137,6 +142,14 @@ export class LeaseDetailPage {
   }
 
   toggleHoldingOver(l: LeaseDto): void { this.run(this.api.holdingOver(this.id, !l.holdingOverFlag), 'Updated'); }
+
+  creditNotes(): void {
+    this.busy.set(true);
+    this.api.terminationCredits(this.id).subscribe({
+      next: (r) => { this.busy.set(false); this.message.success(r.length ? `${r.length} credit note(s) issued, ${r.reduce((s, c) => s + c.amount, 0).toLocaleString()} credited` : 'Nothing to credit'); this.load(); },
+      error: (e) => { this.busy.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not raise the credit notes'); },
+    });
+  }
 
   moveOut(): void { this.run(this.api.moveOut(this.id), 'Move-out confirmed'); }
 

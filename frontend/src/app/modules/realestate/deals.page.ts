@@ -1,4 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { catchError, of } from 'rxjs';
+import { AccountDto, AccountsApi } from '../../core/api/admin.api';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -41,6 +44,8 @@ const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <erp-status-tag [status]="d.stage" />
             @if (next(d); as n) { <button *erpHasPermission="'realestate.deals.edit'" nz-button nzSize="small" nzType="primary" (click)="move(d, n)" data-testid="deal-next">Move to {{ humanize(n) }}</button> }
+            @if (d.stage === 'agreed') { <button *erpHasPermission="'realestate.deals.invoice'" nz-button nzSize="small" nzType="primary" (click)="invoice(d)" data-testid="deal-invoice">Raise commission invoice</button> }
+            @if (d.stage === 'collected') { <button *erpHasPermission="'realestate.deals.payagent'" nz-button nzSize="small" nzType="primary" (click)="payOpen.set(d)" data-testid="deal-pay-agent">Pay agent</button> }
             @if (d.stage !== 'lost' && isPipeline(d.stage)) { <button *erpHasPermission="'realestate.deals.lose'" nz-button nzSize="small" nzDanger (click)="losing.set(d)" data-testid="deal-lose">Mark as lost</button> }
           </div>
           <p style="margin:8px 0 0">Gross commission <strong>{{ d.grossCommission.toLocaleString() }} {{ d.currencyCode }}</strong> · agent {{ d.agentCommission.toLocaleString() }} · team lead {{ d.teamLeadCommission.toLocaleString() }}</p>
@@ -48,6 +53,8 @@ const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
         </div>
       }
     </erp-record-drawer>
+    <erp-record-drawer title="Pay agent" [open]="payOpen() !== null" [fields]="payFields()" [saving]="moveSaving()" [errors]="moveErrors()" [width]="420" testId="deal-pay-form"
+                       submitLabel="Pay" (submitted)="payAgent($event)" (closed)="payOpen.set(null)" />
     <erp-record-drawer title="Mark deal as lost" [open]="losing() !== null" [fields]="lostFields" [saving]="moveSaving()" [errors]="moveErrors()" [width]="420" testId="deal-lost-form"
                        submitLabel="Mark as lost" (submitted)="lose($event)" (closed)="losing.set(null)" />`,
 })
@@ -89,17 +96,41 @@ export class DealsPage {
     { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 2000 },
   ];
   readonly lostFields: FieldSpec[] = [{ key: 'lostReason', label: 'Reason', type: 'text', required: true, maxLength: 500 }];
+  private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
+  readonly payOpen = signal<DealDto | null>(null);
+  readonly payFields = computed<FieldSpec[]>(() => [
+    { key: 'bankAccountId', label: 'Pay from', type: 'select', required: true, options: this.accountPage().items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'cash' || a.systemRole === 'bank')).map((a) => ({ value: a.id, label: `${a.code} · ${a.name}` })) },
+    { key: 'date', label: 'Payment date', type: 'date', required: true, default: new Date() },
+  ]);
   readonly losing = signal<DealDto | null>(null);
   readonly moveSaving = signal(false);
   readonly moveErrors = signal<ProblemDetails | null>(null);
 
   filterStage(stage: string | null): void { this.list.setFilters(stage ? [{ field: 'stage', op: 'eq', value: stage }] : []); }
   isPipeline(stage: string): boolean { return PIPELINE.includes(stage); }
-  /** The next pipeline stage (invoicing stages come with the Finance module). */
+  /** The next pipeline stage; invoicing, collection and the agent payout are driven by finance. */
   next(d: DealDto): string | null { const i = PIPELINE.indexOf(d.stage); return i >= 0 && i < PIPELINE.length - 1 ? PIPELINE[i + 1] : null; }
 
   move(d: DealDto, stage: string): void { this.send(d, { stage }); }
   lose(values: Record<string, unknown>): void { const d = this.losing(); if (d) this.send(d, { stage: 'lost', lostReason: values['lostReason'] as string }); }
+
+  invoice(d: DealDto): void {
+    this.moveSaving.set(true);
+    this.api.invoiceCommission(d.id).subscribe({
+      next: () => { this.moveSaving.set(false); this.state.close(); this.message.success('Commission invoice issued'); this.list.reload(); },
+      error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not invoice the commission'); },
+    });
+  }
+
+  payAgent(values: Record<string, unknown>): void {
+    const d = this.payOpen();
+    if (!d) return;
+    this.moveSaving.set(true);
+    this.api.payAgent(d.id, values['bankAccountId'] as string, values['date'] as string).subscribe({
+      next: () => { this.moveSaving.set(false); this.payOpen.set(null); this.state.close(); this.message.success('Agent paid'); this.list.reload(); },
+      error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.moveErrors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not pay the agent'); },
+    });
+  }
 
   private send(d: DealDto, body: { stage: string; lostReason?: string | null }): void {
     this.moveSaving.set(true);

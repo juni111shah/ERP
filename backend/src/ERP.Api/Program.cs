@@ -35,6 +35,11 @@ var modules = ModuleCatalog.Select(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration, modules);
 // ---- Country packs (the host is the only place that references pack assemblies) ----
 foreach (var pack in CountryPackCatalog.All()) builder.Services.AddSingleton(pack);
+
+// Background housekeeping (lease expiry and similar). Always resolvable so it can be triggered; only started by the host when enabled.
+builder.Services.AddSingleton(sp => new ERP.Infrastructure.Services.ScheduledJobRunner(sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<ERP.Infrastructure.Services.ScheduledJobRunner>>(),
+    TimeSpan.FromMinutes(builder.Configuration.GetValue("Jobs:IntervalMinutes", 360)), TimeSpan.FromSeconds(30)));
+if (builder.Configuration.GetValue("Jobs:Enabled", true)) builder.Services.AddHostedService(sp => sp.GetRequiredService<ERP.Infrastructure.Services.ScheduledJobRunner>());
 builder.Services.AddSingleton<INotificationPusher, SignalRNotificationPusher>();
 
 // ---- Auth ----

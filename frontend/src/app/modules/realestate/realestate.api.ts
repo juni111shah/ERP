@@ -119,6 +119,11 @@ export class LeasesApi extends CrudApiService<LeaseListItem, unknown> {
   cancel(id: string): Observable<LeaseDto> { return this.http.post<LeaseDto>(`${this.url}/${id}/cancel`, {}); }
   holdingOver(id: string, holdingOver: boolean): Observable<LeaseDto> { return this.http.post<LeaseDto>(`${this.url}/${id}/holding-over`, { holdingOver }); }
   moveOut(id: string): Observable<LeaseDto> { return this.http.post<LeaseDto>(`${this.url}/${id}/move-out`, {}); }
+  deposit(id: string): Observable<DepositDto> { return this.http.get<DepositDto>(`${this.url}/${id}/deposit`); }
+  recordDeposit(id: string, body: { bankAccountId: string; date: string; amount: number }): Observable<DepositDto> { return this.http.post<DepositDto>(`${this.url}/${id}/deposit`, body); }
+  settleDeposit(id: string, body: unknown): Observable<DepositDto> { return this.http.post<DepositDto>(`${this.url}/${id}/deposit/settle`, body); }
+  transferDeposit(id: string, toLeaseId: string): Observable<DepositDto> { return this.http.post<DepositDto>(`${this.url}/${id}/deposit/transfer`, { toLeaseId }); }
+  terminationCredits(id: string): Observable<{ instalmentId: string; creditNoteId: string; number: string; amount: number; appliedToInvoice: boolean }[]> { return this.http.post<{ instalmentId: string; creditNoteId: string; number: string; amount: number; appliedToInvoice: boolean }[]>(`${this.url}/${id}/termination-credits`, {}); }
   processExpiries(): Observable<{ ended: number; heldOver: number; reservationsReleased: number }> { return this.http.post<{ ended: number; heldOver: number; reservationsReleased: number }>(`${this.url}/process-expiries`, {}); }
 }
 
@@ -132,6 +137,8 @@ export class WorkOrdersApi extends CrudApiService<WorkOrderDto, unknown> {
 export class DealsApi extends CrudApiService<DealDto, unknown> {
   protected readonly resource = `${BASE}/deals`;
   moveStage(id: string, body: { stage: string; lostReason?: string | null }): Observable<DealDto> { return this.http.post<DealDto>(`${this.url}/${id}/stage`, body); }
+  invoiceCommission(id: string): Observable<DealDto> { return this.http.post<DealDto>(`${this.url}/${id}/invoice-commission`, {}); }
+  payAgent(id: string, bankAccountId: string, date: string): Observable<DealDto> { return this.http.post<DealDto>(`${this.url}/${id}/pay-agent`, { bankAccountId, date }); }
 }
 
 @Injectable({ providedIn: 'root' })
@@ -165,6 +172,7 @@ export class RealEstateLookups {
   }
 }
 
+export interface DepositDto { leaseId: string; agreed: number; received: number; applied: number; held: number; transactions: { id: string; date: string; kind: string; amount: number; description?: string }[]; }
 export interface BillingResult { invoiced: number; totalBilled: number; invoiceIds: string[]; }
 
 @Injectable({ providedIn: 'root' })

@@ -181,7 +181,7 @@ internal sealed class LeaseQueryHandlers(
 internal sealed class LeaseCommandHandlers(
     IRepository<Lease> leases, IRepository<RentInstalment> instalments, IRepository<Unit> units, IReadRepository<Property> properties,
     IReadRepository<Party> parties, IReadRepository<LegalEntity> legalEntities, IReadRepository<WorkOrder> workOrders, INumberingService numbers,
-    ICustomFieldService fields, IUnitOfWork unitOfWork, ICurrentUser user, IClock clock, LeaseDtoFactory factory) :
+    ICustomFieldService fields, IUnitOfWork unitOfWork, ICurrentUser user, IClock clock, LeaseDtoFactory factory, LeaseExpiryProcessor expiry) :
     IRequestHandler<CreateLease, LeaseDto>,
     IRequestHandler<UpdateLease, LeaseDto>,
     IRequestHandler<ActivateLease, LeaseDto>,
@@ -350,23 +350,7 @@ internal sealed class LeaseCommandHandlers(
         return await factory.BuildAsync(lease, token);
     }, ct);
 
-    public Task<ExpiryRunResultDto> Handle(ProcessLeaseExpiries cmd, CancellationToken ct) => unitOfWork.InTransactionAsync(async token =>
-    {
-        var today = Today;
-        int ended = 0, heldOver = 0, released = 0;
-        var expired = await leases.Tracked(new Specification<Lease>(l => l.Status == LeaseStatus.Active && l.EndDate < today)).ToListAsync(token);
-        foreach (var lease in expired)
-        {
-            if (lease.Expire(today) == LeaseStatus.HoldingOver) { heldOver++; continue; }
-            var unit = await units.GetForUpdateAsync(lease.UnitId, token);
-            if (unit.Status == UnitStatus.Occupied) unit.Vacate(today);
-            ended++;
-        }
-        var lapsed = await units.Tracked(new Specification<Unit>(u => u.Status == UnitStatus.Reserved && u.ReservedUntil != null && u.ReservedUntil < today)).ToListAsync(token);
-        foreach (var unit in lapsed) { unit.ReleaseReservation(today); released++; }
-        await leases.SaveChangesAsync(token);
-        return new ExpiryRunResultDto(ended, heldOver, released);
-    }, ct);
+    public Task<ExpiryRunResultDto> Handle(ProcessLeaseExpiries cmd, CancellationToken ct) => expiry.RunAsync(Today, ct);
 
     /// <summary>Loads and validates everything a lease refers to (unit, its property, the tenant and the owning legal entity).</summary>
     private async Task<(Unit Unit, Property Property, Party Tenant, LegalEntity Entity)> LoadContextAsync(LeaseInput i, CancellationToken ct)

@@ -76,6 +76,10 @@ public class BrokerageDeal : LegalEntityScopedEntity, IHasCustomFields
     public decimal TeamLeadSharePercent { get; set; }
     /// <summary>Deal value x rate, rounded to 2 dp.</summary>
     [Sortable] public decimal GrossCommission { get; set; }
+    /// <summary>The commission invoice raised to the client (core invoice); set when the deal reaches Invoiced.</summary>
+    public Guid? CommissionInvoiceId { get; private set; }
+    public Guid? AgentPayoutJournalId { get; private set; }
+    public DateOnly? AgentPaidOn { get; private set; }
     public string? LostReason { get; private set; }
     public string? Notes { get; set; }
     public string? CustomFields { get; set; }
@@ -84,6 +88,40 @@ public class BrokerageDeal : LegalEntityScopedEntity, IHasCustomFields
     public static readonly DealStage[] PipelineStages = [DealStage.Lead, DealStage.Viewing, DealStage.Negotiation, DealStage.Agreed];
 
     public void ComputeCommission() => GrossCommission = Math.Round(DealValue * CommissionRatePercent / 100m, 2, MidpointRounding.AwayFromZero);
+
+    public void MarkInvoiced(Guid invoiceId)
+    {
+        if (Stage != DealStage.Agreed) throw new DomainException($"Only an agreed deal can be invoiced (this deal is {Stage}).");
+        CommissionInvoiceId = invoiceId;
+        Stage = DealStage.Invoiced;
+    }
+
+    /// <summary>The client has paid the commission invoice in full.</summary>
+    public void MarkCollected()
+    {
+        if (Stage == DealStage.Invoiced) Stage = DealStage.Collected;
+    }
+
+    /// <summary>A payment was taken back: the deal returns to Invoiced unless the agent has already been paid.</summary>
+    public void ReopenCollected()
+    {
+        if (Stage == DealStage.Collected) Stage = DealStage.Invoiced;
+    }
+
+    /// <summary>The invoice was voided before any money arrived: the deal is agreed again and can be re-invoiced.</summary>
+    public void ReleaseInvoice()
+    {
+        if (Stage is not (DealStage.Invoiced or DealStage.Collected)) return;
+        CommissionInvoiceId = null;
+        Stage = DealStage.Agreed;
+    }
+
+    public void MarkAgentPaid(Guid journalId, DateOnly date)
+    {
+        if (Stage != DealStage.Collected) throw new DomainException("The agent can be paid only after the client has paid the commission invoice.");
+        AgentPayoutJournalId = journalId; AgentPaidOn = date;
+        Stage = DealStage.AgentPaid;
+    }
 
     public void MoveTo(DealStage next, string? lostReason = null)
     {

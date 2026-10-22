@@ -114,6 +114,15 @@ internal static class RealEstateModel
             b.HasIndex(x => new { x.OrgId, x.UnitId });
         });
 
+        mb.Entity<DepositTransaction>(b =>
+        {
+            b.ToTable("re_DepositTransactions");
+            b.Property(x => x.Amount).HasPrecision(19, 4);
+            b.Property(x => x.Description).HasMaxLength(300);
+            b.HasOne<Lease>().WithMany().HasForeignKey(x => x.LeaseId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.LeaseId, x.Date });
+        });
+
         mb.Entity<BrokerageDeal>(b =>
         {
             b.ToTable("re_BrokerageDeals"); // percentage rules are enforced by DealInputValidator (SQLite compares decimals as text, so no CHECK)

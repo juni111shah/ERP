@@ -103,4 +103,19 @@ public class RentInstalment : LegalEntityScopedEntity
     public InstalmentStatus Status { get; set; } = InstalmentStatus.Scheduled;
     /// <summary>Set by the billing run (Finance sprint) when the instalment is invoiced.</summary>
     public Guid? InvoiceId { get; set; }
+    /// <summary>Credit note raised when the lease was terminated early and this instalment had been invoiced beyond the termination date.</summary>
+    public Guid? CreditNoteId { get; set; }
+}
+
+public enum DepositKind { Received = 1, Damages = 2, Arrears = 3, Refund = 4, TransferOut = 5, TransferIn = 6 }
+
+/// <summary>Money movements on a lease's security deposit: received from the tenant, then applied to damages or arrears, or refunded.</summary>
+public class DepositTransaction : LegalEntityScopedEntity
+{
+    [Filterable] public Guid LeaseId { get; set; }
+    [Filterable, Sortable] public DateOnly Date { get; set; }
+    [Filterable] public DepositKind Kind { get; set; }
+    public decimal Amount { get; set; }
+    public string? Description { get; set; }
+    public Guid? JournalEntryId { get; set; }
 }

@@ -1,6 +1,7 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Domain.Finance;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Application.Finance;
@@ -12,9 +13,14 @@ public interface ISettlementService
     Task<List<SettlementAllocation>> AllocateAsync(Settlement s, List<AllocationInput> requested, CancellationToken ct = default);
     /// <summary>Reverses the settlement's journal and takes its allocations back off the invoices. The caller sets the final status.</summary>
     Task ReverseAsync(Settlement s, string memo, CancellationToken ct = default);
+    /// <summary>Oldest-due-first allocation of what is still unallocated to the customer's open invoices.</summary>
+    Task<List<SettlementAllocation>> AutoAllocateAsync(Settlement s, CancellationToken ct = default);
 }
 
-public sealed class SettlementService(IRepository<Invoice> invoices, IRepository<JournalEntry> journals, IPostingService posting) : ISettlementService
+/// <summary>Raised when an invoice that came from a module document (SourceType / SourceId) becomes fully paid or is reopened.</summary>
+public sealed record InvoicePaymentChanged(Guid InvoiceId, string? SourceType, Guid? SourceId, bool IsPaid) : INotification;
+
+public sealed class SettlementService(IRepository<Invoice> invoices, IRepository<JournalEntry> journals, IPostingService posting, IPublisher publisher) : ISettlementService
 {
     /// <summary>Validates and applies allocations to open invoices of the receipt's customer; returns the new allocation rows.</summary>
     public async Task<List<SettlementAllocation>> AllocateAsync(Settlement s, List<AllocationInput> requested, CancellationToken ct = default)
@@ -37,6 +43,7 @@ public sealed class SettlementService(IRepository<Invoice> invoices, IRepository
             s.Unallocated -= r.Amount;
             result.Add(new SettlementAllocation { SettlementId = s.Id, InvoiceId = inv.Id, Amount = r.Amount });
         }
+        foreach (var inv in open.Where(o => o.SourceType != null && o.Status == DocumentStatus.Paid)) await publisher.Publish(new InvoicePaymentChanged(inv.Id, inv.SourceType, inv.SourceId, true), ct);
         return result;
     }
 
@@ -47,9 +54,26 @@ public sealed class SettlementService(IRepository<Invoice> invoices, IRepository
         var ids = s.Allocations.Select(a => a.InvoiceId!.Value).ToList();
         foreach (var inv in await invoices.Tracked(new Specification<Invoice>(x => ids.Contains(x.Id))).ToListAsync(ct))
         {
+            var wasPaid = inv.Status == DocumentStatus.Paid;
             inv.Paid -= s.Allocations.Where(a => a.InvoiceId == inv.Id).Sum(a => a.Amount);
             SettlementStatus.Refresh(inv);
+            if (wasPaid && inv.SourceType != null) await publisher.Publish(new InvoicePaymentChanged(inv.Id, inv.SourceType, inv.SourceId, false), ct);
         }
         s.Unallocated = 0;
+    }
+
+    public async Task<List<SettlementAllocation>> AutoAllocateAsync(Settlement s, CancellationToken ct = default)
+    {
+        if (s.Unallocated <= 0) return [];
+        var open = await invoices.Query(new Specification<Invoice>(i => i.PartyId == s.PartyId && i.LegalEntityId == s.LegalEntityId && !i.IsCreditNote && (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid)))
+            .OrderBy(i => i.DueDate).ThenBy(i => i.InvoiceDate).Select(i => new { i.Id, i.Total, i.Paid }).ToListAsync(ct);
+        var left = s.Unallocated; var requested = new List<AllocationInput>();
+        foreach (var i in open)
+        {
+            if (left <= 0) break;
+            var take = Math.Min(left, i.Total - i.Paid);
+            if (take > 0) { requested.Add(new AllocationInput(i.Id, take)); left -= take; }
+        }
+        return await AllocateAsync(s, requested, ct);
     }
 }

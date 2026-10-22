@@ -14,6 +14,9 @@ public sealed record UnitStatusBody(UnitAction Action, DateOnly? Until = null, s
 public sealed record TerminateBody(DateOnly Date, string Reason);
 public sealed record HoldingOverBody(bool HoldingOver);
 public sealed record WorkOrderStatusBody(WorkOrderStatus Status, decimal? ActualCost = null, string? ResolutionNotes = null);
+public sealed record PayAgentBody(Guid BankAccountId, DateOnly Date);
+public sealed record DepositBody(Guid BankAccountId, DateOnly Date, decimal Amount);
+public sealed record TransferDepositBody(Guid ToLeaseId);
 public sealed record BillingRunBody(DateOnly AsOf, Guid? LegalEntityId = null);
 public sealed record DealStageBody(DealStage Stage, string? LostReason = null);
 
@@ -97,6 +100,11 @@ internal static class RealEstateEndpoints
     {
         g.MapGet("", ([AsParameters] ListLeases query, ISender s, CancellationToken ct) => s.Send(query, ct)).RequirePermission(P.LeasesRead);
         g.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetLease(id), ct)).RequirePermission(P.LeasesRead);
+        g.MapGet("/{id:guid}/deposit", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetSecurityDeposit(id), ct)).RequirePermission(P.LeasesRead);
+        g.MapPost("/{id:guid}/deposit", (Guid id, DepositBody b, ISender s, CancellationToken ct) => s.Send(new RecordSecurityDeposit(id, b.BankAccountId, b.Date, b.Amount), ct)).RequirePermission(P.DepositsManage);
+        g.MapPost("/{id:guid}/deposit/settle", (Guid id, SettleDepositInput input, ISender s, CancellationToken ct) => s.Send(new SettleSecurityDeposit(id, input), ct)).RequirePermission(P.DepositsManage);
+        g.MapPost("/{id:guid}/deposit/transfer", (Guid id, TransferDepositBody b, ISender s, CancellationToken ct) => s.Send(new TransferSecurityDeposit(id, b.ToLeaseId), ct)).RequirePermission(P.DepositsManage);
+        g.MapPost("/{id:guid}/termination-credits", (Guid id, ISender s, CancellationToken ct) => s.Send(new CreateTerminationCredits(id), ct)).RequirePermission(P.LeasesTerminate);
         g.MapGet("/{id:guid}/schedule", async (Guid id, ISender s, CancellationToken ct) => (await s.Send(new GetLease(id), ct)).Schedule).RequirePermission(P.LeasesRead);
         g.MapPost("", async (LeaseInput input, ISender s, CancellationToken ct) =>
         {
@@ -141,6 +149,8 @@ internal static class RealEstateEndpoints
             return Results.Created($"{Base}/deals/{created.Id}", created);
         }).RequirePermission(P.DealsCreate);
         g.MapPut("/{id:guid}", (Guid id, DealInput input, ISender s, CancellationToken ct) => s.Send(new UpdateDeal(id, input), ct)).RequirePermission(P.DealsEdit);
+        g.MapPost("/{id:guid}/invoice-commission", (Guid id, ISender s, CancellationToken ct) => s.Send(new InvoiceDealCommission(id), ct)).RequirePermission(P.DealsInvoice);
+        g.MapPost("/{id:guid}/pay-agent", (Guid id, PayAgentBody b, ISender s, CancellationToken ct) => s.Send(new PayDealAgent(id, b.BankAccountId, b.Date), ct)).RequirePermission(P.DealsPayAgent);
         g.MapPost("/{id:guid}/stage", (Guid id, DealStageBody body, ISender s, CancellationToken ct) => s.Send(new MoveDealStage(id, body.Stage, body.LostReason), ct)).RequireAuthorization();
     }
 }
