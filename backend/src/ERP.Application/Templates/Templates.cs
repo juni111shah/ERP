@@ -118,12 +118,11 @@ public static class CoreTemplates
     ];
 }
 
-/// <summary>Country tax packs. Rates are data, never hard-coded in posting logic.</summary>
+/// <summary>Neutral fallback tax defaults for countries without a country pack. Rates are data, never hard-coded in posting logic.</summary>
 public static class TaxTemplates
 {
     public static IReadOnlyList<TaxTemplate> ForCountry(string countryCode) => countryCode.ToUpperInvariant() switch
     {
-        "AE" => [new("VAT5", "VAT 5%", TaxKind.Vat, 5m, true), new("VAT0", "VAT zero-rated", TaxKind.Vat, 0m), new("EXEMPT", "Exempt", TaxKind.Vat, 0m, IsRecoverable: false)],
         "SA" => [new("VAT15", "VAT 15%", TaxKind.Vat, 15m, true), new("VAT0", "VAT zero-rated", TaxKind.Vat, 0m), new("EXEMPT", "Exempt", TaxKind.Vat, 0m, IsRecoverable: false)],
         "PK" => [new("GST18", "Sales tax 18%", TaxKind.SalesTax, 18m, true), new("ST-SVC", "Provincial sales tax on services", TaxKind.SalesTax, 16m), new("EXEMPT", "Exempt", TaxKind.SalesTax, 0m, IsRecoverable: false)],
         "IN" => [new("GST18", "GST 18%", TaxKind.Gst, 18m, true), new("GST5", "GST 5%", TaxKind.Gst, 5m), new("GST0", "GST nil", TaxKind.Gst, 0m)],
