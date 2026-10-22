@@ -180,3 +180,57 @@ export class ReceiptsApi extends CrudApiService<ReceiptSummary, unknown> {
   allocate(id: string, allocations: { invoiceId: string; amount: number }[]): Observable<ReceiptDto> { return this.http.post<ReceiptDto>(`${this.url}/${id}/allocate`, { allocations }); }
   void(id: string): Observable<ReceiptDto> { return this.http.post<ReceiptDto>(`${this.url}/${id}/void`, {}); }
 }
+
+// ---- Cheque register ---------------------------------------------------------------------------------------------------------
+
+export interface ChequeRow { id: string; number: string; kind: string; direction: string; instrumentNo: string; bankName?: string; partyId?: string; partyName?: string; amount: number; instrumentDate: string; status: string; currencyCode: string; }
+export interface ChequeDto extends ChequeRow {
+  legalEntityId: string; receivedOn?: string; bankAccountId?: string; settlementId?: string; depositedOn?: string; clearedOn?: string; bounceReason?: string; replacesInstrumentId?: string; notes?: string;
+  allocations: AllocationLine[];
+}
+export interface ChequeSummary { inCustodyTotal: number; inCustodyCount: number; maturedTotal: number; maturedCount: number; next7DaysTotal: number; next30DaysTotal: number; depositedTotal: number; bouncedCount: number; }
+export const CHEQUE_KINDS = [
+  { value: 'cheque', label: 'Cheque' }, { value: 'postDatedCheque', label: 'Post-dated cheque' }, { value: 'bankDraft', label: 'Bank draft' }, { value: 'promissoryNote', label: 'Promissory note' },
+];
+
+@Injectable({ providedIn: 'root' })
+export class ChequesApi extends CrudApiService<ChequeRow, unknown> {
+  protected readonly resource = 'finance/cheques';
+  detail(id: string): Observable<ChequeDto> { return this.http.get<ChequeDto>(`${this.url}/${id}`); }
+  summary(): Observable<ChequeSummary> { return this.http.get<ChequeSummary>(`${this.url}/summary`); }
+  register(body: unknown): Observable<ChequeDto> { return this.http.post<ChequeDto>(this.url, body); }
+  cancel(id: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/cancel`, {}); }
+  deposit(id: string, bankAccountId: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/deposit`, { bankAccountId, date }); }
+  clear(id: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/clear`, { date }); }
+  bounce(id: string, date: string, reason: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/bounce`, { date, reason }); }
+  replace(id: string, body: unknown): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/replace`, body); }
+}
+
+// ---- Bank and cash -----------------------------------------------------------------------------------------------------------
+
+export interface CashPositionRow { accountId: string; code: string; name: string; isBank: boolean; balance: number; }
+export interface CashPosition { asOf: string; accounts: CashPositionRow[]; total: number; }
+export interface StatementLine { id: string; accountId: string; date: string; description: string; reference?: string; amount: number; status: string; matchedJournalLineId?: string; }
+export interface LedgerItem { journalLineId: string; journalId: string; number: string; date: string; description?: string; amount: number; }
+export interface Reconciliation {
+  accountId: string; code: string; name: string; asOf: string; ledgerBalance: number; matched: number; unmatchedStatement: StatementLine[]; unmatchedLedger: LedgerItem[];
+  unmatchedStatementTotal: number; unmatchedLedgerTotal: number; reconciled: boolean;
+}
+
+@Injectable({ providedIn: 'root' })
+export class BankApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${inject(API_BASE_URL)}/finance/bank`;
+  position(asOf: string, legalEntityId?: string): Observable<CashPosition> { return this.http.get<CashPosition>(`${this.base}/position`, { params: { asOf, ...(legalEntityId ? { legalEntityId } : {}) } }); }
+  reconciliation(accountId: string, asOf: string, legalEntityId?: string): Observable<Reconciliation> {
+    return this.http.get<Reconciliation>(`${this.base}/accounts/${accountId}/reconciliation`, { params: { asOf, ...(legalEntityId ? { legalEntityId } : {}) } });
+  }
+  import(accountId: string, legalEntityId: string, lines: { date: string; description: string; reference: string | null; amount: number }[]): Observable<{ imported: number; duplicates: number }> {
+    return this.http.post<{ imported: number; duplicates: number }>(`${this.base}/accounts/${accountId}/import`, { legalEntityId, lines });
+  }
+  autoMatch(accountId: string, legalEntityId: string): Observable<{ matched: number }> { return this.http.post<{ matched: number }>(`${this.base}/accounts/${accountId}/auto-match`, { legalEntityId }); }
+  match(lineId: string, journalLineId: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/match`, { journalLineId }); }
+  unmatch(lineId: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/unmatch`, {}); }
+  book(lineId: string, counterAccountId: string, memo?: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/book`, { counterAccountId, memo: memo ?? null }); }
+  transfer(body: unknown): Observable<unknown> { return this.http.post(`${this.base}/transfers`, body); }
+}

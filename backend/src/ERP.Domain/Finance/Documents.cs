@@ -131,3 +131,25 @@ public class SettlementAllocation : Entity
     public Guid? BillId { get; set; }
     public decimal Amount { get; set; }
 }
+
+public enum StatementLineStatus { Unmatched, Matched }
+
+/// <summary>One line of a bank statement, matched against a ledger line of the bank account during reconciliation.</summary>
+[DefaultSort("-date")]
+public class BankStatementLine : LegalEntityScopedEntity
+{
+    [Filterable]
+    public Guid AccountId { get; set; }
+    [Sortable, Filterable]
+    public DateOnly Date { get; set; }
+    [Searchable]
+    public string Description { get; set; } = default!;
+    [Searchable]
+    public string? Reference { get; set; }
+    /// <summary>Positive = money in, negative = money out (from the bank's point of view of the account).</summary>
+    [Sortable]
+    public decimal Amount { get; set; }
+    [Filterable]
+    public StatementLineStatus Status { get; set; }
+    public Guid? MatchedJournalLineId { get; set; }
+}

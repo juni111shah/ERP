@@ -20,9 +20,9 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Finance ledger (journals, posting engine, period lock, trial balance, GL, P&L, balance sheet) | Done | `IPostingService` is the only way documents write to the ledger. |
 | Invoices, credit notes and rent billing run | Done | Billing run invoices due instalments; voiding releases them. |
 | Receipts, allocation, AR ageing, customer statement | Done | Cheque receipts come with the PDC register. |
-| Post-dated cheque register | Missing | |
+| Post-dated cheque register | Done | Custody, deposit, clear, bounce, replace; maturity KPIs. |
 | Bills, payments, AP | Missing | |
-| Bank and cash, reconciliation | Missing | |
+| Bank and cash, reconciliation | Done | Statement import (paste), auto-match, book unmatched lines, transfers, cash position. |
 | HR, payroll, attendance | Missing | |
 | Acquisitions and funding | Missing | |
 | Reports (16 in the spec) | Missing | Rent roll and occupancy are derivable from existing data. |

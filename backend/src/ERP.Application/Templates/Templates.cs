@@ -81,7 +81,7 @@ public static class CoreTemplates
     [
         Security.CorePermissions.AccountsRead, Security.CorePermissions.JournalsRead, Security.CorePermissions.ChequesRead,
         Security.CorePermissions.TaxRead, Security.CorePermissions.CurrenciesRead, Security.CorePermissions.ReportsRead,
-        Security.CorePermissions.InvoicesRead, Security.CorePermissions.ReceiptsRead,
+        Security.CorePermissions.InvoicesRead, Security.CorePermissions.ReceiptsRead, Security.CorePermissions.BankRead,
     ];
 
     private static readonly string[] CoreRead =
@@ -100,12 +100,12 @@ public static class CoreTemplates
              Security.CorePermissions.JournalsPost, Security.CorePermissions.ChequesWrite, Security.CorePermissions.ChequesApprove,
              Security.CorePermissions.TaxWrite, Security.CorePermissions.CurrenciesWrite, Security.CorePermissions.PartiesWrite,
              Security.CorePermissions.ItemsWrite, Security.CorePermissions.AttachmentsWrite, Security.CorePermissions.ApprovalsDecide,
-             Security.CorePermissions.InvoicesWrite, Security.CorePermissions.InvoicesIssue, Security.CorePermissions.ReceiptsWrite,
+             Security.CorePermissions.InvoicesWrite, Security.CorePermissions.InvoicesIssue, Security.CorePermissions.ReceiptsWrite, Security.CorePermissions.BankWrite,
              Security.CorePermissions.AuditRead, Security.CorePermissions.SensitiveRead]),
         new("Accountant", "Day-to-day bookkeeping",
             [.. CoreRead, .. FinanceRead, Security.CorePermissions.JournalsWrite, Security.CorePermissions.ChequesWrite,
              Security.CorePermissions.PartiesWrite, Security.CorePermissions.ItemsWrite, Security.CorePermissions.AttachmentsWrite,
-             Security.CorePermissions.InvoicesWrite, Security.CorePermissions.ReceiptsWrite]),
+             Security.CorePermissions.InvoicesWrite, Security.CorePermissions.ReceiptsWrite, Security.CorePermissions.BankWrite]),
         new("Approver", "Reads everything and decides approvals", [.. CoreRead, .. FinanceRead, Security.CorePermissions.ApprovalsDecide]),
         new("Viewer", "Read-only access", [.. CoreRead, .. FinanceRead]),
     ];

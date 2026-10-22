@@ -58,6 +58,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Bill> Bills => Set<Bill>();
     public DbSet<Settlement> Settlements => Set<Settlement>();
+    public DbSet<BankStatementLine> BankStatementLines => Set<BankStatementLine>();
     public DbSet<NumberSequence> NumberSequences => Set<NumberSequence>();
     public DbSet<ApprovalPolicy> ApprovalPolicies => Set<ApprovalPolicy>();
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
@@ -72,7 +73,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         b.Properties<decimal>().HavePrecision(18, 2);
         b.Properties<string>().HaveMaxLength(400);
         foreach (var enumType in new[] { typeof(AccountType), typeof(JournalStatus), typeof(TaxKind), typeof(PartyKind), typeof(ItemType),
-                     typeof(ApprovalStatus), typeof(CustomFieldDataType), typeof(InstrumentKind), typeof(InstrumentDirection), typeof(InstrumentStatus), typeof(DocumentStatus), typeof(SettlementMethod) })
+                     typeof(ApprovalStatus), typeof(CustomFieldDataType), typeof(InstrumentKind), typeof(InstrumentDirection), typeof(InstrumentStatus), typeof(DocumentStatus), typeof(SettlementMethod), typeof(StatementLineStatus) })
             b.Properties(enumType).HaveConversion<string>().HaveMaxLength(40);
     }
 
@@ -170,6 +171,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
             b.HasMany(x => x.Allocations).WithOne().HasForeignKey(x => x.SettlementId).OnDelete(DeleteBehavior.Cascade);
         });
+        mb.Entity<BankStatementLine>(b => { b.HasIndex(x => new { x.OrgId, x.AccountId, x.Date }); b.HasIndex(x => x.MatchedJournalLineId); });
         mb.Entity<NumberSequence>(b => b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.DocumentType, x.Year }).IsUnique());
         mb.Entity<ApprovalRequest>(b => b.HasIndex(x => new { x.OrgId, x.Status }));
         mb.Entity<Attachment>(b => b.HasIndex(x => new { x.OrgId, x.OwnerType, x.OwnerId }));
