@@ -12,4 +12,3 @@ public class FieldValidationException(IDictionary<string, string[]> errors)
     public FieldValidationException(string field, string error) : this(new Dictionary<string, string[]> { [field] = [error] }) { }
 }
 
-public record PagedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);

@@ -23,12 +23,18 @@ public class Organization : Entity, IAuditable
 }
 
 /// <summary>A company/legal entity inside an organization. The accounting boundary (journals, tax registration, period lock).</summary>
+[DefaultSort("code")]
 public class LegalEntity : OrgEntity, IHasCustomFields
 {
+    [Listable]
     public string Code { get; set; } = default!;
+    [Listable]
     public string Name { get; set; } = default!;
+    [Searchable]
     public string? LegalName { get; set; }
+    [Filterable]
     public string CountryCode { get; set; } = default!;
+    [Filterable]
     public string BaseCurrency { get; set; } = default!;
     public string? TaxRegistrationNo { get; set; }
     public bool IsTaxRegistered { get; set; }
@@ -37,16 +43,21 @@ public class LegalEntity : OrgEntity, IHasCustomFields
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public DateOnly? BooksLockedTo { get; set; }
+    [Filterable]
     public bool IsActive { get; set; } = true;
     public string? CustomFields { get; set; }
 }
 
 /// <summary>Business unit (branch, store, site, department) of a legal entity.</summary>
+[DefaultSort("code")]
 public class BusinessUnit : LegalEntityScopedEntity, IHasCustomFields
 {
+    [Listable]
     public string Code { get; set; } = default!;
+    [Listable]
     public string Name { get; set; } = default!;
     public string? Address { get; set; }
+    [Filterable]
     public bool IsActive { get; set; } = true;
     public string? CustomFields { get; set; }
 }

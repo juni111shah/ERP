@@ -124,12 +124,9 @@ public sealed class ModuleGateMiddleware(RequestDelegate next)
             var access = http.RequestServices.GetRequiredService<IModuleAccess>();
             if (!await access.IsEnabledAsync(gate.ModuleKey, http.RequestAborted))
             {
-                await Results.Problem(
-                    statusCode: StatusCodes.Status403Forbidden,
-                    type: ModuleProblems.ModuleDisabledType,
-                    title: "Module not enabled",
-                    detail: $"The '{gate.ModuleKey}' module is not enabled for this workspace. Its data is kept and returns when it is enabled again.")
-                    .ExecuteAsync(http);
+                await ApiEnvelope.WriteErrorAsync(http, StatusCodes.Status403Forbidden, "Module not enabled",
+                    $"The '{gate.ModuleKey}' module is not enabled for this workspace. Its data is kept and returns when it is enabled again.",
+                    ModuleProblems.ModuleDisabledType);
                 return;
             }
         }

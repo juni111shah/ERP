@@ -9,6 +9,7 @@ import { routes } from './app.routes';
 import { AuthService } from './core/auth/auth.service';
 import { authInterceptor } from './core/http/auth.interceptor';
 import { entityScopeInterceptor } from './core/http/entity-scope.interceptor';
+import { envelopeInterceptor } from './core/http/envelope.interceptor';
 import { moduleDisabledInterceptor } from './core/http/module-disabled.interceptor';
 import { APP_ICONS } from './icons';
 
@@ -16,7 +17,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(withInterceptors([authInterceptor, entityScopeInterceptor, moduleDisabledInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, entityScopeInterceptor, moduleDisabledInterceptor, envelopeInterceptor])),
     provideAnimationsAsync(),
     provideNzI18n(en_US),
     provideNzIcons(APP_ICONS),

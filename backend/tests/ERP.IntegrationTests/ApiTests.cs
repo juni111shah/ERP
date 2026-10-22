@@ -388,7 +388,7 @@ public class TenancyPermissionAndCustomFieldTests(ApiFactory f) : IClassFixture<
     {
         var (admin, _) = await f.SignInAsync(ApiFactory.AdminEmail);
         var p = await ApiFactory.Json(await admin.PostAsJsonAsync("/api/v1/parties", new { name = "Audited", kind = "Individual", roles = "Customer" }));
-        var events = (await ApiFactory.Json(await admin.GetAsync($"/api/v1/audit?recordType=Party&recordId={p["id"]}"))).AsArray();
+        var events = (await ApiFactory.Json(await admin.GetAsync($"/api/v1/audit?filter=recordType:eq:Party&filter=recordId:eq:{p["id"]}"))).AsArray();
         Assert.Contains(events, e => (string?)e!["action"] == "Created");
     }
 }

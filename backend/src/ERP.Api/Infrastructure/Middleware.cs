@@ -2,6 +2,7 @@ using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Domain.Common;
 using ERP.Infrastructure.Auth;
+using ERP.Modularity;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -25,8 +26,7 @@ public sealed class LegalEntityScopeMiddleware(RequestDelegate next)
                 || (user.AllowedLegalEntityIds is { } allowed && !allowed.Contains(id))
                 || !await db.LegalEntities.AnyAsync(e => e.Id == id, http.RequestAborted))
             {
-                http.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await http.Response.WriteAsJsonAsync(new ProblemDetails { Status = 403, Title = "Legal entity not allowed", Detail = "You cannot work in that legal entity." });
+                await ApiEnvelope.WriteErrorAsync(http, StatusCodes.Status403Forbidden, "Legal entity not allowed", "You cannot work in that legal entity.");
                 return;
             }
             http.Items["erp.legalEntityId"] = id;
@@ -35,7 +35,7 @@ public sealed class LegalEntityScopeMiddleware(RequestDelegate next)
     }
 }
 
-/// <summary>Maps exceptions to RFC 7807 ProblemDetails.</summary>
+/// <summary>Maps exceptions to the standard error envelope (RFC 7807 members included).</summary>
 public sealed class ProblemExceptionHandler(ILogger<ProblemExceptionHandler> log, IHostEnvironment env) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext http, Exception ex, CancellationToken ct)
@@ -60,9 +60,9 @@ public sealed class ProblemExceptionHandler(ILogger<ProblemExceptionHandler> log
             problem.Extensions["retryAt"] = retryAt;
             http.Response.Headers.RetryAfter = Math.Max(1, (int)(retryAt - DateTime.UtcNow).TotalSeconds).ToString();
         }
-        problem.Extensions["traceId"] = http.TraceIdentifier;
-        http.Response.StatusCode = problem.Status ?? 500;
-        await http.Response.WriteAsJsonAsync(problem, problem.GetType(), options: null, contentType: "application/problem+json", ct);
+        var errors = problem is ValidationProblemDetails vpd ? vpd.Errors : null;
+        await ApiEnvelope.WriteErrorAsync(http, problem.Status ?? 500, problem.Title, problem.Detail, problem.Type, errors,
+            problem.Extensions.ToDictionary(kv => kv.Key, kv => kv.Value));
         return true;
     }
 }

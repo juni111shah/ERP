@@ -29,8 +29,11 @@ public static class Masking
     }
 }
 
-public sealed record ListParties(string? Search, PartyRoles? Role, int Page = 1, int PageSize = 25) : IRequest<PagedResult<PartyDto>>, IRequirePermission
+/// <summary>Generic paged query (search / filter / sort) plus a role shortcut (<c>?role=customer</c>).</summary>
+public sealed record ListParties : PagedQuery, IRequest<PagedResult<PartyDto>>, IRequirePermission
 {
+    /// <summary>Role shortcut (case-insensitive): customer, vendor, employee, other.</summary>
+    public string? Role { get; init; }
     public string RequiredPermission => CorePermissions.PartiesRead;
 }
 
@@ -70,7 +73,7 @@ public sealed class UpdatePartyValidator : AbstractValidator<UpdateParty>
     }
 }
 
-internal sealed class PartyHandlers(IAppDbContext db, INumberingService numbers, ICustomFieldService fields, ICurrentUser user) :
+internal sealed class PartyHandlers(IRepository<Party> parties, INumberingService numbers, ICustomFieldService fields, ICurrentUser user) :
     IRequestHandler<ListParties, PagedResult<PartyDto>>,
     IRequestHandler<GetParty, PartyDto>,
     IRequestHandler<CreateParty, PartyDto>,
@@ -80,21 +83,21 @@ internal sealed class PartyHandlers(IAppDbContext db, INumberingService numbers,
 
     public async Task<PagedResult<PartyDto>> Handle(ListParties q, CancellationToken ct)
     {
-        var query = db.Parties.AsNoTracking();
-        if (!string.IsNullOrWhiteSpace(q.Search))
-            query = query.Where(p => p.Name.Contains(q.Search) || p.Code.Contains(q.Search) || (p.Email != null && p.Email.Contains(q.Search)));
-        if (q.Role is { } role && role != PartyRoles.None) query = query.Where(p => (p.Roles & role) == role);
-        var pageSize = Math.Clamp(q.PageSize, 1, 200);
-        var page = Math.Max(1, q.Page);
-        var total = await query.CountAsync(ct);
-        var rows = await query.OrderBy(p => p.Code).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        Specification<Party>? spec = null;
+        if (!string.IsNullOrWhiteSpace(q.Role))
+        {
+            if (!Enum.TryParse<PartyRoles>(q.Role, ignoreCase: true, out var role) || role == PartyRoles.None)
+                throw new FieldValidationException("role", "Unknown party role.");
+            spec = new Specification<Party>(p => (p.Roles & role) == role);
+        }
+        var page = await parties.PageAsync(q, spec, ct);
         var defs = await fields.GetDefinitionsAsync(EntityType, ct);
-        return new(rows.Select(p => ToDto(p, CustomFieldValidator.Project(p.CustomFields, defs))).ToList(), total, page, pageSize);
+        return page.Map(p => ToDto(p, CustomFieldValidator.Project(p.CustomFields, defs)));
     }
 
     public async Task<PartyDto> Handle(GetParty q, CancellationToken ct)
     {
-        var p = await db.Parties.AsNoTracking().FirstOrDefaultAsync(x => x.Id == q.Id, ct) ?? throw new NotFoundException();
+        var p = await parties.GetAsync(q.Id, ct);
         return ToDto(p, await fields.ReadAsync(EntityType, p, ct));
     }
 
@@ -103,20 +106,20 @@ internal sealed class PartyHandlers(IAppDbContext db, INumberingService numbers,
         var p = new Party { Code = await numbers.NextAsync("party", ct: ct) };
         Map(cmd.Input, p);
         await fields.ApplyAsync(EntityType, p, cmd.Input.CustomFields, isCreate: true, ct);
-        db.Parties.Add(p);
-        await db.SaveChangesAsync(ct);
+        parties.Add(p);
+        await parties.SaveChangesAsync(ct);
         return ToDto(p, await fields.ReadAsync(EntityType, p, ct));
     }
 
     public async Task<PartyDto> Handle(UpdateParty cmd, CancellationToken ct)
     {
-        var p = await db.Parties.FirstOrDefaultAsync(x => x.Id == cmd.Id, ct) ?? throw new NotFoundException();
+        var p = await parties.GetForUpdateAsync(cmd.Id, ct);
         var (idNumber, iban) = (p.IdNumber, p.Iban);
         Map(cmd.Input, p);
         // A user who only sees masked values must not overwrite the real ones with the mask.
         if (!user.HasPermission(CorePermissions.SensitiveRead)) { p.IdNumber = idNumber; p.Iban = iban; }
         await fields.ApplyAsync(EntityType, p, cmd.Input.CustomFields, isCreate: false, ct);
-        await db.SaveChangesAsync(ct);
+        await parties.SaveChangesAsync(ct);
         return ToDto(p, await fields.ReadAsync(EntityType, p, ct));
     }
 

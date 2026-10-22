@@ -72,7 +72,8 @@ builder.Services.AddRateLimiter(o =>
     o.OnRejected = async (ctx, ct) =>
     {
         ctx.HttpContext.Response.Headers.RetryAfter = "60";
-        await ctx.HttpContext.Response.WriteAsJsonAsync(new { status = 429, title = "Too many attempts", detail = "Too many attempts. Please wait a minute and try again.", retryAfterSeconds = 60 }, ct);
+        await ApiEnvelope.WriteErrorAsync(ctx.HttpContext, StatusCodes.Status429TooManyRequests, "Too many attempts",
+            "Too many attempts. Please wait a minute and try again.", extensions: new Dictionary<string, object?> { ["retryAfterSeconds"] = 60 });
     };
 });
 
@@ -101,6 +102,13 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 var app = builder.Build();
 
 app.UseExceptionHandler();
+// Empty-bodied API errors (401 challenge, 403 forbid, 404 no route, 405) get the same error envelope.
+app.UseStatusCodePages(async ctx =>
+{
+    var http = ctx.HttpContext;
+    if (http.Request.Path.StartsWithSegments("/api") && !http.Response.HasStarted && http.Response.ContentLength is null && string.IsNullOrEmpty(http.Response.ContentType))
+        await ApiEnvelope.WriteErrorAsync(http, http.Response.StatusCode, null, null);
+});
 app.UseSerilogRequestLogging();
 app.Use(async (ctx, next) =>
 {
@@ -122,7 +130,9 @@ app.UseMiddleware<ModuleGateMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<LegalEntityScopeMiddleware>();
 
+// Every /api/v1 endpoint (core and modules) returns the standard ApiResponse envelope.
 var api = app.MapGroup("/api/v1");
+api.AddEndpointFilter<ApiEnvelopeFilter>();
 api.MapAuth();
 api.MapCore();
 

@@ -1,1 +1,4 @@
-/* You can add global styles to this file, and also import other style files */
+// App-level globals. Design tokens and the ng-zorro bridge come from src/theme (see angular.json "styles").
+html, body { height: 100%; margin: 0; }
+body { font-family: var(--erp-font-family-sans); background: var(--erp-color-bg-canvas); color: var(--erp-color-text-primary); }
+.erp-page-title { font-size: 20px; font-weight: 600; margin: 0 0 16px; color: var(--erp-color-text-primary); }

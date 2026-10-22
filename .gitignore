@@ -6,3 +6,6 @@ node_modules/
 dist/
 .angular/
 *.pdf
+.env
+*.env.local
+storage/

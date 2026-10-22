@@ -12,7 +12,7 @@ public enum IndustryAvailability { Available, Preview, ComingSoon }
 /// <summary>
 /// What onboarding provisions for an industry: suggested modules, extra chart-of-accounts lines, role
 /// templates, numbering and default settings. Core ships neutral industries; modules contribute their own
-/// (e.g. the Real Estate module contributes "realestate").
+/// (each industry module contributes its own template).
 /// </summary>
 public sealed record IndustryTemplate(
     string Key,

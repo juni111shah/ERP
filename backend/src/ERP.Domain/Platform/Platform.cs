@@ -3,13 +3,19 @@ using ERP.Domain.Common;
 namespace ERP.Domain.Platform;
 
 /// <summary>Immutable audit trail written by the SaveChanges interceptor.</summary>
+[DefaultSort("-occurredAt")]
 public class AuditEvent : Entity, IOrgScoped
 {
     public Guid OrgId { get; set; }
+    [Sortable, Filterable]
     public DateTime OccurredAt { get; set; }
+    [Filterable]
     public Guid? UserId { get; set; }
+    [Filterable]
     public string Action { get; set; } = default!; // Created | Updated | Deleted | custom
+    [Filterable, Searchable]
     public string RecordType { get; set; } = default!;
+    [Filterable, Searchable]
     public string RecordId { get; set; } = default!;
     public string? ChangedFields { get; set; }
     public string? Before { get; set; }
@@ -39,7 +45,7 @@ public class Attachment : OrgEntity
     public string StorageKey { get; set; } = default!;
 }
 
-/// <summary>Key/value settings (JSON values). LegalEntityId null = tenant-wide. Modules namespace their keys ("realestate.*").</summary>
+/// <summary>Key/value settings (JSON values). LegalEntityId null = tenant-wide. Modules namespace their keys ("<moduleKey>.*").</summary>
 public class Setting : OrgEntity
 {
     public Guid? LegalEntityId { get; set; }

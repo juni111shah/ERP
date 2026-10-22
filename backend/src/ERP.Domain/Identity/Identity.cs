@@ -3,13 +3,17 @@ using ERP.Domain.Common;
 namespace ERP.Domain.Identity;
 
 /// <summary>A tenant role. Permissions are resource.action keys (e.g. "parties.write").</summary>
+[DefaultSort("name")]
 public class Role : OrgEntity
 {
+    [Listable]
     public string Name { get; set; } = default!;
     public string? Description { get; set; }
     /// <summary>Built-in roles come from the core or an industry template and cannot be deleted.</summary>
+    [Filterable]
     public bool IsBuiltIn { get; set; }
     /// <summary>Owning module for template roles (null = core).</summary>
+    [Filterable]
     public string? ModuleKey { get; set; }
     public List<RolePermission> Permissions { get; set; } = new();
 }

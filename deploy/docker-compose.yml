@@ -1,0 +1,19 @@
+# Local development stack. Copy deploy/.env.example to deploy/.env and set your own values; never commit .env.
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SQL_SA_PASSWORD:?set SQL_SA_PASSWORD in deploy/.env}
+    ports: ["1433:1433"]
+    volumes: [sqldata:/var/opt/mssql]
+  api:
+    build: { context: ../backend, dockerfile: ../deploy/api.Dockerfile }
+    depends_on: [sql]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: Server=sql,1433;Database=ERP_Dev;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True
+      Auth__SigningKey: ${AUTH_SIGNING_KEY:?set AUTH_SIGNING_KEY (32+ chars) in deploy/.env}
+    ports: ["5080:8080"]
+volumes:
+  sqldata:

@@ -9,7 +9,7 @@ namespace ERP.Application.Customization;
 /// <summary>An entity type that accepts custom fields (core or module-provided).</summary>
 public sealed record CustomizableEntityDefinition(string Key, string Label, Type ClrType, string ModuleKey = "core", string? Permission = null);
 
-/// <summary>Registry of customizable entity types: "party" → Party, "realestate.property" → ...</summary>
+/// <summary>Registry of customizable entity types: "party" → Party, "core.party" → ...</summary>
 public interface ICustomizableEntityRegistry
 {
     IReadOnlyCollection<CustomizableEntityDefinition> All { get; }

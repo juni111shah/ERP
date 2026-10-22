@@ -11,12 +11,13 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Modules.Inventory;
 
 /// <summary>Stub entity proving that a module owns its own tables (table prefix "inv_").</summary>
+[DefaultSort("code")]
 public class Warehouse : LegalEntityScopedEntity, IHasCustomFields
 {
-    public string Code { get; set; } = default!;
-    public string Name { get; set; } = default!;
-    public string? Address { get; set; }
-    public bool IsActive { get; set; } = true;
+    [Listable] public string Code { get; set; } = default!;
+    [Listable] public string Name { get; set; } = default!;
+    [Searchable] public string? Address { get; set; }
+    [Filterable] public bool IsActive { get; set; } = true;
     public string? CustomFields { get; set; }
 }
 
@@ -59,21 +60,20 @@ public sealed class InventoryModule : ModuleBase
 
     public override void MapEndpoints(RouteGroupBuilder group)
     {
-        group.MapGet("/warehouses", async (IAppDbContext db, CancellationToken ct) =>
-            await db.Set<Warehouse>().AsNoTracking().OrderBy(w => w.Code)
-                .Select(w => new { w.Id, w.Code, w.Name, w.LegalEntityId, w.Address, w.IsActive }).ToListAsync(ct))
-            .RequirePermission(WarehousesRead);
+        // One line: paged list with search / filter / sort from the [Listable]/[Filterable] attributes.
+        group.MapPagedList<Warehouse, object>("/warehouses", WarehousesRead, "inventory.warehouse",
+            (w, cf) => new { w.Id, w.Code, w.Name, w.LegalEntityId, w.Address, w.IsActive, customFields = cf });
 
-        group.MapPost("/warehouses", async (WarehouseInput input, IAppDbContext db, ICurrentUser user, CancellationToken ct) =>
+        group.MapPost("/warehouses", async (WarehouseInput input, IRepository<Warehouse> warehouses, IReadRepository<ERP.Domain.Organizations.LegalEntity> entities, ICurrentUser user, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(input.Code) || string.IsNullOrWhiteSpace(input.Name))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["code"] = ["Code and name are required."] });
-            if (!await db.LegalEntities.AnyAsync(e => e.Id == input.LegalEntityId, ct)
+            if (!await entities.AnyAsync(e => e.Id == input.LegalEntityId, ct)
                 || (user.AllowedLegalEntityIds is { } allowed && !allowed.Contains(input.LegalEntityId)))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["legalEntityId"] = ["Legal entity not found."] });
             var w = new Warehouse { Code = input.Code.Trim(), Name = input.Name.Trim(), LegalEntityId = input.LegalEntityId, Address = input.Address };
-            db.Set<Warehouse>().Add(w);
-            await db.SaveChangesAsync(ct);
+            warehouses.Add(w);
+            await warehouses.SaveChangesAsync(ct);
             return Results.Created($"/api/v1/m/inventory/warehouses/{w.Id}", new { w.Id, w.Code, w.Name, w.LegalEntityId });
         }).RequirePermission(WarehousesWrite);
     }

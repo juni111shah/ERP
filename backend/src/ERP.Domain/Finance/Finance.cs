@@ -2,9 +2,12 @@ using ERP.Domain.Common;
 
 namespace ERP.Domain.Finance;
 
+[DefaultSort("code")]
 public class Currency : Entity
 {
+    [Listable]
     public string Code { get; set; } = default!; // ISO 4217
+    [Listable]
     public string Name { get; set; } = default!;
     public string? Symbol { get; set; }
     public int Decimals { get; set; } = 2;
@@ -21,30 +24,43 @@ public class ExchangeRate : OrgEntity
 /// <summary>Tax regime kinds; rates live in data (no hard-coded country rules).</summary>
 public enum TaxKind { Vat, Gst, SalesTax, Withholding, Excise, Other }
 
+[DefaultSort("code")]
 public class TaxCode : OrgEntity
 {
     public Guid? LegalEntityId { get; set; }
+    [Listable]
     public string Code { get; set; } = default!;
+    [Listable]
     public string Name { get; set; } = default!;
+    [Filterable]
     public TaxKind Kind { get; set; }
+    [Sortable]
     public decimal Rate { get; set; }
     public bool IsRecoverable { get; set; } = true;
     public bool IsDefault { get; set; }
+    [Filterable]
     public bool IsActive { get; set; } = true;
 }
 
 public enum AccountType { Asset, Liability, Equity, Income, Expense }
 
+[DefaultSort("code")]
 public class Account : OrgEntity, IHasCustomFields
 {
+    [Listable]
     public string Code { get; set; } = default!;
+    [Listable]
     public string Name { get; set; } = default!;
+    [Filterable, Sortable]
     public AccountType Type { get; set; }
+    [Filterable]
     public string? ReportingGroup { get; set; }
     public Guid? ParentId { get; set; }
     public bool IsPostable { get; set; } = true;
     public bool IsSystem { get; set; }
+    [Filterable]
     public bool IsBank { get; set; }
+    [Filterable]
     public bool IsActive { get; set; } = true;
     /// <summary>Optional system role for posting rules (e.g. "ar.control", "tax.output").</summary>
     public string? SystemRole { get; set; }

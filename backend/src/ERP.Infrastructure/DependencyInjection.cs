@@ -46,6 +46,9 @@ public static class DependencyInjection
             o.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
         });
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
+        services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 
         services.AddIdentityCore<AppUser>(o =>
             {

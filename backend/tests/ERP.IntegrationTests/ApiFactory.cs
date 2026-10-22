@@ -77,17 +77,23 @@ public class ApiFactory : WebApplicationFactory<Program>
         var c = Client();
         var res = await c.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
         res.EnsureSuccessStatusCode();
-        var body = (await res.Content.ReadFromJsonAsync<JsonObject>())!;
+        var body = (await Json(res)).AsObject();
         if (body["requiresWorkspaceSelection"]?.GetValue<bool>() == true)
         {
             var ws = body["workspaces"]!.AsArray().First(w => workspaceCode is null || (string?)w!["code"] == workspaceCode)!;
             res = await c.PostAsJsonAsync("/api/v1/auth/select-workspace", new { selectionToken = (string)body["selectionToken"]!, workspaceId = (string)ws["id"]! });
             res.EnsureSuccessStatusCode();
-            body = (await res.Content.ReadFromJsonAsync<JsonObject>())!;
+            body = (await Json(res)).AsObject();
         }
         c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (string)body["accessToken"]!);
         return (c, body);
     }
 
-    public static async Task<JsonNode> Json(HttpResponseMessage res) => JsonNode.Parse(await res.Content.ReadAsStringAsync())!;
+    /// <summary>Parses a response and unwraps the ApiResponse envelope: success → data (paged → the items array); errors → the whole envelope.</summary>
+    public static async Task<JsonNode> Json(HttpResponseMessage res) => Unwrap(JsonNode.Parse(await res.Content.ReadAsStringAsync())!);
+
+    public static async Task<JsonObject> Envelope(HttpResponseMessage res) => JsonNode.Parse(await res.Content.ReadAsStringAsync())!.AsObject();
+
+    public static JsonNode Unwrap(JsonNode body) =>
+        body is JsonObject o && o.ContainsKey("success") && o["success"]!.GetValue<bool>() ? o["data"]?.DeepClone() ?? new JsonObject() : body;
 }

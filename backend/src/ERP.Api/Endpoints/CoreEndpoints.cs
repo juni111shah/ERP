@@ -10,6 +10,8 @@ using ERP.Domain.Customization;
 using ERP.Domain.Identity;
 using ERP.Domain.Organizations;
 using ERP.Domain.Parties;
+using ERP.Domain.Finance;
+using ERP.Domain.Platform;
 using ERP.Infrastructure.Auth;
 using ERP.Infrastructure.Identity;
 using ERP.Infrastructure.Persistence;
@@ -31,6 +33,10 @@ public static class CoreEndpoints
     public sealed record InviteUserInput(string Email, string FullName, string? TemporaryPassword, Guid[] RoleIds, Guid[]? LegalEntityIds);
     public sealed record ApprovalInput(string Subject, string? Justification, decimal? Amount, Guid? LegalEntityId);
     public sealed record DecisionInput(string? Comment);
+    public sealed record RoleDto(Guid Id, string Name, string? Description, bool IsBuiltIn, string? ModuleKey, List<string> Permissions);
+    public sealed record AccountDto(Guid Id, string Code, string Name, ERP.Domain.Finance.AccountType Type, string? ReportingGroup, string? SystemRole, bool IsBank, bool IsSystem, bool IsActive);
+    public sealed record TaxCodeDto(Guid Id, string Code, string Name, ERP.Domain.Finance.TaxKind Kind, decimal Rate, bool IsDefault, bool IsRecoverable, bool IsActive);
+    public sealed record CurrencyDto(string Code, string Name, string? Symbol, int Decimals);
     public sealed record ModuleView(string Key, string Name, string Description, string Category, string Version, bool IsCore, IReadOnlyList<string> Requires, string UiRoute, string State);
 
     public static void MapCore(this RouteGroupBuilder api)
@@ -114,7 +120,7 @@ public static class CoreEndpoints
             return Results.Ok(installed.Concat(planned));
         }).RequirePermission(CorePermissions.SettingsRead);
 
-        g.MapPost("/{key}/{action:regex(^(enable|disable)$)}", async (string key, string action, AppDbContext db, ModuleRegistry modules, IModuleAccess access, IOrgContext org, IMemoryCache cache, CancellationToken ct) =>
+        g.MapPost("/{key}/{action:regex(^(enable|disable)$)}", async (string key, string action, IAppDbContext db, ModuleRegistry modules, IModuleAccess access, IOrgContext org, IMemoryCache cache, CancellationToken ct) =>
         {
             var m = modules.Find(key);
             if (m is null) return Results.Problem(statusCode: 404, title: "Module not installed");
@@ -142,13 +148,8 @@ public static class CoreEndpoints
     private static void MapOrganization(RouteGroupBuilder api)
     {
         var le = api.MapGroup("/legal-entities").WithTags("Organization");
-        le.MapGet("", async (AppDbContext db, ICustomFieldService cf, CancellationToken ct) =>
-        {
-            var defs = await cf.GetDefinitionsAsync("legalentity", ct);
-            var rows = await db.LegalEntities.AsNoTracking().OrderBy(e => e.Code).ToListAsync(ct);
-            return rows.Select(e => LeDto(e, CustomFieldValidator.Project(e.CustomFields, defs)));
-        }).RequirePermission(CorePermissions.EntitiesRead);
-        le.MapPost("", async (LegalEntityInput i, AppDbContext db, INumberingService numbers, ICustomFieldService cf, CancellationToken ct) =>
+        le.MapPagedList<LegalEntity, object>("", CorePermissions.EntitiesRead, "legalentity", LeDto);
+        le.MapPost("", async (LegalEntityInput i, IAppDbContext db, INumberingService numbers, ICustomFieldService cf, CancellationToken ct) =>
         {
             var e = new LegalEntity { Code = await numbers.NextAsync("legalentity", ct: ct) };
             MapLe(i, e);
@@ -157,7 +158,7 @@ public static class CoreEndpoints
             await db.SaveChangesAsync(ct);
             return Results.Created($"/api/v1/legal-entities/{e.Id}", LeDto(e, await cf.ReadAsync("legalentity", e, ct)));
         }).RequirePermission(CorePermissions.EntitiesWrite);
-        le.MapPut("/{id:guid}", async (Guid id, LegalEntityInput i, AppDbContext db, ICustomFieldService cf, CancellationToken ct) =>
+        le.MapPut("/{id:guid}", async (Guid id, LegalEntityInput i, IAppDbContext db, ICustomFieldService cf, CancellationToken ct) =>
         {
             var e = await db.LegalEntities.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
             MapLe(i, e);
@@ -167,10 +168,9 @@ public static class CoreEndpoints
         }).RequirePermission(CorePermissions.EntitiesWrite);
 
         var bu = api.MapGroup("/business-units").WithTags("Organization");
-        bu.MapGet("", async (AppDbContext db, CancellationToken ct) =>
-            await db.BusinessUnits.AsNoTracking().OrderBy(b => b.Code).Select(b => new { b.Id, b.LegalEntityId, b.Code, b.Name, b.Address, b.IsActive }).ToListAsync(ct))
-            .RequirePermission(CorePermissions.BusinessUnitsRead);
-        bu.MapPost("", async (BusinessUnitInput i, AppDbContext db, ICurrentUser user, ICustomFieldService cf, CancellationToken ct) =>
+        bu.MapPagedList<BusinessUnit, object>("", CorePermissions.BusinessUnitsRead, "businessunit",
+            (b, cf) => new { b.Id, b.LegalEntityId, b.Code, b.Name, b.Address, b.IsActive, customFields = cf });
+        bu.MapPost("", async (BusinessUnitInput i, IAppDbContext db, ICurrentUser user, ICustomFieldService cf, CancellationToken ct) =>
         {
             if (!await db.LegalEntities.AnyAsync(e => e.Id == i.LegalEntityId, ct) || (user.AllowedLegalEntityIds is { } a && !a.Contains(i.LegalEntityId)))
                 throw new FieldValidationException("legalEntityId", "Legal entity not found.");
@@ -191,7 +191,7 @@ public static class CoreEndpoints
                 list.Add(new { def.Key, def.Label, module, def.Type, def.Description, value = JsonDocument.Parse(await settings.GetRawAsync(def.Key, ct: ct) ?? "null").RootElement });
             return Results.Ok(list);
         }).RequirePermission(CorePermissions.SettingsRead);
-        st.MapPut("", async (Dictionary<string, JsonElement> values, SettingsService settings, ICurrentUser user, IModuleAccess access, AppDbContext db, CancellationToken ct) =>
+        st.MapPut("", async (Dictionary<string, JsonElement> values, SettingsService settings, ICurrentUser user, IModuleAccess access, IAppDbContext db, CancellationToken ct) =>
         {
             foreach (var (key, value) in values)
             {
@@ -215,11 +215,9 @@ public static class CoreEndpoints
         api.MapGet("/permissions", (IPermissionCatalog catalog) => catalog.All).RequirePermission(CorePermissions.RolesRead).WithTags("Security");
 
         var roles = api.MapGroup("/roles").WithTags("Security");
-        roles.MapGet("", async (AppDbContext db, CancellationToken ct) =>
-            await db.Roles.AsNoTracking().OrderBy(r => r.Name)
-                .Select(r => new { r.Id, r.Name, r.Description, r.IsBuiltIn, r.ModuleKey, permissions = r.Permissions.OrderBy(p => p.Permission).Select(p => p.Permission).ToList() }).ToListAsync(ct))
-            .RequirePermission(CorePermissions.RolesRead);
-        roles.MapPost("", async (RoleInput i, AppDbContext db, IPermissionCatalog catalog, CancellationToken ct) =>
+        roles.MapPagedList<Role, RoleDto>("", CorePermissions.RolesRead,
+            r => new RoleDto(r.Id, r.Name, r.Description, r.IsBuiltIn, r.ModuleKey, r.Permissions.OrderBy(p => p.Permission).Select(p => p.Permission).ToList()));
+        roles.MapPost("", async (RoleInput i, IAppDbContext db, IPermissionCatalog catalog, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(i.Name)) throw new FieldValidationException("name", "Name is required.");
             var unknown = i.Permissions.Where(p => p != CorePermissions.All && catalog.All.All(d => d.Key != p)).ToList();
@@ -245,7 +243,7 @@ public static class CoreEndpoints
                 roles = userRoles.Where(r => r.UserId == a.Id).Select(r => r.Role!.Name),
             });
         }).RequirePermission(CorePermissions.UsersRead);
-        users.MapPost("", async (InviteUserInput i, AppDbContext db, UserManager<AppUser> um, CancellationToken ct) =>
+        users.MapPost("", async (InviteUserInput i, IAppDbContext db, UserManager<AppUser> um, CancellationToken ct) =>
         {
             var user = await um.FindByEmailAsync(i.Email.Trim());
             if (user is null)
@@ -268,20 +266,15 @@ public static class CoreEndpoints
             return Results.Created($"/api/v1/users/{user.Id}", new { user.Id, user.Email, user.FullName });
         }).RequirePermission(CorePermissions.UsersWrite);
 
-        api.MapGet("/audit", async (string? recordType, string? recordId, int? take, AppDbContext db, CancellationToken ct) =>
-        {
-            var q = db.AuditEvents.AsNoTracking();
-            if (!string.IsNullOrEmpty(recordType)) q = q.Where(a => a.RecordType == recordType);
-            if (!string.IsNullOrEmpty(recordId)) q = q.Where(a => a.RecordId == recordId);
-            return await q.OrderByDescending(a => a.OccurredAt).Take(Math.Clamp(take ?? 100, 1, 500)).ToListAsync(ct);
-        }).RequirePermission(CorePermissions.AuditRead).WithTags("Security");
+        // ?filter=recordType:eq:Party&filter=recordId:eq:{id}&sort=-occurredAt
+        api.MapPagedList<AuditEvent, AuditEvent>("/audit", CorePermissions.AuditRead, a => a).WithTags("Security");
     }
 
     // ---- Parties and items -----------------------------------------------------
     private static void MapMasterData(RouteGroupBuilder api)
     {
         var p = api.MapGroup("/parties").WithTags("Master data");
-        p.MapGet("", (string? search, PartyRoles? role, int? page, int? pageSize, ISender s, CancellationToken ct) => s.Send(new ListParties(search, role, page ?? 1, pageSize ?? 25), ct))
+        p.MapGet("", ([AsParameters] ListParties q, ISender s, CancellationToken ct) => s.Send(q, ct))
             .RequirePermission(CorePermissions.PartiesRead);
         p.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetParty(id), ct)).RequirePermission(CorePermissions.PartiesRead);
         p.MapPost("", async (PartyInput i, ISender s, CancellationToken ct) => { var r = await s.Send(new CreateParty(i), ct); return Results.Created($"/api/v1/parties/{r.Id}", r); })
@@ -289,13 +282,9 @@ public static class CoreEndpoints
         p.MapPut("/{id:guid}", (Guid id, PartyInput i, ISender s, CancellationToken ct) => s.Send(new UpdateParty(id, i), ct)).RequirePermission(CorePermissions.PartiesWrite);
 
         var items = api.MapGroup("/items").WithTags("Master data");
-        items.MapGet("", async (AppDbContext db, ICustomFieldService cf, CancellationToken ct) =>
-        {
-            var defs = await cf.GetDefinitionsAsync("item", ct);
-            return (await db.Items.AsNoTracking().OrderBy(i => i.Sku).ToListAsync(ct))
-                .Select(i => new { i.Id, i.Sku, i.Name, type = i.Type.ToString(), i.Uom, i.SalesPrice, i.PurchasePrice, i.TaxCodeId, i.IsActive, customFields = CustomFieldValidator.Project(i.CustomFields, defs) });
-        }).RequirePermission(CorePermissions.ItemsRead);
-        items.MapPost("", async (ItemInput i, AppDbContext db, ICustomFieldService cf, CancellationToken ct) =>
+        items.MapPagedList<Item, object>("", CorePermissions.ItemsRead, "item",
+            (i, cf) => new { i.Id, i.Sku, i.Name, i.Type, i.Uom, i.SalesPrice, i.PurchasePrice, i.TaxCodeId, i.IsActive, customFields = cf });
+        items.MapPost("", async (ItemInput i, IAppDbContext db, ICustomFieldService cf, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(i.Sku) || string.IsNullOrWhiteSpace(i.Name)) throw new FieldValidationException("sku", "SKU and name are required.");
             if (await db.Items.AnyAsync(x => x.Sku == i.Sku, ct)) throw new ConflictException("An item with that SKU exists.");
@@ -311,16 +300,11 @@ public static class CoreEndpoints
     private static void MapFinance(RouteGroupBuilder api)
     {
         var f = api.MapGroup("/finance").WithTags("Finance");
-        f.MapGet("/accounts", async (AppDbContext db, CancellationToken ct) =>
-            await db.Accounts.AsNoTracking().OrderBy(a => a.Code)
-                .Select(a => new { a.Id, a.Code, a.Name, type = a.Type.ToString(), a.ReportingGroup, a.SystemRole, a.IsBank, a.IsSystem, a.IsActive }).ToListAsync(ct))
-            .RequirePermission(CorePermissions.AccountsRead);
-        f.MapGet("/tax-codes", async (AppDbContext db, CancellationToken ct) =>
-            await db.TaxCodes.AsNoTracking().OrderBy(t => t.Code).Select(t => new { t.Id, t.Code, t.Name, kind = t.Kind.ToString(), t.Rate, t.IsDefault, t.IsRecoverable }).ToListAsync(ct))
-            .RequirePermission(CorePermissions.TaxRead);
-        f.MapGet("/currencies", async (AppDbContext db, CancellationToken ct) =>
-            await db.Currencies.AsNoTracking().OrderBy(c => c.Code).Select(c => new { c.Code, c.Name, c.Symbol, c.Decimals }).ToListAsync(ct))
-            .RequirePermission(CorePermissions.CurrenciesRead);
+        f.MapPagedList<Account, AccountDto>("/accounts", CorePermissions.AccountsRead,
+            a => new AccountDto(a.Id, a.Code, a.Name, a.Type, a.ReportingGroup, a.SystemRole, a.IsBank, a.IsSystem, a.IsActive));
+        f.MapPagedList<TaxCode, TaxCodeDto>("/tax-codes", CorePermissions.TaxRead,
+            t => new TaxCodeDto(t.Id, t.Code, t.Name, t.Kind, t.Rate, t.IsDefault, t.IsRecoverable, t.IsActive));
+        f.MapPagedList<Currency, CurrencyDto>("/currencies", CorePermissions.CurrenciesRead, c => new CurrencyDto(c.Code, c.Name, c.Symbol, c.Decimals));
     }
 
     // ---- Custom fields ---------------------------------------------------------------
@@ -354,7 +338,7 @@ public static class CoreEndpoints
     private static void MapWorkflow(RouteGroupBuilder api)
     {
         var a = api.MapGroup("/approvals").WithTags("Workflow");
-        a.MapGet("", async (string? scope, AppDbContext db, ICurrentUser user, CancellationToken ct) =>
+        a.MapGet("", async (string? scope, IAppDbContext db, ICurrentUser user, CancellationToken ct) =>
         {
             var q = db.ApprovalRequests.AsNoTracking();
             q = scope == "mine" ? q.Where(r => r.RequestedBy == user.UserId)
@@ -373,13 +357,13 @@ public static class CoreEndpoints
         a.MapPost("/{id:guid}/withdraw", (Guid id, IApprovalService s, CancellationToken ct) => s.WithdrawAsync(id, ct)).RequireAuthorization();
 
         var n = api.MapGroup("/notifications").WithTags("Workflow");
-        n.MapGet("", async (AppDbContext db, ICurrentUser user, CancellationToken ct) => new
+        n.MapGet("", async (IAppDbContext db, ICurrentUser user, CancellationToken ct) => new
         {
             unread = await db.Notifications.CountAsync(x => x.UserId == user.UserId && x.ReadAt == null, ct),
             items = await db.Notifications.AsNoTracking().Where(x => x.UserId == user.UserId).OrderByDescending(x => x.CreatedAt).Take(50)
                 .Select(x => new { x.Id, x.Title, x.Body, x.Link, x.Severity, x.CreatedAt, x.ReadAt }).ToListAsync(ct),
         }).RequireAuthorization();
-        n.MapPost("/{id:guid}/read", async (Guid id, AppDbContext db, ICurrentUser user, CancellationToken ct) =>
+        n.MapPost("/{id:guid}/read", async (Guid id, IAppDbContext db, ICurrentUser user, CancellationToken ct) =>
         {
             var x = await db.Notifications.FirstOrDefaultAsync(x => x.Id == id && x.UserId == user.UserId, ct) ?? throw new NotFoundException();
             x.ReadAt ??= DateTime.UtcNow;
@@ -388,11 +372,11 @@ public static class CoreEndpoints
         }).RequireAuthorization();
 
         var f = api.MapGroup("/attachments").WithTags("Workflow");
-        f.MapGet("", async (string ownerType, Guid ownerId, AppDbContext db, CancellationToken ct) =>
+        f.MapGet("", async (string ownerType, Guid ownerId, IAppDbContext db, CancellationToken ct) =>
             await db.Attachments.AsNoTracking().Where(x => x.OwnerType == ownerType && x.OwnerId == ownerId)
                 .Select(x => new { x.Id, x.FileName, x.ContentType, x.SizeBytes, x.CreatedAt }).ToListAsync(ct))
             .RequirePermission(CorePermissions.AttachmentsRead);
-        f.MapPost("", async (HttpRequest req, AppDbContext db, IFileStore store, ISettingsService settings, CancellationToken ct) =>
+        f.MapPost("", async (HttpRequest req, IAppDbContext db, IFileStore store, ISettingsService settings, CancellationToken ct) =>
         {
             var form = await req.ReadFormAsync(ct);
             var file = form.Files.FirstOrDefault() ?? throw new FieldValidationException("file", "A file is required.");
@@ -408,12 +392,12 @@ public static class CoreEndpoints
             await db.SaveChangesAsync(ct);
             return Results.Created($"/api/v1/attachments/{att.Id}", new { att.Id, att.FileName, att.SizeBytes });
         }).RequirePermission(CorePermissions.AttachmentsWrite).DisableAntiforgery();
-        f.MapGet("/{id:guid}/download", async (Guid id, AppDbContext db, IFileStore store, CancellationToken ct) =>
+        f.MapGet("/{id:guid}/download", async (Guid id, IAppDbContext db, IFileStore store, CancellationToken ct) =>
         {
             var att = await db.Attachments.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
             return Results.File(await store.OpenAsync(att.StorageKey, ct), att.ContentType, att.FileName);
         }).RequirePermission(CorePermissions.AttachmentsRead);
-        f.MapDelete("/{id:guid}", async (Guid id, AppDbContext db, CancellationToken ct) =>
+        f.MapDelete("/{id:guid}", async (Guid id, IAppDbContext db, CancellationToken ct) =>
         {
             var att = await db.Attachments.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
             db.Attachments.Remove(att); // soft delete; the file is kept for audit

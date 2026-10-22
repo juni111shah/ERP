@@ -48,8 +48,10 @@ public interface IHasCustomFields
 public abstract class OrgEntity : Entity, IOrgScoped, IAuditable, ISoftDelete
 {
     public Guid OrgId { get; set; }
+    [Sortable, Filterable]
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
+    [Sortable]
     public DateTime? UpdatedAt { get; set; }
     public Guid? UpdatedBy { get; set; }
     public bool IsDeleted { get; set; }
@@ -62,6 +64,7 @@ public abstract class OrgEntity : Entity, IOrgScoped, IAuditable, ISoftDelete
 /// <summary>Base class for rows scoped to a legal entity.</summary>
 public abstract class LegalEntityScopedEntity : OrgEntity, ILegalEntityScoped
 {
+    [Filterable]
     public Guid LegalEntityId { get; set; }
 }
 

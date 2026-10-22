@@ -1,15 +1,26 @@
-/** Mirrors ERP.Application.Common.Paging + ProblemDetails (spec 12: ?page=&pageSize=25&sort=&q=). */
-export interface PagedResult<T> {
+/** Standard API envelope (ERP.Application.Common.ApiResponse). The envelope interceptor unwraps it. */
+export interface ApiResponse<T> {
+  success: boolean;
+  statusCode: number;
+  message?: string;
+  data: T;
+  errors?: Record<string, string[]>;
+  traceId?: string;
+  /** paged variant only */
+  meta?: PageMeta;
+  // RFC 7807 members on errors
+  type?: string; title?: string; status?: number; detail?: string;
+}
+
+export interface PageMeta { page: number; pageSize: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean; }
+
+/** What services receive for paged endpoints after unwrapping: items + page meta. */
+export interface PagedResult<T> extends PageMeta {
   items: T[];
-  page: number;
-  pageSize: number;
-  /** total matching rows (scaffold PagedResult.Total) */
-  total: number;
-  totalPages: number;
 }
 
 export type FilterOperator =
-  | 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'in' | 'isNull' | 'isNotNull';
+  | 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'in' | 'has' | 'isNull' | 'isNotNull';
 
 export type FilterValue = string | number | boolean | null | ReadonlyArray<string | number>;
 
@@ -20,13 +31,16 @@ export interface FilterCriterion {
   value?: FilterValue;
 }
 
+/** Mirrors ERP.Application.Common.PagedQuery: ?page=&pageSize=&sort=name,-createdAt&search=&filter=field:op:value */
 export interface ListQuery {
   page: number;
   pageSize: number;
-  /** "name,-createdAt,cf_floor_count" */
+  /** "name,-createdAt" (only [Sortable] fields) */
   sort?: string | null;
-  q?: string | null;
+  search?: string | null;
   filters?: FilterCriterion[];
+  /** extra endpoint-specific params, e.g. { role: 'customer' } */
+  extra?: Record<string, string | number | boolean>;
 }
 
 /** RFC 7807 as produced by ProblemDetailsExceptionHandler. */

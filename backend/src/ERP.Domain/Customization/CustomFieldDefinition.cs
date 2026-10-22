@@ -10,7 +10,7 @@ public enum CustomFieldDataType { Text, Number, Decimal, Date, DateTime, Bool, S
 /// </summary>
 public class CustomFieldDefinition : OrgEntity
 {
-    /// <summary>Entity type key from the customizable-entity registry, e.g. "party", "item", "realestate.property".</summary>
+    /// <summary>Entity type key from the customizable-entity registry, e.g. "party", "item", "core.party".</summary>
     public string EntityType { get; set; } = default!;
     /// <summary>JSON key, lower snake case with a "cf_" prefix. Immutable after creation.</summary>
     public string Key { get; set; } = default!;

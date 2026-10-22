@@ -16,7 +16,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace ERP.Infrastructure.Persistence;
 
-public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext
+public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, IUnitOfWork
 {
     private readonly IOrgContext? _org;
     private readonly ModuleRegistry _modules;
