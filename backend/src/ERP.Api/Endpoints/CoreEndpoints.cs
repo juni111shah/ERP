@@ -16,6 +16,7 @@ public static class CoreEndpoints
         api.MapMasterData();
         api.MapFinance();
         api.MapLedger();
+        api.MapReceivables();
         api.MapCustomFields();
         api.MapWorkflow();
     }

@@ -348,4 +348,38 @@ public class RealEstateApiTests(ApiFactory f) : IClassFixture<ApiFactory>
         var pkLease = (await Ok(await pk.GetAsync("/api/v1/custom-fields/form/realestate.lease"))).AsArray();
         Assert.DoesNotContain(pkLease, d => ((string?)d!["key"])?.StartsWith("cf_ae_") == true);
     }
+
+    [Fact]
+    public async Task Billing_run_invoices_due_instalments_once_and_voiding_releases_them()
+    {
+        var (c, entityId) = await OwnerAsync();
+        var (_, unitId, tenantId) = await SetupAsync(c, entityId);
+        var lease = await Ok(await c.PostAsJsonAsync($"{Re}/leases", LeaseBody(unitId, tenantId, activate: true)), HttpStatusCode.Created);
+        var leaseId = (string)lease["id"]!;
+
+        var run = await Ok(await c.PostAsJsonAsync($"{Re}/billing/run", new { asOf = "2026-11-01", legalEntityId = entityId }));
+        Assert.Equal(1, (int)run["invoiced"]!);
+        Assert.Equal(30_000m, (decimal)run["totalBilled"]!);
+        Assert.Equal(0, (int)(await Ok(await c.PostAsJsonAsync($"{Re}/billing/run", new { asOf = "2026-11-01", legalEntityId = entityId })))["invoiced"]!); // idempotent
+
+        var schedule = (await Ok(await c.GetAsync($"{Re}/leases/{leaseId}/schedule"))).AsArray();
+        var first = schedule[0]!;
+        Assert.Equal("invoiced", (string)first["status"]!);
+        var invoiceId = (string)first["invoiceId"]!;
+        var invoice = await Ok(await c.GetAsync($"/api/v1/finance/invoices/{invoiceId}"));
+        Assert.Equal("issued", (string)invoice["status"]!);
+        Assert.Equal(tenantId, (string)invoice["partyId"]!);
+        Assert.StartsWith("INV-", (string)invoice["number"]!);
+
+        // a single instalment can also be invoiced early
+        var second = schedule[1]!;
+        var early = await Ok(await c.PostAsync($"{Re}/billing/instalments/{(string)second["id"]!}/invoice", null));
+        Assert.Equal(30_000m, (decimal)early["total"]!);
+        Assert.Equal(HttpStatusCode.Conflict, (await c.PostAsync($"{Re}/billing/instalments/{(string)second["id"]!}/invoice", null)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await c.PostAsync($"/api/v1/finance/invoices/{invoiceId}/void", null)).StatusCode);
+        var after = (await Ok(await c.GetAsync($"{Re}/leases/{leaseId}/schedule"))).AsArray()[0]!;
+        Assert.Equal("scheduled", (string)after["status"]!);
+        Assert.Null(after["invoiceId"]);
+    }
 }

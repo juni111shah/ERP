@@ -1,4 +1,6 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { API_BASE_URL } from '../../core/api/api-config';
 import { Observable, map } from 'rxjs';
 import { CrudApiService } from '../../core/api/crud-api.service';
 import { LookupOption } from '../../core/custom-fields/lookup-registry';
@@ -161,4 +163,13 @@ export class RealEstateLookups {
   legalEntities(): SelectOption[] {
     return (this.session.me()?.legalEntities ?? []).map((e) => ({ value: e.id, label: `${e.code} · ${e.name}` }));
   }
+}
+
+export interface BillingResult { invoiced: number; totalBilled: number; invoiceIds: string[]; }
+
+@Injectable({ providedIn: 'root' })
+export class BillingApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${inject(API_BASE_URL)}/${BASE}/billing`;
+  run(asOf: string, legalEntityId?: string): Observable<BillingResult> { return this.http.post<BillingResult>(`${this.base}/run`, { asOf, legalEntityId: legalEntityId ?? null }); }
 }

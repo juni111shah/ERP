@@ -28,6 +28,8 @@ export const routes: Routes = [
       { path: 'finance/accounts', canMatch: [permissionGuard('finance.accounts.read')], loadComponent: () => import('./pages/admin/accounts.page').then((m) => m.AccountsPage) },
       { path: 'finance/journals', canMatch: [permissionGuard('finance.journals.read')], loadComponent: () => import('./pages/admin/journals.page').then((m) => m.JournalsPage) },
       { path: 'finance/reports', canMatch: [permissionGuard('finance.reports.read')], loadComponent: () => import('./pages/admin/ledger-reports.page').then((m) => m.LedgerReportsPage) },
+      { path: 'finance/invoices', canMatch: [permissionGuard('finance.invoices.read')], loadComponent: () => import('./pages/admin/invoices.page').then((m) => m.InvoicesPage) },
+      { path: 'finance/receipts', canMatch: [permissionGuard('finance.receipts.read')], loadComponent: () => import('./pages/admin/receipts.page').then((m) => m.ReceiptsPage) },
       { path: 'finance/tax-codes', canMatch: [permissionGuard('finance.tax.read')], loadComponent: () => import('./pages/admin/tax-codes.page').then((m) => m.TaxCodesPage) },
       { path: 'admin/legal-entities', canMatch: [permissionGuard('core.entities.read')], loadComponent: () => import('./pages/admin/legal-entities.page').then((m) => m.LegalEntitiesPage) },
       { path: 'admin/business-units', canMatch: [permissionGuard('core.businessunits.read')], loadComponent: () => import('./pages/admin/business-units.page').then((m) => m.BusinessUnitsPage) },

@@ -143,4 +143,40 @@ export class LedgerReportsApi {
   generalLedger(p: { accountId: string; from?: string; to: string; legalEntityId?: string }): Observable<GeneralLedger> { return this.http.get<GeneralLedger>(`${this.base}/general-ledger`, { params: this.params(p) }); }
   incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
   balanceSheet(p: { asOf: string; legalEntityId?: string }): Observable<BalanceSheet> { return this.http.get<BalanceSheet>(`${this.base}/balance-sheet`, { params: this.params(p) }); }
+  arAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
+}
+
+// ---- Receivables -------------------------------------------------------------------------------------------------------------
+
+export interface InvoiceLine { id?: string; seq?: number; itemId?: string; description: string; quantity: number; price: number; taxCodeId?: string; taxAmount?: number; net?: number; accountId?: string; }
+export interface InvoiceSummary { id: string; number: string; isCreditNote: boolean; partyId: string; partyName?: string; invoiceDate: string; dueDate: string; total: number; paid: number; outstanding: number; status: string; currencyCode: string; }
+export interface InvoiceDto extends InvoiceSummary { legalEntityId: string; net: number; tax: number; sourceType?: string; sourceId?: string; journalEntryId?: string; notes?: string; lines: InvoiceLine[]; }
+export interface AllocationLine { id: string; invoiceId: string; invoiceNumber: string; amount: number; }
+export interface ReceiptSummary { id: string; number: string; partyId: string; partyName?: string; date: string; method: string; amount: number; unallocated: number; status: string; currencyCode: string; }
+export interface ReceiptDto extends ReceiptSummary { legalEntityId: string; bankAccountId?: string; reference?: string; journalEntryId?: string; allocations: AllocationLine[]; }
+export interface AgeingRow { partyId: string; partyName?: string; current: number; days1To30: number; days31To60: number; days61To90: number; over90: number; total: number; }
+export interface ArAgeing { asOf: string; rows: AgeingRow[]; totals: AgeingRow; }
+export interface BillingResult { invoiced: number; totalBilled: number; invoiceIds: string[]; }
+
+export const SETTLEMENT_METHODS = [
+  { value: 'cash', label: 'Cash' }, { value: 'bankTransfer', label: 'Bank transfer' }, { value: 'card', label: 'Card' }, { value: 'other', label: 'Other' },
+];
+
+@Injectable({ providedIn: 'root' })
+export class InvoicesApi extends CrudApiService<InvoiceSummary, unknown> {
+  protected readonly resource = 'finance/invoices';
+  detail(id: string): Observable<InvoiceDto> { return this.http.get<InvoiceDto>(`${this.url}/${id}`); }
+  save(id: string | null, body: unknown): Observable<InvoiceDto> { return id ? this.http.put<InvoiceDto>(`${this.url}/${id}`, body) : this.http.post<InvoiceDto>(this.url, body); }
+  issue(id: string): Observable<InvoiceDto> { return this.http.post<InvoiceDto>(`${this.url}/${id}/issue`, {}); }
+  void(id: string): Observable<InvoiceDto> { return this.http.post<InvoiceDto>(`${this.url}/${id}/void`, {}); }
+  applyCredit(creditId: string, invoiceId: string, amount: number): Observable<InvoiceDto> { return this.http.post<InvoiceDto>(`${this.url}/${creditId}/apply-credit`, { invoiceId, amount }); }
+  remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
+}
+
+@Injectable({ providedIn: 'root' })
+export class ReceiptsApi extends CrudApiService<ReceiptSummary, unknown> {
+  protected readonly resource = 'finance/receipts';
+  detail(id: string): Observable<ReceiptDto> { return this.http.get<ReceiptDto>(`${this.url}/${id}`); }
+  allocate(id: string, allocations: { invoiceId: string; amount: number }[]): Observable<ReceiptDto> { return this.http.post<ReceiptDto>(`${this.url}/${id}/allocate`, { allocations }); }
+  void(id: string): Observable<ReceiptDto> { return this.http.post<ReceiptDto>(`${this.url}/${id}/void`, {}); }
 }

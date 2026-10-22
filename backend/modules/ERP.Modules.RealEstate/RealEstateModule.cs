@@ -51,6 +51,7 @@ public sealed class RealEstateModule : ModuleBase
         PermissionDefinition.Of(P.DealsCreate, "Create deals"),
         PermissionDefinition.Of(P.DealsEdit, "Edit deals and move them through the pipeline"),
         PermissionDefinition.Of(P.DealsLose, "Mark deals as lost"),
+        PermissionDefinition.Of(P.BillingRun, "Run the rent billing and invoice instalments"),
         PermissionDefinition.Of(P.SettingsWrite, "Change real estate settings"),
     ];
 
@@ -60,6 +61,7 @@ public sealed class RealEstateModule : ModuleBase
         new("realestate.units", "Units", "/real-estate/units", "appstore", P.UnitsRead, 20, "realestate", "Real estate", 200),
         new("realestate.unittypes", "Unit types", "/real-estate/unit-types", "cluster", P.UnitTypesRead, 25, "realestate", "Real estate", 200),
         new("realestate.leases", "Leases", "/real-estate/leases", "file-text", P.LeasesRead, 30, "realestate", "Real estate", 200),
+        new("realestate.billing", "Rent billing", "/real-estate/billing", "dollar", P.BillingRun, 35, "realestate", "Real estate", 200),
         new("realestate.workorders", "Work orders", "/real-estate/work-orders", "tool", P.WorkOrdersRead, 40, "realestate", "Real estate", 200),
         new("realestate.deals", "Deals", "/real-estate/deals", "fund", P.DealsRead, 50, "realestate", "Real estate", 200),
     ];
@@ -96,8 +98,9 @@ public sealed class RealEstateModule : ModuleBase
             [
                 new("Leasing manager", "Leases, units and collections",
                     [P.PropertiesRead, P.PropertiesManage, P.UnitTypesRead, P.UnitTypesManage, P.UnitsRead, P.UnitsManage, P.UnitsReserve,
-                     P.LeasesRead, P.LeasesCreate, P.LeasesEdit, P.LeasesActivate, P.LeasesRenew, P.LeasesTerminate, P.WorkOrdersRead, P.WorkOrdersCreate,
-                     CorePermissions.PartiesRead, CorePermissions.PartiesWrite, CorePermissions.ChequesRead, CorePermissions.ChequesWrite], Key),
+                     P.LeasesRead, P.LeasesCreate, P.LeasesEdit, P.LeasesActivate, P.LeasesRenew, P.LeasesTerminate, P.WorkOrdersRead, P.WorkOrdersCreate, P.BillingRun,
+                     CorePermissions.PartiesRead, CorePermissions.PartiesWrite, CorePermissions.ChequesRead, CorePermissions.ChequesWrite,
+                     CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue, CorePermissions.ReceiptsRead, CorePermissions.ReceiptsWrite], Key),
                 new("Facilities manager", "Maintenance and work orders",
                     [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.WorkOrdersRead, P.WorkOrdersCreate, P.WorkOrdersEdit, P.WorkOrdersAssign,
                      P.WorkOrdersComplete, P.WorkOrdersClose, P.WorkOrdersCancel, CorePermissions.PartiesRead], Key),

@@ -645,6 +645,10 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("PartyId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("PartyName")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -1048,6 +1052,10 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("PartyId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PartyName")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
 
                     b.Property<Guid?>("PaymentInstrumentId")
                         .HasColumnType("uniqueidentifier");
