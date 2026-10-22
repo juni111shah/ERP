@@ -1,3 +1,4 @@
+using ERP.Application.Templates;
 using ERP.Application;
 using ERP.Application.Abstractions;
 using ERP.Application.Customization;
@@ -22,6 +23,7 @@ public static class DependencyInjection
     {
         var registry = new ModuleRegistry(modules);
         services.AddSingleton(registry);
+        services.AddSingleton<CountryPackRegistry>(); // packs (ICountryPack) are registered by the host
         foreach (var m in modules) m.ConfigureServices(services, config);
         services.AddApplication(modules.Select(m => m.GetType().Assembly).ToArray());
 

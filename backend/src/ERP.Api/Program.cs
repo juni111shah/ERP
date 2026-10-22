@@ -7,6 +7,8 @@ using ERP.Infrastructure.Auth;
 using ERP.Infrastructure.Persistence;
 using ERP.Infrastructure.Services;
 using ERP.Modularity;
+using ERP.Application.Templates;
+using ERP.CountryPacks.AE;
 using ERP.Modules.Inventory;
 using ERP.Modules.RealEstate;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -23,6 +25,8 @@ builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configurati
 // ---- Module composition (the host is the only place that references module assemblies) ----
 var modules = ModuleCatalog.Select(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration, modules);
+// ---- Country packs (the host is the only place that references pack assemblies) ----
+builder.Services.AddSingleton<ICountryPack, UaeCountryPack>();
 builder.Services.AddSingleton<INotificationPusher, SignalRNotificationPusher>();
 
 // ---- Auth ----

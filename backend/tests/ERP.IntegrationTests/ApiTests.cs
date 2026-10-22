@@ -181,9 +181,9 @@ public class AuthTests(ApiFactory f) : IClassFixture<ApiFactory>
 
 public class PlatformTests(ApiFactory f) : IClassFixture<ApiFactory>
 {
-    private static object Onboard(string key, string industry) => new
+    private static object Onboard(string key, string industry, string country = "PK", string currency = "PKR", string timeZone = "Asia/Karachi") => new
     {
-        workspaceName = $"QA {key}", signInKey = key, industry, countryCode = "PK", baseCurrency = "PKR", timeZone = "Asia/Karachi",
+        workspaceName = $"QA {key}", signInKey = key, industry, countryCode = country, baseCurrency = currency, timeZone,
         legalEntityName = $"QA {key} Ltd", adminEmail = $"admin+{key}@example.test", adminName = "QA Admin", adminPassword = "Qa#Passw0rd1",
     };
 
@@ -215,6 +215,31 @@ public class PlatformTests(ApiFactory f) : IClassFixture<ApiFactory>
         var res = await f.Client().PostAsJsonAsync("/api/v1/platform/onboarding", Onboard("qa-casino", "casino"));
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
         Assert.Contains("generic", await res.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Country_pack_adds_its_taxes_and_custom_fields_only_for_its_country()
+    {
+        Assert.Equal(HttpStatusCode.Created, (await f.Client().PostAsJsonAsync("/api/v1/platform/onboarding", Onboard("qa-uae", "generic", "AE", "AED", "Asia/Dubai"))).StatusCode);
+        var (uae, _) = await f.SignInAsync("admin+qa-uae@example.test", "Qa#Passw0rd1");
+
+        var taxes = (await ApiFactory.Json(await uae.GetAsync("/api/v1/finance/tax-codes"))).AsArray();
+        Assert.Contains(taxes, t => (string?)t!["code"] == "VAT5");
+        var form = (await ApiFactory.Json(await uae.GetAsync("/api/v1/custom-fields/form/party"))).AsArray();
+        Assert.Contains(form, d => (string?)d!["key"] == "cf_ae_trn");
+        Assert.Contains(form, d => (string?)d!["key"] == "cf_ae_emirates_id");
+
+        // Pack fields are validated like any custom field (TRN is 15 digits).
+        var bad = await uae.PostAsJsonAsync("/api/v1/parties", new { name = "Bad TRN LLC", kind = "Company", roles = "Customer", customFields = new { cf_ae_trn = "123" } });
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        var good = await uae.PostAsJsonAsync("/api/v1/parties", new { name = "Good TRN LLC", kind = "Company", roles = "Customer", customFields = new { cf_ae_trn = "100123456700003" } });
+        Assert.Equal(HttpStatusCode.Created, good.StatusCode);
+
+        // Another country gets none of it.
+        Assert.Equal(HttpStatusCode.Created, (await f.Client().PostAsJsonAsync("/api/v1/platform/onboarding", Onboard("qa-pk-pack", "generic"))).StatusCode);
+        var (pk, _) = await f.SignInAsync("admin+qa-pk-pack@example.test", "Qa#Passw0rd1");
+        var pkForm = (await ApiFactory.Json(await pk.GetAsync("/api/v1/custom-fields/form/party"))).AsArray();
+        Assert.DoesNotContain(pkForm, d => ((string?)d!["key"])?.StartsWith("cf_ae_") == true);
     }
 
     [Fact]
@@ -379,7 +404,9 @@ public class TenancyPermissionAndCustomFieldTests(ApiFactory f) : IClassFixture<
 
         // Another workspace does not see these definitions and cannot use the key.
         var (other, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re");
-        Assert.Empty((await ApiFactory.Json(await other.GetAsync("/api/v1/custom-fields?entityType=party"))).AsArray());
+        // (demo-re is a UAE workspace, so it has its own country-pack fields; only this test's definitions must be absent.)
+        var otherDefs = (await ApiFactory.Json(await other.GetAsync("/api/v1/custom-fields?entityType=party"))).AsArray();
+        Assert.DoesNotContain(otherDefs, d => (string?)d!["key"] is "cf_vip_tier" or "cf_since");
         Assert.Equal(HttpStatusCode.BadRequest, (await other.PostAsJsonAsync("/api/v1/parties", new { name = "X", kind = "Company", roles = "Customer", customFields = new { cf_since = "2024-01-31" } })).StatusCode);
     }
 

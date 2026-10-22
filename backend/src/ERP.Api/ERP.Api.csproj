@@ -7,6 +7,7 @@
     <ProjectReference Include="..\ERP.Infrastructure\ERP.Infrastructure.csproj" />
     <ProjectReference Include="..\..\modules\ERP.Modules.RealEstate\ERP.Modules.RealEstate.csproj" />
     <ProjectReference Include="..\..\modules\ERP.Modules.Inventory\ERP.Modules.Inventory.csproj" />
+    <ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.AE\ERP.CountryPacks.AE.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Serilog.AspNetCore" />

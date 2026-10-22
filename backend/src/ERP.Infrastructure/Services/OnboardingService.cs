@@ -2,6 +2,7 @@ using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Security;
 using ERP.Application.Templates;
+using ERP.Domain.Customization;
 using ERP.Domain.Finance;
 using ERP.Domain.Identity;
 using ERP.Domain.Organizations;
@@ -23,7 +24,7 @@ public sealed record OnboardingResult(Guid OrgId, Guid LegalEntityId, Guid Admin
 public sealed record IndustryView(string Key, string Label, string Description, string Availability, IReadOnlyList<string> SuggestedModules, IReadOnlyList<string> InstalledModules, int SortOrder);
 
 /// <summary>Creates a workspace from an industry template: org, first legal entity, core + industry seed, modules and the admin user.</summary>
-public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> users, IOrgContext org, ModuleRegistry modules, Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
+public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> users, IOrgContext org, ModuleRegistry modules, CountryPackRegistry countryPacks, Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
 {
     public IReadOnlyList<IndustryTemplate> Industries()
         => CoreTemplates.Industries.Concat(modules.Modules.SelectMany(m => m.IndustryTemplates)).GroupBy(i => i.Key).Select(g => g.Last())
@@ -85,8 +86,17 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
             foreach (var a in CoreTemplates.ChartOfAccounts.Concat(industry.Accounts ?? []).DistinctBy(a => a.Code))
                 db.Accounts.Add(new Account { Code = a.Code, Name = a.Name, Type = a.Type, SystemRole = a.SystemRole, IsBank = a.IsBank, IsSystem = a.SystemRole is not null, ReportingGroup = a.ReportingGroup });
 
-            foreach (var t in TaxTemplates.ForCountry(organization.CountryCode))
+            var pack = countryPacks.Find(organization.CountryCode);
+            foreach (var t in pack?.Taxes ?? TaxTemplates.ForCountry(organization.CountryCode))
                 db.TaxCodes.Add(new TaxCode { Code = t.Code, Name = t.Name, Kind = t.Kind, Rate = t.Rate, IsDefault = t.IsDefault, IsRecoverable = t.IsRecoverable });
+
+            foreach (var f in pack?.CustomFields ?? [])
+                db.CustomFieldDefinitions.Add(new CustomFieldDefinition
+                {
+                    EntityType = f.EntityType, Key = f.Key, Label = f.Label, DataType = f.DataType, Required = f.Required,
+                    Options = f.Options?.Serialize(), Section = f.Section, HelpText = f.HelpText, Order = f.Order,
+                    IsSearchable = f.IsSearchable, ShowInList = f.ShowInList, ModuleKey = $"country:{pack!.CountryCode.ToLowerInvariant()}",
+                });
 
             foreach (var s in CoreTemplates.Sequences.Concat(industry.Sequences ?? []))
                 db.NumberSequences.Add(new NumberSequence { DocumentType = s.DocumentType, Prefix = s.Prefix, Pattern = s.Pattern, ResetYearly = s.ResetYearly, Year = 0, NextValue = 1 });
