@@ -19,6 +19,7 @@ public static class CoreMenu
         new("finance.cheques", "Cheque register", "/finance/cheques", "credit-card", CorePermissions.ChequesRead, 8, "finance", "Finance", 50),
         new("finance.bank", "Cash and bank", "/finance/bank", "bank", CorePermissions.BankRead, 9, "finance", "Finance", 50),
         new("finance.reports", "Financial reports", "/finance/reports", "bar-chart", CorePermissions.ReportsRead, 30, "finance", "Finance", 50),
+        new("core.reports", "Reports hub", "/reports", "bar-chart", CorePermissions.ReportsRead, 31, "finance", "Finance", 50),
         new("finance.accounts", "Chart of accounts", "/finance/accounts", "account-book", CorePermissions.AccountsRead, 10, "finance", "Finance", 50),
         new("finance.taxcodes", "Tax codes", "/finance/tax-codes", "percentage", CorePermissions.TaxRead, 20, "finance", "Finance", 50),
         new("core.legalentities", "Legal entities", "/admin/legal-entities", "apartment", CorePermissions.EntitiesRead, 10, "admin", "Administration", 900),

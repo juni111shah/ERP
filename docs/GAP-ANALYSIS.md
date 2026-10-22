@@ -25,7 +25,7 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Bank and cash, reconciliation | Done | Statement import (paste), auto-match, book unmatched lines, transfers, cash position. |
 | HR, payroll, attendance | Missing | |
 | Acquisitions and funding | Missing | |
-| Reports (16 in the spec) | Missing | Rent roll and occupancy are derivable from existing data. |
+| Reports (16 in the spec) | Partial | 15 built: P&L, balance sheet, trial balance, GL, tax summary, AR/AP ageing, rent roll, occupancy, portfolio performance, lease expiries, cash movements, cash forecast, maintenance costs, commissions. Gratuity comes with HR. CSV and Print on each. |
 | Global search, notification centre | Partial | Notifications API exists; no UI. |
 | Tenant portal | Missing | |
 | Lease-expiry scheduler | Missing | Settings for alert days exist. |

@@ -32,6 +32,18 @@ internal static class RealEstateEndpoints
         MapWorkOrders(group.MapGroup("/work-orders"));
         MapDeals(group.MapGroup("/deals"));
         MapBilling(group.MapGroup("/billing"));
+        MapReports(group.MapGroup("/reports"));
+    }
+
+    private static void MapReports(RouteGroupBuilder g)
+    {
+        const string perm = CorePermissions.ReportsRead;
+        g.MapGet("/rent-roll", (DateOnly asOf, Guid[]? propertyIds, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetRentRoll(asOf, propertyIds, legalEntityId), ct)).RequirePermission(perm);
+        g.MapGet("/occupancy", (Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetOccupancyReport(legalEntityId), ct)).RequirePermission(perm);
+        g.MapGet("/portfolio-performance", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetPortfolioPerformance(from, to, legalEntityId), ct)).RequirePermission(perm);
+        g.MapGet("/lease-expiries", (int? months, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetLeaseExpiries(months ?? 12, legalEntityId), ct)).RequirePermission(perm);
+        g.MapGet("/maintenance-costs", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetMaintenanceCosts(from, to, legalEntityId), ct)).RequirePermission(perm);
+        g.MapGet("/commissions", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetCommissionsReport(from, to, legalEntityId), ct)).RequirePermission(perm);
     }
 
     private static void MapBilling(RouteGroupBuilder g)
