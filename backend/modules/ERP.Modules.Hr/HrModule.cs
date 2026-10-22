@@ -74,6 +74,7 @@ public sealed class HrModule : ModuleBase
         services.AddScoped<GratuityCalculator>();
         services.AddScoped<IDashboardContributor, HrDashboard>();
         services.AddScoped<ICashForecastSource, PayrollForecastSource>();
+        services.AddScoped<ERP.Application.Search.ISearchProvider, HrSearch>();
     }
 
     public override void ConfigureModel(ModelBuilder mb)

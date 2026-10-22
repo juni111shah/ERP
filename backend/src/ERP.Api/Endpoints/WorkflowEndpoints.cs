@@ -37,6 +37,7 @@ public static class WorkflowEndpoints
 
         var notifications = api.MapGroup("/notifications").WithTags("Workflow");
         notifications.MapGet("", (ISender sender, CancellationToken ct) => sender.Send(new ListNotifications(), ct)).RequireAuthorization();
+        notifications.MapPost("/read-all", async (ISender sender, CancellationToken ct) => { await sender.Send(new MarkAllNotificationsRead(), ct); return Results.NoContent(); }).RequireAuthorization();
         notifications.MapPost("/{id:guid}/read", async (Guid id, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new MarkNotificationRead(id), ct);

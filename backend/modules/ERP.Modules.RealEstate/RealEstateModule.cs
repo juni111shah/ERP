@@ -138,6 +138,7 @@ public sealed class RealEstateModule : ModuleBase
         services.AddScoped<LeaseDtoFactory>();
         services.AddScoped<ERP.Application.Dashboard.IDashboardContributor, RealEstateDashboard>();
         services.AddScoped<LeaseExpiryProcessor>();
+        services.AddScoped<ERP.Application.Search.ISearchProvider, RealEstateSearch>();
         services.AddScoped<ERP.Application.Finance.ICashForecastSource, FinancingForecastSource>();
         services.AddScoped<ERP.Application.Abstractions.IScheduledJob, LeaseExpiryJob>();
     }

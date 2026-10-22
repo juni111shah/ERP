@@ -12,10 +12,12 @@ public sealed record NotificationList(int Unread, IReadOnlyList<NotificationDto>
 /// <summary>The caller's latest notifications and unread count.</summary>
 public sealed record ListNotifications : IQuery<NotificationList>;
 public sealed record MarkNotificationRead(Guid Id) : ICommand;
+public sealed record MarkAllNotificationsRead : ICommand;
 
 internal sealed class NotificationHandlers(IRepository<Notification> notifications, ICurrentUser user, IClock clock) :
     IRequestHandler<ListNotifications, NotificationList>,
-    IRequestHandler<MarkNotificationRead, Unit>
+    IRequestHandler<MarkNotificationRead, Unit>,
+    IRequestHandler<MarkAllNotificationsRead, Unit>
 {
     public async Task<NotificationList> Handle(ListNotifications q, CancellationToken ct)
     {
@@ -31,6 +33,15 @@ internal sealed class NotificationHandlers(IRepository<Notification> notificatio
         var me = user.UserId;
         var n = await notifications.Tracked(new Specification<Notification>(x => x.Id == cmd.Id && x.UserId == me)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
         n.ReadAt ??= clock.UtcNow;
+        await notifications.SaveChangesAsync(ct);
+        return Unit.Value;
+    }
+
+    public async Task<Unit> Handle(MarkAllNotificationsRead cmd, CancellationToken ct)
+    {
+        var me = user.UserId;
+        var now = clock.UtcNow;
+        foreach (var n in await notifications.Tracked(new Specification<Notification>(x => x.UserId == me && x.ReadAt == null)).ToListAsync(ct)) n.ReadAt = now;
         await notifications.SaveChangesAsync(ct);
         return Unit.Value;
     }
