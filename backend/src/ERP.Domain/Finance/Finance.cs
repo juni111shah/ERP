@@ -1,0 +1,136 @@
+using ERP.Domain.Common;
+
+namespace ERP.Domain.Finance;
+
+public class Currency : Entity
+{
+    public string Code { get; set; } = default!; // ISO 4217
+    public string Name { get; set; } = default!;
+    public string? Symbol { get; set; }
+    public int Decimals { get; set; } = 2;
+}
+
+public class ExchangeRate : OrgEntity
+{
+    public string FromCurrency { get; set; } = default!;
+    public string ToCurrency { get; set; } = default!;
+    public DateOnly RateDate { get; set; }
+    public decimal Rate { get; set; }
+}
+
+/// <summary>Tax regime kinds; rates live in data (no hard-coded country rules).</summary>
+public enum TaxKind { Vat, Gst, SalesTax, Withholding, Excise, Other }
+
+public class TaxCode : OrgEntity
+{
+    public Guid? LegalEntityId { get; set; }
+    public string Code { get; set; } = default!;
+    public string Name { get; set; } = default!;
+    public TaxKind Kind { get; set; }
+    public decimal Rate { get; set; }
+    public bool IsRecoverable { get; set; } = true;
+    public bool IsDefault { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+public enum AccountType { Asset, Liability, Equity, Income, Expense }
+
+public class Account : OrgEntity, IHasCustomFields
+{
+    public string Code { get; set; } = default!;
+    public string Name { get; set; } = default!;
+    public AccountType Type { get; set; }
+    public string? ReportingGroup { get; set; }
+    public Guid? ParentId { get; set; }
+    public bool IsPostable { get; set; } = true;
+    public bool IsSystem { get; set; }
+    public bool IsBank { get; set; }
+    public bool IsActive { get; set; } = true;
+    /// <summary>Optional system role for posting rules (e.g. "ar.control", "tax.output").</summary>
+    public string? SystemRole { get; set; }
+    public string? CurrencyCode { get; set; }
+    public string? CustomFields { get; set; }
+}
+
+public enum JournalStatus { Draft, Posted, Reversed }
+
+public class JournalEntry : LegalEntityScopedEntity
+{
+    public string Number { get; set; } = default!;
+    public DateOnly Date { get; set; }
+    public string? Memo { get; set; }
+    public string? Reference { get; set; }
+    public string SourceType { get; set; } = "manual";
+    public Guid? SourceId { get; set; }
+    public string CurrencyCode { get; set; } = default!;
+    public decimal ExchangeRate { get; set; } = 1m;
+    public JournalStatus Status { get; set; } = JournalStatus.Draft;
+    public DateTime? PostedAt { get; set; }
+    public Guid? PostedBy { get; set; }
+    public Guid? ReversalOfId { get; set; }
+    public List<JournalLine> Lines { get; set; } = new();
+
+    public decimal TotalDebit => Lines.Sum(l => l.Debit);
+    public decimal TotalCredit => Lines.Sum(l => l.Credit);
+
+    /// <summary>Double-entry invariants: balanced, each line one-sided and positive, at least two lines, not in a locked period.</summary>
+    public void EnsureCanPost(DateOnly? booksLockedTo)
+    {
+        if (Status != JournalStatus.Draft) throw new DomainException("Only draft entries can be posted.");
+        if (Lines.Count < 2) throw new DomainException("A journal needs at least two lines.");
+        foreach (var l in Lines)
+        {
+            if (l.Debit < 0 || l.Credit < 0) throw new DomainException("Amounts cannot be negative.");
+            if ((l.Debit > 0) == (l.Credit > 0)) throw new DomainException("Each line must have either a debit or a credit.");
+        }
+        if (TotalDebit != TotalCredit) throw new DomainException($"Journal is not balanced (Dr {TotalDebit} / Cr {TotalCredit}).");
+        if (booksLockedTo is { } lockDate && Date <= lockDate) throw new DomainException($"Books are locked to {lockDate:yyyy-MM-dd}.");
+    }
+
+    public void Post(Guid userId, DateTime now, DateOnly? booksLockedTo)
+    {
+        EnsureCanPost(booksLockedTo);
+        Status = JournalStatus.Posted;
+        PostedAt = now;
+        PostedBy = userId;
+    }
+}
+
+public class JournalLine : Entity
+{
+    public Guid JournalEntryId { get; set; }
+    public int Seq { get; set; }
+    public Guid AccountId { get; set; }
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
+    public string? Description { get; set; }
+    public Guid? PartyId { get; set; }
+    public Guid? BusinessUnitId { get; set; }
+    /// <summary>Free analytic dimensions (JSON: {"project":"...","costCenter":"..."}); modules add their own keys.</summary>
+    public string? Dimensions { get; set; }
+}
+
+public enum InstrumentKind { Cheque, PostDatedCheque, BankDraft, PromissoryNote }
+public enum InstrumentDirection { Received, Issued }
+public enum InstrumentStatus { InCustody, Deposited, Cleared, Bounced, Replaced, Cancelled, Issued }
+
+/// <summary>Core finance payment instrument (cheques / PDCs). Permissions: finance.cheques.read/write. Schema-only in sprint 0.</summary>
+public class PaymentInstrument : LegalEntityScopedEntity
+{
+    public string Number { get; set; } = default!;
+    public InstrumentKind Kind { get; set; }
+    public InstrumentDirection Direction { get; set; }
+    public string InstrumentNo { get; set; } = default!;
+    public string? BankName { get; set; }
+    public decimal Amount { get; set; }
+    public string CurrencyCode { get; set; } = default!;
+    public DateOnly InstrumentDate { get; set; }
+    public DateOnly? ReceivedOn { get; set; }
+    public Guid? PartyId { get; set; }
+    public InstrumentStatus Status { get; set; }
+    /// <summary>Generic link to the business document it settles (module-defined type + id).</summary>
+    public string? SourceType { get; set; }
+    public Guid? SourceId { get; set; }
+    public Guid? JournalEntryId { get; set; }
+    public string? Notes { get; set; }
+}
