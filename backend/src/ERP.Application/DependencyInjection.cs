@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomFieldService, CustomFieldService>();
         services.AddScoped<INumberingService, NumberingService>();
         services.AddScoped<ERP.Application.Finance.IPostingService, ERP.Application.Finance.PostingService>();
+        services.AddScoped<ERP.Application.Finance.IInvoicingService, ERP.Application.Finance.InvoicingService>();
         services.AddScoped<ILegalEntityGuard, LegalEntityGuard>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<INotifier, Notifier>();

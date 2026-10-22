@@ -54,6 +54,11 @@ public static class CorePermissions
     public const string CurrenciesRead = "finance.currencies.read";
     public const string CurrenciesWrite = "finance.currencies.write";
     public const string ReportsRead = "finance.reports.read";
+    public const string InvoicesRead = "finance.invoices.read";
+    public const string InvoicesWrite = "finance.invoices.write";
+    public const string InvoicesIssue = "finance.invoices.issue";
+    public const string ReceiptsRead = "finance.receipts.read";
+    public const string ReceiptsWrite = "finance.receipts.write";
 
     public static IReadOnlyList<PermissionDefinition> Definitions { get; } =
     [
@@ -92,6 +97,11 @@ public static class CorePermissions
         PermissionDefinition.Of(CurrenciesRead, "View currencies and exchange rates"),
         PermissionDefinition.Of(CurrenciesWrite, "Edit exchange rates"),
         PermissionDefinition.Of(ReportsRead, "View financial reports"),
+        PermissionDefinition.Of(InvoicesRead, "View invoices and credit notes"),
+        PermissionDefinition.Of(InvoicesWrite, "Create and edit draft invoices and credit notes"),
+        PermissionDefinition.Of(InvoicesIssue, "Issue, void and credit invoices"),
+        PermissionDefinition.Of(ReceiptsRead, "View customer receipts"),
+        PermissionDefinition.Of(ReceiptsWrite, "Record, allocate and void customer receipts"),
     ];
 }
 

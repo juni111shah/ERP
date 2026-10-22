@@ -6,21 +6,34 @@ public enum DocumentStatus { Draft, PendingApproval, Issued, PartlyPaid, Paid, V
 public enum SettlementMethod { Cash, BankTransfer, Card, Instrument, Other }
 
 /// <summary>Sales invoice or credit note (core receivables). Schema only in sprint 0; modules link via SourceType/SourceId.</summary>
+[DefaultSort("-invoiceDate")]
 public class Invoice : LegalEntityScopedEntity, IHasCustomFields
 {
+    [Searchable, Sortable]
     public string Number { get; set; } = default!;
+    [Filterable]
     public bool IsCreditNote { get; set; }
+    [Filterable]
     public Guid PartyId { get; set; }
+    /// <summary>Name of the party when the document was issued (documents keep what was printed).</summary>
+    [Searchable]
+    public string? PartyName { get; set; }
+    [Sortable, Filterable]
     public DateOnly InvoiceDate { get; set; }
+    [Sortable, Filterable]
     public DateOnly DueDate { get; set; }
     public string CurrencyCode { get; set; } = default!;
     public decimal ExchangeRate { get; set; } = 1m;
     public decimal Net { get; set; }
     public decimal Tax { get; set; }
+    [Sortable]
     public decimal Total { get; set; }
     public decimal Paid { get; set; }
+    [Filterable]
     public DocumentStatus Status { get; set; }
+    [Filterable]
     public string? SourceType { get; set; }
+    [Filterable]
     public Guid? SourceId { get; set; }
     public Guid? BusinessUnitId { get; set; }
     public Guid? JournalEntryId { get; set; }
@@ -83,19 +96,29 @@ public class BillLine : Entity
 }
 
 /// <summary>Money received from (Direction=Received) or paid to (Issued) a party, allocated to invoices or bills. Schema only.</summary>
+[DefaultSort("-date")]
 public class Settlement : LegalEntityScopedEntity
 {
+    [Searchable, Sortable]
     public string Number { get; set; } = default!;
+    [Filterable]
     public InstrumentDirection Direction { get; set; }
+    [Filterable]
     public Guid PartyId { get; set; }
+    [Searchable]
+    public string? PartyName { get; set; }
+    [Sortable, Filterable]
     public DateOnly Date { get; set; }
     public SettlementMethod Method { get; set; }
     public Guid? BankAccountId { get; set; }
     public Guid? PaymentInstrumentId { get; set; }
     public string CurrencyCode { get; set; } = default!;
+    [Sortable]
     public decimal Amount { get; set; }
     public decimal Unallocated { get; set; }
+    [Searchable]
     public string? Reference { get; set; }
+    [Filterable]
     public DocumentStatus Status { get; set; }
     public Guid? JournalEntryId { get; set; }
     public List<SettlementAllocation> Allocations { get; set; } = new();

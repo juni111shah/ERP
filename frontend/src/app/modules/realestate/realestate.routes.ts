@@ -10,6 +10,7 @@ export const REAL_ESTATE_ROUTES: Routes = [
   { path: 'unit-types', canMatch: [permissionGuard('realestate.unittypes.read')], loadComponent: () => import('./unit-types.page').then((m) => m.UnitTypesPage) },
   { path: 'leases', canMatch: [permissionGuard('realestate.leases.read')], loadComponent: () => import('./leases.page').then((m) => m.LeasesPage) },
   { path: 'leases/:id', canMatch: [permissionGuard('realestate.leases.read')], loadComponent: () => import('./lease-detail.page').then((m) => m.LeaseDetailPage) },
+  { path: 'billing', canMatch: [permissionGuard('realestate.billing.run')], loadComponent: () => import('./billing.page').then((m) => m.BillingPage) },
   { path: 'work-orders', canMatch: [permissionGuard('realestate.workorders.read')], loadComponent: () => import('./work-orders.page').then((m) => m.WorkOrdersPage) },
   { path: 'deals', canMatch: [permissionGuard('realestate.deals.read')], loadComponent: () => import('./deals.page').then((m) => m.DealsPage) },
 ];

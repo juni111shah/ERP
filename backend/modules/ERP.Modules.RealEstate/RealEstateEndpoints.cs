@@ -14,6 +14,7 @@ public sealed record UnitStatusBody(UnitAction Action, DateOnly? Until = null, s
 public sealed record TerminateBody(DateOnly Date, string Reason);
 public sealed record HoldingOverBody(bool HoldingOver);
 public sealed record WorkOrderStatusBody(WorkOrderStatus Status, decimal? ActualCost = null, string? ResolutionNotes = null);
+public sealed record BillingRunBody(DateOnly AsOf, Guid? LegalEntityId = null);
 public sealed record DealStageBody(DealStage Stage, string? LostReason = null);
 
 /// <summary>Thin controllers: every endpoint sends one MediatR request (see docs/ARCHITECTURE.md, request flow).</summary>
@@ -30,6 +31,13 @@ internal static class RealEstateEndpoints
         MapLeases(group.MapGroup("/leases"));
         MapWorkOrders(group.MapGroup("/work-orders"));
         MapDeals(group.MapGroup("/deals"));
+        MapBilling(group.MapGroup("/billing"));
+    }
+
+    private static void MapBilling(RouteGroupBuilder g)
+    {
+        g.MapPost("/run", (BillingRunBody body, ISender s, CancellationToken ct) => s.Send(new RunBilling(body.AsOf, body.LegalEntityId), ct)).RequirePermission(P.BillingRun);
+        g.MapPost("/instalments/{id:guid}/invoice", (Guid id, ISender s, CancellationToken ct) => s.Send(new InvoiceInstalment(id), ct)).RequirePermission(P.BillingRun);
     }
 
     private static void MapUnitTypes(RouteGroupBuilder g)

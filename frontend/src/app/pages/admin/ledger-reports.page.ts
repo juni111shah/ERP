@@ -11,7 +11,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { catchError, of } from 'rxjs';
 import {
-  AccountDto, AccountsApi, BalanceSheet, GeneralLedger, IncomeStatement, LedgerReportsApi, LegalEntitiesApi, LegalEntityDto, TrialBalance,
+  AccountDto, AccountsApi, ArAgeing, BalanceSheet, GeneralLedger, IncomeStatement, LedgerReportsApi, LegalEntitiesApi, LegalEntityDto, TrialBalance,
 } from '../../core/api/admin.api';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { asProblem } from '../../core/http/problem-details';
@@ -35,7 +35,7 @@ import { asProblem } from '../../core/http/problem-details';
       <button nz-button nzType="primary" [nzLoading]="loading()" (click)="run()" data-testid="rep-run">Run</button>
     </div>
     <nz-tabset [nzSelectedIndex]="tab()" (nzSelectedIndexChange)="tab.set($event)">
-      <nz-tab nzTitle="Trial balance"></nz-tab><nz-tab nzTitle="General ledger"></nz-tab><nz-tab nzTitle="Income statement"></nz-tab><nz-tab nzTitle="Balance sheet"></nz-tab>
+      <nz-tab nzTitle="Trial balance"></nz-tab><nz-tab nzTitle="General ledger"></nz-tab><nz-tab nzTitle="Income statement"></nz-tab><nz-tab nzTitle="Balance sheet"></nz-tab><nz-tab nzTitle="Receivables ageing"></nz-tab>
     </nz-tabset>
 
     @switch (tab()) {
@@ -83,6 +83,17 @@ import { asProblem } from '../../core/http/problem-details';
           <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.equity, total: b.totalEquity + b.currentEarnings, label: 'Total equity (including current earnings ' + (b.currentEarnings | number: '1.2-2') + ')' }" />
         }
       }
+      @case (4) {
+        @if (ar(); as a) {
+          <nz-table [nzData]="a.rows" [nzFrontPagination]="false" nzSize="small" data-testid="ar-table">
+            <thead><tr><th>Customer</th><th class="num">Current</th><th class="num">1-30</th><th class="num">31-60</th><th class="num">61-90</th><th class="num">Over 90</th><th class="num">Total</th></tr></thead>
+            <tbody>
+              @for (r of a.rows; track r.partyId) { <tr><td>{{ r.partyName }}</td><td class="num">{{ r.current | number: '1.2-2' }}</td><td class="num">{{ r.days1To30 | number: '1.2-2' }}</td><td class="num">{{ r.days31To60 | number: '1.2-2' }}</td><td class="num">{{ r.days61To90 | number: '1.2-2' }}</td><td class="num">{{ r.over90 | number: '1.2-2' }}</td><td class="num">{{ r.total | number: '1.2-2' }}</td></tr> }
+              <tr class="total"><td>Total</td><td class="num">{{ a.totals.current | number: '1.2-2' }}</td><td class="num">{{ a.totals.days1To30 | number: '1.2-2' }}</td><td class="num">{{ a.totals.days31To60 | number: '1.2-2' }}</td><td class="num">{{ a.totals.days61To90 | number: '1.2-2' }}</td><td class="num">{{ a.totals.over90 | number: '1.2-2' }}</td><td class="num">{{ a.totals.total | number: '1.2-2' }}</td></tr>
+            </tbody>
+          </nz-table>
+        }
+      }
     }
     <ng-template #lines let-rows let-total="total" let-label="label">
       <nz-table [nzData]="rows" [nzFrontPagination]="false" nzSize="small" [nzShowPagination]="false">
@@ -110,6 +121,7 @@ export class LedgerReportsPage {
   readonly gl = signal<GeneralLedger | null>(null);
   readonly pl = signal<IncomeStatement | null>(null);
   readonly bs = signal<BalanceSheet | null>(null);
+  readonly ar = signal<ArAgeing | null>(null);
 
   run(): void {
     if (!this.to) { this.message.warning('Choose the "to" date'); return; }
@@ -126,7 +138,8 @@ export class LedgerReportsPage {
       case 2:
         if (!from) { this.loading.set(false); this.message.warning('Choose the "from" date'); return; }
         this.api.incomeStatement({ from, to, legalEntityId }).subscribe(done((v) => this.pl.set(v))); break;
-      default: this.api.balanceSheet({ asOf: to, legalEntityId }).subscribe(done((v) => this.bs.set(v)));
+      case 3: this.api.balanceSheet({ asOf: to, legalEntityId }).subscribe(done((v) => this.bs.set(v))); break;
+      default: this.api.arAgeing({ asOf: to, legalEntityId }).subscribe(done((v) => this.ar.set(v)));
     }
   }
 }
