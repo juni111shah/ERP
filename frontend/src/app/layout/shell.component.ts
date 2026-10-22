@@ -13,13 +13,15 @@ import { NzLayoutModule } from 'ng-zorro-antd/layout';
 import { NzMenuModule } from 'ng-zorro-antd/menu';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { catchError, of, switchMap } from 'rxjs';
+import { catchError, combineLatest, interval, map, of, startWith, switchMap } from 'rxjs';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { TenantThemeService } from '../../theme/tenant-theme.service';
 import { API_BASE_URL } from '../core/api/api-config';
 import { AuthService } from '../core/auth/auth.service';
 import { SessionStore } from '../core/session/session.store';
 import { KNOWN_ICONS } from '../icons';
+import { GlobalSearchComponent } from './global-search.component';
+import { NotificationDrawerComponent } from './notification-drawer.component';
 
 interface MenuGroup { id: string; label: string; order: number; items: { id: string; label: string; route: string; icon?: string; module: string }[]; }
 
@@ -29,7 +31,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
-    NzDropDownModule, NzAvatarModule, NzBadgeModule, NzSelectModule, NzInputModule, NzToolTipModule],
+    NzDropDownModule, NzAvatarModule, NzBadgeModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent],
   styles: [`
     :host { display: block; height: 100vh; }
     nz-layout.root { height: 100vh; }
@@ -64,8 +66,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           <button nz-button nzType="text" (click)="collapsed.set(!collapsed())" aria-label="Toggle navigation" data-testid="nav-toggle">
             <span nz-icon [nzType]="collapsed() ? 'menu-unfold' : 'menu-fold'"></span>
           </button>
-          <nz-input-group class="search" [nzPrefix]="searchIcon"><input nz-input placeholder="Search" data-testid="global-search" /></nz-input-group>
-          <ng-template #searchIcon><span nz-icon nzType="search"></span></ng-template>
+          <erp-global-search />
           <span class="spacer"></span>
           @if (session.me(); as me) {
             @if (me.legalEntities.length > 1 || me.allLegalEntities) {
@@ -85,7 +86,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
               </nz-dropdown-menu>
             }
           }
-          <button nz-button nzType="text" aria-label="Notifications" data-testid="notifications-bell" routerLink="/approvals">
+          <button nz-button nzType="text" aria-label="Notifications" data-testid="notifications-bell" (click)="notificationsOpen.set(true)">
             <nz-badge [nzCount]="unread().unread" nzSize="small"><span nz-icon nzType="bell"></span></nz-badge>
           </button>
           <button nz-button nzType="text" (click)="theme.toggleTheme()" aria-label="Toggle dark mode" data-testid="theme-toggle"><span nz-icon nzType="bulb"></span></button>
@@ -101,6 +102,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           </nz-dropdown-menu>
         </nz-header>
         <nz-content class="content"><router-outlet /></nz-content>
+        <erp-notification-drawer [open]="notificationsOpen()" (closed)="notificationsOpen.set(false)" (changed)="bump()" />
       </nz-layout>
     </nz-layout>`,
 })
@@ -113,6 +115,8 @@ export class ShellComponent {
   private readonly router = inject(Router);
 
   readonly collapsed = signal(false);
+  readonly notificationsOpen = signal(false);
+  readonly refresh = signal(0);
   readonly workspaceName = computed(() => this.session.me()?.workspace.name ?? 'ERP');
   readonly initials = computed(() => (this.session.me()?.user.fullName ?? '?').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase());
 
@@ -121,9 +125,13 @@ export class ShellComponent {
     switchMap((me) => (me ? this.http.get<MenuGroup[]>(`${this.base}/navigation/menu`).pipe(catchError(() => of([]))) : of([]))),
   ), { initialValue: [] as MenuGroup[] });
 
-  readonly unread = toSignal(toObservable(this.session.me).pipe(
+  // Unread count: on session change, after the drawer changes something, and every minute.
+  readonly unread = toSignal(combineLatest([toObservable(this.session.me), toObservable(this.refresh), interval(60_000).pipe(startWith(0))]).pipe(
+    map(([me]) => me),
     switchMap((me) => (me ? this.http.get<{ unread: number }>(`${this.base}/notifications`).pipe(catchError(() => of({ unread: 0 }))) : of({ unread: 0 }))),
   ), { initialValue: { unread: 0 } }) as () => { unread: number };
+
+  bump(): void { this.refresh.update((n) => n + 1); }
 
   icon(name?: string): string {
     if (!name) return 'appstore';
