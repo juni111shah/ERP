@@ -15,6 +15,7 @@ public static class CoreEndpoints
         api.MapSecurity();
         api.MapMasterData();
         api.MapFinance();
+        api.MapLedger();
         api.MapCustomFields();
         api.MapWorkflow();
     }

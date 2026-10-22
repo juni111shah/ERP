@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddTransient(typeof(IRequestHandler<,>), typeof(ListRequestHandler<,>));
         services.AddScoped<ICustomFieldService, CustomFieldService>();
         services.AddScoped<INumberingService, NumberingService>();
+        services.AddScoped<ERP.Application.Finance.IPostingService, ERP.Application.Finance.PostingService>();
         services.AddScoped<ILegalEntityGuard, LegalEntityGuard>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<INotifier, Notifier>();

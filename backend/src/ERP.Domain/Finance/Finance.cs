@@ -70,17 +70,28 @@ public class Account : OrgEntity, IHasCustomFields
 
 public enum JournalStatus { Draft, Posted, Reversed }
 
+[DefaultSort("-date")]
 public class JournalEntry : LegalEntityScopedEntity
 {
+    [Searchable, Sortable]
     public string Number { get; set; } = default!;
+    [Sortable, Filterable]
     public DateOnly Date { get; set; }
+    [Searchable]
     public string? Memo { get; set; }
+    [Searchable]
     public string? Reference { get; set; }
+    [Filterable]
     public string SourceType { get; set; } = "manual";
+    [Filterable]
     public Guid? SourceId { get; set; }
     public string CurrencyCode { get; set; } = default!;
     public decimal ExchangeRate { get; set; } = 1m;
+    [Filterable]
     public JournalStatus Status { get; set; } = JournalStatus.Draft;
+    /// <summary>Total debit, kept in step with the lines so lists can show it without summing in SQL.</summary>
+    [Sortable]
+    public decimal Amount { get; set; }
     public DateTime? PostedAt { get; set; }
     public Guid? PostedBy { get; set; }
     public Guid? ReversalOfId { get; set; }
@@ -102,6 +113,8 @@ public class JournalEntry : LegalEntityScopedEntity
         if (TotalDebit != TotalCredit) throw new DomainException($"Journal is not balanced (Dr {TotalDebit} / Cr {TotalCredit}).");
         if (booksLockedTo is { } lockDate && Date <= lockDate) throw new DomainException($"Books are locked to {lockDate:yyyy-MM-dd}.");
     }
+
+    public void Recalculate() => Amount = TotalDebit;
 
     public void Post(Guid userId, DateTime now, DateOnly? booksLockedTo)
     {

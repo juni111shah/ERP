@@ -17,7 +17,7 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Brokerage deals and commissions | Done | |
 | Approvals | Partial | Inbox and decisions exist; approval rules per document type are not configurable yet. |
 | Dashboard KPIs | Missing | Needs invoices and receipts first. |
-| Finance ledger (journals, posting engine, period lock, trial balance, GL) | Missing | Next sprint. |
+| Finance ledger (journals, posting engine, period lock, trial balance, GL, P&L, balance sheet) | Done | `IPostingService` is the only way documents write to the ledger. |
 | Invoices and billing run from rent schedule | Missing | Depends on the ledger. |
 | Receipts, allocation, AR ageing | Missing | |
 | Post-dated cheque register | Missing | |
