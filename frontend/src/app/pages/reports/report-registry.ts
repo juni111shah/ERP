@@ -16,6 +16,8 @@ export interface ReportDef {
   rows: (data: any) => Record<string, unknown>[];
   /** a closing row shown in bold */
   totals?: (data: any) => Record<string, unknown> | null;
+  /** an extra button (for example posting the end-of-service provision); needs a single legal entity in scope */
+  action?: { label: string; path: string; permission: string; done: string };
   /** headline numbers above the table */
   summary?: (data: any) => { label: string; value: string }[];
 }
@@ -89,6 +91,15 @@ export const REPORTS: ReportDef[] = [
     endpoint: 'm/realestate/reports/commissions', filters: ['range'],
     columns: () => [t('agent', 'Agent'), n('deals', 'Deals'), m('dealValue', 'Deal value'), m('grossCommission', 'Gross commission'), m('agentShare', 'Agent share'), m('teamLeadShare', 'Team lead share'), m('companyShare', 'Company share'), m('paidOut', 'Paid out')],
     rows: (x) => x.rows, totals: (x) => x.total,
+  },
+  {
+    slug: 'gratuity', title: 'End-of-service gratuity', subtitle: 'Accrued end-of-service benefit per employee under the employing entity\'s country rule.', module: 'hr',
+    endpoint: 'm/hr/reports/gratuity', filters: ['asOf'],
+    columns: () => [t('number', 'No.'), t('employee', 'Employee'), d('joined', 'Joined'), m('basicSalary', 'Basic salary'), n('serviceYears', 'Service (yrs)'), t('eligible', 'Eligible'), n('entitlementDays', 'Entitlement (days)'), m('gratuity', 'Gratuity')],
+    rows: (x) => x.rows.map((r: any) => ({ ...r, eligible: r.eligible ? 'Yes' : 'No (under the minimum service)' })),
+    totals: (x) => ({ employee: 'Total liability', gratuity: x.totalLiability }),
+    summary: (x) => (x.rule ? [{ label: 'Rule', value: x.rule }] : [{ label: 'Rule', value: 'No end-of-service rule for this country' }]),
+    action: { label: 'Post provision', path: 'm/hr/reports/gratuity/provision', permission: 'hr.payroll.post', done: 'Provision posted' },
   },
 ];
 

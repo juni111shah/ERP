@@ -181,7 +181,7 @@ public static class CountryPackCatalog
 /// <summary>Installed modules. ERP_MODULES / Modules:Installed (comma list) narrows them; an empty value runs the core alone.</summary>
 public static class ModuleCatalog
 {
-    public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule()];
+    public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule()];
 
     public static IReadOnlyList<IModule> Select(IConfiguration config)
     {

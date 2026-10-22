@@ -82,7 +82,7 @@ public class ArchitectureTests
     [Fact]
     public void Module_code_outside_handlers_never_touches_repositories()
     {
-        foreach (var assembly in new[] { typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly })
+        foreach (var assembly in new[] { typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly, typeof(ERP.Modules.Hr.HrModule).Assembly })
         {
             var result = Types.InAssembly(assembly).That().DoNotHaveNameEndingWith("Handlers").And().DoNotResideInNamespaceContaining(".Features")
                 .ShouldNot().HaveDependencyOnAny("ERP.Application.Abstractions.IRepository`1", "ERP.Application.Abstractions.IReadRepository`1").GetResult();
@@ -94,7 +94,7 @@ public class ArchitectureTests
     public void Every_mediator_request_has_a_handler()
     {
         // Catches a request type that was added without a handler (it would only fail at runtime on first use).
-        var assemblies = new[] { typeof(CorePermissions).Assembly, typeof(ModuleRegistry).Assembly, typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly };
+        var assemblies = new[] { typeof(CorePermissions).Assembly, typeof(ModuleRegistry).Assembly, typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly, typeof(ERP.Modules.Hr.HrModule).Assembly };
         var handled = assemblies.SelectMany(a => a.GetTypes())
             .SelectMany(t => t.GetInterfaces()).Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(MediatR.IRequestHandler<,>))
             .Select(i => i.GetGenericArguments()[0]).ToHashSet();
