@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Application.Finance;
 
 public sealed record AllocationInput(Guid InvoiceId, decimal Amount);
-public sealed record ReceiptInput(Guid LegalEntityId, Guid PartyId, DateOnly Date, SettlementMethod Method, Guid BankAccountId, decimal Amount, string? Reference, List<AllocationInput>? Allocations);
+public sealed record ReceiptInput(Guid LegalEntityId, Guid PartyId, DateOnly Date, SettlementMethod Method, Guid BankAccountId, decimal Amount, string? Reference, List<AllocationInput>? Allocations, bool AutoAllocate = false);
 
 public sealed record AllocationDto(Guid Id, Guid InvoiceId, string InvoiceNumber, decimal Amount);
 public sealed record ReceiptDto(
@@ -67,6 +67,7 @@ internal sealed class ReceiptHandlers(
             CurrencyCode = entity.BaseCurrency, Amount = i.Amount, Unallocated = i.Amount, Reference = i.Reference, Status = DocumentStatus.Issued, Number = "pending",
         };
         var applied = await settlementService.AllocateAsync(settlement, i.Allocations ?? [], ct);
+        if (i.AutoAllocate) applied.AddRange(await settlementService.AutoAllocateAsync(settlement, ct)); // oldest invoice first, the rest stays on account
         settlement.Number = await numbering.NextAsync("receipt", entity.Id, i.Date, ct);
         var ar = await posting.AccountForRoleAsync(SystemRoles.ArControl, ct);
         var memo = $"Receipt from {party.Name}";

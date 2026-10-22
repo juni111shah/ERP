@@ -51,6 +51,9 @@ public sealed class RealEstateModule : ModuleBase
         PermissionDefinition.Of(P.DealsCreate, "Create deals"),
         PermissionDefinition.Of(P.DealsEdit, "Edit deals and move them through the pipeline"),
         PermissionDefinition.Of(P.DealsLose, "Mark deals as lost"),
+        PermissionDefinition.Of(P.DealsInvoice, "Raise commission invoices for deals"),
+        PermissionDefinition.Of(P.DealsPayAgent, "Pay agent and team lead commission"),
+        PermissionDefinition.Of(P.DepositsManage, "Record, transfer and settle tenant security deposits"),
         PermissionDefinition.Of(P.BillingRun, "Run the rent billing and invoice instalments"),
         PermissionDefinition.Of(P.SettingsWrite, "Change real estate settings"),
     ];
@@ -89,7 +92,9 @@ public sealed class RealEstateModule : ModuleBase
             Accounts:
             [
                 new("4010", "Leasing income", AccountType.Income, "realestate.income.leasing", ReportingGroup: "Revenue"),
-                new("4200", "Brokerage commission income", AccountType.Income, ReportingGroup: "Revenue"),
+                new("4200", "Brokerage commission income", AccountType.Income, "realestate.income.brokerage", ReportingGroup: "Revenue"),
+                new("4950", "Forfeited deposits and damages recovered", AccountType.Income, "realestate.income.damages", ReportingGroup: "Other income"),
+                new("6510", "Brokerage commission expense", AccountType.Expense, "realestate.expense.commission", ReportingGroup: "Operating expenses"),
                 new("2200", "Security deposits held", AccountType.Liability, "realestate.deposits", ReportingGroup: "Current liabilities"),
                 new("1600", "Investment property", AccountType.Asset, ReportingGroup: "Non-current assets"),
                 new("6500", "Repairs and maintenance", AccountType.Expense, ReportingGroup: "Operating expenses"),
@@ -98,14 +103,15 @@ public sealed class RealEstateModule : ModuleBase
             [
                 new("Leasing manager", "Leases, units and collections",
                     [P.PropertiesRead, P.PropertiesManage, P.UnitTypesRead, P.UnitTypesManage, P.UnitsRead, P.UnitsManage, P.UnitsReserve,
-                     P.LeasesRead, P.LeasesCreate, P.LeasesEdit, P.LeasesActivate, P.LeasesRenew, P.LeasesTerminate, P.WorkOrdersRead, P.WorkOrdersCreate, P.BillingRun,
+                     P.LeasesRead, P.LeasesCreate, P.LeasesEdit, P.LeasesActivate, P.LeasesRenew, P.LeasesTerminate, P.WorkOrdersRead, P.WorkOrdersCreate, P.BillingRun, P.DepositsManage,
                      CorePermissions.PartiesRead, CorePermissions.PartiesWrite, CorePermissions.ChequesRead, CorePermissions.ChequesWrite,
                      CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue, CorePermissions.ReceiptsRead, CorePermissions.ReceiptsWrite], Key),
                 new("Facilities manager", "Maintenance and work orders",
                     [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.WorkOrdersRead, P.WorkOrdersCreate, P.WorkOrdersEdit, P.WorkOrdersAssign,
                      P.WorkOrdersComplete, P.WorkOrdersClose, P.WorkOrdersCancel, CorePermissions.PartiesRead], Key),
                 new("Brokerage manager", "Deals and commissions",
-                    [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.DealsRead, P.DealsCreate, P.DealsEdit, P.DealsLose, CorePermissions.PartiesRead, CorePermissions.PartiesWrite], Key),
+                    [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.DealsRead, P.DealsCreate, P.DealsEdit, P.DealsLose, P.DealsInvoice, P.DealsPayAgent, CorePermissions.PartiesRead, CorePermissions.PartiesWrite,
+                     CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue], Key),
             ],
             Sequences:
             [
@@ -121,6 +127,8 @@ public sealed class RealEstateModule : ModuleBase
     {
         services.AddScoped<LeaseDtoFactory>();
         services.AddScoped<ERP.Application.Dashboard.IDashboardContributor, RealEstateDashboard>();
+        services.AddScoped<LeaseExpiryProcessor>();
+        services.AddScoped<ERP.Application.Abstractions.IScheduledJob, LeaseExpiryJob>();
     }
 
     public override void ConfigureModel(ModelBuilder mb) => RealEstateModel.Configure(mb);

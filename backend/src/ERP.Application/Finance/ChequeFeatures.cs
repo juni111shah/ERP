@@ -12,7 +12,7 @@ namespace ERP.Application.Finance;
 
 public sealed record ChequeInput(
     Guid LegalEntityId, Guid PartyId, InstrumentKind Kind, string InstrumentNo, string? BankName, decimal Amount, DateOnly InstrumentDate, DateOnly? ReceivedOn, string? Notes,
-    List<AllocationInput>? Allocations);
+    List<AllocationInput>? Allocations, bool AutoAllocate = false);
 
 public sealed record ChequeDto(
     Guid Id, string Number, Guid LegalEntityId, InstrumentKind Kind, InstrumentDirection Direction, string InstrumentNo, string? BankName, decimal Amount, string CurrencyCode, DateOnly InstrumentDate,
@@ -171,6 +171,7 @@ internal sealed class ChequeHandlers(
             Number = await numbering.NextAsync("receipt", entity.Id, received, ct),
         };
         var applied = await settlementService.AllocateAsync(settlement, i.Allocations ?? [], ct);
+        if (i.AutoAllocate) applied.AddRange(await settlementService.AutoAllocateAsync(settlement, ct));
         var held = await posting.AccountForRoleAsync("instruments.received", ct);
         var ar = await posting.AccountForRoleAsync(SystemRoles.ArControl, ct);
         var memo = $"Cheque {no} received from {party.Name}";

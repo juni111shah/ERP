@@ -27,6 +27,9 @@ public static class P
     public const string DealsCreate = "realestate.deals.create";
     public const string DealsEdit = "realestate.deals.edit";
     public const string DealsLose = "realestate.deals.lose";
+    public const string DealsInvoice = "realestate.deals.invoice";
+    public const string DealsPayAgent = "realestate.deals.payagent";
+    public const string DepositsManage = "realestate.deposits.manage";
     public const string BillingRun = "realestate.billing.run";
     public const string SettingsWrite = "realestate.settings.write";
 }

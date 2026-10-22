@@ -42,6 +42,7 @@ public class ApiFactory : WebApplicationFactory<Program>
             ["Auth:SecureCookies"] = "true",
             ["Onboarding:AllowSelfSignup"] = "true",
             ["Seed:Enabled"] = "true",
+            ["Jobs:Enabled"] = "false",
             ["Seed:AdminEmail"] = AdminEmail,
             ["Seed:MultiWorkspaceEmail"] = OwnerEmail,
             ["Seed:AdminPassword"] = Password,
