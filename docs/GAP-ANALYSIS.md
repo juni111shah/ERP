@@ -23,9 +23,9 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Post-dated cheque register | Done | Custody, deposit, clear, bounce, replace; maturity KPIs. |
 | Bills, payments, issued cheques, AP ageing | Done | Approval rules per document type (bills) are configurable. |
 | Bank and cash, reconciliation | Done | Statement import (paste), auto-match, book unmatched lines, transfers, cash position. |
-| HR, payroll, attendance | Missing | |
+| HR, payroll, attendance, gratuity | Done | Separate `hr` module: employees, monthly attendance exceptions, payroll accrual and payment, bank file, end-of-service provision under the country rule (UAE pack). |
 | Acquisitions and funding | Done | Draft, complete (capitalise), annuity and 0% schedules, pay instalments, funding overview, forecast source. |
-| Reports (16 in the spec) | Partial | 15 built: P&L, balance sheet, trial balance, GL, tax summary, AR/AP ageing, rent roll, occupancy, portfolio performance, lease expiries, cash movements, cash forecast, maintenance costs, commissions. Gratuity comes with HR. CSV and Print on each. |
+| Reports (16 in the spec) | Done | 16 built: P&L, balance sheet, trial balance, GL, tax summary, AR/AP ageing, rent roll, occupancy, portfolio performance, lease expiries, cash movements, cash forecast, maintenance costs, commissions. Gratuity report is in the HR module. CSV and Print on each. |
 | Global search, notification centre | Partial | Notifications API exists; no UI. |
 | Tenant portal | Missing | |
 | Lease-expiry scheduler | Done | Generic `IScheduledJob` runner (per workspace, per enabled module); the RE job ends expired leases. |

@@ -90,7 +90,6 @@ public sealed class ModuleRegistry
         new("pos", "Point of sale", "Counter sales, shifts and cash drawers.", "Retail", Status: ModuleStatus.Planned),
         new("retail", "Retail", "Stores, price lists and promotions.", "Industry", Status: ModuleStatus.Planned),
         new("distribution", "Distribution", "Routes, van sales and wholesale pricing.", "Industry", Status: ModuleStatus.Planned),
-        new("hr", "HR and payroll", "Employees, attendance, leave and payroll.", "Horizontal", Status: ModuleStatus.Planned),
         new("projects", "Projects", "Projects, tasks, timesheets and project billing.", "Horizontal", Status: ModuleStatus.Planned),
         new("manufacturing", "Manufacturing", "Bills of materials, work orders and costing.", "Industry", Status: ModuleStatus.Planned),
         new("crm", "CRM", "Leads, opportunities and pipeline.", "Horizontal", Status: ModuleStatus.Planned),

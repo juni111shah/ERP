@@ -23,7 +23,7 @@ public class CountryPackTests
     [Fact]
     public void Uae_custom_fields_have_valid_keys_unique_keys_and_compilable_patterns()
     {
-        Assert.Equal(Uae.CustomFields.Count, Uae.CustomFields.Select(f => f.Key).Distinct().Count());
+        Assert.Equal(Uae.CustomFields.Count, Uae.CustomFields.Select(f => (f.EntityType, f.Key)).Distinct().Count());
         foreach (var f in Uae.CustomFields)
         {
             Assert.Matches(CustomFieldValidator.KeyFormat, f.Key);
@@ -35,10 +35,10 @@ public class CountryPackTests
     [Fact]
     public void Uae_identifier_patterns_accept_real_formats_and_reject_malformed_values()
     {
-        var trn = new Regex(Uae.CustomFields.Single(f => f.Key == "cf_ae_trn").Options!.Pattern!);
+        var trn = new Regex(Uae.CustomFields.Single(f => f.EntityType == "party" && f.Key == "cf_ae_trn").Options!.Pattern!);
         Assert.Matches(trn, "100123456700003");
         Assert.DoesNotMatch(trn, "12345");
-        var eid = new Regex(Uae.CustomFields.Single(f => f.Key == "cf_ae_emirates_id").Options!.Pattern!);
+        var eid = new Regex(Uae.CustomFields.Single(f => f.EntityType == "party" && f.Key == "cf_ae_emirates_id").Options!.Pattern!);
         Assert.Matches(eid, "784-1990-1234567-1");
         Assert.DoesNotMatch(eid, "785-1990-1234567-1");
     }

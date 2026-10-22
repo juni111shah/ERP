@@ -56,7 +56,7 @@ public class ModelTests
     [Fact]
     public void Every_org_scoped_entity_has_a_query_filter_on_OrgId()
     {
-        var (db, _, conn) = Create(new RealEstateModule(), new InventoryModule());
+        var (db, _, conn) = Create(new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule());
         using var _c = conn;
         var scoped = db.Model.GetEntityTypes().Where(t => typeof(IOrgScoped).IsAssignableFrom(t.ClrType)).ToList();
         Assert.NotEmpty(scoped);
@@ -144,9 +144,9 @@ public class ModelTests
     {
         Assert.Throws<InvalidOperationException>(() => new ModuleRegistry([new InventoryModule(), new InventoryModule()]));
         Assert.Throws<InvalidOperationException>(() => new ModuleRegistry([new BadModule()]));
-        var reg = new ModuleRegistry([new RealEstateModule(), new InventoryModule()]);
+        var reg = new ModuleRegistry([new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule()]);
         Assert.True(reg.IsInstalled("realestate"));
-        Assert.Equal("inventory,realestate", reg.Signature);
+        Assert.Equal("hr,inventory,realestate", reg.Signature);
     }
 
     [Fact]

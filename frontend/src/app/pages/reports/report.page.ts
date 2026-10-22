@@ -15,6 +15,7 @@ import { API_BASE_URL } from '../../core/api/api-config';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { asProblem } from '../../core/http/problem-details';
 import { SessionStore } from '../../core/session/session.store';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-registry';
 
 /** Reports hub (no slug) and the generic report page (/reports/:slug): filters, table, summary, CSV and Print. */
@@ -22,7 +23,7 @@ import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-
   selector: 'erp-report',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule],
+  imports: [FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule],
   styles: [`
     .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px } .card { display:block; padding:14px 16px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px; background:var(--erp-color-surface, #fff); color:inherit } .card b { display:block; margin-bottom:4px } .card span { font-size:12px; color: var(--erp-color-text-secondary, #667) }
     .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:12px 0 } .spacer { flex:1 } .num { text-align:right } .total td { font-weight:600 }
@@ -46,6 +47,7 @@ import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-
         @if (has('months')) { <nz-input-number [(ngModel)]="months" [nzMin]="1" [nzMax]="36" [nzPrecision]="0"></nz-input-number> <span>months</span> }
         <button nz-button nzType="primary" [nzLoading]="loading()" (click)="run()" data-testid="report-run">Run</button>
         <span class="spacer"></span>
+        @if (def()!.action; as a) { <button *erpHasPermission="a.permission" nz-button [disabled]="!data() || !entity()" (click)="runAction()" data-testid="report-action">{{ a.label }}</button> }
         <button nz-button (click)="csv()" [disabled]="!data()" data-testid="report-csv"><span nz-icon nzType="download"></span>CSV</button>
         <button nz-button (click)="print()" [disabled]="!data()"><span nz-icon nzType="printer"></span>Print</button>
       </div>
@@ -80,6 +82,14 @@ export class ReportPage {
   readonly rows = computed(() => (this.data() ? this.def()!.rows(this.data()) : []));
   readonly totals = computed(() => (this.data() ? this.def()?.totals?.(this.data()) ?? null : null));
   readonly summary = computed(() => (this.data() ? this.def()?.summary?.(this.data()) ?? [] : []));
+
+  readonly entity = this.session.currentEntityId;
+
+  runAction(): void {
+    const a = this.def()?.action; const entityId = this.entity();
+    if (!a || !entityId || !this.to) return;
+    this.http.post(`${this.base}/${a.path}`, { legalEntityId: entityId, asOf: toIsoDate(this.to) }).subscribe({ next: () => this.message.success(a.done), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not complete the action') });
+  }
 
   has(f: string): boolean { return !!this.def()?.filters.includes(f as never); }
   isNum(c: ReportColumn): boolean { return c.type === 'money' || c.type === 'number' || c.type === 'percent'; }

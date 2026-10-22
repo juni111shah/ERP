@@ -4,8 +4,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Application.Common;
 
+/// <summary>Where default number sequences come from besides the core (installed modules declare theirs in their industry templates).</summary>
+public interface ISequenceDefaults { ERP.Application.Templates.SequenceTemplate? Find(string documentType); }
+
 /// <summary>Allocates document numbers (INV-2026-000001) from the workspace's sequences. Saved with the caller's unit of work.</summary>
-public sealed class NumberingService(IRepository<NumberSequence> sequences, IClock clock) : INumberingService
+public sealed class NumberingService(IRepository<NumberSequence> sequences, IClock clock, IEnumerable<ISequenceDefaults> defaults) : INumberingService
 {
     // Sequences created during this request but not saved yet; a second number in the same unit of work must continue them.
     private readonly Dictionary<(string Type, Guid? Entity, int Year), NumberSequence> created = new();
@@ -19,6 +22,7 @@ public sealed class NumberingService(IRepository<NumberSequence> sequences, IClo
         {
             // Workspaces created before a document type existed get its default sequence on first use.
             var known = ERP.Application.Templates.CoreTemplates.Sequences.FirstOrDefault(s => s.DocumentType == documentType)
+                        ?? defaults.Select(d => d.Find(documentType)).FirstOrDefault(t => t is not null)
                         ?? throw new ConflictException($"No number sequence is configured for '{documentType}'.");
             template = new NumberSequence { DocumentType = documentType, LegalEntityId = null, Prefix = known.Prefix, Pattern = known.Pattern, ResetYearly = known.ResetYearly, Year = 0, NextValue = 1 };
         }

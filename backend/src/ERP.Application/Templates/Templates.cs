@@ -36,6 +36,7 @@ public static class CoreTemplates
         new("1100", "Accounts receivable", AccountType.Asset, "ar.control", ReportingGroup: "Current assets"),
         new("1150", "Cheques in hand", AccountType.Asset, "instruments.received", ReportingGroup: "Current assets"),
         new("1200", "Input tax recoverable", AccountType.Asset, "tax.input", ReportingGroup: "Current assets"),
+        new("1250", "Employee advances", AccountType.Asset, "payroll.advances", ReportingGroup: "Current assets"),
         new("1300", "Inventory", AccountType.Asset, "inventory", ReportingGroup: "Current assets"),
         new("1400", "Prepayments", AccountType.Asset, ReportingGroup: "Current assets"),
         new("1500", "Fixed assets", AccountType.Asset, ReportingGroup: "Non-current assets"),
@@ -44,6 +45,7 @@ public static class CoreTemplates
         new("2100", "Output tax payable", AccountType.Liability, "tax.output", ReportingGroup: "Current liabilities"),
         new("2150", "Cheques issued", AccountType.Liability, "instruments.issued", ReportingGroup: "Current liabilities"),
         new("2300", "Accrued salaries", AccountType.Liability, "payroll.accrued", ReportingGroup: "Current liabilities"),
+        new("2500", "Provision for end-of-service benefits", AccountType.Liability, "payroll.gratuity.provision", ReportingGroup: "Non-current liabilities"),
         new("2400", "Customer advances", AccountType.Liability, ReportingGroup: "Current liabilities"),
         new("2900", "Loans", AccountType.Liability, ReportingGroup: "Non-current liabilities"),
         new("3000", "Share capital", AccountType.Equity, ReportingGroup: "Equity"),
@@ -53,7 +55,8 @@ public static class CoreTemplates
         new("4100", "Service revenue", AccountType.Income, "income.services", ReportingGroup: "Revenue"),
         new("4900", "Other income", AccountType.Income, ReportingGroup: "Other income"),
         new("5000", "Cost of goods sold", AccountType.Expense, "cogs", ReportingGroup: "Cost of sales"),
-        new("6000", "Salaries and wages", AccountType.Expense, ReportingGroup: "Operating expenses"),
+        new("6000", "Salaries and wages", AccountType.Expense, "payroll.expense", ReportingGroup: "Operating expenses"),
+        new("6050", "End-of-service benefits", AccountType.Expense, "payroll.gratuity.expense", ReportingGroup: "Operating expenses"),
         new("6100", "Premises expense", AccountType.Expense, ReportingGroup: "Operating expenses"),
         new("6200", "Utilities", AccountType.Expense, ReportingGroup: "Operating expenses"),
         new("6300", "Bank charges", AccountType.Expense, ReportingGroup: "Operating expenses"),
@@ -121,7 +124,6 @@ public static class CoreTemplates
         new("distribution", "Wholesale and distribution", "Purchasing, stock and sales orders.", IndustryAvailability.Preview, ["inventory", "sales", "purchasing", "distribution"], SortOrder: 30),
         new("manufacturing", "Manufacturing", "Bills of materials, production and stock.", IndustryAvailability.Preview, ["inventory", "purchasing", "manufacturing"], SortOrder: 40),
         new("services", "Professional services", "Projects, time and billing.", IndustryAvailability.Preview, ["projects", "crm", "services"], SortOrder: 50),
-        new("hr-only", "HR and payroll", "Employees, attendance and payroll.", IndustryAvailability.ComingSoon, ["hr"], SortOrder: 60),
     ];
 }
 
