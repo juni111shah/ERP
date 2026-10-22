@@ -33,3 +33,14 @@ public sealed class EfRepository<T>(AppDbContext db) : IRepository<T> where T : 
     public void Remove(T entity) => Set.Remove(entity);
     public Task<int> SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
 }
+
+/// <summary>EF Core implementation of <see cref="IEntityStore"/> (one reflection hop per call, only for metadata-driven features).</summary>
+public sealed class EfEntityStore(AppDbContext db) : IEntityStore
+{
+    private IQueryable<Entity> Set(Type entityType) =>
+        (IQueryable<Entity>)typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(entityType).Invoke(db, null)!;
+
+    public Task<bool> ExistsAsync(Type entityType, Guid id, CancellationToken ct = default) => Set(entityType).AnyAsync(e => e.Id == id, ct);
+    public async Task<Entity?> FindForUpdateAsync(Type entityType, Guid id, CancellationToken ct = default) => await Set(entityType).FirstOrDefaultAsync(e => e.Id == id, ct);
+    public Task<int> SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
+}

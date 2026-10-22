@@ -1,12 +1,15 @@
+using ERP.Application.Abstractions;
 using System.Text;
 using System.Threading.RateLimiting;
 using ERP.Api.Endpoints;
 using ERP.Api.Infrastructure;
 using ERP.Infrastructure;
+using ERP.Application.Auth;
 using ERP.Infrastructure.Auth;
 using ERP.Infrastructure.Persistence;
 using ERP.Infrastructure.Services;
 using ERP.Modularity;
+using ERP.Application.Security;
 using ERP.Application.Templates;
 using ERP.CountryPacks.AE;
 using ERP.Modules.Inventory;

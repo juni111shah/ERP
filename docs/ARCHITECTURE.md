@@ -7,18 +7,36 @@ A modular, multi-tenant ERP for any business. The **core** is industry- and coun
 ```
 backend/
   src/ERP.Domain          entities, enums, domain rules, list attributes. No dependencies.
-  src/ERP.Application     use cases (MediatR), validation, abstractions (IRepository<T>, IAppDbContext...), paging, ApiResponse
+  src/ERP.Application     use cases (MediatR commands/queries + handlers), validation, abstractions (IRepository<T>, IEntityStore, IUserDirectory...), paging, ApiResponse
   src/ERP.Infrastructure  EF Core (SQL Server; SQLite in tests), Identity, auth, generic EfRepository<T>, services
   src/ERP.Modularity      IModule contract, registry, module gate, API envelope filter, one-line list endpoints
   src/ERP.Api             composition root, minimal-API endpoints, middleware, SignalR hub
   modules/ERP.Modules.*   pluggable modules (RealEstate, Inventory sample)
+  countrypacks/ERP.CountryPacks.*  country rules (tax codes, country-specific custom fields); referenced only by the host
   tests/                  unit (domain, paging, custom fields, architecture rules) and integration (WebApplicationFactory)
 frontend/                 Angular 19 + ng-zorro-antd 19.3.1
 database/scripts/         idempotent SQL generated from EF migrations
 deploy/                   docker-compose for local SQL Server + API
 ```
 
-Dependency rule: Domain ← Application ← Infrastructure ← Api. Modules reference Application + Modularity only. NetArchTest rules enforce: core never references a module, modules never reference each other, Domain references nothing.
+Dependency rule: Domain ← Application ← Infrastructure ← Api. Modules reference Application + Modularity only. NetArchTest rules enforce: core never references a module or country pack, modules never reference each other, Domain references nothing.
+
+## Request flow: Endpoint → MediatR (CQRS) → Repository → DB
+```
+HTTP  →  Endpoint (ERP.Api.Endpoints)        binds the request, sends ONE command/query, shapes the HTTP result
+      →  MediatR pipeline                    AuthorizationBehavior (IRequirePermission) → ValidationBehavior (FluentValidation)
+      →  Handler (ERP.Application)           business rules; orchestrates repositories and application services
+      →  IRepository<T> / IReadRepository<T> generic EfRepository<T> (Infrastructure), tenant / legal-entity / soft-delete filters
+      →  DbContext → database
+```
+- Queries (`IQuery<T>`) read through `IReadRepository<T>`; commands (`ICommand<T>`, `ICommand`) write through `IRepository<T>` / `IUnitOfWork`.
+- **Endpoints never touch repositories, services, `DbContext` or EF.** Cookies, headers, files and the client IP are HTTP concerns: the endpoint reads them and passes plain values into the request.
+- **Application never sees the `DbContext`.** Infrastructure services that genuinely talk to a store (Identity, JWT/refresh tokens, onboarding) sit behind Application interfaces (`IAuthService`, `IUserDirectory`, `IOnboardingService`, `IEntityStore`).
+- Lists need no handler: `MapPagedList<T, TDto>` sends a `ListQuery<T, TDto>` that one open-generic `ListRequestHandler` executes.
+- Enforced by `ArchitectureTests`: endpoints depend only on MediatR + request/DTO types, the API host references Infrastructure only in `Program.cs`, Application has no `DbContext`/`DbSet` dependency, module code outside handlers has no repository dependency, and every request type has a handler.
+
+## Country packs
+`ICountryPack` (Application) supplies a country's tax codes and country-specific custom fields. A pack is its own project under `backend/countrypacks`, registered only by the host, and applied by onboarding when a workspace is created with that country code; countries without a pack get the neutral core defaults. `ERP.CountryPacks.AE` provides VAT 5%/0%/exempt and the party fields TRN, Emirates ID, trade licence number and licensing authority. Pack fields are ordinary custom fields afterwards (editable, validated, searchable).
 
 ## Multi-tenancy and scoping
 - Organization (UI: "Workspace") → Legal entities (accounting boundary) → Business units.
@@ -30,7 +48,7 @@ Dependency rule: Domain ← Application ← Infrastructure ← Api. Modules refe
 ## Data access: generic repository
 - `IReadRepository<T>` / `IRepository<T>` (Application) with `ISpecification<T>` / `Specification<T>` for criteria and includes; implemented once by `EfRepository<T>` (Infrastructure) and registered as open generics. No per-entity repositories.
 - The request's `DbContext` is the unit of work (`IUnitOfWork`, `IRepository<T>.SaveChangesAsync`).
-- Handlers depend on abstractions (`IRepository<T>`, `IAppDbContext`), never on `AppDbContext`. Identity-store reads (`/me`, users list) are the only exception and move behind an Application service in Sprint 1.
+- Handlers depend on abstractions (`IRepository<T>`, `IUnitOfWork`, `IEntityStore` for metadata-driven access by CLR type), never on `AppDbContext`. `IAppDbContext` is internal to Infrastructure.
 
 ## Lists: paging, sorting, search, filters (generic)
 - Request: `PagedQuery` → `?page=1&pageSize=25&sort=name,-createdAt&search=acme&filter=isActive:eq:true&filter=roles:has:customer`.

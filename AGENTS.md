@@ -12,7 +12,8 @@ Industries (real estate, retail, inventory, HR, manufacturing...) plug in as **m
 - Realtime: SignalR. Logging: Serilog.
 
 ## Code rules
-1. **Clean architecture**: Domain has no dependencies; Application depends on Domain only; Infrastructure implements Application abstractions. No EF types in Domain, no controllers calling DbContext directly.
+1. **Clean architecture**: Domain has no dependencies; Application depends on Domain only; Infrastructure implements Application abstractions. No EF types in Domain.
+   **Request flow is Endpoint → MediatR command/query → repository → DB.** An endpoint only sends one MediatR request; handlers use `IRepository<T>` / `IReadRepository<T>`; nothing outside Infrastructure touches `DbContext` (architecture tests enforce this). New list = `MapPagedList` (no handler). New write = a command + handler + FluentValidation validator in `ERP.Application/<Area>`.
 2. **Reuse first**: before writing a helper, search for an existing one. Shared behaviour lives in `ERP.Application/Common` (backend) and `frontend/src/app/core` (frontend).
 3. **Pagination, sorting and search are generic**: use the shared `PagedQuery`/`PagedResult<T>` and `IQueryable` extensions (`ApplyPaging`, `ApplySearch`, `ApplySort`, `ApplyFilters`) with whitelisted fields. Never hand-write paging per table.
 4. **Standard API response**: every endpoint returns `ApiResponse<T>` `{ success, statusCode, message, data, errors, traceId }`. Errors are also RFC 7807 compatible.

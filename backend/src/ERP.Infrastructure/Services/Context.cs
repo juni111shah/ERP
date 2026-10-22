@@ -7,14 +7,6 @@ namespace ERP.Infrastructure.Services;
 
 public sealed class SystemClock : IClock { public DateTime UtcNow => DateTime.UtcNow; }
 
-public static class ErpClaims
-{
-    public const string Org = "org";
-    public const string Permission = "perm";
-    public const string Entities = "ents";
-    public const string AllEntities = "*";
-}
-
 /// <summary>Caller identity from the JWT. Permissions come from "perm" claims; entities from "ents".</summary>
 public sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentUser
 {

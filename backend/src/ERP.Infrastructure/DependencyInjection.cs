@@ -1,6 +1,8 @@
 using ERP.Application.Templates;
 using ERP.Application;
 using ERP.Application.Abstractions;
+using ERP.Application.Auth;
+using ERP.Application.Platform;
 using ERP.Application.Customization;
 using ERP.Application.Security;
 using ERP.Infrastructure.Auth;
@@ -25,7 +27,7 @@ public static class DependencyInjection
         services.AddSingleton(registry);
         services.AddSingleton<CountryPackRegistry>(); // packs (ICountryPack) are registered by the host
         foreach (var m in modules) m.ConfigureServices(services, config);
-        services.AddApplication(modules.Select(m => m.GetType().Assembly).ToArray());
+        services.AddApplication(modules.Select(m => m.GetType().Assembly).Append(typeof(ModuleRegistry).Assembly).ToArray());
 
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
@@ -51,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
         services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
+        services.AddScoped<IEntityStore, EfEntityStore>();
 
         services.AddIdentityCore<AppUser>(o =>
             {
@@ -70,20 +73,18 @@ public static class DependencyInjection
         services.Configure<AuthOptions>(config.GetSection(AuthOptions.Section));
         services.AddDataProtection();
         services.AddScoped<AuthService>();
+        services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
         services.AddScoped<OnboardingService>();
+        services.AddScoped<IOnboardingService>(sp => sp.GetRequiredService<OnboardingService>());
+        services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddSingleton<IPasswordResetSender, LoggingPasswordResetSender>();
 
         services.AddSingleton<IPermissionCatalog, PermissionCatalog>();
         services.AddSingleton<ICustomizableEntityRegistry, CustomizableEntityRegistry>();
-        services.AddScoped<ICustomFieldService, CustomFieldService>();
         services.AddScoped<IModuleAccess, ModuleAccess>();
-        services.AddScoped<INumberingService, NumberingService>();
-        services.AddScoped<IApprovalService, ApprovalService>();
-        services.AddScoped<INotifier, Notifier>();
+        services.AddSingleton<ISettingsCatalog, SettingsCatalog>();
         services.AddSingleton<INotificationPusher, NullNotificationPusher>();
         services.AddSingleton<IFileStore, LocalFileStore>();
-        services.AddScoped<SettingsService>();
-        services.AddScoped<ISettingsService>(sp => sp.GetRequiredService<SettingsService>());
         return services;
     }
 }

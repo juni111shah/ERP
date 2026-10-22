@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Platform;
 using ERP.Application.Security;
 using ERP.Application.Templates;
 using ERP.Domain.Customization;
@@ -15,17 +16,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Infrastructure.Services;
 
-public sealed record OnboardingRequest(
-    string WorkspaceName, string SignInKey, string Industry, string CountryCode, string BaseCurrency, string? TimeZone,
-    string? LegalEntityName, string AdminEmail, string AdminName, string AdminPassword);
-
-public sealed record OnboardingResult(Guid OrgId, Guid LegalEntityId, Guid AdminUserId, IReadOnlyList<string> EnabledModules, IReadOnlyList<string> UnavailableModules);
-
-public sealed record IndustryView(string Key, string Label, string Description, string Availability, IReadOnlyList<string> SuggestedModules, IReadOnlyList<string> InstalledModules, int SortOrder);
-
 /// <summary>Creates a workspace from an industry template: org, first legal entity, core + industry seed, modules and the admin user.</summary>
-public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> users, IOrgContext org, ModuleRegistry modules, CountryPackRegistry countryPacks, Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
+public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> users, IOrgContext org, ModuleRegistry modules, CountryPackRegistry countryPacks, Microsoft.Extensions.Caching.Memory.IMemoryCache cache, Microsoft.Extensions.Configuration.IConfiguration config) : IOnboardingService
 {
+    public bool SelfSignupEnabled => bool.TryParse(config["Onboarding:AllowSelfSignup"], out var enabled) && enabled;
+
     public IReadOnlyList<IndustryTemplate> Industries()
         => CoreTemplates.Industries.Concat(modules.Modules.SelectMany(m => m.IndustryTemplates)).GroupBy(i => i.Key).Select(g => g.Last())
             .OrderBy(i => i.SortOrder).ThenBy(i => i.Label).ToList();

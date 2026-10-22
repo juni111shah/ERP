@@ -1,3 +1,4 @@
+using ERP.Application.Abstractions;
 using ERP.Application.Security;
 using ERP.Application.Templates;
 using ERP.Domain.Finance;

@@ -1,3 +1,4 @@
+using ERP.Application.Settings;
 using System.Text.RegularExpressions;
 using ERP.Application.Abstractions;
 using ERP.Application.Templates;

@@ -60,3 +60,15 @@ public interface IUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
+
+/// <summary>
+/// Non-generic access to any entity by CLR type, for features driven by runtime metadata (custom-field values, lookups)
+/// where the entity type is only known from a registry. Tenant, legal-entity and soft-delete filters always apply.
+/// </summary>
+public interface IEntityStore
+{
+    Task<bool> ExistsAsync(Type entityType, Guid id, CancellationToken ct = default);
+    /// <summary>Tracked load for updates; null when the record is not visible to the caller.</summary>
+    Task<Entity?> FindForUpdateAsync(Type entityType, Guid id, CancellationToken ct = default);
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
+}

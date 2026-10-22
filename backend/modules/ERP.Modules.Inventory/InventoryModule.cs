@@ -3,6 +3,7 @@ using ERP.Application.Customization;
 using ERP.Application.Security;
 using ERP.Domain.Common;
 using ERP.Modularity;
+using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -64,17 +65,10 @@ public sealed class InventoryModule : ModuleBase
         group.MapPagedList<Warehouse, object>("/warehouses", WarehousesRead, "inventory.warehouse",
             (w, cf) => new { w.Id, w.Code, w.Name, w.LegalEntityId, w.Address, w.IsActive, customFields = cf });
 
-        group.MapPost("/warehouses", async (WarehouseInput input, IRepository<Warehouse> warehouses, IReadRepository<ERP.Domain.Organizations.LegalEntity> entities, ICurrentUser user, CancellationToken ct) =>
+        group.MapPost("/warehouses", async (WarehouseInput input, ISender sender, CancellationToken ct) =>
         {
-            if (string.IsNullOrWhiteSpace(input.Code) || string.IsNullOrWhiteSpace(input.Name))
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["code"] = ["Code and name are required."] });
-            if (!await entities.AnyAsync(e => e.Id == input.LegalEntityId, ct)
-                || (user.AllowedLegalEntityIds is { } allowed && !allowed.Contains(input.LegalEntityId)))
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["legalEntityId"] = ["Legal entity not found."] });
-            var w = new Warehouse { Code = input.Code.Trim(), Name = input.Name.Trim(), LegalEntityId = input.LegalEntityId, Address = input.Address };
-            warehouses.Add(w);
-            await warehouses.SaveChangesAsync(ct);
-            return Results.Created($"/api/v1/m/inventory/warehouses/{w.Id}", new { w.Id, w.Code, w.Name, w.LegalEntityId });
+            var created = await sender.Send(new CreateWarehouse(input), ct);
+            return Results.Created($"/api/v1/m/inventory/warehouses/{created.Id}", created);
         }).RequirePermission(WarehousesWrite);
     }
 }

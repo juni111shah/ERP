@@ -1,3 +1,4 @@
+using ERP.Application.Security;
 using ERP.Domain.Catalog;
 using ERP.Domain.Customization;
 using ERP.Domain.Finance;
@@ -40,44 +41,6 @@ public interface IOrgContext
 
 public interface IClock { DateTime UtcNow { get; } }
 
-public interface IAppDbContext
-{
-    DbSet<Organization> Organizations { get; }
-    DbSet<LegalEntity> LegalEntities { get; }
-    DbSet<BusinessUnit> BusinessUnits { get; }
-    DbSet<OrganizationModule> OrganizationModules { get; }
-    DbSet<OrganizationMember> OrganizationMembers { get; }
-    DbSet<Role> Roles { get; }
-    DbSet<RolePermission> RolePermissions { get; }
-    DbSet<UserRole> UserRoles { get; }
-    DbSet<UserLegalEntityAccess> UserLegalEntityAccess { get; }
-    DbSet<RefreshToken> RefreshTokens { get; }
-    DbSet<PasswordResetToken> PasswordResetTokens { get; }
-    DbSet<Party> Parties { get; }
-    DbSet<Item> Items { get; }
-    DbSet<Currency> Currencies { get; }
-    DbSet<ExchangeRate> ExchangeRates { get; }
-    DbSet<TaxCode> TaxCodes { get; }
-    DbSet<Account> Accounts { get; }
-    DbSet<JournalEntry> JournalEntries { get; }
-    DbSet<JournalLine> JournalLines { get; }
-    DbSet<PaymentInstrument> PaymentInstruments { get; }
-    DbSet<Invoice> Invoices { get; }
-    DbSet<Bill> Bills { get; }
-    DbSet<Settlement> Settlements { get; }
-    DbSet<NumberSequence> NumberSequences { get; }
-    DbSet<ApprovalPolicy> ApprovalPolicies { get; }
-    DbSet<ApprovalRequest> ApprovalRequests { get; }
-    DbSet<Attachment> Attachments { get; }
-    DbSet<AuditEvent> AuditEvents { get; }
-    DbSet<Notification> Notifications { get; }
-    DbSet<Setting> Settings { get; }
-    DbSet<CustomFieldDefinition> CustomFieldDefinitions { get; }
-    DbSet<T> Set<T>() where T : class;
-    Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<T> Entry<T>(T entity) where T : class;
-    Task<int> SaveChangesAsync(CancellationToken ct = default);
-}
-
 public interface INumberingService
 {
     Task<string> NextAsync(string documentType, Guid? legalEntityId = null, DateOnly? date = null, CancellationToken ct = default);
@@ -105,9 +68,20 @@ public interface INotifier
 
 public interface IModuleAccess
 {
+    /// <summary>Drops the cached enabled-module set of the current workspace (call after enabling/disabling a module).</summary>
+    void Invalidate();
     /// <summary>True when the module is core or enabled for the current workspace.</summary>
     Task<bool> IsEnabledAsync(string moduleKey, CancellationToken ct = default);
     Task<IReadOnlySet<string>> EnabledModulesAsync(CancellationToken ct = default);
+}
+
+/// <summary>A setting a module (or the core) declares. Values are stored per workspace, optionally per legal entity.</summary>
+public sealed record SettingDefinition(string Key, string Label, string DefaultJson, string Type = "number", string? Description = null);
+
+/// <summary>Every setting known to this deployment (core + installed modules). Implemented by the host from the module registry.</summary>
+public interface ISettingsCatalog
+{
+    IReadOnlyList<(SettingDefinition Def, string Module)> Definitions();
 }
 
 public interface ISettingsService
@@ -115,4 +89,17 @@ public interface ISettingsService
     Task<string?> GetRawAsync(string key, Guid? legalEntityId = null, CancellationToken ct = default);
     Task<T?> GetAsync<T>(string key, Guid? legalEntityId = null, CancellationToken ct = default);
     Task SetRawAsync(string key, string jsonValue, Guid? legalEntityId = null, CancellationToken ct = default);
+}
+
+/// <summary>Pushes real-time events (implemented with SignalR in the API host).</summary>
+public interface INotificationPusher { Task PushAsync(Guid userId, object payload, CancellationToken ct = default); }
+
+/// <summary>User accounts (ASP.NET Identity lives behind this). Workspace membership and roles are ordinary repositories.</summary>
+public interface IUserDirectory
+{
+    Task<UserProfile?> GetProfileAsync(Guid userId, CancellationToken ct = default);
+    /// <summary>Members of the current workspace with their roles.</summary>
+    Task<IReadOnlyList<UserSummary>> ListMembersAsync(CancellationToken ct = default);
+    /// <summary>Finds the account by email or creates it with the temporary password (throws FieldValidationException when the password is rejected).</summary>
+    Task<UserAccount> EnsureAccountAsync(string email, string fullName, string? temporaryPassword, CancellationToken ct = default);
 }
