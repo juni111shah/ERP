@@ -272,3 +272,18 @@ export class ApprovalPoliciesApi {
   save(id: string | null, body: unknown): Observable<ApprovalPolicy> { return id ? this.http.put<ApprovalPolicy>(`${this.url}/${id}`, body) : this.http.post<ApprovalPolicy>(this.url, body); }
   remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
 }
+
+// ---- Dashboard ---------------------------------------------------------------------------------------------------------------
+
+export interface KpiCard { key: string; label: string; value: number; format: 'money' | 'percent' | 'number'; caption?: string; order: number; link?: string; }
+export interface ChartSeriesDto { name: string; values: number[]; }
+export interface DashboardChart { key: string; title: string; kind: 'bar' | 'stacked' | 'hbar'; categories: string[]; series: ChartSeriesDto[]; subtitle?: string; order: number; }
+export interface DashboardAlert { severity: 'critical' | 'warning' | 'info'; category: string; urgency: 'action' | 'upcoming' | 'info'; message: string; link?: string; rank: number; }
+export interface DashboardDto { asOf: string; kpis: KpiCard[]; charts: DashboardChart[]; alerts: DashboardAlert[]; }
+
+@Injectable({ providedIn: 'root' })
+export class DashboardApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = inject(API_BASE_URL);
+  get(): Observable<DashboardDto> { return this.http.get<DashboardDto>(`${this.base}/dashboard`); }
+}

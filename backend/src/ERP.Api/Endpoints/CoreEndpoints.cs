@@ -20,6 +20,7 @@ public static class CoreEndpoints
         api.MapCheques();
         api.MapBank();
         api.MapPayables();
+        api.MapDashboard();
         api.MapCustomFields();
         api.MapWorkflow();
     }

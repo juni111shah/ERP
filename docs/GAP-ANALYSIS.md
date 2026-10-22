@@ -16,7 +16,7 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Maintenance work orders | Done | |
 | Brokerage deals and commissions | Done | |
 | Approvals | Done | Inbox, decisions, and rules (document type + amount) that gate bill posting. |
-| Dashboard KPIs | Missing | Needs invoices and receipts first. |
+| Dashboard KPIs, charts, alerts | Done | Core and module contributors; cheque and lease alert windows are settings. |
 | Finance ledger (journals, posting engine, period lock, trial balance, GL, P&L, balance sheet) | Done | `IPostingService` is the only way documents write to the ledger. |
 | Invoices, credit notes and rent billing run | Done | Billing run invoices due instalments; voiding releases them. |
 | Receipts, allocation, AR ageing, customer statement | Done | Cheque receipts come with the PDC register. |

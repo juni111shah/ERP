@@ -17,6 +17,7 @@ public sealed class SettingsService(IRepository<Setting> settings, ISettingsCata
         new("core.fiscalYearStartMonth", "Fiscal year start month", "1"),
         new("core.maxAttachmentMb", "Maximum attachment size (MB)", "10"),
         new("core.invoiceTermsDays", "Default payment terms (days)", "15"),
+        new("finance.chequeDueAlertDays", "Cheque due alert (days)", "7"),
         new("core.journalRequiresApproval", "Manual journals need approval", "false", "bool"),
     ];
 

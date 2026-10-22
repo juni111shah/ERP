@@ -118,7 +118,10 @@ public sealed class RealEstateModule : ModuleBase
     ];
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
-        => services.AddScoped<LeaseDtoFactory>();
+    {
+        services.AddScoped<LeaseDtoFactory>();
+        services.AddScoped<ERP.Application.Dashboard.IDashboardContributor, RealEstateDashboard>();
+    }
 
     public override void ConfigureModel(ModelBuilder mb) => RealEstateModel.Configure(mb);
 
