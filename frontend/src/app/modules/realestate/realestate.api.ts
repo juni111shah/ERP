@@ -82,7 +82,7 @@ export function humanize(value: string | null | undefined): string {
 export const STATUS_COLORS: Record<string, string> = {
   vacant: 'green', reserved: 'gold', occupied: 'blue', unavailable: 'default',
   draft: 'default', active: 'green', ended: 'default', renewed: 'cyan', terminated: 'red', holdingOver: 'orange', cancelled: 'default',
-  scheduled: 'blue', invoiced: 'green',
+  scheduled: 'blue', invoiced: 'green', paid: 'green',
   new: 'blue', assigned: 'cyan', inProgress: 'processing', onHold: 'orange', completed: 'green', closed: 'default',
   lead: 'default', viewing: 'blue', negotiation: 'gold', agreed: 'green', lost: 'red',
 };
@@ -180,4 +180,34 @@ export class BillingApi {
   private readonly http = inject(HttpClient);
   private readonly base = `${inject(API_BASE_URL)}/${BASE}/billing`;
   run(asOf: string, legalEntityId?: string): Observable<BillingResult> { return this.http.post<BillingResult>(`${this.base}/run`, { asOf, legalEntityId: legalEntityId ?? null }); }
+}
+
+// ---- Acquisitions and funding ------------------------------------------------------------------------------------------------
+
+export interface FundingInstalmentDto { id: string; sequence: number; dueDate: string; principal: number; interest: number; total: number; balanceAfter: number; status: string; paidOn?: string; }
+export interface FundingSourceDto {
+  id: string; acquisitionId: string; type: string; lender: string; principal: number; annualRatePercent: number; termMonths: number; firstDueDate: string; monthlyPayment: number; financeCost: number;
+  paid: number; instalmentCount: number; outstanding: number; nextDue?: string; instalments: FundingInstalmentDto[];
+}
+export interface AcquisitionSummary { id: string; number?: string; propertyId: string; sellerName: string; purchaseDate: string; purchasePrice: number; downPayment: number; status: string; currencyCode: string; }
+export interface AcquisitionDto {
+  id: string; number?: string; legalEntityId: string; propertyId: string; propertyName?: string; sellerName: string; purchaseDate: string; contractReference?: string; purchasePrice: number; downPayment: number;
+  transferFees: number; otherCosts: number; payFromAccountId?: string; notes?: string; currencyCode: string; status: string; totalCost: number; cashAtCompletion: number; financed: number; unfunded: number;
+  journalEntryId?: string; funding: FundingSourceDto[];
+}
+export interface AcquisitionOverview { consideration: number; count: number; downPayments: number; financing: number; outstanding: number; unfunded: number; }
+export const FUNDING_TYPES = [
+  { value: 'bankMortgage', label: 'Bank mortgage' }, { value: 'developerPlan', label: 'Developer payment plan' }, { value: 'loan', label: 'Loan' }, { value: 'other', label: 'Other' },
+];
+
+@Injectable({ providedIn: 'root' })
+export class AcquisitionsApi extends CrudApiService<AcquisitionSummary, unknown> {
+  protected readonly resource = `${BASE}/acquisitions`;
+  detail(id: string): Observable<AcquisitionDto> { return this.http.get<AcquisitionDto>(`${this.url}/${id}`); }
+  overview(): Observable<AcquisitionOverview> { return this.http.get<AcquisitionOverview>(`${this.url}/overview`); }
+  funding(): Observable<FundingSourceDto[]> { return this.http.get<FundingSourceDto[]>(`${this.url}/funding`); }
+  save(id: string | null, body: unknown): Observable<AcquisitionDto> { return id ? this.http.put<AcquisitionDto>(`${this.url}/${id}`, body) : this.http.post<AcquisitionDto>(this.url, body); }
+  complete(id: string): Observable<AcquisitionDto> { return this.http.post<AcquisitionDto>(`${this.url}/${id}/complete`, {}); }
+  cancel(id: string): Observable<AcquisitionDto> { return this.http.post<AcquisitionDto>(`${this.url}/${id}/cancel`, {}); }
+  payInstalment(id: string, bankAccountId: string, date: string): Observable<FundingSourceDto> { return this.http.post<FundingSourceDto>(`${this.url}/instalments/${id}/pay`, { bankAccountId, date }); }
 }

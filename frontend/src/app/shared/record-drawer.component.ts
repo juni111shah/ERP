@@ -208,6 +208,7 @@ export class RecordDrawerComponent {
 
   private toDate(v: unknown): Date | null {
     if (!v) return null;
+    if (v instanceof Date) return v; // a field default may be given as a Date (for example "today")
     const [y, m, d] = String(v).slice(0, 10).split('-').map(Number);
     return new Date(y, m - 1, d); // local midnight: no timezone day shift
   }

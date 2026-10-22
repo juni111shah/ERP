@@ -114,6 +114,41 @@ internal static class RealEstateModel
             b.HasIndex(x => new { x.OrgId, x.UnitId });
         });
 
+        mb.Entity<Acquisition>(b =>
+        {
+            b.ToTable("re_Acquisitions");
+            b.Property(x => x.Number).HasMaxLength(30);
+            b.Property(x => x.SellerName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.ContractReference).HasMaxLength(100);
+            b.Property(x => x.CurrencyCode).HasMaxLength(3).IsFixedLength().IsRequired();
+            b.Property(x => x.Notes).HasMaxLength(1000);
+            foreach (var m in new[] { nameof(Acquisition.PurchasePrice), nameof(Acquisition.DownPayment), nameof(Acquisition.TransferFees), nameof(Acquisition.OtherCosts) }) b.Property(m).HasPrecision(19, 4);
+            b.Ignore(x => x.TotalCost); b.Ignore(x => x.CashAtCompletion);
+            b.HasOne<Property>().WithMany().HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0 AND [Number] IS NOT NULL");
+            b.HasIndex(x => new { x.OrgId, x.PropertyId });
+        });
+
+        mb.Entity<FundingSource>(b =>
+        {
+            b.ToTable("re_FundingSources");
+            b.Property(x => x.Lender).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Principal).HasPrecision(19, 4);
+            b.Property(x => x.MonthlyPayment).HasPrecision(19, 4);
+            b.Property(x => x.AnnualRatePercent).HasPrecision(9, 4);
+            b.HasOne<Acquisition>().WithMany().HasForeignKey(x => x.AcquisitionId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.AcquisitionId });
+        });
+
+        mb.Entity<FundingInstalment>(b =>
+        {
+            b.ToTable("re_FundingInstalments");
+            foreach (var m in new[] { nameof(FundingInstalment.Principal), nameof(FundingInstalment.Interest), nameof(FundingInstalment.Total), nameof(FundingInstalment.BalanceAfter) }) b.Property(m).HasPrecision(19, 4);
+            b.HasOne<FundingSource>().WithMany().HasForeignKey(x => x.FundingSourceId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.FundingSourceId, x.Sequence }).IsUnique().HasFilter(Live);
+            b.HasIndex(x => new { x.OrgId, x.Status, x.DueDate });
+        });
+
         mb.Entity<DepositTransaction>(b =>
         {
             b.ToTable("re_DepositTransactions");
