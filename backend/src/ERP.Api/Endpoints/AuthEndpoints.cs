@@ -1,9 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using ERP.Application.Abstractions;
-using ERP.Infrastructure.Auth;
-using ERP.Infrastructure.Identity;
-using ERP.Infrastructure.Services;
-using Microsoft.AspNetCore.Identity;
+using ERP.Application.Auth;
+using MediatR;
 using Microsoft.Extensions.Options;
 
 namespace ERP.Api.Endpoints;
@@ -22,28 +20,26 @@ public static class AuthEndpoints
     {
         var g = api.MapGroup("/auth").WithTags("Auth");
 
-        g.MapPost("/login", async (LoginRequest r, AuthService auth, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
+        g.MapPost("/login", async (LoginRequest r, ISender sender, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
         {
-            if (string.IsNullOrWhiteSpace(r.Email) || string.IsNullOrWhiteSpace(r.Password))
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["email"] = ["Email and password are required."] });
-            var result = await auth.LoginAsync(r.Email, r.Password, r.RememberMe, Ip(http), ct);
+            var result = await sender.Send(new Login(r.Email, r.Password, r.RememberMe, Ip(http)), ct);
             if (result.Session is { } s) { SetCookie(http, s, o.Value); return Results.Ok(SessionBody(s)); }
             return Results.Ok(new { requiresWorkspaceSelection = true, result.SelectionToken, workspaces = result.Workspaces });
         }).AllowAnonymous().RequireRateLimiting("login");
 
-        g.MapPost("/select-workspace", async (SelectWorkspaceRequest r, AuthService auth, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
+        g.MapPost("/select-workspace", async (SelectWorkspaceRequest r, ISender sender, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
         {
-            var s = await auth.SelectWorkspaceAsync(r.SelectionToken, r.WorkspaceId, Ip(http), ct);
+            var s = await sender.Send(new SelectWorkspace(r.SelectionToken, r.WorkspaceId, Ip(http)), ct);
             SetCookie(http, s, o.Value);
             return Results.Ok(SessionBody(s));
         }).AllowAnonymous().RequireRateLimiting("login");
 
-        g.MapPost("/refresh", async (AuthService auth, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
+        g.MapPost("/refresh", async (ISender sender, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
         {
             if (!http.Request.Headers.ContainsKey(ClientHeader)) return Results.Problem(statusCode: 400, title: $"Missing {ClientHeader} header");
             try
             {
-                var s = await auth.RefreshAsync(http.Request.Cookies[AuthOptions.RefreshCookie], Ip(http), ct);
+                var s = await sender.Send(new RefreshSession(http.Request.Cookies[AuthOptions.RefreshCookie], Ip(http)), ct);
                 SetCookie(http, s, o.Value);
                 return Results.Ok(SessionBody(s));
             }
@@ -54,39 +50,39 @@ public static class AuthEndpoints
             }
         }).AllowAnonymous();
 
-        g.MapPost("/logout", async (AuthService auth, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
+        g.MapPost("/logout", async (ISender sender, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
         {
             if (!http.Request.Headers.ContainsKey(ClientHeader)) return Results.Problem(statusCode: 400, title: $"Missing {ClientHeader} header");
             var (jti, exp) = TokenInfo(http);
-            await auth.LogoutAsync(http.Request.Cookies[AuthOptions.RefreshCookie], jti, exp, ct);
+            await sender.Send(new Logout(http.Request.Cookies[AuthOptions.RefreshCookie], jti, exp), ct);
             ClearCookie(http, o.Value);
             return Results.NoContent();
         }).AllowAnonymous();
 
-        g.MapPost("/switch-workspace", async (SwitchWorkspaceRequest r, AuthService auth, ICurrentUser user, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
+        g.MapPost("/switch-workspace", async (SwitchWorkspaceRequest r, ISender sender, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
         {
             var (jti, exp) = TokenInfo(http);
             var persistent = http.User.FindFirst("rp")?.Value == "1";
-            var s = await auth.SwitchWorkspaceAsync(user.UserId!.Value, user.OrgId!.Value, r.WorkspaceId, jti, exp, persistent, Ip(http), ct);
+            var s = await sender.Send(new SwitchWorkspace(r.WorkspaceId, persistent, jti, exp, Ip(http)), ct);
             SetCookie(http, s, o.Value);
             return Results.Ok(SessionBody(s));
         }).RequireAuthorization();
 
-        g.MapPost("/forgot-password", async (ForgotRequest r, AuthService auth, CancellationToken ct) =>
+        g.MapPost("/forgot-password", async (ForgotRequest r, ISender sender, CancellationToken ct) =>
         {
-            if (!string.IsNullOrWhiteSpace(r.Email)) await auth.ForgotPasswordAsync(r.Email, ct);
+            await sender.Send(new ForgotPassword(r.Email), ct);
             return Results.Accepted(value: new { message = "If that email has an account, a reset link is on its way. It expires in 30 minutes." });
         }).AllowAnonymous().RequireRateLimiting("login");
 
-        g.MapPost("/reset-password", async (ResetRequest r, AuthService auth, CancellationToken ct) =>
+        g.MapPost("/reset-password", async (ResetRequest r, ISender sender, CancellationToken ct) =>
         {
-            await auth.ResetPasswordAsync(r.Token, r.NewPassword, ct);
+            await sender.Send(new ResetPassword(r.Token, r.NewPassword), ct);
             return Results.NoContent();
         }).AllowAnonymous().RequireRateLimiting("login");
 
-        g.MapPost("/change-password", async (ChangePasswordRequest r, AuthService auth, ICurrentUser user, CancellationToken ct) =>
+        g.MapPost("/change-password", async (ChangePasswordRequest r, ISender sender, CancellationToken ct) =>
         {
-            await auth.ChangePasswordAsync(user.UserId!.Value, r.CurrentPassword, r.NewPassword, ct);
+            await sender.Send(new ChangePassword(r.CurrentPassword, r.NewPassword), ct);
             return Results.NoContent();
         }).RequireAuthorization();
     }

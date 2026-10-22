@@ -23,7 +23,13 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
         return await next();
     }
 
-    private static string ToCamel(string s) => string.IsNullOrEmpty(s) ? s : char.ToLowerInvariant(s[0]) + s[1..];
+    /// <summary>"Input.Name" -> "name", "Input.CustomFields.Key" -> "customFields.key": strips the command wrapper and camel-cases each segment.</summary>
+    private static string ToCamel(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return s;
+        if (s.StartsWith("Input.", StringComparison.Ordinal)) s = s["Input.".Length..];
+        return string.Join('.', s.Split('.').Select(p => p.Length == 0 ? p : char.ToLowerInvariant(p[0]) + p[1..]));
+    }
 }
 
 /// <summary>Defence in depth: requests implementing IRequirePermission are checked even if an endpoint forgot its policy.</summary>

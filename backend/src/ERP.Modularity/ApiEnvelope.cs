@@ -4,6 +4,7 @@ using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Customization;
 using ERP.Domain.Common;
+using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -79,23 +80,19 @@ public static class ApiEnvelope
     }
 }
 
-/// <summary>One-line generic list endpoints: search, filter, sort and paging come from the entity's attributes.</summary>
+/// <summary>One-line generic list endpoints. They only send a MediatR query; search, filter, sort and paging come from the entity's attributes.</summary>
 public static class ListEndpointExtensions
 {
     /// <summary><c>group.MapPagedList&lt;Item, ItemDto&gt;("", CorePermissions.ItemsRead, i =&gt; new ItemDto(...))</c></summary>
     public static RouteHandlerBuilder MapPagedList<T, TDto>(this IEndpointRouteBuilder group, string pattern, string permission,
         Expression<Func<T, TDto>> projection) where T : Entity =>
-        group.MapGet(pattern, ([AsParameters] PagedQuery q, IReadRepository<T> repo, CancellationToken ct) => repo.PageAsync(q, projection, ct: ct))
+        group.MapGet(pattern, ([AsParameters] PagedQuery q, ISender sender, CancellationToken ct) => sender.Send(new ListQuery<T, TDto>(q, projection, permission), ct))
             .RequirePermission(permission);
 
     /// <summary>Same, for entities with custom fields: values are projected through the entity type's definitions.</summary>
     public static RouteHandlerBuilder MapPagedList<T, TDto>(this IEndpointRouteBuilder group, string pattern, string permission,
         string customFieldEntityType, Func<T, JsonObject, TDto> map) where T : Entity, IHasCustomFields =>
-        group.MapGet(pattern, async ([AsParameters] PagedQuery q, IReadRepository<T> repo, ICustomFieldService fields, CancellationToken ct) =>
-            {
-                var page = await repo.PageAsync(q, ct: ct);
-                var defs = await fields.GetDefinitionsAsync(customFieldEntityType, ct);
-                return page.Map(x => map(x, CustomFieldValidator.Project(x.CustomFields, defs)));
-            })
+        group.MapGet(pattern, ([AsParameters] PagedQuery q, ISender sender, CancellationToken ct) =>
+                sender.Send(new ListWithCustomFieldsQuery<T, TDto>(q, customFieldEntityType, map, permission), ct))
             .RequirePermission(permission);
 }

@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using ERP.Application.Abstractions;
+using ERP.Application.Auth;
 using ERP.Application.Common;
 using ERP.Application.Security;
 using ERP.Domain.Identity;
@@ -19,39 +20,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace ERP.Infrastructure.Auth;
-
-public sealed class AuthOptions
-{
-    public const string Section = "Auth";
-    /// <summary>HMAC-SHA256 signing key, at least 32 bytes. Must come from configuration/secrets; never commit a real one.</summary>
-    public string SigningKey { get; set; } = "";
-    public string Issuer { get; set; } = "erp-api";
-    public string Audience { get; set; } = "erp-web";
-    public int AccessTokenMinutes { get; set; } = 5;
-    public int PersistentRefreshDays { get; set; } = 30;
-    public int SessionRefreshHours { get; set; } = 12;
-    public bool SecureCookies { get; set; } = true;
-    public int MaxFailedAttempts { get; set; } = 5;
-    public int LockoutMinutes { get; set; } = 15;
-    public int ResetTokenMinutes { get; set; } = 30;
-    public const string RefreshCookie = "erp_rt";
-    public const string RefreshCookiePath = "/api/v1/auth";
-}
-
-public sealed record WorkspaceOption(Guid Id, string Code, string Name, string Industry);
-
-public sealed record SessionResult(
-    string AccessToken, int ExpiresIn, string RefreshToken, DateTime RefreshExpiresAt, bool Persistent,
-    WorkspaceOption Workspace, IReadOnlyList<WorkspaceOption> Workspaces);
-
-public sealed record LoginResult(
-    bool RequiresWorkspaceSelection, string? SelectionToken, IReadOnlyList<WorkspaceOption> Workspaces, SessionResult? Session);
-
-public sealed class AuthException(int status, string message, DateTime? retryAt = null) : Exception(message)
-{
-    public int Status { get; } = status;
-    public DateTime? RetryAt { get; } = retryAt;
-}
 
 /// <summary>Password reset delivery (email in production; logged in development; captured in tests).</summary>
 public interface IPasswordResetSender { Task SendAsync(string email, string token, CancellationToken ct = default); }
@@ -75,7 +43,7 @@ public sealed class AuthService(
     IDataProtectionProvider dataProtection,
     IPasswordResetSender resetSender,
     IClock clock,
-    IOptions<AuthOptions> options)
+    IOptions<AuthOptions> options) : IAuthService
 {
     private readonly AuthOptions _o = options.Value;
     private static string? _dummyHash;
@@ -255,7 +223,7 @@ public sealed class AuthService(
                   select new WorkspaceOption(o.Id, o.Code, o.Name, o.IndustryCode)).ToListAsync(ct);
 
     /// <summary>Effective permissions in a workspace: role grants, "*" expanded, minus permissions of disabled modules.</summary>
-    public async Task<(IReadOnlySet<string> Permissions, IReadOnlyList<Guid>? Entities, IReadOnlySet<string> EnabledModules)> ResolveAccessAsync(Guid userId, Guid orgId, CancellationToken ct)
+    public async Task<AccessGrant> ResolveAccessAsync(Guid userId, Guid orgId, CancellationToken ct)
     {
         using var _ = org.Use(orgId);
         var granted = await (from ur in db.UserRoles
@@ -268,7 +236,7 @@ public sealed class AuthService(
             .Where(p => { var mod = p.Split('.')[0]; return mod is "core" or "finance" || enabled.Contains(mod); })
             .ToHashSet(StringComparer.Ordinal);
         var ents = await db.UserLegalEntityAccess.Where(a => a.UserId == userId).Select(a => a.LegalEntityId).ToListAsync(ct);
-        return (perms, ents.Count == 0 ? null : ents, enabled);
+        return new AccessGrant(perms, ents.Count == 0 ? null : ents, enabled);
     }
 
     private async Task<SessionResult> IssueAsync(AppUser user, WorkspaceOption ws, IReadOnlyList<WorkspaceOption> all, bool persistent, RefreshToken? rotateFrom, string? ip, CancellationToken ct)

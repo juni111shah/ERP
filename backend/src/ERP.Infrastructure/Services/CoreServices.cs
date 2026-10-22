@@ -62,9 +62,14 @@ public sealed class CustomizableEntityRegistry : ICustomizableEntityRegistry
     public CustomizableEntityDefinition? Find(string key) => _all.GetValueOrDefault(key);
 }
 
-public sealed class ModuleAccess(IAppDbContext db, IOrgContext org, ModuleRegistry registry, IMemoryCache cache) : IModuleAccess
+public sealed class ModuleAccess(IReadRepository<OrganizationModule> organizationModules, IOrgContext org, ModuleRegistry registry, IMemoryCache cache) : IModuleAccess
 {
     public static string CacheKey(Guid orgId) => $"org:{orgId}:modules";
+
+    public void Invalidate()
+    {
+        if (org.OrgId is { } orgId) cache.Remove(CacheKey(orgId));
+    }
 
     public async Task<bool> IsEnabledAsync(string moduleKey, CancellationToken ct = default)
     {
@@ -80,83 +85,9 @@ public sealed class ModuleAccess(IAppDbContext db, IOrgContext org, ModuleRegist
         return await cache.GetOrCreateAsync(CacheKey(orgId), async e =>
         {
             e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
-            var keys = await db.OrganizationModules.AsNoTracking().Where(x => x.IsEnabled).Select(x => x.ModuleKey).ToListAsync(ct);
+            var keys = await organizationModules.Query(new Specification<OrganizationModule>(x => x.IsEnabled)).Select(x => x.ModuleKey).ToListAsync(ct);
             return (IReadOnlySet<string>)keys.Where(registry.IsInstalled).ToHashSet(StringComparer.OrdinalIgnoreCase);
         }) ?? new HashSet<string>();
-    }
-}
-
-public sealed class NumberingService(IAppDbContext db, IClock clock) : INumberingService
-{
-    public async Task<string> NextAsync(string documentType, Guid? legalEntityId = null, DateOnly? date = null, CancellationToken ct = default)
-    {
-        var d = date ?? DateOnly.FromDateTime(clock.UtcNow);
-        var template = await db.NumberSequences.AsNoTracking()
-                           .Where(s => s.DocumentType == documentType && (s.LegalEntityId == legalEntityId || s.LegalEntityId == null))
-                           .OrderByDescending(s => s.LegalEntityId != null).ThenByDescending(s => s.Year).FirstOrDefaultAsync(ct)
-                       ?? throw new ConflictException($"No number sequence is configured for '{documentType}'.");
-        var year = template.ResetYearly ? d.Year : 0;
-        var seq = await db.NumberSequences.FirstOrDefaultAsync(s => s.DocumentType == documentType && s.LegalEntityId == template.LegalEntityId && s.Year == year, ct);
-        if (seq is null)
-        {
-            seq = new NumberSequence { DocumentType = documentType, LegalEntityId = template.LegalEntityId, Prefix = template.Prefix, Pattern = template.Pattern, ResetYearly = template.ResetYearly, Year = year, NextValue = 1 };
-            db.NumberSequences.Add(seq);
-        }
-        var value = seq.NextValue++;
-        // Saved with the caller's SaveChanges (same transaction); rowversion makes concurrent allocation fail instead of duplicating.
-        return NumberFormatter.Format(seq.Pattern, seq.Prefix, d, value);
-    }
-}
-
-public sealed class ApprovalService(IAppDbContext db, ICurrentUser user, IClock clock, INotifier notifier) : IApprovalService
-{
-    public async Task<bool> RequiresApprovalAsync(string documentType, decimal? amount, CancellationToken ct = default)
-        => await db.ApprovalPolicies.AnyAsync(p => p.IsActive && p.DocumentType == documentType && (p.MinAmount == null || (amount != null && amount >= p.MinAmount)), ct);
-
-    public async Task<ApprovalRequest> SubmitAsync(string documentType, Guid? documentId, string subject, decimal? amount, string? justification, Guid? legalEntityId, CancellationToken ct = default)
-    {
-        var req = new ApprovalRequest
-        {
-            DocumentType = documentType, DocumentId = documentId, Subject = subject, Amount = amount, Justification = justification,
-            LegalEntityId = legalEntityId, RequestedBy = user.UserId ?? throw new ForbiddenException(), RequestedAt = clock.UtcNow,
-        };
-        db.ApprovalRequests.Add(req);
-        await db.SaveChangesAsync(ct);
-        return req;
-    }
-
-    public async Task<ApprovalRequest> DecideAsync(Guid requestId, bool approve, string? comment, CancellationToken ct = default)
-    {
-        var req = await db.ApprovalRequests.FirstOrDefaultAsync(r => r.Id == requestId, ct) ?? throw new NotFoundException();
-        if (!user.HasPermission(CorePermissions.ApprovalsDecide)) throw new ForbiddenException();
-        req.Decide(user.UserId!.Value, approve, comment, clock.UtcNow);
-        await db.SaveChangesAsync(ct);
-        await notifier.NotifyUserAsync(req.RequestedBy, $"Request {(approve ? "approved" : "rejected")}", req.Subject, "/approvals", approve ? "success" : "warning", ct);
-        return req;
-    }
-
-    public async Task<ApprovalRequest> WithdrawAsync(Guid requestId, CancellationToken ct = default)
-    {
-        var req = await db.ApprovalRequests.FirstOrDefaultAsync(r => r.Id == requestId, ct) ?? throw new NotFoundException();
-        req.Withdraw(user.UserId ?? Guid.Empty);
-        await db.SaveChangesAsync(ct);
-        return req;
-    }
-}
-
-/// <summary>Pushes real-time events (implemented with SignalR in the API host).</summary>
-public interface INotificationPusher { Task PushAsync(Guid userId, object payload, CancellationToken ct = default); }
-
-public sealed class NullNotificationPusher : INotificationPusher { public Task PushAsync(Guid userId, object payload, CancellationToken ct = default) => Task.CompletedTask; }
-
-public sealed class Notifier(IAppDbContext db, INotificationPusher pusher) : INotifier
-{
-    public async Task NotifyUserAsync(Guid userId, string title, string? body = null, string? link = null, string severity = "info", CancellationToken ct = default)
-    {
-        var n = new Notification { UserId = userId, Title = title, Body = body, Link = link, Severity = severity };
-        db.Notifications.Add(n);
-        await db.SaveChangesAsync(ct);
-        await pusher.PushAsync(userId, new { n.Id, n.Title, n.Body, n.Link, n.Severity }, ct);
     }
 }
 
@@ -191,41 +122,13 @@ public sealed class LocalFileStore(IConfiguration config) : IFileStore
     }
 }
 
-public sealed record SettingView(string Key, string Label, string Module, string Type, JsonElement Value, string? Description);
+/// <summary>Used when no real-time transport is registered (tests, background jobs); the API host swaps in SignalR.</summary>
+public sealed class NullNotificationPusher : INotificationPusher { public Task PushAsync(Guid userId, object payload, CancellationToken ct = default) => Task.CompletedTask; }
 
-public sealed class SettingsService(IAppDbContext db, ModuleRegistry modules) : ISettingsService
+/// <summary>Every setting known to this deployment: the core's plus those declared by installed modules.</summary>
+public sealed class SettingsCatalog(ModuleRegistry modules) : ISettingsCatalog
 {
-    public static IReadOnlyList<SettingDefinition> CoreSettings { get; } =
-    [
-        new("core.dateFormat", "Date format", "\"dd MMM yyyy\"", "text"),
-        new("core.fiscalYearStartMonth", "Fiscal year start month", "1"),
-        new("core.maxAttachmentMb", "Maximum attachment size (MB)", "10"),
-        new("core.invoiceTermsDays", "Default payment terms (days)", "15"),
-        new("core.journalRequiresApproval", "Manual journals need approval", "false", "bool"),
-    ];
-
-    public IEnumerable<(SettingDefinition Def, string Module)> Definitions()
-        => CoreSettings.Select(s => (s, "core")).Concat(modules.Modules.SelectMany(m => m.Settings.Select(s => (s, m.Manifest.Key))));
-
-    public async Task<string?> GetRawAsync(string key, Guid? legalEntityId = null, CancellationToken ct = default)
-    {
-        var rows = await db.Settings.AsNoTracking().Where(s => s.Key == key && (s.LegalEntityId == null || s.LegalEntityId == legalEntityId)).ToListAsync(ct);
-        var row = rows.FirstOrDefault(r => r.LegalEntityId == legalEntityId && legalEntityId != null) ?? rows.FirstOrDefault(r => r.LegalEntityId == null);
-        return row?.Value ?? Definitions().FirstOrDefault(d => d.Def.Key == key).Def?.DefaultJson;
-    }
-
-    public async Task<T?> GetAsync<T>(string key, Guid? legalEntityId = null, CancellationToken ct = default)
-    {
-        var raw = await GetRawAsync(key, legalEntityId, ct);
-        return raw is null ? default : JsonSerializer.Deserialize<T>(raw);
-    }
-
-    public async Task SetRawAsync(string key, string jsonValue, Guid? legalEntityId = null, CancellationToken ct = default)
-    {
-        if (Definitions().All(d => d.Def.Key != key)) throw new FieldValidationException(key, "Unknown setting.");
-        using (JsonDocument.Parse(jsonValue)) { }
-        var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key && s.LegalEntityId == legalEntityId, ct);
-        if (row is null) db.Settings.Add(new Setting { Key = key, LegalEntityId = legalEntityId, Value = jsonValue });
-        else row.Value = jsonValue;
-    }
+    public IReadOnlyList<(SettingDefinition Def, string Module)> Definitions()
+        => ERP.Application.Settings.SettingsService.CoreSettings.Select(d => (d, "core"))
+            .Concat(modules.Modules.SelectMany(m => m.Settings.Select(d => (d, m.Manifest.Key)))).ToList();
 }

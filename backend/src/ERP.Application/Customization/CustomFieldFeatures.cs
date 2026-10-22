@@ -29,10 +29,10 @@ public interface ICustomFieldService
     Task<JsonObject> ReadAsync(string entityType, IHasCustomFields entity, CancellationToken ct = default);
 }
 
-public sealed class CustomFieldService(IAppDbContext db, ICustomizableEntityRegistry registry) : ICustomFieldService
+public sealed class CustomFieldService(IReadRepository<CustomFieldDefinition> definitions, IEntityStore entities, ICustomizableEntityRegistry registry) : ICustomFieldService
 {
     public async Task<IReadOnlyList<CustomFieldDefinition>> GetDefinitionsAsync(string entityType, CancellationToken ct = default)
-        => await db.CustomFieldDefinitions.AsNoTracking().Where(d => d.EntityType == entityType).OrderBy(d => d.Order).ThenBy(d => d.Label).ToListAsync(ct);
+        => await definitions.Query(new Specification<CustomFieldDefinition>(d => d.EntityType == entityType)).OrderBy(d => d.Order).ThenBy(d => d.Label).ToListAsync(ct);
 
     public async Task ApplyAsync(string entityType, IHasCustomFields entity, JsonObject? values, bool isCreate, CancellationToken ct = default)
     {
@@ -62,8 +62,7 @@ public sealed class CustomFieldService(IAppDbContext db, ICustomizableEntityRegi
         var def = registry.Find(entityType);
         if (def is null) return false;
         // Global query filters (workspace, legal entity, soft delete) apply, so ids from another workspace are "not found".
-        var set = (IQueryable<Entity>)typeof(IAppDbContext).GetMethod(nameof(IAppDbContext.Set))!.MakeGenericMethod(def.ClrType).Invoke(db, null)!;
-        return await set.AnyAsync(e => e.Id == id, ct);
+        return await entities.ExistsAsync(def.ClrType, id, ct);
     }
 }
 
@@ -84,23 +83,39 @@ public sealed record ListCustomFieldDefinitions(string EntityType, bool IncludeI
 }
 
 /// <summary>Active definitions for rendering forms; any signed-in user who can see the entity can read them.</summary>
-public sealed record GetFormFields(string EntityType) : IRequest<IReadOnlyList<CustomFieldDefinitionDto>>;
+public sealed record GetFormFields(string EntityType) : IQuery<IReadOnlyList<CustomFieldDefinitionDto>>;
 
-internal sealed class CustomFieldQueryHandlers(IAppDbContext db) :
+public sealed record CustomizableEntityDto(string Key, string Label, string Module);
+
+/// <summary>Entity types that accept custom fields (core and installed modules).</summary>
+public sealed record ListCustomizableEntities : IQuery<IReadOnlyList<CustomizableEntityDto>>, IRequirePermission
+{
+    public string RequiredPermission => CorePermissions.CustomFieldsRead;
+}
+
+internal sealed class CustomizableEntityHandler(ICustomizableEntityRegistry registry) : IRequestHandler<ListCustomizableEntities, IReadOnlyList<CustomizableEntityDto>>
+{
+    public Task<IReadOnlyList<CustomizableEntityDto>> Handle(ListCustomizableEntities q, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<CustomizableEntityDto>>(registry.All.Select(d => new CustomizableEntityDto(d.Key, d.Label, d.ModuleKey)).ToList());
+}
+
+internal sealed class CustomFieldQueryHandlers(IReadRepository<CustomFieldDefinition> definitions, ICustomizableEntityRegistry registry, ICurrentUser user) :
     IRequestHandler<ListCustomFieldDefinitions, IReadOnlyList<CustomFieldDefinitionDto>>,
     IRequestHandler<GetFormFields, IReadOnlyList<CustomFieldDefinitionDto>>
 {
     public async Task<IReadOnlyList<CustomFieldDefinitionDto>> Handle(ListCustomFieldDefinitions q, CancellationToken ct)
-        => (await db.CustomFieldDefinitions.AsNoTracking()
-                .Where(d => d.EntityType == q.EntityType && (q.IncludeInactive || d.IsActive))
+        => (await definitions.Query(new Specification<CustomFieldDefinition>(d => d.EntityType == q.EntityType && (q.IncludeInactive || d.IsActive)))
                 .OrderBy(d => d.Order).ThenBy(d => d.Label).ToListAsync(ct))
             .Select(d => d.ToDto()).ToList();
 
     public async Task<IReadOnlyList<CustomFieldDefinitionDto>> Handle(GetFormFields q, CancellationToken ct)
-        => (await db.CustomFieldDefinitions.AsNoTracking()
-                .Where(d => d.EntityType == q.EntityType && d.IsActive)
+    {
+        var entity = registry.Find(q.EntityType) ?? throw new NotFoundException();
+        if (entity.Permission is { } permission && !user.HasPermission(permission)) throw new ForbiddenException();
+        return (await definitions.Query(new Specification<CustomFieldDefinition>(d => d.EntityType == q.EntityType && d.IsActive))
                 .OrderBy(d => d.Order).ThenBy(d => d.Label).ToListAsync(ct))
             .Select(d => d.ToDto()).ToList();
+    }
 }
 
 // ---- Commands --------------------------------------------------------------
@@ -134,7 +149,7 @@ public sealed class CustomFieldDefinitionInputValidator : AbstractValidator<Crea
     }
 }
 
-internal sealed class CustomFieldCommandHandlers(IAppDbContext db, ICustomizableEntityRegistry registry) :
+internal sealed class CustomFieldCommandHandlers(IRepository<CustomFieldDefinition> definitions, ICustomizableEntityRegistry registry) :
     IRequestHandler<CreateCustomFieldDefinition, CustomFieldDefinitionDto>,
     IRequestHandler<UpdateCustomFieldDefinition, CustomFieldDefinitionDto>,
     IRequestHandler<DeactivateCustomFieldDefinition, CustomFieldDefinitionDto>
@@ -143,9 +158,9 @@ internal sealed class CustomFieldCommandHandlers(IAppDbContext db, ICustomizable
     {
         var i = cmd.Input;
         if (registry.Find(i.EntityType) is null) throw new FieldValidationException("entityType", $"'{i.EntityType}' does not support custom fields.");
-        if (await db.CustomFieldDefinitions.AnyAsync(d => d.EntityType == i.EntityType && d.Key == i.Key, ct))
+        if (await definitions.AnyAsync(d => d.EntityType == i.EntityType && d.Key == i.Key, ct))
             throw new ConflictException($"A field with key '{i.Key}' already exists on {i.EntityType}.");
-        if (i.IsActive && await db.CustomFieldDefinitions.CountAsync(d => d.EntityType == i.EntityType && d.IsActive, ct) >= CustomFieldValidator.MaxFieldsPerEntityType)
+        if (i.IsActive && await definitions.CountAsync(d => d.EntityType == i.EntityType && d.IsActive, ct) >= CustomFieldValidator.MaxFieldsPerEntityType)
             throw new ConflictException($"An entity type can have at most {CustomFieldValidator.MaxFieldsPerEntityType} active custom fields.");
 
         var def = new CustomFieldDefinition
@@ -156,14 +171,14 @@ internal sealed class CustomFieldCommandHandlers(IAppDbContext db, ICustomizable
             LegalEntityId = i.LegalEntityId, ShowInList = i.ShowInList, Sortable = i.Sortable && i.IsSearchable,
         };
         ThrowIfInvalid(def);
-        db.CustomFieldDefinitions.Add(def);
-        await db.SaveChangesAsync(ct);
+        definitions.Add(def);
+        await definitions.SaveChangesAsync(ct);
         return def.ToDto();
     }
 
     public async Task<CustomFieldDefinitionDto> Handle(UpdateCustomFieldDefinition cmd, CancellationToken ct)
     {
-        var def = await db.CustomFieldDefinitions.FirstOrDefaultAsync(d => d.Id == cmd.Id, ct) ?? throw new NotFoundException();
+        var def = await definitions.GetForUpdateAsync(cmd.Id, ct);
         var i = cmd.Input;
         if (i.Key != def.Key) throw new FieldValidationException("key", "The key cannot be changed after the field is created.");
         if (i.EntityType != def.EntityType) throw new FieldValidationException("entityType", "The entity type cannot be changed.");
@@ -174,15 +189,15 @@ internal sealed class CustomFieldCommandHandlers(IAppDbContext db, ICustomizable
         def.Order = i.Order; def.Section = i.Section; def.HelpText = i.HelpText; def.IsSearchable = i.IsSearchable; def.IsActive = i.IsActive;
         def.DefaultValue = i.DefaultValue?.ToJsonString(); def.LegalEntityId = i.LegalEntityId; def.ShowInList = i.ShowInList; def.Sortable = i.Sortable && i.IsSearchable;
         ThrowIfInvalid(def);
-        await db.SaveChangesAsync(ct);
+        await definitions.SaveChangesAsync(ct);
         return def.ToDto();
     }
 
     public async Task<CustomFieldDefinitionDto> Handle(DeactivateCustomFieldDefinition cmd, CancellationToken ct)
     {
-        var def = await db.CustomFieldDefinitions.FirstOrDefaultAsync(d => d.Id == cmd.Id, ct) ?? throw new NotFoundException();
+        var def = await definitions.GetForUpdateAsync(cmd.Id, ct);
         def.IsActive = false;
-        await db.SaveChangesAsync(ct);
+        await definitions.SaveChangesAsync(ct);
         return def.ToDto();
     }
 
@@ -201,7 +216,7 @@ internal sealed class CustomFieldCommandHandlers(IAppDbContext db, ICustomizable
 public sealed record GetCustomFieldValues(string EntityType, Guid RecordId) : IRequest<JsonObject>;
 public sealed record SetCustomFieldValues(string EntityType, Guid RecordId, JsonObject Values) : IRequest<JsonObject>;
 
-internal sealed class CustomFieldValueHandlers(IAppDbContext db, ICustomizableEntityRegistry registry, ICustomFieldService fields, ICurrentUser user) :
+internal sealed class CustomFieldValueHandlers(IEntityStore entities, ICustomizableEntityRegistry registry, ICustomFieldService fields, ICurrentUser user) :
     IRequestHandler<GetCustomFieldValues, JsonObject>,
     IRequestHandler<SetCustomFieldValues, JsonObject>
 {
@@ -215,7 +230,7 @@ internal sealed class CustomFieldValueHandlers(IAppDbContext db, ICustomizableEn
     {
         var (def, entity) = await LoadAsync(cmd.EntityType, cmd.RecordId, write: true, ct);
         await fields.ApplyAsync(def.Key, entity, cmd.Values, isCreate: false, ct);
-        await db.SaveChangesAsync(ct);
+        await entities.SaveChangesAsync(ct);
         return await fields.ReadAsync(def.Key, entity, ct);
     }
 
@@ -227,8 +242,7 @@ internal sealed class CustomFieldValueHandlers(IAppDbContext db, ICustomizableEn
             var needed = write ? perm.Replace(".read", ".write") : perm;
             if (!user.HasPermission(needed)) throw new ForbiddenException();
         }
-        var set = (IQueryable<Entity>)typeof(IAppDbContext).GetMethod(nameof(IAppDbContext.Set))!.MakeGenericMethod(def.ClrType).Invoke(db, null)!;
-        var entity = await set.FirstOrDefaultAsync(e => e.Id == id, ct) as IHasCustomFields ?? throw new NotFoundException();
+        var entity = await entities.FindForUpdateAsync(def.ClrType, id, ct) as IHasCustomFields ?? throw new NotFoundException();
         return (def, entity);
     }
 }

@@ -1,7 +1,8 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Domain.Common;
-using ERP.Infrastructure.Auth;
+using ERP.Application.Auth;
+using ERP.Domain.Organizations;
 using ERP.Modularity;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
@@ -18,13 +19,13 @@ public sealed class LegalEntityScopeMiddleware(RequestDelegate next)
 {
     public const string Header = "X-Entity-Id";
 
-    public async Task InvokeAsync(HttpContext http, ICurrentUser user, IAppDbContext db)
+    public async Task InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository<LegalEntity> legalEntities)
     {
         if (user.IsAuthenticated && http.Request.Headers.TryGetValue(Header, out var raw) && !string.IsNullOrWhiteSpace(raw))
         {
             if (!Guid.TryParse(raw, out var id)
                 || (user.AllowedLegalEntityIds is { } allowed && !allowed.Contains(id))
-                || !await db.LegalEntities.AnyAsync(e => e.Id == id, http.RequestAborted))
+                || !await legalEntities.AnyAsync(e => e.Id == id, http.RequestAborted))
             {
                 await ApiEnvelope.WriteErrorAsync(http, StatusCodes.Status403Forbidden, "Legal entity not allowed", "You cannot work in that legal entity.");
                 return;
@@ -50,6 +51,7 @@ public sealed class ProblemExceptionHandler(ILogger<ProblemExceptionHandler> log
             DomainException d => new ProblemDetails { Status = 409, Title = "Rule violated", Detail = d.Message },
             AuthException a => new ProblemDetails { Status = a.Status, Title = a.Status == 423 ? "Account locked" : "Authentication failed", Detail = a.Message },
             DbUpdateConcurrencyException => new ProblemDetails { Status = 409, Title = "Concurrency conflict", Detail = "The record was changed by someone else. Reload and try again." },
+            InvalidDataException d => new ProblemDetails { Status = 400, Title = "Bad request", Detail = d.Message }, // malformed multipart / form body
             BadHttpRequestException b => new ProblemDetails { Status = b.StatusCode, Title = "Bad request", Detail = b.Message },
             System.Text.Json.JsonException j => new ProblemDetails { Status = 400, Title = "Invalid JSON", Detail = j.Message },
             _ => new ProblemDetails { Status = 500, Title = "Unexpected error", Detail = env.IsDevelopment() || env.IsEnvironment("Testing") ? ex.ToString() : "An unexpected error occurred." },

@@ -1,5 +1,4 @@
 using ERP.Application.Security;
-using ERP.Infrastructure.Services;
 using ERP.Modularity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;

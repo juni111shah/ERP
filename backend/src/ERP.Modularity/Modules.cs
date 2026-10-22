@@ -25,8 +25,6 @@ public sealed record MenuItemDefinition(
     string Id, string Label, string Route, string? Icon = null, string? Permission = null, int Order = 0,
     string GroupId = "", string? GroupLabel = null, int GroupOrder = 500);
 
-public sealed record SettingDefinition(string Key, string Label, string DefaultJson, string Type = "number", string? Description = null);
-
 /// <summary>
 /// Contract every pluggable module implements. A module registers its services, EF Core model, HTTP endpoints
 /// (mounted under /api/v1/m/{key}), permissions, menu items, settings, customizable entities and industry templates.
