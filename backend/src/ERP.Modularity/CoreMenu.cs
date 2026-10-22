@@ -11,6 +11,8 @@ public static class CoreMenu
         new("core.approvals", "Approvals", "/approvals", "check-square", null, 20, "workspace", "Workspace", 10),
         new("core.parties", "Parties", "/parties", "team", CorePermissions.PartiesRead, 10, "masterdata", "Master data", 20),
         new("core.items", "Items", "/catalog/items", "shopping", CorePermissions.ItemsRead, 20, "masterdata", "Master data", 20),
+        new("finance.journals", "Journals", "/finance/journals", "book", CorePermissions.JournalsRead, 5, "finance", "Finance", 50),
+        new("finance.reports", "Financial reports", "/finance/reports", "bar-chart", CorePermissions.ReportsRead, 30, "finance", "Finance", 50),
         new("finance.accounts", "Chart of accounts", "/finance/accounts", "account-book", CorePermissions.AccountsRead, 10, "finance", "Finance", 50),
         new("finance.taxcodes", "Tax codes", "/finance/tax-codes", "percentage", CorePermissions.TaxRead, 20, "finance", "Finance", 50),
         new("core.legalentities", "Legal entities", "/admin/legal-entities", "apartment", CorePermissions.EntitiesRead, 10, "admin", "Administration", 900),

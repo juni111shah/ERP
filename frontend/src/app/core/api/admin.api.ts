@@ -104,3 +104,43 @@ export class AdminApi {
   countries(): Observable<CountryDto[]> { return this.http.get<CountryDto[]>(`${this.base}/platform/countries`); }
   currencies(): Observable<CurrencyOption[]> { return this.http.get<CurrencyOption[]>(`${this.base}/platform/currencies`); }
 }
+
+// ---- Ledger ------------------------------------------------------------------------------------------------------------------
+
+export interface JournalSummary { id: string; number: string; legalEntityId: string; date: string; memo?: string; sourceType: string; status: string; amount: number; currencyCode: string; }
+export interface JournalLineDto { id: string; seq: number; accountId: string; accountCode: string; accountName: string; debit: number; credit: number; description?: string; partyId?: string; }
+export interface JournalDto {
+  id: string; number: string; legalEntityId: string; date: string; memo?: string; reference?: string; sourceType: string; sourceId?: string; currencyCode: string;
+  status: string; amount: number; reversalOfId?: string; postedAt?: string; lines: JournalLineDto[];
+}
+export interface TrialBalanceRow { accountId: string; code: string; name: string; type: string; reportingGroup?: string; opening: number; debit: number; credit: number; closing: number; }
+export interface TrialBalance { from?: string; to: string; rows: TrialBalanceRow[]; totalDebit: number; totalCredit: number; balanced: boolean; }
+export interface LedgerLine { journalId: string; number: string; date: string; memo?: string; description?: string; debit: number; credit: number; balance: number; }
+export interface GeneralLedger { accountId: string; code: string; name: string; opening: number; lines: LedgerLine[]; closing: number; }
+export interface StatementLine { group: string; code: string; name: string; amount: number; }
+export interface IncomeStatement { from: string; to: string; income: StatementLine[]; expenses: StatementLine[]; totalIncome: number; totalExpenses: number; netProfit: number; }
+export interface BalanceSheet {
+  asOf: string; assets: StatementLine[]; liabilities: StatementLine[]; equity: StatementLine[]; totalAssets: number; totalLiabilities: number; totalEquity: number;
+  currentEarnings: number; balanced: boolean;
+}
+
+@Injectable({ providedIn: 'root' })
+export class JournalsApi extends CrudApiService<JournalSummary, unknown> {
+  protected readonly resource = 'finance/journals';
+  detail(id: string): Observable<JournalDto> { return this.http.get<JournalDto>(`${this.url}/${id}`); }
+  save(id: string | null, body: unknown): Observable<JournalDto> { return id ? this.http.put<JournalDto>(`${this.url}/${id}`, body) : this.http.post<JournalDto>(this.url, body); }
+  post(id: string): Observable<JournalDto> { return this.http.post<JournalDto>(`${this.url}/${id}/post`, {}); }
+  reverse(id: string, memo?: string): Observable<JournalDto> { return this.http.post<JournalDto>(`${this.url}/${id}/reverse`, { memo: memo ?? null }); }
+  lockBooks(entityId: string, through: string | null): Observable<unknown> { return this.http.put(`${this.baseUrl}/legal-entities/${entityId}/books-lock`, { through }); }
+}
+
+@Injectable({ providedIn: 'root' })
+export class LedgerReportsApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${inject(API_BASE_URL)}/finance/reports`;
+  private params(p: Record<string, string | undefined>): Record<string, string> { return Object.fromEntries(Object.entries(p).filter(([, v]) => !!v)) as Record<string, string>; }
+  trialBalance(p: { from?: string; to: string; legalEntityId?: string }): Observable<TrialBalance> { return this.http.get<TrialBalance>(`${this.base}/trial-balance`, { params: this.params(p) }); }
+  generalLedger(p: { accountId: string; from?: string; to: string; legalEntityId?: string }): Observable<GeneralLedger> { return this.http.get<GeneralLedger>(`${this.base}/general-ledger`, { params: this.params(p) }); }
+  incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
+  balanceSheet(p: { asOf: string; legalEntityId?: string }): Observable<BalanceSheet> { return this.http.get<BalanceSheet>(`${this.base}/balance-sheet`, { params: this.params(p) }); }
+}
