@@ -144,19 +144,39 @@ public enum InstrumentDirection { Received, Issued }
 public enum InstrumentStatus { InCustody, Deposited, Cleared, Bounced, Replaced, Cancelled, Issued }
 
 /// <summary>Core finance payment instrument (cheques / PDCs). Permissions: finance.cheques.read/write. Schema-only in sprint 0.</summary>
+[DefaultSort("instrumentDate")]
 public class PaymentInstrument : LegalEntityScopedEntity
 {
+    [Searchable, Sortable]
     public string Number { get; set; } = default!;
+    [Filterable]
     public InstrumentKind Kind { get; set; }
+    [Filterable]
     public InstrumentDirection Direction { get; set; }
+    [Searchable]
     public string InstrumentNo { get; set; } = default!;
+    [Searchable]
     public string? BankName { get; set; }
+    [Sortable]
     public decimal Amount { get; set; }
     public string CurrencyCode { get; set; } = default!;
+    /// <summary>The date written on the cheque: a post-dated cheque matures on this date.</summary>
+    [Sortable, Filterable]
     public DateOnly InstrumentDate { get; set; }
     public DateOnly? ReceivedOn { get; set; }
+    [Filterable]
     public Guid? PartyId { get; set; }
+    [Searchable]
+    public string? PartyName { get; set; }
+    [Filterable]
     public InstrumentStatus Status { get; set; }
+    /// <summary>Bank account the cheque is deposited to (received) or drawn on (issued).</summary>
+    public Guid? BankAccountId { get; set; }
+    public Guid? SettlementId { get; set; }
+    public DateOnly? DepositedOn { get; set; }
+    public DateOnly? ClearedOn { get; set; }
+    public string? BounceReason { get; set; }
+    public Guid? ReplacesInstrumentId { get; set; }
     /// <summary>Generic link to the business document it settles (module-defined type + id).</summary>
     public string? SourceType { get; set; }
     public Guid? SourceId { get; set; }

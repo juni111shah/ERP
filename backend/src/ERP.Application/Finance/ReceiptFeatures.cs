@@ -40,7 +40,7 @@ public sealed class ReceiptInputValidator : AbstractValidator<ReceiptInput>
 public sealed class CreateReceiptValidator : AbstractValidator<CreateReceipt> { public CreateReceiptValidator() => RuleFor(x => x.Input).SetValidator(new ReceiptInputValidator()); }
 
 internal sealed class ReceiptHandlers(
-    IRepository<Settlement> settlements, IRepository<SettlementAllocation> allocationRows, IRepository<Invoice> invoices, IRepository<JournalEntry> journals,
+    IRepository<Settlement> settlements, IRepository<SettlementAllocation> allocationRows, IRepository<Invoice> invoices, ISettlementService settlementService,
     IReadRepository<Account> accounts, IReadRepository<Party> parties, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering) :
     IRequestHandler<GetReceipt, ReceiptDto>,
     IRequestHandler<CreateReceipt, ReceiptDto>,
@@ -66,7 +66,7 @@ internal sealed class ReceiptHandlers(
             LegalEntityId = entity.Id, Direction = InstrumentDirection.Received, PartyId = party.Id, PartyName = party.Name, Date = i.Date, Method = i.Method, BankAccountId = bank.Id,
             CurrencyCode = entity.BaseCurrency, Amount = i.Amount, Unallocated = i.Amount, Reference = i.Reference, Status = DocumentStatus.Issued, Number = "pending",
         };
-        var applied = await AllocateAsync(settlement, i.Allocations ?? [], ct);
+        var applied = await settlementService.AllocateAsync(settlement, i.Allocations ?? [], ct);
         settlement.Number = await numbering.NextAsync("receipt", entity.Id, i.Date, ct);
         var ar = await posting.AccountForRoleAsync(SystemRoles.ArControl, ct);
         var memo = $"Receipt from {party.Name}";
@@ -83,7 +83,7 @@ internal sealed class ReceiptHandlers(
     {
         var s = await LoadAsync(cmd.Id, ct);
         if (s.Status != DocumentStatus.Issued) throw new ConflictException("Only a posted receipt can be allocated.");
-        var applied = await AllocateAsync(s, cmd.Allocations, ct);
+        var applied = await settlementService.AllocateAsync(s, cmd.Allocations, ct);
         allocationRows.AddRange(applied);
         await settlements.SaveChangesAsync(ct);
         return await ToDtoAsync(s, ct, s.Allocations.Concat(applied).ToList());
@@ -93,41 +93,10 @@ internal sealed class ReceiptHandlers(
     {
         var s = await LoadAsync(cmd.Id, ct);
         if (s.Status != DocumentStatus.Issued) throw new ConflictException("This receipt is already voided.");
-        var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == s.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
-        await posting.ReverseAsync(journal, journal.Date, $"Void {s.Number}", ct);
-        var ids = s.Allocations.Select(a => a.InvoiceId!.Value).ToList();
-        foreach (var inv in await invoices.Tracked(new Specification<Invoice>(x => ids.Contains(x.Id))).ToListAsync(ct))
-        {
-            inv.Paid -= s.Allocations.Where(a => a.InvoiceId == inv.Id).Sum(a => a.Amount);
-            SettlementStatus.Refresh(inv);
-        }
+        await settlementService.ReverseAsync(s, $"Void {s.Number}", ct);
         s.Status = DocumentStatus.Voided; s.Unallocated = 0;
         await settlements.SaveChangesAsync(ct);
         return await ToDtoAsync(s, ct);
-    }
-
-    /// <summary>Validates and applies allocations to open invoices of the receipt's customer; returns the new allocation rows.</summary>
-    private async Task<List<SettlementAllocation>> AllocateAsync(Settlement s, List<AllocationInput> requested, CancellationToken ct)
-    {
-        if (requested.Count == 0) return [];
-        if (requested.GroupBy(r => r.InvoiceId).Any(g => g.Count() > 1)) throw new FieldValidationException("allocations", "An invoice can appear only once.");
-        if (requested.Any(r => r.Amount <= 0)) throw new FieldValidationException("allocations", "Allocation amounts must be positive.");
-        if (requested.Sum(r => r.Amount) > s.Unallocated) throw new FieldValidationException("allocations", "The allocations exceed the unallocated amount of the receipt.");
-        var ids = requested.Select(r => r.InvoiceId).ToList();
-        var open = await invoices.Tracked(new Specification<Invoice>(x => ids.Contains(x.Id))).ToListAsync(ct);
-        var result = new List<SettlementAllocation>();
-        foreach (var r in requested)
-        {
-            var inv = open.FirstOrDefault(x => x.Id == r.InvoiceId) ?? throw new FieldValidationException("allocations", "An invoice was not found.");
-            if (inv.IsCreditNote || inv.PartyId != s.PartyId || inv.LegalEntityId != s.LegalEntityId) throw new FieldValidationException("allocations", $"{inv.Number} is not an invoice of this customer.");
-            if (inv.Status is not (DocumentStatus.Issued or DocumentStatus.PartlyPaid)) throw new FieldValidationException("allocations", $"{inv.Number} is not open.");
-            if (r.Amount > inv.Total - inv.Paid) throw new FieldValidationException("allocations", $"{inv.Number} has only {inv.Total - inv.Paid:0.00} outstanding.");
-            inv.Paid += r.Amount;
-            SettlementStatus.Refresh(inv);
-            s.Unallocated -= r.Amount;
-            result.Add(new SettlementAllocation { SettlementId = s.Id, InvoiceId = inv.Id, Amount = r.Amount });
-        }
-        return result;
     }
 
     private async Task<Settlement> LoadAsync(Guid id, CancellationToken ct)
