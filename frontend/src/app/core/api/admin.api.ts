@@ -144,6 +144,7 @@ export class LedgerReportsApi {
   incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
   balanceSheet(p: { asOf: string; legalEntityId?: string }): Observable<BalanceSheet> { return this.http.get<BalanceSheet>(`${this.base}/balance-sheet`, { params: this.params(p) }); }
   arAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
+  apAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ap-ageing`, { params: this.params(p) }); }
 }
 
 // ---- Receivables -------------------------------------------------------------------------------------------------------------
@@ -233,4 +234,41 @@ export class BankApi {
   unmatch(lineId: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/unmatch`, {}); }
   book(lineId: string, counterAccountId: string, memo?: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/book`, { counterAccountId, memo: memo ?? null }); }
   transfer(body: unknown): Observable<unknown> { return this.http.post(`${this.base}/transfers`, body); }
+}
+
+// ---- Payables ----------------------------------------------------------------------------------------------------------------
+
+export interface BillLine { id?: string; seq?: number; description: string; quantity: number; price: number; taxCodeId?: string; taxAmount?: number; taxRecoverable?: boolean; net?: number; accountId?: string; }
+export interface BillSummary { id: string; number: string; partyId: string; partyName?: string; vendorReference?: string; billDate: string; dueDate: string; total: number; paid: number; outstanding: number; status: string; currencyCode: string; }
+export interface BillDto extends BillSummary { legalEntityId: string; net: number; tax: number; approvalRequestId?: string; journalEntryId?: string; notes?: string; lines: BillLine[]; }
+export interface PaymentSummary { id: string; number: string; partyId: string; partyName?: string; date: string; method: string; amount: number; unallocated: number; status: string; currencyCode: string; }
+export interface PaymentDto extends PaymentSummary { legalEntityId: string; bankAccountId?: string; reference?: string; paymentInstrumentId?: string; allocations: { id: string; billId: string; billNumber: string; amount: number }[]; }
+export interface ApprovalPolicy { id: string; documentType: string; minAmount?: number; approverPermission: string; isActive: boolean; }
+export const PAYMENT_METHODS = [...SETTLEMENT_METHODS, { value: 'instrument', label: 'Cheque issued' }];
+
+@Injectable({ providedIn: 'root' })
+export class BillsApi extends CrudApiService<BillSummary, unknown> {
+  protected readonly resource = 'finance/bills';
+  detail(id: string): Observable<BillDto> { return this.http.get<BillDto>(`${this.url}/${id}`); }
+  save(id: string | null, body: unknown): Observable<BillDto> { return id ? this.http.put<BillDto>(`${this.url}/${id}`, body) : this.http.post<BillDto>(this.url, body); }
+  post(id: string): Observable<BillDto> { return this.http.post<BillDto>(`${this.url}/${id}/post`, {}); }
+  void(id: string): Observable<BillDto> { return this.http.post<BillDto>(`${this.url}/${id}/void`, {}); }
+}
+
+@Injectable({ providedIn: 'root' })
+export class PaymentsApi extends CrudApiService<PaymentSummary, unknown> {
+  protected readonly resource = 'finance/payments';
+  detail(id: string): Observable<PaymentDto> { return this.http.get<PaymentDto>(`${this.url}/${id}`); }
+  allocate(id: string, allocations: { billId: string; amount: number }[]): Observable<PaymentDto> { return this.http.post<PaymentDto>(`${this.url}/${id}/allocate`, { allocations }); }
+  void(id: string): Observable<PaymentDto> { return this.http.post<PaymentDto>(`${this.url}/${id}/void`, {}); }
+  clearCheque(instrumentId: string, date: string): Observable<PaymentDto> { return this.http.post<PaymentDto>(`${this.baseUrl}/finance/cheques/${instrumentId}/clear-issued`, { date }); }
+}
+
+@Injectable({ providedIn: 'root' })
+export class ApprovalPoliciesApi {
+  private readonly http = inject(HttpClient);
+  private readonly url = `${inject(API_BASE_URL)}/approval-policies`;
+  list(): Observable<ApprovalPolicy[]> { return this.http.get<ApprovalPolicy[]>(this.url); }
+  save(id: string | null, body: unknown): Observable<ApprovalPolicy> { return id ? this.http.put<ApprovalPolicy>(`${this.url}/${id}`, body) : this.http.post<ApprovalPolicy>(this.url, body); }
+  remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
 }

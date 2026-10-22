@@ -27,8 +27,8 @@ internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadR
         var open = await OpenAsync(q.AsOf, q.LegalEntityId, null, ct);
         var onAccount = await UnallocatedAsync(q.LegalEntityId, null, ct);
         var rows = new Dictionary<Guid, AgeingRow>();
-        foreach (var o in open) rows[o.PartyId] = Add(rows.GetValueOrDefault(o.PartyId) ?? new AgeingRow(o.PartyId, o.PartyName, 0, 0, 0, 0, 0, 0), q.AsOf, o.DueDate, Signed(o));
-        foreach (var (party, name, amount) in onAccount) rows[party] = Add(rows.GetValueOrDefault(party) ?? new AgeingRow(party, name, 0, 0, 0, 0, 0, 0), q.AsOf, q.AsOf, -amount);
+        foreach (var o in open) rows[o.PartyId] = Ageing.Add(rows.GetValueOrDefault(o.PartyId) ?? new AgeingRow(o.PartyId, o.PartyName, 0, 0, 0, 0, 0, 0), q.AsOf, o.DueDate, Signed(o));
+        foreach (var (party, name, amount) in onAccount) rows[party] = Ageing.Add(rows.GetValueOrDefault(party) ?? new AgeingRow(party, name, 0, 0, 0, 0, 0, 0), q.AsOf, q.AsOf, -amount);
         var list = rows.Values.Where(r => r.Total != 0).OrderBy(r => r.PartyName).ToList();
         var totals = new AgeingRow(Guid.Empty, "Total", list.Sum(r => r.Current), list.Sum(r => r.Days1To30), list.Sum(r => r.Days31To60), list.Sum(r => r.Days61To90), list.Sum(r => r.Over90), list.Sum(r => r.Total));
         return new ArAgeingDto(q.AsOf, list, totals);
@@ -44,19 +44,6 @@ internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadR
 
     private static decimal Signed(Open o) => (o.IsCreditNote ? -1 : 1) * (o.Total - o.Paid);
 
-    private static AgeingRow Add(AgeingRow r, DateOnly asOf, DateOnly due, decimal amount)
-    {
-        var late = asOf.DayNumber - due.DayNumber;
-        return late switch
-        {
-            <= 0 => r with { Current = r.Current + amount, Total = r.Total + amount },
-            <= 30 => r with { Days1To30 = r.Days1To30 + amount, Total = r.Total + amount },
-            <= 60 => r with { Days31To60 = r.Days31To60 + amount, Total = r.Total + amount },
-            <= 90 => r with { Days61To90 = r.Days61To90 + amount, Total = r.Total + amount },
-            _ => r with { Over90 = r.Over90 + amount, Total = r.Total + amount },
-        };
-    }
-
     private async Task<List<Open>> OpenAsync(DateOnly asOf, Guid? entityId, Guid? partyId, CancellationToken ct)
         => await invoices.Query(new Specification<Invoice>(i => (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid) && i.InvoiceDate <= asOf
                 && (entityId == null || i.LegalEntityId == entityId) && (partyId == null || i.PartyId == partyId)))
@@ -68,5 +55,22 @@ internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadR
                 && (entityId == null || s.LegalEntityId == entityId) && (partyId == null || s.PartyId == partyId)))
             .Select(s => new { s.PartyId, s.PartyName, s.Unallocated }).ToListAsync(ct);
         return rows.GroupBy(r => r.PartyId).Select(g => (g.Key, g.First().PartyName, g.Sum(r => r.Unallocated))).ToList();
+    }
+}
+
+/// <summary>Buckets an amount by days past due (shared by receivables and payables ageing).</summary>
+internal static class Ageing
+{
+    public static AgeingRow Add(AgeingRow r, DateOnly asOf, DateOnly due, decimal amount)
+    {
+        var late = asOf.DayNumber - due.DayNumber;
+        return late switch
+        {
+            <= 0 => r with { Current = r.Current + amount, Total = r.Total + amount },
+            <= 30 => r with { Days1To30 = r.Days1To30 + amount, Total = r.Total + amount },
+            <= 60 => r with { Days31To60 = r.Days31To60 + amount, Total = r.Total + amount },
+            <= 90 => r with { Days61To90 = r.Days61To90 + amount, Total = r.Total + amount },
+            _ => r with { Over90 = r.Over90 + amount, Total = r.Total + amount },
+        };
     }
 }

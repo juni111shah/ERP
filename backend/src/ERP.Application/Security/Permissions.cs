@@ -56,6 +56,11 @@ public static class CorePermissions
     public const string ReportsRead = "finance.reports.read";
     public const string BankRead = "finance.bank.read";
     public const string BankWrite = "finance.bank.write";
+    public const string BillsRead = "finance.bills.read";
+    public const string BillsWrite = "finance.bills.write";
+    public const string BillsPost = "finance.bills.post";
+    public const string PaymentsRead = "finance.payments.read";
+    public const string PaymentsWrite = "finance.payments.write";
     public const string InvoicesRead = "finance.invoices.read";
     public const string InvoicesWrite = "finance.invoices.write";
     public const string InvoicesIssue = "finance.invoices.issue";
@@ -101,6 +106,11 @@ public static class CorePermissions
         PermissionDefinition.Of(ReportsRead, "View financial reports"),
         PermissionDefinition.Of(BankRead, "View bank balances and reconciliations"),
         PermissionDefinition.Of(BankWrite, "Import statements, reconcile and transfer funds"),
+        PermissionDefinition.Of(BillsRead, "View vendor bills"),
+        PermissionDefinition.Of(BillsWrite, "Create and edit draft vendor bills"),
+        PermissionDefinition.Of(BillsPost, "Post and void vendor bills"),
+        PermissionDefinition.Of(PaymentsRead, "View vendor payments"),
+        PermissionDefinition.Of(PaymentsWrite, "Make, allocate and void vendor payments"),
         PermissionDefinition.Of(InvoicesRead, "View invoices and credit notes"),
         PermissionDefinition.Of(InvoicesWrite, "Create and edit draft invoices and credit notes"),
         PermissionDefinition.Of(InvoicesIssue, "Issue, void and credit invoices"),
