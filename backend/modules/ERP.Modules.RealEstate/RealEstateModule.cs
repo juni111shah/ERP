@@ -51,6 +51,10 @@ public sealed class RealEstateModule : ModuleBase
         PermissionDefinition.Of(P.DealsCreate, "Create deals"),
         PermissionDefinition.Of(P.DealsEdit, "Edit deals and move them through the pipeline"),
         PermissionDefinition.Of(P.DealsLose, "Mark deals as lost"),
+        PermissionDefinition.Of(P.AcquisitionsRead, "View acquisitions and funding"),
+        PermissionDefinition.Of(P.AcquisitionsManage, "Create and edit draft acquisitions and their funding"),
+        PermissionDefinition.Of(P.AcquisitionsComplete, "Complete (capitalise) acquisitions"),
+        PermissionDefinition.Of(P.FundingPay, "Pay financing instalments"),
         PermissionDefinition.Of(P.DealsInvoice, "Raise commission invoices for deals"),
         PermissionDefinition.Of(P.DealsPayAgent, "Pay agent and team lead commission"),
         PermissionDefinition.Of(P.DepositsManage, "Record, transfer and settle tenant security deposits"),
@@ -64,6 +68,7 @@ public sealed class RealEstateModule : ModuleBase
         new("realestate.units", "Units", "/real-estate/units", "appstore", P.UnitsRead, 20, "realestate", "Real estate", 200),
         new("realestate.unittypes", "Unit types", "/real-estate/unit-types", "cluster", P.UnitTypesRead, 25, "realestate", "Real estate", 200),
         new("realestate.leases", "Leases", "/real-estate/leases", "file-text", P.LeasesRead, 30, "realestate", "Real estate", 200),
+        new("realestate.acquisitions", "Acquisitions", "/real-estate/acquisitions", "bank", P.AcquisitionsRead, 15, "realestate", "Real estate", 200),
         new("realestate.billing", "Rent billing", "/real-estate/billing", "dollar", P.BillingRun, 35, "realestate", "Real estate", 200),
         new("realestate.workorders", "Work orders", "/real-estate/work-orders", "tool", P.WorkOrdersRead, 40, "realestate", "Real estate", 200),
         new("realestate.deals", "Deals", "/real-estate/deals", "fund", P.DealsRead, 50, "realestate", "Real estate", 200),
@@ -96,7 +101,9 @@ public sealed class RealEstateModule : ModuleBase
                 new("4950", "Forfeited deposits and damages recovered", AccountType.Income, "realestate.income.damages", ReportingGroup: "Other income"),
                 new("6510", "Brokerage commission expense", AccountType.Expense, "realestate.expense.commission", ReportingGroup: "Operating expenses"),
                 new("2200", "Security deposits held", AccountType.Liability, "realestate.deposits", ReportingGroup: "Current liabilities"),
-                new("1600", "Investment property", AccountType.Asset, ReportingGroup: "Non-current assets"),
+                new("1600", "Investment property", AccountType.Asset, "realestate.investment", ReportingGroup: "Non-current assets"),
+                new("2600", "Property financing payable", AccountType.Liability, "realestate.financing", ReportingGroup: "Non-current liabilities"),
+                new("7000", "Finance costs", AccountType.Expense, "realestate.expense.finance", ReportingGroup: "Other expenses"),
                 new("6500", "Repairs and maintenance", AccountType.Expense, ReportingGroup: "Operating expenses"),
             ],
             Roles:
@@ -106,6 +113,8 @@ public sealed class RealEstateModule : ModuleBase
                      P.LeasesRead, P.LeasesCreate, P.LeasesEdit, P.LeasesActivate, P.LeasesRenew, P.LeasesTerminate, P.WorkOrdersRead, P.WorkOrdersCreate, P.BillingRun, P.DepositsManage,
                      CorePermissions.PartiesRead, CorePermissions.PartiesWrite, CorePermissions.ChequesRead, CorePermissions.ChequesWrite,
                      CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue, CorePermissions.ReceiptsRead, CorePermissions.ReceiptsWrite], Key),
+                new("Investment manager", "Acquisitions, funding and instalments",
+                    [P.PropertiesRead, P.AcquisitionsRead, P.AcquisitionsManage, P.AcquisitionsComplete, P.FundingPay, CorePermissions.BankRead, CorePermissions.ReportsRead], Key),
                 new("Facilities manager", "Maintenance and work orders",
                     [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.WorkOrdersRead, P.WorkOrdersCreate, P.WorkOrdersEdit, P.WorkOrdersAssign,
                      P.WorkOrdersComplete, P.WorkOrdersClose, P.WorkOrdersCancel, CorePermissions.PartiesRead], Key),
@@ -119,6 +128,7 @@ public sealed class RealEstateModule : ModuleBase
                 new(Docs.Property, "PROP", "{prefix}-{seq:4}", false),
                 new(Docs.WorkOrder, "WO"),
                 new(Docs.Deal, "DEAL"),
+                new(Docs.Acquisition, "ACQ"),
             ],
             SortOrder: 10),
     ];
@@ -128,6 +138,7 @@ public sealed class RealEstateModule : ModuleBase
         services.AddScoped<LeaseDtoFactory>();
         services.AddScoped<ERP.Application.Dashboard.IDashboardContributor, RealEstateDashboard>();
         services.AddScoped<LeaseExpiryProcessor>();
+        services.AddScoped<ERP.Application.Finance.ICashForecastSource, FinancingForecastSource>();
         services.AddScoped<ERP.Application.Abstractions.IScheduledJob, LeaseExpiryJob>();
     }
 

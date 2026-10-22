@@ -27,6 +27,10 @@ public static class P
     public const string DealsCreate = "realestate.deals.create";
     public const string DealsEdit = "realestate.deals.edit";
     public const string DealsLose = "realestate.deals.lose";
+    public const string AcquisitionsRead = "realestate.acquisitions.read";
+    public const string AcquisitionsManage = "realestate.acquisitions.manage";
+    public const string AcquisitionsComplete = "realestate.acquisitions.complete";
+    public const string FundingPay = "realestate.funding.pay";
     public const string DealsInvoice = "realestate.deals.invoice";
     public const string DealsPayAgent = "realestate.deals.payagent";
     public const string DepositsManage = "realestate.deposits.manage";
@@ -41,5 +45,6 @@ public static class Docs
     public const string Lease = "realestate.lease";
     public const string WorkOrder = "realestate.workorder";
     public const string Deal = "realestate.deal";
+    public const string Acquisition = "realestate.acquisition";
     public const string Unit = "realestate.unit";
 }

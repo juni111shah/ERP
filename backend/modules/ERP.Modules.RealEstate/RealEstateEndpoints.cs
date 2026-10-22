@@ -14,6 +14,7 @@ public sealed record UnitStatusBody(UnitAction Action, DateOnly? Until = null, s
 public sealed record TerminateBody(DateOnly Date, string Reason);
 public sealed record HoldingOverBody(bool HoldingOver);
 public sealed record WorkOrderStatusBody(WorkOrderStatus Status, decimal? ActualCost = null, string? ResolutionNotes = null);
+public sealed record PayInstalmentBody(Guid BankAccountId, DateOnly Date);
 public sealed record PayAgentBody(Guid BankAccountId, DateOnly Date);
 public sealed record DepositBody(Guid BankAccountId, DateOnly Date, decimal Amount);
 public sealed record TransferDepositBody(Guid ToLeaseId);
@@ -34,6 +35,7 @@ internal static class RealEstateEndpoints
         MapLeases(group.MapGroup("/leases"));
         MapWorkOrders(group.MapGroup("/work-orders"));
         MapDeals(group.MapGroup("/deals"));
+        MapAcquisitions(group.MapGroup("/acquisitions"));
         MapBilling(group.MapGroup("/billing"));
         MapReports(group.MapGroup("/reports"));
     }
@@ -47,6 +49,23 @@ internal static class RealEstateEndpoints
         g.MapGet("/lease-expiries", (int? months, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetLeaseExpiries(months ?? 12, legalEntityId), ct)).RequirePermission(perm);
         g.MapGet("/maintenance-costs", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetMaintenanceCosts(from, to, legalEntityId), ct)).RequirePermission(perm);
         g.MapGet("/commissions", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetCommissionsReport(from, to, legalEntityId), ct)).RequirePermission(perm);
+    }
+
+    private static void MapAcquisitions(RouteGroupBuilder g)
+    {
+        g.MapPagedList<Acquisition, AcquisitionSummaryDto>("", P.AcquisitionsRead, a => new AcquisitionSummaryDto(a.Id, a.Number, a.PropertyId, a.SellerName, a.PurchaseDate, a.PurchasePrice, a.DownPayment, a.Status, a.CurrencyCode));
+        g.MapGet("/overview", (ISender s, CancellationToken ct) => s.Send(new GetAcquisitionOverview(), ct)).RequirePermission(P.AcquisitionsRead);
+        g.MapGet("/funding", (ISender s, CancellationToken ct) => s.Send(new ListFundingSources(), ct)).RequirePermission(P.AcquisitionsRead);
+        g.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetAcquisition(id), ct)).RequirePermission(P.AcquisitionsRead);
+        g.MapPost("", async (AcquisitionInput input, ISender s, CancellationToken ct) =>
+        {
+            var created = await s.Send(new CreateAcquisition(input), ct);
+            return Results.Created($"{Base}/acquisitions/{created.Id}", created);
+        }).RequirePermission(P.AcquisitionsManage);
+        g.MapPut("/{id:guid}", (Guid id, AcquisitionInput input, ISender s, CancellationToken ct) => s.Send(new UpdateAcquisition(id, input), ct)).RequirePermission(P.AcquisitionsManage);
+        g.MapPost("/{id:guid}/cancel", (Guid id, ISender s, CancellationToken ct) => s.Send(new CancelAcquisition(id), ct)).RequirePermission(P.AcquisitionsManage);
+        g.MapPost("/{id:guid}/complete", (Guid id, ISender s, CancellationToken ct) => s.Send(new CompleteAcquisition(id), ct)).RequirePermission(P.AcquisitionsComplete);
+        g.MapPost("/instalments/{id:guid}/pay", (Guid id, PayInstalmentBody b, ISender s, CancellationToken ct) => s.Send(new PayFundingInstalment(id, b.BankAccountId, b.Date), ct)).RequirePermission(P.FundingPay);
     }
 
     private static void MapBilling(RouteGroupBuilder g)

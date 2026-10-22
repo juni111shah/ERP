@@ -24,7 +24,7 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Bills, payments, issued cheques, AP ageing | Done | Approval rules per document type (bills) are configurable. |
 | Bank and cash, reconciliation | Done | Statement import (paste), auto-match, book unmatched lines, transfers, cash position. |
 | HR, payroll, attendance | Missing | |
-| Acquisitions and funding | Missing | |
+| Acquisitions and funding | Done | Draft, complete (capitalise), annuity and 0% schedules, pay instalments, funding overview, forecast source. |
 | Reports (16 in the spec) | Partial | 15 built: P&L, balance sheet, trial balance, GL, tax summary, AR/AP ageing, rent roll, occupancy, portfolio performance, lease expiries, cash movements, cash forecast, maintenance costs, commissions. Gratuity comes with HR. CSV and Print on each. |
 | Global search, notification centre | Partial | Notifications API exists; no UI. |
 | Tenant portal | Missing | |
