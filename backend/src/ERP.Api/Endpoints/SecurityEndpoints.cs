@@ -6,6 +6,9 @@ using MediatR;
 
 namespace ERP.Api.Endpoints;
 
+public sealed record UserRolesBody(Guid[] RoleIds);
+public sealed record UserActiveBody(bool IsActive);
+
 public static class SecurityEndpoints
 {
     public static void MapSecurity(this RouteGroupBuilder api)
@@ -21,6 +24,8 @@ public static class SecurityEndpoints
             return Results.Created($"/api/v1/roles/{created.Id}", created);
         }).RequirePermission(CorePermissions.RolesWrite);
 
+        roles.MapPut("/{id:guid}", (Guid id, RoleInput input, ISender sender, CancellationToken ct) => sender.Send(new UpdateRole(id, input), ct)).RequirePermission(CorePermissions.RolesWrite);
+
         var users = api.MapGroup("/users").WithTags("Security");
         users.MapGet("", (ISender sender, CancellationToken ct) => sender.Send(new ListUsers(), ct)).RequirePermission(CorePermissions.UsersRead);
         users.MapPost("", async (InviteUserInput input, ISender sender, CancellationToken ct) =>
@@ -28,6 +33,9 @@ public static class SecurityEndpoints
             var invited = await sender.Send(new InviteUser(input), ct);
             return Results.Created($"/api/v1/users/{invited.Id}", invited);
         }).RequirePermission(CorePermissions.UsersWrite);
+
+        users.MapPut("/{id:guid}/roles", (Guid id, UserRolesBody body, ISender sender, CancellationToken ct) => sender.Send(new SetUserRoles(id, body.RoleIds), ct)).RequirePermission(CorePermissions.UsersWrite);
+        users.MapPost("/{id:guid}/active", (Guid id, UserActiveBody body, ISender sender, CancellationToken ct) => sender.Send(new SetUserActive(id, body.IsActive), ct)).RequirePermission(CorePermissions.UsersWrite);
 
         // ?filter=recordType:eq:Party&filter=recordId:eq:{id}&sort=-occurredAt
         api.MapPagedList<AuditEvent, AuditEvent>("/audit", CorePermissions.AuditRead, a => a).WithTags("Security");

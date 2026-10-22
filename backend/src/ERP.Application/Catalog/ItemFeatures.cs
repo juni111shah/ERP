@@ -25,6 +25,25 @@ public sealed record CreateItem(ItemInput Input) : ICommand<ItemDto>, IRequirePe
     public string RequiredPermission => CorePermissions.ItemsWrite;
 }
 
+public sealed record GetItem(Guid Id) : IQuery<ItemDto>, IRequirePermission
+{
+    public string RequiredPermission => CorePermissions.ItemsRead;
+}
+
+public sealed record UpdateItem(Guid Id, ItemInput Input) : ICommand<ItemDto>, IRequirePermission
+{
+    public string RequiredPermission => CorePermissions.ItemsWrite;
+}
+
+public sealed class UpdateItemValidator : AbstractValidator<UpdateItem>
+{
+    public UpdateItemValidator()
+    {
+        RuleFor(x => x.Input.Sku).NotEmpty().MaximumLength(50).WithMessage("SKU and name are required.");
+        RuleFor(x => x.Input.Name).NotEmpty().MaximumLength(200).WithMessage("SKU and name are required.");
+    }
+}
+
 public sealed class CreateItemValidator : AbstractValidator<CreateItem>
 {
     public CreateItemValidator()
@@ -34,9 +53,31 @@ public sealed class CreateItemValidator : AbstractValidator<CreateItem>
     }
 }
 
-internal sealed class ItemHandlers(IRepository<Item> items, ICustomFieldService fields) : IRequestHandler<CreateItem, ItemDto>
+internal sealed class ItemHandlers(IRepository<Item> items, ICustomFieldService fields) :
+    IRequestHandler<GetItem, ItemDto>,
+    IRequestHandler<CreateItem, ItemDto>,
+    IRequestHandler<UpdateItem, ItemDto>
 {
     private const string EntityType = "item";
+
+    public async Task<ItemDto> Handle(GetItem q, CancellationToken ct)
+    {
+        var item = await items.GetAsync(q.Id, ct);
+        return ItemDto.From(item, await fields.ReadAsync(EntityType, item, ct));
+    }
+
+    public async Task<ItemDto> Handle(UpdateItem cmd, CancellationToken ct)
+    {
+        var i = cmd.Input;
+        var item = await items.GetForUpdateAsync(cmd.Id, ct);
+        var sku = i.Sku.Trim();
+        if (sku != item.Sku && await items.AnyAsync(x => x.Sku == sku, ct)) throw new ConflictException("An item with that SKU exists.");
+        item.Sku = sku; item.Name = i.Name.Trim(); item.Type = i.Type; item.Uom = i.Uom; item.SalesPrice = i.SalesPrice;
+        item.PurchasePrice = i.PurchasePrice; item.TaxCodeId = i.TaxCodeId; item.IsActive = i.IsActive;
+        await fields.ApplyAsync(EntityType, item, i.CustomFields, isCreate: false, ct);
+        await items.SaveChangesAsync(ct);
+        return ItemDto.From(item, await fields.ReadAsync(EntityType, item, ct));
+    }
 
     public async Task<ItemDto> Handle(CreateItem cmd, CancellationToken ct)
     {

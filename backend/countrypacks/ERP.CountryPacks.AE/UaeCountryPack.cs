@@ -12,6 +12,8 @@ public sealed class UaeCountryPack : ICountryPack
 
     public string CountryCode => "AE";
     public string Name => "United Arab Emirates";
+    public string DefaultCurrency => "AED";
+    public string DefaultTimeZone => "Asia/Dubai";
 
     public IReadOnlyList<TaxTemplate> Taxes { get; } =
     [

@@ -30,6 +30,8 @@ public static class OrganizationEndpoints
             return Results.Created($"/api/v1/business-units/{created.Id}", created);
         }).RequirePermission(CorePermissions.BusinessUnitsWrite);
 
+        units.MapPut("/{id:guid}", (Guid id, BusinessUnitInput input, ISender sender, CancellationToken ct) => sender.Send(new UpdateBusinessUnit(id, input), ct)).RequirePermission(CorePermissions.BusinessUnitsWrite);
+
         var settings = api.MapGroup("/settings").WithTags("Organization");
         settings.MapGet("", (ISender sender, CancellationToken ct) => sender.Send(new ListSettings(), ct)).RequirePermission(CorePermissions.SettingsRead);
         settings.MapPut("", async (Dictionary<string, JsonElement> values, ISender sender, CancellationToken ct) =>

@@ -12,6 +12,11 @@ using ERP.Modularity;
 using ERP.Application.Security;
 using ERP.Application.Templates;
 using ERP.CountryPacks.AE;
+using ERP.CountryPacks.GB;
+using ERP.CountryPacks.IN;
+using ERP.CountryPacks.PK;
+using ERP.CountryPacks.SA;
+using ERP.CountryPacks.US;
 using ERP.Modules.Inventory;
 using ERP.Modules.RealEstate;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -29,7 +34,7 @@ builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configurati
 var modules = ModuleCatalog.Select(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration, modules);
 // ---- Country packs (the host is the only place that references pack assemblies) ----
-builder.Services.AddSingleton<ICountryPack, UaeCountryPack>();
+foreach (var pack in CountryPackCatalog.All()) builder.Services.AddSingleton(pack);
 builder.Services.AddSingleton<INotificationPusher, SignalRNotificationPusher>();
 
 // ---- Auth ----
@@ -160,6 +165,13 @@ app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription().All
 
 await DatabaseStartup.InitializeAsync(app.Services, app.Configuration);
 app.Run();
+
+/// <summary>Installed country packs (the host is the only place that references pack assemblies).</summary>
+public static class CountryPackCatalog
+{
+    public static IReadOnlyList<ICountryPack> All() =>
+        [new UaeCountryPack(), new SaudiCountryPack(), new PakistanCountryPack(), new IndiaCountryPack(), new UnitedKingdomCountryPack(), new UnitedStatesCountryPack()];
+}
 
 /// <summary>Installed modules. ERP_MODULES / Modules:Installed (comma list) narrows them; an empty value runs the core alone.</summary>
 public static class ModuleCatalog

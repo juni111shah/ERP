@@ -123,18 +123,16 @@ public static class TaxTemplates
 {
     public static IReadOnlyList<TaxTemplate> ForCountry(string countryCode) => countryCode.ToUpperInvariant() switch
     {
-        "SA" => [new("VAT15", "VAT 15%", TaxKind.Vat, 15m, true), new("VAT0", "VAT zero-rated", TaxKind.Vat, 0m), new("EXEMPT", "Exempt", TaxKind.Vat, 0m, IsRecoverable: false)],
-        "PK" => [new("GST18", "Sales tax 18%", TaxKind.SalesTax, 18m, true), new("ST-SVC", "Provincial sales tax on services", TaxKind.SalesTax, 16m), new("EXEMPT", "Exempt", TaxKind.SalesTax, 0m, IsRecoverable: false)],
-        "IN" => [new("GST18", "GST 18%", TaxKind.Gst, 18m, true), new("GST5", "GST 5%", TaxKind.Gst, 5m), new("GST0", "GST nil", TaxKind.Gst, 0m)],
-        "GB" => [new("VAT20", "VAT 20%", TaxKind.Vat, 20m, true), new("VAT5", "VAT reduced 5%", TaxKind.Vat, 5m), new("VAT0", "VAT zero-rated", TaxKind.Vat, 0m)],
-        "US" => [new("ST", "Sales tax (set your rate)", TaxKind.SalesTax, 0m, true, false), new("EXEMPT", "Exempt", TaxKind.SalesTax, 0m, IsRecoverable: false)],
         _ => [new("STD", "Standard tax (set your rate)", TaxKind.Other, 0m, true), new("EXEMPT", "Exempt", TaxKind.Other, 0m, IsRecoverable: false)],
     };
 
     public static IReadOnlyList<(string Code, string Name, string Symbol, int Decimals)> Currencies { get; } =
     [
-        ("AED", "UAE dirham", "AED", 2), ("SAR", "Saudi riyal", "SAR", 2), ("PKR", "Pakistani rupee", "Rs", 2),
-        ("INR", "Indian rupee", "₹", 2), ("USD", "US dollar", "$", 2), ("EUR", "Euro", "€", 2), ("GBP", "Pound sterling", "£", 2),
-        ("KWD", "Kuwaiti dinar", "KWD", 3), ("OMR", "Omani rial", "OMR", 3), ("QAR", "Qatari riyal", "QAR", 2),
+        ("AED", "UAE dirham", "AED", 2), ("SAR", "Saudi riyal", "SAR", 2), ("QAR", "Qatari riyal", "QAR", 2), ("KWD", "Kuwaiti dinar", "KWD", 3),
+        ("BHD", "Bahraini dinar", "BHD", 3), ("OMR", "Omani rial", "OMR", 3), ("PKR", "Pakistani rupee", "Rs", 2), ("INR", "Indian rupee", "₹", 2),
+        ("BDT", "Bangladeshi taka", "৳", 2), ("LKR", "Sri Lankan rupee", "Rs", 2), ("NPR", "Nepalese rupee", "Rs", 2), ("EGP", "Egyptian pound", "E£", 2),
+        ("JOD", "Jordanian dinar", "JOD", 3), ("TRY", "Turkish lira", "₺", 2), ("USD", "US dollar", "$", 2), ("EUR", "Euro", "€", 2),
+        ("GBP", "Pound sterling", "£", 2), ("CAD", "Canadian dollar", "CA$", 2), ("AUD", "Australian dollar", "A$", 2), ("SGD", "Singapore dollar", "S$", 2),
+        ("MYR", "Malaysian ringgit", "RM", 2), ("ZAR", "South African rand", "R", 2), ("NGN", "Nigerian naira", "₦", 2), ("KES", "Kenyan shilling", "KSh", 2),
     ];
 }

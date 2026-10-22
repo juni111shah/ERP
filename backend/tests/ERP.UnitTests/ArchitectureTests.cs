@@ -21,7 +21,7 @@ public class ArchitectureTests
     [Fact]
     public void Core_assemblies_never_reference_module_assemblies()
     {
-        var result = Types.InAssemblies(CoreAssemblies).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.CountryPacks.AE").GetResult();
+        var result = Types.InAssemblies(CoreAssemblies).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.CountryPacks").GetResult();
         Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
         foreach (var a in CoreAssemblies)
             Assert.DoesNotContain(a.GetReferencedAssemblies(), r => r.Name!.StartsWith("ERP.Modules.", StringComparison.Ordinal) || r.Name.StartsWith("ERP.CountryPacks.", StringComparison.Ordinal));

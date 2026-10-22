@@ -155,3 +155,165 @@ public class CqrsEndpointTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.True(errors.ContainsKey("email") && errors.ContainsKey("password"));
     }
 }
+
+public class OnboardingDataTests(ApiFactory f) : IClassFixture<ApiFactory>
+{
+    [Fact]
+    public async Task Countries_and_currencies_are_public_and_mark_installed_packs()
+    {
+        var countries = (await ApiFactory.Json(await f.Client().GetAsync("/api/v1/platform/countries"))).AsArray();
+        Assert.Contains(countries, c => (string?)c!["code"] == "AE" && (bool)c["hasPack"]! && (string?)c["defaultCurrency"] == "AED");
+        Assert.Contains(countries, c => (string?)c!["code"] == "PK" && (bool)c["hasPack"]!);
+        Assert.Contains(countries, c => (string?)c!["code"] == "FR" && !(bool)c["hasPack"]!);
+        Assert.Equal(countries.Count, countries.Select(c => (string?)c!["code"]).Distinct().Count());
+        var currencies = (await ApiFactory.Json(await f.Client().GetAsync("/api/v1/platform/currencies"))).AsArray();
+        Assert.Contains(currencies, c => (string?)c!["code"] == "AED");
+        Assert.Contains(currencies, c => (string?)c!["code"] == "EUR");
+    }
+
+    [Fact]
+    public async Task Each_pack_country_gets_its_own_tax_codes_and_fields_and_other_countries_get_the_neutral_default()
+    {
+        foreach (var (code, currency, tax, field) in new[] { ("SA", "SAR", "VAT15", "cf_sa_vat_no"), ("IN", "INR", "GST18", "cf_in_gstin"), ("GB", "GBP", "VAT20", "cf_gb_vat_no"), ("US", "USD", "ST", "cf_us_ein"), ("FR", "EUR", "STD", "") })
+        {
+            var key = $"cp-{code.ToLower()}-{Guid.NewGuid():N}"[..14];
+            var created = await f.Client().PostAsJsonAsync("/api/v1/platform/onboarding", new
+            {
+                workspaceName = "Pack " + code, signInKey = key, industry = "generic", countryCode = code, baseCurrency = currency, timeZone = "UTC",
+                adminEmail = $"admin+{key}@example.test", adminName = "Admin", adminPassword = "Qa#Passw0rd1",
+            });
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            var (c, _) = await f.SignInAsync($"admin+{key}@example.test", "Qa#Passw0rd1");
+            var taxes = (await ApiFactory.Json(await c.GetAsync("/api/v1/finance/tax-codes"))).AsArray();
+            Assert.Contains(taxes, t => (string?)t!["code"] == tax);
+            var form = (await ApiFactory.Json(await c.GetAsync("/api/v1/custom-fields/form/party"))).AsArray();
+            if (field.Length > 0) Assert.Contains(form, d => (string?)d!["key"] == field);
+            else Assert.DoesNotContain(form, d => System.Text.RegularExpressions.Regex.IsMatch((string)d!["key"]!, "^cf_[a-z]{2}_")); // no country field without a pack
+        }
+    }
+}
+
+/// <summary>Updates for the admin and master-data screens: every one goes through a command with its own rules.</summary>
+public class AdminCommandTests(ApiFactory f) : IClassFixture<ApiFactory>
+{
+    private async Task<HttpClient> AdminAsync() => (await f.SignInAsync(ApiFactory.AdminEmail)).Client;
+
+    [Fact]
+    public async Task Items_can_be_read_and_updated_with_a_unique_sku()
+    {
+        var admin = await AdminAsync();
+        string Sku() => "UP-" + Guid.NewGuid().ToString("N")[..8];
+        var (a, b) = (Sku(), Sku());
+        var first = await ApiFactory.Json(await admin.PostAsJsonAsync("/api/v1/items", new { sku = a, name = "A", type = "Product", uom = "ea" }));
+        await admin.PostAsJsonAsync("/api/v1/items", new { sku = b, name = "B", type = "Product", uom = "ea" });
+        var id = (string)first["id"]!;
+
+        var updated = await admin.PutAsJsonAsync($"/api/v1/items/{id}", new { sku = a, name = "A renamed", type = "Service", uom = "hr", salesPrice = 99.5m, isActive = false });
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var item = await ApiFactory.Json(await admin.GetAsync($"/api/v1/items/{id}"));
+        Assert.Equal(("A renamed", "service", false), ((string?)item["name"], (string?)item["type"], (bool)item["isActive"]!));
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync($"/api/v1/items/{id}", new { sku = b, name = "A", type = "Product", uom = "ea" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync($"/api/v1/items/{Guid.NewGuid()}", new { sku = Sku(), name = "X", type = "Product", uom = "ea" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Tax_codes_are_created_edited_and_keep_a_single_default()
+    {
+        var admin = await AdminAsync();
+        var code = "T" + Guid.NewGuid().ToString("N")[..6];
+        var created = await admin.PostAsJsonAsync("/api/v1/finance/tax-codes", new { code, name = "Custom 7%", kind = "vat", rate = 7, isDefault = true });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var id = (string)(await ApiFactory.Json(created))["id"]!;
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/v1/finance/tax-codes", new { code, name = "Dup", kind = "vat", rate = 1 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/finance/tax-codes", new { code = "X1", name = "Bad", kind = "vat", rate = 150 })).StatusCode);
+
+        var taxes = (await ApiFactory.Json(await admin.GetAsync("/api/v1/finance/tax-codes?pageSize=100"))).AsArray();
+        Assert.Single(taxes.Where(t => (bool)t!["isDefault"]!)); // making this one the default cleared the previous default
+        Assert.Equal(id, (string?)taxes.Single(t => (bool)t!["isDefault"]!)!["id"]);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/v1/finance/tax-codes/{id}", new { code, name = "Custom 8%", kind = "vat", rate = 8, isDefault = true })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/v1/finance/tax-codes/{id}", new { code, name = "Inactive default", kind = "vat", rate = 8, isDefault = true, isActive = false })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Accounts_are_managed_but_system_accounts_keep_their_identity()
+    {
+        var admin = await AdminAsync();
+        var code = "9" + Guid.NewGuid().ToString("N")[..5];
+        var created = await admin.PostAsJsonAsync("/api/v1/finance/accounts", new { code, name = "Marketing", type = "expense", reportingGroup = "Operating expenses" });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var id = (string)(await ApiFactory.Json(created))["id"]!;
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/v1/finance/accounts", new { code, name = "Dup", type = "expense" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/finance/accounts", new { code = "9" + Guid.NewGuid().ToString("N")[..5], name = "Orphan", type = "expense", parentId = Guid.NewGuid() })).StatusCode);
+
+        var child = await ApiFactory.Json(await admin.PostAsJsonAsync("/api/v1/finance/accounts", new { code = code + "1", name = "Ads", type = "expense", parentId = id }));
+        // A parent can never become a descendant of its own child (no loops).
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/v1/finance/accounts/{id}", new { code, name = "Marketing", type = "expense", parentId = (string)child["id"]! })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/v1/finance/accounts/{id}", new { code, name = "Marketing", type = "expense", parentId = id })).StatusCode);
+
+        var system = (await ApiFactory.Json(await admin.GetAsync("/api/v1/finance/accounts?pageSize=200"))).AsArray();
+        var ar = system.First(a => (string?)a!["systemRole"] == "ar.control")!;
+        var arId = (string)ar["id"]!;
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync($"/api/v1/finance/accounts/{arId}", new { code = "1199", name = "AR", type = "asset" })).StatusCode); // code is fixed
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync($"/api/v1/finance/accounts/{arId}", new { code = (string)ar["code"]!, name = "AR", type = "asset", isActive = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/v1/finance/accounts/{arId}", new { code = (string)ar["code"]!, name = "Trade receivables", type = "asset" })).StatusCode); // renaming is fine
+    }
+
+    [Fact]
+    public async Task Business_units_can_be_edited_within_their_legal_entity()
+    {
+        var admin = await AdminAsync();
+        var me = await ApiFactory.Json(await admin.GetAsync("/api/v1/me"));
+        var entity = (string)me["legalEntities"]![0]!["id"]!;
+        var code = "BU" + Guid.NewGuid().ToString("N")[..5];
+        var other = "BU" + Guid.NewGuid().ToString("N")[..5];
+        var created = await ApiFactory.Json(await admin.PostAsJsonAsync("/api/v1/business-units", new { legalEntityId = entity, code, name = "Branch A" }));
+        await admin.PostAsJsonAsync("/api/v1/business-units", new { legalEntityId = entity, code = other, name = "Branch B" });
+        var id = (string)created["id"]!;
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/v1/business-units/{id}", new { legalEntityId = entity, code, name = "Branch A (Dubai)", isActive = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync($"/api/v1/business-units/{id}", new { legalEntityId = entity, code = other, name = "Clash" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/v1/business-units/{id}", new { legalEntityId = Guid.NewGuid(), code, name = "Moved" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Custom_roles_are_editable_built_in_roles_are_not()
+    {
+        var admin = await AdminAsync();
+        var roles = (await ApiFactory.Json(await admin.GetAsync("/api/v1/roles?pageSize=100"))).AsArray();
+        var builtIn = (string)roles.First(r => (bool)r!["isBuiltIn"]!)!["id"]!;
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync($"/api/v1/roles/{builtIn}", new { name = "Hacked", permissions = new[] { "core.parties.read" } })).StatusCode);
+
+        var name = "Custom " + Guid.NewGuid().ToString("N")[..6];
+        var created = await ApiFactory.Json(await admin.PostAsJsonAsync("/api/v1/roles", new { name, permissions = new[] { "core.parties.read" } }));
+        var id = (string)created["id"]!;
+        var edit = await admin.PutAsJsonAsync($"/api/v1/roles/{id}", new { name = name + " v2", description = "Edited", permissions = new[] { "core.parties.read", "core.items.read" } });
+        Assert.True(edit.StatusCode == HttpStatusCode.OK, await edit.Content.ReadAsStringAsync());
+        var role = (await ApiFactory.Json(await admin.GetAsync("/api/v1/roles?pageSize=100"))).AsArray().First(r => (string?)r!["id"] == id)!;
+        Assert.Equal(2, role["permissions"]!.AsArray().Count);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/v1/roles/{id}", new { name, permissions = new[] { "nope.nope.nope" } })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync($"/api/v1/roles/{id}", new { name = (string)roles.First()!["name"]!, permissions = new[] { "core.parties.read" } })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Users_roles_and_active_state_change_but_the_last_administrator_is_protected()
+    {
+        var admin = await AdminAsync();
+        var roles = (await ApiFactory.Json(await admin.GetAsync("/api/v1/roles?pageSize=100"))).AsArray();
+        string RoleId(string name) => (string)roles.First(r => (string?)r!["name"] == name)!["id"]!;
+        var email = $"mgr{Guid.NewGuid():N}"[..12] + "@demo.local";
+        var invited = await ApiFactory.Json(await admin.PostAsJsonAsync("/api/v1/users", new { email, fullName = "Manager One", temporaryPassword = "Temp#Passw0rd1", roleIds = new[] { RoleId("Viewer") } }));
+        var userId = (string)invited["id"]!;
+
+        var changed = await ApiFactory.Json(await admin.PutAsJsonAsync($"/api/v1/users/{userId}/roles", new { roleIds = new[] { RoleId("Accountant"), RoleId("Approver") } }));
+        Assert.Equal(["Accountant", "Approver"], changed["roles"]!.AsArray().Select(r => (string)r!).OrderBy(x => x));
+        var inactive = await ApiFactory.Json(await admin.PostAsJsonAsync($"/api/v1/users/{userId}/active", new { isActive = false }));
+        Assert.False((bool)inactive["isActive"]!);
+        Assert.True((bool)(await ApiFactory.Json(await admin.PostAsJsonAsync($"/api/v1/users/{userId}/active", new { isActive = true })))["isActive"]!);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync($"/api/v1/users/{Guid.NewGuid()}/active", new { isActive = false })).StatusCode);
+
+        // The only administrator cannot deactivate themselves or lose the admin role.
+        var me = await ApiFactory.Json(await admin.GetAsync("/api/v1/me"));
+        var myId = (string)me["user"]!["id"]!;
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync($"/api/v1/users/{myId}/active", new { isActive = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync($"/api/v1/users/{myId}/roles", new { roleIds = new[] { RoleId("Viewer") } })).StatusCode);
+    }
+}

@@ -45,6 +45,20 @@ public sealed record CreateBusinessUnit(BusinessUnitInput Input) : ICommand<Busi
     public string RequiredPermission => CorePermissions.BusinessUnitsWrite;
 }
 
+public sealed record UpdateBusinessUnit(Guid Id, BusinessUnitInput Input) : ICommand<BusinessUnitDto>, IRequirePermission
+{
+    public string RequiredPermission => CorePermissions.BusinessUnitsWrite;
+}
+
+public sealed class UpdateBusinessUnitValidator : AbstractValidator<UpdateBusinessUnit>
+{
+    public UpdateBusinessUnitValidator()
+    {
+        RuleFor(x => x.Input.Code).NotEmpty().MaximumLength(20).WithMessage("Code and name are required.");
+        RuleFor(x => x.Input.Name).NotEmpty().MaximumLength(200).WithMessage("Code and name are required.");
+    }
+}
+
 public sealed class LegalEntityInputValidator : AbstractValidator<LegalEntityInput>
 {
     public LegalEntityInputValidator()
@@ -80,7 +94,8 @@ internal sealed class OrganizationHandlers(
     ICustomFieldService fields, ILegalEntityGuard legalEntityGuard) :
     IRequestHandler<CreateLegalEntity, LegalEntityDto>,
     IRequestHandler<UpdateLegalEntity, LegalEntityDto>,
-    IRequestHandler<CreateBusinessUnit, BusinessUnitDto>
+    IRequestHandler<CreateBusinessUnit, BusinessUnitDto>,
+    IRequestHandler<UpdateBusinessUnit, BusinessUnitDto>
 {
     private const string LegalEntityType = "legalentity";
     private const string BusinessUnitType = "businessunit";
@@ -111,6 +126,20 @@ internal sealed class OrganizationHandlers(
         var unit = new BusinessUnit { LegalEntityId = i.LegalEntityId, Code = i.Code.Trim(), Name = i.Name.Trim(), Address = i.Address, IsActive = i.IsActive };
         await fields.ApplyAsync(BusinessUnitType, unit, i.CustomFields, isCreate: true, ct);
         businessUnits.Add(unit);
+        await businessUnits.SaveChangesAsync(ct);
+        return BusinessUnitDto.From(unit, await fields.ReadAsync(BusinessUnitType, unit, ct));
+    }
+
+    public async Task<BusinessUnitDto> Handle(UpdateBusinessUnit cmd, CancellationToken ct)
+    {
+        var i = cmd.Input;
+        var unit = await businessUnits.GetForUpdateAsync(cmd.Id, ct);
+        if (i.LegalEntityId != unit.LegalEntityId) throw new FieldValidationException("legalEntityId", "A business unit cannot move to another legal entity.");
+        var code = i.Code.Trim();
+        if (code != unit.Code && await businessUnits.AnyAsync(b => b.LegalEntityId == unit.LegalEntityId && b.Code == code, ct))
+            throw new ConflictException($"A business unit with code '{code}' exists in this legal entity.");
+        unit.Code = code; unit.Name = i.Name.Trim(); unit.Address = i.Address; unit.IsActive = i.IsActive;
+        await fields.ApplyAsync(BusinessUnitType, unit, i.CustomFields, isCreate: false, ct);
         await businessUnits.SaveChangesAsync(ct);
         return BusinessUnitDto.From(unit, await fields.ReadAsync(BusinessUnitType, unit, ct));
     }
