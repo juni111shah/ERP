@@ -38,6 +38,9 @@ public static class LedgerEndpoints
         reports.MapGet("/trial-balance", (DateOnly? from, DateOnly to, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetTrialBalance(from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapGet("/general-ledger", (Guid accountId, DateOnly? from, DateOnly to, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetGeneralLedger(accountId, from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapGet("/income-statement", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetIncomeStatement(from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
+        reports.MapGet("/tax-summary", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetTaxSummary(from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
+        reports.MapGet("/cash-movements", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetCashMovements(from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
+        reports.MapGet("/cash-forecast", (int? weeks, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetCashForecast(weeks ?? 13, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapGet("/balance-sheet", (DateOnly asOf, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetBalanceSheet(asOf, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
     }
 }
