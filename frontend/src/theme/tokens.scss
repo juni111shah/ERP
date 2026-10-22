@@ -1,0 +1,1093 @@
+// =============================================================================
+// tokens.scss — ERP design tokens (single source of truth)
+//
+// Layers
+//   1. Primitive  ($erp-primitives)   raw palette, never used directly in components
+//   2. Brand      (--erp-brand-*)     tenant-overridable scale; TenantThemeService
+//                                     rewrites these at runtime (contrast-checked)
+//   3. Semantic   (--erp-color-*)     what components use; light + dark maps
+//   4. Component  (--erp-kpi-*, --erp-nav-*, …) thin aliases for shared blocks
+//   5. Bridge     (--ant-*)           ng-zorro variable-theme vars → semantic
+//
+// Naming is industry-neutral on purpose: no module/business words in tokens.
+// Modules express identity only through `--erp-color-module-accent`.
+//
+// Selectors
+//   :root                         light theme, comfortable density, LTR
+//   [data-theme='dark']           dark theme (set on <html>)
+//   [data-theme='system']         follows prefers-color-scheme
+//   [data-density='compact']      compact density for data-heavy screens
+//   [dir='rtl']                   right-to-left adjustments
+//   :lang(ar), :lang(ur)          Arabic-script typography
+//
+// Compile check:  npx sass tokens.scss  (Dart Sass ≥ 1.70, module system)
+// =============================================================================
+
+@use 'sass:map';
+@use 'sass:list';
+@use 'sass:meta';
+@use 'sass:string';
+
+// -----------------------------------------------------------------------------
+// 1. PRIMITIVES
+// -----------------------------------------------------------------------------
+$erp-primitives: (
+  // Default brand: green (from the dashboard reference). Tenants replace it.
+  'green-50': #e8f7f0,
+  'green-100': #cbeedd,
+  'green-200': #9ddfc2,
+  'green-300': #66cba2,
+  'green-400': #34bc86,
+  'green-500': #12a06c,
+  'green-600': #0b8457,
+  'green-700': #08704b,
+  'green-800': #075e40,
+  'green-900': #0b3b2e,
+  'green-950': #062419,
+
+  // Light neutrals (cool grey)
+  'grey-0': #ffffff,
+  'grey-25': #fafbfc,
+  'grey-50': #f4f6f8,
+  'grey-100': #eef0f3,
+  'grey-200': #e2e5ea,
+  'grey-300': #cdd2d9,
+  'grey-400': #a3aab5,
+  'grey-500': #8a919c,
+  'grey-600': #626977,
+  'grey-700': #434a55,
+  'grey-800': #2b313a,
+  'grey-900': #1f2329,
+
+  // Dark neutrals
+  'night-0': #0d0f12,
+  'night-50': #16181c,
+  'night-100': #1e2126,
+  'night-200': #2a2e35,
+  'night-300': #3a3f47,
+  'night-400': #5c636e,
+  'night-500': #7d8592,
+  'night-600': #8b929d,
+  'night-700': #a6adb8,
+  'night-800': #c9ced6,
+  'night-900': #e6e6e6,
+
+  // Status families (Ant Design hues so ng-zorro tags/alerts stay coherent)
+  'success-bg': #f6ffed,
+  'success-border': #b7eb8f,
+  'success-solid': #389e0d,
+  'success-text': #237804,
+  'success-bg-dark': #162312,
+  'success-border-dark': #274916,
+  'success-solid-dark': #73d13d,
+
+  'warning-bg': #fffbe6,
+  'warning-border': #ffe58f,
+  'warning-fill': #faad14,
+  'warning-solid': #b87503,
+  'warning-text': #874d00,
+  'warning-bg-dark': #2b2111,
+  'warning-border-dark': #594214,
+  'warning-solid-dark': #ffc53d,
+
+  'error-bg': #fff2f0,
+  'error-border': #ffccc7,
+  'error-solid': #cf1322,
+  'error-text': #cf1322,
+  'error-bg-dark': #2a1215,
+  'error-border-dark': #58181c,
+  'error-solid-dark': #ff7875,
+
+  'info-bg': #e6f4ff,
+  'info-border': #91caff,
+  'info-solid': #1677ff,
+  'info-text': #0958d9,
+  'info-bg-dark': #111a2c,
+  'info-border-dark': #15325b,
+  'info-solid-dark': #69b1ff,
+
+  'orange-bg': #fff7e6,
+  'orange-border': #ffd591,
+  'orange-solid': #d46b08,
+  'orange-text': #ad4e00,
+  'orange-bg-dark': #2b1d11,
+  'orange-solid-dark': #ffa940,
+
+  // Categorical data-viz / accent hues (industry-neutral). 1 & 2 = spec chart blue/orange.
+  'viz-1': #2a78d6,
+  'viz-2': #eb6834,
+  'viz-3': #13a8a8,
+  'viz-4': #8e5bd9,
+  'viz-5': #e84a86,
+  'viz-6': #bfa66a,
+  'viz-7': #7cb305,
+  'viz-8': #5b6b7f,
+  'viz-1-dark': #5da9f0,
+  'viz-2-dark': #f0855a,
+  'viz-3-dark': #36cfc9,
+  'viz-4-dark': #b37feb,
+  'viz-5-dark': #f17fab,
+  'viz-6-dark': #d4bc82,
+  'viz-7-dark': #a0d911,
+  'viz-8-dark': #95a3b6,
+
+  'white': #ffffff,
+  'black': #000000,
+);
+
+@function p($name) {
+  @if not map.has-key($erp-primitives, $name) {
+    @error 'Unknown primitive token: #{$name}';
+  }
+  @return map.get($erp-primitives, $name);
+}
+
+// -----------------------------------------------------------------------------
+// 2. BRAND SCALE (defaults; TenantThemeService overrides at runtime)
+// -----------------------------------------------------------------------------
+$erp-brand-default: (
+  'brand-50': p('green-50'),
+  'brand-100': p('green-100'),
+  'brand-200': p('green-200'),
+  'brand-300': p('green-300'),
+  'brand-400': p('green-400'),
+  'brand-500': p('green-500'),
+  'brand-600': p('green-600'),
+  'brand-700': p('green-700'),
+  'brand-800': p('green-800'),
+  'brand-900': p('green-900'),
+  'brand-950': p('green-950'),
+  // Resolved roles. The service picks the step that meets WCAG AA.
+  'brand-solid-light': p('green-600'),     // fill for primary buttons (white text 4.72:1)
+  'brand-solid-hover-light': p('green-700'),
+  'brand-solid-active-light': p('green-800'),
+  'brand-on-solid-light': p('white'),
+  'brand-text-light': p('green-700'),      // links/brand text on white & canvas (≥5.6:1)
+  'brand-subtle-light': p('green-50'),
+  'brand-subtle-hover-light': p('green-100'),
+  'brand-border-light': p('green-300'),
+  'brand-ink': p('green-900'),             // headings tint (≥11:1)
+  'brand-solid-dark': p('green-400'),      // 7.35:1 on dark surface
+  'brand-solid-hover-dark': p('green-300'),
+  'brand-solid-active-dark': p('green-500'),
+  'brand-on-solid-dark': p('green-950'),   // 6.82:1 on green-400
+  'brand-text-dark': p('green-400'),
+  'brand-subtle-dark': #0d2e23,
+  'brand-subtle-hover-dark': #11392b,
+  'brand-border-dark': #1d5a43,
+);
+
+// -----------------------------------------------------------------------------
+// 3. NON-COLOUR SCALES
+// -----------------------------------------------------------------------------
+$erp-font: (
+  // Latin first, then Arabic-script (covers Arabic + Urdu + Persian glyphs), then OS fallbacks.
+  'family-sans': string.unquote("var(--erp-brand-font, 'Inter'), 'Noto Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"),
+  'family-arabic': string.unquote("'Noto Sans Arabic', 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, var(--erp-brand-font, 'Inter'), sans-serif"),
+  'family-urdu-display': string.unquote("'Noto Nastaliq Urdu', 'Noto Sans Arabic', serif"),
+  'family-mono': string.unquote("'JetBrains Mono', 'Cascadia Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"),
+  'weight-regular': 400,
+  'weight-medium': 500,
+  'weight-semibold': 600,
+  'weight-bold': 700,
+);
+
+// Type scale (px values; 4 px baseline grid for line-heights)
+$erp-type-scale: (
+  //  name        size  line-height  weight      tracking
+  'overline':   (11px, 16px, 600, 0.06em),
+  'caption':    (12px, 16px, 400, 0),
+  'label':      (12px, 16px, 500, 0),
+  'body-sm':    (13px, 20px, 400, 0),
+  'body':       (14px, 22px, 400, 0),
+  'body-lg':    (16px, 24px, 400, 0),
+  'title-sm':   (16px, 24px, 600, 0),
+  'title':      (18px, 26px, 600, 0),
+  'page-title': (20px, 28px, 700, -0.005em),
+  'kpi':        (24px, 32px, 700, -0.01em),
+  'display':    (30px, 38px, 700, -0.015em),
+);
+
+$erp-space: (
+  '0': 0,
+  '0-5': 2px,
+  '1': 4px,
+  '2': 8px,
+  '3': 12px,
+  '4': 16px,
+  '5': 20px,
+  '6': 24px,
+  '8': 32px,
+  '10': 40px,
+  '12': 48px,
+  '16': 64px,
+);
+
+$erp-radius: (
+  'none': 0,
+  'xs': 2px,
+  'sm': string.unquote('max(calc(var(--erp-radius-base) - 2px), 0px)'),
+  'control': string.unquote('var(--erp-radius-base)'),
+  'card': string.unquote('calc(var(--erp-radius-base) + 2px)'),
+  'overlay': string.unquote('calc(var(--erp-radius-base) + 4px)'),
+  'pill': 999px,
+  'round': 50%,
+);
+
+$erp-shadow-light: (
+  '0': none,
+  '1': (0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.06)),
+  '2': (0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.06)),
+  '3': (0 12px 24px -4px rgba(16, 24, 40, 0.10), 0 4px 8px -4px rgba(16, 24, 40, 0.06)),
+  '4': (0 20px 40px -8px rgba(16, 24, 40, 0.18), 0 8px 16px -8px rgba(16, 24, 40, 0.10)),
+);
+$erp-shadow-dark: (
+  '0': none,
+  '1': (0 0 0 1px rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.5)),
+  '2': (0 0 0 1px rgba(255, 255, 255, 0.06), 0 4px 12px rgba(0, 0, 0, 0.55)),
+  '3': (0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 28px rgba(0, 0, 0, 0.6)),
+  '4': (0 0 0 1px rgba(255, 255, 255, 0.08), 0 24px 48px rgba(0, 0, 0, 0.7)),
+);
+
+$erp-duration: (
+  'instant': 0ms,
+  'fast': 100ms,      // hover/press colour, icon swaps
+  'quick': 150ms,     // focus ring, tooltips, small fades
+  'base': 200ms,      // dropdowns, toggles, accordions
+  'moderate': 250ms,  // drawers on mobile, sidebar collapse
+  'slow': 300ms,      // modals, page enter
+  'slower': 400ms,    // chart entrance, large layout shifts
+  'skeleton': 1400ms, // shimmer loop
+);
+$erp-ease: (
+  'standard': cubic-bezier(0.2, 0, 0, 1),
+  'decelerate': cubic-bezier(0, 0, 0, 1),     // entering
+  'accelerate': cubic-bezier(0.3, 0, 1, 1),   // exiting
+  'emphasized': cubic-bezier(0.05, 0.7, 0.1, 1),
+  'linear': linear,
+);
+
+$erp-z: (
+  'base': 0,
+  'sticky': 100,
+  'nav': 200,
+  'header': 300,
+  'overlay': 1000,   // ng-zorro modal/drawer default
+  'dropdown': 1050,  // ng-zorro dropdown default
+  'palette': 1060,   // command palette above dropdowns
+  'toast': 1070,
+);
+
+$erp-breakpoints: (
+  'xs': 0,
+  'sm': 576px,
+  'md': 768px,
+  'lg': 992px,
+  'xl': 1200px,
+  'xxl': 1600px,
+);
+
+// Density
+$erp-density: (
+  'comfortable': (
+    'control-height': 32px,
+    'table-row-height': 44px,
+    'table-cell-py': 10px,
+    'table-cell-px': 12px,
+    'card-padding': 20px,
+    'grid-gap': 16px,
+    'page-padding': 24px,
+    'header-height': 56px,
+    'font-size-body': 14px,
+    'line-height-body': 22px,
+    'nav-item-height': 40px,
+    'form-row-gap': 16px,
+  ),
+  'compact': (
+    'control-height': 28px,
+    'table-row-height': 32px,
+    'table-cell-py': 5px,
+    'table-cell-px': 8px,
+    'card-padding': 16px,
+    'grid-gap': 12px,
+    'page-padding': 20px,
+    'header-height': 48px,
+    'font-size-body': 13px,
+    'line-height-body': 20px,
+    'nav-item-height': 34px,
+    'form-row-gap': 12px,
+  ),
+);
+
+// -----------------------------------------------------------------------------
+// 4. SEMANTIC COLOUR MAPS
+// -----------------------------------------------------------------------------
+$erp-semantic-light: (
+  // Surfaces
+  'bg-canvas': p('grey-50'),
+  'bg-surface': p('grey-0'),
+  'bg-surface-raised': p('grey-0'),
+  'bg-subtle': p('grey-25'),
+  'bg-sunken': p('grey-100'),
+  'bg-hover': p('grey-50'),
+  'bg-pressed': p('grey-100'),
+  'bg-selected': var(--erp-brand-subtle-light),
+  'bg-inverse': p('grey-900'),
+  'bg-overlay': rgba(16, 24, 40, 0.45),
+  // Borders
+  'border-subtle': p('grey-100'),
+  'border-default': p('grey-200'),
+  'border-control': p('grey-500'),  // 3.18:1 on white → meets 1.4.11 non-text
+  'border-strong': p('grey-400'),
+  // Text
+  'text-primary': p('grey-900'),     // 15.8:1 on white
+  'text-heading': var(--erp-brand-ink),
+  'text-secondary': p('grey-700'),   // 9.0:1
+  'text-muted': p('grey-600'),       // 5.52:1 on white, 5.0:1 on canvas
+  'text-disabled': p('grey-400'),    // exempt (disabled)
+  'text-inverse': p('white'),
+  'text-placeholder': p('grey-600'),
+  // Brand / primary
+  'primary': var(--erp-brand-solid-light),
+  'primary-hover': var(--erp-brand-solid-hover-light),
+  'primary-active': var(--erp-brand-solid-active-light),
+  'on-primary': var(--erp-brand-on-solid-light),
+  'primary-text': var(--erp-brand-text-light),
+  'primary-subtle': var(--erp-brand-subtle-light),
+  'primary-subtle-hover': var(--erp-brand-subtle-hover-light),
+  'primary-border': var(--erp-brand-border-light),
+  'focus-ring': var(--erp-brand-solid-light),
+  // Status (text = use for text; solid = icons/dots/borders/fills; bg/border = tags, alerts)
+  'success-text': p('success-text'),
+  'success-solid': p('success-solid'),
+  'success-bg': p('success-bg'),
+  'success-border': p('success-border'),
+  'warning-text': p('warning-text'),
+  'warning-solid': p('warning-solid'),
+  'warning-fill': p('warning-fill'),
+  'warning-bg': p('warning-bg'),
+  'warning-border': p('warning-border'),
+  'error-text': p('error-text'),
+  'error-solid': p('error-solid'),
+  'error-bg': p('error-bg'),
+  'error-border': p('error-border'),
+  'info-text': p('info-text'),
+  'info-solid': p('info-solid'),
+  'info-bg': p('info-bg'),
+  'info-border': p('info-border'),
+  'attention-text': p('orange-text'),
+  'attention-solid': p('orange-solid'),
+  'attention-bg': p('orange-bg'),
+  'attention-border': p('orange-border'),
+  'neutral-text': p('grey-700'),
+  'neutral-solid': p('grey-600'),
+  'neutral-bg': p('grey-100'),
+  'neutral-border': p('grey-200'),
+  // Numbers
+  'money-negative': p('error-text'),
+  'money-zero': p('grey-600'),
+  'trend-up': p('success-text'),
+  'trend-down': p('error-text'),
+  // Shell / feedback / hero (uiux T1, T2, T7)
+  'header-bg': p('grey-0'),
+  'highlight-bg': var(--erp-brand-subtle-light),       // saved-row flash
+  'primary-disabled-bg': p('grey-100'),
+  'primary-disabled-text': p('grey-400'),
+  'danger-fill': p('error-solid'),                      // danger buttons, count badges (white text 5.57:1)
+  'on-danger': p('white'),
+  'accent-gold-text': #7a6530,                          // gold when it must be TEXT (5.63:1 on white)
+  'hero-from': var(--erp-brand-900),
+  'hero-to': var(--erp-brand-700),
+  'hero-text': p('white'),                              // 6.12:1 on brand-700 (lightest stop)
+  'hero-eyebrow': var(--erp-brand-100),                 // 4.90:1 on brand-700
+  // Navigation (white sidebar w/ brand accents, per dashboard reference)
+  'nav-bg': p('grey-0'),
+  'nav-border': p('grey-100'),
+  'nav-text': p('grey-700'),
+  'nav-text-active': var(--erp-brand-text-light),
+  'nav-icon': p('grey-600'),
+  'nav-item-hover-bg': p('grey-50'),
+  'nav-item-active-bg': var(--erp-brand-subtle-light),
+  'nav-section-label': p('grey-600'),
+  // Decorative accent (KPI top bar 'accent-gold' in uiux/00 conventions). Decorative only.
+  'accent-gold': p('viz-6'),
+  // Module accent (set per module container; defaults to brand)
+  'module-accent': var(--erp-module-accent, var(--erp-brand-solid-light)),
+  // Data viz
+  'viz-1': p('viz-1'),
+  'viz-2': p('viz-2'),
+  'viz-3': p('viz-3'),
+  'viz-4': p('viz-4'),
+  'viz-5': p('viz-5'),
+  'viz-6': p('viz-6'),
+  'viz-7': p('viz-7'),
+  'viz-8': p('viz-8'),
+  'viz-grid': p('grey-100'),
+  'viz-axis': p('grey-600'),
+  'skeleton-base': p('grey-100'),
+  'skeleton-shine': p('grey-50'),
+);
+
+$erp-semantic-dark: (
+  'bg-canvas': p('night-0'),
+  'bg-surface': p('night-50'),
+  'bg-surface-raised': p('night-100'),
+  'bg-subtle': #1a1d21,
+  'bg-sunken': p('night-0'),
+  'bg-hover': p('night-100'),
+  'bg-pressed': p('night-200'),
+  'bg-selected': var(--erp-brand-subtle-dark),
+  'bg-inverse': p('night-900'),
+  'bg-overlay': rgba(0, 0, 0, 0.65),
+  'border-subtle': p('night-200'),
+  'border-default': p('night-300'),
+  'border-control': p('night-500'),  // 4.78:1 on surface
+  'border-strong': p('night-400'),
+  'text-primary': p('night-900'),    // 14.2:1 on surface
+  'text-heading': p('night-900'),
+  'text-secondary': p('night-700'),  // 8.1:1
+  'text-muted': p('night-600'),      // 5.67:1 on surface, 5.15:1 on raised
+  'text-disabled': p('night-400'),
+  'text-inverse': p('night-0'),
+  'text-placeholder': p('night-600'),
+  'primary': var(--erp-brand-solid-dark),
+  'primary-hover': var(--erp-brand-solid-hover-dark),
+  'primary-active': var(--erp-brand-solid-active-dark),
+  'on-primary': var(--erp-brand-on-solid-dark),
+  'primary-text': var(--erp-brand-text-dark),
+  'primary-subtle': var(--erp-brand-subtle-dark),
+  'primary-subtle-hover': var(--erp-brand-subtle-hover-dark),
+  'primary-border': var(--erp-brand-border-dark),
+  'focus-ring': var(--erp-brand-solid-dark),
+  'success-text': p('success-solid-dark'),
+  'success-solid': p('success-solid-dark'),
+  'success-bg': p('success-bg-dark'),
+  'success-border': p('success-border-dark'),
+  'warning-text': p('warning-solid-dark'),
+  'warning-solid': p('warning-solid-dark'),
+  'warning-fill': p('warning-solid-dark'),
+  'warning-bg': p('warning-bg-dark'),
+  'warning-border': p('warning-border-dark'),
+  'error-text': p('error-solid-dark'),
+  'error-solid': p('error-solid-dark'),
+  'error-bg': p('error-bg-dark'),
+  'error-border': p('error-border-dark'),
+  'info-text': p('info-solid-dark'),
+  'info-solid': p('info-solid-dark'),
+  'info-bg': p('info-bg-dark'),
+  'info-border': p('info-border-dark'),
+  'attention-text': p('orange-solid-dark'),
+  'attention-solid': p('orange-solid-dark'),
+  'attention-bg': p('orange-bg-dark'),
+  'attention-border': #593815,
+  'neutral-text': p('night-700'),
+  'neutral-solid': p('night-600'),
+  'neutral-bg': p('night-200'),
+  'neutral-border': p('night-300'),
+  'money-negative': p('error-solid-dark'),
+  'money-zero': p('night-600'),
+  'trend-up': p('success-solid-dark'),
+  'trend-down': p('error-solid-dark'),
+  'header-bg': p('night-50'),
+  'highlight-bg': var(--erp-brand-subtle-dark),
+  'primary-disabled-bg': p('night-200'),
+  'primary-disabled-text': p('night-400'),
+  'danger-fill': #d32029,                               // white text 5.24:1; 3.39:1 vs surface
+  'on-danger': p('white'),
+  'accent-gold-text': p('viz-6-dark'),                  // 9.58:1 on surface
+  'hero-from': var(--erp-brand-950),
+  'hero-to': var(--erp-brand-800),
+  'hero-text': p('white'),
+  'hero-eyebrow': var(--erp-brand-200),
+  'nav-bg': p('night-50'),
+  'nav-border': p('night-200'),
+  'nav-text': p('night-700'),
+  'nav-text-active': var(--erp-brand-text-dark),
+  'nav-icon': p('night-600'),
+  'nav-item-hover-bg': p('night-100'),
+  'nav-item-active-bg': var(--erp-brand-subtle-dark),
+  'nav-section-label': p('night-600'),
+  'accent-gold': p('viz-6-dark'),
+  'module-accent': var(--erp-module-accent-dark, var(--erp-module-accent, var(--erp-brand-solid-dark))),
+  'viz-1': p('viz-1-dark'),
+  'viz-2': p('viz-2-dark'),
+  'viz-3': p('viz-3-dark'),
+  'viz-4': p('viz-4-dark'),
+  'viz-5': p('viz-5-dark'),
+  'viz-6': p('viz-6-dark'),
+  'viz-7': p('viz-7-dark'),
+  'viz-8': p('viz-8-dark'),
+  'viz-grid': p('night-200'),
+  'viz-axis': p('night-600'),
+  'skeleton-base': p('night-100'),
+  'skeleton-shine': p('night-200'),
+);
+
+// Sanity: both themes must define the same keys
+@each $key, $v in $erp-semantic-light {
+  @if not map.has-key($erp-semantic-dark, $key) {
+    @error 'Dark theme is missing semantic token: #{$key}';
+  }
+}
+
+
+// -----------------------------------------------------------------------------
+// 4b. TONES — status tags AND the user-selectable colour palette for custom-field
+//     select/tag options (uiux T4, custom-fields.md A.3.1). bg/fg/border per tone.
+//     Every fg/bg pair ≥ 4.5:1 (see token-mapping.md §2). Not tenant-overridable.
+// -----------------------------------------------------------------------------
+$erp-tones-light: (
+  //          bg        fg        border    dot (≥3:1 on surface)
+  'success': (#f6ffed, #237804, #b7eb8f, #389e0d),
+  'neutral': (#eef2f6, #3d4d5c, #cbd5e0, #5b6b7f),
+  'warning': (#fffbe6, #874d00, #ffe58f, #b87503),
+  'error':   (#fff2f0, #cf1322, #ffccc7, #cf1322),
+  'info':    (#e6f4ff, #0958d9, #91caff, #1677ff),
+  'orange':  (#fff7e6, #ad4e00, #ffd591, #d46b08),
+  'plain':   (#f4f6f8, #434a55, #e2e5ea, #8a919c),
+);
+$erp-tones-dark: (
+  'success': (#162312, #73d13d, #274916, #73d13d),
+  'neutral': (#1f2a36, #a9b8c7, #33445a, #95a3b6),
+  'warning': (#2b2111, #ffc53d, #594214, #ffc53d),
+  'error':   (#2a1215, #ff7875, #58181c, #ff7875),
+  'info':    (#111a2c, #69b1ff, #15325b, #69b1ff),
+  'orange':  (#2b1d11, #ffa940, #593815, #ffa940),
+  'plain':   (#2a2e35, #c9ced6, #3a3f47, #7d8592),
+);
+/// User-facing names when tones are offered as an option palette (i18n keys in core).
+$erp-tone-palette-labels: (
+  'success': 'Green', 'neutral': 'Slate', 'warning': 'Amber', 'error': 'Red',
+  'info': 'Blue', 'orange': 'Orange', 'plain': 'Grey',
+);
+
+@mixin _emit-tones($tones) {
+  @each $tone, $v in $tones {
+    --erp-tone-#{$tone}-bg: #{list.nth($v, 1)};
+    --erp-tone-#{$tone}-fg: #{list.nth($v, 2)};
+    --erp-tone-#{$tone}-border: #{list.nth($v, 3)};
+    --erp-tone-#{$tone}-dot: #{list.nth($v, 4)};
+  }
+}
+
+// Optional navy sidebar (spec §3.1 look), both themes: <html data-nav-theme="dark">
+$erp-nav-navy: (
+  'nav-bg': #10253a,
+  'nav-border': #10253a,
+  'nav-text': #c9d3dd,             // 10.27:1
+  'nav-text-active': #ffffff,      // 10.54:1 on pill
+  'nav-icon': #9db0c2,             // 6.99:1
+  'nav-item-hover-bg': #1a3248,
+  'nav-item-active-bg': #294251,
+  'nav-section-label': #8fb3c4,    // 6.98:1 (spec "muted teal")
+);
+
+// -----------------------------------------------------------------------------
+// 4c. ALIASES for the screen-layout specs (uiux/coordination-notes.md T1–T15).
+//     Names = theirs, prefixed --erp-. They point at our tokens, so they follow
+//     theme/density/brand automatically. Mapping table: token-mapping.md.
+// -----------------------------------------------------------------------------
+$erp-aliases: (
+  // T1 shell
+  'sider-bg': 'color-nav-bg',
+  'sider-text': 'color-nav-text',
+  'sider-text-muted': 'color-nav-section-label',
+  'sider-active-bg': 'color-nav-item-active-bg',
+  'sider-active-text': 'color-nav-text-active',
+  'header-bg': 'color-header-bg',
+  'canvas-bg': 'color-bg-canvas',
+  'surface-bg': 'color-bg-surface',
+  'border-subtle': 'color-border-subtle',
+  // T2 brand
+  'primary': 'color-primary',
+  'primary-hover': 'color-primary-hover',
+  'primary-active': 'color-primary-active',
+  'primary-disabled': 'color-primary-disabled-bg',
+  'accent': 'color-accent-gold',
+  'hero-gradient-from': 'color-hero-from',
+  'hero-gradient-to': 'color-hero-to',
+  'hero-text': 'color-hero-text',
+  'hero-eyebrow': 'color-hero-eyebrow',
+  // T3 text  (NB: their `text-secondary` = "muted" → our text-muted)
+  'text-primary': 'color-text-primary',
+  'text-secondary': 'color-text-muted',
+  'text-disabled': 'color-text-disabled',
+  'text-on-primary': 'color-on-primary',
+  'link': 'color-primary-text',
+  // T5 KPI accents
+  'kpi-accent-gold': 'color-accent-gold',
+  'kpi-accent-primary': 'color-primary',
+  'kpi-accent-info': 'color-info-solid',
+  'kpi-accent-warning': 'color-warning-solid',
+  'kpi-accent-error': 'color-error-solid',
+  // T6 money
+  'money-negative': 'color-money-negative',
+  'money-zero': 'color-money-zero',
+  // T7 feedback
+  'focus-ring-color': 'color-focus-ring',
+  'highlight-bg': 'color-highlight-bg',
+  'overlay-backdrop': 'color-bg-overlay',
+  'skeleton-base': 'color-skeleton-base',
+  'skeleton-shimmer': 'color-skeleton-shine',
+  // T8 charts
+  'chart-1': 'color-viz-1', 'chart-2': 'color-viz-2', 'chart-3': 'color-viz-3', 'chart-4': 'color-viz-4',
+  'chart-5': 'color-viz-5', 'chart-6': 'color-viz-6', 'chart-7': 'color-viz-7', 'chart-8': 'color-viz-8',
+  // T9 spacing / radius / elevation
+  'spacing-xs': 'space-1',
+  'spacing-sm': 'space-2',
+  'spacing-md': 'space-3',
+  'spacing-lg': 'space-4',
+  'spacing-xl': 'space-6',
+  'spacing-xxl': 'space-8',
+  'radius-md': 'radius-control',
+  'radius-lg': 'radius-card',
+  'elevation-1': 'shadow-1',
+  'elevation-2': 'shadow-2',
+  'elevation-3': 'shadow-3',
+  'card-gap': 'grid-gap',
+  // T11 layout
+  'sider-width': 'nav-width',
+  'sider-width-collapsed': 'nav-width-collapsed',
+  // T12 motion
+  'motion-duration-fast': 'duration-fast',
+  'motion-duration-base': 'duration-base',
+  'motion-easing': 'ease-standard',
+  // T10 font family
+  'font-family': 'font-family-sans',
+);
+// Names identical on both sides need no alias: page-padding, header-height,
+// radius-sm, skeleton-base (color-), focus-ring (box-shadow ring; colour alias above).
+
+@mixin _emit-aliases {
+  @each $alias, $target in $erp-aliases {
+    --erp-#{$alias}: var(--erp-#{$target});
+  }
+  @include _emit-type-roles;
+}
+
+@mixin _emit-type-roles {
+  // T10 roles: `font: var(--erp-type-kpi-value)` shorthand + parts
+  @each $role, $scale in $erp-type-roles {
+    $w: list.nth(map.get($erp-type-scale, $scale), 3);
+    $fam: 'var(--erp-font-family-sans)';
+    @if $role == 'code' { $fam: 'var(--erp-font-family-mono)'; }
+    --erp-type-#{$role}: #{$w} var(--erp-font-size-#{$scale})/var(--erp-line-height-#{$scale}) #{string.unquote($fam)};
+    --erp-type-#{$role}-size: var(--erp-font-size-#{$scale});
+    --erp-type-#{$role}-line-height: var(--erp-line-height-#{$scale});
+    --erp-type-#{$role}-weight: #{$w};
+  }
+}
+
+// T10 typography roles → type-scale entries (+ monospace code role)
+$erp-type-roles: (
+  'page-title': 'page-title',
+  'page-subtitle': 'body',
+  'section-title': 'title-sm',
+  'body': 'body',
+  'table': 'body',
+  'label': 'label',
+  'caption': 'caption',
+  'kpi-value': 'kpi',
+  'kpi-label': 'label',
+  'eyebrow': 'overline',
+  'code': 'body-sm',
+);
+/// @include erp.type-role('kpi-value');
+@mixin type-role($role) {
+  $scale: map.get($erp-type-roles, $role);
+  @if not $scale { @error 'Unknown type role: #{$role}'; }
+  @include type($scale);
+  @if $role == 'code' { font-family: var(--erp-font-family-mono); }
+  @if $role == 'eyebrow' { text-transform: uppercase; }
+  @if $role == 'page-subtitle' { color: var(--erp-color-text-muted); }
+}
+
+// -----------------------------------------------------------------------------
+// 5. HELPERS (for component SCSS)
+// -----------------------------------------------------------------------------
+/// Reference a semantic colour: color: erp.color('text-muted');
+@function color($name) {
+  @if not map.has-key($erp-semantic-light, $name) {
+    @error 'Unknown semantic colour: #{$name}';
+  }
+  @return var(--erp-color-#{$name});
+}
+@function space($step) {
+  @if not map.has-key($erp-space, '#{$step}') {
+    @error 'Unknown space step: #{$step}';
+  }
+  @return var(--erp-space-#{$step});
+}
+@function radius($name) { @return var(--erp-radius-#{$name}); }
+@function shadow($level) { @return var(--erp-shadow-#{$level}); }
+@function duration($name) { @return var(--erp-duration-#{$name}); }
+@function ease($name) { @return var(--erp-ease-#{$name}); }
+@function z($name) { @return map.get($erp-z, $name); }
+
+/// Media query up from breakpoint: @include erp.up(lg) { … }
+@mixin up($bp) {
+  $min: map.get($erp-breakpoints, '#{$bp}');
+  @if $min == 0 { @content; }
+  @else { @media (min-width: $min) { @content; } }
+}
+/// Media query below breakpoint
+@mixin down($bp) {
+  $min: map.get($erp-breakpoints, '#{$bp}');
+  @media (max-width: ($min - 0.02px)) { @content; }
+}
+/// Visible focus ring (2 px solid + 2 px offset, ≥3:1 against surfaces)
+@mixin focus-ring($offset: 2px) {
+  outline: 2px solid var(--erp-color-focus-ring);
+  outline-offset: $offset;
+}
+@mixin type($name) {
+  $t: map.get($erp-type-scale, $name);
+  font-size: var(--erp-font-size-#{$name});
+  line-height: var(--erp-line-height-#{$name});
+  font-weight: list.nth($t, 3);
+  letter-spacing: list.nth($t, 4);
+}
+@mixin tabular-numbers {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+@mixin visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0);
+  white-space: nowrap; border: 0;
+}
+
+@mixin _emit($prefix, $map) {
+  @each $key, $value in $map {
+    --erp-#{$prefix}#{$key}: #{meta.inspect($value)};
+  }
+}
+@mixin _emit-raw($prefix, $map) {
+  @each $key, $value in $map {
+    --erp-#{$prefix}#{$key}: #{$value};
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 6. CSS CUSTOM PROPERTIES
+// -----------------------------------------------------------------------------
+:root {
+  color-scheme: light;
+
+  // Tenant-overridable inputs (defaults). Service writes inline on <html>.
+  --erp-brand-font: 'Inter';
+  --erp-radius-base: 6px;
+  --erp-brand-logo: none;
+  --erp-brand-logo-dark: var(--erp-brand-logo);
+  @include _emit-raw('', $erp-brand-default);
+
+  // Typography
+  @include _emit-raw('font-', $erp-font);
+  @each $name, $t in $erp-type-scale {
+    --erp-font-size-#{$name}: #{list.nth($t, 1)};
+    --erp-line-height-#{$name}: #{list.nth($t, 2)};
+  }
+
+  // Scales
+  @include _emit-raw('space-', $erp-space);
+  @include _emit-raw('radius-', $erp-radius);
+  @include _emit('shadow-', $erp-shadow-light);
+  @include _emit-raw('duration-', $erp-duration);
+  @include _emit-raw('ease-', $erp-ease);
+  @each $k, $v in $erp-z { --erp-z-#{$k}: #{$v}; }
+
+  // Density (comfortable default)
+  @include _emit-raw('', map.get($erp-density, 'comfortable'));
+
+  // Semantic colours
+  @include _emit('color-', $erp-semantic-light);
+  @include _emit-tones($erp-tones-light);
+
+  // Layout dimensions (T11)
+  --erp-drawer-width-md: 640px;
+  --erp-drawer-width-lg: 880px;
+  --erp-drawer-width-xl: 1120px;
+  --erp-form-max-width: 960px;     // forms / wizards (their `content-max-width`, see token-mapping.md)
+  --erp-table-row-height-comfortable: 44px;
+  --erp-table-row-height-compact: 32px;
+  // Breakpoints (T13) — ng-zorro defaults, informational (media queries use the SCSS map)
+  @each $k, $v in $erp-breakpoints { --erp-bp-#{$k}: #{$v}; }
+
+  @include _emit-aliases;
+
+  // Component aliases
+  --erp-nav-width: 248px;
+  --erp-nav-width-collapsed: 64px;
+  --erp-kpi-accent-width: 3px;
+  --erp-content-max-width: 1600px;
+  --erp-focus-ring: 0 0 0 2px var(--erp-color-bg-surface), 0 0 0 4px var(--erp-color-focus-ring);
+
+  // ---- Bridge: ng-zorro variable theme (--ant-*) → semantic tokens ----------
+  // `:root` beats ng-zorro's `html {}` block on specificity, so these win.
+  --ant-primary-color: var(--erp-color-primary);
+  --ant-primary-color-hover: var(--erp-color-primary-hover);
+  --ant-primary-color-active: var(--erp-color-primary-active);
+  --ant-primary-color-outline: color-mix(in srgb, var(--erp-color-focus-ring) 25%, transparent);
+  --ant-primary-1: var(--erp-color-primary-subtle);
+  --ant-primary-2: var(--erp-color-primary-subtle-hover);
+  --ant-primary-3: var(--erp-color-primary-border);
+  --ant-primary-4: var(--erp-brand-400);
+  --ant-primary-5: var(--erp-color-primary-hover);
+  --ant-primary-6: var(--erp-color-primary);
+  --ant-primary-7: var(--erp-color-primary-active);
+  --ant-primary-color-deprecated-pure: ;
+  --ant-primary-color-deprecated-l-35: var(--erp-color-primary-subtle-hover);
+  --ant-primary-color-deprecated-l-20: var(--erp-color-primary-border);
+  --ant-primary-color-deprecated-t-20: var(--erp-color-primary-hover);
+  --ant-primary-color-deprecated-t-50: var(--erp-color-primary-border);
+  --ant-primary-color-deprecated-f-12: color-mix(in srgb, var(--erp-color-primary) 12%, transparent);
+  --ant-primary-color-active-deprecated-f-30: color-mix(in srgb, var(--erp-color-primary-subtle) 30%, transparent);
+  --ant-primary-color-active-deprecated-d-02: var(--erp-color-primary-subtle-hover);
+  --ant-success-color: var(--erp-color-success-solid);
+  --ant-success-color-hover: var(--erp-color-success-solid);
+  --ant-success-color-active: var(--erp-color-success-text);
+  --ant-success-color-outline: color-mix(in srgb, var(--erp-color-success-solid) 20%, transparent);
+  --ant-success-color-deprecated-bg: var(--erp-color-success-bg);
+  --ant-success-color-deprecated-border: var(--erp-color-success-border);
+  --ant-warning-color: var(--erp-color-warning-solid);
+  --ant-warning-color-hover: var(--erp-color-warning-fill);
+  --ant-warning-color-active: var(--erp-color-warning-text);
+  --ant-warning-color-outline: color-mix(in srgb, var(--erp-color-warning-solid) 20%, transparent);
+  --ant-warning-color-deprecated-bg: var(--erp-color-warning-bg);
+  --ant-warning-color-deprecated-border: var(--erp-color-warning-border);
+  --ant-error-color: var(--erp-color-error-solid);
+  --ant-error-color-hover: var(--erp-color-error-solid);
+  --ant-error-color-active: var(--erp-color-error-text);
+  --ant-error-color-outline: color-mix(in srgb, var(--erp-color-error-solid) 20%, transparent);
+  --ant-error-color-deprecated-bg: var(--erp-color-error-bg);
+  --ant-error-color-deprecated-border: var(--erp-color-error-border);
+  --ant-info-color: var(--erp-color-info-solid);
+  --ant-info-color-deprecated-bg: var(--erp-color-info-bg);
+  --ant-info-color-deprecated-border: var(--erp-color-info-border);
+}
+
+@mixin _dark-theme {
+  color-scheme: dark;
+  @include _emit('shadow-', $erp-shadow-dark);
+  @include _emit('color-', $erp-semantic-dark);
+  @include _emit-tones($erp-tones-dark);
+  @include _emit-aliases;   // re-resolve aliases on the element that switches theme
+}
+
+[data-theme='dark'] {
+  @include _dark-theme;
+}
+@media (prefers-color-scheme: dark) {
+  [data-theme='system'] {
+    @include _dark-theme;
+  }
+}
+
+// Optional navy sidebar (both light and dark)
+[data-nav-theme='dark'] {
+  @include _emit-raw('color-', $erp-nav-navy);
+  @include _emit-aliases;
+}
+
+[data-density='compact'] {
+  @include _emit-raw('', map.get($erp-density, 'compact'));
+  --erp-font-size-body: 13px;
+  @include _emit-aliases;   // per-table/subtree density keeps aliases in sync
+}
+
+// RTL: tokens are direction-agnostic (logical properties); only a few need flipping.
+[dir='rtl'] {
+  --erp-direction-sign: -1;      // multiply X translations: translateX(calc(8px * var(--erp-direction-sign)))
+  --erp-chevron-rotate: 180deg;  // directional icons
+}
+:root { --erp-direction-sign: 1; --erp-chevron-rotate: 0deg; }
+
+// Arabic-script typography: Arabic needs ~1 px larger size and taller line-height,
+// no letter-spacing (breaks joining), and never uppercase.
+:lang(ar),
+:lang(ur),
+:lang(fa) {
+  --erp-font-family-sans: var(--erp-font-family-arabic);
+  --erp-font-size-body: 15px;
+  --erp-line-height-body: 26px;
+  --erp-font-size-body-sm: 14px;
+  --erp-line-height-body-sm: 24px;
+  --erp-font-size-caption: 13px;
+  --erp-line-height-caption: 20px;
+  --erp-font-size-label: 13px;
+  --erp-line-height-label: 20px;
+  letter-spacing: 0 !important;
+  @include _emit-type-roles;
+}
+[data-density='compact']:lang(ar),
+[data-density='compact']:lang(ur),
+[data-density='compact']:lang(fa),
+:lang(ar) [data-density='compact'],
+:lang(ur) [data-density='compact'] {
+  --erp-font-size-body: 14px;
+  --erp-line-height-body: 22px;
+}
+
+// Reduced motion: collapse durations; components also gate transforms.
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --erp-duration-fast: 0ms;
+    --erp-duration-quick: 0ms;
+    --erp-duration-base: 0ms;
+    --erp-duration-moderate: 0ms;
+    --erp-duration-slow: 0ms;
+    --erp-duration-slower: 0ms;
+    --erp-duration-skeleton: 0ms;
+  }
+}
+// Manual override from user preferences (persisted per user)
+[data-motion='reduced'] {
+  --erp-duration-fast: 0ms;
+  --erp-duration-quick: 0ms;
+  --erp-duration-base: 0ms;
+  --erp-duration-moderate: 0ms;
+  --erp-duration-slow: 0ms;
+  --erp-duration-slower: 0ms;
+  --erp-duration-skeleton: 0ms;
+}
+
+// -----------------------------------------------------------------------------
+// 7. BASE + ng-zorro RUNTIME PATCHES
+// (things the LESS bridge can't express: density, focus, dark tooltip, Arabic)
+// -----------------------------------------------------------------------------
+html {
+  font-family: var(--erp-font-family-sans);
+  font-size: var(--erp-font-size-body);
+  line-height: var(--erp-line-height-body);
+  color: var(--erp-color-text-primary);
+  background: var(--erp-color-bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+// Unified, always-visible keyboard focus (WCAG 2.4.7 / 2.4.11 / 2.4.13)
+:where(a, button, [role='button'], [tabindex], input, select, textarea, .ant-btn, .ant-menu-item, .ant-tabs-tab-btn):focus-visible {
+  @include focus-ring;
+}
+.ant-input:focus-visible,
+.ant-input-affix-wrapper-focused,
+.ant-select-focused .ant-select-selector,
+.ant-picker-focused {
+  box-shadow: var(--erp-focus-ring) !important;
+}
+
+// Density patches
+[data-density='compact'] {
+  .ant-table-tbody > tr > td,
+  .ant-table-thead > tr > th {
+    padding: var(--erp-table-cell-py) var(--erp-table-cell-px);
+    font-size: var(--erp-font-size-body);
+  }
+  .ant-menu-inline > .ant-menu-item,
+  .ant-menu-inline .ant-menu-submenu-title {
+    height: var(--erp-nav-item-height);
+    line-height: var(--erp-nav-item-height);
+  }
+  .ant-card-body { padding: var(--erp-card-padding); }
+}
+.ant-table-tbody > tr > td,
+.ant-table-thead > tr > th {
+  padding-block: var(--erp-table-cell-py);
+  padding-inline: var(--erp-table-cell-px);
+}
+.ant-table { font-variant-numeric: tabular-nums; }
+.ant-card { border-radius: var(--erp-radius-card); border-color: var(--erp-color-border-subtle); }
+.ant-modal-content,
+.ant-drawer-content,
+.ant-dropdown-menu,
+.ant-select-dropdown,
+.ant-picker-dropdown .ant-picker-panel-container,
+.ant-popover-inner { border-radius: var(--erp-radius-overlay); }
+.ant-btn-primary { color: var(--erp-color-on-primary); }
+.ant-tooltip-inner { color: var(--erp-color-text-inverse); }
+
+
+// ---- T15 ng-zorro patches ---------------------------------------------------
+// nz-menu pill (light or navy nav)
+.ant-menu-light .ant-menu-item,
+.ant-menu-light .ant-menu-submenu-title { border-radius: var(--erp-radius-control); margin-inline: var(--erp-space-2); width: auto; }
+.ant-menu-light .ant-menu-item-selected,
+.ant-menu-light .ant-menu-item-selected a { background: var(--erp-color-nav-item-active-bg) !important; color: var(--erp-color-nav-text-active); font-weight: 600; }
+.ant-menu-light .ant-menu-item:hover:not(.ant-menu-item-selected) { background: var(--erp-color-nav-item-hover-bg); }
+.ant-menu-item-group-title { color: var(--erp-color-nav-section-label); }
+// nz-tag tones: <nz-tag class="erp-tone" data-tone="success"> and ng-zorro presets
+.erp-tone { border-radius: var(--erp-radius-control); }
+@each $tone in ('success', 'neutral', 'warning', 'error', 'info', 'orange', 'plain') {
+  .erp-tone[data-tone='#{$tone}'] {
+    background: var(--erp-tone-#{$tone}-bg);
+    color: var(--erp-tone-#{$tone}-fg);
+    border-color: var(--erp-tone-#{$tone}-border);
+  }
+}
+@each $preset, $tone in ('success': 'success', 'processing': 'info', 'error': 'error', 'warning': 'warning', 'default': 'neutral') {
+  .ant-tag-#{$preset} {
+    background: var(--erp-tone-#{$tone}-bg);
+    color: var(--erp-tone-#{$tone}-fg);
+    border-color: var(--erp-tone-#{$tone}-border);
+  }
+}
+.ant-tag:not([class*='ant-tag-']):not(.erp-tone) {
+  background: var(--erp-tone-plain-bg); color: var(--erp-tone-plain-fg); border-color: var(--erp-tone-plain-border);
+}
+// danger fills & count badges (dark-mode safe: --ant-error-color is the TEXT red)
+.ant-btn-dangerous.ant-btn-primary:not([disabled]) { background: var(--erp-color-danger-fill); border-color: var(--erp-color-danger-fill); color: var(--erp-color-on-danger); }
+.ant-badge-count { background: var(--erp-color-danger-fill); color: var(--erp-color-on-danger); box-shadow: 0 0 0 1px var(--erp-color-bg-surface); }
+// disabled primary
+.ant-btn-primary[disabled] { background: var(--erp-color-primary-disabled-bg); border-color: var(--erp-color-border-default); color: var(--erp-color-primary-disabled-text); }
+// nz-steps
+.ant-steps-item-process .ant-steps-item-icon { background: var(--erp-color-primary); border-color: var(--erp-color-primary); }
+.ant-steps-item-process .ant-steps-item-icon > .ant-steps-icon { color: var(--erp-color-on-primary); }
+.ant-steps-item-finish .ant-steps-item-icon { border-color: var(--erp-color-primary); }
+.ant-steps-item-finish .ant-steps-item-icon > .ant-steps-icon { color: var(--erp-color-primary-text); }
+.ant-steps-item-finish > .ant-steps-item-container > .ant-steps-item-tail::after { background: var(--erp-color-primary); }
+.ant-steps-item-error .ant-steps-item-icon { border-color: var(--erp-color-error-solid); }
+.ant-steps-item-wait .ant-steps-item-icon { border-color: var(--erp-color-border-control); }
+// nz-drawer sticky footer
+.ant-drawer-footer {
+  position: sticky; inset-block-end: 0;
+  display: flex; justify-content: flex-end; gap: var(--erp-space-2);
+  padding: var(--erp-space-3) var(--erp-space-6);
+  background: var(--erp-color-bg-surface-raised);
+  border-block-start: 1px solid var(--erp-color-border-subtle);
+}
+// nz-segmented
+.ant-segmented { background: var(--erp-color-bg-sunken); color: var(--erp-color-text-secondary); border-radius: var(--erp-radius-control); }
+.ant-segmented-item-selected { background: var(--erp-color-bg-surface); color: var(--erp-color-text-primary); box-shadow: var(--erp-shadow-1); }
+.ant-segmented-item:hover:not(.ant-segmented-item-selected) { color: var(--erp-color-text-primary); }
+.ant-segmented-thumb { background: var(--erp-color-bg-surface); transition-duration: var(--erp-duration-base); transition-timing-function: var(--erp-ease-standard); }
+// header bar
+.ant-layout-header { height: var(--erp-header-height); line-height: var(--erp-header-height); background: var(--erp-color-header-bg); padding-inline: var(--erp-space-4); }
+
+// Dark-mode-only fixes (literal colours baked by ng-zorro)
+[data-theme='dark'] {
+  .ant-tooltip-inner,
+  .ant-tooltip-arrow-content { --antd-arrow-background-color: var(--erp-color-bg-inverse); }
+  .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner,
+  .ant-steps-item-process .ant-steps-item-icon > .ant-steps-icon,
+  .ant-switch-checked .ant-switch-handle::before { color: var(--erp-color-on-primary); }
+  .ant-tag { border-color: transparent; }
+  img, svg { color-scheme: normal; }
+}
+
+// Forced colours (Windows High Contrast): rely on system colours, keep outlines
+@media (forced-colors: active) {
+  :root { --erp-focus-ring: 0 0 0 2px CanvasText; }
+  .erp-kpi-card,
+  .ant-card { border: 1px solid CanvasText; }
+  .erp-status-dot { forced-color-adjust: none; }
+}
+
+// Suppress transitions for the frame in which the theme flips (set by TenantThemeService)
+.erp-theme-switching,
+.erp-theme-switching *,
+.erp-theme-switching *::before,
+.erp-theme-switching *::after {
+  transition: none !important;
+}

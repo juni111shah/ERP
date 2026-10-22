@@ -36,7 +36,7 @@ public class InvoiceLine : Entity
     public Guid? ItemId { get; set; }
     public string Description { get; set; } = default!;
     public decimal Quantity { get; set; }
-    public decimal UnitPrice { get; set; }
+    public decimal Price { get; set; }
     public Guid? TaxCodeId { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal Net { get; set; }
@@ -74,7 +74,7 @@ public class BillLine : Entity
     public Guid? ItemId { get; set; }
     public string Description { get; set; } = default!;
     public decimal Quantity { get; set; }
-    public decimal UnitPrice { get; set; }
+    public decimal Price { get; set; }
     public Guid? TaxCodeId { get; set; }
     public decimal TaxAmount { get; set; }
     public bool TaxRecoverable { get; set; } = true;

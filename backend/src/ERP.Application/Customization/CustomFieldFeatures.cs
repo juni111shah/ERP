@@ -70,7 +70,7 @@ public sealed class CustomFieldService(IAppDbContext db, ICustomizableEntityRegi
 internal static class CustomFieldMapping
 {
     public static CustomFieldDefinitionDto ToDto(this CustomFieldDefinition d) => new(
-        d.Id, d.EntityType, d.Key, d.Label, d.DataType.ToString(), d.Required,
+        d.Id, d.EntityType, d.Key, d.Label, System.Text.Json.JsonNamingPolicy.CamelCase.ConvertName(d.DataType.ToString()), d.Required,
         string.IsNullOrWhiteSpace(d.Options) ? null : JsonNode.Parse(d.Options),
         d.Order, d.Section, d.HelpText, d.IsSearchable, d.IsActive, d.ModuleKey,
         string.IsNullOrWhiteSpace(d.DefaultValue) ? null : JsonNode.Parse(d.DefaultValue), d.LegalEntityId, d.ShowInList, d.Sortable);

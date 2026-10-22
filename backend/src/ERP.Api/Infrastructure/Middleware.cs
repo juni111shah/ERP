@@ -52,7 +52,7 @@ public sealed class ProblemExceptionHandler(ILogger<ProblemExceptionHandler> log
             DbUpdateConcurrencyException => new ProblemDetails { Status = 409, Title = "Concurrency conflict", Detail = "The record was changed by someone else. Reload and try again." },
             BadHttpRequestException b => new ProblemDetails { Status = b.StatusCode, Title = "Bad request", Detail = b.Message },
             System.Text.Json.JsonException j => new ProblemDetails { Status = 400, Title = "Invalid JSON", Detail = j.Message },
-            _ => new ProblemDetails { Status = 500, Title = "Unexpected error", Detail = env.IsDevelopment() ? ex.Message : "An unexpected error occurred." },
+            _ => new ProblemDetails { Status = 500, Title = "Unexpected error", Detail = env.IsDevelopment() || env.IsEnvironment("Testing") ? ex.ToString() : "An unexpected error occurred." },
         };
         if (problem.Status >= 500) log.LogError(ex, "Unhandled exception");
         if (ex is AuthException { RetryAt: { } retryAt })

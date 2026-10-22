@@ -78,7 +78,7 @@ public static class SequentialGuid
     public static Guid NewGuid()
     {
         var bytes = Guid.NewGuid().ToByteArray();
-        long ticks = DateTime.UtcNow.Ticks;
+        long ticks = DateTime.UtcNow.Ticks / 100; // 10 µs units: 48 bits last ~89 years
         long last, next;
         do
         {

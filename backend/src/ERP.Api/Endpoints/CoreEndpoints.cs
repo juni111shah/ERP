@@ -217,7 +217,7 @@ public static class CoreEndpoints
         var roles = api.MapGroup("/roles").WithTags("Security");
         roles.MapGet("", async (AppDbContext db, CancellationToken ct) =>
             await db.Roles.AsNoTracking().OrderBy(r => r.Name)
-                .Select(r => new { r.Id, r.Name, r.Description, r.IsBuiltIn, r.ModuleKey, permissions = r.Permissions.Select(p => p.Permission).OrderBy(p => p) }).ToListAsync(ct))
+                .Select(r => new { r.Id, r.Name, r.Description, r.IsBuiltIn, r.ModuleKey, permissions = r.Permissions.OrderBy(p => p.Permission).Select(p => p.Permission).ToList() }).ToListAsync(ct))
             .RequirePermission(CorePermissions.RolesRead);
         roles.MapPost("", async (RoleInput i, AppDbContext db, IPermissionCatalog catalog, CancellationToken ct) =>
         {

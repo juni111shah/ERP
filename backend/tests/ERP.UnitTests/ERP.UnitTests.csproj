@@ -18,4 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ERP.Infrastructure\ERP.Infrastructure.csproj" /><ProjectReference Include="..\..\modules\ERP.Modules.RealEstate\ERP.Modules.RealEstate.csproj" /><ProjectReference Include="..\..\modules\ERP.Modules.Inventory\ERP.Modules.Inventory.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="core-vocabulary-denylist.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

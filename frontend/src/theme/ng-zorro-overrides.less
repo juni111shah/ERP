@@ -1,0 +1,167 @@
+// =============================================================================
+// ng-zorro-overrides.less
+// ERP design system → ng-zorro-antd (v17–19, LESS theme engine) bridge.
+//
+// HOW IT WORKS
+//  * We build on ng-zorro's *variable* (CSS custom property) entry, so primary /
+//    success / warning / error / info are already `var(--ant-*)` at runtime.
+//    tokens.scss re-points every `--ant-*` var at our `--erp-*` semantic tokens,
+//    which the TenantThemeService rewrites at runtime (tenant brand, dark mode).
+//  * Everything else ng-zorro would normally bake in at compile time (surfaces,
+//    text, borders, radius, font, shadows, motion) is overridden below with
+//    `~'var(--erp-…)'` strings, so ONE compiled stylesheet serves light, dark,
+//    compact and every tenant brand. No separate dark.css build is needed.
+//  * A few LESS variables are consumed by colour *functions* inside ng-zorro
+//    (fade/tint/darken/colorPalette) or by arithmetic (heights, paddings).
+//    Those MUST stay literal values; they are listed in the "Literal-only" block
+//    with the reason, and dark-mode equivalents are patched with CSS in
+//    tokens.scss (section "ng-zorro runtime patches").
+//
+// USAGE (angular.json → "styles"; order matters):
+//   "src/theme/ng-zorro-overrides.less",   // this file (imports ng-zorro itself)
+//   "src/theme/tokens.scss"                // tokens + --ant-* bridge + patches
+// and in angular.json → "stylePreprocessorOptions" / less: javascriptEnabled: true
+// (ng-zorro's colorPalette() needs inline JS).
+//
+// Verified: compiles with lessc --js against ng-zorro-antd 19.3.1.
+// =============================================================================
+
+@import '../../node_modules/ng-zorro-antd/ng-zorro-antd.variable.less';
+// Must come AFTER the ng-zorro import so our wrapped colour functions are the ones in scope
+@plugin './var-safe-color-functions';
+
+// -----------------------------------------------------------------------------
+// 1. Typography
+// -----------------------------------------------------------------------------
+@font-family: ~'var(--erp-font-family-sans)';
+@code-family: ~'var(--erp-font-family-mono)';
+// Literal-only: @font-size-base / @line-height-base feed arithmetic
+// (e.g. heights = font-size * line-height). Density is applied via CSS in
+// tokens.scss instead. 14px = comfortable base; compact patches to 13px.
+@font-size-base: 14px;
+@font-size-sm: 12px;
+@line-height-base: 1.5715;
+
+// -----------------------------------------------------------------------------
+// 2. Surfaces & text (runtime, theme-aware)
+// -----------------------------------------------------------------------------
+@body-background: ~'var(--erp-color-bg-canvas)';
+@component-background: ~'var(--erp-color-bg-surface)';
+@popover-background: ~'var(--erp-color-bg-surface-raised)';
+@layout-body-background: ~'var(--erp-color-bg-canvas)';
+@layout-header-background: ~'var(--erp-color-bg-surface)';
+@layout-sider-background: ~'var(--erp-color-nav-bg)';
+@layout-sider-background-light: ~'var(--erp-color-nav-bg)';
+@layout-trigger-background: ~'var(--erp-color-nav-bg)';
+@layout-trigger-background-light: ~'var(--erp-color-nav-bg)';
+
+@text-color: ~'var(--erp-color-text-primary)';
+@text-color-secondary: ~'var(--erp-color-text-muted)';
+@heading-color: ~'var(--erp-color-text-heading)';
+@text-color-inverse: ~'var(--erp-color-text-inverse)';
+@link-color: ~'var(--erp-color-primary-text)';
+@link-hover-color: ~'var(--erp-color-primary-hover)';
+@link-active-color: ~'var(--erp-color-primary-active)';
+
+@item-hover-bg: ~'var(--erp-color-bg-hover)';
+@item-active-bg: ~'var(--erp-color-bg-selected)';
+@border-color-split: ~'var(--erp-color-border-subtle)';
+@disabled-color: ~'var(--erp-color-text-disabled)';
+
+// Components that read the vars above directly
+@card-background: ~'var(--erp-color-bg-surface)';
+@card-head-color: ~'var(--erp-color-text-heading)';
+@modal-header-bg: ~'var(--erp-color-bg-surface-raised)';
+@modal-content-bg: ~'var(--erp-color-bg-surface-raised)';
+@modal-footer-bg: transparent;
+@drawer-bg: ~'var(--erp-color-bg-surface-raised)';
+@dropdown-menu-bg: ~'var(--erp-color-bg-surface-raised)';
+@input-bg: ~'var(--erp-color-bg-surface)';
+@select-background: ~'var(--erp-color-bg-surface)';
+@select-dropdown-bg: ~'var(--erp-color-bg-surface-raised)';
+@select-item-selected-bg: ~'var(--erp-color-bg-selected)';
+@picker-bg: ~'var(--erp-color-bg-surface)';
+@picker-basic-cell-hover-color: ~'var(--erp-color-bg-hover)';
+@tooltip-bg: ~'var(--erp-color-bg-inverse)';
+@tooltip-color: ~'var(--erp-color-text-inverse)';
+@tabs-ink-bar-color: ~'var(--erp-color-primary)';
+@tabs-highlight-color: ~'var(--erp-color-primary-text)';
+@tabs-hover-color: ~'var(--erp-color-primary-hover)';
+
+// Menu (sidebar) — white nav with brand-tinted active pill
+@menu-bg: ~'var(--erp-color-nav-bg)';
+@menu-popup-bg: ~'var(--erp-color-bg-surface-raised)';
+@menu-item-color: ~'var(--erp-color-nav-text)';
+@menu-highlight-color: ~'var(--erp-color-nav-text-active)';
+@menu-item-active-bg: ~'var(--erp-color-nav-item-active-bg)';
+@menu-item-group-title-color: ~'var(--erp-color-nav-section-label)';
+@menu-inline-submenu-bg: transparent;
+@menu-item-active-border-width: 0; // we use a pill, not an edge bar
+@menu-item-height: 40px;
+@menu-inline-toplevel-item-height: 40px;
+
+// Table
+@table-bg: ~'var(--erp-color-bg-surface)';
+@table-header-bg: ~'var(--erp-color-bg-subtle)';
+@table-header-color: ~'var(--erp-color-text-secondary)';
+@table-header-sort-bg: ~'var(--erp-color-bg-sunken)';
+@table-body-sort-bg: ~'var(--erp-color-bg-subtle)';
+@table-row-hover-bg: ~'var(--erp-color-bg-hover)';
+@table-selected-row-bg: ~'var(--erp-color-bg-selected)';
+@table-selected-row-hover-bg: ~'var(--erp-color-primary-subtle-hover)';
+@table-expanded-row-bg: ~'var(--erp-color-bg-subtle)';
+@table-border-color: ~'var(--erp-color-border-subtle)';
+@table-fixed-header-sort-active-bg: ~'var(--erp-color-bg-sunken)';
+@table-footer-bg: ~'var(--erp-color-bg-subtle)';
+@table-sticky-scroll-bar-bg: ~'var(--erp-color-border-strong)';
+
+@btn-primary-color: ~'var(--erp-color-on-primary)';
+@btn-default-bg: ~'var(--erp-color-bg-surface)';
+@btn-default-ghost-color: ~'var(--erp-color-text-primary)';
+@btn-text-hover-bg: ~'var(--erp-color-bg-hover)';
+
+@tag-default-bg: ~'var(--erp-color-neutral-bg)';
+@tag-default-color: ~'var(--erp-color-neutral-text)';
+
+// -----------------------------------------------------------------------------
+// 3. Shape, elevation, motion (runtime)
+// -----------------------------------------------------------------------------
+@border-radius-base: ~'var(--erp-radius-control)';
+@border-radius-sm: ~'var(--erp-radius-sm)';
+// Literal-only: popover/tooltip arrow geometry runs unit()/sqrt() on these.
+@arrow-border-radius: 2px;
+@popover-arrow-outer-radius: 4px;
+
+@shadow-1-down: ~'var(--erp-shadow-2)';
+@shadow-1-up: ~'var(--erp-shadow-2)';
+@shadow-1-left: ~'var(--erp-shadow-3)';
+@shadow-1-right: ~'var(--erp-shadow-3)';
+@shadow-2: ~'var(--erp-shadow-2)';
+@box-shadow-base: ~'var(--erp-shadow-2)';
+@card-shadow: ~'var(--erp-shadow-1)';
+
+@ease-base-out: ~'var(--erp-ease-standard)';
+@ease-out: ~'var(--erp-ease-decelerate)';
+@ease-in: ~'var(--erp-ease-accelerate)';
+@ease-in-out: ~'var(--erp-ease-standard)';
+@animation-duration-slow: ~'var(--erp-duration-slow)';
+@animation-duration-base: ~'var(--erp-duration-base)';
+@animation-duration-fast: ~'var(--erp-duration-fast)';
+
+// -----------------------------------------------------------------------------
+// 4. Borders & neutral backgrounds (runtime). These are consumed by colour
+//    functions inside ng-zorro; the var-safe plugin turns those into color-mix().
+// -----------------------------------------------------------------------------
+@border-color-base: ~'var(--erp-color-border-control)';
+@background-color-light: ~'var(--erp-color-bg-subtle)';
+@background-color-base: ~'var(--erp-color-bg-sunken)';
+@disabled-bg: ~'var(--erp-color-bg-sunken)';
+
+// -----------------------------------------------------------------------------
+// 5. Literal-only: used in Less arithmetic (heights, paddings), so they cannot be
+//    CSS vars. Density is applied with nzSize + CSS patches in tokens.scss.
+// -----------------------------------------------------------------------------
+@height-base: 32px;   // comfortable control height
+@height-lg: 40px;
+@height-sm: 28px;     // compact control height
+@outline-width: 2px;

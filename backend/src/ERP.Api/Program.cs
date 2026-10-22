@@ -94,7 +94,7 @@ builder.Services.AddCors(o => o.AddPolicy("web", p => p
     .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
-    o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase));
     o.SerializerOptions.MaxDepth = 16;
 });
 
@@ -118,6 +118,7 @@ if (app.Configuration.GetValue("Swagger:Enabled", app.Environment.IsDevelopment(
 app.UseCors("web");
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<ModuleGateMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<LegalEntityScopeMiddleware>();
 
@@ -131,7 +132,7 @@ foreach (var module in registry.Modules)
 {
     var group = api.MapGroup($"/m/{module.Manifest.Key}")
         .RequireAuthorization()
-        .AddEndpointFilter(new ModuleEnabledFilter(module.Manifest.Key))
+        .WithMetadata(new ModuleGateMetadata(module.Manifest.Key))
         .WithTags($"Module: {module.Manifest.Name}");
     module.MapEndpoints(group);
 }

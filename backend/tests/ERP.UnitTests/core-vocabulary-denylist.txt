@@ -1,0 +1,35 @@
+# Terms that must NOT appear in core schema (migrations), core seed data, core i18n labels,
+# default (core) navigation, or the core OpenAPI document. Case-insensitive, whole word.
+# Module-owned files (ERP.Modules.*, web/**/modules/**) are excluded from the scan.
+# Owner: SQA. Add terms as new industry modules arrive.
+# v0.2: 'cheque', 'pdc' and 'custody' removed; cheques/PDCs are a core finance instrument (DECIDED).
+property
+properties
+unit
+units
+lease
+leases
+lessee
+landlord
+rent
+rental
+tenancy
+ejari
+tawtheeq
+dld
+rera
+dewa
+addc
+brokerage
+commission
+occupancy
+rent roll
+acquisition
+plot
+villa
+work order
+# Spec settings that currently sit on the core Organization table (§11.2) and must move to module settings:
+LeaseExpiryAlertDays
+# Lease/instalment links on core Cheque are forbidden (link lives in the RE module):
+LeaseId
+InstalmentId

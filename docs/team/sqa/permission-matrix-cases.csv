@@ -1,0 +1,451 @@
+id,role,permission,access,request,module,expected_status,note
+PERM-M-ADM-core.entities.read,Org admin,core.entities.read,RW,GET /api/v1/entities,core,200,"decided default: Org admin RW, others R"
+PERM-M-ADM-core.entities.write,Org admin,core.entities.write,RW,POST /api/v1/entities (valid body),core,201,"decided default: Org admin RW, others R; on 403 assert no row/audit created"
+PERM-M-ADM-core.customers.read,Org admin,core.customers.read,RW,GET /api/v1/customers,core,200,spec leasing column
+PERM-M-ADM-core.customers.write,Org admin,core.customers.write,RW,POST /api/v1/customers (valid body),core,201,spec leasing column; on 403 assert no row/audit created
+PERM-M-ADM-core.vendors.read,Org admin,core.vendors.read,RW,GET /api/v1/vendors,core,200,spec payables column
+PERM-M-ADM-core.vendors.write,Org admin,core.vendors.write,RW,POST /api/v1/vendors (valid body),core,201,spec payables column; on 403 assert no row/audit created
+PERM-M-ADM-finance.accounts.read,Org admin,finance.accounts.read,RW,GET /api/v1/accounts,core,200,spec accounting column
+PERM-M-ADM-finance.accounts.write,Org admin,finance.accounts.write,RW,POST /api/v1/accounts (valid body),core,201,spec accounting column; on 403 assert no row/audit created
+PERM-M-ADM-finance.journals.read,Org admin,finance.journals.read,RW,GET /api/v1/journals,core,200,spec accounting column
+PERM-M-ADM-finance.journals.write,Org admin,finance.journals.write,RW,POST /api/v1/journals (valid body),core,201,spec accounting column; on 403 assert no row/audit created
+PERM-M-ADM-finance.invoices.read,Org admin,finance.invoices.read,RW,GET /api/v1/invoices,core,200,"spec billing column (sales invoices are core finance, DECIDED)"
+PERM-M-ADM-finance.invoices.write,Org admin,finance.invoices.write,RW,POST /api/v1/invoices (valid body),core,201,"spec billing column (sales invoices are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-ADM-finance.receipts.read,Org admin,finance.receipts.read,RW,GET /api/v1/receipts,core,200,"spec billing column (core finance, DECIDED)"
+PERM-M-ADM-finance.receipts.write,Org admin,finance.receipts.write,RW,POST /api/v1/receipts (valid body),core,201,"spec billing column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-ADM-finance.bills.read,Org admin,finance.bills.read,RW,GET /api/v1/bills,core,200,"spec payables column (purchase bills are core finance, DECIDED)"
+PERM-M-ADM-finance.bills.write,Org admin,finance.bills.write,RW,POST /api/v1/bills (valid body),core,201,"spec payables column (purchase bills are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-ADM-finance.payments.read,Org admin,finance.payments.read,RW,GET /api/v1/payments,core,200,"spec payables column (core finance, DECIDED)"
+PERM-M-ADM-finance.payments.write,Org admin,finance.payments.write,RW,POST /api/v1/payments (valid body),core,201,"spec payables column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-ADM-finance.cheques.read,Org admin,finance.cheques.read,RW,GET /api/v1/cheques,core,200,"decided default: max(spec billing, leasing)"
+PERM-M-ADM-finance.cheques.write,Org admin,finance.cheques.write,RW,POST /api/v1/cheques (valid body),core,201,"decided default: max(spec billing, leasing); on 403 assert no row/audit created"
+PERM-M-ADM-hr.employees.read,Org admin,hr.employees.read,RW,GET /api/v1/m/hr/employees,hr,200,spec hr column
+PERM-M-ADM-hr.employees.write,Org admin,hr.employees.write,RW,POST /api/v1/m/hr/employees (valid body),hr,201,spec hr column; on 403 assert no row/audit created
+PERM-M-ADM-hr.payroll.read,Org admin,hr.payroll.read,RW,GET /api/v1/m/hr/payroll-runs,hr,200,spec hr column; hr.payroll.read also gates salary fields (DECIDED)
+PERM-M-ADM-hr.payroll.write,Org admin,hr.payroll.write,RW,POST /api/v1/m/hr/payroll-runs (valid body),hr,201,spec hr column; hr.payroll.read also gates salary fields (DECIDED); on 403 assert no row/audit created
+PERM-M-ADM-realestate.properties.read,Org admin,realestate.properties.read,RW,GET /api/v1/m/realestate/properties,realestate,200,spec portfolio column
+PERM-M-ADM-realestate.properties.write,Org admin,realestate.properties.write,RW,POST /api/v1/m/realestate/properties (valid body),realestate,201,spec portfolio column; on 403 assert no row/audit created
+PERM-M-ADM-realestate.acquisitions.read,Org admin,realestate.acquisitions.read,RW,GET /api/v1/m/realestate/acquisitions,realestate,200,spec investment column
+PERM-M-ADM-realestate.acquisitions.write,Org admin,realestate.acquisitions.write,RW,POST /api/v1/m/realestate/acquisitions (valid body),realestate,201,spec investment column; on 403 assert no row/audit created
+PERM-M-ADM-realestate.leases.read,Org admin,realestate.leases.read,RW,GET /api/v1/m/realestate/leases,realestate,200,spec leasing column
+PERM-M-ADM-realestate.leases.write,Org admin,realestate.leases.write,RW,POST /api/v1/m/realestate/leases (valid body),realestate,201,spec leasing column; on 403 assert no row/audit created
+PERM-M-ADM-realestate.workorders.read,Org admin,realestate.workorders.read,RW,GET /api/v1/m/realestate/work-orders,realestate,200,spec facilities column
+PERM-M-ADM-realestate.workorders.write,Org admin,realestate.workorders.write,RW,POST /api/v1/m/realestate/work-orders (valid body),realestate,201,spec facilities column; on 403 assert no row/audit created
+PERM-M-ADM-realestate.deals.read,Org admin,realestate.deals.read,RW,GET /api/v1/m/realestate/deals,realestate,200,spec brokerage column
+PERM-M-ADM-realestate.deals.write,Org admin,realestate.deals.write,RW,POST /api/v1/m/realestate/deals (valid body),realestate,201,spec brokerage column; on 403 assert no row/audit created
+PERM-M-ADM-core.reports.read,Org admin,core.reports.read,granted,GET /api/v1/reports/trial-balance,core,200,spec reports column
+PERM-M-ADM-realestate.reports.read,Org admin,realestate.reports.read,granted,GET /api/v1/m/realestate/reports/rent-roll,realestate,200,spec reports column
+PERM-M-ADM-finance.cheques.approve,Org admin,finance.cheques.approve,granted,POST /api/v1/cheques/{id}/approve (deposit/clear/bounce/replace/cancel requested by another user),core,200,DECIDED checker step; holders of core.approvals.decide
+PERM-M-ADM-finance.cheques.issue,Org admin,finance.cheques.issue,granted,POST /api/v1/cheques/outgoing (issue an outgoing cheque),core,200,DECIDED; holders = spec payables RW
+PERM-M-ADM-core.approvals.decide,Org admin,core.approvals.decide,granted,POST /api/v1/approvals/{id}/approve (request by another user),core,200,was approvals.decide
+PERM-M-ADM-core.audit.read,Org admin,core.audit.read,granted,GET /api/v1/audit,core,200,was admin.audit
+PERM-M-ADM-core.settings.read,Org admin,core.settings.read,granted,GET /api/v1/settings,core,200,was admin.settings
+PERM-M-ADM-core.settings.write,Org admin,core.settings.write,granted,PUT /api/v1/settings,core,200,was admin.settings
+PERM-M-ADM-core.modules.manage,Org admin,core.modules.manage,granted,POST /api/v1/modules/sample/enable,core,200,was admin.settings
+PERM-M-ADM-core.users.read,Org admin,core.users.read,granted,GET /api/v1/users,core,200,was admin.users
+PERM-M-ADM-core.users.write,Org admin,core.users.write,granted,POST /api/v1/users,core,200,was admin.users
+PERM-M-ADM-core.roles.write,Org admin,core.roles.write,granted,POST /api/v1/roles,core,200,was admin.users
+PERM-M-ADM-core.customfields.read,Org admin,core.customfields.read,granted,GET /api/v1/custom-fields?recordType=Customer,core,200,BA CF-SEC-02
+PERM-M-ADM-core.customfields.manage,Org admin,core.customfields.manage,granted,POST /api/v1/custom-fields,core,200,BA CF-SEC-01
+PERM-M-ADM-core.sensitive.read,Org admin,core.sensitive.read,granted,"GET /api/v1/customers/{id} and /vendors/{id} (Emirates ID, passport, IBAN)",core,200 unmasked,DECIDED: masks IDs and IBANs only
+PERM-M-ADM-hr.payroll.read-salary,Org admin,hr.payroll.read (salary),granted,"GET /api/v1/m/hr/employees/{id} (basic, allowances, net)",hr,200 salary visible,"DECIDED: salary gated by hr.payroll.read, not core.sensitive.read; needs hr.employees.read to reach the record"
+PERM-M-FIN-core.entities.read,Finance manager,core.entities.read,R,GET /api/v1/entities,core,200,"decided default: Org admin RW, others R"
+PERM-M-FIN-core.entities.write,Finance manager,core.entities.write,R,POST /api/v1/entities (valid body),core,403,"decided default: Org admin RW, others R; on 403 assert no row/audit created"
+PERM-M-FIN-core.customers.read,Finance manager,core.customers.read,R,GET /api/v1/customers,core,200,spec leasing column
+PERM-M-FIN-core.customers.write,Finance manager,core.customers.write,R,POST /api/v1/customers (valid body),core,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-FIN-core.vendors.read,Finance manager,core.vendors.read,RW,GET /api/v1/vendors,core,200,spec payables column
+PERM-M-FIN-core.vendors.write,Finance manager,core.vendors.write,RW,POST /api/v1/vendors (valid body),core,201,spec payables column; on 403 assert no row/audit created
+PERM-M-FIN-finance.accounts.read,Finance manager,finance.accounts.read,RW,GET /api/v1/accounts,core,200,spec accounting column
+PERM-M-FIN-finance.accounts.write,Finance manager,finance.accounts.write,RW,POST /api/v1/accounts (valid body),core,201,spec accounting column; on 403 assert no row/audit created
+PERM-M-FIN-finance.journals.read,Finance manager,finance.journals.read,RW,GET /api/v1/journals,core,200,spec accounting column
+PERM-M-FIN-finance.journals.write,Finance manager,finance.journals.write,RW,POST /api/v1/journals (valid body),core,201,spec accounting column; on 403 assert no row/audit created
+PERM-M-FIN-finance.invoices.read,Finance manager,finance.invoices.read,RW,GET /api/v1/invoices,core,200,"spec billing column (sales invoices are core finance, DECIDED)"
+PERM-M-FIN-finance.invoices.write,Finance manager,finance.invoices.write,RW,POST /api/v1/invoices (valid body),core,201,"spec billing column (sales invoices are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-FIN-finance.receipts.read,Finance manager,finance.receipts.read,RW,GET /api/v1/receipts,core,200,"spec billing column (core finance, DECIDED)"
+PERM-M-FIN-finance.receipts.write,Finance manager,finance.receipts.write,RW,POST /api/v1/receipts (valid body),core,201,"spec billing column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-FIN-finance.bills.read,Finance manager,finance.bills.read,RW,GET /api/v1/bills,core,200,"spec payables column (purchase bills are core finance, DECIDED)"
+PERM-M-FIN-finance.bills.write,Finance manager,finance.bills.write,RW,POST /api/v1/bills (valid body),core,201,"spec payables column (purchase bills are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-FIN-finance.payments.read,Finance manager,finance.payments.read,RW,GET /api/v1/payments,core,200,"spec payables column (core finance, DECIDED)"
+PERM-M-FIN-finance.payments.write,Finance manager,finance.payments.write,RW,POST /api/v1/payments (valid body),core,201,"spec payables column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-FIN-finance.cheques.read,Finance manager,finance.cheques.read,RW,GET /api/v1/cheques,core,200,"decided default: max(spec billing, leasing)"
+PERM-M-FIN-finance.cheques.write,Finance manager,finance.cheques.write,RW,POST /api/v1/cheques (valid body),core,201,"decided default: max(spec billing, leasing); on 403 assert no row/audit created"
+PERM-M-FIN-hr.employees.read,Finance manager,hr.employees.read,R,GET /api/v1/m/hr/employees,hr,200,spec hr column
+PERM-M-FIN-hr.employees.write,Finance manager,hr.employees.write,R,POST /api/v1/m/hr/employees (valid body),hr,403,spec hr column; on 403 assert no row/audit created
+PERM-M-FIN-hr.payroll.read,Finance manager,hr.payroll.read,R,GET /api/v1/m/hr/payroll-runs,hr,200,spec hr column; hr.payroll.read also gates salary fields (DECIDED)
+PERM-M-FIN-hr.payroll.write,Finance manager,hr.payroll.write,R,POST /api/v1/m/hr/payroll-runs (valid body),hr,403,spec hr column; hr.payroll.read also gates salary fields (DECIDED); on 403 assert no row/audit created
+PERM-M-FIN-realestate.properties.read,Finance manager,realestate.properties.read,R,GET /api/v1/m/realestate/properties,realestate,200,spec portfolio column
+PERM-M-FIN-realestate.properties.write,Finance manager,realestate.properties.write,R,POST /api/v1/m/realestate/properties (valid body),realestate,403,spec portfolio column; on 403 assert no row/audit created
+PERM-M-FIN-realestate.acquisitions.read,Finance manager,realestate.acquisitions.read,RW,GET /api/v1/m/realestate/acquisitions,realestate,200,spec investment column
+PERM-M-FIN-realestate.acquisitions.write,Finance manager,realestate.acquisitions.write,RW,POST /api/v1/m/realestate/acquisitions (valid body),realestate,201,spec investment column; on 403 assert no row/audit created
+PERM-M-FIN-realestate.leases.read,Finance manager,realestate.leases.read,R,GET /api/v1/m/realestate/leases,realestate,200,spec leasing column
+PERM-M-FIN-realestate.leases.write,Finance manager,realestate.leases.write,R,POST /api/v1/m/realestate/leases (valid body),realestate,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-FIN-realestate.workorders.read,Finance manager,realestate.workorders.read,R,GET /api/v1/m/realestate/work-orders,realestate,200,spec facilities column
+PERM-M-FIN-realestate.workorders.write,Finance manager,realestate.workorders.write,R,POST /api/v1/m/realestate/work-orders (valid body),realestate,403,spec facilities column; on 403 assert no row/audit created
+PERM-M-FIN-realestate.deals.read,Finance manager,realestate.deals.read,R,GET /api/v1/m/realestate/deals,realestate,200,spec brokerage column
+PERM-M-FIN-realestate.deals.write,Finance manager,realestate.deals.write,R,POST /api/v1/m/realestate/deals (valid body),realestate,403,spec brokerage column; on 403 assert no row/audit created
+PERM-M-FIN-core.reports.read,Finance manager,core.reports.read,granted,GET /api/v1/reports/trial-balance,core,200,spec reports column
+PERM-M-FIN-realestate.reports.read,Finance manager,realestate.reports.read,granted,GET /api/v1/m/realestate/reports/rent-roll,realestate,200,spec reports column
+PERM-M-FIN-finance.cheques.approve,Finance manager,finance.cheques.approve,granted,POST /api/v1/cheques/{id}/approve (deposit/clear/bounce/replace/cancel requested by another user),core,200,DECIDED checker step; holders of core.approvals.decide
+PERM-M-FIN-finance.cheques.issue,Finance manager,finance.cheques.issue,granted,POST /api/v1/cheques/outgoing (issue an outgoing cheque),core,200,DECIDED; holders = spec payables RW
+PERM-M-FIN-core.approvals.decide,Finance manager,core.approvals.decide,granted,POST /api/v1/approvals/{id}/approve (request by another user),core,200,was approvals.decide
+PERM-M-FIN-core.audit.read,Finance manager,core.audit.read,granted,GET /api/v1/audit,core,200,was admin.audit
+PERM-M-FIN-core.settings.read,Finance manager,core.settings.read,none,GET /api/v1/settings,core,403,was admin.settings
+PERM-M-FIN-core.settings.write,Finance manager,core.settings.write,none,PUT /api/v1/settings,core,403,was admin.settings
+PERM-M-FIN-core.modules.manage,Finance manager,core.modules.manage,none,POST /api/v1/modules/sample/enable,core,403,was admin.settings
+PERM-M-FIN-core.users.read,Finance manager,core.users.read,none,GET /api/v1/users,core,403,was admin.users
+PERM-M-FIN-core.users.write,Finance manager,core.users.write,none,POST /api/v1/users,core,403,was admin.users
+PERM-M-FIN-core.roles.write,Finance manager,core.roles.write,none,POST /api/v1/roles,core,403,was admin.users
+PERM-M-FIN-core.customfields.read,Finance manager,core.customfields.read,granted,GET /api/v1/custom-fields?recordType=Customer,core,200,BA CF-SEC-02
+PERM-M-FIN-core.customfields.manage,Finance manager,core.customfields.manage,none,POST /api/v1/custom-fields,core,403,BA CF-SEC-01
+PERM-M-FIN-core.sensitive.read,Finance manager,core.sensitive.read,granted,"GET /api/v1/customers/{id} and /vendors/{id} (Emirates ID, passport, IBAN)",core,200 unmasked,DECIDED: masks IDs and IBANs only
+PERM-M-FIN-hr.payroll.read-salary,Finance manager,hr.payroll.read (salary),granted,"GET /api/v1/m/hr/employees/{id} (basic, allowances, net)",hr,200 salary visible,"DECIDED: salary gated by hr.payroll.read, not core.sensitive.read; needs hr.employees.read to reach the record"
+PERM-M-ACC-core.entities.read,Accountant,core.entities.read,R,GET /api/v1/entities,core,200,"decided default: Org admin RW, others R"
+PERM-M-ACC-core.entities.write,Accountant,core.entities.write,R,POST /api/v1/entities (valid body),core,403,"decided default: Org admin RW, others R; on 403 assert no row/audit created"
+PERM-M-ACC-core.customers.read,Accountant,core.customers.read,R,GET /api/v1/customers,core,200,spec leasing column
+PERM-M-ACC-core.customers.write,Accountant,core.customers.write,R,POST /api/v1/customers (valid body),core,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-ACC-core.vendors.read,Accountant,core.vendors.read,RW,GET /api/v1/vendors,core,200,spec payables column
+PERM-M-ACC-core.vendors.write,Accountant,core.vendors.write,RW,POST /api/v1/vendors (valid body),core,201,spec payables column; on 403 assert no row/audit created
+PERM-M-ACC-finance.accounts.read,Accountant,finance.accounts.read,RW,GET /api/v1/accounts,core,200,spec accounting column
+PERM-M-ACC-finance.accounts.write,Accountant,finance.accounts.write,RW,POST /api/v1/accounts (valid body),core,201,spec accounting column; on 403 assert no row/audit created
+PERM-M-ACC-finance.journals.read,Accountant,finance.journals.read,RW,GET /api/v1/journals,core,200,spec accounting column
+PERM-M-ACC-finance.journals.write,Accountant,finance.journals.write,RW,POST /api/v1/journals (valid body),core,201,spec accounting column; on 403 assert no row/audit created
+PERM-M-ACC-finance.invoices.read,Accountant,finance.invoices.read,RW,GET /api/v1/invoices,core,200,"spec billing column (sales invoices are core finance, DECIDED)"
+PERM-M-ACC-finance.invoices.write,Accountant,finance.invoices.write,RW,POST /api/v1/invoices (valid body),core,201,"spec billing column (sales invoices are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-ACC-finance.receipts.read,Accountant,finance.receipts.read,RW,GET /api/v1/receipts,core,200,"spec billing column (core finance, DECIDED)"
+PERM-M-ACC-finance.receipts.write,Accountant,finance.receipts.write,RW,POST /api/v1/receipts (valid body),core,201,"spec billing column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-ACC-finance.bills.read,Accountant,finance.bills.read,RW,GET /api/v1/bills,core,200,"spec payables column (purchase bills are core finance, DECIDED)"
+PERM-M-ACC-finance.bills.write,Accountant,finance.bills.write,RW,POST /api/v1/bills (valid body),core,201,"spec payables column (purchase bills are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-ACC-finance.payments.read,Accountant,finance.payments.read,RW,GET /api/v1/payments,core,200,"spec payables column (core finance, DECIDED)"
+PERM-M-ACC-finance.payments.write,Accountant,finance.payments.write,RW,POST /api/v1/payments (valid body),core,201,"spec payables column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-ACC-finance.cheques.read,Accountant,finance.cheques.read,RW,GET /api/v1/cheques,core,200,"decided default: max(spec billing, leasing)"
+PERM-M-ACC-finance.cheques.write,Accountant,finance.cheques.write,RW,POST /api/v1/cheques (valid body),core,201,"decided default: max(spec billing, leasing); on 403 assert no row/audit created"
+PERM-M-ACC-hr.employees.read,Accountant,hr.employees.read,R,GET /api/v1/m/hr/employees,hr,200,spec hr column
+PERM-M-ACC-hr.employees.write,Accountant,hr.employees.write,R,POST /api/v1/m/hr/employees (valid body),hr,403,spec hr column; on 403 assert no row/audit created
+PERM-M-ACC-hr.payroll.read,Accountant,hr.payroll.read,R,GET /api/v1/m/hr/payroll-runs,hr,200,spec hr column; hr.payroll.read also gates salary fields (DECIDED)
+PERM-M-ACC-hr.payroll.write,Accountant,hr.payroll.write,R,POST /api/v1/m/hr/payroll-runs (valid body),hr,403,spec hr column; hr.payroll.read also gates salary fields (DECIDED); on 403 assert no row/audit created
+PERM-M-ACC-realestate.properties.read,Accountant,realestate.properties.read,R,GET /api/v1/m/realestate/properties,realestate,200,spec portfolio column
+PERM-M-ACC-realestate.properties.write,Accountant,realestate.properties.write,R,POST /api/v1/m/realestate/properties (valid body),realestate,403,spec portfolio column; on 403 assert no row/audit created
+PERM-M-ACC-realestate.acquisitions.read,Accountant,realestate.acquisitions.read,R,GET /api/v1/m/realestate/acquisitions,realestate,200,spec investment column
+PERM-M-ACC-realestate.acquisitions.write,Accountant,realestate.acquisitions.write,R,POST /api/v1/m/realestate/acquisitions (valid body),realestate,403,spec investment column; on 403 assert no row/audit created
+PERM-M-ACC-realestate.leases.read,Accountant,realestate.leases.read,R,GET /api/v1/m/realestate/leases,realestate,200,spec leasing column
+PERM-M-ACC-realestate.leases.write,Accountant,realestate.leases.write,R,POST /api/v1/m/realestate/leases (valid body),realestate,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-ACC-realestate.workorders.read,Accountant,realestate.workorders.read,R,GET /api/v1/m/realestate/work-orders,realestate,200,spec facilities column
+PERM-M-ACC-realestate.workorders.write,Accountant,realestate.workorders.write,R,POST /api/v1/m/realestate/work-orders (valid body),realestate,403,spec facilities column; on 403 assert no row/audit created
+PERM-M-ACC-realestate.deals.read,Accountant,realestate.deals.read,R,GET /api/v1/m/realestate/deals,realestate,200,spec brokerage column
+PERM-M-ACC-realestate.deals.write,Accountant,realestate.deals.write,R,POST /api/v1/m/realestate/deals (valid body),realestate,403,spec brokerage column; on 403 assert no row/audit created
+PERM-M-ACC-core.reports.read,Accountant,core.reports.read,granted,GET /api/v1/reports/trial-balance,core,200,spec reports column
+PERM-M-ACC-realestate.reports.read,Accountant,realestate.reports.read,granted,GET /api/v1/m/realestate/reports/rent-roll,realestate,200,spec reports column
+PERM-M-ACC-finance.cheques.approve,Accountant,finance.cheques.approve,none,POST /api/v1/cheques/{id}/approve (deposit/clear/bounce/replace/cancel requested by another user),core,403,DECIDED checker step; holders of core.approvals.decide
+PERM-M-ACC-finance.cheques.issue,Accountant,finance.cheques.issue,granted,POST /api/v1/cheques/outgoing (issue an outgoing cheque),core,200,DECIDED; holders = spec payables RW
+PERM-M-ACC-core.approvals.decide,Accountant,core.approvals.decide,none,POST /api/v1/approvals/{id}/approve (request by another user),core,403,was approvals.decide
+PERM-M-ACC-core.audit.read,Accountant,core.audit.read,none,GET /api/v1/audit,core,403,was admin.audit
+PERM-M-ACC-core.settings.read,Accountant,core.settings.read,none,GET /api/v1/settings,core,403,was admin.settings
+PERM-M-ACC-core.settings.write,Accountant,core.settings.write,none,PUT /api/v1/settings,core,403,was admin.settings
+PERM-M-ACC-core.modules.manage,Accountant,core.modules.manage,none,POST /api/v1/modules/sample/enable,core,403,was admin.settings
+PERM-M-ACC-core.users.read,Accountant,core.users.read,none,GET /api/v1/users,core,403,was admin.users
+PERM-M-ACC-core.users.write,Accountant,core.users.write,none,POST /api/v1/users,core,403,was admin.users
+PERM-M-ACC-core.roles.write,Accountant,core.roles.write,none,POST /api/v1/roles,core,403,was admin.users
+PERM-M-ACC-core.customfields.read,Accountant,core.customfields.read,granted,GET /api/v1/custom-fields?recordType=Customer,core,200,BA CF-SEC-02
+PERM-M-ACC-core.customfields.manage,Accountant,core.customfields.manage,none,POST /api/v1/custom-fields,core,403,BA CF-SEC-01
+PERM-M-ACC-core.sensitive.read,Accountant,core.sensitive.read,none,"GET /api/v1/customers/{id} and /vendors/{id} (Emirates ID, passport, IBAN)",core,200 masked,DECIDED: masks IDs and IBANs only
+PERM-M-ACC-hr.payroll.read-salary,Accountant,hr.payroll.read (salary),granted,"GET /api/v1/m/hr/employees/{id} (basic, allowances, net)",hr,200 salary visible,"DECIDED: salary gated by hr.payroll.read, not core.sensitive.read; needs hr.employees.read to reach the record"
+PERM-M-LEA-core.entities.read,Leasing manager,core.entities.read,R,GET /api/v1/entities,core,200,"decided default: Org admin RW, others R"
+PERM-M-LEA-core.entities.write,Leasing manager,core.entities.write,R,POST /api/v1/entities (valid body),core,403,"decided default: Org admin RW, others R; on 403 assert no row/audit created"
+PERM-M-LEA-core.customers.read,Leasing manager,core.customers.read,RW,GET /api/v1/customers,core,200,spec leasing column
+PERM-M-LEA-core.customers.write,Leasing manager,core.customers.write,RW,POST /api/v1/customers (valid body),core,201,spec leasing column; on 403 assert no row/audit created
+PERM-M-LEA-core.vendors.read,Leasing manager,core.vendors.read,-,GET /api/v1/vendors,core,403,spec payables column
+PERM-M-LEA-core.vendors.write,Leasing manager,core.vendors.write,-,POST /api/v1/vendors (valid body),core,403,spec payables column; on 403 assert no row/audit created
+PERM-M-LEA-finance.accounts.read,Leasing manager,finance.accounts.read,-,GET /api/v1/accounts,core,403,spec accounting column
+PERM-M-LEA-finance.accounts.write,Leasing manager,finance.accounts.write,-,POST /api/v1/accounts (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-LEA-finance.journals.read,Leasing manager,finance.journals.read,-,GET /api/v1/journals,core,403,spec accounting column
+PERM-M-LEA-finance.journals.write,Leasing manager,finance.journals.write,-,POST /api/v1/journals (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-LEA-finance.invoices.read,Leasing manager,finance.invoices.read,RW,GET /api/v1/invoices,core,200,"spec billing column (sales invoices are core finance, DECIDED)"
+PERM-M-LEA-finance.invoices.write,Leasing manager,finance.invoices.write,RW,POST /api/v1/invoices (valid body),core,201,"spec billing column (sales invoices are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-LEA-finance.receipts.read,Leasing manager,finance.receipts.read,RW,GET /api/v1/receipts,core,200,"spec billing column (core finance, DECIDED)"
+PERM-M-LEA-finance.receipts.write,Leasing manager,finance.receipts.write,RW,POST /api/v1/receipts (valid body),core,201,"spec billing column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-LEA-finance.bills.read,Leasing manager,finance.bills.read,-,GET /api/v1/bills,core,403,"spec payables column (purchase bills are core finance, DECIDED)"
+PERM-M-LEA-finance.bills.write,Leasing manager,finance.bills.write,-,POST /api/v1/bills (valid body),core,403,"spec payables column (purchase bills are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-LEA-finance.payments.read,Leasing manager,finance.payments.read,-,GET /api/v1/payments,core,403,"spec payables column (core finance, DECIDED)"
+PERM-M-LEA-finance.payments.write,Leasing manager,finance.payments.write,-,POST /api/v1/payments (valid body),core,403,"spec payables column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-LEA-finance.cheques.read,Leasing manager,finance.cheques.read,RW,GET /api/v1/cheques,core,200,"decided default: max(spec billing, leasing)"
+PERM-M-LEA-finance.cheques.write,Leasing manager,finance.cheques.write,RW,POST /api/v1/cheques (valid body),core,201,"decided default: max(spec billing, leasing); on 403 assert no row/audit created"
+PERM-M-LEA-hr.employees.read,Leasing manager,hr.employees.read,-,GET /api/v1/m/hr/employees,hr,403,spec hr column
+PERM-M-LEA-hr.employees.write,Leasing manager,hr.employees.write,-,POST /api/v1/m/hr/employees (valid body),hr,403,spec hr column; on 403 assert no row/audit created
+PERM-M-LEA-hr.payroll.read,Leasing manager,hr.payroll.read,-,GET /api/v1/m/hr/payroll-runs,hr,403,spec hr column; hr.payroll.read also gates salary fields (DECIDED)
+PERM-M-LEA-hr.payroll.write,Leasing manager,hr.payroll.write,-,POST /api/v1/m/hr/payroll-runs (valid body),hr,403,spec hr column; hr.payroll.read also gates salary fields (DECIDED); on 403 assert no row/audit created
+PERM-M-LEA-realestate.properties.read,Leasing manager,realestate.properties.read,RW,GET /api/v1/m/realestate/properties,realestate,200,spec portfolio column
+PERM-M-LEA-realestate.properties.write,Leasing manager,realestate.properties.write,RW,POST /api/v1/m/realestate/properties (valid body),realestate,201,spec portfolio column; on 403 assert no row/audit created
+PERM-M-LEA-realestate.acquisitions.read,Leasing manager,realestate.acquisitions.read,-,GET /api/v1/m/realestate/acquisitions,realestate,403,spec investment column
+PERM-M-LEA-realestate.acquisitions.write,Leasing manager,realestate.acquisitions.write,-,POST /api/v1/m/realestate/acquisitions (valid body),realestate,403,spec investment column; on 403 assert no row/audit created
+PERM-M-LEA-realestate.leases.read,Leasing manager,realestate.leases.read,RW,GET /api/v1/m/realestate/leases,realestate,200,spec leasing column
+PERM-M-LEA-realestate.leases.write,Leasing manager,realestate.leases.write,RW,POST /api/v1/m/realestate/leases (valid body),realestate,201,spec leasing column; on 403 assert no row/audit created
+PERM-M-LEA-realestate.workorders.read,Leasing manager,realestate.workorders.read,RW,GET /api/v1/m/realestate/work-orders,realestate,200,spec facilities column
+PERM-M-LEA-realestate.workorders.write,Leasing manager,realestate.workorders.write,RW,POST /api/v1/m/realestate/work-orders (valid body),realestate,201,spec facilities column; on 403 assert no row/audit created
+PERM-M-LEA-realestate.deals.read,Leasing manager,realestate.deals.read,R,GET /api/v1/m/realestate/deals,realestate,200,spec brokerage column
+PERM-M-LEA-realestate.deals.write,Leasing manager,realestate.deals.write,R,POST /api/v1/m/realestate/deals (valid body),realestate,403,spec brokerage column; on 403 assert no row/audit created
+PERM-M-LEA-core.reports.read,Leasing manager,core.reports.read,granted,GET /api/v1/reports/trial-balance,core,200,spec reports column
+PERM-M-LEA-realestate.reports.read,Leasing manager,realestate.reports.read,granted,GET /api/v1/m/realestate/reports/rent-roll,realestate,200,spec reports column
+PERM-M-LEA-finance.cheques.approve,Leasing manager,finance.cheques.approve,none,POST /api/v1/cheques/{id}/approve (deposit/clear/bounce/replace/cancel requested by another user),core,403,DECIDED checker step; holders of core.approvals.decide
+PERM-M-LEA-finance.cheques.issue,Leasing manager,finance.cheques.issue,none,POST /api/v1/cheques/outgoing (issue an outgoing cheque),core,403,DECIDED; holders = spec payables RW
+PERM-M-LEA-core.approvals.decide,Leasing manager,core.approvals.decide,none,POST /api/v1/approvals/{id}/approve (request by another user),core,403,was approvals.decide
+PERM-M-LEA-core.audit.read,Leasing manager,core.audit.read,none,GET /api/v1/audit,core,403,was admin.audit
+PERM-M-LEA-core.settings.read,Leasing manager,core.settings.read,none,GET /api/v1/settings,core,403,was admin.settings
+PERM-M-LEA-core.settings.write,Leasing manager,core.settings.write,none,PUT /api/v1/settings,core,403,was admin.settings
+PERM-M-LEA-core.modules.manage,Leasing manager,core.modules.manage,none,POST /api/v1/modules/sample/enable,core,403,was admin.settings
+PERM-M-LEA-core.users.read,Leasing manager,core.users.read,none,GET /api/v1/users,core,403,was admin.users
+PERM-M-LEA-core.users.write,Leasing manager,core.users.write,none,POST /api/v1/users,core,403,was admin.users
+PERM-M-LEA-core.roles.write,Leasing manager,core.roles.write,none,POST /api/v1/roles,core,403,was admin.users
+PERM-M-LEA-core.customfields.read,Leasing manager,core.customfields.read,none,GET /api/v1/custom-fields?recordType=Customer,core,403,BA CF-SEC-02
+PERM-M-LEA-core.customfields.manage,Leasing manager,core.customfields.manage,none,POST /api/v1/custom-fields,core,403,BA CF-SEC-01
+PERM-M-LEA-core.sensitive.read,Leasing manager,core.sensitive.read,none,"GET /api/v1/customers/{id} and /vendors/{id} (Emirates ID, passport, IBAN)",core,200 masked,DECIDED: masks IDs and IBANs only
+PERM-M-LEA-hr.payroll.read-salary,Leasing manager,hr.payroll.read (salary),none,"GET /api/v1/m/hr/employees/{id} (basic, allowances, net)",hr,403 (no hr.employees.read),"DECIDED: salary gated by hr.payroll.read, not core.sensitive.read; needs hr.employees.read to reach the record"
+PERM-M-FAC-core.entities.read,Facilities manager,core.entities.read,R,GET /api/v1/entities,core,200,"decided default: Org admin RW, others R"
+PERM-M-FAC-core.entities.write,Facilities manager,core.entities.write,R,POST /api/v1/entities (valid body),core,403,"decided default: Org admin RW, others R; on 403 assert no row/audit created"
+PERM-M-FAC-core.customers.read,Facilities manager,core.customers.read,R,GET /api/v1/customers,core,200,spec leasing column
+PERM-M-FAC-core.customers.write,Facilities manager,core.customers.write,R,POST /api/v1/customers (valid body),core,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-FAC-core.vendors.read,Facilities manager,core.vendors.read,RW,GET /api/v1/vendors,core,200,spec payables column
+PERM-M-FAC-core.vendors.write,Facilities manager,core.vendors.write,RW,POST /api/v1/vendors (valid body),core,201,spec payables column; on 403 assert no row/audit created
+PERM-M-FAC-finance.accounts.read,Facilities manager,finance.accounts.read,-,GET /api/v1/accounts,core,403,spec accounting column
+PERM-M-FAC-finance.accounts.write,Facilities manager,finance.accounts.write,-,POST /api/v1/accounts (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-FAC-finance.journals.read,Facilities manager,finance.journals.read,-,GET /api/v1/journals,core,403,spec accounting column
+PERM-M-FAC-finance.journals.write,Facilities manager,finance.journals.write,-,POST /api/v1/journals (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-FAC-finance.invoices.read,Facilities manager,finance.invoices.read,-,GET /api/v1/invoices,core,403,"spec billing column (sales invoices are core finance, DECIDED)"
+PERM-M-FAC-finance.invoices.write,Facilities manager,finance.invoices.write,-,POST /api/v1/invoices (valid body),core,403,"spec billing column (sales invoices are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-FAC-finance.receipts.read,Facilities manager,finance.receipts.read,-,GET /api/v1/receipts,core,403,"spec billing column (core finance, DECIDED)"
+PERM-M-FAC-finance.receipts.write,Facilities manager,finance.receipts.write,-,POST /api/v1/receipts (valid body),core,403,"spec billing column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-FAC-finance.bills.read,Facilities manager,finance.bills.read,RW,GET /api/v1/bills,core,200,"spec payables column (purchase bills are core finance, DECIDED)"
+PERM-M-FAC-finance.bills.write,Facilities manager,finance.bills.write,RW,POST /api/v1/bills (valid body),core,201,"spec payables column (purchase bills are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-FAC-finance.payments.read,Facilities manager,finance.payments.read,RW,GET /api/v1/payments,core,200,"spec payables column (core finance, DECIDED)"
+PERM-M-FAC-finance.payments.write,Facilities manager,finance.payments.write,RW,POST /api/v1/payments (valid body),core,201,"spec payables column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-FAC-finance.cheques.read,Facilities manager,finance.cheques.read,R,GET /api/v1/cheques,core,200,"decided default: max(spec billing, leasing)"
+PERM-M-FAC-finance.cheques.write,Facilities manager,finance.cheques.write,R,POST /api/v1/cheques (valid body),core,403,"decided default: max(spec billing, leasing); on 403 assert no row/audit created"
+PERM-M-FAC-hr.employees.read,Facilities manager,hr.employees.read,-,GET /api/v1/m/hr/employees,hr,403,spec hr column
+PERM-M-FAC-hr.employees.write,Facilities manager,hr.employees.write,-,POST /api/v1/m/hr/employees (valid body),hr,403,spec hr column; on 403 assert no row/audit created
+PERM-M-FAC-hr.payroll.read,Facilities manager,hr.payroll.read,-,GET /api/v1/m/hr/payroll-runs,hr,403,spec hr column; hr.payroll.read also gates salary fields (DECIDED)
+PERM-M-FAC-hr.payroll.write,Facilities manager,hr.payroll.write,-,POST /api/v1/m/hr/payroll-runs (valid body),hr,403,spec hr column; hr.payroll.read also gates salary fields (DECIDED); on 403 assert no row/audit created
+PERM-M-FAC-realestate.properties.read,Facilities manager,realestate.properties.read,R,GET /api/v1/m/realestate/properties,realestate,200,spec portfolio column
+PERM-M-FAC-realestate.properties.write,Facilities manager,realestate.properties.write,R,POST /api/v1/m/realestate/properties (valid body),realestate,403,spec portfolio column; on 403 assert no row/audit created
+PERM-M-FAC-realestate.acquisitions.read,Facilities manager,realestate.acquisitions.read,-,GET /api/v1/m/realestate/acquisitions,realestate,403,spec investment column
+PERM-M-FAC-realestate.acquisitions.write,Facilities manager,realestate.acquisitions.write,-,POST /api/v1/m/realestate/acquisitions (valid body),realestate,403,spec investment column; on 403 assert no row/audit created
+PERM-M-FAC-realestate.leases.read,Facilities manager,realestate.leases.read,R,GET /api/v1/m/realestate/leases,realestate,200,spec leasing column
+PERM-M-FAC-realestate.leases.write,Facilities manager,realestate.leases.write,R,POST /api/v1/m/realestate/leases (valid body),realestate,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-FAC-realestate.workorders.read,Facilities manager,realestate.workorders.read,RW,GET /api/v1/m/realestate/work-orders,realestate,200,spec facilities column
+PERM-M-FAC-realestate.workorders.write,Facilities manager,realestate.workorders.write,RW,POST /api/v1/m/realestate/work-orders (valid body),realestate,201,spec facilities column; on 403 assert no row/audit created
+PERM-M-FAC-realestate.deals.read,Facilities manager,realestate.deals.read,-,GET /api/v1/m/realestate/deals,realestate,403,spec brokerage column
+PERM-M-FAC-realestate.deals.write,Facilities manager,realestate.deals.write,-,POST /api/v1/m/realestate/deals (valid body),realestate,403,spec brokerage column; on 403 assert no row/audit created
+PERM-M-FAC-core.reports.read,Facilities manager,core.reports.read,granted,GET /api/v1/reports/trial-balance,core,200,spec reports column
+PERM-M-FAC-realestate.reports.read,Facilities manager,realestate.reports.read,granted,GET /api/v1/m/realestate/reports/rent-roll,realestate,200,spec reports column
+PERM-M-FAC-finance.cheques.approve,Facilities manager,finance.cheques.approve,none,POST /api/v1/cheques/{id}/approve (deposit/clear/bounce/replace/cancel requested by another user),core,403,DECIDED checker step; holders of core.approvals.decide
+PERM-M-FAC-finance.cheques.issue,Facilities manager,finance.cheques.issue,granted,POST /api/v1/cheques/outgoing (issue an outgoing cheque),core,200,DECIDED; holders = spec payables RW
+PERM-M-FAC-core.approvals.decide,Facilities manager,core.approvals.decide,none,POST /api/v1/approvals/{id}/approve (request by another user),core,403,was approvals.decide
+PERM-M-FAC-core.audit.read,Facilities manager,core.audit.read,none,GET /api/v1/audit,core,403,was admin.audit
+PERM-M-FAC-core.settings.read,Facilities manager,core.settings.read,none,GET /api/v1/settings,core,403,was admin.settings
+PERM-M-FAC-core.settings.write,Facilities manager,core.settings.write,none,PUT /api/v1/settings,core,403,was admin.settings
+PERM-M-FAC-core.modules.manage,Facilities manager,core.modules.manage,none,POST /api/v1/modules/sample/enable,core,403,was admin.settings
+PERM-M-FAC-core.users.read,Facilities manager,core.users.read,none,GET /api/v1/users,core,403,was admin.users
+PERM-M-FAC-core.users.write,Facilities manager,core.users.write,none,POST /api/v1/users,core,403,was admin.users
+PERM-M-FAC-core.roles.write,Facilities manager,core.roles.write,none,POST /api/v1/roles,core,403,was admin.users
+PERM-M-FAC-core.customfields.read,Facilities manager,core.customfields.read,none,GET /api/v1/custom-fields?recordType=Customer,core,403,BA CF-SEC-02
+PERM-M-FAC-core.customfields.manage,Facilities manager,core.customfields.manage,none,POST /api/v1/custom-fields,core,403,BA CF-SEC-01
+PERM-M-FAC-core.sensitive.read,Facilities manager,core.sensitive.read,none,"GET /api/v1/customers/{id} and /vendors/{id} (Emirates ID, passport, IBAN)",core,200 masked,DECIDED: masks IDs and IBANs only
+PERM-M-FAC-hr.payroll.read-salary,Facilities manager,hr.payroll.read (salary),none,"GET /api/v1/m/hr/employees/{id} (basic, allowances, net)",hr,403 (no hr.employees.read),"DECIDED: salary gated by hr.payroll.read, not core.sensitive.read; needs hr.employees.read to reach the record"
+PERM-M-HR-core.entities.read,Hr manager,core.entities.read,R,GET /api/v1/entities,core,200,"decided default: Org admin RW, others R"
+PERM-M-HR-core.entities.write,Hr manager,core.entities.write,R,POST /api/v1/entities (valid body),core,403,"decided default: Org admin RW, others R; on 403 assert no row/audit created"
+PERM-M-HR-core.customers.read,Hr manager,core.customers.read,-,GET /api/v1/customers,core,403,spec leasing column
+PERM-M-HR-core.customers.write,Hr manager,core.customers.write,-,POST /api/v1/customers (valid body),core,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-HR-core.vendors.read,Hr manager,core.vendors.read,-,GET /api/v1/vendors,core,403,spec payables column
+PERM-M-HR-core.vendors.write,Hr manager,core.vendors.write,-,POST /api/v1/vendors (valid body),core,403,spec payables column; on 403 assert no row/audit created
+PERM-M-HR-finance.accounts.read,Hr manager,finance.accounts.read,-,GET /api/v1/accounts,core,403,spec accounting column
+PERM-M-HR-finance.accounts.write,Hr manager,finance.accounts.write,-,POST /api/v1/accounts (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-HR-finance.journals.read,Hr manager,finance.journals.read,-,GET /api/v1/journals,core,403,spec accounting column
+PERM-M-HR-finance.journals.write,Hr manager,finance.journals.write,-,POST /api/v1/journals (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-HR-finance.invoices.read,Hr manager,finance.invoices.read,-,GET /api/v1/invoices,core,403,"spec billing column (sales invoices are core finance, DECIDED)"
+PERM-M-HR-finance.invoices.write,Hr manager,finance.invoices.write,-,POST /api/v1/invoices (valid body),core,403,"spec billing column (sales invoices are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-HR-finance.receipts.read,Hr manager,finance.receipts.read,-,GET /api/v1/receipts,core,403,"spec billing column (core finance, DECIDED)"
+PERM-M-HR-finance.receipts.write,Hr manager,finance.receipts.write,-,POST /api/v1/receipts (valid body),core,403,"spec billing column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-HR-finance.bills.read,Hr manager,finance.bills.read,-,GET /api/v1/bills,core,403,"spec payables column (purchase bills are core finance, DECIDED)"
+PERM-M-HR-finance.bills.write,Hr manager,finance.bills.write,-,POST /api/v1/bills (valid body),core,403,"spec payables column (purchase bills are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-HR-finance.payments.read,Hr manager,finance.payments.read,-,GET /api/v1/payments,core,403,"spec payables column (core finance, DECIDED)"
+PERM-M-HR-finance.payments.write,Hr manager,finance.payments.write,-,POST /api/v1/payments (valid body),core,403,"spec payables column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-HR-finance.cheques.read,Hr manager,finance.cheques.read,-,GET /api/v1/cheques,core,403,"decided default: max(spec billing, leasing)"
+PERM-M-HR-finance.cheques.write,Hr manager,finance.cheques.write,-,POST /api/v1/cheques (valid body),core,403,"decided default: max(spec billing, leasing); on 403 assert no row/audit created"
+PERM-M-HR-hr.employees.read,Hr manager,hr.employees.read,RW,GET /api/v1/m/hr/employees,hr,200,spec hr column
+PERM-M-HR-hr.employees.write,Hr manager,hr.employees.write,RW,POST /api/v1/m/hr/employees (valid body),hr,201,spec hr column; on 403 assert no row/audit created
+PERM-M-HR-hr.payroll.read,Hr manager,hr.payroll.read,RW,GET /api/v1/m/hr/payroll-runs,hr,200,spec hr column; hr.payroll.read also gates salary fields (DECIDED)
+PERM-M-HR-hr.payroll.write,Hr manager,hr.payroll.write,RW,POST /api/v1/m/hr/payroll-runs (valid body),hr,201,spec hr column; hr.payroll.read also gates salary fields (DECIDED); on 403 assert no row/audit created
+PERM-M-HR-realestate.properties.read,Hr manager,realestate.properties.read,R,GET /api/v1/m/realestate/properties,realestate,200,spec portfolio column
+PERM-M-HR-realestate.properties.write,Hr manager,realestate.properties.write,R,POST /api/v1/m/realestate/properties (valid body),realestate,403,spec portfolio column; on 403 assert no row/audit created
+PERM-M-HR-realestate.acquisitions.read,Hr manager,realestate.acquisitions.read,-,GET /api/v1/m/realestate/acquisitions,realestate,403,spec investment column
+PERM-M-HR-realestate.acquisitions.write,Hr manager,realestate.acquisitions.write,-,POST /api/v1/m/realestate/acquisitions (valid body),realestate,403,spec investment column; on 403 assert no row/audit created
+PERM-M-HR-realestate.leases.read,Hr manager,realestate.leases.read,-,GET /api/v1/m/realestate/leases,realestate,403,spec leasing column
+PERM-M-HR-realestate.leases.write,Hr manager,realestate.leases.write,-,POST /api/v1/m/realestate/leases (valid body),realestate,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-HR-realestate.workorders.read,Hr manager,realestate.workorders.read,-,GET /api/v1/m/realestate/work-orders,realestate,403,spec facilities column
+PERM-M-HR-realestate.workorders.write,Hr manager,realestate.workorders.write,-,POST /api/v1/m/realestate/work-orders (valid body),realestate,403,spec facilities column; on 403 assert no row/audit created
+PERM-M-HR-realestate.deals.read,Hr manager,realestate.deals.read,-,GET /api/v1/m/realestate/deals,realestate,403,spec brokerage column
+PERM-M-HR-realestate.deals.write,Hr manager,realestate.deals.write,-,POST /api/v1/m/realestate/deals (valid body),realestate,403,spec brokerage column; on 403 assert no row/audit created
+PERM-M-HR-core.reports.read,Hr manager,core.reports.read,granted,GET /api/v1/reports/trial-balance,core,200,spec reports column
+PERM-M-HR-realestate.reports.read,Hr manager,realestate.reports.read,granted,GET /api/v1/m/realestate/reports/rent-roll,realestate,200,spec reports column
+PERM-M-HR-finance.cheques.approve,Hr manager,finance.cheques.approve,none,POST /api/v1/cheques/{id}/approve (deposit/clear/bounce/replace/cancel requested by another user),core,403,DECIDED checker step; holders of core.approvals.decide
+PERM-M-HR-finance.cheques.issue,Hr manager,finance.cheques.issue,none,POST /api/v1/cheques/outgoing (issue an outgoing cheque),core,403,DECIDED; holders = spec payables RW
+PERM-M-HR-core.approvals.decide,Hr manager,core.approvals.decide,none,POST /api/v1/approvals/{id}/approve (request by another user),core,403,was approvals.decide
+PERM-M-HR-core.audit.read,Hr manager,core.audit.read,none,GET /api/v1/audit,core,403,was admin.audit
+PERM-M-HR-core.settings.read,Hr manager,core.settings.read,none,GET /api/v1/settings,core,403,was admin.settings
+PERM-M-HR-core.settings.write,Hr manager,core.settings.write,none,PUT /api/v1/settings,core,403,was admin.settings
+PERM-M-HR-core.modules.manage,Hr manager,core.modules.manage,none,POST /api/v1/modules/sample/enable,core,403,was admin.settings
+PERM-M-HR-core.users.read,Hr manager,core.users.read,none,GET /api/v1/users,core,403,was admin.users
+PERM-M-HR-core.users.write,Hr manager,core.users.write,none,POST /api/v1/users,core,403,was admin.users
+PERM-M-HR-core.roles.write,Hr manager,core.roles.write,none,POST /api/v1/roles,core,403,was admin.users
+PERM-M-HR-core.customfields.read,Hr manager,core.customfields.read,none,GET /api/v1/custom-fields?recordType=Customer,core,403,BA CF-SEC-02
+PERM-M-HR-core.customfields.manage,Hr manager,core.customfields.manage,none,POST /api/v1/custom-fields,core,403,BA CF-SEC-01
+PERM-M-HR-core.sensitive.read,Hr manager,core.sensitive.read,granted,"GET /api/v1/customers/{id} and /vendors/{id} (Emirates ID, passport, IBAN)",core,200 unmasked,DECIDED: masks IDs and IBANs only
+PERM-M-HR-hr.payroll.read-salary,Hr manager,hr.payroll.read (salary),granted,"GET /api/v1/m/hr/employees/{id} (basic, allowances, net)",hr,200 salary visible,"DECIDED: salary gated by hr.payroll.read, not core.sensitive.read; needs hr.employees.read to reach the record"
+PERM-M-BRK-core.entities.read,Brokerage manager,core.entities.read,R,GET /api/v1/entities,core,200,"decided default: Org admin RW, others R"
+PERM-M-BRK-core.entities.write,Brokerage manager,core.entities.write,R,POST /api/v1/entities (valid body),core,403,"decided default: Org admin RW, others R; on 403 assert no row/audit created"
+PERM-M-BRK-core.customers.read,Brokerage manager,core.customers.read,R,GET /api/v1/customers,core,200,spec leasing column
+PERM-M-BRK-core.customers.write,Brokerage manager,core.customers.write,R,POST /api/v1/customers (valid body),core,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-BRK-core.vendors.read,Brokerage manager,core.vendors.read,-,GET /api/v1/vendors,core,403,spec payables column
+PERM-M-BRK-core.vendors.write,Brokerage manager,core.vendors.write,-,POST /api/v1/vendors (valid body),core,403,spec payables column; on 403 assert no row/audit created
+PERM-M-BRK-finance.accounts.read,Brokerage manager,finance.accounts.read,-,GET /api/v1/accounts,core,403,spec accounting column
+PERM-M-BRK-finance.accounts.write,Brokerage manager,finance.accounts.write,-,POST /api/v1/accounts (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-BRK-finance.journals.read,Brokerage manager,finance.journals.read,-,GET /api/v1/journals,core,403,spec accounting column
+PERM-M-BRK-finance.journals.write,Brokerage manager,finance.journals.write,-,POST /api/v1/journals (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-BRK-finance.invoices.read,Brokerage manager,finance.invoices.read,R,GET /api/v1/invoices,core,200,"spec billing column (sales invoices are core finance, DECIDED)"
+PERM-M-BRK-finance.invoices.write,Brokerage manager,finance.invoices.write,R,POST /api/v1/invoices (valid body),core,403,"spec billing column (sales invoices are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-BRK-finance.receipts.read,Brokerage manager,finance.receipts.read,R,GET /api/v1/receipts,core,200,"spec billing column (core finance, DECIDED)"
+PERM-M-BRK-finance.receipts.write,Brokerage manager,finance.receipts.write,R,POST /api/v1/receipts (valid body),core,403,"spec billing column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-BRK-finance.bills.read,Brokerage manager,finance.bills.read,-,GET /api/v1/bills,core,403,"spec payables column (purchase bills are core finance, DECIDED)"
+PERM-M-BRK-finance.bills.write,Brokerage manager,finance.bills.write,-,POST /api/v1/bills (valid body),core,403,"spec payables column (purchase bills are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-BRK-finance.payments.read,Brokerage manager,finance.payments.read,-,GET /api/v1/payments,core,403,"spec payables column (core finance, DECIDED)"
+PERM-M-BRK-finance.payments.write,Brokerage manager,finance.payments.write,-,POST /api/v1/payments (valid body),core,403,"spec payables column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-BRK-finance.cheques.read,Brokerage manager,finance.cheques.read,R,GET /api/v1/cheques,core,200,"decided default: max(spec billing, leasing)"
+PERM-M-BRK-finance.cheques.write,Brokerage manager,finance.cheques.write,R,POST /api/v1/cheques (valid body),core,403,"decided default: max(spec billing, leasing); on 403 assert no row/audit created"
+PERM-M-BRK-hr.employees.read,Brokerage manager,hr.employees.read,-,GET /api/v1/m/hr/employees,hr,403,spec hr column
+PERM-M-BRK-hr.employees.write,Brokerage manager,hr.employees.write,-,POST /api/v1/m/hr/employees (valid body),hr,403,spec hr column; on 403 assert no row/audit created
+PERM-M-BRK-hr.payroll.read,Brokerage manager,hr.payroll.read,-,GET /api/v1/m/hr/payroll-runs,hr,403,spec hr column; hr.payroll.read also gates salary fields (DECIDED)
+PERM-M-BRK-hr.payroll.write,Brokerage manager,hr.payroll.write,-,POST /api/v1/m/hr/payroll-runs (valid body),hr,403,spec hr column; hr.payroll.read also gates salary fields (DECIDED); on 403 assert no row/audit created
+PERM-M-BRK-realestate.properties.read,Brokerage manager,realestate.properties.read,R,GET /api/v1/m/realestate/properties,realestate,200,spec portfolio column
+PERM-M-BRK-realestate.properties.write,Brokerage manager,realestate.properties.write,R,POST /api/v1/m/realestate/properties (valid body),realestate,403,spec portfolio column; on 403 assert no row/audit created
+PERM-M-BRK-realestate.acquisitions.read,Brokerage manager,realestate.acquisitions.read,-,GET /api/v1/m/realestate/acquisitions,realestate,403,spec investment column
+PERM-M-BRK-realestate.acquisitions.write,Brokerage manager,realestate.acquisitions.write,-,POST /api/v1/m/realestate/acquisitions (valid body),realestate,403,spec investment column; on 403 assert no row/audit created
+PERM-M-BRK-realestate.leases.read,Brokerage manager,realestate.leases.read,R,GET /api/v1/m/realestate/leases,realestate,200,spec leasing column
+PERM-M-BRK-realestate.leases.write,Brokerage manager,realestate.leases.write,R,POST /api/v1/m/realestate/leases (valid body),realestate,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-BRK-realestate.workorders.read,Brokerage manager,realestate.workorders.read,-,GET /api/v1/m/realestate/work-orders,realestate,403,spec facilities column
+PERM-M-BRK-realestate.workorders.write,Brokerage manager,realestate.workorders.write,-,POST /api/v1/m/realestate/work-orders (valid body),realestate,403,spec facilities column; on 403 assert no row/audit created
+PERM-M-BRK-realestate.deals.read,Brokerage manager,realestate.deals.read,RW,GET /api/v1/m/realestate/deals,realestate,200,spec brokerage column
+PERM-M-BRK-realestate.deals.write,Brokerage manager,realestate.deals.write,RW,POST /api/v1/m/realestate/deals (valid body),realestate,201,spec brokerage column; on 403 assert no row/audit created
+PERM-M-BRK-core.reports.read,Brokerage manager,core.reports.read,granted,GET /api/v1/reports/trial-balance,core,200,spec reports column
+PERM-M-BRK-realestate.reports.read,Brokerage manager,realestate.reports.read,granted,GET /api/v1/m/realestate/reports/rent-roll,realestate,200,spec reports column
+PERM-M-BRK-finance.cheques.approve,Brokerage manager,finance.cheques.approve,none,POST /api/v1/cheques/{id}/approve (deposit/clear/bounce/replace/cancel requested by another user),core,403,DECIDED checker step; holders of core.approvals.decide
+PERM-M-BRK-finance.cheques.issue,Brokerage manager,finance.cheques.issue,none,POST /api/v1/cheques/outgoing (issue an outgoing cheque),core,403,DECIDED; holders = spec payables RW
+PERM-M-BRK-core.approvals.decide,Brokerage manager,core.approvals.decide,none,POST /api/v1/approvals/{id}/approve (request by another user),core,403,was approvals.decide
+PERM-M-BRK-core.audit.read,Brokerage manager,core.audit.read,none,GET /api/v1/audit,core,403,was admin.audit
+PERM-M-BRK-core.settings.read,Brokerage manager,core.settings.read,none,GET /api/v1/settings,core,403,was admin.settings
+PERM-M-BRK-core.settings.write,Brokerage manager,core.settings.write,none,PUT /api/v1/settings,core,403,was admin.settings
+PERM-M-BRK-core.modules.manage,Brokerage manager,core.modules.manage,none,POST /api/v1/modules/sample/enable,core,403,was admin.settings
+PERM-M-BRK-core.users.read,Brokerage manager,core.users.read,none,GET /api/v1/users,core,403,was admin.users
+PERM-M-BRK-core.users.write,Brokerage manager,core.users.write,none,POST /api/v1/users,core,403,was admin.users
+PERM-M-BRK-core.roles.write,Brokerage manager,core.roles.write,none,POST /api/v1/roles,core,403,was admin.users
+PERM-M-BRK-core.customfields.read,Brokerage manager,core.customfields.read,none,GET /api/v1/custom-fields?recordType=Customer,core,403,BA CF-SEC-02
+PERM-M-BRK-core.customfields.manage,Brokerage manager,core.customfields.manage,none,POST /api/v1/custom-fields,core,403,BA CF-SEC-01
+PERM-M-BRK-core.sensitive.read,Brokerage manager,core.sensitive.read,none,"GET /api/v1/customers/{id} and /vendors/{id} (Emirates ID, passport, IBAN)",core,200 masked,DECIDED: masks IDs and IBANs only
+PERM-M-BRK-hr.payroll.read-salary,Brokerage manager,hr.payroll.read (salary),none,"GET /api/v1/m/hr/employees/{id} (basic, allowances, net)",hr,403 (no hr.employees.read),"DECIDED: salary gated by hr.payroll.read, not core.sensitive.read; needs hr.employees.read to reach the record"
+PERM-M-APR-core.entities.read,Approver,core.entities.read,R,GET /api/v1/entities,core,200,"decided default: Org admin RW, others R"
+PERM-M-APR-core.entities.write,Approver,core.entities.write,R,POST /api/v1/entities (valid body),core,403,"decided default: Org admin RW, others R; on 403 assert no row/audit created"
+PERM-M-APR-core.customers.read,Approver,core.customers.read,R,GET /api/v1/customers,core,200,spec leasing column
+PERM-M-APR-core.customers.write,Approver,core.customers.write,R,POST /api/v1/customers (valid body),core,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-APR-core.vendors.read,Approver,core.vendors.read,R,GET /api/v1/vendors,core,200,spec payables column
+PERM-M-APR-core.vendors.write,Approver,core.vendors.write,R,POST /api/v1/vendors (valid body),core,403,spec payables column; on 403 assert no row/audit created
+PERM-M-APR-finance.accounts.read,Approver,finance.accounts.read,R,GET /api/v1/accounts,core,200,spec accounting column
+PERM-M-APR-finance.accounts.write,Approver,finance.accounts.write,R,POST /api/v1/accounts (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-APR-finance.journals.read,Approver,finance.journals.read,R,GET /api/v1/journals,core,200,spec accounting column
+PERM-M-APR-finance.journals.write,Approver,finance.journals.write,R,POST /api/v1/journals (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-APR-finance.invoices.read,Approver,finance.invoices.read,R,GET /api/v1/invoices,core,200,"spec billing column (sales invoices are core finance, DECIDED)"
+PERM-M-APR-finance.invoices.write,Approver,finance.invoices.write,R,POST /api/v1/invoices (valid body),core,403,"spec billing column (sales invoices are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-APR-finance.receipts.read,Approver,finance.receipts.read,R,GET /api/v1/receipts,core,200,"spec billing column (core finance, DECIDED)"
+PERM-M-APR-finance.receipts.write,Approver,finance.receipts.write,R,POST /api/v1/receipts (valid body),core,403,"spec billing column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-APR-finance.bills.read,Approver,finance.bills.read,R,GET /api/v1/bills,core,200,"spec payables column (purchase bills are core finance, DECIDED)"
+PERM-M-APR-finance.bills.write,Approver,finance.bills.write,R,POST /api/v1/bills (valid body),core,403,"spec payables column (purchase bills are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-APR-finance.payments.read,Approver,finance.payments.read,R,GET /api/v1/payments,core,200,"spec payables column (core finance, DECIDED)"
+PERM-M-APR-finance.payments.write,Approver,finance.payments.write,R,POST /api/v1/payments (valid body),core,403,"spec payables column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-APR-finance.cheques.read,Approver,finance.cheques.read,R,GET /api/v1/cheques,core,200,"decided default: max(spec billing, leasing)"
+PERM-M-APR-finance.cheques.write,Approver,finance.cheques.write,R,POST /api/v1/cheques (valid body),core,403,"decided default: max(spec billing, leasing); on 403 assert no row/audit created"
+PERM-M-APR-hr.employees.read,Approver,hr.employees.read,R,GET /api/v1/m/hr/employees,hr,200,spec hr column
+PERM-M-APR-hr.employees.write,Approver,hr.employees.write,R,POST /api/v1/m/hr/employees (valid body),hr,403,spec hr column; on 403 assert no row/audit created
+PERM-M-APR-hr.payroll.read,Approver,hr.payroll.read,R,GET /api/v1/m/hr/payroll-runs,hr,200,spec hr column; hr.payroll.read also gates salary fields (DECIDED)
+PERM-M-APR-hr.payroll.write,Approver,hr.payroll.write,R,POST /api/v1/m/hr/payroll-runs (valid body),hr,403,spec hr column; hr.payroll.read also gates salary fields (DECIDED); on 403 assert no row/audit created
+PERM-M-APR-realestate.properties.read,Approver,realestate.properties.read,R,GET /api/v1/m/realestate/properties,realestate,200,spec portfolio column
+PERM-M-APR-realestate.properties.write,Approver,realestate.properties.write,R,POST /api/v1/m/realestate/properties (valid body),realestate,403,spec portfolio column; on 403 assert no row/audit created
+PERM-M-APR-realestate.acquisitions.read,Approver,realestate.acquisitions.read,R,GET /api/v1/m/realestate/acquisitions,realestate,200,spec investment column
+PERM-M-APR-realestate.acquisitions.write,Approver,realestate.acquisitions.write,R,POST /api/v1/m/realestate/acquisitions (valid body),realestate,403,spec investment column; on 403 assert no row/audit created
+PERM-M-APR-realestate.leases.read,Approver,realestate.leases.read,R,GET /api/v1/m/realestate/leases,realestate,200,spec leasing column
+PERM-M-APR-realestate.leases.write,Approver,realestate.leases.write,R,POST /api/v1/m/realestate/leases (valid body),realestate,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-APR-realestate.workorders.read,Approver,realestate.workorders.read,R,GET /api/v1/m/realestate/work-orders,realestate,200,spec facilities column
+PERM-M-APR-realestate.workorders.write,Approver,realestate.workorders.write,R,POST /api/v1/m/realestate/work-orders (valid body),realestate,403,spec facilities column; on 403 assert no row/audit created
+PERM-M-APR-realestate.deals.read,Approver,realestate.deals.read,R,GET /api/v1/m/realestate/deals,realestate,200,spec brokerage column
+PERM-M-APR-realestate.deals.write,Approver,realestate.deals.write,R,POST /api/v1/m/realestate/deals (valid body),realestate,403,spec brokerage column; on 403 assert no row/audit created
+PERM-M-APR-core.reports.read,Approver,core.reports.read,granted,GET /api/v1/reports/trial-balance,core,200,spec reports column
+PERM-M-APR-realestate.reports.read,Approver,realestate.reports.read,granted,GET /api/v1/m/realestate/reports/rent-roll,realestate,200,spec reports column
+PERM-M-APR-finance.cheques.approve,Approver,finance.cheques.approve,granted,POST /api/v1/cheques/{id}/approve (deposit/clear/bounce/replace/cancel requested by another user),core,200,DECIDED checker step; holders of core.approvals.decide
+PERM-M-APR-finance.cheques.issue,Approver,finance.cheques.issue,none,POST /api/v1/cheques/outgoing (issue an outgoing cheque),core,403,DECIDED; holders = spec payables RW
+PERM-M-APR-core.approvals.decide,Approver,core.approvals.decide,granted,POST /api/v1/approvals/{id}/approve (request by another user),core,200,was approvals.decide
+PERM-M-APR-core.audit.read,Approver,core.audit.read,none,GET /api/v1/audit,core,403,was admin.audit
+PERM-M-APR-core.settings.read,Approver,core.settings.read,none,GET /api/v1/settings,core,403,was admin.settings
+PERM-M-APR-core.settings.write,Approver,core.settings.write,none,PUT /api/v1/settings,core,403,was admin.settings
+PERM-M-APR-core.modules.manage,Approver,core.modules.manage,none,POST /api/v1/modules/sample/enable,core,403,was admin.settings
+PERM-M-APR-core.users.read,Approver,core.users.read,none,GET /api/v1/users,core,403,was admin.users
+PERM-M-APR-core.users.write,Approver,core.users.write,none,POST /api/v1/users,core,403,was admin.users
+PERM-M-APR-core.roles.write,Approver,core.roles.write,none,POST /api/v1/roles,core,403,was admin.users
+PERM-M-APR-core.customfields.read,Approver,core.customfields.read,none,GET /api/v1/custom-fields?recordType=Customer,core,403,BA CF-SEC-02
+PERM-M-APR-core.customfields.manage,Approver,core.customfields.manage,none,POST /api/v1/custom-fields,core,403,BA CF-SEC-01
+PERM-M-APR-core.sensitive.read,Approver,core.sensitive.read,none,"GET /api/v1/customers/{id} and /vendors/{id} (Emirates ID, passport, IBAN)",core,200 masked,DECIDED: masks IDs and IBANs only
+PERM-M-APR-hr.payroll.read-salary,Approver,hr.payroll.read (salary),granted,"GET /api/v1/m/hr/employees/{id} (basic, allowances, net)",hr,200 salary visible,"DECIDED: salary gated by hr.payroll.read, not core.sensitive.read; needs hr.employees.read to reach the record"
+PERM-M-VIE-core.entities.read,Viewer,core.entities.read,R,GET /api/v1/entities,core,200,"decided default: Org admin RW, others R"
+PERM-M-VIE-core.entities.write,Viewer,core.entities.write,R,POST /api/v1/entities (valid body),core,403,"decided default: Org admin RW, others R; on 403 assert no row/audit created"
+PERM-M-VIE-core.customers.read,Viewer,core.customers.read,R,GET /api/v1/customers,core,200,spec leasing column
+PERM-M-VIE-core.customers.write,Viewer,core.customers.write,R,POST /api/v1/customers (valid body),core,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-VIE-core.vendors.read,Viewer,core.vendors.read,R,GET /api/v1/vendors,core,200,spec payables column
+PERM-M-VIE-core.vendors.write,Viewer,core.vendors.write,R,POST /api/v1/vendors (valid body),core,403,spec payables column; on 403 assert no row/audit created
+PERM-M-VIE-finance.accounts.read,Viewer,finance.accounts.read,R,GET /api/v1/accounts,core,200,spec accounting column
+PERM-M-VIE-finance.accounts.write,Viewer,finance.accounts.write,R,POST /api/v1/accounts (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-VIE-finance.journals.read,Viewer,finance.journals.read,R,GET /api/v1/journals,core,200,spec accounting column
+PERM-M-VIE-finance.journals.write,Viewer,finance.journals.write,R,POST /api/v1/journals (valid body),core,403,spec accounting column; on 403 assert no row/audit created
+PERM-M-VIE-finance.invoices.read,Viewer,finance.invoices.read,R,GET /api/v1/invoices,core,200,"spec billing column (sales invoices are core finance, DECIDED)"
+PERM-M-VIE-finance.invoices.write,Viewer,finance.invoices.write,R,POST /api/v1/invoices (valid body),core,403,"spec billing column (sales invoices are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-VIE-finance.receipts.read,Viewer,finance.receipts.read,R,GET /api/v1/receipts,core,200,"spec billing column (core finance, DECIDED)"
+PERM-M-VIE-finance.receipts.write,Viewer,finance.receipts.write,R,POST /api/v1/receipts (valid body),core,403,"spec billing column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-VIE-finance.bills.read,Viewer,finance.bills.read,R,GET /api/v1/bills,core,200,"spec payables column (purchase bills are core finance, DECIDED)"
+PERM-M-VIE-finance.bills.write,Viewer,finance.bills.write,R,POST /api/v1/bills (valid body),core,403,"spec payables column (purchase bills are core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-VIE-finance.payments.read,Viewer,finance.payments.read,R,GET /api/v1/payments,core,200,"spec payables column (core finance, DECIDED)"
+PERM-M-VIE-finance.payments.write,Viewer,finance.payments.write,R,POST /api/v1/payments (valid body),core,403,"spec payables column (core finance, DECIDED); on 403 assert no row/audit created"
+PERM-M-VIE-finance.cheques.read,Viewer,finance.cheques.read,R,GET /api/v1/cheques,core,200,"decided default: max(spec billing, leasing)"
+PERM-M-VIE-finance.cheques.write,Viewer,finance.cheques.write,R,POST /api/v1/cheques (valid body),core,403,"decided default: max(spec billing, leasing); on 403 assert no row/audit created"
+PERM-M-VIE-hr.employees.read,Viewer,hr.employees.read,R,GET /api/v1/m/hr/employees,hr,200,spec hr column
+PERM-M-VIE-hr.employees.write,Viewer,hr.employees.write,R,POST /api/v1/m/hr/employees (valid body),hr,403,spec hr column; on 403 assert no row/audit created
+PERM-M-VIE-hr.payroll.read,Viewer,hr.payroll.read,R,GET /api/v1/m/hr/payroll-runs,hr,200,spec hr column; hr.payroll.read also gates salary fields (DECIDED)
+PERM-M-VIE-hr.payroll.write,Viewer,hr.payroll.write,R,POST /api/v1/m/hr/payroll-runs (valid body),hr,403,spec hr column; hr.payroll.read also gates salary fields (DECIDED); on 403 assert no row/audit created
+PERM-M-VIE-realestate.properties.read,Viewer,realestate.properties.read,R,GET /api/v1/m/realestate/properties,realestate,200,spec portfolio column
+PERM-M-VIE-realestate.properties.write,Viewer,realestate.properties.write,R,POST /api/v1/m/realestate/properties (valid body),realestate,403,spec portfolio column; on 403 assert no row/audit created
+PERM-M-VIE-realestate.acquisitions.read,Viewer,realestate.acquisitions.read,R,GET /api/v1/m/realestate/acquisitions,realestate,200,spec investment column
+PERM-M-VIE-realestate.acquisitions.write,Viewer,realestate.acquisitions.write,R,POST /api/v1/m/realestate/acquisitions (valid body),realestate,403,spec investment column; on 403 assert no row/audit created
+PERM-M-VIE-realestate.leases.read,Viewer,realestate.leases.read,R,GET /api/v1/m/realestate/leases,realestate,200,spec leasing column
+PERM-M-VIE-realestate.leases.write,Viewer,realestate.leases.write,R,POST /api/v1/m/realestate/leases (valid body),realestate,403,spec leasing column; on 403 assert no row/audit created
+PERM-M-VIE-realestate.workorders.read,Viewer,realestate.workorders.read,R,GET /api/v1/m/realestate/work-orders,realestate,200,spec facilities column
+PERM-M-VIE-realestate.workorders.write,Viewer,realestate.workorders.write,R,POST /api/v1/m/realestate/work-orders (valid body),realestate,403,spec facilities column; on 403 assert no row/audit created
+PERM-M-VIE-realestate.deals.read,Viewer,realestate.deals.read,R,GET /api/v1/m/realestate/deals,realestate,200,spec brokerage column
+PERM-M-VIE-realestate.deals.write,Viewer,realestate.deals.write,R,POST /api/v1/m/realestate/deals (valid body),realestate,403,spec brokerage column; on 403 assert no row/audit created
+PERM-M-VIE-core.reports.read,Viewer,core.reports.read,granted,GET /api/v1/reports/trial-balance,core,200,spec reports column
+PERM-M-VIE-realestate.reports.read,Viewer,realestate.reports.read,granted,GET /api/v1/m/realestate/reports/rent-roll,realestate,200,spec reports column
+PERM-M-VIE-finance.cheques.approve,Viewer,finance.cheques.approve,none,POST /api/v1/cheques/{id}/approve (deposit/clear/bounce/replace/cancel requested by another user),core,403,DECIDED checker step; holders of core.approvals.decide
+PERM-M-VIE-finance.cheques.issue,Viewer,finance.cheques.issue,none,POST /api/v1/cheques/outgoing (issue an outgoing cheque),core,403,DECIDED; holders = spec payables RW
+PERM-M-VIE-core.approvals.decide,Viewer,core.approvals.decide,none,POST /api/v1/approvals/{id}/approve (request by another user),core,403,was approvals.decide
+PERM-M-VIE-core.audit.read,Viewer,core.audit.read,none,GET /api/v1/audit,core,403,was admin.audit
+PERM-M-VIE-core.settings.read,Viewer,core.settings.read,none,GET /api/v1/settings,core,403,was admin.settings
+PERM-M-VIE-core.settings.write,Viewer,core.settings.write,none,PUT /api/v1/settings,core,403,was admin.settings
+PERM-M-VIE-core.modules.manage,Viewer,core.modules.manage,none,POST /api/v1/modules/sample/enable,core,403,was admin.settings
+PERM-M-VIE-core.users.read,Viewer,core.users.read,none,GET /api/v1/users,core,403,was admin.users
+PERM-M-VIE-core.users.write,Viewer,core.users.write,none,POST /api/v1/users,core,403,was admin.users
+PERM-M-VIE-core.roles.write,Viewer,core.roles.write,none,POST /api/v1/roles,core,403,was admin.users
+PERM-M-VIE-core.customfields.read,Viewer,core.customfields.read,none,GET /api/v1/custom-fields?recordType=Customer,core,403,BA CF-SEC-02
+PERM-M-VIE-core.customfields.manage,Viewer,core.customfields.manage,none,POST /api/v1/custom-fields,core,403,BA CF-SEC-01
+PERM-M-VIE-core.sensitive.read,Viewer,core.sensitive.read,none,"GET /api/v1/customers/{id} and /vendors/{id} (Emirates ID, passport, IBAN)",core,200 masked,DECIDED: masks IDs and IBANs only
+PERM-M-VIE-hr.payroll.read-salary,Viewer,hr.payroll.read (salary),granted,"GET /api/v1/m/hr/employees/{id} (basic, allowances, net)",hr,200 salary visible,"DECIDED: salary gated by hr.payroll.read, not core.sensitive.read; needs hr.employees.read to reach the record"

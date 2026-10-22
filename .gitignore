@@ -1,8 +1,8 @@
 bin/
 obj/
 node_modules/
-*.user
 .vs/
+*.user
 dist/
 .angular/
 *.pdf

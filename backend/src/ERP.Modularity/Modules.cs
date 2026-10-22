@@ -106,19 +106,34 @@ public static class ModuleProblems
     public const string ModuleDisabledType = "https://erp.local/problems/module-disabled";
 }
 
-/// <summary>Blocks module endpoints with 403 (type module-disabled) unless the module is enabled for the caller's workspace.</summary>
-public sealed class ModuleEnabledFilter(string moduleKey) : IEndpointFilter
+/// <summary>Endpoint metadata marking an endpoint as owned by a module.</summary>
+public sealed record ModuleGateMetadata(string ModuleKey);
+
+/// <summary>
+/// Runs after authentication and before authorization: authenticated calls to a module endpoint get 403
+/// (type module-disabled) unless the module is enabled for the caller's workspace. The module gate wins over
+/// role grants, and module data is never touched.
+/// </summary>
+public sealed class ModuleGateMiddleware(RequestDelegate next)
 {
-    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+    public async Task InvokeAsync(HttpContext http)
     {
-        var access = context.HttpContext.RequestServices.GetRequiredService<IModuleAccess>();
-        if (!await access.IsEnabledAsync(moduleKey, context.HttpContext.RequestAborted))
-            return Results.Problem(
-                statusCode: StatusCodes.Status403Forbidden,
-                type: ModuleProblems.ModuleDisabledType,
-                title: "Module not enabled",
-                detail: $"The '{moduleKey}' module is not enabled for this workspace. Its data is kept and returns when it is enabled again.");
-        return await next(context);
+        var gate = http.GetEndpoint()?.Metadata.GetMetadata<ModuleGateMetadata>();
+        if (gate is not null && http.User.Identity?.IsAuthenticated == true)
+        {
+            var access = http.RequestServices.GetRequiredService<IModuleAccess>();
+            if (!await access.IsEnabledAsync(gate.ModuleKey, http.RequestAborted))
+            {
+                await Results.Problem(
+                    statusCode: StatusCodes.Status403Forbidden,
+                    type: ModuleProblems.ModuleDisabledType,
+                    title: "Module not enabled",
+                    detail: $"The '{gate.ModuleKey}' module is not enabled for this workspace. Its data is kept and returns when it is enabled again.")
+                    .ExecuteAsync(http);
+                return;
+            }
+        }
+        await next(http);
     }
 }
 

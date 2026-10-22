@@ -1,0 +1,331 @@
+// =============================================================================
+// _dynamic-fields.scss — custom (user-defined) fields: forms, read views,
+// table columns and the field builder. Generic: works for any module/entity.
+// Everything is token-driven (light/dark/compact/RTL/tenant brand for free).
+// Spec: specs/dynamic-fields.md
+// =============================================================================
+@use 'tokens' as erp;
+
+// -----------------------------------------------------------------------------
+// 1. Form sections
+// -----------------------------------------------------------------------------
+.erp-form-section {
+  background: var(--erp-color-bg-surface);
+  border: 1px solid var(--erp-color-border-subtle);
+  border-radius: var(--erp-radius-card);
+
+  & + & { margin-block-start: var(--erp-grid-gap); }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: var(--erp-space-2);
+    inline-size: 100%;
+    min-block-size: 48px;
+    padding-block: var(--erp-space-3);
+    padding-inline: var(--erp-card-padding);
+    background: none;
+    border: 0;
+    color: var(--erp-color-text-heading);
+    text-align: start;
+    cursor: pointer;
+    border-radius: var(--erp-radius-card);
+    transition: background-color var(--erp-duration-fast) var(--erp-ease-standard);
+
+    &:hover { background: var(--erp-color-bg-hover); }
+    &:focus-visible { @include erp.focus-ring(-2px); }
+  }
+  &__title { @include erp.type('title-sm'); margin: 0; }
+  &__meta { margin-inline-start: auto; color: var(--erp-color-text-muted); @include erp.type('caption'); }
+  &__chevron {
+    color: var(--erp-color-text-muted);
+    transition: transform var(--erp-duration-base) var(--erp-ease-standard);
+  }
+  &[data-collapsed='true'] &__chevron { transform: rotate(calc(-90deg * var(--erp-direction-sign))); }
+
+  &__body {
+    padding-inline: var(--erp-card-padding);
+    padding-block-end: var(--erp-card-padding);
+    // Height animation uses grid-template-rows 0fr→1fr (no JS measuring)
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows var(--erp-duration-base) var(--erp-ease-standard),
+      padding var(--erp-duration-base) var(--erp-ease-standard);
+    > .erp-field-grid { min-block-size: 0; overflow: hidden; }
+  }
+  &[data-collapsed='true'] &__body { grid-template-rows: 0fr; padding-block-end: 0; }
+}
+
+// -----------------------------------------------------------------------------
+// 2. Responsive field grid (aligned with uiux/custom-fields.md B.5:
+//    SectionMeta.columns + FieldMeta.span). Section columns 1 | 2 | 3,
+//    field span 1 | 2 | 3 (clamped to the section's columns).
+//      xs–sm (<768):  always 1 column
+//      md–lg (768–1199): at most 2 columns
+//      xl+  (≥1200):  the section's own column count
+//    Usage: <div class="erp-field-grid" data-columns="3">
+//             <div class="erp-field" data-span="2">…
+// -----------------------------------------------------------------------------
+.erp-field-grid {
+  --_cols: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--_cols), minmax(0, 1fr));
+  column-gap: var(--erp-space-4);
+  row-gap: var(--erp-form-row-gap);
+  align-items: start;
+
+  > .erp-field { grid-column: 1 / -1; }   // <md: everything full width
+
+  @include erp.up(md) {
+    &[data-columns='2'],
+    &[data-columns='3'] { --_cols: 2; }
+    > .erp-field { grid-column: auto / span 1; }
+    > .erp-field[data-span='2'],
+    > .erp-field[data-span='3'],
+    > .erp-field[data-span='full'] { grid-column: 1 / -1; }
+  }
+  @include erp.up(xl) {
+    &[data-columns='3'] { --_cols: 3; }
+    &[data-columns='3'] > .erp-field[data-span='2'] { grid-column: auto / span 2; }
+  }
+  // Long text, rich text, file/image galleries default to full width (renderer sets data-span='full')
+}
+
+// -----------------------------------------------------------------------------
+// 3. Field (edit + read)
+// -----------------------------------------------------------------------------
+.erp-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--erp-space-1);
+  min-inline-size: 0;
+
+  &__label-row { display: flex; align-items: center; gap: var(--erp-space-1); min-block-size: 20px; }
+  &__label {
+    @include erp.type('label');
+    color: var(--erp-color-text-secondary);
+  }
+  &__required { color: var(--erp-color-error-text); margin-inline-start: 2px; }
+  &__optional { color: var(--erp-color-text-muted); font-weight: 400; }
+  &__help { @include erp.type('caption'); color: var(--erp-color-text-muted); }
+  &__error {
+    @include erp.type('caption');
+    color: var(--erp-color-error-text);
+    display: flex; gap: var(--erp-space-1); align-items: flex-start;
+    animation: erp-field-error-in var(--erp-duration-quick) var(--erp-ease-decelerate);
+  }
+
+  // Read mode value
+  &__value {
+    @include erp.type('body');
+    color: var(--erp-color-text-primary);
+    overflow-wrap: anywhere;
+    min-block-size: 22px;
+    &[data-type='integer'], &[data-type='decimal'], &[data-type='currency'], &[data-type='percent'] {
+      @include erp.tabular-numbers;
+    }
+    &[data-negative='true'] { color: var(--erp-color-money-negative); }
+    &:empty::before,
+    &[data-empty='true']::before {
+      content: '—';
+      color: var(--erp-color-text-muted);
+    }
+  }
+  // Computed / read-only in edit mode: looks like text, not a disabled input
+  &[data-readonly='true'] &__value {
+    padding-block: 5px;
+    color: var(--erp-color-text-secondary);
+  }
+
+  // Colour swatch
+  &__swatch {
+    display: inline-block; inline-size: 16px; block-size: 16px;
+    border-radius: var(--erp-radius-xs);
+    border: 1px solid var(--erp-color-border-default);
+    vertical-align: -3px; margin-inline-end: var(--erp-space-2);
+  }
+}
+
+@keyframes erp-field-error-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
+}
+
+// -----------------------------------------------------------------------------
+// 4. Custom-field origin marker — hidden for end users; visible only when an
+//    ancestor has [data-field-origin='visible'] (admin "Edit layout" mode or the
+//    builder). Icon + tooltip + SR text; never colour alone.
+// -----------------------------------------------------------------------------
+.erp-field-origin {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 16px;
+  block-size: 16px;
+  border-radius: var(--erp-radius-xs);
+  color: var(--erp-color-info-text);
+  background: var(--erp-color-info-bg);
+  font-size: 11px;
+}
+[data-field-origin='visible'] {
+  .erp-field-origin { display: inline-flex; }
+  .erp-field[data-origin='custom'] {
+    // subtle dotted inline-start rule so admins can scan a form
+    padding-inline-start: var(--erp-space-2);
+    border-inline-start: 2px dotted var(--erp-color-info-border);
+  }
+  th[data-origin='custom'] .erp-col-title::after {
+    content: '';
+    display: inline-block;
+    inline-size: 6px; block-size: 6px;
+    margin-inline-start: var(--erp-space-1);
+    border-radius: 50%;
+    background: var(--erp-color-info-solid);
+    vertical-align: middle;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 5. Field builder (3-pane: palette | canvas | properties)
+// -----------------------------------------------------------------------------
+.erp-fb {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'bar bar bar'
+    'palette canvas props';
+  block-size: calc(100dvh - var(--erp-header-height));
+  background: var(--erp-color-bg-canvas);
+
+  @include erp.down(xl) {
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-areas: 'bar bar' 'palette canvas';
+    .erp-fb__props { position: fixed; inset-block: var(--erp-header-height) 0; inset-inline-end: 0; inline-size: 360px; box-shadow: var(--erp-shadow-4); z-index: var(--erp-z-overlay); }
+  }
+  @include erp.down(md) {
+    // Builder is desktop-first; on phones show a read-only preview + notice.
+    grid-template-columns: 1fr;
+    grid-template-areas: 'bar' 'canvas';
+    .erp-fb__palette { display: none; }
+  }
+
+  &__bar {
+    grid-area: bar;
+    display: flex; align-items: center; gap: var(--erp-space-3);
+    padding: var(--erp-space-3) var(--erp-page-padding);
+    background: var(--erp-color-bg-surface);
+    border-block-end: 1px solid var(--erp-color-border-subtle);
+  }
+  &__status {
+    display: inline-flex; align-items: center; gap: var(--erp-space-1);
+    @include erp.type('caption');
+    color: var(--erp-color-text-muted);
+    &[data-state='draft'] { color: var(--erp-color-warning-text); }
+    &[data-state='published'] { color: var(--erp-color-success-text); }
+    &[data-state='error'] { color: var(--erp-color-error-text); }
+  }
+
+  &__palette, &__props {
+    overflow: auto;
+    background: var(--erp-color-bg-surface);
+    padding: var(--erp-space-4);
+  }
+  &__palette { grid-area: palette; border-inline-end: 1px solid var(--erp-color-border-subtle); }
+  &__props { grid-area: props; border-inline-start: 1px solid var(--erp-color-border-subtle); }
+  &__canvas { grid-area: canvas; overflow: auto; padding: var(--erp-page-padding); }
+  &__canvas-inner { max-inline-size: 960px; margin-inline: auto; }
+}
+
+.erp-fb-palette-group__title {
+  @include erp.type('overline');
+  text-transform: uppercase;
+  color: var(--erp-color-text-muted);
+  margin-block: var(--erp-space-4) var(--erp-space-2);
+  :lang(ar) &, :lang(ur) & { text-transform: none; letter-spacing: 0; }
+}
+.erp-fb-palette-item {
+  display: flex; align-items: center; gap: var(--erp-space-2);
+  inline-size: 100%;
+  padding: var(--erp-space-2) var(--erp-space-3);
+  border: 1px solid var(--erp-color-border-default);
+  border-radius: var(--erp-radius-control);
+  background: var(--erp-color-bg-surface);
+  color: var(--erp-color-text-primary);
+  cursor: grab;
+  text-align: start;
+  transition: border-color var(--erp-duration-fast) var(--erp-ease-standard),
+    background-color var(--erp-duration-fast) var(--erp-ease-standard),
+    box-shadow var(--erp-duration-fast) var(--erp-ease-standard);
+  & + & { margin-block-start: var(--erp-space-1); }
+  &:hover { border-color: var(--erp-color-primary-border); background: var(--erp-color-primary-subtle); }
+  &:active { cursor: grabbing; }
+  &:focus-visible { @include erp.focus-ring; }
+  &__icon { color: var(--erp-color-primary-text); flex: none; }
+}
+
+// Field on the canvas
+.erp-fb-field {
+  position: relative;
+  border-radius: var(--erp-radius-control);
+  padding: var(--erp-space-2);
+  outline: 1px dashed transparent;
+  transition: outline-color var(--erp-duration-fast) var(--erp-ease-standard),
+    background-color var(--erp-duration-fast) var(--erp-ease-standard);
+
+  &:hover { outline-color: var(--erp-color-border-strong); }
+  &[aria-selected='true'] {
+    outline: 2px solid var(--erp-color-primary);
+    background: var(--erp-color-primary-subtle);
+  }
+  &[data-grabbed='true'] {          // keyboard "picked up" state
+    outline: 2px dashed var(--erp-color-primary);
+    box-shadow: var(--erp-shadow-3);
+  }
+  &[data-invalid='true'] { outline: 2px solid var(--erp-color-error-solid); }
+  &__handle {
+    position: absolute; inset-block-start: var(--erp-space-2); inset-inline-end: var(--erp-space-2);
+    opacity: 0; color: var(--erp-color-text-muted); cursor: grab;
+    transition: opacity var(--erp-duration-fast) var(--erp-ease-standard);
+  }
+  &:hover &__handle, &:focus-within &__handle, &[aria-selected='true'] &__handle { opacity: 1; }
+  // Preview inputs are inert in the canvas
+  .erp-field :is(input, textarea, .ant-select, .ant-picker) { pointer-events: none; }
+}
+
+// Angular CDK drag-drop states
+.erp-fb .cdk-drag-preview {
+  box-shadow: var(--erp-shadow-4);
+  border-radius: var(--erp-radius-control);
+  background: var(--erp-color-bg-surface-raised);
+  opacity: 0.96;
+}
+.erp-fb .cdk-drag-placeholder {
+  opacity: 1;
+  background: var(--erp-color-primary-subtle);
+  outline: 2px dashed var(--erp-color-primary-border);
+  border-radius: var(--erp-radius-control);
+  > * { visibility: hidden; }
+}
+.erp-fb .cdk-drag-animating { transition: transform var(--erp-duration-base) var(--erp-ease-standard); }
+.erp-fb .cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder) {
+  transition: transform var(--erp-duration-base) var(--erp-ease-standard);
+}
+.erp-fb .cdk-drop-list-receiving { background: color-mix(in srgb, var(--erp-color-primary) 4%, transparent); border-radius: var(--erp-radius-card); }
+
+// Empty section drop target
+.erp-fb-empty-drop {
+  display: grid; place-items: center; text-align: center;
+  min-block-size: 96px;
+  padding: var(--erp-space-4);
+  border: 1px dashed var(--erp-color-border-strong);
+  border-radius: var(--erp-radius-control);
+  color: var(--erp-color-text-muted);
+  grid-column: span 12;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .erp-field__error { animation: none; }
+  .erp-fb .cdk-drag-animating,
+  .erp-fb .cdk-drop-list-dragging .cdk-drag { transition: none; }
+}

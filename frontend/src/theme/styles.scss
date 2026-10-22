@@ -1,0 +1,4 @@
+// Global style entry (angular.json "styles": ["src/theme/ng-zorro-overrides.less", "src/theme/styles.scss"])
+// Sass emits each module's CSS once, so partials can `@use 'tokens' as erp` freely.
+@use 'tokens';
+@use 'dynamic-fields';
