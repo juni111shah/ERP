@@ -77,7 +77,7 @@ public sealed class CreateBusinessUnitValidator : AbstractValidator<CreateBusine
 
 internal sealed class OrganizationHandlers(
     IRepository<LegalEntity> legalEntities, IRepository<BusinessUnit> businessUnits, INumberingService numbers,
-    ICustomFieldService fields, ICurrentUser user) :
+    ICustomFieldService fields, ILegalEntityGuard legalEntityGuard) :
     IRequestHandler<CreateLegalEntity, LegalEntityDto>,
     IRequestHandler<UpdateLegalEntity, LegalEntityDto>,
     IRequestHandler<CreateBusinessUnit, BusinessUnitDto>
@@ -107,8 +107,7 @@ internal sealed class OrganizationHandlers(
     public async Task<BusinessUnitDto> Handle(CreateBusinessUnit cmd, CancellationToken ct)
     {
         var i = cmd.Input;
-        if (!await legalEntities.AnyAsync(e => e.Id == i.LegalEntityId, ct) || (user.AllowedLegalEntityIds is { } allowed && !allowed.Contains(i.LegalEntityId)))
-            throw new FieldValidationException("legalEntityId", "Legal entity not found.");
+        await legalEntityGuard.RequireAsync(i.LegalEntityId, ct);
         var unit = new BusinessUnit { LegalEntityId = i.LegalEntityId, Code = i.Code.Trim(), Name = i.Name.Trim(), Address = i.Address, IsActive = i.IsActive };
         await fields.ApplyAsync(BusinessUnitType, unit, i.CustomFields, isCreate: true, ct);
         businessUnits.Add(unit);

@@ -40,5 +40,26 @@ public sealed class UaeCountryPack : ICountryPack
                 ],
             },
             Section: Section, Order: 930),
+
+        // Real estate (applied only where the real estate module is installed): tenancy registration and property identifiers.
+        new("realestate.lease", "cf_ae_registration_authority", "Registration authority", CustomFieldDataType.Select,
+            Options: new()
+            {
+                Choices =
+                [
+                    new() { Value = "ejari", Label = "Ejari (Dubai)" },
+                    new() { Value = "tawtheeq", Label = "Tawtheeq (Abu Dhabi)" },
+                    new() { Value = "other", Label = "Other emirate" },
+                ],
+            },
+            Section: "Tenancy registration", HelpText: "Dubai leases register in Ejari, Abu Dhabi leases in Tawtheeq.", Order: 900),
+        new("realestate.lease", "cf_ae_registration_no", "Ejari / Tawtheeq no.", CustomFieldDataType.Text,
+            Options: new() { MaxLength = 30 }, Section: "Tenancy registration", Order: 910, IsSearchable: true, ShowInList: true),
+        new("realestate.unit", "cf_ae_premise_no", "DEWA / ADDC premise no.", CustomFieldDataType.Text,
+            Options: new() { MaxLength = 30 }, Section: "UAE details", Order: 900, IsSearchable: true),
+        new("realestate.property", "cf_ae_title_deed_no", "Title deed no.", CustomFieldDataType.Text,
+            Options: new() { MaxLength = 50 }, Section: "UAE details", Order: 900, IsSearchable: true),
+        new("realestate.property", "cf_ae_makani_no", "Makani no.", CustomFieldDataType.Text,
+            Options: new() { Pattern = @"^\d{10}$", MaxLength = 10 }, Section: "UAE details", HelpText: "10 digits (Dubai).", Order: 910),
     ];
 }

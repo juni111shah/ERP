@@ -59,6 +59,12 @@ public interface IRepository<T> : IReadRepository<T> where T : Entity
 public interface IUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Runs <paramref name="work"/> in one database transaction (committed when it returns, rolled back when it throws).
+    /// Use it when a command needs several SaveChanges that must succeed or fail together.
+    /// </summary>
+    Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken ct = default);
 }
 
 /// <summary>
