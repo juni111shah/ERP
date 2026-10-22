@@ -25,7 +25,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
           <div class="row">
             <div class="label">{{ s.label }} @if (s.description) { <small>{{ s.description }}</small> }</div>
             @switch (s.type) {
-              @case ('boolean') { <nz-switch [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key"></nz-switch> }
+              @case ('bool') { <nz-switch [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key"></nz-switch> }
               @case ('text') { <input nz-input style="width:240px" [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
               @default { <nz-input-number [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key"></nz-input-number> }
             }
