@@ -25,6 +25,8 @@ public static class MasterDataEndpoints
 
         var items = api.MapGroup("/items").WithTags("Master data");
         items.MapPagedList<Item, ItemDto>("", CorePermissions.ItemsRead, "item", ItemDto.From);
+        items.MapGet("/{id:guid}", (Guid id, ISender sender, CancellationToken ct) => sender.Send(new GetItem(id), ct)).RequirePermission(CorePermissions.ItemsRead);
+        items.MapPut("/{id:guid}", (Guid id, ItemInput input, ISender sender, CancellationToken ct) => sender.Send(new UpdateItem(id, input), ct)).RequirePermission(CorePermissions.ItemsWrite);
         items.MapPost("", async (ItemInput input, ISender sender, CancellationToken ct) =>
         {
             var created = await sender.Send(new CreateItem(input), ct);
@@ -35,10 +37,22 @@ public static class MasterDataEndpoints
     public static void MapFinance(this RouteGroupBuilder api)
     {
         var finance = api.MapGroup("/finance").WithTags("Finance");
-        finance.MapPagedList<Account, AccountDto>("/accounts", CorePermissions.AccountsRead,
-            a => new AccountDto(a.Id, a.Code, a.Name, a.Type, a.ReportingGroup, a.SystemRole, a.IsBank, a.IsSystem, a.IsActive));
+        finance.MapPagedList<Account, AccountDto>("/accounts", CorePermissions.AccountsRead, "account", AccountDto.From);
+        finance.MapPost("/accounts", async (AccountInput input, ISender sender, CancellationToken ct) =>
+        {
+            var created = await sender.Send(new CreateAccount(input), ct);
+            return Results.Created($"/api/v1/finance/accounts/{created.Id}", created);
+        }).RequirePermission(CorePermissions.AccountsWrite);
+        finance.MapPut("/accounts/{id:guid}", (Guid id, AccountInput input, ISender sender, CancellationToken ct) => sender.Send(new UpdateAccount(id, input), ct)).RequirePermission(CorePermissions.AccountsWrite);
+
         finance.MapPagedList<TaxCode, TaxCodeDto>("/tax-codes", CorePermissions.TaxRead,
             t => new TaxCodeDto(t.Id, t.Code, t.Name, t.Kind, t.Rate, t.IsDefault, t.IsRecoverable, t.IsActive));
+        finance.MapPost("/tax-codes", async (TaxCodeInput input, ISender sender, CancellationToken ct) =>
+        {
+            var created = await sender.Send(new CreateTaxCode(input), ct);
+            return Results.Created($"/api/v1/finance/tax-codes/{created.Id}", created);
+        }).RequirePermission(CorePermissions.TaxWrite);
+        finance.MapPut("/tax-codes/{id:guid}", (Guid id, TaxCodeInput input, ISender sender, CancellationToken ct) => sender.Send(new UpdateTaxCode(id, input), ct)).RequirePermission(CorePermissions.TaxWrite);
         finance.MapPagedList<Currency, CurrencyDto>("/currencies", CorePermissions.CurrenciesRead, c => new CurrencyDto(c.Code, c.Name, c.Symbol, c.Decimals));
     }
 }

@@ -24,7 +24,8 @@ public sealed class UserDirectory(AppDbContext db, UserManager<AppUser> users) :
         var userRoles = await db.UserRoles.AsNoTracking().Include(r => r.Role).ToListAsync(ct);
         return accounts.OrderBy(a => a.FullName).Select(a => new UserSummary(
             a.Id, a.Email ?? "", a.FullName, a.IsActive && members.First(m => m.UserId == a.Id).IsActive, a.LastSignInAt,
-            userRoles.Where(r => r.UserId == a.Id).Select(r => r.Role!.Name).ToList())).ToList();
+            userRoles.Where(r => r.UserId == a.Id).Select(r => r.Role!.Name).ToList(),
+            userRoles.Where(r => r.UserId == a.Id).Select(r => r.RoleId).ToList())).ToList();
     }
 
     public async Task<UserAccount> EnsureAccountAsync(string email, string fullName, string? temporaryPassword, CancellationToken ct = default)

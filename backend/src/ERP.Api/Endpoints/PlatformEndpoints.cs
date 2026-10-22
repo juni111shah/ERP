@@ -12,6 +12,8 @@ public static class PlatformEndpoints
     {
         var g = api.MapGroup("/platform").WithTags("Platform");
         g.MapGet("/industries", (ISender sender, CancellationToken ct) => sender.Send(new ListIndustries(), ct)).AllowAnonymous();
+        g.MapGet("/countries", (ISender sender, CancellationToken ct) => sender.Send(new ListCountries(), ct)).AllowAnonymous();
+        g.MapGet("/currencies", (ISender sender, CancellationToken ct) => sender.Send(new ListCurrencies(), ct)).AllowAnonymous();
         g.MapPost("/onboarding", async (OnboardingRequest request, ISender sender, CancellationToken ct) =>
         {
             var result = await sender.Send(new CreateWorkspace(request), ct);

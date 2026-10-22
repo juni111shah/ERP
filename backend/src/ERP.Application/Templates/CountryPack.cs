@@ -18,6 +18,9 @@ public interface ICountryPack
     /// <summary>ISO 3166-1 alpha-2, upper case.</summary>
     string CountryCode { get; }
     string Name { get; }
+    /// <summary>Suggested base currency and time zone at onboarding (the user can still choose another).</summary>
+    string DefaultCurrency { get; }
+    string DefaultTimeZone { get; }
     IReadOnlyList<TaxTemplate> Taxes { get; }
     IReadOnlyList<CustomFieldSeed> CustomFields { get; }
 }

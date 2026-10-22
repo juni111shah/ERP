@@ -8,8 +8,10 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
+import { NzSelectModule } from 'ng-zorro-antd/select';
 import { catchError, of } from 'rxjs';
 import { API_BASE_URL } from '../core/api/api-config';
+import { CountryDto, CurrencyOption } from '../core/api/admin.api';
 import { applyProblemDetailsToForm, asProblem } from '../core/http/problem-details';
 import { AUTH_STYLES, PASSWORD_HINT, PASSWORD_RULE } from './auth-layout';
 
@@ -20,7 +22,7 @@ interface IndustryView { key: string; label: string; description: string; availa
   selector: 'erp-onboarding',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzRadioModule, NzAlertModule],
+  imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzRadioModule, NzSelectModule, NzAlertModule],
   styles: [AUTH_STYLES, `.industry { display: block; margin-bottom: 8px; } .industry small { display:block; color: var(--erp-color-text-secondary); margin-inline-start: 24px; }`],
   template: `
     <div class="card wide">
@@ -48,8 +50,14 @@ interface IndustryView { key: string; label: string; description: string; availa
           </nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Workspace name</nz-form-label><nz-form-control nzErrorTip="Required"><input nz-input formControlName="workspaceName" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Workspace code</nz-form-label><nz-form-control nzErrorTip="3–32 lowercase letters, digits or dashes"><input nz-input formControlName="signInKey" /></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Country (ISO code)</nz-form-label><nz-form-control nzErrorTip="Two-letter country code"><input nz-input formControlName="countryCode" maxlength="2" /></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Base currency (ISO code)</nz-form-label><nz-form-control nzErrorTip="Three-letter currency code"><input nz-input formControlName="baseCurrency" maxlength="3" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Country</nz-form-label><nz-form-control nzErrorTip="Choose a country">
+            <nz-select formControlName="countryCode" nzShowSearch nzPlaceHolder="Choose a country" (ngModelChange)="countryChanged($event)" data-testid="onboarding-country">
+              @for (c of countries(); track c.code) { <nz-option [nzValue]="c.code" [nzLabel]="c.name + (c.hasPack ? ' ✓' : '')"></nz-option> }
+            </nz-select></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Base currency</nz-form-label><nz-form-control nzErrorTip="Choose a currency">
+            <nz-select formControlName="baseCurrency" nzShowSearch nzPlaceHolder="Choose a currency" data-testid="onboarding-currency">
+              @for (c of currencies(); track c.code) { <nz-option [nzValue]="c.code" [nzLabel]="c.code + ' · ' + c.name"></nz-option> }
+            </nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Your name</nz-form-label><nz-form-control nzErrorTip="Required"><input nz-input formControlName="adminName" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Work email</nz-form-label><nz-form-control nzErrorTip="Enter a valid email"><input nz-input type="email" formControlName="adminEmail" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Password</nz-form-label><nz-form-control [nzErrorTip]="hint"><input nz-input type="password" formControlName="adminPassword" autocomplete="new-password" /></nz-form-control></nz-form-item>
@@ -63,6 +71,10 @@ export class OnboardingPage {
   private readonly base = inject(API_BASE_URL);
   readonly hint = PASSWORD_HINT;
   readonly industries = toSignal(this.http.get<IndustryView[]>(`${this.base}/platform/industries`).pipe(catchError(() => of([]))), { initialValue: [] });
+  readonly countries = toSignal(this.http.get<CountryDto[]>(`${this.base}/platform/countries`).pipe(catchError(() => of([]))), { initialValue: [] as CountryDto[] });
+  readonly currencies = toSignal(this.http.get<CurrencyOption[]>(`${this.base}/platform/currencies`).pipe(catchError(() => of([]))), { initialValue: [] as CurrencyOption[] });
+  /** time zone suggested by the chosen country; falls back to the browser's */
+  private suggestedZone: string | null = null;
   readonly form = inject(FormBuilder).nonNullable.group({
     industry: ['', Validators.required],
     workspaceName: ['', Validators.required],
@@ -77,6 +89,14 @@ export class OnboardingPage {
   readonly done = signal(false);
   readonly error = signal<string | null>(null);
 
+  /** Picking a country suggests its currency and time zone (still editable / overridable). */
+  countryChanged(code: string): void {
+    const c = this.countries().find((x) => x.code === code);
+    if (!c) return;
+    this.suggestedZone = c.defaultTimeZone;
+    if (!this.form.controls.baseCurrency.dirty) this.form.controls.baseCurrency.setValue(c.defaultCurrency);
+  }
+
   submit(): void {
     if (this.form.invalid) {
       Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); });
@@ -84,7 +104,7 @@ export class OnboardingPage {
     }
     const v = this.form.getRawValue();
     this.busy.set(true);
-    this.http.post(`${this.base}/platform/onboarding`, { ...v, countryCode: v.countryCode.toUpperCase(), baseCurrency: v.baseCurrency.toUpperCase(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })
+    this.http.post(`${this.base}/platform/onboarding`, { ...v, countryCode: v.countryCode.toUpperCase(), baseCurrency: v.baseCurrency.toUpperCase(), timeZone: this.suggestedZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone })
       .subscribe({
         next: () => this.done.set(true),
         error: (e) => {

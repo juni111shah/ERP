@@ -16,7 +16,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ERP.Infrastructure\ERP.Infrastructure.csproj" /><ProjectReference Include="..\..\src\ERP.Api\ERP.Api.csproj" /><ProjectReference Include="..\..\modules\ERP.Modules.RealEstate\ERP.Modules.RealEstate.csproj" /><ProjectReference Include="..\..\modules\ERP.Modules.Inventory\ERP.Modules.Inventory.csproj" /><ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.AE\ERP.CountryPacks.AE.csproj" />
+    <ProjectReference Include="..\..\src\ERP.Infrastructure\ERP.Infrastructure.csproj" /><ProjectReference Include="..\..\src\ERP.Api\ERP.Api.csproj" /><ProjectReference Include="..\..\modules\ERP.Modules.RealEstate\ERP.Modules.RealEstate.csproj" /><ProjectReference Include="..\..\modules\ERP.Modules.Inventory\ERP.Modules.Inventory.csproj" /><ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.AE\ERP.CountryPacks.AE.csproj" /><ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.SA\ERP.CountryPacks.SA.csproj" /><ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.PK\ERP.CountryPacks.PK.csproj" /><ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.IN\ERP.CountryPacks.IN.csproj" /><ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.GB\ERP.CountryPacks.GB.csproj" /><ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.US\ERP.CountryPacks.US.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="core-vocabulary-denylist.txt" CopyToOutputDirectory="PreserveNewest" />
