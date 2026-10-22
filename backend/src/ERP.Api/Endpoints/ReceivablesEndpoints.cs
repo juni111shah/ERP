@@ -1,3 +1,4 @@
+using ERP.Application.Common;
 using ERP.Application.Finance;
 using ERP.Application.Security;
 using ERP.Domain.Finance;
@@ -30,8 +31,7 @@ public static class ReceivablesEndpoints
         invoices.MapPost("/{id:guid}/apply-credit", (Guid id, ApplyCreditBody body, ISender s, CancellationToken ct) => s.Send(new ApplyCreditNote(id, body.InvoiceId, body.Amount), ct)).RequirePermission(CorePermissions.InvoicesIssue);
 
         var receipts = api.MapGroup("/finance/receipts").WithTags("Receivables");
-        receipts.MapPagedList<Settlement, ReceiptSummaryDto>("", CorePermissions.ReceiptsRead,
-            r => new ReceiptSummaryDto(r.Id, r.Number, r.PartyId, r.PartyName, r.Date, r.Method, r.Amount, r.Unallocated, r.Status, r.CurrencyCode));
+        receipts.MapGet("", ([AsParameters] PagedQuery q, ISender s, CancellationToken ct) => s.Send(new ListReceipts(q), ct)).RequirePermission(CorePermissions.ReceiptsRead);
         receipts.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetReceipt(id), ct)).RequirePermission(CorePermissions.ReceiptsRead);
         receipts.MapPost("", async (ReceiptInput input, ISender s, CancellationToken ct) =>
         {

@@ -147,3 +147,13 @@ public static class SettlementStatus
         i.Status = i.Paid <= 0 ? DocumentStatus.Issued : i.Paid >= i.Total ? DocumentStatus.Paid : DocumentStatus.PartlyPaid;
     }
 }
+
+public static class BillStatus
+{
+    /// <summary>Issued -> PartlyPaid -> Paid from the amount paid so far.</summary>
+    public static void Refresh(Bill b)
+    {
+        if (b.Status is DocumentStatus.Draft or DocumentStatus.PendingApproval or DocumentStatus.Voided) return;
+        b.Status = b.Paid <= 0 ? DocumentStatus.Issued : b.Paid >= b.Total ? DocumentStatus.Paid : DocumentStatus.PartlyPaid;
+    }
+}

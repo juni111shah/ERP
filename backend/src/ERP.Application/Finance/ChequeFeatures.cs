@@ -53,7 +53,7 @@ public sealed class ReplaceChequeValidator : AbstractValidator<ReplaceCheque> { 
 public sealed class BounceChequeValidator : AbstractValidator<BounceCheque> { public BounceChequeValidator() => RuleFor(x => x.Reason).NotEmpty().MaximumLength(300); }
 
 internal sealed class ChequeHandlers(
-    IRepository<PaymentInstrument> instruments, IRepository<Settlement> settlements, IRepository<SettlementAllocation> allocationRows, IReadRepository<Invoice> invoices,
+    IRepository<PaymentInstrument> instruments, IRepository<Settlement> settlements, IRepository<SettlementAllocation> allocationRows, IReadRepository<Invoice> invoices, IReadRepository<Bill> bills,
     IReadRepository<Account> accounts, IReadRepository<Party> parties, ILegalEntityGuard guard, IPostingService posting, ISettlementService settlementService,
     INumberingService numbering, IUnitOfWork uow) :
     IRequestHandler<GetCheque, ChequeDto>,
@@ -206,9 +206,11 @@ internal sealed class ChequeHandlers(
         if (c.SettlementId is { } sid)
         {
             var rows = await allocationRows.Query(new Specification<SettlementAllocation>(a => a.SettlementId == sid)).ToListAsync(ct);
-            var ids = rows.Select(a => a.InvoiceId!.Value).ToList();
-            var numbers = await invoices.Query(new Specification<Invoice>(i => ids.Contains(i.Id))).Select(i => new { i.Id, i.Number }).ToDictionaryAsync(i => i.Id, i => i.Number, ct);
-            allocations = rows.Select(a => new AllocationDto(a.Id, a.InvoiceId!.Value, numbers.GetValueOrDefault(a.InvoiceId.Value, "?"), a.Amount)).ToList();
+            var invoiceIds = rows.Where(a => a.InvoiceId != null).Select(a => a.InvoiceId!.Value).ToList();
+            var billIds = rows.Where(a => a.BillId != null).Select(a => a.BillId!.Value).ToList();
+            var numbers = await invoices.Query(new Specification<Invoice>(i => invoiceIds.Contains(i.Id))).Select(i => new { i.Id, i.Number }).ToDictionaryAsync(i => i.Id, i => i.Number, ct);
+            foreach (var b in await bills.Query(new Specification<Bill>(x => billIds.Contains(x.Id))).Select(x => new { x.Id, x.Number }).ToListAsync(ct)) numbers[b.Id] = b.Number;
+            allocations = rows.Select(a => { var id = (a.InvoiceId ?? a.BillId)!.Value; return new AllocationDto(a.Id, id, numbers.GetValueOrDefault(id, "?"), a.Amount); }).ToList();
         }
         return new ChequeDto(c.Id, c.Number, c.LegalEntityId, c.Kind, c.Direction, c.InstrumentNo, c.BankName, c.Amount, c.CurrencyCode, c.InstrumentDate, c.ReceivedOn, c.PartyId, c.PartyName, c.Status,
             c.BankAccountId, c.SettlementId, c.DepositedOn, c.ClearedOn, c.BounceReason, c.ReplacesInstrumentId, c.Notes, allocations);

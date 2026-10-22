@@ -25,6 +25,16 @@ public static class WorkflowEndpoints
             sender.Send(new DecideApproval(id, false, decision?.Comment), ct)).RequirePermission(CorePermissions.ApprovalsDecide);
         approvals.MapPost("/{id:guid}/withdraw", (Guid id, ISender sender, CancellationToken ct) => sender.Send(new WithdrawApproval(id), ct)).RequireAuthorization();
 
+        var policies = api.MapGroup("/approval-policies").WithTags("Workflow");
+        policies.MapGet("", (ISender sender, CancellationToken ct) => sender.Send(new ListApprovalPolicies(), ct)).RequirePermission(CorePermissions.SettingsRead);
+        policies.MapPost("", async (ApprovalPolicyInput input, ISender sender, CancellationToken ct) =>
+        {
+            var created = await sender.Send(new SaveApprovalPolicy(null, input), ct);
+            return Results.Created($"/api/v1/approval-policies/{created.Id}", created);
+        }).RequirePermission(CorePermissions.SettingsWrite);
+        policies.MapPut("/{id:guid}", (Guid id, ApprovalPolicyInput input, ISender sender, CancellationToken ct) => sender.Send(new SaveApprovalPolicy(id, input), ct)).RequirePermission(CorePermissions.SettingsWrite);
+        policies.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) => { await sender.Send(new DeleteApprovalPolicy(id), ct); return Results.NoContent(); }).RequirePermission(CorePermissions.SettingsWrite);
+
         var notifications = api.MapGroup("/notifications").WithTags("Workflow");
         notifications.MapGet("", (ISender sender, CancellationToken ct) => sender.Send(new ListNotifications(), ct)).RequireAuthorization();
         notifications.MapPost("/{id:guid}/read", async (Guid id, ISender sender, CancellationToken ct) =>

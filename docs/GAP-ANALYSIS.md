@@ -15,13 +15,13 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Leases, rent schedule, renewal, termination | Done | Occupying-lease uniqueness enforced by the database. |
 | Maintenance work orders | Done | |
 | Brokerage deals and commissions | Done | |
-| Approvals | Partial | Inbox and decisions exist; approval rules per document type are not configurable yet. |
+| Approvals | Done | Inbox, decisions, and rules (document type + amount) that gate bill posting. |
 | Dashboard KPIs | Missing | Needs invoices and receipts first. |
 | Finance ledger (journals, posting engine, period lock, trial balance, GL, P&L, balance sheet) | Done | `IPostingService` is the only way documents write to the ledger. |
 | Invoices, credit notes and rent billing run | Done | Billing run invoices due instalments; voiding releases them. |
 | Receipts, allocation, AR ageing, customer statement | Done | Cheque receipts come with the PDC register. |
 | Post-dated cheque register | Done | Custody, deposit, clear, bounce, replace; maturity KPIs. |
-| Bills, payments, AP | Missing | |
+| Bills, payments, issued cheques, AP ageing | Done | Approval rules per document type (bills) are configurable. |
 | Bank and cash, reconciliation | Done | Statement import (paste), auto-match, book unmatched lines, transfers, cash position. |
 | HR, payroll, attendance | Missing | |
 | Acquisitions and funding | Missing | |

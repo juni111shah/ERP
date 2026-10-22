@@ -57,19 +57,29 @@ public class InvoiceLine : Entity
 }
 
 /// <summary>Vendor bill (core payables). Schema only in sprint 0.</summary>
+[DefaultSort("-billDate")]
 public class Bill : LegalEntityScopedEntity, IHasCustomFields
 {
+    [Searchable, Sortable]
     public string Number { get; set; } = default!;
+    [Filterable]
     public Guid PartyId { get; set; }
+    [Searchable]
+    public string? PartyName { get; set; }
+    [Searchable]
     public string? VendorReference { get; set; }
+    [Sortable, Filterable]
     public DateOnly BillDate { get; set; }
+    [Sortable, Filterable]
     public DateOnly DueDate { get; set; }
     public string CurrencyCode { get; set; } = default!;
     public decimal ExchangeRate { get; set; } = 1m;
     public decimal Net { get; set; }
     public decimal Tax { get; set; }
+    [Sortable]
     public decimal Total { get; set; }
     public decimal Paid { get; set; }
+    [Filterable]
     public DocumentStatus Status { get; set; }
     public Guid? ApprovalRequestId { get; set; }
     public Guid? JournalEntryId { get; set; }
