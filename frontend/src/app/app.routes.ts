@@ -40,6 +40,7 @@ export const routes: Routes = [
       { path: 'finance/journals', canMatch: [permissionGuard('finance.journals.read')], loadComponent: () => import('./pages/admin/journals.page').then((m) => m.JournalsPage) },
       { path: 'finance/reports', canMatch: [permissionGuard('finance.reports.read')], loadComponent: () => import('./pages/admin/ledger-reports.page').then((m) => m.LedgerReportsPage) },
       { path: 'finance/invoices', canMatch: [permissionGuard('finance.invoices.read')], loadComponent: () => import('./pages/admin/invoices.page').then((m) => m.InvoicesPage) },
+      { path: 'finance/invoices/:id', canMatch: [permissionGuard('finance.invoices.read')], loadComponent: () => import('./pages/admin/invoice-detail.page').then((m) => m.InvoiceDetailPage) },
       { path: 'finance/receipts', canMatch: [permissionGuard('finance.receipts.read')], loadComponent: () => import('./pages/admin/receipts.page').then((m) => m.ReceiptsPage) },
       { path: 'finance/cheques', canMatch: [permissionGuard('finance.cheques.read')], loadComponent: () => import('./pages/admin/cheques.page').then((m) => m.ChequesPage) },
       { path: 'finance/bank', canMatch: [permissionGuard('finance.bank.read')], loadComponent: () => import('./pages/admin/bank.page').then((m) => m.BankPage) },
