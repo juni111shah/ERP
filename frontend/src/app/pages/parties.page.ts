@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, Injectable, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injectable, inject, signal, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -39,11 +40,13 @@ const ROLES = ['Customer', 'Vendor', 'Employee', 'Other'];
   imports: [ReactiveFormsModule, FormsModule, PagedTableComponent, DynamicFieldsComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule,
     NzFormModule, NzInputModule, NzSelectModule, NzSwitchModule, NzIconModule],
   template: `
-    <h1 class="erp-page-title">Parties</h1>
+    <h1 class="erp-page-title">{{ pageTitle() }}</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, code, email" (rowClick)="open($event)" emptyText="No parties yet">
-      <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All roles" (ngModelChange)="filterRole($event)" [ngModelOptions]="{standalone: true}" [ngModel]="null" data-testid="party-role-filter">
-        @for (r of roles; track r) { <nz-option [nzValue]="r" [nzLabel]="r"></nz-option> }
-      </nz-select>
+      @if (!typeFilter()) {
+        <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All roles" (ngModelChange)="filterRole($event)" [ngModelOptions]="{standalone: true}" [ngModel]="null" data-testid="party-role-filter">
+          @for (r of roles; track r) { <nz-option [nzValue]="r" [nzLabel]="r"></nz-option> }
+        </nz-select>
+      }
       <button toolbar *erpHasPermission="'core.parties.write'" nz-button nzType="primary" (click)="open(null)" data-testid="party-new"><span nz-icon nzType="plus"></span>New party</button>
     </erp-paged-table>
 
@@ -70,13 +73,16 @@ const ROLES = ['Customer', 'Vendor', 'Employee', 'Other'];
       <button nz-button nzType="primary" [nzLoading]="saving()" (click)="save()" data-testid="party-save" style="margin-inline-start:8px">Save</button>
     </ng-template>`,
 })
-export class PartiesPage {
+export class PartiesPage implements OnInit {
   private readonly api = inject(PartiesApi);
   private readonly meta = inject(CustomFieldMetadataService);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
   readonly roles = ROLES;
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
+  readonly typeFilter = signal<string | null>(null);
+  readonly pageTitle = signal('Parties');
   readonly columns: TableColumn<PartyDto>[] = [
     { key: 'code', label: 'Code', sortField: 'code', width: '120px' },
     { key: 'name', label: 'Name', sortField: 'name' },
@@ -90,6 +96,15 @@ export class PartiesPage {
   readonly sections = signal<FormSectionMeta[]>([]);
   readonly customGroup = signal<FormGroup>(new FormGroup({}));
   form = this.newForm();
+
+  ngOnInit(): void {
+    const type = this.route.snapshot.queryParamMap.get('type');
+    if (type) {
+      this.typeFilter.set(type);
+      this.pageTitle.set(type === 'customer' ? 'Customers' : type === 'vendor' ? 'Vendors' : 'Parties');
+      this.filterRole(type.charAt(0).toUpperCase() + type.slice(1));
+    }
+  }
 
   filterRole(role: string | null): void {
     this.list.setFilters(role ? [{ field: 'roles', op: 'has', value: role.toLowerCase() }] : []);

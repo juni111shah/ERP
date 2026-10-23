@@ -21,6 +21,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', loadComponent: () => import('./pages/portal/portal-home.page').then((m) => m.PortalHomePage) },
     ],
   },
+  { path: 'print/:type/:id', loadComponent: () => import('./pages/print.page').then((m) => m.PrintPage) },
   { path: 'onboarding', loadComponent: () => import('./pages/onboarding.page').then((m) => m.OnboardingPage) },
   {
     path: '',
