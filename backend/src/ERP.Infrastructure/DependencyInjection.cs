@@ -68,6 +68,7 @@ public static class DependencyInjection
                 o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(config.GetValue("Auth:LockoutMinutes", 15));
             })
             .AddEntityFrameworkStores<AppDbContext>()
+            .AddDefaultTokenProviders()
             .AddPasswordValidator<PasswordNotEmailValidator>();
 
         services.Configure<AuthOptions>(config.GetSection(AuthOptions.Section));

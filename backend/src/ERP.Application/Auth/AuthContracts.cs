@@ -26,7 +26,11 @@ public sealed record SessionResult(
     WorkspaceOption Workspace, IReadOnlyList<WorkspaceOption> Workspaces);
 
 public sealed record LoginResult(
-    bool RequiresWorkspaceSelection, string? SelectionToken, IReadOnlyList<WorkspaceOption> Workspaces, SessionResult? Session);
+    bool RequiresWorkspaceSelection, string? SelectionToken, IReadOnlyList<WorkspaceOption> Workspaces, SessionResult? Session, bool RequiresTwoFactor = false);
+
+public sealed record TwoFactorSetup(string Secret, string OtpAuthUri);
+public sealed record TwoFactorEnabled(IReadOnlyList<string> RecoveryCodes);
+public sealed record TwoFactorStatus(bool Enabled);
 
 /// <summary>Effective access of a user in one workspace.</summary>
 public sealed record AccessGrant(IReadOnlySet<string> Permissions, IReadOnlyList<Guid>? Entities, IReadOnlySet<string> EnabledModules);
@@ -40,7 +44,11 @@ public sealed class AuthException(int status, string message, DateTime? retryAt 
 /// <summary>Sign-in, token and password operations. Implemented in Infrastructure (Identity, JWT, refresh tokens); called only by the auth commands.</summary>
 public interface IAuthService
 {
-    Task<LoginResult> LoginAsync(string email, string password, bool rememberMe, string? ip, CancellationToken ct);
+    Task<LoginResult> LoginAsync(string email, string password, bool rememberMe, string? ip, string? twoFactorCode, CancellationToken ct);
+    Task<TwoFactorStatus> TwoFactorStatusAsync(Guid userId, CancellationToken ct);
+    Task<TwoFactorSetup> BeginTwoFactorSetupAsync(Guid userId, CancellationToken ct);
+    Task<IReadOnlyList<string>> EnableTwoFactorAsync(Guid userId, string code, CancellationToken ct);
+    Task DisableTwoFactorAsync(Guid userId, string password, string code, CancellationToken ct);
     Task<SessionResult> SelectWorkspaceAsync(string selectionToken, Guid orgId, string? ip, CancellationToken ct);
     Task<SessionResult> SwitchWorkspaceAsync(Guid userId, Guid currentOrgId, Guid orgId, string? currentJti, DateTime? currentExp, bool persistent, string? ip, CancellationToken ct);
     Task<SessionResult> RefreshAsync(string? rawRefreshToken, string? ip, CancellationToken ct);

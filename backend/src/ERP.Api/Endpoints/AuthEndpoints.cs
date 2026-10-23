@@ -8,7 +8,9 @@ namespace ERP.Api.Endpoints;
 
 public static class AuthEndpoints
 {
-    public sealed record LoginRequest(string Email, string Password, bool RememberMe = false);
+    public sealed record LoginRequest(string Email, string Password, bool RememberMe = false, string? TwoFactorCode = null);
+    public sealed record TwoFactorCodeRequest(string Code);
+    public sealed record DisableTwoFactorRequest(string Password, string Code);
     public sealed record SelectWorkspaceRequest(string SelectionToken, Guid WorkspaceId);
     public sealed record SwitchWorkspaceRequest(Guid WorkspaceId);
     public sealed record ForgotRequest(string Email);
@@ -22,10 +24,16 @@ public static class AuthEndpoints
 
         g.MapPost("/login", async (LoginRequest r, ISender sender, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
         {
-            var result = await sender.Send(new Login(r.Email, r.Password, r.RememberMe, Ip(http)), ct);
+            var result = await sender.Send(new Login(r.Email, r.Password, r.RememberMe, Ip(http), r.TwoFactorCode), ct);
+            if (result.RequiresTwoFactor) return Results.Ok(new { requiresTwoFactor = true });
             if (result.Session is { } s) { SetCookie(http, s, o.Value); return Results.Ok(SessionBody(s)); }
             return Results.Ok(new { requiresWorkspaceSelection = true, result.SelectionToken, workspaces = result.Workspaces });
         }).AllowAnonymous().RequireRateLimiting("login");
+
+        g.MapGet("/2fa", (ISender sender, CancellationToken ct) => sender.Send(new GetTwoFactorStatus(), ct)).RequireAuthorization();
+        g.MapPost("/2fa/setup", (ISender sender, CancellationToken ct) => sender.Send(new BeginTwoFactorSetup(), ct)).RequireAuthorization();
+        g.MapPost("/2fa/enable", (TwoFactorCodeRequest r, ISender sender, CancellationToken ct) => sender.Send(new EnableTwoFactor(r.Code), ct)).RequireAuthorization();
+        g.MapPost("/2fa/disable", async (DisableTwoFactorRequest r, ISender sender, CancellationToken ct) => { await sender.Send(new DisableTwoFactor(r.Password, r.Code), ct); return Results.NoContent(); }).RequireAuthorization();
 
         g.MapPost("/select-workspace", async (SelectWorkspaceRequest r, ISender sender, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
         {

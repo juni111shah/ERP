@@ -16,8 +16,8 @@ export class AuthService {
   private readonly router = inject(Router);
   private refreshInFlight: Observable<string | null> | null = null;
 
-  login(email: string, password: string, rememberMe: boolean): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.base}/auth/login`, { email, password, rememberMe }).pipe(
+  login(email: string, password: string, rememberMe: boolean, twoFactorCode?: string): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.base}/auth/login`, { email, password, rememberMe, twoFactorCode }).pipe(
       switchMap((r) => (r.accessToken ? this.startSession(r as SessionResponse).pipe(map(() => r)) : of(r))),
     );
   }
