@@ -14,7 +14,7 @@ using Unit = ERP.Modules.RealEstate.Domain.Unit; // not MediatR.Unit
 namespace ERP.Modules.RealEstate.Features;
 
 public sealed record LeaseInput(
-    Guid UnitId, Guid LesseePartyId, DateOnly StartDate, DateOnly EndDate, decimal AnnualRent, int PaymentFrequency = 4,
+    Guid UnitId, Guid LesseePartyId, DateOnly StartDate, DateOnly? EndDate, decimal AnnualRent, int PaymentFrequency = 4,
     decimal SecurityDepositAmount = 0, Guid? TaxCodeId = null, int GraceDays = 0, int NoticePeriodDays = 90, string? Notes = null,
     JsonObject? CustomFields = null, bool ActivateNow = false);
 
@@ -109,7 +109,7 @@ public sealed class LeaseInputValidator : AbstractValidator<LeaseInput>
         RuleFor(x => x.SecurityDepositAmount).GreaterThanOrEqualTo(0);
         RuleFor(x => x.GraceDays).GreaterThanOrEqualTo(0);
         RuleFor(x => x.NoticePeriodDays).InclusiveBetween(0, 365);
-        RuleFor(x => x).Must(x => x.StartDate.AddDays(x.GraceDays) <= x.EndDate).WithName("graceDays").WithMessage("The rent-free period must be shorter than the lease term.");
+        RuleFor(x => x).Must(x => x.StartDate.AddDays(x.GraceDays) <= (x.EndDate ?? Lease.DefaultEndDate(x.StartDate))).WithName("graceDays").WithMessage("The rent-free period must be shorter than the lease term.");
     }
 }
 
@@ -365,7 +365,7 @@ internal sealed class LeaseCommandHandlers(
     private static void Map(LeaseInput i, Lease lease, Unit unit)
     {
         lease.UnitId = unit.Id; lease.PropertyId = unit.PropertyId; lease.LesseePartyId = i.LesseePartyId;
-        lease.StartDate = i.StartDate; lease.EndDate = i.EndDate; lease.AnnualRent = i.AnnualRent; lease.PaymentFrequency = i.PaymentFrequency;
+        lease.StartDate = i.StartDate; lease.EndDate = i.EndDate ?? Lease.DefaultEndDate(i.StartDate); lease.AnnualRent = i.AnnualRent; lease.PaymentFrequency = i.PaymentFrequency;
         lease.SecurityDepositAmount = i.SecurityDepositAmount; lease.TaxCodeId = i.TaxCodeId; lease.GraceDays = i.GraceDays;
         lease.NoticePeriodDays = i.NoticePeriodDays; lease.Notes = i.Notes;
     }

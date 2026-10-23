@@ -45,8 +45,9 @@ export interface FieldSpec {
   /**
    * Suggest other values when the user changes this field: return the keys to set (e.g. switch "registered" on once a number is
    * typed), or null for no change. Only keys whose value differs are written, and nothing runs while the form is being built.
+   * `previous` is the form as it was before this change (e.g. to tell an auto-filled value from one the user picked).
    */
-  onChange?: (value: unknown, form: Record<string, unknown>) => Record<string, unknown> | null;
+  onChange?: (value: unknown, form: Record<string, unknown>, previous: Record<string, unknown>) => Record<string, unknown> | null;
 }
 
 /**
@@ -183,12 +184,13 @@ export class RecordDrawerComponent {
   /** Side effects after the form exists: change tracking, lookup suggestions and the tenant's custom fields. */
   private initialise(form: FormGroup, fields: FieldSpec[], record: Record<string, unknown> | null, entityType: string | undefined): void {
     this.valueSub?.unsubscribe();
-    this.valueSub = form.valueChanges.subscribe(() => this.changes.update((n) => n + 1));
+    let previous = form.getRawValue() as Record<string, unknown>;
+    this.valueSub = form.valueChanges.subscribe(() => { previous = form.getRawValue(); this.changes.update((n) => n + 1); });
     for (const f of fields) {
       const control = f.onChange ? form.get(f.key) : null;
       if (!control) continue;
       this.valueSub.add(control.valueChanges.subscribe((v) => {
-        const patch = f.onChange!(v, form.getRawValue());
+        const patch = f.onChange!(v, form.getRawValue(), previous);
         for (const [key, next] of Object.entries(patch ?? {})) {
           const target = form.get(key);
           if (target && target.enabled && target.value !== next) target.setValue(next);
