@@ -16,7 +16,7 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
-import { leaseFields } from './leases.page';
+import { defaultLeaseEnd, leaseFields } from './leases.page';
 import { DESCRIPTION_COLUMNS, LeaseDto, LeasesApi, PAYMENT_PLANS, RealEstateLookups, TerminationResult, humanize } from './realestate.api';
 import { LeaseDepositComponent } from './lease-deposit.component';
 import { AttachmentsComponent } from '../../shared/attachments.component';
@@ -125,10 +125,18 @@ export class LeaseDetailPage {
     return Object.entries(l.customFields ?? {}).map(([k, v]) => [humanize(k.replace(/^cf_/, '').replace(/_/g, ' ')), String(v)]);
   }
 
+  /** Mirrors RenewLease on the server: the renewal starts the day after the old end date and runs one year. */
+  private renewalEnd(): Date | undefined {
+    const end = this.lease()?.endDate;
+    if (!end) return undefined;
+    const [y, m, d] = end.split('-').map(Number);
+    return defaultLeaseEnd(new Date(y, m - 1, d + 1));
+  }
+
   /** A computed (stable identity) so the drawer keeps what the user typed. */
   readonly actionFields = computed<FieldSpec[]>(() => this.action() === 'renew'
     ? [
-        { key: 'endDate', label: 'New end date', type: 'date', hint: 'Blank = one year from the old end date.' },
+        { key: 'endDate', label: 'New end date', type: 'date', hint: 'Blank = one year from the old end date.', default: this.renewalEnd() },
         { key: 'annualRent', label: 'New annual rent', type: 'number', min: 0, default: this.lease()?.annualRent },
         { key: 'paymentFrequency', label: 'Payment plan', type: 'select', options: PAYMENT_PLANS, default: this.lease()?.paymentFrequency },
         { key: 'notes', label: 'Notes', type: 'textarea' },

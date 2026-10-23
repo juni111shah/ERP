@@ -63,7 +63,7 @@ export const EN: Dictionary = {
   'ui.msg.unitsCreated': 'units created', 'ui.msg.unpaidRentOpen': 'of unpaid rent is open for this tenant.', 'ui.msg.workOrdersRaised': 'work order(s) raised',
   'ui.party.customerStatement': 'Customer statement', 'ui.party.vendorStatement': 'Vendor statement', 'ui.re.aYear': 'a year',
   'ui.re.daysAgo': 'days ago', 'ui.re.daysLeft': 'days left', 'ui.re.endedAgo': 'ended',
-  'ui.re.unitLc': 'unit',
+  'ui.re.unitLc': 'unit', 'ui.re.endDateHint': 'Set to one year from the start date unless you pick another date.',
   // chart of accounts (step-by-step view)
   'coa.title': 'Chart of accounts', 'coa.categories': 'Account categories', 'coa.breadcrumb': 'Account path', 'coa.view.panels': 'Step by step', 'coa.view.list': 'List view',
   'coa.newAccount': 'New account', 'coa.editAccount': 'Edit account', 'coa.addAccount': 'Add account', 'coa.addSub': 'Add sub-account', 'coa.subAccounts': 'Sub-accounts',
@@ -232,7 +232,7 @@ export const AR: Dictionary = {
   'ui.msg.unitsCreated': 'وحدات تم إنشاؤها', 'ui.msg.unpaidRentOpen': 'من الإيجار غير المسدد مفتوح لهذا المستأجر.', 'ui.msg.workOrdersRaised': 'أوامر عمل تم إنشاؤها',
   'ui.party.customerStatement': 'كشف حساب العميل', 'ui.party.vendorStatement': 'كشف حساب المورد', 'ui.re.aYear': 'مرات في السنة',
   'ui.re.daysAgo': 'يوماً', 'ui.re.daysLeft': 'يوماً متبقياً', 'ui.re.endedAgo': 'انتهى منذ',
-  'ui.re.unitLc': 'وحدة',
+  'ui.re.unitLc': 'وحدة', 'ui.re.endDateHint': 'تُضبط على سنة من تاريخ البدء ما لم تختر تاريخاً آخر.',
   // chart of accounts (step-by-step view)
   'coa.title': 'دليل الحسابات', 'coa.categories': 'فئات الحسابات', 'coa.breadcrumb': 'مسار الحساب', 'coa.view.panels': 'خطوة بخطوة', 'coa.view.list': 'عرض القائمة',
   'coa.newAccount': 'حساب جديد', 'coa.editAccount': 'تعديل الحساب', 'coa.addAccount': 'إضافة حساب', 'coa.addSub': 'إضافة حساب فرعي', 'coa.subAccounts': 'الحسابات الفرعية',

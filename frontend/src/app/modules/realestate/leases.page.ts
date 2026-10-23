@@ -19,13 +19,34 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
-/** Field specs of the lease form (new lease on the list, edit-draft on the detail page). */
+/**
+ * Mirrors the backend rule Lease.DefaultEndDate: a one-year term, start + 1 year - 1 day. Like .NET AddYears, 29 Feb moves to
+ * 28 Feb before the day is taken off.
+ */
+export function defaultLeaseEnd(start: Date): Date {
+  const year = start.getFullYear() + 1, month = start.getMonth();
+  return new Date(year, month, Math.min(start.getDate(), new Date(year, month + 1, 0).getDate()) - 1);
+}
+
+const isDate = (v: unknown): v is Date => v instanceof Date && !isNaN(v.getTime());
+
+/**
+ * Field specs of the lease form (new lease on the list, edit-draft on the detail page). Call in an injection context.
+ * The end date follows the start date (one-year term) until the user picks another one; clearing it brings the rule back.
+ */
 export function leaseFields(lookups: RealEstateLookups, editing: boolean): FieldSpec[] {
+  const i18n = inject(I18nService);
   return [
     { key: 'unitId', label: 'Unit', type: 'lookup', lookup: lookups.availableUnit, required: true, hint: 'Only vacant or reserved units are listed.', currentLabel: (r) => (r as unknown as { unitNumber?: string }).unitNumber },
     { key: 'lesseePartyId', label: 'Tenant', type: 'lookup', lookup: lookups.party('customer'), required: true, currentLabel: (r) => (r as unknown as { tenantName?: string }).tenantName },
-    { key: 'startDate', label: 'Start date', type: 'date', required: true },
-    { key: 'endDate', label: 'End date', type: 'date', required: true },
+    { key: 'startDate', label: 'Start date', type: 'date', required: true, onChange: (start, _form, previous) => {
+      if (!isDate(start)) return null;
+      const end = previous['endDate'], oldStart = previous['startDate'];
+      const auto = !isDate(end) || (isDate(oldStart) && toIsoDate(end) === toIsoDate(defaultLeaseEnd(oldStart)));
+      return auto ? { endDate: defaultLeaseEnd(start) } : null;
+    } },
+    { key: 'endDate', label: 'End date', type: 'date', hint: i18n.t('ui.re.endDateHint', 'Set to one year from the start date unless you pick another date.'),
+      onChange: (end, form) => (!isDate(end) && isDate(form['startDate']) ? { endDate: defaultLeaseEnd(form['startDate']) } : null) },
     { key: 'annualRent', label: 'Annual rent (excl. VAT)', type: 'number', required: true, min: 0 },
     { key: 'paymentFrequency', label: 'Payment plan', type: 'select', required: true, options: PAYMENT_PLANS, default: 4 },
     { key: 'securityDepositAmount', label: 'Security deposit', type: 'number', min: 0, default: 0 },
