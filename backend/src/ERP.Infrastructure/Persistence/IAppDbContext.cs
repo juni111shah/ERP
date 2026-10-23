@@ -32,6 +32,8 @@ public interface IAppDbContext
     DbSet<Account> Accounts { get; }
     DbSet<JournalEntry> JournalEntries { get; }
     DbSet<JournalLine> JournalLines { get; }
+    DbSet<Budget> Budgets { get; }
+    DbSet<BudgetLine> BudgetLines { get; }
     DbSet<PaymentInstrument> PaymentInstruments { get; }
     DbSet<Invoice> Invoices { get; }
     DbSet<Bill> Bills { get; }

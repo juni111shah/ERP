@@ -33,5 +33,6 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Security deposits, termination credit notes, brokerage commission invoicing and payout | Done | Deposit register with settle/rollover, credit notes for rent beyond termination, deal Invoiced/Collected/Agent paid driven by finance. |
 | Lease renewals workbench | Done | Expiring leases with state (due / draft / renewed), rent vs asking, bulk draft renewals with rent change. |
 | Preventive maintenance | Done | Recurring schedules raise work orders ahead of the due date (nightly job or run now). |
+| Budgets vs actuals | Done | Annual budget per income/expense account and month; budget-vs-actual report against the posted ledger (favourable/unfavourable variance); monthly grid editor. |
 
 Planned order: Finance ledger → invoices and billing run → receipts and AR → PDC register → dashboard KPIs → payables → reports → HR → acquisitions.
