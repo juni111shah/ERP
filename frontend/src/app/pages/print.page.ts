@@ -56,7 +56,7 @@ interface PrintReceiptData {
   partyTaxNumber?: string | null;
   partyPhone?: string | null;
   partyEmail?: string | null;
-  allocations: { invoiceNumber: string; amount: number }[];
+  allocations: { invoiceNumber: string; amount: number; label?: string | null }[];
   /** Cheque / instrument details (PrintInstrument on the backend); all null when the settlement has no instrument. */
   instrumentKind?: string | null;
   chequeNumber?: string | null;
@@ -73,7 +73,7 @@ interface PrintPaymentData {
   partyTaxNumber?: string | null;
   partyPhone?: string | null;
   partyEmail?: string | null;
-  allocations: { billNumber: string; amount: number }[];
+  allocations: { billNumber: string; amount: number; label?: string | null }[];
   /** Cheque / instrument details (PrintInstrument on the backend); all null when the settlement has no instrument. */
   instrumentKind?: string | null;
   chequeNumber?: string | null;
@@ -281,7 +281,7 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
               <thead><tr><th style="width:28px">#</th><th>Invoice no.</th><th class="num">Amount applied</th></tr></thead>
               <tbody>
                 @for (a of rec.allocations; track $index) {
-                  <tr><td>{{ $index + 1 }}</td><td>{{ a.invoiceNumber }}</td><td class="num">{{ a.amount | number:'1.2-2' }}</td></tr>
+                  <tr><td>{{ $index + 1 }}</td><td>{{ a.invoiceNumber || a.label }}</td><td class="num">{{ a.amount | number:'1.2-2' }}</td></tr>
                 }
               </tbody>
             </table>
@@ -324,7 +324,7 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
               <thead><tr><th style="width:28px">#</th><th>Bill no.</th><th class="num">Amount applied</th></tr></thead>
               <tbody>
                 @for (a of pay.allocations; track $index) {
-                  <tr><td>{{ $index + 1 }}</td><td>{{ a.billNumber }}</td><td class="num">{{ a.amount | number:'1.2-2' }}</td></tr>
+                  <tr><td>{{ $index + 1 }}</td><td>{{ a.billNumber || a.label }}</td><td class="num">{{ a.amount | number:'1.2-2' }}</td></tr>
                 }
               </tbody>
             </table>

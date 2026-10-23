@@ -57,6 +57,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<BudgetLine> BudgetLines => Set<BudgetLine>();
     public DbSet<PaymentInstrument> PaymentInstruments => Set<PaymentInstrument>();
+    public DbSet<CreditApplication> CreditApplications => Set<CreditApplication>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Bill> Bills => Set<Bill>();
     public DbSet<Settlement> Settlements => Set<Settlement>();
@@ -168,20 +169,54 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
             b.Property(x => x.ExchangeRate).HasPrecision(18, 8);
             b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<Invoice>().WithMany().HasForeignKey(x => x.CreditNoteForId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne<BusinessUnit>().WithMany().HasForeignKey(x => x.BusinessUnitId).OnDelete(DeleteBehavior.NoAction);
+            b.HasIndex(x => x.CreditNoteForId).HasFilter(sqlServer ? "[CreditNoteForId] IS NOT NULL" : "\"CreditNoteForId\" IS NOT NULL");
+            if (sqlServer)
+                b.ToTable(t => t.HasCheckConstraint("CK_Invoices_CreditNoteFor", "[CreditNoteForId] IS NULL OR ([IsCreditNote] = 1 AND [CreditNoteForId] <> [Id])"));
+        });
+        mb.Entity<CreditApplication>(b =>
+        {
+            b.HasOne<Invoice>().WithMany().HasForeignKey(x => x.CreditNoteId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne<Invoice>().WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.NoAction);
+            b.HasIndex(x => x.CreditNoteId);
+            b.HasIndex(x => x.InvoiceId);
+            if (sqlServer)
+                b.ToTable(t =>
+                {
+                    t.HasCheckConstraint("CK_CreditApplications_Amount", "[Amount] > 0");
+                    t.HasCheckConstraint("CK_CreditApplications_Distinct", "[CreditNoteId] <> [InvoiceId]");
+                });
         });
         mb.Entity<InvoiceLine>(b => b.Property(x => x.Quantity).HasPrecision(18, 4));
         mb.Entity<Bill>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
-            b.HasIndex(x => new { x.OrgId, x.PartyId, x.VendorReference });
+            // A vendor's reference is unique among its live bills (blank, deleted and voided bills are ignored).
+            b.HasIndex(x => new { x.OrgId, x.PartyId, x.VendorReference }).IsUnique()
+                .HasFilter(sqlServer
+                    ? "[VendorReference] IS NOT NULL AND [VendorReference] <> N'' AND [IsDeleted] = 0 AND [Status] <> N'Voided'"
+                    : "\"VendorReference\" IS NOT NULL AND \"VendorReference\" <> '' AND \"IsDeleted\" = 0 AND \"Status\" <> 'Voided'");
             b.Property(x => x.ExchangeRate).HasPrecision(18, 8);
             b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.BillId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<BusinessUnit>().WithMany().HasForeignKey(x => x.BusinessUnitId).OnDelete(DeleteBehavior.NoAction);
         });
         mb.Entity<BillLine>(b => b.Property(x => x.Quantity).HasPrecision(18, 4));
         mb.Entity<Settlement>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
             b.HasMany(x => x.Allocations).WithOne().HasForeignKey(x => x.SettlementId).OnDelete(DeleteBehavior.Cascade);
+        });
+        mb.Entity<SettlementAllocation>(b =>
+        {
+            b.HasOne<Invoice>().WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne<Bill>().WithMany().HasForeignKey(x => x.BillId).OnDelete(DeleteBehavior.NoAction);
+            if (sqlServer)
+                b.ToTable(t =>
+                {
+                    t.HasCheckConstraint("CK_SettlementAllocation_ExactlyOneDoc", "([InvoiceId] IS NOT NULL AND [BillId] IS NULL) OR ([InvoiceId] IS NULL AND [BillId] IS NOT NULL)");
+                    t.HasCheckConstraint("CK_SettlementAllocation_Amount", "[Amount] > 0");
+                });
         });
         mb.Entity<BankStatementLine>(b => { b.HasIndex(x => new { x.OrgId, x.AccountId, x.Date }); b.HasIndex(x => x.MatchedJournalLineId); });
         mb.Entity<NumberSequence>(b => b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.DocumentType, x.Year }).IsUnique());
@@ -211,6 +246,84 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
 
         foreach (var module in _modules.Modules) module.ConfigureModel(mb);
 
+        foreach (var voidable in new[] { typeof(Invoice), typeof(Bill), typeof(Settlement) })
+            mb.Entity(voidable, b =>
+            {
+                b.Property(nameof(IVoidable.VoidReason)).HasMaxLength(500);
+                if (sqlServer)
+                    b.ToTable(t => t.HasCheckConstraint($"CK_{b.Metadata.GetTableName()}_Voided",
+                        "([Status] = N'Voided' AND [VoidedAt] IS NOT NULL) OR ([Status] <> N'Voided' AND [VoidedAt] IS NULL)"));
+            });
+
+        // M5: referential FKs on finance documents (NoAction: masters are soft-deleted, never hard-deleted under a document).
+        mb.Entity<Invoice>(b => DocumentRefs(b));
+        mb.Entity<Bill>(b => DocumentRefs(b));
+        mb.Entity<Settlement>(b =>
+        {
+            DocumentRefs(b);
+            b.HasOne<Account>().WithMany().HasForeignKey(x => x.BankAccountId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne<PaymentInstrument>().WithMany().HasForeignKey(x => x.PaymentInstrumentId).OnDelete(DeleteBehavior.NoAction);
+        });
+        mb.Entity<InvoiceLine>(b =>
+        {
+            b.HasOne<Account>().WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne<TaxCode>().WithMany().HasForeignKey(x => x.TaxCodeId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.NoAction);
+        });
+        mb.Entity<BillLine>(b =>
+        {
+            b.HasOne<Account>().WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne<TaxCode>().WithMany().HasForeignKey(x => x.TaxCodeId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // M6: column hardening (sizes and value domains that match the code).
+        static string In<TEnum>(string column) where TEnum : struct, Enum
+            => $"[{column}] IN ({string.Join(", ", Enum.GetNames<TEnum>().Select(n => $"N'{n}'"))})";
+        mb.Entity<Invoice>(b =>
+        {
+            b.Property(x => x.Number).HasMaxLength(50);
+            b.Property(x => x.CurrencyCode).HasMaxLength(3).IsFixedLength();
+            if (sqlServer) b.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_Invoices_Status", In<DocumentStatus>("Status"));
+                t.HasCheckConstraint("CK_Invoices_Totals", "[Total] = [Net] + [Tax]");
+            });
+        });
+        mb.Entity<Bill>(b =>
+        {
+            b.Property(x => x.Number).HasMaxLength(50);
+            b.Property(x => x.VendorReference).HasMaxLength(100);
+            b.Property(x => x.CurrencyCode).HasMaxLength(3).IsFixedLength();
+            if (sqlServer) b.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_Bills_Status", In<DocumentStatus>("Status"));
+                t.HasCheckConstraint("CK_Bills_Totals", "[Total] = [Net] + [Tax]");
+            });
+        });
+        mb.Entity<Settlement>(b =>
+        {
+            b.Property(x => x.Number).HasMaxLength(50);
+            b.Property(x => x.CurrencyCode).HasMaxLength(3).IsFixedLength();
+            if (sqlServer) b.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_Settlements_Status", In<DocumentStatus>("Status"));
+                t.HasCheckConstraint("CK_Settlements_Method", In<SettlementMethod>("Method"));
+                t.HasCheckConstraint("CK_Settlements_Direction", In<InstrumentDirection>("Direction"));
+            });
+        });
+        mb.Entity<Party>(b =>
+        {
+            b.Property(x => x.Code).HasMaxLength(50).IsRequired();
+            b.Property(x => x.CurrencyCode).HasMaxLength(3).IsFixedLength();
+            b.Property(x => x.Phone).HasMaxLength(50);
+            b.Property(x => x.TaxNumber).HasMaxLength(50);
+            b.Property(x => x.IdNumber).HasMaxLength(50);
+            b.Property(x => x.Iban).HasMaxLength(50);
+            b.Property(x => x.Address).HasMaxLength(1000);
+        });
+        mb.Entity<LegalEntity>(b => b.Property(x => x.Address).HasMaxLength(1000));
+
         ApplyCrossCuttingConventions(mb, sqlServer);
     }
 
@@ -228,6 +341,13 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     }
 
     /// <summary>Global query filters, rowversion and the custom-fields JSON column for every entity (core and modules).</summary>
+    private static void DocumentRefs<T>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<T> b) where T : LegalEntityScopedEntity
+    {
+        b.HasOne<Party>().WithMany().HasForeignKey("PartyId").OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<LegalEntity>().WithMany().HasForeignKey(nameof(LegalEntityScopedEntity.LegalEntityId)).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<JournalEntry>().WithMany().HasForeignKey("JournalEntryId").OnDelete(DeleteBehavior.NoAction);
+    }
+
     private void ApplyCrossCuttingConventions(ModelBuilder mb, bool sqlServer)
     {
         foreach (var et in mb.Model.GetEntityTypes().Where(t => t.BaseType is null && !t.IsOwned()).ToList())

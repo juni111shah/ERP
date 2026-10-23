@@ -149,6 +149,31 @@ public class PayablesTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(0m, await ClosingAsync(s, "6900"));
         // the reference can be used again after a void
         Assert.Equal(HttpStatusCode.Created, (await s.C.PostAsJsonAsync($"{Fin}/bills", Bill(s, 100m, "V-500"))).StatusCode);
+        var voided = await Ok(await s.C.GetAsync($"{Fin}/bills/{billId}"));
+        Assert.Equal("Entered in error", (string?)voided["voidReason"]);
+        Assert.NotNull(voided["voidedAt"]);
+    }
+
+    [Fact]
+    public async Task A_bill_can_carry_a_business_unit_of_its_legal_entity()
+    {
+        var s = await NewAsync();
+        var unit = (string)(await Ok(await s.C.PostAsJsonAsync("/api/v1/business-units", new { legalEntityId = s.Entity, code = "B" + Guid.NewGuid().ToString("N")[..6], name = "Branch" }), HttpStatusCode.Created))["id"]!;
+        object WithUnit(string reference, object? unitId) => new
+        {
+            legalEntityId = s.Entity, partyId = s.Vendor, vendorReference = reference, billDate = "2026-04-01", businessUnitId = unitId,
+            lines = new[] { new { description = "Rent", quantity = 1m, price = 100m, accountId = s.Expense } },
+        };
+        var draft = await Ok(await s.C.PostAsJsonAsync($"{Fin}/bills", WithUnit("BU-1", unit)), HttpStatusCode.Created);
+        Assert.Equal(unit, (string?)draft["businessUnitId"]);
+        Assert.Equal(unit, (string?)(await Ok(await s.C.GetAsync($"{Fin}/bills/{(string)draft["id"]!}")))["businessUnitId"]);
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/bills", WithUnit("BU-2", Guid.NewGuid()))).StatusCode);
+        var unknownItem = new
+        {
+            legalEntityId = s.Entity, partyId = s.Vendor, vendorReference = "BU-3", billDate = "2026-04-01",
+            lines = new[] { new { description = "X", quantity = 1m, price = 1m, accountId = s.Expense, itemId = Guid.NewGuid() } },
+        };
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/bills", unknownItem)).StatusCode);
     }
 
     [Fact]

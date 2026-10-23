@@ -32,6 +32,8 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IDbErrors, Persistence.DbErrors>();
+        services.AddScoped<IReferenceCheck, Persistence.ReferenceCheck>();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
         services.AddScoped<IOrgContext, OrgContext>();
         services.AddScoped<AuditSaveChangesInterceptor>();

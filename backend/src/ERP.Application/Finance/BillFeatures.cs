@@ -2,7 +2,9 @@ using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
+using ERP.Domain.Catalog;
 using ERP.Domain.Finance;
+using ERP.Domain.Organizations;
 using ERP.Domain.Parties;
 using ERP.Domain.Platform;
 using FluentValidation;
@@ -12,12 +14,13 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Application.Finance;
 
 public sealed record BillLineInput(string Description, decimal Quantity, decimal Price, Guid AccountId, Guid? TaxCodeId = null, Guid? ItemId = null);
-public sealed record BillInput(Guid LegalEntityId, Guid PartyId, string? VendorReference, DateOnly BillDate, DateOnly? DueDate, List<BillLineInput> Lines, string? Notes = null);
+public sealed record BillInput(Guid LegalEntityId, Guid PartyId, string? VendorReference, DateOnly BillDate, DateOnly? DueDate, List<BillLineInput> Lines, string? Notes = null, Guid? BusinessUnitId = null);
 
 public sealed record BillLineDto(Guid Id, int Seq, string Description, decimal Quantity, decimal Price, Guid? TaxCodeId, decimal TaxAmount, bool TaxRecoverable, decimal Net, Guid? AccountId);
 public sealed record BillDto(
     Guid Id, string Number, Guid LegalEntityId, Guid PartyId, string? PartyName, string? VendorReference, DateOnly BillDate, DateOnly DueDate, string CurrencyCode, decimal Net, decimal Tax,
-    decimal Total, decimal Paid, DocumentStatus Status, Guid? ApprovalRequestId, Guid? JournalEntryId, string? Notes, IReadOnlyList<BillLineDto> Lines)
+    decimal Total, decimal Paid, DocumentStatus Status, Guid? ApprovalRequestId, Guid? JournalEntryId, string? Notes, IReadOnlyList<BillLineDto> Lines,
+    string? VoidReason = null, DateTime? VoidedAt = null, Guid? BusinessUnitId = null)
 {
     public decimal Outstanding => Total - Paid;
 }
@@ -48,6 +51,7 @@ public sealed class BillInputValidator : AbstractValidator<BillInput>
         RuleFor(x => x.PartyId).NotEmpty();
         RuleFor(x => x.VendorReference).MaximumLength(100);
         RuleFor(x => x.Notes).MaximumLength(1000);
+        RuleFor(x => x.BusinessUnitId).NotEqual(Guid.Empty).When(x => x.BusinessUnitId is not null).WithMessage("Choose a business unit or leave it empty.");
         RuleFor(x => x.Lines).NotNull().Must(l => l is { Count: > 0 }).WithMessage("A bill needs at least one line.");
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
@@ -64,7 +68,7 @@ public sealed class UpdateBillValidator : AbstractValidator<UpdateBill> { public
 internal sealed class BillHandlers(
     IRepository<Bill> bills, IRepository<BillLine> lineRows, IReadRepository<Party> parties, IReadRepository<TaxCode> taxCodes, IReadRepository<Account> accounts, IRepository<JournalEntry> journals,
     IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering,
-    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock) :
+    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock, IDbErrors dbErrors, IReadRepository<BusinessUnit> businessUnits, IReferenceCheck references) :
     IRequestHandler<GetBill, BillDto>,
     IRequestHandler<CreateBill, BillDto>,
     IRequestHandler<UpdateBill, BillDto>,
@@ -82,7 +86,7 @@ internal sealed class BillHandlers(
         bill.Number = "DRAFT-" + bill.Id.ToString("N")[^8..];
         bill.Lines.AddRange(await ApplyAsync(bill, cmd.Input, ct));
         bills.Add(bill);
-        await bills.SaveChangesAsync(ct);
+        await SaveAsync(bill, ct);
         return ToDto(bill);
     }
 
@@ -95,7 +99,7 @@ internal sealed class BillHandlers(
         foreach (var old in bill.Lines.ToList()) lineRows.Remove(old);
         lineRows.AddRange(fresh);
         bill.Status = DocumentStatus.Draft; bill.ApprovalRequestId = null; // an edit invalidates a pending approval request
-        await bills.SaveChangesAsync(ct);
+        await SaveAsync(bill, ct);
         bill.Lines.Clear(); bill.Lines.AddRange(fresh);
         return ToDto(bill);
     }
@@ -153,10 +157,25 @@ internal sealed class BillHandlers(
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == bill.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
         await posting.ReverseTodayAsync(journal, VoidMemo.For(bill.Number, cmd.Reason), ct);
         bill.Status = DocumentStatus.Voided;
+        VoidMemo.Stamp(bill, cmd.Reason, clock, user);
         VoidMemo.Audit(audit, user, clock, nameof(Bill), bill.Id, bill.Number, cmd.Reason!);
         await bills.SaveChangesAsync(ct);
         return ToDto(bill);
     }
+
+    public const string VendorReferenceIndex = "IX_Bills_OrgId_PartyId_VendorReference";
+
+    /// <summary>The unique index catches a duplicate vendor reference saved concurrently; it gets the same message as the up-front check.</summary>
+    private async Task SaveAsync(Bill bill, CancellationToken ct)
+    {
+        try { await bills.SaveChangesAsync(ct); }
+        catch (DbUpdateException ex) when (dbErrors.IsUniqueViolation(ex, VendorReferenceIndex))
+        {
+            throw new ConflictException(DuplicateReferenceMessage(bill.VendorReference));
+        }
+    }
+
+    private static string DuplicateReferenceMessage(string? reference) => $"A bill with reference '{reference}' from this vendor is already recorded.";
 
     private async Task<Bill> LoadAsync(Guid id, CancellationToken ct)
         => await bills.Tracked(new Specification<Bill>(b => b.Id == id).Include(b => b.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
@@ -166,7 +185,7 @@ internal sealed class BillHandlers(
         var party = await parties.FindAsync(i.PartyId, ct) ?? throw new FieldValidationException("partyId", "Vendor not found.");
         var reference = i.VendorReference?.Trim();
         if (!string.IsNullOrEmpty(reference) && await bills.AnyAsync(b => b.PartyId == party.Id && b.VendorReference == reference && b.Id != bill.Id && b.Status != DocumentStatus.Voided, ct))
-            throw new ConflictException($"A bill with reference '{reference}' from this vendor is already recorded.");
+            throw new ConflictException(DuplicateReferenceMessage(reference));
 
         var accountIds = i.Lines.Select(l => l.AccountId).Distinct().ToList();
         var found = await accounts.Query(new Specification<Account>(a => accountIds.Contains(a.Id) && a.IsPostable && a.IsActive)).Select(a => a.Id).ToListAsync(ct);
@@ -174,6 +193,11 @@ internal sealed class BillHandlers(
         var taxIds = i.Lines.Where(l => l.TaxCodeId is not null).Select(l => l.TaxCodeId!.Value).Distinct().ToList();
         var taxes = await taxCodes.Query(new Specification<TaxCode>(t => taxIds.Contains(t.Id))).Select(t => new { t.Id, t.Rate, t.IsRecoverable }).ToDictionaryAsync(t => t.Id, ct);
         if (taxes.Count != taxIds.Count) throw new FieldValidationException("lines", "A tax code was not found.");
+        var itemIds = i.Lines.Where(l => l.ItemId is not null).Select(l => l.ItemId!.Value).Distinct().ToList();
+        if (!await references.AllExistAsync<Item>(itemIds, ct))
+            throw new FieldValidationException("lines", "An item was not found.");
+        if (i.BusinessUnitId is { } unitId && unitId != bill.BusinessUnitId && !await businessUnits.AnyAsync(u => u.Id == unitId && u.LegalEntityId == bill.LegalEntityId, ct))
+            throw new FieldValidationException("businessUnitId", "Business unit not found in this legal entity.");
 
         var seq = 1;
         var result = i.Lines.Select(l =>
@@ -187,7 +211,7 @@ internal sealed class BillHandlers(
             };
         }).ToList();
 
-        bill.PartyId = party.Id; bill.PartyName = party.Name; bill.VendorReference = reference; bill.BillDate = i.BillDate;
+        bill.PartyId = party.Id; bill.PartyName = party.Name; bill.VendorReference = string.IsNullOrEmpty(reference) ? null : reference; bill.BusinessUnitId = i.BusinessUnitId; bill.BillDate = i.BillDate;
         bill.DueDate = i.DueDate ?? i.BillDate.AddDays(party.PaymentTermsDays ?? 0);
         if (bill.DueDate < bill.BillDate) throw new FieldValidationException("dueDate", "The due date cannot be before the bill date.");
         bill.Notes = i.Notes;
@@ -197,5 +221,6 @@ internal sealed class BillHandlers(
 
     private static BillDto ToDto(Bill b) => new(
         b.Id, b.Number, b.LegalEntityId, b.PartyId, b.PartyName, b.VendorReference, b.BillDate, b.DueDate, b.CurrencyCode, b.Net, b.Tax, b.Total, b.Paid, b.Status, b.ApprovalRequestId, b.JournalEntryId, b.Notes,
-        b.Lines.OrderBy(l => l.Seq).Select(l => new BillLineDto(l.Id, l.Seq, l.Description, l.Quantity, l.Price, l.TaxCodeId, l.TaxAmount, l.TaxRecoverable, l.Net, l.AccountId)).ToList());
+        b.Lines.OrderBy(l => l.Seq).Select(l => new BillLineDto(l.Id, l.Seq, l.Description, l.Quantity, l.Price, l.TaxCodeId, l.TaxAmount, l.TaxRecoverable, l.Net, l.AccountId)).ToList(),
+        b.VoidReason, b.VoidedAt, b.BusinessUnitId);
 }

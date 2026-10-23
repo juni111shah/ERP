@@ -55,7 +55,7 @@ public sealed class BounceChequeValidator : AbstractValidator<BounceCheque> { pu
 internal sealed class ChequeHandlers(
     IRepository<PaymentInstrument> instruments, IRepository<Settlement> settlements, IRepository<SettlementAllocation> allocationRows, IReadRepository<Invoice> invoices, IReadRepository<Bill> bills,
     IReadRepository<Account> accounts, IReadRepository<Party> parties, ILegalEntityGuard guard, IPostingService posting, ISettlementService settlementService,
-    INumberingService numbering, IUnitOfWork uow) :
+    INumberingService numbering, IUnitOfWork uow, IClock clock, ICurrentUser user) :
     IRequestHandler<GetCheque, ChequeDto>,
     IRequestHandler<GetChequeSummary, ChequeSummaryDto>,
     IRequestHandler<RegisterCheque, ChequeDto>,
@@ -97,6 +97,7 @@ internal sealed class ChequeHandlers(
         var s = await LoadSettlementAsync(c, ct);
         await settlementService.ReverseAsync(s, $"Cancel {c.Number}", ct);
         s.Status = DocumentStatus.Voided;
+        VoidMemo.Stamp(s, $"Cheque {c.InstrumentNo} cancelled", clock, user);
         c.Status = InstrumentStatus.Cancelled;
         await instruments.SaveChangesAsync(ct);
         return await ToDtoAsync(c, ct);
@@ -133,6 +134,7 @@ internal sealed class ChequeHandlers(
         await settlementService.ReverseAsync(s, $"Bounced cheque {c.InstrumentNo}", ct);
         s.Status = DocumentStatus.Voided;
         c.Status = InstrumentStatus.Bounced; c.BounceReason = cmd.Reason.Trim();
+        VoidMemo.Stamp(s, $"Cheque {c.InstrumentNo} bounced: {c.BounceReason}", clock, user);
         await instruments.SaveChangesAsync(ct);
         return await ToDtoAsync(c, ct);
     }

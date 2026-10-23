@@ -16,7 +16,7 @@ public sealed record InvoiceLineDraft(string Description, decimal Quantity, deci
 /// <summary>What a caller (a screen, or a module's billing run) wants invoiced.</summary>
 public sealed record InvoiceDraft(
     Guid LegalEntityId, Guid PartyId, DateOnly InvoiceDate, DateOnly? DueDate, IReadOnlyList<InvoiceLineDraft> Lines, bool IsCreditNote = false,
-    string? SourceType = null, Guid? SourceId = null, Guid? BusinessUnitId = null, string? Notes = null);
+    string? SourceType = null, Guid? SourceId = null, Guid? BusinessUnitId = null, string? Notes = null, Guid? CreditNoteForId = null);
 
 /// <summary>Raised after an invoice is voided so the module that created it (via SourceType / SourceId) can release what it linked.</summary>
 public sealed record InvoiceVoided(Guid InvoiceId, string? SourceType, Guid? SourceId) : INotification;
@@ -35,7 +35,8 @@ public interface IInvoicingService
 
 public sealed class InvoicingService(
     IRepository<Invoice> invoices, IRepository<JournalEntry> journals, IReadRepository<Party> parties, IReadRepository<TaxCode> taxCodes, IReadRepository<Item> items,
-    ILegalEntityGuard guard, IPostingService posting, INumberingService numbering, IPublisher publisher) : IInvoicingService
+    IReferenceCheck references,
+    ILegalEntityGuard guard, IPostingService posting, INumberingService numbering, IPublisher publisher, IClock clock, ICurrentUser user) : IInvoicingService
 {
     public async Task<Invoice> BuildAsync(InvoiceDraft d, CancellationToken ct = default)
     {
@@ -58,6 +59,12 @@ public sealed class InvoicingService(
         if (rates.Count != taxIds.Count) throw new FieldValidationException("lines", "A tax code was not found.");
         var itemIds = d.Lines.Where(l => l.ItemId is not null).Select(l => l.ItemId!.Value).Distinct().ToList();
         var itemTypes = await items.Query(new Specification<Item>(i => itemIds.Contains(i.Id))).Select(i => new { i.Id, i.Type }).ToDictionaryAsync(i => i.Id, i => i.Type, ct);
+        if (itemTypes.Count != itemIds.Count && !await references.AllExistAsync<Item>(itemIds, ct)) throw new FieldValidationException("lines", "An item was not found.");
+        var accountIds = d.Lines.Where(l => l.AccountId is not null).Select(l => l.AccountId!.Value).Distinct().ToList();
+        if (!await references.AllExistAsync<Account>(accountIds, ct))
+            throw new FieldValidationException("lines", "An account was not found.");
+        if (d.BusinessUnitId is { } unitId && !await references.AllExistAsync<ERP.Domain.Organizations.BusinessUnit>([unitId], ct))
+            throw new FieldValidationException("businessUnitId", "Business unit not found.");
 
         var seq = 1;
         var result = new List<InvoiceLine>();
@@ -75,6 +82,7 @@ public sealed class InvoicingService(
         if (invoice.DueDate < invoice.InvoiceDate) throw new FieldValidationException("dueDate", "The due date cannot be before the invoice date.");
         invoice.CurrencyCode = entity.BaseCurrency; invoice.ExchangeRate = 1m;
         invoice.SourceType = d.SourceType; invoice.SourceId = d.SourceId; invoice.BusinessUnitId = d.BusinessUnitId; invoice.Notes = d.Notes;
+        invoice.CreditNoteForId = d.IsCreditNote ? d.CreditNoteForId : null; // only a credit note points at the invoice it credits
         invoice.Net = result.Sum(l => l.Net); invoice.Tax = result.Sum(l => l.TaxAmount); invoice.Total = invoice.Net + invoice.Tax;
         return result;
     }
@@ -105,6 +113,7 @@ public sealed class InvoicingService(
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == invoice.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
         await posting.ReverseTodayAsync(journal, VoidMemo.For(invoice.Number, reason), ct);
         invoice.Status = DocumentStatus.Voided;
+        VoidMemo.Stamp(invoice, reason, clock, user);
         await publisher.Publish(new InvoiceVoided(invoice.Id, invoice.SourceType, invoice.SourceId), ct);
     }
 
@@ -140,6 +149,15 @@ public static class VoidMemo
         .Must(r => r!.Trim().Length <= MaxReason).WithMessage($"Reason must be {MaxReason} characters or fewer.")
         .OverridePropertyName("reason");
 
+    /// <summary>Stamps the void columns (reason cut to 500 characters). Call after setting Status = Voided.</summary>
+    public static void Stamp(ERP.Domain.Common.IVoidable doc, string? reason, IClock clock, ICurrentUser user)
+    {
+        var r = reason?.Trim();
+        doc.VoidReason = string.IsNullOrEmpty(r) ? null : r.Length <= MaxReason ? r : r[..MaxReason];
+        doc.VoidedAt = clock.UtcNow;
+        doc.VoidedBy = user.UserId;
+    }
+
     /// <summary>Adds the void's audit event; saved with the void in the same SaveChanges.</summary>
     public static void Audit(IRepository<AuditEvent> audit, ICurrentUser user, IClock clock, string recordType, Guid id, string number, string reason)
         => audit.Add(new AuditEvent
@@ -154,6 +172,17 @@ public static class VoidMemo
             After = System.Text.Json.JsonSerializer.Serialize(new { number, reason = reason.Trim() }),
             IpAddress = user.IpAddress,
         });
+}
+
+/// <summary>Records a credit note applied to an invoice (saved with the caller's unit of work).</summary>
+public static class CreditApplications
+{
+    public static CreditApplication Record(IRepository<CreditApplication> rows, Invoice credit, Invoice invoice, decimal amount, DateOnly date, Guid? appliedBy)
+    {
+        var row = new CreditApplication { LegalEntityId = credit.LegalEntityId, CreditNoteId = credit.Id, InvoiceId = invoice.Id, Amount = amount, Date = date, AppliedBy = appliedBy };
+        rows.Add(row);
+        return row;
+    }
 }
 
 public static class Money

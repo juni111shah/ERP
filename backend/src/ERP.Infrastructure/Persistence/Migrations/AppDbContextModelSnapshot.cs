@@ -394,6 +394,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("BillDate")
                         .HasColumnType("date");
 
+                    b.Property<Guid?>("BusinessUnitId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -402,8 +405,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
 
                     b.Property<string>("CustomFields")
                         .HasColumnType("nvarchar(max)");
@@ -440,8 +444,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Number")
                         .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("OrgId")
                         .HasColumnType("uniqueidentifier");
@@ -489,19 +493,45 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("VendorReference")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("VoidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("VoidedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BusinessUnitId");
+
+                    b.HasIndex("JournalEntryId");
+
+                    b.HasIndex("LegalEntityId");
+
+                    b.HasIndex("PartyId");
 
                     b.HasIndex("OrgId", "LegalEntityId", "Number")
                         .IsUnique();
 
-                    b.HasIndex("OrgId", "PartyId", "VendorReference");
+                    b.HasIndex("OrgId", "PartyId", "VendorReference")
+                        .IsUnique()
+                        .HasFilter("[VendorReference] IS NOT NULL AND [VendorReference] <> N'' AND [IsDeleted] = 0 AND [Status] <> N'Voided'");
 
                     b.ToTable("Bills", t =>
                         {
                             t.HasCheckConstraint("CK_Bills_CustomFields_IsJson", "[CustomFields] IS NULL OR ISJSON([CustomFields]) = 1");
+
+                            t.HasCheckConstraint("CK_Bills_Status", "[Status] IN (N'Draft', N'PendingApproval', N'Issued', N'PartlyPaid', N'Paid', N'Voided')");
+
+                            t.HasCheckConstraint("CK_Bills_Totals", "[Total] = [Net] + [Tax]");
+
+                            t.HasCheckConstraint("CK_Bills_Voided", "([Status] = N'Voided' AND [VoidedAt] IS NOT NULL) OR ([Status] <> N'Voided' AND [VoidedAt] IS NULL)");
                         });
                 });
 
@@ -552,7 +582,13 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AccountId");
+
                     b.HasIndex("BillId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("TaxCodeId");
 
                     b.ToTable("BillLine");
                 });
@@ -642,6 +678,77 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("BudgetLines");
+                });
+
+            modelBuilder.Entity("ERP.Domain.Finance.CreditApplication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("AppliedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CreditNoteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("JournalEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreditNoteId");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.ToTable("CreditApplications", t =>
+                        {
+                            t.HasCheckConstraint("CK_CreditApplications_Amount", "[Amount] > 0");
+
+                            t.HasCheckConstraint("CK_CreditApplications_Distinct", "[CreditNoteId] <> [InvoiceId]");
+                        });
                 });
 
             modelBuilder.Entity("ERP.Domain.Finance.Currency", b =>
@@ -751,10 +858,14 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("CreditNoteForId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
 
                     b.Property<string>("CustomFields")
                         .HasColumnType("nvarchar(max)");
@@ -797,8 +908,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Number")
                         .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("OrgId")
                         .HasColumnType("uniqueidentifier");
@@ -845,14 +956,43 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("VoidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("VoidedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("BusinessUnitId");
+
+                    b.HasIndex("CreditNoteForId")
+                        .HasFilter("[CreditNoteForId] IS NOT NULL");
+
+                    b.HasIndex("JournalEntryId");
+
+                    b.HasIndex("LegalEntityId");
+
+                    b.HasIndex("PartyId");
 
                     b.HasIndex("OrgId", "LegalEntityId", "Number")
                         .IsUnique();
 
                     b.ToTable("Invoices", t =>
                         {
+                            t.HasCheckConstraint("CK_Invoices_CreditNoteFor", "[CreditNoteForId] IS NULL OR ([IsCreditNote] = 1 AND [CreditNoteForId] <> [Id])");
+
                             t.HasCheckConstraint("CK_Invoices_CustomFields_IsJson", "[CustomFields] IS NULL OR ISJSON([CustomFields]) = 1");
+
+                            t.HasCheckConstraint("CK_Invoices_Status", "[Status] IN (N'Draft', N'PendingApproval', N'Issued', N'PartlyPaid', N'Paid', N'Voided')");
+
+                            t.HasCheckConstraint("CK_Invoices_Totals", "[Total] = [Net] + [Tax]");
+
+                            t.HasCheckConstraint("CK_Invoices_Voided", "([Status] = N'Voided' AND [VoidedAt] IS NOT NULL) OR ([Status] <> N'Voided' AND [VoidedAt] IS NULL)");
                         });
                 });
 
@@ -900,7 +1040,13 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AccountId");
+
                     b.HasIndex("InvoiceId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("TaxCodeId");
 
                     b.ToTable("InvoiceLine");
                 });
@@ -1199,8 +1345,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
 
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
@@ -1232,8 +1379,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Number")
                         .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("OrgId")
                         .HasColumnType("uniqueidentifier");
@@ -1272,12 +1419,41 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("VoidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("VoidedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("BankAccountId");
+
+                    b.HasIndex("JournalEntryId");
+
+                    b.HasIndex("LegalEntityId");
+
+                    b.HasIndex("PartyId");
+
+                    b.HasIndex("PaymentInstrumentId");
 
                     b.HasIndex("OrgId", "LegalEntityId", "Number")
                         .IsUnique();
 
-                    b.ToTable("Settlements");
+                    b.ToTable("Settlements", t =>
+                        {
+                            t.HasCheckConstraint("CK_Settlements_Direction", "[Direction] IN (N'Received', N'Issued')");
+
+                            t.HasCheckConstraint("CK_Settlements_Method", "[Method] IN (N'Cash', N'BankTransfer', N'Card', N'Instrument', N'Other')");
+
+                            t.HasCheckConstraint("CK_Settlements_Status", "[Status] IN (N'Draft', N'PendingApproval', N'Issued', N'PartlyPaid', N'Paid', N'Voided')");
+
+                            t.HasCheckConstraint("CK_Settlements_Voided", "([Status] = N'Voided' AND [VoidedAt] IS NOT NULL) OR ([Status] <> N'Voided' AND [VoidedAt] IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("ERP.Domain.Finance.SettlementAllocation", b =>
@@ -1301,9 +1477,18 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BillId");
+
+                    b.HasIndex("InvoiceId");
+
                     b.HasIndex("SettlementId");
 
-                    b.ToTable("SettlementAllocation");
+                    b.ToTable("SettlementAllocation", t =>
+                        {
+                            t.HasCheckConstraint("CK_SettlementAllocation_Amount", "[Amount] > 0");
+
+                            t.HasCheckConstraint("CK_SettlementAllocation_ExactlyOneDoc", "([InvoiceId] IS NOT NULL AND [BillId] IS NULL) OR ([InvoiceId] IS NULL AND [BillId] IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("ERP.Domain.Finance.TaxCode", b =>
@@ -1703,8 +1888,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Address")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("BaseCurrency")
                         .IsRequired()
@@ -1935,13 +2120,13 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Address")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -1950,8 +2135,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CurrencyCode")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
 
                     b.Property<string>("CustomFields")
                         .HasColumnType("nvarchar(max)");
@@ -1967,12 +2153,12 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(400)");
 
                     b.Property<string>("Iban")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("IdNumber")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -1997,8 +2183,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Phone")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("Roles")
                         .HasColumnType("int");
@@ -2009,8 +2195,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasColumnType("rowversion");
 
                     b.Property<string>("TaxNumber")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -5139,13 +5325,53 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.ToTable("UserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("ERP.Domain.Finance.Bill", b =>
+                {
+                    b.HasOne("ERP.Domain.Organizations.BusinessUnit", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessUnitId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ERP.Domain.Finance.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ERP.Domain.Organizations.LegalEntity", null)
+                        .WithMany()
+                        .HasForeignKey("LegalEntityId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Parties.Party", null)
+                        .WithMany()
+                        .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ERP.Domain.Finance.BillLine", b =>
                 {
+                    b.HasOne("ERP.Domain.Finance.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("ERP.Domain.Finance.Bill", null)
                         .WithMany("Lines")
                         .HasForeignKey("BillId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("ERP.Domain.Catalog.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ERP.Domain.Finance.TaxCode", null)
+                        .WithMany()
+                        .HasForeignKey("TaxCodeId")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("ERP.Domain.Finance.BudgetLine", b =>
@@ -5157,13 +5383,73 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ERP.Domain.Finance.CreditApplication", b =>
+                {
+                    b.HasOne("ERP.Domain.Finance.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("CreditNoteId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Finance.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Domain.Finance.Invoice", b =>
+                {
+                    b.HasOne("ERP.Domain.Organizations.BusinessUnit", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessUnitId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ERP.Domain.Finance.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("CreditNoteForId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ERP.Domain.Finance.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ERP.Domain.Organizations.LegalEntity", null)
+                        .WithMany()
+                        .HasForeignKey("LegalEntityId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Parties.Party", null)
+                        .WithMany()
+                        .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ERP.Domain.Finance.InvoiceLine", b =>
                 {
+                    b.HasOne("ERP.Domain.Finance.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("ERP.Domain.Finance.Invoice", null)
                         .WithMany("Lines")
                         .HasForeignKey("InvoiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("ERP.Domain.Catalog.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ERP.Domain.Finance.TaxCode", null)
+                        .WithMany()
+                        .HasForeignKey("TaxCodeId")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("ERP.Domain.Finance.JournalLine", b =>
@@ -5175,8 +5461,48 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ERP.Domain.Finance.Settlement", b =>
+                {
+                    b.HasOne("ERP.Domain.Finance.Account", null)
+                        .WithMany()
+                        .HasForeignKey("BankAccountId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ERP.Domain.Finance.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ERP.Domain.Organizations.LegalEntity", null)
+                        .WithMany()
+                        .HasForeignKey("LegalEntityId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Parties.Party", null)
+                        .WithMany()
+                        .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Finance.PaymentInstrument", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentInstrumentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
             modelBuilder.Entity("ERP.Domain.Finance.SettlementAllocation", b =>
                 {
+                    b.HasOne("ERP.Domain.Finance.Bill", null)
+                        .WithMany()
+                        .HasForeignKey("BillId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ERP.Domain.Finance.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("ERP.Domain.Finance.Settlement", null)
                         .WithMany("Allocations")
                         .HasForeignKey("SettlementId")

@@ -18,12 +18,16 @@ export class CsvExportService {
         const obj: any = {};
         columns.forEach(col => {
           const value = this.getNestedProperty(row, col.field);
-          obj[col.header] = value ?? '';
+          obj[col.header] = this.safeCell(value ?? '');
         });
         return obj;
       });
     } else {
-      csvData = data;
+      csvData = data.map(row => {
+        const obj: any = {};
+        Object.entries(row as any).forEach(([k, v]) => { obj[k] = this.safeCell(v); });
+        return obj;
+      });
     }
 
     const csv = Papa.unparse(csvData, {
@@ -32,6 +36,16 @@ export class CsvExportService {
     });
 
     this.downloadCsv(csv, filename);
+  }
+
+  /**
+   * Guards against spreadsheet formula injection: text starting with = + - @ tab or CR gets a leading single quote.
+   * Numbers, and strings that are plain numbers such as "-12.50" or "-1,234", are left as they are.
+   */
+  private safeCell(value: any): any {
+    if (typeof value !== 'string' || value === '') return value;
+    if (/^-?\d[\d,]*(\.\d+)?$/.test(value.trim())) return value;
+    return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   }
 
   private getNestedProperty(obj: any, path: string): any {
@@ -66,7 +80,7 @@ export class CsvExportService {
     const headers: string[] = [];
     
     headerCells.forEach(cell => {
-      headers.push((cell.textContent || '').trim());
+      headers.push(this.safeCell((cell.textContent || '').trim()));
     });
     
     if (headers.length > 0) {
@@ -78,7 +92,7 @@ export class CsvExportService {
       const cells = row.querySelectorAll('td');
       const rowData: string[] = [];
       cells.forEach(cell => {
-        rowData.push((cell.textContent || '').trim());
+        rowData.push(this.safeCell((cell.textContent || '').trim()));
       });
       if (rowData.length > 0) {
         rows.push(rowData);

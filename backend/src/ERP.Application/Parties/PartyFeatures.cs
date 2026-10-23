@@ -60,6 +60,11 @@ public sealed class CreatePartyValidator : AbstractValidator<CreateParty>
         RuleFor(x => x.Input.Email).EmailAddress().When(x => !string.IsNullOrEmpty(x.Input.Email));
         RuleFor(x => x.Input.Roles).NotEqual(PartyRoles.None).WithMessage("Choose at least one role (customer, vendor...).");
         RuleFor(x => x.Input.CurrencyCode).Length(3).When(x => x.Input.CurrencyCode is not null);
+        RuleFor(x => x.Input.Phone).MaximumLength(50);
+        RuleFor(x => x.Input.TaxNumber).MaximumLength(50);
+        RuleFor(x => x.Input.IdNumber).MaximumLength(50);
+        RuleFor(x => x.Input.Iban).MaximumLength(50);
+        RuleFor(x => x.Input.Address).MaximumLength(1000);
     }
 }
 
@@ -70,6 +75,12 @@ public sealed class UpdatePartyValidator : AbstractValidator<UpdateParty>
         RuleFor(x => x.Input.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Input.Email).EmailAddress().When(x => !string.IsNullOrEmpty(x.Input.Email));
         RuleFor(x => x.Input.Roles).NotEqual(PartyRoles.None);
+        RuleFor(x => x.Input.CurrencyCode).Length(3).When(x => !string.IsNullOrWhiteSpace(x.Input.CurrencyCode));
+        RuleFor(x => x.Input.Phone).MaximumLength(50);
+        RuleFor(x => x.Input.TaxNumber).MaximumLength(50);
+        RuleFor(x => x.Input.IdNumber).MaximumLength(50);
+        RuleFor(x => x.Input.Iban).MaximumLength(50);
+        RuleFor(x => x.Input.Address).MaximumLength(1000);
     }
 }
 
@@ -126,7 +137,7 @@ internal sealed class PartyHandlers(IRepository<Party> parties, INumberingServic
     private static void Map(PartyInput i, Party p)
     {
         p.Name = i.Name.Trim(); p.Kind = i.Kind; p.Roles = i.Roles; p.Email = i.Email; p.Phone = i.Phone; p.TaxNumber = i.TaxNumber;
-        p.IdNumber = i.IdNumber; p.Iban = i.Iban; p.CurrencyCode = i.CurrencyCode?.ToUpperInvariant(); p.PaymentTermsDays = i.PaymentTermsDays;
+        p.IdNumber = i.IdNumber; p.Iban = i.Iban; p.CurrencyCode = string.IsNullOrWhiteSpace(i.CurrencyCode) ? null : i.CurrencyCode.Trim().ToUpperInvariant(); p.PaymentTermsDays = i.PaymentTermsDays;
         p.Address = i.Address; p.IsActive = i.IsActive;
     }
 

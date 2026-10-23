@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
+using ERP.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ERP.IntegrationTests;
 
@@ -118,6 +121,13 @@ public class ReceivablesTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/invoices/{invoiceId}/void", new { reason = " x " })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/invoices/{invoiceId}/void", new { reason = new string('x', 501) })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await s.C.PostAsJsonAsync($"{Fin}/invoices/{invoiceId}/void", VoidReason)).StatusCode);
+        // Void audit columns: reason and time come back on the detail DTOs.
+        var voidedInvoice = await Ok(await s.C.GetAsync($"{Fin}/invoices/{invoiceId}"));
+        Assert.Equal("Entered in error", (string?)voidedInvoice["voidReason"]);
+        Assert.NotNull(voidedInvoice["voidedAt"]);
+        Assert.Equal("Entered in error", (string?)voided["voidReason"]);
+        Assert.NotNull(voided["voidedAt"]);
+        Assert.Null(inv["voidReason"]);
         var tb = await Ok(await s.C.GetAsync($"{Fin}/reports/trial-balance?to=2026-12-31&legalEntityId={s.Entity}"));
         Assert.All(tb["rows"]!.AsArray(), r => Assert.Equal(0m, (decimal)r!["closing"]!));
     }
@@ -137,6 +147,56 @@ public class ReceivablesTests(ApiFactory f) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task A_credit_note_from_a_paid_invoice_becomes_on_account_credit_for_other_open_invoices()
+    {
+        var s = await NewAsync();
+        var paidId = await IssuedAsync(s, Invoice(s, 100m, tax: false)); // 200
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/receipts", new
+        {
+            legalEntityId = s.Entity, partyId = s.Party, date = "2026-06-10", method = "cash", bankAccountId = s.Bank, amount = 200m, allocations = new[] { new { invoiceId = paidId, amount = 200m } },
+        }), HttpStatusCode.Created);
+        var openId = await IssuedAsync(s, Invoice(s, 500m, tax: false)); // 1000, still open
+
+        var draft = await Ok(await s.C.PostAsJsonAsync($"{Fin}/invoices/{paidId}/credit-note", new { date = "2026-06-15" }), HttpStatusCode.Created);
+        Assert.Equal(paidId, (string?)draft["creditNoteForId"]);
+        var creditId = (string)(await Ok(await s.C.PostAsync($"{Fin}/invoices/{(string)draft["id"]!}/issue", null)))["id"]!;
+
+        // The original is paid, so the note can't go back to it but can be used on another open invoice of the customer.
+        Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsJsonAsync($"{Fin}/invoices/{creditId}/apply-credit", new { invoiceId = paidId, amount = 50m })).StatusCode);
+        var applied = await Ok(await s.C.PostAsJsonAsync($"{Fin}/invoices/{creditId}/apply-credit", new { invoiceId = openId, amount = 200m }));
+        Assert.Equal(("partlyPaid", 800m), ((string)applied["status"]!, (decimal)applied["outstanding"]!));
+
+        // The on-account application is recorded as a CreditApplication row (note -> other invoice).
+        var rows = await CreditApplicationsAsync(Guid.Parse(creditId));
+        var row = Assert.Single(rows);
+        Assert.Equal((Guid.Parse(openId), 200m), (row.InvoiceId, row.Amount));
+    }
+
+    private async Task<List<ERP.Domain.Finance.CreditApplication>> CreditApplicationsAsync(Guid creditNoteId)
+    {
+        using var scope = f.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await db.CreditApplications.IgnoreQueryFilters().Where(a => a.CreditNoteId == creditNoteId).ToListAsync();
+    }
+
+    [Fact]
+    public async Task A_credit_note_from_an_open_invoice_applies_only_to_that_invoice()
+    {
+        var s = await NewAsync();
+        var sourceId = await IssuedAsync(s, Invoice(s, 100m, tax: false)); // 200
+        var otherId = await IssuedAsync(s, Invoice(s, 100m, tax: false));  // 200
+        var draft = await Ok(await s.C.PostAsJsonAsync($"{Fin}/invoices/{sourceId}/credit-note", new { date = "2026-06-15" }), HttpStatusCode.Created);
+        var creditId = (string)(await Ok(await s.C.PostAsync($"{Fin}/invoices/{(string)draft["id"]!}/issue", null)))["id"]!;
+
+        Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsJsonAsync($"{Fin}/invoices/{creditId}/apply-credit", new { invoiceId = otherId, amount = 50m })).StatusCode);
+        var applied = await Ok(await s.C.PostAsJsonAsync($"{Fin}/invoices/{creditId}/apply-credit", new { invoiceId = sourceId, amount = 200m }));
+        Assert.Equal("paid", (string)applied["status"]!);
+        Assert.Equal(sourceId, (string?)(await Ok(await s.C.GetAsync($"{Fin}/invoices/{creditId}")))["creditNoteForId"]);
+        var row = Assert.Single(await CreditApplicationsAsync(Guid.Parse(creditId)));
+        Assert.Equal((Guid.Parse(sourceId), 200m), (row.InvoiceId, row.Amount));
+    }
+
+    [Fact]
     public async Task Ageing_buckets_follow_the_due_date_and_net_off_credit_and_unallocated_receipts()
     {
         var s = await NewAsync();
@@ -153,6 +213,16 @@ public class ReceivablesTests(ApiFactory f) : IClassFixture<ApiFactory>
         var statement = await Ok(await s.C.GetAsync($"{Fin}/reports/customer-statement?partyId={s.Party}&asOf=2026-06-01&legalEntityId={s.Entity}"));
         Assert.Equal(3, statement["items"]!.AsArray().Count);
         Assert.Equal(320m, (decimal)statement["balance"]!);
+    }
+
+    [Fact]
+    public async Task Invoice_lines_and_business_units_must_point_at_existing_records()
+    {
+        var s = await NewAsync();
+        var unknownItem = new { legalEntityId = s.Entity, partyId = s.Party, invoiceDate = "2026-06-01", lines = new[] { new { description = "X", quantity = 1m, price = 10m, itemId = Guid.NewGuid() } } };
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/invoices", unknownItem)).StatusCode);
+        var unknownAccount = new { legalEntityId = s.Entity, partyId = s.Party, invoiceDate = "2026-06-01", lines = new[] { new { description = "X", quantity = 1m, price = 10m, accountId = Guid.NewGuid() } } };
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/invoices", unknownAccount)).StatusCode);
     }
 
     [Fact]

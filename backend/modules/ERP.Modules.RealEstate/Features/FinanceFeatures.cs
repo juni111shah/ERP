@@ -234,7 +234,8 @@ public sealed record TerminationCreditDto(Guid InstalmentId, Guid CreditNoteId, 
 public sealed record CreateTerminationCredits(Guid LeaseId) : ICommand<IReadOnlyList<TerminationCreditDto>>, IRequirePermission { public string RequiredPermission => P.LeasesTerminate; }
 
 internal sealed class TerminationCreditHandlers(
-    IReadRepository<Lease> leases, IRepository<RentInstalment> instalments, IRepository<Invoice> invoices, IInvoicingService invoicing, IPostingService posting, IUnitOfWork uow) :
+    IReadRepository<Lease> leases, IRepository<RentInstalment> instalments, IRepository<Invoice> invoices, IInvoicingService invoicing, IPostingService posting, IUnitOfWork uow,
+    IRepository<CreditApplication> creditApplications, ICurrentUser user) :
     IRequestHandler<CreateTerminationCredits, IReadOnlyList<TerminationCreditDto>>
 {
     public Task<IReadOnlyList<TerminationCreditDto>> Handle(CreateTerminationCredits cmd, CancellationToken ct) => uow.InTransactionAsync<IReadOnlyList<TerminationCreditDto>>(async token =>
@@ -254,7 +255,7 @@ internal sealed class TerminationCreditHandlers(
             var line = original.Lines.First();
             var description = $"Credit for rent after termination on {end:dd MMM yyyy}: {line.Description}";
             var draft = new InvoiceDraft(original.LegalEntityId, original.PartyId, DateOnly.FromDateTime(DateTime.UtcNow), DateOnly.FromDateTime(DateTime.UtcNow), [new InvoiceLineDraft(description, 1, credit, line.TaxCodeId, line.AccountId)],
-                IsCreditNote: true, SourceType: "realestate.termination", SourceId: i.Id, Notes: lease.Number);
+                IsCreditNote: true, SourceType: "realestate.termination", SourceId: i.Id, Notes: lease.Number, CreditNoteForId: original.Id);
             var note = await invoicing.BuildAsync(draft, token);
             await invoicing.IssueAsync(note, token);
             // An unpaid invoice is reduced straight away; a paid one leaves the credit with the customer.
@@ -262,7 +263,11 @@ internal sealed class TerminationCreditHandlers(
             if (original.Status is DocumentStatus.Issued or DocumentStatus.PartlyPaid)
             {
                 var use = Math.Min(note.Total, original.Total - original.Paid);
-                if (use > 0) { note.Paid += use; original.Paid += use; SettlementStatus.Refresh(note); SettlementStatus.Refresh(original); applied = true; }
+                if (use > 0)
+                {
+                    note.Paid += use; original.Paid += use; SettlementStatus.Refresh(note); SettlementStatus.Refresh(original); applied = true;
+                    CreditApplications.Record(creditApplications, note, original, use, note.InvoiceDate, user.UserId);
+                }
             }
             i.CreditNoteId = note.Id;
             created.Add(new TerminationCreditDto(i.Id, note.Id, note.Number, note.Total, applied));

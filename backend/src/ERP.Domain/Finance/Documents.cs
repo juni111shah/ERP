@@ -7,7 +7,7 @@ public enum SettlementMethod { Cash, BankTransfer, Card, Instrument, Other }
 
 /// <summary>Sales invoice or credit note (core receivables). Schema only in sprint 0; modules link via SourceType/SourceId.</summary>
 [DefaultSort("-invoiceDate")]
-public class Invoice : LegalEntityScopedEntity, IHasCustomFields
+public class Invoice : LegalEntityScopedEntity, IHasCustomFields, IVoidable
 {
     [Searchable, Sortable]
     public string Number { get; set; } = default!;
@@ -35,10 +35,16 @@ public class Invoice : LegalEntityScopedEntity, IHasCustomFields
     public string? SourceType { get; set; }
     [Filterable]
     public Guid? SourceId { get; set; }
+    /// <summary>For a credit note raised against an invoice: the invoice it credits.</summary>
+    [Filterable]
+    public Guid? CreditNoteForId { get; set; }
     public Guid? BusinessUnitId { get; set; }
     public Guid? JournalEntryId { get; set; }
     public string? Notes { get; set; }
     public string? CustomFields { get; set; }
+    public string? VoidReason { get; set; }
+    public DateTime? VoidedAt { get; set; }
+    public Guid? VoidedBy { get; set; }
     public List<InvoiceLine> Lines { get; set; } = new();
 }
 
@@ -58,7 +64,7 @@ public class InvoiceLine : Entity
 
 /// <summary>Vendor bill (core payables). Schema only in sprint 0.</summary>
 [DefaultSort("-billDate")]
-public class Bill : LegalEntityScopedEntity, IHasCustomFields
+public class Bill : LegalEntityScopedEntity, IHasCustomFields, IVoidable
 {
     [Searchable, Sortable]
     public string Number { get; set; } = default!;
@@ -82,11 +88,16 @@ public class Bill : LegalEntityScopedEntity, IHasCustomFields
     [Filterable]
     public DocumentStatus Status { get; set; }
     public Guid? ApprovalRequestId { get; set; }
+    [Filterable]
+    public Guid? BusinessUnitId { get; set; }
     public Guid? JournalEntryId { get; set; }
     public string? SourceType { get; set; }
     public Guid? SourceId { get; set; }
     public string? Notes { get; set; }
     public string? CustomFields { get; set; }
+    public string? VoidReason { get; set; }
+    public DateTime? VoidedAt { get; set; }
+    public Guid? VoidedBy { get; set; }
     public List<BillLine> Lines { get; set; } = new();
 }
 
@@ -107,7 +118,7 @@ public class BillLine : Entity
 
 /// <summary>Money received from (Direction=Received) or paid to (Issued) a party, allocated to invoices or bills. Schema only.</summary>
 [DefaultSort("-date")]
-public class Settlement : LegalEntityScopedEntity
+public class Settlement : LegalEntityScopedEntity, IVoidable
 {
     [Searchable, Sortable]
     public string Number { get; set; } = default!;
@@ -131,6 +142,9 @@ public class Settlement : LegalEntityScopedEntity
     [Filterable]
     public DocumentStatus Status { get; set; }
     public Guid? JournalEntryId { get; set; }
+    public string? VoidReason { get; set; }
+    public DateTime? VoidedAt { get; set; }
+    public Guid? VoidedBy { get; set; }
     public List<SettlementAllocation> Allocations { get; set; } = new();
 }
 
@@ -140,6 +154,20 @@ public class SettlementAllocation : Entity
     public Guid? InvoiceId { get; set; }
     public Guid? BillId { get; set; }
     public decimal Amount { get; set; }
+}
+
+/// <summary>Part of a credit note applied to an invoice: the original one, or another open invoice of the customer (on account).</summary>
+public class CreditApplication : LegalEntityScopedEntity
+{
+    [Filterable]
+    public Guid CreditNoteId { get; set; }
+    [Filterable]
+    public Guid InvoiceId { get; set; }
+    public decimal Amount { get; set; }
+    [Sortable]
+    public DateOnly Date { get; set; }
+    public Guid? AppliedBy { get; set; }
+    public Guid? JournalEntryId { get; set; }
 }
 
 public enum StatementLineStatus { Unmatched, Matched }
