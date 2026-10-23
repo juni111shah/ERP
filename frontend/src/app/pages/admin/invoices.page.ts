@@ -147,6 +147,8 @@ export class InvoicesPage {
   readonly extras = signal<InvoiceExtras | null>(null);
   /** invoice id → lease link; filled only for rows the real-estate module raised */
   readonly links = signal<Record<string, LeaseLink>>({});
+  /** True while invoice-links is loading, so Lease/Property show a placeholder instead of a blank cell. */
+  readonly linksLoading = signal(false);
   readonly taxRates = computed(() => Object.fromEntries(this.taxPage().items.map((t) => [t.id, t.rate])) as Record<string, number>);
   /** VAT / GST / Sales tax when every legal entity is in one country, else plain "Tax" (same table as the print layout). */
   readonly taxLabel = computed(() => { const c = [...new Set(this.entities().map((e) => e.countryCode))]; return c.length === 1 ? taxNameFor(c[0]) : 'Tax'; });
@@ -159,8 +161,8 @@ export class InvoicesPage {
       { key: 'invoiceDate', label: 'Date', sortField: 'invoiceDate', width: '110px', filterField: 'invoiceDate' },
       { key: 'partyName', label: 'Customer', width: '220px', value: (r) => r.partyName || '—' },
       ...(hasLinks ? [
-        { key: 'lease', label: 'Lease', width: '120px', value: (r: InvoiceSummary) => this.links()[r.id]?.leaseNumber ?? '' },
-        { key: 'property', label: 'Property', width: '200px', value: (r: InvoiceSummary) => this.links()[r.id]?.propertyName ?? '' },
+        { key: 'lease', label: 'Lease', width: '120px', value: (r: InvoiceSummary) => this.links()[r.id]?.leaseNumber ?? (this.linksLoading() ? '…' : '') },
+        { key: 'property', label: 'Property', width: '200px', value: (r: InvoiceSummary) => this.links()[r.id]?.propertyName ?? (this.linksLoading() ? '…' : '') },
       ] : []),
       { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '150px', filterField: 'dueDate' },
       { key: 'net', label: 'Net', width: '130px', align: 'right', value: money((r) => r.net) },
@@ -191,8 +193,9 @@ export class InvoicesPage {
   private readonly loadLinks = effect(() => {
     const ids = this.list.items().filter((r) => (r.sourceType ?? '').toLowerCase().startsWith('realestate.')).map((r) => r.id);
     if (!ids.length) { this.links.set({}); return; }
+    this.linksLoading.set(true);
     this.http.get<LeaseLink[]>(`${this.apiBase}/m/realestate/billing/invoice-links`, { params: { ids } }).pipe(catchError(() => of([] as LeaseLink[])))
-      .subscribe((r) => this.links.set(Object.fromEntries((r ?? []).map((l) => [l.invoiceId, l]))));
+      .subscribe((r) => { this.links.set(Object.fromEntries((r ?? []).map((l) => [l.invoiceId, l]))); this.linksLoading.set(false); });
   });
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);

@@ -33,7 +33,7 @@ import { StatusTagComponent } from './status-tag.component';
     <erp-record-drawer [title]="state.editing() ? 'Listing' : 'New listing'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
                        [saving]="state.saving()" [errors]="state.errors()" testId="listing-form" (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as l) {
-        <div drawerActions style="display:flex;gap:8px;align-items:center;margin-bottom:16px" data-testid="listing-actions">
+        <div drawerActions style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px" data-testid="listing-actions">
           <erp-status-tag [status]="l.status" />
           <ng-container *erpHasPermission="'realestate.crm.manage'">
             @if (l.status === 'draft') { <button nz-button nzSize="small" nzType="primary" (click)="setStatus(l, 'published')" data-testid="listing-publish">Publish</button> }
