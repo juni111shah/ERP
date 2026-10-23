@@ -888,6 +888,13 @@ const PAIRS: [string, string][] = [
   ['Realestate deposits', 'تأمينات الإيجار'],
   ['Realestate billing', 'فوترة الإيجارات'],
   ['Realestate lease', 'عقد إيجار'],
+  // parties, legal entities (sqa-bugs-2)
+  ['Trade licence', 'الرخصة التجارية'],
+  ['Could not load the list. Reload the page to try again.', 'تعذّر تحميل القائمة. أعد تحميل الصفحة للمحاولة مرة أخرى.'],
+  ['No customers yet', 'لا يوجد عملاء بعد'],
+  ['No vendors yet', 'لا يوجد موردون بعد'],
+  ['Tax registration no. (TRN)', 'رقم التسجيل الضريبي (TRN)'],
+  ['Trade licence / company registration no.', 'رقم الرخصة التجارية / السجل التجاري'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

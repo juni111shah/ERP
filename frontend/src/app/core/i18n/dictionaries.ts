@@ -76,6 +76,18 @@ export const AR: Dictionary = {
   'pager.label': 'ترقيم الصفحات', 'pager.showing': 'عرض', 'pager.of': 'من', 'pager.noItems': 'لا توجد عناصر', 'pager.first': 'الصفحة الأولى', 'pager.prev': 'الصفحة السابقة',
   'pager.next': 'الصفحة التالية', 'pager.last': 'الصفحة الأخيرة', 'pager.prev5': '5 صفحات سابقة', 'pager.next5': '5 صفحات تالية', 'pager.page': 'صفحة', 'pager.goTo': 'انتقال إلى',
   'pager.goToPage': 'الانتقال إلى الصفحة', 'pager.rowsPerPage': 'صفوف لكل صفحة', 'pager.perPage': '/ صفحة',
+  // party statement of account and party detail tabs
+  'party.statement': 'كشف حساب', 'party.customerStatement': 'كشف حساب العميل', 'party.vendorStatement': 'كشف حساب المورد', 'party.documents': 'المستندات',
+  'statement.refresh': 'تحديث', 'statement.print': 'طباعة', 'statement.date': 'التاريخ', 'statement.type': 'النوع', 'statement.number': 'الرقم', 'statement.reference': 'المرجع',
+  'statement.debit': 'مدين', 'statement.credit': 'دائن', 'statement.balance': 'الرصيد', 'statement.opening': 'الرصيد الافتتاحي', 'statement.closing': 'الرصيد الختامي',
+  'statement.empty': 'لا توجد معاملات في هذه الفترة', 'statement.failed': 'تعذّر تحميل كشف الحساب', 'statement.popupBlocked': 'اسمح بالنوافذ المنبثقة لهذا الموقع لطباعة كشف الحساب',
+  'statement.customerTitle': 'كشف حساب العميل', 'statement.vendorTitle': 'كشف حساب المورد',
+  'statement.hintCustomer': 'الرصيد الموجب: العميل مدين لك. لا تشمل المستندات المسودة والملغاة.',
+  'statement.hintVendor': 'الرصيد الموجب: أنت مدين للمورد. لا تشمل المستندات المسودة والملغاة.',
+  'statement.kind.invoice': 'فاتورة ضريبية', 'statement.kind.creditNote': 'إشعار دائن', 'statement.kind.receipt': 'سند قبض', 'statement.kind.bill': 'فاتورة مورد', 'statement.kind.payment': 'سند صرف',
+  // legal entity form
+  'entity.trn': 'رقم التسجيل الضريبي (TRN)', 'entity.trnHint': 'يُطبع على الفواتير الضريبية. إدخال رقم يفعّل خيار "مسجّل ضريبياً".', 'entity.taxRegistered': 'مسجّل ضريبياً',
+  'entity.tradeLicence': 'رقم الرخصة التجارية / السجل التجاري', 'entity.tradeLicenceHint': 'رقم الرخصة أو السجل التجاري الصادر عن جهة التسجيل.',
   // common
   'common.save': 'حفظ', 'common.cancel': 'إلغاء', 'common.new': 'جديد', 'common.search': 'بحث', 'common.run': 'تشغيل', 'common.back': 'رجوع',
   'common.delete': 'حذف', 'common.edit': 'تعديل', 'common.close': 'إغلاق', 'common.yes': 'نعم', 'common.no': 'لا', 'common.total': 'الإجمالي',

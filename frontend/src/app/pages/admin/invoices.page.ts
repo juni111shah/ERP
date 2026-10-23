@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -83,7 +83,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
           <nz-form-item><nz-form-label nzRequired>Customer</nz-form-label><nz-form-control [nzErrorTip]="err('partyId')">
             <nz-select formControlName="partyId" nzShowSearch nzServerSearch (nzOnSearch)="searchParties($event)" data-testid="inv-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Invoice date</nz-form-label><nz-form-control [nzErrorTip]="err('invoiceDate')"><nz-date-picker formControlName="invoiceDate" style="width:100%" data-testid="inv-date"></nz-date-picker></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Due date</nz-form-label><nz-form-control [nzErrorTip]="err('dueDate')" nzExtra="Leave empty to use the customer's payment terms."><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Due date</nz-form-label><nz-form-control [nzErrorTip]="err('dueDate')" nzExtra="Follows the invoice date + the customer's payment terms until you change it. Leave empty to use the terms."><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Credit note</nz-form-label><nz-form-control><label><input type="checkbox" formControlName="isCreditNote" data-testid="inv-credit" /> This document credits the customer</label></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Notes</nz-form-label><nz-form-control><input nz-input formControlName="notes" /></nz-form-control></nz-form-item>
           <h4>Lines</h4>
@@ -213,6 +213,49 @@ export class InvoicesPage {
     isCreditNote: [false], notes: [''], lines: this.fb.array<unknown>([]),
   });
   private readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.value });
+  /** Payment terms (days) per party id; null = the party has no terms. */
+  private readonly partyTerms = new Map<string, number | null>();
+  /** True once the user picked a due date themselves; then invoice date / customer changes no longer move it. */
+  private dueDateTouched = false;
+  private syncingDueDate = false;
+
+  constructor() {
+    const c = this.form.controls;
+    c.partyId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => { if (!this.syncingDueDate && id) this.withTerms(id, () => this.recalcDueDate()); });
+    c.invoiceDate.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => { if (!this.syncingDueDate) this.recalcDueDate(); });
+    c.dueDate.valueChanges.pipe(takeUntilDestroyed()).subscribe((d) => {
+      if (this.syncingDueDate) return;
+      // Clearing the due date hands it back to the payment terms (the API applies them to an empty due date).
+      this.dueDateTouched = !!d;
+      if (!d) this.recalcDueDate();
+    });
+  }
+
+  /** Mirrors the API rule (Invoicing.cs): due date = invoice date + the customer's PaymentTermsDays. No terms: leave the due date alone. */
+  private termsDueDate(invoiceDate: Date | null | undefined, partyId: string | null | undefined): Date | null {
+    const days = partyId ? this.partyTerms.get(partyId) : undefined;
+    if (!invoiceDate || days === undefined || days === null) return null;
+    return new Date(invoiceDate.getFullYear(), invoiceDate.getMonth(), invoiceDate.getDate() + days);
+  }
+
+  private recalcDueDate(): void {
+    if (this.dueDateTouched || !this.editable()) return;
+    const v = this.form.getRawValue();
+    const due = this.termsDueDate(v.invoiceDate, v.partyId);
+    if (!due) return;
+    this.syncingDueDate = true;
+    this.form.controls.dueDate.setValue(due);
+    this.syncingDueDate = false;
+  }
+
+  /** Runs `then` once the party's payment terms are known (from the search results or a single lookup). */
+  private withTerms(partyId: string, then: () => void): void {
+    if (this.partyTerms.has(partyId)) { then(); return; }
+    this.parties.get(partyId).subscribe({
+      next: (p) => { this.partyTerms.set(partyId, p.paymentTermsDays ?? null); if (this.form.controls.partyId.value === partyId) then(); },
+      error: () => undefined,
+    });
+  }
   readonly totals = computed(() => {
     const lines = (this.value().lines ?? []) as { quantity?: number | null; price?: number | null; taxCodeId?: string | null }[];
     const rate = (id?: string | null) => this.taxes().find((t) => t.id === id)?.rate ?? 0;
@@ -258,7 +301,7 @@ export class InvoicesPage {
   removeLine(i: number): void { if (this.lines.length > 1) this.lines.removeAt(i); }
 
   searchParties(term: string): void {
-    this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => this.partyOptions.update((cur) => this.merge(cur, r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` })))));
+    this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => { r.items.forEach((p) => this.partyTerms.set(p.id, p.paymentTermsDays ?? null)); this.partyOptions.update((cur) => this.merge(cur, r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` })))); });
   }
   private merge(current: LookupOption[], fresh: LookupOption[]): LookupOption[] {
     const keep = current.filter((c) => c.value === this.form.value.partyId && !fresh.some((f) => f.value === c.value));
@@ -302,6 +345,7 @@ export class InvoicesPage {
     this.lines.clear();
     for (const l of inv?.lines ?? [{} as never]) this.lines.push(this.newLine(l as never) as never);
     const entities = this.entities();
+    this.syncingDueDate = true;
     this.form.patchValue({
       legalEntityId: inv?.legalEntityId ?? (entities.length === 1 ? entities[0].id : ''), partyId: inv?.partyId ?? '', isCreditNote: inv?.isCreditNote ?? false, notes: inv?.notes ?? '',
       invoiceDate: inv ? new Date(inv.invoiceDate + 'T00:00:00') : new Date(), dueDate: inv ? new Date(inv.dueDate + 'T00:00:00') : null,
@@ -309,6 +353,15 @@ export class InvoicesPage {
     this.partyOptions.set(inv ? [{ value: inv.partyId, label: inv.partyName ?? inv.partyId }] : []);
     if (!inv) this.searchParties('');
     this.editable() ? this.form.enable() : this.form.disable();
+    this.syncingDueDate = false;
+    // A new invoice follows the terms; an opened draft keeps its due date as an override only if it differs from date + terms.
+    this.dueDateTouched = !!inv;
+    if (inv && this.editable()) this.withTerms(inv.partyId, () => {
+      // Same rule as the API: no terms counts as 0 days, so such a draft is "automatic" when due = invoice date.
+      const v = this.form.getRawValue(), days = this.partyTerms.get(inv.partyId) ?? 0, d = v.invoiceDate;
+      const auto = d ? toIsoDate(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days)) : null;
+      this.dueDateTouched = !v.dueDate || toIsoDate(v.dueDate) !== auto;
+    });
     this.drawerOpen.set(true);
   }
 

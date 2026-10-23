@@ -17,6 +17,7 @@ import { CustomFieldMetadataService } from '../core/custom-fields/custom-field-m
 import { FormSectionMeta } from '../core/custom-fields/custom-field.models';
 import { DynamicFieldsComponent } from '../core/custom-fields/dynamic-field.component';
 import { applyProblemDetailsToForm, asProblem, controlError } from '../core/http/problem-details';
+import { SessionStore } from '../core/session/session.store';
 import { HasPermissionDirective } from '../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../shared/paged-table.component';
 
@@ -69,8 +70,8 @@ const roleFilter = (type: string | null) => (type ? [{ field: 'roles', op: 'has'
           <nz-form-item><nz-form-label>Address</nz-form-label><nz-form-control><textarea nz-input rows="2" formControlName="address" data-testid="party-address"></textarea></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Currency</nz-form-label><nz-form-control><input nz-input formControlName="currencyCode" maxlength="3" placeholder="e.g. AED" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Payment terms (days)</nz-form-label><nz-form-control><input nz-input type="number" min="0" formControlName="paymentTermsDays" /></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>ID number</nz-form-label><nz-form-control><input nz-input formControlName="idNumber" /></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>IBAN</nz-form-label><nz-form-control><input nz-input formControlName="iban" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>ID number</nz-form-label><nz-form-control [nzExtra]="sensitiveLocked() ? restrictedHint : ''"><input nz-input formControlName="idNumber" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>IBAN</nz-form-label><nz-form-control [nzExtra]="sensitiveLocked() ? restrictedHint : ''"><input nz-input formControlName="iban" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Active</nz-form-label><nz-form-control><nz-switch formControlName="isActive"></nz-switch></nz-form-control></nz-form-item>
           @if (sections().length) { <erp-dynamic-fields [sections]="sections()" [group]="customGroup()" /> }
         </form>
@@ -89,7 +90,11 @@ export class PartiesPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly session = inject(SessionStore);
   readonly roles = ROLES;
+  readonly restrictedHint = "Restricted: you don't have permission to view or edit this field";
+  /** Editing an existing party without core.sensitive.read: ID number and IBAN arrive masked, so they are read-only. */
+  readonly sensitiveLocked = signal(false);
   /** `?type=` known up front, so the first request is already filtered (no unfiltered load racing the filtered one). */
   private readonly initialType = this.route.snapshot.queryParamMap.get('type');
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'code', filters: roleFilter(this.initialType) });
@@ -178,7 +183,9 @@ export class PartiesPage implements OnInit {
   save(): void {
     if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
     const v = this.form.getRawValue();
-    const body = { ...v, currencyCode: v.currencyCode || null, paymentTermsDays: v.paymentTermsDays === '' || v.paymentTermsDays === null ? null : Number(v.paymentTermsDays), address: v.address || null, idNumber: v.idNumber || null, iban: v.iban || null, roles: (v.roles as string[]).join(', '), customFields: toApiValues(this.sections(), (v.customFields ?? {}) as Record<string, unknown>) };
+    // Never send the masked ID number / IBAN back; the API keeps the stored values for users without core.sensitive.read.
+    if (this.sensitiveLocked()) { delete v.idNumber; delete v.iban; }
+    const body = { ...v, currencyCode: v.currencyCode || null, paymentTermsDays: v.paymentTermsDays === '' || v.paymentTermsDays === null ? null : Number(v.paymentTermsDays), address: v.address || null, ...(this.sensitiveLocked() ? {} : { idNumber: v.idNumber || null, iban: v.iban || null }), roles: (v.roles as string[]).join(', '), customFields: toApiValues(this.sections(), (v.customFields ?? {}) as Record<string, unknown>) };
     const p = this.editing();
     this.saving.set(true);
     (p ? this.api.update(p.id, body) : this.api.create(body)).subscribe({
@@ -193,6 +200,8 @@ export class PartiesPage implements OnInit {
   }
 
   private newForm(p?: PartyDto | null): FormGroup {
+    const locked = !!p && !this.session.hasPermission('core.sensitive.read');
+    this.sensitiveLocked.set(locked);
     return this.fb.group({
       name: [p?.name ?? '', [Validators.required, Validators.maxLength(200)]],
       kind: [p?.kind?.toLowerCase() ?? 'company', Validators.required],
@@ -203,8 +212,8 @@ export class PartiesPage implements OnInit {
       address: [p?.address ?? ''],
       currencyCode: [p?.currencyCode ?? '', Validators.maxLength(3)],
       paymentTermsDays: [p?.paymentTermsDays ?? null, Validators.min(0)],
-      idNumber: [p?.idNumber ?? ''],
-      iban: [p?.iban ?? ''],
+      idNumber: [{ value: p?.idNumber ?? '', disabled: locked }],
+      iban: [{ value: p?.iban ?? '', disabled: locked }],
       isActive: [p?.isActive ?? true],
       customFields: new FormGroup({}),
     });
