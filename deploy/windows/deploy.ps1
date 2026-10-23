@@ -92,5 +92,5 @@ Write-Host "Deployed $Environment : $(Split-Path -Leaf $release)"
 Write-Host "Local : $($cfg.LocalUrl)"
 Write-Host "Public: $url"
 if ($env:GITHUB_STEP_SUMMARY) {
-    Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### $Environment deployed`n- Release: ``$(Split-Path -Leaf $release)```n- Local: $($cfg.LocalUrl)`n- Public (quick tunnel): $url"
+    Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### $Environment deployed`n- Release: ``$(Split-Path -Leaf $release)```n- Local: $($cfg.LocalUrl)`n- Public: $url"
 }

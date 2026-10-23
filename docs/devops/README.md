@@ -15,6 +15,7 @@ tunnel restarts. Permanent URLs need a named tunnel (see [manual-steps.md](manua
 Docs:
 - [pipeline.md](pipeline.md): what GitHub Actions does on each branch
 - [operations.md](operations.md): deploying, promotion, rollback, tunnels and URLs, status, first admin, logs
+- [cloudflare-named-tunnels.md](cloudflare-named-tunnels.md): plan for permanent hostnames (named tunnel), not applied yet
 - [manual-steps.md](manual-steps.md): one-time steps the owner does (runner registration, GitHub environment protection, optional services, permanent URLs)
 
 ## Layout on the deploy PC
