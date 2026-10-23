@@ -14,6 +14,7 @@ using ERP.Infrastructure.Persistence;
 using ERP.Modularity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ERP.Infrastructure.Services;
 
@@ -44,8 +45,21 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
         if (errors.Count > 0) throw new FieldValidationException(errors);
         if (await db.Organizations.AnyAsync(o => o.Code == key, ct)) throw new ConflictException("That sign-in key is already taken.");
 
-        await using var tx = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        // SQL Server runs with a retrying execution strategy, which only allows a user-initiated transaction inside the
+        // strategy: the whole unit runs there, and a retry replays it from a clean change tracker.
+        if (!db.Database.IsRelational() || db.Database.CurrentTransaction is not null)
+            return await CreateWorkspaceCoreAsync(r, industry!, key, null, ct);
+        var attempt = 0;
+        return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            if (attempt++ > 0) db.ChangeTracker.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            return await CreateWorkspaceCoreAsync(r, industry!, key, tx, ct);
+        });
+    }
 
+    private async Task<OnboardingResult> CreateWorkspaceCoreAsync(OnboardingRequest r, IndustryTemplate industry, string key, IDbContextTransaction? tx, CancellationToken ct)
+    {
         var organization = new Organization
         {
             Name = r.WorkspaceName.Trim(), Code = key, IndustryCode = industry!.Key, CountryCode = r.CountryCode.ToUpperInvariant(),

@@ -4,9 +4,12 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ERP.Infrastructure.Auth;
+using ERP.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -19,7 +22,7 @@ public sealed class CapturingResetSender : IPasswordResetSender
     public Task SendAsync(string email, string token, CancellationToken ct = default) { Tokens[email] = token; return Task.CompletedTask; }
 }
 
-/// <summary>API host on an in-memory SQLite database, seeded through the normal onboarding path.</summary>
+/// <summary>API host on an in-memory SQLite database (a test-only harness; the app itself runs on SQL Server only), seeded through the normal onboarding path.</summary>
 public class ApiFactory : WebApplicationFactory<Program>
 {
     public const string Password = "Test#Passw0rd";
@@ -36,8 +39,7 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         var settings = new Dictionary<string, string?>
         {
-            ["ConnectionStrings:Default"] = "DataSource=:memory:",
-            ["Database:Provider"] = "Sqlite",
+            ["ConnectionStrings:Default"] = "Server=unused-in-tests", // the DbContext is replaced below
             ["Database:AutoMigrate"] = "true",
             ["Auth:SigningKey"] = "integration-tests-signing-key-0123456789abcdef",
             ["Auth:SecureCookies"] = "true",
@@ -54,7 +56,17 @@ public class ApiFactory : WebApplicationFactory<Program>
         foreach (var (k, v) in settings) builder.UseSetting(k, v);
         builder.ConfigureServices(s =>
         {
-            s.AddSingleton(_conn);
+            // Swap the app's SQL Server DbContext for the in-memory SQLite connection, and build the schema from the
+            // model (SQLite cannot run the SQL Server migrations).
+            s.RemoveAll<DbContextOptions<AppDbContext>>();
+            s.AddDbContext<AppDbContext>((sp, o) =>
+            {
+                o.UseSqlite(_conn);
+                o.ReplaceService<IModelCacheKeyFactory, ModuleAwareModelCacheKeyFactory>();
+                o.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+            });
+            s.RemoveAll<IDatabaseInitializer>();
+            s.AddScoped<IDatabaseInitializer, EnsureCreatedInitializer>();
             s.RemoveAll<IPasswordResetSender>();
             s.AddSingleton<IPasswordResetSender>(Resets);
             s.RemoveAll<ERP.Application.Reminders.IMessageChannel>();
@@ -102,6 +114,12 @@ public class ApiFactory : WebApplicationFactory<Program>
 
     public static JsonNode Unwrap(JsonNode body) =>
         body is JsonObject o && o.ContainsKey("success") && o["success"]!.GetValue<bool>() ? o["data"]?.DeepClone() ?? new JsonObject() : body;
+}
+
+/// <summary>Test-only schema setup: creates the tables straight from the model.</summary>
+public sealed class EnsureCreatedInitializer : IDatabaseInitializer
+{
+    public Task InitializeAsync(AppDbContext db, CancellationToken ct = default) => db.Database.EnsureCreatedAsync(ct);
 }
 
 /// <summary>Captures outbound email so tests can read one-time codes.</summary>

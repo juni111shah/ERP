@@ -205,8 +205,7 @@ public static class DatabaseStartup
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         if (config.GetValue<bool>("Database:AutoMigrate"))
         {
-            if (db.Database.IsSqlServer()) await db.Database.MigrateAsync();
-            else await db.Database.EnsureCreatedAsync();
+            await scope.ServiceProvider.GetRequiredService<IDatabaseInitializer>().InitializeAsync(db);
         }
         await DevSeeder.SeedAsync(scope.ServiceProvider);
     }

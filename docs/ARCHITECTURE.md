@@ -8,7 +8,7 @@ A modular, multi-tenant ERP for any business. The **core** is industry- and coun
 backend/
   src/ERP.Domain          entities, enums, domain rules, list attributes. No dependencies.
   src/ERP.Application     use cases (MediatR commands/queries + handlers), validation, abstractions (IRepository<T>, IEntityStore, IUserDirectory...), paging, ApiResponse
-  src/ERP.Infrastructure  EF Core (SQL Server; SQLite in tests), Identity, auth, generic EfRepository<T>, services
+  src/ERP.Infrastructure  EF Core (SQL Server only; tests use an in-memory SQLite harness), Identity, auth, generic EfRepository<T>, services
   src/ERP.Modularity      IModule contract, registry, module gate, API envelope filter, one-line list endpoints
   src/ERP.Api             composition root, minimal-API endpoints, middleware, SignalR hub
   modules/ERP.Modules.*   pluggable modules (RealEstate, Inventory sample)

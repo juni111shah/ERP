@@ -36,20 +36,15 @@ public static class DependencyInjection
         services.AddScoped<IOrgContext, OrgContext>();
         services.AddScoped<AuditSaveChangesInterceptor>();
 
-        var provider = config["Database:Provider"] ?? "SqlServer";
         var cs = config.GetConnectionString("Default") ?? throw new InvalidOperationException("ConnectionStrings:Default is required.");
         services.AddDbContext<AppDbContext>((sp, o) =>
         {
-            if (provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
-            {
-                var conn = sp.GetService<Microsoft.Data.Sqlite.SqliteConnection>();
-                if (conn is not null) o.UseSqlite(conn); else o.UseSqlite(cs);
-            }
-            else o.UseSqlServer(cs, s => s.EnableRetryOnFailure(3));
+            o.UseSqlServer(cs, s => s.EnableRetryOnFailure(3)); // SQL Server is the only database
             o.ReplaceService<IModelCacheKeyFactory, ModuleAwareModelCacheKeyFactory>();
             o.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
         });
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddScoped<IDatabaseInitializer, SqlServerDatabaseInitializer>();
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
         services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));

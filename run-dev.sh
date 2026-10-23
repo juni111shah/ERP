@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# One-command local run: API (SQLite, seeded demo data) on :5080 and the Angular app on :4200.
-# Needs: .NET 8 SDK and Node 20+. Open http://localhost:4200 and sign in with:
+# One-command local run: API (SQL Server, seeded demo data) on :5080 and the Angular app on :4200.
+# Needs: .NET 8 SDK, Node 20+ and SQL Server. The API uses ConnectionStrings__Default if set, otherwise
+# appsettings.Development.json (localhost, Windows authentication, database ERP_Dev). For the SQL Server container
+# (deploy/docker-compose.yml) export ConnectionStrings__Default="Server=localhost,1433;Database=ERP_Dev;User Id=sa;Password=...;TrustServerCertificate=True".
+# Open http://localhost:4200 and sign in with:
 #   admin@demo.local / DevOnly#2026   (general workspace)
 #   owner@demo.local / DevOnly#2026   (pick workspace "demo-re" for Real Estate)
 set -euo pipefail
 cd "$(dirname "$0")"
 
 export ASPNETCORE_ENVIRONMENT=Development
-export Database__Provider=Sqlite Database__AutoMigrate=true
-export ConnectionStrings__Default="Data Source=$PWD/erp-dev.db"
+export Database__AutoMigrate=true
 export Seed__Enabled=true Seed__AdminPassword='DevOnly#2026' Seed__AdminEmail=admin@demo.local Seed__MultiWorkspaceEmail=owner@demo.local
 export ASPNETCORE_URLS=http://localhost:5080
 
