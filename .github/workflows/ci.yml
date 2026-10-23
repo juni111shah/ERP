@@ -1,7 +1,7 @@
 name: CI
 on:
   push: { branches: [main, 'antigravity/**', 'claude/**', 'cursor/**', 'codex/**'] }
-  pull_request: { branches: [main] }
+  pull_request: { branches: [main, dev, staging, production] }
 jobs:
   backend:
     runs-on: ubuntu-latest

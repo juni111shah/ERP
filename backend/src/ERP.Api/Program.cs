@@ -21,12 +21,19 @@ using ERP.Modules.Inventory;
 using ERP.Modules.RealEstate;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+// When hosted as a Windows service (staging/production on the deploy PC) the content root is the install folder.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : null,
+});
+builder.Services.AddWindowsService(); // no-op unless the process was started by the Windows service control manager
 
 builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration).Enrich.FromLogContext().WriteTo.Console());
 
@@ -112,6 +119,13 @@ builder.Services.AddSwaggerGen(c =>
     c.AddSecurityDefinition("Bearer", new() { Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http, Scheme = "bearer", BearerFormat = "JWT" });
     c.AddSecurityRequirement(new() { { new() { Reference = new() { Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme, Id = "Bearer" } }, [] } });
 });
+// Behind a reverse proxy / tunnel (cloudflared on the same machine): trust X-Forwarded-For/Proto from loopback only,
+// so rate limiting sees the real client IP and Request.IsHttps reflects the public https URL.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.ForwardLimit = 2;
+});
 builder.Services.AddCors(o => o.AddPolicy("web", p => p
     .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:4200"])
     .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
@@ -123,6 +137,11 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 
 var app = builder.Build();
 
+// A published build can carry the compiled Angular app in wwwroot (deploy packages do); then the API serves it as
+// one origin. In development there is no wwwroot, ng serve hosts the UI and / keeps redirecting to Swagger.
+var serveSpa = app.Environment.WebRootFileProvider.GetFileInfo("index.html").Exists;
+
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 // Empty-bodied API errors (401 challenge, 403 forbid, 404 no route, 405) get the same error envelope.
 app.UseStatusCodePages(async ctx =>
@@ -140,10 +159,16 @@ app.Use(async (ctx, next) =>
     await next();
 });
 if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing")) app.UseHsts();
-if (app.Configuration.GetValue("Swagger:Enabled", app.Environment.IsDevelopment()))
+var swaggerEnabled = app.Configuration.GetValue("Swagger:Enabled", app.Environment.IsDevelopment());
+if (swaggerEnabled)
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+if (serveSpa)
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
 }
 app.UseCors("web");
 app.UseRateLimiter();
@@ -171,7 +196,15 @@ foreach (var module in registry.Modules)
 
 app.MapHub<NotificationsHub>("/hubs/notifications");
 app.MapHealthChecks("/health").AllowAnonymous();
-app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription().AllowAnonymous();
+if (serveSpa)
+{
+    // Client-side routes (e.g. /auth/login) fall back to index.html; unknown /api, /hubs and /swagger paths still 404.
+    app.MapFallbackToFile("{*path:regex(^(?!api/|hubs/|swagger/|health$).*$)}", "index.html").AllowAnonymous();
+}
+else if (swaggerEnabled)
+{
+    app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription().AllowAnonymous();
+}
 
 await DatabaseStartup.InitializeAsync(app.Services, app.Configuration);
 app.Run();

@@ -1,0 +1,88 @@
+# Manual steps for the owner
+
+These steps need your GitHub sign-in, your Windows password, or admin rights, so the automation does not do them.
+
+## 1. Register the self-hosted runner (required for automatic staging/production deploys)
+
+The runner is already downloaded and extracted in `C:\actions-runner`: official `actions/runner` v2.338.1, win-x64,
+SHA-256 checked.
+
+1. On GitHub, open **Settings → Actions → Runners → New self-hosted runner** (Windows) and copy the registration token.
+   The token is valid for 1 hour. Don't paste it anywhere else.
+2. In a normal (non-admin) PowerShell, as the same Windows user that owns the deploy keys:
+
+```powershell
+cd C:\actions-runner
+.\config.cmd --url https://github.com/juni111shah/ERP --token <TOKEN> --name erp-deploy-pc --labels erp-deploy --work _work --unattended
+.\run.cmd                      # leave this window open, or:
+D:\ERP\envs\tools\register-startup.ps1 -IncludeRunner   # starts runner + environments at logon (no admin)
+```
+
+Alternative: run it as a Windows service. This needs an elevated PowerShell. Use your own account so Credential Manager
+and SQL Windows authentication keep working:
+
+```powershell
+cd C:\actions-runner
+.\config.cmd --url https://github.com/juni111shah/ERP --token <TOKEN> --name erp-deploy-pc --labels erp-deploy --work _work --unattended --runasservice --windowslogonaccount "$env:COMPUTERNAME\<you>"
+# it prompts for the Windows password; type it yourself
+```
+
+**The repository is public.** A pull request from a fork could try to run its own workflow on a self-hosted runner.
+Before you register the runner, do one of the following:
+- make the repository private, or
+- set **Settings → Actions → General → Fork pull request workflows from outside collaborators → Require approval for all external contributors**,
+  and never approve a fork run that targets `self-hosted`.
+
+## 2. Protect production (proposed; not enabled)
+
+The `deploy` job uses GitHub environments `staging` and `production`, which GitHub creates automatically on first use
+without any protection. Proposed settings:
+
+- **Environment `production`** (Settings → Environments → production):
+  - Required reviewers: you. Prevent self-review if there is a second maintainer.
+  - Deployment branches: *Selected branches* → `production` only.
+- **Environment `staging`**: Deployment branches → `staging` only. No reviewer needed.
+- **Branch rulesets** (Settings → Rules → Rulesets) for `production` and `staging`:
+  - require a pull request before merging (`staging → production`, `dev → staging`)
+  - require status checks: `CI / backend`, `CI / frontend`
+  - block force pushes and deletions
+  - for `production`, also restrict who can push (you only)
+- `main`: the same no-force-push and no-deletion rule, plus required CI checks. Other agents merge into `main`, so require PRs
+  only if that suits your flow.
+
+The workflow also refuses to deploy to production unless the commit is already on `staging`, so promotion order holds
+even before you add these rules.
+
+## 3. First admin in staging and production
+
+There are no seeded users and self-signup is off. Create the first workspace once per environment:
+
+```powershell
+cd D:\ERP\envs\tools
+.\erp-env.ps1 restart -Environment production -AllowSelfSignup
+# open the production URL (.\erp-env.ps1 url) and register the first workspace right away
+.\erp-env.ps1 restart -Environment production
+```
+
+## 4. Optional: run the APIs as Windows services (admin)
+
+They currently run as background processes started by `deploy.ps1` / `erp-env.ps1`, and restart at logon through
+`register-startup.ps1`. The API already supports `UseWindowsService`. Services aren't configured because they need admin
+rights and the signing key would have to go in the service's environment. If you want services later, they must run as
+your account (for Windows SQL auth), and the deploy scripts would need a service mode. Ask for that as a follow-up.
+
+## 5. Permanent URLs
+
+Quick tunnels (`*.trycloudflare.com`) get a new random URL whenever they restart. For stable URLs you need a Cloudflare
+account and a domain on Cloudflare:
+
+```powershell
+& 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel login          # browser sign-in, you do this
+& 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel create erp
+& 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel route dns erp staging.<your-domain>
+& 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel route dns erp erp.<your-domain>
+```
+
+Then add a `config.yml` with ingress rules `staging.<domain> → http://localhost:5180` and `erp.<domain> → http://localhost:5280`.
+Run it with `cloudflared tunnel run erp`, or install it as a service with `cloudflared service install` (admin). After that,
+stop the quick tunnels: `.\erp-env.ps1 tunnel-stop`. Cloudflare Access can put a login in front of staging.
