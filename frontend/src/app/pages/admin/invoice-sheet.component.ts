@@ -32,9 +32,12 @@ export function taxRegLabelFor(country?: string | null): string {
 export const INVOICE_STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'orange', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
 const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pendingApproval: 'Pending approval' };
 export function invoiceStatusLabel(s: string): string { return STATUS_LABELS[s] ?? (s ? s.charAt(0).toUpperCase() + s.slice(1) : ''); }
+/** Friendly names for module source keys ("<module>.<kind>"); anything else is humanized below. */
+const SOURCE_LABELS: Record<string, string> = { 'realestate.instalment': 'Rent instalment' };
 export function humanizeSource(v?: string | null): string {
   if (!v || v.toLowerCase() === 'manual') return '';
-  const s = String(v).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ');
+  if (SOURCE_LABELS[v.toLowerCase()]) return SOURCE_LABELS[v.toLowerCase()];
+  const s = String(v).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[._-]+/g, ' ');
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 export function formatMoney(v: number | null | undefined, currency?: string | null): string {

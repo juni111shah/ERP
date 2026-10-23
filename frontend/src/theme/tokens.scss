@@ -1062,10 +1062,11 @@ html {
 .ant-steps-item-finish > .ant-steps-item-container > .ant-steps-item-tail::after { background: var(--erp-color-primary); }
 .ant-steps-item-error .ant-steps-item-icon { border-color: var(--erp-color-error-solid); }
 .ant-steps-item-wait .ant-steps-item-icon { border-color: var(--erp-color-border-control); }
-// nz-drawer sticky footer
+// nz-drawer: never wider than the viewport; the sticky footer wraps its actions instead of clipping them at narrow widths
+.ant-drawer-right > .ant-drawer-content-wrapper, .ant-drawer-left > .ant-drawer-content-wrapper { max-width: 100vw; }
 .ant-drawer-footer {
   position: sticky; inset-block-end: 0;
-  display: flex; justify-content: flex-end; gap: var(--erp-space-2);
+  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--erp-space-2);
   padding: var(--erp-space-3) var(--erp-space-6);
   background: var(--erp-color-bg-surface-raised);
   border-block-start: 1px solid var(--erp-color-border-subtle);

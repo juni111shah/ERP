@@ -14,12 +14,26 @@ export class CsvExportService {
     let csvData: any[];
     
     if (columns && columns.length > 0) {
+      // Money cells arrive display-formatted ("AED -6,500.00"); export them as plain numbers plus one Currency column.
+      const moneyCols = new Set(columns.filter(col => {
+        const vals = data.map(row => this.getNestedProperty(row, col.field)).filter(v => v !== null && v !== undefined && v !== '');
+        return vals.length > 0 && vals.every(v => typeof v === 'string' && CsvExportService.MONEY.test(v.trim()));
+      }).map(col => col.field));
+      const addCurrency = moneyCols.size > 0 && !columns.some(col => col.header.toLowerCase() === 'currency');
       csvData = data.map(row => {
         const obj: any = {};
+        let currency = '';
         columns.forEach(col => {
           const value = this.getNestedProperty(row, col.field);
-          obj[col.header] = this.safeCell(value ?? '');
+          const money = moneyCols.has(col.field) && typeof value === 'string' ? CsvExportService.MONEY.exec(value.trim()) : null;
+          if (money) {
+            currency ||= money[1];
+            obj[col.header] = money[2].replace(/,/g, '');
+          } else {
+            obj[col.header] = this.safeCell(value ?? '');
+          }
         });
+        if (addCurrency) obj['Currency'] = currency;
         return obj;
       });
     } else {
@@ -37,6 +51,9 @@ export class CsvExportService {
 
     this.downloadCsv(csv, filename);
   }
+
+  /** A formatMoney() display value: ISO currency code, a space, then an en-US number ("AED 6,500.00", "AED -1,234.50"). */
+  private static readonly MONEY = /^([A-Z]{3}) (-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)$/;
 
   /**
    * Guards against spreadsheet formula injection: text starting with = + - @ tab or CR gets a leading single quote.

@@ -21,6 +21,7 @@ import { asProblem, controlError, problemMessage } from '../../core/http/problem
 import { askReason } from '../../shared/reason-prompt';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { formatMoney } from './invoice-sheet.component';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green', reversed: 'orange' };
 
@@ -108,7 +109,7 @@ export class JournalsPage {
     { key: 'date', label: 'Date', sortField: 'date', width: '120px', filterField: 'date' },
     { key: 'memo', label: 'Memo' },
     { key: 'sourceType', label: 'Source', width: '110px' },
-    { key: 'amount', label: 'Amount', sortField: 'amount', width: '130px' },
+    { key: 'amount', label: 'Amount', sortField: 'amount', width: '130px', align: 'right', value: (r) => formatMoney(r.amount, r.currencyCode) },
     { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: ['draft', 'posted', 'reversed'] },
   ];
   readonly drawerOpen = signal(false);

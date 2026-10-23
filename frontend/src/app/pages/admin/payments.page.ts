@@ -22,6 +22,7 @@ import { LookupOption } from '../../core/custom-fields/lookup-registry';
 import { asProblem, controlError, problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { formatMoney } from './invoice-sheet.component';
 import { PartiesApi } from '../parties.page';
 
 /** Vendor payments: pay vendors by bank, cash or cheque, settle open bills at the same time (or later), clear issued cheques, and void. */
@@ -106,8 +107,8 @@ export class PaymentsPage {
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
     { key: 'partyName', label: 'Customer' },
     { key: 'date', label: 'Date', sortField: 'date', width: '120px', filterField: 'date' },
-    { key: 'amount', label: 'Amount', sortField: 'amount', width: '120px' },
-    { key: 'unallocated', label: 'Unallocated', width: '120px' },
+    { key: 'amount', label: 'Amount', sortField: 'amount', width: '130px', align: 'right', value: (r) => formatMoney(r.amount, r.currencyCode) },
+    { key: 'unallocated', label: 'Unallocated', width: '130px', align: 'right', value: (r) => formatMoney(r.unallocated, r.currencyCode) },
     { key: 'status', label: 'Status', width: '100px', filterField: 'status', filterOptions: [{ value: 'issued', label: 'Posted' }, { value: 'voided', label: 'Voided' }] },
   ];
   readonly drawerOpen = signal(false);
