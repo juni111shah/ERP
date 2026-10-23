@@ -174,4 +174,31 @@ await step('attendance and last month payroll', async () => {
   await call('POST', '/m/hr/payroll', { legalEntityId: entity, year, month });
 });
 
+
+// ---- CRM, inventory, reviews --------------------------------------------------------------------------------------------
+await step('CRM listings and leads', async () => {
+  const vacant = units.slice(1, 4);
+  for (const [i, u] of vacant.entries()) {
+    const l = await call('POST', '/m/realestate/listings', { propertyId: u.propertyId ?? properties[0].id, unitId: u.id, kind: 'rent', title: `Unit ${u.unitNumber} for rent`, price: u.rent, channels: 'Website, Bayut' });
+    if (i === 0) await call('POST', `/m/realestate/listings/${l.id}/status`, { status: 'published' }).catch(() => {});
+  }
+  for (const [name, source, days] of [['Hamad Al Suwaidi', 'Website', 2], ['Jessica Moore', 'Walk-in', 5], ['Tariq Mehmood', 'Referral', -1]])
+    await call('POST', '/m/realestate/leads', { legalEntityId: entity, name, phone: '+9715011122' + days, email: name.split(' ')[0].toLowerCase() + '@example.com', source, interest: '1 bedroom near the Marina', followUpOn: addDays(days) });
+});
+await step('enable Inventory and add stock', async () => {
+  await call('POST', '/modules/inventory/enable'); await login();
+  const wh = await call('POST', '/m/inventory/warehouses', { code: 'MAIN', name: 'Main store', legalEntityId: entity });
+  await call('POST', '/m/inventory/warehouses', { code: 'SITE', name: 'Site store', legalEntityId: entity });
+  const filter = await call('GET', '/items?search=PRD-FILTER&pageSize=5');
+  const item = (filter.items ?? filter)[0];
+  const payable = acct('2000');
+  await call('POST', '/m/inventory/stock/receive', { warehouseId: wh.id, itemId: item.id, quantity: 40, unitCost: 52, date: addDays(-15), offsetAccountId: payable, reference: 'GRN-001' });
+  await call('POST', '/m/inventory/stock/issue', { warehouseId: wh.id, itemId: item.id, quantity: 12, date: addDays(-3), memo: 'Used for AC servicing' });
+  await call('PUT', '/m/inventory/stock/policy', { itemId: item.id, reorderLevel: 30, reorderQuantity: 50 });
+});
+await step('performance review cycle', async () => {
+  const cycle = await call('POST', '/m/hr/review-cycles', { name: `H1 ${today.getFullYear()} review`, periodStart: `${today.getFullYear()}-01-01`, periodEnd: `${today.getFullYear()}-06-30`, status: 'open' });
+  if (employees[0]) await call('POST', '/m/hr/reviews', { cycleId: cycle.id, employeeId: employees[0].id, overallRating: 4, goals: 'Reduce vacancy days; improve tenant satisfaction', comments: 'Strong half-year.', competencies: [{ name: 'Ownership', score: 4 }, { name: 'Communication', score: 5 }] });
+});
+
 console.log(`\nDone: ${ok.length} sections seeded. Sign in as ${EMAIL} (workspace demo-re) and ${'admin@demo.local'} (workspace demo).`);
