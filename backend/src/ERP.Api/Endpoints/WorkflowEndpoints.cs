@@ -10,6 +10,8 @@ namespace ERP.Api.Endpoints;
 
 public sealed record DecisionInput(string? Comment);
 
+public sealed record TestEmailRequest(string To);
+
 public static class WorkflowEndpoints
 {
     public static void MapWorkflow(this RouteGroupBuilder api)
@@ -38,7 +40,8 @@ public static class WorkflowEndpoints
         policies.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) => { await sender.Send(new DeleteApprovalPolicy(id), ct); return Results.NoContent(); }).RequirePermission(CorePermissions.SettingsWrite);
 
         var messages = api.MapGroup("/messages").WithTags("Workflow");
-        messages.MapPagedList<MessageLog, MessageLogDto>("", CorePermissions.SettingsRead, m => new MessageLogDto(m.Id, m.Channel, m.Recipient, m.Subject, m.Body, m.Link, m.Status, m.Error, m.SentAt));
+        messages.MapPagedList<MessageLog, MessageLogDto>("", CorePermissions.SettingsRead, m => new MessageLogDto(m.Id, m.Channel, m.Recipient, m.Subject, m.Body, m.Link, m.Status, m.Error, m.SentAt, m.Attempts));
+        messages.MapPost("/test-email", (TestEmailRequest r, ISender sender, CancellationToken ct) => sender.Send(new SendTestEmail(r.To), ct)).RequirePermission(CorePermissions.SettingsWrite);
         messages.MapPost("/send-reminders", async (ISender sender, CancellationToken ct) => new { sent = await sender.Send(new SendRemindersNow(), ct) }).RequirePermission(CorePermissions.SettingsWrite);
         var notifications = api.MapGroup("/notifications").WithTags("Workflow");
         notifications.MapGet("", (ISender sender, CancellationToken ct) => sender.Send(new ListNotifications(), ct)).RequireAuthorization();
