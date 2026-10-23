@@ -26,6 +26,8 @@ public interface ICurrentUser
     bool HasPermission(string permission);
     /// <summary>Set only for tenant-portal sessions: the customer party the caller signed in as.</summary>
     Guid? PortalPartyId => null;
+    /// <summary>"customer" or "vendor" for portal sessions; null for staff.</summary>
+    string? PortalKind => null;
 }
 
 /// <summary>

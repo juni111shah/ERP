@@ -1,0 +1,40 @@
+/** UI strings by key. English is the source language: `t(key, fallback)` returns the fallback (or the key) when a translation is missing. */
+export type Lang = 'en' | 'ar';
+export type Dictionary = Record<string, string>;
+
+export const EN: Dictionary = {};
+
+export const AR: Dictionary = {
+  // common
+  'common.save': 'حفظ', 'common.cancel': 'إلغاء', 'common.new': 'جديد', 'common.search': 'بحث', 'common.run': 'تشغيل', 'common.back': 'رجوع',
+  'common.delete': 'حذف', 'common.edit': 'تعديل', 'common.close': 'إغلاق', 'common.yes': 'نعم', 'common.no': 'لا', 'common.total': 'الإجمالي',
+  'common.nothing': 'لا يوجد شيء بعد', 'common.upload': 'رفع', 'common.download': 'تنزيل', 'common.status': 'الحالة', 'common.date': 'التاريخ',
+  'common.amount': 'المبلغ', 'common.name': 'الاسم', 'common.email': 'البريد الإلكتروني', 'common.password': 'كلمة المرور', 'common.language': 'اللغة',
+  // shell
+  'shell.signOut': 'تسجيل الخروج', 'shell.notifications': 'الإشعارات', 'shell.markAllRead': 'تحديد الكل كمقروء', 'shell.caughtUp': 'لا توجد إشعارات جديدة',
+  'shell.accountSecurity': 'أمان الحساب', 'shell.search': 'ابحث في السجلات', 'shell.darkMode': 'الوضع الداكن', 'shell.allEntities': 'جميع الكيانات القانونية',
+  // menu groups and items (server labels are mapped by menu id / group id)
+  'menu.group.admin': 'الإدارة', 'menu.group.finance': 'المالية', 'menu.group.realestate': 'العقارات', 'menu.group.hr': 'الموارد البشرية', 'menu.group.inventory': 'المخزون',
+  'menu.group.core': 'الأساسيات', 'menu.group.reports': 'التقارير',
+  'menu.core.dashboard': 'لوحة التحكم', 'menu.core.parties': 'الأطراف', 'menu.core.items': 'الأصناف', 'menu.core.audit': 'سجل التدقيق', 'menu.core.messages': 'سجل الرسائل',
+  'menu.core.documents': 'خزنة المستندات', 'menu.core.import': 'استيراد البيانات', 'menu.core.approvals': 'الموافقات', 'menu.core.users': 'المستخدمون', 'menu.core.roles': 'الأدوار',
+  'menu.core.settings': 'الإعدادات', 'menu.core.modules': 'الوحدات', 'menu.finance.journals': 'القيود اليومية', 'menu.finance.budgets': 'الموازنات', 'menu.finance.accounts': 'دليل الحسابات',
+  'menu.finance.invoices': 'الفواتير', 'menu.finance.receipts': 'سندات القبض', 'menu.finance.bills': 'فواتير الموردين', 'menu.finance.payments': 'المدفوعات', 'menu.finance.cheques': 'الشيكات',
+  'menu.finance.bank': 'البنوك', 'menu.finance.reports': 'التقارير المالية', 'menu.realestate.properties': 'العقارات', 'menu.realestate.units': 'الوحدات', 'menu.realestate.leases': 'عقود الإيجار',
+  'menu.realestate.unittypes': 'أنواع الوحدات', 'menu.realestate.acquisitions': 'الاستحواذات', 'menu.realestate.billing': 'فوترة الإيجار', 'menu.realestate.workorders': 'أوامر العمل',
+  'menu.realestate.renewals': 'تجديد العقود', 'menu.realestate.pm': 'الصيانة الوقائية', 'menu.realestate.inspections': 'الفحوصات', 'menu.realestate.deals': 'الصفقات',
+  'menu.hr.employees': 'الموظفون', 'menu.hr.attendance': 'الحضور', 'menu.hr.payroll': 'الرواتب', 'menu.inventory.warehouses': 'المستودعات', 'menu.inventory.stock': 'المخزون الحالي', 'menu.inventory.movements': 'حركات المخزون',
+  // login / account
+  'login.title': 'تسجيل الدخول', 'login.sub': 'استخدم بريد العمل الخاص بك.', 'login.submit': 'دخول', 'login.forgot': 'نسيت كلمة المرور؟', 'login.remember': 'أبقني مسجلاً',
+  'login.code': 'رمز التحقق', 'login.chooseWorkspace': 'اختر مساحة العمل',
+  'security.title': 'أمان الحساب', 'security.twoFactor': 'المصادقة الثنائية', 'security.setup': 'إعداد', 'security.turnOn': 'تفعيل', 'security.turnOff': 'إيقاف', 'security.on': 'المصادقة الثنائية مفعّلة.',
+  // dashboard
+  'dashboard.welcome': 'مرحباً', 'dashboard.alerts': 'التنبيهات والمهام',
+  // portal
+  'portal.title': 'بوابة المستأجر', 'portal.signIn': 'تسجيل الدخول', 'portal.emailCode': 'أرسل لي رمزاً', 'portal.workspace': 'رمز مساحة العمل', 'portal.welcome': 'مرحباً',
+  'portal.tab.lease': 'عقدي', 'portal.tab.invoices': 'الفواتير', 'portal.tab.receipts': 'الإيصالات', 'portal.tab.statement': 'كشف الحساب', 'portal.tab.maintenance': 'الصيانة',
+  'portal.balance': 'الرصيد المستحق', 'portal.sendRequest': 'إرسال الطلب', 'portal.noLease': 'لا يوجد عقد.', 'portal.signOut': 'تسجيل الخروج',
+};
+
+export const DICTIONARIES: Record<Lang, Dictionary> = { en: EN, ar: AR };
+export const RTL_LANGS: readonly Lang[] = ['ar'];

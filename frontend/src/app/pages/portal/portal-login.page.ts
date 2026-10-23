@@ -1,8 +1,10 @@
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { AUTH_STYLES } from '../auth-layout';
@@ -13,46 +15,48 @@ import { PortalService } from './portal.service';
   selector: 'erp-portal-login',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule],
+  imports: [TranslatePipe, ReactiveFormsModule, NzCheckboxModule, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule],
   styles: [AUTH_STYLES],
   template: `
     <div class="card">
-      <div class="brand"><span class="brand-mark">T</span> Tenant portal</div>
-      <h1>Sign in</h1>
+      <div class="brand"><span class="brand-mark">T</span> {{ 'portal.title' | translate: 'Tenant portal' }}</div>
+      <h1>{{ 'portal.signIn' | translate: 'Sign in' }}</h1>
       <p class="sub">{{ sent() ? 'Enter the code we emailed you.' : 'We will email you a one-time code.' }}</p>
       @if (error()) { <nz-alert nzType="error" [nzMessage]="error()!" nzShowIcon style="margin-bottom:16px" data-testid="portal-error"></nz-alert> }
       <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
-        <nz-form-item><nz-form-label nzRequired>Workspace code</nz-form-label><nz-form-control nzErrorTip="Required"><input nz-input formControlName="workspace" data-testid="portal-workspace" /></nz-form-control></nz-form-item>
-        <nz-form-item><nz-form-label nzRequired>Email</nz-form-label><nz-form-control nzErrorTip="Enter your email"><input nz-input type="email" formControlName="email" data-testid="portal-email" /></nz-form-control></nz-form-item>
+        <nz-form-item><nz-form-label nzRequired>{{ 'portal.workspace' | translate: 'Workspace code' }}</nz-form-label><nz-form-control nzErrorTip="Required"><input nz-input formControlName="workspace" data-testid="portal-workspace" /></nz-form-control></nz-form-item>
+        <label nz-checkbox formControlName="vendor" style="margin-bottom:12px" data-testid="portal-vendor">I am a vendor / supplier</label>
+        <nz-form-item><nz-form-label nzRequired>{{ 'common.email' | translate: 'Email' }}</nz-form-label><nz-form-control nzErrorTip="Enter your email"><input nz-input type="email" formControlName="email" data-testid="portal-email" /></nz-form-control></nz-form-item>
         @if (sent()) {
           <nz-form-item><nz-form-label nzRequired>Code</nz-form-label><nz-form-control nzErrorTip="Enter the 6-digit code"><input nz-input formControlName="code" maxlength="6" inputmode="numeric" data-testid="portal-code" /></nz-form-control></nz-form-item>
         }
-        <button nz-button nzType="primary" nzBlock [nzLoading]="busy()" data-testid="portal-submit">{{ sent() ? 'Sign in' : 'Email me a code' }}</button>
+        <button nz-button nzType="primary" nzBlock [nzLoading]="busy()" data-testid="portal-submit">{{ sent() ? ('portal.signIn' | translate: 'Sign in') : ('portal.emailCode' | translate: 'Email me a code') }}</button>
       </form>
     </div>`,
 })
 export class PortalLoginPage {
   private readonly portal = inject(PortalService);
   private readonly router = inject(Router);
-  readonly form = inject(FormBuilder).nonNullable.group({ workspace: ['', Validators.required], email: ['', [Validators.required, Validators.email]], code: [''] });
+  readonly form = inject(FormBuilder).nonNullable.group({ workspace: ['', Validators.required], email: ['', [Validators.required, Validators.email]], code: [''], vendor: [false] });
   readonly sent = signal(false);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
 
   submit(): void {
-    const { workspace, email, code } = this.form.getRawValue();
+    const { workspace, email, code, vendor } = this.form.getRawValue();
+    const kind = vendor ? 'vendor' : undefined;
     if (this.form.controls.workspace.invalid || this.form.controls.email.invalid) { this.form.markAllAsTouched(); return; }
     this.busy.set(true);
     this.error.set(null);
     if (!this.sent()) {
-      this.portal.requestCode(workspace, email).subscribe({
+      this.portal.requestCode(workspace, email, kind).subscribe({
         next: () => { this.busy.set(false); this.sent.set(true); },
         error: () => { this.busy.set(false); this.error.set('Could not send a code. Try again in a minute.'); },
       });
       return;
     }
-    this.portal.verify(workspace, email, code).subscribe({
-      next: () => { this.busy.set(false); void this.router.navigateByUrl('/portal'); },
+    this.portal.verify(workspace, email, code, kind).subscribe({
+      next: (r) => { this.busy.set(false); void this.router.navigateByUrl(r.kind === 'vendor' ? '/portal/vendor' : '/portal'); },
       error: () => { this.busy.set(false); this.error.set('The code is invalid or has expired.'); },
     });
   }

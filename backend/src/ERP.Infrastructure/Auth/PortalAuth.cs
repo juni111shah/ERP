@@ -26,9 +26,9 @@ public sealed class PortalAuth(AppDbContext db, IOrgContext org, IEnumerable<IMe
     public const int CodeMinutes = 10, MaxAttempts = 5, TokenMinutes = 60;
     private readonly AuthOptions _o = options.Value;
 
-    public async Task RequestCodeAsync(string workspaceCode, string email, CancellationToken ct)
+    public async Task RequestCodeAsync(string workspaceCode, string email, string? kind, CancellationToken ct)
     {
-        var (orgId, party) = await FindAsync(workspaceCode, email, ct);
+        var (orgId, party, _) = await FindAsync(workspaceCode, email, kind, ct);
         if (party is null) return;
         using var _ = org.Use(orgId);
         var now = clock.UtcNow;
@@ -41,10 +41,10 @@ public sealed class PortalAuth(AppDbContext db, IOrgContext org, IEnumerable<IMe
         await channels.Single(c => c.Name == "email").SendAsync(new(email, subject, $"Your sign-in code is {code}. It is valid for {CodeMinutes} minutes.", null, "info"), ct);
     }
 
-    public async Task<PortalSession> VerifyCodeAsync(string workspaceCode, string email, string code, CancellationToken ct)
+    public async Task<PortalSession> VerifyCodeAsync(string workspaceCode, string email, string code, string? kind, CancellationToken ct)
     {
         var fail = new AuthException(401, "The code is invalid or has expired.");
-        var (orgId, party) = await FindAsync(workspaceCode, email, ct);
+        var (orgId, party, partyKind) = await FindAsync(workspaceCode, email, kind, ct);
         if (party is null) throw fail;
         using var _ = org.Use(orgId);
         var now = clock.UtcNow;
@@ -61,21 +61,25 @@ public sealed class PortalAuth(AppDbContext db, IOrgContext org, IEnumerable<IMe
         {
             new(JwtRegisteredClaimNames.Sub, party.Id.ToString()), new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
             new(JwtRegisteredClaimNames.Email, party.Email ?? email), new("name", party.Name),
-            new(ErpClaims.Org, orgId.ToString()), new("portal_party", party.Id.ToString()), new(ErpClaims.Entities, ErpClaims.AllEntities),
+            new(ErpClaims.Org, orgId.ToString()), new("portal_party", party.Id.ToString()), new("portal_kind", partyKind), new(ErpClaims.Entities, ErpClaims.AllEntities),
         };
         var creds = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_o.SigningKey)), SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(_o.Issuer, _o.Audience, claims, now, expires, creds));
-        return new(token, TokenMinutes * 60, party.Id, party.Name);
+        return new(token, TokenMinutes * 60, party.Id, party.Name, partyKind);
     }
 
-    private async Task<(Guid OrgId, Party? Party)> FindAsync(string workspaceCode, string email, CancellationToken ct)
+    private async Task<(Guid OrgId, Party? Party, string Kind)> FindAsync(string workspaceCode, string email, string? kind, CancellationToken ct)
     {
         var code = workspaceCode.Trim().ToLowerInvariant();
         var orgId = await db.Organizations.IgnoreQueryFilters().Where(o => o.IsActive && o.Code.ToLower() == code).Select(o => o.Id).FirstOrDefaultAsync(ct);
-        if (orgId == Guid.Empty) return (Guid.Empty, null);
+        if (orgId == Guid.Empty) return (Guid.Empty, null, "customer");
         using var _ = org.Use(orgId);
         var mail = email.Trim().ToLowerInvariant();
-        var party = await db.Parties.Where(p => p.IsActive && p.Email != null && p.Email.ToLower() == mail && (p.Roles & PartyRoles.Customer) != 0).FirstOrDefaultAsync(ct);
-        return (orgId, party);
+        async Task<Party?> By(PartyRoles role) => await db.Parties.Where(p => p.IsActive && p.Email != null && p.Email.ToLower() == mail && (p.Roles & role) != 0).FirstOrDefaultAsync(ct);
+        if (kind == "vendor") return (orgId, await By(PartyRoles.Vendor), "vendor");
+        var customer = await By(PartyRoles.Customer);
+        if (customer is not null || kind == "customer") return (orgId, customer, "customer");
+        var vendor = await By(PartyRoles.Vendor); // no kind given and not a customer: fall back to the vendor with that email
+        return (orgId, vendor, vendor is null ? "customer" : "vendor");
     }
 }

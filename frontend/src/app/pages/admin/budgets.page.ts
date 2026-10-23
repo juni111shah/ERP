@@ -52,7 +52,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
           </div>
           <div class="grid">
             <table class="erp-grid" style="border-collapse:collapse;min-width:1200px" data-testid="budget-grid">
-              <thead><tr><th style="text-align:left;min-width:220px">Account</th>@for (m of months; track m) { <th class="num">{{ m }}</th> }<th class="num">Total</th><th></th></tr></thead>
+              <thead><tr><th style="text-align:start;min-width:220px">Account</th>@for (m of months; track m) { <th class="num">{{ m }}</th> }<th class="num">Total</th><th></th></tr></thead>
               <tbody>
                 @for (r of rows(); track r.accountId; let i = $index) {
                   <tr>

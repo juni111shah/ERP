@@ -157,9 +157,11 @@ internal static class RealEstateEndpoints
     /// <summary>Tenant portal: the signed-in customer's own leases, schedule and maintenance requests.</summary>
     private static void MapPortal(RouteGroupBuilder g)
     {
-        g.MapGet("/leases", (ISender s, CancellationToken ct) => s.Send(new GetPortalLeases(), ct)).RequireAuthorization("portal");
-        g.MapGet("/requests", (ISender s, CancellationToken ct) => s.Send(new ListPortalRequests(), ct)).RequireAuthorization("portal");
-        g.MapPost("/requests", async (PortalRequestInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/portal/requests", await s.Send(new CreatePortalRequest(input), ct))).RequireAuthorization("portal");
+        g.MapGet("/leases", (ISender s, CancellationToken ct) => s.Send(new GetPortalLeases(), ct)).RequireAuthorization("portal.customer");
+        g.MapGet("/requests", (ISender s, CancellationToken ct) => s.Send(new ListPortalRequests(), ct)).RequireAuthorization("portal.customer");
+        g.MapGet("/vendor/work-orders", (ISender s, CancellationToken ct) => s.Send(new ListVendorWorkOrders(), ct)).RequireAuthorization("portal.vendor");
+        g.MapPost("/vendor/work-orders/{id:guid}/update", (Guid id, VendorWorkOrderUpdate body, ISender s, CancellationToken ct) => s.Send(new UpdateVendorWorkOrder(id, body), ct)).RequireAuthorization("portal.vendor");
+        g.MapPost("/requests", async (PortalRequestInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/portal/requests", await s.Send(new CreatePortalRequest(input), ct))).RequireAuthorization("portal.customer");
     }
 
     private static void MapPm(RouteGroupBuilder g)

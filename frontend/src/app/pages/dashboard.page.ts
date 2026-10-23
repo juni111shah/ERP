@@ -1,3 +1,4 @@
+import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -17,7 +18,7 @@ const URGENCY: Record<string, { label: string; color: string }> = {
   selector: 'erp-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, SimpleChartComponent, NzIconModule, NzSpinModule, NzTagModule],
+  imports: [TranslatePipe, DecimalPipe, RouterLink, SimpleChartComponent, NzIconModule, NzSpinModule, NzTagModule],
   styles: [`
     .hero { background: linear-gradient(90deg, #142a41, #575345); color:#fff; border-radius:12px; padding:24px 28px; margin-bottom:20px }
     .hero .eyebrow { letter-spacing:.12em; font-size:11px; color:#bfa66a; text-transform:uppercase }
@@ -34,7 +35,7 @@ const URGENCY: Record<string, { label: string; color: string }> = {
   template: `
     <div class="hero">
       <div class="eyebrow">{{ session.me()?.workspace?.name }} · overview</div>
-      <h1 data-testid="dashboard-title">Welcome, {{ session.me()?.user?.fullName }}</h1>
+      <h1 data-testid="dashboard-title">{{ 'dashboard.welcome' | translate: 'Welcome' }}, {{ session.me()?.user?.fullName }}</h1>
       <p>Every figure is built from posted transactions · as of {{ data()?.asOf }}.</p>
     </div>
     <nz-spin [nzSpinning]="loading()">
@@ -55,7 +56,7 @@ const URGENCY: Record<string, { label: string; color: string }> = {
             }
           </div>
           <div class="panel alerts" data-testid="alerts">
-            <h3>Alerts and to-dos</h3>
+            <h3>{{ 'dashboard.alerts' | translate: 'Alerts and to-dos' }}</h3>
             @for (a of d.alerts; track $index) {
               <a class="alert" [routerLink]="a.link ?? null">
                 <span nz-icon [nzType]="a.severity === 'info' ? 'bell' : 'bulb'" [class]="a.severity"></span>
