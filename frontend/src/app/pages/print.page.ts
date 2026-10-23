@@ -675,7 +675,7 @@ export class PrintPage implements OnInit {
     
     this.http.get<any>(`${this.apiBase}/print/${type}/${id}`).subscribe({
       next: (response) => {
-        this.data.set(response.data);
+        this.data.set(response);
         this.loading.set(false);
       },
       error: (err) => {
