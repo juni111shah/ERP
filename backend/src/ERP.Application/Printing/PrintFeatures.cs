@@ -104,7 +104,7 @@ internal sealed class PrintHandlers(
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
         var header = await BuildHeaderAsync(invoice.LegalEntityId, ct);
         var party = await parties.Query().FirstOrDefaultAsync(p => p.Id == invoice.PartyId, ct);
-        var partyAddress = party?.BillingAddress ?? party?.MailingAddress ?? string.Empty;
+        var partyAddress = party?.Address ?? string.Empty;
         
         return new PrintInvoiceDto(
             header,
@@ -136,7 +136,7 @@ internal sealed class PrintHandlers(
             header,
             receiptDto,
             party?.Name ?? receipt.PartyName ?? "Unknown",
-            party?.BillingAddress ?? party?.MailingAddress,
+            party?.Address,
             allocations);
     }
 
@@ -159,7 +159,7 @@ internal sealed class PrintHandlers(
             header,
             billDto,
             party?.Name ?? bill.PartyName ?? "Unknown",
-            party?.BillingAddress ?? party?.MailingAddress,
+            party?.Address,
             lines);
     }
 
@@ -195,10 +195,10 @@ internal sealed class PrintHandlers(
         var header = await BuildHeaderAsync(journal.LegalEntityId, ct);
         
         var accountIds = journal.Lines.Select(l => l.AccountId).Distinct().ToList();
-        var accounts = await this.accounts.Query(new Specification<Account>(a => accountIds.Contains(a.Id)))
+        var accountDict = await accounts.Query(new Specification<Account>(a => accountIds.Contains(a.Id)))
             .Select(a => new { a.Id, a.Code, a.Name }).ToDictionaryAsync(a => a.Id, ct);
         var lines = journal.Lines.OrderBy(l => l.Seq).Select(l => new JournalLineDto(
-            l.Id, l.Seq, l.AccountId, accounts[l.AccountId].Code, accounts[l.AccountId].Name, l.Debit, l.Credit, l.Description, l.PartyId)).ToList();
+            l.Id, l.Seq, l.AccountId, accountDict[l.AccountId].Code, accountDict[l.AccountId].Name, l.Debit, l.Credit, l.Description, l.PartyId)).ToList();
         
         var journalDto = new JournalDto(
             journal.Id, journal.Number, journal.LegalEntityId, journal.Date, journal.Memo, journal.Reference,
