@@ -251,3 +251,28 @@ export class InspectionsApi extends CrudApiService<InspectionRow, unknown> {
   detail(id: string): Observable<InspectionDetail> { return this.http.get<InspectionDetail>(`${this.url}/${id}`); }
   complete(id: string, raiseWorkOrders: boolean): Observable<InspectionDetail> { return this.http.post<InspectionDetail>(`${this.url}/${id}/complete`, { raiseWorkOrders }); }
 }
+
+// ---- CRM: listings and leads ---------------------------------------------------------------------------------------------
+
+export const LISTING_KINDS: SelectOption[] = [{ value: 'rent', label: 'For rent' }, { value: 'sale', label: 'For sale' }];
+export const LEAD_STAGES = ['new', 'contacted', 'viewing', 'negotiating', 'won', 'lost'];
+export interface ListingDto {
+  id: string; legalEntityId: string; propertyId: string; unitId?: string; kind: string; title: string; price: number; status: string; channels?: string; description?: string; listedOn?: string; closedOn?: string;
+}
+@Injectable({ providedIn: 'root' })
+export class ListingsApi extends CrudApiService<ListingDto, unknown> {
+  protected readonly resource = `${BASE}/listings`;
+  setStatus(id: string, status: string): Observable<ListingDto> { return this.http.post<ListingDto>(`${this.url}/${id}/status`, { status }); }
+}
+export interface LeadDto {
+  id: string; legalEntityId: string; name: string; phone?: string; email?: string; source?: string; interest?: string; agentPartyId?: string; stage: string; lostReason?: string;
+  listingId?: string; unitId?: string; notes?: string; followUpOn?: string; dealId?: string;
+}
+export interface LeadPipeline { stages: { stage: string; count: number }[]; open: number; won: number; lost: number; followUpsDue: number; winRatePercent: number; }
+@Injectable({ providedIn: 'root' })
+export class LeadsApi extends CrudApiService<LeadDto, unknown> {
+  protected readonly resource = `${BASE}/leads`;
+  pipeline(): Observable<LeadPipeline> { return this.http.get<LeadPipeline>(`${this.url}/pipeline`); }
+  moveStage(id: string, stage: string, lostReason?: string | null): Observable<LeadDto> { return this.http.post<LeadDto>(`${this.url}/${id}/stage`, { stage, lostReason }); }
+  convert(id: string, body: { commissionRatePercent?: number | null; dealValue?: number | null }): Observable<LeadDto> { return this.http.post<LeadDto>(`${this.url}/${id}/convert`, body); }
+}

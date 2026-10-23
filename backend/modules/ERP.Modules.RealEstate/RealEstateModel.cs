@@ -147,6 +147,33 @@ internal static class RealEstateModel
             b.Property(x => x.RepairCost).HasPrecision(19, 4);
         });
 
+        mb.Entity<Listing>(b =>
+        {
+            b.ToTable("re_Listings");
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Channels).HasMaxLength(300);
+            b.Property(x => x.Description).HasMaxLength(4000);
+            b.Property(x => x.Price).HasPrecision(19, 4);
+            b.HasOne<Property>().WithMany().HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Unit>().WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status });
+        });
+        mb.Entity<Lead>(b =>
+        {
+            b.ToTable("re_Leads");
+            b.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            b.Property(x => x.Phone).HasMaxLength(40);
+            b.Property(x => x.Email).HasMaxLength(150);
+            b.Property(x => x.Source).HasMaxLength(60);
+            b.Property(x => x.Interest).HasMaxLength(300);
+            b.Property(x => x.LostReason).HasMaxLength(300);
+            b.Property(x => x.Notes).HasMaxLength(4000);
+            b.HasOne<Listing>().WithMany().HasForeignKey(x => x.ListingId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Unit>().WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Stage });
+            b.HasIndex(x => new { x.OrgId, x.FollowUpOn });
+        });
+
         mb.Entity<Acquisition>(b =>
         {
             b.ToTable("re_Acquisitions");
