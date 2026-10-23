@@ -142,7 +142,7 @@ Migrations 21-26 are the "schema M1-M6" set (commit 7a97a05).
 
 # 4. Completed work log
 
-## 4.1 Pull requests #46 to #58 (all squash-merged into main)
+## 4.1 Pull requests #46 to #62 (all squash-merged into main)
 
 | PR | Commit | Summary |
 |---|---|---|
@@ -159,6 +159,9 @@ Migrations 21-26 are the "schema M1-M6" set (commit 7a97a05).
 | [#56](https://github.com/juni111shah/ERP/pull/56) | 4e23e68 | Leases: default end date (start + 1y - 1d), renewal end prefill, draft end-date follow (backend `Lease.DefaultEndDate`; no schema change) |
 | [#57](https://github.com/juni111shah/ERP/pull/57) | 9c93a63 | CoA: leaf accounts open a details drawer (Edit, Add sub-account, Deactivate; RTL) |
 | [#58](https://github.com/juni111shah/ERP/pull/58) | 87d9c2f | Hosting: optional public URL (`Hosting:PublicUrl`) + Cloudflare named-tunnel setup script |
+| [#60](https://github.com/juni111shah/ERP/pull/60) | db19f90 | Hierarchical CoA numbering (Option A) + SQA H-1, M-A, M-B (partial) |
+| [#61](https://github.com/juni111shah/ERP/pull/61) | 8adb557 | Record history tab, AR ageing by business unit/source, expand-search header search |
+| [#62](https://github.com/juni111shah/ERP/pull/62) | 2f20813 | Unified `erp-stat-card`, skeleton loading, locale-aware numbers |
 
 Earlier relevant commits on main: 7fe89dd (#44, manual-only journal reversal), 208acd3 (#45, SQA UI fixes), 7df8788 (void reasons in audit log, credit notes linked to invoices, new permissions, reverse guard, print fallbacks, unapplied allocations), 7a97a05 (schema M1-M6), 29362d9 (dev/staging/production pipeline).
 
@@ -176,31 +179,16 @@ Earlier relevant commits on main: 7fe89dd (#44, manual-only journal reversal), 2
 
 Owner and coordinator: unless stated, the specialist agent prepares a patch or branch and Grok Bot builds, opens the PR and squash-merges.
 
-## 5.1 Hierarchical CoA numbering (Option A) - IN PROGRESS, top priority
+## 5.1 Hierarchical CoA numbering (Option A) - DONE (PR #60)
 
-- **Owner:** Grok Bot (coordinator); acceptance checks by Business analyst.
-- **Branch / worktree:** `feat/coa-hier-numbering` in box worktree `/workspace/erp-wt-num` (based on 9c93a63; work is uncommitted at time of writing).
-- **Files in progress:** `backend/src/ERP.Domain/Finance/AccountCodeMask.cs` (new), `backend/src/ERP.Application/Finance/AccountNumbering.cs` (new), `FinanceFeatures.cs`, `Settings/SettingsFeatures.cs`, `DependencyInjection.cs`, `ERP.Api/Endpoints/MasterDataEndpoints.cs`, tests `ERP.UnitTests/AccountNumberingTests.cs`, `ERP.IntegrationTests/AccountNumberingTests.cs`. UI next: `pages/admin/accounts.page.ts`, `pages/admin/coa/*`, `dictionaries.ts`.
-- **Design (from coa-numbering-findings.md):** per-workspace setting `finance.coa.numbering = { mode: "free" | "hierarchical", segments: [4,2,2], separator: "-" }` stored in the existing Settings key/value table (**no schema change**). Default `free` = today's behaviour. In hierarchical mode a root code is `segments[0]` digits; a child = parent code + separator + next zero-padded segment (1000 -> 1000-01 -> 1000-01-01). Endpoints `GET /api/v1/finance/accounts/next-code?parentId=&type=` -> `{ code }`, `GET/PUT /api/v1/finance/coa-settings`.
-- **Next steps:** finish backend validation and endpoints; run tests; minimal UI (create form and Add sub-account auto-fill Code from next-code, still editable; hint shows mask; mask editor in Finance settings, EN+AR); ng build; PR; squash-merge. Refine later.
-- **Acceptance criteria:**
-  - Free mode: nothing changes for existing workspaces; all 73 existing 4-digit accounts unchanged, no data rows modified.
-  - Hierarchical mode: next-code under 1000 returns 1000-01, then 1000-02; under 1000-01 returns 1000-01-01; segment overflow returns a clear error.
-  - Child code must start with parent code + separator at the correct level and match the mask; child Type equals parent Type.
-  - Adding a first child under an account that already has postings is blocked (it would leave the parent with its own balance).
-  - System accounts' codes stay immutable. Concurrent duplicate suggestion is caught by the unique index (retry once).
-  - `dotnet build` 0 errors, unit + integration tests pass, `ng build` 0 errors, EN and AR strings present.
+- Setting `finance.coa.numbering` (`free` | `hierarchical`, segments, separator) in the existing Settings table; no schema change. Endpoints `GET/PUT /api/v1/finance/coa-numbering` and `GET /api/v1/finance/accounts/next-code?parentId=&type=`. Code in `AccountCodeMask.cs` (Domain) and `AccountNumbering.cs` (Application); UI: auto-filled editable Code on New account / Add sub-account, mask editor in Settings; EN + AR.
+- Validation on create/update (hierarchical mode only): mask, parent prefix at the right level, child type equals parent type, first child under an account with postings is blocked (409), system account codes immutable, unique-index duplicate becomes a 409 with one automatic retry in the form. Free mode unchanged.
+- Tests: `AccountNumberingTests` (unit) and `AccountNumberingIntegrationTests`. **Not done:** UI was not clicked through in a browser; Option B stays in the backlog (5.10); soft-deleted code reuse needs a filtered unique index (schema, needs owner approval).
 
-## 5.2 Stat card unification + page-load fixes - IN REVIEW (branch `feat/unified-stat-cards`)
+## 5.2 Stat card unification + page-load fixes - DONE (PR #62)
 
-- **Update:** shared `erp-stat-card` (`shared/stat-card.component.ts`, `theme/_stat-card.scss`, `.erp-stat-grid`) now backs the Overview (hero, compact and full grids), invoices, cheques, acquisitions, renewals, inventory stock, budget vs actual, report summaries and the shared detail page cards (invoice/bill/receipt/payment/journal/party) plus lease and property detail. Cards show an ng-zorro skeleton until data arrives; numbers use `I18nService.number()` and `<bdi dir="ltr">`; `LOCALE_ID` follows the saved language at startup. Browser check: `tools/smoke-stat-cards.mjs` (use `MOCK=1` when no SQL Server/API is available).
-
-- **Owner:** Grok Bot; Arabic/RTL for the new cards by ui ux Expert.
-- **Branch / worktree:** `feat/unified-stat-cards` in `/workspace/erp` (uncommitted at time of writing). Screenshots folder `/workspace/erp-team/merge/stat-cards/`.
-- **Reference design:** the four "Executive Highlights" cards on the Overview page (`frontend/src/app/pages/dashboard.page.ts`, `.hero-kpis-grid` with `.kpi-card`, `.kpi-stripe`, `.label`, `.value`, `.caption`, palette per index).
-- **Files touched so far:** `pages/admin/invoices.page.ts`, `invoice-detail.page.ts`, `bill-detail.page.ts`, `bank.page.ts`, `cheques.page.ts`, `modules/realestate/acquisition-detail.page.ts`, `acquisitions.page.ts`, `lease-detail.page.ts`, `property-detail.page.ts`, `core/i18n/dictionaries.ts` (and likely a shared stat-card component; unverified).
-- **Next steps:** apply the same card to every stat/metric card (invoice page, rest of Overview, other pages); show ng-zorro skeleton/loader while loading, then real values; charts render once data arrives (no blank charts after navigation); check RTL; build; screenshots; PR; squash-merge.
-- **Acceptance criteria:** every stat card matches the Highlights design; on first navigation to each page, card numbers and chart data appear without a manual refresh; loading state shown instead of zeros/blank; EN/AR + RTL correct; no existing card or metric removed; `ng build` 0 errors.
+- Shared `erp-stat-card` (`shared/stat-card.component.ts`, `theme/_stat-card.scss`, `.erp-stat-grid`) with ng-zorro skeleton loading, EN/AR + RTL, bdi-isolated numbers. Used by the Overview (hero, compact and full grids; stale dashboard responses are cancelled), invoices, cheques, budgets, report summaries, shared detail pages (invoice, bill, receipt, payment, journal, party), acquisitions, lease/property detail, renewals and inventory stock. `LOCALE_ID` follows the saved language; `I18nService.date()` added.
+- Verified with `tools/smoke-stat-cards.mjs` (12/12) against a **mocked API** (the real API needs SQL Server, which the sandbox lacks); please check against `ERP_Dev` on the PC. Pages with no stat cards of their own (billing results, payroll detail, HR pages) were not converted.
 
 ## 5.3 DB schema migrations (pm-schema) - PENDING owner approval
 
@@ -210,14 +198,14 @@ Owner and coordinator: unless stated, the specialist agent prepares a patch or b
 - **Next steps:** owner reviews the 10 BA recommendations in the proposal; DB Expert converts approved steps into EF migrations in `ERP.Infrastructure/Persistence/Migrations` + matching `database/scripts`; build/test; PR; apply to backed-up `ERP_Dev`.
 - **Acceptance criteria:** migrations are additive, existing rows stay valid, backfill report shows 0/0 mismatches, all tests pass, denylist test passes (core has no industry words), owner sign-off recorded.
 
-## 5.4 Business analyst P1 stories - PENDING
+## 5.4 Business analyst P1 stories - PARTLY DONE (record history + ageing: PR #61)
 
 Source: `/workspace/erp-team/ba/pm-workflows-gap.md` (section 14 "Top P1 stories"). Mapping of short names to story IDs below is best-effort **(unverified)**.
 
 | Story | Owner | BA ref | Acceptance (summary) |
 |---|---|---|---|
-| Record history | Full Stack Developer Expert | RE-PM-42 | History tab on any record shows who, when, action, old -> new per field, plus business events; gated by read + `audit.read` |
-| Ageing by dimension/source | Full Stack Developer Expert | RE-PM-30 | AR ageing filterable by business unit, party group and SourceType; module dimensions via SourceType/SourceId lookup, no property columns in core |
+| Record history (**DONE**, PR #61: `GET /api/v1/audit/record`, `erp-record-history`, History tab/card on detail pages; business events not included) | Full Stack Developer Expert | RE-PM-42 | History tab on any record shows who, when, action, old -> new per field, plus business events; gated by read + `audit.read` |
+| Ageing by dimension/source (**DONE** for business unit and SourceType, PR #61; party group skipped: no PartyGroup concept until 5.3) | Full Stack Developer Expert | RE-PM-30 | AR ageing filterable by business unit, party group and SourceType; module dimensions via SourceType/SourceId lookup, no property columns in core |
 | Cheque bounce follow-up + reopen | Advanced UI ux expert | RE-PM-08 (and RE-PM-09 replacement cheque) | Bounced cheque reopens the receivable, triggers generic follow-up; replacement cheque can be re-linked |
 | Owner cost basis | Advanced UI ux expert | RE-PM-20/21/22 | Owner statement uses bill-linked actual cost and cost responsibility (ChargeableTo) correctly |
 
@@ -244,11 +232,11 @@ Next steps: each owner delivers a patch (`git diff --binary origin/main..HEAD`) 
 - **Remaining:** fast-forward the `dev` branch to main; register the self-hosted Windows runner (label `erp-deploy`, needs a runner token from the owner); create GitHub environments (dev/staging/production) and the rulesets proposed in `docs/devops/manual-steps.md`. Pipeline described in `docs/devops/pipeline.md`; workflows `.github/workflows/ci.yml`, `cicd.yml`.
 - **Acceptance:** push to dev/staging deploys automatically; production deploys only commits already on staging; promotions are ff-only, never forced.
 
-## 5.8 SQA review - PENDING
+## 5.8 SQA review - H-1 and M-A fixed, M-B partly (PR #60)
 
-- **Owner:** SQA (review only; writing tests is on hold).
-- **Scope:** review of `c0f8135` failures and the read-only DB diagnostics (`/workspace/erp-team/db/finance-check/diagnostics.sql`), plus review of PRs #51-#58. Prior reports: `/workspace/erp-team/sqa/full-check/report.md`, `sqa/finance-check/checklist.md`.
-- **Acceptance:** written report listing pass/fail per item with file:line evidence; no code or data changes.
+- **Fixed:** H-1 (CoA tree cache now keyed by workspace + user + legal entity + balance access and reset on session change), M-A (roll-up ignores children of a different account type).
+- **M-B partly:** the balance path no longer reads every parent link; `GetAccountCategories` still sums journal lines for all accounts.
+- **Still open:** Lows L-A..L-H (report not available to the agent), the written SQA review per item, SQA write tests (on hold).
 
 ## 5.9 On hold
 
@@ -259,7 +247,7 @@ Next steps: each owner delivers a patch (`git diff --binary origin/main..HEAD`) 
 ## 5.10 Backlog
 
 - Hierarchical numbering **Option B**: real header accounts + renumbering existing codes. Changes existing data (needs owner approval and backup), breaks ~54 hard-coded codes in tests, `seed-demo.mjs`, `qa-smoke.mjs`; +2-3 days.
-- Convert the header global search (`layout/global-search.component.ts`) to the expand-search pattern (update `tools/qa-smoke.mjs`, which types into it).
+- ~~Convert the header global search to the expand-search pattern~~ done in PR #61 (`data-testid="global-search"` stays on the real input; new `global-search-toggle`; `tools/qa-smoke.mjs` updated).
 - Product Mind roadmap phases 0-3 (`product/world-class-report.md` section 6).
 
 # 6. Known issues and gotchas
