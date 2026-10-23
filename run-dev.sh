@@ -16,6 +16,14 @@ export ASPNETCORE_URLS=http://localhost:5080
 API=$!
 trap 'kill $API 2>/dev/null' EXIT
 
+# Fill the demo workspace with sample data in the background once the API is up (skips if already seeded; SEED_DEMO=0 turns it off).
+if [ "${SEED_DEMO:-1}" = "1" ]; then
+  (
+    for _ in $(seq 1 90); do curl -s -o /dev/null http://localhost:5080/api/v1/auth/login -X POST -H 'content-type: application/json' -d '{}' && break; sleep 2; done
+    node tools/seed-demo.mjs http://localhost:5080/api/v1 || echo "Demo seeding failed (the app still works)."
+  ) &
+fi
+
 cd frontend
 [ -d node_modules ] || npm install
 npx ng serve --proxy-config proxy.conf.json --port 4200
