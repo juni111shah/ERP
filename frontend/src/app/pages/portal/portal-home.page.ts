@@ -89,6 +89,7 @@ export class PortalHomePage implements OnInit {
 
   ngOnInit(): void {
     if (!this.portal.signedIn()) { void this.router.navigateByUrl('/portal/login'); return; }
+    if (this.portal.kind() === 'vendor') { void this.router.navigateByUrl('/portal/vendor'); return; }
     const guard = <T>(fallback: T): OperatorFunction<T, T> => catchError((e: { status?: number }) => { if (e.status === 401) this.signOut(); return of(fallback); });
     this.portal.leases().pipe(guard([] as PortalLease[])).subscribe((v) => { this.leases.set(v); if (v.length === 1) this.form.patchValue({ leaseId: v[0].id }); });
     this.portal.invoices().pipe(guard([] as PortalInvoice[])).subscribe((v) => this.invoices.set(v));
