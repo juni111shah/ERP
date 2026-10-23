@@ -40,5 +40,8 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Two-factor sign-in (TOTP) | Done | Authenticator-app setup, confirmation, 8 one-time recovery codes, enforced at login, turn-off needs password and code. Account security screen. |
 | Data import wizards | Done | Generic CSV import (`IImportDefinition`): parties, items, properties, units. Template download, dry run in a rolled-back transaction, row-level error report. Modules add their own definitions. |
 | Inventory | Done | Warehouses, receipts (post Dr Inventory), issues at moving-average cost (Dr COGS), adjustments, same-entity transfers, reorder levels + low-stock alert, stock on hand/valuation, movement history, dashboard card. |
+| CRM: listings and leads | Done | Listings (draft/published/closed), leads pipeline with stages and lost reason, convert to brokerage deal, follow-up reminders, lead search. |
+| Vendor portal | Done | Vendor email-code sign-in, own bills, payments, statement and assigned work orders with progress updates. |
+| Arabic and RTL | Done | Language switcher, `dir`/`lang`, Arabic dictionary for shell, login, dashboard, portals and account screens; other screens fall back to English. |
 
 Planned order: Finance ledger → invoices and billing run → receipts and AR → PDC register → dashboard KPIs → payables → reports → HR → acquisitions.

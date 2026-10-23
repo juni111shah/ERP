@@ -3911,6 +3911,104 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.ToTable("re_InspectionItems", (string)null);
                 });
 
+            modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Lead", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AgentPartyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DealId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateOnly?>("FollowUpOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Interest")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ListingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LostReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("Stage")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("UnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ListingId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("OrgId", "FollowUpOn");
+
+                    b.HasIndex("OrgId", "LegalEntityId", "Stage");
+
+                    b.ToTable("re_Leads", (string)null);
+                });
+
             modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Lease", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4061,6 +4159,90 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_re_Leases_PaymentFrequency", "[PaymentFrequency] IN (1, 2, 4, 6, 12)");
                         });
+                });
+
+            modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Listing", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Channels")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateOnly?>("ClosedOn")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("ListedOn")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<Guid>("PropertyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("UnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PropertyId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("OrgId", "LegalEntityId", "Status");
+
+                    b.ToTable("re_Listings", (string)null);
                 });
 
             modelBuilder.Entity("ERP.Modules.RealEstate.Domain.PmSchedule", b =>
@@ -4963,6 +5145,19 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Lead", b =>
+                {
+                    b.HasOne("ERP.Modules.RealEstate.Domain.Listing", null)
+                        .WithMany()
+                        .HasForeignKey("ListingId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ERP.Modules.RealEstate.Domain.Unit", null)
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Lease", b =>
                 {
                     b.HasOne("ERP.Modules.RealEstate.Domain.Property", null)
@@ -4981,6 +5176,20 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UnitId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Listing", b =>
+                {
+                    b.HasOne("ERP.Modules.RealEstate.Domain.Property", null)
+                        .WithMany()
+                        .HasForeignKey("PropertyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Modules.RealEstate.Domain.Unit", null)
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("ERP.Modules.RealEstate.Domain.PmSchedule", b =>
