@@ -3103,6 +3103,145 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.ToTable("hr_PayrollRuns", (string)null);
                 });
 
+            modelBuilder.Entity("ERP.Modules.Inventory.Domain.StockMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("JournalEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Memo")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid?>("TransferId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("OrgId", "WarehouseId", "ItemId", "Date");
+
+                    b.ToTable("inv_StockMovements", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Modules.Inventory.Domain.StockPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("ReorderLevel")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<decimal>("ReorderQuantity")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("OrgId", "ItemId")
+                        .IsUnique();
+
+                    b.ToTable("inv_StockPolicies", (string)null);
+                });
+
             modelBuilder.Entity("ERP.Modules.Inventory.Warehouse", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4720,6 +4859,30 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .WithMany("Lines")
                         .HasForeignKey("PayrollRunId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Modules.Inventory.Domain.StockMovement", b =>
+                {
+                    b.HasOne("ERP.Domain.Catalog.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Modules.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Modules.Inventory.Domain.StockPolicy", b =>
+                {
+                    b.HasOne("ERP.Domain.Catalog.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
