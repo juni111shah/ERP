@@ -31,6 +31,7 @@ public static class CoreMenu
         new("core.modules", "Modules", "/admin/modules", "appstore-add", CorePermissions.SettingsRead, 60, "admin", "Administration", 900),
         new("core.approvalrules", "Approval rules", "/admin/approval-rules", "safety", CorePermissions.SettingsRead, 75, "admin", "Administration", 900),
         new("core.settings", "Settings", "/admin/settings", "setting", CorePermissions.SettingsRead, 70, "admin", "Administration", 900),
+        new("core.import", "Data import", "/admin/import", "download", CorePermissions.PartiesWrite, 81, "admin", "Administration", 900),
         new("core.documents", "Document vault", "/admin/documents", "book", CorePermissions.AttachmentsRead, 82, "admin", "Administration", 900),
         new("core.messages", "Message log", "/admin/messages", "mail", CorePermissions.SettingsRead, 85, "admin", "Administration", 900),
         new("core.audit", "Audit log", "/admin/audit", "audit", CorePermissions.AuditRead, 80, "admin", "Administration", 900),
