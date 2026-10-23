@@ -257,15 +257,28 @@ internal sealed class AccountTreeHandlers(
     private async Task<PagedResult<AccountNodeDto>> WithBalancesAsync(PagedResult<AccountNodeDto> page, bool? requested, Guid? entityId, CancellationToken ct)
     {
         if (!WantsBalances(requested) || page.Items.Count == 0) return page;
-        var children = (await accounts.Query().Where(a => a.ParentId != null).Select(a => new { a.Id, Parent = a.ParentId!.Value }).ToListAsync(ct))
-            .ToLookup(a => a.Parent, a => a.Id);
-        var subtrees = page.Items.ToDictionary(i => i.Id, i =>
+        // Walk down level by level, asking only for the children of the accounts found so far (never the whole chart).
+        // A child of another account type does not roll up into its parent: it is a chain of its own (see IsPrimary).
+        var subtrees = page.Items.ToDictionary(i => i.Id, i => new HashSet<Guid> { i.Id });
+        var typeOf = page.Items.ToDictionary(i => i.Id, i => i.Type);
+        var owner = page.Items.ToDictionary(i => i.Id, i => i.Id); // account id -> the page item whose subtree it joined
+        var frontier = page.Items.Select(i => i.Id).ToList();
+        var seen = new HashSet<Guid>(frontier);
+        while (frontier.Count > 0)
         {
-            var set = new HashSet<Guid> { i.Id };
-            var stack = new Stack<Guid>(); stack.Push(i.Id);
-            while (stack.Count > 0) foreach (var c in children[stack.Pop()]) if (set.Add(c)) stack.Push(c);
-            return set;
-        });
+            var level = frontier;
+            var children = await accounts.Query(new Specification<Account>(a => a.ParentId != null && level.Contains(a.ParentId.Value)))
+                .Select(a => new { a.Id, Parent = a.ParentId!.Value, a.Type }).ToListAsync(ct);
+            frontier = [];
+            foreach (var c in children)
+            {
+                var root = owner[c.Parent];
+                if (c.Type != typeOf[root] || !seen.Add(c.Id)) continue;
+                owner[c.Id] = root;
+                subtrees[root].Add(c.Id);
+                frontier.Add(c.Id);
+            }
+        }
         var sums = await MovementsAsync(subtrees.Values.SelectMany(s => s).Distinct().ToList(), entityId, ct);
         return page.Map(i => i with { Balance = Natural(i.Type, subtrees[i.Id].Sum(id => sums.GetValueOrDefault(id))) });
     }

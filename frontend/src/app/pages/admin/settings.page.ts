@@ -8,16 +8,18 @@ import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { AdminApi, SettingView } from '../../core/api/admin.api';
 import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { CoaNumberingEditorComponent } from './coa/coa-numbering-editor.component';
 
 /** Workspace settings grouped by module. Every setting is declared by core or a module; this page only renders them by type. */
 @Component({
   selector: 'erp-settings',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, HasPermissionDirective, NzButtonModule, NzInputModule, NzInputNumberModule, NzSwitchModule],
+  imports: [FormsModule, CoaNumberingEditorComponent, HasPermissionDirective, NzButtonModule, NzInputModule, NzInputNumberModule, NzSwitchModule],
   styles: [`.group { max-width: 640px; margin-bottom: 24px } .row { display:flex; gap:16px; align-items:center; padding:8px 0; border-bottom:1px solid var(--erp-color-border, #eee) } .label { flex:1 } .label small { display:block; color: var(--erp-color-text-secondary) }`],
   template: `
     <h1 class="erp-page-title">Settings</h1>
+    <erp-coa-numbering-editor />
     @for (g of groups(); track g.module) {
       <section class="group">
         <h3>{{ g.module === 'core' ? 'General' : g.module }}</h3>
@@ -44,7 +46,7 @@ export class SettingsPage {
   private readonly original = signal<Record<string, unknown>>({});
   readonly groups = computed(() => {
     const byModule = new Map<string, SettingView[]>();
-    for (const s of this.settings()) byModule.set(s.module, [...(byModule.get(s.module) ?? []), s]);
+    for (const s of this.settings().filter((x) => x.type !== 'json')) byModule.set(s.module, [...(byModule.get(s.module) ?? []), s]);
     return [...byModule].map(([module, items]) => ({ module, items }));
   });
   readonly dirty = computed(() => Object.keys(this.draft()).some((k) => this.draft()[k] !== this.original()[k]));

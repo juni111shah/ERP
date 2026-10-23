@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Observable, of, switchMap, tap } from 'rxjs';
 import { AccountCategoryDto, AccountDto, AccountNodeDto, AccountSubcategoryDto, AccountsApi } from '../../../core/api/admin.api';
 import { ListQuery, PagedResult } from '../../../core/api/api.models';
@@ -92,8 +92,25 @@ export class AccountTreeStore {
   });
 
   /** Opens the screen: keeps the session's open path and cache, unless the legal entity (or balance access) changed. */
+  /**
+   * Everything cached here belongs to one user in one workspace. The key therefore includes both ids, so a sign-in as someone else
+   * (or a workspace switch) never shows the previous workspace's accounts.
+   */
+  private scopeKey(): string {
+    const me = this.session.me();
+    return `${me?.workspace.id ?? '-'}|${me?.user.id ?? '-'}|${this.session.currentEntityId() ?? '*'}|${this.withBalances()}`;
+  }
+
+  constructor() {
+    // Sign-out, sign-in as another user and workspace switches change `me`: drop the cache and the open path at once.
+    effect(() => {
+      const key = this.scopeKey();
+      if (this.scope !== null && key !== this.scope) this.invalidate();
+    });
+  }
+
   init(): void {
-    const scope = `${this.session.currentEntityId() ?? '*'}|${this.withBalances()}`;
+    const scope = this.scopeKey();
     if (scope !== this.scope) {
       this.scope = scope;
       this.cache.clear();
