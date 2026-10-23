@@ -25,7 +25,7 @@ const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search reviewer" emptyText="No reviews yet" (rowClick)="open($event.id)">
       <button toolbar *erpHasPermission="'hr.reviews.manage'" nz-button nzType="primary" (click)="create()" data-testid="review-new"><span nz-icon nzType="plus"></span>New review</button>
     </erp-paged-table>
-    <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Review: ' + employeeName() : 'New review'" nzWidth="680" (nzOnClose)="drawer.set(false)">
+    <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Review: ' + employeeName() : 'New review'" nzWidth="680" (nzOnClose)="drawer.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <nz-select nzShowSearch nzPlaceHolder="Employee" [(ngModel)]="employeeId" [nzDisabled]="!!id()" data-testid="review-employee">@for (e of employees(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.number + ' · ' + e.fullName"></nz-option> }</nz-select>
@@ -48,7 +48,9 @@ const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication
         <h4 style="margin-top:16px">Comments</h4>
         <textarea nz-input rows="3" [(ngModel)]="comments" [disabled]="locked()"></textarea>
       </ng-container>
-      <div *nzDrawerFooter style="display:flex;gap:8px;align-items:center">
+    </nz-drawer>
+    <ng-template #footer>
+      <div style="display:flex;gap:8px;align-items:center">
         <span style="flex:1">{{ statusLabel() }}</span>
         @if (!locked()) {
           <button *erpHasPermission="'hr.reviews.manage'" nz-button (click)="save()" [nzLoading]="busy()" data-testid="review-save">Save draft</button>
@@ -56,7 +58,7 @@ const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication
         }
         @if (status() === 'submitted') { <button *erpHasPermission="'hr.reviews.manage'" nz-button nzType="primary" (click)="acknowledge()" [nzLoading]="busy()" data-testid="review-acknowledge">Employee acknowledged</button> }
       </div>
-    </nz-drawer>`,
+    </ng-template>`,
 })
 export class ReviewsPage {
   private readonly api = inject(ReviewsApi);
