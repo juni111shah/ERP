@@ -24,12 +24,21 @@ namespace ERP.Infrastructure.Auth;
 /// <summary>Password reset delivery (email in production; logged in development; captured in tests).</summary>
 public interface IPasswordResetSender { Task SendAsync(string email, string token, CancellationToken ct = default); }
 
-public sealed class LoggingPasswordResetSender(ILogger<LoggingPasswordResetSender> log) : IPasswordResetSender
+public sealed class LoggingPasswordResetSender(ILogger<LoggingPasswordResetSender> log, IEmailSender email, IOptions<EmailOptions> options) : IPasswordResetSender
 {
-    public Task SendAsync(string email, string token, CancellationToken ct = default)
+    public async Task SendAsync(string to, string token, CancellationToken ct = default)
     {
-        log.LogInformation("Password reset requested for {Email}. Dev-only link: /auth/reset-password?token={Token}", email, token);
-        return Task.CompletedTask;
+        var link = $"{options.Value.AppBaseUrl.TrimEnd('/')}/auth/reset-password?token={Uri.EscapeDataString(token)}";
+        if (email.IsEnabled)
+        {
+            try
+            {
+                await email.SendAsync(to, "Reset your ERP password", $"We received a request to reset your password.\n\nOpen this link to choose a new one (valid for a short time):\n{link}\n\nIf you did not ask for this, ignore this email.", null, ct);
+            }
+            catch (Exception e) when (e is not OperationCanceledException) { log.LogError(e, "Could not email the password reset link to {Email}", to); } // never reveal failures to the caller
+            return;
+        }
+        log.LogInformation("Password reset requested for {Email}. Dev-only link: {Link}", to, link);
     }
 }
 

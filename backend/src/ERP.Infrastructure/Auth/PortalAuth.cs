@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -21,7 +22,7 @@ namespace ERP.Infrastructure.Auth;
 /// Tenant portal sign-in: a customer enters their email, receives a 6-digit code (10 minutes, 5 attempts) and gets a one-hour token that
 /// carries "portal_party" and no staff permissions. Unknown emails and workspaces are indistinguishable from known ones.
 /// </summary>
-public sealed class PortalAuth(AppDbContext db, IOrgContext org, IEnumerable<IMessageChannel> channels, IClock clock, IOptions<AuthOptions> options) : IPortalAuth
+public sealed class PortalAuth(AppDbContext db, IOrgContext org, IEnumerable<IMessageChannel> channels, IClock clock, IOptions<AuthOptions> options, Microsoft.Extensions.Logging.ILogger<PortalAuth> logger) : IPortalAuth
 {
     public const int CodeMinutes = 10, MaxAttempts = 5, TokenMinutes = 60;
     private readonly AuthOptions _o = options.Value;
@@ -38,7 +39,8 @@ public sealed class PortalAuth(AppDbContext db, IOrgContext org, IEnumerable<IMe
         var subject = "Your sign-in code";
         db.MessageLogs.Add(new MessageLog { OrgId = orgId, Channel = "email", Recipient = email, Subject = subject, Body = "A sign-in code was sent.", DedupeKey = $"portal-otp:{Guid.NewGuid()}", SentAt = now, Status = MessageStatus.Sent });
         await db.SaveChangesAsync(ct);
-        await channels.Single(c => c.Name == "email").SendAsync(new(email, subject, $"Your sign-in code is {code}. It is valid for {CodeMinutes} minutes.", null, "info"), ct);
+        try { await channels.Single(c => c.Name == "email").SendAsync(new(email, subject, $"Your sign-in code is {code}. It is valid for {CodeMinutes} minutes.", null, "info"), ct); }
+        catch (Exception e) when (e is not OperationCanceledException) { logger.LogError(e, "Could not email the portal sign-in code"); } // the caller must not learn whether the address exists
     }
 
     public async Task<PortalSession> VerifyCodeAsync(string workspaceCode, string email, string code, string? kind, CancellationToken ct)
