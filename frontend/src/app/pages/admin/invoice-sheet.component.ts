@@ -6,6 +6,8 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { Observable, catchError, map, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { displayNote } from '../../core/i18n/translate-now';
 
 /** The invoice fields the sheet renders (a subset of InvoiceDto, so the list drawer and the detail page can share it). */
 export interface InvoiceSheetData {
@@ -163,7 +165,7 @@ export class InvoiceExtrasService {
           <div class="due"><span>{{ inv.isCreditNote ? 'Unapplied' : 'Balance due' }}</span><span>{{ money(inv.total - inv.paid) }}</span></div>
         </div>
 
-        @if (inv.notes) { <div class="notes"><h5 style="margin:0 0 4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b89b5e">Notes</h5><div class="muted">{{ inv.notes }}</div></div> }
+        @if (inv.notes) { <div class="notes"><h5 style="margin:0 0 4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b89b5e">Notes</h5><div class="muted">{{ noteText(inv.notes) }}</div></div> }
       </div>
     }
   `,
@@ -176,6 +178,9 @@ export class InvoiceSheetComponent {
   readonly compact = input(false);
   readonly partyLink = input(true);
   readonly truthy = (x: unknown) => !!x;
+  private readonly i18n = inject(I18nService);
+  /** Notes as typed; the default credit-note note (stored in English) is shown in the active language. */
+  noteText(note: string | null | undefined): string { return displayNote(note, this.i18n.lang()); }
 
   readonly country = computed(() => this.extras()?.header.countryCode ?? null);
   readonly taxName = computed(() => taxNameFor(this.country()));

@@ -148,7 +148,7 @@ export class BankPage {
     for (const raw of this.importText.split('\n').map((l) => l.trim()).filter(Boolean)) {
       const [date, description, reference, amount] = raw.split(',').map((p) => p.trim());
       const value = Number(amount);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '') || !description || !Number.isFinite(value) || value === 0) { this.message.error(`Cannot read this line: ${raw}`); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '') || !description || !Number.isFinite(value) || value === 0) { this.message.error(`${this.i18n.t('ui.bank.cannotReadLine', 'Cannot read this line:')} ${raw}`); return; }
       lines.push({ date, description, reference: reference || null, amount: value });
     }
     if (lines.length === 0) return;

@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { CanMatchFn, Router } from '@angular/router';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { SessionStore } from '../session/session.store';
+import { I18nService } from '../i18n/i18n.service';
 
 /** canMatch guard: route only matches when the user holds the permission (<module>.<resource>.<action>). */
 export function permissionGuard(permission: string): CanMatchFn {
@@ -15,7 +16,11 @@ export function permissionGuard(permission: string): CanMatchFn {
 export function moduleEnabledGuard(moduleKey: string): CanMatchFn {
   return () => {
     if (inject(SessionStore).isModuleEnabled(moduleKey)) return true;
-    inject(NzMessageService).warning(`The ${moduleKey} module is not enabled for this workspace.`);
+    const i18n = inject(I18nService);
+    const moduleName = i18n.lang() === 'ar' ? i18n.t('menu.group.' + moduleKey, moduleKey) : moduleKey;
+    inject(NzMessageService).warning(
+      i18n.t('ui.guard.moduleDisabled', 'The {module} module is not enabled for this workspace.').replace('{module}', moduleName),
+    );
     return inject(Router).createUrlTree(['/']);
   };
 }

@@ -898,6 +898,9 @@ const PAIRS: [string, string][] = [
   // table toolbars and create buttons
   ['Filter by status', 'تصفية حسب الحالة'], ['Filter by type', 'تصفية حسب النوع'], ['Filter by warehouse', 'تصفية حسب المستودع'],
   ['Open search', 'فتح البحث'], ['Close search', 'إغلاق البحث'],
+  ["Follows the bill date + the vendor's payment terms until you change it. Leave empty to use the terms.", 'يتبع تاريخ الفاتورة مضافاً إليه شروط الدفع للمورّد ما لم تغيّره. اتركه فارغاً لاستخدام الشروط.'],
+  ["Follows the invoice date + the customer's payment terms until you change it. Leave empty to use the terms.", 'يتبع تاريخ الفاتورة مضافاً إليه شروط الدفع للعميل ما لم تغيّره. اتركه فارغاً لاستخدام الشروط.'],
+  ["Restricted: you don't have permission to view or edit this field", 'مقيّد: ليست لديك صلاحية عرض هذا الحقل أو تعديله'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);
