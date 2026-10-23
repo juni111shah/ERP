@@ -42,6 +42,20 @@ const addMonths = (n) => { const d = new Date(today); d.setMonth(d.getMonth() + 
 await login();
 console.log('Seeding demo data into workspace demo-re ...');
 
+// ---- Property owners (landlords): paid out, so they carry the Vendor role. Own existence check, so a re-run on an already
+// seeded workspace adds only the owners that are missing and touches nothing else.
+const ownerSeeds = [
+  { name: 'Rashid Al Falasi', kind: 'Individual', email: 'owner1@example.com', phone: '+971500000201' },
+  { name: 'Marina Holdings LLC', kind: 'Company', email: 'owner2@example.com', phone: '+971500000202' },
+];
+await step('owners', async () => {
+  for (const o of ownerSeeds) {
+    const found = await call('GET', `/parties?search=${encodeURIComponent(o.name)}&pageSize=5`);
+    if ((found?.items ?? found ?? []).some((p) => p.name === o.name)) continue;
+    await call('POST', '/parties', { ...o, roles: 'Vendor', paymentTermsDays: 30 });
+  }
+});
+
 const existing = await call('GET', '/parties?search=Al%20Noor&pageSize=5');
 if ((existing?.length ?? existing?.items?.length ?? 0) > 0) { console.log('Already seeded - nothing to do.'); process.exit(0); }
 

@@ -12,6 +12,18 @@ export const EN: Dictionary = {
   'pager.label': 'Pagination', 'pager.showing': 'Showing', 'pager.of': 'of', 'pager.noItems': 'No items', 'pager.first': 'First page', 'pager.prev': 'Previous page',
   'pager.next': 'Next page', 'pager.last': 'Last page', 'pager.prev5': 'Previous 5 pages', 'pager.next5': 'Next 5 pages', 'pager.page': 'Page', 'pager.goTo': 'Go to',
   'pager.goToPage': 'Go to page', 'pager.rowsPerPage': 'Rows per page', 'pager.perPage': '/ page',
+  // party statement of account (shared/party-statement.component.ts) and party detail tabs
+  'party.statement': 'Statement', 'party.customerStatement': 'Customer statement', 'party.vendorStatement': 'Vendor statement', 'party.documents': 'Documents',
+  'statement.refresh': 'Refresh', 'statement.print': 'Print', 'statement.date': 'Date', 'statement.type': 'Type', 'statement.number': 'Number', 'statement.reference': 'Reference',
+  'statement.debit': 'Debit', 'statement.credit': 'Credit', 'statement.balance': 'Balance', 'statement.opening': 'Opening balance', 'statement.closing': 'Closing balance',
+  'statement.empty': 'No transactions in this period', 'statement.failed': 'Could not load the statement', 'statement.popupBlocked': 'Allow pop-ups for this site to print the statement',
+  'statement.customerTitle': 'Customer statement', 'statement.vendorTitle': 'Vendor statement',
+  'statement.hintCustomer': 'Positive balance: the customer owes you. Draft and voided documents are not included.',
+  'statement.hintVendor': 'Positive balance: you owe the vendor. Draft and voided documents are not included.',
+  'statement.kind.invoice': 'Invoice', 'statement.kind.creditNote': 'Credit note', 'statement.kind.receipt': 'Receipt', 'statement.kind.bill': 'Bill', 'statement.kind.payment': 'Payment',
+  // legal entity form
+  'entity.trn': 'Tax registration no. (TRN)', 'entity.trnHint': 'Printed on tax invoices. Entering a number switches "Tax registered" on.', 'entity.taxRegistered': 'Tax registered',
+  'entity.tradeLicence': 'Trade licence / company registration no.', 'entity.tradeLicenceHint': 'The licence or commercial registration number issued by the registering authority.',
 };
 
 export const AR: Dictionary = {
