@@ -76,6 +76,8 @@ function Get-ErpEnv {
         Cloudflared       = $s.Cloudflared
         KeepReleases      = [int]$s.KeepReleases
         SecretTarget      = "ERP:${Environment}:SigningKey"
+        # Set PublicUrl in environments.psd1 once a named tunnel serves this environment; the quick tunnel is then retired.
+        PublicUrl         = $(if ($e.ContainsKey('PublicUrl') -and $e['PublicUrl']) { [string]$e['PublicUrl'] } else { $null })
     }
 }
 
@@ -231,6 +233,11 @@ function Stop-ErpTunnel([pscustomobject]$Cfg) {
 
 function Start-ErpTunnel {
     param([pscustomobject]$Cfg, [switch]$Restart)
+    if ($Cfg.PublicUrl) {
+        # A named tunnel (run separately as a cloudflared service) serves this environment: no quick tunnel.
+        if (Get-ErpTunnelProcess $Cfg) { Stop-ErpTunnel $Cfg }
+        return $Cfg.PublicUrl
+    }
     if ($Restart) { Stop-ErpTunnel $Cfg }
     $existing = Get-ErpTunnelProcess $Cfg
     if ($existing -and (Test-Path $Cfg.TunnelUrlFile)) { return (Get-Content $Cfg.TunnelUrlFile -Raw).Trim() }

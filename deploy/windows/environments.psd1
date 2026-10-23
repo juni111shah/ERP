@@ -10,12 +10,14 @@
             Database           = 'ERP_Staging'
             AspNetEnvironment  = 'Staging'
             BackupBeforeDeploy = $false
+            # PublicUrl        = 'https://<hostname>'  # set when a named tunnel serves it (docs/devops/cloudflare-named-tunnels.md)
         }
         production = @{
             Port               = 5280
             Database           = 'ERP_Prod'
             AspNetEnvironment  = 'Production'
             BackupBeforeDeploy = $true
+            # PublicUrl        = 'https://<hostname>'  # set when a named tunnel serves it (docs/devops/cloudflare-named-tunnels.md)
         }
     }
 }

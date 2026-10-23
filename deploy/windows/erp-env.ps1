@@ -27,7 +27,7 @@ foreach ($n in $names) {
             $rel = Get-ErpCurrentRelease $cfg; if ($rel) { $rel = Split-Path -Leaf $rel }
             [pscustomobject]@{
                 Environment = $n; Local = $cfg.LocalUrl; ApiPid = $apiPid; Release = $rel; Database = $cfg.Database
-                TunnelPid = $(if ($tun) { $tun.ProcessId } else { $null }); PublicUrl = $(if ($tun) { $url } else { $null })
+                TunnelPid = $(if ($tun) { $tun.ProcessId } else { $null }); PublicUrl = $(if ($cfg.PublicUrl) { $cfg.PublicUrl } elseif ($tun) { $url } else { $null })
             }
         }
         'start' {
@@ -46,7 +46,7 @@ foreach ($n in $names) {
             if ($AllowSelfSignup) { Write-Warning "$n is running WITH self-signup enabled. Create the first workspace, then run: .\erp-env.ps1 restart -Environment $n" }
             Write-Host "$n public: $(Start-ErpTunnel $cfg)"
         }
-        'url' { if ((Get-ErpTunnelProcess $cfg) -and (Test-Path $cfg.TunnelUrlFile)) { "${n}: " + (Get-Content $cfg.TunnelUrlFile -Raw).Trim() } else { "${n}: no tunnel running" } }
+        'url' { if ($cfg.PublicUrl) { "${n}: $($cfg.PublicUrl) (named tunnel)" } elseif ((Get-ErpTunnelProcess $cfg) -and (Test-Path $cfg.TunnelUrlFile)) { "${n}: " + (Get-Content $cfg.TunnelUrlFile -Raw).Trim() } else { "${n}: no tunnel running" } }
         'tunnel-restart' { Write-Host "$n public: $(Start-ErpTunnel $cfg -Restart)" }
         'tunnel-stop' { Stop-ErpTunnel $cfg; Write-Host "$n tunnel stopped" }
     }

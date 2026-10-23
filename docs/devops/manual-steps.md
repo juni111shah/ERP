@@ -42,13 +42,13 @@ without any protection. Proposed settings:
   - Required reviewers: you. Prevent self-review if there is a second maintainer.
   - Deployment branches: *Selected branches* → `production` only.
 - **Environment `staging`**: Deployment branches → `staging` only. No reviewer needed.
-- **Branch rulesets** (Settings → Rules → Rulesets) for `production` and `staging`:
-  - require a pull request before merging (`staging → production`, `dev → staging`)
-  - require status checks: `CI / backend`, `CI / frontend`
-  - block force pushes and deletions
-  - for `production`, also restrict who can push (you only)
-- `main`: the same no-force-push and no-deletion rule, plus required CI checks. Other agents merge into `main`, so require PRs
-  only if that suits your flow.
+- **Branch rulesets** (Settings → Rules → Rulesets):
+  - `main` (in place): PR required, no force push, no deletion. Add required status checks `Backend build and test`
+    and `Frontend build` (source GitHub Actions) once they have run under these names.
+  - `dev`, `staging`, `production`: block force pushes, restrict deletions, require the same two checks. Restrict who
+    can update them to you (and the runner never pushes). If you also require a PR, add yourself to the bypass list.
+    Promotions are ff-only pushes, and GitHub's merge button would create a commit that isn't on `staging`, which the
+    production gate rejects. See [pipeline.md](pipeline.md#contributor-flow).
 
 The workflow also refuses to deploy to production unless the commit is already on `staging`, so promotion order holds
 even before you add these rules.
@@ -84,5 +84,5 @@ account and a domain on Cloudflare:
 ```
 
 Then add a `config.yml` with ingress rules `staging.<domain> → http://localhost:5180` and `erp.<domain> → http://localhost:5280`.
-Run it with `cloudflared tunnel run erp`, or install it as a service with `cloudflared service install` (admin). After that,
+Full plan per environment: [cloudflare-named-tunnels.md](cloudflare-named-tunnels.md). Run it with `cloudflared tunnel run erp`, or install it as a service with `cloudflared service install` (admin). After that,
 stop the quick tunnels: `.\erp-env.ps1 tunnel-stop`. Cloudflare Access can put a login in front of staging.

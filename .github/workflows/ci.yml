@@ -1,9 +1,23 @@
+# Build + test only; deploys nothing (deploys are in cicd.yml).
+# The job `name:` values below are the check names GitHub shows and that branch rules/rulesets require.
+# Keep them stable: renaming a job breaks any required-status-check rule that references it.
+#   Required check contexts: "Backend build and test", "Frontend build"
 name: CI
 on:
   push: { branches: [main, 'antigravity/**', 'claude/**', 'cursor/**', 'codex/**'] }
   pull_request: { branches: [main, dev, staging, production] }
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
+    name: Backend build and test
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: backend } }
     steps:
@@ -13,6 +27,7 @@ jobs:
       - run: dotnet build ERP.sln -c Release
       - run: dotnet test ERP.sln -c Release --no-build
   frontend:
+    name: Frontend build
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: frontend } }
     steps:
