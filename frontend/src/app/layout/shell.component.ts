@@ -20,6 +20,9 @@ import { API_BASE_URL } from '../core/api/api-config';
 import { AuthService } from '../core/auth/auth.service';
 import { SessionStore } from '../core/session/session.store';
 import { KNOWN_ICONS } from '../icons';
+import { Dir } from '@angular/cdk/bidi';
+import { I18nService } from '../core/i18n/i18n.service';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { GlobalSearchComponent } from './global-search.component';
 import { NotificationDrawerComponent } from './notification-drawer.component';
 
@@ -30,7 +33,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
   selector: 'erp-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
+  imports: [Dir, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
     NzDropDownModule, NzAvatarModule, NzBadgeModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent],
   styles: [`
     :host { display: block; height: 100vh; }
@@ -45,17 +48,17 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     .group-title { padding: 16px 20px 4px; font-size: 12px; color: var(--erp-color-text-tertiary); text-transform: uppercase; letter-spacing: .04em; }
   `],
   template: `
-    <nz-layout class="root">
+    <nz-layout class="root" [dir]="i18n.dir()">
       <nz-sider class="sider" nzCollapsible [nzCollapsed]="collapsed()" [nzTrigger]="null" nzWidth="248px" [nzCollapsedWidth]="64" nzTheme="light" data-testid="sidebar">
         <div class="brand"><span class="brand-mark">E</span>@if (!collapsed()) { <span>{{ workspaceName() }}</span> }</div>
         @for (g of menu(); track g.id) {
-          @if (!collapsed()) { <div class="group-title">{{ g.label }}</div> }
+          @if (!collapsed()) { <div class="group-title">{{ i18n.t('menu.group.' + g.id, g.label) }}</div> }
           <ul nz-menu nzMode="inline" [nzInlineCollapsed]="collapsed()">
             @for (i of g.items; track i.id) {
               <li nz-menu-item nz-tooltip [nzTooltipTitle]="collapsed() ? i.label : null" nzTooltipPlacement="right"
                   [routerLink]="i.route" routerLinkActive="ant-menu-item-selected" [routerLinkActiveOptions]="{ exact: i.route === '/' }"
                   [attr.data-testid]="'nav-' + i.id">
-                <span nz-icon [nzType]="icon(i.icon)"></span><span>{{ i.label }}</span>
+                <span nz-icon [nzType]="icon(i.icon)"></span><span>{{ i18n.t('menu.' + i.id, i.label) }}</span>
               </li>
             }
           </ul>
@@ -71,7 +74,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           @if (session.me(); as me) {
             @if (me.legalEntities.length > 1 || me.allLegalEntities) {
               <nz-select style="width: 220px" [ngModel]="session.currentEntityId()" (ngModelChange)="selectEntity($event)" data-testid="entity-switcher">
-                @if (me.allLegalEntities) { <nz-option [nzValue]="null" nzLabel="All legal entities"></nz-option> }
+                @if (me.allLegalEntities) { <nz-option [nzValue]="null" [nzLabel]="'shell.allEntities' | translate: 'All legal entities'"></nz-option> }
                 @for (e of me.legalEntities; track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }
               </nz-select>
             }
@@ -89,6 +92,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           <button nz-button nzType="text" aria-label="Notifications" data-testid="notifications-bell" (click)="notificationsOpen.set(true)">
             <nz-badge [nzCount]="unread().unread" nzSize="small"><span nz-icon nzType="bell"></span></nz-badge>
           </button>
+          <button nz-button nzType="text" (click)="i18n.toggle()" aria-label="Language" data-testid="lang-toggle">{{ i18n.lang() === 'ar' ? 'EN' : 'العربية' }}</button>
           <button nz-button nzType="text" (click)="theme.toggleTheme()" aria-label="Toggle dark mode" data-testid="theme-toggle"><span nz-icon nzType="bulb"></span></button>
           <button nz-button nzType="text" nz-dropdown [nzDropdownMenu]="userMenu" data-testid="user-menu">
             <nz-avatar nzSize="small" [nzText]="initials()"></nz-avatar>
@@ -96,9 +100,9 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           <nz-dropdown-menu #userMenu="nzDropdownMenu">
             <ul nz-menu>
               <li nz-menu-item nzDisabled>{{ session.me()?.user?.email }}</li>
-              <li nz-menu-item routerLink="/account/security" data-testid="account-security"><span nz-icon nzType="lock"></span> Account security</li>
+              <li nz-menu-item routerLink="/account/security" data-testid="account-security"><span nz-icon nzType="lock"></span> {{ 'shell.accountSecurity' | translate: 'Account security' }}</li>
               <li nz-menu-divider></li>
-              <li nz-menu-item (click)="auth.logout()" data-testid="sign-out"><span nz-icon nzType="logout"></span> Sign out</li>
+              <li nz-menu-item (click)="auth.logout()" data-testid="sign-out"><span nz-icon nzType="logout"></span> {{ 'shell.signOut' | translate: 'Sign out' }}</li>
             </ul>
           </nz-dropdown-menu>
         </nz-header>
@@ -109,6 +113,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
 })
 export class ShellComponent {
   readonly session = inject(SessionStore);
+  readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
   readonly theme = inject(TenantThemeService);
   private readonly http = inject(HttpClient);

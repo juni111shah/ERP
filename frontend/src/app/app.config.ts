@@ -12,6 +12,7 @@ import { entityScopeInterceptor } from './core/http/entity-scope.interceptor';
 import { envelopeInterceptor } from './core/http/envelope.interceptor';
 import { moduleDisabledInterceptor } from './core/http/module-disabled.interceptor';
 import { APP_ICONS } from './icons';
+import { I18nService } from './core/i18n/i18n.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -22,6 +23,6 @@ export const appConfig: ApplicationConfig = {
     provideNzI18n(en_US),
     provideNzIcons(APP_ICONS),
     // Restore the session from the refresh cookie before the first navigation.
-    provideAppInitializer(() => firstValueFrom(inject(AuthService).restore())),
+    provideAppInitializer(() => { inject(I18nService); return firstValueFrom(inject(AuthService).restore()); }),
   ],
 };

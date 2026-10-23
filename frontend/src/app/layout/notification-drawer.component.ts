@@ -1,3 +1,4 @@
+import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, input, output, signal, effect } from '@angular/core';
@@ -13,7 +14,7 @@ interface NotificationDto { id: string; title: string; body?: string; link?: str
   selector: 'erp-notification-drawer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, NzDrawerModule, NzButtonModule],
+  imports: [TranslatePipe, DatePipe, NzDrawerModule, NzButtonModule],
   styles: [`
     .item { padding: 10px 0; border-bottom: 1px solid var(--erp-color-border-subtle); cursor: pointer; }
     .item.unread .title { font-weight: 600; }
@@ -21,16 +22,16 @@ interface NotificationDto { id: string; title: string; body?: string; link?: str
     .empty { color: var(--erp-color-text-tertiary); padding: 24px 0; text-align: center; }
   `],
   template: `
-    <nz-drawer [nzVisible]="open()" nzTitle="Notifications" nzWidth="420" (nzOnClose)="closed.emit()">
+    <nz-drawer [nzVisible]="open()" [nzTitle]="'shell.notifications' | translate: 'Notifications'" nzWidth="420" (nzOnClose)="closed.emit()">
       <ng-container *nzDrawerContent>
-        <button nz-button nzSize="small" (click)="markAll()" data-testid="mark-all-read">Mark all as read</button>
+        <button nz-button nzSize="small" (click)="markAll()" data-testid="mark-all-read">{{ 'shell.markAllRead' | translate: 'Mark all as read' }}</button>
         @for (n of items(); track n.id) {
           <div class="item" [class.unread]="!n.readAt" (click)="openItem(n)" data-testid="notification-item">
             <div class="title">{{ n.title }}</div>
             @if (n.body) { <div>{{ n.body }}</div> }
             <div class="meta">{{ n.createdAt | date: 'yyyy-MM-dd HH:mm' }}</div>
           </div>
-        } @empty { <div class="empty">You're all caught up</div> }
+        } @empty { <div class="empty">{{ 'shell.caughtUp' | translate: 'All caught up' }}</div> }
       </ng-container>
     </nz-drawer>`,
 })
