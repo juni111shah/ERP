@@ -4,6 +4,7 @@ using ERP.Application.Common;
 using ERP.Domain.Identity;
 using ERP.Application.Security;
 using ERP.Domain.Platform;
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,14 +39,17 @@ public sealed class InAppChannel(INotifier notifier) : IMessageChannel
     public Task SendAsync(OutboundMessage m, CancellationToken ct) => notifier.NotifyUserAsync(Guid.Parse(m.Recipient), m.Subject, m.Body, m.Link, m.Severity, ct);
 }
 
-/// <summary>Default email channel: nothing is sent until a real sender (SMTP, provider API) replaces it in DI; the message is still recorded in the communication log.</summary>
-public sealed class OutboxEmailChannel(Microsoft.Extensions.Logging.ILogger<OutboxEmailChannel> log) : IMessageChannel
+/// <summary>
+/// Email channel: sends through <see cref="IEmailSender"/> when email is enabled. When it is not configured nothing leaves the system, the message is only logged
+/// (Debug level: the body can hold a one-time sign-in code that must not appear in normal logs).
+/// </summary>
+public sealed class OutboxEmailChannel(IEmailSender sender, Microsoft.Extensions.Logging.ILogger<OutboxEmailChannel> log) : IMessageChannel
 {
     public string Name => "email";
     public Task SendAsync(OutboundMessage message, CancellationToken ct)
     {
-        // Debug level only: the body can hold a one-time sign-in code, which must not appear in normal logs.
-        log.LogDebug("Email outbox -> {Recipient}: {Subject} | {Body}", message.Recipient, message.Subject, message.Body);
+        if (sender.IsEnabled) return sender.SendAsync(message.Recipient, message.Subject, message.Body ?? message.Subject, null, ct);
+        log.LogDebug("Email not configured -> {Recipient}: {Subject} | {Body}", message.Recipient, message.Subject, message.Body);
         return Task.CompletedTask;
     }
 }
@@ -73,14 +77,20 @@ public sealed class ReminderDispatcher(IEnumerable<IReminderSource> sources, IEn
         return sent;
     }
 
+    public const int MaxAttempts = 3;
+
     private async Task<int> SendOnceAsync(IMessageChannel channel, string recipient, ReminderCandidate c, CancellationToken ct)
     {
         var key = $"{c.DedupeKey}|{channel.Name}|{recipient}";
-        if (await log.AnyAsync(x => x.DedupeKey == key, ct)) return 0;
-        var entry = new MessageLog { Channel = channel.Name, Recipient = recipient, Subject = c.Subject, Body = c.Body, Link = c.Link, DedupeKey = key, SentAt = clock.UtcNow, Status = MessageStatus.Sent };
-        try { await channel.SendAsync(new(recipient, c.Subject, c.Body, c.Link, c.Severity), ct); }
-        catch (Exception e) when (e is not OperationCanceledException) { entry.Status = MessageStatus.Failed; entry.Error = e.Message; }
-        log.Add(entry);
+        var entry = await log.Tracked(new Specification<MessageLog>(x => x.DedupeKey == key)).FirstOrDefaultAsync(ct);
+        if (entry is { Status: MessageStatus.Sent } or { Attempts: >= MaxAttempts }) return 0; // delivered already, or given up
+        var isNew = entry is null;
+        entry ??= new MessageLog { Channel = channel.Name, Recipient = recipient, Subject = c.Subject, Body = c.Body, Link = c.Link, DedupeKey = key };
+        entry.Attempts++;
+        entry.SentAt = clock.UtcNow;
+        try { await channel.SendAsync(new(recipient, c.Subject, c.Body, c.Link, c.Severity), ct); entry.Status = MessageStatus.Sent; entry.Error = null; }
+        catch (Exception e) when (e is not OperationCanceledException) { entry.Status = MessageStatus.Failed; entry.Error = e.Message.Length > 400 ? e.Message[..400] : e.Message; }
+        if (isNew) log.Add(entry);
         await log.SaveChangesAsync(ct);
         return entry.Status == MessageStatus.Sent ? 1 : 0;
     }
@@ -97,7 +107,7 @@ public sealed class ReminderJob(ReminderDispatcher dispatcher) : IScheduledJob
     public Task RunAsync(DateOnly today, CancellationToken ct) => dispatcher.RunAsync(today, ct);
 }
 
-public sealed record MessageLogDto(Guid Id, string Channel, string Recipient, string Subject, string? Body, string? Link, MessageStatus Status, string? Error, DateTime SentAt);
+public sealed record MessageLogDto(Guid Id, string Channel, string Recipient, string Subject, string? Body, string? Link, MessageStatus Status, string? Error, DateTime SentAt, int Attempts = 0);
 
 /// <summary>Runs the reminder pass now (admins and tests); returns how many messages were sent.</summary>
 public sealed record SendRemindersNow : ICommand<int>, IRequirePermission { public string RequiredPermission => ERP.Application.Security.CorePermissions.SettingsWrite; }
@@ -105,4 +115,26 @@ public sealed record SendRemindersNow : ICommand<int>, IRequirePermission { publ
 internal sealed class ReminderHandlers(ReminderDispatcher dispatcher, IClock clock) : IRequestHandler<SendRemindersNow, int>
 {
     public Task<int> Handle(SendRemindersNow cmd, CancellationToken ct) => dispatcher.RunAsync(DateOnly.FromDateTime(clock.UtcNow), ct);
+}
+
+/// <summary>Sends a short test message so an administrator can check the email settings. Recorded in the message log.</summary>
+public sealed record SendTestEmail(string To) : ICommand<MessageLogDto>, IRequirePermission { public string RequiredPermission => ERP.Application.Security.CorePermissions.SettingsWrite; }
+
+public sealed class SendTestEmailValidator : AbstractValidator<SendTestEmail>
+{
+    public SendTestEmailValidator() => RuleFor(x => x.To).NotEmpty().EmailAddress().WithMessage("Enter a valid email address.");
+}
+
+internal sealed class TestEmailHandler(IEmailSender sender, IRepository<MessageLog> log, IClock clock) : IRequestHandler<SendTestEmail, MessageLogDto>
+{
+    public async Task<MessageLogDto> Handle(SendTestEmail cmd, CancellationToken ct)
+    {
+        if (!sender.IsEnabled) throw new ConflictException("Email is not configured. Set the Email section (Enabled, Host, FromAddress ...) and restart the API.");
+        var entry = new MessageLog { Channel = "email", Recipient = cmd.To.Trim(), Subject = "ERP test email", Body = "This is a test message from your ERP. Email sending works.", DedupeKey = $"test-email:{Guid.NewGuid()}", SentAt = clock.UtcNow, Attempts = 1, Status = MessageStatus.Sent };
+        try { await sender.SendAsync(entry.Recipient, entry.Subject, entry.Body, null, ct); }
+        catch (Exception e) when (e is not OperationCanceledException) { entry.Status = MessageStatus.Failed; entry.Error = e.Message.Length > 400 ? e.Message[..400] : e.Message; }
+        log.Add(entry);
+        await log.SaveChangesAsync(ct);
+        return new(entry.Id, entry.Channel, entry.Recipient, entry.Subject, entry.Body, null, entry.Status, entry.Error, entry.SentAt, entry.Attempts);
+    }
 }

@@ -140,6 +140,8 @@ public class MessageLog : OrgEntity
     [Filterable]
     public MessageStatus Status { get; set; }
     public string? Error { get; set; }
+    /// <summary>How many times sending was tried; failed messages are retried by the next reminder run, up to 3 attempts.</summary>
+    public int Attempts { get; set; }
     [Sortable, Filterable]
     public DateTime SentAt { get; set; }
 }

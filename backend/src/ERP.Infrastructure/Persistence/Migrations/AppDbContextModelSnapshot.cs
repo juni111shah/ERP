@@ -2323,6 +2323,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
                     b.Property<string>("Body")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");

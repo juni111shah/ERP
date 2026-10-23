@@ -79,6 +79,8 @@ public static class DependencyInjection
         services.AddScoped<OnboardingService>();
         services.AddScoped<IOnboardingService>(sp => sp.GetRequiredService<OnboardingService>());
         services.AddScoped<IUserDirectory, UserDirectory>();
+        services.Configure<EmailOptions>(config.GetSection(EmailOptions.Section));
+        services.AddSingleton<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<IPasswordResetSender, LoggingPasswordResetSender>();
 
         services.AddSingleton<IPermissionCatalog, PermissionCatalog>();
