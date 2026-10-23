@@ -55,6 +55,12 @@ interface PrintReceiptData {
   partyPhone?: string | null;
   partyEmail?: string | null;
   allocations: { invoiceNumber: string; amount: number }[];
+  /** Cheque / instrument details (PrintInstrument on the backend); all null when the settlement has no instrument. */
+  instrumentKind?: string | null;
+  chequeNumber?: string | null;
+  chequeDate?: string | null;
+  chequeStatus?: string | null;
+  chequeBankName?: string | null;
 }
 
 interface PrintPaymentData {
@@ -66,6 +72,12 @@ interface PrintPaymentData {
   partyPhone?: string | null;
   partyEmail?: string | null;
   allocations: { billNumber: string; amount: number }[];
+  /** Cheque / instrument details (PrintInstrument on the backend); all null when the settlement has no instrument. */
+  instrumentKind?: string | null;
+  chequeNumber?: string | null;
+  chequeDate?: string | null;
+  chequeStatus?: string | null;
+  chequeBankName?: string | null;
 }
 
 interface PrintJournalData {
@@ -111,6 +123,7 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
     .meta td { padding: 3px 0; vertical-align: top; }
     .meta td:first-child { padding-right: 18px; color: var(--ink); }
     .meta td.strong { font-weight: 700; }
+    .pdc { display: inline-block; margin-left: 8px; padding: 0 6px; border: 1.5px solid var(--ink); color: var(--ink); font-size: 10px; font-weight: 700; letter-spacing: 1px; line-height: 1.5; }
     table.lines { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
     table.lines thead { display: table-header-group; }
     table.lines th {
@@ -250,6 +263,13 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
               <tr><td>Date</td><td>{{ rec.receipt.date | date:'dd MMM yyyy' }}</td></tr>
               <tr><td>Method</td><td>{{ humanize(rec.receipt.method) }}</td></tr>
               @if (rec.receipt.reference) { <tr><td>Reference</td><td>{{ rec.receipt.reference }}</td></tr> }
+              @if (rec.instrumentKind || rec.chequeNumber) {
+                <tr><td>Instrument</td><td>{{ humanize(rec.instrumentKind) || 'Cheque' }}@if (isPdc(rec.instrumentKind, rec.chequeDate, rec.receipt.date)) {<span class="pdc" data-testid="print-pdc">PDC</span>}</td></tr>
+                @if (rec.chequeNumber) { <tr><td>Cheque no.</td><td class="strong">{{ rec.chequeNumber }}</td></tr> }
+                @if (rec.chequeDate) { <tr><td>Cheque date</td><td>{{ rec.chequeDate | date:'dd MMM yyyy' }}</td></tr> }
+                @if (rec.chequeBankName) { <tr><td>Bank</td><td>{{ rec.chequeBankName }}</td></tr> }
+                @if (rec.chequeStatus) { <tr><td>Cheque status</td><td>{{ humanize(rec.chequeStatus) }}</td></tr> }
+              }
               <tr><td>Currency</td><td>{{ rec.receipt.currencyCode }}</td></tr>
             </table>
           </div>
@@ -286,6 +306,13 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
               <tr><td>Date</td><td>{{ pay.payment.date | date:'dd MMM yyyy' }}</td></tr>
               <tr><td>Method</td><td>{{ humanize(pay.payment.method) }}</td></tr>
               @if (pay.payment.reference) { <tr><td>Reference</td><td>{{ pay.payment.reference }}</td></tr> }
+              @if (pay.instrumentKind || pay.chequeNumber) {
+                <tr><td>Instrument</td><td>{{ humanize(pay.instrumentKind) || 'Cheque' }}@if (isPdc(pay.instrumentKind, pay.chequeDate, pay.payment.date)) {<span class="pdc" data-testid="print-pdc">PDC</span>}</td></tr>
+                @if (pay.chequeNumber) { <tr><td>Cheque no.</td><td class="strong">{{ pay.chequeNumber }}</td></tr> }
+                @if (pay.chequeDate) { <tr><td>Cheque date</td><td>{{ pay.chequeDate | date:'dd MMM yyyy' }}</td></tr> }
+                @if (pay.chequeBankName) { <tr><td>Bank</td><td>{{ pay.chequeBankName }}</td></tr> }
+                @if (pay.chequeStatus) { <tr><td>Cheque status</td><td>{{ humanize(pay.chequeStatus) }}</td></tr> }
+              }
               <tr><td>Currency</td><td>{{ pay.payment.currencyCode }}</td></tr>
             </table>
           </div>
@@ -467,6 +494,12 @@ export class PrintPage implements OnInit {
     if (!l.net) return '';
     const r = (l.taxAmount / l.net) * 100;
     return `${Math.round(r * 100) / 100}%`;
+  }
+
+  /** Post-dated when the backend kind says so (InstrumentKind.PostDatedCheque); otherwise when the cheque date is after the document date. */
+  isPdc(kind: string | null | undefined, chequeDate: string | null | undefined, docDate: string): boolean {
+    if (String(kind ?? '').toLowerCase() === 'postdatedcheque') return true;
+    return !!chequeDate && chequeDate.slice(0, 10) > String(docDate).slice(0, 10);
   }
 
   humanize(v: string | null | undefined): string {
