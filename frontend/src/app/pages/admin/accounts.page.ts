@@ -52,7 +52,7 @@ type AccountDraft = Partial<AccountDto> & { id: string; _parentLabel?: string };
     }
     <erp-record-drawer [title]="state.editing()?.id ? ('coa.editAccount' | translate: 'Edit account') : ('coa.newAccount' | translate: 'New account')" [open]="state.open()" [fields]="fields()"
                        [value]="$any(state.editing())" customFieldEntityType="account"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="account-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
+                       [saving]="state.saving()" [errors]="state.errors()" testId="account-form" (submitted)="state.submit($event)" (closed)="closeForm()" />`,
   styles: [`
     .coa-page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
     .coa-page-head .erp-page-title { margin: 0; }
@@ -105,6 +105,12 @@ export class AccountsPage {
       { key: 'isActive', label: 'Active', type: 'switch', default: true, hint: 'System accounts keep their code, type and active flag.' },
     ];
   });
+
+  /** Cancelling the form brings back the account details drawer it was opened from (if any). */
+  closeForm(): void {
+    this.state.close();
+    this.tree.resumeDetail();
+  }
 
   setView(view: CoaView): void {
     this.view.set(view);

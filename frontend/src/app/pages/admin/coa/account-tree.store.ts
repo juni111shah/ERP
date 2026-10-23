@@ -4,7 +4,7 @@ import { AccountCategoryDto, AccountDto, AccountNodeDto, AccountSubcategoryDto, 
 import { ListQuery, PagedResult } from '../../../core/api/api.models';
 import { SessionStore } from '../../../core/session/session.store';
 
-export type CoaPanelKind = 'categories' | 'subcategories' | 'accounts' | 'detail';
+export type CoaPanelKind = 'categories' | 'subcategories' | 'accounts';
 
 /** The sub-category an accounts column belongs to (key is unique within the type; name is the server's English label). */
 export interface CoaSub { key: string; name: string; }
@@ -13,7 +13,7 @@ export interface CoaSub { key: string; name: string; }
 export interface CoaPanel {
   /**
    * 'root' | 'type:<type>' (sub-categories of a category) | 'sub:<type>:<key>' (primary accounts of a sub-category)
-   * | 'acct:<id>' (children of an account) | 'detail:<id>' (a leaf account)
+   * | 'acct:<id>' (children of an account). A leaf account opens in the details drawer (see `detail`), not as a column.
    */
   key: string;
   kind: CoaPanelKind;
@@ -21,7 +21,7 @@ export interface CoaPanel {
   type: string | null;
   /** sub-category of a 'sub:' panel */
   sub: CoaSub | null;
-  /** owning account of an 'acct:' panel, or the account shown by a 'detail:' panel */
+  /** owning account of an 'acct:' panel */
   parent: AccountNodeDto | null;
   categories: AccountCategoryDto[];
   subcategories: AccountSubcategoryDto[];
@@ -45,7 +45,7 @@ const PAGE_SIZE = 50;
 function panel(key: string, kind: CoaPanelKind, extra: Partial<CoaPanel> = {}): CoaPanel {
   return {
     key, kind, type: null, sub: null, parent: null, categories: [], subcategories: [], items: [], total: 0, page: 0, search: '',
-    loading: kind !== 'detail', loadingMore: false, error: false, selected: null, pin: null, ...extra,
+    loading: true, loadingMore: false, error: false, selected: null, pin: null, ...extra,
   };
 }
 
@@ -53,6 +53,8 @@ function panel(key: string, kind: CoaPanelKind, extra: Partial<CoaPanel> = {}): 
  * Session-wide state of the step-by-step chart of accounts (Miller columns): category → sub-category → primary accounts → children → …
  * Only one path is open: selecting another item closes the deeper columns. Every level is requested on demand and cached
  * for the session (per legal entity), so going back and forth costs no requests; any save clears the cache and re-opens the path.
+ * Choosing a leaf account (no sub-accounts) selects it in its column and shows it in the details drawer (`detail`); closing the
+ * drawer keeps the columns and the selection as they were.
  */
 @Injectable({ providedIn: 'root' })
 export class AccountTreeStore {
@@ -63,6 +65,10 @@ export class AccountTreeStore {
   private scope: string | null = null;
 
   readonly panels = signal<CoaPanel[]>([]);
+  /** the leaf account shown in the details drawer (null = drawer closed) */
+  readonly detail = signal<AccountNodeDto | null>(null);
+  /** a leaf whose drawer was swapped for the edit / add-sub-account form: it comes back when that form closes */
+  private suspended: AccountNodeDto | null = null;
   /** natural-side balances are shown only to users who may read financial reports */
   readonly withBalances = computed(() => this.session.hasPermission('finance.reports.read'));
 
@@ -92,6 +98,7 @@ export class AccountTreeStore {
       this.scope = scope;
       this.cache.clear();
       this.panels.set([]);
+      this.clearDetail();
     }
     if (!this.panels().length) {
       this.panels.set([panel('root', 'categories')]);
@@ -103,6 +110,7 @@ export class AccountTreeStore {
     const ps = this.panels();
     if (ps[0]?.selected === type && ps.length > 1) return;
     const next = panel(`type:${type}`, 'subcategories', { type });
+    this.clearDetail();
     this.panels.set([{ ...ps[0], selected: type }, next]);
     this.loadSubcategories(next.key);
   }
@@ -114,20 +122,46 @@ export class AccountTreeStore {
     const kept = ps.slice(0, index + 1);
     kept[index] = { ...kept[index], selected: sub.key };
     const next = panel(`sub:${sub.type}:${sub.key}`, 'accounts', { type: sub.type, sub: { key: sub.key, name: sub.name } });
+    this.clearDetail();
     this.panels.set([...kept, next]);
     this.load(next.key);
   }
 
+  /** An account with sub-accounts opens the next column; a leaf is selected in place and opens in the details drawer. */
   selectAccount(index: number, node: AccountNodeDto): void {
     const ps = this.panels();
+    if (!node.hasChildren) {
+      const kept = ps.slice(0, index + 1);
+      kept[index] = { ...kept[index], selected: node.id };
+      this.panels.set(kept);
+      this.suspended = null;
+      this.detail.set(node);
+      return;
+    }
+    this.clearDetail();
     if (ps[index]?.selected === node.id && ps.length > index + 1) return;
     const kept = ps.slice(0, index + 1);
     kept[index] = { ...kept[index], selected: node.id };
-    const next = node.hasChildren
-      ? panel(`acct:${node.id}`, 'accounts', { parent: node })
-      : panel(`detail:${node.id}`, 'detail', { parent: node });
+    const next = panel(`acct:${node.id}`, 'accounts', { parent: node });
     this.panels.set([...kept, next]);
-    if (node.hasChildren) this.load(next.key);
+    this.load(next.key);
+  }
+
+  /** Closes the details drawer; the columns and the selected row stay as they are. */
+  closeDetail(): void { this.clearDetail(); }
+
+  /** The details drawer gives way to the edit or add-sub-account form; `resumeDetail` brings it back if that form is cancelled. */
+  suspendDetail(): void {
+    const d = this.detail();
+    if (!d) return;
+    this.suspended = d;
+    this.detail.set(null);
+  }
+
+  resumeDetail(): void {
+    const s = this.suspended;
+    this.suspended = null;
+    if (s && this.panels().some((p) => p.selected === s.id)) this.detail.set(s);
   }
 
   /** Breadcrumb navigation: keep columns 0..target and clear the selection in the last one. */
@@ -135,6 +169,7 @@ export class AccountTreeStore {
     const kept = this.panels().slice(0, target + 1);
     if (!kept.length) return;
     kept[target] = { ...kept[target], selected: null };
+    this.clearDetail();
     this.panels.set(kept);
   }
 
@@ -155,13 +190,16 @@ export class AccountTreeStore {
 
   /**
    * After a create, edit or (de)activation: drop the cache and re-open the path to `focusId` (the saved account), or to the
-   * deepest open account, so the columns show fresh data and the saved account stays selected.
+   * deepest open account, so the columns show fresh data and the saved account stays selected. The details drawer stays open
+   * (with fresh data) when it was showing that account, or comes back when it was swapped for the form that saved it.
    */
   refresh(focusId?: string | null): void {
     this.cache.clear();
-    const target = focusId ?? this.deepestAccountId();
+    const target = focusId ?? this.detail()?.id ?? this.deepestAccountId();
+    const showDetail = !!target && (this.detail()?.id === target || this.suspended?.id === target);
+    this.suspended = null;
     if (target) {
-      this.api.path(target).subscribe({ next: (path) => this.openPath(path), error: () => this.reset() });
+      this.api.path(target).subscribe({ next: (path) => this.openPath(path, showDetail), error: () => this.reset() });
       return;
     }
     const ps = this.panels();
@@ -174,6 +212,7 @@ export class AccountTreeStore {
     this.cache.clear();
     this.scope = null;
     this.panels.set([]);
+    this.clearDetail();
   }
 
   /** Full account (with custom fields) for the edit drawer. */
@@ -190,8 +229,11 @@ export class AccountTreeStore {
     );
   }
 
-  /** Re-opens the columns along a root-first path (from GET accounts/{id}/path). */
-  openPath(path: AccountNodeDto[]): void {
+  /**
+   * Re-opens the columns along a root-first path (from GET accounts/{id}/path). A leaf at the end is selected in its column;
+   * `showDetail` also opens it in the details drawer.
+   */
+  openPath(path: AccountNodeDto[], showDetail = false): void {
     const last = path[path.length - 1];
     if (!last) { this.reset(); return; }
     // The account sits in its own category's column under the top of its same-type chain (a parent of another type starts a new chain).
@@ -204,14 +246,16 @@ export class AccountTreeStore {
     ps.push(panel(`type:${last.type}`, 'subcategories', { type: last.type, selected: subKey }));
     ps.push(panel(`sub:${last.type}:${subKey}`, 'accounts', { type: last.type, sub: { key: subKey, name: subKey }, selected: chain[0].id, pin: chain[0] }));
     for (let k = 1; k < chain.length; k++) ps.push(panel(`acct:${chain[k - 1].id}`, 'accounts', { parent: chain[k - 1], selected: chain[k].id, pin: chain[k] }));
-    ps.push(last.hasChildren ? panel(`acct:${last.id}`, 'accounts', { parent: last }) : panel(`detail:${last.id}`, 'detail', { parent: last }));
+    if (last.hasChildren) ps.push(panel(`acct:${last.id}`, 'accounts', { parent: last }));
     this.panels.set(ps);
+    this.detail.set(showDetail && !last.hasChildren ? last : null);
     this.loadCategories();
     ps.forEach((p) => (p.kind === 'subcategories' ? this.loadSubcategories(p.key) : p.kind === 'accounts' && this.load(p.key)));
   }
 
   private reset(): void {
     this.cache.clear();
+    this.clearDetail();
     this.panels.set([panel('root', 'categories')]);
     this.loadCategories();
   }
@@ -295,7 +339,12 @@ export class AccountTreeStore {
     const ps = this.panels();
     for (let i = ps.length - 1; i >= 1; i--) if (ps[i].kind === 'accounts' && ps[i].selected) return ps[i].selected;
     const last = ps[ps.length - 1];
-    return last && last.kind !== 'categories' && last.parent ? last.parent.id : null;
+    return last && last.kind === 'accounts' && last.parent ? last.parent.id : null;
+  }
+
+  private clearDetail(): void {
+    this.suspended = null;
+    this.detail.set(null);
   }
 
   private nodeIn(p: CoaPanel, id: string): AccountNodeDto | undefined {
