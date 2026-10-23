@@ -160,8 +160,8 @@ function humanizeValue(v: string): string {
                       @case ('date') { <nz-range-picker [(ngModel)]="draft.range" style="width:100%"></nz-range-picker> }
                       @case ('number') {
                         <div class="row">
-                          <nz-input-number [(ngModel)]="draft.min" [nzPlaceHolder]="t('table.min', 'Min')"></nz-input-number>
-                          <nz-input-number [(ngModel)]="draft.max" [nzPlaceHolder]="t('table.max', 'Max')"></nz-input-number>
+                          <nz-input-number [ngModel]="draft.min ?? null" (ngModelChange)="draft.min = $event" [nzPlaceHolder]="t('table.min', 'Min')"></nz-input-number>
+                          <nz-input-number [ngModel]="draft.max ?? null" (ngModelChange)="draft.max = $event" [nzPlaceHolder]="t('table.max', 'Max')"></nz-input-number>
                         </div>
                       }
                     }

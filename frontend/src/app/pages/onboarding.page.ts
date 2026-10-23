@@ -40,8 +40,8 @@ interface IndustryView { key: string; label: string; description: string; availa
             <nz-form-control nzErrorTip="Choose an industry">
               <nz-radio-group formControlName="industry" data-testid="onboarding-industry">
                 @for (i of industries(); track i.key) {
-                  <label nz-radio class="industry" [nzValue]="i.key" [nzDisabled]="i.availability.toLowerCase() !== 'available'" [attr.data-testid]="'industry-' + i.key">
-                    {{ i.label }} @if (i.availability.toLowerCase() !== 'available') { (coming soon) }
+                  <label nz-radio class="industry" [nzValue]="i.key" [nzDisabled]="$any(i.availability)?.toLowerCase() !== 'available'" [attr.data-testid]="'industry-' + i.key">
+                    {{ i.label }} @if ($any(i.availability)?.toLowerCase() !== 'available') { (coming soon) }
                     <small>{{ i.description }}</small>
                   </label>
                 }
