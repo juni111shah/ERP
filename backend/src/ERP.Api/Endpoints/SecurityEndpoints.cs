@@ -38,6 +38,8 @@ public static class SecurityEndpoints
         users.MapPost("/{id:guid}/active", (Guid id, UserActiveBody body, ISender sender, CancellationToken ct) => sender.Send(new SetUserActive(id, body.IsActive), ct)).RequirePermission(CorePermissions.UsersWrite);
 
         // ?filter=recordType:eq:Party&filter=recordId:eq:{id}&sort=-occurredAt
+        api.MapGet("/audit/record", (string recordType, string recordId, int? page, int? pageSize, ISender sender, CancellationToken ct) =>
+            sender.Send(new ERP.Application.Audit.GetRecordHistory(recordType, recordId, page ?? 1, pageSize ?? 25), ct)).RequirePermission(CorePermissions.AuditRead).WithTags("Security");
         api.MapPagedList<AuditEvent, AuditEvent>("/audit", CorePermissions.AuditRead, a => a).WithTags("Security");
     }
 }

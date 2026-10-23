@@ -905,6 +905,8 @@ const PAIRS: [string, string][] = [
   ['Budgeted income', 'الدخل المقدّر'], ['Actual income', 'الدخل الفعلي'], ['Budgeted expense', 'المصروف المقدّر'], ['Actual expense', 'المصروف الفعلي'],
   ['Net budget', 'صافي الموازنة'], ['Net actual', 'صافي الفعلي'], ['Item lines', 'بنود الأصناف'], ['Low stock', 'مخزون منخفض'],
   ['Draft renewals', 'تجديدات مسودة'], ['item / warehouse', 'صنف / مستودع'], ['Balance Due', 'الرصيد المستحق'], ['Days Overdue', 'أيام التأخير'],
+  ['Group by customer', 'تجميع حسب العميل'], ['Group by business unit', 'تجميع حسب وحدة العمل'], ['Group by source', 'تجميع حسب المصدر'], ['All business units', 'كل وحدات العمل'], ['Source type (optional)', 'نوع المصدر (اختياري)'],
+  ['Business unit', 'وحدة العمل'], ['Source', 'المصدر'], ['Direct invoices', 'فواتير مباشرة'], ['No business unit', 'بدون وحدة عمل'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

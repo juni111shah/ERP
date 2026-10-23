@@ -260,6 +260,7 @@ await step('notifications drawer and global search', async () => {
   await page.locator('.ant-drawer-title', { hasText: /Notifications|الإشعارات/ }).waitFor();
   await T('mark-all-read').click();
   await page.keyboard.press('Escape');
+  await T('global-search-toggle').click(); // the header search is icon-only until clicked
   await T('global-search').click();
   await T('global-search').pressSequentially('Marina', { delay: 50 }); // type like a user; fill() does not exercise focus/blur the same way
   await T('search-hit').first().waitFor({ timeout: 8000 });

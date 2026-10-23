@@ -5,8 +5,8 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { map, tap } from 'rxjs';
-import { ACCOUNT_TYPES, AccountDto, AccountNodeDto, AccountsApi } from '../../core/api/admin.api';
+import { catchError, map, of, switchMap, tap, throwError } from 'rxjs';
+import { ACCOUNT_TYPES, AccountDto, AccountNodeDto, AccountsApi, CoaNumbering } from '../../core/api/admin.api';
 import { asProblem } from '../../core/http/problem-details';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -69,15 +69,33 @@ export class AccountsPage {
   /** type and parent a new account starts with (from the panel "Add account" / "Add sub-account" buttons) */
   private readonly prefill = signal<CoaCreateRequest | null>(null);
   private savedId: string | null = null;
+  /** numbering mask of the workspace; in hierarchical mode a new account's code is suggested and checked against it */
+  private readonly numbering = signal<CoaNumbering | null>(null);
+  /** the code suggested for the account being created (null = none / free mode) */
+  private readonly suggested = signal<string | null>(null);
 
   readonly state = new MasterDataState<AccountDraft>({
-    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)).pipe(tap((saved) => (this.savedId = saved?.id ?? id))),
+    save: (id, body) => this.persist(id, body as Record<string, unknown>).pipe(tap((saved) => (this.savedId = saved?.id ?? id))),
     reload: () => {
       if (this.view() === 'list') { this.listView()?.reload(); this.tree.invalidate(); }
       else this.tree.refresh(this.savedId);
     },
     message: this.message, entityName: 'Account',
   });
+
+  constructor() { this.api.numbering().subscribe({ next: (n) => this.numbering.set(n), error: () => undefined }); }
+
+  /** Saves; when an automatically suggested code was taken meanwhile (409), asks for the next one and tries once more. */
+  private persist(id: string | null, body: Record<string, unknown>) {
+    if (id) return this.api.update(id, body);
+    return this.api.create(body).pipe(catchError((e) => {
+      const suggested = this.suggested();
+      if (e?.status !== 409 || !suggested || body['code'] !== suggested) return throwError(() => e);
+      return this.api.nextCode((body['parentId'] as string | null) ?? null, (body['type'] as string | null) ?? null).pipe(
+        switchMap((n) => (n.code && n.code !== suggested ? this.api.create({ ...body, code: n.code }) : throwError(() => e))),
+      );
+    }));
+  }
 
   /** Reloads the open columns of the step-by-step view (the list view has its own table Refresh). */
   refreshTree(): void { this.tree.refresh(); }
@@ -86,7 +104,12 @@ export class AccountsPage {
     const pre = this.prefill();
     const parentOption = pre?.parent ? { value: pre.parent.id, label: `${pre.parent.code} · ${pre.parent.name}` } : null;
     return [
-      { key: 'code', label: 'Code', type: 'text', required: true, maxLength: 20 },
+      {
+        key: 'code', label: 'Code', type: 'text', required: true, maxLength: 20, default: this.suggested(),
+        hint: this.numbering()?.mode === 'hierarchical'
+          ? `${this.i18n.t('coa.codeHint', 'Format')} ${this.numbering()!.pattern}${this.suggested() ? ' · ' + this.i18n.t('coa.codeSuggested', 'Suggested from the numbering mask; you can change it.') : ''}`
+          : undefined,
+      },
       { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 150 },
       { key: 'type', label: 'Type', type: 'select', required: true, options: ACCOUNT_TYPES, default: pre?.type ?? 'asset' },
       { key: 'reportingGroup', label: 'Reporting group', type: 'text', maxLength: 60, default: pre?.reportingGroup ?? null },
@@ -120,11 +143,19 @@ export class AccountsPage {
   newAccount(request: CoaCreateRequest | null): void {
     this.prefill.set(request);
     this.savedId = null;
-    this.state.create();
+    this.suggested.set(null);
+    if (this.numbering()?.mode !== 'hierarchical') { this.state.create(); return; }
+    // Ask for the next free code before the form opens, so the suggestion is in place when the user starts typing.
+    this.api.nextCode(request?.parent?.id ?? null, request?.type ?? null).pipe(catchError((e) => {
+      const p = asProblem(e);
+      this.message.warning(p?.detail ?? p?.title ?? this.i18n.t('coa.loadFailed', 'Could not load this level.'));
+      return of({ code: '' });
+    })).subscribe((n) => { this.suggested.set(n.code || null); this.state.create(); });
   }
 
   editAccount(account: AccountDraft): void {
     this.prefill.set(null);
+    this.suggested.set(null);
     this.savedId = null;
     this.state.edit(account);
   }

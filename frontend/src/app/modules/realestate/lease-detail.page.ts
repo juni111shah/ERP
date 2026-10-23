@@ -1,3 +1,4 @@
+import { RecordHistoryComponent } from '../../shared/record-history.component';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -32,7 +33,7 @@ type Action = 'terminate' | 'renew';
   selector: 'erp-lease-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, TranslatePipe, DatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
+  imports: [StatCardComponent, RecordHistoryComponent, TranslatePipe, DatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
     NzStatisticModule, NzTableModule, NzTagModule],
   template: `
     @if (lease(); as l) {
@@ -93,6 +94,7 @@ type Action = 'terminate' | 'renew';
       </nz-card>
       @if (l.status !== 'draft') { <erp-lease-deposit [lease]="l" /> }
       <erp-attachments ownerType="lease" [ownerId]="l.id" />
+      <nz-card *erpHasPermission="'core.audit.read'" style="margin-top:16px" [nzTitle]="'history.title' | translate: 'History'"><erp-record-history recordType="Lease" [recordId]="l.id" /></nz-card>
       <erp-record-drawer title="Edit draft lease" [open]="state.open()" [fields]="editFields" [value]="$any(state.editing())" customFieldEntityType="realestate.lease"
                          [saving]="state.saving()" [errors]="state.errors()" testId="lease-form" (submitted)="state.submit($event)" (closed)="state.close()" />
       <erp-record-drawer [title]="action() === 'renew' ? 'Renew lease' : 'Terminate lease'" [open]="!!action()" [fields]="actionFields()" [saving]="actionSaving()" [errors]="actionErrors()"

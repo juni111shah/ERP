@@ -67,6 +67,8 @@ export const yesNo = (v: unknown): string => (v ? 'Yes' : 'No');
 @Injectable({ providedIn: 'root' })
 export class ItemsApi extends CrudApiService<ItemDto, unknown> { protected readonly resource = 'items'; }
 
+export interface CoaNumbering { mode: 'free' | 'hierarchical'; segments: number[]; separator: string; pattern: string; maxLength: number; }
+
 @Injectable({ providedIn: 'root' })
 export class AccountsApi extends CrudApiService<AccountDto, unknown> {
   protected readonly resource = 'finance/accounts';
@@ -91,6 +93,16 @@ export class AccountsApi extends CrudApiService<AccountDto, unknown> {
   /** Direct children of one account. */
   children(id: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {
     return this.http.get<PagedResult<AccountNodeDto>>(`${this.url}/${id}/children`, { params: toHttpParams(query) });
+  }
+  /** Numbering mask of the chart of accounts (free or hierarchical). */
+  numbering(): Observable<CoaNumbering> { return this.http.get<CoaNumbering>(`${this.baseUrl}/finance/coa-numbering`); }
+  setNumbering(body: { mode: string; segments: number[]; separator: string }): Observable<CoaNumbering> { return this.http.put<CoaNumbering>(`${this.baseUrl}/finance/coa-numbering`, body); }
+  /** Next free code under a parent (or the next top-level code of a type). Empty in free mode. */
+  nextCode(parentId: string | null, type: string | null): Observable<{ code: string }> {
+    const params: Record<string, string> = {};
+    if (parentId) params['parentId'] = parentId;
+    if (type) params['type'] = type;
+    return this.http.get<{ code: string }>(`${this.url}/next-code`, { params });
   }
   /** Root-first ancestors of an account, the account itself last (breadcrumbs, re-opening a path). */
   path(id: string): Observable<AccountNodeDto[]> {
@@ -193,7 +205,7 @@ export class LedgerReportsApi {
   generalLedger(p: { accountId: string; from?: string; to: string; legalEntityId?: string }): Observable<GeneralLedger> { return this.http.get<GeneralLedger>(`${this.base}/general-ledger`, { params: this.params(p) }); }
   incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
   balanceSheet(p: { asOf: string; legalEntityId?: string }): Observable<BalanceSheet> { return this.http.get<BalanceSheet>(`${this.base}/balance-sheet`, { params: this.params(p) }); }
-  arAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
+  arAgeing(p: { asOf: string; legalEntityId?: string; businessUnitId?: string; sourceType?: string; groupBy?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
   apAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ap-ageing`, { params: this.params(p) }); }
 }
 

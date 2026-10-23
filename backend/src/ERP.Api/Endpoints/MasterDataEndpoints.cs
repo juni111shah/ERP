@@ -9,6 +9,8 @@ using MediatR;
 
 namespace ERP.Api.Endpoints;
 
+public sealed record CoaNumberingBody(string Mode, IReadOnlyList<int> Segments, string Separator);
+
 public static class MasterDataEndpoints
 {
     public static void MapMasterData(this RouteGroupBuilder api)
@@ -43,6 +45,9 @@ public static class MasterDataEndpoints
             var created = await sender.Send(new CreateAccount(input), ct);
             return Results.Created($"/api/v1/finance/accounts/{created.Id}", created);
         }).RequirePermission(CorePermissions.AccountsWrite);
+        finance.MapGet("/coa-numbering", (ISender sender, CancellationToken ct) => sender.Send(new GetCoaNumbering(), ct)).RequirePermission(CorePermissions.AccountsRead);
+        finance.MapPut("/coa-numbering", (CoaNumberingBody body, ISender sender, CancellationToken ct) => sender.Send(new SetCoaNumbering(body.Mode, body.Segments, body.Separator), ct)).RequirePermission(CorePermissions.SettingsWrite);
+        finance.MapGet("/accounts/next-code", (Guid? parentId, string? type, ISender sender, CancellationToken ct) => sender.Send(new GetNextAccountCode(parentId, type), ct)).RequirePermission(CorePermissions.AccountsWrite);
         finance.MapGet("/accounts/{id:guid}", (Guid id, ISender sender, CancellationToken ct) => sender.Send(new GetAccount(id), ct)).RequirePermission(CorePermissions.AccountsRead);
         finance.MapPut("/accounts/{id:guid}", (Guid id, AccountInput input, ISender sender, CancellationToken ct) => sender.Send(new UpdateAccount(id, input), ct)).RequirePermission(CorePermissions.AccountsWrite);
 
