@@ -1,18 +1,97 @@
-# Permanent URLs: Cloudflare named tunnels (plan, not yet applied)
+# Permanent URLs: Cloudflare named tunnel
 
 Today each environment has a Cloudflare **quick tunnel** (`*.trycloudflare.com`). It's free and needs no account, but
-the URL changes whenever the tunnel restarts or the PC reboots, and there is no uptime guarantee. This page is the plan
-for moving to permanent hostnames once there is a domain on a Cloudflare account. **Nothing here has been done yet.**
-The steps that need the Cloudflare login or admin rights are yours.
+the URL changes whenever the tunnel restarts or the PC reboots, and there is no uptime guarantee. This page moves the
+deploy PC to permanent hostnames on your own domain with one **named tunnel**. Everything is scripted in
+[`deploy/cloudflare/setup-named-tunnel.ps1`](../../deploy/cloudflare/setup-named-tunnel.ps1); the steps that need your
+Cloudflare login or admin rights are marked **(you)**.
 
 Placeholders: `<domain>` is your domain (its DNS must be on Cloudflare). `<TUNNEL-ID>` is the UUID that
 `tunnel create` prints. `<user>` is your Windows user name.
 
-| Environment | Hostname (placeholder) | Origin on the PC | Notes |
+| Environment | Hostname (default) | Origin on the PC | Notes |
 |---|---|---|---|
-| dev | `erp-dev.<domain>` | `http://localhost:4200` (`ng serve`, which proxies `/api` and `/hubs` to :5080) | needs the host-header override, see below |
+| dev | `erp-dev.<domain>` | `http://localhost:4200` (`ng serve`, which proxies `/api` and `/hubs` to :5080) | host header rewritten to `localhost` |
+| dev API (optional) | `erp-dev-api.<domain>` | `http://localhost:5080` (VS API) | off by default, `-DevApiHost erp-dev-api` |
 | staging | `erp-staging.<domain>` | `http://localhost:5180` (API + SPA, one origin) | |
 | production | `erp.<domain>` | `http://localhost:5280` (API + SPA, one origin) | |
+| anything else | | `http_status:404` | |
+
+Template: [`deploy/cloudflare/config.example.yml`](../../deploy/cloudflare/config.example.yml). The real `config.yml`
+and the credentials are generated outside the repo.
+
+## Run order
+
+0. **(you)** Have the domain on Cloudflare: add the site in the Cloudflare dashboard (free plan is enough) and change
+   the nameservers at your registrar to the two Cloudflare shows. Wait until the zone is **Active**.
+1. Normal PowerShell, from an up-to-date checkout (or `D:\ERP\envs\tools\cloudflare` after the next deploy):
+
+   ```powershell
+   cd <checkout>\deploy\cloudflare
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-named-tunnel.ps1 -Domain <domain> -WhatIf   # dry run
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-named-tunnel.ps1 -Domain <domain>
+   ```
+
+   **(you)** the browser opens for `cloudflared tunnel login`: sign in and pick `<domain>`. The script then creates
+   tunnel `erp` (or reuses it), routes DNS for each hostname, writes `%USERPROFILE%\.cloudflared\config.yml`,
+   validates it, and prints the exact `-InstallService` command.
+2. **(you)** Elevated PowerShell (Run as administrator), same command plus `-InstallService`. It copies the config
+   and the tunnel credentials to `C:\Windows\System32\config\systemprofile\.cloudflared`, installs (or restarts)
+   the `cloudflared` service, pins its command line to that config, and starts it. Nothing else.
+3. Normal PowerShell, the step-1 command again. For staging and production it checks that
+   `https://<host>/health` returns 200 and `/` returns the app, then writes `D:\ERP\envs\public-urls.psd1`,
+   restarts that API (so it picks up the URL, see "App config") and stops its quick tunnel. If a hostname doesn't
+   answer yet, that environment stays on its quick tunnel; re-run later. Re-running is always safe.
+4. Dev: the dev quick tunnel (`--url http://localhost:4200`, used by SQA) is **left running**. Once SQA has
+   `https://erp-dev.<domain>`, re-run with `-StopDevQuickTunnel`.
+5. Check: `D:\ERP\envs\tools\erp-env.ps1 status` (PublicUrl shows the permanent URLs) and open the hostnames.
+   Everyone logs in once more on the new hostnames (cookies don't move between hosts).
+
+Parameters: `-DevHost`, `-StagingHost`, `-ProductionHost`, `-DevApiHost` (a label goes under `-Domain`, a value with
+a dot is used as-is), `-TunnelName` (default `erp`), `-Cloudflared <path>`, `-OverwriteDns` (replace an existing DNS
+record), `-ForceLogin`, `-SkipSwitch` (stop after the tunnel/service part), `-StopDevQuickTunnel`, `-WhatIf`.
+
+## Dev API hostname: not needed (optional)
+
+The dev SPA calls the API with the relative base URL `/api/v1` (`API_BASE_URL`), and `ng serve` proxies `/api` and
+`/hubs` to :5080. Through `erp-dev.<domain>` the browser therefore talks to one origin: no CORS, no absolute API URL,
+the `SameSite=Strict` refresh cookie works, and SignalR goes over the same WebSocket proxy. One dev hostname is enough.
+
+A separate `erp-dev-api.<domain>` → :5080 is only useful for Swagger, Postman, scripts or a native client. Pass
+`-DevApiHost erp-dev-api` to add it. Swagger UI on that host is same-origin, so it works without changes. If a browser
+app on `erp-dev.<domain>` should call it directly (cross-origin), add the web origin to the dev API's CORS by setting
+`ERP_Hosting__PublicUrl=https://erp-dev.<domain>` in the VS launch profile on the workstation (not committed); cookies
+still work because both hosts are the same site. It also exposes dev Swagger publicly, so leave it off unless needed,
+or put Cloudflare Access in front of it.
+
+## App config: `Hosting:PublicUrl`
+
+The permanent URL is set **once per machine**, not in committed appsettings:
+
+- `D:\ERP\envs\public-urls.psd1` (written by the script, step 3), for example
+  `@{ staging = 'https://erp-staging.<domain>'; production = 'https://erp.<domain>' }`. `Get-ErpEnv` reads it
+  (it wins over a `PublicUrl` in `environments.psd1`).
+- `Start-ErpApp` passes it to the API as `ERP_Hosting__PublicUrl` (always set, empty when there is none, so a value in
+  your user environment can't leak into staging/production).
+- The API (`PublicOrigin`, `Program.cs`) reads `Hosting:PublicUrl` (any config source; env vars with prefix `ERP_`).
+  When set, it must be an origin (`https://host[:port]`, no path), and it is **added** to `Cors:Origins` and used as
+  `Email:AppBaseUrl` (password-reset links). When unset, nothing changes: localhost and quick tunnels work as before.
+- `deploy.ps1` / `erp-env.ps1` with a PublicUrl don't start a quick tunnel; they stop the one they started (found via
+  `tunnel.pid` and its `localhost:<port>` command line) and never touch the named-tunnel service.
+- No secrets are involved. `Auth:SecureCookies` is already `true` for staging/production; `UseForwardedHeaders`
+  trusts loopback (cloudflared), so the API sees `https`.
+- No Angular or `angular.json` change: the SPA uses relative URLs, and `httpHostHeader: localhost` satisfies the dev
+  server's host check.
+
+## Rollback
+
+Per environment: remove its line from `D:\ERP\envs\public-urls.psd1`, then
+`D:\ERP\envs\tools\erp-env.ps1 restart -Environment <env>` (starts a quick tunnel again and drops the URL from
+CORS/email). Whole tunnel: `Stop-Service cloudflared` (elevated). Dev: start the quick tunnel by hand as before.
+
+## Manual reference
+
+What the script does, step by step, if you prefer to do it by hand or need to debug it.
 
 ## One tunnel or one per environment?
 
@@ -67,8 +146,8 @@ ingress:
   - service: http_status:404
 ```
 
-Check it before starting: `& $cf tunnel ingress validate` and
-`& $cf tunnel ingress rule https://erp-staging.<domain>/` (shows which rule matches).
+Check it before starting: `& $cf tunnel --config <file> ingress validate` and
+`& $cf tunnel --config <file> ingress rule https://erp-staging.<domain>/` (shows which rule matches).
 
 ### Alternative: one tunnel per environment
 
@@ -116,7 +195,7 @@ production need no host override.
 ## 3. Test it in the foreground, then run it as a service
 
 ```powershell
-& $cf tunnel run erp          # foreground test; Ctrl+C to stop. Open the three hostnames.
+& $cf tunnel --config "$env:USERPROFILE\.cloudflared\config.yml" run erp   # foreground test; Ctrl+C to stop
 ```
 
 As a Windows service (**admin PowerShell, your step**):
@@ -128,7 +207,9 @@ New-Item -ItemType Directory -Force $sys | Out-Null
 Copy-Item "$env:USERPROFILE\.cloudflared\config.yml", "$env:USERPROFILE\.cloudflared\<TUNNEL-ID>.json" $sys
 # edit $sys\config.yml so credentials-file points at $sys\<TUNNEL-ID>.json
 & $cf service install
-Get-Service cloudflared; Start-Service cloudflared
+# pin the service to that config (what -InstallService does):
+Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Services\cloudflared ImagePath "`"$cf`" tunnel --config `"$sys\config.yml`" run erp"
+Start-Service cloudflared
 ```
 
 Alternatively, manage the tunnel from the Cloudflare dashboard (Zero Trust → Networks → Tunnels). There you set the
@@ -137,45 +218,9 @@ config or credentials files sit on disk, but the token is a secret: don't paste 
 named `cloudflared` can exist, so per-environment tunnels as services need the dashboard approach or `sc.exe create`
 with distinct names.
 
-## 4. App config changes
+## 4. App config and retiring the quick tunnels
 
-The app runs behind cloudflared on loopback. `UseForwardedHeaders` already trusts loopback proxies, so the API sees
-`https` and the real client IP. HSTS is already on outside Development.
-
-| Setting | staging (`appsettings.Staging.json`) | production (`appsettings.Production.json`) | dev |
-|---|---|---|---|
-| `Email:AppBaseUrl` (links in emails) | `https://erp-staging.<domain>` | `https://erp.<domain>` | `https://erp-dev.<domain>` if dev mails should link to the tunnel |
-| `Cors:Origins` | add `https://erp-staging.<domain>` (keep `http://localhost:5180`) | add `https://erp.<domain>` (keep `http://localhost:5280`) | add `https://erp-dev.<domain>` |
-| `Auth:SecureCookies` | already `true`, so no change | already `true`, so no change | `false` today; can stay, or set `true` if dev is only used through HTTPS |
-
-Notes:
-
-- Staging and production serve the SPA and the API from one origin, so CORS isn't involved in normal use. List the
-  hostname anyway so tools and other clients behave the same.
-- The refresh cookie is `HttpOnly`, `SameSite=Strict` and path-scoped. Same-origin over HTTPS works unchanged. Moving
-  from a `trycloudflare.com` URL to the new hostname means everyone logs in once more, because cookies don't carry
-  across hosts.
-- Staging and production changes go to `main` through a PR, then the normal promotion, so the next deploy picks them
-  up. For dev, set them locally (VS launch profile environment variables such as `Email__AppBaseUrl` or
-  `Cors__Origins__1`) instead of committing workstation-specific values.
-- None of these values are secrets. The signing key stays in Windows Credential Manager.
-
-## 5. Retire the quick tunnels
-
-1. Make sure the named tunnel serves all three hostnames (GET `/` returns the app, and
-   `POST /api/v1/auth/login` with a fake user returns 401).
-2. In `deploy\windows\environments.psd1` (via PR), set `PublicUrl = 'https://erp-staging.<domain>'` for staging and
-   `PublicUrl = 'https://erp.<domain>'` for production. With `PublicUrl` set, `deploy.ps1` and `erp-env.ps1` no longer
-   start a quick tunnel for that environment. They stop the one they started (found through `tunnel.pid`), and they
-   report the permanent URL. They never touch the named-tunnel service.
-3. Until that change is deployed, or to stop them right away:
-   `D:\ERP\envs\tools\erp-env.ps1 tunnel-stop -Environment all`. Without step 2, the next deploy or
-   `erp-env.ps1 start` would start them again.
-4. Dev quick tunnel: it was started by hand. Stop that `cloudflared.exe` process (the one with
-   `--url http://localhost:4200`) after telling whoever is testing through it, and give them `https://erp-dev.<domain>`.
-5. Optionally put **Cloudflare Access** (Zero Trust → Access → Applications) in front of `erp-dev` and `erp-staging`
-   so only invited emails reach them.
-6. Update the URLs in `README.md` and `operations.md`.
-
-Rollback: start the quick tunnels again with `erp-env.ps1 tunnel-restart -Environment <env>` (after removing
-`PublicUrl`) and stop the `cloudflared` service.
+See "App config: `Hosting:PublicUrl`" above. By hand: create `D:\ERP\envs\public-urls.psd1`, then
+`erp-env.ps1 restart -Environment <env>` per environment (restarts the API with the URL and stops its quick tunnel).
+Optionally put **Cloudflare Access** (Zero Trust → Access → Applications) in front of `erp-dev` and `erp-staging` so
+only invited emails reach them.
