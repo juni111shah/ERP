@@ -1,4 +1,6 @@
 import { ActivatedRoute, Router } from '@angular/router';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { askReason } from '../../shared/reason-prompt';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -27,7 +29,7 @@ import { PartiesApi } from '../parties.page';
   selector: 'erp-payments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
@@ -89,6 +91,7 @@ export class PaymentsPage {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(PaymentsApi);
   private readonly router = inject(Router);
+  private readonly modal = inject(NzModalService);
   private readonly invoices = inject(BillsApi);
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
@@ -210,7 +213,11 @@ export class PaymentsPage {
 
   void(): void {
     const r = this.receipt();
-    if (r) this.api.void(r.id).subscribe({ next: () => this.done('Payment voided'), error: (e) => this.fail(e) });
+    if (!r) return;
+    // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.
+    void askReason(this.modal, 'Void this payment?', 'Void Payment', 'This reverses its journal and removes its allocations.').then((reason) => {
+      if (reason) this.api.void(r.id).subscribe({ next: () => this.done('Payment voided'), error: (e) => this.fail(e) });
+    });
   }
 
   private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.list.reload(); }

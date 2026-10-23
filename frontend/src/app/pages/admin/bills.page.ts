@@ -1,5 +1,6 @@
 import { ActivatedRoute, Router } from '@angular/router';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { askReason } from '../../shared/reason-prompt';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -190,7 +191,11 @@ export class BillsPage {
 
   void(): void {
     const b = this.bill();
-    if (b) this.api.void(b.id).subscribe({ next: () => this.done('Bill voided'), error: (e) => this.fail(e) });
+    if (!b) return;
+    // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.
+    void askReason(this.modal, 'Void this bill?', 'Void Bill', 'This cannot be undone. The bill will be marked as voided.').then((reason) => {
+      if (reason) this.api.void(b.id).subscribe({ next: () => this.done('Bill voided'), error: (e) => this.fail(e) });
+    });
   }
 
   remove(): void {
