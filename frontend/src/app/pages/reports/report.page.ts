@@ -9,6 +9,7 @@ import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { map } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
@@ -23,7 +24,7 @@ import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-
   selector: 'erp-report',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule],
+  imports: [FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule, NzSelectModule],
   styles: [`
     .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px } .card { display:block; padding:14px 16px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px; background:var(--erp-color-surface, #fff); color:inherit } .card b { display:block; margin-bottom:4px } .card span { font-size:12px; color: var(--erp-color-text-secondary, #667) }
     .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:12px 0 } .spacer { flex:1 } .num { text-align:right } .total td { font-weight:600 }
@@ -41,6 +42,9 @@ import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-
       <h1 class="erp-page-title">{{ def()!.title }}</h1>
       <p>{{ def()!.subtitle }}</p>
       <div class="bar">
+        @if (has('owner')) {
+          <nz-select style="width:260px" nzShowSearch nzServerSearch nzPlaceHolder="Property owner" [(ngModel)]="ownerId" (nzOnSearch)="searchOwners($event)" data-testid="report-owner">@for (o of owners(); track o.id) { <nz-option [nzValue]="o.id" [nzLabel]="o.name"></nz-option> }</nz-select>
+        }
         @if (has('range')) { <nz-date-picker [(ngModel)]="from" nzPlaceHolder="From"></nz-date-picker><nz-date-picker [(ngModel)]="to" nzPlaceHolder="To"></nz-date-picker> }
         @if (has('asOf')) { <nz-date-picker [(ngModel)]="to" nzPlaceHolder="As of"></nz-date-picker> }
         @if (has('weeks')) { <nz-input-number [(ngModel)]="weeks" [nzMin]="1" [nzMax]="52" [nzPrecision]="0"></nz-input-number> <span>weeks</span> }
@@ -75,6 +79,9 @@ export class ReportPage {
   from: Date | null = new Date(new Date().getFullYear(), 0, 1);
   to: Date | null = new Date();
   weeks = 13;
+  ownerId: string | null = null;
+  readonly owners = signal<{ id: string; name: string }[]>([]);
+  searchOwners(term: string): void { this.http.get<{ items: { id: string; name: string }[] }>(`${this.base}/parties`, { params: { search: term, pageSize: 20 } }).subscribe((r) => this.owners.set(r.items)); }
   months = 12;
   readonly loading = signal(false);
   readonly data = signal<unknown>(null);
@@ -108,6 +115,7 @@ export class ReportPage {
     if (!def || !this.to) return;
     const params: Record<string, string> = {};
     if (this.has('range')) { if (!this.from) return; params['from'] = toIsoDate(this.from); params['to'] = toIsoDate(this.to); }
+    if (this.has('owner')) { if (!this.ownerId) { this.message.warning('Choose the property owner'); return; } params['ownerPartyId'] = this.ownerId; }
     if (this.has('asOf')) params['asOf'] = toIsoDate(this.to);
     if (this.has('weeks')) params['weeks'] = String(this.weeks);
     if (this.has('months')) params['months'] = String(this.months);

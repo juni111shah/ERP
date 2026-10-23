@@ -154,3 +154,56 @@ public class InspectionTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Contains((await Ok(await c.GetAsync($"{Re}/inspections?pageSize=100"))).AsArray(), r => (string)r!["id"]! == (string)empty["id"]!);
     }
 }
+
+/// <summary>Owner statements for properties managed on behalf of an owner.</summary>
+public class OwnerStatementTests(ApiFactory f) : IClassFixture<ApiFactory>
+{
+    private const string Re = "/api/v1/m/realestate";
+    private const string Fin = "/api/v1/finance";
+
+    private static async Task<JsonNode> Ok(HttpResponseMessage res, HttpStatusCode expected = HttpStatusCode.OK)
+    {
+        var text = await res.Content.ReadAsStringAsync();
+        Assert.True(res.StatusCode == expected, $"Expected {expected} but got {res.StatusCode}: {text}");
+        return string.IsNullOrEmpty(text) ? new JsonObject() : ApiFactory.Unwrap(JsonNode.Parse(text)!);
+    }
+
+    [Fact]
+    public async Task The_statement_nets_collected_rent_against_the_management_fee_and_maintenance()
+    {
+        var (c, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re");
+        var me = await ApiFactory.Json(await c.GetAsync("/api/v1/me"));
+        var entity = (string)me["legalEntities"]![0]!["id"]!;
+        var accounts = (await Ok(await c.GetAsync($"{Fin}/accounts?pageSize=200"))).AsArray();
+        var bank = (string)accounts.First(a => (string?)a!["systemRole"] == "bank")!["id"]!;
+        var code = "O" + Guid.NewGuid().ToString("N")[..6];
+        var owner = await Ok(await c.PostAsJsonAsync("/api/v1/parties", new { name = "Owner " + code, kind = "Individual", roles = "Vendor" }), HttpStatusCode.Created);
+        var tenant = await Ok(await c.PostAsJsonAsync("/api/v1/parties", new { name = "Tenant " + code, kind = "Individual", roles = "Customer" }), HttpStatusCode.Created);
+        var type = await Ok(await c.PostAsJsonAsync($"{Re}/unit-types", new { code, name = "Flat", defaultUsage = "residential" }), HttpStatusCode.Created);
+        var prop = await Ok(await c.PostAsJsonAsync($"{Re}/properties", new { legalEntityId = entity, name = "Managed " + code, propertyType = "residential", ownershipType = "managedForOwner", ownerPartyId = (string)owner["id"]!, managementFeePercent = 5, totalUnits = 0, indicativeValue = 1m }), HttpStatusCode.Created);
+        Assert.Equal(5m, (decimal)prop["managementFeePercent"]!);
+        var unit = await Ok(await c.PostAsJsonAsync($"{Re}/units", new { propertyId = (string)prop["id"]!, unitNumber = "1", unitTypeId = (string)type["id"]!, areaSqft = 800, askingRent = 120_000m }), HttpStatusCode.Created);
+        var start = DateTime.UtcNow.AddMonths(-1).ToString("yyyy-MM-dd");
+        await Ok(await c.PostAsJsonAsync($"{Re}/leases", new { unitId = (string)unit["id"]!, lesseePartyId = (string)tenant["id"]!, startDate = start, endDate = DateTime.UtcNow.AddMonths(11).ToString("yyyy-MM-dd"), annualRent = 120_000m, paymentFrequency = 12, activateNow = true }), HttpStatusCode.Created);
+        await Ok(await c.PostAsJsonAsync($"{Re}/billing/run", new { asOf = DateTime.UtcNow.ToString("yyyy-MM-dd"), legalEntityId = entity }));
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        await Ok(await c.PostAsJsonAsync($"{Fin}/receipts", new { legalEntityId = entity, partyId = (string)tenant["id"]!, date = today, method = "bankTransfer", bankAccountId = bank, amount = 10_000m, autoAllocate = true }), HttpStatusCode.Created);
+
+        var wo = await Ok(await c.PostAsJsonAsync($"{Re}/work-orders", new { propertyId = (string)prop["id"]!, issue = "Repaint", priority = "normal", technician = "Crew", estimatedCost = 1500m }), HttpStatusCode.Created);
+        var id = (string)wo["id"]!;
+        await Ok(await c.PostAsJsonAsync($"{Re}/work-orders/{id}/status", new { status = "assigned" }));
+        await Ok(await c.PostAsJsonAsync($"{Re}/work-orders/{id}/status", new { status = "inProgress" }));
+        await Ok(await c.PostAsJsonAsync($"{Re}/work-orders/{id}/status", new { status = "completed", actualCost = 1200m }));
+
+        var from = DateTime.UtcNow.AddDays(-5).ToString("yyyy-MM-dd"); var to = DateTime.UtcNow.AddDays(5).ToString("yyyy-MM-dd");
+        var st = await Ok(await c.GetAsync($"{Re}/reports/owner-statement?ownerPartyId={(string)owner["id"]!}&from={from}&to={to}"));
+        Assert.Equal(10_000m, (decimal)st["rentCollected"]!);
+        Assert.Equal(500m, (decimal)st["managementFee"]!);
+        Assert.Equal(1_200m, (decimal)st["maintenanceCosts"]!);
+        Assert.Equal(8_300m, (decimal)st["netToOwner"]!);
+
+        var empty = await Ok(await c.GetAsync($"{Re}/reports/owner-statement?ownerPartyId={(string)owner["id"]!}&from=2020-01-01&to=2020-01-31"));
+        Assert.Equal(0m, (decimal)empty["netToOwner"]!);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync($"{Re}/reports/owner-statement?ownerPartyId={(string)owner["id"]!}&from=2026-02-01&to=2026-01-01")).StatusCode);
+    }
+}

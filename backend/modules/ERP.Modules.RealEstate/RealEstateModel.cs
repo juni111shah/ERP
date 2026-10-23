@@ -23,6 +23,7 @@ internal static class RealEstateModel
             b.ToTable("re_Properties");
             b.Property(x => x.Code).HasMaxLength(20).IsRequired();
             b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            b.Property(x => x.ManagementFeePercent).HasPrecision(9, 4);
             b.Property(x => x.Region).HasMaxLength(100);
             b.Property(x => x.Community).HasMaxLength(100);
             b.Property(x => x.PlotNumber).HasMaxLength(50);
