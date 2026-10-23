@@ -19,6 +19,7 @@ public sealed record PayAgentBody(Guid BankAccountId, DateOnly Date);
 public sealed record DepositBody(Guid BankAccountId, DateOnly Date, decimal Amount);
 public sealed record TransferDepositBody(Guid ToLeaseId);
 public sealed record BillingRunBody(DateOnly AsOf, Guid? LegalEntityId = null);
+public sealed record RenewalDraftsBody(List<Guid> LeaseIds, decimal UpliftPercent);
 public sealed record DealStageBody(DealStage Stage, string? LostReason = null);
 
 /// <summary>Thin controllers: every endpoint sends one MediatR request (see docs/ARCHITECTURE.md, request flow).</summary>
@@ -34,6 +35,8 @@ internal static class RealEstateEndpoints
         MapUnits(group.MapGroup("/units"));
         MapLeases(group.MapGroup("/leases"));
         MapWorkOrders(group.MapGroup("/work-orders"));
+        MapPm(group.MapGroup("/pm-schedules"));
+        MapRenewals(group.MapGroup("/renewals"));
         MapPortal(group.MapGroup("/portal"));
         MapDeals(group.MapGroup("/deals"));
         MapAcquisitions(group.MapGroup("/acquisitions"));
@@ -151,6 +154,20 @@ internal static class RealEstateEndpoints
         g.MapGet("/leases", (ISender s, CancellationToken ct) => s.Send(new GetPortalLeases(), ct)).RequireAuthorization("portal");
         g.MapGet("/requests", (ISender s, CancellationToken ct) => s.Send(new ListPortalRequests(), ct)).RequireAuthorization("portal");
         g.MapPost("/requests", async (PortalRequestInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/portal/requests", await s.Send(new CreatePortalRequest(input), ct))).RequireAuthorization("portal");
+    }
+
+    private static void MapPm(RouteGroupBuilder g)
+    {
+        g.MapPagedList<PmSchedule, PmScheduleDto>("", P.PmRead, s => new PmScheduleDto(s.Id, s.PropertyId, s.UnitId, s.Title, s.Category, s.Priority, s.FrequencyMonths, s.NextDue, s.LeadDays, s.EstimatedCost, s.IsActive, s.LastGeneratedOn, s.Notes));
+        g.MapPost("", async (PmScheduleInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/pm-schedules", await s.Send(new CreatePmSchedule(input), ct))).RequirePermission(P.PmManage);
+        g.MapPut("/{id:guid}", (Guid id, PmScheduleInput input, ISender s, CancellationToken ct) => s.Send(new UpdatePmSchedule(id, input), ct)).RequirePermission(P.PmManage);
+        g.MapPost("/run", (ISender s, CancellationToken ct) => s.Send(new RunPreventiveMaintenance(), ct)).RequirePermission(P.PmManage);
+    }
+
+    private static void MapRenewals(RouteGroupBuilder g)
+    {
+        g.MapGet("", (int? days, DateOnly? asOf, ISender s, CancellationToken ct) => s.Send(new GetRenewalWorkbench(days ?? 120, asOf ?? DateOnly.FromDateTime(DateTime.UtcNow)), ct)).RequirePermission(P.LeasesRenew);
+        g.MapPost("/drafts", (RenewalDraftsBody body, ISender s, CancellationToken ct) => s.Send(new CreateRenewalDrafts(body.LeaseIds, body.UpliftPercent), ct)).RequirePermission(P.LeasesRenew);
     }
 
     private static void MapWorkOrders(RouteGroupBuilder g)

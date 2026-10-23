@@ -31,5 +31,7 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Tenant portal | Done | Email one-time-code sign-in (`/portal`), portal-only JWT (no staff permissions), own invoices, receipts, statement; real estate adds lease with rent schedule and maintenance requests (become work orders). Isolation tested. |
 | Lease-expiry scheduler | Done | Generic `IScheduledJob` runner (per workspace, per enabled module); the RE job ends expired leases. |
 | Security deposits, termination credit notes, brokerage commission invoicing and payout | Done | Deposit register with settle/rollover, credit notes for rent beyond termination, deal Invoiced/Collected/Agent paid driven by finance. |
+| Lease renewals workbench | Done | Expiring leases with state (due / draft / renewed), rent vs asking, bulk draft renewals with rent change. |
+| Preventive maintenance | Done | Recurring schedules raise work orders ahead of the due date (nightly job or run now). |
 
 Planned order: Finance ledger → invoices and billing run → receipts and AR → PDC register → dashboard KPIs → payables → reports → HR → acquisitions.

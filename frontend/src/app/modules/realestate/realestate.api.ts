@@ -211,3 +211,29 @@ export class AcquisitionsApi extends CrudApiService<AcquisitionSummary, unknown>
   cancel(id: string): Observable<AcquisitionDto> { return this.http.post<AcquisitionDto>(`${this.url}/${id}/cancel`, {}); }
   payInstalment(id: string, bankAccountId: string, date: string): Observable<FundingSourceDto> { return this.http.post<FundingSourceDto>(`${this.url}/instalments/${id}/pay`, { bankAccountId, date }); }
 }
+
+// ---- Preventive maintenance and renewals ---------------------------------------------------------------------------------
+
+export interface PmScheduleDto {
+  id: string; propertyId: string; unitId?: string; title: string; category?: string; priority: string; frequencyMonths: number; nextDue: string; leadDays: number;
+  estimatedCost: number; isActive: boolean; lastGeneratedOn?: string; notes?: string;
+}
+@Injectable({ providedIn: 'root' })
+export class PmSchedulesApi extends CrudApiService<PmScheduleDto, unknown> {
+  protected readonly resource = `${BASE}/pm-schedules`;
+  run(): Observable<{ workOrdersCreated: number }> { return this.http.post<{ workOrdersCreated: number }>(`${this.url}/run`, {}); }
+}
+
+export interface RenewalRow {
+  leaseId: string; number?: string; tenant: string; property: string; unit: string; endDate: string; daysLeft: number; annualRent: number; marketRent: number;
+  marketVariancePercent?: number; currencyCode: string; state: 'due' | 'draftRenewal' | 'renewed'; renewalLeaseId?: string;
+}
+export interface RenewalWorkbench { asOf: string; withinDays: number; rows: RenewalRow[]; due: number; draft: number; renewed: number; }
+export interface RenewalDraftResult { leaseId: string; renewalLeaseId?: string; error?: string; }
+@Injectable({ providedIn: 'root' })
+export class RenewalsApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = inject(API_BASE_URL);
+  workbench(days: number): Observable<RenewalWorkbench> { return this.http.get<RenewalWorkbench>(`${this.base}/${BASE}/renewals`, { params: { days } }); }
+  createDrafts(leaseIds: string[], upliftPercent: number): Observable<RenewalDraftResult[]> { return this.http.post<RenewalDraftResult[]>(`${this.base}/${BASE}/renewals/drafts`, { leaseIds, upliftPercent }); }
+}

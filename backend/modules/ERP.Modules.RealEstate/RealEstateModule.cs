@@ -59,6 +59,8 @@ public sealed class RealEstateModule : ModuleBase
         PermissionDefinition.Of(P.DealsPayAgent, "Pay agent and team lead commission"),
         PermissionDefinition.Of(P.DepositsManage, "Record, transfer and settle tenant security deposits"),
         PermissionDefinition.Of(P.BillingRun, "Run the rent billing and invoice instalments"),
+        PermissionDefinition.Of(P.PmRead, "View preventive maintenance schedules"),
+        PermissionDefinition.Of(P.PmManage, "Manage preventive maintenance schedules and run them"),
         PermissionDefinition.Of(P.SettingsWrite, "Change real estate settings"),
     ];
 
@@ -71,6 +73,8 @@ public sealed class RealEstateModule : ModuleBase
         new("realestate.acquisitions", "Acquisitions", "/real-estate/acquisitions", "bank", P.AcquisitionsRead, 15, "realestate", "Real estate", 200),
         new("realestate.billing", "Rent billing", "/real-estate/billing", "dollar", P.BillingRun, 35, "realestate", "Real estate", 200),
         new("realestate.workorders", "Work orders", "/real-estate/work-orders", "tool", P.WorkOrdersRead, 40, "realestate", "Real estate", 200),
+        new("realestate.renewals", "Lease renewals", "/real-estate/renewals", "file-text", P.LeasesRenew, 38, "realestate", "Real estate", 200),
+        new("realestate.pm", "Preventive maintenance", "/real-estate/preventive-maintenance", "tool", P.PmRead, 45, "realestate", "Real estate", 200),
         new("realestate.deals", "Deals", "/real-estate/deals", "fund", P.DealsRead, 50, "realestate", "Real estate", 200),
     ];
 
@@ -117,7 +121,7 @@ public sealed class RealEstateModule : ModuleBase
                     [P.PropertiesRead, P.AcquisitionsRead, P.AcquisitionsManage, P.AcquisitionsComplete, P.FundingPay, CorePermissions.BankRead, CorePermissions.ReportsRead], Key),
                 new("Facilities manager", "Maintenance and work orders",
                     [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.WorkOrdersRead, P.WorkOrdersCreate, P.WorkOrdersEdit, P.WorkOrdersAssign,
-                     P.WorkOrdersComplete, P.WorkOrdersClose, P.WorkOrdersCancel, CorePermissions.PartiesRead], Key),
+                     P.WorkOrdersComplete, P.WorkOrdersClose, P.WorkOrdersCancel, P.PmRead, P.PmManage, CorePermissions.PartiesRead], Key),
                 new("Brokerage manager", "Deals and commissions",
                     [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.DealsRead, P.DealsCreate, P.DealsEdit, P.DealsLose, P.DealsInvoice, P.DealsPayAgent, CorePermissions.PartiesRead, CorePermissions.PartiesWrite,
                      CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue], Key),
@@ -142,6 +146,8 @@ public sealed class RealEstateModule : ModuleBase
         services.AddScoped<ERP.Application.Search.ISearchProvider, RealEstateSearch>();
         services.AddScoped<ERP.Application.Finance.ICashForecastSource, FinancingForecastSource>();
         services.AddScoped<ERP.Application.Abstractions.IScheduledJob, LeaseExpiryJob>();
+        services.AddScoped<PmGenerator>();
+        services.AddScoped<ERP.Application.Abstractions.IScheduledJob, PmJob>();
     }
 
     public override void ConfigureModel(ModelBuilder mb) => RealEstateModel.Configure(mb);
