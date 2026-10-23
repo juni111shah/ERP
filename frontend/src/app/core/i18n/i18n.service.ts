@@ -1,3 +1,4 @@
+import { Directionality } from '@angular/cdk/bidi';
 import { Injectable, computed, effect, inject } from '@angular/core';
 import { NzI18nService, ar_EG, en_US } from 'ng-zorro-antd/i18n';
 import { TenantThemeService } from '../../../theme/tenant-theme.service';
@@ -13,6 +14,8 @@ import { DomTranslator } from './dom-translator';
 export class I18nService {
   private readonly theme = inject(TenantThemeService);
   private readonly nz = inject(NzI18nService, { optional: true });
+  /** Root CDK direction: read once at startup, so overlays (modals, messages, notifications) and pages outside the shell stayed LTR after a switch. */
+  private readonly rootDir = inject(Directionality, { optional: true });
 
   readonly lang = computed<Lang>(() => (this.theme.lang().toLowerCase().startsWith('ar') ? 'ar' : 'en'));
   readonly dir = this.theme.dir;
@@ -23,6 +26,13 @@ export class I18nService {
 
   constructor() {
     effect(() => this.nz?.setLocale(this.lang() === 'ar' ? ar_EG : en_US));
+    effect(() => {
+      const dir = this.dir();
+      if (this.rootDir && this.rootDir.value !== dir) {
+        (this.rootDir as { value: 'ltr' | 'rtl' }).value = dir; // typed readonly, but a plain field the CDK reads on each access
+        this.rootDir.change.emit(dir);
+      }
+    });
     // Arabic: translate the English UI text still present in templates, columns, labels and reports (see phrases.ar.ts).
     effect(() => {
       const arabic = this.lang() === 'ar';

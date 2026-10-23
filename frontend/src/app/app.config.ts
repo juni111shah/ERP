@@ -1,3 +1,5 @@
+import { registerLocaleData } from '@angular/common';
+import localeAr from '@angular/common/locales/ar';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig, inject, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
@@ -13,6 +15,10 @@ import { envelopeInterceptor } from './core/http/envelope.interceptor';
 import { moduleDisabledInterceptor } from './core/http/module-disabled.interceptor';
 import { APP_ICONS } from './icons';
 import { I18nService } from './core/i18n/i18n.service';
+
+// ng-zorro's date helper formats with Angular's formatDate under the ng-zorro locale id ('ar' for ar_EG); without this Arabic locale data
+// date pickers and calendars throw "Missing locale data for the locale 'ar'" once Arabic is selected.
+registerLocaleData(localeAr);
 
 export const appConfig: ApplicationConfig = {
   providers: [

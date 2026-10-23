@@ -24,12 +24,18 @@ export const AR: Dictionary = {
   'menu.realestate.unittypes': 'أنواع الوحدات', 'menu.realestate.acquisitions': 'الاستحواذات', 'menu.realestate.billing': 'فوترة الإيجار', 'menu.realestate.workorders': 'أوامر العمل',
   'menu.realestate.renewals': 'تجديد العقود', 'menu.realestate.pm': 'الصيانة الوقائية', 'menu.realestate.inspections': 'الفحوصات', 'menu.realestate.deals': 'الصفقات',
   'menu.hr.employees': 'الموظفون', 'menu.hr.attendance': 'الحضور', 'menu.hr.payroll': 'الرواتب', 'menu.inventory.warehouses': 'المستودعات', 'menu.inventory.stock': 'المخزون الحالي', 'menu.inventory.movements': 'حركات المخزون',
+  // menu groups / items whose server ids had no entry (sidebar showed English in Arabic)
+  'menu.group.workspace': 'مساحة العمل', 'menu.group.sales': 'المبيعات', 'menu.group.purchases': 'المشتريات', 'menu.group.masterdata': 'البيانات الأساسية', 'menu.group.setup': 'الإعداد',
+  'menu.core.overview': 'نظرة عامة', 'menu.core.reports': 'مركز التقارير', 'menu.core.reports.ar': 'التقارير', 'menu.core.reports.ap': 'التقارير',
+  'menu.sales.customers': 'العملاء', 'menu.purchases.vendors': 'الموردون', 'menu.core.approvalrules': 'قواعد الموافقة', 'menu.core.businessunits': 'وحدات الأعمال',
+  'menu.core.customfields': 'الحقول المخصصة', 'menu.core.legalentities': 'الكيانات القانونية', 'menu.finance.taxcodes': 'الرموز الضريبية', 'menu.hr.reviewcycles': 'دورات التقييم',
+  'menu.hr.reviews': 'تقييمات الأداء', 'menu.realestate.leads': 'العملاء المحتملون', 'menu.realestate.listings': 'القوائم العقارية',
   // login / account
   'login.title': 'تسجيل الدخول', 'login.sub': 'استخدم بريد العمل الخاص بك.', 'login.submit': 'دخول', 'login.forgot': 'نسيت كلمة المرور؟', 'login.remember': 'أبقني مسجلاً',
   'login.code': 'رمز التحقق', 'login.chooseWorkspace': 'اختر مساحة العمل',
   'security.title': 'أمان الحساب', 'security.twoFactor': 'المصادقة الثنائية', 'security.setup': 'إعداد', 'security.turnOn': 'تفعيل', 'security.turnOff': 'إيقاف', 'security.on': 'المصادقة الثنائية مفعّلة.',
   // dashboard
-  'dashboard.welcome': 'مرحباً', 'dashboard.alerts': 'التنبيهات والمهام',
+  'dashboard.welcome': 'مرحباً', 'dashboard.overview': 'نظرة عامة', 'dashboard.alerts': 'التنبيهات والمهام',
   // portal
   'portal.title': 'بوابة المستأجر', 'portal.signIn': 'تسجيل الدخول', 'portal.emailCode': 'أرسل لي رمزاً', 'portal.workspace': 'رمز مساحة العمل', 'portal.welcome': 'مرحباً',
   'portal.tab.lease': 'عقدي', 'portal.tab.invoices': 'الفواتير', 'portal.tab.receipts': 'الإيصالات', 'portal.tab.statement': 'كشف الحساب', 'portal.tab.maintenance': 'الصيانة',
