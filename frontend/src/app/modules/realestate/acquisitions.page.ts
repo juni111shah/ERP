@@ -24,6 +24,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
 import { AcquisitionOverview, AcquisitionSummary, AcquisitionsApi, FUNDING_TYPES, FundingSourceDto, PropertiesApi, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
@@ -35,20 +36,18 @@ import { FormsModule } from '@angular/forms';
   selector: 'erp-acquisitions',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, TableToolsComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, DecimalPipe, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule,
+  imports: [StatCardComponent, FormsModule, TableToolsComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, DecimalPipe, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule,
     NzInputModule, NzInputNumberModule, NzSelectModule, NzTableModule],
-  styles: [`.kpis { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:16px; margin-bottom:20px } .kpi { border:1px solid var(--erp-color-border, #e5e8ec); border-top:3px solid #bfa66a; border-radius:8px; padding:12px 16px; background:var(--erp-color-surface, #fff) } .kpi b { display:block; font-size:20px; margin:4px 0 } .kpi small { color: var(--erp-color-text-secondary, #667) }
-            .fund { display:grid; grid-template-columns: 1.2fr 1.6fr 1.2fr .8fr .8fr auto; gap:8px; margin-bottom:8px; align-items:center }`],
+  styles: [`            .fund { display:grid; grid-template-columns: 1.2fr 1.6fr 1.2fr .8fr .8fr auto; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
     <h1 class="erp-page-title">Acquisitions and funding</h1>
-    @if (overview(); as o) {
-      <div class="kpis" data-testid="acq-kpis">
-        <div class="kpi">Acquisition consideration<b>{{ o.consideration | number: '1.0-0' }}</b><small>{{ o.count }} {{ 'ui.re.acquisitionsLc' | translate: 'acquisitions' }}</small></div>
-        <div class="kpi">Down payments<b>{{ o.downPayments | number: '1.0-0' }}</b><small>equity contributed</small></div>
-        <div class="kpi">Financing arranged<b>{{ o.financing | number: '1.0-0' }}</b><small>{{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ o.outstanding | number: '1.0-0' }}</small></div>
-        <div class="kpi">Unfunded balance<b>{{ o.unfunded | number: '1.0-0' }}</b><small>price less down payment and financing</small></div>
-      </div>
-    }
+    <div class="erp-stat-grid" data-testid="acq-kpis">
+      @let o = overview();
+      <erp-stat-card label="Acquisition consideration" [loading]="!o" [value]="o?.consideration" format="number" [caption]="o ? o.count + ' ' + ('ui.re.acquisitionsLc' | translate: 'acquisitions') : null" [tone]="0" />
+      <erp-stat-card label="Down payments" [loading]="!o" [value]="o?.downPayments" format="number" caption="equity contributed" [tone]="1" />
+      <erp-stat-card label="Financing arranged" [loading]="!o" [value]="o?.financing" format="number" [caption]="o ? ('ui.common.outstandingLc' | translate: 'outstanding') + ' ' + o.outstanding.toLocaleString() : null" [tone]="2" />
+      <erp-stat-card label="Unfunded balance" [loading]="!o" [value]="o?.unfunded" format="number" caption="price less down payment and financing" [tone]="3" />
+    </div>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search seller or reference" emptyText="No acquisitions yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }

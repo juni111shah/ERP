@@ -20,6 +20,7 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { defaultLeaseEnd, leaseFields } from './leases.page';
 import { DESCRIPTION_COLUMNS, LeaseDto, LeasesApi, PAYMENT_PLANS, RealEstateLookups, TerminationResult, humanize } from './realestate.api';
 import { LeaseDepositComponent } from './lease-deposit.component';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { AttachmentsComponent } from '../../shared/attachments.component';
 import { StatusTagComponent } from './status-tag.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -32,7 +33,7 @@ type Action = 'terminate' | 'renew';
   selector: 'erp-lease-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RecordHistoryComponent, TranslatePipe, DatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
+  imports: [StatCardComponent, RecordHistoryComponent, TranslatePipe, DatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
     NzStatisticModule, NzTableModule, NzTagModule],
   template: `
     @if (lease(); as l) {
@@ -58,11 +59,11 @@ type Action = 'terminate' | 'renew';
           <button *erpHasPermission="'realestate.leases.terminate'" nz-button [disabled]="busy()" (click)="moveOut()" data-testid="lease-move-out">Confirm move-out</button>
         }
       </div>
-      <div nz-row [nzGutter]="[16, 16]">
-        <div nz-col [nzXs]="24" [nzMd]="6"><nz-card><nz-statistic nzTitle="Annual rent" [nzValue]="l.annualRent.toLocaleString()" [nzSuffix]="l.currencyCode"></nz-statistic><small>{{ planLabel(l.paymentFrequency) }}</small></nz-card></div>
-        <div nz-col [nzXs]="24" [nzMd]="6"><nz-card><nz-statistic nzTitle="Rent for term" [nzValue]="l.rentForTerm.toLocaleString()" [nzSuffix]="l.currencyCode"></nz-statistic></nz-card></div>
-        <div nz-col [nzXs]="24" [nzMd]="6"><nz-card><nz-statistic nzTitle="Security deposit (agreed)" [nzValue]="l.securityDepositAmount.toLocaleString()" [nzSuffix]="l.currencyCode"></nz-statistic></nz-card></div>
-        <div nz-col [nzXs]="24" [nzMd]="6"><nz-card><nz-statistic nzTitle="Days to expiry" [nzValue]="l.daysToExpiry ?? '—'"></nz-statistic></nz-card></div>
+      <div class="erp-stat-grid" data-testid="lease-kpis">
+        <erp-stat-card label="Annual rent" [value]="l.annualRent" format="number" [suffix]="l.currencyCode" [caption]="planLabel(l.paymentFrequency)" [tone]="0" />
+        <erp-stat-card label="Rent for term" [value]="l.rentForTerm" format="number" [suffix]="l.currencyCode" [tone]="1" />
+        <erp-stat-card label="Security deposit (agreed)" [value]="l.securityDepositAmount" format="number" [suffix]="l.currencyCode" [tone]="2" />
+        <erp-stat-card label="Days to expiry" [value]="l.daysToExpiry ?? null" format="number" [tone]="l.daysToExpiry !== null && l.daysToExpiry !== undefined && l.daysToExpiry < 30 ? 'danger' : 3" />
       </div>
       <nz-card style="margin-top:16px" nzTitle="Details">
         <nz-descriptions nzBordered [nzColumn]="descriptionColumns">

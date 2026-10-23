@@ -30,6 +30,7 @@ import { PartiesApi } from '../parties.page';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 const STATUS_OPTIONS = ['draft', 'pendingApproval', 'issued', 'partlyPaid', 'paid', 'voided'];
@@ -41,20 +42,17 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
   selector: 'erp-invoices',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule, InvoiceSheetComponent],
-  styles: [`.stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px }
-    .stat { background:#fff; border:1px solid #f0f0f0; border-left:4px solid #b89b5e; border-radius:6px; padding:12px 16px }
-    .stat .k { color:#8c8c8c; font-size:12px; text-transform:uppercase; letter-spacing:.06em } .stat .v { font-size:18px; font-weight:600; margin-top:4px }
-    .stat.warn { border-left-color:#cf1322 } .stat.warn .v { color:#cf1322 } .num { font-variant-numeric: tabular-nums } .sub { color:#8c8c8c; font-size:12px }
+  styles: [`.num { font-variant-numeric: tabular-nums } .sub { color:#8c8c8c; font-size:12px }
     .line { display:grid; grid-template-columns: 2.4fr .8fr 1fr 1.2fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 }`],
   template: `
     <h1 class="erp-page-title">Invoices</h1>
-    <div class="stats" data-testid="invoice-stats">
-      <div class="stat"><div class="k">Total invoiced</div><div class="v num">{{ stats().invoiced }}</div><div class="sub">{{ stats().count }} {{ 'table.onThisPage' | translate: 'on this page' }}</div></div>
-      <div class="stat"><div class="k">Outstanding</div><div class="v num">{{ stats().outstanding }}</div></div>
-      <div class="stat warn"><div class="k">Overdue</div><div class="v num">{{ stats().overdue }}</div><div class="sub">{{ stats().overdueCount }} {{ 'ui.inv.invoicesLc' | translate: 'invoices' }}</div></div>
-      <div class="stat"><div class="k">Drafts</div><div class="v">{{ stats().drafts }}</div></div>
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="invoice-stats">
+      <erp-stat-card label="Total invoiced" [value]="stats().invoiced" [loading]="list.loading() && list.items().length === 0" [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')" [tone]="0" />
+      <erp-stat-card label="Outstanding" [value]="stats().outstanding" [loading]="list.loading() && list.items().length === 0" [tone]="2" />
+      <erp-stat-card label="Overdue" [value]="stats().overdue" [loading]="list.loading() && list.items().length === 0" [caption]="stats().overdueCount + ' ' + ('ui.inv.invoicesLc' | translate: 'invoices')" tone="danger" />
+      <erp-stat-card label="Drafts" [value]="stats().drafts" [loading]="list.loading() && list.items().length === 0" [tone]="3" />
     </div>
     <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search number or customer" emptyText="No invoices yet" exportFilename="invoices" [refreshable]="false" [scrollX]="links() && objectKeys(links()).length ? '1650px' : '1400px'" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">

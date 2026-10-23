@@ -10,6 +10,7 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { InventoryLookups, LowStockRow, StockApi, StockOnHand } from './inventory.api';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { NzSelectModule } from 'ng-zorro-antd/select';
@@ -22,11 +23,16 @@ type Action = 'receive' | 'issue' | 'adjust' | 'transfer' | 'policy';
   selector: 'erp-stock',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzTableModule, NzTagModule],
+  imports: [StatCardComponent, FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzTableModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Stock on hand</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" *erpHasPermission="'inventory.stock.write'">
       @for (a of actions; track a.key) { <button nz-button [nzType]="a.key === 'receive' ? 'primary' : 'default'" (click)="open(a.key)" [attr.data-testid]="'stock-' + a.key">{{ a.label }}</button> }
+    </div>
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="stock-kpis">
+      <erp-stat-card label="Stock value" [loading]="!data()" [value]="data()?.totalValue" format="number" [tone]="0" />
+      <erp-stat-card label="Item lines" [loading]="!data()" [value]="data()?.rows?.length" format="number" caption="item / warehouse" [tone]="2" />
+      <erp-stat-card label="Low stock" [loading]="!data()" [value]="low().length" format="number" [tone]="low().length > 0 ? 'warning' : 4" />
     </div>
     @if (low().length) {
       <div style="margin-bottom:12px" data-testid="low-stock">@for (l of low(); track l.itemId) { <nz-tag nzColor="orange">{{ l.sku }}: {{ l.onHand }} {{ 'ui.inv.left' | translate: 'left' }} ({{ 'ui.inv.reorderAt' | translate: 'reorder at' }} {{ l.reorderLevel }})</nz-tag> }</div>

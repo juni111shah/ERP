@@ -48,6 +48,12 @@ export class I18nService {
 
   toggle(): void { this.setLang(this.lang() === 'ar' ? 'en' : 'ar'); }
 
+  /** Formats a date (ISO string, Date or timestamp) for the active language. */
+  date(value: string | number | Date, options: Intl.DateTimeFormatOptions = { dateStyle: 'medium' }): string {
+    const d = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+    return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat(this.locale(), options).format(d);
+  }
+
   /** Formats a number for the active language (grouping and digits). */
   number(value: number, options?: Intl.NumberFormatOptions): string { return new Intl.NumberFormat(this.locale(), options).format(value); }
 }
