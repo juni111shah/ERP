@@ -1,4 +1,4 @@
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -86,6 +86,7 @@ import { PartiesApi } from '../parties.page';
     </ng-template>`,
 })
 export class PaymentsPage {
+  private readonly route = inject(ActivatedRoute);
   private readonly api = inject(PaymentsApi);
   private readonly router = inject(Router);
   private readonly invoices = inject(BillsApi);
@@ -134,9 +135,26 @@ export class PaymentsPage {
     this.loadOpen(partyId);
   }
 
-  private loadOpen(partyId: string): void {
+  private loadOpen(partyId: string, prefillBillId?: string | null): void {
     this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: partyId }] })
-      .subscribe((r) => this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid')));
+      .subscribe((r) => {
+        this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid'));
+        const bill = prefillBillId ? this.openInvoices().find((i) => i.id === prefillBillId) : undefined;
+        if (bill) { this.setAmount(bill.id, bill.outstanding); this.form.patchValue({ amount: bill.outstanding }); }
+      });
+  }
+
+  /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
+  ngOnInit(): void {
+    const id = this.route.snapshot.queryParamMap.get('open');
+    if (id) this.open({ id } as never);
+    const partyId = this.route.snapshot.queryParamMap.get('partyId');
+    if (!id && partyId) {
+      this.open(null);
+      this.form.patchValue({ partyId });
+      this.parties.get(partyId).subscribe((p) => this.partyOptions.update((o) => [{ value: p.id, label: `${p.code} · ${p.name}` }, ...o.filter((x) => x.value !== p.id)]));
+      this.loadOpen(partyId, this.route.snapshot.queryParamMap.get('billId'));
+    }
   }
 
   openDetails(id: string): void { void this.router.navigate(['/finance/payments', id]); }

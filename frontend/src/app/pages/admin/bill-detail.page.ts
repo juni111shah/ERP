@@ -6,6 +6,8 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { API_BASE_URL } from '../../core/api/api-config';
+import { BillsApi } from '../../core/api/admin.api';
+import { askReason } from '../../shared/reason-prompt';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 
 interface BillLine {
@@ -136,6 +138,7 @@ export class BillDetailPage implements OnInit {
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly apiBase = inject(API_BASE_URL);
+  private readonly api = inject(BillsApi);
 
   loading = signal(true);
   error = signal<string | null>(null);
@@ -166,19 +169,43 @@ export class BillDetailPage implements OnInit {
         type: 'primary',
         permission: 'finance.payments.write',
         visible: bil.status === 'issued' || bil.status === 'partlyPaid',
-        handler: () => this.message.info('Make payment functionality will be implemented')
+        handler: () => this.router.navigate(['/finance/payments'], { queryParams: { partyId: bil.partyId, billId: bil.id } })
+      },
+      {
+        label: 'Post',
+        icon: 'check',
+        type: 'primary',
+        permission: 'finance.bills.post',
+        visible: bil.status === 'draft' || bil.status === 'pendingApproval',
+        handler: () => this.postBill()
+      },
+      {
+        label: 'Edit',
+        icon: 'edit',
+        permission: 'finance.bills.write',
+        visible: bil.status === 'draft' || bil.status === 'pendingApproval',
+        handler: () => this.router.navigate(['/finance/bills'], { queryParams: { open: bil.id } })
+      },
+      {
+        label: 'Delete',
+        icon: 'delete',
+        danger: true,
+        permission: 'finance.bills.write',
+        visible: bil.status === 'draft' || bil.status === 'pendingApproval',
+        handler: () => this.deleteBill()
       },
       {
         label: 'Void',
         icon: 'stop',
         danger: true,
-        permission: 'finance.bills.write',
-        visible: bil.status !== 'voided' && bil.status !== 'paid',
+        permission: 'finance.bills.post',
+        visible: bil.status === 'issued' && bil.paid === 0,
         handler: () => this.voidBill()
       },
       {
         label: 'View Journal',
         icon: 'book',
+        permission: 'finance.journals.read',
         visible: !!bil.journalEntryId,
         handler: () => this.router.navigate(['/finance/journals', bil.journalEntryId])
       },
@@ -230,6 +257,10 @@ export class BillDetailPage implements OnInit {
       { label: 'Currency', value: bil.currencyCode }
     ];
 
+    if (bil.status === 'pendingApproval' || bil.approvalRequestId) {
+      items.push({ label: 'Approval', value: bil.status === 'pendingApproval' ? 'Pending approval' : 'Approved', routerLink: ['/approvals'] });
+    }
+
     if (bil.vendorReference) {
       items.push({ label: 'Vendor Reference', value: bil.vendorReference });
     }
@@ -262,14 +293,41 @@ export class BillDetailPage implements OnInit {
   }
 
   voidBill(): void {
+    const bil = this.bill();
+    if (!bil) return;
+    // The void endpoint takes no body yet, so the reason is collected but not sent (backend gap, see CHANGES.md).
+    askReason(this.modal, 'Void this bill?', 'Void Bill', 'This cannot be undone. The bill will be marked as voided.').then((reason) => {
+      if (!reason) return;
+      this.api.void(bil.id).subscribe({
+        next: (res) => { this.bill.set(res as unknown as Bill); this.message.success('Bill voided'); },
+        error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to void bill')
+      });
+    });
+  }
+
+  postBill(): void {
+    const bil = this.bill();
+    if (!bil) return;
+    this.api.post(bil.id).subscribe({
+      next: (res) => {
+        this.bill.set(res as unknown as Bill);
+        this.message.success(res.status === 'pendingApproval' ? 'Sent for approval. Post it again once it is approved.' : `Posted as ${res.number}`);
+      },
+      error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to post bill')
+    });
+  }
+
+  deleteBill(): void {
+    const bil = this.bill();
+    if (!bil) return;
     this.modal.confirm({
-      nzTitle: 'Void this bill?',
-      nzContent: 'This action cannot be undone. The bill will be marked as voided.',
-      nzOkText: 'Void Bill',
+      nzTitle: 'Delete this draft bill?',
+      nzOkText: 'Delete',
       nzOkDanger: true,
-      nzOnOk: () => {
-        this.message.info('Void functionality will be implemented');
-      }
+      nzOnOk: () => this.api.delete(bil.id).subscribe({
+        next: () => { this.message.success('Draft deleted'); this.router.navigate(['/finance/bills']); },
+        error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to delete bill')
+      })
     });
   }
 }

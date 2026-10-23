@@ -1,0 +1,41 @@
+import { Component } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzModalService } from 'ng-zorro-antd/modal';
+
+/** Modal body: one required reason textarea. */
+@Component({
+  selector: 'erp-reason-prompt',
+  standalone: true,
+  imports: [FormsModule, NzInputModule],
+  template: `
+    @if (hint) { <p>{{ hint }}</p> }
+    <label for="erp-reason">Reason (required)</label>
+    <textarea id="erp-reason" nz-input rows="3" [(ngModel)]="reason" data-testid="reason-input"></textarea>
+  `,
+})
+export class ReasonPromptComponent {
+  hint = '';
+  reason = '';
+}
+
+/** Opens a modal asking for a required reason; resolves with the trimmed reason, or null if cancelled. OK stays disabled while empty. */
+export function askReason(modal: NzModalService, title: string, okText: string, hint = ''): Promise<string | null> {
+  return new Promise((resolve) => {
+    let done = false;
+    const ref = modal.create<ReasonPromptComponent>({
+      nzTitle: title,
+      nzContent: ReasonPromptComponent,
+      nzFooter: [
+        { label: 'Cancel', onClick: () => ref.close() },
+        {
+          label: okText, type: 'primary', danger: true,
+          disabled: (c?: ReasonPromptComponent) => !c?.reason?.trim(),
+          onClick: (c?: ReasonPromptComponent) => { done = true; resolve(c!.reason.trim()); ref.close(); },
+        },
+      ],
+    });
+    ref.componentInstance && (ref.componentInstance.hint = hint);
+    ref.afterClose.subscribe(() => { if (!done) resolve(null); });
+  });
+}

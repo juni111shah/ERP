@@ -1,4 +1,4 @@
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -81,6 +81,7 @@ import { PartiesApi } from '../parties.page';
     </ng-template>`,
 })
 export class ReceiptsPage {
+  private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ReceiptsApi);
   private readonly router = inject(Router);
   private readonly invoices = inject(InvoicesApi);
@@ -129,6 +130,12 @@ export class ReceiptsPage {
   private loadOpen(partyId: string): void {
     this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: partyId }, { field: 'isCreditNote', op: 'eq', value: false }] })
       .subscribe((r) => this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid')));
+  }
+
+  /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
+  ngOnInit(): void {
+    const id = this.route.snapshot.queryParamMap.get('open');
+    if (id) this.open({ id } as never);
   }
 
   openDetails(id: string): void { void this.router.navigate(['/finance/receipts', id]); }

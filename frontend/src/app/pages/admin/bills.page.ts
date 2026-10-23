@@ -1,4 +1,5 @@
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -30,7 +31,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
   selector: 'erp-bills',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
+  imports: [ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.line { display:grid; grid-template-columns: 2fr 1.6fr .7fr .9fr 1.1fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 }`],
   template: `
     <h1 class="erp-page-title">Bills</h1>
@@ -74,13 +75,16 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
       @if (bill()?.id) { <button nz-button (click)="openDetails(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
       @if (bill()?.status === 'issued' && bill()!.paid === 0) { <button *erpHasPermission="'finance.bills.post'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="bill-void">Void</button> }
       @if (editable()) {
+        @if (bill()?.id) { <button *erpHasPermission="'finance.bills.write'" nz-button nzDanger (click)="remove()" style="margin-inline-start:8px" data-testid="bill-delete">Delete</button> }
         <button *erpHasPermission="'finance.bills.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="bill-save">Save draft</button>
         <button *erpHasPermission="'finance.bills.post'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save(true)" style="margin-inline-start:8px" data-testid="bill-post">Save and post</button>
       }
     </ng-template>`,
 })
 export class BillsPage {
+  private readonly route = inject(ActivatedRoute);
   private readonly api = inject(BillsApi);
+  private readonly modal = inject(NzModalService);
   private readonly router = inject(Router);
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
@@ -135,6 +139,12 @@ export class BillsPage {
     this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => this.partyOptions.set(r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))));
   }
 
+  /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
+  ngOnInit(): void {
+    const id = this.route.snapshot.queryParamMap.get('open');
+    if (id) this.open({ id } as never);
+  }
+
   openDetails(id: string): void { void this.router.navigate(['/finance/bills', id]); }
   printDoc(id: string): void { window.open(`/print/bill/${id}`, '_blank'); }
 
@@ -181,6 +191,15 @@ export class BillsPage {
   void(): void {
     const b = this.bill();
     if (b) this.api.void(b.id).subscribe({ next: () => this.done('Bill voided'), error: (e) => this.fail(e) });
+  }
+
+  remove(): void {
+    const b = this.bill();
+    if (!b) return;
+    this.modal.confirm({
+      nzTitle: 'Delete this draft bill?', nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => this.api.delete(b.id).subscribe({ next: () => this.done('Draft deleted'), error: (e) => this.fail(e) }),
+    });
   }
 
   private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.list.reload(); }

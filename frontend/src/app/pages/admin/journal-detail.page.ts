@@ -5,6 +5,9 @@ import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { API_BASE_URL } from '../../core/api/api-config';
+import { JournalsApi } from '../../core/api/admin.api';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { askReason } from '../../shared/reason-prompt';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 
 interface JournalLine {
@@ -39,7 +42,7 @@ interface Journal {
 @Component({
   selector: 'erp-journal-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, DetailPageComponent],
+  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -103,6 +106,8 @@ export class JournalDetailPage implements OnInit {
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly apiBase = inject(API_BASE_URL);
+  private readonly api = inject(JournalsApi);
+  private readonly modal = inject(NzModalService);
 
   loading = signal(true);
   error = signal<string | null>(null);
@@ -122,7 +127,40 @@ export class JournalDetailPage implements OnInit {
     const jrn = this.journal();
     if (!jrn) return [];
     
+    // Only manual entries can be edited, deleted or reversed here; document journals follow their document.
+    const manual = jrn.sourceType === 'manual';
     return [
+      {
+        label: 'Post',
+        icon: 'check',
+        type: 'primary',
+        permission: 'finance.journals.post',
+        visible: jrn.status === 'draft' && manual,
+        handler: () => this.postJournal()
+      },
+      {
+        label: 'Edit',
+        icon: 'edit',
+        permission: 'finance.journals.write',
+        visible: jrn.status === 'draft' && manual,
+        handler: () => this.router.navigate(['/finance/journals'], { queryParams: { open: jrn.id } })
+      },
+      {
+        label: 'Delete',
+        icon: 'delete',
+        danger: true,
+        permission: 'finance.journals.write',
+        visible: jrn.status === 'draft' && manual,
+        handler: () => this.deleteJournal()
+      },
+      {
+        label: 'Reverse',
+        icon: 'rollback',
+        danger: true,
+        permission: 'finance.journals.post',
+        visible: jrn.status === 'posted' && manual,
+        handler: () => this.reverseJournal()
+      },
       {
         label: 'Print',
         icon: 'printer',
@@ -202,6 +240,47 @@ export class JournalDetailPage implements OnInit {
         this.error.set(err.error?.message || 'Failed to load journal entry');
         this.loading.set(false);
       }
+    });
+  }
+
+  private fail(err: any, fallback: string): void { this.message.error(err?.error?.detail || err?.error?.message || fallback); }
+
+  postJournal(): void {
+    const jrn = this.journal();
+    if (!jrn) return;
+    this.api.post(jrn.id).subscribe({
+      next: (res) => { this.journal.set(res as unknown as Journal); this.message.success(`Posted as ${res.number}`); },
+      error: (err) => this.fail(err, 'Failed to post journal')
+    });
+  }
+
+  deleteJournal(): void {
+    const jrn = this.journal();
+    if (!jrn) return;
+    this.modal.confirm({
+      nzTitle: 'Delete this draft journal?',
+      nzOkText: 'Delete',
+      nzOkDanger: true,
+      nzOnOk: () => this.api.delete(jrn.id).subscribe({
+        next: () => { this.message.success('Draft deleted'); this.router.navigate(['/finance/journals']); },
+        error: (err) => this.fail(err, 'Failed to delete journal')
+      })
+    });
+  }
+
+  reverseJournal(): void {
+    const jrn = this.journal();
+    if (!jrn) return;
+    // ReverseBody has no reason field; the reason is sent as the reversal memo.
+    askReason(this.modal, 'Reverse this journal?', 'Reverse', 'A reversing entry is posted on the original date.').then((reason) => {
+      if (!reason) return;
+      this.api.reverse(jrn.id, reason).subscribe({
+        next: (rev) => {
+          this.message.success(`Reversed by ${rev.number}`);
+          this.api.detail(jrn.id).subscribe((j) => this.journal.set(j as unknown as Journal));
+        },
+        error: (err) => this.fail(err, 'Failed to reverse journal')
+      });
     });
   }
 

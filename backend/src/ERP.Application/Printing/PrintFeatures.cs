@@ -31,7 +31,8 @@ public sealed record PrintReceiptDto(
     ReceiptDto Receipt,
     string PartyName,
     string? PartyAddress,
-    IReadOnlyList<AllocationDto> Allocations, string? PartyTaxNumber = null, string? PartyPhone = null, string? PartyEmail = null);
+    IReadOnlyList<AllocationDto> Allocations, string? PartyTaxNumber = null, string? PartyPhone = null, string? PartyEmail = null,
+    string? InstrumentKind = null, string? ChequeNumber = null, DateOnly? ChequeDate = null, string? ChequeStatus = null, string? ChequeBankName = null);
 
 public sealed record PrintBillDto(
     PrintHeaderDto Header,
@@ -44,12 +45,16 @@ public sealed record PrintPaymentDto(
     PrintHeaderDto Header,
     PaymentDto Payment,
     string PartyName,
-    IReadOnlyList<BillAllocationDto> Allocations, string? PartyAddress = null, string? PartyTaxNumber = null, string? PartyPhone = null, string? PartyEmail = null);
+    IReadOnlyList<BillAllocationDto> Allocations, string? PartyAddress = null, string? PartyTaxNumber = null, string? PartyPhone = null, string? PartyEmail = null,
+    string? InstrumentKind = null, string? ChequeNumber = null, DateOnly? ChequeDate = null, string? ChequeStatus = null, string? ChequeBankName = null);
 
 public sealed record PrintJournalDto(
     PrintHeaderDto Header,
     JournalDto Journal,
-    IReadOnlyList<JournalLineDto> Lines);
+    IReadOnlyList<JournalLineDto> Lines, JournalStatus Status = JournalStatus.Draft);
+
+/// <summary>Cheque / instrument details shown on receipt and payment prints (null when the settlement has no instrument).</summary>
+internal sealed record PrintInstrument(string Kind, string No, DateOnly Date, string Status, string? BankName);
 
 /// <summary>Get print data for an invoice or credit note.</summary>
 public sealed record GetPrintInvoice(Guid Id) : IQuery<PrintInvoiceDto>, IRequirePermission 
@@ -91,6 +96,7 @@ internal sealed class PrintHandlers(
     IRepository<LegalEntity> entities,
     IReadRepository<Domain.Parties.Party> parties,
     IReadRepository<Organization> orgs,
+    IReadRepository<PaymentInstrument> instruments,
     ICurrentUser user) :
     IRequestHandler<GetPrintInvoice, PrintInvoiceDto>,
     IRequestHandler<GetPrintReceipt, PrintReceiptDto>,
@@ -121,23 +127,25 @@ internal sealed class PrintHandlers(
         var header = await BuildHeaderAsync(receipt.LegalEntityId, ct);
         var party = await parties.Query().FirstOrDefaultAsync(p => p.Id == receipt.PartyId, ct);
         
-        var ids = receipt.Allocations.Select(a => a.InvoiceId!.Value).ToList();
+        var ids = receipt.Allocations.Where(a => a.InvoiceId.HasValue).Select(a => a.InvoiceId!.Value).ToList();
         var invoiceNumbers = await invoices.Query(new Specification<Invoice>(i => ids.Contains(i.Id)))
             .Select(i => new { i.Id, i.Number }).ToDictionaryAsync(i => i.Id, i => i.Number, ct);
-        var allocations = receipt.Allocations.Select(a => new AllocationDto(
+        var allocations = receipt.Allocations.Where(a => a.InvoiceId.HasValue).Select(a => new AllocationDto(
             a.Id, a.InvoiceId!.Value, invoiceNumbers.GetValueOrDefault(a.InvoiceId.Value, "?"), a.Amount)).ToList();
         
         var receiptDto = new ReceiptDto(
             receipt.Id, receipt.Number, receipt.LegalEntityId, receipt.PartyId, receipt.PartyName, receipt.Date, 
             receipt.Method, receipt.BankAccountId, receipt.CurrencyCode, receipt.Amount, receipt.Unallocated, 
             receipt.Reference, receipt.Status, receipt.JournalEntryId, allocations);
+        var ins = await InstrumentAsync(receipt.PaymentInstrumentId, ct);
         
         return new PrintReceiptDto(
             header,
             receiptDto,
             party?.Name ?? receipt.PartyName ?? "Unknown",
             party?.Address,
-            allocations, party?.TaxNumber, party?.Phone, party?.Email);
+            allocations, party?.TaxNumber, party?.Phone, party?.Email,
+            ins?.Kind, ins?.No, ins?.Date, ins?.Status, ins?.BankName);
     }
 
     public async Task<PrintBillDto> Handle(GetPrintBill q, CancellationToken ct)
@@ -170,22 +178,24 @@ internal sealed class PrintHandlers(
         var header = await BuildHeaderAsync(payment.LegalEntityId, ct);
         var party = await parties.Query().FirstOrDefaultAsync(p => p.Id == payment.PartyId, ct);
         
-        var ids = payment.Allocations.Select(a => a.BillId!.Value).ToList();
+        var ids = payment.Allocations.Where(a => a.BillId.HasValue).Select(a => a.BillId!.Value).ToList();
         var billNumbers = await bills.Query(new Specification<Bill>(b => ids.Contains(b.Id)))
             .Select(b => new { b.Id, b.Number }).ToDictionaryAsync(b => b.Id, b => b.Number, ct);
-        var allocations = payment.Allocations.Select(a => new BillAllocationDto(
+        var allocations = payment.Allocations.Where(a => a.BillId.HasValue).Select(a => new BillAllocationDto(
             a.Id, a.BillId!.Value, billNumbers.GetValueOrDefault(a.BillId.Value, "?"), a.Amount)).ToList();
         
         var paymentDto = new PaymentDto(
             payment.Id, payment.Number, payment.LegalEntityId, payment.PartyId, payment.PartyName, payment.Date,
             payment.Method, payment.BankAccountId, payment.CurrencyCode, payment.Amount, payment.Unallocated,
             payment.Reference, payment.Status, payment.PaymentInstrumentId, payment.JournalEntryId, allocations);
+        var ins = await InstrumentAsync(payment.PaymentInstrumentId, ct);
         
         return new PrintPaymentDto(
             header,
             paymentDto,
             party?.Name ?? payment.PartyName ?? "Unknown",
-            allocations, party?.Address, party?.TaxNumber, party?.Phone, party?.Email);
+            allocations, party?.Address, party?.TaxNumber, party?.Phone, party?.Email,
+            ins?.Kind, ins?.No, ins?.Date, ins?.Status, ins?.BankName);
     }
 
     public async Task<PrintJournalDto> Handle(GetPrintJournal q, CancellationToken ct)
@@ -198,7 +208,10 @@ internal sealed class PrintHandlers(
         var accountDict = await accounts.Query(new Specification<Account>(a => accountIds.Contains(a.Id)))
             .Select(a => new { a.Id, a.Code, a.Name }).ToDictionaryAsync(a => a.Id, ct);
         var lines = journal.Lines.OrderBy(l => l.Seq).Select(l => new JournalLineDto(
-            l.Id, l.Seq, l.AccountId, accountDict[l.AccountId].Code, accountDict[l.AccountId].Name, l.Debit, l.Credit, l.Description, l.PartyId)).ToList();
+            l.Id, l.Seq, l.AccountId,
+            accountDict.TryGetValue(l.AccountId, out var acc) ? acc.Code : string.Empty,
+            acc?.Name ?? "Unknown account",
+            l.Debit, l.Credit, l.Description, l.PartyId)).ToList();
         
         var journalDto = new JournalDto(
             journal.Id, journal.Number, journal.LegalEntityId, journal.Date, journal.Memo, journal.Reference,
@@ -208,7 +221,16 @@ internal sealed class PrintHandlers(
         return new PrintJournalDto(
             header,
             journalDto,
-            lines);
+            lines,
+            journal.Status);
+    }
+
+    private async Task<PrintInstrument?> InstrumentAsync(Guid? id, CancellationToken ct)
+    {
+        if (id is not { } iid) return null;
+        var i = await instruments.Query(new Specification<PaymentInstrument>(x => x.Id == iid))
+            .Select(x => new { x.Kind, x.InstrumentNo, x.InstrumentDate, x.Status, x.BankName }).FirstOrDefaultAsync(ct);
+        return i is null ? null : new PrintInstrument(i.Kind.ToString(), i.InstrumentNo, i.InstrumentDate, i.Status.ToString(), i.BankName);
     }
 
     private async Task<PrintHeaderDto> BuildHeaderAsync(Guid legalEntityId, CancellationToken ct)

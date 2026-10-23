@@ -1,4 +1,5 @@
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -10,7 +11,6 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
@@ -72,10 +72,11 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (journal()?.id) { <button nz-button (click)="openDetails(journal()!.id)" style="margin-inline-start:8px" data-testid="journal-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(journal()!.id)" style="margin-inline-start:8px" data-testid="journal-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
-      @if (journal()?.status === 'posted') {
+      @if (journal()?.status === 'posted' && journal()!.sourceType === 'manual') {
         <button *erpHasPermission="'finance.journals.post'" nz-button nzDanger (click)="reverse()" style="margin-inline-start:8px" data-testid="j-reverse">Reverse</button>
       }
       @if (editable()) {
+        @if (journal()?.id) { <button *erpHasPermission="'finance.journals.write'" nz-button nzDanger (click)="remove()" style="margin-inline-start:8px" data-testid="j-delete">Delete</button> }
         <button *erpHasPermission="'finance.journals.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="j-save">Save draft</button>
         <button *erpHasPermission="'finance.journals.post'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save(true)" style="margin-inline-start:8px" data-testid="j-post">Save and post</button>
       }
@@ -90,7 +91,9 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
     </nz-modal>`,
 })
 export class JournalsPage {
+  private readonly route = inject(ActivatedRoute);
   private readonly api = inject(JournalsApi);
+  private readonly modal = inject(NzModalService);
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
@@ -134,6 +137,12 @@ export class JournalsPage {
   addLine(): void { this.lines.push(this.newLine() as never); }
   removeLine(i: number): void { if (this.lines.length > 2) this.lines.removeAt(i); }
 
+  /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
+  ngOnInit(): void {
+    const id = this.route.snapshot.queryParamMap.get('open');
+    if (id) this.open({ id } as never);
+  }
+
   openDetails(id: string): void { void this.router.navigate(['/finance/journals', id]); }
   printDoc(id: string): void { window.open(`/print/journal/${id}`, '_blank'); }
 
@@ -176,6 +185,15 @@ export class JournalsPage {
     const j = this.journal();
     if (!j) return;
     this.api.reverse(j.id).subscribe({ next: (r) => { this.drawerOpen.set(false); this.message.success(`Reversed by ${r.number}`); this.list.reload(); }, error: (e) => this.fail(e) });
+  }
+
+  remove(): void {
+    const j = this.journal();
+    if (!j) return;
+    this.modal.confirm({
+      nzTitle: 'Delete this draft journal?', nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => this.api.delete(j.id).subscribe({ next: () => { this.drawerOpen.set(false); this.message.success('Draft deleted'); this.list.reload(); }, error: (e) => this.fail(e) }),
+    });
   }
 
   lock(): void {

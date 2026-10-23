@@ -5,6 +5,9 @@ import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { API_BASE_URL } from '../../core/api/api-config';
+import { PaymentsApi } from '../../core/api/admin.api';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { askReason } from '../../shared/reason-prompt';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 
 interface BillAllocation {
@@ -36,7 +39,7 @@ interface Payment {
 @Component({
   selector: 'erp-payment-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, DetailPageComponent],
+  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -85,6 +88,8 @@ export class PaymentDetailPage implements OnInit {
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly apiBase = inject(API_BASE_URL);
+  private readonly api = inject(PaymentsApi);
+  private readonly modal = inject(NzModalService);
 
   loading = signal(true);
   error = signal<string | null>(null);
@@ -96,8 +101,25 @@ export class PaymentDetailPage implements OnInit {
     
     return [
       {
+        label: 'Allocate',
+        icon: 'link',
+        type: 'primary',
+        permission: 'finance.payments.write',
+        visible: pay.status === 'issued' && pay.unallocated > 0,
+        handler: () => this.router.navigate(['/finance/payments'], { queryParams: { open: pay.id } })
+      },
+      {
+        label: 'Void',
+        icon: 'stop',
+        danger: true,
+        permission: 'finance.payments.write',
+        visible: pay.status === 'issued',
+        handler: () => this.voidPayment()
+      },
+      {
         label: 'View Journal',
         icon: 'book',
+        permission: 'finance.journals.read',
         visible: !!pay.journalEntryId,
         handler: () => this.router.navigate(['/finance/journals', pay.journalEntryId])
       },
@@ -167,6 +189,19 @@ export class PaymentDetailPage implements OnInit {
         this.error.set(err.error?.message || 'Failed to load payment');
         this.loading.set(false);
       }
+    });
+  }
+
+  voidPayment(): void {
+    const pay = this.payment();
+    if (!pay) return;
+    // The void endpoint takes no body yet, so the reason is collected but not sent (backend gap, see CHANGES.md).
+    askReason(this.modal, 'Void this payment?', 'Void Payment', 'This reverses its journal and removes its allocations.').then((reason) => {
+      if (!reason) return;
+      this.api.void(pay.id).subscribe({
+        next: (res) => { this.payment.set(res as unknown as Payment); this.message.success('Payment voided'); },
+        error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to void payment')
+      });
     });
   }
 }

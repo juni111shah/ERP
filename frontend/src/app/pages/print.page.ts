@@ -71,7 +71,7 @@ interface PrintPaymentData {
 interface PrintJournalData {
   header: PrintHeader;
   journal: {
-    id: string; number: string; date: string; memo?: string | null; reference?: string | null; sourceType?: string | null; currencyCode?: string | null;
+    id: string; number: string; date: string; memo?: string | null; reference?: string | null; sourceType?: string | null; currencyCode?: string | null; status?: string | null;
     lines: { seq: number; accountCode: string; accountName: string; description?: string | null; debit: number; credit: number }[];
   };
 }
@@ -175,7 +175,7 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
           <div class="parties">
             <div>
               <div class="label">Bill to</div>
-              <div class="party-name">{{ inv.invoice.partyName }}</div>
+              <div class="party-name">{{ inv.invoice.partyName || 'Unknown' }}</div>
               @if (inv.partyAddress) { <div class="party-address">{{ inv.partyAddress }}</div> }
               @if (partyContact(inv)) { <div class="party-address">{{ partyContact(inv) }}</div> }
               @if (inv.partyTaxNumber) { <div>{{ taxRegLabel() }}: <strong>{{ inv.partyTaxNumber }}</strong></div> }
@@ -423,7 +423,11 @@ export class PrintPage implements OnInit {
   });
   readonly stamp = computed(() => {
     const d = this.data();
-    if (!d || 'journal' in d) return '';
+    if (!d) return '';
+    if ('journal' in d) {
+      const j = String(d.journal.status ?? '').toLowerCase();
+      return j === 'draft' ? 'Draft' : j === 'reversed' ? 'Reversed' : '';
+    }
     const s = ('invoice' in d ? d.invoice.status : 'bill' in d ? d.bill.status : 'receipt' in d ? d.receipt.status : d.payment.status) ?? '';
     const k = String(s).toLowerCase();
     return k === 'draft' ? 'Draft' : k === 'voided' ? 'Void' : k === 'pendingapproval' ? 'Pending' : '';

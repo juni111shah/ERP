@@ -5,6 +5,9 @@ import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { API_BASE_URL } from '../../core/api/api-config';
+import { ReceiptsApi } from '../../core/api/admin.api';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { askReason } from '../../shared/reason-prompt';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 
 interface Allocation {
@@ -35,7 +38,7 @@ interface Receipt {
 @Component({
   selector: 'erp-receipt-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, DetailPageComponent],
+  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -84,6 +87,8 @@ export class ReceiptDetailPage implements OnInit {
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly apiBase = inject(API_BASE_URL);
+  private readonly api = inject(ReceiptsApi);
+  private readonly modal = inject(NzModalService);
 
   loading = signal(true);
   error = signal<string | null>(null);
@@ -95,8 +100,25 @@ export class ReceiptDetailPage implements OnInit {
     
     return [
       {
+        label: 'Allocate',
+        icon: 'link',
+        type: 'primary',
+        permission: 'finance.receipts.write',
+        visible: rec.status === 'issued' && rec.unallocated > 0,
+        handler: () => this.router.navigate(['/finance/receipts'], { queryParams: { open: rec.id } })
+      },
+      {
+        label: 'Void',
+        icon: 'stop',
+        danger: true,
+        permission: 'finance.receipts.write',
+        visible: rec.status === 'issued',
+        handler: () => this.voidReceipt()
+      },
+      {
         label: 'View Journal',
         icon: 'book',
+        permission: 'finance.journals.read',
         visible: !!rec.journalEntryId,
         handler: () => this.router.navigate(['/finance/journals', rec.journalEntryId])
       },
@@ -171,6 +193,19 @@ export class ReceiptDetailPage implements OnInit {
         this.error.set(err.error?.message || 'Failed to load receipt');
         this.loading.set(false);
       }
+    });
+  }
+
+  voidReceipt(): void {
+    const rec = this.receipt();
+    if (!rec) return;
+    // The void endpoint takes no body yet, so the reason is collected but not sent (backend gap, see CHANGES.md).
+    askReason(this.modal, 'Void this receipt?', 'Void Receipt', 'This reverses its journal and removes its allocations.').then((reason) => {
+      if (!reason) return;
+      this.api.void(rec.id).subscribe({
+        next: (res) => { this.receipt.set(res as unknown as Receipt); this.message.success('Receipt voided'); },
+        error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to void receipt')
+      });
     });
   }
 }

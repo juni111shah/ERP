@@ -104,6 +104,21 @@ export class PartiesPage implements OnInit {
       this.pageTitle.set(type === 'customer' ? 'Customers' : type === 'vendor' ? 'Vendors' : 'Parties');
       this.filterRole(type.charAt(0).toUpperCase() + type.slice(1));
     }
+    // `?edit=<id>` (from the party detail page's Edit) opens the edit drawer for that party.
+    const editId = this.route.snapshot.queryParamMap.get('edit');
+    if (editId) this.api.get(editId).subscribe((p) => this.edit(p));
+  }
+
+  private edit(p: PartyDto): void {
+    this.editing.set(p);
+    this.form = this.newForm(p);
+    this.meta.sections('party').subscribe((s) => {
+      this.sections.set(s);
+      const group = buildCustomFieldsGroup(s, p.customFields as never, false);
+      this.form.setControl('customFields', group);
+      this.customGroup.set(group);
+    });
+    this.drawerOpen.set(true);
   }
 
   filterRole(role: string | null): void {
@@ -139,7 +154,7 @@ export class PartiesPage implements OnInit {
     const p = this.editing();
     this.saving.set(true);
     (p ? this.api.update(p.id, body) : this.api.create(body)).subscribe({
-      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success('Saved'); this.list.reload(); },
+      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success('Saved'); this.list.reload(); if (p) void this.router.navigate(['/parties', p.id]); },
       error: (e) => {
         this.saving.set(false);
         const problem = asProblem(e);

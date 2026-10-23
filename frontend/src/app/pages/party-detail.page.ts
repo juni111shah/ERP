@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
+import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { API_BASE_URL } from '../core/api/api-config';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../shared/detail-page.component';
 
@@ -41,7 +42,7 @@ interface Party {
 @Component({
   selector: 'erp-party-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, DetailPageComponent],
+  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -147,6 +148,29 @@ interface Party {
           </nz-tab>
         </div>
       </erp-detail-page>
+
+      <nz-drawer [nzVisible]="statementOpen()" [nzWidth]="720" [nzTitle]="statementTitle()" (nzOnClose)="statementOpen.set(false)">
+        <ng-container *nzDrawerContent>
+          @if (statement(); as st) {
+            <p>As of {{ st.asOf | date:'dd MMM yyyy' }}</p>
+            <nz-table #stTable [nzData]="st.items" [nzFrontPagination]="false" nzSize="small" data-testid="party-statement">
+              <thead><tr><th>Number</th><th>Date</th><th>Due</th><th style="text-align: right;">Days overdue</th><th style="text-align: right;">Outstanding</th></tr></thead>
+              <tbody>
+                @for (it of stTable.data; track it.invoiceId) {
+                  <tr>
+                    <td>{{ it.number }}{{ it.isCreditNote ? ' (credit)' : '' }}</td>
+                    <td>{{ it.invoiceDate | date:'dd MMM yyyy' }}</td>
+                    <td>{{ it.dueDate | date:'dd MMM yyyy' }}</td>
+                    <td style="text-align: right;">{{ it.daysOverdue }}</td>
+                    <td style="text-align: right;">{{ it.outstanding | number:'1.2-2' }}</td>
+                  </tr>
+                } @empty { <tr><td colspan="5" style="text-align: center; color: #999;">Nothing outstanding</td></tr> }
+              </tbody>
+            </nz-table>
+            <p style="text-align: right; margin-top: 12px;">Unallocated: {{ (st.unallocatedReceipts ?? st.unallocatedPayments ?? 0) | number:'1.2-2' }}<br /><b>Balance: {{ st.balance | number:'1.2-2' }}</b></p>
+          } @else { <p>Loading…</p> }
+        </ng-container>
+      </nz-drawer>
     }
   `
 })
@@ -156,6 +180,10 @@ export class PartyDetailPage implements OnInit {
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly apiBase = inject(API_BASE_URL);
+
+  statementOpen = signal(false);
+  statementTitle = signal('Statement');
+  statement = signal<{ asOf: string; items: { invoiceId: string; number: string; isCreditNote: boolean; invoiceDate: string; dueDate: string; daysOverdue: number; outstanding: number }[]; unallocatedReceipts?: number; unallocatedPayments?: number; balance: number } | null>(null);
 
   loading = signal(true);
   error = signal<string | null>(null);
@@ -182,7 +210,7 @@ export class PartyDetailPage implements OnInit {
         label: 'Edit',
         icon: 'edit',
         permission: 'core.parties.write',
-        handler: () => this.message.info('Edit functionality will be implemented')
+        handler: () => this.router.navigate(['/parties'], { queryParams: { edit: p.id } })
       }
     ];
 
@@ -197,7 +225,8 @@ export class PartyDetailPage implements OnInit {
       acts.push({
         label: 'View Statement',
         icon: 'file-text',
-        handler: () => this.message.info('Statement functionality will be implemented')
+        permission: 'finance.reports.read',
+        handler: () => this.openStatement('customer')
       });
     }
 
@@ -208,6 +237,12 @@ export class PartyDetailPage implements OnInit {
         type: 'primary',
         permission: 'finance.bills.write',
         handler: () => this.router.navigate(['/finance/bills'], { queryParams: { partyId: p.id } })
+      });
+      acts.push({
+        label: 'Vendor Statement',
+        icon: 'file-text',
+        permission: 'finance.reports.read',
+        handler: () => this.openStatement('vendor')
       });
     }
 
@@ -350,6 +385,21 @@ export class PartyDetailPage implements OnInit {
       .catch(() => {
         this.loadingTx.set(false);
       });
+  }
+
+  /** GET /finance/reports/{customer|vendor}-statement (open items as of today). */
+  openStatement(kind: 'customer' | 'vendor'): void {
+    const p = this.party();
+    if (!p) return;
+    const d = new Date();
+    const asOf = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    this.statement.set(null);
+    this.statementTitle.set(`${kind === 'customer' ? 'Customer' : 'Vendor'} statement · ${p.name}`);
+    this.statementOpen.set(true);
+    this.http.get<any>(`${this.apiBase}/finance/reports/${kind}-statement`, { params: { partyId: p.id, asOf } }).subscribe({
+      next: (res) => this.statement.set(res),
+      error: (err) => { this.statementOpen.set(false); this.message.error(err?.error?.detail || err?.error?.message || 'Failed to load statement'); }
+    });
   }
 
   viewTransaction(tx: Transaction): void {
