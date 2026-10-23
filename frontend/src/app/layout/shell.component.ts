@@ -56,7 +56,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           <ul nz-menu nzMode="inline" [nzInlineCollapsed]="collapsed()">
             @for (i of g.items; track i.id) {
               <li nz-menu-item nz-tooltip [nzTooltipTitle]="collapsed() ? i.label : null" nzTooltipPlacement="right"
-                  [routerLink]="i.route" routerLinkActive="ant-menu-item-selected" [routerLinkActiveOptions]="{ exact: i.route === '/' }"
+                  [routerLink]="linkPath(i.route)" [queryParams]="linkQuery(i.route)" routerLinkActive="ant-menu-item-selected" [routerLinkActiveOptions]="{ exact: i.route === '/' }"
                   [attr.data-testid]="'nav-' + i.id">
                 <span nz-icon [nzType]="icon(i.icon)"></span><span>{{ i18n.t('menu.' + i.id, i.label) }}</span>
               </li>
@@ -136,6 +136,16 @@ export class ShellComponent {
     map(([me]) => me),
     switchMap((me) => (me ? this.http.get<{ unread: number }>(`${this.base}/notifications`).pipe(catchError(() => of({ unread: 0 }))) : of({ unread: 0 }))),
   ), { initialValue: { unread: 0 } }) as () => { unread: number };
+
+  /** Menu routes may carry a query string (e.g. /parties?type=customer); routerLink would encode the "?" and miss the route. */
+  linkPath(route: string): string { return (route ?? '').split('?')[0] || '/'; }
+  linkQuery(route: string): Record<string, string> | null {
+    const q = (route ?? '').split('?')[1];
+    if (!q) return null;
+    const out: Record<string, string> = {};
+    new URLSearchParams(q).forEach((v, k) => (out[k] = v));
+    return out;
+  }
 
   bump(): void { this.refresh.update((n) => n + 1); }
 

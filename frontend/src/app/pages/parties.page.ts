@@ -98,12 +98,14 @@ export class PartiesPage implements OnInit {
   form = this.newForm();
 
   ngOnInit(): void {
-    const type = this.route.snapshot.queryParamMap.get('type');
-    if (type) {
+    // Re-apply on every query change: Customers -> Vendors from the menu reuses this component.
+    this.route.queryParamMap.subscribe((qp) => {
+      const type = qp.get('type');
+      if (type === this.typeFilter()) return;
       this.typeFilter.set(type);
       this.pageTitle.set(type === 'customer' ? 'Customers' : type === 'vendor' ? 'Vendors' : 'Parties');
-      this.filterRole(type.charAt(0).toUpperCase() + type.slice(1));
-    }
+      this.filterRole(type ? type.charAt(0).toUpperCase() + type.slice(1) : null);
+    });
     // `?edit=<id>` (from the party detail page's Edit) opens the edit drawer for that party.
     const editId = this.route.snapshot.queryParamMap.get('edit');
     if (editId) this.api.get(editId).subscribe((p) => this.edit(p));
