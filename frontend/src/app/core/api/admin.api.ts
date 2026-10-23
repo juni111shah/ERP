@@ -294,3 +294,20 @@ export class DashboardApi {
   private readonly base = inject(API_BASE_URL);
   get(): Observable<DashboardDto> { return this.http.get<DashboardDto>(`${this.base}/dashboard`); }
 }
+
+// ---- Budgets -------------------------------------------------------------------------------------------------------------
+
+export interface BudgetSummary { id: string; legalEntityId: string; name: string; fiscalYear: number; isActive: boolean; }
+export interface BudgetLineValue { accountId: string; accountCode: string; accountName: string; month: number; amount: number; }
+export interface BudgetDetail extends BudgetSummary { notes?: string; totalIncome: number; totalExpense: number; lines: BudgetLineValue[]; }
+export interface BudgetVsActualRow { accountId: string; code: string; name: string; type: string; budget: number; actual: number; variance: number; variancePercent?: number; }
+export interface BudgetVsActual {
+  budgetId: string; name: string; fiscalYear: number; fromMonth: number; toMonth: number; rows: BudgetVsActualRow[];
+  budgetIncome: number; actualIncome: number; budgetExpense: number; actualExpense: number; budgetNet: number; actualNet: number;
+}
+@Injectable({ providedIn: 'root' })
+export class BudgetsApi extends CrudApiService<BudgetSummary, unknown> {
+  protected readonly resource = 'finance/budgets';
+  detail(id: string): Observable<BudgetDetail> { return this.http.get<BudgetDetail>(`${this.url}/${id}`); }
+  vsActual(id: string, fromMonth: number, toMonth: number): Observable<BudgetVsActual> { return this.http.get<BudgetVsActual>(`${this.url}/${id}/vs-actual`, { params: { fromMonth, toMonth } }); }
+}

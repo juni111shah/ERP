@@ -54,6 +54,8 @@ public static class CorePermissions
     public const string CurrenciesRead = "finance.currencies.read";
     public const string CurrenciesWrite = "finance.currencies.write";
     public const string ReportsRead = "finance.reports.read";
+    public const string BudgetsRead = "finance.budgets.read";
+    public const string BudgetsWrite = "finance.budgets.write";
     public const string BankRead = "finance.bank.read";
     public const string BankWrite = "finance.bank.write";
     public const string BillsRead = "finance.bills.read";
@@ -104,6 +106,8 @@ public static class CorePermissions
         PermissionDefinition.Of(CurrenciesRead, "View currencies and exchange rates"),
         PermissionDefinition.Of(CurrenciesWrite, "Edit exchange rates"),
         PermissionDefinition.Of(ReportsRead, "View financial reports"),
+        PermissionDefinition.Of(BudgetsRead, "View budgets and the budget-vs-actual report"),
+        PermissionDefinition.Of(BudgetsWrite, "Create and edit budgets"),
         PermissionDefinition.Of(BankRead, "View bank balances and reconciliations"),
         PermissionDefinition.Of(BankWrite, "Import statements, reconcile and transfer funds"),
         PermissionDefinition.Of(BillsRead, "View vendor bills"),

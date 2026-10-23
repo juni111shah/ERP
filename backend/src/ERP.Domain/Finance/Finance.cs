@@ -183,3 +183,26 @@ public class PaymentInstrument : LegalEntityScopedEntity
     public Guid? JournalEntryId { get; set; }
     public string? Notes { get; set; }
 }
+
+/// <summary>An annual budget of one legal entity: planned income/expense per account and month. Compared with the ledger by the budget-vs-actual report.</summary>
+[DefaultSort("-fiscalYear")]
+public class Budget : LegalEntityScopedEntity
+{
+    [Searchable, Sortable]
+    public string Name { get; set; } = default!;
+    [Filterable, Sortable]
+    public int FiscalYear { get; set; }
+    [Filterable]
+    public bool IsActive { get; set; } = true;
+    public string? Notes { get; set; }
+    public List<BudgetLine> Lines { get; set; } = new();
+}
+
+public class BudgetLine : Entity
+{
+    public Guid BudgetId { get; set; }
+    public Guid AccountId { get; set; }
+    /// <summary>1-12 within the budget's fiscal year (calendar months).</summary>
+    public int Month { get; set; }
+    public decimal Amount { get; set; }
+}

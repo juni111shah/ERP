@@ -54,6 +54,8 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalLine> JournalLines => Set<JournalLine>();
+    public DbSet<Budget> Budgets => Set<Budget>();
+    public DbSet<BudgetLine> BudgetLines => Set<BudgetLine>();
     public DbSet<PaymentInstrument> PaymentInstruments => Set<PaymentInstrument>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Bill> Bills => Set<Bill>();
@@ -152,6 +154,14 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Ignore(x => x.TotalDebit); b.Ignore(x => x.TotalCredit);
         });
         mb.Entity<JournalLine>(b => b.HasIndex(x => new { x.AccountId, x.JournalEntryId }));
+        mb.Entity<Budget>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Notes).HasMaxLength(2000);
+            b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.BudgetId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.FiscalYear });
+        });
+        mb.Entity<BudgetLine>(b => { b.Property(x => x.Amount).HasPrecision(19, 4); b.HasIndex(x => new { x.BudgetId, x.AccountId, x.Month }).IsUnique(); });
         mb.Entity<PaymentInstrument>(b => b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique());
         mb.Entity<Invoice>(b =>
         {

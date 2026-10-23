@@ -33,6 +33,7 @@ export const routes: Routes = [
       { path: 'approvals', loadComponent: () => import('./pages/admin/approvals.page').then((m) => m.ApprovalsPage) },
       { path: 'catalog/items', canMatch: [permissionGuard('core.items.read')], loadComponent: () => import('./pages/admin/items.page').then((m) => m.ItemsPage) },
       { path: 'finance/accounts', canMatch: [permissionGuard('finance.accounts.read')], loadComponent: () => import('./pages/admin/accounts.page').then((m) => m.AccountsPage) },
+      { path: 'finance/budgets', canMatch: [permissionGuard('finance.budgets.read')], loadComponent: () => import('./pages/admin/budgets.page').then((m) => m.BudgetsPage) },
       { path: 'finance/journals', canMatch: [permissionGuard('finance.journals.read')], loadComponent: () => import('./pages/admin/journals.page').then((m) => m.JournalsPage) },
       { path: 'finance/reports', canMatch: [permissionGuard('finance.reports.read')], loadComponent: () => import('./pages/admin/ledger-reports.page').then((m) => m.LedgerReportsPage) },
       { path: 'finance/invoices', canMatch: [permissionGuard('finance.invoices.read')], loadComponent: () => import('./pages/admin/invoices.page').then((m) => m.InvoicesPage) },
