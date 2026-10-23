@@ -2,7 +2,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
@@ -56,7 +56,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
             <nz-select formControlName="partyId" nzShowSearch nzServerSearch (nzOnSearch)="searchParties($event)" data-testid="bill-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Vendor reference</nz-form-label><nz-form-control [nzErrorTip]="err('vendorReference')"><input nz-input formControlName="vendorReference" data-testid="bill-ref" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Bill date</nz-form-label><nz-form-control [nzErrorTip]="err('billDate')"><nz-date-picker formControlName="billDate" style="width:100%" data-testid="bill-date"></nz-date-picker></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Due date</nz-form-label><nz-form-control [nzErrorTip]="err('dueDate')" nzExtra="Leave empty to use the vendor's payment terms."><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Due date</nz-form-label><nz-form-control [nzErrorTip]="err('dueDate')" nzExtra="Follows the bill date + the vendor's payment terms until you change it. Leave empty to use the terms."><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
           <h4>Lines</h4>
           <div formArrayName="lines">
             @for (l of lines.controls; track $index) {
@@ -121,6 +121,49 @@ export class BillsPage {
     lines: this.fb.array<unknown>([]),
   });
   private readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.value });
+  /** Payment terms (days) per vendor id; null = the vendor has no terms. Same pattern as the invoices drawer. */
+  private readonly partyTerms = new Map<string, number | null>();
+  /** True once the user picked a due date themselves; then bill date / vendor changes no longer move it. */
+  private dueDateTouched = false;
+  private syncingDueDate = false;
+
+  constructor() {
+    const c = this.form.controls;
+    c.partyId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => { if (!this.syncingDueDate && id) this.withTerms(id, () => this.recalcDueDate()); });
+    c.billDate.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => { if (!this.syncingDueDate) this.recalcDueDate(); });
+    c.dueDate.valueChanges.pipe(takeUntilDestroyed()).subscribe((d) => {
+      if (this.syncingDueDate) return;
+      // Clearing the due date hands it back to the payment terms (the API applies them to an empty due date).
+      this.dueDateTouched = !!d;
+      if (!d) this.recalcDueDate();
+    });
+  }
+
+  /** Mirrors the API rule (BillFeatures.cs): due date = bill date + the vendor's PaymentTermsDays. No terms: leave the due date alone. */
+  private termsDueDate(billDate: Date | null | undefined, partyId: string | null | undefined): Date | null {
+    const days = partyId ? this.partyTerms.get(partyId) : undefined;
+    if (!billDate || days === undefined || days === null) return null;
+    return new Date(billDate.getFullYear(), billDate.getMonth(), billDate.getDate() + days);
+  }
+
+  private recalcDueDate(): void {
+    if (this.dueDateTouched || !this.editable()) return;
+    const v = this.form.getRawValue();
+    const due = this.termsDueDate(v.billDate, v.partyId);
+    if (!due) return;
+    this.syncingDueDate = true;
+    this.form.controls.dueDate.setValue(due);
+    this.syncingDueDate = false;
+  }
+
+  /** Runs `then` once the vendor's payment terms are known (from the search results or a single lookup). */
+  private withTerms(partyId: string, then: () => void): void {
+    if (this.partyTerms.has(partyId)) { then(); return; }
+    this.parties.get(partyId).subscribe({
+      next: (p) => { this.partyTerms.set(partyId, p.paymentTermsDays ?? null); if (this.form.controls.partyId.value === partyId) then(); },
+      error: () => undefined,
+    });
+  }
   readonly totals = computed(() => {
     const lines = (this.value().lines ?? []) as { quantity?: number | null; price?: number | null; taxCodeId?: string | null }[];
     const rate = (id?: string | null) => this.taxes().find((t) => t.id === id)?.rate ?? 0;
@@ -142,7 +185,7 @@ export class BillsPage {
   removeLine(i: number): void { if (this.lines.length > 1) this.lines.removeAt(i); }
 
   searchParties(term: string): void {
-    this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => this.partyOptions.set(r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))));
+    this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => { r.items.forEach((p) => this.partyTerms.set(p.id, p.paymentTermsDays ?? null)); this.partyOptions.set(r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))); });
   }
 
   /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
@@ -164,6 +207,7 @@ export class BillsPage {
     this.lines.clear();
     for (const l of b?.lines ?? [{}]) this.lines.push(this.newLine(l) as never);
     const entities = this.entities();
+    this.syncingDueDate = true;
     this.form.patchValue({
       legalEntityId: b?.legalEntityId ?? (entities.length === 1 ? entities[0].id : ''), partyId: b?.partyId ?? '', vendorReference: b?.vendorReference ?? '',
       billDate: b ? new Date(b.billDate + 'T00:00:00') : new Date(), dueDate: b ? new Date(b.dueDate + 'T00:00:00') : null,
@@ -171,6 +215,15 @@ export class BillsPage {
     this.partyOptions.set(b ? [{ value: b.partyId, label: b.partyName ?? b.partyId }] : []);
     if (!b) this.searchParties('');
     this.editable() ? this.form.enable() : this.form.disable();
+    this.syncingDueDate = false;
+    // A new bill follows the terms; an opened draft keeps its due date as an override only if it differs from date + terms.
+    this.dueDateTouched = !!b;
+    if (b && this.editable()) this.withTerms(b.partyId, () => {
+      // Same rule as the API: no terms counts as 0 days, so such a draft is "automatic" when due = bill date.
+      const v = this.form.getRawValue(), days = this.partyTerms.get(b.partyId) ?? 0, d = v.billDate;
+      const auto = d ? toIsoDate(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days)) : null;
+      this.dueDateTouched = !v.dueDate || toIsoDate(v.dueDate) !== auto;
+    });
     this.drawerOpen.set(true);
   }
 
