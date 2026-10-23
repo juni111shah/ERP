@@ -1,3 +1,4 @@
+import { RecordHistoryComponent } from '../../shared/record-history.component';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -23,7 +24,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
   selector: 'erp-property-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, RouterLink, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule,
+  imports: [RecordHistoryComponent, TranslatePipe, RouterLink, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule,
     NzGridModule, NzProgressModule, NzStatisticModule, NzTagModule],
   template: `
     @if (summary(); as s) {
@@ -59,6 +60,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
           </ng-template>
         </erp-paged-table>
       </nz-card>
+      <nz-card *erpHasPermission="'core.audit.read'" style="margin-top:16px" [nzTitle]="'history.title' | translate: 'History'"><erp-record-history recordType="Property" [recordId]="s.property.id" /></nz-card>
       <erp-record-drawer title="Edit property" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())" customFieldEntityType="realestate.property"
                          [saving]="state.saving()" [errors]="state.errors()" testId="property-form" (submitted)="state.submit($event)" (closed)="state.close()" />
     }`,

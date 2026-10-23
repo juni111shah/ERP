@@ -56,7 +56,8 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
         [hasDocumentsContent]="true"
         [hasHistoryContent]="history().length > 0"
         [createdAt]="inv.invoiceDate"
-        [entityName]="inv.isCreditNote ? 'Credit Note' : 'Invoice'">
+        [entityName]="inv.isCreditNote ? 'Credit Note' : 'Invoice'"
+        recordType="Invoice" [recordId]="inv.id">
 
         <div content>
           <div class="section"><erp-invoice-sheet [invoice]="inv" [extras]="extras()" [taxRates]="taxRates()" /></div>

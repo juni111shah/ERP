@@ -61,7 +61,8 @@ interface Journal {
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
         [createdAt]="journal()!.date"
-        [entityName]="'Journal Entry'">
+        [entityName]="'Journal Entry'"
+        recordType="JournalEntry" [recordId]="journal()!.id">
         
         <div content style="margin-top: 16px;">
           <h3>Journal Lines</h3>

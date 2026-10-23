@@ -13,25 +13,51 @@ public sealed record ArAgeingDto(DateOnly AsOf, IReadOnlyList<AgeingRow> Rows, A
 public sealed record CustomerStatementDto(Guid PartyId, string? PartyName, DateOnly AsOf, IReadOnlyList<AgeingItem> Items, decimal UnallocatedReceipts, decimal Balance);
 
 /// <summary>Receivables by customer, in buckets of days past due. Credit notes and unallocated receipts reduce the balance.</summary>
-public sealed record GetArAgeing(DateOnly AsOf, Guid? LegalEntityId) : IQuery<ArAgeingDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
+/// <summary>Optional filters (business unit, source type) and grouping (<c>customer</c> default, <c>businessUnit</c> or <c>sourceType</c>). Receipts on account carry no dimension, so they only appear when nothing is filtered and rows are per customer.</summary>
+public sealed record GetArAgeing(DateOnly AsOf, Guid? LegalEntityId, Guid? BusinessUnitId = null, string? SourceType = null, string? GroupBy = null) : IQuery<ArAgeingDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 public sealed record GetCustomerStatement(Guid PartyId, DateOnly AsOf, Guid? LegalEntityId) : IQuery<CustomerStatementDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 
-internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadRepository<Settlement> settlements) :
+internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadRepository<Settlement> settlements, IReadRepository<ERP.Domain.Organizations.BusinessUnit> businessUnits) :
     IRequestHandler<GetArAgeing, ArAgeingDto>,
     IRequestHandler<GetCustomerStatement, CustomerStatementDto>
 {
-    private sealed record Open(Guid PartyId, string? PartyName, Guid Id, string Number, bool IsCreditNote, DateOnly InvoiceDate, DateOnly DueDate, decimal Total, decimal Paid);
+    private sealed record Open(Guid PartyId, string? PartyName, Guid Id, string Number, bool IsCreditNote, DateOnly InvoiceDate, DateOnly DueDate, decimal Total, decimal Paid, Guid? BusinessUnitId = null, string? SourceType = null);
 
     public async Task<ArAgeingDto> Handle(GetArAgeing q, CancellationToken ct)
     {
-        var open = await OpenAsync(q.AsOf, q.LegalEntityId, null, ct);
-        var onAccount = await UnallocatedAsync(q.LegalEntityId, null, ct);
+        var mode = (q.GroupBy ?? "customer").ToLowerInvariant();
+        if (mode is not ("customer" or "businessunit" or "sourcetype")) throw new FieldValidationException("groupBy", "Group by customer, businessUnit or sourceType.");
+        var open = await OpenAsync(q.AsOf, q.LegalEntityId, null, ct, q.BusinessUnitId, q.SourceType);
+        var filtered = q.BusinessUnitId is not null || !string.IsNullOrWhiteSpace(q.SourceType);
         var rows = new Dictionary<Guid, AgeingRow>();
-        foreach (var o in open) rows[o.PartyId] = Ageing.Add(rows.GetValueOrDefault(o.PartyId) ?? new AgeingRow(o.PartyId, o.PartyName, 0, 0, 0, 0, 0, 0), q.AsOf, o.DueDate, Signed(o));
-        foreach (var (party, name, amount) in onAccount) rows[party] = Ageing.Add(rows.GetValueOrDefault(party) ?? new AgeingRow(party, name, 0, 0, 0, 0, 0, 0), q.AsOf, q.AsOf, -amount);
+        if (mode == "customer")
+        {
+            foreach (var o in open) rows[o.PartyId] = Ageing.Add(rows.GetValueOrDefault(o.PartyId) ?? new AgeingRow(o.PartyId, o.PartyName, 0, 0, 0, 0, 0, 0), q.AsOf, o.DueDate, Signed(o));
+            if (!filtered)
+                foreach (var (party, name, amount) in await UnallocatedAsync(q.LegalEntityId, null, ct)) rows[party] = Ageing.Add(rows.GetValueOrDefault(party) ?? new AgeingRow(party, name, 0, 0, 0, 0, 0, 0), q.AsOf, q.AsOf, -amount);
+        }
+        else
+        {
+            var unitNames = mode == "businessunit" ? await businessUnits.Query().Select(b => new { b.Id, b.Name }).ToDictionaryAsync(b => b.Id, b => b.Name, ct) : [];
+            var labels = new Dictionary<Guid, string>();
+            foreach (var o in open)
+            {
+                var (key, label) = mode == "businessunit"
+                    ? (o.BusinessUnitId ?? Guid.Empty, o.BusinessUnitId is { } b ? unitNames.GetValueOrDefault(b, "Unknown unit") : "No business unit")
+                    : (StableKey(o.SourceType), string.IsNullOrWhiteSpace(o.SourceType) ? "Direct invoices" : o.SourceType!);
+                labels[key] = label;
+                rows[key] = Ageing.Add(rows.GetValueOrDefault(key) ?? new AgeingRow(key, label, 0, 0, 0, 0, 0, 0), q.AsOf, o.DueDate, Signed(o));
+            }
+        }
         var list = rows.Values.Where(r => r.Total != 0).OrderBy(r => r.PartyName).ToList();
         var totals = new AgeingRow(Guid.Empty, "Total", list.Sum(r => r.Current), list.Sum(r => r.Days1To30), list.Sum(r => r.Days31To60), list.Sum(r => r.Days61To90), list.Sum(r => r.Over90), list.Sum(r => r.Total));
         return new ArAgeingDto(q.AsOf, list, totals);
+    }
+
+    private static Guid StableKey(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return Guid.Empty;
+        return new Guid(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(text.Trim().ToLowerInvariant())));
     }
 
     public async Task<CustomerStatementDto> Handle(GetCustomerStatement q, CancellationToken ct)
@@ -44,10 +70,11 @@ internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadR
 
     private static decimal Signed(Open o) => (o.IsCreditNote ? -1 : 1) * (o.Total - o.Paid);
 
-    private async Task<List<Open>> OpenAsync(DateOnly asOf, Guid? entityId, Guid? partyId, CancellationToken ct)
+    private async Task<List<Open>> OpenAsync(DateOnly asOf, Guid? entityId, Guid? partyId, CancellationToken ct, Guid? businessUnitId = null, string? sourceType = null)
         => await invoices.Query(new Specification<Invoice>(i => (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid) && i.InvoiceDate <= asOf
-                && (entityId == null || i.LegalEntityId == entityId) && (partyId == null || i.PartyId == partyId)))
-            .Select(i => new Open(i.PartyId, i.PartyName, i.Id, i.Number, i.IsCreditNote, i.InvoiceDate, i.DueDate, i.Total, i.Paid)).ToListAsync(ct);
+                && (entityId == null || i.LegalEntityId == entityId) && (partyId == null || i.PartyId == partyId)
+                && (businessUnitId == null || i.BusinessUnitId == businessUnitId) && (string.IsNullOrWhiteSpace(sourceType) || i.SourceType == sourceType)))
+            .Select(i => new Open(i.PartyId, i.PartyName, i.Id, i.Number, i.IsCreditNote, i.InvoiceDate, i.DueDate, i.Total, i.Paid, i.BusinessUnitId, i.SourceType)).ToListAsync(ct);
 
     private async Task<List<(Guid Party, string? Name, decimal Amount)>> UnallocatedAsync(Guid? entityId, Guid? partyId, CancellationToken ct)
     {

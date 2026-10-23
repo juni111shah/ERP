@@ -901,6 +901,8 @@ const PAIRS: [string, string][] = [
   ["Follows the bill date + the vendor's payment terms until you change it. Leave empty to use the terms.", 'يتبع تاريخ الفاتورة مضافاً إليه شروط الدفع للمورّد ما لم تغيّره. اتركه فارغاً لاستخدام الشروط.'],
   ["Follows the invoice date + the customer's payment terms until you change it. Leave empty to use the terms.", 'يتبع تاريخ الفاتورة مضافاً إليه شروط الدفع للعميل ما لم تغيّره. اتركه فارغاً لاستخدام الشروط.'],
   ["Restricted: you don't have permission to view or edit this field", 'مقيّد: ليست لديك صلاحية عرض هذا الحقل أو تعديله'],
+  ['Group by customer', 'تجميع حسب العميل'], ['Group by business unit', 'تجميع حسب وحدة العمل'], ['Group by source', 'تجميع حسب المصدر'], ['All business units', 'كل وحدات العمل'], ['Source type (optional)', 'نوع المصدر (اختياري)'],
+  ['Business unit', 'وحدة العمل'], ['Source', 'المصدر'], ['Direct invoices', 'فواتير مباشرة'], ['No business unit', 'بدون وحدة عمل'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

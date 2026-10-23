@@ -56,7 +56,8 @@ interface Receipt {
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
         [createdAt]="receipt()!.date"
-        [entityName]="'Receipt'">
+        [entityName]="'Receipt'"
+        recordType="Settlement" [recordId]="receipt()!.id">
         
         @if (receipt()!.allocations.length > 0) {
           <div content style="margin-top: 16px;">

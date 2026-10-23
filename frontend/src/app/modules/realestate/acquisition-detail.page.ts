@@ -1,3 +1,4 @@
+import { RecordHistoryComponent } from '../../shared/record-history.component';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -27,7 +28,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
   selector: 'erp-acquisition-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzAlertModule, NzButtonModule, NzCardModule, NzDescriptionsModule, NzModalModule, NzTableModule, NzTabsModule, PaginationBarComponent],
+  imports: [RecordHistoryComponent, TranslatePipe, DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzAlertModule, NzButtonModule, NzCardModule, NzDescriptionsModule, NzModalModule, NzTableModule, NzTabsModule, PaginationBarComponent],
   template: `
     @if (acq(); as a) {
       <p><a routerLink="/real-estate/acquisitions">← Acquisitions</a></p>
@@ -79,6 +80,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
           } @empty { <p>No funding sources. The purchase is paid from equity.</p> }
         </nz-tab>
       </nz-tabset>
+      <nz-card *erpHasPermission="'core.audit.read'" style="margin-top:16px" [nzTitle]="'history.title' | translate: 'History'"><erp-record-history recordType="Acquisition" [recordId]="a.id" /></nz-card>
       <erp-record-drawer title="Pay instalment" [open]="paying() !== null" [fields]="payFields()" [saving]="busy()" [errors]="errors()" [width]="420" testId="pay-form" submitLabel="Pay"
                          (submitted)="pay($event)" (closed)="paying.set(null)" />
     }`,

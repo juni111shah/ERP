@@ -57,7 +57,8 @@ interface Payment {
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
         [createdAt]="payment()!.date"
-        [entityName]="'Payment'">
+        [entityName]="'Payment'"
+        recordType="Settlement" [recordId]="payment()!.id">
         
         @if (payment()!.allocations.length > 0) {
           <div content style="margin-top: 16px;">

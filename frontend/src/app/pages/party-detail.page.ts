@@ -66,7 +66,8 @@ interface Party {
         [createdAt]="''"
         [entityName]="partyType()"
         [showDocuments]="false"
-        [showHistory]="false">
+        [showHistory]="true"
+        recordType="Party" [recordId]="party()!.id">
         
         <div content style="margin-top: 24px;">
         <nz-tabset>
