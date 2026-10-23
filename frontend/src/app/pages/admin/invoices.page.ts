@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { HttpClient } from '@angular/common/http';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -129,6 +129,7 @@ export class InvoicesPage {
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(FormBuilder);
   private readonly http = inject(HttpClient);
   private readonly apiBase = inject(API_BASE_URL);
@@ -254,6 +255,28 @@ export class InvoicesPage {
   private merge(current: LookupOption[], fresh: LookupOption[]): LookupOption[] {
     const keep = current.filter((c) => c.value === this.form.value.partyId && !fresh.some((f) => f.value === c.value));
     return [...keep, ...fresh];
+  }
+
+  /** `?open=<id>` opens a drawer; `?duplicate=<id>` / `?creditFor=<id>` start a new draft prefilled from that invoice (detail page actions). */
+  ngOnInit(): void {
+    const q = this.route.snapshot.queryParamMap;
+    const open = q.get('open'), dup = q.get('duplicate'), credit = q.get('creditFor');
+    if (open) this.open({ id: open } as never);
+    else if (dup || credit) this.api.detail((dup ?? credit)!).subscribe((src) => this.prefill(src, !!credit && !dup));
+  }
+
+  private prefill(src: InvoiceDto, asCredit: boolean): void {
+    this.extras.set(null);
+    this.show(null);
+    this.lines.clear();
+    for (const l of src.lines.length ? src.lines : [{} as never]) this.lines.push(this.newLine({ description: l.description, quantity: l.quantity, price: l.price, taxCodeId: l.taxCodeId ?? null } as never) as never);
+    this.form.patchValue({
+      legalEntityId: src.legalEntityId, partyId: src.partyId,
+      isCreditNote: asCredit ? true : src.isCreditNote,
+      // No credit-note-for field exists on the invoice, so the original is referenced in the notes.
+      notes: asCredit ? `Credit note for invoice ${src.number}` : src.notes ?? '',
+    });
+    this.partyOptions.set([{ value: src.partyId, label: src.partyName ?? src.partyId }]);
   }
 
   openDetails(id: string): void { void this.router.navigate(['/finance/invoices', id]); }

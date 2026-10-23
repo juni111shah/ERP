@@ -130,15 +130,27 @@ export class ReceiptsPage {
     this.loadOpen(partyId);
   }
 
-  private loadOpen(partyId: string): void {
+  private loadOpen(partyId: string, prefillInvoiceId?: string | null): void {
     this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: partyId }, { field: 'isCreditNote', op: 'eq', value: false }] })
-      .subscribe((r) => this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid')));
+      .subscribe((r) => {
+        this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid'));
+        const inv = prefillInvoiceId ? this.openInvoices().find((i) => i.id === prefillInvoiceId) : undefined;
+        if (inv) { this.setAmount(inv.id, inv.outstanding); this.form.patchValue({ amount: inv.outstanding }); }
+      });
   }
 
   /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
   ngOnInit(): void {
     const id = this.route.snapshot.queryParamMap.get('open');
     if (id) this.open({ id } as never);
+    // `?partyId=&invoiceId=` (invoice detail's Record Payment) starts a new receipt for that customer, allocated to the invoice's balance.
+    const partyId = this.route.snapshot.queryParamMap.get('partyId');
+    if (!id && partyId) {
+      this.open(null);
+      this.form.patchValue({ partyId });
+      this.parties.get(partyId).subscribe((p) => this.partyOptions.update((o) => [{ value: p.id, label: `${p.code} · ${p.name}` }, ...o.filter((x) => x.value !== p.id)]));
+      this.loadOpen(partyId, this.route.snapshot.queryParamMap.get('invoiceId'));
+    }
   }
 
   openDetails(id: string): void { void this.router.navigate(['/finance/receipts', id]); }

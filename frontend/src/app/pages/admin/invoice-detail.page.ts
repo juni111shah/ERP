@@ -12,6 +12,7 @@ import { catchError, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { AdminApi, AuditApi, AuditEvent, TaxCodeDto, TaxCodesApi, UserSummary } from '../../core/api/admin.api';
 import { asProblem } from '../../core/http/problem-details';
+import { askReason } from '../../shared/reason-prompt';
 import { AttachmentsComponent } from '../../shared/attachments.component';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 import { InvoiceExtras, InvoiceExtrasService, InvoiceSheetComponent, InvoiceSheetData, daysOverdue, formatMoney, humanizeSource } from './invoice-sheet.component';
@@ -170,6 +171,14 @@ export class InvoiceDetailPage implements OnInit {
         handler: () => this.voidInvoice()
       },
       {
+        label: 'Delete',
+        icon: 'delete',
+        danger: true,
+        permission: 'finance.invoices.write',
+        visible: inv.status === 'draft',
+        handler: () => this.deleteDraft()
+      },
+      {
         label: 'Duplicate',
         icon: 'copy',
         permission: 'finance.invoices.write',
@@ -280,30 +289,46 @@ export class InvoiceDetailPage implements OnInit {
   }
 
   recordPayment(): void {
-    this.message.info('Record payment functionality will be implemented');
+    const inv = this.invoice();
+    if (inv) void this.router.navigate(['/finance/receipts'], { queryParams: { partyId: inv.partyId, invoiceId: inv.id } });
   }
 
   createCreditNote(): void {
-    this.message.info('Create credit note functionality will be implemented');
+    const inv = this.invoice();
+    if (inv) void this.router.navigate(['/finance/invoices'], { queryParams: { creditFor: inv.id } });
+  }
+
+  deleteDraft(): void {
+    const inv = this.invoice();
+    if (!inv) return;
+    this.modal.confirm({
+      nzTitle: 'Delete this draft?',
+      nzContent: 'The draft invoice will be removed permanently.',
+      nzOkText: 'Delete',
+      nzOkDanger: true,
+      nzOnOk: () => this.http.delete(`${this.apiBase}/finance/invoices/${inv.id}`).subscribe({
+        next: () => { this.message.success('Draft deleted'); void this.router.navigate(['/finance/invoices']); },
+        error: (e) => { const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not delete the draft'); },
+      })
+    });
   }
 
   voidInvoice(): void {
     const inv = this.invoice();
     if (!inv) return;
-    this.modal.confirm({
-      nzTitle: 'Void this invoice?',
-      nzContent: 'This reverses its journal and cannot be undone. The invoice will be marked as voided.',
-      nzOkText: 'Void Invoice',
-      nzOkDanger: true,
-      nzOnOk: () => this.http.post<Invoice>(`${this.apiBase}/finance/invoices/${inv.id}/void`, {}).subscribe({
+    // The void endpoint takes no body, so the reason is collected but not sent (backend gap).
+    askReason(this.modal, 'Void this invoice?', 'Void Invoice', 'This reverses its journal and cannot be undone. The invoice will be marked as voided.').then((reason) => {
+      if (!reason) return;
+      this.http.post<Invoice>(`${this.apiBase}/finance/invoices/${inv.id}/void`, {}).subscribe({
         next: (r) => { this.invoice.set(r); this.message.success('Invoice voided'); },
         error: (e) => { const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not void the invoice'); },
-      })
+      });
     });
   }
 
   duplicate(): void {
-    this.message.info('Duplicate functionality will be implemented');
+    const inv = this.invoice();
+    if (inv) void this.router.navigate(['/finance/invoices'], { queryParams: { duplicate: inv.id } });
   }
 
   viewJournal(journalId: string): void {
