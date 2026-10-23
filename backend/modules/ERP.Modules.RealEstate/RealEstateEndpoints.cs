@@ -20,6 +20,8 @@ public sealed record DepositBody(Guid BankAccountId, DateOnly Date, decimal Amou
 public sealed record TransferDepositBody(Guid ToLeaseId);
 public sealed record BillingRunBody(DateOnly AsOf, Guid? LegalEntityId = null);
 public sealed record CompleteInspectionBody(bool RaiseWorkOrders = false);
+public sealed record LeadStageBody(LeadStage Stage, string? LostReason = null);
+public sealed record ListingStatusBody(ListingStatus Status);
 public sealed record RenewalDraftsBody(List<Guid> LeaseIds, decimal UpliftPercent);
 public sealed record DealStageBody(DealStage Stage, string? LostReason = null);
 
@@ -37,6 +39,7 @@ internal static class RealEstateEndpoints
         MapLeases(group.MapGroup("/leases"));
         MapWorkOrders(group.MapGroup("/work-orders"));
         MapPm(group.MapGroup("/pm-schedules"));
+        MapCrm(group);
         MapInspections(group.MapGroup("/inspections"));
         MapRenewals(group.MapGroup("/renewals"));
         MapPortal(group.MapGroup("/portal"));
@@ -176,6 +179,25 @@ internal static class RealEstateEndpoints
         g.MapPost("", async (InspectionInput input, ISender s, CancellationToken ct) => { var c = await s.Send(new CreateInspection(input), ct); return Results.Created($"{Base}/inspections/{c.Id}", c); }).RequirePermission(P.InspectionsManage);
         g.MapPut("/{id:guid}", (Guid id, InspectionInput input, ISender s, CancellationToken ct) => s.Send(new UpdateInspection(id, input), ct)).RequirePermission(P.InspectionsManage);
         g.MapPost("/{id:guid}/complete", (Guid id, CompleteInspectionBody body, ISender s, CancellationToken ct) => s.Send(new CompleteInspection(id, body.RaiseWorkOrders), ct)).RequirePermission(P.InspectionsManage);
+    }
+
+    private static void MapCrm(RouteGroupBuilder group)
+    {
+        var l = group.MapGroup("/listings");
+        l.MapPagedList<Listing, ListingDto>("", P.CrmRead, x => new ListingDto(x.Id, x.LegalEntityId, x.PropertyId, x.UnitId, x.Kind, x.Title, x.Price, x.Status, x.Channels, x.Description, x.ListedOn, x.ClosedOn));
+        l.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetListing(id), ct)).RequirePermission(P.CrmRead);
+        l.MapPost("", async (ListingInput i, ISender s, CancellationToken ct) => { var c = await s.Send(new CreateListing(i), ct); return Results.Created($"{Base}/listings/{c.Id}", c); }).RequirePermission(P.CrmManage);
+        l.MapPut("/{id:guid}", (Guid id, ListingInput i, ISender s, CancellationToken ct) => s.Send(new UpdateListing(id, i), ct)).RequirePermission(P.CrmManage);
+        l.MapPost("/{id:guid}/status", (Guid id, ListingStatusBody b, ISender s, CancellationToken ct) => s.Send(new ChangeListingStatus(id, b.Status), ct)).RequirePermission(P.CrmManage);
+
+        var d = group.MapGroup("/leads");
+        d.MapPagedList<Lead, LeadDto>("", P.CrmRead, x => new LeadDto(x.Id, x.LegalEntityId, x.Name, x.Phone, x.Email, x.Source, x.Interest, x.AgentPartyId, x.Stage, x.LostReason, x.ListingId, x.UnitId, x.Notes, x.FollowUpOn, x.DealId));
+        d.MapGet("/pipeline", (Guid? agentPartyId, ISender s, CancellationToken ct) => s.Send(new GetLeadPipeline(agentPartyId), ct)).RequirePermission(P.CrmRead);
+        d.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetLead(id), ct)).RequirePermission(P.CrmRead);
+        d.MapPost("", async (LeadInput i, ISender s, CancellationToken ct) => { var c = await s.Send(new CreateLead(i), ct); return Results.Created($"{Base}/leads/{c.Id}", c); }).RequirePermission(P.CrmManage);
+        d.MapPut("/{id:guid}", (Guid id, LeadInput i, ISender s, CancellationToken ct) => s.Send(new UpdateLead(id, i), ct)).RequirePermission(P.CrmManage);
+        d.MapPost("/{id:guid}/stage", (Guid id, LeadStageBody b, ISender s, CancellationToken ct) => s.Send(new MoveLeadStage(id, b.Stage, b.LostReason), ct)).RequirePermission(P.CrmManage);
+        d.MapPost("/{id:guid}/convert", (Guid id, ConvertLeadInput? i, ISender s, CancellationToken ct) => s.Send(new ConvertLeadToDeal(id, i ?? new ConvertLeadInput()), ct)).RequirePermission(P.CrmManage);
     }
 
     private static void MapRenewals(RouteGroupBuilder g)

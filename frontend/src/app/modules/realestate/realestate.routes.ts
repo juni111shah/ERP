@@ -17,5 +17,7 @@ export const REAL_ESTATE_ROUTES: Routes = [
   { path: 'renewals', canMatch: [permissionGuard('realestate.leases.renew')], loadComponent: () => import('./renewals.page').then((m) => m.RenewalsPage) },
   { path: 'preventive-maintenance', canMatch: [permissionGuard('realestate.pm.read')], loadComponent: () => import('./pm-schedules.page').then((m) => m.PmSchedulesPage) },
   { path: 'inspections', canMatch: [permissionGuard('realestate.inspections.read')], loadComponent: () => import('./inspections.page').then((m) => m.InspectionsPage) },
+  { path: 'listings', canMatch: [permissionGuard('realestate.crm.read')], loadComponent: () => import('./listings.page').then((m) => m.ListingsPage) },
+  { path: 'leads', canMatch: [permissionGuard('realestate.crm.read')], loadComponent: () => import('./leads.page').then((m) => m.LeadsPage) },
   { path: 'deals', canMatch: [permissionGuard('realestate.deals.read')], loadComponent: () => import('./deals.page').then((m) => m.DealsPage) },
 ];
