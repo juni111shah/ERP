@@ -17,7 +17,7 @@ public static class ReceivablesEndpoints
     {
         var invoices = api.MapGroup("/finance/invoices").WithTags("Receivables");
         invoices.MapPagedList<Invoice, InvoiceSummaryDto>("", CorePermissions.InvoicesRead,
-            i => new InvoiceSummaryDto(i.Id, i.Number, i.IsCreditNote, i.PartyId, i.PartyName, i.InvoiceDate, i.DueDate, i.Total, i.Paid, i.Status, i.CurrencyCode));
+            i => new InvoiceSummaryDto(i.Id, i.Number, i.IsCreditNote, i.PartyId, i.PartyName, i.InvoiceDate, i.DueDate, i.Total, i.Paid, i.Status, i.CurrencyCode, i.Net, i.Tax, i.SourceType));
         invoices.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetInvoice(id), ct)).RequirePermission(CorePermissions.InvoicesRead);
         invoices.MapPost("", async (InvoiceInput input, ISender s, CancellationToken ct) =>
         {
@@ -26,6 +26,7 @@ public static class ReceivablesEndpoints
         }).RequirePermission(CorePermissions.InvoicesWrite);
         invoices.MapPut("/{id:guid}", (Guid id, InvoiceInput input, ISender s, CancellationToken ct) => s.Send(new UpdateInvoice(id, input), ct)).RequirePermission(CorePermissions.InvoicesWrite);
         invoices.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteInvoice(id), ct); return Results.NoContent(); }).RequirePermission(CorePermissions.InvoicesWrite);
+        invoices.MapGet("/{id:guid}/allocations", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetInvoiceAllocations(id), ct)).RequirePermission(CorePermissions.InvoicesRead);
         invoices.MapPost("/{id:guid}/issue", (Guid id, ISender s, CancellationToken ct) => s.Send(new IssueInvoice(id), ct)).RequirePermission(CorePermissions.InvoicesIssue);
         invoices.MapPost("/{id:guid}/void", (Guid id, ISender s, CancellationToken ct) => s.Send(new VoidInvoice(id), ct)).RequirePermission(CorePermissions.InvoicesIssue);
         invoices.MapPost("/{id:guid}/apply-credit", (Guid id, ApplyCreditBody body, ISender s, CancellationToken ct) => s.Send(new ApplyCreditNote(id, body.InvoiceId, body.Amount), ct)).RequirePermission(CorePermissions.InvoicesIssue);

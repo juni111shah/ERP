@@ -25,6 +25,36 @@ public sealed record InvoiceInstalment(Guid InstalmentId) : ICommand<InstalmentI
     public string RequiredPermission => P.BillingRun;
 }
 
+/// <summary>Lease, property, unit and service period behind invoices raised by the billing run, so the core invoice list can show them without knowing about leases.</summary>
+public sealed record InvoiceLeaseLinkDto(Guid InvoiceId, Guid LeaseId, string? LeaseNumber, Guid PropertyId, string? PropertyName, string? UnitNumber, DateOnly PeriodFrom, DateOnly PeriodTo);
+public sealed record GetInvoiceLeaseLinks(IReadOnlyList<Guid> InvoiceIds) : IQuery<IReadOnlyList<InvoiceLeaseLinkDto>>, Application.Security.IRequirePermission
+{
+    public string RequiredPermission => P.LeasesRead;
+}
+
+internal sealed class InvoiceLeaseLinkHandler(IReadRepository<RentInstalment> instalments, IReadRepository<Lease> leases, IReadRepository<Unit> units, IReadRepository<Property> properties)
+    : IRequestHandler<GetInvoiceLeaseLinks, IReadOnlyList<InvoiceLeaseLinkDto>>
+{
+    public async Task<IReadOnlyList<InvoiceLeaseLinkDto>> Handle(GetInvoiceLeaseLinks q, CancellationToken ct)
+    {
+        var ids = q.InvoiceIds.Distinct().Take(200).ToList();
+        if (ids.Count == 0) return [];
+        var inst = await instalments.Query(new Specification<RentInstalment>(i => i.InvoiceId != null && ids.Contains(i.InvoiceId.Value))).ToListAsync(ct);
+        var leaseIds = inst.Select(i => i.LeaseId).Distinct().ToList();
+        var leaseRows = await leases.Query(new Specification<Lease>(l => leaseIds.Contains(l.Id))).ToListAsync(ct);
+        var propIds = leaseRows.Select(l => l.PropertyId).Distinct().ToList();
+        var unitIds = leaseRows.Select(l => l.UnitId).Distinct().ToList();
+        var props = await properties.Query(new Specification<Property>(p => propIds.Contains(p.Id))).ToDictionaryAsync(p => p.Id, p => p.Name, ct);
+        var unitNos = await units.Query(new Specification<Unit>(u => unitIds.Contains(u.Id))).ToDictionaryAsync(u => u.Id, u => u.UnitNumber, ct);
+        var byLease = leaseRows.ToDictionary(l => l.Id);
+        return inst.Where(i => byLease.ContainsKey(i.LeaseId)).Select(i =>
+        {
+            var l = byLease[i.LeaseId];
+            return new InvoiceLeaseLinkDto(i.InvoiceId!.Value, l.Id, l.Number, l.PropertyId, props.GetValueOrDefault(l.PropertyId), unitNos.GetValueOrDefault(l.UnitId), i.PeriodFrom, i.PeriodTo);
+        }).ToList();
+    }
+}
+
 internal sealed class BillingHandlers(
     IRepository<RentInstalment> instalments, IReadRepository<Lease> leases, IReadRepository<Unit> units, IReadRepository<Property> properties,
     IReadRepository<TaxCode> taxCodes, IInvoicingService invoicing, IPostingService posting, IUnitOfWork uow) :

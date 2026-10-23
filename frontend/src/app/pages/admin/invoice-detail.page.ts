@@ -1,72 +1,39 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { CommonModule, DatePipe } from '@angular/common';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzTableModule } from 'ng-zorro-antd/table';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzTimelineModule } from 'ng-zorro-antd/timeline';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { catchError, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
+import { AdminApi, AuditApi, AuditEvent, TaxCodeDto, TaxCodesApi, UserSummary } from '../../core/api/admin.api';
+import { asProblem } from '../../core/http/problem-details';
+import { AttachmentsComponent } from '../../shared/attachments.component';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
+import { InvoiceExtras, InvoiceExtrasService, InvoiceSheetComponent, InvoiceSheetData, daysOverdue, formatMoney, humanizeSource } from './invoice-sheet.component';
 
-interface InvoiceLine {
-  id: string;
-  seq: number;
-  itemId: string | null;
-  description: string;
-  quantity: number;
-  price: number;
-  taxCodeId: string | null;
-  taxAmount: number;
-  net: number;
-  accountId: string | null;
-}
-
-interface Invoice {
-  id: string;
-  number: string;
+interface Invoice extends InvoiceSheetData {
   legalEntityId: string;
-  partyId: string;
-  partyName: string;
-  invoiceDate: string;
-  dueDate: string;
-  isCreditNote: boolean;
-  creditNoteForId: string | null;
-  currencyCode: string;
-  net: number;
-  tax: number;
-  total: number;
-  paid: number;
-  status: string;
-  approvalRequestId: string | null;
+  approvalRequestId?: string | null;
   journalEntryId: string | null;
-  notes: string | null;
-  lines: InvoiceLine[];
+  sourceId?: string | null;
 }
+interface Allocation { settlementId: string; number: string; date: string; method: string; reference?: string | null; currencyCode: string; amount: number; status: string; }
+interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string | null; propertyId: string; propertyName?: string | null; unitNumber?: string | null; periodFrom: string; periodTo: string; }
 
 @Component({
   selector: 'erp-invoice-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
   styles: [`
-    .line-items-table { margin-top: 16px; }
-    .totals-section {
-      margin-top: 16px;
-      text-align: right;
-    }
-    .total-row {
-      display: flex;
-      justify-content: flex-end;
-      gap: 100px;
-      padding: 8px 0;
-      font-size: 14px;
-    }
-    .total-row.grand {
-      border-top: 2px solid #1890ff;
-      padding-top: 12px;
-      margin-top: 8px;
-      font-size: 16px;
-      font-weight: 600;
-    }
+    .section { margin-top: 16px; }
+    .section ::ng-deep .ant-card-head-title { color:#b89b5e; text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:600; }
+    .r { text-align:right; white-space:nowrap; }
+    .muted { color:#8c8c8c; }
   `],
   template: `
     @if (loading()) {
@@ -74,57 +41,55 @@ interface Invoice {
     } @else if (error()) {
       <div style="text-align: center; padding: 48px; color: #ff4d4f;">{{ error() }}</div>
     } @else if (invoice()) {
+      @let inv = invoice()!;
       <erp-detail-page
         [backLink]="['/finance/invoices']"
         [backLabel]="'Back to Invoices'"
-        [title]="(invoice()!.isCreditNote ? 'Credit Note' : 'Invoice') + ' #' + invoice()!.number"
-        [status]="invoice()!.status"
+        [title]="(inv.isCreditNote ? 'Credit Note' : 'Invoice') + ' #' + inv.number"
+        [status]="inv.status"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
-        [createdAt]="invoice()!.invoiceDate"
-        [entityName]="invoice()!.isCreditNote ? 'Credit Note' : 'Invoice'">
-        
-        <div content class="line-items-table">
-          <nz-table #itemsTable [nzData]="invoice()!.lines" [nzFrontPagination]="false" nzSize="small">
-            <thead>
-              <tr>
-                <th style="width: 40px;">#</th>
-                <th>Description</th>
-                <th style="width: 100px; text-align: right;">Quantity</th>
-                <th style="width: 120px; text-align: right;">Price</th>
-                <th style="width: 120px; text-align: right;">Tax</th>
-                <th style="width: 140px; text-align: right;">Net Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (line of itemsTable.data; track line.id) {
-                <tr>
-                  <td>{{ line.seq }}</td>
-                  <td>{{ line.description }}</td>
-                  <td style="text-align: right;">{{ line.quantity }}</td>
-                  <td style="text-align: right;">{{ line.price | currency:invoice()!.currencyCode }}</td>
-                  <td style="text-align: right;">{{ line.taxAmount | currency:invoice()!.currencyCode }}</td>
-                  <td style="text-align: right;">{{ line.net | currency:invoice()!.currencyCode }}</td>
-                </tr>
-              }
-            </tbody>
-          </nz-table>
+        [hasDocumentsContent]="true"
+        [hasHistoryContent]="history().length > 0"
+        [createdAt]="inv.invoiceDate"
+        [entityName]="inv.isCreditNote ? 'Credit Note' : 'Invoice'">
 
-          <div class="totals-section">
-            <div class="total-row">
-              <span>Subtotal:</span>
-              <span>{{ invoice()!.net | currency:invoice()!.currencyCode }}</span>
-            </div>
-            <div class="total-row">
-              <span>Tax:</span>
-              <span>{{ invoice()!.tax | currency:invoice()!.currencyCode }}</span>
-            </div>
-            <div class="total-row grand">
-              <span>Total:</span>
-              <span>{{ invoice()!.total | currency:invoice()!.currencyCode }}</span>
-            </div>
-          </div>
+        <div content>
+          <div class="section"><erp-invoice-sheet [invoice]="inv" [extras]="extras()" [taxRates]="taxRates()" /></div>
+
+          <nz-card class="section" nzTitle="Payments" nzSize="small" data-testid="invoice-payments">
+            @if (allocations().length) {
+              <nz-table [nzData]="allocations()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
+                <thead><tr><th>Receipt</th><th>Date</th><th>Method</th><th>Reference</th><th>Status</th><th class="r">Allocated</th></tr></thead>
+                <tbody>
+                  @for (a of allocations(); track a.settlementId) {
+                    <tr>
+                      <td><a [routerLink]="['/finance/receipts', a.settlementId]">{{ a.number }}</a></td>
+                      <td>{{ a.date | date: 'dd MMM yyyy' }}</td><td>{{ humanize(a.method) }}</td><td>{{ a.reference || '—' }}</td>
+                      <td><nz-tag>{{ humanize(a.status) }}</nz-tag></td><td class="r">{{ money(a.amount) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </nz-table>
+            } @else { <span class="muted">No receipts allocated yet.</span> }
+            @if (creditsApplied() > 0) {
+              <div style="margin-top:8px" data-testid="invoice-credits"><b>Credits applied:</b> {{ money(creditsApplied()) }} <span class="muted">(settled by credit notes, not receipts)</span></div>
+            }
+          </nz-card>
+        </div>
+
+        <div documents><erp-attachments ownerType="invoice" [ownerId]="inv.id" /></div>
+
+        <div history>
+          <nz-timeline>
+            @for (h of history(); track h.id) {
+              <nz-timeline-item [nzColor]="h.action === 'Deleted' ? 'red' : h.action === 'Created' ? 'green' : 'blue'">
+                <b>{{ h.action }}</b> · {{ h.occurredAt | date: 'dd MMM yyyy, HH:mm' }} · {{ userName(h.userId) }}
+                @if (h.changedFields) { <div class="muted">{{ h.changedFields }}</div> }
+              </nz-timeline-item>
+            }
+          </nz-timeline>
         </div>
       </erp-detail-page>
     }
@@ -137,10 +102,20 @@ export class InvoiceDetailPage implements OnInit {
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly apiBase = inject(API_BASE_URL);
+  private readonly extrasApi = inject(InvoiceExtrasService);
+  private readonly auditApi = inject(AuditApi);
+  private readonly adminApi = inject(AdminApi);
+  private readonly taxCodesApi = inject(TaxCodesApi);
 
   loading = signal(true);
   error = signal<string | null>(null);
   invoice = signal<Invoice | null>(null);
+  extras = signal<InvoiceExtras | null>(null);
+  allocations = signal<Allocation[]>([]);
+  history = signal<AuditEvent[]>([]);
+  users = signal<UserSummary[]>([]);
+  leaseLink = signal<LeaseLink | null>(null);
+  taxRates = signal<Record<string, number>>({});
 
   balance = computed(() => {
     const inv = this.invoice();
@@ -149,17 +124,26 @@ export class InvoiceDetailPage implements OnInit {
 
   daysOverdue = computed(() => {
     const inv = this.invoice();
-    if (!inv || inv.status === 'paid' || inv.status === 'voided') return 0;
-    const due = new Date(inv.dueDate);
-    const today = new Date();
-    const diff = Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff : 0;
+    return inv ? daysOverdue(inv) : 0;
+  });
+
+  /** Part of "paid" not covered by receipts: applied credit notes leave no allocation row, so this is the difference. */
+  creditsApplied = computed(() => {
+    const inv = this.invoice();
+    if (!inv || inv.isCreditNote) return 0;
+    const received = this.allocations().reduce((s, a) => s + a.amount, 0);
+    return Math.max(0, Math.round((inv.paid - received) * 100) / 100);
+  });
+
+  issuedBy = computed(() => {
+    const created = this.history().find((h) => h.action === 'Created');
+    return created?.userId ? this.userName(created.userId) : null;
   });
 
   actions = computed((): ActionButton[] => {
     const inv = this.invoice();
     if (!inv) return [];
-    
+
     return [
       {
         label: 'Record Payment',
@@ -177,11 +161,12 @@ export class InvoiceDetailPage implements OnInit {
         handler: () => this.createCreditNote()
       },
       {
+        // The API voids only an issued document with nothing paid or applied (409 otherwise).
         label: 'Void',
         icon: 'stop',
         danger: true,
-        permission: 'finance.invoices.write',
-        visible: inv.status !== 'voided' && inv.status !== 'paid',
+        permission: 'finance.invoices.issue',
+        visible: inv.status === 'issued' && inv.paid === 0,
         handler: () => this.voidInvoice()
       },
       {
@@ -212,55 +197,33 @@ export class InvoiceDetailPage implements OnInit {
   kpiCards = computed((): KpiCard[] => {
     const inv = this.invoice();
     if (!inv) return [];
-    
+
     return [
-      {
-        title: 'Total Amount',
-        value: inv.total,
-        suffix: inv.currencyCode
-      },
-      {
-        title: 'Amount Paid',
-        value: inv.paid,
-        suffix: inv.currencyCode
-      },
-      {
-        title: 'Balance Due',
-        value: this.balance(),
-        suffix: inv.currencyCode,
-        valueStyle: { color: this.balance() > 0 ? '#ff4d4f' : '#52c41a' }
-      },
-      {
-        title: 'Days Overdue',
-        value: this.daysOverdue() || 0,
-        valueStyle: { color: this.daysOverdue() > 0 ? '#ff4d4f' : '#52c41a' }
-      }
+      { title: 'Total Amount', value: formatMoney(inv.total), suffix: inv.currencyCode },
+      { title: 'Amount Paid', value: formatMoney(inv.paid), suffix: inv.currencyCode },
+      { title: 'Balance Due', value: formatMoney(this.balance()), suffix: inv.currencyCode, valueStyle: { color: this.balance() > 0 ? '#ff4d4f' : '#52c41a' } },
+      { title: 'Days Overdue', value: this.daysOverdue() || 0, valueStyle: { color: this.daysOverdue() > 0 ? '#ff4d4f' : '#52c41a' } }
     ];
   });
 
   descriptions = computed((): DescriptionItem[] => {
     const inv = this.invoice();
     if (!inv) return [];
-    
-    const items: DescriptionItem[] = [
-      { label: 'Customer', value: inv.partyName, routerLink: ['/parties', inv.partyId] },
-      { label: 'Invoice Date', value: new Date(inv.invoiceDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) },
-      { label: 'Due Date', value: new Date(inv.dueDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) },
-      { label: 'Currency', value: inv.currencyCode }
-    ];
-
-    if (inv.creditNoteForId) {
-      items.push({ 
-        label: 'Credit Note For', 
-        value: 'View original invoice',
-        routerLink: ['/finance/invoices', inv.creditNoteForId]
-      });
+    const fmt = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+    const h = this.extras()?.header;
+    const items: DescriptionItem[] = [];
+    if (h) items.push({ label: 'Company', value: h.legalEntityName || h.organizationName });
+    items.push({ label: 'Customer', value: inv.partyName || 'Customer', routerLink: ['/parties', inv.partyId] });
+    if (this.issuedBy()) items.push({ label: 'Issued by', value: this.issuedBy() });
+    const link = this.leaseLink();
+    if (link) {
+      items.push({ label: 'Service period', value: `${fmt(link.periodFrom)} – ${fmt(link.periodTo)}` });
+      items.push({ label: 'Lease', value: link.leaseNumber ?? '—' });
+      items.push({ label: 'Property', value: [link.propertyName, link.unitNumber ? `unit ${link.unitNumber}` : ''].filter((x) => !!x).join(', ') });
     }
-
-    if (inv.notes) {
-      items.push({ label: 'Notes', value: inv.notes, span: 2 });
-    }
-
+    const src = humanizeSource(inv.sourceType);
+    if (src) items.push({ label: 'Source', value: src });
+    if (inv.creditNoteForId) items.push({ label: 'Credit Note For', value: 'View original invoice', routerLink: ['/finance/invoices', inv.creditNoteForId] });
     return items;
   });
 
@@ -272,16 +235,48 @@ export class InvoiceDetailPage implements OnInit {
       return;
     }
 
-    this.http.get<any>(`${this.apiBase}/finance/invoices/${id}`).subscribe({
+    this.http.get<Invoice>(`${this.apiBase}/finance/invoices/${id}`).subscribe({
       next: (response) => {
         this.invoice.set(response);
         this.loading.set(false);
+        this.loadSections(response);
       },
       error: (err) => {
         this.error.set(err.error?.message || 'Failed to load invoice');
         this.loading.set(false);
       }
     });
+  }
+
+  /** Each optional section loads on its own and simply stays hidden when the user lacks the permission or there is no data. */
+  private loadSections(inv: Invoice): void {
+    this.extrasApi.load(inv.id).subscribe((x) => this.extras.set(x));
+    this.taxCodesApi.list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as TaxCodeDto[] })))
+      .subscribe((r) => this.taxRates.set(Object.fromEntries(r.items.map((t) => [t.id, t.rate]))));
+    this.http.get<Allocation[]>(`${this.apiBase}/finance/invoices/${inv.id}/allocations`).pipe(catchError(() => of([] as Allocation[])))
+      .subscribe((r) => this.allocations.set(r ?? []));
+    this.auditApi.list({ page: 1, pageSize: 50, sort: 'occurredAt', filters: [{ field: 'recordId', op: 'eq', value: inv.id }] })
+      .pipe(catchError(() => of({ items: [] as AuditEvent[] })))
+      .subscribe((r) => {
+        this.history.set(r.items ?? []);
+        if (r.items?.some((h) => h.userId)) this.adminApi.users().pipe(catchError(() => of([] as UserSummary[]))).subscribe((u) => this.users.set(u ?? []));
+      });
+    if ((inv.sourceType ?? '').toLowerCase().startsWith('realestate.')) {
+      this.http.get<LeaseLink[]>(`${this.apiBase}/m/realestate/billing/invoice-links`, { params: { ids: [inv.id] } }).pipe(catchError(() => of([] as LeaseLink[])))
+        .subscribe((r) => this.leaseLink.set(r?.[0] ?? null));
+    }
+  }
+
+  money(v: number): string { return formatMoney(v, this.invoice()?.currencyCode); }
+  humanize(v: string | null | undefined): string {
+    if (!v) return '';
+    const s = String(v).replace(/([a-z])([A-Z])/g, '$1 $2');
+    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  }
+  userName(id?: string | null): string {
+    if (!id) return 'System';
+    const u = this.users().find((x) => x.id === id);
+    return u ? u.fullName || u.email : 'User';
   }
 
   recordPayment(): void {
@@ -293,14 +288,17 @@ export class InvoiceDetailPage implements OnInit {
   }
 
   voidInvoice(): void {
+    const inv = this.invoice();
+    if (!inv) return;
     this.modal.confirm({
       nzTitle: 'Void this invoice?',
-      nzContent: 'This action cannot be undone. The invoice will be marked as voided.',
+      nzContent: 'This reverses its journal and cannot be undone. The invoice will be marked as voided.',
       nzOkText: 'Void Invoice',
       nzOkDanger: true,
-      nzOnOk: () => {
-        this.message.info('Void functionality will be implemented');
-      }
+      nzOnOk: () => this.http.post<Invoice>(`${this.apiBase}/finance/invoices/${inv.id}/void`, {}).subscribe({
+        next: (r) => { this.invoice.set(r); this.message.success('Invoice voided'); },
+        error: (e) => { const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not void the invoice'); },
+      })
     });
   }
 

@@ -80,6 +80,7 @@ internal static class RealEstateEndpoints
 
     private static void MapBilling(RouteGroupBuilder g)
     {
+        g.MapGet("/invoice-links", ([Microsoft.AspNetCore.Mvc.FromQuery] Guid[] ids, ISender s, CancellationToken ct) => s.Send(new GetInvoiceLeaseLinks(ids), ct)).RequirePermission(P.LeasesRead);
         g.MapPost("/run", (BillingRunBody body, ISender s, CancellationToken ct) => s.Send(new RunBilling(body.AsOf, body.LegalEntityId), ct)).RequirePermission(P.BillingRun);
         g.MapPost("/instalments/{id:guid}/invoice", (Guid id, ISender s, CancellationToken ct) => s.Send(new InvoiceInstalment(id), ct)).RequirePermission(P.BillingRun);
     }

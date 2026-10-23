@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -13,6 +14,9 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzModalService } from 'ng-zorro-antd/modal';
+import { API_BASE_URL } from '../../core/api/api-config';
+import { INVOICE_STATUS_COLORS, InvoiceExtras, InvoiceExtrasService, InvoiceSheetComponent, daysOverdue, formatMoney, humanizeSource, invoiceStatusLabel, taxNameFor } from './invoice-sheet.component';
 import { catchError, map, of } from 'rxjs';
 import { InvoiceDto, InvoiceSummary, InvoicesApi, LegalEntitiesApi, LegalEntityDto, TaxCodeDto, TaxCodesApi } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
@@ -23,8 +27,9 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
 
-const STATUS_COLORS: Record<string, string> = { draft: 'default', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
-const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid' };
+const STATUS_OPTIONS = ['draft', 'pendingApproval', 'issued', 'partlyPaid', 'paid', 'voided'];
+/** Lease / property behind an invoice, supplied by the real-estate module only when it is installed (the core invoice knows nothing about leases). */
+interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string | null; propertyId: string; propertyName?: string | null; unitNumber?: string | null; periodFrom: string; periodTo: string; }
 
 /** Sales invoices and credit notes: draft with a line editor, issue (posts to the ledger), void, and apply a credit note to an invoice. */
 @Component({
@@ -32,20 +37,44 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid' };
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
-    NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
-  styles: [`.line { display:grid; grid-template-columns: 2.4fr .8fr 1fr 1.2fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 }`],
+    NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule, InvoiceSheetComponent],
+  styles: [`.stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px }
+    .stat { background:#fff; border:1px solid #f0f0f0; border-left:4px solid #b89b5e; border-radius:6px; padding:12px 16px }
+    .stat .k { color:#8c8c8c; font-size:12px; text-transform:uppercase; letter-spacing:.06em } .stat .v { font-size:18px; font-weight:600; margin-top:4px }
+    .stat.warn { border-left-color:#cf1322 } .stat.warn .v { color:#cf1322 } .num { font-variant-numeric: tabular-nums } .sub { color:#8c8c8c; font-size:12px }
+    .line { display:grid; grid-template-columns: 2.4fr .8fr 1fr 1.2fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 }`],
   template: `
     <h1 class="erp-page-title">Invoices</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number or customer" emptyText="No invoices yet" (rowClick)="open($event)">
+    <div class="stats" data-testid="invoice-stats">
+      <div class="stat"><div class="k">Total invoiced</div><div class="v num">{{ stats().invoiced }}</div><div class="sub">{{ stats().count }} on this page</div></div>
+      <div class="stat"><div class="k">Outstanding</div><div class="v num">{{ stats().outstanding }}</div></div>
+      <div class="stat warn"><div class="k">Overdue</div><div class="v num">{{ stats().overdue }}</div><div class="sub">{{ stats().overdueCount }} invoices</div></div>
+      <div class="stat"><div class="k">Drafts</div><div class="v">{{ stats().drafts }}</div></div>
+    </div>
+    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search number or customer" emptyText="No invoices yet" exportFilename="invoices" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> }
+          @case ('number') { {{ row.number || 'Draft' }} @if (row.isCreditNote) { <nz-tag nzColor="purple">Credit</nz-tag> } @if (source(row)) { <div class="sub">{{ source(row) }}</div> } }
+          @case ('dueDate') { {{ row.dueDate }} @if (overdue(row) > 0) { <nz-tag nzColor="red" style="margin-inline-start:4px">{{ overdue(row) }}d overdue</nz-tag> } }
+          @case ('lease') { {{ link(row)?.leaseNumber ?? '' }} }
+          @case ('property') { {{ link(row)?.propertyName ?? '' }} @if (link(row)?.unitNumber) { <div class="sub">Unit {{ link(row)!.unitNumber }}</div> } }
+          @default { <span class="num">{{ value }}</span> }
+        }
       </ng-template>
-      <button toolbar *erpHasPermission="'finance.invoices.write'" nz-button nzType="primary" (click)="open(null)" data-testid="invoice-new"><span nz-icon nzType="plus"></span>New invoice</button>
+      <nz-select toolbar [ngModel]="statusFilter()" (ngModelChange)="filterStatus($event)" nzAllowClear nzPlaceHolder="All statuses" style="width:160px" data-testid="invoice-status-filter">
+        @for (s of statusOptions; track s) { <nz-option [nzValue]="s" [nzLabel]="label(s)"></nz-option> }
+      </nz-select>
+      <button toolbar nz-button (click)="list.reload()" data-testid="invoice-refresh"><span nz-icon nzType="reload"></span>Refresh</button>
+      <button toolbar *erpHasPermission="'realestate.billing.run'" nz-button (click)="runBilling()" [nzLoading]="billing()" data-testid="invoice-run-billing"><span nz-icon nzType="thunderbolt"></span>Run billing</button>
+      <button toolbar *erpHasPermission="'finance.invoices.write'" nz-button nzType="primary" (click)="open(null)" data-testid="invoice-new"><span nz-icon nzType="plus"></span>Add invoice</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="860" [nzTitle]="title()" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
-        <form nz-form nzLayout="vertical" [formGroup]="form" data-testid="invoice-form">
+        @if (invoice(); as inv) { <erp-invoice-sheet [invoice]="sheetData()" [extras]="extras()" [taxRates]="taxRates()" [compact]="true" style="margin-bottom:16px" /> }
+        @if (invoice() && editable()) { <h4 style="margin-top:8px">Edit draft</h4> }
+        <form [hidden]="!editable()" nz-form nzLayout="vertical" [formGroup]="form" data-testid="invoice-form">
           <nz-form-item><nz-form-label nzRequired>Legal entity</nz-form-label><nz-form-control [nzErrorTip]="err('legalEntityId')">
             <nz-select formControlName="legalEntityId" data-testid="inv-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Customer</nz-form-label><nz-form-control [nzErrorTip]="err('partyId')">
@@ -76,7 +105,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid' };
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (invoice(); as inv) {
-        @if (inv.id) { <button nz-button (click)="printInvoice(inv.id)" style="margin-inline-start:8px" data-testid="inv-print"><span nz-icon nzType="printer"></span>Print / PDF</button><button nz-button (click)="openDetails(inv.id)" style="margin-inline-start:8px" data-testid="inv-details"><span nz-icon nzType="file-text"></span>Details</button> }
+        @if (inv.id) { <button nz-button (click)="openDetails(inv.id)" style="margin-inline-start:8px" data-testid="inv-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printInvoice(inv.id)" style="margin-inline-start:8px" data-testid="inv-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
         @if (inv.status === 'issued' && inv.paid === 0) { <button *erpHasPermission="'finance.invoices.issue'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="inv-void">Void</button> }
         @if (inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid')) { <button *erpHasPermission="'finance.invoices.issue'" nz-button (click)="applyOpen.set(true)" style="margin-inline-start:8px" data-testid="inv-apply">Apply to invoice</button> }
       }
@@ -101,20 +130,67 @@ export class InvoicesPage {
   private readonly message = inject(NzMessageService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly http = inject(HttpClient);
+  private readonly apiBase = inject(API_BASE_URL);
+  private readonly modal = inject(NzModalService);
+  private readonly extrasApi = inject(InvoiceExtrasService);
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
   private readonly taxPage = toSignal(inject(TaxCodesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as TaxCodeDto[] }))), { initialValue: { items: [] as TaxCodeDto[] } });
   readonly entities = computed(() => this.entityPage().items);
   readonly taxes = computed(() => this.taxPage().items.filter((t) => t.isActive));
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-invoiceDate' });
-  readonly columns: TableColumn<InvoiceSummary>[] = [
-    { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
-    { key: 'partyName', label: 'Customer' },
-    { key: 'invoiceDate', label: 'Date', sortField: 'invoiceDate', width: '120px' },
-    { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '120px' },
-    { key: 'total', label: 'Total', sortField: 'total', width: '120px' },
-    { key: 'outstanding', label: 'Outstanding', width: '120px' },
-    { key: 'status', label: 'Status', width: '110px' },
-  ];
+  readonly statusOptions = STATUS_OPTIONS;
+  readonly statusFilter = signal<string | null>(null);
+  readonly billing = signal(false);
+  readonly extras = signal<InvoiceExtras | null>(null);
+  /** invoice id → lease link; filled only for rows the real-estate module raised */
+  readonly links = signal<Record<string, LeaseLink>>({});
+  readonly taxRates = computed(() => Object.fromEntries(this.taxPage().items.map((t) => [t.id, t.rate])) as Record<string, number>);
+  /** VAT / GST / Sales tax when every legal entity is in one country, else plain "Tax" (same table as the print layout). */
+  readonly taxLabel = computed(() => { const c = [...new Set(this.entities().map((e) => e.countryCode))]; return c.length === 1 ? taxNameFor(c[0]) : 'Tax'; });
+  readonly columns = computed((): TableColumn<InvoiceSummary>[] => {
+    const hasLinks = Object.keys(this.links()).length > 0;
+    const money = (f: (r: InvoiceSummary) => number | undefined) => (r: InvoiceSummary) => formatMoney(f(r) ?? 0, r.currencyCode);
+    return [
+      { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
+      { key: 'invoiceDate', label: 'Date', sortField: 'invoiceDate', width: '110px' },
+      { key: 'partyName', label: 'Customer', value: (r) => r.partyName || '—' },
+      ...(hasLinks ? [
+        { key: 'lease', label: 'Lease', width: '120px', value: (r: InvoiceSummary) => this.links()[r.id]?.leaseNumber ?? '' },
+        { key: 'property', label: 'Property', value: (r: InvoiceSummary) => this.links()[r.id]?.propertyName ?? '' },
+      ] : []),
+      { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '150px' },
+      { key: 'net', label: 'Net', width: '130px', align: 'right', value: money((r) => r.net) },
+      { key: 'tax', label: this.taxLabel(), width: '120px', align: 'right', value: money((r) => r.tax) },
+      { key: 'total', label: 'Total', sortField: 'total', width: '130px', align: 'right', value: money((r) => r.total) },
+      { key: 'outstanding', label: 'Balance', width: '130px', align: 'right', value: money((r) => r.outstanding) },
+      { key: 'status', label: 'Status', width: '120px', value: (r) => invoiceStatusLabel(r.status) },
+    ];
+  });
+  /** Figures for the cards above the table, from the rows on the current page, grouped by currency. */
+  readonly stats = computed(() => {
+    const rows = this.list.items();
+    const sum = (pick: (r: InvoiceSummary) => number, keep: (r: InvoiceSummary) => boolean) => {
+      const by = new Map<string, number>();
+      for (const r of rows) if (keep(r)) by.set(r.currencyCode, (by.get(r.currencyCode) ?? 0) + (r.isCreditNote ? -1 : 1) * pick(r));
+      return by.size ? [...by].map(([c, v]) => formatMoney(v, c)).join(' · ') : '0.00';
+    };
+    const live = (r: InvoiceSummary) => r.status !== 'draft' && r.status !== 'voided';
+    return {
+      count: rows.length,
+      invoiced: sum((r) => r.total, live),
+      outstanding: sum((r) => r.outstanding, (r) => live(r) && r.outstanding !== 0),
+      overdue: sum((r) => r.outstanding, (r) => daysOverdue(r) > 0),
+      overdueCount: rows.filter((r) => daysOverdue(r) > 0).length,
+      drafts: rows.filter((r) => r.status === 'draft').length,
+    };
+  });
+  private readonly loadLinks = effect(() => {
+    const ids = this.list.items().filter((r) => (r.sourceType ?? '').toLowerCase().startsWith('realestate.')).map((r) => r.id);
+    if (!ids.length) { this.links.set({}); return; }
+    this.http.get<LeaseLink[]>(`${this.apiBase}/m/realestate/billing/invoice-links`, { params: { ids } }).pipe(catchError(() => of([] as LeaseLink[])))
+      .subscribe((r) => this.links.set(Object.fromEntries((r ?? []).map((l) => [l.invoiceId, l]))));
+  });
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);
   readonly invoice = signal<InvoiceDto | null>(null);
@@ -135,12 +211,35 @@ export class InvoicesPage {
     const tax = lines.reduce((s, l) => s + Math.round(Math.round((l.quantity ?? 0) * (l.price ?? 0) * 100) / 100 * rate(l.taxCodeId)) / 100, 0);
     return { net, tax };
   });
+  readonly sheetData = computed(() => { const i = this.invoice(); return i ? { ...i, lines: i.lines.map((l) => ({ ...l, taxCodeId: l.taxCodeId ?? null })) } : null; });
   readonly editable = computed(() => !this.invoice() || this.invoice()!.status === 'draft');
   readonly title = computed(() => this.invoice() ? `${this.invoice()!.isCreditNote ? 'Credit note' : 'Invoice'} ${this.invoice()!.number}` : 'New invoice');
 
   get lines(): FormArray { return this.form.controls.lines as FormArray; }
-  color(s: string): string { return STATUS_COLORS[s] ?? 'default'; }
-  label(s: string): string { return STATUS_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1); }
+  color(s: string): string { return INVOICE_STATUS_COLORS[s] ?? 'default'; }
+  label(s: string): string { return invoiceStatusLabel(s); }
+  overdue(r: InvoiceSummary): number { return daysOverdue(r); }
+  source(r: InvoiceSummary): string { return humanizeSource(r.sourceType); }
+  link(r: InvoiceSummary): LeaseLink | undefined { return this.links()[r.id]; }
+
+  filterStatus(s: string | null): void {
+    this.statusFilter.set(s);
+    this.list.setFilters(s ? [{ field: 'status', op: 'eq', value: s }] : []);
+  }
+
+  /** Runs the module's billing run (invoices every lease instalment due by today). Only shown to users holding that module's permission. */
+  runBilling(): void {
+    this.modal.confirm({
+      nzTitle: 'Run billing now?', nzContent: 'Creates and issues an invoice for every scheduled instalment due by today.', nzOkText: 'Run billing',
+      nzOnOk: () => {
+        this.billing.set(true);
+        this.http.post<{ invoiced: number }>(`${this.apiBase}/m/realestate/billing/run`, { asOf: toIsoDate(new Date()) }).subscribe({
+          next: (r) => { this.billing.set(false); this.message.success(`Billing run created ${r?.invoiced ?? 0} invoice(s)`); this.list.reload(); },
+          error: (e) => { this.billing.set(false); this.fail(e); },
+        });
+      },
+    });
+  }
   err(name: string): string { return controlError(this.form.get(name)); }
 
   private newLine(l?: Partial<{ description: string; quantity: number; price: number; taxCodeId: string }>) {
@@ -161,8 +260,10 @@ export class InvoicesPage {
   printInvoice(id: string): void { window.open(`/print/invoice/${id}`, '_blank'); }
 
   open(row: InvoiceSummary | null): void {
-    if (!row) { this.show(null); return; }
+    if (!row) { this.extras.set(null); this.show(null); return; }
+    this.extras.set(null);
     this.api.detail(row.id).subscribe((inv) => this.show(inv));
+    this.extrasApi.load(row.id).subscribe((x) => this.extras.set(x));
   }
 
   private show(inv: InvoiceDto | null): void {

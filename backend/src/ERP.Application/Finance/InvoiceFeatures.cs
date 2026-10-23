@@ -22,7 +22,8 @@ public sealed record InvoiceDto(
         i.JournalEntryId, i.Notes, i.Lines.OrderBy(l => l.Seq).Select(l => new InvoiceLineDto(l.Id, l.Seq, l.ItemId, l.Description, l.Quantity, l.Price, l.TaxCodeId, l.TaxAmount, l.Net, l.AccountId)).ToList());
 }
 
-public sealed record InvoiceSummaryDto(Guid Id, string Number, bool IsCreditNote, Guid PartyId, string? PartyName, DateOnly InvoiceDate, DateOnly DueDate, decimal Total, decimal Paid, DocumentStatus Status, string CurrencyCode)
+public sealed record InvoiceSummaryDto(Guid Id, string Number, bool IsCreditNote, Guid PartyId, string? PartyName, DateOnly InvoiceDate, DateOnly DueDate, decimal Total, decimal Paid, DocumentStatus Status, string CurrencyCode,
+    decimal Net = 0, decimal Tax = 0, string? SourceType = null)
 {
     public decimal Outstanding => Total - Paid;
 }
@@ -35,6 +36,21 @@ public sealed record IssueInvoice(Guid Id) : ICommand<InvoiceDto>, IRequirePermi
 public sealed record VoidInvoice(Guid Id) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesIssue; }
 /// <summary>Uses (part of) an issued credit note to settle an open invoice of the same customer.</summary>
 public sealed record ApplyCreditNote(Guid CreditNoteId, Guid InvoiceId, decimal Amount) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesIssue; }
+
+/// <summary>Customer receipts allocated to one invoice (read-only; for the invoice detail view).</summary>
+public sealed record InvoiceAllocationDto(Guid SettlementId, string Number, DateOnly Date, SettlementMethod Method, string? Reference, string CurrencyCode, decimal Amount, DocumentStatus Status);
+public sealed record GetInvoiceAllocations(Guid InvoiceId) : IQuery<IReadOnlyList<InvoiceAllocationDto>>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesRead; }
+
+internal sealed class InvoiceAllocationHandler(IReadRepository<Settlement> settlements) : IRequestHandler<GetInvoiceAllocations, IReadOnlyList<InvoiceAllocationDto>>
+{
+    public async Task<IReadOnlyList<InvoiceAllocationDto>> Handle(GetInvoiceAllocations q, CancellationToken ct)
+    {
+        var rows = await settlements.Query(new Specification<Settlement>(s => s.Direction == InstrumentDirection.Received && s.Allocations.Any(a => a.InvoiceId == q.InvoiceId)).Include(s => s.Allocations))
+            .OrderBy(s => s.Date).ToListAsync(ct);
+        return rows.Select(s => new InvoiceAllocationDto(s.Id, s.Number, s.Date, s.Method, s.Reference, s.CurrencyCode,
+            s.Allocations.Where(a => a.InvoiceId == q.InvoiceId).Sum(a => a.Amount), s.Status)).ToList();
+    }
+}
 
 public sealed class InvoiceInputValidator : AbstractValidator<InvoiceInput>
 {

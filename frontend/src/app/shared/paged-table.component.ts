@@ -16,6 +16,8 @@ export interface TableColumn<T> {
   /** server sort field ([Sortable] on the entity); omit to disable sorting */
   sortField?: string;
   width?: string;
+  /** 'right' for amounts */
+  align?: 'left' | 'right';
   /** cell text; defaults to row[key] */
   value?: (row: T) => unknown;
 }
@@ -52,7 +54,7 @@ export interface TableColumn<T> {
       <thead>
         <tr>
           @for (c of columns(); track c.key) {
-            <th [nzColumnKey]="c.sortField ?? c.key" [nzShowSort]="!!c.sortField" [nzSortFn]="!!c.sortField" [nzWidth]="c.width ?? null">{{ c.label }}</th>
+            <th [nzColumnKey]="c.sortField ?? c.key" [nzShowSort]="!!c.sortField" [nzSortFn]="!!c.sortField" [nzWidth]="c.width ?? null" [nzAlign]="c.align ?? null">{{ c.label }}</th>
           }
         </tr>
       </thead>
@@ -60,7 +62,7 @@ export interface TableColumn<T> {
         @for (row of t.data; track $index) {
           <tr [class.clickable]="clickable()" (click)="rowClick.emit(row)" [attr.data-testid]="'row-' + $index">
             @for (c of columns(); track c.key) {
-              <td>
+              <td [nzAlign]="c.align ?? null">
                 @if (cell(); as tpl) { <ng-container *ngTemplateOutlet="tpl; context: { $implicit: row, column: c, value: read(row, c) }" /> }
                 @else { {{ read(row, c) }} }
               </td>
