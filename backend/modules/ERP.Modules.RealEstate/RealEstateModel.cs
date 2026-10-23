@@ -114,6 +114,18 @@ internal static class RealEstateModel
             b.HasIndex(x => new { x.OrgId, x.UnitId });
         });
 
+        mb.Entity<PmSchedule>(b =>
+        {
+            b.ToTable("re_PmSchedules");
+            b.Property(x => x.Title).HasMaxLength(300).IsRequired();
+            b.Property(x => x.Category).HasMaxLength(50);
+            b.Property(x => x.Notes).HasMaxLength(4000);
+            b.Property(x => x.EstimatedCost).HasPrecision(19, 4);
+            b.HasOne<Property>().WithMany().HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Unit>().WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.IsActive, x.NextDue });
+        });
+
         mb.Entity<Acquisition>(b =>
         {
             b.ToTable("re_Acquisitions");
