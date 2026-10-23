@@ -19,6 +19,7 @@ public sealed record PayAgentBody(Guid BankAccountId, DateOnly Date);
 public sealed record DepositBody(Guid BankAccountId, DateOnly Date, decimal Amount);
 public sealed record TransferDepositBody(Guid ToLeaseId);
 public sealed record BillingRunBody(DateOnly AsOf, Guid? LegalEntityId = null);
+public sealed record CompleteInspectionBody(bool RaiseWorkOrders = false);
 public sealed record RenewalDraftsBody(List<Guid> LeaseIds, decimal UpliftPercent);
 public sealed record DealStageBody(DealStage Stage, string? LostReason = null);
 
@@ -36,6 +37,7 @@ internal static class RealEstateEndpoints
         MapLeases(group.MapGroup("/leases"));
         MapWorkOrders(group.MapGroup("/work-orders"));
         MapPm(group.MapGroup("/pm-schedules"));
+        MapInspections(group.MapGroup("/inspections"));
         MapRenewals(group.MapGroup("/renewals"));
         MapPortal(group.MapGroup("/portal"));
         MapDeals(group.MapGroup("/deals"));
@@ -162,6 +164,15 @@ internal static class RealEstateEndpoints
         g.MapPost("", async (PmScheduleInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/pm-schedules", await s.Send(new CreatePmSchedule(input), ct))).RequirePermission(P.PmManage);
         g.MapPut("/{id:guid}", (Guid id, PmScheduleInput input, ISender s, CancellationToken ct) => s.Send(new UpdatePmSchedule(id, input), ct)).RequirePermission(P.PmManage);
         g.MapPost("/run", (ISender s, CancellationToken ct) => s.Send(new RunPreventiveMaintenance(), ct)).RequirePermission(P.PmManage);
+    }
+
+    private static void MapInspections(RouteGroupBuilder g)
+    {
+        g.MapPagedList<Inspection, InspectionRow>("", P.InspectionsRead, i => new InspectionRow(i.Id, i.PropertyId, i.UnitId, i.LeaseId, i.Kind, i.InspectionDate, i.Inspector, i.Status, i.DamageCost));
+        g.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetInspection(id), ct)).RequirePermission(P.InspectionsRead);
+        g.MapPost("", async (InspectionInput input, ISender s, CancellationToken ct) => { var c = await s.Send(new CreateInspection(input), ct); return Results.Created($"{Base}/inspections/{c.Id}", c); }).RequirePermission(P.InspectionsManage);
+        g.MapPut("/{id:guid}", (Guid id, InspectionInput input, ISender s, CancellationToken ct) => s.Send(new UpdateInspection(id, input), ct)).RequirePermission(P.InspectionsManage);
+        g.MapPost("/{id:guid}/complete", (Guid id, CompleteInspectionBody body, ISender s, CancellationToken ct) => s.Send(new CompleteInspection(id, body.RaiseWorkOrders), ct)).RequirePermission(P.InspectionsManage);
     }
 
     private static void MapRenewals(RouteGroupBuilder g)

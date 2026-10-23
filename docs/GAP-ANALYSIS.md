@@ -34,5 +34,6 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Lease renewals workbench | Done | Expiring leases with state (due / draft / renewed), rent vs asking, bulk draft renewals with rent change. |
 | Preventive maintenance | Done | Recurring schedules raise work orders ahead of the due date (nightly job or run now). |
 | Budgets vs actuals | Done | Annual budget per income/expense account and month; budget-vs-actual report against the posted ledger (favourable/unfavourable variance); monthly grid editor. |
+| Inspections | Done | Move-in/move-out/routine checklists, damage cost total, completion raises repair work orders. |
 
 Planned order: Finance ledger → invoices and billing run → receipts and AR → PDC register → dashboard KPIs → payables → reports → HR → acquisitions.

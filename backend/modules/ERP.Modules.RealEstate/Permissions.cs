@@ -37,6 +37,8 @@ public static class P
     public const string BillingRun = "realestate.billing.run";
     public const string PmRead = "realestate.pm.read";
     public const string PmManage = "realestate.pm.manage";
+    public const string InspectionsRead = "realestate.inspections.read";
+    public const string InspectionsManage = "realestate.inspections.manage";
     public const string SettingsWrite = "realestate.settings.write";
 }
 

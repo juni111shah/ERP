@@ -86,3 +86,71 @@ public class RealEstateOpsTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.NotNull((string?)again["error"]);
     }
 }
+
+/// <summary>Unit/property inspections with checklists and repair work orders.</summary>
+public class InspectionTests(ApiFactory f) : IClassFixture<ApiFactory>
+{
+    private const string Re = "/api/v1/m/realestate";
+
+    private static async Task<JsonNode> Ok(HttpResponseMessage res, HttpStatusCode expected = HttpStatusCode.OK)
+    {
+        var text = await res.Content.ReadAsStringAsync();
+        Assert.True(res.StatusCode == expected, $"Expected {expected} but got {res.StatusCode}: {text}");
+        return string.IsNullOrEmpty(text) ? new JsonObject() : ApiFactory.Unwrap(JsonNode.Parse(text)!);
+    }
+
+    private async Task<(HttpClient C, string PropertyId, string UnitId)> SetupAsync()
+    {
+        var (c, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re");
+        var me = await ApiFactory.Json(await c.GetAsync("/api/v1/me"));
+        var code = "T" + Guid.NewGuid().ToString("N")[..6];
+        var type = await Ok(await c.PostAsJsonAsync($"{Re}/unit-types", new { code, name = "Flat", defaultUsage = "residential" }), HttpStatusCode.Created);
+        var prop = await Ok(await c.PostAsJsonAsync($"{Re}/properties", new { legalEntityId = (string)me["legalEntities"]![0]!["id"]!, name = "Insp " + code, propertyType = "residential", ownershipType = "owned", totalUnits = 0, indicativeValue = 1m }), HttpStatusCode.Created);
+        var unit = await Ok(await c.PostAsJsonAsync($"{Re}/units", new { propertyId = (string)prop["id"]!, unitNumber = "9", unitTypeId = (string)type["id"]!, areaSqft = 800, askingRent = 80_000m }), HttpStatusCode.Created);
+        return (c, (string)prop["id"]!, (string)unit["id"]!);
+    }
+
+    [Fact]
+    public async Task Completing_an_inspection_totals_damage_and_raises_repair_work_orders_once()
+    {
+        var (c, propertyId, unitId) = await SetupAsync();
+        var created = await Ok(await c.PostAsJsonAsync($"{Re}/inspections", new
+        {
+            propertyId, unitId, kind = "moveOut", inspectionDate = "2026-06-01", inspector = "Vikram",
+            items = new object[] { new { area = "Living room", condition = "good" }, new { area = "Kitchen cabinet", condition = "damaged", repairCost = 450m, notes = "Door broken" }, new { area = "Bathroom", condition = "poor", repairCost = 150m } },
+        }), HttpStatusCode.Created);
+        var id = (string)created["id"]!;
+        Assert.Equal(600m, (decimal)created["damageCost"]!);
+
+        var edited = await Ok(await c.PutAsJsonAsync($"{Re}/inspections/{id}", new
+        {
+            propertyId, unitId, kind = "moveOut", inspectionDate = "2026-06-01", inspector = "Vikram",
+            items = new object[] { new { area = "Kitchen cabinet", condition = "damaged", repairCost = 500m } },
+        }));
+        Assert.Equal(500m, (decimal)edited["damageCost"]!);
+
+        var done = await Ok(await c.PostAsJsonAsync($"{Re}/inspections/{id}/complete", new { raiseWorkOrders = true }));
+        Assert.Equal("completed", (string)done["status"]!);
+        var item = Assert.Single(done["items"]!.AsArray())!;
+        var workOrderId = (string?)item["workOrderId"];
+        Assert.NotNull(workOrderId);
+        var order = await Ok(await c.GetAsync($"{Re}/work-orders/{workOrderId}"));
+        Assert.Equal(500m, (decimal)order["estimatedCost"]!);
+        Assert.Equal("high", (string)order["priority"]!);
+
+        Assert.Equal(HttpStatusCode.Conflict, (await c.PostAsJsonAsync($"{Re}/inspections/{id}/complete", new { raiseWorkOrders = true })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await c.PutAsJsonAsync($"{Re}/inspections/{id}", new { propertyId, unitId, kind = "moveOut", inspectionDate = "2026-06-01", items = Array.Empty<object>() })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Inspections_validate_their_property_unit_and_checklist()
+    {
+        var (c, propertyId, _) = await SetupAsync();
+        var body = (object unit, object[] items) => new { propertyId, unitId = unit, kind = "routine", inspectionDate = "2026-06-01", items };
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync($"{Re}/inspections", body(Guid.NewGuid(), []))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync($"{Re}/inspections", body(null!, [new { area = "", condition = "good" }]))).StatusCode);
+        var empty = await Ok(await c.PostAsJsonAsync($"{Re}/inspections", body(null!, [])), HttpStatusCode.Created);
+        Assert.Equal(HttpStatusCode.Conflict, (await c.PostAsJsonAsync($"{Re}/inspections/{(string)empty["id"]!}/complete", new { raiseWorkOrders = false })).StatusCode); // empty checklist
+        Assert.Contains((await Ok(await c.GetAsync($"{Re}/inspections?pageSize=100"))).AsArray(), r => (string)r!["id"]! == (string)empty["id"]!);
+    }
+}

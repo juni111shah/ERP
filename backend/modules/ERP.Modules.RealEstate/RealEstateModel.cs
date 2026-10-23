@@ -126,6 +126,26 @@ internal static class RealEstateModel
             b.HasIndex(x => new { x.OrgId, x.IsActive, x.NextDue });
         });
 
+        mb.Entity<Inspection>(b =>
+        {
+            b.ToTable("re_Inspections");
+            b.Property(x => x.Inspector).HasMaxLength(100);
+            b.Property(x => x.Notes).HasMaxLength(4000);
+            b.Property(x => x.DamageCost).HasPrecision(19, 4);
+            b.HasOne<Property>().WithMany().HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Unit>().WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Lease>().WithMany().HasForeignKey(x => x.LeaseId).OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.InspectionId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.OrgId, x.PropertyId, x.InspectionDate });
+        });
+        mb.Entity<InspectionItem>(b =>
+        {
+            b.ToTable("re_InspectionItems");
+            b.Property(x => x.Area).HasMaxLength(100).IsRequired();
+            b.Property(x => x.Notes).HasMaxLength(1000);
+            b.Property(x => x.RepairCost).HasPrecision(19, 4);
+        });
+
         mb.Entity<Acquisition>(b =>
         {
             b.ToTable("re_Acquisitions");

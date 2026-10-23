@@ -61,6 +61,8 @@ public sealed class RealEstateModule : ModuleBase
         PermissionDefinition.Of(P.BillingRun, "Run the rent billing and invoice instalments"),
         PermissionDefinition.Of(P.PmRead, "View preventive maintenance schedules"),
         PermissionDefinition.Of(P.PmManage, "Manage preventive maintenance schedules and run them"),
+        PermissionDefinition.Of(P.InspectionsRead, "View inspections"),
+        PermissionDefinition.Of(P.InspectionsManage, "Create, edit and complete inspections"),
         PermissionDefinition.Of(P.SettingsWrite, "Change real estate settings"),
     ];
 
@@ -75,6 +77,7 @@ public sealed class RealEstateModule : ModuleBase
         new("realestate.workorders", "Work orders", "/real-estate/work-orders", "tool", P.WorkOrdersRead, 40, "realestate", "Real estate", 200),
         new("realestate.renewals", "Lease renewals", "/real-estate/renewals", "file-text", P.LeasesRenew, 38, "realestate", "Real estate", 200),
         new("realestate.pm", "Preventive maintenance", "/real-estate/preventive-maintenance", "tool", P.PmRead, 45, "realestate", "Real estate", 200),
+        new("realestate.inspections", "Inspections", "/real-estate/inspections", "safety", P.InspectionsRead, 46, "realestate", "Real estate", 200),
         new("realestate.deals", "Deals", "/real-estate/deals", "fund", P.DealsRead, 50, "realestate", "Real estate", 200),
     ];
 
@@ -114,14 +117,14 @@ public sealed class RealEstateModule : ModuleBase
             [
                 new("Leasing manager", "Leases, units and collections",
                     [P.PropertiesRead, P.PropertiesManage, P.UnitTypesRead, P.UnitTypesManage, P.UnitsRead, P.UnitsManage, P.UnitsReserve,
-                     P.LeasesRead, P.LeasesCreate, P.LeasesEdit, P.LeasesActivate, P.LeasesRenew, P.LeasesTerminate, P.WorkOrdersRead, P.WorkOrdersCreate, P.BillingRun, P.DepositsManage,
+                     P.LeasesRead, P.LeasesCreate, P.LeasesEdit, P.LeasesActivate, P.LeasesRenew, P.LeasesTerminate, P.WorkOrdersRead, P.WorkOrdersCreate, P.BillingRun, P.DepositsManage, P.InspectionsRead, P.InspectionsManage,
                      CorePermissions.PartiesRead, CorePermissions.PartiesWrite, CorePermissions.ChequesRead, CorePermissions.ChequesWrite,
                      CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue, CorePermissions.ReceiptsRead, CorePermissions.ReceiptsWrite], Key),
                 new("Investment manager", "Acquisitions, funding and instalments",
                     [P.PropertiesRead, P.AcquisitionsRead, P.AcquisitionsManage, P.AcquisitionsComplete, P.FundingPay, CorePermissions.BankRead, CorePermissions.ReportsRead], Key),
                 new("Facilities manager", "Maintenance and work orders",
                     [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.WorkOrdersRead, P.WorkOrdersCreate, P.WorkOrdersEdit, P.WorkOrdersAssign,
-                     P.WorkOrdersComplete, P.WorkOrdersClose, P.WorkOrdersCancel, P.PmRead, P.PmManage, CorePermissions.PartiesRead], Key),
+                     P.WorkOrdersComplete, P.WorkOrdersClose, P.WorkOrdersCancel, P.PmRead, P.PmManage, P.InspectionsRead, P.InspectionsManage, CorePermissions.PartiesRead], Key),
                 new("Brokerage manager", "Deals and commissions",
                     [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.DealsRead, P.DealsCreate, P.DealsEdit, P.DealsLose, P.DealsInvoice, P.DealsPayAgent, CorePermissions.PartiesRead, CorePermissions.PartiesWrite,
                      CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue], Key),
