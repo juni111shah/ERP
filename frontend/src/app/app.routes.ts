@@ -51,6 +51,7 @@ export const routes: Routes = [
       { path: 'admin/users', canMatch: [permissionGuard('core.users.read')], loadComponent: () => import('./pages/admin/users.page').then((m) => m.UsersPage) },
       { path: 'admin/roles', canMatch: [permissionGuard('core.roles.read')], loadComponent: () => import('./pages/admin/roles.page').then((m) => m.RolesPage) },
       { path: 'admin/settings', canMatch: [permissionGuard('core.settings.read')], loadComponent: () => import('./pages/admin/settings.page').then((m) => m.SettingsPage) },
+      { path: 'admin/documents', canMatch: [permissionGuard('core.attachments.read')], loadComponent: () => import('./pages/admin/documents.page').then((m) => m.DocumentsPage) },
       { path: 'admin/messages', canMatch: [permissionGuard('core.settings.read')], loadComponent: () => import('./pages/admin/messages.page').then((m) => m.MessagesPage) },
       { path: 'admin/audit', canMatch: [permissionGuard('core.audit.read')], loadComponent: () => import('./pages/admin/audit.page').then((m) => m.AuditPage) },
       { path: 'finance', children: [{ path: '**', ...placeholder('Finance') }] },

@@ -34,15 +34,25 @@ public class Notification : OrgEntity
     public DateTime? ReadAt { get; set; }
 }
 
-/// <summary>File attached to any record (owner type + id). Content lives in an IFileStore.</summary>
+/// <summary>File attached to any record (owner type + id). Content lives in an IFileStore. Category/ExpiresOn make it a tracked document (licences, IDs, insurance).</summary>
+[DefaultSort("expiresOn")]
 public class Attachment : OrgEntity
 {
+    [Filterable]
     public string OwnerType { get; set; } = default!;
+    [Filterable]
     public Guid OwnerId { get; set; }
+    [Searchable, Sortable]
     public string FileName { get; set; } = default!;
     public string ContentType { get; set; } = default!;
     public long SizeBytes { get; set; }
     public string StorageKey { get; set; } = default!;
+    [Filterable, Searchable]
+    public string? Category { get; set; }
+    [Searchable]
+    public string? Description { get; set; }
+    [Filterable, Sortable]
+    public DateOnly? ExpiresOn { get; set; }
 }
 
 /// <summary>Key/value settings (JSON values). LegalEntityId null = tenant-wide. Modules namespace their keys ("<moduleKey>.*").</summary>
