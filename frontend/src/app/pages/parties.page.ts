@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, Injectable, inject, signal, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -111,11 +111,15 @@ export class PartiesPage implements OnInit {
   }
 
   open(p: PartyDto | null): void {
-    this.editing.set(p);
-    this.form = this.newForm(p);
+    if (p) {
+      inject(Router).navigate(['/parties', p.id]);
+      return;
+    }
+    this.editing.set(null);
+    this.form = this.newForm(null);
     this.meta.sections('party').subscribe((s) => {
       this.sections.set(s);
-      const group = buildCustomFieldsGroup(s, p?.customFields, !p);
+      const group = buildCustomFieldsGroup(s, null, true);
       this.form.setControl('customFields', group);
       this.customGroup.set(group);
     });

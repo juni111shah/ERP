@@ -1,20 +1,12 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzCardModule } from 'ng-zorro-antd/card';
-import { NzDescriptionsModule } from 'ng-zorro-antd/descriptions';
-import { NzGridModule } from 'ng-zorro-antd/grid';
-import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzStatisticModule } from 'ng-zorro-antd/statistic';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { NzTabsModule } from 'ng-zorro-antd/tabs';
-import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { API_BASE_URL } from '../../core/api/api-config';
-import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 
 interface InvoiceLine {
   id: string;
@@ -54,43 +46,9 @@ interface Invoice {
 @Component({
   selector: 'erp-invoice-detail',
   standalone: true,
-  imports: [
-    CommonModule, DatePipe, CurrencyPipe, RouterLink,
-    NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule,
-    NzIconModule, NzStatisticModule, NzTableModule, NzTabsModule, NzTagModule,
-    HasPermissionDirective
-  ],
+  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, DetailPageComponent],
   styles: [`
-    .erp-page-title {
-      font-size: 24px;
-      font-weight: 500;
-      margin: 0 0 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .status-tag {
-      font-size: 12px;
-      padding: 2px 8px;
-      border-radius: 4px;
-      text-transform: uppercase;
-    }
-    .status-draft { background: #f0f0f0; color: #666; }
-    .status-approved { background: #e6f7ff; color: #1890ff; }
-    .status-issued { background: #f6ffed; color: #52c41a; }
-    .status-partial { background: #fff7e6; color: #fa8c16; }
-    .status-paid { background: #f6ffed; color: #52c41a; }
-    .status-overdue { background: #fff1f0; color: #f5222d; }
-    .status-voided { background: #f5f5f5; color: #999; }
-    .action-bar {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
-    }
-    .line-items-table {
-      margin-top: 16px;
-    }
+    .line-items-table { margin-top: 16px; }
     .totals-section {
       margin-top: 16px;
       text-align: right;
@@ -109,202 +67,66 @@ interface Invoice {
       font-size: 16px;
       font-weight: 600;
     }
-    .history-timeline {
-      padding: 16px;
-    }
-    .history-item {
-      padding: 12px 0;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .history-item:last-child {
-      border-bottom: none;
-    }
-    .history-timestamp {
-      font-size: 12px;
-      color: #999;
-    }
   `],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
     } @else if (error()) {
       <div style="text-align: center; padding: 48px; color: #ff4d4f;">{{ error() }}</div>
-    } @else if (invoice() !== null) {
-      @if (invoice(); as inv) {
-      <p><a routerLink="/admin/invoices">← Back to Invoices</a></p>
-      
-      <h1 class="erp-page-title">
-        {{ inv.isCreditNote ? 'Credit Note' : 'Invoice' }} #{{ inv.number }}
-        <span class="status-tag" [class]="'status-' + inv.status.toLowerCase()">
-          {{ inv.status }}
-        </span>
-      </h1>
-
-      <div class="action-bar">
-        @if (inv.status === 'issued' || inv.status === 'partial') {
-          <button *erpHasPermission="'core.receipts.create'" nz-button nzType="primary" (click)="recordPayment(inv)">
-            <span nz-icon nzType="dollar"></span> Record Payment
-          </button>
-        }
-        @if (!inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partial' || inv.status === 'paid')) {
-          <button *erpHasPermission="'core.invoices.create'" nz-button (click)="createCreditNote(inv)">
-            <span nz-icon nzType="file-add"></span> Credit Note
-          </button>
-        }
-        @if (inv.status !== 'voided' && inv.status !== 'paid') {
-          <button *erpHasPermission="'core.invoices.edit'" nz-button nzDanger (click)="voidInvoice(inv)">
-            <span nz-icon nzType="stop"></span> Void
-          </button>
-        }
-        <button *erpHasPermission="'core.invoices.create'" nz-button (click)="duplicate(inv)">
-          <span nz-icon nzType="copy"></span> Duplicate
-        </button>
-        @if (inv.journalEntryId) {
-          <button nz-button (click)="viewJournal(inv.journalEntryId)">
-            <span nz-icon nzType="book"></span> View Journal
-          </button>
-        }
-        <button nz-button (click)="print(inv.id)">
-          <span nz-icon nzType="printer"></span> Print
-        </button>
-        <button nz-button (click)="email(inv)">
-          <span nz-icon nzType="mail"></span> Email
-        </button>
-      </div>
-
-      <div nz-row [nzGutter]="[16, 16]">
-        <div nz-col [nzXs]="24" [nzMd]="6">
-          <nz-card>
-            <nz-statistic 
-              nzTitle="Total Amount"
-              [nzValue]="inv.total"
-              [nzSuffix]="inv.currencyCode">
-            </nz-statistic>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzMd]="6">
-          <nz-card>
-            <nz-statistic 
-              nzTitle="Amount Paid"
-              [nzValue]="inv.paid"
-              [nzSuffix]="inv.currencyCode">
-            </nz-statistic>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzMd]="6">
-          <nz-card>
-            <nz-statistic 
-              nzTitle="Balance Due"
-              [nzValue]="balance()"
-              [nzSuffix]="inv.currencyCode"
-              [nzValueStyle]="{ color: balance() > 0 ? '#ff4d4f' : '#52c41a' }">
-            </nz-statistic>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzMd]="6">
-          <nz-card>
-            <nz-statistic 
-              nzTitle="Days Overdue"
-              [nzValue]="daysOverdue() || 0"
-              [nzValueStyle]="{ color: daysOverdue() > 0 ? '#ff4d4f' : '#52c41a' }">
-            </nz-statistic>
-          </nz-card>
-        </div>
-      </div>
-
-      <nz-card style="margin-top: 16px;" nzTitle="Details">
-        <nz-descriptions nzBordered [nzColumn]="2">
-          <nz-descriptions-item nzTitle="Customer">
-            <a [routerLink]="['/admin/parties', inv.partyId]">{{ inv.partyName }}</a>
-          </nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Invoice Date">
-            {{ inv.invoiceDate | date:'dd MMM yyyy' }}
-          </nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Due Date">
-            {{ inv.dueDate | date:'dd MMM yyyy' }}
-          </nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Currency">
-            {{ inv.currencyCode }}
-          </nz-descriptions-item>
-          @if (inv.creditNoteForId) {
-            <nz-descriptions-item nzTitle="Credit Note For">
-              <a [routerLink]="['/admin/invoices', inv.creditNoteForId]">View original invoice</a>
-            </nz-descriptions-item>
-          }
-          @if (inv.notes) {
-            <nz-descriptions-item nzTitle="Notes" [nzSpan]="2">
-              {{ inv.notes }}
-            </nz-descriptions-item>
-          }
-        </nz-descriptions>
-      </nz-card>
-
-      <div class="line-items-table">
-        <nz-table #itemsTable [nzData]="inv.lines" [nzFrontPagination]="false" nzSize="small">
-          <thead>
-            <tr>
-              <th style="width: 40px;">#</th>
-              <th>Description</th>
-              <th style="width: 100px; text-align: right;">Quantity</th>
-              <th style="width: 120px; text-align: right;">Price</th>
-              <th style="width: 120px; text-align: right;">Tax</th>
-              <th style="width: 140px; text-align: right;">Net Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (line of itemsTable.data; track line.id) {
+    } @else if (invoice()) {
+      <erp-detail-page
+        [backLink]="['/finance/invoices']"
+        [backLabel]="'Back to Invoices'"
+        [title]="(invoice()!.isCreditNote ? 'Credit Note' : 'Invoice') + ' #' + invoice()!.number"
+        [status]="invoice()!.status"
+        [actions]="actions()"
+        [kpiCards]="kpiCards()"
+        [descriptions]="descriptions()"
+        [createdAt]="invoice()!.invoiceDate"
+        [entityName]="invoice()!.isCreditNote ? 'Credit Note' : 'Invoice'">
+        
+        <div content class="line-items-table">
+          <nz-table #itemsTable [nzData]="invoice()!.lines" [nzFrontPagination]="false" nzSize="small">
+            <thead>
               <tr>
-                <td>{{ line.seq }}</td>
-                <td>{{ line.description }}</td>
-                <td style="text-align: right;">{{ line.quantity }}</td>
-                <td style="text-align: right;">{{ line.price | currency:inv.currencyCode }}</td>
-                <td style="text-align: right;">{{ line.taxAmount | currency:inv.currencyCode }}</td>
-                <td style="text-align: right;">{{ line.net | currency:inv.currencyCode }}</td>
+                <th style="width: 40px;">#</th>
+                <th>Description</th>
+                <th style="width: 100px; text-align: right;">Quantity</th>
+                <th style="width: 120px; text-align: right;">Price</th>
+                <th style="width: 120px; text-align: right;">Tax</th>
+                <th style="width: 140px; text-align: right;">Net Amount</th>
               </tr>
-            }
-          </tbody>
-        </nz-table>
-      </div>
-
-      <div class="totals-section">
-        <div class="total-row">
-          <span>Subtotal:</span>
-          <span>{{ inv.net | currency:inv.currencyCode }}</span>
-        </div>
-        <div class="total-row">
-          <span>Tax:</span>
-          <span>{{ inv.tax | currency:inv.currencyCode }}</span>
-        </div>
-        <div class="total-row grand">
-          <span>Total:</span>
-          <span>{{ inv.total | currency:inv.currencyCode }}</span>
-        </div>
-      </div>
-
-      <nz-card style="margin-top: 24px;">
-        <nz-tabset>
-          <nz-tab nzTitle="Documents">
-            <div style="padding: 16px;">
-              <p><i>Document attachments will be implemented here</i></p>
-            </div>
-          </nz-tab>
-          <nz-tab nzTitle="History">
-            <div class="history-timeline">
-              <div class="history-item">
-                <div class="history-timestamp">{{ inv.invoiceDate | date:'dd MMM yyyy, h:mm a' }}</div>
-                <div>Invoice created</div>
-              </div>
-              @if (inv.status === 'paid') {
-                <div class="history-item">
-                  <div class="history-timestamp">Recent</div>
-                  <div>Invoice marked as paid</div>
-                </div>
+            </thead>
+            <tbody>
+              @for (line of itemsTable.data; track line.id) {
+                <tr>
+                  <td>{{ line.seq }}</td>
+                  <td>{{ line.description }}</td>
+                  <td style="text-align: right;">{{ line.quantity }}</td>
+                  <td style="text-align: right;">{{ line.price | currency:invoice()!.currencyCode }}</td>
+                  <td style="text-align: right;">{{ line.taxAmount | currency:invoice()!.currencyCode }}</td>
+                  <td style="text-align: right;">{{ line.net | currency:invoice()!.currencyCode }}</td>
+                </tr>
               }
+            </tbody>
+          </nz-table>
+
+          <div class="totals-section">
+            <div class="total-row">
+              <span>Subtotal:</span>
+              <span>{{ invoice()!.net | currency:invoice()!.currencyCode }}</span>
             </div>
-          </nz-tab>
-        </nz-tabset>
-      </nz-card>
-      }
+            <div class="total-row">
+              <span>Tax:</span>
+              <span>{{ invoice()!.tax | currency:invoice()!.currencyCode }}</span>
+            </div>
+            <div class="total-row grand">
+              <span>Total:</span>
+              <span>{{ invoice()!.total | currency:invoice()!.currencyCode }}</span>
+            </div>
+          </div>
+        </div>
+      </erp-detail-page>
     }
   `
 })
@@ -334,6 +156,114 @@ export class InvoiceDetailPage implements OnInit {
     return diff > 0 ? diff : 0;
   });
 
+  actions = computed((): ActionButton[] => {
+    const inv = this.invoice();
+    if (!inv) return [];
+    
+    return [
+      {
+        label: 'Record Payment',
+        icon: 'dollar',
+        type: 'primary',
+        permission: 'core.receipts.create',
+        visible: inv.status === 'issued' || inv.status === 'partial',
+        handler: () => this.recordPayment()
+      },
+      {
+        label: 'Credit Note',
+        icon: 'file-add',
+        permission: 'core.invoices.create',
+        visible: !inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partial' || inv.status === 'paid'),
+        handler: () => this.createCreditNote()
+      },
+      {
+        label: 'Void',
+        icon: 'stop',
+        danger: true,
+        permission: 'core.invoices.edit',
+        visible: inv.status !== 'voided' && inv.status !== 'paid',
+        handler: () => this.voidInvoice()
+      },
+      {
+        label: 'Duplicate',
+        icon: 'copy',
+        permission: 'core.invoices.create',
+        handler: () => this.duplicate()
+      },
+      {
+        label: 'View Journal',
+        icon: 'book',
+        visible: !!inv.journalEntryId,
+        handler: () => this.viewJournal(inv.journalEntryId!)
+      },
+      {
+        label: 'Print',
+        icon: 'printer',
+        handler: () => this.print(inv.id)
+      },
+      {
+        label: 'Email',
+        icon: 'mail',
+        handler: () => this.email()
+      }
+    ];
+  });
+
+  kpiCards = computed((): KpiCard[] => {
+    const inv = this.invoice();
+    if (!inv) return [];
+    
+    return [
+      {
+        title: 'Total Amount',
+        value: inv.total,
+        suffix: inv.currencyCode
+      },
+      {
+        title: 'Amount Paid',
+        value: inv.paid,
+        suffix: inv.currencyCode
+      },
+      {
+        title: 'Balance Due',
+        value: this.balance(),
+        suffix: inv.currencyCode,
+        valueStyle: { color: this.balance() > 0 ? '#ff4d4f' : '#52c41a' }
+      },
+      {
+        title: 'Days Overdue',
+        value: this.daysOverdue() || 0,
+        valueStyle: { color: this.daysOverdue() > 0 ? '#ff4d4f' : '#52c41a' }
+      }
+    ];
+  });
+
+  descriptions = computed((): DescriptionItem[] => {
+    const inv = this.invoice();
+    if (!inv) return [];
+    
+    const items: DescriptionItem[] = [
+      { label: 'Customer', value: inv.partyName, routerLink: ['/parties', inv.partyId] },
+      { label: 'Invoice Date', value: new Date(inv.invoiceDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) },
+      { label: 'Due Date', value: new Date(inv.dueDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) },
+      { label: 'Currency', value: inv.currencyCode }
+    ];
+
+    if (inv.creditNoteForId) {
+      items.push({ 
+        label: 'Credit Note For', 
+        value: 'View original invoice',
+        routerLink: ['/finance/invoices', inv.creditNoteForId]
+      });
+    }
+
+    if (inv.notes) {
+      items.push({ label: 'Notes', value: inv.notes, span: 2 });
+    }
+
+    return items;
+  });
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
@@ -354,15 +284,15 @@ export class InvoiceDetailPage implements OnInit {
     });
   }
 
-  recordPayment(inv: Invoice): void {
+  recordPayment(): void {
     this.message.info('Record payment functionality will be implemented');
   }
 
-  createCreditNote(inv: Invoice): void {
+  createCreditNote(): void {
     this.message.info('Create credit note functionality will be implemented');
   }
 
-  voidInvoice(inv: Invoice): void {
+  voidInvoice(): void {
     this.modal.confirm({
       nzTitle: 'Void this invoice?',
       nzContent: 'This action cannot be undone. The invoice will be marked as voided.',
@@ -374,19 +304,19 @@ export class InvoiceDetailPage implements OnInit {
     });
   }
 
-  duplicate(inv: Invoice): void {
+  duplicate(): void {
     this.message.info('Duplicate functionality will be implemented');
   }
 
   viewJournal(journalId: string): void {
-    this.router.navigate(['/admin/journals', journalId]);
+    this.router.navigate(['/finance/journals', journalId]);
   }
 
   print(id: string): void {
     window.open(`/print/invoice/${id}`, '_blank');
   }
 
-  email(inv: Invoice): void {
+  email(): void {
     this.message.info('Email functionality will be implemented');
   }
 }
