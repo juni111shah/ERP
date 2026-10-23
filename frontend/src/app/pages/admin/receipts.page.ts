@@ -1,3 +1,4 @@
+import { Router } from '@angular/router';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -71,6 +72,7 @@ import { PartiesApi } from '../parties.page';
     </nz-drawer>
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
+      @if (receipt()?.id) { <button nz-button (click)="openDetails(receipt()!.id)" style="margin-inline-start:8px" data-testid="receipt-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(receipt()!.id)" style="margin-inline-start:8px" data-testid="receipt-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
       @if (receipt()?.status === 'issued') {
         <button *erpHasPermission="'finance.receipts.write'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="rc-void">Void</button>
         @if (receipt()!.unallocated > 0) { <button *erpHasPermission="'finance.receipts.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="allocate()" style="margin-inline-start:8px" data-testid="rc-allocate">Allocate</button> }
@@ -80,6 +82,7 @@ import { PartiesApi } from '../parties.page';
 })
 export class ReceiptsPage {
   private readonly api = inject(ReceiptsApi);
+  private readonly router = inject(Router);
   private readonly invoices = inject(InvoicesApi);
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
@@ -127,6 +130,9 @@ export class ReceiptsPage {
     this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: partyId }, { field: 'isCreditNote', op: 'eq', value: false }] })
       .subscribe((r) => this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid')));
   }
+
+  openDetails(id: string): void { void this.router.navigate(['/finance/receipts', id]); }
+  printDoc(id: string): void { window.open(`/print/receipt/${id}`, '_blank'); }
 
   open(row: ReceiptSummary | null): void {
     this.amounts.set({}); this.openInvoices.set([]);

@@ -1,3 +1,4 @@
+import { Router } from '@angular/router';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -70,6 +71,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
     </nz-drawer>
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
+      @if (bill()?.id) { <button nz-button (click)="openDetails(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
       @if (bill()?.status === 'issued' && bill()!.paid === 0) { <button *erpHasPermission="'finance.bills.post'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="bill-void">Void</button> }
       @if (editable()) {
         <button *erpHasPermission="'finance.bills.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="bill-save">Save draft</button>
@@ -79,6 +81,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
 })
 export class BillsPage {
   private readonly api = inject(BillsApi);
+  private readonly router = inject(Router);
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
@@ -131,6 +134,9 @@ export class BillsPage {
   searchParties(term: string): void {
     this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => this.partyOptions.set(r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))));
   }
+
+  openDetails(id: string): void { void this.router.navigate(['/finance/bills', id]); }
+  printDoc(id: string): void { window.open(`/print/bill/${id}`, '_blank'); }
 
   open(row: BillSummary | null): void {
     if (!row) { this.show(null); return; }

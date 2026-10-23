@@ -1,3 +1,4 @@
+import { Router } from '@angular/router';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -70,6 +71,7 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
     </nz-drawer>
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
+      @if (journal()?.id) { <button nz-button (click)="openDetails(journal()!.id)" style="margin-inline-start:8px" data-testid="journal-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(journal()!.id)" style="margin-inline-start:8px" data-testid="journal-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
       @if (journal()?.status === 'posted') {
         <button *erpHasPermission="'finance.journals.post'" nz-button nzDanger (click)="reverse()" style="margin-inline-start:8px" data-testid="j-reverse">Reverse</button>
       }
@@ -89,6 +91,7 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
 })
 export class JournalsPage {
   private readonly api = inject(JournalsApi);
+  private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
@@ -130,6 +133,9 @@ export class JournalsPage {
   }
   addLine(): void { this.lines.push(this.newLine() as never); }
   removeLine(i: number): void { if (this.lines.length > 2) this.lines.removeAt(i); }
+
+  openDetails(id: string): void { void this.router.navigate(['/finance/journals', id]); }
+  printDoc(id: string): void { window.open(`/print/journal/${id}`, '_blank'); }
 
   open(row: JournalSummary | null): void {
     if (!row) { this.show(null); return; }

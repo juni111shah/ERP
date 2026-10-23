@@ -165,7 +165,7 @@ export class BillDetailPage implements OnInit {
         icon: 'dollar',
         type: 'primary',
         permission: 'finance.payments.write',
-        visible: bil.status === 'approved' || bil.status === 'partlyPaid',
+        visible: bil.status === 'issued' || bil.status === 'partlyPaid',
         handler: () => this.message.info('Make payment functionality will be implemented')
       },
       {

@@ -1,3 +1,4 @@
+import { Router } from '@angular/router';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -75,6 +76,7 @@ import { PartiesApi } from '../parties.page';
     </nz-drawer>
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
+      @if (receipt()?.id) { <button nz-button (click)="openDetails(receipt()!.id)" style="margin-inline-start:8px" data-testid="payment-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(receipt()!.id)" style="margin-inline-start:8px" data-testid="payment-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
       @if (receipt()?.status === 'issued') {
         @if (receipt()!.paymentInstrumentId) { <button *erpHasPermission="'finance.cheques.approve'" nz-button (click)="clearCheque()" style="margin-inline-start:8px" data-testid="pm-clear">Cheque cleared</button> }
         <button *erpHasPermission="'finance.payments.write'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="pm-void">Void</button>
@@ -85,6 +87,7 @@ import { PartiesApi } from '../parties.page';
 })
 export class PaymentsPage {
   private readonly api = inject(PaymentsApi);
+  private readonly router = inject(Router);
   private readonly invoices = inject(BillsApi);
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
@@ -135,6 +138,9 @@ export class PaymentsPage {
     this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: partyId }] })
       .subscribe((r) => this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid')));
   }
+
+  openDetails(id: string): void { void this.router.navigate(['/finance/payments', id]); }
+  printDoc(id: string): void { window.open(`/print/payment/${id}`, '_blank'); }
 
   open(row: PaymentSummary | null): void {
     this.amounts.set({}); this.openInvoices.set([]);

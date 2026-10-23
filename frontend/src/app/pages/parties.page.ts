@@ -110,9 +110,11 @@ export class PartiesPage implements OnInit {
     this.list.setFilters(role ? [{ field: 'roles', op: 'has', value: role.toLowerCase() }] : []);
   }
 
+  private readonly router = inject(Router);
+
   open(p: PartyDto | null): void {
     if (p) {
-      inject(Router).navigate(['/parties', p.id]);
+      void this.router.navigate(['/parties', p.id]);
       return;
     }
     this.editing.set(null);
