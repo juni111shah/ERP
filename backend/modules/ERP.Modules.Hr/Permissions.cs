@@ -10,6 +10,8 @@ public static class P
     public const string PayrollManage = "hr.payroll.manage";
     public const string PayrollPost = "hr.payroll.post";
     public const string PayrollPay = "hr.payroll.pay";
+    public const string ReviewsRead = "hr.reviews.read";
+    public const string ReviewsManage = "hr.reviews.manage";
 }
 
 public static class Docs

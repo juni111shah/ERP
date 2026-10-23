@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Modules.Hr.Features;
 
 /// <summary>Headcount and monthly payroll cost on the overview.</summary>
-public sealed class HrDashboard(IReadRepository<Employee> employees, IReadRepository<PayrollRun> runs, ICurrentUser user) : IDashboardContributor
+public sealed class HrDashboard(IReadRepository<Employee> employees, IReadRepository<PayrollRun> runs, IReadRepository<PerformanceReview> reviews, ICurrentUser user) : IDashboardContributor
 {
     public string ModuleKey => HrModule.Key;
 
@@ -25,6 +25,11 @@ public sealed class HrDashboard(IReadRepository<Employee> employees, IReadReposi
         {
             var open = await runs.CountAsync(r => (r.Status == PayrollStatus.Draft || r.Status == PayrollStatus.PendingApproval || r.Status == PayrollStatus.Posted) && (entity == null || r.LegalEntityId == entity), ct);
             kpis.Add(new("payroll-open", "Payroll runs open", open, "number", "not yet paid", 115, "/hr/payroll"));
+        }
+        if (user.HasPermission(P.ReviewsRead))
+        {
+            var pending = await reviews.CountAsync(r => r.Status != ReviewStatus.Acknowledged && (entity == null || r.LegalEntityId == entity), ct);
+            kpis.Add(new("reviews-pending", "Reviews pending", pending, "number", "draft or awaiting acknowledgement", 118, "/hr/reviews"));
         }
         return new DashboardContribution(kpis, [], []);
     }

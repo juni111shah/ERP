@@ -70,6 +70,8 @@ export class EmployeesPage {
     { key: 'otherAllowances', label: 'Other allowances', type: 'number', min: 0, default: 0 },
     { key: 'recurringDeductions', label: 'Recurring deductions', type: 'number', min: 0, default: 0, hint: 'Loan or advance recovery per month.' },
     { key: 'iban', label: 'IBAN', type: 'text', maxLength: 50 },
+    { key: 'labourCardNumber', label: 'Labour card / MOHRE personal no.', type: 'text', maxLength: 30, hint: 'UAE WPS: the 14-digit number used in the salary file.' },
+    { key: 'bankRoutingCode', label: 'Bank routing code', type: 'text', maxLength: 20, hint: 'UAE WPS: routing code of the employee\'s bank.' },
   ]);
 
   filterStatus(s: string | null): void { this.list.setFilters(s ? [{ field: 'status', op: 'eq', value: s }] : []); }

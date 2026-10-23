@@ -43,5 +43,7 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | CRM: listings and leads | Done | Listings (draft/published/closed), leads pipeline with stages and lost reason, convert to brokerage deal, follow-up reminders, lead search. |
 | Vendor portal | Done | Vendor email-code sign-in, own bills, payments, statement and assigned work orders with progress updates. |
 | Arabic and RTL | Done | Language switcher, `dir`/`lang`, Arabic dictionary for shell, login, dashboard, portals and account screens; other screens fall back to English. |
+| HR performance reviews | Done | Review cycles, reviews with competency scores, submit and acknowledge, dashboard card. |
+| WPS SIF export (UAE) | Done | Payroll WPS file with EDR/SCR lines, validates employer and employee details first. |
 
 Planned order: Finance ledger → invoices and billing run → receipts and AR → PDC register → dashboard KPIs → payables → reports → HR → acquisitions.
