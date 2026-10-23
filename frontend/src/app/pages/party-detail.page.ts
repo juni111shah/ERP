@@ -62,7 +62,8 @@ interface Party {
         [showDocuments]="false"
         [showHistory]="false">
         
-        <div tabs>
+        <div content style="margin-top: 24px;">
+        <nz-tabset>
           @if (isCustomer()) {
             <nz-tab nzTitle="Recent Transactions">
               <div style="padding: 16px;">
@@ -146,6 +147,7 @@ interface Party {
               <p><i>Audit history will be displayed here</i></p>
             </div>
           </nz-tab>
+        </nz-tabset>
         </div>
       </erp-detail-page>
 
