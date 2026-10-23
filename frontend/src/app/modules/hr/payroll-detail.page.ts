@@ -44,7 +44,7 @@ type Mode = 'pay' | 'adjust' | null;
         <nz-card><small>Deductions</small><div><b>{{ r.deductions | number: '1.2-2' }}</b></div><small>advance / loan recoveries</small></nz-card>
         <nz-card><small>Net pay</small><div><b data-testid="payroll-net">{{ r.netPay | number: '1.2-2' }}</b></div>@if (r.paidOn) { <small>paid on {{ r.paidOn }}</small> }</nz-card>
       </div>
-      <nz-table [nzData]="r.lines" [nzFrontPagination]="false" nzSize="small" data-testid="payroll-lines">
+      <nz-table [nzData]="r.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="payroll-lines">
         <thead><tr><th>Employee</th><th>Absent</th><th>OT hrs</th><th>Basic</th><th>Allowances</th><th>Overtime</th><th>Absence</th><th>Adjustment</th><th>Gross earnings</th><th>Deductions</th><th>Net pay</th><th></th></tr></thead>
         <tbody>
           @for (l of r.lines; track l.id) {

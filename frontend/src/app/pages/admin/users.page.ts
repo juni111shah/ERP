@@ -25,7 +25,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
     <div class="bar"><span class="spacer"></span>
       <button *erpHasPermission="'core.users.write'" nz-button nzType="primary" (click)="open(null)" data-testid="user-new"><span nz-icon nzType="plus"></span>Invite user</button>
     </div>
-    <nz-table [nzData]="users()" [nzLoading]="loading()" [nzFrontPagination]="false" nzSize="middle" data-testid="users-table">
+    <nz-table [nzData]="users()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="users-table">
       <thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
       <tbody>
         @for (u of users(); track u.id) {

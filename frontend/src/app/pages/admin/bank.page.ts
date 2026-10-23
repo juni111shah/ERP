@@ -19,15 +19,16 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 
 /** Cash and bank: balances, bank statement import, reconciliation and transfers between accounts. */
+import { RevealDirective } from '../../shared/reveal.directive';
 @Component({
   selector: 'erp-bank',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule],
+  imports: [FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
   styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center } .cards { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px } .card { padding:12px 16px; border:1px solid var(--erp-color-border, #eee); border-radius:8px; min-width:200px; cursor:pointer } .card.sel { border-color: var(--erp-color-primary, #1677ff) } .card b { display:block; font-size:20px } .num { text-align:right } h3 { margin: 20px 0 8px }`],
   template: `
     <h1 class="erp-page-title">Cash and bank</h1>
-    <div class="bar">
+    <div class="bar" erpReveal>
       <nz-select [(ngModel)]="entityId" nzAllowClear nzPlaceHolder="All legal entities" style="width:240px" (ngModelChange)="refresh()" data-testid="bank-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
       <nz-date-picker [(ngModel)]="asOf" (ngModelChange)="refresh()" data-testid="bank-asof"></nz-date-picker>
       <button *erpHasPermission="'finance.bank.write'" nz-button (click)="transferOpen.set(true)" data-testid="bank-transfer"><span nz-icon nzType="swap"></span>Transfer</button>
@@ -41,7 +42,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
       </div>
     }
     @if (rec(); as r) {
-      <div class="bar">
+      <div class="bar" erpReveal>
         <h3 style="margin:0">Reconciliation — {{ r.code }} {{ r.name }}</h3>
         <nz-tag [nzColor]="r.reconciled ? 'green' : 'orange'" data-testid="rec-status">{{ r.reconciled ? 'Reconciled' : 'Differences to review' }}</nz-tag>
         <span style="flex:1"></span>
@@ -53,7 +54,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
       @if (!entityId) { <p>Choose a legal entity above to import and match statements.</p> }
       <p>Ledger balance {{ r.ledgerBalance | number: '1.2-2' }} · {{ r.matched }} lines matched · unmatched statement {{ r.unmatchedStatementTotal | number: '1.2-2' }} · unmatched ledger {{ r.unmatchedLedgerTotal | number: '1.2-2' }}</p>
       <h3>On the statement, not in the books</h3>
-      <nz-table [nzData]="r.unmatchedStatement" [nzFrontPagination]="false" nzSize="small" data-testid="rec-statement">
+      <nz-table [nzData]="r.unmatchedStatement" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="rec-statement">
         <thead><tr><th>Date</th><th>Description</th><th>Reference</th><th class="num">Amount</th><th></th></tr></thead>
         <tbody>
           @for (l of r.unmatchedStatement; track l.id) {
@@ -63,7 +64,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
         </tbody>
       </nz-table>
       <h3>In the books, not on the statement</h3>
-      <nz-table [nzData]="r.unmatchedLedger" [nzFrontPagination]="false" nzSize="small" data-testid="rec-ledger">
+      <nz-table [nzData]="r.unmatchedLedger" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="rec-ledger">
         <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Amount</th></tr></thead>
         <tbody>@for (l of r.unmatchedLedger; track l.journalLineId) { <tr><td>{{ l.date }}</td><td>{{ l.number }}</td><td>{{ l.description }}</td><td class="num">{{ l.amount | number: '1.2-2' }}</td></tr> }</tbody>
       </nz-table>

@@ -78,7 +78,7 @@ type Action = 'terminate' | 'renew';
       </nz-card>
       <nz-card style="margin-top:16px" nzTitle="Rent schedule">
         @if (l.schedule.length) {
-          <nz-table #t [nzData]="l.schedule" [nzFrontPagination]="false" nzSize="small" data-testid="rent-schedule">
+          <nz-table #t [nzData]="l.schedule" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="rent-schedule">
             <thead><tr><th>#</th><th>Period</th><th>Due</th><th>Rent (excl. VAT)</th><th>Status</th></tr></thead>
             <tbody>
               @for (i of t.data; track i.id) {

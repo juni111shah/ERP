@@ -30,7 +30,7 @@ type Mode = 'record' | 'settle' | null;
           @if (lease().renewedAsLeaseId && d.held > 0) { <button nz-button (click)="rollOver()" data-testid="deposit-rollover">Roll over to renewal</button> }
         </div>
         @if (d.transactions.length) {
-          <nz-table [nzData]="d.transactions" [nzFrontPagination]="false" nzSize="small">
+          <nz-table [nzData]="d.transactions" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
             <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th></tr></thead>
             <tbody>@for (t of d.transactions; track t.id) { <tr><td>{{ t.date }}</td><td>{{ humanize(t.kind) }}</td><td>{{ t.amount.toLocaleString() }}</td><td>{{ t.description }}</td></tr> }</tbody>
           </nz-table>

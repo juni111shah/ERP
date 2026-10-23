@@ -43,7 +43,7 @@ import { asProblem } from '../../core/http/problem-details';
       @case (0) {
         @if (tb(); as t) {
           @if (!t.balanced) { <nz-alert nzType="error" nzShowIcon nzMessage="The trial balance does not balance."></nz-alert> }
-          <nz-table [nzData]="t.rows" [nzFrontPagination]="false" nzSize="small" data-testid="tb-table">
+          <nz-table [nzData]="t.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="tb-table">
             <thead><tr><th>Code</th><th>Account</th><th class="num">Opening</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Closing</th></tr></thead>
             <tbody>
               @for (r of t.rows; track r.accountId) { <tr><td>{{ r.code }}</td><td>{{ r.name }}</td><td class="num">{{ r.opening | number: '1.2-2' }}</td><td class="num">{{ r.debit | number: '1.2-2' }}</td><td class="num">{{ r.credit | number: '1.2-2' }}</td><td class="num">{{ r.closing | number: '1.2-2' }}</td></tr> }
@@ -55,7 +55,7 @@ import { asProblem } from '../../core/http/problem-details';
       @case (1) {
         @if (gl(); as g) {
           <h4>{{ g.code }} · {{ g.name }} — opening {{ g.opening | number: '1.2-2' }}</h4>
-          <nz-table [nzData]="g.lines" [nzFrontPagination]="false" nzSize="small" data-testid="gl-table">
+          <nz-table [nzData]="g.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="gl-table">
             <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
             <tbody>
               @for (l of g.lines; track $index) { <tr><td>{{ l.date }}</td><td>{{ l.number }}</td><td>{{ l.description || l.memo }}</td><td class="num">{{ l.debit | number: '1.2-2' }}</td><td class="num">{{ l.credit | number: '1.2-2' }}</td><td class="num">{{ l.balance | number: '1.2-2' }}</td></tr> }
@@ -86,7 +86,7 @@ import { asProblem } from '../../core/http/problem-details';
       }
       @case (4) {
         @if (ar(); as a) {
-          <nz-table [nzData]="a.rows" [nzFrontPagination]="false" nzSize="small" data-testid="ar-table">
+          <nz-table [nzData]="a.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="ar-table">
             <thead><tr><th>Customer</th><th class="num">Current</th><th class="num">1-30</th><th class="num">31-60</th><th class="num">61-90</th><th class="num">Over 90</th><th class="num">Total</th></tr></thead>
             <tbody>
               @for (r of a.rows; track r.partyId) { <tr><td>{{ r.partyName }}</td><td class="num">{{ r.current | number: '1.2-2' }}</td><td class="num">{{ r.days1To30 | number: '1.2-2' }}</td><td class="num">{{ r.days31To60 | number: '1.2-2' }}</td><td class="num">{{ r.days61To90 | number: '1.2-2' }}</td><td class="num">{{ r.over90 | number: '1.2-2' }}</td><td class="num">{{ r.total | number: '1.2-2' }}</td></tr> }
@@ -97,7 +97,7 @@ import { asProblem } from '../../core/http/problem-details';
       }
       @case (5) {
         @if (ap(); as a) {
-          <nz-table [nzData]="a.rows" [nzFrontPagination]="false" nzSize="small" data-testid="ap-table">
+          <nz-table [nzData]="a.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="ap-table">
             <thead><tr><th>Vendor</th><th class="num">Current</th><th class="num">1-30</th><th class="num">31-60</th><th class="num">61-90</th><th class="num">Over 90</th><th class="num">Total</th></tr></thead>
             <tbody>
               @for (r of a.rows; track r.partyId) { <tr><td>{{ r.partyName }}</td><td class="num">{{ r.current | number: '1.2-2' }}</td><td class="num">{{ r.days1To30 | number: '1.2-2' }}</td><td class="num">{{ r.days31To60 | number: '1.2-2' }}</td><td class="num">{{ r.days61To90 | number: '1.2-2' }}</td><td class="num">{{ r.over90 | number: '1.2-2' }}</td><td class="num">{{ r.total | number: '1.2-2' }}</td></tr> }

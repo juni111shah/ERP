@@ -7,6 +7,11 @@ export const EN: Dictionary = {
   'table.columns': 'Columns', 'table.clearFilters': 'Clear filters', 'table.resetLayout': 'Reset layout', 'table.pinStart': 'Pin to start', 'table.pinEnd': 'Pin to end',
   'table.dragToReorder': 'Drag to reorder', 'table.contains': 'Contains…', 'table.any': 'Any', 'table.min': 'Min', 'table.max': 'Max', 'table.reset': 'Reset', 'table.apply': 'Apply',
   'table.pageFilterNote': 'Showing', 'table.onThisPage': 'on this page', 'table.exportCsv': 'Export CSV', 'table.noExport': 'No data to export', 'table.exported': 'CSV exported successfully',
+  'table.filter': 'Filter', 'table.region': 'Table', 'table.pinStartShort': 'Start', 'table.pinEndShort': 'End',
+  // pagination bar
+  'pager.label': 'Pagination', 'pager.showing': 'Showing', 'pager.of': 'of', 'pager.noItems': 'No items', 'pager.first': 'First page', 'pager.prev': 'Previous page',
+  'pager.next': 'Next page', 'pager.last': 'Last page', 'pager.prev5': 'Previous 5 pages', 'pager.next5': 'Next 5 pages', 'pager.page': 'Page', 'pager.goTo': 'Go to',
+  'pager.goToPage': 'Go to page', 'pager.rowsPerPage': 'Rows per page', 'pager.perPage': '/ page',
 };
 
 export const AR: Dictionary = {
@@ -14,6 +19,11 @@ export const AR: Dictionary = {
   'table.columns': 'الأعمدة', 'table.clearFilters': 'مسح عوامل التصفية', 'table.resetLayout': 'إعادة ضبط التخطيط', 'table.pinStart': 'تثبيت في البداية', 'table.pinEnd': 'تثبيت في النهاية',
   'table.dragToReorder': 'اسحب لإعادة الترتيب', 'table.contains': 'يحتوي على…', 'table.any': 'الكل', 'table.min': 'الحد الأدنى', 'table.max': 'الحد الأقصى', 'table.reset': 'إعادة تعيين', 'table.apply': 'تطبيق',
   'table.pageFilterNote': 'عرض', 'table.onThisPage': 'في هذه الصفحة', 'table.exportCsv': 'تصدير CSV', 'table.noExport': 'لا توجد بيانات للتصدير', 'table.exported': 'تم تصدير ملف CSV بنجاح',
+  'table.filter': 'تصفية', 'table.region': 'جدول', 'table.pinStartShort': 'البداية', 'table.pinEndShort': 'النهاية',
+  // pagination bar
+  'pager.label': 'ترقيم الصفحات', 'pager.showing': 'عرض', 'pager.of': 'من', 'pager.noItems': 'لا توجد عناصر', 'pager.first': 'الصفحة الأولى', 'pager.prev': 'الصفحة السابقة',
+  'pager.next': 'الصفحة التالية', 'pager.last': 'الصفحة الأخيرة', 'pager.prev5': '5 صفحات سابقة', 'pager.next5': '5 صفحات تالية', 'pager.page': 'صفحة', 'pager.goTo': 'انتقال إلى',
+  'pager.goToPage': 'الانتقال إلى الصفحة', 'pager.rowsPerPage': 'صفوف لكل صفحة', 'pager.perPage': '/ صفحة',
   // common
   'common.save': 'حفظ', 'common.cancel': 'إلغاء', 'common.new': 'جديد', 'common.search': 'بحث', 'common.run': 'تشغيل', 'common.back': 'رجوع',
   'common.delete': 'حذف', 'common.edit': 'تعديل', 'common.close': 'إغلاق', 'common.yes': 'نعم', 'common.no': 'لا', 'common.total': 'الإجمالي',

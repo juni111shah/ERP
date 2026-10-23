@@ -23,7 +23,7 @@ import { AttendanceApi, AttendanceRow } from './hr.api';
       <nz-date-picker nzMode="month" [(ngModel)]="month" (ngModelChange)="load()" data-testid="att-month"></nz-date-picker>
     </div>
     <nz-alert nzType="info" nzShowIcon nzMessage="Employees without a record for the month are paid in full. Record only exceptions: unpaid absence, paid leave and overtime." style="margin-bottom:12px"></nz-alert>
-    <nz-table [nzData]="rows()" [nzLoading]="loading()" [nzFrontPagination]="false" nzSize="small" data-testid="att-table">
+    <nz-table [nzData]="rows()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="att-table">
       <thead><tr><th>Employee</th><th>Recorded</th><th>Working days</th><th>Present</th><th>Unpaid absence</th><th>Paid leave</th><th>Overtime hrs</th><th></th></tr></thead>
       <tbody>
         @for (r of rows(); track r.employeeId) {

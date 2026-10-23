@@ -51,7 +51,7 @@ import { StatusTagComponent } from './status-tag.component';
     </erp-paged-table>
 
     <h3 style="margin-top:24px">Funding and instalment schedules</h3>
-    <nz-table [nzData]="funding()" [nzFrontPagination]="false" nzSize="small" data-testid="funding-table">
+    <nz-table [nzData]="funding()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="funding-table">
       <thead><tr><th>Source</th><th>Lender</th><th>Principal</th><th>Rate</th><th>Monthly</th><th>Repaid</th><th>Outstanding</th><th>Next due</th></tr></thead>
       <tbody>
         @for (f of funding(); track f.id) {

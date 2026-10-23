@@ -15,26 +15,30 @@ import { asProblem } from '../../core/http/problem-details';
 import { PortalService, VendorBill, VendorPayment, VendorStatement, VendorWorkOrder } from './portal.service';
 
 /** The vendor's own view: bills, payments, statement of what is owed to them, and the work orders assigned to them (start, hold, complete). */
+import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
+
 @Component({
   selector: 'erp-vendor-home',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CurrencyPipe, FormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzInputModule, NzInputNumberModule, NzModalModule],
+  imports: [CurrencyPipe, FormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzInputModule, NzInputNumberModule, NzModalModule, PaginationBarComponent],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; }`],
   template: `
     <div class="top"><h1>Welcome, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">Sign out</button></div>
     <nz-tabset>
       <nz-tab nzTitle="Bills">
-        <nz-table [nzData]="bills()" nzSize="small" data-testid="vendor-bills">
+        <nz-table #tb [nzData]="bills()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="billPg.page()" [nzPageSize]="billPg.size()" data-testid="vendor-bills">
           <thead><tr><th>Number</th><th>Your reference</th><th>Date</th><th>Due</th><th>Total</th><th>Outstanding</th><th>Status</th></tr></thead>
-          <tbody>@for (b of bills(); track b.id) { <tr><td>{{ b.number }}</td><td>{{ b.vendorReference }}</td><td>{{ b.billDate }}</td><td>{{ b.dueDate }}</td><td>{{ b.total | currency: b.currencyCode }}</td><td>{{ b.outstanding | currency: b.currencyCode }}</td><td>{{ b.status }}</td></tr> }</tbody>
+          <tbody>@for (b of tb.data; track b.id) { <tr><td>{{ b.number }}</td><td>{{ b.vendorReference }}</td><td>{{ b.billDate }}</td><td>{{ b.dueDate }}</td><td>{{ b.total | currency: b.currencyCode }}</td><td>{{ b.outstanding | currency: b.currencyCode }}</td><td>{{ b.status }}</td></tr> }</tbody>
         </nz-table>
+        <erp-pagination-bar [total]="bills().length" [page]="billPg.page()" [pageSize]="billPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-bills" (pageChange)="billPg.change($event)" />
       </nz-tab>
       <nz-tab nzTitle="Payments">
-        <nz-table [nzData]="payments()" nzSize="small" data-testid="vendor-payments">
+        <nz-table #tp [nzData]="payments()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="payPg.page()" [nzPageSize]="payPg.size()" data-testid="vendor-payments">
           <thead><tr><th>Number</th><th>Date</th><th>Method</th><th>Amount</th><th>Reference</th></tr></thead>
-          <tbody>@for (p of payments(); track p.id) { <tr><td>{{ p.number }}</td><td>{{ p.date }}</td><td>{{ p.method }}</td><td>{{ p.amount | currency: p.currencyCode }}</td><td>{{ p.reference }}</td></tr> }</tbody>
+          <tbody>@for (p of tp.data; track p.id) { <tr><td>{{ p.number }}</td><td>{{ p.date }}</td><td>{{ p.method }}</td><td>{{ p.amount | currency: p.currencyCode }}</td><td>{{ p.reference }}</td></tr> }</tbody>
         </nz-table>
+        <erp-pagination-bar [total]="payments().length" [page]="payPg.page()" [pageSize]="payPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-payments" (pageChange)="payPg.change($event)" />
       </nz-tab>
       <nz-tab nzTitle="Statement">
         @if (statement(); as s) {
@@ -46,10 +50,10 @@ import { PortalService, VendorBill, VendorPayment, VendorStatement, VendorWorkOr
         }
       </nz-tab>
       <nz-tab nzTitle="Work orders">
-        <nz-table [nzData]="orders()" nzSize="small" data-testid="vendor-orders">
+        <nz-table #to [nzData]="orders()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="woPg.page()" [nzPageSize]="woPg.size()" data-testid="vendor-orders">
           <thead><tr><th>Number</th><th>Issue</th><th>Priority</th><th>Status</th><th>Estimate</th><th></th></tr></thead>
           <tbody>
-            @for (o of orders(); track o.id) {
+            @for (o of to.data; track o.id) {
               <tr>
                 <td>{{ o.number }}</td><td>{{ o.issue }}</td><td>{{ o.priority }}</td><td><nz-tag>{{ o.status }}</nz-tag></td><td>{{ o.estimatedCost | currency }}</td>
                 <td>
@@ -63,6 +67,7 @@ import { PortalService, VendorBill, VendorPayment, VendorStatement, VendorWorkOr
             } @empty { <tr><td colspan="6">No work orders assigned to you.</td></tr> }
           </tbody>
         </nz-table>
+        <erp-pagination-bar [total]="orders().length" [page]="woPg.page()" [pageSize]="woPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-orders" (pageChange)="woPg.change($event)" />
       </nz-tab>
     </nz-tabset>
     <nz-modal [nzVisible]="!!completing()" nzTitle="Complete work order" (nzOnCancel)="completing.set(null)" (nzOnOk)="complete()" nzOkText="Complete">
@@ -78,6 +83,9 @@ export class VendorHomePage implements OnInit {
   private readonly message = inject(NzMessageService);
   readonly bills = signal<VendorBill[]>([]);
   readonly payments = signal<VendorPayment[]>([]);
+  readonly billPg = new ClientPager(20);
+  readonly payPg = new ClientPager(20);
+  readonly woPg = new ClientPager(20);
   readonly statement = signal<VendorStatement | null>(null);
   readonly orders = signal<VendorWorkOrder[]>([]);
   readonly completing = signal<VendorWorkOrder | null>(null);

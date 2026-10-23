@@ -20,7 +20,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
   template: `
     <h1 class="erp-page-title">Approval rules</h1>
     <p>A document that matches a rule waits for a second person (with the approve permission) before it is posted.</p>
-    <nz-table [nzData]="rules()" [nzFrontPagination]="false" nzSize="middle" data-testid="rules-table">
+    <nz-table [nzData]="rules()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="rules-table">
       <thead><tr><th>Document</th><th>From amount</th><th>Active</th><th></th></tr></thead>
       <tbody>
         @for (r of rules(); track r.id) {

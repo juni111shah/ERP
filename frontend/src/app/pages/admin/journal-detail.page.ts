@@ -63,7 +63,7 @@ interface Journal {
         
         <div content style="margin-top: 16px;">
           <h3>Journal Lines</h3>
-          <nz-table #linesTable [nzData]="journal()!.lines" [nzFrontPagination]="false" nzSize="small">
+          <nz-table #linesTable [nzData]="journal()!.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
             <thead>
               <tr>
                 <th style="width: 40px;">#</th>
