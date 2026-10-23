@@ -1,3 +1,4 @@
+import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, Subscription } from 'rxjs';
@@ -53,7 +54,7 @@ export interface FieldSpec {
   selector: 'erp-record-drawer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzDatePickerModule, NzSelectModule, NzSwitchModule, NzButtonModule, DynamicFieldsComponent],
+  imports: [TranslatePipe, ReactiveFormsModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzDatePickerModule, NzSelectModule, NzSwitchModule, NzButtonModule, DynamicFieldsComponent],
   template: `
     <nz-drawer [nzVisible]="open()" [nzWidth]="width()" [nzTitle]="title()" (nzOnClose)="closed.emit()" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
@@ -88,8 +89,8 @@ export interface FieldSpec {
       </ng-container>
     </nz-drawer>
     <ng-template #footer>
-      <button nz-button type="button" (click)="closed.emit()">Cancel</button>
-      <button nz-button nzType="primary" type="button" [nzLoading]="saving()" (click)="submit()" style="margin-inline-start:8px" [attr.data-testid]="testId() + '-save'">{{ submitLabel() }}</button>
+      <button nz-button type="button" (click)="closed.emit()">{{ 'common.cancel' | translate: 'Cancel' }}</button>
+      <button nz-button nzType="primary" type="button" [nzLoading]="saving()" (click)="submit()" style="margin-inline-start:8px" [attr.data-testid]="testId() + '-save'">{{ submitLabel() === 'Save' ? ('common.save' | translate: 'Save') : submitLabel() }}</button>
     </ng-template>`,
 })
 export class RecordDrawerComponent {
