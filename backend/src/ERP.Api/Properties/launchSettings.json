@@ -1,6 +1,17 @@
 {
   "profiles": {
-    "ERP.Api": {
+    "ERP.Api (SQLite - no SQL Server needed)": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5080",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Database__Provider": "Sqlite",
+        "Database__AutoMigrate": "true",
+        "ConnectionStrings__Default": "Data Source=erp-dev.db"
+      }
+    },
+    "ERP.Api (SQL Server)": {
       "commandName": "Project",
       "launchBrowser": false,
       "applicationUrl": "http://localhost:5080",
