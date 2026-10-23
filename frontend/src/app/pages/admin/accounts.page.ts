@@ -89,7 +89,7 @@ export class AccountsPage {
       { key: 'code', label: 'Code', type: 'text', required: true, maxLength: 20 },
       { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 150 },
       { key: 'type', label: 'Type', type: 'select', required: true, options: ACCOUNT_TYPES, default: pre?.type ?? 'asset' },
-      { key: 'reportingGroup', label: 'Reporting group', type: 'text', maxLength: 60 },
+      { key: 'reportingGroup', label: 'Reporting group', type: 'text', maxLength: 60, default: pre?.reportingGroup ?? null },
       {
         key: 'parentId', label: 'Parent account', type: 'lookup', default: parentOption?.value ?? null,
         lookup: (term) => this.api.list({ page: 1, pageSize: 20, search: term }).pipe(map((r) => {

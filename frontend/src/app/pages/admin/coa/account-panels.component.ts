@@ -4,23 +4,31 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
-import { AccountCategoryDto, AccountNodeDto } from '../../../core/api/admin.api';
+import { AccountCategoryDto, AccountNodeDto, AccountSubcategoryDto } from '../../../core/api/admin.api';
 import { asProblem } from '../../../core/http/problem-details';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HasPermissionDirective } from '../../../shared/has-permission.directive';
 import { ExpandSearchComponent } from '../../../shared/expand-search.component';
 import { RevealDirective } from '../../../shared/reveal.directive';
-import { AccountTreeStore, CoaPanel } from './account-tree.store';
+import { AccountTreeStore, CoaCrumb, CoaPanel } from './account-tree.store';
 
-export interface CoaCreateRequest { type: string; parent: AccountNodeDto | null; }
+export interface CoaCreateRequest { type: string; parent: AccountNodeDto | null; /** reporting group a new account in a sub-category starts with */ reportingGroup?: string | null; }
 
 const TYPE_ICONS: Record<string, string> = { asset: 'wallet', liability: 'credit-card', equity: 'fund', income: 'rise', expense: 'fall' };
 const TYPE_LABELS: Record<string, string> = { asset: 'Assets', liability: 'Liabilities', equity: 'Equity', income: 'Revenue', expense: 'Expenses' };
+/** English fallbacks of the derived sub-categories (the server sends the same names; keys are unique within a type). */
+const SUB_LABELS: Record<string, string> = {
+  'asset.current': 'Current assets', 'asset.noncurrent': 'Non-current assets',
+  'liability.current': 'Current liabilities', 'liability.noncurrent': 'Non-current liabilities',
+  'equity.equity': 'Equity', 'income.operating': 'Operating revenue', 'income.other': 'Other income',
+  'expense.costOfSales': 'Cost of sales', 'expense.operating': 'Operating expenses', 'expense.other': 'Other expenses',
+};
 
 /**
  * Step-by-step chart of accounts (Miller columns). Column 1 lists the account categories; choosing one opens column 2 with
- * that category's primary accounts; choosing an account with sub-accounts opens its children, and so on. A leaf account opens
+ * that category's sub-categories (Current assets, Non-current assets, …); choosing one opens column 3 with its primary
+ * accounts; choosing an account with sub-accounts opens its children, and so on. A leaf account opens
  * its details. Every column is fetched only when it opens (see AccountTreeStore), one path is open at a time.
  */
 @Component({
@@ -32,10 +40,10 @@ const TYPE_LABELS: Record<string, string> = { asset: 'Assets', liability: 'Liabi
     <nav class="coa-crumbs" [attr.aria-label]="'coa.breadcrumb' | translate: 'Account path'" data-testid="coa-breadcrumb">
       @for (c of store.crumbs(); track $index; let last = $last) {
         @if (!last) {
-          <button type="button" class="coa-crumb" (click)="store.goTo(c.target)">{{ crumbLabel(c.label, $index, c.code) }}</button>
+          <button type="button" class="coa-crumb" (click)="store.goTo(c.target)">{{ crumbLabel(c) }}</button>
           <span class="coa-crumb-sep" nz-icon [nzType]="chevron()" aria-hidden="true"></span>
         } @else {
-          <span class="coa-crumb is-current" aria-current="page">{{ crumbLabel(c.label, $index, c.code) }}</span>
+          <span class="coa-crumb is-current" aria-current="page">{{ crumbLabel(c) }}</span>
         }
       }
     </nav>
@@ -46,6 +54,7 @@ const TYPE_LABELS: Record<string, string> = { asset: 'Assets', liability: 'Liabi
           <header class="coa-panel-head">
             <div class="coa-panel-title">
               @if (p.kind === 'categories') { <span nz-icon nzType="partition"></span> }
+              @else if (p.sub) { <span nz-icon nzType="folder-open"></span> }
               @else if (p.type) { <span nz-icon [nzType]="typeIcon(p.type)"></span> }
               @else { <span nz-icon [nzType]="p.kind === 'detail' ? 'file-text' : 'folder-open'"></span> }
               <span class="coa-title-text">{{ panelTitle(p) }}</span>
@@ -71,8 +80,8 @@ const TYPE_LABELS: Record<string, string> = { asset: 'Assets', liability: 'Liabi
           @if (p.kind !== 'detail') {
             <div class="coa-search">
               <erp-expand-search size="small" width="100%" [value]="p.search" (valueChange)="onSearch(p.key, $event)" [testId]="'coa-search-' + i"
-                                 [placeholder]="(p.kind === 'categories' ? 'coa.searchCategories' : 'coa.searchAccounts') | translate: (p.kind === 'categories' ? 'Search categories' : 'Search code or name')"
-                                 [label]="(p.kind === 'categories' ? 'coa.searchCategories' : 'coa.searchAccounts') | translate: (p.kind === 'categories' ? 'Search categories' : 'Search code or name')" />
+                                 [placeholder]="searchKey(p) | translate: searchFallback(p)"
+                                 [label]="searchKey(p) | translate: searchFallback(p)" />
             </div>
           }
 
@@ -103,6 +112,25 @@ const TYPE_LABELS: Record<string, string> = { asset: 'Assets', liability: 'Liabi
                   </li>
                 } @empty { <li class="coa-empty">{{ 'coa.noMatch' | translate: 'Nothing matches.' }}</li> }
               </ul>
+            } @else if (p.kind === 'subcategories') {
+              <ul class="coa-list" role="list">
+                @for (sc of visibleSubcategories(p); track sc.key) {
+                  <li>
+                    <button type="button" class="coa-item" [class.is-selected]="p.selected === sc.key" [attr.aria-current]="p.selected === sc.key ? 'true' : null"
+                            (click)="store.selectSubcategory(i, sc)" [attr.data-testid]="'coa-sub-' + sc.key">
+                      <span class="coa-cat-icon"><span nz-icon nzType="folder-open"></span></span>
+                      <span class="coa-item-main">
+                        <span class="coa-item-name">{{ subLabel(sc.type, sc.key, sc.name) }}</span>
+                        <span class="coa-item-sub">{{ sc.accountCount }} {{ 'coa.accounts' | translate: 'accounts' }} · {{ sc.primaryCount }} {{ 'coa.primary' | translate: 'primary' }}</span>
+                      </span>
+                      @if (sc.balance != null) { <span class="coa-balance" [class.is-negative]="sc.balance < 0">{{ money(sc.balance) }}</span> }
+                      <span class="coa-chevron" nz-icon [nzType]="chevron()"></span>
+                    </button>
+                  </li>
+                } @empty {
+                  <li class="coa-empty" data-testid="coa-empty">{{ (p.search ? 'coa.noMatch' : 'coa.noSubcategories') | translate: (p.search ? 'Nothing matches.' : 'No sub-categories here yet.') }}</li>
+                }
+              </ul>
             } @else if (p.kind === 'accounts') {
               <ul class="coa-list" role="list">
                 @for (a of p.items; track a.id) {
@@ -119,7 +147,7 @@ const TYPE_LABELS: Record<string, string> = { asset: 'Assets', liability: 'Liabi
                     </button>
                   </li>
                 } @empty {
-                  <li class="coa-empty">{{ (p.search ? 'coa.noMatch' : 'coa.noAccounts') | translate: (p.search ? 'Nothing matches.' : 'No accounts here yet.') }}</li>
+                  <li class="coa-empty" data-testid="coa-empty">{{ (p.search ? 'coa.noMatch' : 'coa.noAccounts') | translate: (p.search ? 'Nothing matches.' : 'No accounts here yet.') }}</li>
                 }
               </ul>
               @if (p.items.length < p.total) {
@@ -285,14 +313,36 @@ export class AccountPanelsComponent {
 
   panelTitle(p: CoaPanel): string {
     if (p.kind === 'categories') return this.i18n.t('coa.categories', 'Account categories');
+    if (p.sub && p.type) return this.subLabel(p.type, p.sub.key, p.sub.name);
     if (p.type) return this.typeLabel(p.type);
     return p.parent?.name ?? '';
   }
 
-  crumbLabel(label: string, index: number, code?: string): string {
-    if (index === 0) return this.i18n.t('coa.title', 'Chart of accounts');
-    if (index === 1) return this.typeLabel(label);
-    return code ? `${code} · ${label}` : label;
+  crumbLabel(c: CoaCrumb): string {
+    if (c.kind === 'root') return this.i18n.t('coa.title', 'Chart of accounts');
+    if (c.kind === 'type') return this.typeLabel(c.label);
+    if (c.kind === 'sub') return this.subLabel(c.type ?? '', c.code ?? '', c.label);
+    return c.code ? `${c.code} · ${c.label}` : c.label;
+  }
+
+  /** Translated sub-category name; the server's English name (or the built-in one) is the fallback. */
+  subLabel(type: string, key: string, name?: string | null): string {
+    const id = `${type}.${key}`;
+    const fallback = name && name !== key ? name : SUB_LABELS[id] ?? key;
+    return this.i18n.t(`coa.sub.${id}`, fallback);
+  }
+
+  searchKey(p: CoaPanel): string {
+    return p.kind === 'categories' ? 'coa.searchCategories' : p.kind === 'subcategories' ? 'coa.searchSubcategories' : 'coa.searchAccounts';
+  }
+
+  searchFallback(p: CoaPanel): string {
+    return p.kind === 'categories' ? 'Search categories' : p.kind === 'subcategories' ? 'Search sub-categories' : 'Search code or name';
+  }
+
+  visibleSubcategories(p: CoaPanel): AccountSubcategoryDto[] {
+    const term = p.search.trim().toLowerCase();
+    return term ? p.subcategories.filter((s) => this.subLabel(s.type, s.key, s.name).toLowerCase().includes(term) || s.name.toLowerCase().includes(term)) : p.subcategories;
   }
 
   typeLabel(type: string): string { return this.i18n.t(`coa.type.${type}`, TYPE_LABELS[type] ?? type); }
@@ -306,13 +356,13 @@ export class AccountPanelsComponent {
   }
 
   add(p: CoaPanel): void {
-    if (p.type) this.create.emit({ type: p.type, parent: null });
+    if (p.type) this.create.emit({ type: p.type, parent: null, reportingGroup: p.sub ? p.sub.name : null });
     else if (p.parent) this.create.emit({ type: p.parent.type, parent: p.parent });
   }
 
   onSearch(key: string, term: string): void {
     clearTimeout(this.timers.get(key));
-    if (key === 'root') { this.store.search(key, term); return; } // five categories: filtered in the browser
+    if (key === 'root' || key.startsWith('type:')) { this.store.search(key, term); return; } // categories and sub-categories: filtered in the browser
     this.timers.set(key, setTimeout(() => this.store.search(key, term.trim()), 300));
   }
 

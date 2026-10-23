@@ -1,21 +1,30 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, of, switchMap, tap } from 'rxjs';
-import { AccountCategoryDto, AccountDto, AccountNodeDto, AccountsApi } from '../../../core/api/admin.api';
+import { AccountCategoryDto, AccountDto, AccountNodeDto, AccountSubcategoryDto, AccountsApi } from '../../../core/api/admin.api';
 import { ListQuery, PagedResult } from '../../../core/api/api.models';
 import { SessionStore } from '../../../core/session/session.store';
 
-export type CoaPanelKind = 'categories' | 'accounts' | 'detail';
+export type CoaPanelKind = 'categories' | 'subcategories' | 'accounts' | 'detail';
+
+/** The sub-category an accounts column belongs to (key is unique within the type; name is the server's English label). */
+export interface CoaSub { key: string; name: string; }
 
 /** One column of the step-by-step chart of accounts. Each column holds exactly one level, fetched when it opens. */
 export interface CoaPanel {
-  /** 'root' | 'type:<type>' (primary accounts of a category) | 'acct:<id>' (children of an account) | 'detail:<id>' (a leaf account) */
+  /**
+   * 'root' | 'type:<type>' (sub-categories of a category) | 'sub:<type>:<key>' (primary accounts of a sub-category)
+   * | 'acct:<id>' (children of an account) | 'detail:<id>' (a leaf account)
+   */
   key: string;
   kind: CoaPanelKind;
-  /** category of a 'type:' panel */
+  /** category of a 'type:' or 'sub:' panel */
   type: string | null;
+  /** sub-category of a 'sub:' panel */
+  sub: CoaSub | null;
   /** owning account of an 'acct:' panel, or the account shown by a 'detail:' panel */
   parent: AccountNodeDto | null;
   categories: AccountCategoryDto[];
+  subcategories: AccountSubcategoryDto[];
   items: AccountNodeDto[];
   total: number;
   page: number;
@@ -23,25 +32,25 @@ export interface CoaPanel {
   loading: boolean;
   loadingMore: boolean;
   error: boolean;
-  /** selected category type (root panel) or account id (account panels): the next column belongs to it */
+  /** selected category type (root panel), sub-category key (sub-category panel) or account id (account panels): the next column belongs to it */
   selected: string | null;
   /** an account that must stay visible in this column even when it is beyond the loaded page (re-opened paths) */
   pin: AccountNodeDto | null;
 }
 
-export interface CoaCrumb { label: string; code?: string; target: number; }
+export interface CoaCrumb { kind: 'root' | 'type' | 'sub' | 'account'; label: string; code?: string; type?: string; target: number; }
 
 const PAGE_SIZE = 50;
 
 function panel(key: string, kind: CoaPanelKind, extra: Partial<CoaPanel> = {}): CoaPanel {
   return {
-    key, kind, type: null, parent: null, categories: [], items: [], total: 0, page: 0, search: '',
+    key, kind, type: null, sub: null, parent: null, categories: [], subcategories: [], items: [], total: 0, page: 0, search: '',
     loading: kind !== 'detail', loadingMore: false, error: false, selected: null, pin: null, ...extra,
   };
 }
 
 /**
- * Session-wide state of the step-by-step chart of accounts (Miller columns): category → primary accounts → children → …
+ * Session-wide state of the step-by-step chart of accounts (Miller columns): category → sub-category → primary accounts → children → …
  * Only one path is open: selecting another item closes the deeper columns. Every level is requested on demand and cached
  * for the session (per legal entity), so going back and forth costs no requests; any save clears the cache and re-opens the path.
  */
@@ -60,13 +69,17 @@ export class AccountTreeStore {
   /** Breadcrumb of the open path; `target` is the column index to go back to. */
   readonly crumbs = computed<CoaCrumb[]>(() => {
     const ps = this.panels();
-    const crumbs: CoaCrumb[] = [{ label: '', target: 0 }];
+    const crumbs: CoaCrumb[] = [{ kind: 'root', label: '', target: 0 }];
     ps.forEach((p, i) => {
       if (!p.selected || i + 1 >= ps.length) return;
-      if (p.kind === 'categories') crumbs.push({ label: p.selected, target: i + 1 });
-      else {
+      if (p.kind === 'categories') crumbs.push({ kind: 'type', label: p.selected, type: p.selected, target: i + 1 });
+      else if (p.kind === 'subcategories') {
+        const next = ps[i + 1];
+        const name = p.subcategories.find((s) => s.key === p.selected)?.name ?? next?.sub?.name ?? p.selected;
+        crumbs.push({ kind: 'sub', label: name, code: p.selected, type: p.type ?? undefined, target: i + 1 });
+      } else {
         const node = this.nodeIn(p, p.selected);
-        if (node) crumbs.push({ label: node.name, code: node.code, target: i + 1 });
+        if (node) crumbs.push({ kind: 'account', label: node.name, code: node.code, target: i + 1 });
       }
     });
     return crumbs;
@@ -89,8 +102,19 @@ export class AccountTreeStore {
   selectCategory(type: string): void {
     const ps = this.panels();
     if (ps[0]?.selected === type && ps.length > 1) return;
-    const next = panel(`type:${type}`, 'accounts', { type });
+    const next = panel(`type:${type}`, 'subcategories', { type });
     this.panels.set([{ ...ps[0], selected: type }, next]);
+    this.loadSubcategories(next.key);
+  }
+
+  /** Opens the primary accounts of one sub-category (the column after the category's sub-categories). */
+  selectSubcategory(index: number, sub: AccountSubcategoryDto): void {
+    const ps = this.panels();
+    if (ps[index]?.selected === sub.key && ps.length > index + 1) return;
+    const kept = ps.slice(0, index + 1);
+    kept[index] = { ...kept[index], selected: sub.key };
+    const next = panel(`sub:${sub.type}:${sub.key}`, 'accounts', { type: sub.type, sub: { key: sub.key, name: sub.name } });
+    this.panels.set([...kept, next]);
     this.load(next.key);
   }
 
@@ -125,6 +149,7 @@ export class AccountTreeStore {
 
   retry(key: string): void {
     if (key === 'root') this.loadCategories();
+    else if (this.find(key)?.kind === 'subcategories') this.loadSubcategories(key);
     else this.load(key);
   }
 
@@ -141,7 +166,7 @@ export class AccountTreeStore {
     }
     const ps = this.panels();
     this.loadCategories();
-    ps.slice(1).forEach((p) => p.kind === 'accounts' && this.load(p.key));
+    ps.slice(1).forEach((p) => (p.kind === 'subcategories' ? this.loadSubcategories(p.key) : p.kind === 'accounts' && this.load(p.key)));
   }
 
   /** Forget everything (a save made elsewhere, e.g. the list view): the next visit starts fresh at the categories. */
@@ -173,13 +198,16 @@ export class AccountTreeStore {
     let start = path.length - 1;
     while (start > 0 && path[start - 1].type === last.type) start--;
     const chain = path.slice(start);
+    const subKey = chain[0].subcategory;
+    if (!subKey) { this.reset(); return; }
     const ps: CoaPanel[] = [panel('root', 'categories', { selected: last.type })];
-    ps.push(panel(`type:${last.type}`, 'accounts', { type: last.type, selected: chain[0].id, pin: chain[0] }));
+    ps.push(panel(`type:${last.type}`, 'subcategories', { type: last.type, selected: subKey }));
+    ps.push(panel(`sub:${last.type}:${subKey}`, 'accounts', { type: last.type, sub: { key: subKey, name: subKey }, selected: chain[0].id, pin: chain[0] }));
     for (let k = 1; k < chain.length; k++) ps.push(panel(`acct:${chain[k - 1].id}`, 'accounts', { parent: chain[k - 1], selected: chain[k].id, pin: chain[k] }));
     ps.push(last.hasChildren ? panel(`acct:${last.id}`, 'accounts', { parent: last }) : panel(`detail:${last.id}`, 'detail', { parent: last }));
     this.panels.set(ps);
     this.loadCategories();
-    ps.forEach((p) => p.kind === 'accounts' && this.load(p.key));
+    ps.forEach((p) => (p.kind === 'subcategories' ? this.loadSubcategories(p.key) : p.kind === 'accounts' && this.load(p.key)));
   }
 
   private reset(): void {
@@ -202,6 +230,34 @@ export class AccountTreeStore {
       },
       error: () => this.tokens.get('root') === token && this.patch('root', { loading: false, error: true }),
     });
+  }
+
+  private loadSubcategories(key: string): void {
+    const p = this.find(key);
+    if (!p || p.kind !== 'subcategories' || !p.type) return;
+    const type = p.type;
+    const cacheKey = `subs|${type}|${this.withBalances()}`;
+    const cached = this.cache.get(cacheKey) as AccountSubcategoryDto[] | undefined;
+    if (cached) { this.withSubs(key, cached); return; }
+    const token = this.bump(key);
+    this.patch(key, { loading: true, error: false });
+    this.api.subcategories(type, this.withBalances()).subscribe({
+      next: (subs) => {
+        if (this.tokens.get(key) !== token) return;
+        this.cache.set(cacheKey, subs);
+        this.withSubs(key, subs);
+      },
+      error: () => this.tokens.get(key) === token && this.patch(key, { loading: false, error: true }),
+    });
+  }
+
+  /** Fills a sub-category column and gives the open accounts column after it the server's label (re-opened paths only know the key). */
+  private withSubs(key: string, subs: AccountSubcategoryDto[]): void {
+    this.panels.update((ps) => ps.map((p) => {
+      if (p.key === key) return { ...p, subcategories: subs, loading: false, error: false };
+      const hit = p.sub && subs.find((s) => s.type === p.type && s.key === p.sub!.key);
+      return hit && p.sub!.name !== hit.name ? { ...p, sub: { key: hit.key, name: hit.name } } : p;
+    }));
   }
 
   private load(key: string, append = false): void {
@@ -229,13 +285,15 @@ export class AccountTreeStore {
     const cacheKey = `${p.key}|${p.search}|${page}|${this.withBalances()}`;
     const cached = this.cache.get(cacheKey) as PagedResult<AccountNodeDto> | undefined;
     if (cached) return of(cached);
-    const request = p.type ? this.api.categoryAccounts(p.type, query) : this.api.children(p.parent!.id, query);
+    const request = p.type && p.sub ? this.api.subcategoryAccounts(p.type, p.sub.key, query)
+      : p.type ? this.api.categoryAccounts(p.type, query)
+      : this.api.children(p.parent!.id, query);
     return request.pipe(tap((r) => this.cache.set(cacheKey, r)));
   }
 
   private deepestAccountId(): string | null {
     const ps = this.panels();
-    for (let i = ps.length - 1; i >= 1; i--) if (ps[i].selected) return ps[i].selected;
+    for (let i = ps.length - 1; i >= 1; i--) if (ps[i].kind === 'accounts' && ps[i].selected) return ps[i].selected;
     const last = ps[ps.length - 1];
     return last && last.kind !== 'categories' && last.parent ? last.parent.id : null;
   }
