@@ -14,6 +14,9 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { RealEstateLookups, USAGES, UnitDto, UnitListItem, UnitsApi, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const STATUSES = ['vacant', 'reserved', 'occupied', 'unavailable'];
 
@@ -21,15 +24,15 @@ const STATUSES = ['vacant', 'reserved', 'occupied', 'unavailable'];
   selector: 'erp-units',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Units</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search unit number" emptyText="No units yet" (rowClick)="open($event)">
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="unit-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.units.manage'" nz-button (click)="bulkOpen.set(true)" data-testid="unit-bulk">Add many</button>
-      <button toolbar *erpHasPermission="'realestate.units.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="unit-new"><span nz-icon nzType="plus"></span>New unit</button>
+      <button toolbar *erpHasPermission="'realestate.units.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addMany' | translate: 'Add many'" nz-tooltip [nzTooltipTitle]="'ui.add.addMany' | translate: 'Add many'" (click)="bulkOpen.set(true)" data-testid="unit-bulk"><span nz-icon nzType="appstore-add"></span>Add many</button>
+      <button toolbar *erpHasPermission="'realestate.units.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newUnit' | translate: 'New unit'" nz-tooltip [nzTooltipTitle]="'ui.add.newUnit' | translate: 'New unit'" nzType="primary" (click)="state.create()" data-testid="unit-new"><span nz-icon nzType="plus"></span>New unit</button>
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
       </ng-template>

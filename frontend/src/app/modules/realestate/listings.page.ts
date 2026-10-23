@@ -12,20 +12,23 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { LISTING_KINDS, ListingDto, ListingsApi, RealEstateLookups, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Properties and units offered for rent or sale: draft, publish, close. */
 @Component({
   selector: 'erp-listings',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Listings</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search title or channel" emptyText="No listings yet" (rowClick)="state.edit($event)">
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="listing-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.crm.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="listing-new"><span nz-icon nzType="plus"></span>New listing</button>
+      <button toolbar *erpHasPermission="'realestate.crm.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newListing' | translate: 'New listing'" nz-tooltip [nzTooltipTitle]="'ui.add.newListing' | translate: 'New listing'" nzType="primary" (click)="state.create()" data-testid="listing-new"><span nz-icon nzType="plus"></span>New listing</button>
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
       </ng-template>

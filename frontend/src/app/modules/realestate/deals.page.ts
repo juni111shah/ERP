@@ -17,6 +17,8 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { DEAL_TYPES, DealDto, DealsApi, RealEstateLookups, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
 
@@ -24,14 +26,14 @@ const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
   selector: 'erp-deals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Deals</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search client" emptyText="No deals yet" (rowClick)="state.edit($event)">
       <nz-select toolbar style="width:170px" nzAllowClear nzPlaceHolder="All stages" [ngModel]="null" (ngModelChange)="filterStage($event)" data-testid="deal-stage-filter">
         @for (s of stages; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.deals.create'" nz-button nzType="primary" (click)="state.create()" data-testid="deal-new"><span nz-icon nzType="plus"></span>New deal</button>
+      <button toolbar *erpHasPermission="'realestate.deals.create'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newDeal' | translate: 'New deal'" nz-tooltip [nzTooltipTitle]="'ui.add.newDeal' | translate: 'New deal'" nzType="primary" (click)="state.create()" data-testid="deal-new"><span nz-icon nzType="plus"></span>New deal</button>
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'stage') { <erp-status-tag [status]="row.stage" /> } @else { {{ value }} }
       </ng-template>

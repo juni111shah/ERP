@@ -895,6 +895,9 @@ const PAIRS: [string, string][] = [
   ['No vendors yet', 'لا يوجد موردون بعد'],
   ['Tax registration no. (TRN)', 'رقم التسجيل الضريبي (TRN)'],
   ['Trade licence / company registration no.', 'رقم الرخصة التجارية / السجل التجاري'],
+  // table toolbars and create buttons
+  ['Filter by status', 'تصفية حسب الحالة'], ['Filter by type', 'تصفية حسب النوع'], ['Filter by warehouse', 'تصفية حسب المستودع'],
+  ['Open search', 'فتح البحث'], ['Close search', 'إغلاق البحث'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

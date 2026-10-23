@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -12,23 +12,32 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { AdminApi, RoleDto, RolesApi, UserSummary } from '../../core/api/admin.api';
 import { applyProblemDetailsToForm, asProblem, controlError } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Users: invite, change roles, deactivate / reactivate. The server refuses to deactivate yourself or the last administrator. */
 @Component({
   selector: 'erp-users',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzSelectModule, NzTagModule, NzIconModule],
+  imports: [TranslatePipe, ReactiveFormsModule, FormsModule, HasPermissionDirective, RevealDirective, TableToolsComponent, NzToolTipModule, NzTableModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzSelectModule, NzTagModule, NzIconModule],
   styles: [`.bar { display:flex; margin-bottom:12px } .spacer { flex:1 }`],
   template: `
     <h1 class="erp-page-title">Users</h1>
     <div class="bar"><span class="spacer"></span>
-      <button *erpHasPermission="'core.users.write'" nz-button nzType="primary" (click)="open(null)" data-testid="user-new"><span nz-icon nzType="plus"></span>Invite user</button>
+      <button *erpHasPermission="'core.users.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.inviteUser' | translate: 'Invite user'" nz-tooltip [nzTooltipTitle]="'ui.add.inviteUser' | translate: 'Invite user'" nzType="primary" (click)="open(null)" data-testid="user-new"><span nz-icon nzType="plus"></span>Invite user</button>
     </div>
-    <nz-table [nzData]="users()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="users-table">
+    <erp-table-tools [(search)]="q" (refresh)="load()" [loading]="loading()" testId="users">
+      <nz-select [ngModel]="status()" (ngModelChange)="status.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterStatus' | translate: 'Filter by status'" style="width:160px" data-testid="users-status-filter">
+        <nz-option nzValue="active" [nzLabel]="'ui.common.active' | translate: 'Active'"></nz-option><nz-option nzValue="inactive" [nzLabel]="'ui.common.inactive' | translate: 'Inactive'"></nz-option>
+      </nz-select>
+    </erp-table-tools>
+    <nz-table [nzData]="shown()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="users-table">
       <thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
       <tbody>
-        @for (u of users(); track u.id) {
+        @for (u of shown(); track u.id) {
           <tr [attr.data-testid]="'user-' + u.email">
             <td>{{ u.fullName }}</td><td>{{ u.email }}</td><td>{{ u.roles.join(', ') }}</td>
             <td><nz-tag [nzColor]="u.isActive ? 'green' : 'default'">{{ u.isActive ? 'Active' : 'Inactive' }}</nz-tag></td>
@@ -67,6 +76,10 @@ export class UsersPage {
   private readonly fb = inject(FormBuilder);
   readonly users = signal<UserSummary[]>([]);
   readonly roles = signal<RoleDto[]>([]);
+  readonly q = signal('');
+  readonly status = signal<'active' | 'inactive' | null>(null);
+  /** Client-side filter: GET /admin/users takes no query parameters. */
+  readonly shown = computed(() => this.users().filter((u) => matchText(this.q(), u.fullName, u.email, u.roles.join(' ')) && (!this.status() || u.isActive === (this.status() === 'active'))));
   readonly loading = signal(false);
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);

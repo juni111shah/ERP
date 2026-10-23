@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, ElementRef, a
 import { NgTemplateOutlet } from '@angular/common';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { AccountCategoryDto, AccountNodeDto } from '../../../core/api/admin.api';
@@ -10,6 +9,7 @@ import { asProblem } from '../../../core/http/problem-details';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HasPermissionDirective } from '../../../shared/has-permission.directive';
+import { ExpandSearchComponent } from '../../../shared/expand-search.component';
 import { RevealDirective } from '../../../shared/reveal.directive';
 import { AccountTreeStore, CoaPanel } from './account-tree.store';
 
@@ -27,7 +27,7 @@ const TYPE_LABELS: Record<string, string> = { asset: 'Assets', liability: 'Liabi
   selector: 'erp-account-panels',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, NzButtonModule, NzIconModule, NzInputModule, NzPopconfirmModule, TranslatePipe, HasPermissionDirective, RevealDirective],
+  imports: [NgTemplateOutlet, NzButtonModule, NzIconModule, NzPopconfirmModule, TranslatePipe, HasPermissionDirective, RevealDirective, ExpandSearchComponent],
   template: `
     <nav class="coa-crumbs" [attr.aria-label]="'coa.breadcrumb' | translate: 'Account path'" data-testid="coa-breadcrumb">
       @for (c of store.crumbs(); track $index; let last = $last) {
@@ -70,11 +70,9 @@ const TYPE_LABELS: Record<string, string> = { asset: 'Assets', liability: 'Liabi
 
           @if (p.kind !== 'detail') {
             <div class="coa-search">
-              <nz-input-group nzSize="small" [nzPrefix]="searchIcon">
-                <input nz-input type="search" [value]="p.search" (input)="onSearch(p.key, $any($event.target).value)"
-                       [placeholder]="(p.kind === 'categories' ? 'coa.searchCategories' : 'coa.searchAccounts') | translate: (p.kind === 'categories' ? 'Search categories' : 'Search code or name')"
-                       [attr.aria-label]="'common.search' | translate: 'Search'" [attr.data-testid]="'coa-search-' + i" />
-              </nz-input-group>
+              <erp-expand-search size="small" width="100%" [value]="p.search" (valueChange)="onSearch(p.key, $event)" [testId]="'coa-search-' + i"
+                                 [placeholder]="(p.kind === 'categories' ? 'coa.searchCategories' : 'coa.searchAccounts') | translate: (p.kind === 'categories' ? 'Search categories' : 'Search code or name')"
+                                 [label]="(p.kind === 'categories' ? 'coa.searchCategories' : 'coa.searchAccounts') | translate: (p.kind === 'categories' ? 'Search categories' : 'Search code or name')" />
             </div>
           }
 
@@ -152,8 +150,6 @@ const TYPE_LABELS: Record<string, string> = { asset: 'Assets', liability: 'Liabi
         </section>
       }
     </div>
-
-    <ng-template #searchIcon><span nz-icon nzType="search"></span></ng-template>
 
     <ng-template #tags let-a>
       <span class="coa-tags">

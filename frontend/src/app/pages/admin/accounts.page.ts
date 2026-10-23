@@ -4,6 +4,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { map, tap } from 'rxjs';
 import { ACCOUNT_TYPES, AccountDto, AccountNodeDto, AccountsApi } from '../../core/api/admin.api';
 import { asProblem } from '../../core/http/problem-details';
@@ -12,6 +13,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
+import { RevealDirective } from '../../shared/reveal.directive';
 import { AccountPanelsComponent, CoaCreateRequest } from './coa/account-panels.component';
 import { AccountTreeStore } from './coa/account-tree.store';
 import { AccountsListComponent } from './coa/accounts-list.component';
@@ -26,17 +28,18 @@ type AccountDraft = Partial<AccountDto> & { id: string; _parentLabel?: string };
   selector: 'erp-accounts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AccountPanelsComponent, AccountsListComponent, RecordDrawerComponent, HasPermissionDirective, FormsModule, NzButtonModule, NzIconModule, NzRadioModule, TranslatePipe],
+  imports: [AccountPanelsComponent, AccountsListComponent, RecordDrawerComponent, HasPermissionDirective, FormsModule, NzButtonModule, NzIconModule, NzRadioModule, NzToolTipModule, RevealDirective, TranslatePipe],
   template: `
     <div class="coa-page-head">
       <h1 class="erp-page-title">{{ 'coa.title' | translate: 'Chart of accounts' }}</h1>
-      <div class="coa-page-tools">
+      <div class="coa-page-tools" erpReveal>
         <nz-radio-group [ngModel]="view()" (ngModelChange)="setView($event)" nzButtonStyle="solid" nzSize="small" data-testid="coa-view">
           <label nz-radio-button nzValue="panels" data-testid="coa-view-panels"><span nz-icon nzType="partition"></span> {{ 'coa.view.panels' | translate: 'Step by step' }}</label>
           <label nz-radio-button nzValue="list" data-testid="coa-view-list"><span nz-icon nzType="unordered-list"></span> {{ 'coa.view.list' | translate: 'List view' }}</label>
         </nz-radio-group>
         @if (view() === 'panels') {
-          <button *erpHasPermission="'finance.accounts.write'" nz-button nzType="primary" (click)="newAccount(null)" data-testid="account-new">
+          <button nz-button nzType="default" type="button" (click)="refreshTree()" data-testid="coa-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
+          <button *erpHasPermission="'finance.accounts.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'coa.newAccount' | translate: 'New account'" nz-tooltip [nzTooltipTitle]="'coa.newAccount' | translate: 'New account'" nzType="primary" (click)="newAccount(null)" data-testid="account-new">
             <span nz-icon nzType="plus"></span>{{ 'coa.newAccount' | translate: 'New account' }}
           </button>
         }
@@ -75,6 +78,9 @@ export class AccountsPage {
     },
     message: this.message, entityName: 'Account',
   });
+
+  /** Reloads the open columns of the step-by-step view (the list view has its own table Refresh). */
+  refreshTree(): void { this.tree.refresh(); }
 
   readonly fields = computed<FieldSpec[]>(() => {
     const pre = this.prefill();

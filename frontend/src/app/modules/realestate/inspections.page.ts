@@ -20,17 +20,19 @@ import { LookupOption } from '../../core/custom-fields/lookup-registry';
 import { Observable } from 'rxjs';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 /** Move-in / move-out / routine inspections with an area checklist; completing can raise repair work orders. */
 @Component({
   selector: 'erp-inspections',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, FormsModule, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCheckboxModule, NzDatePickerModule, NzDrawerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule],
+  imports: [NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCheckboxModule, NzDatePickerModule, NzDrawerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Inspections</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search inspector" emptyText="No inspections yet" (rowClick)="open($event.id)">
-      <button toolbar *erpHasPermission="'realestate.inspections.manage'" nz-button nzType="primary" (click)="create()" data-testid="insp-new"><span nz-icon nzType="plus"></span>New inspection</button>
+      <button toolbar *erpHasPermission="'realestate.inspections.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newInspection' | translate: 'New inspection'" nz-tooltip [nzTooltipTitle]="'ui.add.newInspection' | translate: 'New inspection'" nzType="primary" (click)="create()" data-testid="insp-new"><span nz-icon nzType="plus"></span>New inspection</button>
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
       </ng-template>
@@ -54,7 +56,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
             @if (!locked()) { <button nz-button nzType="text" nzSize="small" (click)="removeItem(i)"><span nz-icon nzType="delete"></span></button> }
           </div>
         }
-        @if (!locked()) { <button nz-button nzSize="small" (click)="addItem()" data-testid="insp-add-item"><span nz-icon nzType="plus"></span>Add area</button> }
+        @if (!locked()) { <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addArea' | translate: 'Add area'" nz-tooltip [nzTooltipTitle]="'ui.add.addArea' | translate: 'Add area'" nzSize="small" (click)="addItem()" data-testid="insp-add-item"><span nz-icon nzType="plus"></span>Add area</button> }
         @if (damage() > 0) { <p style="margin-top:12px" data-testid="insp-damage"><b>{{ 'ui.re.damageCost' | translate: 'Estimated damage cost' }}: {{ damage() }}</b></p> }
       </ng-container>
     </nz-drawer>

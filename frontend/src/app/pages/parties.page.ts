@@ -20,6 +20,9 @@ import { applyProblemDetailsToForm, asProblem, controlError } from '../core/http
 import { SessionStore } from '../core/session/session.store';
 import { HasPermissionDirective } from '../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../shared/paged-table.component';
+import { RevealDirective } from '../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
 
 export interface PartyDto {
   id: string; code: string; name: string; kind: string; roles: string[]; email?: string; phone?: string; taxNumber?: string;
@@ -41,7 +44,7 @@ const roleFilter = (type: string | null) => (type ? [{ field: 'roles', op: 'has'
   selector: 'erp-parties',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, PagedTableComponent, DynamicFieldsComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule,
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, DynamicFieldsComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule,
     NzFormModule, NzInputModule, NzSelectModule, NzSwitchModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">{{ pageTitle() }}</h1>
@@ -51,7 +54,7 @@ const roleFilter = (type: string | null) => (type ? [{ field: 'roles', op: 'has'
           @for (r of roles; track r) { <nz-option [nzValue]="r" [nzLabel]="r"></nz-option> }
         </nz-select>
       }
-      <button toolbar *erpHasPermission="'core.parties.write'" nz-button nzType="primary" (click)="open(null)" data-testid="party-new"><span nz-icon nzType="plus"></span>New party</button>
+      <button toolbar *erpHasPermission="'core.parties.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newParty' | translate: 'New party'" nz-tooltip [nzTooltipTitle]="'ui.add.newParty' | translate: 'New party'" nzType="primary" (click)="open(null)" data-testid="party-new"><span nz-icon nzType="plus"></span>New party</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="640" [nzTitle]="editing() ? editing()!.name : 'New party'" (nzOnClose)="close()" [nzFooter]="footer">

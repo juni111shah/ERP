@@ -24,6 +24,8 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 const COLORS: Record<string, string> = { inCustody: 'blue', deposited: 'gold', cleared: 'green', bounced: 'red', replaced: 'default', cancelled: 'default', issued: 'cyan' };
 const LABELS: Record<string, string> = { inCustody: 'In custody', postDatedCheque: 'Post-dated' };
@@ -34,7 +36,7 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
   selector: 'erp-cheques',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
   styles: [`.kpis { display:flex; gap:24px; margin-bottom:16px; flex-wrap:wrap } .kpi { min-width:150px } .kpi b { display:block; font-size:20px } .alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
@@ -56,7 +58,7 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" [ngModelOptions]="{standalone: true}" (ngModelChange)="filterStatus($event)" data-testid="cheque-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="label(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'finance.cheques.write'" nz-button nzType="primary" (click)="openNew(null)" data-testid="cheque-new"><span nz-icon nzType="plus"></span>Register cheque</button>
+      <button toolbar *erpHasPermission="'finance.cheques.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.registerCheque' | translate: 'Register cheque'" nz-tooltip [nzTooltipTitle]="'ui.add.registerCheque' | translate: 'Register cheque'" nzType="primary" (click)="openNew(null)" data-testid="cheque-new"><span nz-icon nzType="plus"></span>Register cheque</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="formOpen()" [nzWidth]="640" [nzTitle]="replacing() ? 'Replacement for ' + replacing()!.instrumentNo : 'Register cheque'" (nzOnClose)="formOpen.set(false)" [nzFooter]="formFooter">

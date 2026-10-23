@@ -22,11 +22,12 @@ import { I18nService } from '../../core/i18n/i18n.service';
 
 /** Cash and bank: balances, bank statement import, reconciliation and transfers between accounts. */
 import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 @Component({
   selector: 'erp-bank',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
+  imports: [NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
   styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center } .cards { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px } .card { padding:12px 16px; border:1px solid var(--erp-color-border, #eee); border-radius:8px; min-width:200px; cursor:pointer } .card.sel { border-color: var(--erp-color-primary, #1677ff) } .card b { display:block; font-size:20px } .num { text-align:right } h3 { margin: 20px 0 8px }`],
   template: `
     <h1 class="erp-page-title">Cash and bank</h1>
@@ -34,6 +35,7 @@ import { RevealDirective } from '../../shared/reveal.directive';
       <nz-select [(ngModel)]="entityId" nzAllowClear nzPlaceHolder="All legal entities" style="width:240px" (ngModelChange)="refresh()" data-testid="bank-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
       <nz-date-picker [(ngModel)]="asOf" (ngModelChange)="refresh()" data-testid="bank-asof"></nz-date-picker>
       <button *erpHasPermission="'finance.bank.write'" nz-button (click)="transferOpen.set(true)" data-testid="bank-transfer"><span nz-icon nzType="swap"></span>Transfer</button>
+      <button nz-button nzType="default" type="button" (click)="refresh()" data-testid="bank-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
     </div>
     @if (position(); as p) {
       <div class="cards" data-testid="bank-cards">
@@ -49,7 +51,7 @@ import { RevealDirective } from '../../shared/reveal.directive';
         <nz-tag [nzColor]="r.reconciled ? 'green' : 'orange'" data-testid="rec-status">{{ r.reconciled ? 'Reconciled' : 'Differences to review' }}</nz-tag>
         <span style="flex:1"></span>
         <ng-container *erpHasPermission="'finance.bank.write'">
-          <button nz-button (click)="importOpen.set(true)" data-testid="bank-import"><span nz-icon nzType="plus"></span>Import statement</button>
+          <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.importStatement' | translate: 'Import statement'" nz-tooltip [nzTooltipTitle]="'ui.add.importStatement' | translate: 'Import statement'" (click)="importOpen.set(true)" data-testid="bank-import"><span nz-icon nzType="plus"></span>Import statement</button>
           <button nz-button nzType="primary" [disabled]="!entityId" (click)="autoMatch()" data-testid="bank-automatch">Auto-match</button>
         </ng-container>
       </div>

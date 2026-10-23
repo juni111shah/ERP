@@ -21,17 +21,21 @@ import { LookupOption } from '../../core/custom-fields/lookup-registry';
 import { asProblem, controlError } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
 import { AcquisitionOverview, AcquisitionSummary, AcquisitionsApi, FUNDING_TYPES, FundingSourceDto, PropertiesApi, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { FormsModule } from '@angular/forms';
 
 /** Acquisitions and funding: KPI cards, the acquisitions table, funding schedules and the new-acquisition form (with its funding sources). */
 @Component({
   selector: 'erp-acquisitions',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, ReactiveFormsModule, DecimalPipe, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule,
+  imports: [FormsModule, TableToolsComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, DecimalPipe, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule,
     NzInputModule, NzInputNumberModule, NzSelectModule, NzTableModule],
   styles: [`.kpis { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:16px; margin-bottom:20px } .kpi { border:1px solid var(--erp-color-border, #e5e8ec); border-top:3px solid #bfa66a; border-radius:8px; padding:12px 16px; background:var(--erp-color-surface, #fff) } .kpi b { display:block; font-size:20px; margin:4px 0 } .kpi small { color: var(--erp-color-text-secondary, #667) }
             .fund { display:grid; grid-template-columns: 1.2fr 1.6fr 1.2fr .8fr .8fr auto; gap:8px; margin-bottom:8px; align-items:center }`],
@@ -49,14 +53,19 @@ import { I18nService } from '../../core/i18n/i18n.service';
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
       </ng-template>
-      <button toolbar *erpHasPermission="'realestate.acquisitions.manage'" nz-button nzType="primary" (click)="openNew()" data-testid="acq-new"><span nz-icon nzType="plus"></span>New acquisition</button>
+      <button toolbar *erpHasPermission="'realestate.acquisitions.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newAcquisition' | translate: 'New acquisition'" nz-tooltip [nzTooltipTitle]="'ui.add.newAcquisition' | translate: 'New acquisition'" nzType="primary" (click)="openNew()" data-testid="acq-new"><span nz-icon nzType="plus"></span>New acquisition</button>
     </erp-paged-table>
 
     <h3 style="margin-top:24px">Funding and instalment schedules</h3>
-    <nz-table [nzData]="funding()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="funding-table">
+    <erp-table-tools [(search)]="fundingQ" (refresh)="refresh()" testId="funding">
+      <nz-select [ngModel]="fundingType()" (ngModelChange)="fundingType.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterType' | translate: 'Filter by type'" style="width:170px" data-testid="funding-type-filter">
+        @for (t of types; track t.value) { <nz-option [nzValue]="t.value" [nzLabel]="t.label"></nz-option> }
+      </nz-select>
+    </erp-table-tools>
+    <nz-table [nzData]="fundingShown()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="funding-table">
       <thead><tr><th>Source</th><th>Lender</th><th>Principal</th><th>Rate</th><th>Monthly</th><th>Repaid</th><th>Outstanding</th><th>Next due</th></tr></thead>
       <tbody>
-        @for (f of funding(); track f.id) {
+        @for (f of fundingShown(); track f.id) {
           <tr><td>{{ humanize(f.type) }}</td><td>{{ f.lender }}</td><td>{{ f.principal | number: '1.0-0' }}</td><td>{{ f.annualRatePercent }}%</td><td>{{ f.monthlyPayment | number: '1.2-2' }}</td>
             <td>{{ f.paid }}/{{ f.instalmentCount }}</td><td>{{ f.outstanding | number: '1.0-0' }}</td><td>{{ f.nextDue ?? '—' }}</td></tr>
         }
@@ -93,7 +102,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
               </div>
             }
           </div>
-          <button nz-button type="button" (click)="addFunding()" data-testid="fund-add"><span nz-icon nzType="plus"></span>Add funding source</button>
+          <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addFundingSource' | translate: 'Add funding source'" nz-tooltip [nzTooltipTitle]="'ui.add.addFundingSource' | translate: 'Add funding source'" type="button" (click)="addFunding()" data-testid="fund-add"><span nz-icon nzType="plus"></span>Add funding source</button>
           <p style="margin-top:8px">Unfunded balance: <b data-testid="acq-unfunded">{{ unfunded() | number: '1.2-2' }}</b></p>
         </form>
       </ng-container>
@@ -119,6 +128,10 @@ export class AcquisitionsPage {
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-purchaseDate' });
   readonly overview = signal<AcquisitionOverview | null>(null);
   readonly funding = signal<FundingSourceDto[]>([]);
+  readonly fundingQ = signal('');
+  readonly fundingType = signal<string | null>(null);
+  /** Client-side filter: GET /realestate/funding takes no query parameters. */
+  readonly fundingShown = computed(() => this.funding().filter((f) => matchText(this.fundingQ(), f.lender, humanize(f.type)) && (!this.fundingType() || f.type === this.fundingType())));
   readonly columns: TableColumn<AcquisitionSummary>[] = [
     { key: 'number', label: 'Reference', width: '150px' },
     { key: 'sellerName', label: 'Seller' },
@@ -147,7 +160,7 @@ export class AcquisitionsPage {
 
   err(name: string): string { return controlError(this.form.get(name)); }
 
-  private refresh(): void {
+  refresh(): void {
     this.api.overview().subscribe((o) => this.overview.set(o));
     this.api.funding().subscribe((f) => this.funding.set(f));
   }

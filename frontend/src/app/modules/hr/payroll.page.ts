@@ -15,6 +15,9 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { MONTHS, PayrollApi, PayrollSummary } from './hr.api';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', posted: 'blue', paid: 'green' };
 
@@ -22,14 +25,14 @@ const COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'pur
   selector: 'erp-payroll',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzTagModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Payroll</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search run number" emptyText="No payroll runs yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> } @else { {{ value }} }
       </ng-template>
-      <button toolbar *erpHasPermission="'hr.payroll.manage'" nz-button nzType="primary" (click)="drawer.set(true)" data-testid="payroll-new"><span nz-icon nzType="plus"></span>Generate payroll</button>
+      <button toolbar *erpHasPermission="'hr.payroll.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.generatePayroll' | translate: 'Generate payroll'" nz-tooltip [nzTooltipTitle]="'ui.add.generatePayroll' | translate: 'Generate payroll'" nzType="primary" (click)="drawer.set(true)" data-testid="payroll-new"><span nz-icon nzType="plus"></span>Generate payroll</button>
     </erp-paged-table>
     <erp-record-drawer title="Generate payroll" [open]="drawer()" [fields]="fields()" [saving]="saving()" [errors]="errors()" [width]="440" testId="payroll-form" submitLabel="Generate"
                        (submitted)="generate($event)" (closed)="drawer.set(false)" />`,

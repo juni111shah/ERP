@@ -26,13 +26,15 @@ import { formatMoney } from './invoice-sheet.component';
 import { PartiesApi } from '../parties.page';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 /** Customer receipts: record money received, settle open invoices at the same time (or later), and void. */
 @Component({
   selector: 'erp-receipts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
@@ -41,7 +43,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <nz-tag [nzColor]="row.status === 'voided' ? 'red' : 'green'">{{ row.status === 'voided' ? 'Voided' : 'Posted' }}</nz-tag> } @else { {{ value }} }
       </ng-template>
-      <button toolbar *erpHasPermission="'finance.receipts.write'" nz-button nzType="primary" (click)="open(null)" data-testid="receipt-new"><span nz-icon nzType="plus"></span>New receipt</button>
+      <button toolbar *erpHasPermission="'finance.receipts.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newReceipt' | translate: 'New receipt'" nz-tooltip [nzTooltipTitle]="'ui.add.newReceipt' | translate: 'New receipt'" nzType="primary" (click)="open(null)" data-testid="receipt-new"><span nz-icon nzType="plus"></span>New receipt</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="640" [nzTitle]="receipt() ? receipt()!.number : 'New receipt'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">

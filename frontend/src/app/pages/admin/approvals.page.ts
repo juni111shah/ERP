@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -14,6 +14,12 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { AdminApi, ApprovalDto } from '../../core/api/admin.api';
 import { applyProblemDetailsToForm, asProblem, controlError } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { NzSelectModule } from 'ng-zorro-antd/select';
+import { FormsModule } from '@angular/forms';
 
 const COLORS: Record<string, string> = { pending: 'gold', approved: 'green', rejected: 'red', withdrawn: 'default' };
 
@@ -22,21 +28,24 @@ const COLORS: Record<string, string> = { pending: 'gold', approved: 'green', rej
   selector: 'erp-approvals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, DatePipe, HasPermissionDirective, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
+  imports: [FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, DatePipe, HasPermissionDirective, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
   styles: [`.bar { display:flex; margin-bottom:12px } .spacer { flex:1 }`],
   template: `
     <h1 class="erp-page-title">Approvals</h1>
     <div class="bar"><span class="spacer"></span>
-      <button nz-button nzType="primary" (click)="open()" data-testid="approval-new"><span nz-icon nzType="plus"></span>Request approval</button>
+      <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.requestApproval' | translate: 'Request approval'" nz-tooltip [nzTooltipTitle]="'ui.add.requestApproval' | translate: 'Request approval'" nzType="primary" (click)="open()" data-testid="approval-new"><span nz-icon nzType="plus"></span>Request approval</button>
     </div>
     <nz-tabset (nzSelectedIndexChange)="tab.set($event); load()">
       <nz-tab nzTitle="Waiting for me"></nz-tab>
       <nz-tab nzTitle="My requests"></nz-tab>
     </nz-tabset>
-    <nz-table [nzData]="rows()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="approvals-table">
+    <erp-table-tools [(search)]="q" (refresh)="load()" [loading]="loading()" testId="approvals">
+      <nz-select [ngModel]="status()" (ngModelChange)="status.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterStatus' | translate: 'Filter by status'" style="width:170px" data-testid="approvals-status-filter"><nz-option nzValue="pending" [nzLabel]="'ui.status.pending' | translate: 'Pending'"></nz-option><nz-option nzValue="approved" [nzLabel]="'ui.status.approved' | translate: 'Approved'"></nz-option><nz-option nzValue="rejected" [nzLabel]="'ui.status.rejected' | translate: 'Rejected'"></nz-option><nz-option nzValue="withdrawn" [nzLabel]="'ui.status.withdrawn' | translate: 'Withdrawn'"></nz-option></nz-select>
+    </erp-table-tools>
+    <nz-table [nzData]="shown()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="approvals-table">
       <thead><tr><th>Subject</th><th>Type</th><th>Amount</th><th>Requested</th><th>Status</th><th></th></tr></thead>
       <tbody>
-        @for (a of rows(); track a.id) {
+        @for (a of shown(); track a.id) {
           <tr>
             <td>{{ a.subject }} @if (a.justification) { <div style="color:var(--erp-color-text-secondary)">{{ a.justification }}</div> }</td>
             <td>{{ a.documentType }}</td><td>{{ a.amount ?? '—' }}</td><td>{{ a.requestedAt | date: 'yyyy-MM-dd HH:mm' }}</td>
@@ -72,6 +81,10 @@ export class ApprovalsPage {
   private readonly fb = inject(FormBuilder);
   readonly tab = signal(0);
   readonly rows = signal<ApprovalDto[]>([]);
+  readonly q = signal('');
+  readonly status = signal<string | null>(null);
+  /** Client-side filter: GET /admin/approvals only takes the tab scope. */
+  readonly shown = computed(() => this.rows().filter((a) => matchText(this.q(), a.subject, a.justification, a.documentType) && (!this.status() || a.status === this.status())));
   readonly loading = signal(false);
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);

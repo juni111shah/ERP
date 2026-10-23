@@ -13,6 +13,9 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { PRIORITIES, RealEstateLookups, WorkOrderDto, WorkOrdersApi, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Next statuses per status (mirrors the backend lifecycle) and the permission each target needs. */
 const NEXT: Record<string, string[]> = {
@@ -33,14 +36,14 @@ const STATUS_LABEL: Record<string, string> = { assigned: 'Assign', inProgress: '
   selector: 'erp-work-orders',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Work orders</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search issue or category" emptyText="No work orders yet" (rowClick)="state.edit($event)">
       <nz-select toolbar style="width:170px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="wo-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.workorders.create'" nz-button nzType="primary" (click)="state.create()" data-testid="wo-new"><span nz-icon nzType="plus"></span>New work order</button>
+      <button toolbar *erpHasPermission="'realestate.workorders.create'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newWorkOrder' | translate: 'New work order'" nz-tooltip [nzTooltipTitle]="'ui.add.newWorkOrder' | translate: 'New work order'" nzType="primary" (click)="state.create()" data-testid="wo-new"><span nz-icon nzType="plus"></span>New work order</button>
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
       </ng-template>

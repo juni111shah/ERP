@@ -14,20 +14,22 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { EMPLOYEE_STATUSES, EmployeeDto, EmployeeSummary, EmployeesApi } from './hr.api';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 /** Employees: salary structure, join date and status; end-of-service accrual under the employing entity's country rule is shown on the record. */
 @Component({
   selector: 'erp-employees',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Employees</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, designation or department" emptyText="No employees yet" (rowClick)="open($event)">
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" (ngModelChange)="filterStatus($event)" [ngModel]="null" data-testid="emp-status-filter">
         @for (s of statuses; track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.label"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'hr.employees.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="emp-new"><span nz-icon nzType="plus"></span>New employee</button>
+      <button toolbar *erpHasPermission="'hr.employees.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newEmployee' | translate: 'New employee'" nz-tooltip [nzTooltipTitle]="'ui.add.newEmployee' | translate: 'New employee'" nzType="primary" (click)="state.create()" data-testid="emp-new"><span nz-icon nzType="plus"></span>New employee</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? state.editing()!.fullName : 'New employee'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="hr.employee"
                        [saving]="state.saving()" [errors]="state.errors()" testId="emp-form" (submitted)="state.submit($event)" (closed)="state.close()">

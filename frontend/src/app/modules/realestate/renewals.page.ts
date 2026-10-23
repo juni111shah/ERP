@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -11,6 +11,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { RenewalWorkbench, RenewalsApi } from './realestate.api';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
 import { I18nService } from '../../core/i18n/i18n.service';
 
 /** Leases ending soon: see who is due, compare rent with the unit's asking rent and create draft renewals in bulk with a rent change. */
@@ -18,7 +19,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
   selector: 'erp-renewals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, DecimalPipe, FormsModule, RouterLink, NzTableModule, NzButtonModule, NzCheckboxModule, NzInputNumberModule, NzSelectModule, NzTagModule],
+  imports: [TableToolsComponent, TranslatePipe, DecimalPipe, FormsModule, RouterLink, NzTableModule, NzButtonModule, NzCheckboxModule, NzInputNumberModule, NzSelectModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Lease renewals</h1>
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
@@ -31,12 +32,15 @@ import { I18nService } from '../../core/i18n/i18n.service';
       <nz-input-number [ngModel]="uplift()" (ngModelChange)="uplift.set($event ?? 0)" [nzMin]="-50" [nzMax]="100" data-testid="renewal-uplift"></nz-input-number>
       <button nz-button nzType="primary" [disabled]="selected().size === 0" [nzLoading]="busy()" (click)="createDrafts()" data-testid="renewal-create">{{ 'ui.re.createDraftRenewals' | translate: 'Create draft renewals' }} ({{ selected().size }})</button>
     </div>
+    <erp-table-tools [(search)]="q" (refresh)="load()" testId="renewal">
+      <nz-select [ngModel]="state()" (ngModelChange)="state.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterStatus' | translate: 'Filter by status'" style="width:170px" data-testid="renewal-state-filter"><nz-option nzValue="due" [nzLabel]="'ui.status.due' | translate: 'Due'"></nz-option><nz-option nzValue="draftRenewal" [nzLabel]="'ui.status.draftRenewal' | translate: 'Draft renewal'"></nz-option><nz-option nzValue="renewed" [nzLabel]="'ui.status.renewed' | translate: 'Renewed'"></nz-option></nz-select>
+    </erp-table-tools>
     @if (data(); as d) {
       <p>{{ d.due }} {{ 'ui.re.dueLc' | translate: 'due' }} · {{ d.draft }} {{ 'ui.re.draftRenewals' | translate: 'draft renewal(s)' }} · {{ d.renewed }} {{ 'ui.re.renewedLc' | translate: 'renewed' }}</p>
-      <nz-table [nzData]="d.rows" nzSize="small" [nzShowPagination]="false" data-testid="renewal-table">
+      <nz-table [nzData]="shown()" nzSize="small" [nzShowPagination]="false" data-testid="renewal-table">
         <thead><tr><th></th><th>Lease</th><th>Tenant</th><th>Property · Unit</th><th>Ends</th><th>Days</th><th>Rent</th><th>vs asking</th><th>State</th></tr></thead>
         <tbody>
-          @for (r of d.rows; track r.leaseId) {
+          @for (r of shown(); track r.leaseId) {
             <tr>
               <td><label nz-checkbox [ngModel]="selected().has(r.leaseId)" [disabled]="r.state !== 'due'" (ngModelChange)="toggle(r.leaseId, $event)"></label></td>
               <td><a [routerLink]="['/real-estate/leases', r.leaseId]">{{ r.number }}</a></td>
@@ -58,6 +62,10 @@ export class RenewalsPage {
   readonly days = signal(120);
   readonly uplift = signal(0);
   readonly data = signal<RenewalWorkbench | null>(null);
+  readonly q = signal('');
+  readonly state = signal<string | null>(null);
+  /** Client-side filter: GET /realestate/renewals only takes the `days` window (the select above). */
+  readonly shown = computed(() => (this.data()?.rows ?? []).filter((r) => matchText(this.q(), r.number, r.tenant, r.property, r.unit) && (!this.state() || r.state === this.state())));
   readonly selected = signal<Set<string>>(new Set());
   readonly busy = signal(false);
 

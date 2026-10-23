@@ -16,6 +16,8 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 interface Row { accountId: string; label: string; type: string; months: number[]; }
@@ -25,13 +27,13 @@ interface Row { accountId: string; label: string; type: string; months: number[]
   selector: 'erp-budgets',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
+  imports: [NzToolTipModule, RevealDirective, TranslatePipe, DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
   styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px } .num { text-align:right } .bad { color: var(--erp-color-error, #cf1322) } .good { color: var(--erp-color-success, #389e0d) } .grid { overflow:auto }`],
   template: `
     @if (!editing()) {
       <h1 class="erp-page-title">Budgets</h1>
       <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search budgets" emptyText="No budgets yet" (rowClick)="open($event.id)">
-        <button toolbar *erpHasPermission="'finance.budgets.write'" nz-button nzType="primary" (click)="create()" data-testid="budget-new"><span nz-icon nzType="plus"></span>New budget</button>
+        <button toolbar *erpHasPermission="'finance.budgets.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newBudget' | translate: 'New budget'" nz-tooltip [nzTooltipTitle]="'ui.add.newBudget' | translate: 'New budget'" nzType="primary" (click)="create()" data-testid="budget-new"><span nz-icon nzType="plus"></span>New budget</button>
       </erp-paged-table>
     } @else {
       <div class="bar">
@@ -71,10 +73,11 @@ interface Row { accountId: string; label: string; type: string; months: number[]
         </nz-tab>
         @if (id()) {
           <nz-tab nzTitle="Budget vs actual" (nzSelect)="loadActual()">
-            <div class="bar">
+            <div class="bar" erpReveal>
               <nz-select style="width:110px" [(ngModel)]="fromMonth" (ngModelChange)="loadActual()">@for (m of months; track m; let i = $index) { <nz-option [nzValue]="i + 1" [nzLabel]="m"></nz-option> }</nz-select>
               <span>to</span>
               <nz-select style="width:110px" [(ngModel)]="toMonth" (ngModelChange)="loadActual()">@for (m of months; track m; let i = $index) { <nz-option [nzValue]="i + 1" [nzLabel]="m"></nz-option> }</nz-select>
+              <button nz-button nzType="default" type="button" (click)="loadActual()" data-testid="budget-actual-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
             </div>
             @if (actual(); as a) {
               <p data-testid="budget-net">{{ 'ui.budget.netBudget' | translate: 'Net budget' }} {{ a.budgetNet | number: '1.0-0' }} · {{ 'ui.budget.netActual' | translate: 'Net actual' }} {{ a.actualNet | number: '1.0-0' }}</p>

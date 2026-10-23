@@ -9,6 +9,9 @@ import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { OWNERSHIPS, PROPERTY_TYPES, PropertiesApi, PropertyDto, RealEstateLookups, humanize } from './realestate.api';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Field specs for the property form (shared by the list and the detail page). */
 export function propertyFields(lookups: RealEstateLookups): FieldSpec[] {
@@ -34,11 +37,11 @@ export function propertyFields(lookups: RealEstateLookups): FieldSpec[] {
   selector: 'erp-properties',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Properties</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code, name, community" emptyText="No properties yet" (rowClick)="open($event)">
-      <button toolbar *erpHasPermission="'realestate.properties.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="property-new"><span nz-icon nzType="plus"></span>New property</button>
+      <button toolbar *erpHasPermission="'realestate.properties.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newProperty' | translate: 'New property'" nz-tooltip [nzTooltipTitle]="'ui.add.newProperty' | translate: 'New property'" nzType="primary" (click)="state.create()" data-testid="property-new"><span nz-icon nzType="plus"></span>New property</button>
     </erp-paged-table>
     <erp-record-drawer title="New property" [open]="state.open()" [fields]="fields" customFieldEntityType="realestate.property"
                        [saving]="state.saving()" [errors]="state.errors()" testId="property-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
