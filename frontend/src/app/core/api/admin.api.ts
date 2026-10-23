@@ -193,7 +193,7 @@ export class LedgerReportsApi {
   generalLedger(p: { accountId: string; from?: string; to: string; legalEntityId?: string }): Observable<GeneralLedger> { return this.http.get<GeneralLedger>(`${this.base}/general-ledger`, { params: this.params(p) }); }
   incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
   balanceSheet(p: { asOf: string; legalEntityId?: string }): Observable<BalanceSheet> { return this.http.get<BalanceSheet>(`${this.base}/balance-sheet`, { params: this.params(p) }); }
-  arAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
+  arAgeing(p: { asOf: string; legalEntityId?: string; businessUnitId?: string; sourceType?: string; groupBy?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
   apAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ap-ageing`, { params: this.params(p) }); }
 }
 

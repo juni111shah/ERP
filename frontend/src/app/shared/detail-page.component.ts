@@ -1,4 +1,6 @@
-import { Component, Input, Output, EventEmitter, computed } from '@angular/core';
+import { Component, Input, Output, EventEmitter, computed, inject } from '@angular/core';
+import { SessionStore } from '../core/session/session.store';
+import { RecordHistoryComponent } from './record-history.component';
 import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -49,7 +51,7 @@ export interface DescriptionItem {
     CommonModule, DatePipe, CurrencyPipe, RouterLink,
     NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule,
     NzIconModule, NzStatisticModule, NzTabsModule, NzTagModule,
-    HasPermissionDirective, RevealDirective, NzToolTipModule
+    HasPermissionDirective, RevealDirective, NzToolTipModule, RecordHistoryComponent
   ],
   styles: [`
     .erp-page-title {
@@ -165,11 +167,13 @@ export interface DescriptionItem {
           </nz-tab>
         }
         
-        @if (showHistory) {
-          <nz-tab nzTitle="History">
+        @if (showHistory && canSeeHistory()) {
+          <nz-tab [nzTitle]="'history.title' | translate: 'History'">
             <div style="padding: 16px;">
               <ng-content select="[history]"></ng-content>
-              @if (!hasHistoryContent) {
+              @if (recordType && recordId) {
+                <erp-record-history [recordType]="recordType" [recordId]="recordId" />
+              } @else if (!hasHistoryContent) {
                 <div class="history-item">
                   <div class="history-timestamp">{{ createdAt }}</div>
                   <div>{{ entityName }} {{ 'ui.detail.createdLc' | translate: 'created' }}</div>
@@ -197,4 +201,10 @@ export class DetailPageComponent {
   @Input() hasHistoryContent = false;
   @Input() entityName = 'Record';
   @Input() createdAt?: string;
+  /** Audit record class ("Invoice", "Bill", "Party"...) and id: when both are set the History tab shows the record's change history. */
+  @Input() recordType?: string;
+  @Input() recordId?: string;
+  private readonly session = inject(SessionStore);
+  /** The change history is only for people who may read the audit log. */
+  canSeeHistory(): boolean { return !this.recordType || this.session.hasPermission('core.audit.read'); }
 }

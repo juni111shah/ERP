@@ -87,7 +87,8 @@ interface Bill {
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
         [createdAt]="bill()!.billDate"
-        [entityName]="'Bill'">
+        [entityName]="'Bill'"
+        recordType="Bill" [recordId]="bill()!.id">
         
         <div content class="line-items-table">
           <nz-table #itemsTable [nzData]="bill()!.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
