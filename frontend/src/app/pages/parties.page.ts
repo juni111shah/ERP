@@ -63,6 +63,11 @@ const ROLES = ['Customer', 'Vendor', 'Employee', 'Other'];
           <nz-form-item><nz-form-label>Email</nz-form-label><nz-form-control [nzErrorTip]="err('email')"><input nz-input formControlName="email" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Phone</nz-form-label><nz-form-control><input nz-input formControlName="phone" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Tax number</nz-form-label><nz-form-control><input nz-input formControlName="taxNumber" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Address</nz-form-label><nz-form-control><textarea nz-input rows="2" formControlName="address" data-testid="party-address"></textarea></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Currency</nz-form-label><nz-form-control><input nz-input formControlName="currencyCode" maxlength="3" placeholder="e.g. AED" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Payment terms (days)</nz-form-label><nz-form-control><input nz-input type="number" min="0" formControlName="paymentTermsDays" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>ID number</nz-form-label><nz-form-control><input nz-input formControlName="idNumber" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>IBAN</nz-form-label><nz-form-control><input nz-input formControlName="iban" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Active</nz-form-label><nz-form-control><nz-switch formControlName="isActive"></nz-switch></nz-form-control></nz-form-item>
           @if (sections().length) { <erp-dynamic-fields [sections]="sections()" [group]="customGroup()" /> }
         </form>
@@ -152,7 +157,7 @@ export class PartiesPage implements OnInit {
   save(): void {
     if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
     const v = this.form.getRawValue();
-    const body = { ...v, roles: (v.roles as string[]).join(', '), customFields: toApiValues(this.sections(), (v.customFields ?? {}) as Record<string, unknown>) };
+    const body = { ...v, currencyCode: v.currencyCode || null, paymentTermsDays: v.paymentTermsDays === '' || v.paymentTermsDays === null ? null : Number(v.paymentTermsDays), address: v.address || null, idNumber: v.idNumber || null, iban: v.iban || null, roles: (v.roles as string[]).join(', '), customFields: toApiValues(this.sections(), (v.customFields ?? {}) as Record<string, unknown>) };
     const p = this.editing();
     this.saving.set(true);
     (p ? this.api.update(p.id, body) : this.api.create(body)).subscribe({
@@ -174,6 +179,11 @@ export class PartiesPage implements OnInit {
       email: [p?.email ?? '', Validators.email],
       phone: [p?.phone ?? ''],
       taxNumber: [p?.taxNumber ?? ''],
+      address: [p?.address ?? ''],
+      currencyCode: [p?.currencyCode ?? '', Validators.maxLength(3)],
+      paymentTermsDays: [p?.paymentTermsDays ?? null, Validators.min(0)],
+      idNumber: [p?.idNumber ?? ''],
+      iban: [p?.iban ?? ''],
       isActive: [p?.isActive ?? true],
       customFields: new FormGroup({}),
     });
