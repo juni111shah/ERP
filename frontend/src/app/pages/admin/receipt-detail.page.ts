@@ -60,7 +60,7 @@ interface Receipt {
         @if (receipt()!.allocations.length > 0) {
           <div content style="margin-top: 16px;">
             <h3>Applied to Invoices</h3>
-            <nz-table #allocTable [nzData]="receipt()!.allocations" [nzFrontPagination]="false" nzSize="small">
+            <nz-table #allocTable [nzData]="receipt()!.allocations" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
               <thead>
                 <tr>
                   <th>Invoice Number</th>

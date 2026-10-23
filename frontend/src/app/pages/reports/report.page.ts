@@ -20,11 +20,12 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-registry';
 
 /** Reports hub (no slug) and the generic report page (/reports/:slug): filters, table, summary, CSV and Print. */
+import { RevealDirective } from '../../shared/reveal.directive';
 @Component({
   selector: 'erp-report',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule, NzSelectModule],
+  imports: [FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule, NzSelectModule, RevealDirective],
   styles: [`
     .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px } .card { display:block; padding:14px 16px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px; background:var(--erp-color-surface, #fff); color:inherit } .card b { display:block; margin-bottom:4px } .card span { font-size:12px; color: var(--erp-color-text-secondary, #667) }
     .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:12px 0 } .spacer { flex:1 } .num { text-align:right } .total td { font-weight:600 }
@@ -41,7 +42,7 @@ import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-
     } @else {
       <h1 class="erp-page-title">{{ def()!.title }}</h1>
       <p>{{ def()!.subtitle }}</p>
-      <div class="bar">
+      <div class="bar" erpReveal>
         @if (has('owner')) {
           <nz-select style="width:260px" nzShowSearch nzServerSearch nzPlaceHolder="Property owner" [(ngModel)]="ownerId" (nzOnSearch)="searchOwners($event)" data-testid="report-owner">@for (o of owners(); track o.id) { <nz-option [nzValue]="o.id" [nzLabel]="o.name"></nz-option> }</nz-select>
         }

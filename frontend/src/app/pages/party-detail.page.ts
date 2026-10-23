@@ -68,7 +68,7 @@ interface Party {
             <nz-tab nzTitle="Recent Transactions">
               <div style="padding: 16px;">
                 <h3>Recent Sales Transactions</h3>
-                <nz-table #txTable [nzData]="transactions()" [nzFrontPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
+                <nz-table #txTable [nzData]="transactions()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -107,7 +107,7 @@ interface Party {
             <nz-tab nzTitle="Recent Transactions">
               <div style="padding: 16px;">
                 <h3>Recent Purchase Transactions</h3>
-                <nz-table #txTable [nzData]="transactions()" [nzFrontPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
+                <nz-table #txTable [nzData]="transactions()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -155,7 +155,7 @@ interface Party {
         <ng-container *nzDrawerContent>
           @if (statement(); as st) {
             <p>As of {{ st.asOf | date:'dd MMM yyyy' }}</p>
-            <nz-table #stTable [nzData]="st.items" [nzFrontPagination]="false" nzSize="small" data-testid="party-statement">
+            <nz-table #stTable [nzData]="st.items" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="party-statement">
               <thead><tr><th>Number</th><th>Date</th><th>Due</th><th style="text-align: right;">Days overdue</th><th style="text-align: right;">Outstanding</th></tr></thead>
               <tbody>
                 @for (it of stTable.data; track it.invoiceId) {

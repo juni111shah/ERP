@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, TemplateRef, computed, contentChild, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, TemplateRef, afterRender, computed, contentChild, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -21,6 +21,8 @@ import { FilterCriterion } from '../core/api/api.models';
 import { PagedList } from '../core/api/paged-list';
 import { I18nService } from '../core/i18n/i18n.service';
 import { CsvExportService } from '../core/services/csv-export.service';
+import { PageChange, PaginationBarComponent } from './pagination-bar.component';
+import { RevealDirective } from './reveal.directive';
 
 export type ColumnFilterKind = 'text' | 'select' | 'date' | 'number';
 export type ColumnPin = 'left' | 'right';
@@ -82,7 +84,7 @@ function humanizeValue(v: string): string {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, NgTemplateOutlet, CdkDropList, CdkDrag, CdkDragHandle, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule, NzCheckboxModule,
-    NzDatePickerModule, NzDropDownModule, NzInputNumberModule, NzPopoverModule, NzSelectModule, NzToolTipModule],
+    NzDatePickerModule, NzDropDownModule, NzInputNumberModule, NzPopoverModule, NzSelectModule, NzToolTipModule, PaginationBarComponent, RevealDirective],
   providers: [provideNzIconsPatch([FilterFill, HolderOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline, UndoOutline])],
   styles: [`.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; } .bar .search { max-width: 320px; } .spacer { flex: 1; } tr.clickable { cursor: pointer; }
     :host { display: block; min-width: 0; max-width: 100%; } td[nzAlign=right], td[style*="right"] { white-space: nowrap; }
@@ -93,9 +95,21 @@ function humanizeValue(v: string): string {
     .col .handle { cursor: move; color: #8c8c8c; } .col label { flex: 1; min-width: 0; } .col .on { color: #1677ff; background: rgba(22,119,255,.08); }
     .cdk-drag-preview { background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.15); display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; }
     .cdk-drag-placeholder { opacity: .3; } .cdk-drop-list-dragging .col:not(.cdk-drag-placeholder) { transition: transform 200ms ease; }
-    .reset { margin-top: 8px; }`],
+    .reset { margin-top: 8px; }
+    .col .pin { flex: none; }
+    .grid { position: relative; border-radius: 8px; } .grid:focus-visible { outline: 2px solid var(--erp-color-focus-ring, rgba(22,119,255,.4)); outline-offset: 2px; }
+    .grid.proxied ::ng-deep .ant-table-content, .grid.proxied ::ng-deep .ant-table-body { scrollbar-width: none; }
+    .grid.proxied ::ng-deep .ant-table-content::-webkit-scrollbar, .grid.proxied ::ng-deep .ant-table-body::-webkit-scrollbar { display: none; }
+    .foot { position: sticky; bottom: 0; z-index: 3; background: var(--erp-color-bg-surface, #fff); border-top: 1px solid var(--erp-color-border-subtle, #f0f0f0); padding: 0 4px; }
+    .hscroll { overflow-x: auto; overflow-y: hidden; height: 14px; margin: 2px 0 0; cursor: pointer; }
+    .hscroll[hidden] { display: none; }
+    .hscroll > div { height: 1px; }
+    .hscroll::-webkit-scrollbar { height: 10px; } .hscroll::-webkit-scrollbar-track { background: var(--erp-color-bg-subtle, rgba(0,0,0,.04)); border-radius: 6px; }
+    .hscroll::-webkit-scrollbar-thumb { background: var(--erp-color-border-strong, rgba(0,0,0,.28)); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+    .hscroll::-webkit-scrollbar-thumb:hover { background-color: var(--erp-color-text-muted, rgba(0,0,0,.45)); }
+    @supports not selector(::-webkit-scrollbar) { .hscroll { scrollbar-width: thin; scrollbar-color: var(--erp-color-border-strong, rgba(0,0,0,.28)) transparent; } }`],
   template: `
-    <div class="bar">
+    <div class="bar" erpReveal>
       @if (searchable()) {
         <nz-input-group class="search" [nzPrefix]="prefix">
           <input nz-input [placeholder]="searchPlaceholder()" [ngModel]="list().query().search ?? ''" (ngModelChange)="onSearch($event)" data-testid="table-search" />
@@ -125,17 +139,18 @@ function humanizeValue(v: string): string {
           <div class="col" cdkDrag cdkDragLockAxis="y" [attr.data-testid]="'col-' + v.key">
             <span class="handle" cdkDragHandle nz-icon nzType="holder" [attr.aria-label]="t('table.dragToReorder', 'Drag to reorder')"></span>
             <label nz-checkbox [ngModel]="!v.hidden" (ngModelChange)="setVisible(v.key, $event)" [nzDisabled]="!v.hidden && visibleCount() <= 1">{{ v.col.label }}</label>
-            <button nz-button nzType="text" nzSize="small" [class.on]="v.pin === 'left'" (click)="setPin(v.key, v.pin === 'left' ? null : 'left')"
-                    nz-tooltip [nzTooltipTitle]="t('table.pinStart', 'Pin to start')" [attr.data-testid]="'pin-left-' + v.key"><span nz-icon nzType="vertical-right"></span></button>
-            <button nz-button nzType="text" nzSize="small" [class.on]="v.pin === 'right'" (click)="setPin(v.key, v.pin === 'right' ? null : 'right')"
-                    nz-tooltip [nzTooltipTitle]="t('table.pinEnd', 'Pin to end')" [attr.data-testid]="'pin-right-' + v.key"><span nz-icon nzType="vertical-left"></span></button>
+            <button nz-button nzType="text" nzSize="small" class="pin erp-reveal" [class.on]="v.pin === 'left'" (click)="setPin(v.key, v.pin === 'left' ? null : 'left')"
+                    [attr.aria-pressed]="v.pin === 'left'" [attr.data-testid]="'pin-left-' + v.key"><span nz-icon nzType="vertical-right"></span><span>{{ t('table.pinStartShort', 'Start') }}</span></button>
+            <button nz-button nzType="text" nzSize="small" class="pin erp-reveal" [class.on]="v.pin === 'right'" (click)="setPin(v.key, v.pin === 'right' ? null : 'right')"
+                    [attr.aria-pressed]="v.pin === 'right'" [attr.data-testid]="'pin-right-' + v.key"><span nz-icon nzType="vertical-left"></span><span>{{ t('table.pinEndShort', 'End') }}</span></button>
           </div>
         }
       </div>
       <button class="reset" nz-button nzSize="small" nzBlock (click)="resetLayout()" data-testid="table-reset-layout"><span nz-icon nzType="undo"></span>{{ t('table.resetLayout', 'Reset layout') }}</button>
     </ng-template>
+    <div #grid class="grid" [class.proxied]="overflowX()" tabindex="0" role="region" [attr.aria-label]="t('table.region', 'Table') + (tableName() !== 'table' ? ' ' + tableName() : '')" (keydown)="onGridKey($event)" data-testid="paged-table-region">
     <nz-table #tbl [nzData]="rows()" [nzTotal]="list().total()" [nzPageIndex]="list().query().page" [nzPageSize]="list().query().pageSize"
-              [nzFrontPagination]="false" [nzLoading]="list().loading()" nzShowSizeChanger [nzPageSizeOptions]="[10, 25, 50, 100]"
+              [nzFrontPagination]="false" [nzShowPagination]="false" [nzLoading]="list().loading()"
               nzSize="middle" [nzScroll]="scroll()" [nzNoResult]="empty" (nzQueryParams)="onQuery($event)" data-testid="paged-table">
       <thead>
         <tr>
@@ -146,7 +161,7 @@ function humanizeValue(v: string): string {
               @if (kinds()[v.key]; as kind) {
                 <ng-container ngProjectAs="nz-filter-trigger">
                 <nz-filter-trigger [nzVisible]="openKey() === v.key" (nzVisibleChange)="onFilterOpen(v.key, $event)" [nzActive]="isActive(v.key)" [nzDropdownMenu]="menu" [attr.data-testid]="'filter-' + v.key">
-                  <span nz-icon nzType="filter" nzTheme="fill"></span>
+                  <span nz-icon nzType="filter" nzTheme="fill"></span><span class="erp-reveal-label">{{ t('table.filter', 'Filter') }}</span>
                 </nz-filter-trigger>
                 <nz-dropdown-menu #menu="nzDropdownMenu">
                   <div class="flt ant-table-filter-dropdown" (click)="$event.stopPropagation()" [attr.data-testid]="'filter-panel-' + v.key">
@@ -190,6 +205,14 @@ function humanizeValue(v: string): string {
         }
       </tbody>
     </nz-table>
+    </div>
+    <div class="foot" [style.bottom.px]="stickyBottom()" data-testid="table-footer">
+      <div #hscroll class="hscroll" [hidden]="!overflowX()" aria-hidden="true" data-testid="table-hscroll"><div [style.width.px]="scrollWidth()"></div></div>
+      @if (list().total() > 0) {
+        <erp-pagination-bar [total]="list().total()" [page]="list().query().page" [pageSize]="list().query().pageSize" [loading]="list().loading()"
+                            [storageKey]="pageSizeKey()" (pageChange)="onPage($event)" />
+      }
+    </div>
     <ng-template #empty><nz-empty [nzNotFoundContent]="emptyText()"></nz-empty></ng-template>`,
 })
 export class PagedTableComponent<T> {
@@ -223,6 +246,8 @@ export class PagedTableComponent<T> {
   // ---------- layout (order / visibility / pinning), persisted per table ----------
   private readonly routePath = (this.route?.snapshot.pathFromRoot ?? []).map((r) => r.routeConfig?.path ?? '').filter(Boolean).join('/') || 'root';
   readonly storageKey = computed(() => `erp.table.layout:${this.tableId() ?? `${this.routePath}:${this.tableName()}`}`);
+  /** Remembered page size, per table. */
+  readonly pageSizeKey = computed(() => `erp.table.pageSize:${this.tableId() ?? `${this.routePath}:${this.tableName()}`}`);
   readonly layout = signal<Layout>(EMPTY_LAYOUT);
   private readonly loadLayout = effect(() => {
     const key = this.storageKey();
@@ -485,6 +510,95 @@ export class PagedTableComponent<T> {
   onSearch(term: string): void {
     clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => this.list().setSearch(term), 300);
+  }
+
+  onPage(e: PageChange): void {
+    const q = this.list().query();
+    if (e.page !== q.page || e.pageSize !== q.pageSize) this.list().setPage(e.page, e.pageSize);
+  }
+
+  // ---------- keyboard + sticky horizontal scrollbar ----------
+  private readonly zone = inject(NgZone);
+  private readonly grid = viewChild<ElementRef<HTMLElement>>('grid');
+  private readonly hscroll = viewChild<ElementRef<HTMLElement>>('hscroll');
+  private readonly pager = viewChild(PaginationBarComponent);
+  /** body scrolls sideways (the sticky scrollbar is shown) */
+  readonly overflowX = signal(false);
+  readonly scrollWidth = signal(0);
+  /** negative padding-bottom of the page's scroll container, so the sticky footer sits flush with the viewport edge */
+  readonly stickyBottom = signal(0);
+  private body: HTMLElement | null = null;
+  private proxy: HTMLElement | null = null;
+  private resize?: ResizeObserver;
+  private readonly onBodyScroll = () => this.sync(this.body, this.proxy);
+  private readonly onProxyScroll = () => this.sync(this.proxy, this.body);
+
+  private readonly bindScroll = afterRender(() => this.attach());
+  private readonly cleanup = inject(DestroyRef).onDestroy(() => this.detach());
+
+  /** Finds nz-table's scrolling element (it is re-created when the scroll config changes) and keeps the proxy bar in step with it. */
+  private attach(): void {
+    const root = this.grid()?.nativeElement;
+    const proxy = this.hscroll()?.nativeElement ?? null;
+    const body = root?.querySelector<HTMLElement>('.ant-table-body, .ant-table-content') ?? null;
+    if (body === this.body && proxy === this.proxy) { this.measure(); return; }
+    this.detach();
+    this.body = body; this.proxy = proxy;
+    if (!body || !proxy) return;
+    this.stickyBottom.set(-this.scrollerPadding(root!));
+    this.zone.runOutsideAngular(() => {
+      body.addEventListener('scroll', this.onBodyScroll, { passive: true });
+      proxy.addEventListener('scroll', this.onProxyScroll, { passive: true });
+      if (typeof ResizeObserver !== 'undefined') {
+        this.resize = new ResizeObserver(() => this.zone.run(() => this.measure()));
+        this.resize.observe(body);
+        const table = body.querySelector('table');
+        if (table) this.resize.observe(table);
+        if (proxy) this.resize.observe(proxy);
+      }
+    });
+    this.measure();
+  }
+  private scrollerPadding(el: HTMLElement): number {
+    for (let e = el.parentElement; e; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (/(auto|scroll)/.test(cs.overflowY)) return parseFloat(cs.paddingBottom) || 0;
+    }
+    return 0;
+  }
+  private detach(): void {
+    this.body?.removeEventListener('scroll', this.onBodyScroll);
+    this.proxy?.removeEventListener('scroll', this.onProxyScroll);
+    this.resize?.disconnect();
+    this.resize = undefined;
+    this.body = this.proxy = null;
+  }
+  private measure(): void {
+    const b = this.body;
+    const over = !!b && b.scrollWidth - b.clientWidth > 1;
+    if (over !== this.overflowX()) this.overflowX.set(over);
+    // the proxy can be narrower than the body (e.g. a vertical scrollbar), so match the scroll range, not the raw width
+    const w = b ? b.scrollWidth - b.clientWidth + (this.proxy?.clientWidth || b.clientWidth) : 0;
+    if (w !== this.scrollWidth()) this.scrollWidth.set(w);
+    if (over) this.sync(b, this.proxy);
+  }
+  /** Copies the raw scrollLeft (both elements share the same direction, so this is RTL-safe); equal values stop the echo. */
+  private sync(from: HTMLElement | null, to: HTMLElement | null): void {
+    if (!from || !to || Math.abs(from.scrollLeft - to.scrollLeft) < 1) return;
+    to.scrollLeft = from.scrollLeft;
+  }
+
+  /** Table region keys: PageUp/PageDown and ←/→ page (mirrored in RTL), Ctrl+Home/End first/last page, Shift+←/→ scroll sideways. */
+  onGridKey(e: KeyboardEvent): void {
+    const target = e.target as HTMLElement;
+    if (target.closest('input, textarea, select, button, a, [contenteditable], .ant-select, .ant-dropdown, .ant-picker')) return;
+    if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      if (!this.body) return;
+      this.body.scrollBy({ left: e.key === 'ArrowRight' ? 160 : -160, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      e.preventDefault();
+      return;
+    }
+    if (this.pager()?.handleKey(e, { arrows: true, homeEnd: 'ctrl' })) e.preventDefault();
   }
 
   onQuery(p: NzTableQueryParams): void {

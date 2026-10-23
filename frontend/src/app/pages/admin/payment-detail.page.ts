@@ -61,7 +61,7 @@ interface Payment {
         @if (payment()!.allocations.length > 0) {
           <div content style="margin-top: 16px;">
             <h3>Applied to Bills</h3>
-            <nz-table #allocTable [nzData]="payment()!.allocations" [nzFrontPagination]="false" nzSize="small">
+            <nz-table #allocTable [nzData]="payment()!.allocations" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
               <thead>
                 <tr>
                   <th>Bill Number</th>

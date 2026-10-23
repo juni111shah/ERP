@@ -33,7 +33,7 @@ const COLORS: Record<string, string> = { pending: 'gold', approved: 'green', rej
       <nz-tab nzTitle="Waiting for me"></nz-tab>
       <nz-tab nzTitle="My requests"></nz-tab>
     </nz-tabset>
-    <nz-table [nzData]="rows()" [nzLoading]="loading()" [nzFrontPagination]="false" nzSize="middle" data-testid="approvals-table">
+    <nz-table [nzData]="rows()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="approvals-table">
       <thead><tr><th>Subject</th><th>Type</th><th>Amount</th><th>Requested</th><th>Status</th><th></th></tr></thead>
       <tbody>
         @for (a of rows(); track a.id) {

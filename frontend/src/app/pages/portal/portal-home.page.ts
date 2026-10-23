@@ -15,11 +15,13 @@ import { OperatorFunction, catchError, of } from 'rxjs';
 import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService, PortalStatement } from './portal.service';
 
 /** The tenant's own view: leases and rent schedule, invoices, receipts, statement and maintenance requests. */
+import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
+
 @Component({
   selector: 'erp-portal-home',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, DatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule],
+  imports: [TranslatePipe, DatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule, PaginationBarComponent],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; } .lease { margin-bottom: 24px; }`],
   template: `
     <div class="top"><h1>{{ 'portal.welcome' | translate: 'Welcome' }}, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">{{ 'portal.signOut' | translate: 'Sign out' }}</button></div>
@@ -37,16 +39,18 @@ import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService
         } @empty { <p>{{ 'portal.noLease' | translate: 'No lease on file.' }}</p> }
       </nz-tab>
       <nz-tab [nzTitle]="'portal.tab.invoices' | translate: 'Invoices'">
-        <nz-table [nzData]="invoices()" nzSize="small" data-testid="portal-invoices">
+        <nz-table #ti [nzData]="invoices()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="invPg.page()" [nzPageSize]="invPg.size()" data-testid="portal-invoices">
           <thead><tr><th>Number</th><th>Date</th><th>Due</th><th>Total</th><th>Outstanding</th><th>Status</th></tr></thead>
-          <tbody>@for (i of invoices(); track i.id) { <tr><td>{{ i.number }}</td><td>{{ i.invoiceDate }}</td><td>{{ i.dueDate }}</td><td>{{ i.total | currency: i.currencyCode }}</td><td>{{ i.outstanding | currency: i.currencyCode }}</td><td>{{ i.status }}</td></tr> }</tbody>
+          <tbody>@for (i of ti.data; track i.id) { <tr><td>{{ i.number }}</td><td>{{ i.invoiceDate }}</td><td>{{ i.dueDate }}</td><td>{{ i.total | currency: i.currencyCode }}</td><td>{{ i.outstanding | currency: i.currencyCode }}</td><td>{{ i.status }}</td></tr> }</tbody>
         </nz-table>
+        <erp-pagination-bar [total]="invoices().length" [page]="invPg.page()" [pageSize]="invPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-invoices" (pageChange)="invPg.change($event)" />
       </nz-tab>
       <nz-tab [nzTitle]="'portal.tab.receipts' | translate: 'Receipts'">
-        <nz-table [nzData]="receipts()" nzSize="small">
+        <nz-table #tr [nzData]="receipts()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="recPg.page()" [nzPageSize]="recPg.size()">
           <thead><tr><th>Number</th><th>Date</th><th>Method</th><th>Amount</th><th>Reference</th></tr></thead>
-          <tbody>@for (r of receipts(); track r.id) { <tr><td>{{ r.number }}</td><td>{{ r.date }}</td><td>{{ r.method }}</td><td>{{ r.amount | currency: r.currencyCode }}</td><td>{{ r.reference }}</td></tr> }</tbody>
+          <tbody>@for (r of tr.data; track r.id) { <tr><td>{{ r.number }}</td><td>{{ r.date }}</td><td>{{ r.method }}</td><td>{{ r.amount | currency: r.currencyCode }}</td><td>{{ r.reference }}</td></tr> }</tbody>
         </nz-table>
+        <erp-pagination-bar [total]="receipts().length" [page]="recPg.page()" [pageSize]="recPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-receipts" (pageChange)="recPg.change($event)" />
       </nz-tab>
       <nz-tab [nzTitle]="'portal.tab.statement' | translate: 'Statement'">
         @if (statement(); as s) {
@@ -69,10 +73,11 @@ import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService
             <button nz-button nzType="primary" data-testid="portal-req-submit">{{ 'portal.sendRequest' | translate: 'Send request' }}</button>
           </form>
         }
-        <nz-table [nzData]="requests()" nzSize="small" style="margin-top:16px" data-testid="portal-requests">
+        <nz-table #tq [nzData]="requests()" nzSize="small" style="margin-top:16px" [nzShowPagination]="false" [nzPageIndex]="reqPg.page()" [nzPageSize]="reqPg.size()" data-testid="portal-requests">
           <thead><tr><th>Number</th><th>Issue</th><th>Reported</th><th>Status</th></tr></thead>
-          <tbody>@for (r of requests(); track r.id) { <tr><td>{{ r.number }}</td><td>{{ r.issue }}</td><td>{{ r.reportedOn }}</td><td>{{ r.status }}</td></tr> }</tbody>
+          <tbody>@for (r of tq.data; track r.id) { <tr><td>{{ r.number }}</td><td>{{ r.issue }}</td><td>{{ r.reportedOn }}</td><td>{{ r.status }}</td></tr> }</tbody>
         </nz-table>
+        <erp-pagination-bar [total]="requests().length" [page]="reqPg.page()" [pageSize]="reqPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-requests" (pageChange)="reqPg.change($event)" />
       </nz-tab>
     </nz-tabset>`,
 })
@@ -85,6 +90,9 @@ export class PortalHomePage implements OnInit {
   readonly receipts = signal<PortalReceipt[]>([]);
   readonly requests = signal<PortalRequest[]>([]);
   readonly statement = signal<PortalStatement | null>(null);
+  readonly invPg = new ClientPager(20);
+  readonly recPg = new ClientPager(20);
+  readonly reqPg = new ClientPager(20);
   readonly form = inject(FormBuilder).nonNullable.group({ leaseId: ['', Validators.required], issue: ['', Validators.required], priority: ['normal'] });
 
   ngOnInit(): void {

@@ -35,7 +35,7 @@ import { HasPermissionDirective } from '../shared/has-permission.directive';
       <span class="spacer"></span>
       <button *erpHasPermission="'core.customfields.manage'" nz-button nzType="primary" [disabled]="!entityType()" (click)="open(null)" data-testid="cf-new"><span nz-icon nzType="plus"></span>Add field</button>
     </div>
-    <nz-table [nzData]="defs()" [nzFrontPagination]="false" [nzLoading]="loading()" nzSize="middle" data-testid="cf-table">
+    <nz-table [nzData]="defs()" [nzFrontPagination]="false" [nzShowPagination]="false" [nzLoading]="loading()" nzSize="middle" data-testid="cf-table">
       <thead><tr><th>Label</th><th>Key</th><th>Type</th><th>Section</th><th>Required</th><th>Status</th></tr></thead>
       <tbody>
         @for (d of defs(); track d.id) {

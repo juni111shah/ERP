@@ -13,11 +13,13 @@ interface ImportDef { key: string; label: string; columns: { name: string; requi
 interface ImportResult { total: number; created: number; errors: { row: number; message: string }[]; dryRun: boolean; }
 
 /** Bulk-load data from CSV: pick what to import, download the template, check the file (dry run), then import. */
+import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
+
 @Component({
   selector: 'erp-import',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzAlertModule, NzButtonModule, NzSelectModule, NzTableModule],
+  imports: [FormsModule, NzAlertModule, NzButtonModule, NzSelectModule, NzTableModule, PaginationBarComponent],
   template: `
     <h1 class="erp-page-title">Data import</h1>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
@@ -41,10 +43,11 @@ interface ImportResult { total: number; created: number; errors: { row: number; 
       <nz-alert style="margin-top:16px;max-width:760px" [nzType]="r.errors.length ? 'warning' : 'success'" nzShowIcon data-testid="import-result"
                 [nzMessage]="r.dryRun ? (r.created + ' of ' + r.total + ' rows are ready to import' + (r.errors.length ? ', ' + r.errors.length + ' have problems' : '')) : (r.created + ' of ' + r.total + ' rows imported' + (r.errors.length ? ', ' + r.errors.length + ' skipped' : ''))"></nz-alert>
       @if (r.errors.length) {
-        <nz-table [nzData]="r.errors" nzSize="small" style="max-width:760px;margin-top:8px" data-testid="import-errors">
+        <nz-table #te [nzData]="r.errors" nzSize="small" style="max-width:760px;margin-top:8px" [nzShowPagination]="false" [nzPageIndex]="errPg.page()" [nzPageSize]="errPg.size()" data-testid="import-errors">
           <thead><tr><th style="width:80px">Row</th><th>Problem</th></tr></thead>
-          <tbody>@for (e of r.errors; track e.row) { <tr><td>{{ e.row }}</td><td>{{ e.message }}</td></tr> }</tbody>
+          <tbody>@for (e of te.data; track e.row) { <tr><td>{{ e.row }}</td><td>{{ e.message }}</td></tr> }</tbody>
         </nz-table>
+        <div style="max-width:760px"><erp-pagination-bar [total]="r.errors.length" [page]="errPg.page()" [pageSize]="errPg.size()" [hideOnSinglePage]="true" (pageChange)="errPg.change($event)" /></div>
       }
     }`,
 })
@@ -56,6 +59,7 @@ export class ImportPage {
   readonly key = signal<string | null>(null);
   readonly result = signal<ImportResult | null>(null);
   readonly busy = signal(false);
+  readonly errPg = new ClientPager(10);
 
   constructor() { this.http.get<ImportDef[]>(`${this.base}/imports`).subscribe((d) => this.defs.set(d)); }
 

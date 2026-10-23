@@ -88,7 +88,7 @@ interface Bill {
         [entityName]="'Bill'">
         
         <div content class="line-items-table">
-          <nz-table #itemsTable [nzData]="bill()!.lines" [nzFrontPagination]="false" nzSize="small">
+          <nz-table #itemsTable [nzData]="bill()!.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
             <thead>
               <tr>
                 <th style="width: 40px;">#</th>

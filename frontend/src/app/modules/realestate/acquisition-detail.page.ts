@@ -20,11 +20,13 @@ import { AcquisitionDto, AcquisitionsApi, DESCRIPTION_COLUMNS, FundingInstalment
 import { StatusTagComponent } from './status-tag.component';
 
 /** One acquisition: cost summary, funding sources with their instalment schedules, completion and instalment payments. */
+import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
+
 @Component({
   selector: 'erp-acquisition-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzAlertModule, NzButtonModule, NzCardModule, NzDescriptionsModule, NzModalModule, NzTableModule, NzTabsModule],
+  imports: [DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzAlertModule, NzButtonModule, NzCardModule, NzDescriptionsModule, NzModalModule, NzTableModule, NzTabsModule, PaginationBarComponent],
   template: `
     @if (acq(); as a) {
       <p><a routerLink="/real-estate/acquisitions">← Acquisitions</a></p>
@@ -60,16 +62,17 @@ import { StatusTagComponent } from './status-tag.component';
             <nz-card [nzTitle]="humanize(f.type) + ' · ' + f.lender" style="margin-bottom:16px">
               <p>Principal <b>{{ f.principal | number: '1.0-2' }}</b> · rate {{ f.annualRatePercent }}% · {{ f.termMonths }} months · monthly {{ f.monthlyPayment | number: '1.2-2' }} · finance cost {{ f.financeCost | number: '1.0-2' }} · outstanding <b>{{ f.outstanding | number: '1.0-2' }}</b> · repaid {{ f.paid }}/{{ f.instalmentCount }}</p>
               @if (f.instalments.length) {
-                <nz-table [nzData]="f.instalments" nzSize="small" [nzPageSize]="12" [attr.data-testid]="'schedule-' + f.lender">
+                <nz-table #ts [nzData]="f.instalments" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="pager(f).page()" [nzPageSize]="pager(f).size()" [attr.data-testid]="'schedule-' + f.lender">
                   <thead><tr><th>#</th><th>Due</th><th>Principal</th><th>Interest</th><th>Total</th><th>Balance after</th><th>Status</th><th></th></tr></thead>
                   <tbody>
-                    @for (i of f.instalments; track i.id) {
+                    @for (i of ts.data; track i.id) {
                       <tr><td>{{ i.sequence }}</td><td>{{ i.dueDate }}</td><td>{{ i.principal | number: '1.2-2' }}</td><td>{{ i.interest | number: '1.2-2' }}</td><td>{{ i.total | number: '1.2-2' }}</td><td>{{ i.balanceAfter | number: '1.0-2' }}</td>
                         <td><erp-status-tag [status]="i.status" /> @if (i.paidOn) { {{ i.paidOn }} }</td>
                         <td>@if (i.status === 'scheduled' && isNext(f, i)) { <a *erpHasPermission="'realestate.funding.pay'" (click)="startPay(i)" data-testid="pay-instalment">Pay</a> }</td></tr>
                     }
                   </tbody>
                 </nz-table>
+                <erp-pagination-bar [total]="f.instalments.length" [page]="pager(f).page()" [pageSize]="pager(f).size()" [pageSizeOptions]="[12, 24, 48, 120]" [hideOnSinglePage]="true" (pageChange)="pager(f).change($event)" />
               } @else { <p>The schedule is generated when the purchase completes.</p> }
             </nz-card>
           } @empty { <p>No funding sources. The purchase is paid from equity.</p> }
@@ -88,6 +91,18 @@ export class AcquisitionDetailPage {
   readonly columns = DESCRIPTION_COLUMNS;
   readonly humanize = humanize;
   readonly acq = signal<AcquisitionDto | null>(null);
+  private readonly pagers = new Map<string, ClientPager>();
+  /** Page state per funding schedule; opens on the page holding the next instalment due. */
+  pager(f: FundingSourceDto): ClientPager {
+    let p = this.pagers.get(f.id);
+    if (!p) {
+      p = new ClientPager(12);
+      const next = f.instalments.findIndex((i) => i.status === 'scheduled');
+      if (next > 0) p.page.set(Math.floor(next / 12) + 1);
+      this.pagers.set(f.id, p);
+    }
+    return p;
+  }
   readonly busy = signal(false);
   readonly errors = signal<ProblemDetails | null>(null);
   readonly paying = signal<FundingInstalmentDto | null>(null);
