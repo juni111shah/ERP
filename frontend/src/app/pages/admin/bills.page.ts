@@ -24,6 +24,9 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
 const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pendingApproval: 'Needs approval', issued: 'Posted' };
@@ -33,7 +36,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
   selector: 'erp-bills',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.line { display:grid; grid-template-columns: 2fr 1.6fr .7fr .9fr 1.1fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 }`],
   template: `
     <h1 class="erp-page-title">Bills</h1>
@@ -41,7 +44,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> } @else { {{ value }} }
       </ng-template>
-      <button toolbar *erpHasPermission="'finance.bills.write'" nz-button nzType="primary" (click)="open(null)" data-testid="bill-new"><span nz-icon nzType="plus"></span>New bill</button>
+      <button toolbar *erpHasPermission="'finance.bills.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newBill' | translate: 'New bill'" nz-tooltip [nzTooltipTitle]="'ui.add.newBill' | translate: 'New bill'" nzType="primary" (click)="open(null)" data-testid="bill-new"><span nz-icon nzType="plus"></span>New bill</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="940" [nzTitle]="bill() ? 'Bill ' + bill()!.number : 'New bill'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
@@ -67,7 +70,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
               </div>
             }
           </div>
-          @if (editable()) { <button nz-button type="button" (click)="addLine()" data-testid="bill-add-line"><span nz-icon nzType="plus"></span>Add line</button> }
+          @if (editable()) { <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addLine' | translate: 'Add line'" nz-tooltip [nzTooltipTitle]="'ui.add.addLine' | translate: 'Add line'" type="button" (click)="addLine()" data-testid="bill-add-line"><span nz-icon nzType="plus"></span>Add line</button> }
           <div class="totals"><span>Net <b>{{ totals().net.toFixed(2) }}</b></span><span>Tax <b>{{ totals().tax.toFixed(2) }}</b></span><span>Total <b>{{ (totals().net + totals().tax).toFixed(2) }}</b></span></div>
         </form>
       </ng-container>

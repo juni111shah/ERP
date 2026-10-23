@@ -11,16 +11,19 @@ import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 @Component({
   selector: 'erp-legal-entities',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Legal entities</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No legal entities yet" (rowClick)="state.edit($event)">
-      <button toolbar *erpHasPermission="'core.entities.write'" nz-button nzType="primary" (click)="state.create()" data-testid="entity-new"><span nz-icon nzType="plus"></span>New legal entity</button>
+      <button toolbar *erpHasPermission="'core.entities.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newLegalEntity' | translate: 'New legal entity'" nz-tooltip [nzTooltipTitle]="'ui.add.newLegalEntity' | translate: 'New legal entity'" nzType="primary" (click)="state.create()" data-testid="entity-new"><span nz-icon nzType="plus"></span>New legal entity</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit legal entity' : 'New legal entity'" [open]="state.open()" [fields]="fields()" [value]="$any(editValue())"
                        customFieldEntityType="legalentity" [saving]="state.saving()" [errors]="state.errors()" testId="entity-form"

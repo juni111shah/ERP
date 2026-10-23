@@ -10,6 +10,7 @@ import { API_BASE_URL } from '../core/api/api-config';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../shared/detail-page.component';
 import { AttachmentsComponent } from '../shared/attachments.component';
 import { PartyStatementComponent } from '../shared/party-statement.component';
+import { matchText, TableToolsComponent } from '../shared/table-tools.component';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { SessionStore } from '../core/session/session.store';
 import { I18nService } from '../core/i18n/i18n.service';
@@ -47,7 +48,7 @@ interface Party {
 @Component({
   selector: 'erp-party-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent, AttachmentsComponent, PartyStatementComponent, TranslatePipe],
+  imports: [TableToolsComponent, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent, AttachmentsComponent, PartyStatementComponent, TranslatePipe],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -73,7 +74,8 @@ interface Party {
             <nz-tab nzTitle="Recent Transactions">
               <div style="padding: 16px;">
                 <h3>Recent Sales Transactions</h3>
-                <nz-table #txTable [nzData]="transactions()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
+                <erp-table-tools [(search)]="txQ" (refresh)="loadTransactions(party()!.id)" [loading]="loadingTx()" testId="party-tx-sales"></erp-table-tools>
+                <nz-table #txTable [nzData]="txShown()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -114,7 +116,8 @@ interface Party {
             <nz-tab nzTitle="Recent Transactions">
               <div style="padding: 16px;">
                 <h3>Recent Purchase Transactions</h3>
-                <nz-table #txTable [nzData]="transactions()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
+                <erp-table-tools [(search)]="txQ" (refresh)="loadTransactions(party()!.id)" [loading]="loadingTx()" testId="party-tx-purchases"></erp-table-tools>
+                <nz-table #txTable [nzData]="txShown()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -212,6 +215,9 @@ export class PartyDetailPage implements OnInit {
   party = signal<Party | null>(null);
   transactions = signal<Transaction[]>([]);
   loadingTx = signal(false);
+  readonly txQ = signal('');
+  /** Client-side search over the loaded recent transactions (type, number, status). */
+  readonly txShown = computed(() => this.transactions().filter((t) => matchText(this.txQ(), t.type, t.number, t.status)));
 
   isCustomer = computed(() => this.party()?.roles.includes('Customer') ?? false);
   isVendor = computed(() => this.party()?.roles.includes('Vendor') ?? false);
@@ -241,6 +247,8 @@ export class PartyDetailPage implements OnInit {
         label: 'New Invoice',
         icon: 'file-add',
         type: 'primary',
+        reveal: true,
+        labelKey: 'ui.add.newInvoice',
         permission: 'finance.invoices.write',
         handler: () => this.router.navigate(['/finance/invoices'], { queryParams: { partyId: p.id } })
       });
@@ -257,6 +265,8 @@ export class PartyDetailPage implements OnInit {
         label: 'New Bill',
         icon: 'file-add',
         type: 'primary',
+        reveal: true,
+        labelKey: 'ui.add.newBill',
         permission: 'finance.bills.write',
         handler: () => this.router.navigate(['/finance/bills'], { queryParams: { partyId: p.id } })
       });

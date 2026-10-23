@@ -23,6 +23,9 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { formatMoney } from './invoice-sheet.component';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green', reversed: 'orange' };
 
@@ -31,7 +34,7 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
   selector: 'erp-journals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
   styles: [`.line { display:grid; grid-template-columns: 2fr 1fr 1fr 1.4fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 } .bad { color: var(--erp-color-error, #cf1322) }`],
   template: `
@@ -41,7 +44,7 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
         @if (column.key === 'status') { <nz-tag [nzColor]="color(row.status)">{{ row.status }}</nz-tag> } @else { {{ value }} }
       </ng-template>
       <button toolbar *erpHasPermission="'core.entities.write'" nz-button (click)="lockOpen.set(true)" data-testid="lock-books"><span nz-icon nzType="lock"></span>Close books</button>
-      <button toolbar *erpHasPermission="'finance.journals.write'" nz-button nzType="primary" (click)="open(null)" data-testid="journal-new"><span nz-icon nzType="plus"></span>New journal</button>
+      <button toolbar *erpHasPermission="'finance.journals.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newJournal' | translate: 'New journal'" nz-tooltip [nzTooltipTitle]="'ui.add.newJournal' | translate: 'New journal'" nzType="primary" (click)="open(null)" data-testid="journal-new"><span nz-icon nzType="plus"></span>New journal</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="820" [nzTitle]="journal() ? journal()!.number : 'New journal'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
@@ -64,7 +67,7 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
               </div>
             }
           </div>
-          @if (editable()) { <button nz-button type="button" (click)="addLine()" data-testid="j-add-line"><span nz-icon nzType="plus"></span>Add line</button> }
+          @if (editable()) { <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addLine' | translate: 'Add line'" nz-tooltip [nzTooltipTitle]="'ui.add.addLine' | translate: 'Add line'" type="button" (click)="addLine()" data-testid="j-add-line"><span nz-icon nzType="plus"></span>Add line</button> }
           <div class="totals" data-testid="j-totals">
             <span>Debit <b>{{ totals().debit.toFixed(2) }}</b></span><span>Credit <b>{{ totals().credit.toFixed(2) }}</b></span>
             <span [class.bad]="totals().debit !== totals().credit">Difference <b>{{ (totals().debit - totals().credit).toFixed(2) }}</b></span>

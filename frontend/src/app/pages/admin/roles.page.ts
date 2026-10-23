@@ -12,18 +12,21 @@ import { createPagedList } from '../../core/api/paged-list';
 import { applyProblemDetailsToForm, asProblem, controlError } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Roles with a permission checklist grouped by module and resource. Built-in roles are read-only. */
 @Component({
   selector: 'erp-roles',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzCheckboxModule, NzIconModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzCheckboxModule, NzIconModule],
   styles: [`.perm-group { margin-bottom: 16px } .perm-group h4 { margin: 0 0 4px; text-transform: capitalize } .perm { display:block; margin: 2px 0 }`],
   template: `
     <h1 class="erp-page-title">Roles</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search roles" emptyText="No roles" (rowClick)="open($event)">
-      <button toolbar *erpHasPermission="'core.roles.write'" nz-button nzType="primary" (click)="open(null)" data-testid="role-new"><span nz-icon nzType="plus"></span>New role</button>
+      <button toolbar *erpHasPermission="'core.roles.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newRole' | translate: 'New role'" nz-tooltip [nzTooltipTitle]="'ui.add.newRole' | translate: 'New role'" nzType="primary" (click)="open(null)" data-testid="role-new"><span nz-icon nzType="plus"></span>New role</button>
     </erp-paged-table>
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="560" [nzTitle]="editing() ? editing()!.name : 'New role'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>

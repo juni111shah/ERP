@@ -15,6 +15,9 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { LeaseDto, LeaseListItem, LeasesApi, PAYMENT_PLANS, RealEstateLookups } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Field specs of the lease form (new lease on the list, edit-draft on the detail page). */
 export function leaseFields(lookups: RealEstateLookups, editing: boolean): FieldSpec[] {
@@ -37,7 +40,7 @@ export function leaseFields(lookups: RealEstateLookups, editing: boolean): Field
   selector: 'erp-leases',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Leases</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search lease number" emptyText="No leases yet" (rowClick)="open($event)">
@@ -48,7 +51,7 @@ export function leaseFields(lookups: RealEstateLookups, editing: boolean): Field
         <nz-option nzValue="draft" nzLabel="Drafts"></nz-option>
         <nz-option nzValue="past" nzLabel="Ended / terminated"></nz-option>
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.leases.create'" nz-button nzType="primary" (click)="state.create()" data-testid="lease-new"><span nz-icon nzType="plus"></span>New lease</button>
+      <button toolbar *erpHasPermission="'realestate.leases.create'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newLease' | translate: 'New lease'" nz-tooltip [nzTooltipTitle]="'ui.add.newLease' | translate: 'New lease'" nzType="primary" (click)="state.create()" data-testid="lease-new"><span nz-icon nzType="plus"></span>New lease</button>
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
       </ng-template>

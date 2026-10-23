@@ -11,6 +11,8 @@ import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { HasPermissionDirective } from './has-permission.directive';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { RevealDirective } from './reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 export interface KpiCard {
   title: string;
@@ -26,6 +28,10 @@ export interface ActionButton {
   danger?: boolean;
   permission?: string;
   visible?: boolean;
+  /** Create/Add action: icon-first with the label revealed on hover / keyboard focus, plus a tooltip and aria-label. */
+  reveal?: boolean;
+  /** Translate key for the tooltip / aria-label of a `reveal` action (falls back to `label`). */
+  labelKey?: string;
   handler: () => void;
 }
 
@@ -43,7 +49,7 @@ export interface DescriptionItem {
     CommonModule, DatePipe, CurrencyPipe, RouterLink,
     NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule,
     NzIconModule, NzStatisticModule, NzTabsModule, NzTagModule,
-    HasPermissionDirective
+    HasPermissionDirective, RevealDirective, NzToolTipModule
   ],
   styles: [`
     .erp-page-title {
@@ -96,6 +102,9 @@ export interface DescriptionItem {
             <button 
               *erpHasPermission="action.permission ?? ''"
               nz-button 
+              erpReveal [attr.data-reveal]="action.reveal ? 'on' : 'off'"
+              [attr.aria-label]="action.reveal ? ((action.labelKey ?? '') | translate: action.label) : null"
+              nz-tooltip [nzTooltipTitle]="action.reveal ? ((action.labelKey ?? '') | translate: action.label) : null"
               [nzType]="action.type ?? 'default'"
               [nzDanger]="action.danger ?? false"
               (click)="action.handler()">

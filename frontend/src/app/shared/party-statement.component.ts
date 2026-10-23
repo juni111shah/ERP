@@ -10,6 +10,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { API_BASE_URL } from '../core/api/api-config';
 import { I18nService } from '../core/i18n/i18n.service';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { RevealDirective } from './reveal.directive';
 
 export interface PartyLedgerLine { date: string; kind: 'invoice' | 'creditNote' | 'receipt' | 'bill' | 'payment' | string; documentId: string; number: string; reference: string | null; currencyCode: string; debit: number; credit: number; balance: number }
 export interface PartyLedger { partyId: string; partyName: string | null; side: 'customer' | 'vendor'; from: string; to: string; openingBalance: number; lines: PartyLedgerLine[]; totalDebit: number; totalCredit: number; closingBalance: number }
@@ -28,10 +29,10 @@ const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '
   selector: 'erp-party-statement',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzIconModule, NzTableModule, TranslatePipe],
+  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzIconModule, NzTableModule, TranslatePipe, RevealDirective],
   styles: [`.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; } .num { text-align: end; white-space: nowrap; } .sum td { font-weight: 600; } .err { color: var(--erp-color-error, #cf1322); }`],
   template: `
-    <div class="bar">
+    <div class="bar" erpReveal>
       <nz-range-picker [ngModel]="range()" (ngModelChange)="setRange($event)" [nzAllowClear]="false" data-testid="statement-range"></nz-range-picker>
       <button nz-button (click)="load()" [nzLoading]="loading()" data-testid="statement-refresh"><span nz-icon nzType="reload"></span>{{ 'statement.refresh' | translate: 'Refresh' }}</button>
       <button nz-button (click)="print()" [disabled]="!data()" data-testid="statement-print"><span nz-icon nzType="printer"></span>{{ 'statement.print' | translate: 'Print' }}</button>

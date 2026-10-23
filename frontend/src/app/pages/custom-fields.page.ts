@@ -17,23 +17,27 @@ import { CustomFieldDefinitionsApi, CustomFieldMetadataService } from '../core/c
 import { CUSTOM_FIELD_TYPES, CustomFieldDefinition, CustomFieldDefinitionInput } from '../core/custom-fields/custom-field.models';
 import { applyProblemDetailsToForm, asProblem, controlError } from '../core/http/problem-details';
 import { HasPermissionDirective } from '../shared/has-permission.directive';
+import { RevealDirective } from '../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
 
 /** Custom fields admin (Odoo Studio style): pick an entity type, list its fields, add / edit / deactivate in a drawer. */
 @Component({
   selector: 'erp-custom-fields',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzSelectModule, NzButtonModule, NzDrawerModule, NzFormModule,
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzSelectModule, NzButtonModule, NzDrawerModule, NzFormModule,
     NzInputModule, NzInputNumberModule, NzSwitchModule, NzTagModule, NzIconModule],
   styles: [`.bar { display:flex; gap:12px; margin-bottom:12px; align-items:center } .spacer { flex:1 }`],
   template: `
     <h1 class="erp-page-title">Custom fields</h1>
-    <div class="bar">
+    <div class="bar" erpReveal>
       <nz-select style="width:260px" [ngModel]="entityType()" (ngModelChange)="selectType($event)" nzPlaceHolder="Choose a record type" data-testid="cf-entity-type">
         @for (t of types(); track t.key) { <nz-option [nzValue]="t.key" [nzLabel]="t.label"></nz-option> }
       </nz-select>
       <span class="spacer"></span>
-      <button *erpHasPermission="'core.customfields.manage'" nz-button nzType="primary" [disabled]="!entityType()" (click)="open(null)" data-testid="cf-new"><span nz-icon nzType="plus"></span>Add field</button>
+      <button nz-button nzType="default" type="button" (click)="load()" [disabled]="!entityType() || loading()" data-testid="cf-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
+      <button *erpHasPermission="'core.customfields.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addField' | translate: 'Add field'" nz-tooltip [nzTooltipTitle]="'ui.add.addField' | translate: 'Add field'" nzType="primary" [disabled]="!entityType()" (click)="open(null)" data-testid="cf-new"><span nz-icon nzType="plus"></span>Add field</button>
     </div>
     <nz-table [nzData]="defs()" [nzFrontPagination]="false" [nzShowPagination]="false" [nzLoading]="loading()" nzSize="middle" data-testid="cf-table">
       <thead><tr><th>Label</th><th>Key</th><th>Type</th><th>Section</th><th>Required</th><th>Status</th></tr></thead>

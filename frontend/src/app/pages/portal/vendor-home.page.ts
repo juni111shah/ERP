@@ -1,5 +1,5 @@
 import { CurrencyPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -17,29 +17,31 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** The vendor's own view: bills, payments, statement of what is owed to them, and the work orders assigned to them (start, hold, complete). */
 import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
+import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
 
 @Component({
   selector: 'erp-vendor-home',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, CurrencyPipe, FormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzInputModule, NzInputNumberModule, NzModalModule, PaginationBarComponent],
+  imports: [TableToolsComponent, TranslatePipe, CurrencyPipe, FormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzInputModule, NzInputNumberModule, NzModalModule, PaginationBarComponent],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; }`],
   template: `
     <div class="top"><h1>{{ 'ui.portal.welcome' | translate: 'Welcome' }}, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">Sign out</button></div>
+    <erp-table-tools [search]="q()" (searchChange)="search($event)" (refresh)="refresh()" testId="vendor"></erp-table-tools>
     <nz-tabset>
       <nz-tab nzTitle="Bills">
-        <nz-table #tb [nzData]="bills()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="billPg.page()" [nzPageSize]="billPg.size()" data-testid="vendor-bills">
+        <nz-table #tb [nzData]="billsShown()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="billPg.page()" [nzPageSize]="billPg.size()" data-testid="vendor-bills">
           <thead><tr><th>Number</th><th>Your reference</th><th>Date</th><th>Due</th><th>Total</th><th>Outstanding</th><th>Status</th></tr></thead>
           <tbody>@for (b of tb.data; track b.id) { <tr><td>{{ b.number }}</td><td>{{ b.vendorReference }}</td><td>{{ b.billDate }}</td><td>{{ b.dueDate }}</td><td>{{ b.total | currency: b.currencyCode }}</td><td>{{ b.outstanding | currency: b.currencyCode }}</td><td>{{ b.status }}</td></tr> }</tbody>
         </nz-table>
-        <erp-pagination-bar [total]="bills().length" [page]="billPg.page()" [pageSize]="billPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-bills" (pageChange)="billPg.change($event)" />
+        <erp-pagination-bar [total]="billsShown().length" [page]="billPg.page()" [pageSize]="billPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-bills" (pageChange)="billPg.change($event)" />
       </nz-tab>
       <nz-tab nzTitle="Payments">
-        <nz-table #tp [nzData]="payments()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="payPg.page()" [nzPageSize]="payPg.size()" data-testid="vendor-payments">
+        <nz-table #tp [nzData]="paymentsShown()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="payPg.page()" [nzPageSize]="payPg.size()" data-testid="vendor-payments">
           <thead><tr><th>Number</th><th>Date</th><th>Method</th><th>Amount</th><th>Reference</th></tr></thead>
           <tbody>@for (p of tp.data; track p.id) { <tr><td>{{ p.number }}</td><td>{{ p.date }}</td><td>{{ p.method }}</td><td>{{ p.amount | currency: p.currencyCode }}</td><td>{{ p.reference }}</td></tr> }</tbody>
         </nz-table>
-        <erp-pagination-bar [total]="payments().length" [page]="payPg.page()" [pageSize]="payPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-payments" (pageChange)="payPg.change($event)" />
+        <erp-pagination-bar [total]="paymentsShown().length" [page]="payPg.page()" [pageSize]="payPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-payments" (pageChange)="payPg.change($event)" />
       </nz-tab>
       <nz-tab nzTitle="Statement">
         @if (statement(); as s) {
@@ -51,7 +53,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
         }
       </nz-tab>
       <nz-tab nzTitle="Work orders">
-        <nz-table #to [nzData]="orders()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="woPg.page()" [nzPageSize]="woPg.size()" data-testid="vendor-orders">
+        <nz-table #to [nzData]="ordersShown()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="woPg.page()" [nzPageSize]="woPg.size()" data-testid="vendor-orders">
           <thead><tr><th>Number</th><th>Issue</th><th>Priority</th><th>Status</th><th>Estimate</th><th></th></tr></thead>
           <tbody>
             @for (o of to.data; track o.id) {
@@ -68,7 +70,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
             } @empty { <tr><td colspan="6">No work orders assigned to you.</td></tr> }
           </tbody>
         </nz-table>
-        <erp-pagination-bar [total]="orders().length" [page]="woPg.page()" [pageSize]="woPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-orders" (pageChange)="woPg.change($event)" />
+        <erp-pagination-bar [total]="ordersShown().length" [page]="woPg.page()" [pageSize]="woPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-orders" (pageChange)="woPg.change($event)" />
       </nz-tab>
     </nz-tabset>
     <nz-modal [nzVisible]="!!completing()" nzTitle="Complete work order" (nzOnCancel)="completing.set(null)" (nzOnOk)="complete()" nzOkText="Complete">
@@ -90,8 +92,17 @@ export class VendorHomePage implements OnInit {
   readonly statement = signal<VendorStatement | null>(null);
   readonly orders = signal<VendorWorkOrder[]>([]);
   readonly completing = signal<VendorWorkOrder | null>(null);
+  /** Client-side search across the tabs' lists: the portal endpoints take no query parameters. */
+  readonly q = signal('');
+  readonly billsShown = computed(() => this.bills().filter((r) => matchText(this.q(), r.number, r.vendorReference, r.status)));
+  readonly paymentsShown = computed(() => this.payments().filter((r) => matchText(this.q(), r.number, r.method, r.reference)));
+  readonly ordersShown = computed(() => this.orders().filter((r) => matchText(this.q(), r.number, r.issue, r.priority, r.status)));
   cost: number | null = null;
   notes = '';
+
+  search(q: string): void { this.q.set(q); this.billPg.page.set(1); this.payPg.page.set(1); this.woPg.page.set(1); }
+
+  refresh(): void { this.ngOnInit(); }
 
   ngOnInit(): void {
     if (!this.portal.signedIn() || this.portal.kind() !== 'vendor') { void this.router.navigateByUrl('/portal/login'); return; }

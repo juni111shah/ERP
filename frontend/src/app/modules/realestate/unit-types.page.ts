@@ -8,16 +8,19 @@ import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { USAGES, UnitTypeDto, UnitTypesApi, humanize } from './realestate.api';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 @Component({
   selector: 'erp-unit-types',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Unit types</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No unit types yet" (rowClick)="state.edit($event)">
-      <button toolbar *erpHasPermission="'realestate.unittypes.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="unittype-new"><span nz-icon nzType="plus"></span>New unit type</button>
+      <button toolbar *erpHasPermission="'realestate.unittypes.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newUnitType' | translate: 'New unit type'" nz-tooltip [nzTooltipTitle]="'ui.add.newUnitType' | translate: 'New unit type'" nzType="primary" (click)="state.create()" data-testid="unittype-new"><span nz-icon nzType="plus"></span>New unit type</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit unit type' : 'New unit type'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
                        [saving]="state.saving()" [errors]="state.errors()" testId="unittype-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,

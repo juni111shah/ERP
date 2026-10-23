@@ -29,6 +29,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { PartiesApi } from '../parties.page';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 const STATUS_OPTIONS = ['draft', 'pendingApproval', 'issued', 'partlyPaid', 'paid', 'voided'];
 /** Lease / property behind an invoice, supplied by the real-estate module only when it is installed (the core invoice knows nothing about leases). */
@@ -39,7 +41,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
   selector: 'erp-invoices',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule, InvoiceSheetComponent],
   styles: [`.stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px }
     .stat { background:#fff; border:1px solid #f0f0f0; border-left:4px solid #b89b5e; border-radius:6px; padding:12px 16px }
@@ -54,7 +56,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
       <div class="stat warn"><div class="k">Overdue</div><div class="v num">{{ stats().overdue }}</div><div class="sub">{{ stats().overdueCount }} {{ 'ui.inv.invoicesLc' | translate: 'invoices' }}</div></div>
       <div class="stat"><div class="k">Drafts</div><div class="v">{{ stats().drafts }}</div></div>
     </div>
-    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search number or customer" emptyText="No invoices yet" exportFilename="invoices" [scrollX]="links() && objectKeys(links()).length ? '1650px' : '1400px'" (rowClick)="open($event)">
+    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search number or customer" emptyText="No invoices yet" exportFilename="invoices" [refreshable]="false" [scrollX]="links() && objectKeys(links()).length ? '1650px' : '1400px'" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
         @switch (column.key) {
           @case ('status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> }
@@ -70,7 +72,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
       </nz-select>
       <button toolbar nz-button (click)="list.reload()" data-testid="invoice-refresh"><span nz-icon nzType="reload"></span>Refresh</button>
       <button toolbar *erpHasPermission="'realestate.billing.run'" nz-button (click)="runBilling()" [nzLoading]="billing()" data-testid="invoice-run-billing"><span nz-icon nzType="thunderbolt"></span>Run billing</button>
-      <button toolbar *erpHasPermission="'finance.invoices.write'" nz-button nzType="primary" (click)="open(null)" data-testid="invoice-new"><span nz-icon nzType="plus"></span>Add invoice</button>
+      <button toolbar *erpHasPermission="'finance.invoices.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addInvoice' | translate: 'Add invoice'" nz-tooltip [nzTooltipTitle]="'ui.add.addInvoice' | translate: 'Add invoice'" nzType="primary" (click)="open(null)" data-testid="invoice-new"><span nz-icon nzType="plus"></span>Add invoice</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="860" [nzTitle]="title()" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
@@ -98,7 +100,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
               </div>
             }
           </div>
-          @if (editable()) { <button nz-button type="button" (click)="addLine()" data-testid="inv-add-line"><span nz-icon nzType="plus"></span>Add line</button> }
+          @if (editable()) { <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addLine' | translate: 'Add line'" nz-tooltip [nzTooltipTitle]="'ui.add.addLine' | translate: 'Add line'" type="button" (click)="addLine()" data-testid="inv-add-line"><span nz-icon nzType="plus"></span>Add line</button> }
           <div class="totals" data-testid="inv-totals">
             <span>Net <b>{{ totals().net.toFixed(2) }}</b></span><span>Tax <b>{{ totals().tax.toFixed(2) }}</b></span><span>Total <b>{{ (totals().net + totals().tax).toFixed(2) }}</b></span>
           </div>

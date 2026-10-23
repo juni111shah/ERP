@@ -1,6 +1,6 @@
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -16,15 +16,17 @@ import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService
 
 /** The tenant's own view: leases and rent schedule, invoices, receipts, statement and maintenance requests. */
 import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
+import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
 
 @Component({
   selector: 'erp-portal-home',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, DatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule, PaginationBarComponent],
+  imports: [TableToolsComponent, TranslatePipe, DatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule, PaginationBarComponent],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; } .lease { margin-bottom: 24px; }`],
   template: `
     <div class="top"><h1>{{ 'portal.welcome' | translate: 'Welcome' }}, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">{{ 'portal.signOut' | translate: 'Sign out' }}</button></div>
+    <erp-table-tools [search]="q()" (searchChange)="search($event)" (refresh)="refresh()" testId="portal"></erp-table-tools>
     <nz-tabset>
       <nz-tab [nzTitle]="'portal.tab.lease' | translate: 'My lease'">
         @for (l of leases(); track l.id) {
@@ -39,18 +41,18 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
         } @empty { <p>{{ 'portal.noLease' | translate: 'No lease on file.' }}</p> }
       </nz-tab>
       <nz-tab [nzTitle]="'portal.tab.invoices' | translate: 'Invoices'">
-        <nz-table #ti [nzData]="invoices()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="invPg.page()" [nzPageSize]="invPg.size()" data-testid="portal-invoices">
+        <nz-table #ti [nzData]="invoicesShown()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="invPg.page()" [nzPageSize]="invPg.size()" data-testid="portal-invoices">
           <thead><tr><th>Number</th><th>Date</th><th>Due</th><th>Total</th><th>Outstanding</th><th>Status</th></tr></thead>
           <tbody>@for (i of ti.data; track i.id) { <tr><td>{{ i.number }}</td><td>{{ i.invoiceDate }}</td><td>{{ i.dueDate }}</td><td>{{ i.total | currency: i.currencyCode }}</td><td>{{ i.outstanding | currency: i.currencyCode }}</td><td>{{ i.status }}</td></tr> }</tbody>
         </nz-table>
-        <erp-pagination-bar [total]="invoices().length" [page]="invPg.page()" [pageSize]="invPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-invoices" (pageChange)="invPg.change($event)" />
+        <erp-pagination-bar [total]="invoicesShown().length" [page]="invPg.page()" [pageSize]="invPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-invoices" (pageChange)="invPg.change($event)" />
       </nz-tab>
       <nz-tab [nzTitle]="'portal.tab.receipts' | translate: 'Receipts'">
-        <nz-table #tr [nzData]="receipts()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="recPg.page()" [nzPageSize]="recPg.size()">
+        <nz-table #tr [nzData]="receiptsShown()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="recPg.page()" [nzPageSize]="recPg.size()">
           <thead><tr><th>Number</th><th>Date</th><th>Method</th><th>Amount</th><th>Reference</th></tr></thead>
           <tbody>@for (r of tr.data; track r.id) { <tr><td>{{ r.number }}</td><td>{{ r.date }}</td><td>{{ r.method }}</td><td>{{ r.amount | currency: r.currencyCode }}</td><td>{{ r.reference }}</td></tr> }</tbody>
         </nz-table>
-        <erp-pagination-bar [total]="receipts().length" [page]="recPg.page()" [pageSize]="recPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-receipts" (pageChange)="recPg.change($event)" />
+        <erp-pagination-bar [total]="receiptsShown().length" [page]="recPg.page()" [pageSize]="recPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-receipts" (pageChange)="recPg.change($event)" />
       </nz-tab>
       <nz-tab [nzTitle]="'portal.tab.statement' | translate: 'Statement'">
         @if (statement(); as s) {
@@ -73,11 +75,11 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
             <button nz-button nzType="primary" data-testid="portal-req-submit">{{ 'portal.sendRequest' | translate: 'Send request' }}</button>
           </form>
         }
-        <nz-table #tq [nzData]="requests()" nzSize="small" style="margin-top:16px" [nzShowPagination]="false" [nzPageIndex]="reqPg.page()" [nzPageSize]="reqPg.size()" data-testid="portal-requests">
+        <nz-table #tq [nzData]="requestsShown()" nzSize="small" style="margin-top:16px" [nzShowPagination]="false" [nzPageIndex]="reqPg.page()" [nzPageSize]="reqPg.size()" data-testid="portal-requests">
           <thead><tr><th>Number</th><th>Issue</th><th>Reported</th><th>Status</th></tr></thead>
           <tbody>@for (r of tq.data; track r.id) { <tr><td>{{ r.number }}</td><td>{{ r.issue }}</td><td>{{ r.reportedOn }}</td><td>{{ r.status }}</td></tr> }</tbody>
         </nz-table>
-        <erp-pagination-bar [total]="requests().length" [page]="reqPg.page()" [pageSize]="reqPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-requests" (pageChange)="reqPg.change($event)" />
+        <erp-pagination-bar [total]="requestsShown().length" [page]="reqPg.page()" [pageSize]="reqPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-requests" (pageChange)="reqPg.change($event)" />
       </nz-tab>
     </nz-tabset>`,
 })
@@ -93,7 +95,16 @@ export class PortalHomePage implements OnInit {
   readonly invPg = new ClientPager(20);
   readonly recPg = new ClientPager(20);
   readonly reqPg = new ClientPager(20);
+  /** Client-side search across the tabs' lists: the portal endpoints take no query parameters. */
+  readonly q = signal('');
+  readonly invoicesShown = computed(() => this.invoices().filter((r) => matchText(this.q(), r.number, r.status)));
+  readonly receiptsShown = computed(() => this.receipts().filter((r) => matchText(this.q(), r.number, r.method, r.reference)));
+  readonly requestsShown = computed(() => this.requests().filter((r) => matchText(this.q(), r.number, r.issue, r.status)));
   readonly form = inject(FormBuilder).nonNullable.group({ leaseId: ['', Validators.required], issue: ['', Validators.required], priority: ['normal'] });
+
+  search(q: string): void { this.q.set(q); this.invPg.page.set(1); this.recPg.page.set(1); this.reqPg.page.set(1); }
+
+  refresh(): void { this.ngOnInit(); }
 
   ngOnInit(): void {
     if (!this.portal.signedIn()) { void this.router.navigateByUrl('/portal/login'); return; }

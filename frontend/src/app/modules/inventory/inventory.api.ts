@@ -25,7 +25,7 @@ export class MovementsApi extends CrudApiService<MovementRow, unknown> { protect
 export class StockApi {
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
-  onHand(): Observable<StockOnHand> { return this.http.get<StockOnHand>(`${this.base}/${BASE}/stock`); }
+  onHand(warehouseId?: string | null): Observable<StockOnHand> { return this.http.get<StockOnHand>(`${this.base}/${BASE}/stock`, { params: warehouseId ? { warehouseId } : {} }); }
   low(): Observable<LowStockRow[]> { return this.http.get<LowStockRow[]>(`${this.base}/${BASE}/stock/low`); }
   act(action: 'receive' | 'issue' | 'adjust' | 'transfer', body: unknown): Observable<unknown> { return this.http.post(`${this.base}/${BASE}/stock/${action}`, body); }
   setPolicy(body: { itemId: string; reorderLevel: number; reorderQuantity: number }): Observable<unknown> { return this.http.put(`${this.base}/${BASE}/stock/policy`, body); }

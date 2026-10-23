@@ -21,6 +21,7 @@ import { FilterCriterion } from '../core/api/api.models';
 import { PagedList } from '../core/api/paged-list';
 import { I18nService } from '../core/i18n/i18n.service';
 import { CsvExportService } from '../core/services/csv-export.service';
+import { ExpandSearchComponent } from './expand-search.component';
 import { PageChange, PaginationBarComponent } from './pagination-bar.component';
 import { RevealDirective } from './reveal.directive';
 
@@ -83,7 +84,7 @@ function humanizeValue(v: string): string {
   selector: 'erp-paged-table',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NgTemplateOutlet, CdkDropList, CdkDrag, CdkDragHandle, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule, NzCheckboxModule,
+  imports: [ExpandSearchComponent, FormsModule, NgTemplateOutlet, CdkDropList, CdkDrag, CdkDragHandle, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule, NzCheckboxModule,
     NzDatePickerModule, NzDropDownModule, NzInputNumberModule, NzPopoverModule, NzSelectModule, NzToolTipModule, PaginationBarComponent, RevealDirective],
   providers: [provideNzIconsPatch([FilterFill, HolderOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline, UndoOutline])],
   styles: [`.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; } .bar .search { max-width: 320px; } .spacer { flex: 1; } tr.clickable { cursor: pointer; }
@@ -111,16 +112,18 @@ function humanizeValue(v: string): string {
   template: `
     <div class="bar" erpReveal>
       @if (searchable()) {
-        <nz-input-group class="search" [nzPrefix]="prefix">
-          <input nz-input [placeholder]="searchPlaceholder()" [ngModel]="list().query().search ?? ''" (ngModelChange)="onSearch($event)" data-testid="table-search" />
-        </nz-input-group>
-        <ng-template #prefix><span nz-icon nzType="search"></span></ng-template>
+        <erp-expand-search class="search" [placeholder]="searchPlaceholder()" [label]="searchPlaceholder()" [value]="list().query().search ?? ''" (valueChange)="onSearch($event)" testId="table-search" />
       }
       @if (activeCount() > 0) {
         <button nz-button nzType="link" (click)="clearFilters()" data-testid="table-clear-filters"><span nz-icon nzType="clear"></span>{{ t('table.clearFilters', 'Clear filters') }} ({{ activeCount() }})</button>
         @if (clientFiltered()) { <span class="note" data-testid="table-filter-note">{{ t('table.pageFilterNote', 'Showing') }} {{ rows().length }} / {{ list().items().length }} {{ t('table.onThisPage', 'on this page') }}</span> }
       }
       <span class="spacer"></span>
+      @if (refreshable()) {
+        <button nz-button nzType="default" type="button" (click)="list().reload()" [disabled]="list().loading()" data-testid="table-refresh">
+          <span nz-icon nzType="reload"></span> {{ t('ui.common.refresh', 'Refresh') }}
+        </button>
+      }
       @if (exportable()) {
         <button nz-button nzType="default" (click)="exportCsv()" [disabled]="!hasRows()">
           <span nz-icon nzType="download"></span> {{ t('table.exportCsv', 'Export CSV') }}
@@ -228,6 +231,8 @@ export class PagedTableComponent<T> {
   readonly emptyText = input('Nothing here yet');
   readonly clickable = input(true);
   readonly exportable = input(true);
+  /** Shows a Refresh button in the toolbar that reloads the current page; turn off when the page renders its own. */
+  readonly refreshable = input(true);
   /** Horizontal scroll width for wide tables (e.g. '1400px'); null keeps the table fluid. */
   readonly scrollX = input<string | null>(null);
   readonly exportFilename = input('export');

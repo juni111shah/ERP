@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -9,24 +9,30 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
 import { AttendanceApi, AttendanceRow } from './hr.api';
+import { NzSelectModule } from 'ng-zorro-antd/select';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Monthly attendance: record only the exceptions; employees without a record are paid in full. */
 @Component({
   selector: 'erp-attendance',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, HasPermissionDirective, NzAlertModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzTableModule, NzTagModule],
+  imports: [TranslatePipe, NzSelectModule, TableToolsComponent, FormsModule, HasPermissionDirective, NzAlertModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzTableModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Attendance</h1>
     <div style="display:flex;gap:12px;margin-bottom:12px;align-items:center">
       <nz-date-picker nzMode="month" [(ngModel)]="month" (ngModelChange)="load()" data-testid="att-month"></nz-date-picker>
     </div>
     <nz-alert nzType="info" nzShowIcon nzMessage="Employees without a record for the month are paid in full. Record only exceptions: unpaid absence, paid leave and overtime." style="margin-bottom:12px"></nz-alert>
-    <nz-table [nzData]="rows()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="att-table">
+    <erp-table-tools [(search)]="q" (refresh)="load()" [loading]="loading()" testId="att">
+      <nz-select [ngModel]="recorded()" (ngModelChange)="recorded.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterStatus' | translate: 'Filter by status'" style="width:170px" data-testid="att-recorded-filter"><nz-option nzValue="recorded" [nzLabel]="'ui.hr.recorded' | translate: 'Recorded'"></nz-option><nz-option nzValue="full" [nzLabel]="'ui.hr.fullAttendance' | translate: 'Full attendance'"></nz-option></nz-select>
+    </erp-table-tools>
+    <nz-table [nzData]="shown()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="att-table">
       <thead><tr><th>Employee</th><th>Recorded</th><th>Working days</th><th>Present</th><th>Unpaid absence</th><th>Paid leave</th><th>Overtime hrs</th><th></th></tr></thead>
       <tbody>
-        @for (r of rows(); track r.employeeId) {
+        @for (r of shown(); track r.employeeId) {
           <tr [attr.data-testid]="'att-row-' + r.employeeNumber">
             <td>{{ r.employeeName }}<div style="font-size:12px;color:var(--erp-color-text-secondary)">{{ r.employeeNumber }} · {{ r.designation }}</div></td>
             <td><nz-tag [nzColor]="r.recorded ? 'blue' : 'green'">{{ r.recorded ? 'Recorded' : 'Full attendance' }}</nz-tag></td>
@@ -49,6 +55,10 @@ export class AttendancePage {
   private readonly message = inject(NzMessageService);
   month: Date = new Date();
   readonly rows = signal<AttendanceRow[]>([]);
+  readonly q = signal('');
+  readonly recorded = signal<'recorded' | 'full' | null>(null);
+  /** Client-side filter: GET /hr/attendance only takes the month (the picker above). */
+  readonly shown = computed(() => this.rows().filter((r) => matchText(this.q(), r.employeeName, r.employeeNumber, r.designation) && (!this.recorded() || r.recorded === (this.recorded() === 'recorded'))));
   readonly loading = signal(false);
   readonly dirty = signal<ReadonlySet<string>>(new Set());
 
