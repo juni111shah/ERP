@@ -24,6 +24,7 @@ public static class CoreEndpoints
         api.MapDashboard();
         api.MapCustomFields();
         api.MapWorkflow();
+        api.MapImports();
         api.MapPortal();
     }
 }

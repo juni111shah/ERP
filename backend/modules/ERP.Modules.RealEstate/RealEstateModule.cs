@@ -149,6 +149,8 @@ public sealed class RealEstateModule : ModuleBase
         services.AddScoped<ERP.Application.Search.ISearchProvider, RealEstateSearch>();
         services.AddScoped<ERP.Application.Finance.ICashForecastSource, FinancingForecastSource>();
         services.AddScoped<ERP.Application.Abstractions.IScheduledJob, LeaseExpiryJob>();
+        services.AddScoped<ERP.Application.Imports.IImportDefinition, PropertyImport>();
+        services.AddScoped<ERP.Application.Imports.IImportDefinition, UnitImport>();
         services.AddScoped<PmGenerator>();
         services.AddScoped<ERP.Application.Abstractions.IScheduledJob, PmJob>();
     }
