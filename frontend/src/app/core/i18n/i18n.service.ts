@@ -2,6 +2,7 @@ import { Injectable, computed, effect, inject } from '@angular/core';
 import { NzI18nService, ar_EG, en_US } from 'ng-zorro-antd/i18n';
 import { TenantThemeService } from '../../../theme/tenant-theme.service';
 import { DICTIONARIES, Lang } from './dictionaries';
+import { DomTranslator } from './dom-translator';
 
 /**
  * UI language. The language itself (persisted in localStorage, with try/catch) and the resulting `<html lang dir>` belong to
@@ -18,8 +19,17 @@ export class I18nService {
   /** BCP-47 locale for number/date formatting. */
   readonly locale = computed(() => (this.lang() === 'ar' ? 'ar-AE' : 'en-US'));
 
+  private readonly dom = new DomTranslator();
+
   constructor() {
     effect(() => this.nz?.setLocale(this.lang() === 'ar' ? ar_EG : en_US));
+    // Arabic: translate the English UI text still present in templates, columns, labels and reports (see phrases.ar.ts).
+    effect(() => {
+      const arabic = this.lang() === 'ar';
+      if (typeof document === 'undefined') return;
+      if (arabic) setTimeout(() => this.dom.start(document.body));
+      else this.dom.stop(true);
+    });
   }
 
   t(key: string, fallback?: string): string { return DICTIONARIES[this.lang()][key] ?? fallback ?? key; }
