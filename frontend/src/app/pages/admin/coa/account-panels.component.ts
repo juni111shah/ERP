@@ -11,6 +11,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HasPermissionDirective } from '../../../shared/has-permission.directive';
 import { ExpandSearchComponent } from '../../../shared/expand-search.component';
 import { RevealDirective } from '../../../shared/reveal.directive';
+import { AccountDetailDrawerComponent } from './account-detail-drawer.component';
 import { AccountTreeStore, CoaCrumb, CoaPanel } from './account-tree.store';
 
 export interface CoaCreateRequest { type: string; parent: AccountNodeDto | null; /** reporting group a new account in a sub-category starts with */ reportingGroup?: string | null; }
@@ -28,14 +29,14 @@ const SUB_LABELS: Record<string, string> = {
 /**
  * Step-by-step chart of accounts (Miller columns). Column 1 lists the account categories; choosing one opens column 2 with
  * that category's sub-categories (Current assets, Non-current assets, …); choosing one opens column 3 with its primary
- * accounts; choosing an account with sub-accounts opens its children, and so on. A leaf account opens
- * its details. Every column is fetched only when it opens (see AccountTreeStore), one path is open at a time.
+ * accounts; choosing an account with sub-accounts opens its children, and so on. A leaf account is selected in place and
+ * its details open in a side drawer (closing it keeps the columns). Every column is fetched only when it opens (see AccountTreeStore), one path is open at a time.
  */
 @Component({
   selector: 'erp-account-panels',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, NzButtonModule, NzIconModule, NzPopconfirmModule, TranslatePipe, HasPermissionDirective, RevealDirective, ExpandSearchComponent],
+  imports: [NgTemplateOutlet, NzButtonModule, NzIconModule, NzPopconfirmModule, TranslatePipe, HasPermissionDirective, RevealDirective, ExpandSearchComponent, AccountDetailDrawerComponent],
   template: `
     <nav class="coa-crumbs" [attr.aria-label]="'coa.breadcrumb' | translate: 'Account path'" data-testid="coa-breadcrumb">
       @for (c of store.crumbs(); track $index; let last = $last) {
@@ -56,7 +57,7 @@ const SUB_LABELS: Record<string, string> = {
               @if (p.kind === 'categories') { <span nz-icon nzType="partition"></span> }
               @else if (p.sub) { <span nz-icon nzType="folder-open"></span> }
               @else if (p.type) { <span nz-icon [nzType]="typeIcon(p.type)"></span> }
-              @else { <span nz-icon [nzType]="p.kind === 'detail' ? 'file-text' : 'folder-open'"></span> }
+              @else { <span nz-icon nzType="folder-open"></span> }
               <span class="coa-title-text">{{ panelTitle(p) }}</span>
               @if (p.kind === 'accounts' && !p.loading) { <span class="coa-count" data-testid="coa-count">{{ p.total }}</span> }
             </div>
@@ -77,13 +78,11 @@ const SUB_LABELS: Record<string, string> = {
             </div>
           }
 
-          @if (p.kind !== 'detail') {
-            <div class="coa-search">
-              <erp-expand-search size="small" width="100%" [value]="p.search" (valueChange)="onSearch(p.key, $event)" [testId]="'coa-search-' + i"
-                                 [placeholder]="searchKey(p) | translate: searchFallback(p)"
-                                 [label]="searchKey(p) | translate: searchFallback(p)" />
-            </div>
-          }
+          <div class="coa-search">
+            <erp-expand-search size="small" width="100%" [value]="p.search" (valueChange)="onSearch(p.key, $event)" [testId]="'coa-search-' + i"
+                               [placeholder]="searchKey(p) | translate: searchFallback(p)"
+                               [label]="searchKey(p) | translate: searchFallback(p)" />
+          </div>
 
           <div class="coa-panel-body">
             @if (p.loading) {
@@ -136,7 +135,7 @@ const SUB_LABELS: Record<string, string> = {
                 @for (a of p.items; track a.id) {
                   <li>
                     <button type="button" class="coa-item" [class.is-selected]="p.selected === a.id" [class.is-inactive]="!a.isActive" [attr.aria-current]="p.selected === a.id ? 'true' : null"
-                            (click)="store.selectAccount(i, a)" (dblclick)="edit.emit(a)" [attr.data-testid]="'coa-acct-' + a.code">
+                            (click)="store.selectAccount(i, a)" (dblclick)="onEdit(a)" [attr.data-testid]="'coa-acct-' + a.code">
                       <span class="coa-code">{{ a.code }}</span>
                       <span class="coa-item-main">
                         <span class="coa-item-name">@if (a.hasChildren) { <span class="coa-group-icon" nz-icon nzType="folder-open" [attr.aria-label]="'coa.tag.group' | translate: 'Group'"></span> }{{ a.name }}</span>
@@ -157,27 +156,14 @@ const SUB_LABELS: Record<string, string> = {
                   </button>
                 </div>
               }
-            } @else if (p.parent) {
-              <div class="coa-detail" data-testid="coa-detail">
-                <div class="coa-detail-name"><span class="coa-code">{{ p.parent.code }}</span> {{ p.parent.name }}</div>
-                <ng-container *ngTemplateOutlet="tags; context: { $implicit: p.parent }" />
-                <dl>
-                  <dt>{{ 'coa.f.type' | translate: 'Type' }}</dt><dd>{{ typeLabel(p.parent.type) }}</dd>
-                  @if (p.parent.reportingGroup) { <dt>{{ 'coa.f.reportingGroup' | translate: 'Reporting group' }}</dt><dd>{{ p.parent.reportingGroup }}</dd> }
-                  <dt>{{ 'coa.f.postable' | translate: 'Postable' }}</dt><dd>{{ yesNo(p.parent.isPostable) }}</dd>
-                  <dt>{{ 'coa.f.bank' | translate: 'Bank / cash' }}</dt><dd>{{ yesNo(p.parent.isBank) }}</dd>
-                  @if (p.parent.currencyCode) { <dt>{{ 'coa.f.currency' | translate: 'Currency' }}</dt><dd>{{ p.parent.currencyCode }}</dd> }
-                  @if (p.parent.systemRole) { <dt>{{ 'coa.f.systemRole' | translate: 'System role' }}</dt><dd>{{ p.parent.systemRole }}</dd> }
-                  <dt>{{ 'coa.f.active' | translate: 'Active' }}</dt><dd>{{ yesNo(p.parent.isActive) }}</dd>
-                  @if (p.parent.balance != null) { <dt>{{ 'coa.f.balance' | translate: 'Balance' }}</dt><dd class="coa-balance" [class.is-negative]="p.parent.balance < 0">{{ money(p.parent.balance) }}</dd> }
-                </dl>
-                <ng-container *ngTemplateOutlet="actions; context: { $implicit: p.parent, index: i, withSub: true }" />
-              </div>
             }
           </div>
         </section>
       }
     </div>
+
+    <erp-account-detail-drawer [account]="store.detail()" [subcategory]="detailSubcategory()" [typeLabel]="typeLabelFn"
+                               (closed)="store.closeDetail()" (edit)="onEdit($event)" (addSub)="addSubFromDetail($event)" (toggleActive)="toggleActive($event)" />
 
     <ng-template #tags let-a>
       <span class="coa-tags">
@@ -190,7 +176,7 @@ const SUB_LABELS: Record<string, string> = {
 
     <ng-template #actions let-a let-index="index" let-withSub="withSub">
       <div class="coa-actions" erpReveal *erpHasPermission="'finance.accounts.write'">
-        <button nz-button nzSize="small" (click)="edit.emit(a)" data-testid="coa-edit"
+        <button nz-button nzSize="small" (click)="onEdit(a)" data-testid="coa-edit"
                 [attr.aria-label]="'common.edit' | translate: 'Edit'" [title]="'common.edit' | translate: 'Edit'"><span nz-icon nzType="edit"></span>{{ 'common.edit' | translate: 'Edit' }}</button>
         @if (withSub) {
           <button nz-button nzSize="small" (click)="create.emit({ type: a.type, parent: a })" data-testid="coa-add-sub"
@@ -233,7 +219,7 @@ const SUB_LABELS: Record<string, string> = {
     .coa-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .coa-count { font-weight: 500; font-size: 12px; color: var(--erp-color-text-secondary); background: var(--erp-color-bg-sunken); border-radius: 10px; padding: 0 8px; }
     .coa-owner { padding: 10px 12px; border-bottom: 1px solid var(--erp-color-border-subtle); background: var(--erp-color-bg-sunken); display: grid; gap: 6px; }
-    .coa-owner-name, .coa-detail-name { font-weight: 600; }
+    .coa-owner-name { font-weight: 600; }
     .coa-search { padding: 8px 12px; }
     .coa-panel-body { flex: 1; overflow-y: auto; min-height: 0; }
 
@@ -265,10 +251,6 @@ const SUB_LABELS: Record<string, string> = {
     .coa-actions { display: flex; flex-wrap: wrap; gap: 6px; }
     .coa-more { padding: 8px 12px; }
     .coa-empty { padding: 24px 12px; text-align: center; color: var(--erp-color-text-secondary); list-style: none; }
-    .coa-detail { padding: 12px; display: grid; gap: 10px; }
-    .coa-detail dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
-    .coa-detail dt { color: var(--erp-color-text-secondary); }
-    .coa-detail dd { margin: 0; }
 
     .coa-skeleton { padding: 8px 12px; display: grid; gap: 14px; }
     .coa-skel-row { display: flex; gap: 10px; align-items: center; }
@@ -301,7 +283,7 @@ export class AccountPanelsComponent {
 
   constructor() {
     this.store.init();
-    inject(DestroyRef).onDestroy(() => this.timers.forEach((t) => clearTimeout(t)));
+    inject(DestroyRef).onDestroy(() => { this.timers.forEach((t) => clearTimeout(t)); this.store.closeDetail(); });
     // Bring the newest column into view when one opens (horizontal scroll on narrow screens, vertical when stacked).
     let count = 0;
     effect(() => {
@@ -309,6 +291,28 @@ export class AccountPanelsComponent {
       if (n > count && count > 0) untracked(() => afterNextRender(() => this.revealLast(), { injector: this.injector }));
       count = n;
     });
+  }
+
+  /** Translated sub-category of the account in the details drawer (its own key, or the sub-category column it was opened from). */
+  readonly detailSubcategory = computed(() => {
+    const d = this.store.detail();
+    if (!d) return null;
+    const key = d.subcategory ?? this.store.panels().find((p) => p.sub && p.type === d.type)?.sub?.key;
+    if (!key) return null;
+    const name = this.store.panels().find((p) => p.sub?.key === key && p.type === d.type)?.sub?.name;
+    return this.subLabel(d.type, key, name);
+  });
+  readonly typeLabelFn = (type: string): string => this.typeLabel(type);
+
+  /** Edit from a row, the owner card or the details drawer; the drawer gives way to the form and returns if it is cancelled. */
+  onEdit(a: AccountNodeDto): void {
+    if (this.store.detail()?.id === a.id) this.store.suspendDetail();
+    this.edit.emit(a);
+  }
+
+  addSubFromDetail(a: AccountNodeDto): void {
+    this.store.suspendDetail();
+    this.create.emit({ type: a.type, parent: a });
   }
 
   panelTitle(p: CoaPanel): string {
