@@ -12,7 +12,8 @@ export class HasPermissionDirective {
 
   constructor() {
     effect(() => {
-      const allowed = this.session.hasPermission(this.erpHasPermission());
+      const permission = this.erpHasPermission();
+      const allowed = !permission || this.session.hasPermission(permission);
       if (allowed && !this.shown) { this.vcr.createEmbeddedView(this.tpl); this.shown = true; }
       else if (!allowed && this.shown) { this.vcr.clear(); this.shown = false; }
     });

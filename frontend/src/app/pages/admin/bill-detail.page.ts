@@ -164,15 +164,15 @@ export class BillDetailPage implements OnInit {
         label: 'Make Payment',
         icon: 'dollar',
         type: 'primary',
-        permission: 'core.payments.create',
-        visible: bil.status === 'approved' || bil.status === 'partial',
+        permission: 'finance.payments.write',
+        visible: bil.status === 'approved' || bil.status === 'partlyPaid',
         handler: () => this.message.info('Make payment functionality will be implemented')
       },
       {
         label: 'Void',
         icon: 'stop',
         danger: true,
-        permission: 'core.bills.edit',
+        permission: 'finance.bills.write',
         visible: bil.status !== 'voided' && bil.status !== 'paid',
         handler: () => this.voidBill()
       },

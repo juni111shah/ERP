@@ -181,7 +181,7 @@ export class PartyDetailPage implements OnInit {
       {
         label: 'Edit',
         icon: 'edit',
-        permission: 'core.parties.edit',
+        permission: 'core.parties.write',
         handler: () => this.message.info('Edit functionality will be implemented')
       }
     ];
@@ -191,7 +191,7 @@ export class PartyDetailPage implements OnInit {
         label: 'New Invoice',
         icon: 'file-add',
         type: 'primary',
-        permission: 'core.invoices.create',
+        permission: 'finance.invoices.write',
         handler: () => this.router.navigate(['/finance/invoices'], { queryParams: { partyId: p.id } })
       });
       acts.push({
@@ -206,7 +206,7 @@ export class PartyDetailPage implements OnInit {
         label: 'New Bill',
         icon: 'file-add',
         type: 'primary',
-        permission: 'core.bills.create',
+        permission: 'finance.bills.write',
         handler: () => this.router.navigate(['/finance/bills'], { queryParams: { partyId: p.id } })
       });
     }

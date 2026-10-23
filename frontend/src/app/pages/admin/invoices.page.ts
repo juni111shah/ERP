@@ -76,6 +76,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid' };
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (invoice(); as inv) {
+        @if (inv.id) { <button nz-button (click)="printInvoice(inv.id)" style="margin-inline-start:8px" data-testid="inv-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
         @if (inv.status === 'issued' && inv.paid === 0) { <button *erpHasPermission="'finance.invoices.issue'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="inv-void">Void</button> }
         @if (inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid')) { <button *erpHasPermission="'finance.invoices.issue'" nz-button (click)="applyOpen.set(true)" style="margin-inline-start:8px" data-testid="inv-apply">Apply to invoice</button> }
       }
@@ -155,6 +156,8 @@ export class InvoicesPage {
     const keep = current.filter((c) => c.value === this.form.value.partyId && !fresh.some((f) => f.value === c.value));
     return [...keep, ...fresh];
   }
+
+  printInvoice(id: string): void { window.open(`/print/invoice/${id}`, '_blank'); }
 
   open(row: InvoiceSummary | null): void {
     if (!row) { this.show(null); return; }

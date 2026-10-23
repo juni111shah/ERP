@@ -165,29 +165,29 @@ export class InvoiceDetailPage implements OnInit {
         label: 'Record Payment',
         icon: 'dollar',
         type: 'primary',
-        permission: 'core.receipts.create',
-        visible: inv.status === 'issued' || inv.status === 'partial',
+        permission: 'finance.receipts.write',
+        visible: inv.status === 'issued' || inv.status === 'partlyPaid',
         handler: () => this.recordPayment()
       },
       {
         label: 'Credit Note',
         icon: 'file-add',
-        permission: 'core.invoices.create',
-        visible: !inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partial' || inv.status === 'paid'),
+        permission: 'finance.invoices.write',
+        visible: !inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid' || inv.status === 'paid'),
         handler: () => this.createCreditNote()
       },
       {
         label: 'Void',
         icon: 'stop',
         danger: true,
-        permission: 'core.invoices.edit',
+        permission: 'finance.invoices.write',
         visible: inv.status !== 'voided' && inv.status !== 'paid',
         handler: () => this.voidInvoice()
       },
       {
         label: 'Duplicate',
         icon: 'copy',
-        permission: 'core.invoices.create',
+        permission: 'finance.invoices.write',
         handler: () => this.duplicate()
       },
       {
