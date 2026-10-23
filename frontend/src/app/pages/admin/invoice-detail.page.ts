@@ -272,9 +272,9 @@ export class InvoiceDetailPage implements OnInit {
       return;
     }
 
-    this.http.get<any>(`${this.apiBase}/invoices/${id}`).subscribe({
+    this.http.get<any>(`${this.apiBase}/finance/invoices/${id}`).subscribe({
       next: (response) => {
-        this.invoice.set(response.data);
+        this.invoice.set(response);
         this.loading.set(false);
       },
       error: (err) => {

@@ -158,9 +158,9 @@ export class PaymentDetailPage implements OnInit {
       return;
     }
 
-    this.http.get<any>(`${this.apiBase}/payments/${id}`).subscribe({
+    this.http.get<any>(`${this.apiBase}/finance/payments/${id}`).subscribe({
       next: (response) => {
-        this.payment.set(response.data);
+        this.payment.set(response);
         this.loading.set(false);
       },
       error: (err) => {

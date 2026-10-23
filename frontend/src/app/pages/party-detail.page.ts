@@ -296,7 +296,7 @@ export class PartyDetailPage implements OnInit {
 
     this.http.get<any>(`${this.apiBase}/parties/${id}`).subscribe({
       next: (response) => {
-        this.party.set(response.data);
+        this.party.set(response);
         this.loading.set(false);
         this.loadTransactions(id);
       },
@@ -312,24 +312,24 @@ export class PartyDetailPage implements OnInit {
     
     const endpoints: string[] = [];
     if (this.isCustomer()) {
-      endpoints.push(`${this.apiBase}/invoices?partyId=${partyId}&pageSize=10`);
-      endpoints.push(`${this.apiBase}/receipts?partyId=${partyId}&pageSize=10`);
+      endpoints.push(`${this.apiBase}/finance/invoices?filter=partyId:eq:${partyId}&pageSize=10`);
+      endpoints.push(`${this.apiBase}/finance/receipts?filter=partyId:eq:${partyId}&pageSize=10`);
     }
     if (this.isVendor()) {
-      endpoints.push(`${this.apiBase}/bills?partyId=${partyId}&pageSize=10`);
-      endpoints.push(`${this.apiBase}/payments?partyId=${partyId}&pageSize=10`);
+      endpoints.push(`${this.apiBase}/finance/bills?filter=partyId:eq:${partyId}&pageSize=10`);
+      endpoints.push(`${this.apiBase}/finance/payments?filter=partyId:eq:${partyId}&pageSize=10`);
     }
 
     Promise.all(endpoints.map(url => this.http.get<any>(url).toPromise()))
       .then(responses => {
         const allTx: Transaction[] = [];
         responses.forEach((res, idx) => {
-          if (res?.data?.items) {
+          if (res?.items) {
             const type = endpoints[idx].includes('invoices') ? 'Invoice' :
                         endpoints[idx].includes('receipts') ? 'Receipt' :
                         endpoints[idx].includes('bills') ? 'Bill' : 'Payment';
             
-            res.data.items.forEach((item: any) => {
+            res.items.forEach((item: any) => {
               allTx.push({
                 id: item.id,
                 type,

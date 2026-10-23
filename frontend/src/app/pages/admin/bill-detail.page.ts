@@ -249,9 +249,9 @@ export class BillDetailPage implements OnInit {
       return;
     }
 
-    this.http.get<any>(`${this.apiBase}/bills/${id}`).subscribe({
+    this.http.get<any>(`${this.apiBase}/finance/bills/${id}`).subscribe({
       next: (response) => {
-        this.bill.set(response.data);
+        this.bill.set(response);
         this.loading.set(false);
       },
       error: (err) => {

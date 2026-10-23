@@ -162,9 +162,9 @@ export class ReceiptDetailPage implements OnInit {
       return;
     }
 
-    this.http.get<any>(`${this.apiBase}/receipts/${id}`).subscribe({
+    this.http.get<any>(`${this.apiBase}/finance/receipts/${id}`).subscribe({
       next: (response) => {
-        this.receipt.set(response.data);
+        this.receipt.set(response);
         this.loading.set(false);
       },
       error: (err) => {

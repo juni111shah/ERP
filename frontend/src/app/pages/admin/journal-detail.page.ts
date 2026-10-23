@@ -193,9 +193,9 @@ export class JournalDetailPage implements OnInit {
       return;
     }
 
-    this.http.get<any>(`${this.apiBase}/journals/${id}`).subscribe({
+    this.http.get<any>(`${this.apiBase}/finance/journals/${id}`).subscribe({
       next: (response) => {
-        this.journal.set(response.data);
+        this.journal.set(response);
         this.loading.set(false);
       },
       error: (err) => {
