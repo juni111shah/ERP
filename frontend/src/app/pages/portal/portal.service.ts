@@ -9,6 +9,11 @@ export interface PortalStatement { asOf: string; items: { number: string; isCred
 export interface PortalLease { id: string; number?: string; property: string; unit: string; startDate: string; endDate: string; annualRent: number; currencyCode: string; status: string; paymentFrequency: number; securityDeposit: number; schedule: { sequence: number; dueDate: string; amount: number; state: string }[]; }
 export interface PortalRequest { id: string; number?: string; leaseId?: string; issue: string; category?: string; priority: string; status: string; reportedOn: string; scheduledFor?: string; completedOn?: string; }
 
+export interface VendorBill { id: string; number: string; vendorReference?: string; billDate: string; dueDate: string; currencyCode: string; total: number; paid: number; outstanding: number; status: string; }
+export interface VendorPayment { id: string; number: string; date: string; method: string; currencyCode: string; amount: number; reference?: string; }
+export interface VendorStatement { asOf: string; items: { number: string; billDate: string; dueDate: string; daysOverdue: number; outstanding: number }[]; balance: number; }
+export interface VendorWorkOrder { id: string; number?: string; issue: string; category?: string; priority: string; status: string; reportedOn: string; scheduledFor?: string; completedOn?: string; estimatedCost: number; actualCost?: number; resolutionNotes?: string; }
+
 const KEY = 'erp.portal.session';
 
 /** Tenant-portal session and API client. The portal token lives in sessionStorage only and is sent explicitly (it never touches the staff session). */
@@ -16,25 +21,35 @@ const KEY = 'erp.portal.session';
 export class PortalService {
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
-  private readonly session = signal<{ token: string; name: string } | null>(this.load());
+  private readonly session = signal<{ token: string; name: string; kind?: string } | null>(this.load());
   readonly signedIn = computed(() => !!this.session());
   readonly name = computed(() => this.session()?.name ?? '');
+  readonly kind = computed(() => this.session()?.kind ?? 'customer');
 
-  private load(): { token: string; name: string } | null {
+  private load(): { token: string; name: string; kind?: string } | null {
     try { return JSON.parse(sessionStorage.getItem(KEY) ?? 'null'); } catch { return null; }
   }
 
   private headers(): HttpHeaders { return new HttpHeaders({ Authorization: `Bearer ${this.session()?.token ?? ''}` }); }
   private get<T>(path: string): Observable<T> { return this.http.get<T>(`${this.base}${path}`, { headers: this.headers() }); }
 
-  requestCode(workspace: string, email: string): Observable<unknown> { return this.http.post(`${this.base}/portal/auth/request-code`, { workspace, email }); }
+  requestCode(workspace: string, email: string, kind?: string): Observable<unknown> { return this.http.post(`${this.base}/portal/auth/request-code`, { workspace, email, kind }); }
 
-  verify(workspace: string, email: string, code: string): Observable<unknown> {
-    return this.http.post<{ accessToken: string; partyName: string }>(`${this.base}/portal/auth/verify`, { workspace, email, code }).pipe(tap((r) => {
-      const value = { token: r.accessToken, name: r.partyName };
+  verify(workspace: string, email: string, code: string, kind?: string): Observable<{ kind: string }> {
+    return this.http.post<{ accessToken: string; partyName: string; kind: string }>(`${this.base}/portal/auth/verify`, { workspace, email, code, kind }).pipe(tap((r) => {
+      const value = { token: r.accessToken, name: r.partyName, kind: r.kind };
       try { sessionStorage.setItem(KEY, JSON.stringify(value)); } catch { /* private mode: keep it in memory only */ }
       this.session.set(value);
     }));
+  }
+
+  // ---- vendor ----
+  vendorBills(): Observable<VendorBill[]> { return this.get('/portal/vendor/bills'); }
+  vendorPayments(): Observable<VendorPayment[]> { return this.get('/portal/vendor/payments'); }
+  vendorStatement(): Observable<VendorStatement> { return this.get('/portal/vendor/statement'); }
+  vendorWorkOrders(): Observable<VendorWorkOrder[]> { return this.get('/m/realestate/portal/vendor/work-orders'); }
+  updateWorkOrder(id: string, body: { status: string; actualCost?: number | null; notes?: string | null }): Observable<VendorWorkOrder> {
+    return this.http.post<VendorWorkOrder>(`${this.base}/m/realestate/portal/vendor/work-orders/${id}/update`, body, { headers: this.headers() });
   }
 
   signOut(): void { try { sessionStorage.removeItem(KEY); } catch { /* ignore */ } this.session.set(null); }

@@ -17,6 +17,7 @@ export const routes: Routes = [
     path: 'portal',
     children: [
       { path: 'login', loadComponent: () => import('./pages/portal/portal-login.page').then((m) => m.PortalLoginPage) },
+      { path: 'vendor', loadComponent: () => import('./pages/portal/vendor-home.page').then((m) => m.VendorHomePage) },
       { path: '', pathMatch: 'full', loadComponent: () => import('./pages/portal/portal-home.page').then((m) => m.PortalHomePage) },
     ],
   },

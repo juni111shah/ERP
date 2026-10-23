@@ -78,7 +78,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 });
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
-builder.Services.AddAuthorization(o => o.AddPolicy("portal", p => p.RequireAuthenticatedUser().RequireClaim("portal_party")));
+builder.Services.AddAuthorization(o =>
+{
+    o.AddPolicy("portal", p => p.RequireAuthenticatedUser().RequireClaim("portal_party"));
+    o.AddPolicy("portal.customer", p => p.RequireAuthenticatedUser().RequireClaim("portal_party").RequireClaim("portal_kind", "customer"));
+    o.AddPolicy("portal.vendor", p => p.RequireAuthenticatedUser().RequireClaim("portal_party").RequireClaim("portal_kind", "vendor"));
+});
 
 builder.Services.AddRateLimiter(o =>
 {
