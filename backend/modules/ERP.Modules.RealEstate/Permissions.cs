@@ -39,6 +39,8 @@ public static class P
     public const string PmManage = "realestate.pm.manage";
     public const string InspectionsRead = "realestate.inspections.read";
     public const string InspectionsManage = "realestate.inspections.manage";
+    public const string CrmRead = "realestate.crm.read";
+    public const string CrmManage = "realestate.crm.manage";
     public const string SettingsWrite = "realestate.settings.write";
 }
 

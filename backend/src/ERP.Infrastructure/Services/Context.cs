@@ -31,6 +31,7 @@ public sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentUse
 
     public IReadOnlySet<string> Permissions => _perms ??= Principal?.FindAll(ErpClaims.Permission).Select(c => c.Value).ToHashSet(StringComparer.Ordinal) ?? [];
     public Guid? PortalPartyId => Guid.TryParse(Principal?.FindFirstValue("portal_party"), out var id) ? id : null;
+    public string? PortalKind => Principal?.FindFirstValue("portal_kind");
     public string? IpAddress => accessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
     public bool HasPermission(string permission) => Permissions.Contains(permission) || Permissions.Contains(CorePermissions.All);
 }

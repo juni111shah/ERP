@@ -37,7 +37,7 @@ internal sealed class PortalHandlers(ICurrentUser user, IReadRepository<Lease> l
     IRequestHandler<ListPortalRequests, IReadOnlyList<PortalRequestDto>>,
     IRequestHandler<CreatePortalRequest, PortalRequestDto>
 {
-    private Guid Me => user.PortalPartyId ?? throw new ForbiddenException();
+    private Guid Me => user.PortalKind == "customer" && user.PortalPartyId is { } id ? id : throw new ForbiddenException();
     private DateOnly Today => DateOnly.FromDateTime(clock.UtcNow);
 
     public async Task<IReadOnlyList<PortalLeaseDto>> Handle(GetPortalLeases q, CancellationToken ct)

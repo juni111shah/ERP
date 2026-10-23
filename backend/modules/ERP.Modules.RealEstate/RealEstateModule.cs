@@ -63,6 +63,8 @@ public sealed class RealEstateModule : ModuleBase
         PermissionDefinition.Of(P.PmManage, "Manage preventive maintenance schedules and run them"),
         PermissionDefinition.Of(P.InspectionsRead, "View inspections"),
         PermissionDefinition.Of(P.InspectionsManage, "Create, edit and complete inspections"),
+        PermissionDefinition.Of(P.CrmRead, "View listings and leads"),
+        PermissionDefinition.Of(P.CrmManage, "Create and edit listings and leads, move and convert leads"),
         PermissionDefinition.Of(P.SettingsWrite, "Change real estate settings"),
     ];
 
@@ -78,6 +80,8 @@ public sealed class RealEstateModule : ModuleBase
         new("realestate.renewals", "Lease renewals", "/real-estate/renewals", "file-text", P.LeasesRenew, 38, "realestate", "Real estate", 200),
         new("realestate.pm", "Preventive maintenance", "/real-estate/preventive-maintenance", "tool", P.PmRead, 45, "realestate", "Real estate", 200),
         new("realestate.inspections", "Inspections", "/real-estate/inspections", "safety", P.InspectionsRead, 46, "realestate", "Real estate", 200),
+        new("realestate.listings", "Listings", "/real-estate/listings", "shopping", P.CrmRead, 48, "realestate", "Real estate", 200),
+        new("realestate.leads", "Leads", "/real-estate/leads", "team", P.CrmRead, 49, "realestate", "Real estate", 200),
         new("realestate.deals", "Deals", "/real-estate/deals", "fund", P.DealsRead, 50, "realestate", "Real estate", 200),
     ];
 
@@ -117,7 +121,7 @@ public sealed class RealEstateModule : ModuleBase
             [
                 new("Leasing manager", "Leases, units and collections",
                     [P.PropertiesRead, P.PropertiesManage, P.UnitTypesRead, P.UnitTypesManage, P.UnitsRead, P.UnitsManage, P.UnitsReserve,
-                     P.LeasesRead, P.LeasesCreate, P.LeasesEdit, P.LeasesActivate, P.LeasesRenew, P.LeasesTerminate, P.WorkOrdersRead, P.WorkOrdersCreate, P.BillingRun, P.DepositsManage, P.InspectionsRead, P.InspectionsManage,
+                     P.LeasesRead, P.LeasesCreate, P.LeasesEdit, P.LeasesActivate, P.LeasesRenew, P.LeasesTerminate, P.WorkOrdersRead, P.WorkOrdersCreate, P.BillingRun, P.DepositsManage, P.InspectionsRead, P.InspectionsManage, P.CrmRead, P.CrmManage,
                      CorePermissions.PartiesRead, CorePermissions.PartiesWrite, CorePermissions.ChequesRead, CorePermissions.ChequesWrite,
                      CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue, CorePermissions.ReceiptsRead, CorePermissions.ReceiptsWrite], Key),
                 new("Investment manager", "Acquisitions, funding and instalments",
@@ -126,7 +130,7 @@ public sealed class RealEstateModule : ModuleBase
                     [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.WorkOrdersRead, P.WorkOrdersCreate, P.WorkOrdersEdit, P.WorkOrdersAssign,
                      P.WorkOrdersComplete, P.WorkOrdersClose, P.WorkOrdersCancel, P.PmRead, P.PmManage, P.InspectionsRead, P.InspectionsManage, CorePermissions.PartiesRead], Key),
                 new("Brokerage manager", "Deals and commissions",
-                    [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.DealsRead, P.DealsCreate, P.DealsEdit, P.DealsLose, P.DealsInvoice, P.DealsPayAgent, CorePermissions.PartiesRead, CorePermissions.PartiesWrite,
+                    [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.DealsRead, P.DealsCreate, P.DealsEdit, P.DealsLose, P.DealsInvoice, P.DealsPayAgent, P.CrmRead, P.CrmManage, CorePermissions.PartiesRead, CorePermissions.PartiesWrite,
                      CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue], Key),
             ],
             Sequences:
@@ -151,6 +155,8 @@ public sealed class RealEstateModule : ModuleBase
         services.AddScoped<ERP.Application.Abstractions.IScheduledJob, LeaseExpiryJob>();
         services.AddScoped<ERP.Application.Imports.IImportDefinition, PropertyImport>();
         services.AddScoped<ERP.Application.Imports.IImportDefinition, UnitImport>();
+        services.AddScoped<ERP.Application.Reminders.IReminderSource, CrmReminders>();
+        services.AddScoped<ERP.Application.Search.ISearchProvider, CrmSearch>();
         services.AddScoped<PmGenerator>();
         services.AddScoped<ERP.Application.Abstractions.IScheduledJob, PmJob>();
     }
