@@ -33,7 +33,7 @@ import { Observable } from 'rxjs';
         @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
       </ng-template>
     </erp-paged-table>
-    <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Inspection' : 'New inspection'" nzWidth="760" (nzOnClose)="drawer.set(false)">
+    <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Inspection' : 'New inspection'" nzWidth="760" (nzOnClose)="drawer.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <nz-select nzPlaceHolder="Property" nzShowSearch nzServerSearch [(ngModel)]="propertyId" (nzOnSearch)="searchProperty($event)" [nzDisabled]="locked()" data-testid="insp-property">@for (o of propertyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select>
@@ -55,7 +55,9 @@ import { Observable } from 'rxjs';
         @if (!locked()) { <button nz-button nzSize="small" (click)="addItem()" data-testid="insp-add-item"><span nz-icon nzType="plus"></span>Add area</button> }
         @if (damage() > 0) { <p style="margin-top:12px" data-testid="insp-damage"><b>Estimated damage cost: {{ damage() }}</b></p> }
       </ng-container>
-      <div *nzDrawerFooter style="display:flex;gap:8px;align-items:center">
+    </nz-drawer>
+    <ng-template #footer>
+      <div style="display:flex;gap:8px;align-items:center">
         @if (!locked()) {
           <label nz-checkbox [(ngModel)]="raise">Raise repair work orders on completion</label>
           <span style="flex:1"></span>
@@ -63,7 +65,7 @@ import { Observable } from 'rxjs';
           @if (id()) { <button *erpHasPermission="'realestate.inspections.manage'" nz-button nzType="primary" (click)="complete()" data-testid="insp-complete">Complete</button> }
         }
       </div>
-    </nz-drawer>`,
+    </ng-template>`,
 })
 export class InspectionsPage {
   private readonly api = inject(InspectionsApi);

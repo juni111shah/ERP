@@ -18,10 +18,8 @@ import { PRIORITIES, PmScheduleDto, PmSchedulesApi, RealEstateLookups, humanize 
   template: `
     <h1 class="erp-page-title">Preventive maintenance</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search schedules" emptyText="No schedules yet" (rowClick)="state.edit($event)">
-      <ng-container *erpHasPermission="'realestate.pm.manage'">
-        <button toolbar nz-button (click)="run()" data-testid="pm-run">Run now</button>
-        <button toolbar nz-button nzType="primary" (click)="state.create()" data-testid="pm-new"><span nz-icon nzType="plus"></span>New schedule</button>
-      </ng-container>
+      <button toolbar *erpHasPermission="'realestate.pm.manage'" nz-button (click)="run()" data-testid="pm-run">Run now</button>
+      <button toolbar *erpHasPermission="'realestate.pm.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="pm-new"><span nz-icon nzType="plus"></span>New schedule</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit schedule' : 'New schedule'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
                        [saving]="state.saving()" [errors]="state.errors()" testId="pm-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
