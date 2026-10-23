@@ -20,3 +20,5 @@ See [AGENTS.md](AGENTS.md) for coding rules and [docs/CONTRIBUTING.md](docs/CONT
 ```
 
 Open http://localhost:4200 and sign in with `admin@demo.local` / `DevOnly#2026` (general workspace) or `owner@demo.local` / `DevOnly#2026` (choose workspace `demo-re` for Real Estate). Tenant portal: http://localhost:4200/portal/login. Requires the .NET 8 SDK and Node 20+.
+
+**"SqlException: network-related or instance-specific error"?** The plain `dotnet run` / Visual Studio default targets SQL Server, which you may not have. Use `./run-dev.sh`, or pick the launch profile **"ERP.Api (SQLite - no SQL Server needed)"** (Visual Studio dropdown) / run `dotnet run --launch-profile "ERP.Api (SQLite - no SQL Server needed)"` from `backend/src/ERP.Api`. Then start the web app with `cd frontend && npx ng serve --proxy-config proxy.conf.json`.
