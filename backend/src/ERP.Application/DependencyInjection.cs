@@ -4,6 +4,7 @@ using ERP.Application.Workflow;
 using ERP.Application.Settings;
 using ERP.Application.Customization;
 using ERP.Application.Abstractions;
+using ERP.Application.Common.Services;
 using MediatR;
 using ERP.Application.Common;
 using ERP.Application.Behaviors;
@@ -27,6 +28,7 @@ public static class DependencyInjection
         services.AddTransient(typeof(IRequestHandler<,>), typeof(ListRequestHandler<,>));
         services.AddScoped<ICustomFieldService, CustomFieldService>();
         services.AddScoped<INumberingService, NumberingService>();
+        services.AddScoped<ICsvExportService, CsvExportService>();
         services.AddScoped<ERP.Application.Dashboard.IDashboardContributor, ERP.Application.Dashboard.FinanceDashboard>();
         services.AddScoped<ERP.Application.Finance.ICashForecastSource, ERP.Application.Finance.ChequeForecastSource>();
         services.AddScoped<ERP.Application.Finance.ICashForecastSource, ERP.Application.Finance.ReceivablesForecastSource>();

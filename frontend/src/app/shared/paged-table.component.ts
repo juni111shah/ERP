@@ -1,11 +1,14 @@
-import { ChangeDetectionStrategy, Component, TemplateRef, computed, contentChild, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, TemplateRef, computed, contentChild, input, output, inject } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzTableModule, NzTableQueryParams } from 'ng-zorro-antd/table';
+import { NzMessageService } from 'ng-zorro-antd/message';
 import { PagedList } from '../core/api/paged-list';
+import { CsvExportService } from '../core/services/csv-export.service';
 
 export interface TableColumn<T> {
   key: string;
@@ -25,7 +28,7 @@ export interface TableColumn<T> {
   selector: 'erp-paged-table',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NgTemplateOutlet, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule],
+  imports: [FormsModule, NgTemplateOutlet, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule],
   styles: [`.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; } .bar .search { max-width: 320px; } .spacer { flex: 1; } tr.clickable { cursor: pointer; }`],
   template: `
     <div class="bar">
@@ -36,6 +39,11 @@ export interface TableColumn<T> {
         <ng-template #prefix><span nz-icon nzType="search"></span></ng-template>
       }
       <span class="spacer"></span>
+      @if (exportable()) {
+        <button nz-button nzType="default" (click)="exportCsv()" [disabled]="!hasRows()">
+          <span nz-icon nzType="download"></span> Export CSV
+        </button>
+      }
       <ng-content select="[toolbar]" />
     </div>
     <nz-table #t [nzData]="list().items()" [nzTotal]="list().total()" [nzPageIndex]="list().query().page" [nzPageSize]="list().query().pageSize"
@@ -64,12 +72,17 @@ export interface TableColumn<T> {
     <ng-template #empty><nz-empty [nzNotFoundContent]="emptyText()"></nz-empty></ng-template>`,
 })
 export class PagedTableComponent<T> {
+  private readonly csvService = inject(CsvExportService);
+  private readonly message = inject(NzMessageService);
+  
   readonly list = input.required<PagedList<T>>();
   readonly columns = input.required<TableColumn<T>[]>();
   readonly searchable = input(true);
   readonly searchPlaceholder = input('Search');
   readonly emptyText = input('Nothing here yet');
   readonly clickable = input(true);
+  readonly exportable = input(true);
+  readonly exportFilename = input('export');
   readonly rowClick = output<T>();
   readonly cell = contentChild<TemplateRef<unknown>>('cell');
   private searchTimer?: ReturnType<typeof setTimeout>;
@@ -91,5 +104,29 @@ export class PagedTableComponent<T> {
     const q = this.list().query();
     if ((q.sort ?? null) !== sort) this.list().setSort(sort);
     else if (p.pageIndex !== q.page || p.pageSize !== q.pageSize) this.list().setPage(p.pageIndex, p.pageSize);
+  }
+
+  exportCsv(): void {
+    const items = this.list().items();
+    if (!items || items.length === 0) {
+      this.message.warning('No data to export');
+      return;
+    }
+
+    const cols = this.columns().map(c => ({
+      field: c.key,
+      header: c.label
+    }));
+
+    const data = items.map(row => {
+      const obj: Record<string, any> = {};
+      this.columns().forEach(c => {
+        obj[c.key] = this.read(row, c);
+      });
+      return obj;
+    });
+
+    this.csvService.exportToCsv(data, this.exportFilename(), cols);
+    this.message.success('CSV exported successfully');
   }
 }
