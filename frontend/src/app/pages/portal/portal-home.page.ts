@@ -1,3 +1,4 @@
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -18,12 +19,12 @@ import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService
   selector: 'erp-portal-home',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule],
+  imports: [TranslatePipe, DatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; } .lease { margin-bottom: 24px; }`],
   template: `
-    <div class="top"><h1>Welcome, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">Sign out</button></div>
+    <div class="top"><h1>{{ 'portal.welcome' | translate: 'Welcome' }}, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">{{ 'portal.signOut' | translate: 'Sign out' }}</button></div>
     <nz-tabset>
-      <nz-tab nzTitle="My lease">
+      <nz-tab [nzTitle]="'portal.tab.lease' | translate: 'My lease'">
         @for (l of leases(); track l.id) {
           <div class="lease" data-testid="portal-lease">
             <h3>{{ l.property }} · Unit {{ l.unit }} <nz-tag>{{ l.status }}</nz-tag></h3>
@@ -33,23 +34,23 @@ import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService
               <tbody>@for (s of l.schedule; track s.sequence) { <tr><td>{{ s.sequence }}</td><td>{{ s.dueDate }}</td><td>{{ s.amount | currency: l.currencyCode }}</td><td><nz-tag [nzColor]="s.state === 'paid' ? 'green' : s.state === 'overdue' ? 'red' : 'default'">{{ s.state }}</nz-tag></td></tr> }</tbody>
             </nz-table>
           </div>
-        } @empty { <p>No lease on file.</p> }
+        } @empty { <p>{{ 'portal.noLease' | translate: 'No lease on file.' }}</p> }
       </nz-tab>
-      <nz-tab nzTitle="Invoices">
+      <nz-tab [nzTitle]="'portal.tab.invoices' | translate: 'Invoices'">
         <nz-table [nzData]="invoices()" nzSize="small" data-testid="portal-invoices">
           <thead><tr><th>Number</th><th>Date</th><th>Due</th><th>Total</th><th>Outstanding</th><th>Status</th></tr></thead>
           <tbody>@for (i of invoices(); track i.id) { <tr><td>{{ i.number }}</td><td>{{ i.invoiceDate }}</td><td>{{ i.dueDate }}</td><td>{{ i.total | currency: i.currencyCode }}</td><td>{{ i.outstanding | currency: i.currencyCode }}</td><td>{{ i.status }}</td></tr> }</tbody>
         </nz-table>
       </nz-tab>
-      <nz-tab nzTitle="Receipts">
+      <nz-tab [nzTitle]="'portal.tab.receipts' | translate: 'Receipts'">
         <nz-table [nzData]="receipts()" nzSize="small">
           <thead><tr><th>Number</th><th>Date</th><th>Method</th><th>Amount</th><th>Reference</th></tr></thead>
           <tbody>@for (r of receipts(); track r.id) { <tr><td>{{ r.number }}</td><td>{{ r.date }}</td><td>{{ r.method }}</td><td>{{ r.amount | currency: r.currencyCode }}</td><td>{{ r.reference }}</td></tr> }</tbody>
         </nz-table>
       </nz-tab>
-      <nz-tab nzTitle="Statement">
+      <nz-tab [nzTitle]="'portal.tab.statement' | translate: 'Statement'">
         @if (statement(); as s) {
-          <p data-testid="portal-balance"><b>Balance due: {{ s.balance | currency }}</b> (as of {{ s.asOf }})</p>
+          <p data-testid="portal-balance"><b>{{ 'portal.balance' | translate: 'Balance due' }}: {{ s.balance | currency }}</b> (as of {{ s.asOf }})</p>
           <nz-table [nzData]="s.items" nzSize="small" [nzShowPagination]="false">
             <thead><tr><th>Document</th><th>Due</th><th>Days overdue</th><th>Outstanding</th></tr></thead>
             <tbody>@for (i of s.items; track i.number) { <tr><td>{{ i.number }}</td><td>{{ i.dueDate }}</td><td>{{ i.daysOverdue }}</td><td>{{ i.outstanding | currency }}</td></tr> }</tbody>
@@ -57,7 +58,7 @@ import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService
           @if (s.unallocatedReceipts > 0) { <p>On account: {{ s.unallocatedReceipts | currency }}</p> }
         }
       </nz-tab>
-      <nz-tab nzTitle="Maintenance">
+      <nz-tab [nzTitle]="'portal.tab.maintenance' | translate: 'Maintenance'">
         @if (leases().length) {
           <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="raise()" style="max-width:520px">
             <nz-form-item><nz-form-label nzRequired>Lease</nz-form-label><nz-form-control>
@@ -65,7 +66,7 @@ import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService
             <nz-form-item><nz-form-label nzRequired>What is wrong?</nz-form-label><nz-form-control nzErrorTip="Describe the issue"><input nz-input formControlName="issue" maxlength="300" data-testid="portal-req-issue" /></nz-form-control></nz-form-item>
             <nz-form-item><nz-form-label>Priority</nz-form-label><nz-form-control>
               <nz-select formControlName="priority"><nz-option nzValue="normal" nzLabel="Normal"></nz-option><nz-option nzValue="high" nzLabel="Urgent"></nz-option><nz-option nzValue="low" nzLabel="Low"></nz-option></nz-select></nz-form-control></nz-form-item>
-            <button nz-button nzType="primary" data-testid="portal-req-submit">Send request</button>
+            <button nz-button nzType="primary" data-testid="portal-req-submit">{{ 'portal.sendRequest' | translate: 'Send request' }}</button>
           </form>
         }
         <nz-table [nzData]="requests()" nzSize="small" style="margin-top:16px" data-testid="portal-requests">

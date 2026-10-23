@@ -59,7 +59,16 @@ export const routes: Routes = [
       { path: 'admin/audit', canMatch: [permissionGuard('core.audit.read')], loadComponent: () => import('./pages/admin/audit.page').then((m) => m.AuditPage) },
       { path: 'finance', children: [{ path: '**', ...placeholder('Finance') }] },
       { path: 'admin', children: [{ path: '**', ...placeholder('Administration') }] },
-      { path: 'inventory', canMatch: [moduleEnabledGuard('inventory')], children: [{ path: '**', ...placeholder('Inventory') }] },
+      {
+        path: 'inventory',
+        canMatch: [moduleEnabledGuard('inventory')],
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'stock' },
+          { path: 'stock', canMatch: [permissionGuard('inventory.stock.read')], loadComponent: () => import('./modules/inventory/stock.page').then((m) => m.StockPage) },
+          { path: 'movements', canMatch: [permissionGuard('inventory.stock.read')], loadComponent: () => import('./modules/inventory/movements.page').then((m) => m.MovementsPage) },
+          { path: 'warehouses', canMatch: [permissionGuard('inventory.warehouses.read')], loadComponent: () => import('./modules/inventory/warehouses.page').then((m) => m.WarehousesPage) },
+        ],
+      },
       { path: 'hr', canMatch: [moduleEnabledGuard('hr')], loadChildren: () => import('./modules/hr/hr.routes').then((m) => m.HR_ROUTES) },
       { path: 'real-estate', canMatch: [moduleEnabledGuard('realestate')], loadChildren: () => import('./modules/realestate/realestate.routes').then((m) => m.REAL_ESTATE_ROUTES) },
       { path: 'forbidden', loadComponent: () => import('./pages/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'You do not have access to this page' } },
