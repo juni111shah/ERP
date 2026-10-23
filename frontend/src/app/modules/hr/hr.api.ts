@@ -10,7 +10,7 @@ type CustomFields = Record<string, unknown>;
 export interface EmployeeSummary { id: string; number: string; fullName: string; designation: string; department?: string; legalEntityId: string; joinDate: string; status: string; basicSalary: number; housingAllowance: number; transportAllowance: number; otherAllowances: number; grossMonthly: number; }
 export interface EmployeeDto {
   id: string; number: string; legalEntityId: string; fullName: string; designation: string; department?: string; joinDate: string; terminationDate?: string; email?: string; phone?: string; nationality?: string;
-  status: string; basicSalary: number; housingAllowance: number; transportAllowance: number; otherAllowances: number; recurringDeductions: number; iban?: string; grossMonthly: number;
+  status: string; basicSalary: number; housingAllowance: number; transportAllowance: number; otherAllowances: number; recurringDeductions: number; iban?: string; labourCardNumber?: string; bankRoutingCode?: string; grossMonthly: number;
   serviceYears: number; gratuityAccrued: number; customFields: CustomFields;
 }
 export interface AttendanceRow {
@@ -54,4 +54,29 @@ export class PayrollApi extends CrudApiService<PayrollSummary, unknown> {
   pay(id: string, bankAccountId: string, date: string): Observable<PayrollDto> { return this.http.post<PayrollDto>(`${this.url}/${id}/pay`, { bankAccountId, date }); }
   remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
   bankFile(id: string): Observable<string> { return this.http.get(`${this.url}/${id}/bank-file`, { responseType: 'text' }); }
+  wpsFile(id: string): Observable<string> { return this.http.get(`${this.url}/${id}/wps-sif`, { responseType: 'text' }); }
+}
+
+// ---- Performance reviews -------------------------------------------------------------------------------------------------
+
+export const REVIEW_CYCLE_STATUSES = [{ value: 'open', label: 'Open' }, { value: 'closed', label: 'Closed' }];
+export const RATINGS = [1, 2, 3, 4, 5].map((n) => ({ value: n, label: ['1 - Poor', '2 - Below expectations', '3 - Meets expectations', '4 - Exceeds expectations', '5 - Outstanding'][n - 1] }));
+export interface ReviewCycleDto { id: string; name: string; periodStart: string; periodEnd: string; status: string; }
+export interface CompetencyDto { id?: string; name: string; score: number; notes?: string; }
+export interface ReviewRow { id: string; employeeId: string; cycleId: string; reviewerName?: string; overallRating?: number; status: string; submittedAt?: string; }
+export interface ReviewDto {
+  id: string; employeeId: string; employeeName: string; cycleId: string; cycleName: string; reviewerName?: string; overallRating?: number; goals?: string; comments?: string; status: string;
+  submittedAt?: string; acknowledgedAt?: string; competencies: CompetencyDto[];
+}
+
+@Injectable({ providedIn: 'root' })
+export class ReviewCyclesApi extends CrudApiService<ReviewCycleDto, unknown> { protected readonly resource = `${BASE}/review-cycles`; }
+
+@Injectable({ providedIn: 'root' })
+export class ReviewsApi extends CrudApiService<ReviewRow, unknown> {
+  protected readonly resource = `${BASE}/reviews`;
+  detail(id: string): Observable<ReviewDto> { return this.http.get<ReviewDto>(`${this.url}/${id}`); }
+  save(id: string | null, body: unknown): Observable<ReviewDto> { return id ? this.http.put<ReviewDto>(`${this.url}/${id}`, body) : this.http.post<ReviewDto>(this.url, body); }
+  submit(id: string): Observable<ReviewDto> { return this.http.post<ReviewDto>(`${this.url}/${id}/submit`, {}); }
+  acknowledge(id: string): Observable<ReviewDto> { return this.http.post<ReviewDto>(`${this.url}/${id}/acknowledge`, {}); }
 }

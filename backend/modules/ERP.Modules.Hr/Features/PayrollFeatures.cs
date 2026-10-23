@@ -25,6 +25,8 @@ public sealed record PayrollSummaryDto(Guid Id, string Number, Guid LegalEntityI
 public sealed record GetPayroll(Guid Id) : IQuery<PayrollDto>, IRequirePermission { public string RequiredPermission => P.PayrollRead; }
 /// <summary>One CSV line per employee: number, name, IBAN and net pay, for the bank upload.</summary>
 public sealed record GetPayrollBankFile(Guid Id) : IQuery<string>, IRequirePermission { public string RequiredPermission => P.PayrollPay; }
+/// <summary>UAE Wages Protection System SIF text: one EDR record per employee, then the SCR summary record. Only for posted or paid runs; reports everything that is missing.</summary>
+public sealed record GetPayrollWpsFile(Guid Id) : IQuery<string>, IRequirePermission { public string RequiredPermission => P.PayrollPay; }
 public sealed record GeneratePayroll(GeneratePayrollInput Input) : ICommand<PayrollDto>, IRequirePermission { public string RequiredPermission => P.PayrollManage; }
 public sealed record RecalculatePayroll(Guid Id) : ICommand<PayrollDto>, IRequirePermission { public string RequiredPermission => P.PayrollManage; }
 public sealed record AdjustPayrollLine(Guid RunId, Guid LineId, decimal Adjustment, string? Note) : ICommand<PayrollDto>, IRequirePermission { public string RequiredPermission => P.PayrollManage; }
@@ -47,11 +49,12 @@ public sealed class GeneratePayrollValidator : AbstractValidator<GeneratePayroll
 public sealed class AdjustPayrollLineValidator : AbstractValidator<AdjustPayrollLine> { public AdjustPayrollLineValidator() => RuleFor(x => x.Note).MaximumLength(300); }
 
 internal sealed class PayrollHandlers(
-    IRepository<PayrollRun> runs, IRepository<PayrollLine> lineRows, IReadRepository<Employee> employees, IReadRepository<AttendanceRecord> attendance, IReadRepository<Account> accounts,
+    IRepository<PayrollRun> runs, IRepository<PayrollLine> lineRows, IReadRepository<Employee> employees, IReadRepository<AttendanceRecord> attendance, IReadRepository<Account> accounts, IClock clock,
     IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ISettingsService settings, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering,
     IUnitOfWork uow) :
     IRequestHandler<GetPayroll, PayrollDto>,
     IRequestHandler<GetPayrollBankFile, string>,
+    IRequestHandler<GetPayrollWpsFile, string>,
     IRequestHandler<GeneratePayroll, PayrollDto>,
     IRequestHandler<RecalculatePayroll, PayrollDto>,
     IRequestHandler<AdjustPayrollLine, PayrollDto>,
@@ -72,6 +75,55 @@ internal sealed class PayrollHandlers(
         foreach (var l in run.Lines.OrderBy(l => l.EmployeeNumber))
             sb.Append(Csv(l.EmployeeNumber)).Append(',').Append(Csv(l.EmployeeName)).Append(',').Append(Csv(ibans.GetValueOrDefault(l.EmployeeId))).Append(',').Append(l.NetPay.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
         return sb.ToString();
+    }
+
+    public async Task<string> Handle(GetPayrollWpsFile q, CancellationToken ct)
+    {
+        var run = await runs.Query(new Specification<PayrollRun>(r => r.Id == q.Id).Include(r => r.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
+        if (run.Status is PayrollStatus.Draft or PayrollStatus.PendingApproval) throw new ConflictException("Post the payroll before preparing the WPS file.");
+        var ids = run.Lines.Select(l => l.EmployeeId).ToList();
+        var staff = (await employees.Query(new Specification<Employee>(e => ids.Contains(e.Id))).ToListAsync(ct)).ToDictionary(e => e.Id);
+        var eid = (await settings.GetAsync<string>("hr.employerEstablishmentId", run.LegalEntityId, ct))?.Trim();
+        var employerBank = (await settings.GetAsync<string>("hr.employerBankRoutingCode", run.LegalEntityId, ct))?.Trim();
+
+        var missing = new List<string>();
+        if (string.IsNullOrEmpty(eid)) missing.Add("the employer establishment ID (setting hr.employerEstablishmentId)");
+        if (string.IsNullOrEmpty(employerBank)) missing.Add("the employer bank routing code (setting hr.employerBankRoutingCode)");
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+        var start = new DateOnly(run.Year, run.Month, 1);
+        var end = new DateOnly(run.Year, run.Month, DateTime.DaysInMonth(run.Year, run.Month));
+        var sb = new StringBuilder();
+        decimal total = 0;
+        foreach (var l in run.Lines.OrderBy(l => l.EmployeeNumber))
+        {
+            var e = staff.GetValueOrDefault(l.EmployeeId);
+            var who = $"{l.EmployeeNumber} {l.EmployeeName}";
+            var card = Clean(e?.LabourCardNumber) ?? Clean(CustomValue(e, "cf_ae_mohre_personal_no"));
+            var routing = Clean(e?.BankRoutingCode) ?? Clean(CustomValue(e, "cf_ae_bank_routing_code"));
+            var iban = Clean(e?.Iban);
+            if (card is null) missing.Add($"{who}: labour card / MOHRE personal number");
+            if (routing is null) missing.Add($"{who}: bank routing code");
+            if (iban is null) missing.Add($"{who}: IBAN");
+            var variable = Math.Max(0m, PayrollMath.R(l.Overtime + l.Adjustment));
+            var fixedIncome = PayrollMath.R(l.NetPay) - variable;
+            total += l.NetPay;
+            sb.Append("EDR,").Append(card).Append(',').Append(routing).Append(',').Append(iban).Append(',')
+              .Append(start.ToString("yyyy-MM-dd")).Append(',').Append(end.ToString("yyyy-MM-dd")).Append(',').Append(end.Day).Append(',')
+              .Append(fixedIncome.ToString("0.00", invariant)).Append(',').Append(variable.ToString("0.00", invariant)).Append(',').Append(l.AbsentDays).Append('\n');
+        }
+        if (missing.Count > 0) throw new ConflictException("The WPS file cannot be prepared yet. Missing: " + string.Join("; ", missing) + ".");
+        var now = clock.UtcNow;
+        sb.Append("SCR,").Append(eid).Append(',').Append(employerBank).Append(',').Append(now.ToString("yyyy-MM-dd")).Append(',').Append(now.ToString("HHmm")).Append(',')
+          .Append(run.Month.ToString("00")).Append(run.Year).Append(',').Append(run.Lines.Count).Append(',').Append(PayrollMath.R(total).ToString("0.00", invariant)).Append(",AED\n");
+        return sb.ToString();
+    }
+
+    private static string? Clean(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim().Replace(" ", "");
+
+    private static string? CustomValue(Employee? e, string key)
+    {
+        if (e?.CustomFields is not { Length: > 0 } json) return null;
+        try { return System.Text.Json.Nodes.JsonNode.Parse(json)?[key]?.GetValue<string>(); } catch { return null; }
     }
 
     public Task<PayrollDto> Handle(GeneratePayroll cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>

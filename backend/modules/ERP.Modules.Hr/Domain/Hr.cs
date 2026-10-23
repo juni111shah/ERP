@@ -28,6 +28,10 @@ public class Employee : LegalEntityScopedEntity, IHasCustomFields
     public decimal RecurringDeductions { get; set; }
     /// <summary>Sensitive: bank account used to pay the salary.</summary>
     public string? Iban { get; set; }
+    /// <summary>UAE WPS: the employee's MOHRE personal / labour card number (14 digits) used as the unique id in the SIF file.</summary>
+    public string? LabourCardNumber { get; set; }
+    /// <summary>UAE WPS: routing code of the bank (agent) that holds the employee's account.</summary>
+    public string? BankRoutingCode { get; set; }
     public string? CustomFields { get; set; }
 
     public decimal GrossMonthly => BasicSalary + HousingAllowance + TransportAllowance + OtherAllowances;
@@ -90,4 +94,42 @@ public class PayrollLine : Entity
     public decimal GrossEarnings { get; set; }
     public decimal Deductions { get; set; }
     public decimal NetPay { get; set; }
+}
+
+public enum ReviewCycleStatus { Open = 1, Closed = 2 }
+public enum ReviewStatus { Draft = 0, Submitted = 1, Acknowledged = 2 }
+
+/// <summary>A review round (for example "Annual review 2026") that performance reviews belong to.</summary>
+[DefaultSort("-periodStart")]
+public class ReviewCycle : OrgEntity
+{
+    [Listable] public string Name { get; set; } = default!;
+    [Sortable, Filterable] public DateOnly PeriodStart { get; set; }
+    public DateOnly PeriodEnd { get; set; }
+    [Filterable] public ReviewCycleStatus Status { get; set; } = ReviewCycleStatus.Open;
+}
+
+/// <summary>One employee's review in a cycle: overall rating, goals, competency scores and comments. Draft -> Submitted -> Acknowledged (by the employee, recorded by HR).</summary>
+[DefaultSort("-createdAt")]
+public class PerformanceReview : LegalEntityScopedEntity
+{
+    [Filterable] public Guid EmployeeId { get; set; }
+    [Filterable] public Guid CycleId { get; set; }
+    [Searchable] public string? ReviewerName { get; set; }
+    /// <summary>Overall rating 1 (poor) to 5 (outstanding); required to submit.</summary>
+    [Filterable, Sortable] public int? OverallRating { get; set; }
+    public string? Goals { get; set; }
+    public string? Comments { get; set; }
+    [Filterable] public ReviewStatus Status { get; set; } = ReviewStatus.Draft;
+    public DateTime? SubmittedAt { get; set; }
+    public DateTime? AcknowledgedAt { get; set; }
+    public List<ReviewCompetency> Competencies { get; set; } = new();
+}
+
+public class ReviewCompetency : Entity
+{
+    public Guid ReviewId { get; set; }
+    public string Name { get; set; } = default!;
+    public int Score { get; set; }
+    public string? Notes { get; set; }
 }

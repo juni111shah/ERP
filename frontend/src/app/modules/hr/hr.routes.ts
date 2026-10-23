@@ -7,5 +7,7 @@ export const HR_ROUTES: Routes = [
   { path: 'employees', canMatch: [permissionGuard('hr.employees.read')], loadComponent: () => import('./employees.page').then((m) => m.EmployeesPage) },
   { path: 'attendance', canMatch: [permissionGuard('hr.attendance.read')], loadComponent: () => import('./attendance.page').then((m) => m.AttendancePage) },
   { path: 'payroll', canMatch: [permissionGuard('hr.payroll.read')], loadComponent: () => import('./payroll.page').then((m) => m.PayrollPage) },
+  { path: 'reviews', canMatch: [permissionGuard('hr.reviews.read')], loadComponent: () => import('./reviews.page').then((m) => m.ReviewsPage) },
+  { path: 'review-cycles', canMatch: [permissionGuard('hr.reviews.read')], loadComponent: () => import('./review-cycles.page').then((m) => m.ReviewCyclesPage) },
   { path: 'payroll/:id', canMatch: [permissionGuard('hr.payroll.read')], loadComponent: () => import('./payroll-detail.page').then((m) => m.PayrollDetailPage) },
 ];

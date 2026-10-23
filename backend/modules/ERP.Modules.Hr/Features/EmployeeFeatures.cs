@@ -15,12 +15,12 @@ namespace ERP.Modules.Hr.Features;
 
 public sealed record EmployeeInput(
     Guid LegalEntityId, string? Number, string FullName, string Designation, string? Department, DateOnly JoinDate, DateOnly? TerminationDate, string? Email, string? Phone, string? Nationality,
-    EmployeeStatus Status, decimal BasicSalary, decimal HousingAllowance, decimal TransportAllowance, decimal OtherAllowances, decimal RecurringDeductions, string? Iban, JsonObject? CustomFields = null);
+    EmployeeStatus Status, decimal BasicSalary, decimal HousingAllowance, decimal TransportAllowance, decimal OtherAllowances, decimal RecurringDeductions, string? Iban, JsonObject? CustomFields = null, string? LabourCardNumber = null, string? BankRoutingCode = null);
 
 public sealed record EmployeeDto(
     Guid Id, string Number, Guid LegalEntityId, string FullName, string Designation, string? Department, DateOnly JoinDate, DateOnly? TerminationDate, string? Email, string? Phone, string? Nationality,
     EmployeeStatus Status, decimal BasicSalary, decimal HousingAllowance, decimal TransportAllowance, decimal OtherAllowances, decimal RecurringDeductions, string? Iban, decimal GrossMonthly,
-    decimal ServiceYears, decimal GratuityAccrued, JsonObject CustomFields);
+    decimal ServiceYears, decimal GratuityAccrued, JsonObject CustomFields, string? LabourCardNumber = null, string? BankRoutingCode = null);
 
 /// <summary>List row. Gross is added up here (not in SQL) so it works on every database.</summary>
 public sealed record EmployeeSummaryDto(
@@ -44,6 +44,8 @@ public sealed class EmployeeInputValidator : AbstractValidator<EmployeeInput>
         RuleFor(x => x.Designation).NotEmpty().MaximumLength(150);
         RuleFor(x => x.Number).MaximumLength(30);
         RuleFor(x => x.Department).MaximumLength(100);
+        RuleFor(x => x.LabourCardNumber).MaximumLength(30);
+        RuleFor(x => x.BankRoutingCode).MaximumLength(20);
         RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
         RuleFor(x => x.Status).IsInEnum();
         RuleFor(x => x.BasicSalary).GreaterThan(0).WithMessage("The basic salary must be greater than zero.");
@@ -124,6 +126,7 @@ internal sealed class EmployeeHandlers(
         e.FullName = i.FullName.Trim(); e.Designation = i.Designation.Trim(); e.Department = i.Department?.Trim(); e.JoinDate = i.JoinDate; e.TerminationDate = i.TerminationDate;
         e.Email = i.Email?.Trim(); e.Phone = i.Phone?.Trim(); e.Nationality = i.Nationality?.Trim(); e.Status = i.Status; e.BasicSalary = i.BasicSalary;
         e.HousingAllowance = i.HousingAllowance; e.TransportAllowance = i.TransportAllowance; e.OtherAllowances = i.OtherAllowances; e.RecurringDeductions = i.RecurringDeductions; e.Iban = i.Iban?.Trim();
+        e.LabourCardNumber = string.IsNullOrWhiteSpace(i.LabourCardNumber) ? null : i.LabourCardNumber.Trim(); e.BankRoutingCode = string.IsNullOrWhiteSpace(i.BankRoutingCode) ? null : i.BankRoutingCode.Trim();
     }
 
     private async Task<EmployeeDto> ToDtoAsync(Employee e, CancellationToken ct)
@@ -132,6 +135,6 @@ internal sealed class EmployeeHandlers(
         var g = gratuity.Calculate(e.BasicSalary, e.JoinDate, e.TerminationDate, DateOnly.FromDateTime(clock.UtcNow), country);
         var iban = e.Iban is { Length: > 4 } v && !user.HasPermission(CorePermissions.SensitiveRead) ? new string('*', v.Length - 4) + v[^4..] : e.Iban;
         return new EmployeeDto(e.Id, e.Number, e.LegalEntityId, e.FullName, e.Designation, e.Department, e.JoinDate, e.TerminationDate, e.Email, e.Phone, e.Nationality, e.Status, e.BasicSalary, e.HousingAllowance,
-            e.TransportAllowance, e.OtherAllowances, e.RecurringDeductions, iban, e.GrossMonthly, g.ServiceYears, g.Amount, await fields.ReadAsync(Docs.Employee, e, ct));
+            e.TransportAllowance, e.OtherAllowances, e.RecurringDeductions, iban, e.GrossMonthly, g.ServiceYears, g.Amount, await fields.ReadAsync(Docs.Employee, e, ct), e.LabourCardNumber, e.BankRoutingCode);
     }
 }

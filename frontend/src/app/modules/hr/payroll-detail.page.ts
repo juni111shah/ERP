@@ -36,7 +36,7 @@ type Mode = 'pay' | 'adjust' | null;
           <button *erpHasPermission="'hr.payroll.manage'" nz-button nzDanger [disabled]="busy()" (click)="remove()" data-testid="payroll-delete">Delete</button>
         }
         @if (r.status === 'posted') { <button *erpHasPermission="'hr.payroll.pay'" nz-button nzType="primary" (click)="mode.set('pay')" data-testid="payroll-pay">Pay salaries</button> }
-        @if (r.status === 'posted' || r.status === 'paid') { <button *erpHasPermission="'hr.payroll.pay'" nz-button (click)="download()" data-testid="payroll-bankfile">Bank file (CSV)</button> }
+        @if (r.status === 'posted' || r.status === 'paid') { <button *erpHasPermission="'hr.payroll.pay'" nz-button (click)="download()" data-testid="payroll-bankfile">Bank file (CSV)</button> <button *erpHasPermission="'hr.payroll.pay'" nz-button (click)="downloadWps()" data-testid="payroll-wps">WPS file (SIF)</button> }
       </div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
         <nz-card><small>Employees</small><div><b>{{ r.employees }}</b></div></nz-card>
@@ -104,6 +104,16 @@ export class PayrollDetailPage {
     this.api.bankFile(this.id).subscribe((csv) => {
       const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
       const a = document.createElement('a'); a.href = url; a.download = `${this.run()?.number ?? 'payroll'}-bank-file.csv`; a.click(); URL.revokeObjectURL(url);
+    });
+  }
+
+  downloadWps(): void {
+    this.api.wpsFile(this.id).subscribe({
+      next: (sif) => {
+        const url = URL.createObjectURL(new Blob([sif], { type: 'text/csv;charset=utf-8' }));
+        const a = document.createElement('a'); a.href = url; a.download = `${this.run()?.number ?? 'payroll'}.SIF`; a.click(); URL.revokeObjectURL(url);
+      },
+      error: (e) => this.message.error(asProblem(e)?.detail ?? 'The WPS file could not be prepared'),
     });
   }
 
