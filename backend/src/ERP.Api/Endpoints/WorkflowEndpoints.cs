@@ -50,6 +50,7 @@ public static class WorkflowEndpoints
         }).RequireAuthorization();
 
         var attachments = api.MapGroup("/attachments").WithTags("Workflow");
+        attachments.MapPagedList<Attachment, VaultRow>("/vault", CorePermissions.AttachmentsRead, a => new VaultRow(a.Id, a.OwnerType, a.OwnerId, a.FileName, a.Category, a.Description, a.ExpiresOn, a.CreatedAt));
         attachments.MapGet("", (string ownerType, Guid ownerId, ISender sender, CancellationToken ct) => sender.Send(new ListAttachments(ownerType, ownerId), ct))
             .RequirePermission(CorePermissions.AttachmentsRead);
         attachments.MapPost("", async (HttpRequest request, ISender sender, CancellationToken ct) =>
@@ -58,7 +59,9 @@ public static class WorkflowEndpoints
             var file = form.Files.FirstOrDefault() ?? throw new FieldValidationException("file", "A file is required.");
             if (!Guid.TryParse(form["ownerId"], out var ownerId)) throw new FieldValidationException("ownerId", "Owner type and id are required.");
             await using var content = file.OpenReadStream();
-            var created = await sender.Send(new UploadAttachment(form["ownerType"].ToString(), ownerId, file.FileName, file.ContentType, file.Length, content), ct);
+            var created = await sender.Send(new UploadAttachment(form["ownerType"].ToString(), ownerId, file.FileName, file.ContentType, file.Length, content,
+                form["category"].ToString() is { Length: > 0 } cat ? cat : null, form["description"].ToString() is { Length: > 0 } desc ? desc : null,
+                DateOnly.TryParse(form["expiresOn"], out var expires) ? expires : null), ct);
             return Results.Created($"/api/v1/attachments/{created.Id}", created);
         }).RequirePermission(CorePermissions.AttachmentsWrite).DisableAntiforgery();
         attachments.MapGet("/{id:guid}/download", async (Guid id, ISender sender, CancellationToken ct) =>

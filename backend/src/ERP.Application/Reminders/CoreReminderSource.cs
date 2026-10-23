@@ -6,7 +6,7 @@ using ERP.Application.Abstractions;
 namespace ERP.Application.Reminders;
 
 /// <summary>Core reminders: vendor bills falling due within three days or overdue, and post-dated cheques maturing within three days.</summary>
-public sealed class CoreReminderSource(IReadRepository<Bill> bills, IReadRepository<PaymentInstrument> cheques) : IReminderSource
+public sealed class CoreReminderSource(IReadRepository<Bill> bills, IReadRepository<PaymentInstrument> cheques, IReadRepository<ERP.Domain.Platform.Attachment> documents) : IReminderSource
 {
     public string? ModuleKey => null;
 
@@ -24,6 +24,13 @@ public sealed class CoreReminderSource(IReadRepository<Bill> bills, IReadReposit
         var maturing = await cheques.Query(new Specification<PaymentInstrument>(c => c.Status == InstrumentStatus.InCustody && c.InstrumentDate <= horizon)).ToListAsync(ct);
         foreach (var c in maturing)
             result.Add(new($"cheque-due:{c.Id}", $"Cheque {c.InstrumentNo} matures {c.InstrumentDate:yyyy-MM-dd}", $"{c.PartyName}: {c.Amount:N2} {c.CurrencyCode}", "/finance/cheques", CorePermissions.ChequesApprove, Severity: "info"));
+        var expiring = await documents.Query(new Specification<ERP.Domain.Platform.Attachment>(a => a.ExpiresOn != null && a.ExpiresOn <= today.AddDays(30))).ToListAsync(ct);
+        foreach (var d in expiring)
+        {
+            var gone = d.ExpiresOn!.Value < today;
+            result.Add(new($"doc-expiry:{d.Id}:{(gone ? "expired" : "soon")}", gone ? $"{d.Category ?? "Document"} expired: {d.FileName}" : $"{d.Category ?? "Document"} expires {d.ExpiresOn:yyyy-MM-dd}: {d.FileName}",
+                d.Description, "/admin/documents", CorePermissions.AttachmentsWrite, Severity: gone ? "error" : "warning"));
+        }
         return result;
     }
 }

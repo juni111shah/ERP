@@ -36,5 +36,6 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Budgets vs actuals | Done | Annual budget per income/expense account and month; budget-vs-actual report against the posted ledger (favourable/unfavourable variance); monthly grid editor. |
 | Inspections | Done | Move-in/move-out/routine checklists, damage cost total, completion raises repair work orders. |
 | Owner statements and management fee | Done | Managed-for-owner properties carry a fee %; the owner statement nets collected rent, fee and completed maintenance (cash basis). Report with CSV/Print. |
+| Document vault with expiry | Done | Attachments carry category, notes and expiry; vault screen sorted by expiry (expired/expiring highlighted); upload/download on leases; expiry reminders to the message log. |
 
 Planned order: Finance ledger → invoices and billing run → receipts and AR → PDC register → dashboard KPIs → payables → reports → HR → acquisitions.

@@ -186,7 +186,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         mb.Entity<BankStatementLine>(b => { b.HasIndex(x => new { x.OrgId, x.AccountId, x.Date }); b.HasIndex(x => x.MatchedJournalLineId); });
         mb.Entity<NumberSequence>(b => b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.DocumentType, x.Year }).IsUnique());
         mb.Entity<ApprovalRequest>(b => b.HasIndex(x => new { x.OrgId, x.Status }));
-        mb.Entity<Attachment>(b => b.HasIndex(x => new { x.OrgId, x.OwnerType, x.OwnerId }));
+        mb.Entity<Attachment>(b => { b.HasIndex(x => new { x.OrgId, x.OwnerType, x.OwnerId }); b.HasIndex(x => new { x.OrgId, x.ExpiresOn }); b.Property(x => x.Category).HasMaxLength(50); b.Property(x => x.Description).HasMaxLength(500); });
         mb.Entity<AuditEvent>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.RecordType, x.RecordId });

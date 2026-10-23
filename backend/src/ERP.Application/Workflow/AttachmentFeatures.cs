@@ -8,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Application.Workflow;
 
-public sealed record AttachmentDto(Guid Id, string FileName, string ContentType, long SizeBytes, DateTime CreatedAt);
+public sealed record AttachmentDto(Guid Id, string FileName, string ContentType, long SizeBytes, DateTime CreatedAt, string? Category = null, string? Description = null, DateOnly? ExpiresOn = null);
+/// <summary>A row of the document vault: any tracked document with what it belongs to and how soon it expires.</summary>
+public sealed record VaultRow(Guid Id, string OwnerType, Guid OwnerId, string FileName, string? Category, string? Description, DateOnly? ExpiresOn, DateTime CreatedAt);
 public sealed record AttachmentDownload(Stream Content, string ContentType, string FileName);
 
 public sealed record ListAttachments(string OwnerType, Guid OwnerId) : IQuery<IReadOnlyList<AttachmentDto>>, IRequirePermission
@@ -17,7 +19,7 @@ public sealed record ListAttachments(string OwnerType, Guid OwnerId) : IQuery<IR
 }
 
 /// <summary>The HTTP layer hands over the file as a plain stream; size and type rules are enforced here.</summary>
-public sealed record UploadAttachment(string OwnerType, Guid OwnerId, string FileName, string ContentType, long Length, Stream Content)
+public sealed record UploadAttachment(string OwnerType, Guid OwnerId, string FileName, string ContentType, long Length, Stream Content, string? Category = null, string? Description = null, DateOnly? ExpiresOn = null)
     : ICommand<AttachmentDto>, IRequirePermission
 {
     public string RequiredPermission => CorePermissions.AttachmentsWrite;
@@ -41,6 +43,8 @@ public sealed class UploadAttachmentValidator : AbstractValidator<UploadAttachme
         RuleFor(x => x.OwnerType).NotEmpty().WithMessage("Owner type and id are required.");
         RuleFor(x => x.OwnerId).NotEmpty().WithMessage("Owner type and id are required.");
         RuleFor(x => x.FileName).NotEmpty();
+        RuleFor(x => x.Category).MaximumLength(50);
+        RuleFor(x => x.Description).MaximumLength(500);
     }
 }
 
@@ -54,7 +58,7 @@ internal sealed class AttachmentHandlers(IRepository<Attachment> attachments, IF
 
     public async Task<IReadOnlyList<AttachmentDto>> Handle(ListAttachments q, CancellationToken ct)
         => await attachments.Query(new Specification<Attachment>(x => x.OwnerType == q.OwnerType && x.OwnerId == q.OwnerId))
-            .Select(x => new AttachmentDto(x.Id, x.FileName, x.ContentType, x.SizeBytes, x.CreatedAt)).ToListAsync(ct);
+            .Select(x => new AttachmentDto(x.Id, x.FileName, x.ContentType, x.SizeBytes, x.CreatedAt, x.Category, x.Description, x.ExpiresOn)).ToListAsync(ct);
 
     public async Task<AttachmentDto> Handle(UploadAttachment cmd, CancellationToken ct)
     {
@@ -65,11 +69,11 @@ internal sealed class AttachmentHandlers(IRepository<Attachment> attachments, IF
         var attachment = new Attachment
         {
             OwnerType = cmd.OwnerType, OwnerId = cmd.OwnerId, FileName = Path.GetFileName(cmd.FileName), ContentType = cmd.ContentType,
-            SizeBytes = cmd.Length, StorageKey = key,
+            SizeBytes = cmd.Length, StorageKey = key, Category = cmd.Category?.Trim(), Description = cmd.Description?.Trim(), ExpiresOn = cmd.ExpiresOn,
         };
         attachments.Add(attachment);
         await attachments.SaveChangesAsync(ct);
-        return new(attachment.Id, attachment.FileName, attachment.ContentType, attachment.SizeBytes, attachment.CreatedAt);
+        return new(attachment.Id, attachment.FileName, attachment.ContentType, attachment.SizeBytes, attachment.CreatedAt, attachment.Category, attachment.Description, attachment.ExpiresOn);
     }
 
     public async Task<AttachmentDownload> Handle(DownloadAttachment q, CancellationToken ct)

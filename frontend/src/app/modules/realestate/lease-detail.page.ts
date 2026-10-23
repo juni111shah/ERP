@@ -19,6 +19,7 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { leaseFields } from './leases.page';
 import { DESCRIPTION_COLUMNS, LeaseDto, LeasesApi, PAYMENT_PLANS, RealEstateLookups, TerminationResult, humanize } from './realestate.api';
 import { LeaseDepositComponent } from './lease-deposit.component';
+import { AttachmentsComponent } from '../../shared/attachments.component';
 import { StatusTagComponent } from './status-tag.component';
 
 type Action = 'terminate' | 'renew';
@@ -28,7 +29,7 @@ type Action = 'terminate' | 'renew';
   selector: 'erp-lease-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, LeaseDepositComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
+  imports: [DatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
     NzStatisticModule, NzTableModule, NzTagModule],
   template: `
     @if (lease(); as l) {
@@ -88,6 +89,7 @@ type Action = 'terminate' | 'renew';
         } @else { <p>The rent schedule is generated when the lease is activated.</p> }
       </nz-card>
       @if (l.status !== 'draft') { <erp-lease-deposit [lease]="l" /> }
+      <erp-attachments ownerType="lease" [ownerId]="l.id" />
       <erp-record-drawer title="Edit draft lease" [open]="state.open()" [fields]="editFields" [value]="$any(state.editing())" customFieldEntityType="realestate.lease"
                          [saving]="state.saving()" [errors]="state.errors()" testId="lease-form" (submitted)="state.submit($event)" (closed)="state.close()" />
       <erp-record-drawer [title]="action() === 'renew' ? 'Renew lease' : 'Terminate lease'" [open]="!!action()" [fields]="actionFields()" [saving]="actionSaving()" [errors]="actionErrors()"
