@@ -24,27 +24,27 @@ public sealed record PrintInvoiceDto(
     PrintHeaderDto Header,
     InvoiceDto Invoice,
     string PartyAddress,
-    IReadOnlyList<InvoiceLineDto> Lines);
+    IReadOnlyList<InvoiceLineDto> Lines, string? PartyTaxNumber = null, string? PartyPhone = null, string? PartyEmail = null);
 
 public sealed record PrintReceiptDto(
     PrintHeaderDto Header,
     ReceiptDto Receipt,
     string PartyName,
     string? PartyAddress,
-    IReadOnlyList<AllocationDto> Allocations);
+    IReadOnlyList<AllocationDto> Allocations, string? PartyTaxNumber = null, string? PartyPhone = null, string? PartyEmail = null);
 
 public sealed record PrintBillDto(
     PrintHeaderDto Header,
     BillDto Bill,
     string PartyName,
     string? PartyAddress,
-    IReadOnlyList<BillLineDto> Lines);
+    IReadOnlyList<BillLineDto> Lines, string? PartyTaxNumber = null, string? PartyPhone = null, string? PartyEmail = null);
 
 public sealed record PrintPaymentDto(
     PrintHeaderDto Header,
     PaymentDto Payment,
     string PartyName,
-    IReadOnlyList<BillAllocationDto> Allocations);
+    IReadOnlyList<BillAllocationDto> Allocations, string? PartyAddress = null, string? PartyTaxNumber = null, string? PartyPhone = null, string? PartyEmail = null);
 
 public sealed record PrintJournalDto(
     PrintHeaderDto Header,
@@ -111,7 +111,7 @@ internal sealed class PrintHandlers(
             InvoiceDto.From(invoice),
             partyAddress,
             invoice.Lines.OrderBy(l => l.Seq).Select(l => new InvoiceLineDto(
-                l.Id, l.Seq, l.ItemId, l.Description, l.Quantity, l.Price, l.TaxCodeId, l.TaxAmount, l.Net, l.AccountId)).ToList());
+                l.Id, l.Seq, l.ItemId, l.Description, l.Quantity, l.Price, l.TaxCodeId, l.TaxAmount, l.Net, l.AccountId)).ToList(), party?.TaxNumber, party?.Phone, party?.Email);
     }
 
     public async Task<PrintReceiptDto> Handle(GetPrintReceipt q, CancellationToken ct)
@@ -137,7 +137,7 @@ internal sealed class PrintHandlers(
             receiptDto,
             party?.Name ?? receipt.PartyName ?? "Unknown",
             party?.Address,
-            allocations);
+            allocations, party?.TaxNumber, party?.Phone, party?.Email);
     }
 
     public async Task<PrintBillDto> Handle(GetPrintBill q, CancellationToken ct)
@@ -160,7 +160,7 @@ internal sealed class PrintHandlers(
             billDto,
             party?.Name ?? bill.PartyName ?? "Unknown",
             party?.Address,
-            lines);
+            lines, party?.TaxNumber, party?.Phone, party?.Email);
     }
 
     public async Task<PrintPaymentDto> Handle(GetPrintPayment q, CancellationToken ct)
@@ -185,7 +185,7 @@ internal sealed class PrintHandlers(
             header,
             paymentDto,
             party?.Name ?? payment.PartyName ?? "Unknown",
-            allocations);
+            allocations, party?.Address, party?.TaxNumber, party?.Phone, party?.Email);
     }
 
     public async Task<PrintJournalDto> Handle(GetPrintJournal q, CancellationToken ct)

@@ -25,9 +25,12 @@ interface PrintInvoiceData {
   header: PrintHeader;
   invoice: {
     id: string; number: string; isCreditNote: boolean; invoiceDate: string; dueDate: string; partyName?: string | null;
-    currencyCode: string; net: number; tax: number; total: number; paid: number; status: string; notes?: string | null; lines: DocLine[];
+    currencyCode: string; net: number; tax: number; total: number; paid: number; status: string; sourceType?: string | null; notes?: string | null; lines: DocLine[];
   };
   partyAddress?: string | null;
+  partyTaxNumber?: string | null;
+  partyPhone?: string | null;
+  partyEmail?: string | null;
 }
 
 interface PrintBillData {
@@ -38,6 +41,9 @@ interface PrintBillData {
   };
   partyName: string;
   partyAddress?: string | null;
+  partyTaxNumber?: string | null;
+  partyPhone?: string | null;
+  partyEmail?: string | null;
 }
 
 interface PrintReceiptData {
@@ -45,6 +51,9 @@ interface PrintReceiptData {
   receipt: { id: string; number: string; date: string; method: string; currencyCode: string; amount: number; unallocated: number; reference?: string | null; status: string };
   partyName: string;
   partyAddress?: string | null;
+  partyTaxNumber?: string | null;
+  partyPhone?: string | null;
+  partyEmail?: string | null;
   allocations: { invoiceNumber: string; amount: number }[];
 }
 
@@ -52,6 +61,10 @@ interface PrintPaymentData {
   header: PrintHeader;
   payment: { id: string; number: string; date: string; method: string; currencyCode: string; amount: number; unallocated: number; reference?: string | null; status: string };
   partyName: string;
+  partyAddress?: string | null;
+  partyTaxNumber?: string | null;
+  partyPhone?: string | null;
+  partyEmail?: string | null;
   allocations: { billNumber: string; amount: number }[];
 }
 
@@ -164,11 +177,14 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
               <div class="label">Bill to</div>
               <div class="party-name">{{ inv.invoice.partyName }}</div>
               @if (inv.partyAddress) { <div class="party-address">{{ inv.partyAddress }}</div> }
+              @if (partyContact(inv)) { <div class="party-address">{{ partyContact(inv) }}</div> }
+              @if (inv.partyTaxNumber) { <div>{{ taxRegLabel() }}: <strong>{{ inv.partyTaxNumber }}</strong></div> }
             </div>
             <table class="meta">
               <tr><td>{{ inv.invoice.isCreditNote ? 'Credit note no.' : 'Invoice no.' }}</td><td class="strong">{{ inv.invoice.number }}</td></tr>
               <tr><td>Date of issue</td><td>{{ inv.invoice.invoiceDate | date:'dd MMM yyyy' }}</td></tr>
               @if (!inv.invoice.isCreditNote) { <tr><td>Due date</td><td>{{ inv.invoice.dueDate | date:'dd MMM yyyy' }}</td></tr> }
+              @if (inv.invoice.sourceType && inv.invoice.sourceType.toLowerCase() !== 'manual') { <tr><td>Source</td><td>{{ humanize(inv.invoice.sourceType) }}</td></tr> }
               <tr><td>Currency</td><td>{{ inv.invoice.currencyCode }}</td></tr>
             </table>
           </div>
@@ -195,6 +211,8 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
               <div class="label">Vendor</div>
               <div class="party-name">{{ bil.partyName }}</div>
               @if (bil.partyAddress) { <div class="party-address">{{ bil.partyAddress }}</div> }
+              @if (partyContact(bil)) { <div class="party-address">{{ partyContact(bil) }}</div> }
+              @if (bil.partyTaxNumber) { <div>{{ taxRegLabel() }}: <strong>{{ bil.partyTaxNumber }}</strong></div> }
             </div>
             <table class="meta">
               <tr><td>Bill no.</td><td class="strong">{{ bil.bill.number }}</td></tr>
@@ -224,6 +242,8 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
               <div class="label">Received from</div>
               <div class="party-name">{{ rec.partyName }}</div>
               @if (rec.partyAddress) { <div class="party-address">{{ rec.partyAddress }}</div> }
+              @if (partyContact(rec)) { <div class="party-address">{{ partyContact(rec) }}</div> }
+              @if (rec.partyTaxNumber) { <div>{{ taxRegLabel() }}: <strong>{{ rec.partyTaxNumber }}</strong></div> }
             </div>
             <table class="meta">
               <tr><td>Receipt no.</td><td class="strong">{{ rec.receipt.number }}</td></tr>
@@ -257,6 +277,9 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
             <div>
               <div class="label">Paid to</div>
               <div class="party-name">{{ pay.partyName }}</div>
+              @if (pay.partyAddress) { <div class="party-address">{{ pay.partyAddress }}</div> }
+              @if (partyContact(pay)) { <div class="party-address">{{ partyContact(pay) }}</div> }
+              @if (pay.partyTaxNumber) { <div>{{ taxRegLabel() }}: <strong>{{ pay.partyTaxNumber }}</strong></div> }
             </div>
             <table class="meta">
               <tr><td>Voucher no.</td><td class="strong">{{ pay.payment.number }}</td></tr>
@@ -427,6 +450,10 @@ export class PrintPage implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  partyContact(p: { partyPhone?: string | null; partyEmail?: string | null }): string {
+    return [p.partyPhone, p.partyEmail].filter((x) => !!x).join(' · ');
   }
 
   print(): void { window.print(); }
