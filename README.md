@@ -5,7 +5,7 @@ A modular, multi-tenant ERP for any type of business: an industry-neutral core (
 - `backend/`: ASP.NET Core 8 Clean Architecture solution
 - `frontend/`: Angular 19 + ng-zorro-antd app
 - `database/`: SQL scripts
-- `deploy/`: Docker / deployment files
+- `deploy/`: Docker / deployment files; Windows deploy scripts (`deploy/windows`) and the Cloudflare named-tunnel setup (`deploy/cloudflare`, run order in [docs/devops/cloudflare-named-tunnels.md](docs/devops/cloudflare-named-tunnels.md#run-order))
 - `docs/`: contributing guide and team specs (`docs/team/`)
 
 See [AGENTS.md](AGENTS.md) for coding rules and [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for the workflow.

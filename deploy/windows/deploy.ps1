@@ -86,6 +86,13 @@ $tools = Join-Path (Split-Path -Parent $cfg.Root) 'tools'
 if (-not (Test-Path $tools)) { New-Item -ItemType Directory -Path $tools | Out-Null }
 if ((Resolve-Path $PSScriptRoot).Path -ne (Resolve-Path $tools).Path) {
     Get-ChildItem -Path $PSScriptRoot -File | Where-Object { $_.Extension -in '.ps1', '.psm1', '.psd1' } | Copy-Item -Destination $tools -Force
+    # Named-tunnel setup (deploy\cloudflare) -> <tools>\cloudflare; it imports ..\ErpOps.psm1 from there.
+    $cf = Join-Path (Split-Path -Parent $PSScriptRoot) 'cloudflare'
+    if (Test-Path $cf) {
+        $cfTools = Join-Path $tools 'cloudflare'
+        if (-not (Test-Path $cfTools)) { New-Item -ItemType Directory -Path $cfTools | Out-Null }
+        Get-ChildItem -Path $cf -File | Where-Object { $_.Extension -in '.ps1', '.yml' } | Copy-Item -Destination $cfTools -Force
+    }
 }
 $url = Start-ErpTunnel $cfg
 Write-Host "Deployed $Environment : $(Split-Path -Leaf $release)"

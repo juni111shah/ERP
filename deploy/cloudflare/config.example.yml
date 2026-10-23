@@ -1,0 +1,36 @@
+# Cloudflare named tunnel for the ERP deploy PC: one tunnel ("erp"), one ingress rule per hostname.
+# TEMPLATE ONLY. setup-named-tunnel.ps1 writes the real file OUTSIDE the repo:
+#   %USERPROFILE%\.cloudflared\config.yml                                   (foreground: cloudflared tunnel --config <file> run erp)
+#   C:\Windows\System32\config\systemprofile\.cloudflared\config.yml        (Windows service, -InstallService)
+# Placeholders: <TUNNEL_ID> (UUID from `cloudflared tunnel create erp`), <DOMAIN> (your zone on Cloudflare),
+#               <CREDENTIALS_FILE> (the tunnel credentials JSON, e.g. C:\Users\<user>\.cloudflared\<TUNNEL_ID>.json).
+# The credentials JSON and cert.pem are secrets: never commit them or copy them into the repo.
+tunnel: <TUNNEL_ID>
+credentials-file: <CREDENTIALS_FILE>
+no-autoupdate: true
+
+ingress:
+  # dev web: ng serve (Angular dev server). It proxies /api and /hubs to the API on :5080 (proxy.conf.json), so this one
+  # hostname serves the whole dev app from one origin. ng serve rejects unknown Host headers, so rewrite Host to localhost.
+  - hostname: erp-dev.<DOMAIN>
+    service: http://localhost:4200
+    originRequest:
+      httpHostHeader: localhost
+
+  # OPTIONAL dev API hostname, straight to the API on :5080 (Swagger, Postman, scripts, mobile clients). Not needed by the
+  # web app. Off by default: enable with setup-named-tunnel.ps1 -DevApiHost erp-dev-api. Same-origin use (Swagger UI on
+  # this host, curl) needs no app change. Cross-origin browser calls from erp-dev.<DOMAIN> need that origin in the dev
+  # API's CORS: set ERP_Hosting__PublicUrl=https://erp-dev.<DOMAIN> in the VS launch profile (locally, not committed).
+  # - hostname: erp-dev-api.<DOMAIN>
+  #   service: http://localhost:5080
+
+  # staging: ERP.Api serves the API and the Angular build on one origin
+  - hostname: erp-staging.<DOMAIN>
+    service: http://localhost:5180
+
+  # production: ERP.Api serves the API and the Angular build on one origin
+  - hostname: erp.<DOMAIN>
+    service: http://localhost:5280
+
+  # everything else
+  - service: http_status:404

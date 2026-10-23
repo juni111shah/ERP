@@ -35,6 +35,12 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 });
 builder.Services.AddWindowsService(); // no-op unless the process was started by the Windows service control manager
 
+// ERP_-prefixed environment variables (e.g. ERP_Hosting__PublicUrl) override everything else; deploy scripts and the
+// named-tunnel setup use them so a machine-specific value never has to be committed.
+builder.Configuration.AddEnvironmentVariables(prefix: "ERP_");
+// Public origin (named-tunnel hostname). Empty by default: localhost and quick-tunnel behaviour unchanged.
+var publicOrigin = PublicOrigin.Normalize(builder.Configuration[PublicOrigin.Key]);
+
 builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration).Enrich.FromLogContext().WriteTo.Console());
 
 // ---- Module composition (the host is the only place that references module assemblies) ----
@@ -126,8 +132,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
     o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     o.ForwardLimit = 2;
 });
+if (publicOrigin is not null) builder.Services.PostConfigure<EmailOptions>(o => o.AppBaseUrl = publicOrigin); // links in emails
 builder.Services.AddCors(o => o.AddPolicy("web", p => p
-    .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:4200"])
+    .WithOrigins(PublicOrigin.CorsOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:4200"], publicOrigin))
     .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 builder.Services.ConfigureHttpJsonOptions(o =>
 {

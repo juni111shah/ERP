@@ -61,6 +61,9 @@ To start automatically at logon without admin rights: `.\register-startup.ps1 -I
 ## Tunnels and URLs
 
 Quick-tunnel URLs are random and change on every tunnel restart, which includes reboots.
+Once the named tunnel is set up ([cloudflare-named-tunnels.md](cloudflare-named-tunnels.md)), an environment listed in
+`D:\ERP\envs\public-urls.psd1` has a permanent URL instead: `start`/`restart`/deploys don't start a quick tunnel for
+it, and `url`/`status` show the permanent URL. The named tunnel itself is the `cloudflared` Windows service.
 
 ```powershell
 .\erp-env.ps1 url                                   # current public URLs
