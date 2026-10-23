@@ -7,6 +7,7 @@ namespace ERP.IntegrationTests;
 /// <summary>The real estate module end to end on the seeded UAE real-estate workspace ("demo-re").</summary>
 public class RealEstateApiTests(ApiFactory f) : IClassFixture<ApiFactory>
 {
+    private static readonly object VoidReason = new { reason = "Entered in error" };
     private const string Re = "/api/v1/m/realestate";
     private int _seed;
 
@@ -377,7 +378,7 @@ public class RealEstateApiTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(30_000m, (decimal)early["total"]!);
         Assert.Equal(HttpStatusCode.Conflict, (await c.PostAsync($"{Re}/billing/instalments/{(string)second["id"]!}/invoice", null)).StatusCode);
 
-        Assert.Equal(HttpStatusCode.OK, (await c.PostAsync($"/api/v1/finance/invoices/{invoiceId}/void", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await c.PostAsJsonAsync($"/api/v1/finance/invoices/{invoiceId}/void", VoidReason)).StatusCode);
         var after = (await Ok(await c.GetAsync($"{Re}/leases/{leaseId}/schedule"))).AsArray()[0]!;
         Assert.Equal("scheduled", (string)after["status"]!);
         Assert.Null(after["invoiceId"]);

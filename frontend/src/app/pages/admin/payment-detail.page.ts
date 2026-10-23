@@ -8,6 +8,7 @@ import { API_BASE_URL } from '../../core/api/api-config';
 import { PaymentsApi } from '../../core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
+import { problemMessage } from '../../core/http/problem-details';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 
 interface BillAllocation {
@@ -195,12 +196,11 @@ export class PaymentDetailPage implements OnInit {
   voidPayment(): void {
     const pay = this.payment();
     if (!pay) return;
-    // The void endpoint takes no body yet, so the reason is collected but not sent (backend gap, see CHANGES.md).
     askReason(this.modal, 'Void this payment?', 'Void Payment', 'This reverses its journal and removes its allocations.').then((reason) => {
       if (!reason) return;
-      this.api.void(pay.id).subscribe({
+      this.api.void(pay.id, reason).subscribe({
         next: (res) => { this.payment.set(res as unknown as Payment); this.message.success('Payment voided'); },
-        error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to void payment')
+        error: (err) => this.message.error(problemMessage(err, 'Failed to void payment', 'reason'))
       });
     });
   }

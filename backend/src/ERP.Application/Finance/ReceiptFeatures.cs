@@ -1,3 +1,4 @@
+using ERP.Domain.Platform;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Organizations;
@@ -13,17 +14,30 @@ namespace ERP.Application.Finance;
 public sealed record AllocationInput(Guid InvoiceId, decimal Amount);
 public sealed record ReceiptInput(Guid LegalEntityId, Guid PartyId, DateOnly Date, SettlementMethod Method, Guid BankAccountId, decimal Amount, string? Reference, List<AllocationInput>? Allocations, bool AutoAllocate = false);
 
-public sealed record AllocationDto(Guid Id, Guid InvoiceId, string InvoiceNumber, decimal Amount);
+/// <summary>Label is set only for an allocation with no linked invoice (InvoiceId = Guid.Empty, InvoiceNumber = "").</summary>
+public sealed record AllocationDto(Guid Id, Guid InvoiceId, string InvoiceNumber, decimal Amount, string? Label = null);
+
+public static class AllocationLabels
+{
+    public const string Unapplied = "Unapplied/On account";
+}
 public sealed record ReceiptDto(
     Guid Id, string Number, Guid LegalEntityId, Guid PartyId, string? PartyName, DateOnly Date, SettlementMethod Method, Guid? BankAccountId, string CurrencyCode, decimal Amount,
-    decimal Unallocated, string? Reference, DocumentStatus Status, Guid? JournalEntryId, IReadOnlyList<AllocationDto> Allocations);
+    decimal Unallocated, string? Reference, DocumentStatus Status, Guid? JournalEntryId, IReadOnlyList<AllocationDto> Allocations,
+    Guid? PaymentInstrumentId = null, string? InstrumentKind = null, string? ChequeNumber = null, DateOnly? ChequeDate = null, string? ChequeStatus = null, string? ChequeBankName = null);
 public sealed record ReceiptSummaryDto(Guid Id, string Number, Guid PartyId, string? PartyName, DateOnly Date, SettlementMethod Method, decimal Amount, decimal Unallocated, DocumentStatus Status, string CurrencyCode);
 
 public sealed record GetReceipt(Guid Id) : IQuery<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsRead; }
 /// <summary>Money received from a customer: Dr bank / cash, Cr receivables; optionally settles invoices at the same time. What is not allocated stays as customer credit.</summary>
 public sealed record CreateReceipt(ReceiptInput Input) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
 public sealed record AllocateReceipt(Guid Id, List<AllocationInput> Allocations) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
-public sealed record VoidReceipt(Guid Id) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
+/// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
+public sealed record VoidReceipt(Guid Id, string? Reason) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
+
+public sealed class VoidReceiptValidator : AbstractValidator<VoidReceipt>
+{
+    public VoidReceiptValidator() => RuleFor(x => x.Reason).ValidVoidReason();
+}
 
 public sealed class ReceiptInputValidator : AbstractValidator<ReceiptInput>
 {
@@ -41,7 +55,8 @@ public sealed class CreateReceiptValidator : AbstractValidator<CreateReceipt> { 
 
 internal sealed class ReceiptHandlers(
     IRepository<Settlement> settlements, IRepository<SettlementAllocation> allocationRows, IRepository<Invoice> invoices, ISettlementService settlementService,
-    IReadRepository<Account> accounts, IReadRepository<Party> parties, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering) :
+    IReadRepository<Account> accounts, IReadRepository<Party> parties, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering, IReadRepository<PaymentInstrument> instruments,
+    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock) :
     IRequestHandler<GetReceipt, ReceiptDto>,
     IRequestHandler<CreateReceipt, ReceiptDto>,
     IRequestHandler<AllocateReceipt, ReceiptDto>,
@@ -94,8 +109,9 @@ internal sealed class ReceiptHandlers(
     {
         var s = await LoadAsync(cmd.Id, ct);
         if (s.Status != DocumentStatus.Issued) throw new ConflictException("This receipt is already voided.");
-        await settlementService.ReverseAsync(s, $"Void {s.Number}", ct);
+        await settlementService.ReverseAsync(s, VoidMemo.For(s.Number, cmd.Reason), ct);
         s.Status = DocumentStatus.Voided; s.Unallocated = 0;
+        VoidMemo.Audit(audit, user, clock, nameof(Settlement), s.Id, s.Number, cmd.Reason!);
         await settlements.SaveChangesAsync(ct);
         return await ToDtoAsync(s, ct);
     }
@@ -108,7 +124,21 @@ internal sealed class ReceiptHandlers(
         var rows = allocations ?? s.Allocations;
         var ids = rows.Select(a => a.InvoiceId!.Value).ToList();
         var numbers = await invoices.Query(new Specification<Invoice>(i => ids.Contains(i.Id))).Select(i => new { i.Id, i.Number }).ToDictionaryAsync(i => i.Id, i => i.Number, ct);
+        var ins = await InstrumentInfo.LoadAsync(instruments, s.PaymentInstrumentId, ct);
         return new ReceiptDto(s.Id, s.Number, s.LegalEntityId, s.PartyId, s.PartyName, s.Date, s.Method, s.BankAccountId, s.CurrencyCode, s.Amount, s.Unallocated, s.Reference, s.Status, s.JournalEntryId,
-            rows.Select(a => new AllocationDto(a.Id, a.InvoiceId!.Value, numbers.GetValueOrDefault(a.InvoiceId.Value, "?"), a.Amount)).ToList());
+            rows.Select(a => new AllocationDto(a.Id, a.InvoiceId!.Value, numbers.GetValueOrDefault(a.InvoiceId.Value, "?"), a.Amount)).ToList(),
+            s.PaymentInstrumentId, ins?.Kind, ins?.No, ins?.Date, ins?.Status, ins?.BankName);
+    }
+}
+
+/// <summary>Cheque / instrument details for receipt and payment DTOs (null when the settlement has no instrument).</summary>
+internal sealed record InstrumentInfo(string Kind, string No, DateOnly Date, string Status, string? BankName)
+{
+    public static async Task<InstrumentInfo?> LoadAsync(IReadRepository<PaymentInstrument> instruments, Guid? id, CancellationToken ct)
+    {
+        if (id is not { } iid) return null;
+        var i = await instruments.Query(new Specification<PaymentInstrument>(x => x.Id == iid))
+            .Select(x => new { x.Kind, x.InstrumentNo, x.InstrumentDate, x.Status, x.BankName }).FirstOrDefaultAsync(ct);
+        return i is null ? null : new InstrumentInfo(i.Kind.ToString(), i.InstrumentNo, i.InstrumentDate, i.Status.ToString(), i.BankName);
     }
 }

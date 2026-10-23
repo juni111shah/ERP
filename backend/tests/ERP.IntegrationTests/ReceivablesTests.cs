@@ -7,6 +7,7 @@ namespace ERP.IntegrationTests;
 /// <summary>Invoices, credit notes, receipts and the ageing report. Each test uses its own legal entity and customer.</summary>
 public class ReceivablesTests(ApiFactory f) : IClassFixture<ApiFactory>
 {
+    private static readonly object VoidReason = new { reason = "Entered in error" };
     private const string Fin = "/api/v1/finance";
 
     private async Task<HttpClient> AdminAsync() => (await f.SignInAsync(ApiFactory.AdminEmail)).Client;
@@ -93,7 +94,7 @@ public class ReceivablesTests(ApiFactory f) : IClassFixture<ApiFactory>
         var allocated = await Ok(await s.C.PostAsJsonAsync($"{Fin}/receipts/{(string)big["id"]!}/allocate", new { allocations = new[] { new { invoiceId, amount = 600m } } }));
         Assert.Equal(200m, (decimal)allocated["unallocated"]!);
         Assert.Equal("paid", (string)(await Ok(await s.C.GetAsync($"{Fin}/invoices/{invoiceId}")))["status"]!);
-        Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsync($"{Fin}/invoices/{invoiceId}/void", null)).StatusCode); // paid: credit it instead
+        Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsJsonAsync($"{Fin}/invoices/{invoiceId}/void", VoidReason)).StatusCode); // paid: credit it instead
     }
 
     [Fact]
@@ -107,12 +108,16 @@ public class ReceivablesTests(ApiFactory f) : IClassFixture<ApiFactory>
         }), HttpStatusCode.Created);
         Assert.Equal("paid", (string)(await Ok(await s.C.GetAsync($"{Fin}/invoices/{invoiceId}")))["status"]!);
 
-        var voided = await Ok(await s.C.PostAsync($"{Fin}/receipts/{(string)receipt["id"]!}/void", null));
+        var voided = await Ok(await s.C.PostAsJsonAsync($"{Fin}/receipts/{(string)receipt["id"]!}/void", VoidReason));
         Assert.Equal("voided", (string)voided["status"]!);
         var inv = await Ok(await s.C.GetAsync($"{Fin}/invoices/{invoiceId}"));
         Assert.Equal(("issued", 0m), ((string)inv["status"]!, (decimal)inv["paid"]!));
 
-        Assert.Equal(HttpStatusCode.OK, (await s.C.PostAsync($"{Fin}/invoices/{invoiceId}/void", null)).StatusCode);
+        // The void reason is required (3-500 characters).
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsync($"{Fin}/invoices/{invoiceId}/void", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/invoices/{invoiceId}/void", new { reason = " x " })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/invoices/{invoiceId}/void", new { reason = new string('x', 501) })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await s.C.PostAsJsonAsync($"{Fin}/invoices/{invoiceId}/void", VoidReason)).StatusCode);
         var tb = await Ok(await s.C.GetAsync($"{Fin}/reports/trial-balance?to=2026-12-31&legalEntityId={s.Entity}"));
         Assert.All(tb["rows"]!.AsArray(), r => Assert.Equal(0m, (decimal)r!["closing"]!));
     }

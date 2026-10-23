@@ -177,7 +177,10 @@ export class InvoicesApi extends CrudApiService<InvoiceSummary, unknown> {
   detail(id: string): Observable<InvoiceDto> { return this.http.get<InvoiceDto>(`${this.url}/${id}`); }
   save(id: string | null, body: unknown): Observable<InvoiceDto> { return id ? this.http.put<InvoiceDto>(`${this.url}/${id}`, body) : this.http.post<InvoiceDto>(this.url, body); }
   issue(id: string): Observable<InvoiceDto> { return this.http.post<InvoiceDto>(`${this.url}/${id}/issue`, {}); }
-  void(id: string): Observable<InvoiceDto> { return this.http.post<InvoiceDto>(`${this.url}/${id}/void`, {}); }
+  /** The API requires a reason (3–500 characters); it is stored in the audit log and the reversal memo. */
+  void(id: string, reason: string): Observable<InvoiceDto> { return this.http.post<InvoiceDto>(`${this.url}/${id}/void`, { reason }); }
+  /** Draft credit note linked to this invoice (all lines at full quantity unless lines are given). */
+  creditNote(id: string, body: { date?: string; lines?: { invoiceLineId: string; quantity: number }[]; notes?: string } = {}): Observable<InvoiceDto> { return this.http.post<InvoiceDto>(`${this.url}/${id}/credit-note`, body); }
   applyCredit(creditId: string, invoiceId: string, amount: number): Observable<InvoiceDto> { return this.http.post<InvoiceDto>(`${this.url}/${creditId}/apply-credit`, { invoiceId, amount }); }
   remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
 }
@@ -187,7 +190,8 @@ export class ReceiptsApi extends CrudApiService<ReceiptSummary, unknown> {
   protected readonly resource = 'finance/receipts';
   detail(id: string): Observable<ReceiptDto> { return this.http.get<ReceiptDto>(`${this.url}/${id}`); }
   allocate(id: string, allocations: { invoiceId: string; amount: number }[]): Observable<ReceiptDto> { return this.http.post<ReceiptDto>(`${this.url}/${id}/allocate`, { allocations }); }
-  void(id: string): Observable<ReceiptDto> { return this.http.post<ReceiptDto>(`${this.url}/${id}/void`, {}); }
+  /** The API requires a reason (3–500 characters); it is stored in the audit log and the reversal memo. */
+  void(id: string, reason: string): Observable<ReceiptDto> { return this.http.post<ReceiptDto>(`${this.url}/${id}/void`, { reason }); }
 }
 
 // ---- Cheque register ---------------------------------------------------------------------------------------------------------
@@ -260,7 +264,8 @@ export class BillsApi extends CrudApiService<BillSummary, unknown> {
   detail(id: string): Observable<BillDto> { return this.http.get<BillDto>(`${this.url}/${id}`); }
   save(id: string | null, body: unknown): Observable<BillDto> { return id ? this.http.put<BillDto>(`${this.url}/${id}`, body) : this.http.post<BillDto>(this.url, body); }
   post(id: string): Observable<BillDto> { return this.http.post<BillDto>(`${this.url}/${id}/post`, {}); }
-  void(id: string): Observable<BillDto> { return this.http.post<BillDto>(`${this.url}/${id}/void`, {}); }
+  /** The API requires a reason (3–500 characters); it is stored in the audit log and the reversal memo. */
+  void(id: string, reason: string): Observable<BillDto> { return this.http.post<BillDto>(`${this.url}/${id}/void`, { reason }); }
 }
 
 @Injectable({ providedIn: 'root' })
@@ -268,7 +273,8 @@ export class PaymentsApi extends CrudApiService<PaymentSummary, unknown> {
   protected readonly resource = 'finance/payments';
   detail(id: string): Observable<PaymentDto> { return this.http.get<PaymentDto>(`${this.url}/${id}`); }
   allocate(id: string, allocations: { billId: string; amount: number }[]): Observable<PaymentDto> { return this.http.post<PaymentDto>(`${this.url}/${id}/allocate`, { allocations }); }
-  void(id: string): Observable<PaymentDto> { return this.http.post<PaymentDto>(`${this.url}/${id}/void`, {}); }
+  /** The API requires a reason (3–500 characters); it is stored in the audit log and the reversal memo. */
+  void(id: string, reason: string): Observable<PaymentDto> { return this.http.post<PaymentDto>(`${this.url}/${id}/void`, { reason }); }
   clearCheque(instrumentId: string, date: string): Observable<PaymentDto> { return this.http.post<PaymentDto>(`${this.baseUrl}/finance/cheques/${instrumentId}/clear-issued`, { date }); }
 }
 

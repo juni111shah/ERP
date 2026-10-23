@@ -1,3 +1,4 @@
+using ERP.Domain.Platform;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Organizations;
@@ -15,17 +16,25 @@ public sealed record PaymentInput(
     Guid LegalEntityId, Guid PartyId, DateOnly Date, SettlementMethod Method, Guid BankAccountId, decimal Amount, string? Reference, List<BillAllocationInput>? Allocations,
     string? ChequeNo = null, DateOnly? ChequeDate = null, string? BankName = null);
 
-public sealed record BillAllocationDto(Guid Id, Guid BillId, string BillNumber, decimal Amount);
+/// <summary>Label is set only for an allocation with no linked bill (BillId = Guid.Empty, BillNumber = "").</summary>
+public sealed record BillAllocationDto(Guid Id, Guid BillId, string BillNumber, decimal Amount, string? Label = null);
 public sealed record PaymentDto(
     Guid Id, string Number, Guid LegalEntityId, Guid PartyId, string? PartyName, DateOnly Date, SettlementMethod Method, Guid? BankAccountId, string CurrencyCode, decimal Amount, decimal Unallocated,
-    string? Reference, DocumentStatus Status, Guid? PaymentInstrumentId, Guid? JournalEntryId, IReadOnlyList<BillAllocationDto> Allocations);
+    string? Reference, DocumentStatus Status, Guid? PaymentInstrumentId, Guid? JournalEntryId, IReadOnlyList<BillAllocationDto> Allocations,
+    string? InstrumentKind = null, string? ChequeNumber = null, DateOnly? ChequeDate = null, string? ChequeStatus = null, string? ChequeBankName = null);
 public sealed record PaymentSummaryDto(Guid Id, string Number, Guid PartyId, string? PartyName, DateOnly Date, SettlementMethod Method, decimal Amount, decimal Unallocated, DocumentStatus Status, string CurrencyCode);
 
 public sealed record GetPayment(Guid Id) : IQuery<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsRead; }
 /// <summary>Pays a vendor: Dr payables, Cr bank / cash (or "cheques issued" for a cheque), settling bills at the same time.</summary>
 public sealed record CreatePayment(PaymentInput Input) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
 public sealed record AllocatePayment(Guid Id, List<BillAllocationInput> Allocations) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
-public sealed record VoidPayment(Guid Id) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
+/// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
+public sealed record VoidPayment(Guid Id, string? Reason) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
+
+public sealed class VoidPaymentValidator : AbstractValidator<VoidPayment>
+{
+    public VoidPaymentValidator() => RuleFor(x => x.Reason).ValidVoidReason();
+}
 /// <summary>The vendor banked a cheque we issued: Dr cheques issued, Cr bank.</summary>
 public sealed record ClearIssuedCheque(Guid InstrumentId, DateOnly Date) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ChequesApprove; }
 
@@ -46,7 +55,8 @@ public sealed class CreatePaymentValidator : AbstractValidator<CreatePayment> { 
 
 internal sealed class PaymentHandlers(
     IRepository<Settlement> settlements, IRepository<SettlementAllocation> allocationRows, IRepository<Bill> bills, IRepository<PaymentInstrument> instruments, IRepository<JournalEntry> journals,
-    IReadRepository<Account> accounts, IReadRepository<Party> parties, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering, IUnitOfWork uow) :
+    IReadRepository<Account> accounts, IReadRepository<Party> parties, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering, IUnitOfWork uow,
+    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock) :
     IRequestHandler<GetPayment, PaymentDto>,
     IRequestHandler<CreatePayment, PaymentDto>,
     IRequestHandler<AllocatePayment, PaymentDto>,
@@ -117,7 +127,7 @@ internal sealed class PaymentHandlers(
             if (cheque?.Status == InstrumentStatus.Cleared) throw new ConflictException("The cheque has already cleared the bank, so the payment cannot be voided.");
         }
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == s.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
-        await posting.ReverseAsync(journal, journal.Date, $"Void {s.Number}", ct);
+        await posting.ReverseTodayAsync(journal, VoidMemo.For(s.Number, cmd.Reason), ct);
         var ids = s.Allocations.Select(a => a.BillId!.Value).ToList();
         foreach (var bill in await bills.Tracked(new Specification<Bill>(b => ids.Contains(b.Id))).ToListAsync(ct))
         {
@@ -126,6 +136,7 @@ internal sealed class PaymentHandlers(
         }
         s.Status = DocumentStatus.Voided; s.Unallocated = 0;
         if (cheque is not null) cheque.Status = InstrumentStatus.Cancelled;
+        VoidMemo.Audit(audit, user, clock, nameof(Settlement), s.Id, s.Number, cmd.Reason!);
         await settlements.SaveChangesAsync(ct);
         return await ToDtoAsync(s, ct);
     }
@@ -174,7 +185,9 @@ internal sealed class PaymentHandlers(
         var rows = allocations ?? s.Allocations;
         var ids = rows.Select(a => a.BillId!.Value).ToList();
         var numbers = await bills.Query(new Specification<Bill>(b => ids.Contains(b.Id))).Select(b => new { b.Id, b.Number }).ToDictionaryAsync(b => b.Id, b => b.Number, ct);
+        var ins = await InstrumentInfo.LoadAsync(instruments, s.PaymentInstrumentId, ct);
         return new PaymentDto(s.Id, s.Number, s.LegalEntityId, s.PartyId, s.PartyName, s.Date, s.Method, s.BankAccountId, s.CurrencyCode, s.Amount, s.Unallocated, s.Reference, s.Status, s.PaymentInstrumentId, s.JournalEntryId,
-            rows.Select(a => new BillAllocationDto(a.Id, a.BillId!.Value, numbers.GetValueOrDefault(a.BillId.Value, "?"), a.Amount)).ToList());
+            rows.Select(a => new BillAllocationDto(a.Id, a.BillId!.Value, numbers.GetValueOrDefault(a.BillId.Value, "?"), a.Amount)).ToList(),
+            ins?.Kind, ins?.No, ins?.Date, ins?.Status, ins?.BankName);
     }
 }

@@ -9,7 +9,7 @@ import { API_BASE_URL } from '../../core/api/api-config';
 /** The invoice fields the sheet renders (a subset of InvoiceDto, so the list drawer and the detail page can share it). */
 export interface InvoiceSheetData {
   id: string; number: string; isCreditNote: boolean; partyId: string; partyName?: string | null; invoiceDate: string; dueDate: string; currencyCode: string;
-  net: number; tax: number; total: number; paid: number; status: string; sourceType?: string | null; creditNoteForId?: string | null; notes?: string | null;
+  net: number; tax: number; total: number; paid: number; status: string; sourceType?: string | null; sourceId?: string | null; creditNoteForId?: string | null; notes?: string | null;
   lines: { id?: string; seq?: number; description: string; quantity: number; price: number; taxCodeId?: string | null; taxAmount?: number; net?: number }[];
 }
 
@@ -17,6 +17,8 @@ export interface InvoiceSheetData {
 export interface InvoiceExtras {
   header: { organizationName: string; legalEntityName: string; legalEntityAddress?: string | null; taxRegistrationNo?: string | null; phone?: string | null; email?: string | null; countryCode: string };
   partyAddress?: string | null; partyTaxNumber?: string | null; partyPhone?: string | null; partyEmail?: string | null;
+  /** Set on a credit note linked to an invoice (SourceType "invoice"). */
+  originalInvoiceId?: string | null; originalInvoiceNumber?: string | null;
 }
 
 /** Tax label per country, same table as the print layout; anything else is plain "Tax". */
@@ -129,7 +131,7 @@ export class InvoiceExtrasService {
               <span>Due date</span><span [class.overdue]="overdueDays() > 0">{{ inv.dueDate | date: 'dd MMM yyyy' }}@if (overdueDays() > 0) { ({{ overdueDays() }} days overdue) }</span>
               <span>Currency</span><span>{{ inv.currencyCode }}</span>
               @if (source()) { <span>Source</span><span>{{ source() }}</span> }
-              @if (inv.creditNoteForId) { <span>Credits</span><span><a [routerLink]="['/finance/invoices', inv.creditNoteForId]">Original invoice</a></span> }
+              @if (originalInvoiceId(); as oid) { <span>Credits</span><span><a [routerLink]="['/finance/invoices', oid]">{{ extras()?.originalInvoiceNumber ? 'Invoice ' + extras()!.originalInvoiceNumber : 'Original invoice' }}</a></span> }
             </div>
           </div>
         </div>
@@ -183,6 +185,12 @@ export class InvoiceSheetComponent {
   readonly statusLabel = computed(() => invoiceStatusLabel(this.invoice()?.status ?? ''));
   readonly overdueDays = computed(() => { const inv = this.invoice(); return inv ? daysOverdue(inv) : 0; });
   readonly source = computed(() => humanizeSource(this.invoice()?.sourceType));
+  /** Original invoice of a credit note: legacy creditNoteForId, the print endpoint's link, or SourceType "invoice" + SourceId. */
+  readonly originalInvoiceId = computed(() => {
+    const inv = this.invoice();
+    if (!inv) return null;
+    return inv.creditNoteForId ?? this.extras()?.originalInvoiceId ?? (inv.isCreditNote && inv.sourceType === 'invoice' ? inv.sourceId ?? null : null);
+  });
   // B-4: fall back when the stored party name is empty.
   readonly partyName = computed(() => this.invoice()?.partyName || 'Customer');
   readonly rows = computed(() => (this.invoice()?.lines ?? []).map((l, i) => {

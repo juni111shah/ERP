@@ -23,7 +23,8 @@ public sealed record CreateJournal(JournalInput Input) : ICommand<JournalDto>, I
 public sealed record UpdateJournal(Guid Id, JournalInput Input) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsWrite; }
 public sealed record DeleteJournal(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsWrite; }
 public sealed record PostJournal(Guid Id) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsPost; }
-public sealed record ReverseJournal(Guid Id, DateOnly? Date, string? Memo) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsPost; }
+public sealed record ReverseJournal(Guid Id, DateOnly? Date, string? Memo) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsReverse; }
+public sealed class ReverseJournalValidator : AbstractValidator<ReverseJournal> { public ReverseJournalValidator() => RuleFor(x => x.Memo).MaximumLength(400); }
 /// <summary>Closes the books of a legal entity up to (and including) a date. Nothing can be posted on or before it.</summary>
 public sealed record LockBooks(Guid LegalEntityId, DateOnly? Through) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.EntitiesWrite; }
 
@@ -110,10 +111,17 @@ internal sealed class JournalHandlers(
         return await ToDtoAsync(journal, ct);
     }
 
+    private static readonly HashSet<string> DocumentSourceTypes = new(StringComparer.OrdinalIgnoreCase) { "invoice", "creditnote", "bill", "receipt", "payment", "cheque" };
+
     public async Task<JournalDto> Handle(ReverseJournal cmd, CancellationToken ct)
     {
         var original = await journals.Tracked(new Specification<JournalEntry>(x => x.Id == cmd.Id).Include(x => x.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
-        var reversal = await posting.ReverseAsync(original, cmd.Date ?? original.Date, cmd.Memo, ct);
+        // Journals owned by a document with its own void / cancel flow must be undone there, or the document and ledger drift apart.
+        if (original.ReversalOfId is null && original.SourceType is { } src && DocumentSourceTypes.Contains(src))
+            throw new ConflictException($"This entry was created by a source document ({src}). Void the document instead of reversing its journal.");
+        var reversal = cmd.Date is { } date
+            ? await posting.ReverseAsync(original, date, cmd.Memo, ct)
+            : await posting.ReverseTodayAsync(original, cmd.Memo, ct);
         await journals.SaveChangesAsync(ct);
         return await ToDtoAsync(reversal, ct);
     }

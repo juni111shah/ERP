@@ -7,6 +7,7 @@ namespace ERP.IntegrationTests;
 /// <summary>Vendor bills, payments, issued cheques, approval rules and the payables ageing.</summary>
 public class PayablesTests(ApiFactory f) : IClassFixture<ApiFactory>
 {
+    private static readonly object VoidReason = new { reason = "Entered in error" };
     private const string Fin = "/api/v1/finance";
 
     private static async Task<JsonNode> Ok(HttpResponseMessage res, HttpStatusCode expected = HttpStatusCode.OK)
@@ -101,9 +102,9 @@ public class PayablesTests(ApiFactory f) : IClassFixture<ApiFactory>
         var advance = await Ok(await s.C.PostAsJsonAsync($"{Fin}/payments", new { legalEntityId = s.Entity, partyId = s.Vendor, date = "2026-04-22", method = "bankTransfer", bankAccountId = s.Bank, amount = 400m }), HttpStatusCode.Created);
         await Ok(await s.C.PostAsJsonAsync($"{Fin}/payments/{(string)advance["id"]!}/allocate", new { allocations = new[] { new { billId, amount = 400m } } }));
         Assert.Equal("paid", (string)(await Ok(await s.C.GetAsync($"{Fin}/bills/{billId}")))["status"]!);
-        Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsync($"{Fin}/bills/{billId}/void", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsJsonAsync($"{Fin}/bills/{billId}/void", VoidReason)).StatusCode);
 
-        await Ok(await s.C.PostAsync($"{Fin}/payments/{(string)payment["id"]!}/void", null));
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/payments/{(string)payment["id"]!}/void", VoidReason));
         var after = await Ok(await s.C.GetAsync($"{Fin}/bills/{billId}"));
         Assert.Equal(("partlyPaid", 600m), ((string)after["status"]!, (decimal)after["outstanding"]!));
 
@@ -134,7 +135,7 @@ public class PayablesTests(ApiFactory f) : IClassFixture<ApiFactory>
         await Ok(await s.C.PostAsJsonAsync($"{Fin}/cheques/{chequeId}/clear-issued", new { date = "2026-05-16" }));
         Assert.Equal(0m, await ClosingAsync(s, "2150"));
         Assert.Equal(-500m, await ClosingAsync(s, "1010"));
-        Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsync($"{Fin}/payments/{(string)payment["id"]!}/void", null)).StatusCode); // cleared: too late
+        Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsJsonAsync($"{Fin}/payments/{(string)payment["id"]!}/void", VoidReason)).StatusCode); // cleared: too late
         Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsJsonAsync($"{Fin}/cheques/{chequeId}/clear-issued", new { date = "2026-05-17" })).StatusCode);
     }
 
@@ -143,7 +144,7 @@ public class PayablesTests(ApiFactory f) : IClassFixture<ApiFactory>
     {
         var s = await NewAsync();
         var billId = await PostedAsync(s, Bill(s, 100m, "V-500"));
-        Assert.Equal(HttpStatusCode.OK, (await s.C.PostAsync($"{Fin}/bills/{billId}/void", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await s.C.PostAsJsonAsync($"{Fin}/bills/{billId}/void", VoidReason)).StatusCode);
         Assert.Equal(0m, await ClosingAsync(s, "2000"));
         Assert.Equal(0m, await ClosingAsync(s, "6900"));
         // the reference can be used again after a void

@@ -19,7 +19,7 @@ import { AccountDto, AccountsApi, BillDto, BillSummary, BillsApi, LegalEntitiesA
 import { createPagedList } from '../../core/api/paged-list';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { LookupOption } from '../../core/custom-fields/lookup-registry';
-import { asProblem, controlError } from '../../core/http/problem-details';
+import { asProblem, controlError, problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
@@ -74,7 +74,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (bill()?.id) { <button nz-button (click)="openDetails(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
-      @if (bill()?.status === 'issued' && bill()!.paid === 0) { <button *erpHasPermission="'finance.bills.post'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="bill-void">Void</button> }
+      @if (bill()?.status === 'issued' && bill()!.paid === 0) { <button *erpHasPermission="'finance.bills.void'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="bill-void">Void</button> }
       @if (editable()) {
         @if (bill()?.id) { <button *erpHasPermission="'finance.bills.write'" nz-button nzDanger (click)="remove()" style="margin-inline-start:8px" data-testid="bill-delete">Delete</button> }
         <button *erpHasPermission="'finance.bills.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="bill-save">Save draft</button>
@@ -194,7 +194,7 @@ export class BillsPage {
     if (!b) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.
     void askReason(this.modal, 'Void this bill?', 'Void Bill', 'This cannot be undone. The bill will be marked as voided.').then((reason) => {
-      if (reason) this.api.void(b.id).subscribe({ next: () => this.done('Bill voided'), error: (e) => this.fail(e) });
+      if (reason) this.api.void(b.id, reason).subscribe({ next: () => this.done('Bill voided'), error: (e) => this.fail(e) });
     });
   }
 
@@ -208,5 +208,5 @@ export class BillsPage {
   }
 
   private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.list.reload(); }
-  private fail(e: unknown): void { const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not save the bill'); }
+  private fail(e: unknown): void { this.message.error(problemMessage(e, 'Could not save the bill', 'reason')); }
 }

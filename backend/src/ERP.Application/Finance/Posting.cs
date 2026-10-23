@@ -22,6 +22,8 @@ public interface IPostingService
     Task<JournalEntry> PostAsync(PostingRequest request, CancellationToken ct = default);
     /// <summary>Posts the opposite entry and marks the original reversed.</summary>
     Task<JournalEntry> ReverseAsync(JournalEntry original, DateOnly date, string? memo, CancellationToken ct = default);
+    /// <summary>Reverses dated today (never before the original), so voids still work after the original period is locked.</summary>
+    Task<JournalEntry> ReverseTodayAsync(JournalEntry original, string? memo, CancellationToken ct = default);
     /// <summary>The account that carries a system role (for example "ar.control") in this workspace.</summary>
     Task<Guid> AccountForRoleAsync(string systemRole, CancellationToken ct = default);
 }
@@ -67,6 +69,12 @@ public sealed class PostingService(
         reversal.ReversalOfId = original.Id;
         original.Status = JournalStatus.Reversed;
         return reversal;
+    }
+
+    public Task<JournalEntry> ReverseTodayAsync(JournalEntry original, string? memo, CancellationToken ct = default)
+    {
+        var today = DateOnly.FromDateTime(clock.UtcNow);
+        return ReverseAsync(original, today > original.Date ? today : original.Date, memo, ct);
     }
 
     public async Task<Guid> AccountForRoleAsync(string systemRole, CancellationToken ct = default)

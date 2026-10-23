@@ -24,7 +24,8 @@ public sealed record PrintInvoiceDto(
     PrintHeaderDto Header,
     InvoiceDto Invoice,
     string PartyAddress,
-    IReadOnlyList<InvoiceLineDto> Lines, string? PartyTaxNumber = null, string? PartyPhone = null, string? PartyEmail = null);
+    IReadOnlyList<InvoiceLineDto> Lines, string? PartyTaxNumber = null, string? PartyPhone = null, string? PartyEmail = null,
+    Guid? OriginalInvoiceId = null, string? OriginalInvoiceNumber = null);
 
 public sealed record PrintReceiptDto(
     PrintHeaderDto Header,
@@ -111,13 +112,19 @@ internal sealed class PrintHandlers(
         var header = await BuildHeaderAsync(invoice.LegalEntityId, ct);
         var party = await parties.Query().FirstOrDefaultAsync(p => p.Id == invoice.PartyId, ct);
         var partyAddress = party?.Address ?? string.Empty;
+        // Credit note raised from an invoice (linked via SourceType "invoice" + SourceId): print the original invoice.
+        string? originalNumber = null;
+        if (invoice.IsCreditNote && invoice.SourceType == CreateCreditNoteFromInvoice.LinkType && invoice.SourceId is { } srcId)
+            originalNumber = await invoices.Query(new Specification<Invoice>(i => i.Id == srcId)).Select(i => i.Number).FirstOrDefaultAsync(ct);
         
         return new PrintInvoiceDto(
             header,
-            InvoiceDto.From(invoice),
+            // B-4: fall back to the party's current name before the print page shows "Unknown".
+            InvoiceDto.From(invoice) with { PartyName = string.IsNullOrWhiteSpace(invoice.PartyName) ? party?.Name : invoice.PartyName },
             partyAddress,
             invoice.Lines.OrderBy(l => l.Seq).Select(l => new InvoiceLineDto(
-                l.Id, l.Seq, l.ItemId, l.Description, l.Quantity, l.Price, l.TaxCodeId, l.TaxAmount, l.Net, l.AccountId)).ToList(), party?.TaxNumber, party?.Phone, party?.Email);
+                l.Id, l.Seq, l.ItemId, l.Description, l.Quantity, l.Price, l.TaxCodeId, l.TaxAmount, l.Net, l.AccountId)).ToList(), party?.TaxNumber, party?.Phone, party?.Email,
+            originalNumber is null ? null : invoice.SourceId, originalNumber);
     }
 
     public async Task<PrintReceiptDto> Handle(GetPrintReceipt q, CancellationToken ct)
@@ -130,8 +137,10 @@ internal sealed class PrintHandlers(
         var ids = receipt.Allocations.Where(a => a.InvoiceId.HasValue).Select(a => a.InvoiceId!.Value).ToList();
         var invoiceNumbers = await invoices.Query(new Specification<Invoice>(i => ids.Contains(i.Id)))
             .Select(i => new { i.Id, i.Number }).ToDictionaryAsync(i => i.Id, i => i.Number, ct);
-        var allocations = receipt.Allocations.Where(a => a.InvoiceId.HasValue).Select(a => new AllocationDto(
-            a.Id, a.InvoiceId!.Value, invoiceNumbers.GetValueOrDefault(a.InvoiceId.Value, "?"), a.Amount)).ToList();
+        // Unlinked allocations are kept (blank number, "Unapplied/On account") so the lines add up to the receipt.
+        var allocations = receipt.Allocations.Select(a => a.InvoiceId is { } invId
+            ? new AllocationDto(a.Id, invId, invoiceNumbers.GetValueOrDefault(invId, "?"), a.Amount)
+            : new AllocationDto(a.Id, Guid.Empty, "", a.Amount, AllocationLabels.Unapplied)).ToList();
         
         var receiptDto = new ReceiptDto(
             receipt.Id, receipt.Number, receipt.LegalEntityId, receipt.PartyId, receipt.PartyName, receipt.Date, 
@@ -181,8 +190,10 @@ internal sealed class PrintHandlers(
         var ids = payment.Allocations.Where(a => a.BillId.HasValue).Select(a => a.BillId!.Value).ToList();
         var billNumbers = await bills.Query(new Specification<Bill>(b => ids.Contains(b.Id)))
             .Select(b => new { b.Id, b.Number }).ToDictionaryAsync(b => b.Id, b => b.Number, ct);
-        var allocations = payment.Allocations.Where(a => a.BillId.HasValue).Select(a => new BillAllocationDto(
-            a.Id, a.BillId!.Value, billNumbers.GetValueOrDefault(a.BillId.Value, "?"), a.Amount)).ToList();
+        // Unlinked allocations are kept (blank number, "Unapplied/On account") so the lines add up to the payment.
+        var allocations = payment.Allocations.Select(a => a.BillId is { } billId
+            ? new BillAllocationDto(a.Id, billId, billNumbers.GetValueOrDefault(billId, "?"), a.Amount)
+            : new BillAllocationDto(a.Id, Guid.Empty, "", a.Amount, AllocationLabels.Unapplied)).ToList();
         
         var paymentDto = new PaymentDto(
             payment.Id, payment.Number, payment.LegalEntityId, payment.PartyId, payment.PartyName, payment.Date,

@@ -22,7 +22,8 @@ import { InvoiceDto, InvoiceSummary, InvoicesApi, LegalEntitiesApi, LegalEntityD
 import { createPagedList } from '../../core/api/paged-list';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { LookupOption } from '../../core/custom-fields/lookup-registry';
-import { asProblem, controlError } from '../../core/http/problem-details';
+import { asProblem, controlError, problemMessage } from '../../core/http/problem-details';
+import { askReason } from '../../shared/reason-prompt';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
@@ -106,8 +107,8 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (invoice(); as inv) {
         @if (inv.id) { <button nz-button (click)="openDetails(inv.id)" style="margin-inline-start:8px" data-testid="inv-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printInvoice(inv.id)" style="margin-inline-start:8px" data-testid="inv-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
-        @if (inv.status === 'issued' && inv.paid === 0) { <button *erpHasPermission="'finance.invoices.issue'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="inv-void">Void</button> }
-        @if (inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid')) { <button *erpHasPermission="'finance.invoices.issue'" nz-button (click)="applyOpen.set(true)" style="margin-inline-start:8px" data-testid="inv-apply">Apply to invoice</button> }
+        @if (inv.status === 'issued' && inv.paid === 0) { <button *erpHasPermission="'finance.invoices.void'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="inv-void">Void</button> }
+        @if (inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid')) { <button *erpHasPermission="'finance.invoices.credit'" nz-button (click)="applyOpen.set(true)" style="margin-inline-start:8px" data-testid="inv-apply">Apply to invoice</button> }
       }
       @if (editable()) {
         <button *erpHasPermission="'finance.invoices.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="inv-save">Save draft</button>
@@ -324,7 +325,10 @@ export class InvoicesPage {
 
   void(): void {
     const inv = this.invoice();
-    if (inv) this.api.void(inv.id).subscribe({ next: () => this.done('Invoice voided'), error: (e) => this.fail(e) });
+    if (!inv) return;
+    void askReason(this.modal, 'Void this invoice?', 'Void Invoice', 'This reverses its journal and cannot be undone. The invoice will be marked as voided.').then((reason) => {
+      if (reason) this.api.void(inv.id, reason).subscribe({ next: () => this.done('Invoice voided'), error: (e) => this.fail(e) });
+    });
   }
 
   searchOpenInvoices(term: string): void {
@@ -345,5 +349,5 @@ export class InvoicesPage {
   }
 
   private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.list.reload(); }
-  private fail(e: unknown): void { const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not save the invoice'); }
+  private fail(e: unknown): void { this.message.error(problemMessage(e, 'Could not save the invoice', 'reason')); }
 }

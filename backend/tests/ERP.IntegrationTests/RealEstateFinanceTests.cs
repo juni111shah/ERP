@@ -8,6 +8,7 @@ namespace ERP.IntegrationTests;
 /// <summary>Real estate money flows: commission invoicing and agent payout, security deposits, termination credits, auto-allocation and the nightly expiry job.</summary>
 public class RealEstateFinanceTests(ApiFactory f) : IClassFixture<ApiFactory>
 {
+    private static readonly object VoidReason = new { reason = "Entered in error" };
     private const string Re = "/api/v1/m/realestate";
     private const string Fin = "/api/v1/finance";
 
@@ -83,7 +84,7 @@ public class RealEstateFinanceTests(ApiFactory f) : IClassFixture<ApiFactory>
         var id = (string)deal["id"]!;
         foreach (var stage in new[] { "viewing", "negotiation", "agreed" }) await Ok(await x.C.PostAsJsonAsync($"{Re}/deals/{id}/stage", new { stage }));
         var invoiced = await Ok(await x.C.PostAsync($"{Re}/deals/{id}/invoice-commission", null));
-        await Ok(await x.C.PostAsync($"{Fin}/invoices/{(string)invoiced["commissionInvoiceId"]!}/void", null));
+        await Ok(await x.C.PostAsJsonAsync($"{Fin}/invoices/{(string)invoiced["commissionInvoiceId"]!}/void", VoidReason));
         var after = await Ok(await x.C.GetAsync($"{Re}/deals/{id}"));
         Assert.Equal("agreed", (string)after["stage"]!);
         Assert.Null(after["commissionInvoiceId"]);

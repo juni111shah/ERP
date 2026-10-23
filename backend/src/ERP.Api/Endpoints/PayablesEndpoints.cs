@@ -26,7 +26,7 @@ public static class PayablesEndpoints
         bills.MapPut("/{id:guid}", (Guid id, BillInput input, ISender s, CancellationToken ct) => s.Send(new UpdateBill(id, input), ct)).RequirePermission(CorePermissions.BillsWrite);
         bills.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteBill(id), ct); return Results.NoContent(); }).RequirePermission(CorePermissions.BillsWrite);
         bills.MapPost("/{id:guid}/post", (Guid id, ISender s, CancellationToken ct) => s.Send(new PostBill(id), ct)).RequirePermission(CorePermissions.BillsPost);
-        bills.MapPost("/{id:guid}/void", (Guid id, ISender s, CancellationToken ct) => s.Send(new VoidBill(id), ct)).RequirePermission(CorePermissions.BillsPost);
+        bills.MapPost("/{id:guid}/void", (Guid id, VoidBody? body, ISender s, CancellationToken ct) => s.Send(new VoidBill(id, body?.Reason), ct)).RequirePermission(CorePermissions.BillsVoid);
 
         var payments = api.MapGroup("/finance/payments").WithTags("Payables");
         payments.MapGet("", ([AsParameters] PagedQuery q, ISender s, CancellationToken ct) => s.Send(new ListPayments(q), ct)).RequirePermission(CorePermissions.PaymentsRead);
@@ -37,7 +37,7 @@ public static class PayablesEndpoints
             return Results.Created($"/api/v1/finance/payments/{created.Id}", created);
         }).RequirePermission(CorePermissions.PaymentsWrite);
         payments.MapPost("/{id:guid}/allocate", (Guid id, AllocatePaymentBody b, ISender s, CancellationToken ct) => s.Send(new AllocatePayment(id, b.Allocations), ct)).RequirePermission(CorePermissions.PaymentsWrite);
-        payments.MapPost("/{id:guid}/void", (Guid id, ISender s, CancellationToken ct) => s.Send(new VoidPayment(id), ct)).RequirePermission(CorePermissions.PaymentsWrite);
+        payments.MapPost("/{id:guid}/void", (Guid id, VoidBody? body, ISender s, CancellationToken ct) => s.Send(new VoidPayment(id, body?.Reason), ct)).RequirePermission(CorePermissions.PaymentsWrite);
         api.MapPost("/finance/cheques/{id:guid}/clear-issued", (Guid id, ClearBody b, ISender s, CancellationToken ct) => s.Send(new ClearIssuedCheque(id, b.Date), ct)).WithTags("Cheques").RequirePermission(CorePermissions.ChequesApprove);
 
         var reports = api.MapGroup("/finance/reports").WithTags("Finance reports");

@@ -10,17 +10,21 @@ import { NzModalService } from 'ng-zorro-antd/modal';
   imports: [FormsModule, NzInputModule],
   template: `
     @if (hint) { <p>{{ hint }}</p> }
-    <label for="erp-reason">Reason (required)</label>
+    <label for="erp-reason">Reason ({{ required ? 'required' : 'optional' }})</label>
     <textarea id="erp-reason" nz-input rows="3" [(ngModel)]="reason" data-testid="reason-input"></textarea>
   `,
 })
 export class ReasonPromptComponent {
   hint = '';
+  required = true;
   reason = '';
 }
 
-/** Opens a modal asking for a required reason; resolves with the trimmed reason, or null if cancelled. OK stays disabled while empty. */
-export function askReason(modal: NzModalService, title: string, okText: string, hint = ''): Promise<string | null> {
+/**
+ * Opens a modal asking for a reason; resolves with the trimmed reason, or null if cancelled. OK stays disabled while empty.
+ * With `required = false` OK is always enabled and an empty reason resolves as '' (cancel still resolves null).
+ */
+export function askReason(modal: NzModalService, title: string, okText: string, hint = '', required = true): Promise<string | null> {
   return new Promise((resolve) => {
     let done = false;
     const ref = modal.create<ReasonPromptComponent>({
@@ -30,12 +34,12 @@ export function askReason(modal: NzModalService, title: string, okText: string, 
         { label: 'Cancel', onClick: () => ref.close() },
         {
           label: okText, type: 'primary', danger: true,
-          disabled: (c?: ReasonPromptComponent) => !c?.reason?.trim(),
-          onClick: (c?: ReasonPromptComponent) => { done = true; resolve(c!.reason.trim()); ref.close(); },
+          disabled: (c?: ReasonPromptComponent) => required && !c?.reason?.trim(),
+          onClick: (c?: ReasonPromptComponent) => { done = true; resolve((c?.reason ?? '').trim()); ref.close(); },
         },
       ],
     });
-    ref.componentInstance && (ref.componentInstance.hint = hint);
+    if (ref.componentInstance) { ref.componentInstance.hint = hint; ref.componentInstance.required = required; }
     ref.afterClose.subscribe(() => { if (!done) resolve(null); });
   });
 }

@@ -31,6 +31,8 @@ interface PrintInvoiceData {
   partyTaxNumber?: string | null;
   partyPhone?: string | null;
   partyEmail?: string | null;
+  originalInvoiceId?: string | null;
+  originalInvoiceNumber?: string | null;
 }
 
 interface PrintBillData {
@@ -196,6 +198,7 @@ const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 
             <table class="meta">
               <tr><td>{{ inv.invoice.isCreditNote ? 'Credit note no.' : 'Invoice no.' }}</td><td class="strong">{{ inv.invoice.number }}</td></tr>
               <tr><td>Date of issue</td><td>{{ inv.invoice.invoiceDate | date:'dd MMM yyyy' }}</td></tr>
+              @if (inv.invoice.isCreditNote && inv.originalInvoiceNumber) { <tr><td>Original invoice no.</td><td>{{ inv.originalInvoiceNumber }}</td></tr> }
               @if (!inv.invoice.isCreditNote) { <tr><td>Due date</td><td>{{ inv.invoice.dueDate | date:'dd MMM yyyy' }}</td></tr> }
               @if (inv.invoice.sourceType && inv.invoice.sourceType.toLowerCase() !== 'manual') { <tr><td>Source</td><td>{{ humanize(inv.invoice.sourceType) }}</td></tr> }
               <tr><td>Currency</td><td>{{ inv.invoice.currencyCode }}</td></tr>

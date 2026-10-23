@@ -8,6 +8,7 @@ import { API_BASE_URL } from '../../core/api/api-config';
 import { JournalsApi } from '../../core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
+import { problemMessage } from '../../core/http/problem-details';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 
 interface JournalLine {
@@ -157,7 +158,7 @@ export class JournalDetailPage implements OnInit {
         label: 'Reverse',
         icon: 'rollback',
         danger: true,
-        permission: 'finance.journals.post',
+        permission: 'finance.journals.reverse',
         visible: jrn.status === 'posted' && manual,
         handler: () => this.reverseJournal()
       },
@@ -243,7 +244,7 @@ export class JournalDetailPage implements OnInit {
     });
   }
 
-  private fail(err: any, fallback: string): void { this.message.error(err?.error?.detail || err?.error?.message || fallback); }
+  private fail(err: any, fallback: string): void { this.message.error(problemMessage(err, err?.error?.message || fallback, 'memo')); }
 
   postJournal(): void {
     const jrn = this.journal();
@@ -271,10 +272,10 @@ export class JournalDetailPage implements OnInit {
   reverseJournal(): void {
     const jrn = this.journal();
     if (!jrn) return;
-    // ReverseBody has no reason field; the reason is sent as the reversal memo.
-    askReason(this.modal, 'Reverse this journal?', 'Reverse', 'A reversing entry is posted on the original date.').then((reason) => {
-      if (!reason) return;
-      this.api.reverse(jrn.id, reason).subscribe({
+    // The optional reason is sent as the reversal memo (max 400 characters).
+    askReason(this.modal, 'Reverse this journal?', 'Reverse', 'A reversing entry is posted today (or on the original date if that is later).', false).then((reason) => {
+      if (reason === null) return;
+      this.api.reverse(jrn.id, reason || undefined).subscribe({
         next: (rev) => {
           this.message.success(`Reversed by ${rev.number}`);
           this.api.detail(jrn.id).subscribe((j) => this.journal.set(j as unknown as Journal));

@@ -17,7 +17,8 @@ import { catchError, of } from 'rxjs';
 import { AccountDto, AccountsApi, JournalDto, JournalSummary, JournalsApi, LegalEntitiesApi, LegalEntityDto } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
-import { asProblem, controlError } from '../../core/http/problem-details';
+import { asProblem, controlError, problemMessage } from '../../core/http/problem-details';
+import { askReason } from '../../shared/reason-prompt';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
@@ -73,7 +74,7 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (journal()?.id) { <button nz-button (click)="openDetails(journal()!.id)" style="margin-inline-start:8px" data-testid="journal-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(journal()!.id)" style="margin-inline-start:8px" data-testid="journal-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
       @if (journal()?.status === 'posted' && journal()!.sourceType === 'manual') {
-        <button *erpHasPermission="'finance.journals.post'" nz-button nzDanger (click)="reverse()" style="margin-inline-start:8px" data-testid="j-reverse">Reverse</button>
+        <button *erpHasPermission="'finance.journals.reverse'" nz-button nzDanger (click)="reverse()" style="margin-inline-start:8px" data-testid="j-reverse">Reverse</button>
       }
       @if (editable()) {
         @if (journal()?.id) { <button *erpHasPermission="'finance.journals.write'" nz-button nzDanger (click)="remove()" style="margin-inline-start:8px" data-testid="j-delete">Delete</button> }
@@ -184,7 +185,10 @@ export class JournalsPage {
   reverse(): void {
     const j = this.journal();
     if (!j) return;
-    this.api.reverse(j.id).subscribe({ next: (r) => { this.drawerOpen.set(false); this.message.success(`Reversed by ${r.number}`); this.list.reload(); }, error: (e) => this.fail(e) });
+    void askReason(this.modal, 'Reverse this journal?', 'Reverse', 'A reversing entry is posted today (or on the original date if that is later). The reason becomes its memo.', false).then((reason) => {
+      if (reason === null) return;
+      this.api.reverse(j.id, reason || undefined).subscribe({ next: (r) => { this.drawerOpen.set(false); this.message.success(`Reversed by ${r.number}`); this.list.reload(); }, error: (e) => this.fail(e) });
+    });
   }
 
   remove(): void {
@@ -212,7 +216,7 @@ export class JournalsPage {
   private fail(e: unknown, saved?: JournalDto): void {
     const p = asProblem(e);
     if (saved) this.journal.set(saved); // saved as a draft but could not post; keep it open for correction
-    this.message.error(p?.detail ?? p?.title ?? 'Could not save the journal');
+    this.message.error(problemMessage(e, p?.detail ?? p?.title ?? 'Could not save the journal', 'memo'));
     if (saved) this.list.reload();
   }
 }

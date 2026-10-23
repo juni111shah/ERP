@@ -8,6 +8,7 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { BillsApi } from '../../core/api/admin.api';
 import { askReason } from '../../shared/reason-prompt';
+import { problemMessage } from '../../core/http/problem-details';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 
 interface BillLine {
@@ -198,7 +199,7 @@ export class BillDetailPage implements OnInit {
         label: 'Void',
         icon: 'stop',
         danger: true,
-        permission: 'finance.bills.post',
+        permission: 'finance.bills.void',
         visible: bil.status === 'issued' && bil.paid === 0,
         handler: () => this.voidBill()
       },
@@ -295,12 +296,11 @@ export class BillDetailPage implements OnInit {
   voidBill(): void {
     const bil = this.bill();
     if (!bil) return;
-    // The void endpoint takes no body yet, so the reason is collected but not sent (backend gap, see CHANGES.md).
     askReason(this.modal, 'Void this bill?', 'Void Bill', 'This cannot be undone. The bill will be marked as voided.').then((reason) => {
       if (!reason) return;
-      this.api.void(bil.id).subscribe({
+      this.api.void(bil.id, reason).subscribe({
         next: (res) => { this.bill.set(res as unknown as Bill); this.message.success('Bill voided'); },
-        error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to void bill')
+        error: (err) => this.message.error(problemMessage(err, 'Failed to void bill', 'reason'))
       });
     });
   }

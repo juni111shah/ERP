@@ -32,7 +32,13 @@ public sealed record UpdateBill(Guid Id, BillInput Input) : ICommand<BillDto>, I
 public sealed record DeleteBill(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
 /// <summary>Posts the bill (Dr expenses and input tax, Cr payables). When an approval policy covers the amount the bill waits for a decision first.</summary>
 public sealed record PostBill(Guid Id) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsPost; }
-public sealed record VoidBill(Guid Id) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsPost; }
+/// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
+public sealed record VoidBill(Guid Id, string? Reason) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsVoid; }
+
+public sealed class VoidBillValidator : AbstractValidator<VoidBill>
+{
+    public VoidBillValidator() => RuleFor(x => x.Reason).ValidVoidReason();
+}
 
 public sealed class BillInputValidator : AbstractValidator<BillInput>
 {
@@ -57,7 +63,8 @@ public sealed class UpdateBillValidator : AbstractValidator<UpdateBill> { public
 
 internal sealed class BillHandlers(
     IRepository<Bill> bills, IRepository<BillLine> lineRows, IReadRepository<Party> parties, IReadRepository<TaxCode> taxCodes, IReadRepository<Account> accounts, IRepository<JournalEntry> journals,
-    IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering) :
+    IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering,
+    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock) :
     IRequestHandler<GetBill, BillDto>,
     IRequestHandler<CreateBill, BillDto>,
     IRequestHandler<UpdateBill, BillDto>,
@@ -144,8 +151,9 @@ internal sealed class BillHandlers(
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status != DocumentStatus.Issued || bill.Paid != 0) throw new ConflictException("Only a posted bill with nothing paid can be voided.");
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == bill.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
-        await posting.ReverseAsync(journal, journal.Date, $"Void {bill.Number}", ct);
+        await posting.ReverseTodayAsync(journal, VoidMemo.For(bill.Number, cmd.Reason), ct);
         bill.Status = DocumentStatus.Voided;
+        VoidMemo.Audit(audit, user, clock, nameof(Bill), bill.Id, bill.Number, cmd.Reason!);
         await bills.SaveChangesAsync(ct);
         return ToDto(bill);
     }

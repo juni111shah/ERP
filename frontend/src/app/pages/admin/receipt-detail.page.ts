@@ -8,6 +8,7 @@ import { API_BASE_URL } from '../../core/api/api-config';
 import { ReceiptsApi } from '../../core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
+import { problemMessage } from '../../core/http/problem-details';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 
 interface Allocation {
@@ -199,12 +200,11 @@ export class ReceiptDetailPage implements OnInit {
   voidReceipt(): void {
     const rec = this.receipt();
     if (!rec) return;
-    // The void endpoint takes no body yet, so the reason is collected but not sent (backend gap, see CHANGES.md).
     askReason(this.modal, 'Void this receipt?', 'Void Receipt', 'This reverses its journal and removes its allocations.').then((reason) => {
       if (!reason) return;
-      this.api.void(rec.id).subscribe({
+      this.api.void(rec.id, reason).subscribe({
         next: (res) => { this.receipt.set(res as unknown as Receipt); this.message.success('Receipt voided'); },
-        error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to void receipt')
+        error: (err) => this.message.error(problemMessage(err, 'Failed to void receipt', 'reason'))
       });
     });
   }

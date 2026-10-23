@@ -1,3 +1,5 @@
+using ERP.Domain.Platform;
+using FluentValidation;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Organizations;
@@ -28,7 +30,7 @@ public interface IInvoicingService
     Task<List<InvoiceLine>> ApplyAsync(Invoice invoice, InvoiceDraft draft, CancellationToken ct = default);
     /// <summary>Numbers the document and posts it to the ledger: Dr receivables, Cr income and output tax (reversed for a credit note).</summary>
     Task IssueAsync(Invoice invoice, CancellationToken ct = default);
-    Task VoidAsync(Invoice invoice, CancellationToken ct = default);
+    Task VoidAsync(Invoice invoice, string? reason = null, CancellationToken ct = default);
 }
 
 public sealed class InvoicingService(
@@ -97,11 +99,11 @@ public sealed class InvoicingService(
         invoice.Status = DocumentStatus.Issued;
     }
 
-    public async Task VoidAsync(Invoice invoice, CancellationToken ct = default)
+    public async Task VoidAsync(Invoice invoice, string? reason = null, CancellationToken ct = default)
     {
         if (invoice.Status is not DocumentStatus.Issued || invoice.Paid != 0) throw new ConflictException("Only an issued document with nothing paid or applied can be voided. Issue a credit note instead.");
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == invoice.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
-        await posting.ReverseAsync(journal, journal.Date, $"Void {invoice.Number}", ct);
+        await posting.ReverseTodayAsync(journal, VoidMemo.For(invoice.Number, reason), ct);
         invoice.Status = DocumentStatus.Voided;
         await publisher.Publish(new InvoiceVoided(invoice.Id, invoice.SourceType, invoice.SourceId), ct);
     }
@@ -109,6 +111,49 @@ public sealed class InvoicingService(
     /// <summary>Positive amount = debit, negative = credit.</summary>
     private static PostingLine Line(Guid account, decimal signed, string memo, Guid? party)
         => signed >= 0 ? new PostingLine(account, signed, 0, memo, party) : new PostingLine(account, 0, -signed, memo, party);
+}
+
+/// <summary>
+/// Void reason rules (required, 3-500 characters after trimming), the reversal-journal memo and the audit record.
+/// The full reason goes to the existing audit log (AuditEvent, Action "Voided", After = {"number","reason"}; user and time
+/// are the AuditEvent's UserId/OccurredAt). The memo is cut to JournalEntry.Memo's 400 characters.
+/// </summary>
+public static class VoidMemo
+{
+    public const int MinReason = 3;
+    public const int MaxReason = 500;
+    public const int MaxMemo = 400;
+    public const string AuditAction = "Voided";
+
+    public static string For(string number, string? reason)
+    {
+        var r = reason?.Trim();
+        var memo = string.IsNullOrEmpty(r) ? $"Void {number}" : $"Void {number}: {r}";
+        return memo.Length <= MaxMemo ? memo : memo[..(MaxMemo - 3)] + "...";
+    }
+
+    /// <summary>FluentValidation rule shared by the four void commands (error key "reason").</summary>
+    public static IRuleBuilderOptions<T, string?> ValidVoidReason<T>(this IRuleBuilderInitial<T, string?> rule) => rule
+        .Cascade(CascadeMode.Stop)
+        .Must(r => !string.IsNullOrWhiteSpace(r)).WithMessage("A reason is required.")
+        .Must(r => r!.Trim().Length >= MinReason).WithMessage($"Reason must be at least {MinReason} characters.")
+        .Must(r => r!.Trim().Length <= MaxReason).WithMessage($"Reason must be {MaxReason} characters or fewer.")
+        .OverridePropertyName("reason");
+
+    /// <summary>Adds the void's audit event; saved with the void in the same SaveChanges.</summary>
+    public static void Audit(IRepository<AuditEvent> audit, ICurrentUser user, IClock clock, string recordType, Guid id, string number, string reason)
+        => audit.Add(new AuditEvent
+        {
+            // OrgId is left empty: the audit interceptor fills it from the current workspace.
+            OccurredAt = clock.UtcNow,
+            UserId = user.UserId,
+            Action = AuditAction,
+            RecordType = recordType,
+            RecordId = id.ToString(),
+            ChangedFields = "Status",
+            After = System.Text.Json.JsonSerializer.Serialize(new { number, reason = reason.Trim() }),
+            IpAddress = user.IpAddress,
+        });
 }
 
 public static class Money

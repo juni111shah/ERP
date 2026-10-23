@@ -19,7 +19,7 @@ import { AccountDto, AccountsApi, BillSummary, BillsApi, LegalEntitiesApi, Legal
 import { createPagedList } from '../../core/api/paged-list';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { LookupOption } from '../../core/custom-fields/lookup-registry';
-import { asProblem, controlError } from '../../core/http/problem-details';
+import { asProblem, controlError, problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
@@ -216,10 +216,10 @@ export class PaymentsPage {
     if (!r) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.
     void askReason(this.modal, 'Void this payment?', 'Void Payment', 'This reverses its journal and removes its allocations.').then((reason) => {
-      if (reason) this.api.void(r.id).subscribe({ next: () => this.done('Payment voided'), error: (e) => this.fail(e) });
+      if (reason) this.api.void(r.id, reason).subscribe({ next: () => this.done('Payment voided'), error: (e) => this.fail(e) });
     });
   }
 
   private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.list.reload(); }
-  private fail(e: unknown): void { this.saving.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not save the receipt'); }
+  private fail(e: unknown): void { this.saving.set(false); this.message.error(problemMessage(e, 'Could not save the payment', 'reason')); }
 }

@@ -11,7 +11,7 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { catchError, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { AdminApi, AuditApi, AuditEvent, TaxCodeDto, TaxCodesApi, UserSummary } from '../../core/api/admin.api';
-import { asProblem } from '../../core/http/problem-details';
+import { asProblem, problemMessage } from '../../core/http/problem-details';
 import { askReason } from '../../shared/reason-prompt';
 import { AttachmentsComponent } from '../../shared/attachments.component';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
@@ -157,7 +157,7 @@ export class InvoiceDetailPage implements OnInit {
       {
         label: 'Credit Note',
         icon: 'file-add',
-        permission: 'finance.invoices.write',
+        permission: 'finance.invoices.credit',
         visible: !inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid' || inv.status === 'paid'),
         handler: () => this.createCreditNote()
       },
@@ -166,7 +166,7 @@ export class InvoiceDetailPage implements OnInit {
         label: 'Void',
         icon: 'stop',
         danger: true,
-        permission: 'finance.invoices.issue',
+        permission: 'finance.invoices.void',
         visible: inv.status === 'issued' && inv.paid === 0,
         handler: () => this.voidInvoice()
       },
@@ -232,7 +232,9 @@ export class InvoiceDetailPage implements OnInit {
     }
     const src = humanizeSource(inv.sourceType);
     if (src) items.push({ label: 'Source', value: src });
-    if (inv.creditNoteForId) items.push({ label: 'Credit Note For', value: 'View original invoice', routerLink: ['/finance/invoices', inv.creditNoteForId] });
+    const x = this.extras();
+    const originalId = inv.creditNoteForId ?? x?.originalInvoiceId ?? (inv.isCreditNote && inv.sourceType === 'invoice' ? inv.sourceId : null);
+    if (originalId) items.push({ label: 'Credit Note For', value: x?.originalInvoiceNumber ? `Invoice ${x.originalInvoiceNumber}` : 'View original invoice', routerLink: ['/finance/invoices', originalId] });
     return items;
   });
 
@@ -293,9 +295,14 @@ export class InvoiceDetailPage implements OnInit {
     if (inv) void this.router.navigate(['/finance/receipts'], { queryParams: { partyId: inv.partyId, invoiceId: inv.id } });
   }
 
+  /** Creates a draft credit note linked to this invoice (all lines, capped by the API at the uncredited amount) and opens it. */
   createCreditNote(): void {
     const inv = this.invoice();
-    if (inv) void this.router.navigate(['/finance/invoices'], { queryParams: { creditFor: inv.id } });
+    if (!inv) return;
+    this.http.post<Invoice>(`${this.apiBase}/finance/invoices/${inv.id}/credit-note`, {}).subscribe({
+      next: (note) => { this.message.success(`Draft credit note ${note.number} created`); void this.router.navigate(['/finance/invoices'], { queryParams: { open: note.id } }); },
+      error: (e) => this.message.error(problemMessage(e, 'Could not create the credit note', 'lines')),
+    });
   }
 
   deleteDraft(): void {
@@ -316,12 +323,11 @@ export class InvoiceDetailPage implements OnInit {
   voidInvoice(): void {
     const inv = this.invoice();
     if (!inv) return;
-    // The void endpoint takes no body, so the reason is collected but not sent (backend gap).
     askReason(this.modal, 'Void this invoice?', 'Void Invoice', 'This reverses its journal and cannot be undone. The invoice will be marked as voided.').then((reason) => {
       if (!reason) return;
-      this.http.post<Invoice>(`${this.apiBase}/finance/invoices/${inv.id}/void`, {}).subscribe({
+      this.http.post<Invoice>(`${this.apiBase}/finance/invoices/${inv.id}/void`, { reason }).subscribe({
         next: (r) => { this.invoice.set(r); this.message.success('Invoice voided'); },
-        error: (e) => { const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not void the invoice'); },
+        error: (e) => this.message.error(problemMessage(e, 'Could not void the invoice', 'reason')),
       });
     });
   }

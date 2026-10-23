@@ -10,6 +10,18 @@ export function asProblem(err: unknown): ProblemDetails | null {
 }
 
 /**
+ * One user-facing message for a failed call: the first message for `field` in errors (case-insensitive), else the first
+ * field error, else detail, else title, else the fallback. Used where a 400 carries errors.reason (void) or a 409 a detail.
+ */
+export function problemMessage(err: unknown, fallback: string, field?: string): string {
+  const p = asProblem(err);
+  const errors = p?.errors ?? {};
+  const key = field ? Object.keys(errors).find((k) => k.toLowerCase() === field.toLowerCase()) : undefined;
+  const msgs = key ? errors[key] : Object.values(errors)[0];
+  return msgs?.[0] ?? p?.detail ?? p?.title ?? fallback;
+}
+
+/**
  * Maps ProblemDetails.errors onto form controls (spec 10.2 "server errors mapped to fields").
  * Keys are dot paths: "code", "customFields.floorCount". Returns messages that matched no control (show as toast/alert).
  */

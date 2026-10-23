@@ -123,7 +123,7 @@ public sealed class RealEstateModule : ModuleBase
                     [P.PropertiesRead, P.PropertiesManage, P.UnitTypesRead, P.UnitTypesManage, P.UnitsRead, P.UnitsManage, P.UnitsReserve,
                      P.LeasesRead, P.LeasesCreate, P.LeasesEdit, P.LeasesActivate, P.LeasesRenew, P.LeasesTerminate, P.WorkOrdersRead, P.WorkOrdersCreate, P.BillingRun, P.DepositsManage, P.InspectionsRead, P.InspectionsManage, P.CrmRead, P.CrmManage,
                      CorePermissions.PartiesRead, CorePermissions.PartiesWrite, CorePermissions.ChequesRead, CorePermissions.ChequesWrite,
-                     CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue, CorePermissions.ReceiptsRead, CorePermissions.ReceiptsWrite], Key),
+                     CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue, CorePermissions.InvoicesVoid, CorePermissions.InvoicesCredit, CorePermissions.ReceiptsRead, CorePermissions.ReceiptsWrite], Key),
                 new("Investment manager", "Acquisitions, funding and instalments",
                     [P.PropertiesRead, P.AcquisitionsRead, P.AcquisitionsManage, P.AcquisitionsComplete, P.FundingPay, CorePermissions.BankRead, CorePermissions.ReportsRead], Key),
                 new("Facilities manager", "Maintenance and work orders",
@@ -131,7 +131,7 @@ public sealed class RealEstateModule : ModuleBase
                      P.WorkOrdersComplete, P.WorkOrdersClose, P.WorkOrdersCancel, P.PmRead, P.PmManage, P.InspectionsRead, P.InspectionsManage, CorePermissions.PartiesRead], Key),
                 new("Brokerage manager", "Deals and commissions",
                     [P.PropertiesRead, P.UnitsRead, P.LeasesRead, P.DealsRead, P.DealsCreate, P.DealsEdit, P.DealsLose, P.DealsInvoice, P.DealsPayAgent, P.CrmRead, P.CrmManage, CorePermissions.PartiesRead, CorePermissions.PartiesWrite,
-                     CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue], Key),
+                     CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesIssue, CorePermissions.InvoicesVoid, CorePermissions.InvoicesCredit], Key),
             ],
             Sequences:
             [

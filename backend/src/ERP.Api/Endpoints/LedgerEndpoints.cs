@@ -6,7 +6,8 @@ using MediatR;
 
 namespace ERP.Api.Endpoints;
 
-public sealed record ReverseBody(DateOnly? Date, string? Memo);
+/// <summary>The journal-detail screen sends its askReason text as <c>memo</c>; <c>reason</c> is accepted as an alias (same field as the void endpoints).</summary>
+public sealed record ReverseBody(DateOnly? Date, string? Memo, string? Reason = null);
 public sealed record LockBooksBody(DateOnly? Through);
 
 /// <summary>Journals, period lock and the ledger reports. Thin: bind, send one MediatR request, shape the result.</summary>
@@ -26,7 +27,7 @@ public static class LedgerEndpoints
         journals.MapPut("/{id:guid}", (Guid id, JournalInput input, ISender sender, CancellationToken ct) => sender.Send(new UpdateJournal(id, input), ct)).RequirePermission(CorePermissions.JournalsWrite);
         journals.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) => { await sender.Send(new DeleteJournal(id), ct); return Results.NoContent(); }).RequirePermission(CorePermissions.JournalsWrite);
         journals.MapPost("/{id:guid}/post", (Guid id, ISender sender, CancellationToken ct) => sender.Send(new PostJournal(id), ct)).RequirePermission(CorePermissions.JournalsPost);
-        journals.MapPost("/{id:guid}/reverse", (Guid id, ReverseBody? body, ISender sender, CancellationToken ct) => sender.Send(new ReverseJournal(id, body?.Date, body?.Memo), ct)).RequirePermission(CorePermissions.JournalsPost);
+        journals.MapPost("/{id:guid}/reverse", (Guid id, ReverseBody? body, ISender sender, CancellationToken ct) => sender.Send(new ReverseJournal(id, body?.Date, body?.Memo ?? body?.Reason), ct)).RequirePermission(CorePermissions.JournalsReverse);
 
         api.MapPut("/legal-entities/{id:guid}/books-lock", async (Guid id, LockBooksBody body, ISender sender, CancellationToken ct) =>
         {

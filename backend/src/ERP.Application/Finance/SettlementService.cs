@@ -50,7 +50,7 @@ public sealed class SettlementService(IRepository<Invoice> invoices, IRepository
     public async Task ReverseAsync(Settlement s, string memo, CancellationToken ct = default)
     {
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == s.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
-        await posting.ReverseAsync(journal, journal.Date, memo, ct);
+        await posting.ReverseTodayAsync(journal, memo, ct);
         var ids = s.Allocations.Select(a => a.InvoiceId!.Value).ToList();
         foreach (var inv in await invoices.Tracked(new Specification<Invoice>(x => ids.Contains(x.Id))).ToListAsync(ct))
         {

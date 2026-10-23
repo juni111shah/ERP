@@ -46,6 +46,7 @@ public static class CorePermissions
     public const string JournalsRead = "finance.journals.read";
     public const string JournalsWrite = "finance.journals.write";
     public const string JournalsPost = "finance.journals.post";
+    public const string JournalsReverse = "finance.journals.reverse";
     public const string ChequesRead = "finance.cheques.read";
     public const string ChequesWrite = "finance.cheques.write";
     public const string ChequesApprove = "finance.cheques.approve";
@@ -61,11 +62,16 @@ public static class CorePermissions
     public const string BillsRead = "finance.bills.read";
     public const string BillsWrite = "finance.bills.write";
     public const string BillsPost = "finance.bills.post";
+    public const string BillsSubmit = "finance.bills.submit";
+    public const string BillsVoid = "finance.bills.void";
     public const string PaymentsRead = "finance.payments.read";
     public const string PaymentsWrite = "finance.payments.write";
+    public const string PaymentsCancel = "finance.payments.cancel";
     public const string InvoicesRead = "finance.invoices.read";
     public const string InvoicesWrite = "finance.invoices.write";
     public const string InvoicesIssue = "finance.invoices.issue";
+    public const string InvoicesVoid = "finance.invoices.void";
+    public const string InvoicesCredit = "finance.invoices.credit";
     public const string ReceiptsRead = "finance.receipts.read";
     public const string ReceiptsWrite = "finance.receipts.write";
 
@@ -98,6 +104,7 @@ public static class CorePermissions
         PermissionDefinition.Of(JournalsRead, "View journals"),
         PermissionDefinition.Of(JournalsWrite, "Create draft journals"),
         PermissionDefinition.Of(JournalsPost, "Post journals"),
+        PermissionDefinition.Of(JournalsReverse, "Reverse posted manual journals"),
         PermissionDefinition.Of(ChequesRead, "View cheques and post-dated cheques"),
         PermissionDefinition.Of(ChequesWrite, "Record and update cheques"),
         PermissionDefinition.Of(ChequesApprove, "Approve cheque actions (deposit, bounce, replace)"),
@@ -112,12 +119,17 @@ public static class CorePermissions
         PermissionDefinition.Of(BankWrite, "Import statements, reconcile and transfer funds"),
         PermissionDefinition.Of(BillsRead, "View vendor bills"),
         PermissionDefinition.Of(BillsWrite, "Create and edit draft vendor bills"),
-        PermissionDefinition.Of(BillsPost, "Post and void vendor bills"),
+        PermissionDefinition.Of(BillsPost, "Post vendor bills"),
+        PermissionDefinition.Of(BillsSubmit, "Submit vendor bills for approval"),
+        PermissionDefinition.Of(BillsVoid, "Void posted vendor bills"),
         PermissionDefinition.Of(PaymentsRead, "View vendor payments"),
         PermissionDefinition.Of(PaymentsWrite, "Make, allocate and void vendor payments"),
+        PermissionDefinition.Of(PaymentsCancel, "Cancel vendor payments awaiting approval"),
         PermissionDefinition.Of(InvoicesRead, "View invoices and credit notes"),
         PermissionDefinition.Of(InvoicesWrite, "Create and edit draft invoices and credit notes"),
-        PermissionDefinition.Of(InvoicesIssue, "Issue, void and credit invoices"),
+        PermissionDefinition.Of(InvoicesIssue, "Issue invoices and credit notes"),
+        PermissionDefinition.Of(InvoicesVoid, "Void issued invoices and credit notes"),
+        PermissionDefinition.Of(InvoicesCredit, "Apply credit notes to invoices"),
         PermissionDefinition.Of(ReceiptsRead, "View customer receipts"),
         PermissionDefinition.Of(ReceiptsWrite, "Record, allocate and void customer receipts"),
     ];
