@@ -73,6 +73,11 @@ export const EN: Dictionary = {
   'coa.tag.header': 'Header', 'coa.tag.group': 'Group', 'coa.tag.bank': 'Bank', 'coa.tag.system': 'System', 'coa.tag.inactive': 'Inactive',
   'coa.f.type': 'Type', 'coa.f.reportingGroup': 'Reporting group', 'coa.f.postable': 'Postable', 'coa.f.bank': 'Bank / cash', 'coa.f.currency': 'Currency',
   'coa.f.systemRole': 'System role', 'coa.f.active': 'Active', 'coa.f.balance': 'Balance',
+  'coa.subcategories': 'Sub-categories', 'coa.searchSubcategories': 'Search sub-categories', 'coa.noSubcategories': 'No sub-categories here yet.',
+  'coa.sub.asset.current': 'Current assets', 'coa.sub.asset.noncurrent': 'Non-current assets',
+  'coa.sub.liability.current': 'Current liabilities', 'coa.sub.liability.noncurrent': 'Non-current liabilities', 'coa.sub.equity.equity': 'Equity',
+  'coa.sub.income.operating': 'Operating revenue', 'coa.sub.income.other': 'Other income',
+  'coa.sub.expense.costOfSales': 'Cost of sales', 'coa.sub.expense.operating': 'Operating expenses', 'coa.sub.expense.other': 'Other expenses',
   'coa.deactivate': 'Deactivate', 'coa.activate': 'Activate', 'coa.confirmDeactivate': 'Deactivate this account? It stays in history but cannot be used on new entries.',
   'coa.confirmActivate': 'Activate this account again?', 'coa.deactivated': 'Account deactivated', 'coa.activated': 'Account activated', 'coa.saveFailed': 'Could not update the account',
   // table toolbars and create buttons (ui.common.*, ui.status.*, ui.hr.*, ui.add.*)
@@ -204,6 +209,11 @@ export const AR: Dictionary = {
   'coa.tag.header': 'رئيسي', 'coa.tag.group': 'مجموعة', 'coa.tag.bank': 'بنك', 'coa.tag.system': 'نظام', 'coa.tag.inactive': 'غير نشط',
   'coa.f.type': 'النوع', 'coa.f.reportingGroup': 'مجموعة التقارير', 'coa.f.postable': 'قابل للترحيل', 'coa.f.bank': 'بنك / نقد', 'coa.f.currency': 'العملة',
   'coa.f.systemRole': 'دور النظام', 'coa.f.active': 'نشط', 'coa.f.balance': 'الرصيد',
+  'coa.subcategories': 'الفئات الفرعية', 'coa.searchSubcategories': 'البحث في الفئات الفرعية', 'coa.noSubcategories': 'لا توجد فئات فرعية هنا بعد.',
+  'coa.sub.asset.current': 'الأصول المتداولة', 'coa.sub.asset.noncurrent': 'الأصول غير المتداولة',
+  'coa.sub.liability.current': 'الالتزامات المتداولة', 'coa.sub.liability.noncurrent': 'الالتزامات غير المتداولة', 'coa.sub.equity.equity': 'حقوق الملكية',
+  'coa.sub.income.operating': 'الإيرادات التشغيلية', 'coa.sub.income.other': 'إيرادات أخرى',
+  'coa.sub.expense.costOfSales': 'تكلفة المبيعات', 'coa.sub.expense.operating': 'المصروفات التشغيلية', 'coa.sub.expense.other': 'مصروفات أخرى',
   'coa.deactivate': 'إلغاء التفعيل', 'coa.activate': 'تفعيل', 'coa.confirmDeactivate': 'إلغاء تفعيل هذا الحساب؟ يبقى في السجل لكن لا يمكن استخدامه في قيود جديدة.',
   'coa.confirmActivate': 'إعادة تفعيل هذا الحساب؟', 'coa.deactivated': 'تم إلغاء تفعيل الحساب', 'coa.activated': 'تم تفعيل الحساب', 'coa.saveFailed': 'تعذر تحديث الحساب',
   // table toolbars and create buttons (ui.common.*, ui.status.*, ui.hr.*, ui.add.*)

@@ -178,4 +178,125 @@ public class AccountTreeTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync($"{Base}/{root}/path")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await f.Client().GetAsync($"{Base}/tree/categories")).StatusCode);
     }
+
+    private static async Task<string> CreateGroupedAsync(HttpClient c, string code, string name, string type, string? reportingGroup)
+        => (string)(await Ok(await c.PostAsJsonAsync(Base, new { code, name, type, reportingGroup, isPostable = true }), HttpStatusCode.Created))["id"]!;
+
+    private static string Digits() => Random.Shared.Next(1000, 9999).ToString();
+
+    private static async Task<string[]> SubIdsAsync(HttpClient c, string type, string key, string search)
+        => (await Ok(await c.GetAsync($"{Base}/tree/categories/{type}/subcategories/{key}/accounts?search={search}&pageSize=50"))).AsArray().Select(x => (string)x!["id"]!).ToArray();
+
+    [Fact]
+    public async Task Subcategories_list_every_standard_group_of_a_type_with_counts()
+    {
+        var c = await AdminAsync();
+        var expected = new Dictionary<string, string[]>
+        {
+            ["asset"] = ["current", "noncurrent"], ["liability"] = ["current", "noncurrent"], ["equity"] = ["equity"],
+            ["income"] = ["operating", "other"], ["expense"] = ["costOfSales", "operating", "other"],
+        };
+        var cats = (await Ok(await c.GetAsync($"{Base}/tree/categories"))).AsArray();
+        foreach (var (type, keys) in expected)
+        {
+            var subs = (await Ok(await c.GetAsync($"{Base}/tree/categories/{type}/subcategories"))).AsArray();
+            Assert.Equal(keys, subs.Select(x => (string)x!["key"]!).ToArray());
+            Assert.All(subs, x => { Assert.Equal(type, (string)x!["type"]!); Assert.False(string.IsNullOrEmpty((string?)x["name"])); Assert.Null(x["balance"]); });
+            // Sub-categories partition the category: every account and every primary account is in exactly one.
+            var cat = cats.Single(x => (string)x!["type"]! == type)!;
+            Assert.Equal((int)cat["accountCount"]!, subs.Sum(x => (int)x!["accountCount"]!));
+            Assert.Equal((int)cat["primaryCount"]!, subs.Sum(x => (int)x!["primaryCount"]!));
+        }
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync($"{Base}/tree/categories/nothing/subcategories")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync($"{Base}/tree/categories/asset/subcategories/nothing/accounts")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync($"{Base}/tree/categories/equity/subcategories/current/accounts")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Flat_accounts_without_parents_appear_under_the_right_subcategory()
+    {
+        var c = await AdminAsync();
+        var t = Tag();
+        var n = Digits();
+        // A flat chart like a fresh workspace: no parents, every account postable.
+        var cash = await CreateGroupedAsync(c, $"10{n}", $"Flat cash {t}", "asset", null);                       // code 10xx -> current
+        var bank = await CreateGroupedAsync(c, $"F{t}B", $"Flat bank {t}", "asset", "Current assets");            // reporting group wins
+        var building = await CreateGroupedAsync(c, $"16{n}", $"Flat building {t}", "asset", null);               // code 15xx-19xx -> non-current
+        var tagged = await CreateGroupedAsync(c, $"11{n}", $"Flat fixed by group {t}", "asset", "Fixed assets");  // group beats the code
+        var noCode = await CreateGroupedAsync(c, $"F{t}X", $"Flat unnumbered {t}", "asset", null);               // neither -> current
+        var payable = await CreateGroupedAsync(c, $"20{n}", $"Flat payable {t}", "liability", null);
+        var loan = await CreateGroupedAsync(c, $"29{n}", $"Flat loan {t}", "liability", null);
+        var sales = await CreateGroupedAsync(c, $"40{n}", $"Flat sales {t}", "income", null);
+        var otherIncome = await CreateGroupedAsync(c, $"49{n}", $"Flat other income {t}", "income", null);
+        var cogs = await CreateGroupedAsync(c, $"50{n}", $"Flat cogs {t}", "expense", null);
+        var rent = await CreateGroupedAsync(c, $"61{n}", $"Flat rent {t}", "expense", null);
+        var finance = await CreateGroupedAsync(c, $"F{t}E", $"Flat finance cost {t}", "expense", "Finance costs");
+
+        Assert.Equal(new[] { cash, bank, noCode }.Order(), (await SubIdsAsync(c, "asset", "current", t)).Order());
+        Assert.Equal(new[] { building, tagged }.Order(), (await SubIdsAsync(c, "asset", "noncurrent", t)).Order());
+        Assert.Equal(new[] { payable }, await SubIdsAsync(c, "liability", "current", t));
+        Assert.Equal(new[] { loan }, await SubIdsAsync(c, "liability", "noncurrent", t));
+        Assert.Equal(new[] { sales }, await SubIdsAsync(c, "income", "operating", t));
+        Assert.Equal(new[] { otherIncome }, await SubIdsAsync(c, "income", "other", t));
+        Assert.Equal(new[] { cogs }, await SubIdsAsync(c, "expense", "costOfSales", t));
+        Assert.Equal(new[] { rent }, await SubIdsAsync(c, "expense", "operating", t));
+        Assert.Equal(new[] { finance }, await SubIdsAsync(c, "expense", "other", t));
+
+        // Rows carry their sub-category key and are leaves; the page uses the standard envelope meta.
+        var res = await c.GetAsync($"{Base}/tree/categories/asset/subcategories/current/accounts?search={t}&pageSize=1");
+        Assert.Equal(3, (int)(await ApiFactory.Envelope(res))["meta"]!["total"]!);
+        var row = (await Ok(await c.GetAsync($"{Base}/tree/categories/asset/subcategories/current/accounts?search={t}"))).AsArray().Single(x => (string)x!["id"]! == cash)!;
+        Assert.Equal("current", (string)row["subcategory"]!);
+        Assert.False((bool)row["hasChildren"]!);
+        Assert.Equal("noncurrent", (string)(await Ok(await c.GetAsync($"{Base}/{building}/path")))[0]!["subcategory"]!);
+    }
+
+    [Fact]
+    public async Task Header_accounts_sit_in_one_subcategory_and_their_children_open_lazily()
+    {
+        var c = await AdminAsync();
+        var t = Tag();
+        var n = Digits();
+        var header = await CreateAsync(c, $"15{n}", $"Nested fixed {t}", "asset", isPostable: false);
+        var child = await CreateAsync(c, $"F{t}1", $"Nested vehicle {t}", "asset", header); // unnumbered, but it follows its parent
+
+        Assert.Equal(new[] { header }, await SubIdsAsync(c, "asset", "noncurrent", t)); // only the primary account, not the child
+        Assert.Empty(await SubIdsAsync(c, "asset", "current", t));
+        var kids = (await Ok(await c.GetAsync($"{Base}/{header}/children"))).AsArray();
+        Assert.Equal(child, (string)Assert.Single(kids)!["id"]!);
+        var path = (await Ok(await c.GetAsync($"{Base}/{child}/path"))).AsArray();
+        Assert.Equal("noncurrent", (string)path[0]!["subcategory"]!); // the panels re-open under the top account's sub-category
+
+        // Counts include the child under the parent's sub-category.
+        var before = (await Ok(await c.GetAsync($"{Base}/tree/categories/asset/subcategories"))).AsArray().Single(x => (string)x!["key"]! == "noncurrent")!;
+        await CreateAsync(c, $"F{t}2", $"Nested trailer {t}", "asset", header);
+        var after = (await Ok(await c.GetAsync($"{Base}/tree/categories/asset/subcategories"))).AsArray().Single(x => (string)x!["key"]! == "noncurrent")!;
+        Assert.Equal((int)before["accountCount"]! + 1, (int)after["accountCount"]!);
+        Assert.Equal((int)before["primaryCount"]!, (int)after["primaryCount"]!);
+    }
+
+    [Fact]
+    public async Task Subcategory_balances_are_opt_in_and_roll_up()
+    {
+        var c = await AdminAsync();
+        var t = Tag();
+        var entity = await NewEntityAsync(c);
+        var n = Digits();
+        var asset = await CreateGroupedAsync(c, $"17{n}", $"Sub bal asset {t}", "asset", null);
+        var income = await CreateGroupedAsync(c, $"48{n}", $"Sub bal income {t}", "income", null);
+        var j = await Ok(await c.PostAsJsonAsync("/api/v1/finance/journals", new
+        {
+            legalEntityId = entity, date = "2026-05-01",
+            lines = new[] { new { accountId = asset, debit = 120m, credit = 0m }, new { accountId = income, debit = 0m, credit = 120m } },
+        }), HttpStatusCode.Created);
+        await Ok(await c.PostAsync($"/api/v1/finance/journals/{(string)j["id"]!}/post", null));
+
+        decimal Bal(JsonNode subs, string key) => (decimal)subs.AsArray().Single(x => (string)x!["key"]! == key)!["balance"]!;
+        Assert.Equal(120m, Bal(await Ok(await c.GetAsync($"{Base}/tree/categories/asset/subcategories?includeBalances=true&legalEntityId={entity}")), "noncurrent"));
+        Assert.Equal(120m, Bal(await Ok(await c.GetAsync($"{Base}/tree/categories/income/subcategories?includeBalances=true&legalEntityId={entity}")), "other"));
+        var row = (await Ok(await c.GetAsync($"{Base}/tree/categories/asset/subcategories/noncurrent/accounts?search={t}&includeBalances=true&legalEntityId={entity}")))[0]!;
+        Assert.Equal(120m, (decimal)row["balance"]!);
+        var reader = await UserWithAsync(c, "finance.accounts.read");
+        Assert.Null((await Ok(await reader.GetAsync($"{Base}/tree/categories/asset/subcategories?includeBalances=true")))[0]!["balance"]);
+    }
 }

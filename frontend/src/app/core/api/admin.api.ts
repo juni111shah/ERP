@@ -21,6 +21,12 @@ export interface AccountCategoryDto {
 export interface AccountNodeDto {
   id: string; code: string; name: string; type: string; parentId?: string | null; reportingGroup?: string | null; systemRole?: string | null;
   isPostable: boolean; isBank: boolean; isSystem: boolean; isActive: boolean; currencyCode?: string | null; childCount: number; hasChildren: boolean; balance?: number | null;
+  /** derived sub-category key within the type (e.g. 'current'); for a nested account the panels use its top same-type ancestor's */
+  subcategory?: string | null;
+}
+/** A derived sub-category of an account type (Current assets, Non-current assets, …); key is unique within the type. */
+export interface AccountSubcategoryDto {
+  key: string; type: string; name: string; order: number; accountCount: number; activeCount: number; primaryCount: number; hasChildren: boolean; balance?: number | null;
 }
 export interface TaxCodeDto { id: string; code: string; name: string; kind: string; rate: number; isDefault: boolean; isRecoverable: boolean; isActive: boolean; }
 export interface LegalEntityDto {
@@ -73,6 +79,14 @@ export class AccountsApi extends CrudApiService<AccountDto, unknown> {
   /** Primary accounts of one category: no parent, or a parent of another type. Paged and searchable (code, name). */
   categoryAccounts(type: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {
     return this.http.get<PagedResult<AccountNodeDto>>(`${this.url}/tree/categories/${encodeURIComponent(type)}/accounts`, { params: toHttpParams(query) });
+  }
+  /** The sub-categories of one category (always all of them, in order), with counts. */
+  subcategories(type: string, includeBalances = false): Observable<AccountSubcategoryDto[]> {
+    return this.http.get<AccountSubcategoryDto[]>(`${this.url}/tree/categories/${encodeURIComponent(type)}/subcategories`, { params: includeBalances ? { includeBalances: true } : {} });
+  }
+  /** Primary accounts of one sub-category. Paged and searchable (code, name). */
+  subcategoryAccounts(type: string, key: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {
+    return this.http.get<PagedResult<AccountNodeDto>>(`${this.url}/tree/categories/${encodeURIComponent(type)}/subcategories/${encodeURIComponent(key)}/accounts`, { params: toHttpParams(query) });
   }
   /** Direct children of one account. */
   children(id: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {

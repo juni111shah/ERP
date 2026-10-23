@@ -9,8 +9,9 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Application.Finance;
 
 // ---- Chart of accounts, one level at a time ------------------------------------------------------------------------
-// The step-by-step chart-of-accounts screen opens one panel per level: account types first, then the primary accounts
-// of one type, then the children of one account. Each request returns only that level plus a hasChildren flag, so the
+// The step-by-step chart-of-accounts screen opens one panel per level: account types first, then the derived
+// sub-categories of one type (see AccountSubcategories.cs), then the primary accounts of one sub-category, then the
+// children of one account. Each request returns only that level plus a hasChildren flag, so the
 // client never loads the whole chart at once. Balances are optional (includeBalances=true) and only returned to callers
 // who may read financial reports; everyone else gets null.
 
@@ -20,7 +21,35 @@ public sealed record AccountCategoryDto(AccountType Type, int AccountCount, int 
 /// <summary>One account in a panel. <c>Balance</c> rolls up the account and all of its descendants, on the account type's natural side.</summary>
 public sealed record AccountNodeDto(
     Guid Id, string Code, string Name, AccountType Type, Guid? ParentId, string? ReportingGroup, string? SystemRole,
-    bool IsPostable, bool IsBank, bool IsSystem, bool IsActive, string? CurrencyCode, int ChildCount, bool HasChildren, decimal? Balance);
+    bool IsPostable, bool IsBank, bool IsSystem, bool IsActive, string? CurrencyCode, int ChildCount, bool HasChildren, decimal? Balance,
+    string? Subcategory = null);
+
+/// <summary>
+/// One derived sub-category of an account type (Current assets, Non-current assets, ...). Counts cover every account of the
+/// type whose top same-type ancestor falls in it; <c>PrimaryCount</c> is what its panel lists. Balance as for categories.
+/// </summary>
+public sealed record AccountSubcategoryDto(string Key, AccountType Type, string Name, int Order, int AccountCount, int ActiveCount, int PrimaryCount, bool HasChildren, decimal? Balance);
+
+/// <summary>Panel 2: the sub-categories of one account type, always all of them in order, even when empty.</summary>
+public sealed record GetAccountSubcategories : IQuery<IReadOnlyList<AccountSubcategoryDto>>, IRequirePermission
+{
+    /// <summary>Account type, case-insensitive (asset, liability, equity, income, expense).</summary>
+    public string? Type { get; init; }
+    public bool? IncludeBalances { get; init; }
+    public Guid? LegalEntityId { get; init; }
+    public string RequiredPermission => CorePermissions.AccountsRead;
+}
+
+/// <summary>Panel 3: the primary accounts of one sub-category, paged / searchable / sortable / filterable like any list.</summary>
+public sealed record ListSubcategoryAccounts : PagedQuery, IQuery<PagedResult<AccountNodeDto>>, IRequirePermission
+{
+    public string? Type { get; init; }
+    /// <summary>Sub-category key within the type, e.g. current (see GET .../tree/categories/{type}/subcategories).</summary>
+    public string? Key { get; init; }
+    public bool? IncludeBalances { get; init; }
+    public Guid? LegalEntityId { get; init; }
+    public string RequiredPermission => CorePermissions.AccountsRead;
+}
 
 /// <summary>Panel 1: every account type, always in the same order, even when it has no accounts yet.</summary>
 public sealed record GetAccountCategories : IQuery<IReadOnlyList<AccountCategoryDto>>, IRequirePermission
@@ -31,7 +60,7 @@ public sealed record GetAccountCategories : IQuery<IReadOnlyList<AccountCategory
 }
 
 /// <summary>
-/// Panel 2: the primary accounts of one type, paged / searchable / sortable / filterable like any list. Primary means
+/// All primary accounts of one type (kept for callers that skip the sub-category level), paged / searchable / sortable / filterable like any list. Primary means
 /// no parent, or a parent of another type (so every account is reachable from its own category).
 /// </summary>
 public sealed record ListCategoryAccounts : PagedQuery, IQuery<PagedResult<AccountNodeDto>>, IRequirePermission
@@ -43,7 +72,7 @@ public sealed record ListCategoryAccounts : PagedQuery, IQuery<PagedResult<Accou
     public string RequiredPermission => CorePermissions.AccountsRead;
 }
 
-/// <summary>Panel 3 and deeper: the direct children of one account, paged / searchable like any list.</summary>
+/// <summary>Panel 4 and deeper: the direct children of one account, paged / searchable like any list.</summary>
 public sealed record ListAccountChildren : PagedQuery, IQuery<PagedResult<AccountNodeDto>>, IRequirePermission
 {
     public Guid Id { get; init; }
@@ -64,14 +93,18 @@ public sealed record GetAccount(Guid Id) : IQuery<AccountDto>, IRequirePermissio
     public string RequiredPermission => CorePermissions.AccountsRead;
 }
 
-internal sealed class AccountTreeHandlers(IReadRepository<Account> accounts, IReadRepository<JournalEntry> journals, ICurrentUser user, ICustomFieldService fields) :
+internal sealed class AccountTreeHandlers(
+    IReadRepository<Account> accounts, IReadRepository<JournalEntry> journals, ICurrentUser user, ICustomFieldService fields, IAccountSubcategoryRules rules) :
     IRequestHandler<GetAccount, AccountDto>,
     IRequestHandler<GetAccountCategories, IReadOnlyList<AccountCategoryDto>>,
+    IRequestHandler<GetAccountSubcategories, IReadOnlyList<AccountSubcategoryDto>>,
+    IRequestHandler<ListSubcategoryAccounts, PagedResult<AccountNodeDto>>,
     IRequestHandler<ListCategoryAccounts, PagedResult<AccountNodeDto>>,
     IRequestHandler<ListAccountChildren, PagedResult<AccountNodeDto>>,
     IRequestHandler<GetAccountPath, IReadOnlyList<AccountNodeDto>>
 {
     private sealed record Link(Guid Id, Guid? ParentId, AccountType Type, bool IsActive);
+    private sealed record ClassLink(Guid Id, Guid? ParentId, AccountType Type, bool IsActive, string Code, string? ReportingGroup, string? SystemRole);
 
     public async Task<AccountDto> Handle(GetAccount q, CancellationToken ct)
     {
@@ -101,12 +134,47 @@ internal sealed class AccountTreeHandlers(IReadRepository<Account> accounts, IRe
 
     public async Task<PagedResult<AccountNodeDto>> Handle(ListCategoryAccounts q, CancellationToken ct)
     {
-        if (!Enum.TryParse<AccountType>(q.Type, ignoreCase: true, out var type) || !Enum.IsDefined(type) || int.TryParse(q.Type, out _))
-            throw new FieldValidationException("type", "Unknown account type. Use asset, liability, equity, income or expense.");
+        var type = ParseType(q.Type);
         var all = accounts.Query();
         var spec = new Specification<Account>(a => a.Type == type && (a.ParentId == null || !all.Any(p => p.Id == a.ParentId && p.Type == type)));
         var page = await accounts.PageAsync(Sorted(q), Projection(all), spec, ct);
-        return await WithBalancesAsync(page, q.IncludeBalances, q.LegalEntityId, ct);
+        return WithSubcategories(await WithBalancesAsync(page, q.IncludeBalances, q.LegalEntityId, ct));
+    }
+
+    public async Task<IReadOnlyList<AccountSubcategoryDto>> Handle(GetAccountSubcategories q, CancellationToken ct)
+    {
+        var type = ParseType(q.Type);
+        // Narrow columns of every account: parents of another type decide what is primary, so the whole chart is needed.
+        var links = await accounts.Query()
+            .Select(a => new ClassLink(a.Id, a.ParentId, a.Type, a.IsActive, a.Code, a.ReportingGroup, a.SystemRole)).ToListAsync(ct);
+        var byId = links.ToDictionary(l => l.Id);
+        var ofType = links.Where(l => l.Type == type).Select(l =>
+        {
+            var top = TopOfChain(l, byId);
+            return (Link: l, Primary: top.Id == l.Id, Sub: rules.Classify(type, top.Code, top.ReportingGroup, top.SystemRole));
+        }).ToList();
+        Dictionary<Guid, decimal>? sums = WantsBalances(q.IncludeBalances) ? await MovementsAsync(ofType.Select(x => x.Link.Id).ToList(), q.LegalEntityId, ct) : null;
+        return rules.For(type).OrderBy(s => s.Order).Select(s =>
+        {
+            var inSub = ofType.Where(x => x.Sub == s.Key).ToList();
+            var primary = inSub.Count(x => x.Primary);
+            return new AccountSubcategoryDto(s.Key, type, s.Name, s.Order, inSub.Count, inSub.Count(x => x.Link.IsActive), primary, primary > 0,
+                sums is null ? null : Natural(type, inSub.Sum(x => sums.GetValueOrDefault(x.Link.Id))));
+        }).ToList();
+    }
+
+    public async Task<PagedResult<AccountNodeDto>> Handle(ListSubcategoryAccounts q, CancellationToken ct)
+    {
+        var type = ParseType(q.Type);
+        var key = rules.For(type).FirstOrDefault(s => string.Equals(s.Key, q.Key, StringComparison.OrdinalIgnoreCase))?.Key
+            ?? throw new FieldValidationException("key", $"Unknown sub-category for {type.ToString().ToLowerInvariant()}. Use {string.Join(", ", rules.For(type).Select(s => s.Key))}.");
+        var all = accounts.Query();
+        // Classification is code / reporting-group based (not translatable to SQL), so pick the ids first, then page them in the database.
+        var primaries = await all.Where(a => a.Type == type && (a.ParentId == null || !all.Any(p => p.Id == a.ParentId && p.Type == type)))
+            .Select(a => new { a.Id, a.Code, a.ReportingGroup, a.SystemRole }).ToListAsync(ct);
+        var ids = primaries.Where(a => rules.Classify(type, a.Code, a.ReportingGroup, a.SystemRole) == key).Select(a => a.Id).ToList();
+        var page = await accounts.PageAsync(Sorted(q), Projection(all), new Specification<Account>(a => ids.Contains(a.Id)), ct);
+        return WithSubcategories(await WithBalancesAsync(page, q.IncludeBalances, q.LegalEntityId, ct));
     }
 
     public async Task<PagedResult<AccountNodeDto>> Handle(ListAccountChildren q, CancellationToken ct)
@@ -116,7 +184,7 @@ internal sealed class AccountTreeHandlers(IReadRepository<Account> accounts, IRe
         var parentId = q.Id;
         var all = accounts.Query();
         var page = await accounts.PageAsync(Sorted(q), Projection(all), new Specification<Account>(a => a.ParentId == parentId), ct);
-        return await WithBalancesAsync(page, q.IncludeBalances, q.LegalEntityId, ct);
+        return WithSubcategories(await WithBalancesAsync(page, q.IncludeBalances, q.LegalEntityId, ct));
     }
 
     public async Task<IReadOnlyList<AccountNodeDto>> Handle(GetAccountPath q, CancellationToken ct)
@@ -132,7 +200,7 @@ internal sealed class AccountTreeHandlers(IReadRepository<Account> accounts, IRe
                 if (chain.Count == 0) throw new NotFoundException("The account was not found.");
                 break;
             }
-            chain.Insert(0, node);
+            chain.Insert(0, node with { Subcategory = rules.Classify(node.Type, node.Code, node.ReportingGroup, node.SystemRole) });
             current = node.ParentId;
         }
         return chain;
@@ -140,11 +208,31 @@ internal sealed class AccountTreeHandlers(IReadRepository<Account> accounts, IRe
 
     // ---- helpers ---------------------------------------------------------------------------------------------------
 
+    private static AccountType ParseType(string? value)
+    {
+        if (!Enum.TryParse<AccountType>(value, ignoreCase: true, out var type) || !Enum.IsDefined(type) || int.TryParse(value, out _))
+            throw new FieldValidationException("type", "Unknown account type. Use asset, liability, equity, income or expense.");
+        return type;
+    }
+
+    /// <summary>The account itself, or its highest ancestor of the same type (a parent of another type starts a new chain).</summary>
+    private static ClassLink TopOfChain(ClassLink l, Dictionary<Guid, ClassLink> byId)
+    {
+        var top = l;
+        var seen = new HashSet<Guid> { l.Id };
+        while (top.ParentId is { } p && byId.TryGetValue(p, out var parent) && parent.Type == l.Type && seen.Add(parent.Id)) top = parent;
+        return top;
+    }
+
+    /// <summary>Each node's own sub-category key (for a nested account, the panel path uses its top same-type ancestor's).</summary>
+    private PagedResult<AccountNodeDto> WithSubcategories(PagedResult<AccountNodeDto> page)
+        => page.Map(i => i with { Subcategory = rules.Classify(i.Type, i.Code, i.ReportingGroup, i.SystemRole) });
+
     private static PagedQuery Sorted(PagedQuery q) => string.IsNullOrWhiteSpace(q.Sort) ? q with { Sort = "code" } : q;
 
     private static System.Linq.Expressions.Expression<Func<Account, AccountNodeDto>> Projection(IQueryable<Account> all) => a => new AccountNodeDto(
         a.Id, a.Code, a.Name, a.Type, a.ParentId, a.ReportingGroup, a.SystemRole, a.IsPostable, a.IsBank, a.IsSystem, a.IsActive, a.CurrencyCode,
-        all.Count(c => c.ParentId == a.Id), all.Any(c => c.ParentId == a.Id), null);
+        all.Count(c => c.ParentId == a.Id), all.Any(c => c.ParentId == a.Id), null, null);
 
     private static bool IsPrimary(Link l, Dictionary<Guid, Link> byId)
         => l.ParentId is not { } p || !byId.TryGetValue(p, out var parent) || parent.Type != l.Type;
