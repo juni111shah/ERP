@@ -20,7 +20,7 @@ public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext o
     private static readonly HashSet<string> SecretProperties = new(StringComparer.OrdinalIgnoreCase)
         { "PasswordHash", "SecurityStamp", "ConcurrencyStamp", "TokenHash", "RowVersion" };
 
-    private static readonly HashSet<Type> NotAudited = [typeof(AuditEvent), typeof(RefreshToken), typeof(PasswordResetToken), typeof(Notification)];
+    private static readonly HashSet<Type> NotAudited = [typeof(AuditEvent), typeof(RefreshToken), typeof(PasswordResetToken), typeof(Notification), typeof(MessageLog)];
 
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
     {

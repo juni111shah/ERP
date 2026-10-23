@@ -2,6 +2,8 @@ using ERP.Modularity;
 using ERP.Application.Common;
 using ERP.Application.Security;
 using ERP.Application.Workflow;
+using ERP.Application.Reminders;
+using ERP.Domain.Platform;
 using MediatR;
 
 namespace ERP.Api.Endpoints;
@@ -35,6 +37,9 @@ public static class WorkflowEndpoints
         policies.MapPut("/{id:guid}", (Guid id, ApprovalPolicyInput input, ISender sender, CancellationToken ct) => sender.Send(new SaveApprovalPolicy(id, input), ct)).RequirePermission(CorePermissions.SettingsWrite);
         policies.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) => { await sender.Send(new DeleteApprovalPolicy(id), ct); return Results.NoContent(); }).RequirePermission(CorePermissions.SettingsWrite);
 
+        var messages = api.MapGroup("/messages").WithTags("Workflow");
+        messages.MapPagedList<MessageLog, MessageLogDto>("", CorePermissions.SettingsRead, m => new MessageLogDto(m.Id, m.Channel, m.Recipient, m.Subject, m.Body, m.Link, m.Status, m.Error, m.SentAt));
+        messages.MapPost("/send-reminders", async (ISender sender, CancellationToken ct) => new { sent = await sender.Send(new SendRemindersNow(), ct) }).RequirePermission(CorePermissions.SettingsWrite);
         var notifications = api.MapGroup("/notifications").WithTags("Workflow");
         notifications.MapGet("", (ISender sender, CancellationToken ct) => sender.Send(new ListNotifications(), ct)).RequireAuthorization();
         notifications.MapPost("/read-all", async (ISender sender, CancellationToken ct) => { await sender.Send(new MarkAllNotificationsRead(), ct); return Results.NoContent(); }).RequireAuthorization();

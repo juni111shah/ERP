@@ -111,3 +111,25 @@ public class ApprovalRequest : OrgEntity
         Status = ApprovalStatus.Withdrawn;
     }
 }
+
+public enum MessageStatus { Sent = 1, Failed = 2 }
+
+/// <summary>Communication log: every reminder/message the system sent (or failed to send), one row per recipient. DedupeKey makes sending idempotent.</summary>
+[DefaultSort("-sentAt")]
+public class MessageLog : OrgEntity
+{
+    [Filterable]
+    public string Channel { get; set; } = default!; // inapp | email | ...
+    [Searchable]
+    public string Recipient { get; set; } = default!; // user id or address
+    [Searchable]
+    public string Subject { get; set; } = default!;
+    public string? Body { get; set; }
+    public string? Link { get; set; }
+    public string DedupeKey { get; set; } = default!;
+    [Filterable]
+    public MessageStatus Status { get; set; }
+    public string? Error { get; set; }
+    [Sortable, Filterable]
+    public DateTime SentAt { get; set; }
+}

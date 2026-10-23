@@ -134,9 +134,7 @@ export class ShellComponent {
   bump(): void { this.refresh.update((n) => n + 1); }
 
   icon(name?: string): string {
-    if (!name) return 'appstore';
-    const full = name.replace(/(^|-)([a-z])/g, (_, d, c) => c.toUpperCase()) + 'Outline';
-    return KNOWN_ICONS.has(full) ? name : 'appstore';
+    return name && KNOWN_ICONS.has(name) ? name : 'appstore';
   }
 
   selectEntity(id: string | null): void {

@@ -42,6 +42,7 @@ public interface IAppDbContext
     DbSet<Attachment> Attachments { get; }
     DbSet<AuditEvent> AuditEvents { get; }
     DbSet<Notification> Notifications { get; }
+    DbSet<MessageLog> MessageLogs { get; }
     DbSet<Setting> Settings { get; }
     DbSet<CustomFieldDefinition> CustomFieldDefinitions { get; }
     DbSet<T> Set<T>() where T : class;
