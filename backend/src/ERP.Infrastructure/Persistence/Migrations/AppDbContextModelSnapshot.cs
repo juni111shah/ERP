@@ -3643,6 +3643,122 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.ToTable("re_FundingSources", (string)null);
                 });
 
+            modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Inspection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("DamageCost")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("InspectionDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Inspector")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PropertyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("UnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LeaseId");
+
+                    b.HasIndex("PropertyId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("OrgId", "PropertyId", "InspectionDate");
+
+                    b.ToTable("re_Inspections", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Modules.RealEstate.Domain.InspectionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Area")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Condition")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("InspectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("RepairCost")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<Guid?>("WorkOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InspectionId");
+
+                    b.ToTable("re_InspectionItems", (string)null);
+                });
+
             modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Lease", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4639,6 +4755,34 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Inspection", b =>
+                {
+                    b.HasOne("ERP.Modules.RealEstate.Domain.Lease", null)
+                        .WithMany()
+                        .HasForeignKey("LeaseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ERP.Modules.RealEstate.Domain.Property", null)
+                        .WithMany()
+                        .HasForeignKey("PropertyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Modules.RealEstate.Domain.Unit", null)
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("ERP.Modules.RealEstate.Domain.InspectionItem", b =>
+                {
+                    b.HasOne("ERP.Modules.RealEstate.Domain.Inspection", null)
+                        .WithMany("Items")
+                        .HasForeignKey("InspectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Lease", b =>
                 {
                     b.HasOne("ERP.Modules.RealEstate.Domain.Property", null)
@@ -4785,6 +4929,11 @@ namespace ERP.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ERP.Modules.Hr.Domain.PayrollRun", b =>
                 {
                     b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("ERP.Modules.RealEstate.Domain.Inspection", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

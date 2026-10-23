@@ -23,3 +23,34 @@ public class PmSchedule : LegalEntityScopedEntity
     public DateOnly? LastGeneratedOn { get; set; }
     public string? Notes { get; set; }
 }
+
+public enum InspectionKind { MoveIn = 1, MoveOut = 2, Routine = 3 }
+public enum InspectionStatus { Draft = 0, Completed = 1 }
+public enum ItemCondition { Good = 1, Fair = 2, Poor = 3, Damaged = 4 }
+
+/// <summary>A condition check of a unit or property (move-in, move-out, routine) with a checklist of areas. Completing it can raise repair work orders.</summary>
+[DefaultSort("-inspectionDate")]
+public class Inspection : LegalEntityScopedEntity
+{
+    [Filterable] public Guid PropertyId { get; set; }
+    [Filterable] public Guid? UnitId { get; set; }
+    [Filterable] public Guid? LeaseId { get; set; }
+    [Filterable] public InspectionKind Kind { get; set; } = InspectionKind.Routine;
+    [Filterable, Sortable] public DateOnly InspectionDate { get; set; }
+    [Searchable] public string? Inspector { get; set; }
+    [Filterable] public InspectionStatus Status { get; set; } = InspectionStatus.Draft;
+    public string? Notes { get; set; }
+    /// <summary>Sum of the repair costs of poor/damaged items, kept in step with the items (use it when settling a deposit).</summary>
+    public decimal DamageCost { get; set; }
+    public List<InspectionItem> Items { get; set; } = new();
+}
+
+public class InspectionItem : Entity
+{
+    public Guid InspectionId { get; set; }
+    public string Area { get; set; } = default!;
+    public ItemCondition Condition { get; set; } = ItemCondition.Good;
+    public string? Notes { get; set; }
+    public decimal RepairCost { get; set; }
+    public Guid? WorkOrderId { get; set; }
+}

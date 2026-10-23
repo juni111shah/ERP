@@ -237,3 +237,17 @@ export class RenewalsApi {
   workbench(days: number): Observable<RenewalWorkbench> { return this.http.get<RenewalWorkbench>(`${this.base}/${BASE}/renewals`, { params: { days } }); }
   createDrafts(leaseIds: string[], upliftPercent: number): Observable<RenewalDraftResult[]> { return this.http.post<RenewalDraftResult[]>(`${this.base}/${BASE}/renewals/drafts`, { leaseIds, upliftPercent }); }
 }
+
+// ---- Inspections ---------------------------------------------------------------------------------------------------------
+
+export const INSPECTION_KINDS = [{ value: 'moveIn', label: 'Move-in' }, { value: 'moveOut', label: 'Move-out' }, { value: 'routine', label: 'Routine' }];
+export const CONDITIONS = [{ value: 'good', label: 'Good' }, { value: 'fair', label: 'Fair' }, { value: 'poor', label: 'Poor' }, { value: 'damaged', label: 'Damaged' }];
+export interface InspectionRow { id: string; propertyId: string; unitId?: string; leaseId?: string; kind: string; inspectionDate: string; inspector?: string; status: string; damageCost: number; }
+export interface InspectionItem { id?: string; area: string; condition: string; notes?: string; repairCost: number; workOrderId?: string; }
+export interface InspectionDetail extends InspectionRow { propertyName: string; unitNumber?: string; notes?: string; items: InspectionItem[]; }
+@Injectable({ providedIn: 'root' })
+export class InspectionsApi extends CrudApiService<InspectionRow, unknown> {
+  protected readonly resource = `${BASE}/inspections`;
+  detail(id: string): Observable<InspectionDetail> { return this.http.get<InspectionDetail>(`${this.url}/${id}`); }
+  complete(id: string, raiseWorkOrders: boolean): Observable<InspectionDetail> { return this.http.post<InspectionDetail>(`${this.url}/${id}/complete`, { raiseWorkOrders }); }
+}
