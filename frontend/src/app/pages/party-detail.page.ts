@@ -8,6 +8,10 @@ import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { API_BASE_URL } from '../core/api/api-config';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../shared/detail-page.component';
+import { AttachmentsComponent } from '../shared/attachments.component';
+import { PartyStatementComponent } from '../shared/party-statement.component';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { SessionStore } from '../core/session/session.store';
 
 interface Transaction {
   id: string;
@@ -42,7 +46,7 @@ interface Party {
 @Component({
   selector: 'erp-party-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent],
+  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent, AttachmentsComponent, PartyStatementComponent, TranslatePipe],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -97,11 +101,13 @@ interface Party {
                 </nz-table>
               </div>
             </nz-tab>
-            <nz-tab nzTitle="Statement">
-              <div style="padding: 16px;">
-                <p><i>Customer statement functionality will be fully implemented</i></p>
-              </div>
-            </nz-tab>
+            @if (canReports()) {
+              <nz-tab [nzTitle]="isVendor() ? ('party.customerStatement' | translate: 'Customer statement') : ('party.statement' | translate: 'Statement')">
+                <ng-template nz-tab>
+                  <div style="padding: 16px;" data-testid="party-statement-tab"><erp-party-statement [partyId]="party()!.id" side="customer" [partyName]="party()!.name" /></div>
+                </ng-template>
+              </nz-tab>
+            }
           }
           @if (isVendor()) {
             <nz-tab nzTitle="Recent Transactions">
@@ -136,12 +142,21 @@ interface Party {
                 </nz-table>
               </div>
             </nz-tab>
+            @if (canReports()) {
+              <nz-tab [nzTitle]="isCustomer() ? ('party.vendorStatement' | translate: 'Vendor statement') : ('party.statement' | translate: 'Statement')">
+                <ng-template nz-tab>
+                  <div style="padding: 16px;" data-testid="party-vendor-statement-tab"><erp-party-statement [partyId]="party()!.id" side="vendor" [partyName]="party()!.name" /></div>
+                </ng-template>
+              </nz-tab>
+            }
           }
-          <nz-tab nzTitle="Documents">
-            <div style="padding: 16px;">
-              <p><i>Document attachments will be displayed here</i></p>
-            </div>
-          </nz-tab>
+          @if (canDocuments()) {
+            <nz-tab [nzTitle]="'party.documents' | translate: 'Documents'">
+              <ng-template nz-tab>
+                <div style="padding: 16px;" data-testid="party-documents-tab"><erp-attachments ownerType="party" [ownerId]="party()!.id" /></div>
+              </ng-template>
+            </nz-tab>
+          }
           <nz-tab nzTitle="History">
             <div style="padding: 16px;">
               <p><i>Audit history will be displayed here</i></p>
@@ -182,6 +197,9 @@ export class PartyDetailPage implements OnInit {
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly apiBase = inject(API_BASE_URL);
+  private readonly session = inject(SessionStore);
+  readonly canReports = computed(() => this.session.hasPermission('finance.reports.read'));
+  readonly canDocuments = computed(() => this.session.hasPermission('core.attachments.read'));
 
   statementOpen = signal(false);
   statementTitle = signal('Statement');

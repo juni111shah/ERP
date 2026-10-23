@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Injectable, inject, signal, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injectable, computed, inject, signal, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -31,6 +32,8 @@ export class PartiesApi extends CrudApiService<PartyDto, unknown> {
 }
 
 const ROLES = ['Customer', 'Vendor', 'Employee', 'Other'];
+const titleFor = (type: string | null) => (type === 'customer' ? 'Customers' : type === 'vendor' ? 'Vendors' : 'Parties');
+const roleFilter = (type: string | null) => (type ? [{ field: 'roles', op: 'has' as const, value: type.toLowerCase() }] : []);
 
 /** Parties (customers, vendors, ...): generic paged table + master-data side drawer with custom fields. */
 @Component({
@@ -41,7 +44,7 @@ const ROLES = ['Customer', 'Vendor', 'Employee', 'Other'];
     NzFormModule, NzInputModule, NzSelectModule, NzSwitchModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">{{ pageTitle() }}</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, code, email" (rowClick)="open($event)" emptyText="No parties yet">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, code, email" (rowClick)="open($event)" [emptyText]="emptyText()">
       @if (!typeFilter()) {
         <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All roles" (ngModelChange)="filterRole($event)" [ngModelOptions]="{standalone: true}" [ngModel]="null" data-testid="party-role-filter">
           @for (r of roles; track r) { <nz-option [nzValue]="r" [nzLabel]="r"></nz-option> }
@@ -84,10 +87,21 @@ export class PartiesPage implements OnInit {
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   readonly roles = ROLES;
-  readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
-  readonly typeFilter = signal<string | null>(null);
-  readonly pageTitle = signal('Parties');
+  /** `?type=` known up front, so the first request is already filtered (no unfiltered load racing the filtered one). */
+  private readonly initialType = this.route.snapshot.queryParamMap.get('type');
+  readonly list = createPagedList((q) => this.api.list(q), { sort: 'code', filters: roleFilter(this.initialType) });
+  readonly typeFilter = signal<string | null>(this.initialType);
+  readonly pageTitle = signal(titleFor(this.initialType));
+  /** Never say "No parties yet" while loading or after a failed load: both looked like an empty list. */
+  readonly emptyText = computed(() => {
+    if (this.list.loading()) return 'Loading…';
+    if (this.list.error()) return 'Could not load the list. Reload the page to try again.';
+    const type = this.typeFilter();
+    return type === 'customer' ? 'No customers yet' : type === 'vendor' ? 'No vendors yet' : 'No parties yet';
+  });
   readonly columns: TableColumn<PartyDto>[] = [
     { key: 'code', label: 'Code', sortField: 'code', width: '120px' },
     { key: 'name', label: 'Name', sortField: 'name' },
@@ -104,16 +118,17 @@ export class PartiesPage implements OnInit {
 
   ngOnInit(): void {
     // Re-apply on every query change: Customers -> Vendors from the menu reuses this component.
-    this.route.queryParamMap.subscribe((qp) => {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((qp) => {
       const type = qp.get('type');
-      if (type === this.typeFilter()) return;
-      this.typeFilter.set(type);
-      this.pageTitle.set(type === 'customer' ? 'Customers' : type === 'vendor' ? 'Vendors' : 'Parties');
-      this.filterRole(type ? type.charAt(0).toUpperCase() + type.slice(1) : null);
+      if (type !== this.typeFilter()) {
+        this.typeFilter.set(type);
+        this.pageTitle.set(titleFor(type));
+        this.list.setFilters(roleFilter(type));
+      }
+      // `?edit=<id>` (from the party detail page's Edit) opens the edit drawer for that party.
+      const editId = qp.get('edit');
+      if (editId && !(this.drawerOpen() && this.editing()?.id === editId)) this.api.get(editId).subscribe((p) => this.edit(p));
     });
-    // `?edit=<id>` (from the party detail page's Edit) opens the edit drawer for that party.
-    const editId = this.route.snapshot.queryParamMap.get('edit');
-    if (editId) this.api.get(editId).subscribe((p) => this.edit(p));
   }
 
   private edit(p: PartyDto): void {
@@ -132,8 +147,6 @@ export class PartiesPage implements OnInit {
     this.list.setFilters(role ? [{ field: 'roles', op: 'has', value: role.toLowerCase() }] : []);
   }
 
-  private readonly router = inject(Router);
-
   open(p: PartyDto | null): void {
     if (p) {
       void this.router.navigate(['/parties', p.id]);
@@ -150,7 +163,15 @@ export class PartiesPage implements OnInit {
     this.drawerOpen.set(true);
   }
 
-  close(): void { this.drawerOpen.set(false); }
+  close(): void {
+    this.drawerOpen.set(false);
+    this.clearEditParam();
+  }
+
+  /** Drop `?edit=<id>` once the drawer closes, so a reload or Back does not reopen it. */
+  private clearEditParam(): void {
+    if (this.route.snapshot.queryParamMap.has('edit')) void this.router.navigate([], { relativeTo: this.route, queryParams: { edit: null }, queryParamsHandling: 'merge', replaceUrl: true });
+  }
 
   err(name: string): string { return controlError(this.form.get(name)); }
 
@@ -161,7 +182,7 @@ export class PartiesPage implements OnInit {
     const p = this.editing();
     this.saving.set(true);
     (p ? this.api.update(p.id, body) : this.api.create(body)).subscribe({
-      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success('Saved'); this.list.reload(); if (p) void this.router.navigate(['/parties', p.id]); },
+      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success('Saved'); this.list.reload(); if (p) void this.router.navigate(['/parties', p.id]); else this.clearEditParam(); },
       error: (e) => {
         this.saving.set(false);
         const problem = asProblem(e);
