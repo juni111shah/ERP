@@ -43,7 +43,14 @@ public static class MasterDataEndpoints
             var created = await sender.Send(new CreateAccount(input), ct);
             return Results.Created($"/api/v1/finance/accounts/{created.Id}", created);
         }).RequirePermission(CorePermissions.AccountsWrite);
+        finance.MapGet("/accounts/{id:guid}", (Guid id, ISender sender, CancellationToken ct) => sender.Send(new GetAccount(id), ct)).RequirePermission(CorePermissions.AccountsRead);
         finance.MapPut("/accounts/{id:guid}", (Guid id, AccountInput input, ISender sender, CancellationToken ct) => sender.Send(new UpdateAccount(id, input), ct)).RequirePermission(CorePermissions.AccountsWrite);
+
+        // Step-by-step chart of accounts: one level per request (types -> primary accounts -> children), each with hasChildren.
+        finance.MapGet("/accounts/tree/categories", ([AsParameters] GetAccountCategories query, ISender sender, CancellationToken ct) => sender.Send(query, ct)).RequirePermission(CorePermissions.AccountsRead);
+        finance.MapGet("/accounts/tree/categories/{type}/accounts", ([AsParameters] ListCategoryAccounts query, ISender sender, CancellationToken ct) => sender.Send(query, ct)).RequirePermission(CorePermissions.AccountsRead);
+        finance.MapGet("/accounts/{id:guid}/children", ([AsParameters] ListAccountChildren query, ISender sender, CancellationToken ct) => sender.Send(query, ct)).RequirePermission(CorePermissions.AccountsRead);
+        finance.MapGet("/accounts/{id:guid}/path", (Guid id, ISender sender, CancellationToken ct) => sender.Send(new GetAccountPath(id), ct)).RequirePermission(CorePermissions.AccountsRead);
 
         finance.MapPagedList<TaxCode, TaxCodeDto>("/tax-codes", CorePermissions.TaxRead,
             t => new TaxCodeDto(t.Id, t.Code, t.Name, t.Kind, t.Rate, t.IsDefault, t.IsRecoverable, t.IsActive));

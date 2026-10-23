@@ -6,6 +6,7 @@ import {
   CheckOutline, CopyOutline, EditOutline, FileAddOutline, LinkOutline, ReloadOutline, RollbackOutline, StopOutline, ThunderboltOutline,
   DoubleLeftOutline, DoubleRightOutline, LeftOutline, RightOutline, FilterOutline,
   HolderOutline, UndoOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline,
+  FallOutline, FolderOpenOutline, PartitionOutline, RiseOutline, UnorderedListOutline,
 } from '@ant-design/icons-angular/icons';
 
 /** Icons used by the shell and the server-driven menu (MenuItemDefinition.Icon). Unknown names fall back to "appstore". */
@@ -20,5 +21,7 @@ export const APP_ICONS = [
   DoubleLeftOutline, DoubleRightOutline, LeftOutline, RightOutline, FilterOutline,
   // Table column panel (drag handle, pin start / end, reset layout) and Clear filters: unregistered icons are fetched from /assets and 404.
   HolderOutline, UndoOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline,
+  // Step-by-step chart of accounts (category icons, column chevrons, view toggle).
+  FallOutline, FolderOpenOutline, PartitionOutline, RiseOutline, UnorderedListOutline,
 ];
 export const KNOWN_ICONS = new Set(APP_ICONS.map((i) => i.name));
