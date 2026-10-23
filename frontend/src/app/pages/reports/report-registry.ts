@@ -1,7 +1,7 @@
 /** Declarative definitions of the server-built reports. A report page needs no code of its own: add an entry here. */
 export type ColType = 'text' | 'money' | 'number' | 'percent' | 'date';
 export interface ReportColumn { key: string; label: string; type?: ColType; }
-export type ReportFilter = 'range' | 'asOf' | 'weeks' | 'months' | 'optionalAsOf';
+export type ReportFilter = 'range' | 'asOf' | 'weeks' | 'months' | 'optionalAsOf' | 'owner';
 
 export interface ReportDef {
   slug: string;
@@ -51,6 +51,14 @@ export const REPORTS: ReportDef[] = [
     columns: (x) => [d('weekOf', 'Week of'), ...((x?.sources ?? []) as { key: string; label: string }[]).map((s) => m(s.key, s.label)), m('net', 'Net'), m('projected', 'Projected balance')],
     rows: (x) => x.weeks.map((w: any) => ({ weekOf: w.weekOf, ...w.amounts, net: w.net, projected: w.projected })),
     summary: (x) => [{ label: 'Cash today', value: fmt(x.cashToday) }, { label: 'Projected at the end', value: fmt(x.endBalance) }, { label: 'Lowest projected balance', value: fmt(x.lowestBalance) }],
+  },
+  {
+    slug: 'owner-statement', title: 'Owner statement', subtitle: 'Rent collected for the owner\'s managed properties, less the management fee and completed maintenance. Cash basis.', module: 'realestate',
+    endpoint: 'm/realestate/reports/owner-statement', filters: ['owner', 'range'],
+    columns: () => [t('property', 'Property'), p('feePercent', 'Fee %'), m('rentCollected', 'Rent collected'), m('managementFee', 'Management fee'), m('maintenanceCosts', 'Maintenance'), m('netToOwner', 'Net to owner')],
+    rows: (x) => x.rows,
+    totals: (x) => ({ property: 'Total', feePercent: null, rentCollected: x.rentCollected, managementFee: x.managementFee, maintenanceCosts: x.maintenanceCosts, netToOwner: x.netToOwner }),
+    summary: (x) => [{ label: 'Owner', value: x.owner }, { label: 'Net payable to owner', value: fmt(x.netToOwner) }],
   },
   {
     slug: 'rent-roll', title: 'Rent roll', subtitle: 'Active leases with rent per area, held cheques and what each tenant owes.', module: 'realestate',

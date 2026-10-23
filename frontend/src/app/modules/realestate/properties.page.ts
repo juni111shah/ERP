@@ -17,6 +17,7 @@ export function propertyFields(lookups: RealEstateLookups): FieldSpec[] {
     { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 200 },
     { key: 'propertyType', label: 'Type', type: 'select', required: true, options: PROPERTY_TYPES, default: 'residential' },
     { key: 'ownershipType', label: 'Ownership', type: 'select', required: true, options: OWNERSHIPS, default: 'owned' },
+    { key: 'managementFeePercent', label: 'Management fee %', type: 'number', min: 0, max: 100, default: 0, hidden: (v) => v['ownershipType'] !== 'managedForOwner', hint: 'Charged on rent collected; used in the owner statement.' },
     { key: 'ownerPartyId', label: 'Owner', type: 'lookup', lookup: lookups.party('other'), hidden: (v) => v['ownershipType'] !== 'managedForOwner', required: true },
     { key: 'region', label: 'Region / emirate', type: 'text', maxLength: 100 },
     { key: 'community', label: 'Community / area', type: 'text', maxLength: 100 },

@@ -49,6 +49,7 @@ internal static class RealEstateEndpoints
     private static void MapReports(RouteGroupBuilder g)
     {
         const string perm = CorePermissions.ReportsRead;
+        g.MapGet("/owner-statement", (Guid ownerPartyId, DateOnly from, DateOnly to, ISender s, CancellationToken ct) => s.Send(new GetOwnerStatement(ownerPartyId, from, to), ct)).RequirePermission(perm);
         g.MapGet("/rent-roll", (DateOnly asOf, Guid[]? propertyIds, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetRentRoll(asOf, propertyIds, legalEntityId), ct)).RequirePermission(perm);
         g.MapGet("/occupancy", (Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetOccupancyReport(legalEntityId), ct)).RequirePermission(perm);
         g.MapGet("/portfolio-performance", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetPortfolioPerformance(from, to, legalEntityId), ct)).RequirePermission(perm);

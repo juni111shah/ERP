@@ -14,7 +14,7 @@ type CustomFields = Record<string, unknown>;
 export interface UnitTypeDto { id: string; code: string; name: string; defaultUsage: string; defaultBedrooms?: number; isActive: boolean; }
 
 export interface PropertyDto {
-  id: string; code: string; name: string; legalEntityId: string; propertyType: string; ownershipType: string; ownerPartyId?: string; region?: string;
+  id: string; code: string; name: string; legalEntityId: string; propertyType: string; ownershipType: string; ownerPartyId?: string; managementFeePercent?: number; region?: string;
   community?: string; plotNumber?: string; yearBuilt?: number; totalUnits: number; indicativeValue: number; isActive: boolean; notes?: string; customFields: CustomFields;
 }
 export interface PropertySummary {

@@ -23,6 +23,8 @@ public class Property : LegalEntityScopedEntity, IHasCustomFields
     [Filterable] public OwnershipType OwnershipType { get; set; } = OwnershipType.Owned;
     /// <summary>Third-party owner (a core party) when the property is managed for an owner.</summary>
     public Guid? OwnerPartyId { get; set; }
+    /// <summary>Management fee charged to the owner, as a percentage of rent collected (managed-for-owner properties).</summary>
+    public decimal ManagementFeePercent { get; set; }
     [Listable] public string? Region { get; set; }
     [Listable] public string? Community { get; set; }
     [Searchable] public string? PlotNumber { get; set; }

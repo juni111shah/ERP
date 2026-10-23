@@ -4044,6 +4044,10 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("LegalEntityId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("ManagementFeePercent")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("decimal(9,4)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
