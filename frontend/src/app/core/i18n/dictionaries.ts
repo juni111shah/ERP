@@ -64,6 +64,17 @@ export const EN: Dictionary = {
   'ui.party.customerStatement': 'Customer statement', 'ui.party.vendorStatement': 'Vendor statement', 'ui.re.aYear': 'a year',
   'ui.re.daysAgo': 'days ago', 'ui.re.daysLeft': 'days left', 'ui.re.endedAgo': 'ended',
   'ui.re.unitLc': 'unit',
+  // chart of accounts (step-by-step view)
+  'coa.title': 'Chart of accounts', 'coa.categories': 'Account categories', 'coa.breadcrumb': 'Account path', 'coa.view.panels': 'Step by step', 'coa.view.list': 'List view',
+  'coa.newAccount': 'New account', 'coa.editAccount': 'Edit account', 'coa.addAccount': 'Add account', 'coa.addSub': 'Add sub-account', 'coa.subAccounts': 'Sub-accounts',
+  'coa.searchCategories': 'Search categories', 'coa.searchAccounts': 'Search code or name', 'coa.accounts': 'accounts', 'coa.primary': 'primary',
+  'coa.loadMore': 'Load more', 'coa.loadFailed': 'Could not load this level.', 'coa.retry': 'Retry', 'coa.noMatch': 'Nothing matches.', 'coa.noAccounts': 'No accounts here yet.',
+  'coa.type.asset': 'Assets', 'coa.type.liability': 'Liabilities', 'coa.type.equity': 'Equity', 'coa.type.income': 'Revenue', 'coa.type.expense': 'Expenses',
+  'coa.tag.header': 'Header', 'coa.tag.group': 'Group', 'coa.tag.bank': 'Bank', 'coa.tag.system': 'System', 'coa.tag.inactive': 'Inactive',
+  'coa.f.type': 'Type', 'coa.f.reportingGroup': 'Reporting group', 'coa.f.postable': 'Postable', 'coa.f.bank': 'Bank / cash', 'coa.f.currency': 'Currency',
+  'coa.f.systemRole': 'System role', 'coa.f.active': 'Active', 'coa.f.balance': 'Balance',
+  'coa.deactivate': 'Deactivate', 'coa.activate': 'Activate', 'coa.confirmDeactivate': 'Deactivate this account? It stays in history but cannot be used on new entries.',
+  'coa.confirmActivate': 'Activate this account again?', 'coa.deactivated': 'Account deactivated', 'coa.activated': 'Account activated', 'coa.saveFailed': 'Could not update the account',
 };
 
 export const AR: Dictionary = {
@@ -163,6 +174,17 @@ export const AR: Dictionary = {
   'ui.party.customerStatement': 'كشف حساب العميل', 'ui.party.vendorStatement': 'كشف حساب المورد', 'ui.re.aYear': 'مرات في السنة',
   'ui.re.daysAgo': 'يوماً', 'ui.re.daysLeft': 'يوماً متبقياً', 'ui.re.endedAgo': 'انتهى منذ',
   'ui.re.unitLc': 'وحدة',
+  // chart of accounts (step-by-step view)
+  'coa.title': 'دليل الحسابات', 'coa.categories': 'فئات الحسابات', 'coa.breadcrumb': 'مسار الحساب', 'coa.view.panels': 'خطوة بخطوة', 'coa.view.list': 'عرض القائمة',
+  'coa.newAccount': 'حساب جديد', 'coa.editAccount': 'تعديل الحساب', 'coa.addAccount': 'إضافة حساب', 'coa.addSub': 'إضافة حساب فرعي', 'coa.subAccounts': 'الحسابات الفرعية',
+  'coa.searchCategories': 'البحث في الفئات', 'coa.searchAccounts': 'البحث بالرمز أو الاسم', 'coa.accounts': 'حسابات', 'coa.primary': 'رئيسية',
+  'coa.loadMore': 'تحميل المزيد', 'coa.loadFailed': 'تعذر تحميل هذا المستوى.', 'coa.retry': 'إعادة المحاولة', 'coa.noMatch': 'لا توجد نتائج مطابقة.', 'coa.noAccounts': 'لا توجد حسابات هنا بعد.',
+  'coa.type.asset': 'الأصول', 'coa.type.liability': 'الالتزامات', 'coa.type.equity': 'حقوق الملكية', 'coa.type.income': 'الإيرادات', 'coa.type.expense': 'المصروفات',
+  'coa.tag.header': 'رئيسي', 'coa.tag.group': 'مجموعة', 'coa.tag.bank': 'بنك', 'coa.tag.system': 'نظام', 'coa.tag.inactive': 'غير نشط',
+  'coa.f.type': 'النوع', 'coa.f.reportingGroup': 'مجموعة التقارير', 'coa.f.postable': 'قابل للترحيل', 'coa.f.bank': 'بنك / نقد', 'coa.f.currency': 'العملة',
+  'coa.f.systemRole': 'دور النظام', 'coa.f.active': 'نشط', 'coa.f.balance': 'الرصيد',
+  'coa.deactivate': 'إلغاء التفعيل', 'coa.activate': 'تفعيل', 'coa.confirmDeactivate': 'إلغاء تفعيل هذا الحساب؟ يبقى في السجل لكن لا يمكن استخدامه في قيود جديدة.',
+  'coa.confirmActivate': 'إعادة تفعيل هذا الحساب؟', 'coa.deactivated': 'تم إلغاء تفعيل الحساب', 'coa.activated': 'تم تفعيل الحساب', 'coa.saveFailed': 'تعذر تحديث الحساب',
 };
 
 export const DICTIONARIES: Record<Lang, Dictionary> = { en: EN, ar: AR };

@@ -3,7 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { LookupOption } from '../custom-fields/lookup-registry';
 import { API_BASE_URL } from './api-config';
-import { CrudApiService } from './crud-api.service';
+import { ListQuery, PagedResult } from './api.models';
+import { CrudApiService, toHttpParams } from './crud-api.service';
 
 type CustomFields = Record<string, unknown>;
 
@@ -13,6 +14,13 @@ export interface ItemDto { id: string; sku: string; name: string; type: string; 
 export interface AccountDto {
   id: string; code: string; name: string; type: string; reportingGroup?: string; systemRole?: string; isBank: boolean; isSystem: boolean; isActive: boolean;
   parentId?: string; isPostable: boolean; currencyCode?: string; customFields: CustomFields;
+}
+export interface AccountCategoryDto {
+  type: string; accountCount: number; activeCount: number; primaryCount: number; hasChildren: boolean; balance?: number | null;
+}
+export interface AccountNodeDto {
+  id: string; code: string; name: string; type: string; parentId?: string | null; reportingGroup?: string | null; systemRole?: string | null;
+  isPostable: boolean; isBank: boolean; isSystem: boolean; isActive: boolean; currencyCode?: string | null; childCount: number; hasChildren: boolean; balance?: number | null;
 }
 export interface TaxCodeDto { id: string; code: string; name: string; kind: string; rate: number; isDefault: boolean; isRecoverable: boolean; isActive: boolean; }
 export interface LegalEntityDto {
@@ -54,7 +62,27 @@ export const yesNo = (v: unknown): string => (v ? 'Yes' : 'No');
 export class ItemsApi extends CrudApiService<ItemDto, unknown> { protected readonly resource = 'items'; }
 
 @Injectable({ providedIn: 'root' })
-export class AccountsApi extends CrudApiService<AccountDto, unknown> { protected readonly resource = 'finance/accounts'; }
+export class AccountsApi extends CrudApiService<AccountDto, unknown> {
+  protected readonly resource = 'finance/accounts';
+
+  // ---- Step-by-step chart of accounts: one level per request -------------------------------------------------------------
+  /** The five account categories with counts (and natural-side balances when asked and the user may read reports). */
+  categories(includeBalances = false): Observable<AccountCategoryDto[]> {
+    return this.http.get<AccountCategoryDto[]>(`${this.url}/tree/categories`, { params: includeBalances ? { includeBalances: true } : {} });
+  }
+  /** Primary accounts of one category: no parent, or a parent of another type. Paged and searchable (code, name). */
+  categoryAccounts(type: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {
+    return this.http.get<PagedResult<AccountNodeDto>>(`${this.url}/tree/categories/${encodeURIComponent(type)}/accounts`, { params: toHttpParams(query) });
+  }
+  /** Direct children of one account. */
+  children(id: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {
+    return this.http.get<PagedResult<AccountNodeDto>>(`${this.url}/${id}/children`, { params: toHttpParams(query) });
+  }
+  /** Root-first ancestors of an account, the account itself last (breadcrumbs, re-opening a path). */
+  path(id: string): Observable<AccountNodeDto[]> {
+    return this.http.get<AccountNodeDto[]>(`${this.url}/${id}/path`);
+  }
+}
 
 @Injectable({ providedIn: 'root' })
 export class TaxCodesApi extends CrudApiService<TaxCodeDto, unknown> { protected readonly resource = 'finance/tax-codes'; }
