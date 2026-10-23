@@ -8,6 +8,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { asProblem } from '../../core/http/problem-details';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 interface ImportDef { key: string; label: string; columns: { name: string; required: boolean; example: string; hint?: string }[]; }
 interface ImportResult { total: number; created: number; errors: { row: number; message: string }[]; dryRun: boolean; }
@@ -52,6 +53,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
     }`,
 })
 export class ImportPage {
+  private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
   private readonly message = inject(NzMessageService);
@@ -80,7 +82,7 @@ export class ImportPage {
     const form = new FormData(); form.append('file', file);
     this.busy.set(true);
     this.http.post<ImportResult>(`${this.base}/imports/${this.key()}`, form, { params: { dryRun } }).subscribe({
-      next: (r) => { this.busy.set(false); this.result.set(r); if (!dryRun) { this.message.success(`${r.created} row(s) imported`); input.value = ''; } },
+      next: (r) => { this.busy.set(false); this.result.set(r); if (!dryRun) { this.message.success(`${r.created} ${this.i18n.t('ui.msg.rowsImported', 'row(s) imported')}`); input.value = ''; } },
       error: (e) => { this.busy.set(false); this.message.error(asProblem(e)?.detail ?? 'The import failed'); },
     });
   }

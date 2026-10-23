@@ -15,6 +15,7 @@ import { createPagedList } from '../../core/api/paged-list';
 import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 interface Row { accountId: string; label: string; type: string; months: number[]; }
@@ -24,7 +25,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
   selector: 'erp-budgets',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
+  imports: [TranslatePipe, DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
   styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px } .num { text-align:right } .bad { color: var(--erp-color-error, #cf1322) } .good { color: var(--erp-color-success, #389e0d) } .grid { overflow:auto }`],
   template: `
     @if (!editing()) {
@@ -76,7 +77,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
               <nz-select style="width:110px" [(ngModel)]="toMonth" (ngModelChange)="loadActual()">@for (m of months; track m; let i = $index) { <nz-option [nzValue]="i + 1" [nzLabel]="m"></nz-option> }</nz-select>
             </div>
             @if (actual(); as a) {
-              <p data-testid="budget-net">Net budget {{ a.budgetNet | number: '1.0-0' }} · Net actual {{ a.actualNet | number: '1.0-0' }}</p>
+              <p data-testid="budget-net">{{ 'ui.budget.netBudget' | translate: 'Net budget' }} {{ a.budgetNet | number: '1.0-0' }} · {{ 'ui.budget.netActual' | translate: 'Net actual' }} {{ a.actualNet | number: '1.0-0' }}</p>
               <nz-table [nzData]="a.rows" nzSize="small" [nzShowPagination]="false" data-testid="budget-actual-table">
                 <thead><tr><th>Account</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">%</th></tr></thead>
                 <tbody>

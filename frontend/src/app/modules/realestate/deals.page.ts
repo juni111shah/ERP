@@ -16,6 +16,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { DEAL_TYPES, DealDto, DealsApi, RealEstateLookups, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
 
@@ -23,7 +24,7 @@ const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
   selector: 'erp-deals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Deals</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search client" emptyText="No deals yet" (rowClick)="state.edit($event)">
@@ -43,13 +44,13 @@ const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
         <div drawerActions style="margin-bottom:16px" data-testid="deal-actions">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <erp-status-tag [status]="d.stage" />
-            @if (next(d); as n) { <button *erpHasPermission="'realestate.deals.edit'" nz-button nzSize="small" nzType="primary" (click)="move(d, n)" data-testid="deal-next">Move to {{ humanize(n) }}</button> }
+            @if (next(d); as n) { <button *erpHasPermission="'realestate.deals.edit'" nz-button nzSize="small" nzType="primary" (click)="move(d, n)" data-testid="deal-next">{{ 'ui.re.moveTo' | translate: 'Move to' }} {{ humanize(n) }}</button> }
             @if (d.stage === 'agreed') { <button *erpHasPermission="'realestate.deals.invoice'" nz-button nzSize="small" nzType="primary" (click)="invoice(d)" data-testid="deal-invoice">Raise commission invoice</button> }
             @if (d.stage === 'collected') { <button *erpHasPermission="'realestate.deals.payagent'" nz-button nzSize="small" nzType="primary" (click)="payOpen.set(d)" data-testid="deal-pay-agent">Pay agent</button> }
             @if (d.stage !== 'lost' && isPipeline(d.stage)) { <button *erpHasPermission="'realestate.deals.lose'" nz-button nzSize="small" nzDanger (click)="losing.set(d)" data-testid="deal-lose">Mark as lost</button> }
           </div>
-          <p style="margin:8px 0 0">Gross commission <strong>{{ d.grossCommission.toLocaleString() }} {{ d.currencyCode }}</strong> · agent {{ d.agentCommission.toLocaleString() }} · team lead {{ d.teamLeadCommission.toLocaleString() }}</p>
-          @if (d.lostReason) { <p>Lost: {{ d.lostReason }}</p> }
+          <p style="margin:8px 0 0">Gross commission <strong>{{ d.grossCommission.toLocaleString() }} {{ d.currencyCode }}</strong> · {{ 'ui.re.agentLc' | translate: 'agent' }} {{ d.agentCommission.toLocaleString() }} · {{ 'ui.re.teamLeadLc' | translate: 'team lead' }} {{ d.teamLeadCommission.toLocaleString() }}</p>
+          @if (d.lostReason) { <p>{{ 'ui.re.lost' | translate: 'Lost' }}: {{ d.lostReason }}</p> }
         </div>
       }
     </erp-record-drawer>

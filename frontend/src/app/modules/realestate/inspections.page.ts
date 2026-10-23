@@ -18,13 +18,15 @@ import { CONDITIONS, INSPECTION_KINDS, InspectionDetail, InspectionItem, Inspect
 import { StatusTagComponent } from './status-tag.component';
 import { LookupOption } from '../../core/custom-fields/lookup-registry';
 import { Observable } from 'rxjs';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 /** Move-in / move-out / routine inspections with an area checklist; completing can raise repair work orders. */
 @Component({
   selector: 'erp-inspections',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCheckboxModule, NzDatePickerModule, NzDrawerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule],
+  imports: [TranslatePipe, FormsModule, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCheckboxModule, NzDatePickerModule, NzDrawerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Inspections</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search inspector" emptyText="No inspections yet" (rowClick)="open($event.id)">
@@ -53,7 +55,7 @@ import { Observable } from 'rxjs';
           </div>
         }
         @if (!locked()) { <button nz-button nzSize="small" (click)="addItem()" data-testid="insp-add-item"><span nz-icon nzType="plus"></span>Add area</button> }
-        @if (damage() > 0) { <p style="margin-top:12px" data-testid="insp-damage"><b>Estimated damage cost: {{ damage() }}</b></p> }
+        @if (damage() > 0) { <p style="margin-top:12px" data-testid="insp-damage"><b>{{ 'ui.re.damageCost' | translate: 'Estimated damage cost' }}: {{ damage() }}</b></p> }
       </ng-container>
     </nz-drawer>
     <ng-template #footer>
@@ -68,6 +70,7 @@ import { Observable } from 'rxjs';
     </ng-template>`,
 })
 export class InspectionsPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(InspectionsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
@@ -112,7 +115,7 @@ export class InspectionsPage {
       this.id.set(d.id); this.locked.set(d.status === 'completed'); this.propertyId = d.propertyId; this.unitId = d.unitId ?? null; this.kind = d.kind; this.inspector = d.inspector ?? '';
       const [y, m, day] = d.inspectionDate.split('-').map(Number); this.date = new Date(y, m - 1, day);
       this.propertyOptions.set([{ value: d.propertyId, label: d.propertyName }]);
-      this.unitOptions.set(d.unitId ? [{ value: d.unitId, label: `Unit ${d.unitNumber}` }] : []);
+      this.unitOptions.set(d.unitId ? [{ value: d.unitId, label: `${this.i18n.t('ui.re.unit', 'Unit')} ${d.unitNumber}` }] : []);
       this.items.set(d.items.map((i) => ({ ...i })));
       this.drawer.set(true);
     });

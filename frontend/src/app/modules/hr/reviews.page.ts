@@ -11,6 +11,7 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { CompetencyDto, EmployeeSummary, EmployeesApi, RATINGS, ReviewCycleDto, ReviewCyclesApi, ReviewDto, ReviewRow, ReviewsApi } from './hr.api';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication', 'Teamwork', 'Initiative'];
 
@@ -61,6 +62,7 @@ const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication
     </ng-template>`,
 })
 export class ReviewsPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(ReviewsApi);
   private readonly employeesApi = inject(EmployeesApi);
   private readonly cyclesApi = inject(ReviewCyclesApi);
@@ -88,7 +90,7 @@ export class ReviewsPage {
   readonly employeeName = signal('');
   readonly competencies = signal<CompetencyDto[]>([]);
   readonly locked = computed(() => this.status() !== 'draft');
-  readonly statusLabel = computed(() => (this.id() ? `Status: ${this.status()}` : 'New review'));
+  readonly statusLabel = computed(() => (this.id() ? `${this.i18n.t('ui.common.statusLabel', 'Status')}: ${this.status()}` : 'New review'));
   employeeId: string | null = null;
   cycleId: string | null = null;
   reviewer = '';

@@ -10,6 +10,7 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { InventoryLookups, LowStockRow, StockApi, StockOnHand } from './inventory.api';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 type Action = 'receive' | 'issue' | 'adjust' | 'transfer' | 'policy';
 
@@ -18,14 +19,14 @@ type Action = 'receive' | 'issue' | 'adjust' | 'transfer' | 'policy';
   selector: 'erp-stock',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzTableModule, NzTagModule],
+  imports: [TranslatePipe, DecimalPipe, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzTableModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Stock on hand</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" *erpHasPermission="'inventory.stock.write'">
       @for (a of actions; track a.key) { <button nz-button [nzType]="a.key === 'receive' ? 'primary' : 'default'" (click)="open(a.key)" [attr.data-testid]="'stock-' + a.key">{{ a.label }}</button> }
     </div>
     @if (low().length) {
-      <div style="margin-bottom:12px" data-testid="low-stock">@for (l of low(); track l.itemId) { <nz-tag nzColor="orange">{{ l.sku }}: {{ l.onHand }} left (reorder at {{ l.reorderLevel }})</nz-tag> }</div>
+      <div style="margin-bottom:12px" data-testid="low-stock">@for (l of low(); track l.itemId) { <nz-tag nzColor="orange">{{ l.sku }}: {{ l.onHand }} {{ 'ui.inv.left' | translate: 'left' }} ({{ 'ui.inv.reorderAt' | translate: 'reorder at' }} {{ l.reorderLevel }})</nz-tag> }</div>
     }
     <nz-table [nzData]="data()?.rows ?? []" nzSize="small" [nzShowPagination]="false" data-testid="stock-table">
       <thead><tr><th>SKU</th><th>Item</th><th>Warehouse</th><th style="text-align:right">Quantity</th><th style="text-align:right">Avg cost</th><th style="text-align:right">Value</th></tr></thead>

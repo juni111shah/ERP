@@ -17,6 +17,8 @@ import { AccountDto, AccountsApi, BankApi, CashPosition, LegalEntitiesApi, Legal
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 /** Cash and bank: balances, bank statement import, reconciliation and transfers between accounts. */
 import { RevealDirective } from '../../shared/reveal.directive';
@@ -24,7 +26,7 @@ import { RevealDirective } from '../../shared/reveal.directive';
   selector: 'erp-bank',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
+  imports: [TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
   styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center } .cards { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px } .card { padding:12px 16px; border:1px solid var(--erp-color-border, #eee); border-radius:8px; min-width:200px; cursor:pointer } .card.sel { border-color: var(--erp-color-primary, #1677ff) } .card b { display:block; font-size:20px } .num { text-align:right } h3 { margin: 20px 0 8px }`],
   template: `
     <h1 class="erp-page-title">Cash and bank</h1>
@@ -43,7 +45,7 @@ import { RevealDirective } from '../../shared/reveal.directive';
     }
     @if (rec(); as r) {
       <div class="bar" erpReveal>
-        <h3 style="margin:0">Reconciliation — {{ r.code }} {{ r.name }}</h3>
+        <h3 style="margin:0">{{ 'ui.bank.reconciliation' | translate: 'Reconciliation' }} — {{ r.code }} {{ r.name }}</h3>
         <nz-tag [nzColor]="r.reconciled ? 'green' : 'orange'" data-testid="rec-status">{{ r.reconciled ? 'Reconciled' : 'Differences to review' }}</nz-tag>
         <span style="flex:1"></span>
         <ng-container *erpHasPermission="'finance.bank.write'">
@@ -52,7 +54,7 @@ import { RevealDirective } from '../../shared/reveal.directive';
         </ng-container>
       </div>
       @if (!entityId) { <p>Choose a legal entity above to import and match statements.</p> }
-      <p>Ledger balance {{ r.ledgerBalance | number: '1.2-2' }} · {{ r.matched }} lines matched · unmatched statement {{ r.unmatchedStatementTotal | number: '1.2-2' }} · unmatched ledger {{ r.unmatchedLedgerTotal | number: '1.2-2' }}</p>
+      <p>{{ 'ui.bank.ledgerBalance' | translate: 'Ledger balance' }} {{ r.ledgerBalance | number: '1.2-2' }} · {{ r.matched }} {{ 'ui.bank.linesMatched' | translate: 'lines matched' }} · {{ 'ui.bank.unmatchedStatement' | translate: 'unmatched statement' }} {{ r.unmatchedStatementTotal | number: '1.2-2' }} · {{ 'ui.bank.unmatchedLedger' | translate: 'unmatched ledger' }} {{ r.unmatchedLedgerTotal | number: '1.2-2' }}</p>
       <h3>On the statement, not in the books</h3>
       <nz-table [nzData]="r.unmatchedStatement" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="rec-statement">
         <thead><tr><th>Date</th><th>Description</th><th>Reference</th><th class="num">Amount</th><th></th></tr></thead>
@@ -98,6 +100,7 @@ import { RevealDirective } from '../../shared/reveal.directive';
     </nz-modal>`,
 })
 export class BankPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(BankApi);
   private readonly message = inject(NzMessageService);
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
@@ -149,7 +152,7 @@ export class BankPage {
     if (lines.length === 0) return;
     this.busy.set(true);
     this.api.import(account, this.entityId, lines).subscribe({
-      next: (r) => { this.busy.set(false); this.importOpen.set(false); this.importText = ''; this.message.success(`${r.imported} imported, ${r.duplicates} already there`); this.select(account); },
+      next: (r) => { this.busy.set(false); this.importOpen.set(false); this.importText = ''; this.message.success(`${r.imported} ${this.i18n.t('ui.msg.importedLc', 'imported')}, ${r.duplicates} ${this.i18n.t('ui.msg.alreadyThere', 'already there')}`); this.select(account); },
       error: (e) => this.fail(e),
     });
   }
@@ -157,7 +160,7 @@ export class BankPage {
   autoMatch(): void {
     const account = this.accountId();
     if (!account || !this.entityId) return;
-    this.api.autoMatch(account, this.entityId).subscribe({ next: (r) => { this.message.success(`${r.matched} lines matched`); this.select(account); }, error: (e) => this.fail(e) });
+    this.api.autoMatch(account, this.entityId).subscribe({ next: (r) => { this.message.success(`${r.matched} ${this.i18n.t('ui.bank.linesMatched', 'lines matched')}`); this.select(account); }, error: (e) => this.fail(e) });
   }
 
   startBook(l: StatementLine): void { this.bookLine.set(l); this.bookAccount = null; this.bookMemo = ''; }

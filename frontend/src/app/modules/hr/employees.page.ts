@@ -13,13 +13,14 @@ import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { EMPLOYEE_STATUSES, EmployeeDto, EmployeeSummary, EmployeesApi } from './hr.api';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Employees: salary structure, join date and status; end-of-service accrual under the employing entity's country rule is shown on the record. */
 @Component({
   selector: 'erp-employees',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Employees</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, designation or department" emptyText="No employees yet" (rowClick)="open($event)">
@@ -31,7 +32,7 @@ import { EMPLOYEE_STATUSES, EmployeeDto, EmployeeSummary, EmployeesApi } from '.
     <erp-record-drawer [title]="state.editing() ? state.editing()!.fullName : 'New employee'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="hr.employee"
                        [saving]="state.saving()" [errors]="state.errors()" testId="emp-form" (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as e) {
-        <p drawerActions data-testid="emp-summary">Gross <b>{{ e.grossMonthly.toLocaleString() }}</b> a month · service {{ e.serviceYears.toFixed(1) }} years · end-of-service accrued <b>{{ e.gratuityAccrued.toLocaleString() }}</b></p>
+        <p drawerActions data-testid="emp-summary">Gross <b>{{ e.grossMonthly.toLocaleString() }}</b> {{ 'ui.hr.aMonth' | translate: 'a month' }} · {{ 'ui.hr.service' | translate: 'service' }} {{ e.serviceYears.toFixed(1) }} {{ 'ui.hr.years' | translate: 'years' }} · {{ 'ui.hr.eosAccrued' | translate: 'end-of-service accrued' }} <b>{{ e.gratuityAccrued.toLocaleString() }}</b></p>
       }
     </erp-record-drawer>`,
 })

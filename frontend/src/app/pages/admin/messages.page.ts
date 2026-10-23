@@ -7,6 +7,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { MessageLogApi, MessageLogRow } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 /** Communication log: every reminder the system sent (in-app, email outbox), with a button to run the reminder pass now. */
 @Component({
@@ -26,6 +27,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search subject or recipient" emptyText="No messages sent yet" [clickable]="false" />`,
 })
 export class MessagesPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(MessageLogApi);
   private readonly date = inject(DatePipe);
   private readonly toast = inject(NzMessageService);
@@ -54,7 +56,7 @@ export class MessagesPage {
   run(): void {
     this.running.set(true);
     this.api.sendReminders().subscribe({
-      next: (r) => { this.running.set(false); this.toast.success(`${r.sent} reminder(s) sent`); this.list.reload(); },
+      next: (r) => { this.running.set(false); this.toast.success(`${r.sent} ${this.i18n.t('ui.msg.remindersSent', 'reminder(s) sent')}`); this.list.reload(); },
       error: () => this.running.set(false),
     });
   }

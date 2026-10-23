@@ -10,6 +10,7 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 interface Allocation {
   id: string;
@@ -39,7 +40,7 @@ interface Receipt {
 @Component({
   selector: 'erp-receipt-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -49,7 +50,7 @@ interface Receipt {
       <erp-detail-page
         [backLink]="['/finance/receipts']"
         [backLabel]="'Back to Receipts'"
-        [title]="'Receipt #' + receipt()!.number"
+        [title]="('ui.title.receiptNo' | translate: 'Receipt #') + receipt()!.number"
         [status]="receipt()!.status"
         [actions]="actions()"
         [kpiCards]="kpiCards()"

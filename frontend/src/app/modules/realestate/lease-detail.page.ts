@@ -21,6 +21,8 @@ import { DESCRIPTION_COLUMNS, LeaseDto, LeasesApi, PAYMENT_PLANS, RealEstateLook
 import { LeaseDepositComponent } from './lease-deposit.component';
 import { AttachmentsComponent } from '../../shared/attachments.component';
 import { StatusTagComponent } from './status-tag.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 type Action = 'terminate' | 'renew';
 
@@ -29,7 +31,7 @@ type Action = 'terminate' | 'renew';
   selector: 'erp-lease-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
+  imports: [TranslatePipe, DatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
     NzStatisticModule, NzTableModule, NzTagModule],
   template: `
     @if (lease(); as l) {
@@ -66,7 +68,7 @@ type Action = 'terminate' | 'renew';
           <nz-descriptions-item nzTitle="Unit">{{ l.unitNumber }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="Term">{{ l.startDate }} → {{ l.endDate }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="Rent-free days">{{ l.graceDays }}</nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Notice period">{{ l.noticePeriodDays }} days</nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Notice period">{{ l.noticePeriodDays }} {{ 'ui.common.days' | translate: 'days' }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="VAT on rent">{{ humanize(l.suggestedVat) }}</nz-descriptions-item>
           @if (l.activatedAt) { <nz-descriptions-item nzTitle="Activated">{{ l.activatedAt | date: 'medium' }}</nz-descriptions-item> }
           @if (l.terminationDate) { <nz-descriptions-item nzTitle="Terminated on">{{ l.terminationDate }} · {{ l.terminationReason }}</nz-descriptions-item> }
@@ -97,6 +99,7 @@ type Action = 'terminate' | 'renew';
     }`,
 })
 export class LeaseDetailPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(LeasesApi);
   private readonly message = inject(NzMessageService);
   private readonly router = inject(Router);
@@ -116,7 +119,7 @@ export class LeaseDetailPage {
 
   constructor() { this.load(); }
 
-  planLabel(n: number): string { return PAYMENT_PLANS.find((p) => p.value === n)?.label ?? `${n} a year`; }
+  planLabel(n: number): string { return PAYMENT_PLANS.find((p) => p.value === n)?.label ?? `${n} ${this.i18n.t('ui.re.aYear', 'a year')}`; }
 
   customFieldList(l: LeaseDto): [string, string][] {
     return Object.entries(l.customFields ?? {}).map(([k, v]) => [humanize(k.replace(/^cf_/, '').replace(/_/g, ' ')), String(v)]);
@@ -148,7 +151,7 @@ export class LeaseDetailPage {
   creditNotes(): void {
     this.busy.set(true);
     this.api.terminationCredits(this.id).subscribe({
-      next: (r) => { this.busy.set(false); this.message.success(r.length ? `${r.length} credit note(s) issued, ${r.reduce((s, c) => s + c.amount, 0).toLocaleString()} credited` : 'Nothing to credit'); this.load(); },
+      next: (r) => { this.busy.set(false); this.message.success(r.length ? `${r.length} ${this.i18n.t('ui.msg.cnIssued', 'credit note(s) issued')}, ${r.reduce((s, c) => s + c.amount, 0).toLocaleString()} ${this.i18n.t('ui.msg.credited', 'credited')}` : 'Nothing to credit'); this.load(); },
       error: (e) => { this.busy.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not raise the credit notes'); },
     });
   }
@@ -169,7 +172,7 @@ export class LeaseDetailPage {
         this.action.set(null);
         if (kind === 'renew') { this.message.success('Renewal draft created'); void this.router.navigate(['/real-estate/leases', (result as LeaseDto).id]); return; }
         const t = result as { cancelledInstalments: number; instalmentsNeedingCreditNote: unknown[] };
-        this.message.success(`Lease terminated · ${t.cancelledInstalments} instalments cancelled` + (t.instalmentsNeedingCreditNote.length ? ` · ${t.instalmentsNeedingCreditNote.length} invoiced instalments need a credit note` : ''));
+        this.message.success(`${this.i18n.t('ui.msg.leaseTerminated', 'Lease terminated')} · ${t.cancelledInstalments} ${this.i18n.t('ui.msg.instalmentsCancelled', 'instalments cancelled')}` + (t.instalmentsNeedingCreditNote.length ? ` · ${t.instalmentsNeedingCreditNote.length} ${this.i18n.t('ui.msg.instalmentsNeedCn', 'invoiced instalments need a credit note')}` : ''));
         this.load();
       },
       error: (e) => { this.actionSaving.set(false); const p = asProblem(e); this.actionErrors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Action failed'); },

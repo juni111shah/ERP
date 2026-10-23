@@ -16,13 +16,14 @@ import { RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { propertyFields } from './properties.page';
 import { PropertiesApi, PropertyDto, PropertySummary, RealEstateLookups, UnitListItem, UnitsApi, humanize, DESCRIPTION_COLUMNS } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Property detail: KPI cards (spec RE-PROP-03), info and the property's units. */
 @Component({
   selector: 'erp-property-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule,
+  imports: [TranslatePipe, RouterLink, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule,
     NzGridModule, NzProgressModule, NzStatisticModule, NzTagModule],
   template: `
     @if (summary(); as s) {
@@ -31,7 +32,7 @@ import { StatusTagComponent } from './status-tag.component';
         <button *erpHasPermission="'realestate.properties.manage'" nz-button style="margin-inline-start:16px" (click)="state.edit(s.property)" data-testid="property-edit">Edit</button>
       </h1>
       @if (s.unitsNotFullyRegistered) {
-        <nz-tag nzColor="gold" data-testid="units-warning">{{ s.registeredUnits }} of {{ s.property.totalUnits }} units registered</nz-tag>
+        <nz-tag nzColor="gold" data-testid="units-warning">{{ s.registeredUnits }} {{ 'ui.common.of' | translate: 'of' }} {{ s.property.totalUnits }} {{ 'ui.re.unitsRegistered' | translate: 'units registered' }}</nz-tag>
       }
       <div nz-row [nzGutter]="[16, 16]" style="margin-top:16px">
         <div nz-col [nzXs]="24" [nzMd]="6"><nz-card><nz-statistic nzTitle="Units registered" [nzValue]="s.registeredUnits + ' / ' + s.property.totalUnits"></nz-statistic></nz-card></div>

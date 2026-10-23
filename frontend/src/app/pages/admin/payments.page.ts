@@ -24,13 +24,15 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { formatMoney } from './invoice-sheet.component';
 import { PartiesApi } from '../parties.page';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 /** Vendor payments: pay vendors by bank, cash or cheque, settle open bills at the same time (or later), clear issued cheques, and void. */
 @Component({
   selector: 'erp-payments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
@@ -70,7 +72,7 @@ import { PartiesApi } from '../parties.page';
           <h4 style="margin-top:16px">Settle bills</h4>
           @for (o of openInvoices(); track o.id) {
             <div class="alloc">
-              <span>{{ o.number }} · due {{ o.dueDate }} · outstanding {{ o.outstanding.toFixed(2) }}</span>
+              <span>{{ o.number }} · {{ 'ui.re.dueLc' | translate: 'due' }} {{ o.dueDate }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ o.outstanding.toFixed(2) }}</span>
               <nz-input-number [ngModel]="amounts()[o.id] ?? 0" (ngModelChange)="setAmount(o.id, $event)" [nzMin]="0" [nzMax]="o.outstanding" [nzPrecision]="2" [ngModelOptions]="{standalone: true}" [attr.data-testid]="'alloc-' + o.number"></nz-input-number>
             </div>
           } @empty { <div>No open bills for this vendor.</div> }
@@ -89,6 +91,7 @@ import { PartiesApi } from '../parties.page';
     </ng-template>`,
 })
 export class PaymentsPage {
+  private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(PaymentsApi);
   private readonly router = inject(Router);
@@ -194,7 +197,7 @@ export class PaymentsPage {
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.create({ ...v, date: toIsoDate(v.date!), reference: v.reference || null, chequeNo: v.method === 'instrument' ? v.chequeNo : null, chequeDate: v.method === 'instrument' && v.chequeDate ? toIsoDate(v.chequeDate) : null, bankName: v.bankName || null, allocations: this.allocations() }).subscribe({
-      next: (r) => this.done(`Paid ${(r as PaymentDto).number}`),
+      next: (r) => this.done(`${this.i18n.t('ui.msg.paid', 'Paid')} ${(r as PaymentDto).number}`),
       error: (e) => this.fail(e),
     });
   }

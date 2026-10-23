@@ -33,7 +33,7 @@ import { asProblem } from '../core/http/problem-details';
       } @else {
         <p>1. In your authenticator app choose <b>Enter a setup key</b> and type this key:</p>
         <p><code style="font-size:18px" data-testid="tf-secret">{{ secret() }}</code></p>
-        <p style="word-break:break-all;opacity:.7">Or open this link on your phone: {{ uri() }}</p>
+        <p style="word-break:break-all;opacity:.7">{{ 'ui.security.openLink' | translate: 'Or open this link on your phone' }}: {{ uri() }}</p>
         <p>2. Enter the 6-digit code the app shows:</p>
         <div style="display:flex;gap:8px">
           <input nz-input placeholder="123456" [(ngModel)]="code" style="width:140px" maxlength="7" data-testid="tf-code" />

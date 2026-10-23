@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { Observable, catchError, map, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** The invoice fields the sheet renders (a subset of InvoiceDto, so the list drawer and the detail page can share it). */
 export interface InvoiceSheetData {
@@ -68,7 +69,7 @@ export class InvoiceExtrasService {
   selector: 'erp-invoice-sheet',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, NzTagModule],
+  imports: [TranslatePipe, DatePipe, RouterLink, NzTagModule],
   styles: [`
     :host { display:block; --gold:#b89b5e; --muted:#8c8c8c; }
     .sheet { background:#fff; border:1px solid #f0f0f0; border-top:4px solid var(--gold); border-radius:6px; padding:20px 24px; }
@@ -105,7 +106,7 @@ export class InvoiceExtrasService {
             <div class="doc-type">{{ docType() }}</div>
             <div class="doc-no" data-testid="sheet-number">{{ inv.number || 'Draft' }}</div>
             <nz-tag [nzColor]="statusColor()" data-testid="sheet-status">{{ statusLabel() }}</nz-tag>
-            @if (overdueDays() > 0) { <nz-tag nzColor="red">Overdue {{ overdueDays() }}d</nz-tag> }
+            @if (overdueDays() > 0) { <nz-tag nzColor="red">{{ 'ui.inv.overdue' | translate: 'Overdue' }} {{ overdueDays() }}{{ 'ui.common.dayShort' | translate: 'd' }}</nz-tag> }
           </div>
           @if (extras()?.header; as h) {
             <div class="issuer">
@@ -131,7 +132,7 @@ export class InvoiceExtrasService {
             <h5>Details</h5>
             <div class="meta">
               <span>{{ inv.isCreditNote ? 'Credit note date' : 'Invoice date' }}</span><span>{{ inv.invoiceDate | date: 'dd MMM yyyy' }}</span>
-              <span>Due date</span><span [class.overdue]="overdueDays() > 0">{{ inv.dueDate | date: 'dd MMM yyyy' }}@if (overdueDays() > 0) { ({{ overdueDays() }} days overdue) }</span>
+              <span>Due date</span><span [class.overdue]="overdueDays() > 0">{{ inv.dueDate | date: 'dd MMM yyyy' }}@if (overdueDays() > 0) { ({{ overdueDays() }} {{ 'ui.inv.daysOverdue' | translate: 'days overdue' }}) }</span>
               <span>Currency</span><span>{{ inv.currencyCode }}</span>
               @if (source()) { <span>Source</span><span>{{ source() }}</span> }
               @if (originalInvoiceId(); as oid) { <span>Credits</span><span><a [routerLink]="['/finance/invoices', oid]">{{ extras()?.originalInvoiceNumber ? 'Invoice ' + extras()!.originalInvoiceNumber : 'Original invoice' }}</a></span> }
@@ -157,7 +158,7 @@ export class InvoiceExtrasService {
         <div class="totals" data-testid="sheet-totals">
           <div><span>Subtotal (taxable)</span><span>{{ money(inv.net) }}</span></div>
           <div><span>{{ taxName() }}</span><span>{{ money(inv.tax) }}</span></div>
-          <div class="grand"><span>Total {{ inv.currencyCode }}</span><span>{{ money(inv.total) }}</span></div>
+          <div class="grand"><span>{{ 'common.total' | translate: 'Total' }} {{ inv.currencyCode }}</span><span>{{ money(inv.total) }}</span></div>
           <div><span>{{ inv.isCreditNote ? 'Applied' : 'Paid' }}</span><span>{{ money(inv.paid) }}</span></div>
           <div class="due"><span>{{ inv.isCreditNote ? 'Unapplied' : 'Balance due' }}</span><span>{{ money(inv.total - inv.paid) }}</span></div>
         </div>
