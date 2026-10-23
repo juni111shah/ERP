@@ -65,6 +65,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<MessageLog> MessageLogs => Set<MessageLog>();
     public DbSet<Setting> Settings => Set<Setting>();
     public DbSet<CustomFieldDefinition> CustomFieldDefinitions => Set<CustomFieldDefinition>();
 
@@ -184,6 +185,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Property(x => x.ChangedFields).HasMaxLength(4000);
         });
         mb.Entity<Notification>(b => b.HasIndex(x => new { x.OrgId, x.UserId, x.ReadAt }));
+        mb.Entity<MessageLog>(b => { b.HasIndex(x => new { x.OrgId, x.DedupeKey }).IsUnique(); b.Property(x => x.DedupeKey).HasMaxLength(300); b.Property(x => x.Body).HasMaxLength(2000); b.Property(x => x.Channel).HasMaxLength(30); });
         mb.Entity<Setting>(b => { b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Key }).IsUnique(); b.Property(x => x.Value).HasMaxLength(4000); });
         mb.Entity<CustomFieldDefinition>(b =>
         {

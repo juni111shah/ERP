@@ -80,6 +80,13 @@ export class RolesApi extends CrudApiService<RoleDto, unknown> {
 @Injectable({ providedIn: 'root' })
 export class AuditApi extends CrudApiService<AuditEvent, never> { protected readonly resource = 'audit'; }
 
+export interface MessageLogRow { id: string; channel: string; recipient: string; subject: string; body?: string; link?: string; status: string; error?: string; sentAt: string; }
+@Injectable({ providedIn: 'root' })
+export class MessageLogApi extends CrudApiService<MessageLogRow, never> {
+  protected readonly resource = 'messages';
+  sendReminders(): Observable<{ sent: number }> { return this.http.post<{ sent: number }>(`${this.url}/send-reminders`, {}); }
+}
+
 /** Endpoints that are not plain paged resources. */
 @Injectable({ providedIn: 'root' })
 export class AdminApi {

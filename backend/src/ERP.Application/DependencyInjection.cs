@@ -1,3 +1,4 @@
+using ERP.Application.Reminders;
 using ERP.Application.Organizations;
 using ERP.Application.Workflow;
 using ERP.Application.Settings;
@@ -37,6 +38,11 @@ public static class DependencyInjection
         services.AddScoped<ILegalEntityGuard, LegalEntityGuard>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<INotifier, Notifier>();
+        services.AddScoped<ERP.Application.Reminders.ReminderDispatcher>();
+        services.AddScoped<IMessageChannel, InAppChannel>();
+        services.AddScoped<IMessageChannel, OutboxEmailChannel>();
+        services.AddScoped<IScheduledJob, ReminderJob>();
+        services.AddScoped<IReminderSource, CoreReminderSource>();
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddValidatorsFromAssemblies(assemblies, includeInternalTypes: true);
         return services;
