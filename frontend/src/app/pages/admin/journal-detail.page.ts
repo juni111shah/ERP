@@ -212,7 +212,7 @@ export class JournalDetailPage implements OnInit {
       'bill': '/finance/bills',
       'payment': '/finance/payments'
     };
-    const basePath = routes[sourceType.toLowerCase()];
+    const basePath = routes[(sourceType ?? '').toLowerCase()];
     if (basePath) {
       this.router.navigate([basePath, sourceId]);
     } else {

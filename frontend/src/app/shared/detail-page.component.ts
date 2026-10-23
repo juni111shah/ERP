@@ -82,7 +82,7 @@ export interface DescriptionItem {
     <h1 class="erp-page-title">
       {{ title }}
       @if (status) {
-        <span class="status-tag" [class]="'status-' + status.toLowerCase()">
+        <span class="status-tag" [class]="'status-' + (status + '').toLowerCase()">
           {{ status }}
         </span>
       }
