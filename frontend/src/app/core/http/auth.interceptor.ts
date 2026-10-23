@@ -11,7 +11,8 @@ const AUTH_PATHS = ['/auth/login', '/auth/refresh', '/auth/select-workspace', '/
 /** Adds the bearer token, the CSRF client header and credentials; on 401 refreshes once and retries. */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const base = inject(API_BASE_URL);
-  if (!req.url.startsWith(base)) return next(req);
+  // Tenant-portal calls carry their own token (see PortalService) and must never trigger the staff refresh/redirect flow.
+  if (!req.url.startsWith(base) || req.url.includes('/portal/') || req.url.includes('/m/realestate/portal')) return next(req);
   const session = inject(SessionStore);
   const auth = inject(AuthService);
   const router = inject(Router);

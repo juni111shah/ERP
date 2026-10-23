@@ -1,0 +1,110 @@
+import { CurrencyPipe, DatePipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzFormModule } from 'ng-zorro-antd/form';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzSelectModule } from 'ng-zorro-antd/select';
+import { NzTableModule } from 'ng-zorro-antd/table';
+import { NzTabsModule } from 'ng-zorro-antd/tabs';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { OperatorFunction, catchError, of } from 'rxjs';
+import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService, PortalStatement } from './portal.service';
+
+/** The tenant's own view: leases and rent schedule, invoices, receipts, statement and maintenance requests. */
+@Component({
+  selector: 'erp-portal-home',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [DatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule],
+  styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; } .lease { margin-bottom: 24px; }`],
+  template: `
+    <div class="top"><h1>Welcome, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">Sign out</button></div>
+    <nz-tabset>
+      <nz-tab nzTitle="My lease">
+        @for (l of leases(); track l.id) {
+          <div class="lease" data-testid="portal-lease">
+            <h3>{{ l.property }} · Unit {{ l.unit }} <nz-tag>{{ l.status }}</nz-tag></h3>
+            <p>{{ l.startDate }} to {{ l.endDate }} · Annual rent {{ l.annualRent | currency: l.currencyCode }} · Deposit {{ l.securityDeposit | currency: l.currencyCode }}</p>
+            <nz-table [nzData]="l.schedule" nzSize="small" [nzShowPagination]="false">
+              <thead><tr><th>#</th><th>Due</th><th>Amount</th><th>Status</th></tr></thead>
+              <tbody>@for (s of l.schedule; track s.sequence) { <tr><td>{{ s.sequence }}</td><td>{{ s.dueDate }}</td><td>{{ s.amount | currency: l.currencyCode }}</td><td><nz-tag [nzColor]="s.state === 'paid' ? 'green' : s.state === 'overdue' ? 'red' : 'default'">{{ s.state }}</nz-tag></td></tr> }</tbody>
+            </nz-table>
+          </div>
+        } @empty { <p>No lease on file.</p> }
+      </nz-tab>
+      <nz-tab nzTitle="Invoices">
+        <nz-table [nzData]="invoices()" nzSize="small" data-testid="portal-invoices">
+          <thead><tr><th>Number</th><th>Date</th><th>Due</th><th>Total</th><th>Outstanding</th><th>Status</th></tr></thead>
+          <tbody>@for (i of invoices(); track i.id) { <tr><td>{{ i.number }}</td><td>{{ i.invoiceDate }}</td><td>{{ i.dueDate }}</td><td>{{ i.total | currency: i.currencyCode }}</td><td>{{ i.outstanding | currency: i.currencyCode }}</td><td>{{ i.status }}</td></tr> }</tbody>
+        </nz-table>
+      </nz-tab>
+      <nz-tab nzTitle="Receipts">
+        <nz-table [nzData]="receipts()" nzSize="small">
+          <thead><tr><th>Number</th><th>Date</th><th>Method</th><th>Amount</th><th>Reference</th></tr></thead>
+          <tbody>@for (r of receipts(); track r.id) { <tr><td>{{ r.number }}</td><td>{{ r.date }}</td><td>{{ r.method }}</td><td>{{ r.amount | currency: r.currencyCode }}</td><td>{{ r.reference }}</td></tr> }</tbody>
+        </nz-table>
+      </nz-tab>
+      <nz-tab nzTitle="Statement">
+        @if (statement(); as s) {
+          <p data-testid="portal-balance"><b>Balance due: {{ s.balance | currency }}</b> (as of {{ s.asOf }})</p>
+          <nz-table [nzData]="s.items" nzSize="small" [nzShowPagination]="false">
+            <thead><tr><th>Document</th><th>Due</th><th>Days overdue</th><th>Outstanding</th></tr></thead>
+            <tbody>@for (i of s.items; track i.number) { <tr><td>{{ i.number }}</td><td>{{ i.dueDate }}</td><td>{{ i.daysOverdue }}</td><td>{{ i.outstanding | currency }}</td></tr> }</tbody>
+          </nz-table>
+          @if (s.unallocatedReceipts > 0) { <p>On account: {{ s.unallocatedReceipts | currency }}</p> }
+        }
+      </nz-tab>
+      <nz-tab nzTitle="Maintenance">
+        @if (leases().length) {
+          <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="raise()" style="max-width:520px">
+            <nz-form-item><nz-form-label nzRequired>Lease</nz-form-label><nz-form-control>
+              <nz-select formControlName="leaseId" data-testid="portal-req-lease">@for (l of leases(); track l.id) { <nz-option [nzValue]="l.id" [nzLabel]="l.property + ' · Unit ' + l.unit"></nz-option> }</nz-select></nz-form-control></nz-form-item>
+            <nz-form-item><nz-form-label nzRequired>What is wrong?</nz-form-label><nz-form-control nzErrorTip="Describe the issue"><input nz-input formControlName="issue" maxlength="300" data-testid="portal-req-issue" /></nz-form-control></nz-form-item>
+            <nz-form-item><nz-form-label>Priority</nz-form-label><nz-form-control>
+              <nz-select formControlName="priority"><nz-option nzValue="normal" nzLabel="Normal"></nz-option><nz-option nzValue="high" nzLabel="Urgent"></nz-option><nz-option nzValue="low" nzLabel="Low"></nz-option></nz-select></nz-form-control></nz-form-item>
+            <button nz-button nzType="primary" data-testid="portal-req-submit">Send request</button>
+          </form>
+        }
+        <nz-table [nzData]="requests()" nzSize="small" style="margin-top:16px" data-testid="portal-requests">
+          <thead><tr><th>Number</th><th>Issue</th><th>Reported</th><th>Status</th></tr></thead>
+          <tbody>@for (r of requests(); track r.id) { <tr><td>{{ r.number }}</td><td>{{ r.issue }}</td><td>{{ r.reportedOn }}</td><td>{{ r.status }}</td></tr> }</tbody>
+        </nz-table>
+      </nz-tab>
+    </nz-tabset>`,
+})
+export class PortalHomePage implements OnInit {
+  readonly portal = inject(PortalService);
+  private readonly router = inject(Router);
+  private readonly message = inject(NzMessageService);
+  readonly leases = signal<PortalLease[]>([]);
+  readonly invoices = signal<PortalInvoice[]>([]);
+  readonly receipts = signal<PortalReceipt[]>([]);
+  readonly requests = signal<PortalRequest[]>([]);
+  readonly statement = signal<PortalStatement | null>(null);
+  readonly form = inject(FormBuilder).nonNullable.group({ leaseId: ['', Validators.required], issue: ['', Validators.required], priority: ['normal'] });
+
+  ngOnInit(): void {
+    if (!this.portal.signedIn()) { void this.router.navigateByUrl('/portal/login'); return; }
+    const guard = <T>(fallback: T): OperatorFunction<T, T> => catchError((e: { status?: number }) => { if (e.status === 401) this.signOut(); return of(fallback); });
+    this.portal.leases().pipe(guard([] as PortalLease[])).subscribe((v) => { this.leases.set(v); if (v.length === 1) this.form.patchValue({ leaseId: v[0].id }); });
+    this.portal.invoices().pipe(guard([] as PortalInvoice[])).subscribe((v) => this.invoices.set(v));
+    this.portal.receipts().pipe(guard([] as PortalReceipt[])).subscribe((v) => this.receipts.set(v));
+    this.portal.statement().pipe(guard<PortalStatement | null>(null)).subscribe((v) => this.statement.set(v));
+    this.loadRequests();
+  }
+
+  private loadRequests(): void { this.portal.requests().pipe(catchError(() => of([] as PortalRequest[]))).subscribe((v) => this.requests.set(v)); }
+
+  raise(): void {
+    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    this.portal.raise(this.form.getRawValue()).subscribe({
+      next: () => { this.message.success('Request sent'); this.form.patchValue({ issue: '' }); this.loadRequests(); },
+      error: () => this.message.error('Could not send the request'),
+    });
+  }
+
+  signOut(): void { this.portal.signOut(); void this.router.navigateByUrl('/portal/login'); }
+}

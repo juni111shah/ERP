@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Domain.Identity;
@@ -38,10 +39,15 @@ public sealed class InAppChannel(INotifier notifier) : IMessageChannel
 }
 
 /// <summary>Default email channel: nothing is sent until a real sender (SMTP, provider API) replaces it in DI; the message is still recorded in the communication log.</summary>
-public sealed class OutboxEmailChannel : IMessageChannel
+public sealed class OutboxEmailChannel(Microsoft.Extensions.Logging.ILogger<OutboxEmailChannel> log) : IMessageChannel
 {
     public string Name => "email";
-    public Task SendAsync(OutboundMessage message, CancellationToken ct) => Task.CompletedTask;
+    public Task SendAsync(OutboundMessage message, CancellationToken ct)
+    {
+        // Debug level only: the body can hold a one-time sign-in code, which must not appear in normal logs.
+        log.LogDebug("Email outbox -> {Recipient}: {Subject} | {Body}", message.Recipient, message.Subject, message.Body);
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Collects the due reminders of every enabled source and sends each once per recipient and channel.</summary>

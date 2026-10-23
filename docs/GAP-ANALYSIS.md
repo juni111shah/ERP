@@ -28,7 +28,7 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Reports (16 in the spec) | Done | 16 built: P&L, balance sheet, trial balance, GL, tax summary, AR/AP ageing, rent roll, occupancy, portfolio performance, lease expiries, cash movements, cash forecast, maintenance costs, commissions. Gratuity report is in the HR module. CSV and Print on each. |
 | Global search, notification centre, audit diff | Done | `GET /search` fans out to `ISearchProvider`s (core, real estate, HR; permission and module aware); header search box, notification drawer with mark-all-read, audit before/after drawer. |
 | Reminders and communication log | Done | `IReminderSource` (core: bills due, cheques maturing; RE: lease ending, rent overdue incl. tenant email), pluggable `IMessageChannel` (in-app, email outbox), idempotent nightly job, message log screen. |
-| Tenant portal | Missing | |
+| Tenant portal | Done | Email one-time-code sign-in (`/portal`), portal-only JWT (no staff permissions), own invoices, receipts, statement; real estate adds lease with rent schedule and maintenance requests (become work orders). Isolation tested. |
 | Lease-expiry scheduler | Done | Generic `IScheduledJob` runner (per workspace, per enabled module); the RE job ends expired leases. |
 | Security deposits, termination credit notes, brokerage commission invoicing and payout | Done | Deposit register with settle/rollover, credit notes for rent beyond termination, deal Invoiced/Collected/Agent paid driven by finance. |
 

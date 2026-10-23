@@ -43,6 +43,7 @@ public interface IAppDbContext
     DbSet<AuditEvent> AuditEvents { get; }
     DbSet<Notification> Notifications { get; }
     DbSet<MessageLog> MessageLogs { get; }
+    DbSet<PortalOtp> PortalOtps { get; }
     DbSet<Setting> Settings { get; }
     DbSet<CustomFieldDefinition> CustomFieldDefinitions { get; }
     DbSet<T> Set<T>() where T : class;

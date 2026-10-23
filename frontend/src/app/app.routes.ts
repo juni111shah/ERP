@@ -13,6 +13,13 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'login' },
     ],
   },
+  {
+    path: 'portal',
+    children: [
+      { path: 'login', loadComponent: () => import('./pages/portal/portal-login.page').then((m) => m.PortalLoginPage) },
+      { path: '', pathMatch: 'full', loadComponent: () => import('./pages/portal/portal-home.page').then((m) => m.PortalHomePage) },
+    ],
+  },
   { path: 'onboarding', loadComponent: () => import('./pages/onboarding.page').then((m) => m.OnboardingPage) },
   {
     path: '',
