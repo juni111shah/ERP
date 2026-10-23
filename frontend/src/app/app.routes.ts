@@ -30,6 +30,7 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./pages/dashboard.page').then((m) => m.DashboardPage) },
       { path: 'parties', canMatch: [permissionGuard('core.parties.read')], loadComponent: () => import('./pages/parties.page').then((m) => m.PartiesPage) },
+      { path: 'parties/:id', canMatch: [permissionGuard('core.parties.read')], loadComponent: () => import('./pages/party-detail.page').then((m) => m.PartyDetailPage) },
       { path: 'admin/custom-fields', canMatch: [permissionGuard('core.customfields.read')], loadComponent: () => import('./pages/custom-fields.page').then((m) => m.CustomFieldsPage) },
       { path: 'admin/modules', canMatch: [permissionGuard('core.settings.read')], loadComponent: () => import('./pages/modules.page').then((m) => m.ModulesPage) },
       { path: 'account/security', loadComponent: () => import('./pages/account-security.page').then((m) => m.AccountSecurityPage) },
