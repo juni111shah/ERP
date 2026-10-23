@@ -91,7 +91,7 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
     <nz-modal [nzVisible]="lockOpen()" nzTitle="Close books" (nzOnCancel)="lockOpen.set(false)" (nzOnOk)="lock()" nzOkText="Save" [nzOkLoading]="saving()">
       <ng-container *nzModalContent>
         <p>Nothing can be posted on or before the closing date. Clear the date to reopen the books.</p>
-        <nz-select [(ngModel)]="lockEntity" style="width:100%;margin-bottom:12px" nzPlaceHolder="Legal entity" data-testid="lock-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name + (e.booksLockedTo ? ' (closed to ' + e.booksLockedTo + ')' : '')"></nz-option> }</nz-select>
+        <nz-select [(ngModel)]="lockEntity" style="width:100%;margin-bottom:12px" nzPlaceHolder="Legal entity" data-testid="lock-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name + (e.booksLockedTo ? ' (' + ('ui.journal.closedTo' | translate: 'closed to') + ' ' + e.booksLockedTo + ')' : '')"></nz-option> }</nz-select>
         <nz-date-picker [(ngModel)]="lockDate" style="width:100%" data-testid="lock-date"></nz-date-picker>
       </ng-container>
     </nz-modal>`,

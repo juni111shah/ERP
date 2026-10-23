@@ -1,3 +1,5 @@
+import { currentLang, phraseNow, tNow } from '../../core/i18n/translate-now';
+
 /** Declarative definitions of the server-built reports. A report page needs no code of its own: add an entry here. */
 export type ColType = 'text' | 'money' | 'number' | 'percent' | 'date';
 export interface ReportColumn { key: string; label: string; type?: ColType; }
@@ -43,7 +45,7 @@ export const REPORTS: ReportDef[] = [
     columns: () => [t('code', 'Account'), t('name', 'Name'), m('opening', 'Opening'), m('inflows', 'Inflows'), m('outflows', 'Outflows'), m('closing', 'Closing')],
     rows: (x) => x.accounts,
     totals: (x) => ({ code: '', name: 'Total', opening: x.opening, inflows: x.inflows, outflows: x.outflows, closing: x.closing }),
-    summary: (x) => (x.bySource as { source: string; inflows: number; outflows: number }[]).map((s) => ({ label: `By source: ${s.source}`, value: `in ${fmt(s.inflows)} / out ${fmt(s.outflows)}` })),
+    summary: (x) => (x.bySource as { source: string; inflows: number; outflows: number }[]).map((s) => ({ label: tNow('ui.report.bySource', 'By source: {source}', { source: sourceLabel(s.source) }), value: tNow('ui.report.inOut', 'in {in} / out {out}', { in: fmt(s.inflows), out: fmt(s.outflows) }) })),
   },
   {
     slug: 'cash-forecast', title: 'Cash forecast', subtitle: 'Expected cash from cheques and receivables, less bills and other commitments, week by week. Overdue items fall into the first week.',
@@ -120,3 +122,10 @@ export const LEDGER_REPORT_LINKS = [
   { title: 'Receivables ageing', note: 'Open invoices by days past due', link: '/finance/reports', tab: 4 },
   { title: 'Payables ageing', note: 'Open bills by days past due', link: '/finance/reports', tab: 5 },
 ];
+
+/** A cash-movement source code as shown in the summary: the raw code in English (unchanged), its Arabic label otherwise. */
+function sourceLabel(source: string): string {
+  if (currentLang() !== 'ar') return source;
+  const spaced = String(source ?? '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[._-]+/g, ' ').trim();
+  return phraseNow(source) !== source ? phraseNow(source) : phraseNow(spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase());
+}

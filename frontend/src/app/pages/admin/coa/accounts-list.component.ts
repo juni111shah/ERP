@@ -16,7 +16,7 @@ import { RevealDirective } from '../../../shared/reveal.directive';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzToolTipModule, RevealDirective, TranslatePipe],
   template: `
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No accounts yet" (rowClick)="edit.emit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" [searchPlaceholder]="'coa.searchAccounts' | translate: 'Search code or name'" [emptyText]="'ui.coa.noAccountsYet' | translate: 'No accounts yet'" (rowClick)="edit.emit($event)">
       <button toolbar *erpHasPermission="'finance.accounts.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'coa.newAccount' | translate: 'New account'" nz-tooltip [nzTooltipTitle]="'coa.newAccount' | translate: 'New account'" nzType="primary" (click)="create.emit()" data-testid="account-new"><span nz-icon nzType="plus"></span>New account</button>
     </erp-paged-table>`,
 })
