@@ -81,7 +81,8 @@ export class InvoiceExtrasService {
     .meta { display:grid; grid-template-columns: max-content 1fr; gap:4px 16px; font-size:13px; }
     .meta span:nth-child(odd) { color:var(--muted); }
     .overdue { color:#cf1322; font-weight:600; }
-    table.lines { width:100%; border-collapse:collapse; margin-top:16px; font-size:13px; }
+    .lines-wrap { width:100%; overflow-x:auto; } table.lines td.r, table.lines th.r { white-space:nowrap; } table.lines td { word-break:break-word; }
+    table.lines { width:100%; min-width:640px; border-collapse:collapse; margin-top:16px; font-size:13px; }
     table.lines th { background:#faf7f0; color:#595959; font-weight:600; text-align:left; padding:8px; border-bottom:2px solid var(--gold); white-space:nowrap; }
     table.lines td { padding:8px; border-bottom:1px solid #f0f0f0; vertical-align:top; }
     .r { text-align:right !important; white-space:nowrap; }
@@ -133,7 +134,7 @@ export class InvoiceExtrasService {
           </div>
         </div>
 
-        <table class="lines" data-testid="sheet-lines">
+        <div class="lines-wrap"><table class="lines" data-testid="sheet-lines">
           <thead><tr>
             <th style="width:32px">#</th><th>Description</th><th class="r">Qty</th><th class="r">Price</th>
             <th class="r">Taxable</th><th class="r">{{ taxName() }} %</th><th class="r">{{ taxName() }}</th><th class="r">Amount</th>
@@ -146,7 +147,7 @@ export class InvoiceExtrasService {
               </tr>
             } @empty { <tr><td colspan="8" class="muted">No lines</td></tr> }
           </tbody>
-        </table>
+        </table></div>
 
         <div class="totals" data-testid="sheet-totals">
           <div><span>Subtotal (taxable)</span><span>{{ money(inv.net) }}</span></div>

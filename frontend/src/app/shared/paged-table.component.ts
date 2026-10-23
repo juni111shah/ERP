@@ -31,7 +31,7 @@ export interface TableColumn<T> {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, NgTemplateOutlet, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule],
-  styles: [`.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; } .bar .search { max-width: 320px; } .spacer { flex: 1; } tr.clickable { cursor: pointer; }`],
+  styles: [`.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; } .bar .search { max-width: 320px; } .spacer { flex: 1; } tr.clickable { cursor: pointer; } :host { display: block; min-width: 0; max-width: 100%; } td[nzAlign=right], td[style*="right"] { white-space: nowrap; }`],
   template: `
     <div class="bar">
       @if (searchable()) {
@@ -50,7 +50,7 @@ export interface TableColumn<T> {
     </div>
     <nz-table #t [nzData]="list().items()" [nzTotal]="list().total()" [nzPageIndex]="list().query().page" [nzPageSize]="list().query().pageSize"
               [nzFrontPagination]="false" [nzLoading]="list().loading()" nzShowSizeChanger [nzPageSizeOptions]="[10, 25, 50, 100]"
-              nzSize="middle" [nzNoResult]="empty" (nzQueryParams)="onQuery($event)" data-testid="paged-table">
+              nzSize="middle" [nzScroll]="scrollX() ? { x: scrollX() } : {}" [nzNoResult]="empty" (nzQueryParams)="onQuery($event)" data-testid="paged-table">
       <thead>
         <tr>
           @for (c of columns(); track c.key) {
@@ -84,6 +84,8 @@ export class PagedTableComponent<T> {
   readonly emptyText = input('Nothing here yet');
   readonly clickable = input(true);
   readonly exportable = input(true);
+  /** Horizontal scroll width for wide tables (e.g. '1400px'); null keeps the table fluid. */
+  readonly scrollX = input<string | null>(null);
   readonly exportFilename = input('export');
   readonly rowClick = output<T>();
   readonly cell = contentChild<TemplateRef<unknown>>('cell');

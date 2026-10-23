@@ -51,7 +51,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
       <div class="stat warn"><div class="k">Overdue</div><div class="v num">{{ stats().overdue }}</div><div class="sub">{{ stats().overdueCount }} invoices</div></div>
       <div class="stat"><div class="k">Drafts</div><div class="v">{{ stats().drafts }}</div></div>
     </div>
-    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search number or customer" emptyText="No invoices yet" exportFilename="invoices" (rowClick)="open($event)">
+    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search number or customer" emptyText="No invoices yet" exportFilename="invoices" [scrollX]="links() && objectKeys(links()).length ? '1650px' : '1400px'" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
         @switch (column.key) {
           @case ('status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> }
@@ -149,16 +149,17 @@ export class InvoicesPage {
   readonly taxRates = computed(() => Object.fromEntries(this.taxPage().items.map((t) => [t.id, t.rate])) as Record<string, number>);
   /** VAT / GST / Sales tax when every legal entity is in one country, else plain "Tax" (same table as the print layout). */
   readonly taxLabel = computed(() => { const c = [...new Set(this.entities().map((e) => e.countryCode))]; return c.length === 1 ? taxNameFor(c[0]) : 'Tax'; });
+  readonly objectKeys = Object.keys;
   readonly columns = computed((): TableColumn<InvoiceSummary>[] => {
     const hasLinks = Object.keys(this.links()).length > 0;
     const money = (f: (r: InvoiceSummary) => number | undefined) => (r: InvoiceSummary) => formatMoney(f(r) ?? 0, r.currencyCode);
     return [
       { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
       { key: 'invoiceDate', label: 'Date', sortField: 'invoiceDate', width: '110px' },
-      { key: 'partyName', label: 'Customer', value: (r) => r.partyName || '—' },
+      { key: 'partyName', label: 'Customer', width: '220px', value: (r) => r.partyName || '—' },
       ...(hasLinks ? [
         { key: 'lease', label: 'Lease', width: '120px', value: (r: InvoiceSummary) => this.links()[r.id]?.leaseNumber ?? '' },
-        { key: 'property', label: 'Property', value: (r: InvoiceSummary) => this.links()[r.id]?.propertyName ?? '' },
+        { key: 'property', label: 'Property', width: '200px', value: (r: InvoiceSummary) => this.links()[r.id]?.propertyName ?? '' },
       ] : []),
       { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '150px' },
       { key: 'net', label: 'Net', width: '130px', align: 'right', value: money((r) => r.net) },
