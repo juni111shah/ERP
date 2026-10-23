@@ -24,13 +24,15 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { formatMoney } from './invoice-sheet.component';
 import { PartiesApi } from '../parties.page';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 /** Customer receipts: record money received, settle open invoices at the same time (or later), and void. */
 @Component({
   selector: 'erp-receipts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
@@ -66,7 +68,7 @@ import { PartiesApi } from '../parties.page';
           <h4 style="margin-top:16px">Settle invoices</h4>
           @for (o of openInvoices(); track o.id) {
             <div class="alloc">
-              <span>{{ o.number }} · due {{ o.dueDate }} · outstanding {{ o.outstanding.toFixed(2) }}</span>
+              <span>{{ o.number }} · {{ 'ui.re.dueLc' | translate: 'due' }} {{ o.dueDate }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ o.outstanding.toFixed(2) }}</span>
               <nz-input-number [ngModel]="amounts()[o.id] ?? 0" (ngModelChange)="setAmount(o.id, $event)" [nzMin]="0" [nzMax]="o.outstanding" [nzPrecision]="2" [ngModelOptions]="{standalone: true}" [attr.data-testid]="'alloc-' + o.number"></nz-input-number>
             </div>
           } @empty { <div>No open invoices for this customer.</div> }
@@ -84,6 +86,7 @@ import { PartiesApi } from '../parties.page';
     </ng-template>`,
 })
 export class ReceiptsPage {
+  private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ReceiptsApi);
   private readonly router = inject(Router);
@@ -187,7 +190,7 @@ export class ReceiptsPage {
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.create({ ...v, date: toIsoDate(v.date!), reference: v.reference || null, allocations: this.allocations() }).subscribe({
-      next: (r) => this.done(`Recorded ${(r as ReceiptDto).number}`),
+      next: (r) => this.done(`${this.i18n.t('ui.msg.recorded', 'Recorded')} ${(r as ReceiptDto).number}`),
       error: (e) => this.fail(e),
     });
   }

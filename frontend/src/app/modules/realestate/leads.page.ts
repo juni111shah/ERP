@@ -16,6 +16,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { LEAD_STAGES, LeadDto, LeadPipeline, LeadsApi, ListingsApi, RealEstateLookups, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', viewing: 'negotiating' };
 
@@ -24,14 +25,14 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
   selector: 'erp-leads',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule],
+  imports: [TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Leads</h1>
     @if (pipeline(); as p) {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" data-testid="lead-pipeline">
         @for (s of p.stages; track s.stage) { <nz-tag [nzColor]="s.stage === 'won' ? 'green' : s.stage === 'lost' ? 'red' : 'blue'">{{ humanize(s.stage) }}: {{ s.count }}</nz-tag> }
-        <nz-tag>Win rate {{ p.winRatePercent }}%</nz-tag>
-        @if (p.followUpsDue > 0) { <nz-tag nzColor="orange">{{ p.followUpsDue }} follow-up(s) due</nz-tag> }
+        <nz-tag>{{ 'ui.re.winRate' | translate: 'Win rate' }} {{ p.winRatePercent }}%</nz-tag>
+        @if (p.followUpsDue > 0) { <nz-tag nzColor="orange">{{ p.followUpsDue }} {{ 'ui.re.followUpsDue' | translate: 'follow-up(s) due' }}</nz-tag> }
       </div>
     }
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, phone, email" emptyText="No leads yet" (rowClick)="state.edit($event)">
@@ -50,7 +51,7 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <erp-status-tag [status]="l.stage" />
             <ng-container *erpHasPermission="'realestate.crm.manage'">
-              @if (nextStage(l); as n) { <button nz-button nzSize="small" nzType="primary" (click)="move(l, n)" data-testid="lead-next">Move to {{ humanize(n) }}</button> }
+              @if (nextStage(l); as n) { <button nz-button nzSize="small" nzType="primary" (click)="move(l, n)" data-testid="lead-next">{{ 'ui.re.moveTo' | translate: 'Move to' }} {{ humanize(n) }}</button> }
               @if (l.stage !== 'won' && l.stage !== 'lost') {
                 <button nz-button nzSize="small" nzType="primary" (click)="convert(l)" data-testid="lead-convert">Convert to deal</button>
                 <button nz-button nzSize="small" nzDanger (click)="losing.set(l)" data-testid="lead-lose">Mark as lost</button>
@@ -58,7 +59,7 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
               @if (l.stage === 'lost') { <button nz-button nzSize="small" (click)="move(l, 'new')" data-testid="lead-reopen">Reopen</button> }
             </ng-container>
           </div>
-          @if (l.lostReason) { <p style="margin:8px 0 0">Lost: {{ l.lostReason }}</p> }
+          @if (l.lostReason) { <p style="margin:8px 0 0">{{ 'ui.re.lost' | translate: 'Lost' }}: {{ l.lostReason }}</p> }
           @if (l.dealId) { <p style="margin:8px 0 0">Converted to a brokerage deal (see Deals).</p> }
         </div>
       }

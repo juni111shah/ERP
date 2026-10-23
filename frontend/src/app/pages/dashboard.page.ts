@@ -537,7 +537,7 @@ type DomainCategory = 'all' | 'finance' | 'real-estate' | 'hr' | 'inventory';
         <div class="hero-content">
           <div class="eyebrow">{{ session.me()?.workspace?.name }} · {{ 'dashboard.overview' | translate: 'Overview' }}</div>
           <h1 data-testid="dashboard-title">{{ 'dashboard.welcome' | translate: 'Welcome' }}, {{ session.me()?.user?.fullName }}</h1>
-          <p>Every figure is built from posted transactions · as of {{ data()?.asOf }}.</p>
+          <p>{{ 'ui.dash.builtFrom' | translate: 'Every figure is built from posted transactions' }} · {{ 'ui.common.asOfLc' | translate: 'as of' }} {{ data()?.asOf }}.</p>
         </div>
         <div class="hero-right">
           <div class="scope-pill">
@@ -647,7 +647,7 @@ type DomainCategory = 'all' | 'finance' | 'real-estate' | 'hr' | 'inventory';
               <!-- 2. Operational Metrics (Exactly 4 columns = 3 full rows of 4 cards, perfectly balanced) -->
               @if (secondaryKpis().length > 0) {
                 <div class="section-eyebrow" style="margin-top: 16px;">
-                  <span nz-icon nzType="dashboard"></span> Operational Metrics ({{ secondaryKpis().length }})
+                  <span nz-icon nzType="dashboard"></span> {{ 'ui.dash.opMetrics' | translate: 'Operational Metrics' }} ({{ secondaryKpis().length }})
                 </div>
                 <div class="secondary-stats-grid">
                   @for (k of secondaryKpis(); track k.key) {

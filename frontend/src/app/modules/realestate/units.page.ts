@@ -13,6 +13,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { RealEstateLookups, USAGES, UnitDto, UnitListItem, UnitsApi, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 const STATUSES = ['vacant', 'reserved', 'occupied', 'unavailable'];
 
@@ -62,6 +63,7 @@ const STATUSES = ['vacant', 'reserved', 'occupied', 'unavailable'];
                        [width]="420" (submitted)="runAction($event)" (closed)="action.set(null)" />`,
 })
 export class UnitsPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(UnitsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
@@ -130,7 +132,7 @@ export class UnitsPage {
     this.bulkSaving.set(true);
     this.bulkErrors.set(null);
     this.api.bulk(payload).subscribe({
-      next: (units) => { this.bulkSaving.set(false); this.bulkOpen.set(false); this.message.success(`${units.length} units created`); this.list.reload(); },
+      next: (units) => { this.bulkSaving.set(false); this.bulkOpen.set(false); this.message.success(`${units.length} ${this.i18n.t('ui.msg.unitsCreated', 'units created')}`); this.list.reload(); },
       error: (e) => {
         this.bulkSaving.set(false);
         const problem = asProblem(e);

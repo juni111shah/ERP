@@ -10,6 +10,8 @@ import { BillsApi } from '../../core/api/admin.api';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 interface BillLine {
   id: string;
@@ -48,7 +50,7 @@ interface Bill {
 @Component({
   selector: 'erp-bill-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   styles: [`
     .line-items-table { margin-top: 16px; }
     .totals-section {
@@ -79,7 +81,7 @@ interface Bill {
       <erp-detail-page
         [backLink]="['/finance/bills']"
         [backLabel]="'Back to Bills'"
-        [title]="'Bill #' + bill()!.number"
+        [title]="('ui.title.billNo' | translate: 'Bill #') + bill()!.number"
         [status]="bill()!.status"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
@@ -133,6 +135,7 @@ interface Bill {
   `
 })
 export class BillDetailPage implements OnInit {
+  private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -311,7 +314,7 @@ export class BillDetailPage implements OnInit {
     this.api.post(bil.id).subscribe({
       next: (res) => {
         this.bill.set(res as unknown as Bill);
-        this.message.success(res.status === 'pendingApproval' ? 'Sent for approval. Post it again once it is approved.' : `Posted as ${res.number}`);
+        this.message.success(res.status === 'pendingApproval' ? 'Sent for approval. Post it again once it is approved.' : `${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${res.number}`);
       },
       error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to post bill')
     });

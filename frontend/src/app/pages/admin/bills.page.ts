@@ -23,6 +23,7 @@ import { asProblem, controlError, problemMessage } from '../../core/http/problem
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
 const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pendingApproval: 'Needs approval', issued: 'Posted' };
@@ -83,6 +84,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
     </ng-template>`,
 })
 export class BillsPage {
+  private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(BillsApi);
   private readonly modal = inject(NzModalService);
@@ -181,7 +183,7 @@ export class BillsPage {
       next: (saved) => {
         if (!post) { this.done('Draft saved'); return; }
         this.api.post(saved.id).subscribe({
-          next: (b) => this.done(b.status === 'pendingApproval' ? 'Sent for approval. Post it again once it is approved.' : `Posted as ${b.number}`),
+          next: (b) => this.done(b.status === 'pendingApproval' ? 'Sent for approval. Post it again once it is approved.' : `${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${b.number}`),
           error: (e) => { this.saving.set(false); this.bill.set(saved); this.list.reload(); this.fail(e); },
         });
       },

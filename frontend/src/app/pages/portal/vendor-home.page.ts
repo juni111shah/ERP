@@ -13,6 +13,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { OperatorFunction, catchError, of } from 'rxjs';
 import { asProblem } from '../../core/http/problem-details';
 import { PortalService, VendorBill, VendorPayment, VendorStatement, VendorWorkOrder } from './portal.service';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** The vendor's own view: bills, payments, statement of what is owed to them, and the work orders assigned to them (start, hold, complete). */
 import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
@@ -21,10 +22,10 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
   selector: 'erp-vendor-home',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CurrencyPipe, FormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzInputModule, NzInputNumberModule, NzModalModule, PaginationBarComponent],
+  imports: [TranslatePipe, CurrencyPipe, FormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzInputModule, NzInputNumberModule, NzModalModule, PaginationBarComponent],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; }`],
   template: `
-    <div class="top"><h1>Welcome, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">Sign out</button></div>
+    <div class="top"><h1>{{ 'ui.portal.welcome' | translate: 'Welcome' }}, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">Sign out</button></div>
     <nz-tabset>
       <nz-tab nzTitle="Bills">
         <nz-table #tb [nzData]="bills()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="billPg.page()" [nzPageSize]="billPg.size()" data-testid="vendor-bills">
@@ -42,7 +43,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
       </nz-tab>
       <nz-tab nzTitle="Statement">
         @if (statement(); as s) {
-          <p data-testid="vendor-balance"><b>Owed to you: {{ s.balance | currency }}</b> (as of {{ s.asOf }})</p>
+          <p data-testid="vendor-balance"><b>{{ 'ui.portal.owedToYou' | translate: 'Owed to you' }}: {{ s.balance | currency }}</b> ({{ 'ui.common.asOfLc' | translate: 'as of' }} {{ s.asOf }})</p>
           <nz-table [nzData]="s.items" nzSize="small" [nzShowPagination]="false">
             <thead><tr><th>Bill</th><th>Due</th><th>Days overdue</th><th>Outstanding</th></tr></thead>
             <tbody>@for (i of s.items; track i.number) { <tr><td>{{ i.number }}</td><td>{{ i.dueDate }}</td><td>{{ i.daysOverdue }}</td><td>{{ i.outstanding | currency }}</td></tr> }</tbody>

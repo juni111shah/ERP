@@ -10,6 +10,7 @@ import { NzStatisticModule } from 'ng-zorro-antd/statistic';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { HasPermissionDirective } from './has-permission.directive';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
 
 export interface KpiCard {
   title: string;
@@ -38,7 +39,7 @@ export interface DescriptionItem {
 @Component({
   selector: 'erp-detail-page',
   standalone: true,
-  imports: [
+  imports: [TranslatePipe, 
     CommonModule, DatePipe, CurrencyPipe, RouterLink,
     NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule,
     NzIconModule, NzStatisticModule, NzTabsModule, NzTagModule,
@@ -162,7 +163,7 @@ export interface DescriptionItem {
               @if (!hasHistoryContent) {
                 <div class="history-item">
                   <div class="history-timestamp">{{ createdAt }}</div>
-                  <div>{{ entityName }} created</div>
+                  <div>{{ entityName }} {{ 'ui.detail.createdLc' | translate: 'created' }}</div>
                 </div>
               }
             </div>

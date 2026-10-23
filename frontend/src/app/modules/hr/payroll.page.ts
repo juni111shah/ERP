@@ -14,6 +14,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { MONTHS, PayrollApi, PayrollSummary } from './hr.api';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 const COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', posted: 'blue', paid: 'green' };
 
@@ -34,6 +35,7 @@ const COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'pur
                        (submitted)="generate($event)" (closed)="drawer.set(false)" />`,
 })
 export class PayrollPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(PayrollApi);
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
@@ -67,7 +69,7 @@ export class PayrollPage {
     const period = String(v['period']).slice(0, 10).split('-').map(Number);
     this.saving.set(true); this.errors.set(null);
     this.api.generate({ legalEntityId: v['legalEntityId'], year: period[0], month: period[1], plannedPayDate: v['plannedPayDate'] ?? null, notes: v['notes'] ?? null }).subscribe({
-      next: (run) => { this.saving.set(false); this.drawer.set(false); this.message.success(`Payroll ${run.number} generated`); void this.router.navigate(['/hr/payroll', run.id]); },
+      next: (run) => { this.saving.set(false); this.drawer.set(false); this.message.success(`${this.i18n.t('ui.msg.payrollGenerated', 'Payroll generated')}: ${run.number}`); void this.router.navigate(['/hr/payroll', run.id]); },
       error: (e) => { this.saving.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not generate the payroll'); },
     });
   }

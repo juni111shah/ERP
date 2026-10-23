@@ -16,13 +16,14 @@ import {
 } from '../../core/api/admin.api';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { asProblem } from '../../core/http/problem-details';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Ledger reports on posted entries: trial balance, general ledger, income statement and balance sheet. */
 @Component({
   selector: 'erp-ledger-reports',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DecimalPipe, NgTemplateOutlet, NzTabsModule, NzTableModule, NzSelectModule, NzDatePickerModule, NzButtonModule, NzAlertModule],
+  imports: [TranslatePipe, FormsModule, DecimalPipe, NgTemplateOutlet, NzTabsModule, NzTableModule, NzSelectModule, NzDatePickerModule, NzButtonModule, NzAlertModule],
   styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center } .num { text-align:right } .total td { font-weight:600 } h4 { margin: 16px 0 4px }`],
   template: `
     <h1 class="erp-page-title">Financial reports</h1>
@@ -54,7 +55,7 @@ import { asProblem } from '../../core/http/problem-details';
       }
       @case (1) {
         @if (gl(); as g) {
-          <h4>{{ g.code }} · {{ g.name }} — opening {{ g.opening | number: '1.2-2' }}</h4>
+          <h4>{{ g.code }} · {{ g.name }} — {{ 'ui.ledger.openingLc' | translate: 'opening' }} {{ g.opening | number: '1.2-2' }}</h4>
           <nz-table [nzData]="g.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="gl-table">
             <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
             <tbody>
@@ -70,7 +71,7 @@ import { asProblem } from '../../core/http/problem-details';
           <ng-container *ngTemplateOutlet="lines; context: { $implicit: p.income, total: p.totalIncome, label: 'Total income' }" />
           <h4>Expenses</h4>
           <ng-container *ngTemplateOutlet="lines; context: { $implicit: p.expenses, total: p.totalExpenses, label: 'Total expenses' }" />
-          <h4 data-testid="net-profit">Net profit: {{ p.netProfit | number: '1.2-2' }}</h4>
+          <h4 data-testid="net-profit">{{ 'ui.ledger.netProfit' | translate: 'Net profit' }}: {{ p.netProfit | number: '1.2-2' }}</h4>
         }
       }
       @case (3) {

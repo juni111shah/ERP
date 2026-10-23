@@ -27,6 +27,8 @@ import { askReason } from '../../shared/reason-prompt';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 const STATUS_OPTIONS = ['draft', 'pendingApproval', 'issued', 'partlyPaid', 'paid', 'voided'];
 /** Lease / property behind an invoice, supplied by the real-estate module only when it is installed (the core invoice knows nothing about leases). */
@@ -37,7 +39,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
   selector: 'erp-invoices',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule, InvoiceSheetComponent],
   styles: [`.stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px }
     .stat { background:#fff; border:1px solid #f0f0f0; border-left:4px solid #b89b5e; border-radius:6px; padding:12px 16px }
@@ -47,9 +49,9 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
   template: `
     <h1 class="erp-page-title">Invoices</h1>
     <div class="stats" data-testid="invoice-stats">
-      <div class="stat"><div class="k">Total invoiced</div><div class="v num">{{ stats().invoiced }}</div><div class="sub">{{ stats().count }} on this page</div></div>
+      <div class="stat"><div class="k">Total invoiced</div><div class="v num">{{ stats().invoiced }}</div><div class="sub">{{ stats().count }} {{ 'table.onThisPage' | translate: 'on this page' }}</div></div>
       <div class="stat"><div class="k">Outstanding</div><div class="v num">{{ stats().outstanding }}</div></div>
-      <div class="stat warn"><div class="k">Overdue</div><div class="v num">{{ stats().overdue }}</div><div class="sub">{{ stats().overdueCount }} invoices</div></div>
+      <div class="stat warn"><div class="k">Overdue</div><div class="v num">{{ stats().overdue }}</div><div class="sub">{{ stats().overdueCount }} {{ 'ui.inv.invoicesLc' | translate: 'invoices' }}</div></div>
       <div class="stat"><div class="k">Drafts</div><div class="v">{{ stats().drafts }}</div></div>
     </div>
     <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search number or customer" emptyText="No invoices yet" exportFilename="invoices" [scrollX]="links() && objectKeys(links()).length ? '1650px' : '1400px'" (rowClick)="open($event)">
@@ -57,9 +59,9 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
         @switch (column.key) {
           @case ('status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> }
           @case ('number') { {{ row.number || 'Draft' }} @if (row.isCreditNote) { <nz-tag nzColor="purple">Credit</nz-tag> } @if (source(row)) { <div class="sub">{{ source(row) }}</div> } }
-          @case ('dueDate') { {{ row.dueDate }} @if (overdue(row) > 0) { <nz-tag nzColor="red" style="margin-inline-start:4px">{{ overdue(row) }}d overdue</nz-tag> } }
+          @case ('dueDate') { {{ row.dueDate }} @if (overdue(row) > 0) { <nz-tag nzColor="red" style="margin-inline-start:4px">{{ overdue(row) }}{{ 'ui.common.dayShort' | translate: 'd' }} {{ 'ui.inv.overdueLc' | translate: 'overdue' }}</nz-tag> } }
           @case ('lease') { {{ link(row)?.leaseNumber ?? '' }} }
-          @case ('property') { {{ link(row)?.propertyName ?? '' }} @if (link(row)?.unitNumber) { <div class="sub">Unit {{ link(row)!.unitNumber }}</div> } }
+          @case ('property') { {{ link(row)?.propertyName ?? '' }} @if (link(row)?.unitNumber) { <div class="sub">{{ 'ui.re.unit' | translate: 'Unit' }} {{ link(row)!.unitNumber }}</div> } }
           @default { <span class="num">{{ value }}</span> }
         }
       </ng-template>
@@ -126,6 +128,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
     </nz-modal>`,
 })
 export class InvoicesPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(InvoicesApi);
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
@@ -240,7 +243,7 @@ export class InvoicesPage {
       nzOnOk: () => {
         this.billing.set(true);
         this.http.post<{ invoiced: number }>(`${this.apiBase}/m/realestate/billing/run`, { asOf: toIsoDate(new Date()) }).subscribe({
-          next: (r) => { this.billing.set(false); this.message.success(`Billing run created ${r?.invoiced ?? 0} invoice(s)`); this.list.reload(); },
+          next: (r) => { this.billing.set(false); this.message.success(`${this.i18n.t('ui.msg.billingRunCreated', 'Billing run created')} ${r?.invoiced ?? 0} ${this.i18n.t('ui.msg.invoicesParen', 'invoice(s)')}`); this.list.reload(); },
           error: (e) => { this.billing.set(false); this.fail(e); },
         });
       },
@@ -320,7 +323,7 @@ export class InvoicesPage {
     this.api.save(this.invoice()?.id ?? null, body).subscribe({
       next: (saved) => {
         if (!issue) { this.done('Draft saved'); return; }
-        this.api.issue(saved.id).subscribe({ next: (i) => this.done(`Issued as ${i.number}`), error: (e) => { this.saving.set(false); this.invoice.set(saved); this.list.reload(); this.fail(e); } });
+        this.api.issue(saved.id).subscribe({ next: (i) => this.done(`${this.i18n.t('ui.msg.issuedAs', 'Issued as')} ${i.number}`), error: (e) => { this.saving.set(false); this.invoice.set(saved); this.list.reload(); this.fail(e); } });
       },
       error: (e) => { this.saving.set(false); this.fail(e); },
     });
@@ -339,7 +342,7 @@ export class InvoicesPage {
     if (!inv) return;
     this.api.list({ page: 1, pageSize: 20, search: term, filters: [{ field: 'partyId', op: 'eq', value: inv.partyId }, { field: 'isCreditNote', op: 'eq', value: false }] })
       .pipe(map((r) => r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid')))
-      .subscribe((items) => this.openInvoices.set(items.map((i) => ({ value: i.id, label: `${i.number} · outstanding ${i.outstanding.toFixed(2)}` }))));
+      .subscribe((items) => this.openInvoices.set(items.map((i) => ({ value: i.id, label: `${i.number} · ${this.i18n.t('ui.common.outstandingLc', 'outstanding')} ${i.outstanding.toFixed(2)}` }))));
   }
 
   apply(): void {

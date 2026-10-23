@@ -18,6 +18,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { AcquisitionDto, AcquisitionsApi, DESCRIPTION_COLUMNS, FundingInstalmentDto, FundingSourceDto, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** One acquisition: cost summary, funding sources with their instalment schedules, completion and instalment payments. */
 import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
@@ -26,7 +27,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
   selector: 'erp-acquisition-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzAlertModule, NzButtonModule, NzCardModule, NzDescriptionsModule, NzModalModule, NzTableModule, NzTabsModule, PaginationBarComponent],
+  imports: [TranslatePipe, DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzAlertModule, NzButtonModule, NzCardModule, NzDescriptionsModule, NzModalModule, NzTableModule, NzTabsModule, PaginationBarComponent],
   template: `
     @if (acq(); as a) {
       <p><a routerLink="/real-estate/acquisitions">← Acquisitions</a></p>
@@ -41,7 +42,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px" data-testid="acq-summary">
         <nz-card><small>Total cost</small><div><b>{{ a.totalCost | number: '1.0-2' }}</b> {{ a.currencyCode }}</div><small>price + fees + costs</small></nz-card>
         <nz-card><small>Cash at completion</small><div><b>{{ a.cashAtCompletion | number: '1.0-2' }}</b></div><small>down payment + fees + costs</small></nz-card>
-        <nz-card><small>Financed</small><div><b>{{ a.financed | number: '1.0-2' }}</b></div><small>{{ a.funding.length }} sources</small></nz-card>
+        <nz-card><small>Financed</small><div><b>{{ a.financed | number: '1.0-2' }}</b></div><small>{{ a.funding.length }} {{ 'ui.re.sources' | translate: 'sources' }}</small></nz-card>
         <nz-card><small>Unfunded</small><div><b>{{ a.unfunded | number: '1.0-2' }}</b></div><small>due to seller</small></nz-card>
       </div>
       <nz-card nzTitle="Details">
@@ -60,7 +61,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
         <nz-tab nzTitle="Funding sources">
           @for (f of a.funding; track f.id) {
             <nz-card [nzTitle]="humanize(f.type) + ' · ' + f.lender" style="margin-bottom:16px">
-              <p>Principal <b>{{ f.principal | number: '1.0-2' }}</b> · rate {{ f.annualRatePercent }}% · {{ f.termMonths }} months · monthly {{ f.monthlyPayment | number: '1.2-2' }} · finance cost {{ f.financeCost | number: '1.0-2' }} · outstanding <b>{{ f.outstanding | number: '1.0-2' }}</b> · repaid {{ f.paid }}/{{ f.instalmentCount }}</p>
+              <p>Principal <b>{{ f.principal | number: '1.0-2' }}</b> · {{ 'ui.re.rate' | translate: 'rate' }} {{ f.annualRatePercent }}% · {{ f.termMonths }} {{ 'ui.common.months' | translate: 'months' }} · {{ 'ui.re.monthly' | translate: 'monthly' }} {{ f.monthlyPayment | number: '1.2-2' }} · {{ 'ui.re.financeCost' | translate: 'finance cost' }} {{ f.financeCost | number: '1.0-2' }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} <b>{{ f.outstanding | number: '1.0-2' }}</b> · {{ 'ui.re.repaid' | translate: 'repaid' }} {{ f.paid }}/{{ f.instalmentCount }}</p>
               @if (f.instalments.length) {
                 <nz-table #ts [nzData]="f.instalments" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="pager(f).page()" [nzPageSize]="pager(f).size()" [attr.data-testid]="'schedule-' + f.lender">
                   <thead><tr><th>#</th><th>Due</th><th>Principal</th><th>Interest</th><th>Total</th><th>Balance after</th><th>Status</th><th></th></tr></thead>

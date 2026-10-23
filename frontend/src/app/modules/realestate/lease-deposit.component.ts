@@ -11,6 +11,7 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { DepositDto, LeaseDto, LeasesApi, humanize } from './realestate.api';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 type Mode = 'record' | 'settle' | null;
 
@@ -41,6 +42,7 @@ type Mode = 'record' | 'settle' | null;
                        testId="deposit-form" (submitted)="submit($event)" (closed)="mode.set(null)" />`,
 })
 export class LeaseDepositComponent {
+  private readonly i18n = inject(I18nService);
   readonly lease = input.required<LeaseDto>();
   readonly changed = output<void>();
   private readonly api = inject(LeasesApi);
@@ -89,7 +91,7 @@ export class LeaseDepositComponent {
     const build = (open: { id: string; outstanding: number }[]) => {
       let left = arrears; const allocations: { invoiceId: string; amount: number }[] = [];
       for (const i of open) { if (left <= 0) break; const take = Math.min(left, i.outstanding); allocations.push({ invoiceId: i.id, amount: take }); left -= take; }
-      if (left > 0) { this.saving.set(false); this.message.error(`Only ${(arrears - left).toFixed(2)} of unpaid rent is open for this tenant.`); return null; }
+      if (left > 0) { this.saving.set(false); this.message.error(`${this.i18n.t('ui.msg.only', 'Only')} ${(arrears - left).toFixed(2)} ${this.i18n.t('ui.msg.unpaidRentOpen', 'of unpaid rent is open for this tenant.')}`); return null; }
       return allocations;
     };
     const send = (allocations: { invoiceId: string; amount: number }[]) => this.api.settleDeposit(lease.id, {

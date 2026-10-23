@@ -29,8 +29,8 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
       <nz-tab [nzTitle]="'portal.tab.lease' | translate: 'My lease'">
         @for (l of leases(); track l.id) {
           <div class="lease" data-testid="portal-lease">
-            <h3>{{ l.property }} · Unit {{ l.unit }} <nz-tag>{{ l.status }}</nz-tag></h3>
-            <p>{{ l.startDate }} to {{ l.endDate }} · Annual rent {{ l.annualRent | currency: l.currencyCode }} · Deposit {{ l.securityDeposit | currency: l.currencyCode }}</p>
+            <h3>{{ l.property }} · {{ 'ui.re.unit' | translate: 'Unit' }} {{ l.unit }} <nz-tag>{{ l.status }}</nz-tag></h3>
+            <p>{{ l.startDate }} {{ 'ui.common.toLc' | translate: 'to' }} {{ l.endDate }} · {{ 'ui.re.annualRent' | translate: 'Annual rent' }} {{ l.annualRent | currency: l.currencyCode }} · {{ 'ui.re.deposit' | translate: 'Deposit' }} {{ l.securityDeposit | currency: l.currencyCode }}</p>
             <nz-table [nzData]="l.schedule" nzSize="small" [nzShowPagination]="false">
               <thead><tr><th>#</th><th>Due</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>@for (s of l.schedule; track s.sequence) { <tr><td>{{ s.sequence }}</td><td>{{ s.dueDate }}</td><td>{{ s.amount | currency: l.currencyCode }}</td><td><nz-tag [nzColor]="s.state === 'paid' ? 'green' : s.state === 'overdue' ? 'red' : 'default'">{{ s.state }}</nz-tag></td></tr> }</tbody>
@@ -54,12 +54,12 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
       </nz-tab>
       <nz-tab [nzTitle]="'portal.tab.statement' | translate: 'Statement'">
         @if (statement(); as s) {
-          <p data-testid="portal-balance"><b>{{ 'portal.balance' | translate: 'Balance due' }}: {{ s.balance | currency }}</b> (as of {{ s.asOf }})</p>
+          <p data-testid="portal-balance"><b>{{ 'portal.balance' | translate: 'Balance due' }}: {{ s.balance | currency }}</b> ({{ 'ui.common.asOfLc' | translate: 'as of' }} {{ s.asOf }})</p>
           <nz-table [nzData]="s.items" nzSize="small" [nzShowPagination]="false">
             <thead><tr><th>Document</th><th>Due</th><th>Days overdue</th><th>Outstanding</th></tr></thead>
             <tbody>@for (i of s.items; track i.number) { <tr><td>{{ i.number }}</td><td>{{ i.dueDate }}</td><td>{{ i.daysOverdue }}</td><td>{{ i.outstanding | currency }}</td></tr> }</tbody>
           </nz-table>
-          @if (s.unallocatedReceipts > 0) { <p>On account: {{ s.unallocatedReceipts | currency }}</p> }
+          @if (s.unallocatedReceipts > 0) { <p>{{ 'ui.portal.onAccount' | translate: 'On account' }}: {{ s.unallocatedReceipts | currency }}</p> }
         }
       </nz-tab>
       <nz-tab [nzTitle]="'portal.tab.maintenance' | translate: 'Maintenance'">

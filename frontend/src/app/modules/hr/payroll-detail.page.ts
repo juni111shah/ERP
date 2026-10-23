@@ -15,6 +15,7 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { MONTHS, PayrollApi, PayrollDto, PayrollLine } from './hr.api';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 type Mode = 'pay' | 'adjust' | null;
 
@@ -23,11 +24,11 @@ type Mode = 'pay' | 'adjust' | null;
   selector: 'erp-payroll-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzCardModule, NzModalModule, NzTableModule, NzTagModule],
+  imports: [TranslatePipe, DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzCardModule, NzModalModule, NzTableModule, NzTagModule],
   template: `
     @if (run(); as r) {
       <p><a routerLink="/hr/payroll">← Payroll</a></p>
-      <h1 class="erp-page-title" data-testid="payroll-title">Payroll {{ period() }} <nz-tag [nzColor]="r.status === 'paid' ? 'green' : r.status === 'posted' ? 'blue' : 'default'">{{ r.status }}</nz-tag></h1>
+      <h1 class="erp-page-title" data-testid="payroll-title">{{ 'ui.hr.payroll' | translate: 'Payroll' }} {{ period() }} <nz-tag [nzColor]="r.status === 'paid' ? 'green' : r.status === 'posted' ? 'blue' : 'default'">{{ r.status }}</nz-tag></h1>
       <p>{{ r.number }}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0" data-testid="payroll-actions">
         @if (r.status === 'draft' || r.status === 'pendingApproval') {
@@ -42,7 +43,7 @@ type Mode = 'pay' | 'adjust' | null;
         <nz-card><small>Employees</small><div><b>{{ r.employees }}</b></div></nz-card>
         <nz-card><small>Gross earnings</small><div><b>{{ r.grossEarnings | number: '1.2-2' }}</b></div><small>after absence, incl. overtime</small></nz-card>
         <nz-card><small>Deductions</small><div><b>{{ r.deductions | number: '1.2-2' }}</b></div><small>advance / loan recoveries</small></nz-card>
-        <nz-card><small>Net pay</small><div><b data-testid="payroll-net">{{ r.netPay | number: '1.2-2' }}</b></div>@if (r.paidOn) { <small>paid on {{ r.paidOn }}</small> }</nz-card>
+        <nz-card><small>Net pay</small><div><b data-testid="payroll-net">{{ r.netPay | number: '1.2-2' }}</b></div>@if (r.paidOn) { <small>{{ 'ui.hr.paidOn' | translate: 'paid on' }} {{ r.paidOn }}</small> }</nz-card>
       </div>
       <nz-table [nzData]="r.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="payroll-lines">
         <thead><tr><th>Employee</th><th>Absent</th><th>OT hrs</th><th>Basic</th><th>Allowances</th><th>Overtime</th><th>Absence</th><th>Adjustment</th><th>Gross earnings</th><th>Deductions</th><th>Net pay</th><th></th></tr></thead>

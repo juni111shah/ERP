@@ -14,6 +14,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { LeaseDto, LeaseListItem, LeasesApi, PAYMENT_PLANS, RealEstateLookups } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 /** Field specs of the lease form (new lease on the list, edit-draft on the detail page). */
 export function leaseFields(lookups: RealEstateLookups, editing: boolean): FieldSpec[] {
@@ -56,6 +57,7 @@ export function leaseFields(lookups: RealEstateLookups, editing: boolean): Field
                        testId="lease-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class LeasesPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(LeasesApi);
   private readonly router = inject(Router);
   view = 'all';
@@ -71,7 +73,7 @@ export class LeasesPage {
     { key: 'unitNumber', label: 'Unit', width: '90px' },
     { key: 'startDate', label: 'Start', sortField: 'startDate' },
     { key: 'endDate', label: 'End', sortField: 'endDate' },
-    { key: 'daysToExpiry', label: 'Days left', value: (l) => (l.daysToExpiry == null ? '' : l.daysToExpiry >= 0 ? `${l.daysToExpiry} days left` : `ended ${-l.daysToExpiry} days ago`) },
+    { key: 'daysToExpiry', label: 'Days left', value: (l) => (l.daysToExpiry == null ? '' : l.daysToExpiry >= 0 ? `${l.daysToExpiry} ${this.i18n.t('ui.re.daysLeft', 'days left')}` : `${this.i18n.t('ui.re.endedAgo', 'ended')} ${-l.daysToExpiry} ${this.i18n.t('ui.re.daysAgo', 'days ago')}`) },
     { key: 'annualRent', label: 'Annual rent', sortField: 'annualRent', value: (l) => l.annualRent.toLocaleString() },
     { key: 'status', label: 'Status', sortField: 'status' },
   ];

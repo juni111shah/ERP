@@ -22,6 +22,7 @@ import { askReason } from '../../shared/reason-prompt';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { formatMoney } from './invoice-sheet.component';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green', reversed: 'orange' };
 
@@ -93,6 +94,7 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
     </nz-modal>`,
 })
 export class JournalsPage {
+  private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(JournalsApi);
   private readonly modal = inject(NzModalService);
@@ -177,7 +179,7 @@ export class JournalsPage {
     this.api.save(this.journal()?.id ?? null, body).subscribe({
       next: (saved) => {
         if (!post) return this.done(saved, 'Draft saved');
-        this.api.post(saved.id).subscribe({ next: (p) => this.done(p, `Posted as ${p.number}`), error: (e) => { this.saving.set(false); this.fail(e, saved); } });
+        this.api.post(saved.id).subscribe({ next: (p) => this.done(p, `${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${p.number}`), error: (e) => { this.saving.set(false); this.fail(e, saved); } });
       },
       error: (e) => { this.saving.set(false); this.fail(e); },
     });
@@ -188,7 +190,7 @@ export class JournalsPage {
     if (!j) return;
     void askReason(this.modal, 'Reverse this journal?', 'Reverse', 'A reversing entry is posted today (or on the original date if that is later). The reason becomes its memo.', false).then((reason) => {
       if (reason === null) return;
-      this.api.reverse(j.id, reason || undefined).subscribe({ next: (r) => { this.drawerOpen.set(false); this.message.success(`Reversed by ${r.number}`); this.list.reload(); }, error: (e) => this.fail(e) });
+      this.api.reverse(j.id, reason || undefined).subscribe({ next: (r) => { this.drawerOpen.set(false); this.message.success(`${this.i18n.t('ui.msg.reversedBy', 'Reversed by')} ${r.number}`); this.list.reload(); }, error: (e) => this.fail(e) });
     });
   }
 

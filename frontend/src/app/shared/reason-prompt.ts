@@ -2,17 +2,18 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzModalService } from 'ng-zorro-antd/modal';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
 
 /** Modal body: one required reason textarea. */
 @Component({
   selector: 'erp-reason-prompt',
   standalone: true,
-  imports: [FormsModule, NzInputModule],
+  imports: [TranslatePipe, FormsModule, NzInputModule],
   template: `
     @if (hint) { <p>{{ hint }}</p> }
-    <label for="erp-reason">Reason ({{ required ? 'required' : 'optional' }})</label>
+    <label for="erp-reason">{{ required ? ('ui.reason.required' | translate: 'Reason (required)') : ('ui.reason.optional' | translate: 'Reason (optional)') }}</label>
     <textarea id="erp-reason" nz-input rows="3" [(ngModel)]="reason" data-testid="reason-input"></textarea>
-    @if (required) { <small data-testid="reason-hint">{{ minReason }} to {{ maxReason }} characters ({{ reason.trim().length }}).</small> }
+    @if (required) { <small data-testid="reason-hint">{{ minReason }} {{ 'ui.common.toLc' | translate: 'to' }} {{ maxReason }} {{ 'ui.common.characters' | translate: 'characters' }} ({{ reason.trim().length }}).</small> }
   `,
 })
 export class ReasonPromptComponent {

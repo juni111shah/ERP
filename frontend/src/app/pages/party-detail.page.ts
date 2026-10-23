@@ -12,6 +12,7 @@ import { AttachmentsComponent } from '../shared/attachments.component';
 import { PartyStatementComponent } from '../shared/party-statement.component';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { SessionStore } from '../core/session/session.store';
+import { I18nService } from '../core/i18n/i18n.service';
 
 interface Transaction {
   id: string;
@@ -169,7 +170,7 @@ interface Party {
       <nz-drawer [nzVisible]="statementOpen()" [nzWidth]="720" [nzTitle]="statementTitle()" (nzOnClose)="statementOpen.set(false)">
         <ng-container *nzDrawerContent>
           @if (statement(); as st) {
-            <p>As of {{ st.asOf | date:'dd MMM yyyy' }}</p>
+            <p>{{ 'ui.common.asOf' | translate: 'As of' }} {{ st.asOf | date:'dd MMM yyyy' }}</p>
             <nz-table #stTable [nzData]="st.items" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="party-statement">
               <thead><tr><th>Number</th><th>Date</th><th>Due</th><th style="text-align: right;">Days overdue</th><th style="text-align: right;">Outstanding</th></tr></thead>
               <tbody>
@@ -184,7 +185,7 @@ interface Party {
                 } @empty { <tr><td colspan="5" style="text-align: center; color: #999;">Nothing outstanding</td></tr> }
               </tbody>
             </nz-table>
-            <p style="text-align: right; margin-top: 12px;">Unallocated: {{ (st.unallocatedReceipts ?? st.unallocatedPayments ?? 0) | number:'1.2-2' }}<br /><b>Balance: {{ st.balance | number:'1.2-2' }}</b></p>
+            <p style="text-align: right; margin-top: 12px;">{{ 'ui.party.unallocated' | translate: 'Unallocated' }}: {{ (st.unallocatedReceipts ?? st.unallocatedPayments ?? 0) | number:'1.2-2' }}<br /><b>{{ 'ui.party.balance' | translate: 'Balance' }}: {{ st.balance | number:'1.2-2' }}</b></p>
           } @else { <p>Loading…</p> }
         </ng-container>
       </nz-drawer>
@@ -192,6 +193,7 @@ interface Party {
   `
 })
 export class PartyDetailPage implements OnInit {
+  private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -318,7 +320,7 @@ export class PartyDetailPage implements OnInit {
     if (p.paymentTermsDays) {
       cards.push({
         title: 'Payment Terms',
-        value: `${p.paymentTermsDays} days`
+        value: `${p.paymentTermsDays} ${this.i18n.t('ui.common.days', 'days')}`
       });
     }
 
@@ -414,7 +416,7 @@ export class PartyDetailPage implements OnInit {
     const d = new Date();
     const asOf = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     this.statement.set(null);
-    this.statementTitle.set(`${kind === 'customer' ? 'Customer' : 'Vendor'} statement · ${p.name}`);
+    this.statementTitle.set(`${kind === 'customer' ? this.i18n.t('ui.party.customerStatement', 'Customer statement') : this.i18n.t('ui.party.vendorStatement', 'Vendor statement')} · ${p.name}`);
     this.statementOpen.set(true);
     this.http.get<any>(`${this.apiBase}/finance/reports/${kind}-statement`, { params: { partyId: p.id, asOf } }).subscribe({
       next: (res) => this.statement.set(res),

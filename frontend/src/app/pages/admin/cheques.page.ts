@@ -23,6 +23,7 @@ import { asProblem, controlError } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const COLORS: Record<string, string> = { inCustody: 'blue', deposited: 'gold', cleared: 'green', bounced: 'red', replaced: 'default', cancelled: 'default', issued: 'cyan' };
 const LABELS: Record<string, string> = { inCustody: 'In custody', postDatedCheque: 'Post-dated' };
@@ -33,15 +34,15 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
   selector: 'erp-cheques',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
   styles: [`.kpis { display:flex; gap:24px; margin-bottom:16px; flex-wrap:wrap } .kpi { min-width:150px } .kpi b { display:block; font-size:20px } .alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
     <h1 class="erp-page-title">Cheque register</h1>
     @if (summary(); as s) {
       <div class="kpis" data-testid="cheque-kpis">
-        <div class="kpi">In custody<b>{{ s.inCustodyTotal.toFixed(2) }}</b>{{ s.inCustodyCount }} cheques</div>
-        <div class="kpi">Matured, to deposit<b>{{ s.maturedTotal.toFixed(2) }}</b>{{ s.maturedCount }} cheques</div>
+        <div class="kpi">In custody<b>{{ s.inCustodyTotal.toFixed(2) }}</b>{{ s.inCustodyCount }} {{ 'ui.cheque.chequesLc' | translate: 'cheques' }}</div>
+        <div class="kpi">Matured, to deposit<b>{{ s.maturedTotal.toFixed(2) }}</b>{{ s.maturedCount }} {{ 'ui.cheque.chequesLc' | translate: 'cheques' }}</div>
         <div class="kpi">Next 7 days<b>{{ s.next7DaysTotal.toFixed(2) }}</b></div>
         <div class="kpi">Next 30 days<b>{{ s.next30DaysTotal.toFixed(2) }}</b></div>
         <div class="kpi">Awaiting clearing<b>{{ s.depositedTotal.toFixed(2) }}</b></div>
@@ -76,7 +77,7 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
         <h4>Invoices this cheque pays</h4>
         @for (o of openInvoices(); track o.id) {
           <div class="alloc">
-            <span>{{ o.number }} · due {{ o.dueDate }} · outstanding {{ o.outstanding.toFixed(2) }}</span>
+            <span>{{ o.number }} · {{ 'ui.re.dueLc' | translate: 'due' }} {{ o.dueDate }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ o.outstanding.toFixed(2) }}</span>
             <nz-input-number [ngModel]="amounts()[o.id] ?? 0" (ngModelChange)="setAmount(o.id, $event)" [nzMin]="0" [nzMax]="o.outstanding" [nzPrecision]="2" [ngModelOptions]="{standalone: true}" [attr.data-testid]="'ch-alloc-' + o.number"></nz-input-number>
           </div>
         } @empty { <div>No open invoices for this customer; the cheque will stay as customer credit.</div> }
@@ -92,9 +93,9 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
         @if (cheque(); as c) {
           <p><nz-tag [nzColor]="color(c.status)">{{ label(c.status) }}</nz-tag> {{ c.number }}</p>
           <p>{{ c.partyName }} · {{ c.bankName }} · <b>{{ c.amount.toFixed(2) }} {{ c.currencyCode }}</b></p>
-          <p>Cheque date {{ c.instrumentDate }} @if (c.depositedOn) { · deposited {{ c.depositedOn }} } @if (c.clearedOn) { · cleared {{ c.clearedOn }} }</p>
-          @if (c.bounceReason) { <p>Returned: {{ c.bounceReason }}</p> }
-          @for (a of c.allocations; track a.id) { <div>Pays {{ a.invoiceNumber }}: {{ a.amount.toFixed(2) }}</div> }
+          <p>{{ 'ui.cheque.date' | translate: 'Cheque date' }} {{ c.instrumentDate }} @if (c.depositedOn) { · {{ 'ui.cheque.depositedLc' | translate: 'deposited' }} {{ c.depositedOn }} } @if (c.clearedOn) { · {{ 'ui.cheque.clearedLc' | translate: 'cleared' }} {{ c.clearedOn }} }</p>
+          @if (c.bounceReason) { <p>{{ 'ui.cheque.returned' | translate: 'Returned' }}: {{ c.bounceReason }}</p> }
+          @for (a of c.allocations; track a.id) { <div>{{ 'ui.cheque.pays' | translate: 'Pays' }} {{ a.invoiceNumber }}: {{ a.amount.toFixed(2) }}</div> }
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap" *erpHasPermission="'finance.cheques.approve'">
             @if (c.status === 'inCustody') { <button nz-button nzType="primary" (click)="act('deposit')" data-testid="ch-deposit">Deposit</button> }
             @if (c.status === 'deposited') { <button nz-button nzType="primary" (click)="act('clear')" data-testid="ch-clear">Mark cleared</button> }
