@@ -73,6 +73,7 @@ public static class DependencyInjection
         services.Configure<AuthOptions>(config.GetSection(AuthOptions.Section));
         services.AddDataProtection();
         services.AddScoped<AuthService>();
+        services.AddScoped<ERP.Application.Portal.IPortalAuth, PortalAuth>();
         services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
         services.AddScoped<OnboardingService>();
         services.AddScoped<IOnboardingService>(sp => sp.GetRequiredService<OnboardingService>());

@@ -24,6 +24,8 @@ public interface ICurrentUser
     IReadOnlySet<string> Permissions { get; }
     string? IpAddress { get; }
     bool HasPermission(string permission);
+    /// <summary>Set only for tenant-portal sessions: the customer party the caller signed in as.</summary>
+    Guid? PortalPartyId => null;
 }
 
 /// <summary>

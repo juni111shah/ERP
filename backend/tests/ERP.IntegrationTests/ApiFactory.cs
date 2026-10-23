@@ -27,6 +27,7 @@ public class ApiFactory : WebApplicationFactory<Program>
     public const string OwnerEmail = "owner@demo.local";
     private readonly SqliteConnection _conn = new("DataSource=:memory:");
     public CapturingResetSender Resets { get; } = new();
+    public CapturingEmailChannel Emails { get; } = new();
 
     public ApiFactory() => _conn.Open();
 
@@ -56,6 +57,10 @@ public class ApiFactory : WebApplicationFactory<Program>
             s.AddSingleton(_conn);
             s.RemoveAll<IPasswordResetSender>();
             s.AddSingleton<IPasswordResetSender>(Resets);
+            s.RemoveAll<ERP.Application.Reminders.IMessageChannel>();
+            s.AddScoped<ERP.Application.Reminders.IMessageChannel, ERP.Application.Reminders.InAppChannel>();
+            s.AddSingleton(Emails);
+            s.AddScoped<ERP.Application.Reminders.IMessageChannel>(sp => sp.GetRequiredService<CapturingEmailChannel>());
         });
     }
 
@@ -97,4 +102,13 @@ public class ApiFactory : WebApplicationFactory<Program>
 
     public static JsonNode Unwrap(JsonNode body) =>
         body is JsonObject o && o.ContainsKey("success") && o["success"]!.GetValue<bool>() ? o["data"]?.DeepClone() ?? new JsonObject() : body;
+}
+
+/// <summary>Captures outbound email so tests can read one-time codes.</summary>
+public sealed class CapturingEmailChannel : ERP.Application.Reminders.IMessageChannel
+{
+    public string Name => "email";
+    public System.Collections.Concurrent.ConcurrentQueue<ERP.Application.Reminders.OutboundMessage> Sent { get; } = new();
+    public Task SendAsync(ERP.Application.Reminders.OutboundMessage message, CancellationToken ct) { Sent.Enqueue(message); return Task.CompletedTask; }
+    public string? LastCodeFor(string email) => Sent.Where(m => m.Recipient == email).Select(m => System.Text.RegularExpressions.Regex.Match(m.Body ?? "", @"\b\d{6}\b").Value).LastOrDefault(v => v != "");
 }

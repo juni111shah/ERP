@@ -34,6 +34,7 @@ internal static class RealEstateEndpoints
         MapUnits(group.MapGroup("/units"));
         MapLeases(group.MapGroup("/leases"));
         MapWorkOrders(group.MapGroup("/work-orders"));
+        MapPortal(group.MapGroup("/portal"));
         MapDeals(group.MapGroup("/deals"));
         MapAcquisitions(group.MapGroup("/acquisitions"));
         MapBilling(group.MapGroup("/billing"));
@@ -142,6 +143,14 @@ internal static class RealEstateEndpoints
         g.MapPost("/{id:guid}/holding-over", (Guid id, HoldingOverBody body, ISender s, CancellationToken ct) => s.Send(new FlagHoldingOver(id, body.HoldingOver), ct)).RequirePermission(P.LeasesEdit);
         g.MapPost("/{id:guid}/move-out", (Guid id, ISender s, CancellationToken ct) => s.Send(new ConfirmLeaseMoveOut(id), ct)).RequirePermission(P.LeasesTerminate);
         g.MapPost("/process-expiries", (ISender s, CancellationToken ct) => s.Send(new ProcessLeaseExpiries(), ct)).RequirePermission(P.LeasesActivate);
+    }
+
+    /// <summary>Tenant portal: the signed-in customer's own leases, schedule and maintenance requests.</summary>
+    private static void MapPortal(RouteGroupBuilder g)
+    {
+        g.MapGet("/leases", (ISender s, CancellationToken ct) => s.Send(new GetPortalLeases(), ct)).RequireAuthorization("portal");
+        g.MapGet("/requests", (ISender s, CancellationToken ct) => s.Send(new ListPortalRequests(), ct)).RequireAuthorization("portal");
+        g.MapPost("/requests", async (PortalRequestInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/portal/requests", await s.Send(new CreatePortalRequest(input), ct))).RequireAuthorization("portal");
     }
 
     private static void MapWorkOrders(RouteGroupBuilder g)

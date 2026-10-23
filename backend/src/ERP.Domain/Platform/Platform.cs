@@ -133,3 +133,13 @@ public class MessageLog : OrgEntity
     [Sortable, Filterable]
     public DateTime SentAt { get; set; }
 }
+
+/// <summary>One-time sign-in code for the tenant portal (customer party, email OTP). Only a hash is stored.</summary>
+public class PortalOtp : OrgEntity
+{
+    public Guid PartyId { get; set; }
+    public string CodeHash { get; set; } = default!;
+    public DateTime ExpiresAt { get; set; }
+    public int Attempts { get; set; }
+    public DateTime? UsedAt { get; set; }
+}
