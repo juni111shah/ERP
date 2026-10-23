@@ -38,6 +38,14 @@ import { AUTH_STYLES } from './auth-layout';
               <input nz-input id="password" type="password" formControlName="password" autocomplete="current-password" data-testid="login-password" />
             </nz-form-control>
           </nz-form-item>
+          @if (needsCode()) {
+            <nz-form-item>
+              <nz-form-label nzFor="code" nzRequired>Verification code</nz-form-label>
+              <nz-form-control nzExtra="From your authenticator app, or a recovery code.">
+                <input nz-input id="code" formControlName="code" autocomplete="one-time-code" inputmode="numeric" data-testid="login-code" />
+              </nz-form-control>
+            </nz-form-item>
+          }
           <div class="row">
             <label nz-checkbox formControlName="rememberMe" data-testid="login-remember">Keep me signed in</label>
             <a routerLink="/auth/forgot-password" data-testid="login-forgot">Forgot password?</a>
@@ -67,7 +75,9 @@ export class LoginPage {
     email: ['', [Validators.required, Validators.email]],
     password: ['', Validators.required],
     rememberMe: [false],
+    code: [''],
   });
+  readonly needsCode = signal(false);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
   readonly retryIn = signal(0);
@@ -76,12 +86,13 @@ export class LoginPage {
 
   submit(): void {
     if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => c.updateValueAndValidity()); return; }
-    const { email, password, rememberMe } = this.form.getRawValue();
+    const { email, password, rememberMe, code } = this.form.getRawValue();
     this.busy.set(true);
     this.error.set(null);
-    this.auth.login(email, password, rememberMe).subscribe({
+    this.auth.login(email, password, rememberMe, code || undefined).subscribe({
       next: (r) => {
         this.busy.set(false);
+        if ((r as { requiresTwoFactor?: boolean }).requiresTwoFactor) { this.needsCode.set(true); return; }
         if (r.requiresWorkspaceSelection) { this.selectionToken = r.selectionToken!; this.workspaces.set(r.workspaces); }
         else this.done();
       },
@@ -103,7 +114,8 @@ export class LoginPage {
 
   private fail(e: unknown): void {
     const p = asProblem(e);
-    this.form.controls.password.reset('');
+    if (!this.needsCode()) this.form.controls.password.reset('');
+    else this.form.controls.code.reset('');
     if (p?.status === 429) {
       const retry = Number((p as { retryAfterSeconds?: number }).retryAfterSeconds ?? 60);
       this.error.set('Too many attempts. Please wait before trying again.');

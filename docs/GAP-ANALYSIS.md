@@ -37,5 +37,6 @@ Legend: **Done** = backend + UI + tests merged · **Partial** = some of it exist
 | Inspections | Done | Move-in/move-out/routine checklists, damage cost total, completion raises repair work orders. |
 | Owner statements and management fee | Done | Managed-for-owner properties carry a fee %; the owner statement nets collected rent, fee and completed maintenance (cash basis). Report with CSV/Print. |
 | Document vault with expiry | Done | Attachments carry category, notes and expiry; vault screen sorted by expiry (expired/expiring highlighted); upload/download on leases; expiry reminders to the message log. |
+| Two-factor sign-in (TOTP) | Done | Authenticator-app setup, confirmation, 8 one-time recovery codes, enforced at login, turn-off needs password and code. Account security screen. |
 
 Planned order: Finance ledger → invoices and billing run → receipts and AR → PDC register → dashboard KPIs → payables → reports → HR → acquisitions.

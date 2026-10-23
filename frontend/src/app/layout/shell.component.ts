@@ -96,6 +96,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           <nz-dropdown-menu #userMenu="nzDropdownMenu">
             <ul nz-menu>
               <li nz-menu-item nzDisabled>{{ session.me()?.user?.email }}</li>
+              <li nz-menu-item routerLink="/account/security" data-testid="account-security"><span nz-icon nzType="lock"></span> Account security</li>
               <li nz-menu-divider></li>
               <li nz-menu-item (click)="auth.logout()" data-testid="sign-out"><span nz-icon nzType="logout"></span> Sign out</li>
             </ul>

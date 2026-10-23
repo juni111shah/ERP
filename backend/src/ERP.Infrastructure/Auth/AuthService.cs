@@ -51,7 +51,7 @@ public sealed class AuthService(
 
     private ITimeLimitedDataProtector SelectionProtector => dataProtection.CreateProtector("erp.workspace-selection").ToTimeLimitedDataProtector();
 
-    public async Task<LoginResult> LoginAsync(string email, string password, bool rememberMe, string? ip, CancellationToken ct)
+    public async Task<LoginResult> LoginAsync(string email, string password, bool rememberMe, string? ip, string? twoFactorCode, CancellationToken ct)
     {
         var user = await users.FindByEmailAsync(email.Trim());
         if (user is null)
@@ -70,6 +70,16 @@ public sealed class AuthService(
             throw new AuthException(401, GenericFailure);
         }
         if (!user.IsActive) throw new AuthException(401, GenericFailure);
+        if (user.TwoFactorEnabled)
+        {
+            if (string.IsNullOrWhiteSpace(twoFactorCode)) return new(false, null, [], null, RequiresTwoFactor: true);
+            if (!await VerifyTwoFactorAsync(user, twoFactorCode))
+            {
+                await users.AccessFailedAsync(user);
+                if (await users.IsLockedOutAsync(user)) throw Locked(user);
+                throw new AuthException(401, "The verification code is incorrect.");
+            }
+        }
         await users.ResetAccessFailedCountAsync(user);
 
         var workspaces = await WorkspacesForAsync(user.Id, ct);
@@ -83,6 +93,46 @@ public sealed class AuthService(
 
         var selection = SelectionProtector.Protect($"{user.Id}|{(rememberMe ? 1 : 0)}", TimeSpan.FromMinutes(5));
         return new(true, selection, workspaces, null);
+    }
+
+    private async Task<bool> VerifyTwoFactorAsync(AppUser user, string code)
+    {
+        var clean = code.Replace(" ", "").Replace("-", "");
+        if (await users.VerifyTwoFactorTokenAsync(user, users.Options.Tokens.AuthenticatorTokenProvider, clean)) return true;
+        return (await users.RedeemTwoFactorRecoveryCodeAsync(user, code.Trim())).Succeeded; // recovery codes keep their dash
+    }
+
+    public async Task<TwoFactorStatus> TwoFactorStatusAsync(Guid userId, CancellationToken ct)
+        => new((await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.")).TwoFactorEnabled);
+
+    public async Task<TwoFactorSetup> BeginTwoFactorSetupAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.");
+        if (user.TwoFactorEnabled) throw new ConflictException("Two-factor authentication is already on. Turn it off first to set it up again.");
+        await users.ResetAuthenticatorKeyAsync(user);
+        var key = await users.GetAuthenticatorKeyAsync(user) ?? throw new InvalidOperationException("Could not create an authenticator key.");
+        var uri = $"otpauth://totp/{Uri.EscapeDataString("ERP")}:{Uri.EscapeDataString(user.Email ?? user.UserName ?? "user")}?secret={key}&issuer={Uri.EscapeDataString("ERP")}&digits=6";
+        return new(string.Join(' ', Enumerable.Range(0, (key.Length + 3) / 4).Select(i => key.Substring(i * 4, Math.Min(4, key.Length - i * 4)))), uri);
+    }
+
+    public async Task<IReadOnlyList<string>> EnableTwoFactorAsync(Guid userId, string code, CancellationToken ct)
+    {
+        var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.");
+        if (user.TwoFactorEnabled) throw new ConflictException("Two-factor authentication is already on.");
+        if (await users.GetAuthenticatorKeyAsync(user) is null) throw new ConflictException("Start the setup first.");
+        if (!await users.VerifyTwoFactorTokenAsync(user, users.Options.Tokens.AuthenticatorTokenProvider, code.Replace(" ", "").Replace("-", "")))
+            throw new FieldValidationException("code", "The code is incorrect. Check the time on your phone and try the next code.");
+        await users.SetTwoFactorEnabledAsync(user, true);
+        return (await users.GenerateNewTwoFactorRecoveryCodesAsync(user, 8))!.ToList();
+    }
+
+    public async Task DisableTwoFactorAsync(Guid userId, string password, string code, CancellationToken ct)
+    {
+        var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.");
+        if (!await users.CheckPasswordAsync(user, password)) throw new FieldValidationException("password", "The password is incorrect.");
+        if (user.TwoFactorEnabled && !await VerifyTwoFactorAsync(user, code)) throw new FieldValidationException("code", "The code is incorrect.");
+        await users.SetTwoFactorEnabledAsync(user, false);
+        await users.ResetAuthenticatorKeyAsync(user);
     }
 
     private AuthException Locked(AppUser user)
