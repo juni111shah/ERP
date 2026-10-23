@@ -50,7 +50,7 @@ export class EmployeesPage {
     { key: 'department', label: 'Department' },
     { key: 'joinDate', label: 'Joined', sortField: 'joinDate', width: '120px' },
     { key: 'grossMonthly', label: 'Gross / month', value: (e) => e.grossMonthly.toLocaleString() },
-    { key: 'status', label: 'Status', sortField: 'status', width: '110px' },
+    { key: 'status', label: 'Status', sortField: 'status', width: '110px', filterField: 'status', filterOptions: EMPLOYEE_STATUSES },
   ];
   readonly fields = computed<FieldSpec[]>(() => [
     { key: 'legalEntityId', label: 'Employer (legal entity)', type: 'select', required: true, readonlyOnEdit: true, options: this.entityPage().items.map((e) => ({ value: e.id, label: e.name })) },

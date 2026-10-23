@@ -101,11 +101,11 @@ export class BillsPage {
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
     { key: 'partyName', label: 'Vendor' },
     { key: 'vendorReference', label: 'Reference', width: '140px' },
-    { key: 'billDate', label: 'Date', sortField: 'billDate', width: '120px' },
-    { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '120px' },
+    { key: 'billDate', label: 'Date', sortField: 'billDate', width: '120px', filterField: 'billDate' },
+    { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '120px', filterField: 'dueDate' },
     { key: 'total', label: 'Total', sortField: 'total', width: '110px' },
     { key: 'outstanding', label: 'Outstanding', width: '110px' },
-    { key: 'status', label: 'Status', width: '130px' },
+    { key: 'status', label: 'Status', width: '130px', filterField: 'status', filterOptions: ['draft', 'pendingApproval', 'issued', 'partlyPaid', 'paid', 'voided'] },
   ];
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);

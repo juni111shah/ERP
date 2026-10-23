@@ -83,7 +83,7 @@ export class LeadsPage {
     { key: 'phone', label: 'Phone', width: '150px' },
     { key: 'source', label: 'Source', width: '130px' },
     { key: 'interest', label: 'Interest' },
-    { key: 'stage', label: 'Stage', width: '120px' },
+    { key: 'stage', label: 'Stage', width: '120px', filterField: 'stage', filterOptions: LEAD_STAGES },
     { key: 'followUpOn', label: 'Follow up', sortField: 'followUpOn', width: '120px' },
   ];
   private readonly listingLookup = (term: string): Observable<LookupOption[]> =>

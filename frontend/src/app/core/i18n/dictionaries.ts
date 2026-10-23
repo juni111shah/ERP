@@ -2,9 +2,18 @@
 export type Lang = 'en' | 'ar';
 export type Dictionary = Record<string, string>;
 
-export const EN: Dictionary = {};
+export const EN: Dictionary = {
+  // shared data table
+  'table.columns': 'Columns', 'table.clearFilters': 'Clear filters', 'table.resetLayout': 'Reset layout', 'table.pinStart': 'Pin to start', 'table.pinEnd': 'Pin to end',
+  'table.dragToReorder': 'Drag to reorder', 'table.contains': 'Contains…', 'table.any': 'Any', 'table.min': 'Min', 'table.max': 'Max', 'table.reset': 'Reset', 'table.apply': 'Apply',
+  'table.pageFilterNote': 'Showing', 'table.onThisPage': 'on this page', 'table.exportCsv': 'Export CSV', 'table.noExport': 'No data to export', 'table.exported': 'CSV exported successfully',
+};
 
 export const AR: Dictionary = {
+  // shared data table
+  'table.columns': 'الأعمدة', 'table.clearFilters': 'مسح عوامل التصفية', 'table.resetLayout': 'إعادة ضبط التخطيط', 'table.pinStart': 'تثبيت في البداية', 'table.pinEnd': 'تثبيت في النهاية',
+  'table.dragToReorder': 'اسحب لإعادة الترتيب', 'table.contains': 'يحتوي على…', 'table.any': 'الكل', 'table.min': 'الحد الأدنى', 'table.max': 'الحد الأقصى', 'table.reset': 'إعادة تعيين', 'table.apply': 'تطبيق',
+  'table.pageFilterNote': 'عرض', 'table.onThisPage': 'في هذه الصفحة', 'table.exportCsv': 'تصدير CSV', 'table.noExport': 'لا توجد بيانات للتصدير', 'table.exported': 'تم تصدير ملف CSV بنجاح',
   // common
   'common.save': 'حفظ', 'common.cancel': 'إلغاء', 'common.new': 'جديد', 'common.search': 'بحث', 'common.run': 'تشغيل', 'common.back': 'رجوع',
   'common.delete': 'حذف', 'common.edit': 'تعديل', 'common.close': 'إغلاق', 'common.yes': 'نعم', 'common.no': 'لا', 'common.total': 'الإجمالي',

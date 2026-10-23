@@ -137,7 +137,7 @@ export class ChequesPage {
     { key: 'bankName', label: 'Bank' },
     { key: 'instrumentDate', label: 'Cheque date', sortField: 'instrumentDate', width: '120px' },
     { key: 'amount', label: 'Amount', sortField: 'amount', width: '120px' },
-    { key: 'status', label: 'Status', width: '110px' },
+    { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: ['inCustody', 'deposited', 'cleared', 'bounced', 'replaced', 'cancelled'] },
   ];
   readonly formOpen = signal(false);
   readonly detailOpen = signal(false);

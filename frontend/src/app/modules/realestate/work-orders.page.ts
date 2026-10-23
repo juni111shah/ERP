@@ -76,7 +76,7 @@ export class WorkOrdersPage {
     { key: 'issue', label: 'Issue' },
     { key: 'category', label: 'Category', sortField: 'category' },
     { key: 'priority', label: 'Priority', sortField: 'priority', value: (w) => humanize(w.priority) },
-    { key: 'status', label: 'Status', sortField: 'status' },
+    { key: 'status', label: 'Status', sortField: 'status', filterField: 'status', filterOptions: Object.keys(NEXT) },
     { key: 'reportedOn', label: 'Reported', sortField: 'reportedOn' },
     { key: 'technician', label: 'Technician' },
     { key: 'estimatedCost', label: 'Estimated', value: (w) => w.estimatedCost.toLocaleString() },

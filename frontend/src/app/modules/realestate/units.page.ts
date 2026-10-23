@@ -80,7 +80,7 @@ export class UnitsPage {
     { key: 'floor', label: 'Floor' },
     { key: 'areaSqft', label: 'Area (sq ft)', sortField: 'areaSqft' },
     { key: 'askingRent', label: 'Asking rent', sortField: 'askingRent', value: (u) => u.askingRent.toLocaleString() },
-    { key: 'status', label: 'Status', sortField: 'status' },
+    { key: 'status', label: 'Status', sortField: 'status', filterField: 'status', filterOptions: STATUSES },
     { key: 'tenantName', label: 'Tenant' },
     { key: 'currentRent', label: 'Current rent', value: (u) => u.currentRent?.toLocaleString() },
     { key: 'leaseEnds', label: 'Lease ends' },

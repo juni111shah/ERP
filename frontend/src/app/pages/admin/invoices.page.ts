@@ -156,18 +156,18 @@ export class InvoicesPage {
     const money = (f: (r: InvoiceSummary) => number | undefined) => (r: InvoiceSummary) => formatMoney(f(r) ?? 0, r.currencyCode);
     return [
       { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
-      { key: 'invoiceDate', label: 'Date', sortField: 'invoiceDate', width: '110px' },
+      { key: 'invoiceDate', label: 'Date', sortField: 'invoiceDate', width: '110px', filterField: 'invoiceDate' },
       { key: 'partyName', label: 'Customer', width: '220px', value: (r) => r.partyName || '—' },
       ...(hasLinks ? [
         { key: 'lease', label: 'Lease', width: '120px', value: (r: InvoiceSummary) => this.links()[r.id]?.leaseNumber ?? '' },
         { key: 'property', label: 'Property', width: '200px', value: (r: InvoiceSummary) => this.links()[r.id]?.propertyName ?? '' },
       ] : []),
-      { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '150px' },
+      { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '150px', filterField: 'dueDate' },
       { key: 'net', label: 'Net', width: '130px', align: 'right', value: money((r) => r.net) },
       { key: 'tax', label: this.taxLabel(), width: '120px', align: 'right', value: money((r) => r.tax) },
       { key: 'total', label: 'Total', sortField: 'total', width: '130px', align: 'right', value: money((r) => r.total) },
       { key: 'outstanding', label: 'Balance', width: '130px', align: 'right', value: money((r) => r.outstanding) },
-      { key: 'status', label: 'Status', width: '120px', value: (r) => invoiceStatusLabel(r.status) },
+      { key: 'status', label: 'Status', width: '120px', value: (r) => invoiceStatusLabel(r.status), filterField: 'status', filterOptions: STATUS_OPTIONS.map((s) => ({ value: s, label: invoiceStatusLabel(s) })) },
     ];
   });
   /** Figures for the cards above the table, from the rows on the current page, grouped by currency. */

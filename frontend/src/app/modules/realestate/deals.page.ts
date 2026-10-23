@@ -73,7 +73,7 @@ export class DealsPage {
     { key: 'clientName', label: 'Client' },
     { key: 'dealType', label: 'Type', sortField: 'dealType', value: (d) => humanize(d.dealType) },
     { key: 'dealDate', label: 'Date', sortField: 'dealDate' },
-    { key: 'stage', label: 'Stage', sortField: 'stage' },
+    { key: 'stage', label: 'Stage', sortField: 'stage', filterField: 'stage', filterOptions: [...PIPELINE, 'lost'] },
     { key: 'dealValue', label: 'Deal value', sortField: 'dealValue', value: (d) => d.dealValue.toLocaleString() },
     { key: 'grossCommission', label: 'Commission', sortField: 'grossCommission', value: (d) => d.grossCommission.toLocaleString() },
   ];

@@ -15,9 +15,13 @@ export class PagedList<T> {
   readonly loading = signal(false);
   readonly error = signal<unknown>(null);
   private readonly trigger = new Subject<void>();
+  /** page-level filters (setFilters) and table header filters (setColumnFilters) are kept apart and sent together */
+  private pageFilters: FilterCriterion[] = [];
+  private columnFilters: FilterCriterion[] = [];
 
   constructor(source: ListSource<T>, destroyRef: DestroyRef, initial?: Partial<ListQuery>) {
     if (initial) this.query.update((q) => ({ ...q, ...initial }));
+    this.pageFilters = this.query().filters ?? [];
     const sub = this.trigger.pipe(
       tap(() => { this.loading.set(true); this.error.set(null); }),
       switchMap(() => source(this.query()).pipe(catchError((e) => { this.error.set(e); return of(null); }))),
@@ -33,7 +37,9 @@ export class PagedList<T> {
   setPage(page: number, pageSize?: number): void { this.patch({ page, pageSize: pageSize ?? this.query().pageSize }, false); }
   setSort(sort: string | null): void { this.patch({ sort }); }
   setSearch(search: string): void { this.patch({ search }); }
-  setFilters(filters: FilterCriterion[]): void { this.patch({ filters }); }
+  setFilters(filters: FilterCriterion[]): void { this.pageFilters = filters; this.patch({ filters: [...filters, ...this.columnFilters] }); }
+  /** Filters from the table's column headers; combined (AND) with the page's own setFilters. */
+  setColumnFilters(filters: FilterCriterion[]): void { this.columnFilters = filters; this.patch({ filters: [...this.pageFilters, ...filters] }); }
   setExtra(extra: ListQuery['extra']): void { this.patch({ extra }); }
 
   private patch(p: Partial<ListQuery>, resetPage = true): void {

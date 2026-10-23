@@ -105,10 +105,10 @@ export class PaymentsPage {
   readonly columns: TableColumn<PaymentSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
     { key: 'partyName', label: 'Customer' },
-    { key: 'date', label: 'Date', sortField: 'date', width: '120px' },
+    { key: 'date', label: 'Date', sortField: 'date', width: '120px', filterField: 'date' },
     { key: 'amount', label: 'Amount', sortField: 'amount', width: '120px' },
     { key: 'unallocated', label: 'Unallocated', width: '120px' },
-    { key: 'status', label: 'Status', width: '100px' },
+    { key: 'status', label: 'Status', width: '100px', filterField: 'status', filterOptions: [{ value: 'issued', label: 'Posted' }, { value: 'voided', label: 'Voided' }] },
   ];
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);

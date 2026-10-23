@@ -105,11 +105,11 @@ export class JournalsPage {
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
   readonly columns: TableColumn<JournalSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
-    { key: 'date', label: 'Date', sortField: 'date', width: '120px' },
+    { key: 'date', label: 'Date', sortField: 'date', width: '120px', filterField: 'date' },
     { key: 'memo', label: 'Memo' },
     { key: 'sourceType', label: 'Source', width: '110px' },
     { key: 'amount', label: 'Amount', sortField: 'amount', width: '130px' },
-    { key: 'status', label: 'Status', width: '110px' },
+    { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: ['draft', 'posted', 'reversed'] },
   ];
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);

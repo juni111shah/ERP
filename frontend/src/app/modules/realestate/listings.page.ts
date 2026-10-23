@@ -62,7 +62,7 @@ export class ListingsPage {
     { key: 'kind', label: 'Kind', value: (l) => humanize(l.kind), width: '110px' },
     { key: 'price', label: 'Price', sortField: 'price', value: (l) => l.price.toLocaleString(), width: '130px' },
     { key: 'channels', label: 'Channels' },
-    { key: 'status', label: 'Status', width: '110px' },
+    { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: ['draft', 'published', 'closed'] },
     { key: 'listedOn', label: 'Listed', sortField: 'listedOn', width: '120px' },
   ];
   readonly fields: FieldSpec[] = [
