@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IScheduledJob, ReminderJob>();
         services.AddScoped<IReminderSource, CoreReminderSource>();
         services.AddScoped<ISettingsService, SettingsService>();
+        services.AddScoped<ERP.Application.Finance.AccountNumbering>();
         services.AddValidatorsFromAssemblies(assemblies, includeInternalTypes: true);
         return services;
     }
