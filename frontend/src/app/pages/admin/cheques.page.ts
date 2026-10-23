@@ -25,6 +25,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { PartiesApi } from '../parties.page';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { RevealDirective } from '../../shared/reveal.directive';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 const COLORS: Record<string, string> = { inCustody: 'blue', deposited: 'gold', cleared: 'green', bounced: 'red', replaced: 'default', cancelled: 'default', issued: 'cyan' };
@@ -36,21 +37,20 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
   selector: 'erp-cheques',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
-  styles: [`.kpis { display:flex; gap:24px; margin-bottom:16px; flex-wrap:wrap } .kpi { min-width:150px } .kpi b { display:block; font-size:20px } .alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
+  styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
     <h1 class="erp-page-title">Cheque register</h1>
-    @if (summary(); as s) {
-      <div class="kpis" data-testid="cheque-kpis">
-        <div class="kpi">In custody<b>{{ s.inCustodyTotal.toFixed(2) }}</b>{{ s.inCustodyCount }} {{ 'ui.cheque.chequesLc' | translate: 'cheques' }}</div>
-        <div class="kpi">Matured, to deposit<b>{{ s.maturedTotal.toFixed(2) }}</b>{{ s.maturedCount }} {{ 'ui.cheque.chequesLc' | translate: 'cheques' }}</div>
-        <div class="kpi">Next 7 days<b>{{ s.next7DaysTotal.toFixed(2) }}</b></div>
-        <div class="kpi">Next 30 days<b>{{ s.next30DaysTotal.toFixed(2) }}</b></div>
-        <div class="kpi">Awaiting clearing<b>{{ s.depositedTotal.toFixed(2) }}</b></div>
-        <div class="kpi">Bounced<b>{{ s.bouncedCount }}</b></div>
-      </div>
-    }
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="cheque-kpis">
+      @let s = summary();
+      <erp-stat-card label="In custody" [loading]="!s" [value]="s ? s.inCustodyTotal.toFixed(2) : null" [caption]="s ? s.inCustodyCount + ' ' + ('ui.cheque.chequesLc' | translate: 'cheques') : null" [tone]="0" />
+      <erp-stat-card label="Matured, to deposit" [loading]="!s" [value]="s ? s.maturedTotal.toFixed(2) : null" [caption]="s ? s.maturedCount + ' ' + ('ui.cheque.chequesLc' | translate: 'cheques') : null" [tone]="s && s.maturedCount > 0 ? 'warning' : 1" />
+      <erp-stat-card label="Next 7 days" [loading]="!s" [value]="s ? s.next7DaysTotal.toFixed(2) : null" [tone]="2" />
+      <erp-stat-card label="Next 30 days" [loading]="!s" [value]="s ? s.next30DaysTotal.toFixed(2) : null" [tone]="5" />
+      <erp-stat-card label="Awaiting clearing" [loading]="!s" [value]="s ? s.depositedTotal.toFixed(2) : null" [tone]="4" />
+      <erp-stat-card label="Bounced" [loading]="!s" [value]="s ? s.bouncedCount : null" format="number" [tone]="s && s.bouncedCount > 0 ? 'danger' : 'neutral'" />
+    </div>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, cheque no., customer or bank" emptyText="No cheques yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> } @else { {{ value }} }

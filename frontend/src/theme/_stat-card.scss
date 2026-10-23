@@ -1,0 +1,97 @@
+// Shared stat / metric card (src/app/shared/stat-card.component.ts). Modelled on the Overview "Executive Highlights" cards.
+// Logical properties only, so the card mirrors in RTL; numbers are wrapped in <bdi dir="ltr"> by the component.
+
+.erp-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-block-end: 16px;
+  &.erp-stat-grid--auto { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  &.erp-stat-grid--full { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  &.erp-stat-grid--compact { gap: 14px; }
+}
+@media (max-width: 1200px) { .erp-stat-grid:not(.erp-stat-grid--auto):not(.erp-stat-grid--full) { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .erp-stat-grid:not(.erp-stat-grid--auto):not(.erp-stat-grid--full) { grid-template-columns: 1fr; } }
+
+erp-stat-card { display: block; min-width: 0; }
+
+.erp-stat-card {
+  background: var(--erp-color-bg-surface, #fff);
+  border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .02), 0 4px 12px rgba(0, 0, 0, .02);
+  transition: transform .2s ease, box-shadow .2s ease;
+  min-height: 104px;
+  height: 100%;
+  box-sizing: border-box;
+
+  &.erp-stat-card--link:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, .05); cursor: pointer; }
+
+  .erp-stat-stripe {
+    position: absolute;
+    inset-block: 12px;
+    inset-inline-start: 0;
+    width: 4px;
+    border-start-end-radius: 4px;
+    border-end-end-radius: 4px;
+  }
+  .erp-stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--erp-color-text-secondary, #64748b);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-block-end: 3px;
+  }
+  .erp-stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-block: 2px 5px;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+    .erp-stat-suffix { font-size: 13px; font-weight: 600; margin-inline-start: 4px; opacity: .8; letter-spacing: 0; }
+  }
+  .erp-stat-caption {
+    font-size: 12px;
+    color: var(--erp-color-text-secondary, #64748b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .erp-stat-extra:not(:empty) { margin-block-start: 6px; }
+
+  // Compact: one line, label start / value end (Overview "Operational Metrics").
+  &.erp-stat-card--compact {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-radius: 10px;
+    min-height: 0;
+    gap: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .02);
+    &.erp-stat-card--link:hover { background: var(--erp-color-bg-canvas, #fafbfc); border-color: #cbd5e1; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .04); }
+    .erp-stat-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .erp-stat-label { margin: 0; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .erp-stat-caption { font-size: 11px; color: var(--erp-color-text-tertiary, #94a3b8); }
+    .erp-stat-value { font-size: 18px; margin: 0; flex-shrink: 0; color: var(--erp-color-text-primary, #0f172a); }
+  }
+
+  .erp-stat-skeleton { width: 100%; }
+}
+
+// Arabic has no case and joined letters must not be spaced out (handoff doc 10.6).
+[dir='rtl'] .erp-stat-card .erp-stat-label,
+:lang(ar) .erp-stat-card .erp-stat-label { text-transform: none; letter-spacing: 0; font-size: 12px; }
+[dir='rtl'] .erp-stat-card .erp-stat-value,
+:lang(ar) .erp-stat-card .erp-stat-value { letter-spacing: 0; }

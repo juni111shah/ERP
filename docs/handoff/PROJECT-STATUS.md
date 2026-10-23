@@ -191,7 +191,9 @@ Owner and coordinator: unless stated, the specialist agent prepares a patch or b
   - System accounts' codes stay immutable. Concurrent duplicate suggestion is caught by the unique index (retry once).
   - `dotnet build` 0 errors, unit + integration tests pass, `ng build` 0 errors, EN and AR strings present.
 
-## 5.2 Stat card unification + page-load fixes - IN PROGRESS, top priority
+## 5.2 Stat card unification + page-load fixes - IN REVIEW (branch `feat/unified-stat-cards`)
+
+- **Update:** shared `erp-stat-card` (`shared/stat-card.component.ts`, `theme/_stat-card.scss`, `.erp-stat-grid`) now backs the Overview (hero, compact and full grids), invoices, cheques, acquisitions, renewals, inventory stock, budget vs actual, report summaries and the shared detail page cards (invoice/bill/receipt/payment/journal/party) plus lease and property detail. Cards show an ng-zorro skeleton until data arrives; numbers use `I18nService.number()` and `<bdi dir="ltr">`; `LOCALE_ID` follows the saved language at startup. Browser check: `tools/smoke-stat-cards.mjs` (use `MOCK=1` when no SQL Server/API is available).
 
 - **Owner:** Grok Bot; Arabic/RTL for the new cards by ui ux Expert.
 - **Branch / worktree:** `feat/unified-stat-cards` in `/workspace/erp` (uncommitted at time of writing). Screenshots folder `/workspace/erp-team/merge/stat-cards/`.

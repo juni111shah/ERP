@@ -14,6 +14,7 @@ import { AccountDto, AccountsApi, BudgetDetail, BudgetSummary, BudgetVsActual, B
 import { createPagedList } from '../../core/api/paged-list';
 import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { RevealDirective } from '../../shared/reveal.directive';
@@ -27,7 +28,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
   selector: 'erp-budgets',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzToolTipModule, RevealDirective, TranslatePipe, DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
+  imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
   styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px } .num { text-align:right } .bad { color: var(--erp-color-error, #cf1322) } .good { color: var(--erp-color-success, #389e0d) } .grid { overflow:auto }`],
   template: `
     @if (!editing()) {
@@ -80,7 +81,14 @@ interface Row { accountId: string; label: string; type: string; months: number[]
               <button nz-button nzType="default" type="button" (click)="loadActual()" data-testid="budget-actual-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
             </div>
             @if (actual(); as a) {
-              <p data-testid="budget-net">{{ 'ui.budget.netBudget' | translate: 'Net budget' }} {{ a.budgetNet | number: '1.0-0' }} · {{ 'ui.budget.netActual' | translate: 'Net actual' }} {{ a.actualNet | number: '1.0-0' }}</p>
+              <div class="erp-stat-grid erp-stat-grid--auto" data-testid="budget-net">
+                <erp-stat-card label="Budgeted income" [value]="a.budgetIncome" format="number" [tone]="2" />
+                <erp-stat-card label="Actual income" [value]="a.actualIncome" format="number" [tone]="4" />
+                <erp-stat-card label="Budgeted expense" [value]="a.budgetExpense" format="number" [tone]="3" />
+                <erp-stat-card label="Actual expense" [value]="a.actualExpense" format="number" [tone]="a.actualExpense > a.budgetExpense ? 'danger' : 0" />
+                <erp-stat-card label="Net budget" [value]="a.budgetNet" format="number" [tone]="5" />
+                <erp-stat-card label="Net actual" [value]="a.actualNet" format="number" [tone]="a.actualNet >= a.budgetNet ? 'success' : 'danger'" />
+              </div>
               <nz-table [nzData]="a.rows" nzSize="small" [nzShowPagination]="false" data-testid="budget-actual-table">
                 <thead><tr><th>Account</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">%</th></tr></thead>
                 <tbody>

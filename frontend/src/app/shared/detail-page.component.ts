@@ -1,24 +1,35 @@
 import { Component, Input, Output, EventEmitter, computed } from '@angular/core';
-import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDescriptionsModule } from 'ng-zorro-antd/descriptions';
-import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzStatisticModule } from 'ng-zorro-antd/statistic';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { HasPermissionDirective } from './has-permission.directive';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { RevealDirective } from './reveal.directive';
+import { StatCardComponent, StatTone } from './stat-card.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 export interface KpiCard {
   title: string;
   value: number | string;
   suffix?: string;
+  /** Legacy colour hint ({ color }): red/green shades map to the stat card's danger/success tones. */
   valueStyle?: Record<string, string>;
+  caption?: string;
+  tone?: StatTone;
+}
+
+/** Maps the legacy `valueStyle.color` of a KpiCard to a stat-card tone (red-ish = danger, green-ish = success). */
+export function kpiTone(card: KpiCard, index: number): StatTone {
+  if (card.tone !== undefined) return card.tone;
+  const c = (card.valueStyle?.['color'] ?? '').toLowerCase();
+  if (c === '#ff4d4f' || c === '#cf1322' || c === 'red') return 'danger';
+  if (c === '#52c41a' || c === '#389e0d' || c === 'green') return 'success';
+  return index;
 }
 
 export interface ActionButton {
@@ -45,10 +56,10 @@ export interface DescriptionItem {
 @Component({
   selector: 'erp-detail-page',
   standalone: true,
-  imports: [TranslatePipe, 
-    CommonModule, DatePipe, CurrencyPipe, RouterLink,
-    NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule,
-    NzIconModule, NzStatisticModule, NzTabsModule, NzTagModule,
+  imports: [StatCardComponent, TranslatePipe, 
+    CommonModule, RouterLink,
+    NzButtonModule, NzCardModule, NzDescriptionsModule,
+    NzIconModule, NzTabsModule, NzTagModule,
     HasPermissionDirective, RevealDirective, NzToolTipModule
   ],
   styles: [`
@@ -116,18 +127,9 @@ export interface DescriptionItem {
     }
 
     @if (kpiCards.length > 0) {
-      <div nz-row [nzGutter]="[16, 16]">
-        @for (card of kpiCards; track card.title) {
-          <div nz-col [nzXs]="24" [nzMd]="6">
-            <nz-card>
-              <nz-statistic 
-                [nzTitle]="card.title"
-                [nzValue]="card.value"
-                [nzSuffix]="card.suffix ?? ''"
-                [nzValueStyle]="card.valueStyle ?? {}">
-              </nz-statistic>
-            </nz-card>
-          </div>
+      <div class="erp-stat-grid erp-stat-grid--auto" data-testid="detail-kpis">
+        @for (card of kpiCards; track card.title; let i = $index) {
+          <erp-stat-card [label]="card.title" [value]="card.value" [format]="isNumber(card.value) ? 'number' : 'text'" [suffix]="card.suffix ?? null" [caption]="card.caption ?? null" [tone]="tone(card, i)" />
         }
       </div>
     }
@@ -183,6 +185,8 @@ export interface DescriptionItem {
   `
 })
 export class DetailPageComponent {
+  readonly tone = kpiTone;
+  isNumber(v: unknown): boolean { return typeof v === 'number'; }
   @Input() backLink?: string[];
   @Input() backLabel = 'Back';
   @Input() title = '';

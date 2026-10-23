@@ -17,6 +17,7 @@ import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { asProblem } from '../../core/http/problem-details';
 import { SessionStore } from '../../core/session/session.store';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-registry';
 
 /** Reports hub (no slug) and the generic report page (/reports/:slug): filters, table, summary, CSV and Print. */
@@ -25,7 +26,7 @@ import { RevealDirective } from '../../shared/reveal.directive';
   selector: 'erp-report',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule, NzSelectModule, RevealDirective],
+  imports: [StatCardComponent, FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule, NzSelectModule, RevealDirective],
   styles: [`
     .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px } .card { display:block; padding:14px 16px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px; background:var(--erp-color-surface, #fff); color:inherit } .card b { display:block; margin-bottom:4px } .card span { font-size:12px; color: var(--erp-color-text-secondary, #667) }
     .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:12px 0 } .spacer { flex:1 } .num { text-align:right } .total td { font-weight:600 }
@@ -56,8 +57,9 @@ import { RevealDirective } from '../../shared/reveal.directive';
         <button nz-button (click)="csv()" [disabled]="!data()" data-testid="report-csv"><span nz-icon nzType="download"></span>CSV</button>
         <button nz-button (click)="print()" [disabled]="!data()"><span nz-icon nzType="printer"></span>Print</button>
       </div>
+      @if (loading() && !data()) { <div class="erp-stat-grid erp-stat-grid--auto" data-testid="report-loading">@for (i of [0, 1, 2, 3]; track i) { <erp-stat-card label="" [loading]="true" [tone]="i" /> }</div> }
       @if (data(); as d) {
-        @if (summary().length) { <div class="kpis">@for (s of summary(); track s.label) { <div class="kpi">{{ s.label }}<b>{{ s.value }}</b></div> }</div> }
+        @if (summary().length) { <div class="erp-stat-grid erp-stat-grid--auto" data-testid="report-summary">@for (s of summary(); track s.label; let i = $index) { <erp-stat-card [label]="s.label" [value]="s.value" [tone]="i" /> }</div> }
         <nz-table [nzData]="rows()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="report-table">
           <thead><tr>@for (c of columns(); track c.key) { <th [class.num]="isNum(c)">{{ c.label }}</th> }</tr></thead>
           <tbody>

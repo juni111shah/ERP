@@ -901,6 +901,10 @@ const PAIRS: [string, string][] = [
   ["Follows the bill date + the vendor's payment terms until you change it. Leave empty to use the terms.", 'يتبع تاريخ الفاتورة مضافاً إليه شروط الدفع للمورّد ما لم تغيّره. اتركه فارغاً لاستخدام الشروط.'],
   ["Follows the invoice date + the customer's payment terms until you change it. Leave empty to use the terms.", 'يتبع تاريخ الفاتورة مضافاً إليه شروط الدفع للعميل ما لم تغيّره. اتركه فارغاً لاستخدام الشروط.'],
   ["Restricted: you don't have permission to view or edit this field", 'مقيّد: ليست لديك صلاحية عرض هذا الحقل أو تعديله'],
+  // stat cards (shared erp-stat-card)
+  ['Budgeted income', 'الدخل المقدّر'], ['Actual income', 'الدخل الفعلي'], ['Budgeted expense', 'المصروف المقدّر'], ['Actual expense', 'المصروف الفعلي'],
+  ['Net budget', 'صافي الموازنة'], ['Net actual', 'صافي الفعلي'], ['Item lines', 'بنود الأصناف'], ['Low stock', 'مخزون منخفض'],
+  ['Draft renewals', 'تجديدات مسودة'], ['item / warehouse', 'صنف / مستودع'], ['Balance Due', 'الرصيد المستحق'], ['Days Overdue', 'أيام التأخير'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

@@ -18,6 +18,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { AcquisitionDto, AcquisitionsApi, DESCRIPTION_COLUMNS, FundingInstalmentDto, FundingSourceDto, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** One acquisition: cost summary, funding sources with their instalment schedules, completion and instalment payments. */
@@ -27,7 +28,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
   selector: 'erp-acquisition-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzAlertModule, NzButtonModule, NzCardModule, NzDescriptionsModule, NzModalModule, NzTableModule, NzTabsModule, PaginationBarComponent],
+  imports: [StatCardComponent, TranslatePipe, DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzAlertModule, NzButtonModule, NzCardModule, NzDescriptionsModule, NzModalModule, NzTableModule, NzTabsModule, PaginationBarComponent],
   template: `
     @if (acq(); as a) {
       <p><a routerLink="/real-estate/acquisitions">← Acquisitions</a></p>
@@ -39,11 +40,11 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
           <button *erpHasPermission="'realestate.acquisitions.manage'" nz-button nzDanger [disabled]="busy()" (click)="cancel()" data-testid="acq-cancel">Cancel draft</button>
         </div>
       }
-      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px" data-testid="acq-summary">
-        <nz-card><small>Total cost</small><div><b>{{ a.totalCost | number: '1.0-2' }}</b> {{ a.currencyCode }}</div><small>price + fees + costs</small></nz-card>
-        <nz-card><small>Cash at completion</small><div><b>{{ a.cashAtCompletion | number: '1.0-2' }}</b></div><small>down payment + fees + costs</small></nz-card>
-        <nz-card><small>Financed</small><div><b>{{ a.financed | number: '1.0-2' }}</b></div><small>{{ a.funding.length }} {{ 'ui.re.sources' | translate: 'sources' }}</small></nz-card>
-        <nz-card><small>Unfunded</small><div><b>{{ a.unfunded | number: '1.0-2' }}</b></div><small>due to seller</small></nz-card>
+      <div class="erp-stat-grid" data-testid="acq-summary">
+        <erp-stat-card label="Total cost" [value]="a.totalCost" format="number" [suffix]="a.currencyCode" caption="price + fees + costs" [tone]="0" />
+        <erp-stat-card label="Cash at completion" [value]="a.cashAtCompletion" format="number" caption="down payment + fees + costs" [tone]="1" />
+        <erp-stat-card label="Financed" [value]="a.financed" format="number" [caption]="a.funding.length + ' ' + ('ui.re.sources' | translate: 'sources')" [tone]="2" />
+        <erp-stat-card label="Unfunded" [value]="a.unfunded" format="number" caption="due to seller" [tone]="a.unfunded > 0 ? 'warning' : 4" />
       </div>
       <nz-card nzTitle="Details">
         <nz-descriptions nzBordered [nzColumn]="columns">

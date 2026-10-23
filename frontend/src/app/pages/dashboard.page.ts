@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTagModule } from 'ng-zorro-antd/tag';
@@ -7,21 +9,13 @@ import { DashboardAlert, DashboardApi, DashboardChart, DashboardDto, KpiCard } f
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { SessionStore } from '../core/session/session.store';
 import { SimpleChartComponent } from '../shared/simple-chart.component';
+import { StatCardComponent, StatFormat } from '../shared/stat-card.component';
 
 const URGENCY: Record<string, { label: string; color: string }> = {
   action: { label: 'Action needed', color: 'red' },
   upcoming: { label: 'Upcoming', color: 'gold' },
   info: { label: 'For information', color: 'blue' },
 };
-
-const KPI_PALETTES = [
-  { stripe: '#ec4899', text: '#e11d48' }, // Rose/Pink
-  { stripe: '#8b5cf6', text: '#7c3aed' }, // Purple
-  { stripe: '#0ea5e9', text: '#0284c7' }, // Cyan
-  { stripe: '#f59e0b', text: '#d97706' }, // Amber
-  { stripe: '#10b981', text: '#059669' }, // Emerald
-  { stripe: '#2563eb', text: '#1d4ed8' }, // Royal Blue
-];
 
 type DomainCategory = 'all' | 'finance' | 'real-estate' | 'hr' | 'inventory';
 
@@ -33,7 +27,9 @@ type DomainCategory = 'all' | 'finance' | 'real-estate' | 'hr' | 'inventory';
     TranslatePipe,
     RouterLink,
     SimpleChartComponent,
+    StatCardComponent,
     NzIconModule,
+    NzSkeletonModule,
     NzSpinModule,
     NzTagModule,
   ],
@@ -208,149 +204,6 @@ type DomainCategory = 'all' | 'finance' | 'real-estate' | 'hr' | 'inventory';
       display: flex;
       align-items: center;
       gap: 6px;
-    }
-
-    /* 1. Primary 4-card hero grid */
-    .hero-kpis-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-    @media (max-width: 1200px) {
-      .hero-kpis-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-    @media (max-width: 640px) {
-      .hero-kpis-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .kpi-card {
-      background: #ffffff;
-      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
-      border-radius: 12px;
-      padding: 16px 18px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      position: relative;
-      overflow: hidden;
-      color: inherit;
-      text-decoration: none;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.02);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      min-height: 104px;
-    }
-    .kpi-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
-    }
-    .kpi-stripe {
-      position: absolute;
-      top: 12px;
-      bottom: 12px;
-      left: 0;
-      width: 4px;
-      border-radius: 0 4px 4px 0;
-    }
-    .kpi-card .label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--erp-color-text-secondary, #64748b);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-bottom: 3px;
-    }
-    .kpi-card .value {
-      font-size: 24px;
-      font-weight: 700;
-      line-height: 1.2;
-      margin: 2px 0 5px;
-      letter-spacing: -0.02em;
-    }
-    .kpi-card .caption {
-      font-size: 12px;
-      color: var(--erp-color-text-secondary, #64748b);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* 2. Balanced 4-column Operational Metrics Grid (12 items = 3 complete rows of 4) */
-    .secondary-stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 14px;
-    }
-    @media (max-width: 1200px) {
-      .secondary-stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-    @media (max-width: 640px) {
-      .secondary-stats-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .compact-stat-card {
-      background: #ffffff;
-      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
-      border-radius: 10px;
-      padding: 12px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      text-decoration: none;
-      color: inherit;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-      transition: all 0.15s ease;
-    }
-    .compact-stat-card:hover {
-      background: #fafbfc;
-      border-color: #cbd5e1;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
-    }
-    .stat-label-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
-      padding-right: 8px;
-    }
-    .compact-stat-card .c-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .compact-stat-card .c-caption {
-      font-size: 11px;
-      color: #94a3b8;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .compact-stat-card .c-value {
-      font-size: 18px;
-      font-weight: 700;
-      color: #0f172a;
-      flex-shrink: 0;
-    }
-
-    /* Full grid mode (when user selects All Cards) */
-    .full-kpis-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 16px;
     }
 
     /* ---- MAIN DASHBOARD SPLIT (SINGLE TABBED ANALYTICS HUB + ALERTS) ---- */
@@ -547,7 +400,16 @@ type DomainCategory = 'all' | 'finance' | 'real-estate' | 'hr' | 'inventory';
         </div>
       </div>
 
-      <nz-spin [nzSpinning]="loading()">
+      <nz-spin [nzSpinning]="loading() && !!data()">
+        @if (!data()) {
+          <!-- First load: skeletons instead of blank panels or zeros; real values replace them as soon as the data arrives -->
+          <div class="kpi-section" data-testid="dashboard-loading">
+            <div class="erp-stat-grid">
+              @for (i of [0, 1, 2, 3]; track i) { <erp-stat-card label="" [loading]="true" [tone]="i" /> }
+            </div>
+            <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 6 }"></nz-skeleton>
+          </div>
+        }
         @if (data(); as d) {
           <!-- Domain Filter Navigation & View Mode Switcher -->
           <div class="filter-bar">
@@ -629,18 +491,9 @@ type DomainCategory = 'all' | 'finance' | 'real-estate' | 'hr' | 'inventory';
               <div class="section-eyebrow">
                 <span nz-icon nzType="fund"></span> Executive Highlights
               </div>
-              <div class="hero-kpis-grid">
+              <div class="erp-stat-grid">
                 @for (k of heroKpis(); track k.key; let i = $index) {
-                  <a class="kpi-card" [routerLink]="k.link ?? null" [attr.data-testid]="'kpi-' + k.key">
-                    <div class="kpi-stripe" [style.background]="palette(i).stripe"></div>
-                    <div>
-                      <div class="label">{{ k.label }}</div>
-                      <div class="value" [style.color]="palette(i).text">{{ show(k) }}</div>
-                    </div>
-                    @if (k.caption) {
-                      <div class="caption">{{ k.caption }}</div>
-                    }
-                  </a>
+                  <erp-stat-card [label]="k.label" [value]="k.value" [format]="statFormat(k)" [caption]="k.caption ?? null" [tone]="i" [link]="k.link ?? null" [testId]="'kpi-' + k.key" />
                 }
               </div>
 
@@ -649,34 +502,17 @@ type DomainCategory = 'all' | 'finance' | 'real-estate' | 'hr' | 'inventory';
                 <div class="section-eyebrow" style="margin-top: 16px;">
                   <span nz-icon nzType="dashboard"></span> {{ 'ui.dash.opMetrics' | translate: 'Operational Metrics' }} ({{ secondaryKpis().length }})
                 </div>
-                <div class="secondary-stats-grid">
+                <div class="erp-stat-grid erp-stat-grid--compact">
                   @for (k of secondaryKpis(); track k.key) {
-                    <a class="compact-stat-card" [routerLink]="k.link ?? null" [attr.data-testid]="'kpi-' + k.key">
-                      <div class="stat-label-wrap">
-                        <div class="c-label">{{ k.label }}</div>
-                        @if (k.caption) {
-                          <div class="c-caption">{{ k.caption }}</div>
-                        }
-                      </div>
-                      <div class="c-value">{{ show(k) }}</div>
-                    </a>
+                    <erp-stat-card [compact]="true" [label]="k.label" [value]="k.value" [format]="statFormat(k)" [caption]="k.caption ?? null" [link]="k.link ?? null" [testId]="'kpi-' + k.key" />
                   }
                 </div>
               }
             } @else {
               <!-- Full / Category Grid View -->
-              <div class="full-kpis-grid">
+              <div class="erp-stat-grid erp-stat-grid--full">
                 @for (k of visibleKpis(); track k.key; let i = $index) {
-                  <a class="kpi-card" [routerLink]="k.link ?? null" [attr.data-testid]="'kpi-' + k.key">
-                    <div class="kpi-stripe" [style.background]="palette(i).stripe"></div>
-                    <div>
-                      <div class="label">{{ k.label }}</div>
-                      <div class="value" [style.color]="palette(i).text">{{ show(k) }}</div>
-                    </div>
-                    @if (k.caption) {
-                      <div class="caption">{{ k.caption }}</div>
-                    }
-                  </a>
+                  <erp-stat-card [label]="k.label" [value]="k.value" [format]="statFormat(k)" [caption]="k.caption ?? null" [tone]="i" [link]="k.link ?? null" [testId]="'kpi-' + k.key" />
                 }
               </div>
             }
@@ -760,8 +596,6 @@ export class DashboardPage {
   readonly viewMode = signal<'structured' | 'all'>('structured');
   readonly selectedChartKey = signal<string | null>(null);
 
-  private readonly money = computed(() => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }));
-
   readonly currentEntityName = computed(() => {
     const id = this.session.currentEntityId();
     if (!id) return null;
@@ -797,22 +631,11 @@ export class DashboardPage {
     }
   }
 
-  palette(index: number): { stripe: string; text: string } {
-    return KPI_PALETTES[index % KPI_PALETTES.length];
-  }
-
   urgency(u: string): { label: string; color: string } {
     return URGENCY[u] ?? URGENCY['info'];
   }
 
-  show(k: KpiCard): string {
-    if (k.format === 'percent') return `${k.value.toFixed(1)}%`;
-    if (k.format === 'number') return k.value.toLocaleString();
-    const cur = this.session.me()?.workspace?.baseCurrency ?? '';
-    const abs = Math.abs(k.value);
-    const text = abs >= 1_000_000 ? `${(k.value / 1_000_000).toFixed(1)}M` : this.money().format(k.value);
-    return `${cur} ${text}`.trim();
-  }
+  statFormat(k: KpiCard): StatFormat { return k.format === 'percent' ? 'percent' : k.format === 'number' ? 'number' : 'money'; }
 
   /* ---- DOMAIN CLASSIFIERS ---- */
   private classifyKpi(key: string): DomainCategory {
@@ -893,9 +716,12 @@ export class DashboardPage {
     return charts[0];
   });
 
+  private pending?: Subscription;
+
   private load(): void {
     this.loading.set(true);
-    this.api.get().subscribe({
+    this.pending?.unsubscribe(); // a slow answer for the previous entity must not overwrite the current one
+    this.pending = this.api.get().subscribe({
       next: (d) => {
         this.data.set(d);
         if (d.charts.length > 0 && !this.selectedChartKey()) {

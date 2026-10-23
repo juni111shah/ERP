@@ -10,6 +10,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { RenewalWorkbench, RenewalsApi } from './realestate.api';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
 import { I18nService } from '../../core/i18n/i18n.service';
@@ -19,7 +20,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
   selector: 'erp-renewals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TableToolsComponent, TranslatePipe, DecimalPipe, FormsModule, RouterLink, NzTableModule, NzButtonModule, NzCheckboxModule, NzInputNumberModule, NzSelectModule, NzTagModule],
+  imports: [StatCardComponent, TableToolsComponent, TranslatePipe, DecimalPipe, FormsModule, RouterLink, NzTableModule, NzButtonModule, NzCheckboxModule, NzInputNumberModule, NzSelectModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Lease renewals</h1>
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
@@ -36,7 +37,11 @@ import { I18nService } from '../../core/i18n/i18n.service';
       <nz-select [ngModel]="state()" (ngModelChange)="state.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterStatus' | translate: 'Filter by status'" style="width:170px" data-testid="renewal-state-filter"><nz-option nzValue="due" [nzLabel]="'ui.status.due' | translate: 'Due'"></nz-option><nz-option nzValue="draftRenewal" [nzLabel]="'ui.status.draftRenewal' | translate: 'Draft renewal'"></nz-option><nz-option nzValue="renewed" [nzLabel]="'ui.status.renewed' | translate: 'Renewed'"></nz-option></nz-select>
     </erp-table-tools>
     @if (data(); as d) {
-      <p>{{ d.due }} {{ 'ui.re.dueLc' | translate: 'due' }} · {{ d.draft }} {{ 'ui.re.draftRenewals' | translate: 'draft renewal(s)' }} · {{ d.renewed }} {{ 'ui.re.renewedLc' | translate: 'renewed' }}</p>
+      <div class="erp-stat-grid erp-stat-grid--auto" data-testid="renewal-kpis">
+        <erp-stat-card [label]="'ui.re.dueLc' | translate: 'Due'" [value]="d.due" format="number" [tone]="d.due > 0 ? 'warning' : 'neutral'" />
+        <erp-stat-card [label]="'ui.re.draftRenewals' | translate: 'Draft renewals'" [value]="d.draft" format="number" [tone]="2" />
+        <erp-stat-card [label]="'ui.re.renewedLc' | translate: 'Renewed'" [value]="d.renewed" format="number" [tone]="4" />
+      </div>
       <nz-table [nzData]="shown()" nzSize="small" [nzShowPagination]="false" data-testid="renewal-table">
         <thead><tr><th></th><th>Lease</th><th>Tenant</th><th>Property · Unit</th><th>Ends</th><th>Days</th><th>Rent</th><th>vs asking</th><th>State</th></tr></thead>
         <tbody>
