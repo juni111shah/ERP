@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 96" width="100%" height="100%">
+  <defs>
+    <linearGradient id="logoGearDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e5447" />
+      <stop offset="100%" stop-color="#113a30" />
+    </linearGradient>
+    <linearGradient id="logoScreenDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f7566" />
+      <stop offset="50%" stop-color="#14574c" />
+      <stop offset="100%" stop-color="#0c382f" />
+    </linearGradient>
+    <linearGradient id="logoLineDark" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="60%" stop-color="#2dd4bf" />
+      <stop offset="100%" stop-color="#a7f3d0" />
+    </linearGradient>
+    <filter id="logoShadowDark" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Left Emblem Icon (scaled into 76x76 at x=8, y=10) -->
+  <g transform="translate(8, 10) scale(0.42)" filter="url(#logoShadowDark)">
+    <!-- Gear Outer Teeth -->
+    <rect x="44" y="4" width="28" height="22" rx="5" fill="#226454" />
+    <rect x="124" y="4" width="28" height="22" rx="5" fill="#226454" />
+    <rect x="44" y="170" width="28" height="22" rx="5" fill="#15473a" />
+    <rect x="124" y="170" width="28" height="22" rx="5" fill="#15473a" />
+    <rect x="4" y="44" width="22" height="28" rx="5" fill="#1f5a4c" />
+    <rect x="4" y="124" width="22" height="28" rx="5" fill="#17493b" />
+    <rect x="170" y="44" width="22" height="28" rx="5" fill="#1f5a4c" />
+    <rect x="170" y="124" width="22" height="28" rx="5" fill="#17493b" />
+
+    <!-- Gear Body -->
+    <rect x="16" y="16" width="164" height="164" rx="34" fill="url(#logoGearDark)" stroke="#2ea38d" stroke-width="2.5" />
+    <!-- Inner Screen -->
+    <rect x="28" y="28" width="140" height="140" rx="22" fill="url(#logoScreenDark)" stroke="#38c9b0" stroke-width="2.5" />
+    <rect x="32" y="32" width="132" height="132" rx="18" fill="none" stroke="#5eead4" stroke-width="1.5" stroke-opacity="0.4" />
+
+    <!-- Chart Path -->
+    <path d="M 50 122 L 82 88 L 112 108 L 146 50" 
+          fill="none" 
+          stroke="url(#logoLineDark)" 
+          stroke-width="10" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" />
+    <circle cx="50" cy="122" r="7.5" fill="#2dd4bf" stroke="#134e44" stroke-width="2" />
+    <circle cx="82" cy="88" r="7.5" fill="#2dd4bf" stroke="#134e44" stroke-width="2" />
+    <circle cx="112" cy="108" r="7.5" fill="#2dd4bf" stroke="#134e44" stroke-width="2" />
+    <circle cx="146" cy="50" r="14" fill="#0c382f" stroke="url(#logoLineDark)" stroke-width="6.5" />
+    <circle cx="146" cy="50" r="4" fill="#5eead4" />
+  </g>
+
+  <!-- Brand Typography for Dark Backgrounds -->
+  <g transform="translate(100, 0)">
+    <text x="0" y="54" 
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-weight="800" 
+          font-size="43" 
+          letter-spacing="-0.03em" 
+          fill="#f8fafc">highersquare</text>
+    
+    <text x="282" y="54" 
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-weight="800" 
+          font-size="43" 
+          letter-spacing="-0.01em" 
+          fill="#22c55e">ERP</text>
+    
+    <text x="2" y="78" 
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-weight="600" 
+          font-size="12" 
+          letter-spacing="0.22em" 
+          fill="#94a3b8">ENTERPRISE RESOURCE PLANNING</text>
+  </g>
+</svg>

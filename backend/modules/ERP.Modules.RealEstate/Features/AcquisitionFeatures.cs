@@ -82,7 +82,7 @@ internal sealed class AcquisitionHandlers(
 
     public async Task<AcquisitionOverviewDto> Handle(GetAcquisitionOverview q, CancellationToken ct)
     {
-        var done = await acquisitions.Query(new Specification<Acquisition>(a => a.Status == AcquisitionStatus.Completed)).Select(a => new { a.Id, a.PurchasePrice, a.DownPayment }).ToListAsync(ct);
+        var done = await acquisitions.Query(new Specification<Acquisition>(a => a.Status != AcquisitionStatus.Cancelled)).Select(a => new { a.Id, a.PurchasePrice, a.DownPayment }).ToListAsync(ct);
         var ids = done.Select(a => a.Id).ToList();
         var funding = await sources.Query(new Specification<FundingSource>(f => ids.Contains(f.AcquisitionId))).Select(f => new { f.Id, f.Principal }).ToListAsync(ct);
         var fundingIds = funding.Select(f => f.Id).ToList();

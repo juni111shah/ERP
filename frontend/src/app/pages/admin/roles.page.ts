@@ -26,7 +26,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
   template: `
     <h1 class="erp-page-title">Roles</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search roles" emptyText="No roles" (rowClick)="open($event)">
-      <button toolbar *erpHasPermission="'core.roles.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newRole' | translate: 'New role'" nz-tooltip [nzTooltipTitle]="'ui.add.newRole' | translate: 'New role'" nzType="primary" (click)="open(null)" data-testid="role-new"><span nz-icon nzType="plus"></span>New role</button>
+      <button toolbar *erpHasPermission="'core.roles.write'" nz-button nzType="primary" (click)="open(null)" data-testid="role-new"><span nz-icon nzType="plus"></span> New role</button>
     </erp-paged-table>
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="560" [nzTitle]="editing() ? editing()!.name : 'New role'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
@@ -56,10 +56,10 @@ export class RolesPage {
   private readonly fb = inject(FormBuilder);
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'name' });
   readonly columns: TableColumn<RoleDto>[] = [
-    { key: 'name', label: 'Name', sortField: 'name' },
+    { key: 'name', label: 'Role name', sortField: 'name' },
     { key: 'description', label: 'Description' },
-    { key: 'isBuiltIn', label: 'Built-in', value: (r) => yesNo(r.isBuiltIn) },
-    { key: 'permissions', label: 'Permissions', value: (r) => (r.permissions.includes('*') ? 'All' : r.permissions.length) },
+    { key: 'isBuiltIn', label: 'Type', value: (r) => (r.isBuiltIn ? 'System' : 'Custom') },
+    { key: 'permissions', label: 'Permissions', value: (r) => (r.permissions.includes('*') ? 'All access (*)' : `${r.permissions.length} granted`) },
   ];
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);

@@ -13,6 +13,7 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
+import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
 import { AccountDto, AccountsApi, LegalEntitiesApi, LegalEntityDto } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
@@ -37,39 +38,129 @@ import { FormsModule } from '@angular/forms';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StatCardComponent, FormsModule, TableToolsComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, DecimalPipe, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule,
-    NzInputModule, NzInputNumberModule, NzSelectModule, NzTableModule],
-  styles: [`            .fund { display:grid; grid-template-columns: 1.2fr 1.6fr 1.2fr .8fr .8fr auto; gap:8px; margin-bottom:8px; align-items:center }`],
+    NzInputModule, NzInputNumberModule, NzSelectModule, NzTableModule, NzTagModule],
+  styles: [`
+    .fund { display:grid; grid-template-columns: 1.2fr 1.6fr 1.2fr .8fr .8fr auto; gap:8px; margin-bottom:8px; align-items:center }
+    .funding-section-card {
+      margin-top: 24px;
+      background: var(--erp-color-bg-surface, #ffffff);
+      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+      overflow: hidden;
+    }
+    .funding-card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .funding-header-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--erp-color-text-primary, #0f172a);
+    }
+    .funding-pill {
+      font-size: 11px;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: #64748b;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .funding-card-body {
+      padding: 16px 20px;
+    }
+  `],
   template: `
     <h1 class="erp-page-title">Acquisitions and funding</h1>
     <div class="erp-stat-grid" data-testid="acq-kpis">
       @let o = overview();
-      <erp-stat-card label="Acquisition consideration" [loading]="!o" [value]="o?.consideration" format="number" [caption]="o ? o.count + ' ' + ('ui.re.acquisitionsLc' | translate: 'acquisitions') : null" [tone]="0" />
-      <erp-stat-card label="Down payments" [loading]="!o" [value]="o?.downPayments" format="number" caption="equity contributed" [tone]="1" />
-      <erp-stat-card label="Financing arranged" [loading]="!o" [value]="o?.financing" format="number" [caption]="o ? ('ui.common.outstandingLc' | translate: 'outstanding') + ' ' + o.outstanding.toLocaleString() : null" [tone]="2" />
-      <erp-stat-card label="Unfunded balance" [loading]="!o" [value]="o?.unfunded" format="number" caption="price less down payment and financing" [tone]="3" />
+      <erp-stat-card label="Acquisition consideration" [loading]="!o" [value]="o?.consideration" format="money" [caption]="o ? o.count + ' ' + ('ui.re.acquisitionsLc' | translate: 'acquisitions') : null" [tone]="0" />
+      <erp-stat-card label="Down payments" [loading]="!o" [value]="o?.downPayments" format="money" caption="equity contributed" [tone]="1" />
+      <erp-stat-card label="Financing arranged" [loading]="!o" [value]="o?.financing" format="money" [caption]="o ? ('ui.common.outstandingLc' | translate: 'outstanding') + ' ' + (o.outstanding | number: '1.0-0') : null" [tone]="2" />
+      <erp-stat-card label="Unfunded balance" [loading]="!o" [value]="o?.unfunded" format="money" caption="price less down payment and financing" [tone]="3" />
     </div>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search seller or reference" emptyText="No acquisitions yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number }}</span>
+          }
+          @case ('sellerName') {
+            <span class="name-cell">{{ row.sellerName }}</span>
+          }
+          @case ('purchasePrice') {
+            <span style="font-weight:600;font-variant-numeric:tabular-nums">{{ value }}</span>
+          }
+          @case ('downPayment') {
+            <span style="font-weight:600;font-variant-numeric:tabular-nums">{{ value }}</span>
+          }
+          @case ('status') {
+            <erp-status-tag [status]="row.status" />
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
-      <button toolbar *erpHasPermission="'realestate.acquisitions.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newAcquisition' | translate: 'New acquisition'" nz-tooltip [nzTooltipTitle]="'ui.add.newAcquisition' | translate: 'New acquisition'" nzType="primary" (click)="openNew()" data-testid="acq-new"><span nz-icon nzType="plus"></span>New acquisition</button>
+      <button toolbar *erpHasPermission="'realestate.acquisitions.manage'" nz-button nzType="primary" (click)="openNew()" data-testid="acq-new"><span nz-icon nzType="plus"></span>New acquisition</button>
     </erp-paged-table>
 
-    <h3 style="margin-top:24px">Funding and instalment schedules</h3>
-    <erp-table-tools [(search)]="fundingQ" (refresh)="refresh()" testId="funding">
-      <nz-select [ngModel]="fundingType()" (ngModelChange)="fundingType.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterType' | translate: 'Filter by type'" style="width:170px" data-testid="funding-type-filter">
-        @for (t of types; track t.value) { <nz-option [nzValue]="t.value" [nzLabel]="t.label"></nz-option> }
-      </nz-select>
-    </erp-table-tools>
-    <nz-table [nzData]="fundingShown()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="funding-table">
-      <thead><tr><th>Source</th><th>Lender</th><th>Principal</th><th>Rate</th><th>Monthly</th><th>Repaid</th><th>Outstanding</th><th>Next due</th></tr></thead>
-      <tbody>
-        @for (f of fundingShown(); track f.id) {
-          <tr><td>{{ humanize(f.type) }}</td><td>{{ f.lender }}</td><td>{{ f.principal | number: '1.0-0' }}</td><td>{{ f.annualRatePercent }}%</td><td>{{ f.monthlyPayment | number: '1.2-2' }}</td>
-            <td>{{ f.paid }}/{{ f.instalmentCount }}</td><td>{{ f.outstanding | number: '1.0-0' }}</td><td>{{ f.nextDue ?? '—' }}</td></tr>
-        }
-      </tbody>
-    </nz-table>
+    <div class="funding-section-card">
+      <div class="funding-card-header">
+        <div class="funding-header-title">
+          <span nz-icon nzType="schedule" style="color:var(--erp-color-primary, #10955d)"></span>
+          <span>Funding and instalment schedules</span>
+          <span class="funding-pill">{{ fundingShown().length }} facilities</span>
+        </div>
+      </div>
+      <div class="funding-card-body">
+        <erp-table-tools [(search)]="fundingQ" (refresh)="refresh()" testId="funding">
+          <nz-select [ngModel]="fundingType()" (ngModelChange)="fundingType.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterType' | translate: 'Filter by type'" style="width:170px" data-testid="funding-type-filter">
+            @for (t of types; track t.value) { <nz-option [nzValue]="t.value" [nzLabel]="t.label"></nz-option> }
+          </nz-select>
+        </erp-table-tools>
+        <nz-table [nzData]="fundingShown()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="funding-table">
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Lender</th>
+              <th nzAlign="right">Principal</th>
+              <th nzAlign="right">Rate</th>
+              <th nzAlign="right">Monthly</th>
+              <th nzAlign="center">Repaid</th>
+              <th nzAlign="right">Outstanding</th>
+              <th nzAlign="center">Next due</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of fundingShown(); track f.id) {
+              <tr>
+                <td><span class="code-pill">{{ humanize(f.type) }}</span></td>
+                <td><span class="name-cell">{{ f.lender }}</span></td>
+                <td nzAlign="right" style="font-weight:600;font-variant-numeric:tabular-nums">{{ f.principal | number: '1.0-0' }}</td>
+                <td nzAlign="right"><nz-tag nzColor="blue">{{ f.annualRatePercent }}%</nz-tag></td>
+                <td nzAlign="right" style="font-variant-numeric:tabular-nums">{{ f.monthlyPayment | number: '1.2-2' }}</td>
+                <td nzAlign="center"><nz-tag [nzColor]="f.paid >= f.instalmentCount ? 'success' : 'default'">{{ f.paid }}/{{ f.instalmentCount }}</nz-tag></td>
+                <td nzAlign="right" style="font-weight:600;color:var(--erp-color-primary,#10955d);font-variant-numeric:tabular-nums">{{ f.outstanding | number: '1.0-0' }}</td>
+                <td nzAlign="center">
+                  @if (f.nextDue) {
+                    <span>{{ f.nextDue }}</span>
+                  } @else {
+                    <span class="muted-text">—</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      </div>
+    </div>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="760" nzTitle="New property acquisition" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
@@ -101,7 +192,7 @@ import { FormsModule } from '@angular/forms';
               </div>
             }
           </div>
-          <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addFundingSource' | translate: 'Add funding source'" nz-tooltip [nzTooltipTitle]="'ui.add.addFundingSource' | translate: 'Add funding source'" type="button" (click)="addFunding()" data-testid="fund-add"><span nz-icon nzType="plus"></span>Add funding source</button>
+          <button nz-button nzType="dashed" type="button" (click)="addFunding()" data-testid="fund-add"><span nz-icon nzType="plus"></span> Add funding source</button>
           <p style="margin-top:8px">Unfunded balance: <b data-testid="acq-unfunded">{{ unfunded() | number: '1.2-2' }}</b></p>
         </form>
       </ng-container>

@@ -23,6 +23,9 @@ import { KNOWN_ICONS } from '../icons';
 import { Dir } from '@angular/cdk/bidi';
 import { I18nService } from '../core/i18n/i18n.service';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { PageTitleService } from '../core/services/page-title.service';
+import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { GlobalSearchComponent } from './global-search.component';
 import { NotificationDrawerComponent } from './notification-drawer.component';
 
@@ -34,43 +37,317 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Dir, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
-    NzDropDownModule, NzAvatarModule, NzBadgeModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent],
+    NzDropDownModule, NzAvatarModule, NzBadgeModule, NzTagModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent, BrandLogoComponent],
   styles: [`
     :host { display: block; height: 100vh; }
     nz-layout.root { height: 100vh; }
-    .sider { background: var(--erp-color-nav-bg); border-inline-end: 1px solid var(--erp-color-nav-border); overflow: auto; }
-    .brand { height: 56px; display: flex; align-items: center; gap: 8px; padding: 0 20px; font-weight: 600; font-size: 16px; color: var(--erp-color-primary); }
-    .brand-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--erp-color-primary); color: var(--erp-color-on-primary); display: grid; place-items: center; font-size: 13px; }
+    .sider {
+      background: var(--erp-color-nav-bg);
+      border-inline-end: 1px solid var(--erp-color-nav-border);
+      overflow: hidden;
+      height: 100vh;
+      transition: all 0.24s cubic-bezier(0.2, 0, 0, 1) !important;
+    }
+    .sider ::ng-deep .ant-layout-sider-children {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+    .brand {
+      height: 60px;
+      display: flex;
+      align-items: center;
+      padding: 0 15px;
+      border-bottom: 1px solid var(--erp-color-border-subtle);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .nav-scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-height: 0;
+      padding: 4px 0 24px;
+      scrollbar-width: thin;
+      scrollbar-color: transparent transparent;
+      transition: scrollbar-color 0.2s ease;
+    }
+    .nav-scroll-area:hover {
+      scrollbar-color: var(--erp-scrollbar-thumb, rgba(16, 149, 93, 0.35)) transparent;
+    }
+    .nav-scroll-area::-webkit-scrollbar {
+      width: 4px;
+    }
+    .nav-scroll-area::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .nav-scroll-area::-webkit-scrollbar-thumb {
+      background: transparent;
+      border-radius: 9999px;
+      transition: background-color 0.2s ease;
+    }
+    .nav-scroll-area:hover::-webkit-scrollbar-thumb {
+      background: var(--erp-scrollbar-thumb, rgba(16, 149, 93, 0.35));
+    }
+    .nav-scroll-area::-webkit-scrollbar-thumb:hover {
+      background: var(--erp-scrollbar-thumb-hover, rgba(16, 149, 93, 0.65)) !important;
+    }
     .header { background: var(--erp-color-bg-surface); border-bottom: 1px solid var(--erp-color-border-subtle); display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 56px; line-height: 56px; }
     .spacer { flex: 1; }
     .search { max-width: 360px; }
     .content { padding: 24px; overflow: auto; background: var(--erp-color-bg-canvas); }
-    .group-title { padding: 16px 20px 4px; font-size: 12px; color: var(--erp-color-text-tertiary); text-transform: uppercase; letter-spacing: .04em; }
+    .group-title {
+      padding: 14px 18px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--erp-color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      white-space: nowrap;
+      overflow: hidden;
+      height: 32px;
+      line-height: 20px;
+      opacity: 1;
+      transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1),
+                  height 0.24s cubic-bezier(0.2, 0, 0, 1),
+                  padding 0.24s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .group-title.collapsed {
+      height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Polished Menu Items — perfectly centered collapsed pills and soft mint active background */
+    .sider ::ng-deep {
+      .ant-menu {
+        background: transparent !important;
+        border-inline-end: none !important;
+        width: 100% !important;
+      }
+
+      /* Collapsed Menu Items: perfectly centered 44x44px pill with no left-padding offset */
+      .ant-menu-inline-collapsed {
+        width: 64px !important;
+
+        > .ant-menu-item {
+          width: 44px !important;
+          height: 44px !important;
+          line-height: 44px !important;
+          margin: 6px auto !important;
+          padding: 0 !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          padding-inline: 0 !important;
+          border-radius: 12px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          text-align: center !important;
+          transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
+
+          .ant-menu-title-content {
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+
+          .nav-item-inner {
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+
+          .nav-icon {
+            width: 44px !important;
+            height: 44px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 20px !important;
+            line-height: 1 !important;
+            flex-shrink: 0 !important;
+
+            .anticon {
+              margin: 0 !important;
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+            }
+          }
+
+          .nav-label {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            pointer-events: none !important;
+          }
+
+          &::after {
+            display: none !important;
+          }
+
+          &:not(.ant-menu-item-selected):hover {
+            background: rgba(16, 149, 93, 0.08) !important;
+            color: #10955d !important;
+
+            .nav-icon {
+              color: #10955d !important;
+              transform: scale(1.1);
+            }
+          }
+
+          &.ant-menu-item-selected {
+            background: #e6f7ef !important;
+            color: #10955d !important;
+            border: 1px solid rgba(16, 149, 93, 0.25) !important;
+
+            .nav-icon {
+              color: #10955d !important;
+            }
+          }
+        }
+      }
+
+      /* Expanded Menu Items: comfortable rounded row */
+      .ant-menu-inline:not(.ant-menu-inline-collapsed) {
+        > .ant-menu-item {
+          height: 42px !important;
+          line-height: 42px !important;
+          margin: 3px 10px !important;
+          padding: 0 12px !important;
+          padding-left: 12px !important;
+          width: calc(100% - 20px) !important;
+          border-radius: 9px !important;
+          display: flex !important;
+          align-items: center !important;
+          transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
+
+          .ant-menu-title-content {
+            width: 100% !important;
+            height: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+          }
+
+          .nav-item-inner {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            width: 100% !important;
+          }
+
+          .nav-icon {
+            width: 20px !important;
+            min-width: 20px !important;
+            height: 20px !important;
+            font-size: 17px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+
+          .nav-label {
+            display: inline-block !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            font-size: 14px !important;
+            opacity: 1 !important;
+            max-width: 170px !important;
+          }
+
+          &::after {
+            display: none !important;
+          }
+
+          &:not(.ant-menu-item-selected):hover {
+            background: rgba(16, 149, 93, 0.08) !important;
+            color: #10955d !important;
+
+            .nav-icon {
+              color: #10955d !important;
+            }
+          }
+
+          &.ant-menu-item-selected {
+            background: #e6f7ef !important;
+            color: #10955d !important;
+            border: 1px solid rgba(16, 149, 93, 0.25) !important;
+            font-weight: 600 !important;
+
+            .nav-icon {
+              color: #10955d !important;
+            }
+
+            .nav-label {
+              color: #10955d !important;
+            }
+          }
+        }
+      }
+    }
   `],
   template: `
     <nz-layout class="root" [dir]="i18n.dir()">
       <nz-sider class="sider" nzCollapsible [nzCollapsed]="collapsed()" [nzTrigger]="null" nzWidth="248px" [nzCollapsedWidth]="64" nzTheme="light" data-testid="sidebar">
-        <div class="brand"><span class="brand-mark">E</span>@if (!collapsed()) { <span>{{ workspaceName() }}</span> }</div>
-        @for (g of menu(); track g.id) {
-          @if (!collapsed()) { <div class="group-title">{{ i18n.t('menu.group.' + g.id, g.label) }}</div> }
-          <ul nz-menu nzMode="inline" [nzInlineCollapsed]="collapsed()">
-            @for (i of g.items; track i.id) {
-              <li nz-menu-item nz-tooltip [nzTooltipTitle]="collapsed() ? i.label : null" nzTooltipPlacement="right"
-                  [routerLink]="linkPath(i.route)" [queryParams]="linkQuery(i.route)" routerLinkActive="ant-menu-item-selected" [routerLinkActiveOptions]="{ exact: i.route === '/' }"
-                  [attr.data-testid]="'nav-' + i.id">
-                <span nz-icon [nzType]="icon(i.icon)"></span><span>{{ i18n.t('menu.' + i.id, i.label) }}</span>
-              </li>
-            }
-          </ul>
-        }
+        <div class="brand" data-testid="sidebar-brand">
+          <erp-brand-logo [collapsed]="collapsed()" [subtitle]="workspaceName()"></erp-brand-logo>
+        </div>
+        <div class="nav-scroll-area">
+          @for (g of menu(); track g.id) {
+            <div class="group-title" [class.collapsed]="collapsed()">{{ i18n.t('menu.group.' + g.id, g.label) }}</div>
+            <ul nz-menu nzMode="inline" [nzInlineCollapsed]="collapsed()" [nzInlineIndent]="collapsed() ? 0 : 16">
+              @for (i of g.items; track i.id) {
+                <li nz-menu-item nz-tooltip [nzTooltipTitle]="collapsed() ? i.label : null" nzTooltipPlacement="right"
+                    [routerLink]="linkPath(i.route)" [queryParams]="linkQuery(i.route)" routerLinkActive="ant-menu-item-selected" [routerLinkActiveOptions]="{ exact: i.route === '/' }"
+                    [attr.data-testid]="'nav-' + i.id">
+                  <div class="nav-item-inner">
+                    <span nz-icon [nzType]="icon(i.icon)" class="nav-icon"></span>
+                    <span class="nav-label" [class.collapsed]="collapsed()">{{ i18n.t('menu.' + i.id, i.label) }}</span>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </div>
       </nz-sider>
       <nz-layout>
         <nz-header class="header">
           <button nz-button nzType="text" (click)="collapsed.set(!collapsed())" aria-label="Toggle navigation" data-testid="nav-toggle">
             <span nz-icon [nzType]="collapsed() ? 'menu-unfold' : 'menu-fold'"></span>
           </button>
-          <erp-global-search />
+          <div class="topbar-divider"></div>
+          <div class="topbar-title-wrap" data-testid="topbar-title-wrap">
+            @if (pageTitle.module(); as mod) {
+              <span class="topbar-module-badge">{{ mod }}</span>
+              <span class="topbar-breadcrumb-slash">/</span>
+            }
+            <h1 class="topbar-title" data-testid="topbar-title">{{ pageTitle.title() }}</h1>
+            @if (pageTitle.badge(); as b) {
+              <nz-tag [nzColor]="b.color ?? 'default'" class="topbar-badge">{{ b.text }}</nz-tag>
+            }
+            @if (pageTitle.subtitle(); as sub) {
+              <span class="topbar-subtitle" nz-tooltip [nzTooltipTitle]="sub">{{ sub }}</span>
+            }
+          </div>
           <span class="spacer"></span>
+          <erp-global-search />
           @if (session.me(); as me) {
             @if (me.legalEntities.length > 1 || me.allLegalEntities) {
               <nz-select style="width: 220px" [ngModel]="session.currentEntityId()" (ngModelChange)="selectEntity($event)" data-testid="entity-switcher">
@@ -112,6 +389,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     </nz-layout>`,
 })
 export class ShellComponent {
+  readonly pageTitle = inject(PageTitleService);
   readonly session = inject(SessionStore);
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);

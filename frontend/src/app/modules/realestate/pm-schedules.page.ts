@@ -22,8 +22,15 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
   template: `
     <h1 class="erp-page-title">Preventive maintenance</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search schedules" emptyText="No schedules yet" (rowClick)="state.edit($event)">
-      <button toolbar *erpHasPermission="'realestate.pm.manage'" nz-button (click)="run()" data-testid="pm-run">Run now</button>
-      <button toolbar *erpHasPermission="'realestate.pm.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newSchedule' | translate: 'New schedule'" nz-tooltip [nzTooltipTitle]="'ui.add.newSchedule' | translate: 'New schedule'" nzType="primary" (click)="state.create()" data-testid="pm-new"><span nz-icon nzType="plus"></span>New schedule</button>
+      <button toolbar *erpHasPermission="'realestate.pm.manage'" nz-button (click)="run()" data-testid="pm-run"><span nz-icon nzType="thunderbolt"></span> Run now</button>
+      <button toolbar *erpHasPermission="'realestate.pm.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="pm-new"><span nz-icon nzType="plus"></span> New schedule</button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @if (column.key === 'title') {
+          <span class="name-cell">{{ row.title }}</span>
+        } @else {
+          {{ value }}
+        }
+      </ng-template>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit schedule' : 'New schedule'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
                        [saving]="state.saving()" [errors]="state.errors()" testId="pm-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,

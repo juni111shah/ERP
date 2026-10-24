@@ -22,11 +22,13 @@ import { LookupOption } from '../../core/custom-fields/lookup-registry';
 import { asProblem, controlError, problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { DecimalPipe } from '@angular/common';
 import { PartiesApi } from '../parties.page';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { StatCardComponent } from '../../shared/stat-card.component';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
 const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pendingApproval: 'Needs approval', issued: 'Posted' };
@@ -36,15 +38,71 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
   selector: 'erp-bills',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
+  imports: [DecimalPipe, StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.line { display:grid; grid-template-columns: 2fr 1.6fr .7fr .9fr 1.1fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 }`],
   template: `
     <h1 class="erp-page-title">Bills</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="bill-stats">
+      <erp-stat-card label="Total billed"
+                     [value]="stats().billed"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
+                     [tone]="0" />
+      <erp-stat-card label="Outstanding"
+                     [value]="stats().outstanding"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().outstanding > 0 ? 'payable balance' : 'all settled'"
+                     [tone]="stats().outstanding > 0 ? 2 : 'neutral'" />
+      <erp-stat-card label="Draft bills"
+                     [value]="stats().drafts"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="pending submission"
+                     [tone]="3" />
+      <erp-stat-card label="Bills count"
+                     [value]="list.total()"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="total records"
+                     [tone]="1" />
+    </div>
+
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, vendor or reference" emptyText="No bills yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number || 'Draft' }}</span>
+          }
+          @case ('partyName') {
+            <span class="name-cell">{{ row.partyName }}</span>
+          }
+          @case ('vendorReference') {
+            @if (row.vendorReference) {
+              <span class="code-pill">{{ row.vendorReference }}</span>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @case ('total') {
+            <b>AED {{ row.total | number: '1.2-2' }}</b>
+          }
+          @case ('outstanding') {
+            <span [class.unallocated-badge]="row.outstanding > 0">
+              AED {{ row.outstanding | number: '1.2-2' }}
+            </span>
+          }
+          @case ('status') {
+            <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
-      <button toolbar *erpHasPermission="'finance.bills.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newBill' | translate: 'New bill'" nz-tooltip [nzTooltipTitle]="'ui.add.newBill' | translate: 'New bill'" nzType="primary" (click)="open(null)" data-testid="bill-new"><span nz-icon nzType="plus"></span>New bill</button>
+      <button toolbar *erpHasPermission="'finance.bills.write'" nz-button nzType="primary" (click)="open(null)" data-testid="bill-new"><span nz-icon nzType="plus"></span>New bill</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="940" [nzTitle]="bill() ? 'Bill ' + bill()!.number : 'New bill'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
@@ -70,7 +128,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
               </div>
             }
           </div>
-          @if (editable()) { <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addLine' | translate: 'Add line'" nz-tooltip [nzTooltipTitle]="'ui.add.addLine' | translate: 'Add line'" type="button" (click)="addLine()" data-testid="bill-add-line"><span nz-icon nzType="plus"></span>Add line</button> }
+          @if (editable()) { <button nz-button nzType="dashed" type="button" (click)="addLine()" data-testid="bill-add-line"><span nz-icon nzType="plus"></span> Add line</button> }
           <div class="totals"><span>Net <b>{{ totals().net.toFixed(2) }}</b></span><span>Tax <b>{{ totals().tax.toFixed(2) }}</b></span><span>Total <b>{{ (totals().net + totals().tax).toFixed(2) }}</b></span></div>
         </form>
       </ng-container>
@@ -102,6 +160,19 @@ export class BillsPage {
   readonly taxes = computed(() => this.taxPage().items.filter((t) => t.isActive));
   readonly accounts = computed(() => this.accountPage().items.filter((a) => a.isPostable && a.isActive && (a.type === 'expense' || a.type === 'asset')));
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-billDate' });
+
+  readonly stats = computed(() => {
+    const items = this.list.items();
+    const billed = items.reduce((s, b) => s + (b.total || 0), 0);
+    const outstanding = items.reduce((s, b) => s + (b.outstanding || 0), 0);
+    const drafts = items.filter((b) => b.status === 'draft').length;
+    return {
+      billed,
+      outstanding,
+      drafts,
+      count: items.length,
+    };
+  });
   readonly columns: TableColumn<BillSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
     { key: 'partyName', label: 'Vendor' },

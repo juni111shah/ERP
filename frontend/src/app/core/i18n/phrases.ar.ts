@@ -907,6 +907,57 @@ const PAIRS: [string, string][] = [
   ['Draft renewals', 'تجديدات مسودة'], ['item / warehouse', 'صنف / مستودع'], ['Balance Due', 'الرصيد المستحق'], ['Days Overdue', 'أيام التأخير'],
   ['Group by customer', 'تجميع حسب العميل'], ['Group by business unit', 'تجميع حسب وحدة العمل'], ['Group by source', 'تجميع حسب المصدر'], ['All business units', 'كل وحدات العمل'], ['Source type (optional)', 'نوع المصدر (اختياري)'],
   ['Business unit', 'وحدة العمل'], ['Source', 'المصدر'], ['Direct invoices', 'فواتير مباشرة'], ['No business unit', 'بدون وحدة عمل'],
+  // Sales module
+  ['Sales', 'المبيعات'], ['Quotes', 'عروض الأسعار'], ['Sales orders', 'أوامر البيع'], ['Sales analytics', 'تحليلات المبيعات'],
+  ['Sales Quotes', 'عروض أسعار المبيعات'], ['Sales Orders', 'أوامر البيع'], ['New Quote', 'عرض سعر جديد'], ['New Sales Order', 'أمر بيع جديد'],
+  ['Convert to Sales Order', 'تحويل إلى أمر بيع'], ['Generate Invoice', 'إصدار فاتورة'], ['Record Delivery', 'تسجيل التسليم'],
+  // Purchasing module
+  ['Purchasing', 'المشتريات'], ['Purchase Orders', 'أوامر الشراء'], ['Purchase Requisitions', 'طلبات الشراء'], ['Goods Receipts', 'سندات استلام البضائع'],
+  ['Purchasing Analytics', 'تحليلات المشتريات'], ['New Purchase Order', 'أمر شراء جديد'], ['New Requisition', 'طلب شراء جديد'], ['Receive Goods', 'استلام بضائع'],
+  ['Convert to Vendor Bill', 'تحويل إلى فاتورة مورّد'], ['Convert to Order', 'تحويل إلى أمر شراء'], ['Submit for Approval', 'تقديم للموافقة'],
+  // Point of Sale module
+  ['Point of sale', 'نقاط البيع'], ['Point of Sale', 'نقاط البيع'], ['POS Terminal', 'نقطة البيع'], ['Shifts & Drawers', 'الورديات والخزائن'],
+  ['Shifts & Cash Drawers', 'الورديات وصناديق النقد'], ['Counter Orders', 'أوامر الكاونتر'], ['Counter Sales Orders', 'مبيعات الكاونتر'],
+  ['Registers', 'صناديق البيع'], ['POS Analytics', 'تحليلات نقاط البيع'], ['Open Shift', 'فتح وردية'], ['Close Shift', 'إغلاق الوردية'],
+  ['Float In', 'إيداع عهدة'], ['Safe Drop', 'توريد للخزنة'], ['Cash Pay-In', 'قبض نقدي'], ['Cash Pay-Out', 'صرف نقدي'],
+  // Retail module
+  ['Retail', 'التجزئة والمتاجر'], ['Retail Stores', 'متاجر التجزئة'], ['Retail Price Lists', 'قوائم أسعار التجزئة'],
+  ['Retail Promotions & Vouchers', 'العروض وقسائم التخفيض'], ['Retail & Merchandising Analytics', 'تحليلات التجزئة والتسويق'],
+  ['Add Store', 'إضافة متجر'], ['Create Price List', 'إنشاء قائمة أسعار'], ['Create Promotion', 'إنشاء عرض ترويجي'],
+  ['Test Promo Code', 'فحص كود الخصم'], ['Store Network', 'شبكة المتاجر'], ['Active Price Lists', 'قوائم الأسعار النشطة'],
+  ['Live Campaigns', 'الحملات الترويجية المباشرة'], ['Total Redemptions', 'إجمالي الخصومات المستفادة'],
+  // Distribution module
+  ['Distribution', 'التوزيع والنقل'], ['Routes', 'مسارات التوزيع'], ['Delivery & Distribution Routes', 'مسارات التوزيع والتوصيل'],
+  ['Van sales', 'مبيعات سيارات التوزيع'], ['Van Sales & Mobile Dispatch Trips', 'رحلات ومبيعات سيارات التوزيع'],
+  ['Wholesale pricing', 'أسعار الجملة'], ['Wholesale Pricing & Volume Tiers', 'أسعار الجملة وشرائح الكميات'],
+  ['Distribution analytics', 'تحليلات التوزيع'], ['Distribution Fleet & Wholesale Analytics', 'تحليلات أسطول التوزيع والجملة'],
+  ['Add Route', 'إضافة مسار'], ['Dispatch Van Trip', 'إطلاق رحلة توزيع'], ['Add Pricing Tier', 'إضافة شريحة تسعير'],
+  ['Calculate Wholesale Rate', 'حساب سعر الجملة'], ['Reconcile', 'تسوية الجولة'], ['View Stops', 'عرض نقاط التوقف'],
+  // Manufacturing module
+  ['Manufacturing', 'التصنيع والإنتاج'], ['Bills of materials', 'قوائم المواد (الوصفات)'], ['Bills of Materials (BOM)', 'قوائم المواد والوصفات التصنيعية'],
+  ['Work orders', 'أوامر العمل والتشغيل'], ['Manufacturing Work Orders', 'أوامر تصنيع الورشة والإنتاج'],
+  ['Product costing', 'تكاليف المنتجات'], ['Product Costing & Variance Analysis', 'تكاليف المنتجات وتحليل الفروقات'],
+  ['Manufacturing analytics', 'تحليلات التصنيع'], ['Manufacturing & Shop-Floor Analytics', 'تحليلات التصنيع والإنتاجية'],
+  ['Add BOM Recipe', 'إضافة وصفة تصنيع'], ['New Work Order', 'أمر تشغيل جديد'], ['Rollup Cost', 'حساب تجميع التكلفة'],
+  ['Release', 'إطلاق للتنفيذ'], ['Complete', 'إتمام الإنتاج'], ['Good Finished Units', 'الوحدات السليمة المنتجة'],
+  ['Scrapped Units', 'الوحدات التالفة'], ['Actual Total Production Cost ($)', 'التكلفة الإجمالية الفعلية للإنتاج ($)'],
+  // CRM module
+  ['CRM', 'إدارة علاقات العملاء (CRM)'], ['Leads & contacts', 'العملاء المحتملون والتواصل'], ['CRM Leads & Prospects', 'العملاء المحتملون وجهات الاتصال'],
+  ['Sales pipeline', 'خط مبيعات الصفقات'], ['Sales Pipeline & Deals', 'خط المبيعات وتتبع الصفقات'],
+  ['Activity logs', 'سجل الأنشطة والاتصالات'], ['Customer Activity & Touchpoint Logs', 'سجل تفاعلات وأنشطة العملاء'],
+  ['CRM analytics', 'تحليلات إدارة علاقات العملاء'], ['CRM & Sales Pipeline Analytics', 'تحليلات المبيعات ونسبة الفوز'],
+  ['Add New Lead', 'إضافة عميل محتمل'], ['Convert to Deal', 'تحويل إلى صفقة بيع'], ['New Opportunity', 'فرصة بيع جديدة'],
+  ['Log Activity', 'تسجيل نشاط'], ['Advance', 'ترقية المرحلة'], ['Close Deal', 'إغلاق الصفقة'],
+  // Professional Services module
+  ['Services', 'الخدمات المهنية والاستشارات'], ['Professional services', 'الخدمات المهنية والاستشارية'],
+  ['Engagements', 'العقود والمشاريع الاستشارية'], ['Client Engagements & Contracts', 'مشاريع وعقود العملاء'],
+  ['Retainers', 'عقود الاستبقاء (الريتينر)'], ['Retainer Agreements & Subscriptions', 'عقود الاستبقاء والاشتراكات الدورية'],
+  ['Milestone billing', 'فوترة مراحل التسليم'], ['Milestone Deliverables & Billing', 'مراحل ومخرجات التسليم والفوترة'],
+  ['Services analytics', 'تحليلات الخدمات المهنية'], ['Professional Services Analytics', 'تحليلات الخدمات ومعدل الاستغلال'],
+  ['New Engagement', 'مشروع استشاري جديد'], ['New Retainer Contract', 'عقد استبقاء جديد'], ['Add Milestone', 'إضافة مرحلة تسليم'],
+  ['Active Engagements', 'المشاريع الاستشارية النشطة'], ['Retainer MRR', 'الإيراد الشهري المتكرر للاستبقاء'],
+  ['Ready to Invoice', 'جاهز للفوترة'], ['Total Contract Value', 'إجمالي قيمة العقود'],
+  ['Billable Ratio', 'نسبة الساعات القابلة للفوترة'], ['Total Logged Time', 'إجمالي ساعات العمل المسجلة'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

@@ -6,17 +6,18 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { AuthService } from '../core/auth/auth.service';
+import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { AUTH_STYLES } from './auth-layout';
 
 @Component({
   selector: 'erp-forgot-password',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule],
+  imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule, BrandLogoComponent],
   styles: [AUTH_STYLES],
   template: `
     <div class="card">
-      <div class="brand"><span class="brand-mark">E</span> ERP</div>
+      <div class="brand"><erp-brand-logo size="lg"></erp-brand-logo></div>
       <h1>Reset your password</h1>
       @if (sent()) {
         <nz-alert nzType="success" nzShowIcon data-testid="forgot-sent"
