@@ -51,27 +51,18 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>Retail Promotions & Vouchers</h2>
-          <p class="text-secondary">Create percentage markdowns, flat discount vouchers, and simulate promotional codes</p>
-        </div>
-        <div class="header-actions">
-          <button nz-button nzType="default" (click)="openSimulatorModal()">
-            <span nz-icon nzType="thunderbolt"></span> Test Promo Code
-          </button>
-          <button nz-button nzType="primary" (click)="openCreateModal()">
-            <span nz-icon nzType="plus"></span> Create Promotion
-          </button>
-        </div>
+    <erp-paged-table
+      #table
+      [list]="list"
+      [columns]="columns">
+      <div toolbar style="display: flex; align-items: center; gap: 8px;">
+        <button nz-button nzType="default" (click)="openSimulatorModal()">
+          <span nz-icon nzType="thunderbolt"></span> Test Promo Code
+        </button>
+        <button nz-button nzType="primary" (click)="openCreateModal()">
+          <span nz-icon nzType="plus"></span> Create Promotion
+        </button>
       </div>
-
-      <nz-card [nzBordered]="false">
-        <erp-paged-table
-          #table
-          [list]="list"
-          [columns]="columns">
           <ng-template #cell let-row let-column="column">
             <ng-container [ngSwitch]="column.key">
               <span *ngSwitchCase="'code'" class="mono-code promo-badge">{{ row.code }}</span>
@@ -114,7 +105,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </ng-container>
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Create Promotion Modal -->
       <nz-modal
@@ -269,27 +259,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </div>
         </ng-container>
       </nz-modal>
-    </div>
   `,
   styles: [`
-    .page-container {
-      padding: 24px;
-    }
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-    .page-header h2 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 600;
-    }
-    .header-actions {
-      display: flex;
-      gap: 12px;
-    }
     .text-secondary {
       color: #8c8c8c;
       margin: 4px 0 0;

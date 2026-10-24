@@ -18,298 +18,168 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
   selector: 'erp-login',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzCheckboxModule, NzAlertModule, NzIconModule, BrandLogoComponent],
+  imports: [
+    TranslatePipe,
+    ReactiveFormsModule,
+    RouterLink,
+    NzFormModule,
+    NzInputModule,
+    NzButtonModule,
+    NzCheckboxModule,
+    NzAlertModule,
+    NzIconModule,
+    BrandLogoComponent
+  ],
   styles: [`
     :host {
       display: block;
-      min-height: 100vh;
+      height: 100vh;
+      max-height: 100vh;
       width: 100%;
-      background: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    }
-
-    .login-container {
-      display: grid;
-      grid-template-columns: 1.15fr 1fr;
-      min-height: 100vh;
-      width: 100%;
-    }
-
-    /* Left Hero / Brand Showcase Panel */
-    .hero-panel {
-      position: relative;
-      background: linear-gradient(145deg, #051610 0%, #0a241b 50%, #0e3024 100%);
-      color: #ffffff;
-      padding: 56px 64px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
       overflow: hidden;
-      border-right: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .ambient-glow-1 {
-      position: absolute;
-      top: -15%;
-      left: -10%;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(16, 149, 93, 0.28) 0%, rgba(16, 149, 93, 0) 70%);
-      filter: blur(50px);
-      pointer-events: none;
-    }
-
-    .ambient-glow-2 {
-      position: absolute;
-      bottom: -10%;
-      right: -10%;
-      width: 550px;
-      height: 550px;
-      background: radial-gradient(circle, rgba(52, 211, 153, 0.16) 0%, rgba(16, 149, 93, 0) 70%);
-      filter: blur(60px);
-      pointer-events: none;
-    }
-
-    .grid-overlay {
-      position: absolute;
-      inset: 0;
-      background-image: 
-        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-      background-size: 36px 36px;
-      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 30%, transparent 80%);
-      pointer-events: none;
-    }
-
-    .hero-inner {
-      position: relative;
-      z-index: 2;
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      justify-content: space-between;
-    }
-
-    .hero-brand-wrap {
-      display: inline-flex;
-    }
-
-    .status-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 14px;
-      border-radius: 9999px;
-      background: rgba(16, 149, 93, 0.2);
-      border: 1px solid rgba(16, 149, 93, 0.4);
-      color: #6ee7b7;
-      font-size: 12.5px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      margin-bottom: 24px;
-      backdrop-filter: blur(8px);
-      width: fit-content;
-    }
-
-    .pulse-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #10b981;
-      box-shadow: 0 0 10px #10b981;
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-      70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
-      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-    }
-
-    .hero-heading {
-      font-size: 38px;
-      font-weight: 800;
-      line-height: 1.18;
-      letter-spacing: -0.03em;
-      color: #ffffff;
-      margin: 0 0 18px 0;
-      max-width: 540px;
-    }
-
-    .hero-heading .gradient-text {
-      background: linear-gradient(135deg, #a7f3d0 0%, #34d399 50%, #10b981 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero-sub {
-      font-size: 15.5px;
-      line-height: 1.6;
-      color: #94a3b8;
-      max-width: 490px;
-      margin: 0 0 36px 0;
-    }
-
-    /* Floating Glass Telemetry Card */
-    .glass-card {
-      background: rgba(15, 39, 31, 0.65);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 16px;
-      padding: 22px 24px;
-      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.45);
-      margin-bottom: 32px;
-      max-width: 520px;
-    }
-
-    .glass-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      padding-bottom: 12px;
-      margin-bottom: 16px;
-    }
-
-    .glass-title-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #e2e8f0;
-    }
-
-    .glass-live {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11.5px;
-      color: #34d399;
-      font-weight: 600;
-      background: rgba(16, 149, 93, 0.25);
-      padding: 2px 8px;
-      border-radius: 9999px;
-    }
-
-    .metrics-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 16px;
-    }
-
-    .metric-col {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .metric-kpi {
-      font-size: 18px;
-      font-weight: 700;
-      color: #ffffff;
-      margin: 2px 0;
-    }
-
-    .metric-lbl {
-      font-size: 11.5px;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .metric-status {
-      font-size: 11.5px;
-      color: #34d399;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-top: 2px;
-    }
-
-    .hero-bottom-text {
-      font-size: 12px;
-      color: #64748b;
-      letter-spacing: 0.02em;
-    }
-
-    /* Right Auth Form Panel */
-    .auth-panel {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 32px;
-      background: #f8fafc;
-      overflow-y: auto;
-    }
-
-    .auth-card {
-      width: 100%;
-      max-width: 440px;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 16px;
-      padding: 38px 40px;
-      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
-      transition: all 0.2s ease;
-    }
-
-    .mobile-logo {
-      display: none;
-      margin-bottom: 24px;
-      justify-content: center;
-    }
-
-    .auth-header {
-      margin-bottom: 28px;
-    }
-
-    .auth-title {
-      font-size: 24px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 40%, #e6f7ef 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #0f172a;
+    }
+
+    .login-root {
+      display: grid;
+      grid-template-columns: 400px minmax(560px, 1fr);
+      justify-content: center;
+      align-items: center;
+      gap: 48px;
+      max-width: 1400px;
+      margin: 0 auto;
+      height: 100vh;
+      max-height: 100vh;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+      padding: 0 48px;
+    }
+
+    /* Left Side: Authentication Panel */
+    .login-left-pane {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 0 20px 0;
+      background: transparent;
+      position: relative;
+      z-index: 10;
+      height: 100vh;
+      box-sizing: border-box;
+      overflow-y: auto;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .brand-top {
+      display: inline-flex;
+      align-items: center;
+      margin-bottom: 22px;
+      flex-shrink: 0;
+      transform: scale(1.1);
+      transform-origin: left center;
+    }
+
+    .login-main-content {
+      width: 100%;
+      max-width: 410px;
+      margin: auto 0;
+      padding: 6px 0;
+    }
+
+    .login-heading-group {
+      margin-bottom: 22px;
+    }
+
+    .login-title {
+      font-size: 36px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.025em;
+      line-height: 1.15;
       margin: 0 0 6px 0;
     }
 
-    .auth-desc {
+    .login-subtitle {
       font-size: 14px;
       color: #64748b;
       margin: 0;
-      line-height: 1.5;
+      line-height: 1.45;
     }
 
     .auth-alert {
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       border-radius: 8px;
     }
 
-    /* Form Fields */
-    .auth-form nz-form-item {
-      margin-bottom: 20px;
+    .auth-form {
+      display: flex;
+      flex-direction: column;
     }
 
-    .auth-form nz-form-label {
+    .form-item {
+      margin-bottom: 16px;
+    }
+
+    .form-item ::ng-deep .ant-form-item-label > label {
       font-size: 13px;
       font-weight: 600;
       color: #334155;
-      padding-bottom: 4px;
+      height: auto;
+      margin-bottom: 4px;
     }
 
-    .auth-input-group {
-      border-radius: 8px;
+    .custom-input-group {
+      border: 1.5px solid rgba(16, 149, 93, 0.2);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 2px 6px rgba(16, 149, 93, 0.04);
+      transition: all 0.2s ease;
       overflow: hidden;
-      transition: all 0.2s;
     }
 
-    .auth-input-group input {
+    .custom-input-group:hover {
+      border-color: #10955d;
+      background: #ffffff;
+      box-shadow: 0 4px 12px rgba(16, 149, 93, 0.08);
+    }
+
+    .custom-input-group:focus-within {
+      border-color: #10955d;
+      background: #ffffff;
+      box-shadow: 0 0 0 3.5px rgba(16, 149, 93, 0.14);
+    }
+
+    .custom-input-group input {
       height: 42px;
-      font-size: 14px;
+      font-size: 14.5px;
+      border: none;
+      background: transparent;
+      box-shadow: none !important;
+      color: #0f172a;
+    }
+
+    .custom-input-group input::placeholder {
+      color: #94a3b8;
+    }
+
+    .custom-input-group input:-webkit-autofill,
+    .custom-input-group input:-webkit-autofill:hover,
+    .custom-input-group input:-webkit-autofill:focus {
+      -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+      -webkit-text-fill-color: #0f172a !important;
     }
 
     .field-icon {
       color: #94a3b8;
       font-size: 16px;
-      margin-right: 4px;
+      margin-right: 6px;
+      margin-left: 4px;
     }
 
     .eye-btn {
@@ -317,9 +187,10 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       border: none;
       cursor: pointer;
       color: #64748b;
-      padding: 4px;
+      padding: 6px;
       display: flex;
       align-items: center;
+      justify-content: center;
       transition: color 0.15s;
     }
 
@@ -331,8 +202,18 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin: 8px 0 24px 0;
+      margin: 4px 0 22px 0;
       font-size: 13px;
+    }
+
+    .aux-row ::ng-deep .ant-checkbox-wrapper {
+      color: #475569;
+      font-size: 13px;
+    }
+
+    .aux-row ::ng-deep .ant-checkbox-checked .ant-checkbox-inner {
+      background-color: #10955d;
+      border-color: #10955d;
     }
 
     .forgot-anchor {
@@ -343,50 +224,62 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
     }
 
     .forgot-anchor:hover {
-      color: #0c7648;
+      color: #0d7b4c;
       text-decoration: underline;
     }
 
-    .sign-in-btn {
-      height: 44px;
-      font-size: 15px;
-      font-weight: 600;
+    .submit-row {
+      margin-top: 2px;
+    }
+
+    .login-btn {
+      height: 46px;
+      min-width: 160px;
+      padding: 0 32px;
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
       border-radius: 8px;
-      background: #10955d;
-      border-color: #10955d;
-      box-shadow: 0 4px 12px rgba(16, 149, 93, 0.28);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      background: linear-gradient(135deg, #10955d 0%, #0d7b4c 100%);
+      border: none;
+      color: #ffffff;
+      box-shadow: 0 10px 20px -5px rgba(16, 149, 93, 0.42);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
     }
 
-    .sign-in-btn:hover:not(:disabled) {
-      background: #0d7c4d;
-      border-color: #0d7c4d;
-      box-shadow: 0 6px 16px rgba(16, 149, 93, 0.36);
-      transform: translateY(-1px);
+    .login-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #0d7b4c 0%, #0a623d 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 14px 26px -4px rgba(16, 149, 93, 0.52);
     }
 
+    .brand-footer-note {
+      font-size: 11.5px;
+      color: #94a3b8;
+      letter-spacing: 0.02em;
+      padding-top: 14px;
+      flex-shrink: 0;
+    }
 
-    /* Workspace Picker Container */
+    /* Multi-Workspace Picker */
     .ws-header {
-      text-align: center;
-      margin-bottom: 24px;
+      text-align: left;
+      margin-bottom: 20px;
     }
 
     .ws-icon-circle {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
       background: #e6f7ef;
       color: #10955d;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
-      margin: 0 auto 16px auto;
+      font-size: 20px;
+      margin-bottom: 12px;
     }
 
     .ws-list {
@@ -399,9 +292,10 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
     .ws-card-btn {
       display: flex;
       align-items: center;
-      padding: 14px 16px;
-      background: #ffffff;
-      border: 1.5px solid #e2e8f0;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(8px);
+      border: 1.5px solid rgba(16, 149, 93, 0.16);
       border-radius: 10px;
       cursor: pointer;
       text-align: left;
@@ -411,19 +305,19 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
 
     .ws-card-btn:hover:not(:disabled) {
       border-color: #10955d;
-      background: #f0fdf4;
+      background: #ffffff;
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(16, 149, 93, 0.1);
+      box-shadow: 0 6px 16px rgba(16, 149, 93, 0.12);
     }
 
     .ws-avatar {
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       border-radius: 8px;
       background: #10955d;
       color: #ffffff;
       font-weight: 700;
-      font-size: 15px;
+      font-size: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -446,113 +340,295 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
     }
 
     .ws-sub {
-      font-size: 12px;
+      font-size: 11.5px;
       color: #64748b;
-      margin-top: 2px;
+      margin-top: 1px;
     }
 
     .ws-caret {
       color: #94a3b8;
-      font-size: 14px;
+      font-size: 13px;
     }
 
+    /* Unified Ambient Background Lighting (Across entire page) */
+    .organic-blob-1 {
+      position: absolute;
+      top: -12%;
+      right: -8%;
+      width: 750px;
+      height: 750px;
+      border-radius: 46% 54% 65% 35% / 40% 45% 55% 60%;
+      background: radial-gradient(circle, rgba(16, 149, 93, 0.13) 0%, rgba(52, 188, 134, 0.04) 50%, transparent 75%);
+      filter: blur(55px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .organic-blob-2 {
+      position: absolute;
+      bottom: -15%;
+      left: 28%;
+      width: 650px;
+      height: 650px;
+      border-radius: 58% 42% 48% 52% / 55% 60% 40% 45%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.11) 0%, rgba(16, 149, 93, 0.02) 55%, transparent 75%);
+      filter: blur(50px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .organic-blob-3 {
+      position: absolute;
+      top: -10%;
+      left: -8%;
+      width: 480px;
+      height: 480px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 149, 93, 0.09) 0%, rgba(52, 188, 134, 0.02) 50%, transparent 70%);
+      filter: blur(45px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .floating-orb {
+      position: absolute;
+      top: 9%;
+      right: 5%;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #34bc86, #10955d);
+      box-shadow: 0 4px 14px rgba(16, 149, 93, 0.4);
+      animation: floatOrb 5s ease-in-out infinite alternate;
+      z-index: 1;
+    }
+
+    /* Right Side: Seamless Story & Illustration */
+    .login-right-pane {
+      position: relative;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 24px 0 20px 0;
+      height: 100vh;
+      box-sizing: border-box;
+      overflow: visible;
+      z-index: 10;
+      min-width: 0;
+      width: 100%;
+    }
+
+    /* TOP STORY CARD (Above Illustration) */
+    .top-story-card {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 100%;
+      margin-top: 0;
+      text-align: left;
+    }
+
+    .shimmer-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 13px;
+      border-radius: 9999px;
+      background: linear-gradient(90deg, rgba(16, 149, 93, 0.1) 0%, rgba(52, 211, 153, 0.28) 50%, rgba(16, 149, 93, 0.1) 100%);
+      background-size: 200% 100%;
+      border: 1px solid rgba(16, 149, 93, 0.3);
+      color: #0d7b4c;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      animation: badgeShimmer 4s infinite linear;
+      box-shadow: 0 2px 8px rgba(16, 149, 93, 0.08);
+      white-space: nowrap;
+    }
+
+    .chip-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10955d;
+      box-shadow: 0 0 8px #10955d;
+      animation: pulseDot 2s infinite ease-in-out;
+    }
+
+    .shimmer-headline {
+      font-size: clamp(14px, 1.25vw, 18px);
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin: 0 0 4px 0;
+      background: linear-gradient(135deg, #0f172a 0%, #10955d 40%, #047857 75%, #0f172a 100%);
+      background-size: 250% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: headlineShimmer 6s ease-in-out infinite alternate;
+      white-space: nowrap !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+
+    .top-subtext {
+      font-size: 12.5px;
+      color: #475569;
+      line-height: 1.35;
+      margin: 0;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* CENTER ILLUSTRATION (Fully visible, not clipped) */
+    .illustration-wrapper {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+      padding: 0;
+      overflow: visible;
+    }
+
+    .animated-svg-img {
+          width: 108%;
+    height: 112%;
+    max-height: 83vh;
+      object-fit: contain;
+      filter: drop-shadow(0 20px 40px rgba(16, 149, 93, 0.12));
+      transform: none;
+      transform-origin: center center;
+    }
+
+    /* BOTTOM FEATURE PILLS (Below Illustration - strictly ONE ROW) */
+    .bottom-story-card {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 100%;
+      margin-bottom: 4px;
+    }
+
+    .feature-pills-row {
+      display: flex;
+      flex-wrap: nowrap !important;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+      overflow-x: hidden;
+    }
+
+    .shimmer-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(16, 149, 93, 0.22);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #065f46;
+      box-shadow: 0 2px 8px rgba(16, 149, 93, 0.06);
+      transition: all 0.2s ease;
+      white-space: nowrap !important;
+      flex-shrink: 0;
+    }
+
+    .shimmer-pill:hover {
+      transform: translateY(-1px);
+      border-color: #10955d;
+      background: #ffffff;
+      box-shadow: 0 4px 12px rgba(16, 149, 93, 0.12);
+    }
+
+    .shimmer-pill span[nz-icon] {
+      color: #10955d;
+      font-size: 13px;
+    }
+
+    /* Keyframes */
+    @keyframes badgeShimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    @keyframes headlineShimmer {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.7; }
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translateY(0px); }
+      100% { transform: translateY(-10px); }
+    }
 
     /* Responsive */
-    @media (max-width: 1024px) {
-      .login-container {
+    @media (max-width: 1080px) {
+      :host {
+        height: auto;
+        max-height: none;
+        overflow-y: auto;
+      }
+      .login-root {
         grid-template-columns: 1fr;
+        height: auto;
+        max-height: none;
+        overflow-y: auto;
+        padding: 0 24px;
       }
-      .hero-panel {
+      .login-left-pane {
+        padding: 32px 0;
+        height: auto;
+        min-height: 100vh;
+        margin: 0 auto;
+      }
+      .login-main-content {
+        margin: 16px auto;
+      }
+      .login-right-pane {
         display: none;
-      }
-      .mobile-logo {
-        display: flex;
-      }
-      .auth-panel {
-        padding: 32px 16px;
-      }
-      .auth-card {
-        padding: 30px 24px;
       }
     }
   `],
   template: `
-    <div class="login-container">
-      <!-- Left Side: Enterprise Showcase -->
-      <section class="hero-panel">
-        <div class="ambient-glow-1"></div>
-        <div class="ambient-glow-2"></div>
-        <div class="grid-overlay"></div>
+    <div class="login-root">
+      <!-- Atmospheric Ambient Lighting across the entire stage (unified one show) -->
+      <div class="organic-blob-1"></div>
+      <div class="organic-blob-2"></div>
+      <div class="organic-blob-3"></div>
+      <div class="floating-orb"></div>
 
-        <div class="hero-inner">
-          <div class="dark">
-            <div class="hero-brand-wrap" data-testid="login-brand">
-              <erp-brand-logo size="lg"></erp-brand-logo>
-            </div>
-          </div>
-
-          <div style="margin: 40px 0;">
-            <div class="status-chip">
-              <span class="pulse-dot"></span>
-              <span>Unified Enterprise Operating System</span>
-            </div>
-
-            <h1 class="hero-heading">
-              Sovereign, Intelligent <span class="gradient-text">Enterprise Control</span>
-            </h1>
-
-            <p class="hero-sub">
-              Dual-entry financial ledger, modular real estate lifecycle, CRM pipeline, and multi-tenant security designed for high-scale operations.
-            </p>
-
-            <!-- Floating Live Telemetry Card -->
-            <div class="glass-card">
-              <div class="glass-head">
-                <div class="glass-title-group">
-                  <span nz-icon nzType="dashboard" nzTheme="outline" style="color:#34d399;"></span>
-                  <span>System Architecture Status</span>
-                </div>
-                <span class="glass-live">● Operational</span>
-              </div>
-
-              <div class="metrics-row">
-                <div class="metric-col">
-                  <span class="metric-lbl">Ledger Engine</span>
-                  <span class="metric-kpi">Balanced</span>
-                  <span class="metric-status"><span nz-icon nzType="check-circle" nzTheme="fill"></span> Real-time</span>
-                </div>
-                <div class="metric-col">
-                  <span class="metric-lbl">Multi-Tenancy</span>
-                  <span class="metric-kpi">Org Scoped</span>
-                  <span class="metric-status"><span nz-icon nzType="safety" nzTheme="outline"></span> AES-256</span>
-                </div>
-                <div class="metric-col">
-                  <span class="metric-lbl">Uptime SLA</span>
-                  <span class="metric-kpi">99.99%</span>
-                  <span class="metric-status"><span nz-icon nzType="thunderbolt" nzTheme="fill"></span> Low latency</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="hero-bottom-text">
-            Enterprise Cloud Infrastructure · Zero-Data-Leakage Design · ISO 27001 Ready
-          </div>
+      <!-- Left Panel: Authentication -->
+      <section class="login-left-pane">
+        <div class="brand-top" data-testid="login-brand">
+          <erp-brand-logo size="lg"></erp-brand-logo>
         </div>
-      </section>
 
-      <!-- Right Side: Authentication Box -->
-      <main class="auth-panel">
-        <div class="auth-card">
-          <!-- Mobile logo (if hero is hidden on small screens) -->
-          <div class="mobile-logo">
-            <erp-brand-logo size="md"></erp-brand-logo>
-          </div>
-
+        <div class="login-main-content">
           @if (!workspaces()) {
-            <div class="auth-header">
-              <h2 class="auth-title">{{ 'login.title' | translate: 'Sign in' }}</h2>
-              <p class="auth-desc">{{ 'login.sub' | translate: 'Enter your work email and password to access your workspace.' }}</p>
+            <div class="login-heading-group">
+              <h1 class="login-title">{{ 'login.title' | translate: 'Login' }}</h1>
+              <p class="login-subtitle">Welcome to log in to your background management system.</p>
             </div>
 
             @if (error()) {
@@ -560,21 +636,21 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
             }
 
             <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()" class="auth-form">
-              <nz-form-item>
+              <nz-form-item class="form-item">
                 <nz-form-label nzFor="email" nzRequired>{{ 'common.email' | translate: 'Email' }}</nz-form-label>
                 <nz-form-control nzErrorTip="Enter your work email address">
-                  <nz-input-group [nzPrefix]="emailPrefix" class="auth-input-group">
+                  <nz-input-group [nzPrefix]="emailPrefix" class="custom-input-group">
                     <input nz-input id="email" type="email" formControlName="email" autocomplete="username" placeholder="name@company.com" data-testid="login-email" />
                   </nz-input-group>
                   <ng-template #emailPrefix><span nz-icon nzType="mail" class="field-icon"></span></ng-template>
                 </nz-form-control>
               </nz-form-item>
 
-              <nz-form-item>
+              <nz-form-item class="form-item">
                 <nz-form-label nzFor="password" nzRequired>{{ 'common.password' | translate: 'Password' }}</nz-form-label>
                 <nz-form-control nzErrorTip="Enter your password">
-                  <nz-input-group [nzPrefix]="pwdPrefix" [nzSuffix]="pwdSuffix" class="auth-input-group">
-                    <input nz-input id="password" [type]="showPassword() ? 'text' : 'password'" formControlName="password" autocomplete="current-password" placeholder="••••••••••••" data-testid="login-password" />
+                  <nz-input-group [nzPrefix]="pwdPrefix" [nzSuffix]="pwdSuffix" class="custom-input-group">
+                    <input nz-input id="password" [type]="showPassword() ? 'text' : 'password'" formControlName="password" autocomplete="current-password" placeholder="Please enter your password" data-testid="login-password" />
                   </nz-input-group>
                   <ng-template #pwdPrefix><span nz-icon nzType="lock" class="field-icon"></span></ng-template>
                   <ng-template #pwdSuffix>
@@ -586,10 +662,10 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
               </nz-form-item>
 
               @if (needsCode()) {
-                <nz-form-item>
+                <nz-form-item class="form-item">
                   <nz-form-label nzFor="code" nzRequired>{{ 'login.code' | translate: 'Verification code' }}</nz-form-label>
                   <nz-form-control nzExtra="Enter the 6-digit code from your authenticator app, or a recovery code.">
-                    <nz-input-group [nzPrefix]="codePrefix" class="auth-input-group">
+                    <nz-input-group [nzPrefix]="codePrefix" class="custom-input-group">
                       <input nz-input id="code" formControlName="code" autocomplete="one-time-code" inputmode="numeric" maxlength="6" placeholder="123456" data-testid="login-code" />
                     </nz-input-group>
                     <ng-template #codePrefix><span nz-icon nzType="safety-certificate" class="field-icon"></span></ng-template>
@@ -606,25 +682,24 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
                 </a>
               </div>
 
-              <button nz-button nzType="primary" nzBlock [nzLoading]="busy()" [disabled]="busy() || retryIn() > 0" class="sign-in-btn" data-testid="login-submit">
-                @if (retryIn() > 0) {
-                  <span>Try again in {{ retryIn() }}s</span>
-                } @else {
-                  <span>{{ 'login.title' | translate: 'Sign in' }}</span>
-                  <span nz-icon nzType="arrow-right"></span>
-                }
-              </button>
+              <div class="submit-row">
+                <button nz-button nzType="primary" [nzLoading]="busy()" [disabled]="busy() || retryIn() > 0" class="login-btn" data-testid="login-submit">
+                  @if (retryIn() > 0) {
+                    <span>Wait {{ retryIn() }}s</span>
+                  } @else {
+                    <span>LOGIN</span>
+                  }
+                </button>
+              </div>
             </form>
-
-
           } @else {
             <!-- Multi-Workspace Picker -->
             <div class="ws-header">
               <div class="ws-icon-circle">
                 <span nz-icon nzType="appstore" nzTheme="outline"></span>
               </div>
-              <h2 class="auth-title">{{ 'login.chooseWorkspace' | translate: 'Choose a workspace' }}</h2>
-              <p class="auth-desc">Your credentials belong to several enterprise workspaces. Choose which one to enter:</p>
+              <h2 class="login-title" style="font-size: 24px;">{{ 'login.chooseWorkspace' | translate: 'Choose a workspace' }}</h2>
+              <p class="login-subtitle">Your credentials belong to several enterprise workspaces. Choose which one to enter:</p>
             </div>
 
             <div class="ws-list" data-testid="workspace-picker">
@@ -640,15 +715,65 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
               }
             </div>
 
-            <button nz-button nzType="text" nzBlock (click)="workspaces.set(null)" style="color:#64748b; font-size:13px;">
+            <button nz-button nzType="text" (click)="workspaces.set(null)" style="color:#64748b; font-size:13px; padding-left: 0;">
               ← Back to login
             </button>
           }
-
-
         </div>
-      </main>
-    </div>`,
+
+        <div class="brand-footer-note">
+          Enterprise Cloud Infrastructure · Sovereign & Multi-Tenant
+        </div>
+      </section>
+
+      <!-- Right Panel: Seamless Brand Themed Story & Illustration -->
+      <section class="login-right-pane">
+        <!-- TOP TEXT: Shimmer Headline in ONE single clean row -->
+        <div class="top-story-card">
+          <div class="shimmer-chip">
+            <span class="chip-dot"></span>
+            <span>Enterprise Resource Planning · 360 Suite</span>
+          </div>
+          <h2 class="shimmer-headline" title="Intelligent Operations, Real-Time Financials & Sovereign Multi-Tenant Scale">
+            Intelligent Operations, Real-Time Financials & Sovereign Multi-Tenant Scale
+          </h2>
+          <p class="top-subtext">
+            Unify dual-entry ledgers, dynamic billing, warehouse logistics, and point-of-sale in one high-performance enterprise suite.
+          </p>
+        </div>
+
+        <!-- CENTER: Enlarged Animated SVG Illustration -->
+        <div class="illustration-wrapper">
+          <img
+            src="assets/data-dashboard.svg"
+            alt="Business Analytics Dashboard"
+            class="animated-svg-img" />
+        </div>
+
+        <!-- BOTTOM TEXT: Live Feature Highlights strictly in ONE single row -->
+        <div class="bottom-story-card">
+          <div class="feature-pills-row">
+            <div class="shimmer-pill">
+              <span nz-icon nzType="check-circle" nzTheme="fill"></span>
+              <span>Real-Time Balanced Ledger</span>
+            </div>
+            <div class="shimmer-pill">
+              <span nz-icon nzType="safety-certificate" nzTheme="fill"></span>
+              <span>Org-Scoped Security</span>
+            </div>
+            <div class="shimmer-pill">
+              <span nz-icon nzType="thunderbolt" nzTheme="fill"></span>
+              <span>Sub-Second Response</span>
+            </div>
+            <div class="shimmer-pill">
+              <span nz-icon nzType="audit" nzTheme="outline"></span>
+              <span>Immutable Audit Trails</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  `,
 })
 export class LoginPage {
   readonly returnUrl = input<string>();

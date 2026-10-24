@@ -23,6 +23,8 @@ import { PurchaseOrderInput, PurchaseOrderSummaryDto, PurchaseOrdersApi, Purchas
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
+import { StatCardComponent } from '../../shared/stat-card.component';
+
 @Component({
   selector: 'erp-purchase-orders-list',
   standalone: true,
@@ -47,72 +49,49 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzTableModule,
     NzPopconfirmModule,
     PagedTableComponent,
+    StatCardComponent,
     HasPermissionDirective,
   ],
   template: `
-    <div class="purchasing-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Purchase Orders</h1>
-          <p class="erp-page-subtitle">Procure goods and services, track supplier deliveries and manage vendor bills.</p>
-        </div>
-        <div class="header-actions">
-          <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="po-new">
-            <span nz-icon nzType="plus"></span>New Purchase Order
-          </button>
-        </div>
-      </div>
+    <h1 class="erp-page-title">Purchase Orders</h1>
 
-      <!-- KPI Stat Cards -->
-      <div nz-row [nzGutter]="[16, 16]" class="kpi-row">
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Open POs</span>
-              <span nz-icon nzType="shopping" class="stat-icon icon-po"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.openOrdersCount ?? 0 }}</div>
-            <div class="stat-sub">orders in procurement</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Procurement Backlog</span>
-              <span nz-icon nzType="clock-circle" class="stat-icon icon-backlog"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.openOrdersAmount ?? 0 | number:'1.0-0' }}</div>
-            <div class="stat-sub">unreceived commitment</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Pending Receiving</span>
-              <span nz-icon nzType="download" class="stat-icon icon-receipt"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.pendingReceiptsCount ?? 0 }}</div>
-            <div class="stat-sub">orders awaiting GRN</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Total Spend</span>
-              <span nz-icon nzType="dollar-circle" class="stat-icon icon-spend"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.totalSpend ?? 0 | number:'1.0-0' }}</div>
-            <div class="stat-sub">lifetime procurement</div>
-          </nz-card>
-        </div>
-      </div>
+    <!-- KPI Stat Cards -->
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="po-stats">
+      <erp-stat-card
+        label="Open POs"
+        [value]="kpis()?.openOrdersCount ?? 0"
+        format="number"
+        caption="orders in procurement"
+        [tone]="1" />
+      <erp-stat-card
+        label="Procurement Backlog"
+        [value]="kpis()?.openOrdersAmount ?? 0"
+        format="money"
+        caption="unreceived commitment"
+        [tone]="3" />
+      <erp-stat-card
+        label="Pending Receiving"
+        [value]="kpis()?.pendingReceiptsCount ?? 0"
+        format="number"
+        caption="orders awaiting GRN"
+        [tone]="4" />
+      <erp-stat-card
+        label="Total Spend"
+        [value]="kpis()?.totalSpend ?? 0"
+        format="money"
+        caption="lifetime procurement"
+        [tone]="0" />
+    </div>
 
-      <!-- Purchase Orders Table -->
-      <nz-card class="table-card" [nzBodyStyle]="{ padding: '0' }">
-        <erp-paged-table
-          [list]="list"
-          [columns]="columns"
-          searchPlaceholder="Search PO number, vendor, quote ref...">
+    <!-- Purchase Orders Table -->
+    <erp-paged-table
+      [list]="list"
+      [columns]="columns"
+      searchPlaceholder="Search PO number, vendor, quote ref...">
+
+      <button toolbar *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="po-new">
+        <span nz-icon nzType="plus"></span>New Purchase Order
+      </button>
           
           <ng-template #cell let-row let-column="column">
             @if (column.key === 'number') {
@@ -149,7 +128,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             }
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Create Purchase Order Drawer -->
       <nz-drawer
@@ -312,31 +290,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-drawer>
-    </div>
   `,
   styles: [`
-    .purchasing-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .erp-page-title { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
-    .erp-page-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0 0; }
-    .kpi-row { margin-bottom: 24px; }
-    .stat-card {
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-      transition: all 0.2s;
-    }
-    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px -4px rgba(0,0,0,0.06); }
-    .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .stat-label { font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-    .stat-icon { font-size: 18px; padding: 6px; border-radius: 8px; }
-    .icon-po { color: #2563eb; background: #eff6ff; }
-    .icon-backlog { color: #d97706; background: #fffbeb; }
-    .icon-receipt { color: #8b5cf6; background: #f5f3ff; }
-    .icon-spend { color: #10955d; background: #ecfdf5; }
-    .stat-value { font-size: 26px; font-weight: 700; color: #0f172a; line-height: 1.2; }
-    .stat-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-    .table-card { border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; }
     .po-link { color: #10955d; font-weight: 600; }
     .po-link:hover { text-decoration: underline; color: #0c7347; }
     .vendor-cell { display: flex; flex-direction: column; }

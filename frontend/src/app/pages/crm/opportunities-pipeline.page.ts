@@ -27,6 +27,8 @@ import {
 import { createPagedList } from '../../core/api/paged-list';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
+import { StatCardComponent, StatTone } from '../../shared/stat-card.component';
+
 @Component({
   selector: 'erp-opportunities-pipeline-page',
   standalone: true,
@@ -48,40 +50,28 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzSelectModule,
     NzDropDownModule,
     NzRadioModule,
-    PagedTableComponent
+    PagedTableComponent,
+    StatCardComponent,
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>Sales Pipeline & Deals</h2>
-          <p class="text-secondary">Track opportunity stages, monitor deal velocity, manage probability, and close revenue</p>
-        </div>
-        <button nz-button nzType="primary" (click)="openCreateDrawer()">
+      <div class="erp-stat-grid erp-stat-grid--auto mb-4" data-testid="opp-stats">
+        <erp-stat-card
+          *ngFor="let s of stageSummaries()"
+          [label]="s.stageName"
+          [value]="s.totalExpectedRevenue"
+          format="money"
+          [caption]="s.count + ' in stage'"
+          [tone]="getStageTone(s.stage)"
+        />
+      </div>
+
+      <erp-paged-table
+        #table
+        [list]="list"
+        [columns]="columns">
+        <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="opp-new">
           <span nz-icon nzType="plus"></span> New Opportunity
         </button>
-      </div>
-
-      <!-- Stage Summary Counters Row -->
-      <div nz-row [nzGutter]="12" class="mb-4">
-        <div *ngFor="let s of stageSummaries()" nz-col [nzSpan]="4" class="stage-col">
-          <div class="stage-metric-card" [class.won]="s.stage === 'ClosedWon'" [class.lost]="s.stage === 'ClosedLost'">
-            <div class="stage-header">
-              <span class="stage-title">{{ s.stageName }}</span>
-              <nz-badge [nzCount]="s.count" [nzStyle]="{ backgroundColor: getStageBadgeColor(s.stage) }"></nz-badge>
-            </div>
-            <div class="stage-revenue mt-2">
-              <span class="val font-semibold">\${{ s.totalExpectedRevenue | number:'1.0-0' }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <nz-card [nzBordered]="false" class="mb-4">
-        <erp-paged-table
-          #table
-          [list]="list"
-          [columns]="columns">
           <ng-template #cell let-row let-column="column">
             <ng-container [ngSwitch]="column.key">
               <span *ngSwitchCase="'opportunityNumber'" class="mono-code font-bold">{{ row.opportunityNumber }}</span>
@@ -132,7 +122,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </ng-container>
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Create Opportunity Drawer -->
       <nz-drawer
@@ -257,23 +246,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-modal>
-    </div>
   `,
   styles: [`
-    .page-container { padding: 1.5rem; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .page-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
     .text-secondary { color: var(--erp-text-secondary, #64748b); }
     .text-primary { color: var(--erp-primary, #0ea5e9); }
     .text-success { color: #10b981; }
     .mono-code { font-family: monospace; color: #1890ff; }
     .font-bold { font-weight: 600; }
-    .stage-metric-card { background: var(--erp-bg-secondary, #f8fafc); padding: 0.75rem 1rem; border-radius: 8px; border-left: 3px solid #3b82f6; }
-    .stage-metric-card.won { border-left-color: #10b981; background: rgba(16, 185, 129, 0.05); }
-    .stage-metric-card.lost { border-left-color: #ef4444; }
-    .stage-header { display: flex; justify-content: space-between; align-items: center; }
-    .stage-title { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: #64748b; }
-    .stage-revenue .val { font-size: 1.15rem; }
     .close-summary-box { background: var(--erp-bg-secondary, #f8fafc); padding: 0.75rem; border-radius: 6px; }
     .close-summary-box p { margin: 0 0 0.25rem 0; font-size: 0.9rem; }
     .drawer-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 2rem; }
@@ -380,6 +359,17 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
       case 'ClosedWon': return '#52c41a';
       case 'ClosedLost': return '#ff4d4f';
       default: return '#8c8c8c';
+    }
+  }
+
+  getStageTone(stage: OpportunityStage | string): StatTone {
+    switch (stage) {
+      case 'Qualification': return 1;
+      case 'Proposal': return 2;
+      case 'Negotiation': return 'warning';
+      case 'ClosedWon': return 'success';
+      case 'ClosedLost': return 'danger';
+      default: return 'neutral';
     }
   }
 

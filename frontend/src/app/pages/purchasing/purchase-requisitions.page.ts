@@ -51,25 +51,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     HasPermissionDirective,
   ],
   template: `
-    <div class="requisitions-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Purchase Requisitions</h1>
-          <p class="erp-page-subtitle">Internal procurement requests submitted by departments and employees.</p>
-        </div>
-        <div class="header-actions">
-          <button *erpHasPermission="'purchasing.requisitions.manage'" nz-button nzType="primary" (click)="openCreateDrawer()">
-            <span nz-icon nzType="plus"></span>New Requisition
-          </button>
-        </div>
-      </div>
-
-      <!-- Requisitions Table -->
-      <nz-card class="table-card" [nzBodyStyle]="{ padding: '0' }">
-        <erp-paged-table
-          [list]="list"
-          [columns]="columns"
-          searchPlaceholder="Search requisition code, requester, department...">
+    <erp-paged-table
+      [list]="list"
+      [columns]="columns"
+      searchPlaceholder="Search requisition code, requester, department...">
+      <button toolbar *erpHasPermission="'purchasing.requisitions.manage'" nz-button nzType="primary" (click)="openCreateDrawer()">
+        <span nz-icon nzType="plus"></span>New Requisition
+      </button>
           
           <ng-template #cell let-row let-column="column">
             @if (column.key === 'number') {
@@ -110,7 +98,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             }
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Create Drawer -->
       <nz-drawer
@@ -247,14 +234,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </div>
         </ng-container>
       </nz-modal>
-    </div>
   `,
   styles: [`
-    .requisitions-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .erp-page-title { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
-    .erp-page-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0 0; }
-    .table-card { border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; }
     .requester-cell { display: flex; flex-direction: column; }
     .requester-name { font-weight: 600; color: #1e293b; }
     .dept-text { font-size: 12px; color: #64748b; }

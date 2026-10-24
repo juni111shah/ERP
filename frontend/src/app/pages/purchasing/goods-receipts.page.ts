@@ -31,20 +31,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     HasPermissionDirective,
   ],
   template: `
-    <div class="receipts-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Goods Receipts (GRN)</h1>
-          <p class="erp-page-subtitle">Warehouse receiving logs, dispatch delivery notes and supplier shipments.</p>
-        </div>
-      </div>
-
-      <!-- Receipts Table -->
-      <nz-card class="table-card" [nzBodyStyle]="{ padding: '0' }">
-        <erp-paged-table
-          [list]="list"
-          [columns]="columns"
-          searchPlaceholder="Search GRN number, PO number, vendor...">
+    <erp-paged-table
+      [list]="list"
+      [columns]="columns"
+      searchPlaceholder="Search GRN number, PO number, vendor...">
           
           <ng-template #cell let-row let-column="column">
             @if (column.key === 'number') {
@@ -74,7 +64,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             }
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- View Detail Modal -->
       <nz-modal
@@ -115,14 +104,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           }
         </ng-container>
       </nz-modal>
-    </div>
   `,
   styles: [`
-    .receipts-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .erp-page-title { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
-    .erp-page-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0 0; }
-    .table-card { border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; }
     .po-link { color: #10955d; font-weight: 600; }
     .vendor-name { font-weight: 600; color: #1e293b; }
     .action-buttons { display: flex; gap: 4px; align-items: center; }

@@ -44,21 +44,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent,
   ],
   template: `
-    <div class="registers-page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Point of Sale Registers</h1>
-          <p class="erp-page-subtitle">Configure cash drawer stations, terminal IDs, and physical till endpoints.</p>
-        </div>
-        <div class="header-actions">
-          <button nz-button nzType="primary" (click)="openCreateDrawer()">
-            <span nz-icon nzType="plus"></span>Add New Register
-          </button>
-        </div>
-      </div>
-
-      <nz-card class="table-card" [nzBodyStyle]="{ padding: '0' }">
-        <erp-paged-table [list]="list" [columns]="columns">
+    <erp-paged-table [list]="list" [columns]="columns">
+      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="pos-register-new">
+        <span nz-icon nzType="plus"></span>Add New Register
+      </button>
           <ng-template #cell let-reg let-column="column">
             @if (column.key === 'code') {
               <strong>{{ reg.code }}</strong>
@@ -79,7 +68,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             }
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Create / Edit Drawer -->
       <nz-drawer
@@ -143,15 +131,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-drawer>
-    </div>
   `,
-  styles: [`
-    .registers-page-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .erp-page-title { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
-    .erp-page-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0 0; }
-    .table-card { border-radius: 12px; border: 1px solid #e2e8f0; }
-  `],
+  styles: [``],
 })
 export class PosRegistersPage {
   private readonly api = inject(PosRegistersApi);

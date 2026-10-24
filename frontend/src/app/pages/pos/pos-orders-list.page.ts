@@ -41,21 +41,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent,
   ],
   template: `
-    <div class="orders-page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Counter Sales Orders</h1>
-          <p class="erp-page-subtitle">Historical records of all retail store and point-of-sale customer sales.</p>
-        </div>
-        <div class="header-actions">
-          <a routerLink="/pos/terminal" nz-button nzType="primary">
-            <span nz-icon nzType="shop"></span>Open Terminal
-          </a>
-        </div>
-      </div>
-
-      <nz-card class="table-card" [nzBodyStyle]="{ padding: '0' }">
-        <erp-paged-table [list]="list" [columns]="columns">
+    <erp-paged-table [list]="list" [columns]="columns">
+      <a toolbar routerLink="/pos/terminal" nz-button nzType="primary" data-testid="pos-open-terminal">
+        <span nz-icon nzType="shop"></span>Open Terminal
+      </a>
           <ng-template #cell let-ord let-column="column">
             @if (column.key === 'number') {
               <a (click)="viewOrder(ord.id)" style="font-weight: 700; color: #2563eb;">
@@ -87,7 +76,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             }
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- View Order Modal -->
       <nz-modal
@@ -158,14 +146,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </div>
         </ng-container>
       </nz-modal>
-    </div>
   `,
   styles: [`
-    .orders-page-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .erp-page-title { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
-    .erp-page-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0 0; }
-    .table-card { border-radius: 12px; border: 1px solid #e2e8f0; }
     .line-items-box { max-height: 200px; overflow-y: auto; }
   `],
 })

@@ -26,9 +26,13 @@ body { font-family: var(--erp-font-family-sans); background: var(--erp-color-bg-
   min-height: 0;
 
   &:empty,
-  > div:first-child:empty {
+  > div:first-child:empty,
+  &:not(:has(button, a, input, select, [nz-button], nz-button-group)) {
     display: none !important;
     margin: 0 !important;
+    padding: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
   }
 }
 

@@ -23,6 +23,8 @@ import { QuoteInput, QuoteSummaryDto, SalesKpiApi, SalesKpiDto, SalesQuotesApi }
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
+import { StatCardComponent } from '../../shared/stat-card.component';
+
 @Component({
   selector: 'erp-quotes-list',
   standalone: true,
@@ -47,105 +49,81 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzTableModule,
     NzPopconfirmModule,
     PagedTableComponent,
+    StatCardComponent,
     HasPermissionDirective,
   ],
   template: `
-    <div class="sales-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Sales Quotes</h1>
-          <p class="erp-page-subtitle">Manage customer estimates, pricing proposals and quotation pipelines.</p>
-        </div>
-        <div class="header-actions">
-          <button *erpHasPermission="'sales.quotes.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="quote-new">
-            <span nz-icon nzType="plus"></span>New Quote
-          </button>
-        </div>
-      </div>
+    <h1 class="erp-page-title">Sales Quotes</h1>
 
-      <!-- KPI Stat Cards -->
-      <div nz-row [nzGutter]="[16, 16]" class="kpi-row">
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Active Quotes</span>
-              <span nz-icon nzType="file-text" class="stat-icon icon-active"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.openQuotesCount ?? 0 }}</div>
-            <div class="stat-sub">proposals in pipeline</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Pipeline Value</span>
-              <span nz-icon nzType="dollar-circle" class="stat-icon icon-pipeline"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.openQuotesAmount ?? 0 | number:'1.0-0' }}</div>
-            <div class="stat-sub">uncommitted revenue</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Quote-to-Order</span>
-              <span nz-icon nzType="rise" class="stat-icon icon-conversion"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.conversionRate ?? 0 }}%</div>
-            <div class="stat-sub">conversion rate</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Total Volume</span>
-              <span nz-icon nzType="shopping-cart" class="stat-icon icon-volume"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.totalSales ?? 0 | number:'1.0-0' }}</div>
-            <div class="stat-sub">confirmed trade</div>
-          </nz-card>
-        </div>
-      </div>
+    <!-- KPI Stat Cards -->
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="quote-stats">
+      <erp-stat-card
+        label="Active Quotes"
+        [value]="kpis()?.openQuotesCount ?? 0"
+        format="number"
+        caption="proposals in pipeline"
+        [tone]="1" />
+      <erp-stat-card
+        label="Pipeline Value"
+        [value]="kpis()?.openQuotesAmount ?? 0"
+        format="money"
+        caption="uncommitted revenue"
+        [tone]="0" />
+      <erp-stat-card
+        label="Quote-to-Order"
+        [value]="kpis()?.conversionRate ?? 0"
+        format="percent"
+        caption="conversion rate"
+        [tone]="4" />
+      <erp-stat-card
+        label="Total Volume"
+        [value]="kpis()?.totalSales ?? 0"
+        format="money"
+        caption="confirmed trade"
+        [tone]="3" />
+    </div>
 
-      <!-- Quotes Table -->
-      <nz-card class="table-card" [nzBodyStyle]="{ padding: '0' }">
-        <erp-paged-table
-          [list]="list"
-          [columns]="columns"
-          searchPlaceholder="Search quote number, customer...">
-          
-          <ng-template #cell let-row let-column="column">
-            @if (column.key === 'number') {
-              <a [routerLink]="['/sales/quotes', row.id]" class="quote-link">
-                <strong>{{ row.number }}</strong>
-              </a>
-            } @else if (column.key === 'customerName') {
-              <div class="customer-cell">
-                <span class="customer-name">{{ row.customerName }}</span>
-              </div>
-            } @else if (column.key === 'totalAmount') {
-              <strong>{{ row.currency }} {{ row.totalAmount | number:'1.2-2' }}</strong>
-            } @else if (column.key === 'status') {
-              <nz-tag [nzColor]="statusColor(row.status)">{{ row.status }}</nz-tag>
-            } @else if (column.key === 'actions') {
-              <div class="action-buttons">
-                <a [routerLink]="['/sales/quotes', row.id]" nz-button nzType="link" nzSize="small">
-                  View
-                </a>
-                @if (row.status === 'Accepted' && !row.convertedSalesOrderId) {
-                  <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="link" nzSize="small" (click)="convertToOrder(row.id)">
-                    Convert
-                  </button>
-                }
-                <button *erpHasPermission="'sales.quotes.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                        nz-popconfirm nzPopconfirmTitle="Delete this quote?" (nzOnConfirm)="deleteQuote(row.id)">
-                  Delete
-                </button>
-              </div>
+    <!-- Quotes Table -->
+    <erp-paged-table
+      [list]="list"
+      [columns]="columns"
+      searchPlaceholder="Search quote number, customer...">
+
+      <button toolbar *erpHasPermission="'sales.quotes.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="quote-new">
+        <span nz-icon nzType="plus"></span>New Quote
+      </button>
+      
+      <ng-template #cell let-row let-column="column">
+        @if (column.key === 'number') {
+          <a [routerLink]="['/sales/quotes', row.id]" class="quote-link">
+            <strong>{{ row.number }}</strong>
+          </a>
+        } @else if (column.key === 'customerName') {
+          <div class="customer-cell">
+            <span class="customer-name">{{ row.customerName }}</span>
+          </div>
+        } @else if (column.key === 'totalAmount') {
+          <strong>{{ row.currency }} {{ row.totalAmount | number:'1.2-2' }}</strong>
+        } @else if (column.key === 'status') {
+          <nz-tag [nzColor]="statusColor(row.status)">{{ row.status }}</nz-tag>
+        } @else if (column.key === 'actions') {
+          <div class="action-buttons">
+            <a [routerLink]="['/sales/quotes', row.id]" nz-button nzType="link" nzSize="small">
+              View
+            </a>
+            @if (row.status === 'Accepted' && !row.convertedSalesOrderId) {
+              <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="link" nzSize="small" (click)="convertToOrder(row.id)">
+                Convert
+              </button>
             }
-          </ng-template>
-        </erp-paged-table>
-      </nz-card>
+            <button *erpHasPermission="'sales.quotes.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                    nz-popconfirm nzPopconfirmTitle="Delete this quote?" (nzOnConfirm)="deleteQuote(row.id)">
+              Delete
+            </button>
+          </div>
+        }
+      </ng-template>
+    </erp-paged-table>
 
       <!-- Create Quote Drawer -->
       <nz-drawer
@@ -308,31 +286,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-drawer>
-    </div>
   `,
   styles: [`
-    .sales-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .erp-page-title { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
-    .erp-page-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0 0; }
-    .kpi-row { margin-bottom: 24px; }
-    .stat-card {
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-      transition: all 0.2s;
-    }
-    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px -4px rgba(0,0,0,0.06); }
-    .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .stat-label { font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-    .stat-icon { font-size: 18px; padding: 6px; border-radius: 8px; }
-    .icon-active { color: #2563eb; background: #eff6ff; }
-    .icon-pipeline { color: #10955d; background: #ecfdf5; }
-    .icon-conversion { color: #8b5cf6; background: #f5f3ff; }
-    .icon-volume { color: #d97706; background: #fffbeb; }
-    .stat-value { font-size: 26px; font-weight: 700; color: #0f172a; line-height: 1.2; }
-    .stat-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-    .table-card { border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; }
     .quote-link { color: #10955d; font-weight: 600; }
     .quote-link:hover { text-decoration: underline; color: #0c7347; }
     .customer-cell { display: flex; flex-direction: column; }

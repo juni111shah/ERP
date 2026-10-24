@@ -47,20 +47,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     HasPermissionDirective,
   ],
   template: `
-    <div class="timesheets-page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Timesheets</h1>
-          <p class="erp-page-subtitle">Log, review, and audit project hours and billable time entries.</p>
-        </div>
-        <div class="header-actions">
-          <button *erpHasPermission="'projects.timesheets.manage'" nz-button nzType="primary" (click)="openCreateModal()">
-            <span nz-icon nzType="clock-circle"></span> Log Time
-          </button>
-        </div>
-      </div>
-
-      <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search worker name or description..." emptyText="No timesheets logged yet.">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search worker name or description..." emptyText="No timesheets logged yet.">
+      <button toolbar *erpHasPermission="'projects.timesheets.manage'" nz-button nzType="primary" (click)="openCreateModal()" data-testid="timesheet-new">
+        <span nz-icon nzType="clock-circle"></span> Log Time
+      </button>
         <ng-template #cell let-row let-column="column" let-value="value">
           @switch (column.key) {
             @case ('date') {
@@ -149,32 +139,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-modal>
-    </div>
   `,
   styles: [`
-    .timesheets-page-container {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-    .erp-page-title {
-      font-size: 24px;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 0;
-    }
-    .erp-page-subtitle {
-      font-size: 13.5px;
-      color: #64748b;
-      margin: 4px 0 0 0;
-    }
     .worker-name {
       font-weight: 600;
       color: #0f172a;

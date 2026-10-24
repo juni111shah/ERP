@@ -40,69 +40,63 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>Customer Activity & Touchpoint Logs</h2>
-          <p class="text-secondary">Log phone calls, client meetings, email threads, follow-up tasks, and discovery notes</p>
-        </div>
-        <button nz-button nzType="primary" (click)="openCreateDrawer()">
-          <span nz-icon nzType="plus"></span> Log Activity
-        </button>
-      </div>
+    <h1 class="erp-page-title">Customer Activity & Touchpoint Logs</h1>
 
-      <nz-card [nzBordered]="false" class="mb-4">
-        <erp-paged-table
-          #table
-          [list]="list"
-          [columns]="columns">
-          <ng-template #cell let-row let-column="column">
-            <ng-container [ngSwitch]="column.key">
-              <span *ngSwitchCase="'type'">
-                <nz-tag [nzColor]="getTypeColor(row.type)">
-                  <span nz-icon [nzType]="getTypeIcon(row.type)"></span> {{ row.type }}
-                </nz-tag>
-              </span>
-              <span *ngSwitchCase="'subject'">
-                <strong>{{ row.subject }}</strong>
-              </span>
-              <span *ngSwitchCase="'relatedEntityKind'">
-                <nz-tag>{{ row.relatedEntityKind }}</nz-tag>
-              </span>
-              <span *ngSwitchCase="'performedByName'">
-                <span>{{ row.performedByName || 'Agent' }}</span>
-              </span>
-              <span *ngSwitchCase="'interactionDate'">
-                <small>{{ row.interactionDate | date:'mediumDate' }}</small>
-              </span>
-              <span *ngSwitchCase="'followUpDate'">
-                <small *ngIf="row.followUpDate" class="text-warning font-medium">
-                  {{ row.followUpDate | date:'mediumDate' }}
-                </small>
-                <span *ngIf="!row.followUpDate" class="text-secondary">-</span>
-              </span>
-              <span *ngSwitchCase="'isResolved'">
-                <nz-tag [nzColor]="row.isResolved ? 'success' : 'processing'">
-                  {{ row.isResolved ? 'Resolved' : 'Follow-up Due' }}
-                </nz-tag>
-              </span>
-              <span *ngSwitchCase="'actions'">
-                <div class="table-actions">
-                  <button
-                    *ngIf="!row.isResolved"
-                    nz-button nzType="link" nzSize="small" class="text-success"
-                    (click)="resolveInteraction(row)">
-                    <span nz-icon nzType="check"></span> Mark Done
-                  </button>
-                </div>
-              </span>
-            </ng-container>
-          </ng-template>
-        </erp-paged-table>
-      </nz-card>
+    <erp-paged-table
+      #table
+      [list]="list"
+      [columns]="columns">
+      
+      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="activity-log">
+        <span nz-icon nzType="plus"></span> Log Activity
+      </button>
 
-      <!-- Log Activity Drawer -->
-      <nz-drawer
+      <ng-template #cell let-row let-column="column">
+        <ng-container [ngSwitch]="column.key">
+          <span *ngSwitchCase="'type'">
+            <nz-tag [nzColor]="getTypeColor(row.type)">
+              <span nz-icon [nzType]="getTypeIcon(row.type)"></span> {{ row.type }}
+            </nz-tag>
+          </span>
+          <span *ngSwitchCase="'subject'">
+            <strong>{{ row.subject }}</strong>
+          </span>
+          <span *ngSwitchCase="'relatedEntityKind'">
+            <nz-tag>{{ row.relatedEntityKind }}</nz-tag>
+          </span>
+          <span *ngSwitchCase="'performedByName'">
+            <span>{{ row.performedByName || 'Agent' }}</span>
+          </span>
+          <span *ngSwitchCase="'interactionDate'">
+            <small>{{ row.interactionDate | date:'mediumDate' }}</small>
+          </span>
+          <span *ngSwitchCase="'followUpDate'">
+            <small *ngIf="row.followUpDate" class="text-warning font-medium">
+              {{ row.followUpDate | date:'mediumDate' }}
+            </small>
+            <span *ngIf="!row.followUpDate" class="text-secondary">-</span>
+          </span>
+          <span *ngSwitchCase="'isResolved'">
+            <nz-tag [nzColor]="row.isResolved ? 'success' : 'processing'">
+              {{ row.isResolved ? 'Resolved' : 'Follow-up Due' }}
+            </nz-tag>
+          </span>
+          <span *ngSwitchCase="'actions'">
+            <div class="table-actions">
+              <button
+                *ngIf="!row.isResolved"
+                nz-button nzType="link" nzSize="small" class="text-success"
+                (click)="resolveInteraction(row)">
+                <span nz-icon nzType="check"></span> Mark Done
+              </button>
+            </div>
+          </span>
+        </ng-container>
+      </ng-template>
+    </erp-paged-table>
+
+    <!-- Log Activity Drawer -->
+    <nz-drawer
         [nzVisible]="createVisible()"
         [nzWidth]="560"
         nzTitle="Log Customer Interaction"
@@ -181,12 +175,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-drawer>
-    </div>
   `,
   styles: [`
-    .page-container { padding: 1.5rem; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .page-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
     .text-secondary { color: var(--erp-text-secondary, #64748b); }
     .text-warning { color: #f59e0b; }
     .text-success { color: #10b981; }
