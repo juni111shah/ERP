@@ -46,22 +46,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>CRM Leads & Prospects</h2>
-          <p class="text-secondary">Track inbound customer inquiries, qualify prospects, and convert qualified leads into active sales pipeline deals</p>
-        </div>
-        <button nz-button nzType="primary" (click)="openCreateDrawer()">
+    <erp-paged-table
+      #table
+      [list]="list"
+      [columns]="columns">
+        <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="lead-new">
           <span nz-icon nzType="user-add"></span> Add New Lead
         </button>
-      </div>
-
-      <nz-card [nzBordered]="false" class="mb-4">
-        <erp-paged-table
-          #table
-          [list]="list"
-          [columns]="columns">
           <ng-template #cell let-row let-column="column">
             <ng-container [ngSwitch]="column.key">
               <span *ngSwitchCase="'leadNumber'" class="mono-code font-bold">{{ row.leadNumber }}</span>
@@ -105,7 +96,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </ng-container>
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Create Lead Drawer -->
       <nz-drawer
@@ -281,12 +271,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </div>
         </ng-container>
       </nz-drawer>
-    </div>
   `,
   styles: [`
-    .page-container { padding: 1.5rem; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .page-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
     .text-secondary { color: var(--erp-text-secondary, #64748b); }
     .text-primary { color: var(--erp-primary, #0ea5e9); }
     .mono-code { font-family: monospace; color: #1890ff; }

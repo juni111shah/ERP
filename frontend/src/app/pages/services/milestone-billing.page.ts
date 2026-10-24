@@ -41,21 +41,12 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>Milestone Deliverables & Billing</h2>
-          <p class="text-secondary">Track deliverable sign-offs, approval workflows, and trigger accounts receivable billing milestones</p>
-        </div>
-        <button nz-button nzType="primary" (click)="openCreateDrawer()">
-          <span nz-icon nzType="plus"></span> Add Milestone
-        </button>
-      </div>
-
-      <nz-card [nzBordered]="false" class="mb-4">
-        <erp-paged-table
-          [list]="list"
-          [columns]="columns">
+    <erp-paged-table
+      [list]="list"
+      [columns]="columns">
+      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="milestone-new">
+        <span nz-icon nzType="plus"></span> Add Milestone
+      </button>
           <ng-template #cell let-row let-column="column">
             <ng-container [ngSwitch]="column.key">
 
@@ -102,7 +93,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </ng-container>
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Create Milestone Drawer -->
       <nz-drawer
@@ -162,12 +152,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-drawer>
-    </div>
   `,
   styles: [`
-    .page-container { padding: 24px; }
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
-    .page-header h2 { margin: 0 0 4px 0; font-size: 24px; font-weight: 600; }
     .text-secondary { color: rgba(0, 0, 0, 0.45); }
     .table-actions { display: flex; gap: 4px; }
     .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
