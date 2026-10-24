@@ -35,16 +35,17 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       display: block;
       min-height: 100vh;
       width: 100%;
-      background: #ffffff;
+      background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 40%, #e6f7ef 100%);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #0f172a;
     }
 
     .login-root {
       display: grid;
-      grid-template-columns: 46% 54%;
+      grid-template-columns: 44% 56%;
       min-height: 100vh;
       width: 100%;
+      background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 40%, #e6f7ef 100%);
       position: relative;
     }
 
@@ -54,7 +55,7 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       flex-direction: column;
       justify-content: space-between;
       padding: 48px 72px;
-      background: #ffffff;
+      background: transparent;
       position: relative;
       z-index: 2;
     }
@@ -115,20 +116,25 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
     }
 
     .custom-input-group {
-      border: 1.5px solid #e2e8f0;
-      border-radius: 8px;
-      background: #ffffff;
+      border: 1.5px solid rgba(16, 149, 93, 0.2);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 2px 6px rgba(16, 149, 93, 0.04);
       transition: all 0.2s ease;
       overflow: hidden;
     }
 
     .custom-input-group:hover {
-      border-color: #cbd5e1;
+      border-color: #10955d;
+      background: #ffffff;
+      box-shadow: 0 4px 12px rgba(16, 149, 93, 0.08);
     }
 
     .custom-input-group:focus-within {
       border-color: #10955d;
-      box-shadow: 0 0 0 3.5px rgba(16, 149, 93, 0.12);
+      background: #ffffff;
+      box-shadow: 0 0 0 3.5px rgba(16, 149, 93, 0.14);
     }
 
     .custom-input-group input {
@@ -142,6 +148,13 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
 
     .custom-input-group input::placeholder {
       color: #94a3b8;
+    }
+
+    .custom-input-group input:-webkit-autofill,
+    .custom-input-group input:-webkit-autofill:hover,
+    .custom-input-group input:-webkit-autofill:focus {
+      -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+      -webkit-text-fill-color: #0f172a !important;
     }
 
     .field-icon {
@@ -266,8 +279,9 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       display: flex;
       align-items: center;
       padding: 14px 18px;
-      background: #ffffff;
-      border: 1.5px solid #e2e8f0;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(8px);
+      border: 1.5px solid rgba(16, 149, 93, 0.16);
       border-radius: 10px;
       cursor: pointer;
       text-align: left;
@@ -277,7 +291,7 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
 
     .ws-card-btn:hover:not(:disabled) {
       border-color: #10955d;
-      background: #f0fdf4;
+      background: #ffffff;
       transform: translateY(-1px);
       box-shadow: 0 6px 16px rgba(16, 149, 93, 0.12);
     }
@@ -322,16 +336,16 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       font-size: 14px;
     }
 
-    /* Right Side: Illustration Panel */
+    /* Right Side: Seamless Illustration & App Story */
     .login-right-pane {
       position: relative;
-      background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 40%, #e6f7ef 100%);
+      background: transparent;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px;
+      padding: 48px 40px;
       overflow: hidden;
-      border-left: 1px solid rgba(16, 149, 93, 0.08);
     }
 
     .organic-blob-1 {
@@ -341,8 +355,8 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       width: 650px;
       height: 650px;
       border-radius: 46% 54% 65% 35% / 40% 45% 55% 60%;
-      background: radial-gradient(circle, rgba(16, 149, 93, 0.18) 0%, rgba(52, 188, 134, 0.07) 50%, transparent 75%);
-      filter: blur(45px);
+      background: radial-gradient(circle, rgba(16, 149, 93, 0.14) 0%, rgba(52, 188, 134, 0.05) 50%, transparent 75%);
+      filter: blur(50px);
       pointer-events: none;
       animation: floatBlob 16s ease-in-out infinite alternate;
     }
@@ -354,15 +368,15 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       width: 500px;
       height: 500px;
       border-radius: 58% 42% 48% 52% / 55% 60% 40% 45%;
-      background: radial-gradient(circle, rgba(16, 185, 129, 0.14) 0%, rgba(16, 149, 93, 0.04) 55%, transparent 75%);
-      filter: blur(40px);
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, rgba(16, 149, 93, 0.03) 55%, transparent 75%);
+      filter: blur(45px);
       pointer-events: none;
     }
 
     .floating-pie-badge {
       position: absolute;
-      top: 10%;
-      left: 12%;
+      top: 8%;
+      left: 10%;
       z-index: 3;
       filter: drop-shadow(0 12px 20px rgba(16, 149, 93, 0.15));
       animation: floatPie 6s ease-in-out infinite alternate;
@@ -370,8 +384,8 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
 
     .floating-orb {
       position: absolute;
-      top: 22%;
-      right: 14%;
+      top: 18%;
+      right: 12%;
       width: 22px;
       height: 22px;
       border-radius: 50%;
@@ -380,11 +394,88 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       animation: floatOrb 5s ease-in-out infinite alternate;
     }
 
+    /* Words About The App */
+    .app-story-card {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 680px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .app-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      background: rgba(16, 149, 93, 0.1);
+      border: 1px solid rgba(16, 149, 93, 0.25);
+      color: #0d7b4c;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .chip-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10955d;
+      box-shadow: 0 0 8px #10955d;
+    }
+
+    .app-hero-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+      margin: 0 0 8px 0;
+    }
+
+    .app-hero-desc {
+      font-size: 14px;
+      color: #475569;
+      line-height: 1.55;
+      margin: 0 0 16px 0;
+      max-width: 600px;
+    }
+
+    .app-feature-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .feature-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(16, 149, 93, 0.18);
+      font-size: 12px;
+      font-weight: 600;
+      color: #0d7b4c;
+      box-shadow: 0 2px 5px rgba(16, 149, 93, 0.04);
+    }
+
+    .feature-pill span[nz-icon] {
+      color: #10955d;
+    }
+
+    /* Animated SVG Illustration */
     .illustration-wrapper {
       position: relative;
       z-index: 2;
       width: 100%;
-      max-width: 780px;
+      max-width: 720px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -392,9 +483,9 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
 
     .animated-svg-img {
       width: 100%;
-      max-height: 82vh;
+      max-height: 60vh;
       object-fit: contain;
-      filter: drop-shadow(0 24px 48px rgba(16, 149, 93, 0.09));
+      filter: drop-shadow(0 20px 40px rgba(16, 149, 93, 0.08));
     }
 
     @keyframes floatBlob {
@@ -539,7 +630,7 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
         </div>
       </section>
 
-      <!-- Right Panel: Brand Themed Illustration -->
+      <!-- Right Panel: Seamless Brand Themed Story & Illustration -->
       <section class="login-right-pane">
         <div class="organic-blob-1"></div>
         <div class="organic-blob-2"></div>
@@ -553,6 +644,26 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
         </div>
         <div class="floating-orb"></div>
 
+        <!-- Words about the app -->
+        <div class="app-story-card">
+          <div class="app-chip">
+            <span class="chip-dot"></span>
+            <span>Enterprise Resource Planning · Next Generation</span>
+          </div>
+          <h2 class="app-hero-title">
+            Intelligent Operations, Real-Time Financials & Sovereign Multi-Tenant Scale
+          </h2>
+          <p class="app-hero-desc">
+            Unify dual-entry ledgers, dynamic billing, warehouse logistics, and point-of-sale in one high-performance enterprise suite.
+          </p>
+          <div class="app-feature-pills">
+            <div class="feature-pill"><span nz-icon nzType="check-circle" nzTheme="fill"></span> Real-Time Ledger</div>
+            <div class="feature-pill"><span nz-icon nzType="safety-certificate" nzTheme="fill"></span> Org-Scoped Security</div>
+            <div class="feature-pill"><span nz-icon nzType="thunderbolt" nzTheme="fill"></span> Sub-second Latency</div>
+          </div>
+        </div>
+
+        <!-- Animated SVG Illustration -->
         <div class="illustration-wrapper">
           <img
             src="assets/data-dashboard.svg"
