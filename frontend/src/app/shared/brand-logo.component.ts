@@ -56,21 +56,17 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       max-width: 220px;
       opacity: 1;
       transform: translateX(0);
-      transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1),
-                  max-width 0.24s cubic-bezier(0.2, 0, 0, 1),
-                  margin-inline-start 0.24s cubic-bezier(0.2, 0, 0, 1),
-                  transform 0.2s cubic-bezier(0.2, 0, 0, 1);
-    }
-
-    .brand-container.collapsed {
-      justify-content: center;
+      transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                  margin-inline-start 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .brand-container.collapsed .brand-text {
       max-width: 0;
       margin-inline-start: 0;
       opacity: 0;
-      transform: translateX(-8px);
+      transform: translateX(-6px);
       pointer-events: none;
     }
 
