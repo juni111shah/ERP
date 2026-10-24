@@ -55,22 +55,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>Van Sales & Mobile Dispatch Trips</h2>
-          <p class="text-secondary">Dispatch stock onto mobile delivery vans, track en-route field sales and reconcile end-of-day stock and cash</p>
-        </div>
-        <button nz-button nzType="primary" (click)="openDispatchModal()">
-          <span nz-icon nzType="send"></span> Dispatch Van Trip
-        </button>
-      </div>
-
-      <nz-card [nzBordered]="false">
-        <erp-paged-table
-          #table
-          [list]="list"
-          [columns]="columns">
+    <erp-paged-table
+      #table
+      [list]="list"
+      [columns]="columns">
+      <button toolbar nz-button nzType="primary" (click)="openDispatchModal()">
+        <span nz-icon nzType="send"></span> Dispatch Van Trip
+      </button>
           <ng-template #cell let-row let-column="column">
             <ng-container [ngSwitch]="column.key">
               <span *ngSwitchCase="'tripNumber'" class="mono-code font-bold">{{ row.tripNumber }}</span>
@@ -100,7 +91,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </ng-container>
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Dispatch Van Trip Modal -->
       <nz-modal
@@ -336,23 +326,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </div>
         </ng-container>
       </nz-drawer>
-    </div>
   `,
   styles: [`
-    .page-container {
-      padding: 24px;
-    }
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-    .page-header h2 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 600;
-    }
     .text-secondary {
       color: #8c8c8c;
       margin: 4px 0 0;

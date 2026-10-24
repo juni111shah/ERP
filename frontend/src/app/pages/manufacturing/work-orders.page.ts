@@ -46,22 +46,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>Manufacturing Work Orders</h2>
-          <p class="text-secondary">Schedule production runs, release shop-floor jobs, track progress, and record actual yields</p>
-        </div>
-        <button nz-button nzType="primary" (click)="openCreateDrawer()">
-          <span nz-icon nzType="plus"></span> New Work Order
-        </button>
-      </div>
-
-      <nz-card [nzBordered]="false" class="mb-4">
-        <erp-paged-table
-          #table
-          [list]="list"
-          [columns]="columns">
+    <erp-paged-table
+      #table
+      [list]="list"
+      [columns]="columns">
+      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()">
+        <span nz-icon nzType="plus"></span> New Work Order
+      </button>
           <ng-template #cell let-row let-column="column">
             <ng-container [ngSwitch]="column.key">
               <span *ngSwitchCase="'workOrderNumber'" class="mono-code font-bold">{{ row.workOrderNumber }}</span>
@@ -116,7 +107,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </ng-container>
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Create Work Order Drawer -->
       <nz-drawer
@@ -230,12 +220,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-modal>
-    </div>
   `,
   styles: [`
-    .page-container { padding: 1.5rem; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .page-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
     .text-secondary { color: var(--erp-text-secondary, #64748b); }
     .text-success { color: #10b981; }
     .order-summary-box { background: var(--erp-bg-secondary, #f8fafc); padding: 0.75rem; border-radius: 6px; }

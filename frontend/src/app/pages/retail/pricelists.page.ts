@@ -50,22 +50,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>Retail Price Lists</h2>
-          <p class="text-secondary">Configure tiered pricing, wholesale catalogs, promotional schedules and membership discounts</p>
-        </div>
-        <button nz-button nzType="primary" (click)="openCreateModal()">
-          <span nz-icon nzType="plus"></span> Create Price List
-        </button>
-      </div>
-
-      <nz-card [nzBordered]="false">
-        <erp-paged-table
-          #table
-          [list]="list"
-          [columns]="columns">
+    <erp-paged-table
+      #table
+      [list]="list"
+      [columns]="columns">
+      <button toolbar nz-button nzType="primary" (click)="openCreateModal()">
+        <span nz-icon nzType="plus"></span> Create Price List
+      </button>
           <ng-template #cell let-row let-column="column">
             <ng-container [ngSwitch]="column.key">
               <span *ngSwitchCase="'code'" class="mono-code font-bold">{{ row.code }}</span>
@@ -95,7 +86,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </ng-container>
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Create Price List Modal -->
       <nz-modal
@@ -247,23 +237,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </div>
         </ng-container>
       </nz-drawer>
-    </div>
   `,
   styles: [`
-    .page-container {
-      padding: 24px;
-    }
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-    .page-header h2 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 600;
-    }
     .text-secondary {
       color: #8c8c8c;
       margin: 4px 0 0;

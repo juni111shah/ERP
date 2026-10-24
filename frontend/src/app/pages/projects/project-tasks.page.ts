@@ -48,20 +48,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     HasPermissionDirective,
   ],
   template: `
-    <div class="tasks-page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Tasks</h1>
-          <p class="erp-page-subtitle">Track, assign, and update tasks across all active projects.</p>
-        </div>
-        <div class="header-actions">
-          <button *erpHasPermission="'projects.tasks.manage'" nz-button nzType="primary" (click)="openCreateModal()">
-            <span nz-icon nzType="plus"></span> New Task
-          </button>
-        </div>
-      </div>
-
-      <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search task code, title, or assignee..." emptyText="No tasks found.">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search task code, title, or assignee..." emptyText="No tasks found.">
+      <button toolbar *erpHasPermission="'projects.tasks.manage'" nz-button nzType="primary" (click)="openCreateModal()" data-testid="task-new">
+        <span nz-icon nzType="plus"></span> New Task
+      </button>
         <ng-template #cell let-row let-column="column" let-value="value">
           @switch (column.key) {
             @case ('number') {
@@ -162,32 +152,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-modal>
-    </div>
   `,
   styles: [`
-    .tasks-page-container {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-    .erp-page-title {
-      font-size: 24px;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 0;
-    }
-    .erp-page-subtitle {
-      font-size: 13.5px;
-      color: #64748b;
-      margin: 4px 0 0 0;
-    }
     .task-title-cell {
       display: flex;
       flex-direction: column;

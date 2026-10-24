@@ -12,6 +12,8 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ProjectBillingApi, ProjectBillingSummaryDto } from '../../core/api/projects.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 
+import { StatCardComponent } from '../../shared/stat-card.component';
+
 @Component({
   selector: 'erp-project-billing',
   standalone: true,
@@ -28,48 +30,41 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
     NzTableModule,
     NzModalModule,
     HasPermissionDirective,
+    StatCardComponent,
   ],
   template: `
-    <div class="billing-page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Project Billing</h1>
-          <p class="erp-page-subtitle">Generate client invoices and bill unbilled project hours and completed milestones.</p>
-        </div>
-        <div class="header-actions">
-          <button nz-button (click)="loadOverview()">
-            <span nz-icon nzType="reload"></span> Refresh
-          </button>
-        </div>
-      </div>
+    <!-- Stat KPI Cards -->
+    <div class="erp-stat-grid erp-stat-grid--auto mb-4" data-testid="billing-stats-grid">
+      <erp-stat-card
+        label="Total Unbilled Balance"
+        [value]="totalUnbilled()"
+        format="money"
+        [tone]="0"
+        [caption]="'ready to bill across ' + items().length + ' projects'"
+      />
+      <erp-stat-card
+        label="Unbilled Work Hours"
+        [value]="totalHoursAmount()"
+        format="money"
+        [tone]="1"
+        [caption]="(totalHours() | number: '1.1-1') + ' billable hours logged'"
+      />
+      <erp-stat-card
+        label="Achieved Milestones"
+        [value]="totalMilestonesAmount()"
+        format="money"
+        tone="success"
+        [caption]="totalMilestones() + ' fixed-fee milestones achieved'"
+      />
+    </div>
 
-      <!-- Stat KPI Cards -->
-      <div nz-row [nzGutter]="[16, 16]">
-        <div nz-col [nzXs]="24" [nzSm]="8">
-          <nz-card class="stat-card">
-            <span class="stat-label">Total Unbilled Balance</span>
-            <div class="stat-value">AED {{ totalUnbilled() | number: '1.2-2' }}</div>
-            <div class="stat-sub">ready to bill across {{ items().length }} projects</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="8">
-          <nz-card class="stat-card">
-            <span class="stat-label">Unbilled Work Hours</span>
-            <div class="stat-value">AED {{ totalHoursAmount() | number: '1.2-2' }}</div>
-            <div class="stat-sub">{{ totalHours() | number: '1.1-1' }} billable hours logged</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="8">
-          <nz-card class="stat-card">
-            <span class="stat-label">Achieved Milestones</span>
-            <div class="stat-value">AED {{ totalMilestonesAmount() | number: '1.2-2' }}</div>
-            <div class="stat-sub">{{ totalMilestones() }} fixed-fee milestones achieved</div>
-          </nz-card>
-        </div>
-      </div>
-
-      <!-- Main Billing Worksheet Table -->
-      <nz-card class="table-card">
+    <!-- Main Billing Worksheet Table -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button nz-button (click)="loadOverview()" [nzLoading]="loading()" data-testid="billing-refresh">
+        <span nz-icon nzType="reload"></span> Refresh
+      </button>
+    </div>
+    <nz-card class="table-card">
         <nz-table #bTable [nzData]="items()" [nzLoading]="loading()" nzSize="middle">
           <thead>
             <tr>
@@ -107,33 +102,9 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
           </tbody>
         </nz-table>
       </nz-card>
-    </div>
   `,
   styles: [`
-    .billing-page-container {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-    .erp-page-title {
-      font-size: 24px;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 0;
-    }
-    .erp-page-subtitle {
-      font-size: 13.5px;
-      color: #64748b;
-      margin: 4px 0 0 0;
-    }
-    .stat-card {
+    .table-card {
       border-radius: 12px;
       border: 1px solid #e2e8f0;
       box-shadow: 0 1px 3px rgba(0,0,0,0.04);

@@ -46,22 +46,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>Bills of Materials (BOM)</h2>
-          <p class="text-secondary">Define product recipes, standard bill-of-materials structures, and cost rollups</p>
-        </div>
-        <button nz-button nzType="primary" (click)="openCreateDrawer()">
-          <span nz-icon nzType="plus"></span> Add BOM Recipe
-        </button>
-      </div>
-
-      <nz-card [nzBordered]="false" class="mb-4">
-        <erp-paged-table
-          #table
-          [list]="list"
-          [columns]="columns">
+    <erp-paged-table
+      #table
+      [list]="list"
+      [columns]="columns">
+      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()">
+        <span nz-icon nzType="plus"></span> Add BOM Recipe
+      </button>
           <ng-template #cell let-row let-column="column">
             <ng-container [ngSwitch]="column.key">
               <span *ngSwitchCase="'code'" class="mono-code font-bold">{{ row.code }}</span>
@@ -102,7 +93,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </ng-container>
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Detail Drawer -->
       <nz-drawer
@@ -280,12 +270,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-drawer>
-    </div>
   `,
   styles: [`
-    .page-container { padding: 1.5rem; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .page-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
     .text-secondary { color: var(--erp-text-secondary, #64748b); }
     .text-primary { color: var(--erp-primary, #0ea5e9); }
     .detail-header-card { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; background: var(--erp-bg-secondary, #f8fafc); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }

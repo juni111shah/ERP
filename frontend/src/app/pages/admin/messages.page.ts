@@ -18,14 +18,12 @@ import { I18nService } from '../../core/i18n/i18n.service';
   imports: [PagedTableComponent, FormsModule, NzButtonModule, NzInputModule, NzTagModule],
   providers: [DatePipe],
   template: `
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-      <h1 class="erp-page-title" style="margin:0">Message log</h1>
-      <span style="flex:1"></span>
-      <input nz-input style="width:220px" placeholder="Test email address" [(ngModel)]="testTo" data-testid="test-email-to" />
-      <button nz-button [nzLoading]="testing()" (click)="sendTest()" data-testid="test-email">Send test email</button>
-      <button nz-button nzType="primary" [nzLoading]="running()" (click)="run()" data-testid="send-reminders">Send due reminders now</button>
-    </div>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search subject or recipient" emptyText="No messages sent yet" [clickable]="false">
+      <div toolbar style="display:flex;align-items:center;gap:8px">
+        <input nz-input style="width:200px" placeholder="Test email address" [(ngModel)]="testTo" data-testid="test-email-to" />
+        <button nz-button [nzLoading]="testing()" (click)="sendTest()" data-testid="test-email">Send test email</button>
+        <button nz-button nzType="primary" [nzLoading]="running()" (click)="run()" data-testid="send-reminders">Send due reminders now</button>
+      </div>
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'channel') {
           <nz-tag [nzColor]="row.channel === 'email' ? 'blue' : 'purple'">{{ row.channel }}</nz-tag>

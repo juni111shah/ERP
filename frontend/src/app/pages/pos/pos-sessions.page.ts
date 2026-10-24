@@ -47,24 +47,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent,
   ],
   template: `
-    <div class="sessions-page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Shifts & Cash Drawers</h1>
-          <p class="erp-page-subtitle">Monitor cashier shifts, cash drawer floats, safe drops and drawer reconciliations.</p>
-        </div>
-        <div class="header-actions">
-          <button nz-button nzType="default" (click)="openDrawerTxModal()">
-            <span nz-icon nzType="swap"></span>Record Drawer Float / Drop
-          </button>
-          <a routerLink="/pos/terminal" nz-button nzType="primary">
-            <span nz-icon nzType="shop"></span>Open Terminal
-          </a>
-        </div>
+    <erp-paged-table [list]="list" [columns]="columns">
+      <div toolbar style="display:flex;align-items:center;gap:8px">
+        <button nz-button nzType="default" (click)="openDrawerTxModal()" data-testid="pos-drawer-tx">
+          <span nz-icon nzType="swap"></span>Record Drawer Float / Drop
+        </button>
+        <a routerLink="/pos/terminal" nz-button nzType="primary" data-testid="pos-open-terminal">
+          <span nz-icon nzType="shop"></span>Open Terminal
+        </a>
       </div>
-
-      <nz-card class="table-card" [nzBodyStyle]="{ padding: '0' }">
-        <erp-paged-table [list]="list" [columns]="columns">
           <ng-template #cell let-session let-column="column">
             @if (column.key === 'registerName') {
               <strong>{{ session.registerName }}</strong>
@@ -97,7 +88,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             }
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Record Drawer Transaction Modal -->
       <nz-modal
@@ -139,16 +129,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </div>
         </ng-container>
       </nz-modal>
-    </div>
   `,
-  styles: [`
-    .sessions-page-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .erp-page-title { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
-    .erp-page-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0 0; }
-    .header-actions { display: flex; gap: 8px; }
-    .table-card { border-radius: 12px; border: 1px solid #e2e8f0; }
-  `],
+  styles: [``],
 })
 export class PosSessionsPage {
   private readonly api = inject(PosSessionsApi);

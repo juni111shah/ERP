@@ -47,27 +47,18 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     PagedTableComponent
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>Wholesale Pricing & Volume Tiers</h2>
-          <p class="text-secondary">Configure wholesale price matrices, volume discounts (Bronze, Silver, Gold, Platinum) and calculate order rates</p>
-        </div>
-        <div class="header-actions">
-          <button nz-button nzType="default" (click)="openSimulatorModal()">
-            <span nz-icon nzType="calculator"></span> Calculate Wholesale Rate
-          </button>
-          <button nz-button nzType="primary" (click)="openCreateModal()">
-            <span nz-icon nzType="plus"></span> Add Pricing Tier
-          </button>
-        </div>
+    <erp-paged-table
+      #table
+      [list]="list"
+      [columns]="columns">
+      <div toolbar style="display: flex; align-items: center; gap: 8px;">
+        <button nz-button nzType="default" (click)="openSimulatorModal()">
+          <span nz-icon nzType="calculator"></span> Calculate Wholesale Rate
+        </button>
+        <button nz-button nzType="primary" (click)="openCreateModal()">
+          <span nz-icon nzType="plus"></span> Add Pricing Tier
+        </button>
       </div>
-
-      <nz-card [nzBordered]="false">
-        <erp-paged-table
-          #table
-          [list]="list"
-          [columns]="columns">
           <ng-template #cell let-row let-column="column">
             <ng-container [ngSwitch]="column.key">
               <span *ngSwitchCase="'itemCode'" class="mono-code font-bold">{{ row.itemCode }}</span>
@@ -99,7 +90,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </ng-container>
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Add Pricing Tier Modal -->
       <nz-modal
@@ -261,27 +251,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </div>
         </ng-container>
       </nz-modal>
-    </div>
   `,
   styles: [`
-    .page-container {
-      padding: 24px;
-    }
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-    .page-header h2 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 600;
-    }
-    .header-actions {
-      display: flex;
-      gap: 12px;
-    }
     .text-secondary {
       color: #8c8c8c;
       margin: 4px 0 0;
