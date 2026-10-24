@@ -74,10 +74,20 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
       position: relative;
       overflow: visible;
       flex-shrink: 0;
+      transition: padding 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .brand.collapsed {
+      padding: 0;
+      justify-content: center;
     }
     .brand erp-brand-logo {
       flex: 1;
       min-width: 0;
+    }
+    .brand.collapsed erp-brand-logo {
+      width: 100%;
+      display: flex;
+      justify-content: center;
     }
 
     .sidebar-toggle-btn {
@@ -98,13 +108,13 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
       color: var(--erp-color-text-secondary, #64748b);
       cursor: pointer;
       flex-shrink: 0;
-      transition: inset-inline-end 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                  width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                  height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                  border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      transition: inset-inline-end 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  border-radius 0.28s cubic-bezier(0.4, 0, 0.2, 1),
                   background-color 0.2s ease,
                   border-color 0.2s ease,
-                  box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
                   color 0.2s ease,
                   transform 0.2s ease;
       outline: none;
@@ -202,8 +212,8 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
       overflow: hidden;
       background: var(--erp-color-bg-canvas);
       flex: 1 1 auto;
-      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                  flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  flex 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .header {
       background: var(--erp-color-bg-surface);
@@ -242,8 +252,8 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
       opacity: 1;
       transform: translateX(0);
       transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                  height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                  padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
                   transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .group-title.collapsed {
@@ -263,92 +273,148 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
         width: 100% !important;
       }
 
+      /* Collapsed Menu Items: perfectly centered 44x44px pill with NO Ant Design left-padding offset */
       .ant-menu-inline-collapsed {
-        width: 100% !important;
-      }
+        width: 64px !important;
 
-      .ant-menu-item {
-        height: 42px !important;
-        line-height: 42px !important;
-        margin: 3px 10px !important;
-        padding: 0 11px !important;
-        padding-inline: 11px !important;
-        padding-left: 11px !important;
-        padding-right: 11px !important;
-        width: calc(100% - 20px) !important;
-        border-radius: 10px !important;
-        display: flex !important;
-        align-items: center !important;
-        overflow: hidden !important;
-        white-space: nowrap !important;
-        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                    background-color 0.2s ease,
-                    color 0.2s ease,
-                    border-color 0.2s ease !important;
-
-        .ant-menu-title-content {
-          width: 100% !important;
-          height: 100% !important;
-          margin: 0 !important;
+        > .ant-menu-item {
+          width: 44px !important;
+          height: 44px !important;
+          line-height: 44px !important;
+          margin: 5px auto !important;
           padding: 0 !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          padding-inline: 0 !important;
+          border-radius: 12px !important;
           display: flex !important;
-          align-items: center !important;
-          overflow: hidden !important;
-        }
-
-        .nav-item-inner {
-          display: flex !important;
-          align-items: center !important;
-          width: 100% !important;
-          height: 100% !important;
-          overflow: hidden !important;
-        }
-
-        .nav-icon {
-          width: 22px !important;
-          min-width: 22px !important;
-          height: 22px !important;
-          font-size: 18px !important;
-          line-height: 1 !important;
-          display: inline-flex !important;
           align-items: center !important;
           justify-content: center !important;
-          flex-shrink: 0 !important;
-          transition: transform 0.2s ease, color 0.2s ease !important;
+          text-align: center !important;
+          overflow: visible !important;
+          transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
 
-          .anticon {
+          .ant-menu-title-content {
+            width: 100% !important;
+            height: 100% !important;
             margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            overflow: visible !important;
+          }
+
+          .nav-item-inner {
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            overflow: visible !important;
+          }
+
+          .nav-icon {
+            width: 44px !important;
+            min-width: 44px !important;
+            height: 44px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 20px !important;
+            line-height: 1 !important;
+            flex-shrink: 0 !important;
+
+            .anticon {
+              margin: 0 !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              font-size: 20px !important;
+              width: 20px !important;
+              height: 20px !important;
+            }
+          }
+
+          .nav-label {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            pointer-events: none !important;
+          }
+        }
+      }
+
+      /* Expanded Menu Items: comfortable rounded row */
+      .ant-menu-inline:not(.ant-menu-inline-collapsed) {
+        width: 100% !important;
+
+        > .ant-menu-item {
+          height: 42px !important;
+          line-height: 42px !important;
+          margin: 3px 10px !important;
+          padding: 0 12px !important;
+          padding-left: 12px !important;
+          padding-right: 12px !important;
+          padding-inline: 12px !important;
+          width: calc(100% - 20px) !important;
+          border-radius: 9px !important;
+          display: flex !important;
+          align-items: center !important;
+          overflow: hidden !important;
+          white-space: nowrap !important;
+          transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
+
+          .ant-menu-title-content {
+            width: 100% !important;
+            height: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+          }
+
+          .nav-item-inner {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            width: 100% !important;
+          }
+
+          .nav-icon {
+            width: 20px !important;
+            min-width: 20px !important;
+            height: 20px !important;
+            font-size: 17px !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
+            flex-shrink: 0 !important;
+
+            .anticon {
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+            }
+          }
+
+          .nav-label {
+            display: inline-block !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            font-size: 14px !important;
+            opacity: 1 !important;
+            max-width: 170px !important;
           }
         }
+      }
 
-        .nav-label {
-          display: inline-block !important;
-          white-space: nowrap !important;
-          overflow: hidden !important;
-          text-overflow: clip !important;
-          font-size: 13.5px !important;
-          line-height: 1.2 !important;
-          max-width: 165px !important;
-          opacity: 1 !important;
-          margin-inline-start: 11px !important;
-          transform: translateX(0) !important;
-          transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                      opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                      margin-inline-start 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                      transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-
-        .nav-label.collapsed {
-          max-width: 0 !important;
-          opacity: 0 !important;
-          margin-inline-start: 0 !important;
-          transform: translateX(-6px) !important;
-          pointer-events: none !important;
-        }
-
+      .ant-menu-item {
         &::after {
           display: none !important;
         }
