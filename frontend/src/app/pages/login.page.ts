@@ -44,13 +44,19 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
 
     .login-root {
       display: grid;
-      grid-template-columns: 43% 57%;
+      grid-template-columns: 380px minmax(540px, 760px);
+      justify-content: center;
+      align-items: center;
+      gap: 36px;
+      max-width: 1220px;
+      margin: 0 auto;
       height: 100vh;
       max-height: 100vh;
       width: 100%;
-      background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 40%, #e6f7ef 100%);
       position: relative;
       overflow: hidden;
+      box-sizing: border-box;
+      padding: 0 24px;
     }
 
     /* Left Side: Authentication Panel */
@@ -58,13 +64,15 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 36px 64px 28px 64px;
+      padding: 24px 0 20px 0;
       background: transparent;
       position: relative;
       z-index: 10;
       height: 100vh;
       box-sizing: border-box;
       overflow-y: auto;
+      width: 100%;
+      max-width: 380px;
     }
 
     .brand-top {
@@ -76,13 +84,13 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
 
     .login-main-content {
       width: 100%;
-      max-width: 420px;
+      max-width: 410px;
       margin: auto 0;
-      padding: 8px 0;
+      padding: 6px 0;
     }
 
     .login-heading-group {
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
 
     .login-title {
@@ -91,7 +99,7 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       color: #0f172a;
       letter-spacing: -0.025em;
       line-height: 1.15;
-      margin: 0 0 8px 0;
+      margin: 0 0 6px 0;
     }
 
     .login-subtitle {
@@ -102,7 +110,7 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
     }
 
     .auth-alert {
-      margin-bottom: 18px;
+      margin-bottom: 16px;
       border-radius: 8px;
     }
 
@@ -346,23 +354,25 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       background: transparent;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      padding: 40px 52px 32px 52px;
+      padding: 24px 0 20px 0;
       height: 100vh;
       box-sizing: border-box;
       overflow: hidden;
       z-index: 1;
+      min-width: 0;
+      width: 100%;
     }
 
     .organic-blob-1 {
       position: absolute;
       top: -15%;
       right: -10%;
-      width: 600px;
-      height: 600px;
+      width: 650px;
+      height: 650px;
       border-radius: 46% 54% 65% 35% / 40% 45% 55% 60%;
-      background: radial-gradient(circle, rgba(16, 149, 93, 0.13) 0%, rgba(52, 188, 134, 0.04) 50%, transparent 75%);
+      background: radial-gradient(circle, rgba(16, 149, 93, 0.14) 0%, rgba(52, 188, 134, 0.04) 50%, transparent 75%);
       filter: blur(50px);
       pointer-events: none;
       z-index: 1;
@@ -372,10 +382,10 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       position: absolute;
       bottom: -15%;
       left: 5%;
-      width: 480px;
-      height: 480px;
+      width: 500px;
+      height: 500px;
       border-radius: 58% 42% 48% 52% / 55% 60% 40% 45%;
-      background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, rgba(16, 149, 93, 0.02) 55%, transparent 75%);
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.11) 0%, rgba(16, 149, 93, 0.02) 55%, transparent 75%);
       filter: blur(45px);
       pointer-events: none;
       z-index: 1;
@@ -383,8 +393,8 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
 
     .floating-orb {
       position: absolute;
-      top: 12%;
-      right: 6%;
+      top: 10%;
+      right: 4%;
       width: 18px;
       height: 18px;
       border-radius: 50%;
@@ -399,8 +409,8 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       position: relative;
       z-index: 10;
       width: 100%;
-      max-width: 660px;
-      margin-top: 4px;
+      max-width: 100%;
+      margin-top: 0;
       text-align: left;
     }
 
@@ -408,19 +418,20 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 6px 16px;
+      padding: 4px 13px;
       border-radius: 9999px;
       background: linear-gradient(90deg, rgba(16, 149, 93, 0.1) 0%, rgba(52, 211, 153, 0.28) 50%, rgba(16, 149, 93, 0.1) 100%);
       background-size: 200% 100%;
       border: 1px solid rgba(16, 149, 93, 0.3);
       color: #0d7b4c;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
       animation: badgeShimmer 4s infinite linear;
       box-shadow: 0 2px 8px rgba(16, 149, 93, 0.08);
+      white-space: nowrap;
     }
 
     .chip-dot {
@@ -433,83 +444,99 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
     }
 
     .shimmer-headline {
-      font-size: 23px;
+      font-size: clamp(14px, 1.25vw, 18px);
       font-weight: 800;
-      line-height: 1.3;
+      line-height: 1.2;
       letter-spacing: -0.02em;
-      margin: 0 0 6px 0;
+      margin: 0 0 4px 0;
       background: linear-gradient(135deg, #0f172a 0%, #10955d 40%, #047857 75%, #0f172a 100%);
       background-size: 250% auto;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       animation: headlineShimmer 6s ease-in-out infinite alternate;
+      white-space: nowrap !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
     }
 
     .top-subtext {
-      font-size: 13.5px;
+      font-size: 12.5px;
       color: #475569;
-      line-height: 1.5;
+      line-height: 1.35;
       margin: 0;
-      max-width: 580px;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* CENTER ILLUSTRATION */
+    /* CENTER ILLUSTRATION (Enlarged) */
     .illustration-wrapper {
       position: relative;
       z-index: 5;
       width: 100%;
-      max-width: 660px;
       flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
       min-height: 0;
-      padding: 10px 0;
+      padding: 0;
+      overflow: visible;
     }
 
     .animated-svg-img {
       width: 100%;
       height: 100%;
-      max-height: 48vh;
+      max-height: 68vh;
       object-fit: contain;
-      filter: drop-shadow(0 18px 36px rgba(16, 149, 93, 0.08));
+      filter: drop-shadow(0 20px 40px rgba(16, 149, 93, 0.12));
+      transform: scale(1.16);
+      transform-origin: center center;
+      transition: transform 0.3s ease;
     }
 
-    /* BOTTOM FEATURE PILLS (Below Illustration) */
+    /* BOTTOM FEATURE PILLS (Below Illustration - strictly ONE ROW) */
     .bottom-story-card {
       position: relative;
       z-index: 10;
       width: 100%;
-      max-width: 660px;
-      margin-bottom: 8px;
+      max-width: 100%;
+      margin-bottom: 4px;
     }
 
     .feature-pills-row {
       display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
+      flex-wrap: nowrap !important;
+      gap: 8px;
       align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+      overflow-x: hidden;
     }
 
     .shimmer-pill {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 6px 14px;
+      gap: 5px;
+      padding: 5px 12px;
       border-radius: 9999px;
-      background: rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(8px);
       border: 1px solid rgba(16, 149, 93, 0.22);
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 600;
       color: #065f46;
       box-shadow: 0 2px 8px rgba(16, 149, 93, 0.06);
       transition: all 0.2s ease;
+      white-space: nowrap !important;
+      flex-shrink: 0;
     }
 
     .shimmer-pill:hover {
       transform: translateY(-1px);
       border-color: #10955d;
+      background: #ffffff;
       box-shadow: 0 4px 12px rgba(16, 149, 93, 0.12);
     }
 
@@ -552,14 +579,16 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
         height: auto;
         max-height: none;
         overflow-y: auto;
+        padding: 0 24px;
       }
       .login-left-pane {
-        padding: 36px 28px;
+        padding: 32px 0;
         height: auto;
         min-height: 100vh;
+        margin: 0 auto;
       }
       .login-main-content {
-        margin: 20px auto;
+        margin: 16px auto;
       }
       .login-right-pane {
         display: none;
@@ -682,13 +711,13 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
         <div class="organic-blob-2"></div>
         <div class="floating-orb"></div>
 
-        <!-- TOP TEXT: Shimmer Headline & Value Proposition -->
+        <!-- TOP TEXT: Shimmer Headline in ONE single clean row -->
         <div class="top-story-card">
           <div class="shimmer-chip">
             <span class="chip-dot"></span>
             <span>Enterprise Resource Planning · 360 Suite</span>
           </div>
-          <h2 class="shimmer-headline">
+          <h2 class="shimmer-headline" title="Intelligent Operations, Real-Time Financials & Sovereign Multi-Tenant Scale">
             Intelligent Operations, Real-Time Financials & Sovereign Multi-Tenant Scale
           </h2>
           <p class="top-subtext">
@@ -696,7 +725,7 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
           </p>
         </div>
 
-        <!-- CENTER: Animated SVG Illustration -->
+        <!-- CENTER: Enlarged Animated SVG Illustration -->
         <div class="illustration-wrapper">
           <img
             src="assets/data-dashboard.svg"
@@ -704,7 +733,7 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
             class="animated-svg-img" />
         </div>
 
-        <!-- BOTTOM TEXT: Live Feature Highlights & Shimmer Badges -->
+        <!-- BOTTOM TEXT: Live Feature Highlights strictly in ONE single row -->
         <div class="bottom-story-card">
           <div class="feature-pills-row">
             <div class="shimmer-pill">
