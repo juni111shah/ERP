@@ -254,6 +254,158 @@ interface KpiCluster {
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     }
 
+    /* ---- ALL METRICS MATRIX VIEW ---- */
+    .all-metrics-matrix-wrap {
+      margin-bottom: 26px;
+    }
+    .matrix-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      background: #ffffff;
+      padding: 14px 18px;
+      border-radius: 14px;
+      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+    .matrix-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .matrix-icon {
+      font-size: 20px;
+      color: #10955d;
+      background: #e6f7ef;
+      padding: 8px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .matrix-titles h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--erp-color-text-primary, #0f172a);
+    }
+    .matrix-sub {
+      font-size: 12px;
+      color: var(--erp-color-text-secondary, #64748b);
+    }
+    .matrix-search-box {
+      display: inline-flex;
+      align-items: center;
+      position: relative;
+      min-width: 280px;
+    }
+    .matrix-search-box .search-icon {
+      position: absolute;
+      left: 12px;
+      color: #94a3b8;
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .matrix-search-input {
+      width: 100%;
+      height: 38px;
+      padding: 0 34px 0 36px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      font-size: 13px;
+      color: #0f172a;
+      transition: all 0.2s;
+    }
+    .matrix-search-input:focus {
+      outline: none;
+      background: #ffffff;
+      border-color: #10955d;
+      box-shadow: 0 0 0 3px rgba(16, 149, 93, 0.12);
+    }
+    .clear-search-btn {
+      position: absolute;
+      right: 10px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: #94a3b8;
+      font-size: 14px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      line-height: 1;
+    }
+    .clear-search-btn:hover {
+      color: #0f172a;
+    }
+    .matrix-departments {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .matrix-dept-block {
+      background: #ffffff;
+      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      border-radius: 14px;
+      padding: 16px 18px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+    .dept-block-header {
+      margin-bottom: 14px;
+    }
+    .dept-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .dept-badge {
+      font-size: 11px;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: #64748b;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+    .empty-matrix-state {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px dashed #cbd5e1;
+      color: #64748b;
+      gap: 8px;
+    }
+    .section-divider {
+      display: flex;
+      align-items: center;
+      margin: 28px 0 20px;
+      text-transform: uppercase;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+    }
+    .section-divider::before,
+    .section-divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .section-divider span {
+      padding: 0 14px;
+    }
+
     /* ---- TIER 1: STRATEGIC HIGHLIGHTS (4 HERO CARDS) ---- */
     .hero-kpis-wrap {
       margin-bottom: 22px;
@@ -653,25 +805,109 @@ interface KpiCluster {
             </div>
           </div>
 
-          <!-- TIER 1: STRATEGIC HIGHLIGHTS (4 HERO STAT CARDS) -->
-          <div class="hero-kpis-wrap" data-testid="kpi-grid">
-            <div class="section-eyebrow">
-              <span nz-icon nzType="fund"></span>
-              <span>{{ activeCategory() === 'all' ? 'Executive Highlights' : (activeCategoryTitle() + ' Key Highlights') }}</span>
+          @if (viewMode() === 'curated') {
+            <!-- TIER 1: STRATEGIC HIGHLIGHTS (4 HERO STAT CARDS) -->
+            <div class="hero-kpis-wrap" data-testid="kpi-grid">
+              <div class="section-eyebrow">
+                <span nz-icon nzType="fund"></span>
+                <span>{{ activeCategory() === 'all' ? 'Executive Highlights' : (activeCategoryTitle() + ' Key Highlights') }}</span>
+              </div>
+              <div class="erp-stat-grid">
+                @for (k of activeHeroKpis(); track k.key; let i = $index) {
+                  <erp-stat-card
+                    [label]="k.label"
+                    [value]="k.value"
+                    [format]="statFormat(k)"
+                    [caption]="k.caption ?? null"
+                    [tone]="i"
+                    [link]="k.link ?? null"
+                    [testId]="'kpi-' + k.key" />
+                }
+              </div>
             </div>
-            <div class="erp-stat-grid">
-              @for (k of activeHeroKpis(); track k.key; let i = $index) {
-                <erp-stat-card
-                  [label]="k.label"
-                  [value]="k.value"
-                  [format]="statFormat(k)"
-                  [caption]="k.caption ?? null"
-                  [tone]="i"
-                  [link]="k.link ?? null"
-                  [testId]="'kpi-' + k.key" />
+          } @else {
+            <!-- ALL METRICS MATRIX VIEW -->
+            <div class="all-metrics-matrix-wrap" data-testid="kpi-grid">
+              <div class="matrix-header-bar">
+                <div class="matrix-title-wrap">
+                  <span nz-icon nzType="table" class="matrix-icon"></span>
+                  <div class="matrix-titles">
+                    <h3>{{ activeCategory() === 'all' ? 'Complete Enterprise Metrics Matrix' : (activeCategoryTitle() + ' Full Metrics Matrix') }}</h3>
+                    <span class="matrix-sub">Showing {{ filteredMatrixKpis().length }} of {{ activeCategoryKpis().length }} tracked metrics across legal entities</span>
+                  </div>
+                </div>
+
+                <div class="matrix-search-box">
+                  <span nz-icon nzType="search" class="search-icon"></span>
+                  <input
+                    type="text"
+                    class="matrix-search-input"
+                    [placeholder]="'Search ' + activeCategoryKpis().length + ' metrics (e.g. sales, cash, stock)...'"
+                    [value]="metricSearchQuery()"
+                    (input)="metricSearchQuery.set($any($event.target).value)" />
+                  @if (metricSearchQuery()) {
+                    <button class="clear-search-btn" (click)="metricSearchQuery.set('')">✕</button>
+                  }
+                </div>
+              </div>
+
+              @if (activeCategory() === 'all' && !metricSearchQuery()) {
+                <!-- Departmental Matrix Grid -->
+                <div class="matrix-departments">
+                  @for (cluster of allMatrixClusters(); track cluster.id) {
+                    @if (cluster.kpis.length > 0) {
+                      <div class="matrix-dept-block">
+                        <div class="dept-block-header">
+                          <div class="dept-title">
+                            <span nz-icon [nzType]="cluster.icon"></span>
+                            <span>{{ cluster.title }}</span>
+                            <span class="dept-badge">{{ cluster.kpis.length }} metrics</span>
+                          </div>
+                        </div>
+                        <div class="erp-stat-grid erp-stat-grid--compact">
+                          @for (k of cluster.kpis; track k.key; let i = $index) {
+                            <erp-stat-card
+                              [compact]="false"
+                              [label]="k.label"
+                              [value]="k.value"
+                              [format]="statFormat(k)"
+                              [caption]="k.caption ?? null"
+                              [tone]="i % 7"
+                              [link]="k.link ?? null"
+                              [testId]="'kpi-' + k.key" />
+                          }
+                        </div>
+                      </div>
+                    }
+                  }
+                </div>
+              } @else {
+                <!-- Flat Filtered / Search Matrix Grid -->
+                <div class="erp-stat-grid" style="margin-top: 14px;">
+                  @for (k of filteredMatrixKpis(); track k.key; let i = $index) {
+                    <erp-stat-card
+                      [compact]="false"
+                      [label]="k.label"
+                      [value]="k.value"
+                      [format]="statFormat(k)"
+                      [caption]="k.caption ?? null"
+                      [tone]="i % 7"
+                      [link]="k.link ?? null"
+                      [testId]="'kpi-' + k.key" />
+                  } @empty {
+                    <div class="empty-matrix-state">
+                      <span nz-icon nzType="search" style="font-size: 26px; color: #94a3b8;"></span>
+                      <span>No metrics found matching "{{ metricSearchQuery() }}"</span>
+                    </div>
+                  }
+                </div>
               }
             </div>
-          </div>
+
+            <div class="section-divider">
+              <span>Departmental Analytics & Deep Dives</span>
+            </div>
+          }
 
           <!-- TIER 2: ENTERPRISE ANALYTICS & ACTION CENTER -->
           <div class="analytics-section">
@@ -902,63 +1138,65 @@ interface KpiCluster {
           </div>
 
           <!-- TIER 3: DEPARTMENTAL CLUSTERS (OPERATIONAL METRICS) -->
-          @if (activeCategory() === 'all') {
-            <!-- In All Overview: Display Clean Thematic Clusters -->
-            <div class="clusters-container">
-              @for (cluster of clusters(); track cluster.id) {
-                @if (cluster.kpis.length > 0) {
-                  <div class="cluster-card">
-                    <div class="cluster-header">
-                      <div class="cluster-title-wrap">
-                        <span nz-icon [nzType]="cluster.icon" class="cluster-icon"></span>
-                        <span>{{ cluster.title }}</span>
-                        <span class="cluster-badge">{{ cluster.kpis.length }}</span>
+          @if (viewMode() === 'curated') {
+            @if (activeCategory() === 'all') {
+              <!-- In All Overview: Display Clean Thematic Clusters -->
+              <div class="clusters-container">
+                @for (cluster of clusters(); track cluster.id) {
+                  @if (cluster.kpis.length > 0) {
+                    <div class="cluster-card">
+                      <div class="cluster-header">
+                        <div class="cluster-title-wrap">
+                          <span nz-icon [nzType]="cluster.icon" class="cluster-icon"></span>
+                          <span>{{ cluster.title }}</span>
+                          <span class="cluster-badge">{{ cluster.kpis.length }}</span>
+                        </div>
+                        <button class="tab-pill" (click)="setCategory(cluster.category)">
+                          <span>View {{ cluster.title }}</span>
+                          <span nz-icon nzType="arrow-right"></span>
+                        </button>
                       </div>
-                      <button class="tab-pill" (click)="setCategory(cluster.category)">
-                        <span>View {{ cluster.title }}</span>
-                        <span nz-icon nzType="arrow-right"></span>
-                      </button>
+                      <div class="erp-stat-grid erp-stat-grid--compact">
+                        @for (k of cluster.kpis; track k.key) {
+                          <erp-stat-card
+                            [compact]="true"
+                            [label]="k.label"
+                            [value]="k.value"
+                            [format]="statFormat(k)"
+                            [caption]="k.caption ?? null"
+                            [link]="k.link ?? null"
+                            [testId]="'kpi-' + k.key" />
+                        }
+                      </div>
                     </div>
-                    <div class="erp-stat-grid erp-stat-grid--compact">
-                      @for (k of cluster.kpis; track k.key) {
-                        <erp-stat-card
-                          [compact]="true"
-                          [label]="k.label"
-                          [value]="k.value"
-                          [format]="statFormat(k)"
-                          [caption]="k.caption ?? null"
-                          [link]="k.link ?? null"
-                          [testId]="'kpi-' + k.key" />
-                      }
-                    </div>
-                  </div>
-                }
-              }
-            </div>
-          } @else {
-            <!-- In Specific Domain Filter: Show all metrics of this domain -->
-            @if (activeRemainingKpis().length > 0) {
-              <div class="cluster-card" style="margin-top: 10px;">
-                <div class="cluster-header">
-                  <div class="cluster-title-wrap">
-                    <span nz-icon nzType="dashboard" class="cluster-icon"></span>
-                    <span>Additional {{ activeCategoryTitle() }} Metrics</span>
-                    <span class="cluster-badge">{{ activeRemainingKpis().length }}</span>
-                  </div>
-                </div>
-                <div class="erp-stat-grid erp-stat-grid--compact">
-                  @for (k of activeRemainingKpis(); track k.key) {
-                    <erp-stat-card
-                      [compact]="true"
-                      [label]="k.label"
-                      [value]="k.value"
-                      [format]="statFormat(k)"
-                      [caption]="k.caption ?? null"
-                      [link]="k.link ?? null"
-                      [testId]="'kpi-' + k.key" />
                   }
-                </div>
+                }
               </div>
+            } @else {
+              <!-- In Specific Domain Filter: Show all metrics of this domain -->
+              @if (activeRemainingKpis().length > 0) {
+                <div class="cluster-card" style="margin-top: 10px;">
+                  <div class="cluster-header">
+                    <div class="cluster-title-wrap">
+                      <span nz-icon nzType="dashboard" class="cluster-icon"></span>
+                      <span>Additional {{ activeCategoryTitle() }} Metrics</span>
+                      <span class="cluster-badge">{{ activeRemainingKpis().length }}</span>
+                    </div>
+                  </div>
+                  <div class="erp-stat-grid erp-stat-grid--compact">
+                    @for (k of activeRemainingKpis(); track k.key) {
+                      <erp-stat-card
+                        [compact]="true"
+                        [label]="k.label"
+                        [value]="k.value"
+                        [format]="statFormat(k)"
+                        [caption]="k.caption ?? null"
+                        [link]="k.link ?? null"
+                        [testId]="'kpi-' + k.key" />
+                    }
+                  </div>
+                </div>
+              }
             }
           }
         }
@@ -979,6 +1217,63 @@ export class DashboardPage {
   readonly selectedSalesChartKey = signal<string>('sales-pipeline');
   readonly selectedOpsChartKey = signal<string>('purchasing-orders-status');
   readonly selectedDomainChartKey = signal<string | null>(null);
+  readonly metricSearchQuery = signal<string>('');
+
+  readonly activeCategoryKpis = computed<KpiCard[]>(() => {
+    return this.getCategoryKpis(this.activeCategory());
+  });
+
+  readonly filteredMatrixKpis = computed<KpiCard[]>(() => {
+    const list = this.activeCategoryKpis();
+    const q = this.metricSearchQuery().trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((k) =>
+      k.label.toLowerCase().includes(q) ||
+      k.key.toLowerCase().includes(q) ||
+      (k.caption && k.caption.toLowerCase().includes(q))
+    );
+  });
+
+  readonly allMatrixClusters = computed<KpiCluster[]>(() => {
+    const all = this.data()?.kpis ?? [];
+    return [
+      {
+        id: 'treasury',
+        title: 'Finance, Treasury & Liquidity',
+        icon: 'wallet',
+        category: 'finance',
+        kpis: all.filter((k) => this.classifyKpi(k.key) === 'finance'),
+      },
+      {
+        id: 'commercial',
+        title: 'Commercial, Retail & Sales Pipeline',
+        icon: 'shopping-cart',
+        category: 'sales-crm',
+        kpis: all.filter((k) => this.classifyKpi(k.key) === 'sales-crm'),
+      },
+      {
+        id: 'operations',
+        title: 'Supply Chain, Procurement & Production',
+        icon: 'shop',
+        category: 'supply-operations',
+        kpis: all.filter((k) => this.classifyKpi(k.key) === 'supply-operations'),
+      },
+      {
+        id: 'services',
+        title: 'Workforce, Projects & Client Services',
+        icon: 'solution',
+        category: 'projects-services',
+        kpis: all.filter((k) => ['projects-services', 'hr'].includes(this.classifyKpi(k.key))),
+      },
+      {
+        id: 'realestate',
+        title: 'Real Estate & Facilities Management',
+        icon: 'home',
+        category: 'real-estate',
+        kpis: all.filter((k) => this.classifyKpi(k.key) === 'real-estate'),
+      },
+    ];
+  });
 
   readonly currentEntityName = computed(() => {
     const id = this.session.currentEntityId();
