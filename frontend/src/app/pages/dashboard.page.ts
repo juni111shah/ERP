@@ -74,41 +74,49 @@ interface KpiCluster {
       border: 0;
     }
 
-    /* ---- MODERN TOOLBAR WITH CATEGORIES & SCOPE ---- */
+    /* ---- MODERN TOOLBAR: SINGLE ROW EXPANDABLE DOCK ---- */
     .dashboard-toolbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 20px;
+      flex-wrap: nowrap;
+      gap: 16px;
+      margin-bottom: 22px;
       background: #ffffff;
-      padding: 8px 12px;
+      padding: 7px 12px;
       border-radius: 14px;
       border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .dashboard-toolbar::-webkit-scrollbar {
+      display: none;
     }
 
     .category-tabs {
       display: flex;
       align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
+      gap: 4px;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
     }
 
     .tab-pill {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 6px 13px;
+      height: 38px;
+      padding: 0 11px;
       font-size: 13px;
       font-weight: 500;
-      border-radius: 8px;
+      border-radius: 10px;
       border: 1px solid transparent;
       background: transparent;
       color: var(--erp-color-text-secondary, #64748b);
       cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+      white-space: nowrap;
+      position: relative;
+      transition: all 0.28s cubic-bezier(0.2, 0, 0, 1);
     }
     .tab-pill:hover {
       background: #f1f5f9;
@@ -116,19 +124,70 @@ interface KpiCluster {
     }
     .tab-pill.active {
       background: #e6f7ef;
-      border-color: rgba(16, 149, 93, 0.25);
+      border-color: rgba(16, 149, 93, 0.28);
       color: #10955d;
       font-weight: 600;
-      box-shadow: 0 1px 2px rgba(16, 149, 93, 0.06);
+      box-shadow: 0 1px 3px rgba(16, 149, 93, 0.08);
+      padding: 0 13px;
     }
-    .tab-count {
+
+    .pill-icon {
+      font-size: 15px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .tab-pill:hover .pill-icon {
+      transform: scale(1.12);
+    }
+
+    .pill-text {
       display: inline-block;
-      padding: 1px 6px;
-      border-radius: 10px;
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      transform: translateX(-6px);
+      transition: max-width 0.3s cubic-bezier(0.2, 0, 0, 1),
+                  opacity 0.2s ease,
+                  transform 0.3s cubic-bezier(0.2, 0, 0, 1),
+                  margin 0.3s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .tab-pill.active .pill-text,
+    .tab-pill:hover .pill-text {
+      max-width: 170px;
+      opacity: 1;
+      transform: translateX(0);
+      margin-left: 7px;
+      margin-right: 3px;
+    }
+
+    .tab-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
       font-size: 11px;
       font-weight: 600;
-      background: #f1f5f9;
+      background: #e2e8f0;
       color: #64748b;
+      border-radius: 10px;
+      transform: scale(0.8);
+      transition: max-width 0.25s cubic-bezier(0.2, 0, 0, 1),
+                  opacity 0.2s ease,
+                  transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  padding 0.25s ease;
+    }
+    .tab-pill.active .tab-count,
+    .tab-pill:hover .tab-count {
+      max-width: 36px;
+      opacity: 1;
+      padding: 1px 6px;
+      transform: scale(1);
     }
     .tab-pill.active .tab-count {
       background: #cbeedd;
@@ -138,8 +197,9 @@ interface KpiCluster {
     .toolbar-meta {
       display: flex;
       align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
+      gap: 10px;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
     }
 
     .scope-pill {
@@ -488,9 +548,10 @@ interface KpiCluster {
               <button
                 class="tab-pill"
                 [class.active]="activeCategory() === 'all'"
-                (click)="setCategory('all')">
-                <span nz-icon nzType="appstore"></span>
-                <span>All Overview</span>
+                (click)="setCategory('all')"
+                title="All Overview">
+                <span nz-icon nzType="appstore" class="pill-icon"></span>
+                <span class="pill-text">All Overview</span>
                 <span class="tab-count">{{ d.kpis.length }}</span>
               </button>
 
@@ -498,9 +559,10 @@ interface KpiCluster {
                 <button
                   class="tab-pill"
                   [class.active]="activeCategory() === 'finance'"
-                  (click)="setCategory('finance')">
-                  <span nz-icon nzType="dollar"></span>
-                  <span>Finance & Treasury</span>
+                  (click)="setCategory('finance')"
+                  title="Finance & Treasury">
+                  <span nz-icon nzType="dollar" class="pill-icon"></span>
+                  <span class="pill-text">Finance & Treasury</span>
                   <span class="tab-count">{{ getCategoryKpis('finance').length }}</span>
                 </button>
               }
@@ -509,9 +571,10 @@ interface KpiCluster {
                 <button
                   class="tab-pill"
                   [class.active]="activeCategory() === 'sales-crm'"
-                  (click)="setCategory('sales-crm')">
-                  <span nz-icon nzType="rise"></span>
-                  <span>Sales & CRM</span>
+                  (click)="setCategory('sales-crm')"
+                  title="Sales & CRM">
+                  <span nz-icon nzType="rise" class="pill-icon"></span>
+                  <span class="pill-text">Sales & CRM</span>
                   <span class="tab-count">{{ getCategoryKpis('sales-crm').length }}</span>
                 </button>
               }
@@ -520,9 +583,10 @@ interface KpiCluster {
                 <button
                   class="tab-pill"
                   [class.active]="activeCategory() === 'supply-operations'"
-                  (click)="setCategory('supply-operations')">
-                  <span nz-icon nzType="shop"></span>
-                  <span>Supply & Operations</span>
+                  (click)="setCategory('supply-operations')"
+                  title="Supply & Operations">
+                  <span nz-icon nzType="shopping" class="pill-icon"></span>
+                  <span class="pill-text">Supply & Operations</span>
                   <span class="tab-count">{{ getCategoryKpis('supply-operations').length }}</span>
                 </button>
               }
@@ -531,9 +595,10 @@ interface KpiCluster {
                 <button
                   class="tab-pill"
                   [class.active]="activeCategory() === 'projects-services'"
-                  (click)="setCategory('projects-services')">
-                  <span nz-icon nzType="project"></span>
-                  <span>Projects & Services</span>
+                  (click)="setCategory('projects-services')"
+                  title="Projects & Services">
+                  <span nz-icon nzType="project" class="pill-icon"></span>
+                  <span class="pill-text">Projects & Services</span>
                   <span class="tab-count">{{ getCategoryKpis('projects-services').length }}</span>
                 </button>
               }
@@ -542,9 +607,10 @@ interface KpiCluster {
                 <button
                   class="tab-pill"
                   [class.active]="activeCategory() === 'real-estate'"
-                  (click)="setCategory('real-estate')">
-                  <span nz-icon nzType="home"></span>
-                  <span>Real Estate</span>
+                  (click)="setCategory('real-estate')"
+                  title="Real Estate">
+                  <span nz-icon nzType="home" class="pill-icon"></span>
+                  <span class="pill-text">Real Estate</span>
                   <span class="tab-count">{{ getCategoryKpis('real-estate').length }}</span>
                 </button>
               }
@@ -553,9 +619,10 @@ interface KpiCluster {
                 <button
                   class="tab-pill"
                   [class.active]="activeCategory() === 'hr'"
-                  (click)="setCategory('hr')">
-                  <span nz-icon nzType="team"></span>
-                  <span>HR & People</span>
+                  (click)="setCategory('hr')"
+                  title="HR & People">
+                  <span nz-icon nzType="team" class="pill-icon"></span>
+                  <span class="pill-text">HR & People</span>
                   <span class="tab-count">{{ getCategoryKpis('hr').length }}</span>
                 </button>
               }

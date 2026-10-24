@@ -2,7 +2,7 @@ import {
   AccountBookOutline, ApartmentOutline, BarChartOutline, DownloadOutline, PrinterOutline, CreditCardOutline, BookOutline, DeleteOutline, DollarOutline, LockOutline, WalletOutline, AppstoreAddOutline, AppstoreOutline, AuditOutline, BankOutline, BellOutline,
   BulbOutline, CheckSquareOutline, ClusterOutline, DashboardOutline, FileTextOutline, FormOutline, FundOutline,
   HomeOutline, KeyOutline, LogoutOutline, MenuFoldOutline, MenuUnfoldOutline, PercentageOutline, PlusOutline,
-  SafetyOutline, SearchOutline, SettingOutline, ShoppingOutline, SwapOutline, TeamOutline, ToolOutline, UserOutline, MailOutline, WarningOutline, CheckCircleOutline,
+  SafetyOutline, SearchOutline, SettingOutline, ShoppingOutline, ShopOutline, SwapOutline, TeamOutline, ToolOutline, UserOutline, MailOutline, WarningOutline, CheckCircleOutline,
   CheckOutline, CopyOutline, EditOutline, FileAddOutline, LinkOutline, ReloadOutline, RollbackOutline, StopOutline, ThunderboltOutline,
   DoubleLeftOutline, DoubleRightOutline, LeftOutline, RightOutline, FilterOutline,
   HolderOutline, UndoOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline,
@@ -16,7 +16,7 @@ export const APP_ICONS = [
   AccountBookOutline, ApartmentOutline, BarChartOutline, DownloadOutline, PrinterOutline, CreditCardOutline, BookOutline, DeleteOutline, DollarOutline, LockOutline, WalletOutline, AppstoreAddOutline, AppstoreOutline, AuditOutline, BankOutline, BellOutline,
   BulbOutline, CheckSquareOutline, ClusterOutline, DashboardOutline, FileTextOutline, FormOutline, FundOutline,
   HomeOutline, KeyOutline, LogoutOutline, MenuFoldOutline, MenuUnfoldOutline, PercentageOutline, PlusOutline,
-  SafetyOutline, SearchOutline, SettingOutline, ShoppingOutline, SwapOutline, TeamOutline, ToolOutline, UserOutline, MailOutline, WarningOutline, CheckCircleOutline,
+  SafetyOutline, SearchOutline, SettingOutline, ShoppingOutline, ShopOutline, SwapOutline, TeamOutline, ToolOutline, UserOutline, MailOutline, WarningOutline, CheckCircleOutline,
   ProjectOutline, ClockCircleOutline, DollarCircleOutline,
   ShoppingCartOutline, LineChartOutline,
   // Toolbar and detail-page action icons (detail-page actions pass icon names through ActionDef.icon).
