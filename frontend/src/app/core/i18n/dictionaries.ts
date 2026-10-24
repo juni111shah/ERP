@@ -174,6 +174,7 @@ export const AR: Dictionary = {
   // shell
   'shell.signOut': 'تسجيل الخروج', 'shell.notifications': 'الإشعارات', 'shell.markAllRead': 'تحديد الكل كمقروء', 'shell.caughtUp': 'لا توجد إشعارات جديدة',
   'shell.accountSecurity': 'أمان الحساب', 'shell.search': 'ابحث في السجلات', 'shell.darkMode': 'الوضع الداكن', 'shell.allEntities': 'جميع الكيانات القانونية',
+  'shell.searchMenu': 'البحث في القائمة...', 'shell.noMenuItems': 'لا توجد عناصر مطابقة', 'shell.clearFilter': 'مسح البحث',
   'brand.name': 'هاير سكوير', 'brand.subtitle': 'تخطيط موارد المؤسسات', 'Demo Properties': 'عقارات تجريبية',
   // menu groups and items (server labels are mapped by menu id / group id)
   'menu.group.admin': 'الإدارة', 'menu.group.finance': 'المالية', 'menu.group.realestate': 'العقارات', 'menu.group.hr': 'الموارد البشرية', 'menu.group.inventory': 'المخزون', 'menu.group.projects': 'المشاريع',
@@ -191,7 +192,7 @@ export const AR: Dictionary = {
   'menu.group.workspace': 'مساحة العمل', 'menu.group.sales': 'المبيعات', 'menu.group.purchases': 'المشتريات', 'menu.group.purchasing': 'المشتريات',
   'menu.group.masterdata': 'البيانات الأساسية', 'menu.group.setup': 'الإعداد', 'menu.group.services': 'الخدمات', 'menu.group.retail': 'التجزئة',
   'menu.group.pos': 'نقاط البيع', 'menu.group.manufacturing': 'التصنيع', 'menu.group.distribution': 'التوزيع', 'menu.group.crm': 'إدارة علاقات العملاء',
-  'menu.core.overview': 'نظرة عامة', 'menu.core.reports': 'مركز التقارير', 'menu.core.reports.ar': 'التقارير', 'menu.core.reports.ap': 'التقارير',
+  'menu.core.overview': 'نظرة عامة', 'menu.core.reports': 'التقارير',
   'menu.sales.customers': 'العملاء', 'menu.sales.quotes': 'عروض الأسعار', 'menu.sales.orders': 'أوامر البيع', 'menu.sales.analytics': 'تحليلات المبيعات',
   'menu.purchases.vendors': 'الموردون', 'menu.purchasing.orders': 'أوامر الشراء', 'menu.purchasing.requisitions': 'طلبات الشراء', 'menu.purchasing.receipts': 'استلام البضائع', 'menu.purchasing.analytics': 'تحليلات المشتريات',
   'menu.retail.stores': 'المتاجر', 'menu.retail.pricelists': 'قوائم الأسعار', 'menu.retail.promotions': 'العروض الترويجية', 'menu.retail.analytics': 'تحليلات التجزئة',

@@ -174,6 +174,146 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
       color: #34d399;
       border-color: rgba(52, 211, 153, 0.4);
     }
+
+    /* Sidebar Search Field */
+    .sidebar-search-container {
+      padding: 10px 14px 6px;
+      flex-shrink: 0;
+      transition: padding 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .sidebar-search-container.collapsed {
+      padding: 8px 0;
+      display: flex;
+      justify-content: center;
+    }
+    .sidebar-search-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 34px;
+      padding: 0 10px;
+      border-radius: 8px;
+      background: var(--erp-color-bg-subtle, #f8fafc);
+      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .sidebar-search-input-wrap:focus-within {
+      background: #ffffff;
+      border-color: #10955d;
+      box-shadow: 0 0 0 3px rgba(16, 149, 93, 0.12);
+    }
+    :host-context([data-theme='dark']) .sidebar-search-input-wrap,
+    :host-context(.dark) .sidebar-search-input-wrap {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    :host-context([data-theme='dark']) .sidebar-search-input-wrap:focus-within,
+    :host-context(.dark) .sidebar-search-input-wrap:focus-within {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: #34d399;
+      box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.2);
+    }
+    .sidebar-search-icon {
+      font-size: 13px;
+      color: #94a3b8;
+      flex-shrink: 0;
+      transition: color 0.2s ease;
+    }
+    .sidebar-search-input-wrap:focus-within .sidebar-search-icon {
+      color: #10955d;
+    }
+    .sidebar-search-input {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 12.5px;
+      line-height: 1.4;
+      width: 100%;
+      min-width: 0;
+      color: var(--erp-color-text, #1e293b);
+      font-family: inherit;
+      padding: 0;
+    }
+    .sidebar-search-input::placeholder {
+      color: #94a3b8;
+      font-size: 12px;
+    }
+    .sidebar-search-clear {
+      border: none;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      color: #94a3b8;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      transition: color 0.15s ease, transform 0.15s ease;
+      outline: none;
+      flex-shrink: 0;
+    }
+    .sidebar-search-clear:hover {
+      color: #64748b;
+      transform: scale(1.1);
+    }
+    .sidebar-search-collapsed-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--erp-color-text-secondary, #64748b);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;
+      padding: 0;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+    .sidebar-search-collapsed-btn:hover {
+      background: rgba(16, 149, 93, 0.08);
+      color: #10955d;
+      border-color: rgba(16, 149, 93, 0.2);
+    }
+
+    /* Sidebar empty results */
+    .sidebar-no-results {
+      padding: 28px 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .sidebar-no-results .no-results-icon {
+      font-size: 24px;
+      color: #cbd5e1;
+    }
+    .sidebar-no-results .no-results-text {
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.4;
+    }
+    .sidebar-no-results .no-results-clear {
+      margin-top: 4px;
+      padding: 3px 10px;
+      font-size: 11.5px;
+      border-radius: 5px;
+      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      background: #ffffff;
+      color: #10955d;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    .sidebar-no-results .no-results-clear:hover {
+      background: rgba(16, 149, 93, 0.08);
+      border-color: #10955d;
+    }
+
     .nav-scroll-area {
       flex: 1;
       overflow-y: auto;
@@ -703,6 +843,38 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
             <span nz-icon [nzType]="toggleIcon()"></span>
           </button>
         </div>
+        <div class="sidebar-search-container" [class.collapsed]="collapsed()" data-testid="sidebar-search-box">
+          @if (!collapsed()) {
+            <div class="sidebar-search-input-wrap">
+              <span nz-icon nzType="search" class="sidebar-search-icon"></span>
+              <input
+                type="text"
+                class="sidebar-search-input"
+                [placeholder]="'shell.searchMenu' | translate: 'Search menu...'"
+                [value]="menuSearch()"
+                (input)="onSearchInput($event)"
+                [attr.aria-label]="'shell.searchMenu' | translate: 'Search menu...'"
+                data-testid="sidebar-search-input"
+              />
+              @if (menuSearch()) {
+                <button type="button" class="sidebar-search-clear" (click)="clearSearch()" aria-label="Clear">
+                  <span nz-icon nzType="close-circle" nzTheme="fill"></span>
+                </button>
+              }
+            </div>
+          } @else {
+            <button
+              type="button"
+              class="sidebar-search-collapsed-btn"
+              (click)="expandAndSearch()"
+              nz-tooltip
+              [nzTooltipTitle]="'shell.searchMenu' | translate: 'Search menu...'"
+              [nzTooltipPlacement]="i18n.dir() === 'rtl' ? 'left' : 'right'"
+              data-testid="sidebar-search-collapsed-btn">
+              <span nz-icon nzType="search"></span>
+            </button>
+          }
+        </div>
         <div class="nav-scroll-area">
           @for (g of menu(); track g.id) {
             <div class="group-title" [class.collapsed]="collapsed()">{{ i18n.t('menu.group.' + g.id, g.label) }}</div>
@@ -718,6 +890,15 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
                 </li>
               }
             </ul>
+          }
+          @if (menuSearch().trim() && menu().length === 0) {
+            <div class="sidebar-no-results" data-testid="sidebar-no-results">
+              <span nz-icon nzType="frown" class="no-results-icon"></span>
+              <div class="no-results-text">{{ 'shell.noMenuItems' | translate: 'No menu items found' }}</div>
+              <button type="button" class="no-results-clear" (click)="clearSearch()">
+                {{ 'shell.clearFilter' | translate: 'Clear search' }}
+              </button>
+            </div>
           }
         </div>
       </nz-sider>
@@ -840,10 +1021,52 @@ export class ShellComponent {
     }
   }
 
+  readonly menuSearch = signal('');
+
+  onSearchInput(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.menuSearch.set(target.value);
+  }
+
+  clearSearch(): void {
+    this.menuSearch.set('');
+  }
+
+  expandAndSearch(): void {
+    this.collapsed.set(false);
+    setTimeout(() => {
+      const input = document.querySelector('[data-testid="sidebar-search-input"]') as HTMLInputElement;
+      input?.focus();
+    }, 120);
+  }
+
   // Menu reloads whenever the session changes (workspace switch, module enabled/disabled).
-  readonly menu = toSignal(toObservable(this.session.me).pipe(
+  readonly rawMenu = toSignal(toObservable(this.session.me).pipe(
     switchMap((me) => (me ? this.http.get<MenuGroup[]>(`${this.base}/navigation/menu`).pipe(catchError(() => of([]))) : of([]))),
   ), { initialValue: [] as MenuGroup[] });
+
+  // Filtered menu based on menuSearch signal
+  readonly menu = computed(() => {
+    const term = this.menuSearch().trim().toLowerCase();
+    const groups = this.rawMenu();
+    if (!term) return groups;
+
+    return groups.map((g) => {
+      const groupLabel = (g.label || '').toLowerCase();
+      const groupTranslated = (this.i18n.t('menu.group.' + g.id, g.label) || '').toLowerCase();
+      const groupMatches = groupLabel.includes(term) || groupTranslated.includes(term);
+
+      const filteredItems = g.items.filter((item) => {
+        if (groupMatches) return true;
+        const label = (item.label || '').toLowerCase();
+        const translated = (this.i18n.t('menu.' + item.id, item.label) || '').toLowerCase();
+        const route = (item.route || '').toLowerCase();
+        return label.includes(term) || translated.includes(term) || route.includes(term);
+      });
+
+      return { ...g, items: filteredItems };
+    }).filter((g) => g.items.length > 0);
+  });
 
   // Unread count: on session change, after the drawer changes something, and every minute.
   readonly unread = toSignal(combineLatest([toObservable(this.session.me), toObservable(this.refresh), interval(60_000).pipe(startWith(0))]).pipe(
