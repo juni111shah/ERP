@@ -216,19 +216,218 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
                   flex 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .header {
-      background: var(--erp-color-bg-surface);
-      border-bottom: 1px solid var(--erp-color-border-subtle);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--erp-color-border-subtle, #e2e8f0);
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       padding: 0 20px;
-      height: 56px;
-      line-height: 56px;
+      height: 58px;
       flex-shrink: 0;
       min-width: 0;
+      position: relative;
+      z-index: 50;
+      transition: background-color 0.25s ease, border-color 0.25s ease;
     }
-    .spacer { flex: 1; }
+
+    :host-context([data-theme='dark']) .header,
+    :host-context(.dark) .header {
+      background: rgba(15, 23, 42, 0.92);
+      border-bottom-color: #334155;
+    }
+
+    .spacer { flex: 1; min-width: 8px; }
     .search { max-width: 360px; }
+
+    /* Control Boxes (Entity Switcher & Workspace Switcher) */
+    .header-control-box {
+      display: inline-flex;
+      align-items: center;
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid rgba(16, 149, 93, 0.22);
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 0 4px 0 10px;
+      gap: 6px;
+      color: var(--erp-color-text-primary, #0f172a);
+    }
+    .header-control-box:hover {
+      border-color: #10955d;
+      box-shadow: 0 2px 8px rgba(16, 149, 93, 0.12);
+    }
+    .control-box-icon {
+      font-size: 13.5px;
+      color: #10955d;
+      flex-shrink: 0;
+    }
+    .header-entity-select {
+      width: 175px;
+    }
+    .header-entity-select ::ng-deep .ant-select-selector {
+      border: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      height: 32px !important;
+      display: flex !important;
+      align-items: center !important;
+    }
+    .header-entity-select ::ng-deep .ant-select-selection-item,
+    .header-entity-select ::ng-deep .ant-select-selection-placeholder {
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      color: var(--erp-color-text-primary, #0f172a) !important;
+      line-height: normal !important;
+    }
+    .header-entity-select ::ng-deep .ant-select-arrow {
+      color: #64748b;
+    }
+
+    .workspace-box {
+      cursor: pointer;
+      padding: 0 12px;
+      gap: 8px;
+    }
+    .workspace-box:hover {
+      background: #ffffff;
+      transform: translateY(-1px);
+    }
+    .workspace-box:active {
+      transform: translateY(0);
+    }
+    .workspace-live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10955d;
+      box-shadow: 0 0 6px rgba(16, 149, 93, 0.6);
+      flex-shrink: 0;
+    }
+    .workspace-btn-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--erp-color-text-primary, #0f172a);
+      white-space: nowrap;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .workspace-btn-arrow {
+      font-size: 10px;
+      color: #64748b;
+      margin-left: 2px;
+    }
+
+    :host-context([data-theme='dark']) .header-control-box,
+    :host-context(.dark) .header-control-box {
+      background: #1e293b;
+      border-color: #334155;
+      color: #f1f5f9;
+    }
+    :host-context([data-theme='dark']) .workspace-btn-name,
+    :host-context(.dark) .workspace-btn-name {
+      color: #f1f5f9;
+    }
+
+    /* Topbar Divider */
+    .topbar-divider {
+      width: 1px;
+      height: 22px;
+      background: var(--erp-color-border-subtle, #e2e8f0);
+      margin: 0 2px;
+      flex-shrink: 0;
+    }
+    :host-context([data-theme='dark']) .topbar-divider,
+    :host-context(.dark) .topbar-divider {
+      background: #334155;
+    }
+
+    /* Actions Group */
+    .topbar-actions-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .topbar-action-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--erp-color-text-secondary, #64748b);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 0;
+      outline: none;
+    }
+    .topbar-action-btn:hover {
+      background: rgba(16, 149, 93, 0.08);
+      color: #10955d;
+      border-color: rgba(16, 149, 93, 0.2);
+      transform: translateY(-1px);
+    }
+    .topbar-action-btn:active {
+      transform: translateY(0) scale(0.96);
+    }
+    .action-btn-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+    .lang-btn .lang-text {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1;
+    }
+
+    .topbar-avatar-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 4px 2px 2px;
+      border-radius: 9999px;
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s ease;
+      margin-left: 2px;
+    }
+    .topbar-avatar-btn:hover {
+      background: rgba(16, 149, 93, 0.08);
+      border-color: rgba(16, 149, 93, 0.2);
+    }
+    .user-avatar-ring {
+      border-radius: 50%;
+      padding: 1.5px;
+      background: linear-gradient(135deg, #10955d, #34bc86);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header-avatar {
+      background: #ffffff !important;
+      color: #10955d !important;
+      font-weight: 700 !important;
+      font-size: 11px !important;
+    }
+    :host-context([data-theme='dark']) .header-avatar,
+    :host-context(.dark) .header-avatar {
+      background: #0f172a !important;
+      color: #34d399 !important;
+    }
+    .avatar-caret {
+      font-size: 10px;
+      color: #64748b;
+      margin-right: 2px;
+    }
     .content {
       padding: 24px;
       overflow-y: auto;
@@ -484,7 +683,10 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
         <nz-header class="header">
           <div class="topbar-title-wrap" data-testid="topbar-title-wrap">
             @if (pageTitle.module(); as mod) {
-              <span class="topbar-module-badge">{{ mod }}</span>
+              <span class="topbar-module-badge">
+                <span class="badge-dot"></span>
+                <span>{{ mod }}</span>
+              </span>
               <span class="topbar-breadcrumb-slash">/</span>
             }
             <h1 class="topbar-title" data-testid="topbar-title">{{ pageTitle.title() }}</h1>
@@ -499,13 +701,30 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           <erp-global-search />
           @if (session.me(); as me) {
             @if (me.legalEntities.length > 1 || me.allLegalEntities) {
-              <nz-select style="width: 220px" [ngModel]="session.currentEntityId()" (ngModelChange)="selectEntity($event)" data-testid="entity-switcher">
-                @if (me.allLegalEntities) { <nz-option [nzValue]="null" [nzLabel]="'shell.allEntities' | translate: 'All legal entities'"></nz-option> }
-                @for (e of me.legalEntities; track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }
-              </nz-select>
+              <div class="header-control-box" [attr.title]="'shell.entity' | translate: 'Legal Entity'">
+                <span nz-icon nzType="bank" class="control-box-icon"></span>
+                <nz-select
+                  class="header-entity-select"
+                  [ngModel]="session.currentEntityId()"
+                  (ngModelChange)="selectEntity($event)"
+                  [nzPlaceHolder]="'shell.allEntities' | translate: 'All legal entities'"
+                  [nzDropdownMatchSelectWidth]="false"
+                  data-testid="entity-switcher">
+                  @if (me.allLegalEntities) {
+                    <nz-option [nzValue]="null" [nzLabel]="'shell.allEntities' | translate: 'All legal entities'"></nz-option>
+                  }
+                  @for (e of me.legalEntities; track e.id) {
+                    <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option>
+                  }
+                </nz-select>
+              </div>
             }
             @if (me.workspaces.length > 1) {
-              <button nz-button nz-dropdown [nzDropdownMenu]="wsMenu" data-testid="workspace-switcher"><span nz-icon nzType="swap"></span>{{ me.workspace.name }}</button>
+              <button type="button" class="header-control-box workspace-box" nz-dropdown [nzDropdownMenu]="wsMenu" data-testid="workspace-switcher">
+                <span class="workspace-live-dot"></span>
+                <span class="workspace-btn-name">{{ me.workspace.name }}</span>
+                <span nz-icon nzType="down" class="workspace-btn-arrow"></span>
+              </button>
               <nz-dropdown-menu #wsMenu="nzDropdownMenu">
                 <ul nz-menu>
                   @for (w of me.workspaces; track w.id) {
@@ -515,14 +734,29 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
               </nz-dropdown-menu>
             }
           }
-          <button nz-button nzType="text" aria-label="Notifications" data-testid="notifications-bell" (click)="notificationsOpen.set(true)">
-            <nz-badge [nzCount]="unread().unread" nzSize="small"><span nz-icon nzType="bell"></span></nz-badge>
-          </button>
-          <button nz-button nzType="text" (click)="i18n.toggle()" aria-label="Language" data-testid="lang-toggle">{{ i18n.lang() === 'ar' ? 'EN' : 'العربية' }}</button>
-          <button nz-button nzType="text" (click)="theme.toggleTheme()" aria-label="Toggle dark mode" data-testid="theme-toggle"><span nz-icon nzType="bulb"></span></button>
-          <button nz-button nzType="text" nz-dropdown [nzDropdownMenu]="userMenu" data-testid="user-menu">
-            <nz-avatar nzSize="small" [nzText]="initials()"></nz-avatar>
-          </button>
+
+          <div class="topbar-divider"></div>
+
+          <div class="topbar-actions-group">
+            <button type="button" class="topbar-action-btn" aria-label="Notifications" nz-tooltip [nzTooltipTitle]="'shell.notifications' | translate: 'Notifications'" data-testid="notifications-bell" (click)="notificationsOpen.set(true)">
+              <nz-badge [nzCount]="unread().unread" nzSize="small" [nzOffset]="[-2, 2]">
+                <span nz-icon nzType="bell" class="action-btn-icon"></span>
+              </nz-badge>
+            </button>
+            <button type="button" class="topbar-action-btn lang-btn" (click)="i18n.toggle()" aria-label="Language" nz-tooltip [nzTooltipTitle]="i18n.lang() === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'" data-testid="lang-toggle">
+              <span class="lang-text">{{ i18n.lang() === 'ar' ? 'EN' : 'العربية' }}</span>
+            </button>
+            <button type="button" class="topbar-action-btn" (click)="theme.toggleTheme()" aria-label="Toggle dark mode" nz-tooltip [nzTooltipTitle]="theme.resolvedTheme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'" data-testid="theme-toggle">
+              <span nz-icon nzType="bulb" class="action-btn-icon" [style.color]="theme.resolvedTheme() === 'dark' ? '#fbbf24' : 'inherit'"></span>
+            </button>
+            <button type="button" class="topbar-avatar-btn" nz-dropdown [nzDropdownMenu]="userMenu" data-testid="user-menu" [attr.aria-label]="session.me()?.user?.fullName || 'User menu'">
+              <div class="user-avatar-ring">
+                <nz-avatar nzSize="small" [nzText]="initials()" class="header-avatar"></nz-avatar>
+              </div>
+              <span nz-icon nzType="down" class="avatar-caret"></span>
+            </button>
+          </div>
+
           <nz-dropdown-menu #userMenu="nzDropdownMenu">
             <ul nz-menu>
               <li nz-menu-item nzDisabled>{{ session.me()?.user?.email }}</li>
