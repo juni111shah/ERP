@@ -38,6 +38,7 @@ type Mode = 'pay' | 'adjust' | null;
         }
         @if (r.status === 'posted') { <button *erpHasPermission="'hr.payroll.pay'" nz-button nzType="primary" (click)="mode.set('pay')" data-testid="payroll-pay">Pay salaries</button> }
         @if (r.status === 'posted' || r.status === 'paid') { <button *erpHasPermission="'hr.payroll.pay'" nz-button (click)="download()" data-testid="payroll-bankfile">Bank file (CSV)</button> <button *erpHasPermission="'hr.payroll.pay'" nz-button (click)="downloadWps()" data-testid="payroll-wps">WPS file (SIF)</button> }
+        <a [href]="'/print/payroll/' + r.id" target="_blank" nz-button data-testid="payroll-print"><span nz-icon nzType="printer"></span>Print Summary</a>
       </div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
         <nz-card><small>Employees</small><div><b>{{ r.employees }}</b></div></nz-card>
@@ -46,14 +47,17 @@ type Mode = 'pay' | 'adjust' | null;
         <nz-card><small>Net pay</small><div><b data-testid="payroll-net">{{ r.netPay | number: '1.2-2' }}</b></div>@if (r.paidOn) { <small>{{ 'ui.hr.paidOn' | translate: 'paid on' }} {{ r.paidOn }}</small> }</nz-card>
       </div>
       <nz-table [nzData]="r.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="payroll-lines">
-        <thead><tr><th>Employee</th><th>Absent</th><th>OT hrs</th><th>Basic</th><th>Allowances</th><th>Overtime</th><th>Absence</th><th>Adjustment</th><th>Gross earnings</th><th>Deductions</th><th>Net pay</th><th></th></tr></thead>
+        <thead><tr><th>Employee</th><th>Absent</th><th>OT hrs</th><th>Basic</th><th>Allowances</th><th>Overtime</th><th>Absence</th><th>Adjustment</th><th>Gross earnings</th><th>Deductions</th><th>Net pay</th><th>Actions</th></tr></thead>
         <tbody>
           @for (l of r.lines; track l.id) {
             <tr>
               <td>{{ l.employeeName }}<div style="font-size:12px;color:var(--erp-color-text-secondary)">{{ l.employeeNumber }}</div></td>
               <td>{{ l.absentDays }}</td><td>{{ l.overtimeHours }}</td><td>{{ l.basic | number: '1.2-2' }}</td><td>{{ l.allowances | number: '1.2-2' }}</td><td>{{ l.overtime | number: '1.2-2' }}</td>
               <td>{{ l.absence | number: '1.2-2' }}</td><td>{{ l.adjustment | number: '1.2-2' }}</td><td>{{ l.grossEarnings | number: '1.2-2' }}</td><td>{{ l.deductions | number: '1.2-2' }}</td><td><b>{{ l.netPay | number: '1.2-2' }}</b></td>
-              <td>@if (r.status === 'draft' || r.status === 'pendingApproval') { <a *erpHasPermission="'hr.payroll.manage'" (click)="startAdjust(l)" data-testid="payroll-adjust">Adjust</a> }</td>
+              <td>
+                <a [href]="'/print/payslip/' + r.id + '?employeeId=' + l.employeeId" target="_blank" data-testid="payroll-payslip" style="margin-inline-end:8px">Payslip</a>
+                @if (r.status === 'draft' || r.status === 'pendingApproval') { <a *erpHasPermission="'hr.payroll.manage'" (click)="startAdjust(l)" data-testid="payroll-adjust">Adjust</a> }
+              </td>
             </tr>
           }
         </tbody>

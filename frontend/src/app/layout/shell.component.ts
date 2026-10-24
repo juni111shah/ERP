@@ -381,40 +381,82 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     .spacer { flex: 1; min-width: 8px; }
     .search { max-width: 360px; }
 
-    /* Control Boxes (Entity Switcher & Workspace Switcher) */
+    /* Expandable Header Control Box (Entity Switcher: Icon only -> Slides open on hover) */
     .header-control-box {
       display: inline-flex;
       align-items: center;
+      justify-content: flex-start;
       height: 34px;
+      width: 34px;
+      min-width: 34px;
       border-radius: 8px;
       border: 1px solid rgba(16, 149, 93, 0.22);
       background: rgba(255, 255, 255, 0.95);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      padding: 0 4px 0 10px;
-      gap: 6px;
+      padding: 0;
+      overflow: hidden;
+      cursor: pointer;
       color: var(--erp-color-text-primary, #0f172a);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  border-color 0.2s ease,
+                  box-shadow 0.2s ease;
     }
-    .header-control-box:hover {
+    .header-control-box:hover,
+    .header-control-box:focus-within,
+    .header-control-box:has(.ant-select-open) {
+      width: 210px;
       border-color: #10955d;
-      box-shadow: 0 2px 8px rgba(16, 149, 93, 0.12);
+      box-shadow: 0 2px 8px rgba(16, 149, 93, 0.18);
     }
+
     .control-box-icon {
-      font-size: 13.5px;
+      width: 34px;
+      height: 34px;
+      font-size: 15px;
       color: #10955d;
       flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease;
     }
+    .header-control-box:hover .control-box-icon,
+    .header-control-box:focus-within .control-box-icon,
+    .header-control-box:has(.ant-select-open) .control-box-icon {
+      transform: scale(1.06);
+    }
+
     .header-entity-select {
-      width: 175px;
+      width: 170px !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateX(-8px);
+      transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1) 0.05s,
+                  transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) 0.05s;
     }
+    :host-context([dir='rtl']) .header-entity-select {
+      transform: translateX(8px);
+    }
+
+    .header-control-box:hover .header-entity-select,
+    .header-control-box:focus-within .header-entity-select,
+    .header-control-box:has(.ant-select-open) .header-entity-select {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      transform: translateX(0) !important;
+    }
+
     .header-entity-select ::ng-deep .ant-select-selector {
       border: none !important;
       background: transparent !important;
       box-shadow: none !important;
-      padding: 0 !important;
+      padding: 0 8px 0 0 !important;
       height: 32px !important;
       display: flex !important;
       align-items: center !important;
+    }
+    :host-context([dir='rtl']) .header-entity-select ::ng-deep .ant-select-selector {
+      padding: 0 0 0 8px !important;
     }
     .header-entity-select ::ng-deep .ant-select-selection-item,
     .header-entity-select ::ng-deep .ant-select-selection-placeholder {
@@ -422,44 +464,10 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
       font-weight: 600 !important;
       color: var(--erp-color-text-primary, #0f172a) !important;
       line-height: normal !important;
+      white-space: nowrap !important;
     }
     .header-entity-select ::ng-deep .ant-select-arrow {
       color: #64748b;
-    }
-
-    .workspace-box {
-      cursor: pointer;
-      padding: 0 12px;
-      gap: 8px;
-    }
-    .workspace-box:hover {
-      background: #ffffff;
-      transform: translateY(-1px);
-    }
-    .workspace-box:active {
-      transform: translateY(0);
-    }
-    .workspace-live-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #10955d;
-      box-shadow: 0 0 6px rgba(16, 149, 93, 0.6);
-      flex-shrink: 0;
-    }
-    .workspace-btn-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--erp-color-text-primary, #0f172a);
-      white-space: nowrap;
-      max-width: 150px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .workspace-btn-arrow {
-      font-size: 10px;
-      color: #64748b;
-      margin-left: 2px;
     }
 
     :host-context([data-theme='dark']) .header-control-box,
@@ -468,10 +476,162 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
       border-color: #334155;
       color: #f1f5f9;
     }
-    :host-context([data-theme='dark']) .workspace-btn-name,
-    :host-context(.dark) .workspace-btn-name {
-      color: #f1f5f9;
+
+    /* Expandable Quick Create (+ New Button: Icon only -> Slides open on hover) */
+    .topbar-quick-create-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      height: 34px;
+      width: 34px;
+      min-width: 34px;
+      padding: 0;
+      border-radius: 8px;
+      border: 1px solid #10955d;
+      background: #10955d;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(16, 149, 93, 0.25);
+      overflow: hidden;
+      white-space: nowrap;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  background-color 0.2s ease,
+                  border-color 0.2s ease,
+                  box-shadow 0.2s ease,
+                  transform 0.2s ease;
     }
+    .topbar-quick-create-btn:hover,
+    .topbar-quick-create-btn:focus-visible,
+    .topbar-quick-create-btn.ant-dropdown-open,
+    .topbar-quick-create-btn[aria-expanded='true'] {
+      width: 92px;
+      background: #0d7a4c;
+      border-color: #0d7a4c;
+      box-shadow: 0 3px 8px rgba(16, 149, 93, 0.35);
+      transform: translateY(-1px);
+    }
+    .topbar-quick-create-btn:active {
+      transform: translateY(0);
+    }
+    .quick-create-icon {
+      width: 34px;
+      height: 34px;
+      font-size: 15px;
+      font-weight: 700;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .quick-create-label {
+      opacity: 0;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1;
+      transform: translateX(-6px);
+      transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1) 0.05s,
+                  transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) 0.05s;
+      white-space: nowrap;
+    }
+    :host-context([dir='rtl']) .quick-create-label {
+      transform: translateX(6px);
+    }
+    .quick-create-caret {
+      opacity: 0;
+      font-size: 9.5px;
+      margin-inline-start: 4px;
+      margin-inline-end: 6px;
+      transform: scale(0.7);
+      transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1) 0.05s,
+                  transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) 0.05s;
+    }
+    .topbar-quick-create-btn:hover .quick-create-label,
+    .topbar-quick-create-btn:focus-visible .quick-create-label,
+    .topbar-quick-create-btn.ant-dropdown-open .quick-create-label,
+    .topbar-quick-create-btn[aria-expanded='true'] .quick-create-label {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .topbar-quick-create-btn:hover .quick-create-caret,
+    .topbar-quick-create-btn:focus-visible .quick-create-caret,
+    .topbar-quick-create-btn.ant-dropdown-open .quick-create-caret,
+    .topbar-quick-create-btn[aria-expanded='true'] .quick-create-caret {
+      opacity: 0.9;
+      transform: scale(1);
+    }
+
+    .quick-create-dropdown-panel {
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16);
+      width: 600px;
+      max-width: 90vw;
+      padding: 14px 16px 16px;
+    }
+    :host-context([data-theme='dark']) .quick-create-dropdown-panel {
+      background: #0f172a;
+      border-color: #334155;
+    }
+    .quick-create-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #10955d;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--erp-color-border-subtle, #f1f5f9);
+    }
+    .quick-create-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 640px) {
+      .quick-create-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .quick-create-col-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+      padding-inline-start: 4px;
+    }
+    .quick-create-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--erp-color-text-primary, #1e293b);
+      text-decoration: none;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .quick-create-item:hover {
+      background: rgba(16, 149, 93, 0.08);
+      color: #10955d;
+    }
+    .item-icon {
+      font-size: 14px;
+    }
+    .item-icon.green { color: #10955d; }
+    .item-icon.blue { color: #0284c7; }
+    .item-icon.orange { color: #ea580c; }
+    .item-icon.purple { color: #7c3aed; }
+    .item-icon.red { color: #dc2626; }
+    .item-icon.teal { color: #0d9488; }
+    .item-icon.slate { color: #475569; }
 
     /* Topbar Divider */
     .topbar-divider {
@@ -831,7 +991,13 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     <nz-layout class="root" [dir]="i18n.dir()">
       <nz-sider class="sider" nzCollapsible [nzCollapsed]="collapsed()" [nzTrigger]="null" nzWidth="248px" [nzCollapsedWidth]="64" nzTheme="light" data-testid="sidebar">
         <div class="brand" [class.collapsed]="collapsed()" data-testid="sidebar-brand">
-          <erp-brand-logo [collapsed]="collapsed()" [subtitle]="workspaceName()"></erp-brand-logo>
+          <erp-brand-logo
+            [collapsed]="collapsed()"
+            [subtitle]="workspaceName()"
+            [workspaces]="session.me()?.workspaces || []"
+            [currentWorkspaceId]="session.me()?.workspace?.id || null"
+            (workspaceChange)="switchWorkspace($event)"
+          ></erp-brand-logo>
           <button
             type="button"
             class="sidebar-toggle-btn"
@@ -922,9 +1088,111 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           </div>
           <span class="spacer"></span>
           <erp-global-search />
+
+          <button type="button" class="topbar-quick-create-btn" nz-dropdown [nzDropdownMenu]="quickCreateMenu" nzPlacement="bottomRight"
+                  [attr.aria-label]="'shell.quickActions' | translate: 'Quick Create (+)'" data-testid="topbar-quick-create">
+            <span nz-icon nzType="plus" class="quick-create-icon"></span>
+            <span class="quick-create-label">{{ 'shell.quickCreate' | translate: 'New' }}</span>
+            <span nz-icon nzType="down" class="quick-create-caret"></span>
+          </button>
+
+          <nz-dropdown-menu #quickCreateMenu="nzDropdownMenu">
+            <div class="quick-create-dropdown-panel" data-testid="quick-create-menu">
+              <div class="quick-create-header">
+                <span nz-icon nzType="thunderbolt" class="quick-create-header-icon"></span>
+                <span>{{ 'shell.quickActions' | translate: 'Quick Create' }}</span>
+              </div>
+              <div class="quick-create-grid">
+                <!-- Sales Group -->
+                <div class="quick-create-col">
+                  <div class="quick-create-col-title">{{ 'menu.group.sales' | translate: 'Sales' }}</div>
+                  <a routerLink="/invoices" class="quick-create-item">
+                    <span nz-icon nzType="file-text" class="item-icon green"></span>
+                    <span>{{ 'menu.finance.invoices' | translate: 'Invoice' }}</span>
+                  </a>
+                  <a routerLink="/sales/quotes" class="quick-create-item">
+                    <span nz-icon nzType="file-done" class="item-icon green"></span>
+                    <span>{{ 'menu.sales.quotes' | translate: 'Quotation' }}</span>
+                  </a>
+                  <a routerLink="/sales/orders" class="quick-create-item">
+                    <span nz-icon nzType="shopping-cart" class="item-icon green"></span>
+                    <span>{{ 'menu.sales.orders' | translate: 'Sales Order' }}</span>
+                  </a>
+                  <a routerLink="/parties" class="quick-create-item">
+                    <span nz-icon nzType="user-add" class="item-icon blue"></span>
+                    <span>{{ 'menu.sales.customers' | translate: 'Customer' }}</span>
+                  </a>
+                </div>
+
+                <!-- Purchasing Group -->
+                <div class="quick-create-col">
+                  <div class="quick-create-col-title">{{ 'menu.group.purchasing' | translate: 'Purchasing' }}</div>
+                  <a routerLink="/purchasing/orders" class="quick-create-item">
+                    <span nz-icon nzType="shopping" class="item-icon orange"></span>
+                    <span>{{ 'menu.purchasing.orders' | translate: 'Purchase Order' }}</span>
+                  </a>
+                  <a routerLink="/bills" class="quick-create-item">
+                    <span nz-icon nzType="audit" class="item-icon orange"></span>
+                    <span>{{ 'menu.finance.bills' | translate: 'Vendor Bill' }}</span>
+                  </a>
+                  <a routerLink="/purchasing/receipts" class="quick-create-item">
+                    <span nz-icon nzType="inbox" class="item-icon orange"></span>
+                    <span>{{ 'menu.purchasing.receipts' | translate: 'Goods Receipt' }}</span>
+                  </a>
+                  <a routerLink="/parties" class="quick-create-item">
+                    <span nz-icon nzType="team" class="item-icon blue"></span>
+                    <span>{{ 'menu.purchases.vendors' | translate: 'Vendor' }}</span>
+                  </a>
+                </div>
+
+                <!-- Finance Group -->
+                <div class="quick-create-col">
+                  <div class="quick-create-col-title">{{ 'menu.group.finance' | translate: 'Finance' }}</div>
+                  <a routerLink="/journals" class="quick-create-item">
+                    <span nz-icon nzType="book" class="item-icon purple"></span>
+                    <span>{{ 'menu.finance.journals' | translate: 'Journal Entry' }}</span>
+                  </a>
+                  <a routerLink="/receipts" class="quick-create-item">
+                    <span nz-icon nzType="dollar-circle" class="item-icon green"></span>
+                    <span>{{ 'menu.finance.receipts' | translate: 'Receive Money' }}</span>
+                  </a>
+                  <a routerLink="/payments" class="quick-create-item">
+                    <span nz-icon nzType="transaction" class="item-icon red"></span>
+                    <span>{{ 'menu.finance.payments' | translate: 'Make Payment' }}</span>
+                  </a>
+                  <a routerLink="/admin/coa" class="quick-create-item">
+                    <span nz-icon nzType="apartment" class="item-icon purple"></span>
+                    <span>{{ 'menu.finance.accounts' | translate: 'Account' }}</span>
+                  </a>
+                </div>
+
+                <!-- Operations & Retail Group -->
+                <div class="quick-create-col">
+                  <div class="quick-create-col-title">{{ 'menu.group.pos' | translate: 'Operations' }}</div>
+                  <a routerLink="/pos/terminal" class="quick-create-item">
+                    <span nz-icon nzType="calculator" class="item-icon teal"></span>
+                    <span>{{ 'menu.pos.terminal' | translate: 'POS Terminal' }}</span>
+                  </a>
+                  <a routerLink="/items" class="quick-create-item">
+                    <span nz-icon nzType="barcode" class="item-icon teal"></span>
+                    <span>{{ 'menu.core.items' | translate: 'Item / Product' }}</span>
+                  </a>
+                  <a routerLink="/manufacturing/work-orders" class="quick-create-item">
+                    <span nz-icon nzType="tool" class="item-icon slate"></span>
+                    <span>{{ 'menu.manufacturing.workorders' | translate: 'Work Order' }}</span>
+                  </a>
+                  <a routerLink="/realestate/leases" class="quick-create-item">
+                    <span nz-icon nzType="home" class="item-icon slate"></span>
+                    <span>{{ 'menu.realestate.leases' | translate: 'Lease Contract' }}</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </nz-dropdown-menu>
+
           @if (session.me(); as me) {
             @if (me.legalEntities.length > 1 || me.allLegalEntities) {
-              <div class="header-control-box" [attr.title]="'shell.entity' | translate: 'Legal Entity'">
+              <div class="header-control-box" data-testid="header-entity-box">
                 <span nz-icon nzType="bank" class="control-box-icon"></span>
                 <nz-select
                   class="header-entity-select"
@@ -942,20 +1210,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
                 </nz-select>
               </div>
             }
-            @if (me.workspaces.length > 1) {
-              <button type="button" class="header-control-box workspace-box" nz-dropdown [nzDropdownMenu]="wsMenu" data-testid="workspace-switcher">
-                <span class="workspace-live-dot"></span>
-                <span class="workspace-btn-name">{{ me.workspace.name }}</span>
-                <span nz-icon nzType="down" class="workspace-btn-arrow"></span>
-              </button>
-              <nz-dropdown-menu #wsMenu="nzDropdownMenu">
-                <ul nz-menu>
-                  @for (w of me.workspaces; track w.id) {
-                    <li nz-menu-item [nzDisabled]="w.id === me.workspace.id" (click)="switchWorkspace(w.id)" [attr.data-testid]="'workspace-option-' + w.code">{{ w.name }}</li>
-                  }
-                </ul>
-              </nz-dropdown-menu>
-            }
+
           }
 
           <div class="topbar-divider"></div>

@@ -73,6 +73,9 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                 <span nz-icon nzType="link"></span>View Sales Order
               </a>
             }
+            <a [href]="'/print/quote/' + q.id" target="_blank" nz-button data-testid="quote-print">
+              <span nz-icon nzType="printer"></span>Print / PDF
+            </a>
           </div>
         </div>
 

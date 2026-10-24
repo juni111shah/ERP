@@ -70,6 +70,11 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
     </nz-drawer>
     <ng-template #footer>
       <div style="display:flex;gap:8px;align-items:center">
+        @if (id()) {
+          <a [href]="'/print/inspection/' + id()" target="_blank" nz-button nzType="default">
+            <span nz-icon nzType="printer"></span> Print Report
+          </a>
+        }
         @if (!locked()) {
           <label nz-checkbox [(ngModel)]="raise">Raise repair work orders on completion</label>
           <span style="flex:1"></span>

@@ -175,6 +175,7 @@ export const AR: Dictionary = {
   'shell.signOut': 'تسجيل الخروج', 'shell.notifications': 'الإشعارات', 'shell.markAllRead': 'تحديد الكل كمقروء', 'shell.caughtUp': 'لا توجد إشعارات جديدة',
   'shell.accountSecurity': 'أمان الحساب', 'shell.search': 'ابحث في السجلات', 'shell.darkMode': 'الوضع الداكن', 'shell.allEntities': 'جميع الكيانات القانونية',
   'shell.searchMenu': 'البحث في القائمة...', 'shell.noMenuItems': 'لا توجد عناصر مطابقة', 'shell.clearFilter': 'مسح البحث',
+  'shell.quickActions': 'إجراءات سريعة', 'shell.quickCreate': 'جديد', 'shell.newRecord': 'جديد',
   'brand.name': 'هاير سكوير', 'brand.subtitle': 'تخطيط موارد المؤسسات', 'Demo Properties': 'عقارات تجريبية',
   // menu groups and items (server labels are mapped by menu id / group id)
   'menu.group.admin': 'الإدارة', 'menu.group.finance': 'المالية', 'menu.group.realestate': 'العقارات', 'menu.group.hr': 'الموارد البشرية', 'menu.group.inventory': 'المخزون', 'menu.group.projects': 'المشاريع',

@@ -111,6 +111,9 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             <a [routerLink]="['/sales/quotes', row.id]" nz-button nzType="link" nzSize="small">
               View
             </a>
+            <a [href]="'/print/quote/' + row.id" target="_blank" nz-button nzType="link" nzSize="small" (click)="$event.stopPropagation()">
+              <span nz-icon nzType="printer"></span>Print
+            </a>
             @if (row.status === 'Accepted' && !row.convertedSalesOrderId) {
               <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="link" nzSize="small" (click)="convertToOrder(row.id)">
                 Convert

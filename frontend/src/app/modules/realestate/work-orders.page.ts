@@ -68,6 +68,9 @@ const STATUS_LABEL: Record<string, string> = { assigned: 'Assign', inProgress: '
           @for (next of nextStatuses(w); track next) {
             <button *erpHasPermission="permission(next)" nz-button nzSize="small" [nzDanger]="next === 'cancelled'" (click)="move(w, next)" [attr.data-testid]="'wo-' + next">{{ label(next) }}</button>
           }
+          <a [href]="'/print/work-order/' + w.id" target="_blank" nz-button nzSize="small" data-testid="wo-print">
+            <span nz-icon nzType="printer"></span>Print Work Order
+          </a>
         </div>
       }
     </erp-record-drawer>

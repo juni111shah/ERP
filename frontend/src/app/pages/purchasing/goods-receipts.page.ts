@@ -56,6 +56,9 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <button nz-button nzType="link" nzSize="small" (click)="viewDetail(row.id)">
                   View Items
                 </button>
+                <a [href]="'/print/grn/' + row.id" target="_blank" nz-button nzType="link" nzSize="small">
+                  <span nz-icon nzType="printer"></span> Print GRN
+                </a>
                 <button *erpHasPermission="'purchasing.receipts.manage'" nz-button nzType="link" nzDanger nzSize="small"
                         nz-popconfirm nzPopconfirmTitle="Delete this receipt?" (nzOnConfirm)="deleteReceipt(row.id)">
                   Delete
@@ -101,6 +104,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 }
               </tbody>
             </nz-table>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+              <a [href]="'/print/grn/' + grn.id" target="_blank" nz-button nzType="primary">
+                <span nz-icon nzType="printer"></span> Print GRN Note
+              </a>
+              <button nz-button (click)="detailModalVisible.set(false)">Close</button>
+            </div>
           }
         </ng-container>
       </nz-modal>
