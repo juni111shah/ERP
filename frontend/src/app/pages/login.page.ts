@@ -44,11 +44,11 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
 
     .login-root {
       display: grid;
-      grid-template-columns: 380px minmax(540px, 760px);
+      grid-template-columns: 400px minmax(560px, 1fr);
       justify-content: center;
       align-items: center;
-      gap: 36px;
-      max-width: 1220px;
+      gap: 48px;
+      max-width: 1400px;
       margin: 0 auto;
       height: 100vh;
       max-height: 100vh;
@@ -56,7 +56,7 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       position: relative;
       overflow: hidden;
       box-sizing: border-box;
-      padding: 0 24px;
+      padding: 0 48px;
     }
 
     /* Left Side: Authentication Panel */
@@ -72,14 +72,16 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       box-sizing: border-box;
       overflow-y: auto;
       width: 100%;
-      max-width: 380px;
+      max-width: 400px;
     }
 
     .brand-top {
       display: inline-flex;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 22px;
       flex-shrink: 0;
+      transform: scale(1.1);
+      transform-origin: left center;
     }
 
     .login-main-content {
@@ -348,7 +350,60 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       font-size: 13px;
     }
 
-    /* Right Side: Seamless Illustration & App Story */
+    /* Unified Ambient Background Lighting (Across entire page) */
+    .organic-blob-1 {
+      position: absolute;
+      top: -12%;
+      right: -8%;
+      width: 750px;
+      height: 750px;
+      border-radius: 46% 54% 65% 35% / 40% 45% 55% 60%;
+      background: radial-gradient(circle, rgba(16, 149, 93, 0.13) 0%, rgba(52, 188, 134, 0.04) 50%, transparent 75%);
+      filter: blur(55px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .organic-blob-2 {
+      position: absolute;
+      bottom: -15%;
+      left: 28%;
+      width: 650px;
+      height: 650px;
+      border-radius: 58% 42% 48% 52% / 55% 60% 40% 45%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.11) 0%, rgba(16, 149, 93, 0.02) 55%, transparent 75%);
+      filter: blur(50px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .organic-blob-3 {
+      position: absolute;
+      top: -10%;
+      left: -8%;
+      width: 480px;
+      height: 480px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 149, 93, 0.09) 0%, rgba(52, 188, 134, 0.02) 50%, transparent 70%);
+      filter: blur(45px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .floating-orb {
+      position: absolute;
+      top: 9%;
+      right: 5%;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #34bc86, #10955d);
+      box-shadow: 0 4px 14px rgba(16, 149, 93, 0.4);
+      animation: floatOrb 5s ease-in-out infinite alternate;
+      z-index: 1;
+    }
+
+    /* Right Side: Seamless Story & Illustration */
     .login-right-pane {
       position: relative;
       background: transparent;
@@ -359,49 +414,10 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       padding: 24px 0 20px 0;
       height: 100vh;
       box-sizing: border-box;
-      overflow: hidden;
-      z-index: 1;
+      overflow: visible;
+      z-index: 10;
       min-width: 0;
       width: 100%;
-    }
-
-    .organic-blob-1 {
-      position: absolute;
-      top: -15%;
-      right: -10%;
-      width: 650px;
-      height: 650px;
-      border-radius: 46% 54% 65% 35% / 40% 45% 55% 60%;
-      background: radial-gradient(circle, rgba(16, 149, 93, 0.14) 0%, rgba(52, 188, 134, 0.04) 50%, transparent 75%);
-      filter: blur(50px);
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .organic-blob-2 {
-      position: absolute;
-      bottom: -15%;
-      left: 5%;
-      width: 500px;
-      height: 500px;
-      border-radius: 58% 42% 48% 52% / 55% 60% 40% 45%;
-      background: radial-gradient(circle, rgba(16, 185, 129, 0.11) 0%, rgba(16, 149, 93, 0.02) 55%, transparent 75%);
-      filter: blur(45px);
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .floating-orb {
-      position: absolute;
-      top: 10%;
-      right: 4%;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #34bc86, #10955d);
-      box-shadow: 0 4px 12px rgba(16, 149, 93, 0.35);
-      animation: floatOrb 5s ease-in-out infinite alternate;
-      z-index: 2;
     }
 
     /* TOP STORY CARD (Above Illustration) */
@@ -471,7 +487,7 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
       text-overflow: ellipsis;
     }
 
-    /* CENTER ILLUSTRATION (Enlarged) */
+    /* CENTER ILLUSTRATION (Fully visible, not clipped) */
     .illustration-wrapper {
       position: relative;
       z-index: 5;
@@ -486,14 +502,13 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
     }
 
     .animated-svg-img {
-      width: 100%;
-      height: 100%;
-      max-height: 68vh;
+          width: 108%;
+    height: 112%;
+    max-height: 83vh;
       object-fit: contain;
       filter: drop-shadow(0 20px 40px rgba(16, 149, 93, 0.12));
-      transform: scale(1.16);
+      transform: none;
       transform-origin: center center;
-      transition: transform 0.3s ease;
     }
 
     /* BOTTOM FEATURE PILLS (Below Illustration - strictly ONE ROW) */
@@ -597,10 +612,16 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
   `],
   template: `
     <div class="login-root">
+      <!-- Atmospheric Ambient Lighting across the entire stage (unified one show) -->
+      <div class="organic-blob-1"></div>
+      <div class="organic-blob-2"></div>
+      <div class="organic-blob-3"></div>
+      <div class="floating-orb"></div>
+
       <!-- Left Panel: Authentication -->
       <section class="login-left-pane">
         <div class="brand-top" data-testid="login-brand">
-          <erp-brand-logo size="md"></erp-brand-logo>
+          <erp-brand-logo size="lg"></erp-brand-logo>
         </div>
 
         <div class="login-main-content">
@@ -707,10 +728,6 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
 
       <!-- Right Panel: Seamless Brand Themed Story & Illustration -->
       <section class="login-right-pane">
-        <div class="organic-blob-1"></div>
-        <div class="organic-blob-2"></div>
-        <div class="floating-orb"></div>
-
         <!-- TOP TEXT: Shimmer Headline in ONE single clean row -->
         <div class="top-story-card">
           <div class="shimmer-chip">
