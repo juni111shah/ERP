@@ -23,6 +23,8 @@ import { OrderInput, OrderSummaryDto, SalesKpiApi, SalesKpiDto, SalesOrdersApi }
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
+import { StatCardComponent } from '../../shared/stat-card.component';
+
 @Component({
   selector: 'erp-orders-list',
   standalone: true,
@@ -47,96 +49,73 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzTableModule,
     NzPopconfirmModule,
     PagedTableComponent,
+    StatCardComponent,
     HasPermissionDirective,
   ],
   template: `
-    <div class="sales-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Sales Orders</h1>
-          <p class="erp-page-subtitle">Process customer orders, monitor fulfillment deliveries and generate invoices.</p>
-        </div>
-        <div class="header-actions">
-          <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="order-new">
-            <span nz-icon nzType="plus"></span>New Sales Order
-          </button>
-        </div>
-      </div>
+    <h1 class="erp-page-title">Sales Orders</h1>
 
-      <!-- KPI Stat Cards -->
-      <div nz-row [nzGutter]="[16, 16]" class="kpi-row">
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Open Orders</span>
-              <span nz-icon nzType="shopping-cart" class="stat-icon icon-orders"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.openOrdersCount ?? 0 }}</div>
-            <div class="stat-sub">orders in fulfillment</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Order Backlog</span>
-              <span nz-icon nzType="field-time" class="stat-icon icon-backlog"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.openOrdersAmount ?? 0 | number:'1.0-0' }}</div>
-            <div class="stat-sub">unfulfilled delivery value</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Total Orders</span>
-              <span nz-icon nzType="check-circle" class="stat-icon icon-total"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.totalOrdersCount ?? 0 }}</div>
-            <div class="stat-sub">all time orders</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Gross Revenue</span>
-              <span nz-icon nzType="dollar-circle" class="stat-icon icon-rev"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.totalSales ?? 0 | number:'1.0-0' }}</div>
-            <div class="stat-sub">total volume booked</div>
-          </nz-card>
-        </div>
-      </div>
+    <!-- KPI Stat Cards -->
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="order-stats">
+      <erp-stat-card
+        label="Open Orders"
+        [value]="kpis()?.openOrdersCount ?? 0"
+        format="number"
+        caption="orders in fulfillment"
+        [tone]="1" />
+      <erp-stat-card
+        label="Order Backlog"
+        [value]="kpis()?.openOrdersAmount ?? 0"
+        format="money"
+        caption="unfulfilled delivery value"
+        [tone]="3" />
+      <erp-stat-card
+        label="Total Orders"
+        [value]="kpis()?.totalOrdersCount ?? 0"
+        format="number"
+        caption="all time orders"
+        [tone]="4" />
+      <erp-stat-card
+        label="Gross Revenue"
+        [value]="kpis()?.totalSales ?? 0"
+        format="money"
+        caption="total volume booked"
+        [tone]="0" />
+    </div>
 
-      <!-- Orders Table -->
-      <nz-card class="table-card" [nzBodyStyle]="{ padding: '0' }">
-        <erp-paged-table
-          [list]="list"
-          [columns]="columns"
-          searchPlaceholder="Search order number, customer, PO...">
-          
-          <ng-template #cell let-row let-column="column">
-            @if (column.key === 'number') {
-              <a [routerLink]="['/sales/orders', row.id]" class="order-link">
-                <strong>{{ row.number }}</strong>
-              </a>
-            } @else if (column.key === 'customerName') {
-              <div class="customer-cell">
-                <span class="customer-name">{{ row.customerName }}</span>
-                @if (row.customerReference) {
-                  <span class="customer-ref">Ref: {{ row.customerReference }}</span>
-                }
-              </div>
-            } @else if (column.key === 'totalAmount') {
-              <strong>{{ row.currency }} {{ row.totalAmount | number:'1.2-2' }}</strong>
-            } @else if (column.key === 'status') {
-              <nz-tag [nzColor]="statusColor(row.status)">{{ row.status }}</nz-tag>
-            } @else if (column.key === 'invoiced') {
-              @if (row.invoicedInvoiceId) {
-                <nz-tag nzColor="green"><span nz-icon nzType="check"></span> Invoiced</nz-tag>
-              } @else {
-                <nz-tag nzColor="default">Pending</nz-tag>
-              }
-            } @else if (column.key === 'actions') {
+    <!-- Orders Table -->
+    <erp-paged-table
+      [list]="list"
+      [columns]="columns"
+      searchPlaceholder="Search order number, customer, PO...">
+
+      <button toolbar *erpHasPermission="'sales.orders.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="order-new">
+        <span nz-icon nzType="plus"></span>New Sales Order
+      </button>
+      
+      <ng-template #cell let-row let-column="column">
+        @if (column.key === 'number') {
+          <a [routerLink]="['/sales/orders', row.id]" class="order-link">
+            <strong>{{ row.number }}</strong>
+          </a>
+        } @else if (column.key === 'customerName') {
+          <div class="customer-cell">
+            <span class="customer-name">{{ row.customerName }}</span>
+            @if (row.customerReference) {
+              <span class="customer-ref">Ref: {{ row.customerReference }}</span>
+            }
+          </div>
+        } @else if (column.key === 'totalAmount') {
+          <strong>{{ row.currency }} {{ row.totalAmount | number:'1.2-2' }}</strong>
+        } @else if (column.key === 'status') {
+          <nz-tag [nzColor]="statusColor(row.status)">{{ row.status }}</nz-tag>
+        } @else if (column.key === 'invoiced') {
+          @if (row.invoicedInvoiceId) {
+            <nz-tag nzColor="green"><span nz-icon nzType="check"></span> Invoiced</nz-tag>
+          } @else {
+            <nz-tag nzColor="default">Pending</nz-tag>
+          }
+        } @else if (column.key === 'actions') {
               <div class="action-buttons">
                 <a [routerLink]="['/sales/orders', row.id]" nz-button nzType="link" nzSize="small">
                   Manage
@@ -149,7 +128,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             }
           </ng-template>
         </erp-paged-table>
-      </nz-card>
 
       <!-- Create Order Drawer -->
       <nz-drawer
@@ -312,31 +290,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </form>
         </ng-container>
       </nz-drawer>
-    </div>
   `,
   styles: [`
-    .sales-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .erp-page-title { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
-    .erp-page-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0 0; }
-    .kpi-row { margin-bottom: 24px; }
-    .stat-card {
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-      transition: all 0.2s;
-    }
-    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px -4px rgba(0,0,0,0.06); }
-    .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .stat-label { font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-    .stat-icon { font-size: 18px; padding: 6px; border-radius: 8px; }
-    .icon-orders { color: #2563eb; background: #eff6ff; }
-    .icon-backlog { color: #d97706; background: #fffbeb; }
-    .icon-total { color: #8b5cf6; background: #f5f3ff; }
-    .icon-rev { color: #10955d; background: #ecfdf5; }
-    .stat-value { font-size: 26px; font-weight: 700; color: #0f172a; line-height: 1.2; }
-    .stat-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-    .table-card { border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; }
     .order-link { color: #10955d; font-weight: 600; }
     .order-link:hover { text-decoration: underline; color: #0c7347; }
     .customer-cell { display: flex; flex-direction: column; }

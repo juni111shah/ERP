@@ -19,6 +19,8 @@ import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 
+import { StatCardComponent } from '../../shared/stat-card.component';
+
 @Component({
   selector: 'erp-projects-list',
   standalone: true,
@@ -35,68 +37,45 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
     NzToolTipModule,
     PagedTableComponent,
     RecordDrawerComponent,
+    StatCardComponent,
     HasPermissionDirective,
   ],
   template: `
-    <div class="projects-container">
-      <div class="page-header">
-        <div>
-          <h1 class="erp-page-title">Projects</h1>
-          <p class="erp-page-subtitle">Track project lifecycles, milestones, tasks, timesheets and project billing.</p>
-        </div>
-        <div class="header-actions">
-          <button toolbar *erpHasPermission="'projects.projects.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="project-new">
-            <span nz-icon nzType="plus"></span>New Project
-          </button>
-        </div>
-      </div>
+    <h1 class="erp-page-title">Projects</h1>
 
-      <!-- KPI Stat Cards -->
-      <div nz-row [nzGutter]="[16, 16]" class="kpi-row">
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Active Projects</span>
-              <span nz-icon nzType="project" class="stat-icon icon-active"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.activeProjects ?? 0 }}</div>
-            <div class="stat-sub">of {{ kpis()?.totalProjects ?? 0 }} total projects</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Completed</span>
-              <span nz-icon nzType="check-circle" class="stat-icon icon-completed"></span>
-            </div>
-            <div class="stat-value">{{ kpis()?.completedProjects ?? 0 }}</div>
-            <div class="stat-sub">delivered successfully</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Total Budget</span>
-              <span nz-icon nzType="dollar-circle" class="stat-icon icon-budget"></span>
-            </div>
-            <div class="stat-value">AED {{ (kpis()?.totalBudget ?? 0) | number: '1.0-0' }}</div>
-            <div class="stat-sub">across all projects</div>
-          </nz-card>
-        </div>
-        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-          <nz-card class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Unbilled Work</span>
-              <span nz-icon nzType="clock-circle" class="stat-icon icon-hours"></span>
-            </div>
-            <div class="stat-value">AED {{ (kpis()?.unbilledAmount ?? 0) | number: '1.0-0' }}</div>
-            <div class="stat-sub">{{ (kpis()?.totalLoggedHours ?? 0) | number: '1.1-1' }}h logged total</div>
-          </nz-card>
-        </div>
-      </div>
+    <!-- KPI Stat Cards -->
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="project-stats">
+      <erp-stat-card
+        label="Active Projects"
+        [value]="kpis()?.activeProjects ?? 0"
+        format="number"
+        [caption]="'of ' + (kpis()?.totalProjects ?? 0) + ' total projects'"
+        [tone]="0" />
+      <erp-stat-card
+        label="Completed"
+        [value]="kpis()?.completedProjects ?? 0"
+        format="number"
+        caption="delivered successfully"
+        [tone]="1" />
+      <erp-stat-card
+        label="Total Budget"
+        [value]="kpis()?.totalBudget ?? 0"
+        format="money"
+        caption="across all projects"
+        [tone]="3" />
+      <erp-stat-card
+        label="Unbilled Work"
+        [value]="kpis()?.unbilledAmount ?? 0"
+        format="money"
+        [caption]="((kpis()?.totalLoggedHours ?? 0) | number: '1.1-1') + 'h logged total'"
+        [tone]="4" />
+    </div>
 
-      <!-- Main Paged Table -->
-      <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search project code, name, or customer..." emptyText="No projects found." (rowClick)="openDetail($event)">
+    <!-- Main Paged Table -->
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search project code, name, or customer..." emptyText="No projects found." (rowClick)="openDetail($event)">
+      <button toolbar *erpHasPermission="'projects.projects.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="project-new">
+        <span nz-icon nzType="plus"></span>New Project
+      </button>
         <ng-template #cell let-row let-column="column" let-value="value">
           @switch (column.key) {
             @case ('number') {
@@ -139,78 +118,10 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
         </ng-template>
       </erp-paged-table>
 
-      <erp-record-drawer [title]="state.editing() ? 'Edit Project' : 'New Project'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="project"
-                         [saving]="state.saving()" [errors]="state.errors()" testId="project-form" (submitted)="state.submit($event)" (closed)="state.close()" />
-    </div>
+    <erp-record-drawer [title]="state.editing() ? 'Edit Project' : 'New Project'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="project"
+                       [saving]="state.saving()" [errors]="state.errors()" testId="project-form" (submitted)="state.submit($event)" (closed)="state.close()" />
   `,
   styles: [`
-    .projects-container {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-    .erp-page-title {
-      font-size: 24px;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 0;
-    }
-    .erp-page-subtitle {
-      font-size: 13.5px;
-      color: #64748b;
-      margin: 4px 0 0 0;
-    }
-    .kpi-row {
-      margin-bottom: 4px;
-    }
-    .stat-card {
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-      transition: all 0.2s;
-    }
-    .stat-card:hover {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-      transform: translateY(-1px);
-    }
-    .stat-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .stat-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #64748b;
-    }
-    .stat-icon {
-      font-size: 18px;
-      padding: 6px;
-      border-radius: 8px;
-    }
-    .icon-active { color: #10955d; background: #e6f7ef; }
-    .icon-completed { color: #2563eb; background: #eff6ff; }
-    .icon-budget { color: #d97706; background: #fef3c7; }
-    .icon-hours { color: #7c3aed; background: #f5f3ff; }
-    .stat-value {
-      font-size: 22px;
-      font-weight: 700;
-      color: #0f172a;
-      line-height: 1.2;
-    }
-    .stat-sub {
-      font-size: 12px;
-      color: #94a3b8;
-      margin-top: 4px;
-    }
     .project-name-cell {
       display: flex;
       flex-direction: column;
