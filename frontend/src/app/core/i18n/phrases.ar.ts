@@ -23,6 +23,7 @@ const PAIRS: [string, string][] = [
   ['Pending', 'قيد الانتظار'], ['Sent', 'أُرسل'], ['Failed', 'فشل'], ['Due', 'مستحق'], ['Draft renewal', 'تجديد مسودة'], ['Recorded', 'مسجّل'], ['Accepted', 'مقبول'],
   // dashboard / shell leftovers
   ['Overview', 'نظرة عامة'], ['Dashboard', 'لوحة التحكم'], ['Alerts', 'التنبيهات'], ['Choose a record type', 'اختر نوع السجل'],
+  ['HigherSquare 360', 'هاير سكوير 360'], ['HigherSquare', 'هاير سكوير'], ['Demo Properties', 'عقارات تجريبية'],
   // auth & onboarding
   ['Reset your password', 'إعادة تعيين كلمة المرور'], ['Enter your work email and we will send you a link.', 'أدخل بريدك الإلكتروني وسنرسل لك رابطاً.'], ['Send reset link', 'إرسال رابط إعادة التعيين'],
   ['Back to sign in', 'العودة إلى تسجيل الدخول'], ['Choose a new password', 'اختر كلمة مرور جديدة'], ['New password', 'كلمة المرور الجديدة'], ['Change password', 'تغيير كلمة المرور'],

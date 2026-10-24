@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { I18nService } from '../core/i18n/i18n.service';
 
 @Component({
   selector: 'erp-brand-logo',
@@ -75,10 +76,20 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       pointer-events: none;
     }
 
+    :host-context([dir='rtl']) .brand-container.collapsed .brand-text {
+      transform: translateX(6px);
+    }
+
     .title-row {
       display: flex;
       align-items: baseline;
       gap: 5px;
+      direction: ltr;
+      unicode-bidi: isolate;
+    }
+
+    :host-context([dir='rtl']) .title-row {
+      direction: rtl;
     }
 
     .name-higher {
@@ -88,11 +99,21 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       font-size: 17px;
     }
 
+    :host-context([dir='rtl']) .name-higher {
+      letter-spacing: normal;
+      font-family: 'Cairo', 'Segoe UI', system-ui, sans-serif;
+    }
+
     .name-360 {
       font-weight: 800;
       letter-spacing: -0.01em;
       color: #215a67;
       font-size: 17px;
+    }
+
+    :host-context([dir='rtl']) .name-360 {
+      letter-spacing: normal;
+      font-family: inherit;
     }
 
     .size-sm .name-higher,
@@ -108,6 +129,13 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       color: #112338;
       text-transform: uppercase;
       margin-top: 2px;
+      text-align: start;
+    }
+
+    :host-context([dir='rtl']) .brand-sub {
+      letter-spacing: 0.02em;
+      text-align: start;
+      font-family: 'Cairo', 'Segoe UI', system-ui, sans-serif;
     }
 
     .size-sm .brand-sub { font-size: 7.5px; letter-spacing: 0.1em; }
@@ -131,13 +159,13 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
     <div class="brand-container" [class.collapsed]="collapsed()" [class]="'size-' + size()">
       <!-- Brand Emblem Image -->
       <div class="emblem-wrapper" [title]="titleText()">
-        <img src="highersquare-emblem.png" class="emblem-img" alt="HigherSquare 360" />
+        <img src="highersquare-emblem.png" class="emblem-img" [alt]="titleText()" />
       </div>
 
       <!-- Brand Typography (smoothly fades and slides in/out on collapse) -->
       <div class="brand-text" [attr.aria-hidden]="collapsed()">
         <div class="title-row">
-          <span class="name-higher">HigherSquare</span>
+          <span class="name-higher">{{ isArabic() ? 'هاير سكوير' : 'HigherSquare' }}</span>
           <span class="name-360">360</span>
         </div>
         <span class="brand-sub">{{ subtitleText() }}</span>
@@ -146,13 +174,22 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
   `
 })
 export class BrandLogoComponent {
+  private readonly i18n = inject(I18nService, { optional: true });
+
   readonly collapsed = input<boolean>(false);
   readonly size = input<'sm' | 'md' | 'lg'>('md');
   readonly subtitle = input<string | null>(null);
 
-  readonly titleText = computed(() => 'HigherSquare 360');
+  readonly isArabic = computed(() => this.i18n?.lang() === 'ar');
+  readonly titleText = computed(() => (this.isArabic() ? 'هاير سكوير 360' : 'HigherSquare 360'));
   readonly subtitleText = computed(() => {
     const custom = this.subtitle();
-    return custom && custom.trim().length > 0 ? custom : 'ENTERPRISE RESOURCE PLANNING';
+    if (custom && custom.trim().length > 0) {
+      if (this.isArabic()) {
+        return this.i18n?.t(custom, custom) ?? custom;
+      }
+      return custom;
+    }
+    return this.isArabic() ? 'تخطيط موارد المؤسسات' : 'ENTERPRISE RESOURCE PLANNING';
   });
 }

@@ -174,6 +174,7 @@ export const AR: Dictionary = {
   // shell
   'shell.signOut': 'تسجيل الخروج', 'shell.notifications': 'الإشعارات', 'shell.markAllRead': 'تحديد الكل كمقروء', 'shell.caughtUp': 'لا توجد إشعارات جديدة',
   'shell.accountSecurity': 'أمان الحساب', 'shell.search': 'ابحث في السجلات', 'shell.darkMode': 'الوضع الداكن', 'shell.allEntities': 'جميع الكيانات القانونية',
+  'brand.name': 'هاير سكوير', 'brand.subtitle': 'تخطيط موارد المؤسسات', 'Demo Properties': 'عقارات تجريبية',
   // menu groups and items (server labels are mapped by menu id / group id)
   'menu.group.admin': 'الإدارة', 'menu.group.finance': 'المالية', 'menu.group.realestate': 'العقارات', 'menu.group.hr': 'الموارد البشرية', 'menu.group.inventory': 'المخزون', 'menu.group.projects': 'المشاريع',
   'menu.group.core': 'الأساسيات', 'menu.group.reports': 'التقارير',
@@ -187,9 +188,19 @@ export const AR: Dictionary = {
   'menu.realestate.renewals': 'تجديد العقود', 'menu.realestate.pm': 'الصيانة الوقائية', 'menu.realestate.inspections': 'الفحوصات', 'menu.realestate.deals': 'الصفقات',
   'menu.hr.employees': 'الموظفون', 'menu.hr.attendance': 'الحضور', 'menu.hr.payroll': 'الرواتب', 'menu.inventory.warehouses': 'المستودعات', 'menu.inventory.stock': 'المخزون الحالي', 'menu.inventory.movements': 'حركات المخزون',
   // menu groups / items whose server ids had no entry (sidebar showed English in Arabic)
-  'menu.group.workspace': 'مساحة العمل', 'menu.group.sales': 'المبيعات', 'menu.group.purchases': 'المشتريات', 'menu.group.masterdata': 'البيانات الأساسية', 'menu.group.setup': 'الإعداد',
+  'menu.group.workspace': 'مساحة العمل', 'menu.group.sales': 'المبيعات', 'menu.group.purchases': 'المشتريات', 'menu.group.purchasing': 'المشتريات',
+  'menu.group.masterdata': 'البيانات الأساسية', 'menu.group.setup': 'الإعداد', 'menu.group.services': 'الخدمات', 'menu.group.retail': 'التجزئة',
+  'menu.group.pos': 'نقاط البيع', 'menu.group.manufacturing': 'التصنيع', 'menu.group.distribution': 'التوزيع', 'menu.group.crm': 'إدارة علاقات العملاء',
   'menu.core.overview': 'نظرة عامة', 'menu.core.reports': 'مركز التقارير', 'menu.core.reports.ar': 'التقارير', 'menu.core.reports.ap': 'التقارير',
-  'menu.sales.customers': 'العملاء', 'menu.purchases.vendors': 'الموردون', 'menu.core.approvalrules': 'قواعد الموافقة', 'menu.core.businessunits': 'وحدات الأعمال',
+  'menu.sales.customers': 'العملاء', 'menu.sales.quotes': 'عروض الأسعار', 'menu.sales.orders': 'أوامر البيع', 'menu.sales.analytics': 'تحليلات المبيعات',
+  'menu.purchases.vendors': 'الموردون', 'menu.purchasing.orders': 'أوامر الشراء', 'menu.purchasing.requisitions': 'طلبات الشراء', 'menu.purchasing.receipts': 'استلام البضائع', 'menu.purchasing.analytics': 'تحليلات المشتريات',
+  'menu.retail.stores': 'المتاجر', 'menu.retail.pricelists': 'قوائم الأسعار', 'menu.retail.promotions': 'العروض الترويجية', 'menu.retail.analytics': 'تحليلات التجزئة',
+  'menu.pos.terminal': 'نقطة البيع', 'menu.pos.sessions': 'الورديات والخزائن', 'menu.pos.orders': 'طلبات البيع المباشر', 'menu.pos.registers': 'أجهزة الصندوق', 'menu.pos.analytics': 'تحليلات نقاط البيع',
+  'menu.manufacturing.boms': 'لوائح المواد', 'menu.manufacturing.workorders': 'أوامر العمل التصنيعية', 'menu.manufacturing.costing': 'تكلفة المنتجات', 'menu.manufacturing.analytics': 'تحليلات التصنيع',
+  'menu.distribution.routes': 'مسارات التوزيع', 'menu.distribution.trips': 'مبيعات التوزيع', 'menu.distribution.wholesale': 'أسعار الجملة', 'menu.distribution.analytics': 'تحليلات التوزيع',
+  'menu.crm.leads': 'العملاء المحتملون', 'menu.crm.opportunities': 'فرص المبيعات', 'menu.crm.interactions': 'سجل الأنشطة', 'menu.crm.analytics': 'تحليلات علاقات العملاء',
+  'menu.services.engagements': 'المشاريع الاستشارية', 'menu.services.retainers': 'عقود الخدمات', 'menu.services.milestones': 'فوترة المراحل', 'menu.services.analytics': 'تحليلات الخدمات',
+  'menu.core.approvalrules': 'قواعد الموافقة', 'menu.core.businessunits': 'وحدات الأعمال',
   'menu.core.customfields': 'الحقول المخصصة', 'menu.core.legalentities': 'الكيانات القانونية', 'menu.finance.taxcodes': 'الرموز الضريبية', 'menu.hr.reviewcycles': 'دورات التقييم',
   'menu.hr.reviews': 'تقييمات الأداء', 'menu.realestate.leads': 'العملاء المحتملون', 'menu.realestate.listings': 'القوائم العقارية',
   // login / account

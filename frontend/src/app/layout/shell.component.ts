@@ -338,7 +338,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
       width: 1px;
       height: 22px;
       background: var(--erp-color-border-subtle, #e2e8f0);
-      margin: 0 2px;
+      margin: 0 10px;
       flex-shrink: 0;
     }
     :host-context([data-theme='dark']) .topbar-divider,
@@ -350,7 +350,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     .topbar-actions-group {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
     }
     .topbar-action-btn {
       width: 36px;
@@ -379,6 +379,38 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     .action-btn-icon {
       font-size: 16px;
       line-height: 1;
+    }
+    .bell-btn {
+      position: relative;
+      overflow: visible;
+    }
+    .bell-badge-count {
+      position: absolute;
+      top: -3px;
+      inset-inline-end: -3px;
+      height: 18px;
+      min-width: 18px;
+      padding: 0 4.5px;
+      line-height: 18px;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: inherit;
+      font-variant-numeric: tabular-nums;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #ffffff;
+      border-radius: 9999px;
+      box-shadow: 0 0 0 2px var(--erp-color-bg-surface, #ffffff), 0 2px 4px rgba(239, 68, 68, 0.35);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      pointer-events: none;
+      white-space: nowrap;
+      letter-spacing: 0;
+    }
+    :host-context([data-theme='dark']) .bell-badge-count,
+    :host-context(.dark) .bell-badge-count {
+      box-shadow: 0 0 0 2px #0f172a, 0 2px 4px rgba(0, 0, 0, 0.5);
     }
     .lang-btn .lang-text {
       font-size: 12px;
@@ -550,6 +582,12 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
         }
       }
 
+      .ant-menu-rtl .ant-menu-item .anticon,
+      .ant-menu-rtl .ant-menu-submenu-title .anticon,
+      .ant-menu-rtl .ant-menu-item .ant-menu-item-icon {
+        margin: 0 !important;
+      }
+
       /* Expanded Menu Items: comfortable rounded row */
       .ant-menu-inline:not(.ant-menu-inline-collapsed) {
         width: 100% !important;
@@ -593,11 +631,13 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
             align-items: center !important;
             justify-content: center !important;
             flex-shrink: 0 !important;
+            margin: 0 !important;
 
             .anticon {
               display: inline-flex !important;
               align-items: center !important;
               justify-content: center !important;
+              margin: 0 !important;
             }
           }
 
@@ -609,6 +649,8 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
             font-size: 14px !important;
             opacity: 1 !important;
             max-width: 170px !important;
+            margin: 0 !important;
+            text-align: start !important;
           }
         }
       }
@@ -655,10 +697,10 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
             class="sidebar-toggle-btn"
             [class.collapsed]="collapsed()"
             (click)="toggleSidebar()"
-            [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
-            [attr.title]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+            [attr.aria-label]="collapsed() ? ('shell.expandSidebar' | translate: 'Expand sidebar') : ('shell.collapseSidebar' | translate: 'Collapse sidebar')"
+            [attr.title]="collapsed() ? ('shell.expandSidebar' | translate: 'Expand sidebar') : ('shell.collapseSidebar' | translate: 'Collapse sidebar')"
             data-testid="nav-toggle">
-            <span nz-icon [nzType]="collapsed() ? 'double-right' : 'double-left'"></span>
+            <span nz-icon [nzType]="toggleIcon()"></span>
           </button>
         </div>
         <div class="nav-scroll-area">
@@ -666,7 +708,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
             <div class="group-title" [class.collapsed]="collapsed()">{{ i18n.t('menu.group.' + g.id, g.label) }}</div>
             <ul nz-menu nzMode="inline" [nzInlineCollapsed]="collapsed()" [nzInlineIndent]="0">
               @for (i of g.items; track i.id) {
-                <li nz-menu-item nz-tooltip [nzTooltipTitle]="collapsed() ? i.label : null" nzTooltipPlacement="right"
+                <li nz-menu-item nz-tooltip [nzTooltipTitle]="collapsed() ? i.label : null" [nzTooltipPlacement]="i18n.dir() === 'rtl' ? 'left' : 'right'"
                     [routerLink]="linkPath(i.route)" [queryParams]="linkQuery(i.route)" routerLinkActive="ant-menu-item-selected" [routerLinkActiveOptions]="{ exact: i.route === '/' }"
                     [attr.data-testid]="'nav-' + i.id">
                   <div class="nav-item-inner">
@@ -738,10 +780,11 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           <div class="topbar-divider"></div>
 
           <div class="topbar-actions-group">
-            <button type="button" class="topbar-action-btn" aria-label="Notifications" nz-tooltip [nzTooltipTitle]="'shell.notifications' | translate: 'Notifications'" data-testid="notifications-bell" (click)="notificationsOpen.set(true)">
-              <nz-badge [nzCount]="unread().unread" nzSize="small" [nzOffset]="[-2, 2]">
-                <span nz-icon nzType="bell" class="action-btn-icon"></span>
-              </nz-badge>
+            <button type="button" class="topbar-action-btn bell-btn" aria-label="Notifications" nz-tooltip [nzTooltipTitle]="'shell.notifications' | translate: 'Notifications'" data-testid="notifications-bell" (click)="notificationsOpen.set(true)">
+              <span nz-icon nzType="bell" class="action-btn-icon"></span>
+              @if (unread().unread > 0) {
+                <span class="bell-badge-count">{{ unread().unread > 99 ? '99+' : unread().unread }}</span>
+              }
             </button>
             <button type="button" class="topbar-action-btn lang-btn" (click)="i18n.toggle()" aria-label="Language" nz-tooltip [nzTooltipTitle]="i18n.lang() === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'" data-testid="lang-toggle">
               <span class="lang-text">{{ i18n.lang() === 'ar' ? 'EN' : 'العربية' }}</span>
@@ -786,6 +829,7 @@ export class ShellComponent {
   readonly refresh = signal(0);
   readonly workspaceName = computed(() => this.session.me()?.workspace.name ?? 'ERP');
   readonly initials = computed(() => (this.session.me()?.user.fullName ?? '?').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase());
+  readonly toggleIcon = computed(() => this.i18n.dir() === 'rtl' ? (this.collapsed() ? 'double-left' : 'double-right') : (this.collapsed() ? 'double-right' : 'double-left'));
 
   toggleSidebar(): void {
     this.collapsed.set(!this.collapsed());
