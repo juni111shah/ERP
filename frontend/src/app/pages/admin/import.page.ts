@@ -30,14 +30,25 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
       @if (current(); as d) { <button nz-button (click)="template()" data-testid="import-template">Download CSV template</button> }
     </div>
     @if (current(); as d) {
-      <nz-table [nzData]="d.columns" nzSize="small" [nzShowPagination]="false" style="max-width:760px;margin-bottom:16px">
-        <thead><tr><th>Column</th><th>Required</th><th>Example</th><th>Notes</th></tr></thead>
-        <tbody>@for (c of d.columns; track c.name) { <tr><td><code>{{ c.name }}</code></td><td>{{ c.required ? 'Yes' : '' }}</td><td>{{ c.example }}</td><td>{{ c.hint }}</td></tr> }</tbody>
-      </nz-table>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <input type="file" accept=".csv,text/csv" #file (change)="result.set(null)" data-testid="import-file" />
-        <button nz-button [nzLoading]="busy()" (click)="run(file, true)" data-testid="import-check">Check file</button>
-        <button nz-button nzType="primary" [nzLoading]="busy()" [disabled]="!canImport()" (click)="run(file, false)" data-testid="import-run">Import</button>
+      <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); max-width:800px; margin-bottom:16px;">
+        <nz-table [nzData]="d.columns" nzSize="middle" [nzShowPagination]="false">
+          <thead><tr><th>Column</th><th>Required</th><th>Example</th><th>Notes</th></tr></thead>
+          <tbody>
+            @for (c of d.columns; track c.name) {
+              <tr>
+                <td><span class="code-pill">{{ c.name }}</span></td>
+                <td>@if (c.required) { <span style="color:#ef4444; font-weight:600;">Yes</span> } @else { <span style="color:#94a3b8;">Optional</span> }</td>
+                <td style="color:#334155;">{{ c.example }}</td>
+                <td style="color:#64748b; font-size:12.5px;">{{ c.hint }}</td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#f8fafc;padding:16px;border-radius:12px;border:1px solid #e2e8f0;max-width:800px;">
+        <input type="file" accept=".csv,text/csv" #file (change)="result.set(null)" data-testid="import-file" style="font-size:13px;" />
+        <button nz-button [nzLoading]="busy()" (click)="run(file, true)" data-testid="import-check">Check file (dry run)</button>
+        <button nz-button nzType="primary" [nzLoading]="busy()" [disabled]="!canImport()" (click)="run(file, false)" data-testid="import-run">Start import</button>
       </div>
     }
     @if (result(); as r) {

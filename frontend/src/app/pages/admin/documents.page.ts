@@ -10,6 +10,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { daysUntil, downloadAttachment } from '../../shared/attachments.component';
 import { Injectable } from '@angular/core';
 
+import { NzIconModule } from 'ng-zorro-antd/icon';
+
 export interface VaultRow { id: string; ownerType: string; ownerId: string; fileName: string; category?: string; description?: string; expiresOn?: string; createdAt: string; }
 @Injectable({ providedIn: 'root' })
 export class VaultApi extends CrudApiService<VaultRow, never> { protected readonly resource = 'attachments/vault'; }
@@ -19,12 +21,29 @@ export class VaultApi extends CrudApiService<VaultRow, never> { protected readon
   selector: 'erp-documents',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, NzSelectModule, NzTagModule],
+  imports: [FormsModule, PagedTableComponent, NzSelectModule, NzTagModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Document vault</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search file, category or description" emptyText="No documents yet. Upload them from a lease, property or party." (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'expiresOn' && row.expiresOn) { <nz-tag [nzColor]="tone(row.expiresOn)">{{ row.expiresOn }}</nz-tag> } @else { {{ value }} }
+        @if (column.key === 'fileName') {
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span nz-icon nzType="file-text" style="color:#10955d; font-size:16px;"></span>
+            <span style="font-weight:600; color:#1e293b;">{{ row.fileName }}</span>
+          </div>
+        } @else if (column.key === 'category' && row.category) {
+          <nz-tag>{{ row.category }}</nz-tag>
+        } @else if (column.key === 'ownerType') {
+          <nz-tag nzColor="blue">{{ row.ownerType }}</nz-tag>
+        } @else if (column.key === 'expiresOn') {
+          @if (row.expiresOn) {
+            <nz-tag [nzColor]="tone(row.expiresOn)">{{ row.expiresOn }}</nz-tag>
+          } @else {
+            <span style="color:#94a3b8;">No expiry</span>
+          }
+        } @else {
+          {{ value }}
+        }
       </ng-template>
     </erp-paged-table>`,
 })

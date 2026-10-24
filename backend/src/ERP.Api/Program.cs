@@ -226,7 +226,7 @@ public static class CountryPackCatalog
 /// <summary>Installed modules. ERP_MODULES / Modules:Installed (comma list) narrows them; an empty value runs the core alone.</summary>
 public static class ModuleCatalog
 {
-    public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule()];
+    public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule(), new ERP.Modules.Projects.ProjectsModule(), new ERP.Modules.Sales.SalesModule(), new ERP.Modules.Purchasing.PurchasingModule(), new ERP.Modules.Pos.PosModule(), new ERP.Modules.Retail.RetailModule(), new ERP.Modules.Distribution.DistributionModule(), new ERP.Modules.Manufacturing.ManufacturingModule(), new ERP.Modules.Crm.CrmModule(), new ERP.Modules.Services.ServicesModule()];
 
     public static IReadOnlyList<IModule> Select(IConfiguration config)
     {
@@ -248,6 +248,7 @@ public static class DatabaseStartup
             await scope.ServiceProvider.GetRequiredService<IDatabaseInitializer>().InitializeAsync(db);
         }
         await DevSeeder.SeedAsync(scope.ServiceProvider);
+        await ProgramSeeder.SeedModulesAsync(scope.ServiceProvider);
     }
 }
 

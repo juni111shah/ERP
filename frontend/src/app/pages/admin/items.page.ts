@@ -14,15 +14,40 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
+import { DecimalPipe } from '@angular/common';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+
 @Component({
   selector: 'erp-items',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [DecimalPipe, NzTagModule, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Items</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search SKU or name" emptyText="No items yet" (rowClick)="state.edit($event)">
-      <button toolbar *erpHasPermission="'core.items.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newItem' | translate: 'New item'" nz-tooltip [nzTooltipTitle]="'ui.add.newItem' | translate: 'New item'" nzType="primary" (click)="state.create()" data-testid="item-new"><span nz-icon nzType="plus"></span>New item</button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('sku') {
+            <span class="code-pill">{{ row.sku }}</span>
+          }
+          @case ('name') {
+            <span class="name-cell">{{ row.name }}</span>
+          }
+          @case ('type') {
+            <nz-tag [nzColor]="row.type === 'product' ? 'blue' : 'purple'">{{ row.type === 'product' ? 'Product' : 'Service' }}</nz-tag>
+          }
+          @case ('salesPrice') {
+            <b>AED {{ row.salesPrice | number: '1.2-2' }}</b>
+          }
+          @case ('isActive') {
+            <nz-tag [nzColor]="row.isActive ? 'green' : 'default'">{{ row.isActive ? 'Active' : 'Inactive' }}</nz-tag>
+          }
+          @default {
+            {{ value }}
+          }
+        }
+      </ng-template>
+      <button toolbar *erpHasPermission="'core.items.write'" nz-button nzType="primary" (click)="state.create()" data-testid="item-new"><span nz-icon nzType="plus"></span>New item</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit item' : 'New item'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="item"
                        [saving]="state.saving()" [errors]="state.errors()" testId="item-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,

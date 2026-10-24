@@ -28,6 +28,8 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
+import { DecimalPipe } from '@angular/common';
+
 const COLORS: Record<string, string> = { inCustody: 'blue', deposited: 'gold', cleared: 'green', bounced: 'red', replaced: 'default', cancelled: 'default', issued: 'cyan' };
 const LABELS: Record<string, string> = { inCustody: 'In custody', postDatedCheque: 'Post-dated' };
 type Action = 'deposit' | 'clear' | 'bounce' | null;
@@ -37,7 +39,7 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
   selector: 'erp-cheques',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [DecimalPipe, StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
@@ -53,12 +55,31 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
     </div>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, cheque no., customer or bank" emptyText="No cheques yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number }}</span>
+          }
+          @case ('instrumentNo') {
+            <span class="code-pill">{{ row.instrumentNo }}</span>
+          }
+          @case ('partyName') {
+            <span class="name-cell">{{ row.partyName }}</span>
+          }
+          @case ('amount') {
+            <b>AED {{ row.amount | number: '1.2-2' }}</b>
+          }
+          @case ('status') {
+            <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" [ngModelOptions]="{standalone: true}" (ngModelChange)="filterStatus($event)" data-testid="cheque-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="label(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'finance.cheques.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.registerCheque' | translate: 'Register cheque'" nz-tooltip [nzTooltipTitle]="'ui.add.registerCheque' | translate: 'Register cheque'" nzType="primary" (click)="openNew(null)" data-testid="cheque-new"><span nz-icon nzType="plus"></span>Register cheque</button>
+      <button toolbar *erpHasPermission="'finance.cheques.write'" nz-button nzType="primary" (click)="openNew(null)" data-testid="cheque-new"><span nz-icon nzType="plus"></span>Register cheque</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="formOpen()" [nzWidth]="640" [nzTitle]="replacing() ? 'Replacement for ' + replacing()!.instrumentNo : 'Register cheque'" (nzOnClose)="formOpen.set(false)" [nzFooter]="formFooter">

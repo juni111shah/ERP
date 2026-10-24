@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 96" width="100%" height="100%">
+  <defs>
+    <linearGradient id="logoGear" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e5447" />
+      <stop offset="100%" stop-color="#113a30" />
+    </linearGradient>
+    <linearGradient id="logoScreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f7566" />
+      <stop offset="50%" stop-color="#14574c" />
+      <stop offset="100%" stop-color="#0c382f" />
+    </linearGradient>
+    <linearGradient id="logoLine" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="60%" stop-color="#2dd4bf" />
+      <stop offset="100%" stop-color="#a7f3d0" />
+    </linearGradient>
+    <filter id="logoShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#06221c" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <g transform="translate(8, 10) scale(0.42)" filter="url(#logoShadow)">
+    <rect x="44" y="4" width="28" height="22" rx="5" fill="#1b4d41" />
+    <rect x="124" y="4" width="28" height="22" rx="5" fill="#1b4d41" />
+    <rect x="44" y="170" width="28" height="22" rx="5" fill="#133d32" />
+    <rect x="124" y="170" width="28" height="22" rx="5" fill="#133d32" />
+    <rect x="4" y="44" width="22" height="28" rx="5" fill="#18473c" />
+    <rect x="4" y="124" width="22" height="28" rx="5" fill="#143e33" />
+    <rect x="170" y="44" width="22" height="28" rx="5" fill="#18473c" />
+    <rect x="170" y="124" width="22" height="28" rx="5" fill="#143e33" />
+
+    <rect x="16" y="16" width="164" height="164" rx="34" fill="url(#logoGear)" stroke="#236858" stroke-width="2.5" />
+    <rect x="28" y="28" width="140" height="140" rx="22" fill="url(#logoScreen)" stroke="#2ea38d" stroke-width="2.5" />
+    <rect x="32" y="32" width="132" height="132" rx="18" fill="none" stroke="#5eead4" stroke-width="1" stroke-opacity="0.3" />
+
+    <path d="M 50 122 L 82 88 L 112 108 L 146 50" 
+          fill="none" 
+          stroke="url(#logoLine)" 
+          stroke-width="10" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" />
+    <circle cx="50" cy="122" r="7.5" fill="#2dd4bf" stroke="#134e44" stroke-width="2" />
+    <circle cx="82" cy="88" r="7.5" fill="#2dd4bf" stroke="#134e44" stroke-width="2" />
+    <circle cx="112" cy="108" r="7.5" fill="#2dd4bf" stroke="#134e44" stroke-width="2" />
+    <circle cx="146" cy="50" r="14" fill="#0c382f" stroke="url(#logoLine)" stroke-width="6.5" />
+    <circle cx="146" cy="50" r="4" fill="#5eead4" />
+  </g>
+
+  <g transform="translate(100, 0)">
+    <text x="0" y="54" 
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-weight="800" 
+          font-size="43" 
+          letter-spacing="-0.03em" 
+          fill="#112922">highersquare</text>
+    
+    <text x="282" y="54" 
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-weight="800" 
+          font-size="43" 
+          letter-spacing="-0.01em" 
+          fill="#10955d">ERP</text>
+    
+    <text x="2" y="78" 
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-weight="600" 
+          font-size="12" 
+          letter-spacing="0.22em" 
+          fill="#2b433c">ENTERPRISE RESOURCE PLANNING</text>
+  </g>
+</svg>

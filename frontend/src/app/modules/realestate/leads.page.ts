@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -19,6 +19,7 @@ import { StatusTagComponent } from './status-tag.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { StatCardComponent } from '../../shared/stat-card.component';
 
 const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', viewing: 'negotiating' };
 
@@ -27,23 +28,108 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
   selector: 'erp-leads',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule],
+  imports: [NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, StatCardComponent],
+  styles: [`
+    .pipeline-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+    .stage-chip {
+      cursor: pointer;
+      border-radius: 16px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      background: var(--erp-color-bg-surface, #ffffff);
+    }
+    .stage-chip:hover { border-color: var(--erp-color-primary, #10955d); }
+    .stage-chip.active { background: #f0fdf4; border-color: var(--erp-color-primary, #10955d); color: var(--erp-color-primary, #10955d); }
+    .overdue-pill { color: #e11d48; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+  `],
   template: `
     <h1 class="erp-page-title">Leads</h1>
+
     @if (pipeline(); as p) {
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" data-testid="lead-pipeline">
-        @for (s of p.stages; track s.stage) { <nz-tag [nzColor]="s.stage === 'won' ? 'green' : s.stage === 'lost' ? 'red' : 'blue'">{{ humanize(s.stage) }}: {{ s.count }}</nz-tag> }
-        <nz-tag>{{ 'ui.re.winRate' | translate: 'Win rate' }} {{ p.winRatePercent }}%</nz-tag>
-        @if (p.followUpsDue > 0) { <nz-tag nzColor="orange">{{ p.followUpsDue }} {{ 'ui.re.followUpsDue' | translate: 'follow-up(s) due' }}</nz-tag> }
+      <div class="erp-stat-grid erp-stat-grid--auto" data-testid="lead-stats">
+        <erp-stat-card label="Active pipeline"
+                       [value]="activeLeadsCount()"
+                       format="number"
+                       [loading]="list.loading() && list.items().length === 0"
+                       caption="leads in progress"
+                       [tone]="0" />
+        <erp-stat-card label="Win rate"
+                       [value]="p.winRatePercent"
+                       format="percent"
+                       [loading]="list.loading() && list.items().length === 0"
+                       caption="closed won ratio"
+                       [tone]="1" />
+        <erp-stat-card label="Follow-ups due"
+                       [value]="p.followUpsDue"
+                       format="number"
+                       [loading]="list.loading() && list.items().length === 0"
+                       [caption]="p.followUpsDue > 0 ? 'action required' : 'all caught up'"
+                       [tone]="p.followUpsDue > 0 ? 2 : 'neutral'" />
+        <erp-stat-card label="Won deals"
+                       [value]="wonCount()"
+                       format="number"
+                       [loading]="list.loading() && list.items().length === 0"
+                       caption="converted to deals"
+                       [tone]="3" />
+      </div>
+
+      <div class="pipeline-strip" data-testid="lead-pipeline">
+        @for (s of p.stages; track s.stage) {
+          <div class="stage-chip" [class.active]="selectedStage() === s.stage" (click)="filterStage(selectedStage() === s.stage ? null : s.stage)">
+            <span>{{ humanize(s.stage) }}:</span>
+            <b>{{ s.count }}</b>
+          </div>
+        }
       </div>
     }
+
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, phone, email" emptyText="No leads yet" (rowClick)="state.edit($event)">
-      <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All stages" [ngModel]="null" (ngModelChange)="filterStage($event)" data-testid="lead-stage-filter">
+      <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All stages" [ngModel]="selectedStage()" (ngModelChange)="filterStage($event)" data-testid="lead-stage-filter">
         @for (s of stages; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.crm.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newLead' | translate: 'New lead'" nz-tooltip [nzTooltipTitle]="'ui.add.newLead' | translate: 'New lead'" nzType="primary" (click)="state.create()" data-testid="lead-new"><span nz-icon nzType="plus"></span>New lead</button>
+      <button toolbar *erpHasPermission="'realestate.crm.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="lead-new"><span nz-icon nzType="plus"></span>New lead</button>
+
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'stage') { <erp-status-tag [status]="row.stage" /> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('name') {
+            <span class="name-cell">{{ row.name }}</span>
+          }
+          @case ('phone') {
+            @if (row.phone) {
+              <a [href]="'tel:' + row.phone" class="email-link"><span nz-icon nzType="phone" style="font-size:12px"></span> {{ row.phone }}</a>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @case ('source') {
+            @if (row.source) {
+              <nz-tag>{{ row.source }}</nz-tag>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @case ('stage') {
+            <erp-status-tag [status]="row.stage" />
+          }
+          @case ('followUpOn') {
+            @if (row.followUpOn) {
+              <span [class.overdue-pill]="isOverdue(row.followUpOn)">
+                @if (isOverdue(row.followUpOn)) {
+                  <span nz-icon nzType="alert" nzTheme="outline"></span>
+                }
+                {{ row.followUpOn }}
+              </span>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? state.editing()!.name : 'New lead'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
@@ -109,12 +195,35 @@ export class LeadsPage {
   readonly busy = signal(false);
   readonly errors = signal<ProblemDetails | null>(null);
 
+  readonly selectedStage = signal<string | null>(null);
+
+  readonly activeLeadsCount = computed(() => {
+    const p = this.pipeline();
+    if (!p) return 0;
+    return p.stages.filter((s) => s.stage !== 'lost' && s.stage !== 'won').reduce((sum, s) => sum + s.count, 0);
+  });
+
+  readonly wonCount = computed(() => {
+    const p = this.pipeline();
+    if (!p) return 0;
+    return p.stages.find((s) => s.stage === 'won')?.count ?? 0;
+  });
+
+  isOverdue(d?: string): boolean {
+    if (!d) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    return d < today;
+  }
+
   constructor() { this.refresh(); }
 
   private refresh(): void { this.list.reload(); this.api.pipeline().subscribe((p) => this.pipeline.set(p)); }
 
   nextStage(l: LeadDto): string | null { return NEXT[l.stage] ?? null; }
-  filterStage(stage: string | null): void { this.list.setFilters(stage ? [{ field: 'stage', op: 'eq', value: stage }] : []); }
+  filterStage(stage: string | null): void {
+    this.selectedStage.set(stage);
+    this.list.setFilters(stage ? [{ field: 'stage', op: 'eq', value: stage }] : []);
+  }
 
   move(l: LeadDto, stage: string, reason?: string): void {
     this.busy.set(true);

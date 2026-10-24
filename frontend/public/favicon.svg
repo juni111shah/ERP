@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%">
+  <defs>
+    <linearGradient id="tileBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#143b2f" />
+      <stop offset="100%" stop-color="#1b493b" />
+    </linearGradient>
+    <linearGradient id="gearBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#17443a" />
+      <stop offset="100%" stop-color="#0f2f27" />
+    </linearGradient>
+    <linearGradient id="screenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#19685b" />
+      <stop offset="50%" stop-color="#134e44" />
+      <stop offset="100%" stop-color="#0b322a" />
+    </linearGradient>
+    <linearGradient id="lineGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="60%" stop-color="#2dd4bf" />
+      <stop offset="100%" stop-color="#a7f3d0" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#041f19" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- App Tile Background (Squircle) -->
+  <rect width="256" height="256" rx="58" fill="url(#tileBg)" />
+
+  <!-- Gear Structure Outer Frame -->
+  <g filter="url(#glow)">
+    <!-- Gear Teeth Outer Extension -->
+    <!-- Top Teeth -->
+    <rect x="76" y="34" width="28" height="20" rx="5" fill="#18463b" />
+    <rect x="152" y="34" width="28" height="20" rx="5" fill="#18463b" />
+    <!-- Bottom Teeth -->
+    <rect x="76" y="202" width="28" height="20" rx="5" fill="#11362c" />
+    <rect x="152" y="202" width="28" height="20" rx="5" fill="#11362c" />
+    <!-- Left Teeth -->
+    <rect x="34" y="76" width="20" height="28" rx="5" fill="#154035" />
+    <rect x="34" y="152" width="20" height="28" rx="5" fill="#12382f" />
+    <!-- Right Teeth -->
+    <rect x="202" y="76" width="20" height="28" rx="5" fill="#174439" />
+    <rect x="202" y="152" width="20" height="28" rx="5" fill="#123a31" />
+
+    <!-- Gear Main Hull -->
+    <rect x="46" y="46" width="164" height="164" rx="34" fill="url(#gearBody)" stroke="#225c4e" stroke-width="2" />
+
+    <!-- Inner Screen Display -->
+    <rect x="58" y="58" width="140" height="140" rx="22" fill="url(#screenGrad)" stroke="#287f6e" stroke-width="2.5" />
+
+    <!-- Inner Screen Subtle Highlight Ring -->
+    <rect x="62" y="62" width="132" height="132" rx="18" fill="none" stroke="#2dd4bf" stroke-width="1" stroke-opacity="0.25" />
+
+    <!-- Rising Line Chart Path -->
+    <path d="M 80 152 L 112 118 L 142 138 L 176 80" 
+          fill="none" 
+          stroke="url(#lineGrad)" 
+          stroke-width="10" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" />
+
+    <!-- Chart Nodes -->
+    <!-- Node 1 (Start) -->
+    <circle cx="80" cy="152" r="7.5" fill="#2dd4bf" stroke="#134e44" stroke-width="2" />
+    <!-- Node 2 -->
+    <circle cx="112" cy="118" r="7.5" fill="#2dd4bf" stroke="#134e44" stroke-width="2" />
+    <!-- Node 3 -->
+    <circle cx="142" cy="138" r="7.5" fill="#2dd4bf" stroke="#134e44" stroke-width="2" />
+    <!-- Node 4 (Top Peak Ring Target) -->
+    <circle cx="176" cy="80" r="14" fill="#0f3d33" stroke="url(#lineGrad)" stroke-width="6.5" />
+    <circle cx="176" cy="80" r="4" fill="#5eead4" />
+  </g>
+</svg>

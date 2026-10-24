@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -28,12 +28,12 @@ const COLORS: Record<string, string> = { pending: 'gold', approved: 'green', rej
   selector: 'erp-approvals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, DatePipe, HasPermissionDirective, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
+  imports: [FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, DatePipe, HasPermissionDirective, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
   styles: [`.bar { display:flex; margin-bottom:12px } .spacer { flex:1 }`],
   template: `
     <h1 class="erp-page-title">Approvals</h1>
     <div class="bar"><span class="spacer"></span>
-      <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.requestApproval' | translate: 'Request approval'" nz-tooltip [nzTooltipTitle]="'ui.add.requestApproval' | translate: 'Request approval'" nzType="primary" (click)="open()" data-testid="approval-new"><span nz-icon nzType="plus"></span>Request approval</button>
+      <button nz-button nzType="primary" (click)="open()" data-testid="approval-new"><span nz-icon nzType="plus"></span> Request approval</button>
     </div>
     <nz-tabset (nzSelectedIndexChange)="tab.set($event); load()">
       <nz-tab nzTitle="Waiting for me"></nz-tab>
@@ -42,25 +42,27 @@ const COLORS: Record<string, string> = { pending: 'gold', approved: 'green', rej
     <erp-table-tools [(search)]="q" (refresh)="load()" [loading]="loading()" testId="approvals">
       <nz-select [ngModel]="status()" (ngModelChange)="status.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterStatus' | translate: 'Filter by status'" style="width:170px" data-testid="approvals-status-filter"><nz-option nzValue="pending" [nzLabel]="'ui.status.pending' | translate: 'Pending'"></nz-option><nz-option nzValue="approved" [nzLabel]="'ui.status.approved' | translate: 'Approved'"></nz-option><nz-option nzValue="rejected" [nzLabel]="'ui.status.rejected' | translate: 'Rejected'"></nz-option><nz-option nzValue="withdrawn" [nzLabel]="'ui.status.withdrawn' | translate: 'Withdrawn'"></nz-option></nz-select>
     </erp-table-tools>
-    <nz-table [nzData]="shown()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="approvals-table">
-      <thead><tr><th>Subject</th><th>Type</th><th>Amount</th><th>Requested</th><th>Status</th><th></th></tr></thead>
-      <tbody>
-        @for (a of shown(); track a.id) {
-          <tr>
-            <td>{{ a.subject }} @if (a.justification) { <div style="color:var(--erp-color-text-secondary)">{{ a.justification }}</div> }</td>
-            <td>{{ a.documentType }}</td><td>{{ a.amount ?? '—' }}</td><td>{{ a.requestedAt | date: 'yyyy-MM-dd HH:mm' }}</td>
-            <td><nz-tag [nzColor]="color(a.status)">{{ a.status }}</nz-tag></td>
-            <td>
-              @if (a.status === 'pending') {
-                @if (tab() === 0) {
-                  <span *erpHasPermission="'core.approvals.decide'"><a (click)="decide(a, true)" data-testid="approve">Approve</a> · <a (click)="decide(a, false)" data-testid="reject">Reject</a></span>
-                } @else { <a (click)="withdraw(a)" data-testid="withdraw">Withdraw</a> }
-              }
-            </td>
-          </tr>
-        }
-      </tbody>
-    </nz-table>
+    <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-top:12px">
+      <nz-table [nzData]="shown()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="approvals-table">
+        <thead><tr><th>Subject</th><th>Type</th><th>Amount</th><th>Requested</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          @for (a of shown(); track a.id) {
+            <tr>
+              <td><span style="font-weight:600; color:#1e293b;">{{ a.subject }}</span> @if (a.justification) { <div style="color:var(--erp-color-text-secondary); font-size:12px; margin-top:2px;">{{ a.justification }}</div> }</td>
+              <td><nz-tag>{{ a.documentType }}</nz-tag></td><td><strong>{{ a.amount != null ? (a.amount | number:'1.2-2') : '—' }}</strong></td><td>{{ a.requestedAt | date: 'yyyy-MM-dd HH:mm' }}</td>
+              <td><nz-tag [nzColor]="color(a.status)">{{ a.status }}</nz-tag></td>
+              <td>
+                @if (a.status === 'pending') {
+                  @if (tab() === 0) {
+                    <span *erpHasPermission="'core.approvals.decide'"><a (click)="decide(a, true)" data-testid="approve" style="color:#10955d; font-weight:600;">Approve</a> · <a (click)="decide(a, false)" data-testid="reject" style="color:#ef4444; font-weight:600;">Reject</a></span>
+                  } @else { <a (click)="withdraw(a)" data-testid="withdraw" style="color:#64748b;">Withdraw</a> }
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </div>
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="480" nzTitle="Request approval" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
         <form nz-form nzLayout="vertical" [formGroup]="form" data-testid="approval-form">

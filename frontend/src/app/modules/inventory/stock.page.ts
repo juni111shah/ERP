@@ -30,9 +30,9 @@ type Action = 'receive' | 'issue' | 'adjust' | 'transfer' | 'policy';
       @for (a of actions; track a.key) { <button nz-button [nzType]="a.key === 'receive' ? 'primary' : 'default'" (click)="open(a.key)" [attr.data-testid]="'stock-' + a.key">{{ a.label }}</button> }
     </div>
     <div class="erp-stat-grid erp-stat-grid--auto" data-testid="stock-kpis">
-      <erp-stat-card label="Stock value" [loading]="!data()" [value]="data()?.totalValue" format="number" [tone]="0" />
+      <erp-stat-card label="Stock value" [loading]="!data()" [value]="data()?.totalValue" format="money" [tone]="0" />
       <erp-stat-card label="Item lines" [loading]="!data()" [value]="data()?.rows?.length" format="number" caption="item / warehouse" [tone]="2" />
-      <erp-stat-card label="Low stock" [loading]="!data()" [value]="low().length" format="number" [tone]="low().length > 0 ? 'warning' : 4" />
+      <erp-stat-card label="Low stock" [loading]="!data()" [value]="low().length" format="number" [tone]="low().length > 0 ? 2 : 'neutral'" />
     </div>
     @if (low().length) {
       <div style="margin-bottom:12px" data-testid="low-stock">@for (l of low(); track l.itemId) { <nz-tag nzColor="orange">{{ l.sku }}: {{ l.onHand }} {{ 'ui.inv.left' | translate: 'left' }} ({{ 'ui.inv.reorderAt' | translate: 'reorder at' }} {{ l.reorderLevel }})</nz-tag> }</div>
@@ -42,15 +42,24 @@ type Action = 'receive' | 'issue' | 'adjust' | 'transfer' | 'policy';
         @for (w of warehouses(); track w.id) { <nz-option [nzValue]="w.id" [nzLabel]="w.name"></nz-option> }
       </nz-select>
     </erp-table-tools>
-    <nz-table [nzData]="shown()" nzSize="small" [nzShowPagination]="false" data-testid="stock-table">
-      <thead><tr><th>SKU</th><th>Item</th><th>Warehouse</th><th style="text-align:right">Quantity</th><th style="text-align:right">Avg cost</th><th style="text-align:right">Value</th></tr></thead>
-      <tbody>
-        @for (r of shown(); track r.warehouseId + r.itemId) {
-          <tr><td>{{ r.sku }}</td><td>{{ r.item }}</td><td>{{ r.warehouse }}</td><td style="text-align:right">{{ r.quantity | number: '1.0-4' }} {{ r.uom }}</td><td style="text-align:right">{{ r.averageCost | number: '1.2-2' }}</td><td style="text-align:right">{{ r.value | number: '1.2-2' }}</td></tr>
-        } @empty { <tr><td colspan="6">No stock yet. Receive stock to get started.</td></tr> }
-      </tbody>
-      @if (data(); as d) { <tfoot><tr><td colspan="5"><b>Total value</b></td><td style="text-align:right"><b data-testid="stock-total">{{ d.totalValue | number: '1.2-2' }}</b></td></tr></tfoot> }
-    </nz-table>
+    <div style="background:var(--erp-color-bg-surface, #ffffff);border:1px solid var(--erp-color-border-subtle, #edf2f7);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+      <nz-table [nzData]="shown()" nzSize="middle" [nzShowPagination]="false" data-testid="stock-table">
+        <thead><tr><th>SKU</th><th>Item</th><th>Warehouse</th><th style="text-align:right">Quantity</th><th style="text-align:right">Avg cost</th><th style="text-align:right">Value</th></tr></thead>
+        <tbody>
+          @for (r of shown(); track r.warehouseId + r.itemId) {
+            <tr>
+              <td><span class="code-pill">{{ r.sku }}</span></td>
+              <td><span class="name-cell">{{ r.item }}</span></td>
+              <td><nz-tag>{{ r.warehouse }}</nz-tag></td>
+              <td style="text-align:right">{{ r.quantity | number: '1.0-4' }} {{ r.uom }}</td>
+              <td style="text-align:right">AED {{ r.averageCost | number: '1.2-2' }}</td>
+              <td style="text-align:right"><b>AED {{ r.value | number: '1.2-2' }}</b></td>
+            </tr>
+          } @empty { <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--erp-color-text-secondary)">No stock yet. Receive stock to get started.</td></tr> }
+        </tbody>
+        @if (data(); as d) { <tfoot><tr><td colspan="5"><b>Total value</b></td><td style="text-align:right"><b data-testid="stock-total">AED {{ d.totalValue | number: '1.2-2' }}</b></td></tr></tfoot> }
+      </nz-table>
+    </div>
     <erp-record-drawer [title]="title()" [open]="current() !== null" [fields]="fields()" [value]="null" [saving]="saving()" [errors]="errors()" testId="stock-form" [width]="480"
                        (submitted)="submit($event)" (closed)="current.set(null)" />`,
 })

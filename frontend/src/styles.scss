@@ -1,4 +1,226 @@
 // App-level globals. Design tokens and the ng-zorro bridge come from src/theme (see angular.json "styles").
 html, body { height: 100%; margin: 0; }
 body { font-family: var(--erp-font-family-sans); background: var(--erp-color-bg-canvas); color: var(--erp-color-text-primary); }
-.erp-page-title { font-size: 20px; font-weight: 600; margin: 0 0 16px; color: var(--erp-color-text-primary); }
+// -----------------------------------------------------------------------------
+// Page Titles Shifted to Top Bar
+// -----------------------------------------------------------------------------
+// The page title is now displayed in the global top bar (.topbar-title).
+// In-page redundant title headers are hidden to reclaim vertical space.
+.erp-page-title,
+.erp-page-subtitle,
+.page-header > div:first-child > h1,
+.page-header > div:first-child > h2,
+.page-header > div:first-child > p,
+.page-header > div:first-child > .erp-page-title,
+.page-header > div:first-child > .erp-page-subtitle,
+.page-header > div:first-child > .subtitle,
+.page-header > div:first-child > .text-secondary {
+  display: none !important;
+}
+
+.page-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 16px;
+  min-height: 0;
+
+  &:empty,
+  > div:first-child:empty {
+    display: none !important;
+    margin: 0 !important;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Top Bar Page Title & Badge Styling
+// -----------------------------------------------------------------------------
+.topbar-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--erp-color-border-subtle, #e2e8f0);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.topbar-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+}
+
+.topbar-module-badge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--erp-color-primary, #10955d);
+  background: var(--erp-color-primary-subtle, #e6f7ef);
+  border: 1px solid rgba(16, 149, 93, 0.2);
+  padding: 1px 7px;
+  border-radius: 6px;
+  line-height: 16px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.topbar-breadcrumb-slash {
+  color: var(--erp-color-text-tertiary, #94a3b8);
+  font-size: 12px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.topbar-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--erp-color-text-primary, #0f172a);
+  letter-spacing: -0.015em;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: normal;
+}
+
+.topbar-badge {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 6px;
+  line-height: 18px;
+  flex-shrink: 0;
+}
+
+.topbar-subtitle {
+  font-size: 12px;
+  color: var(--erp-color-text-secondary, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+  line-height: normal;
+}
+
+@media (max-width: 768px) {
+  .topbar-subtitle,
+  .topbar-module-badge,
+  .topbar-breadcrumb-slash {
+    display: none !important;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Global Modern Scrollbar (Hover-Only UX)
+// -----------------------------------------------------------------------------
+:root {
+  --erp-scrollbar-thumb: rgba(16, 149, 93, 0.32);
+  --erp-scrollbar-thumb-hover: rgba(16, 149, 93, 0.68);
+}
+
+[data-theme='dark'] {
+  --erp-scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --erp-scrollbar-thumb-hover: rgba(255, 255, 255, 0.5);
+}
+
+// Firefox thin scrollbar: transparent by default, revealed on hover
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease;
+}
+
+*:hover {
+  scrollbar-color: var(--erp-scrollbar-thumb) transparent;
+}
+
+// Webkit / Blink engines (Chrome, Edge, Safari, Opera)
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+// Show scrollbar on hover of the scrollable container
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--erp-scrollbar-thumb);
+}
+
+// Emphasize when directly hovering or dragging the thumb
+::-webkit-scrollbar-thumb:hover {
+  background: var(--erp-scrollbar-thumb-hover) !important;
+}
+
+// Remove legacy Windows/IE scrollbar arrow buttons
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+// -----------------------------------------------------------------------------
+// Universal Data Table & Code Styling
+// -----------------------------------------------------------------------------
+.code-pill {
+  font-family: var(--erp-font-family-mono, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--erp-color-primary, #10955d);
+  background: var(--erp-color-primary-subtle, #e6f7ef);
+  border: 1px solid rgba(16, 149, 93, 0.2);
+  padding: 2px 8px;
+  border-radius: 6px;
+  display: inline-block;
+  letter-spacing: -0.01em;
+}
+
+.name-cell {
+  font-weight: 600;
+  color: var(--erp-color-text-primary, #0f172a);
+}
+
+.unallocated-badge {
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+}
+
+.email-link {
+  color: var(--erp-color-text-secondary, #64748b);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  &:hover {
+    color: var(--erp-color-primary, #10955d);
+  }
+}
+
+.muted-text {
+  color: var(--erp-color-text-disabled, #94a3b8);
+}
+

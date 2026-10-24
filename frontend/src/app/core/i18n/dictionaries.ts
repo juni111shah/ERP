@@ -175,8 +175,9 @@ export const AR: Dictionary = {
   'shell.signOut': 'تسجيل الخروج', 'shell.notifications': 'الإشعارات', 'shell.markAllRead': 'تحديد الكل كمقروء', 'shell.caughtUp': 'لا توجد إشعارات جديدة',
   'shell.accountSecurity': 'أمان الحساب', 'shell.search': 'ابحث في السجلات', 'shell.darkMode': 'الوضع الداكن', 'shell.allEntities': 'جميع الكيانات القانونية',
   // menu groups and items (server labels are mapped by menu id / group id)
-  'menu.group.admin': 'الإدارة', 'menu.group.finance': 'المالية', 'menu.group.realestate': 'العقارات', 'menu.group.hr': 'الموارد البشرية', 'menu.group.inventory': 'المخزون',
+  'menu.group.admin': 'الإدارة', 'menu.group.finance': 'المالية', 'menu.group.realestate': 'العقارات', 'menu.group.hr': 'الموارد البشرية', 'menu.group.inventory': 'المخزون', 'menu.group.projects': 'المشاريع',
   'menu.group.core': 'الأساسيات', 'menu.group.reports': 'التقارير',
+  'menu.projects.projects': 'المشاريع', 'menu.projects.tasks': 'المهام', 'menu.projects.timesheets': 'الجداول الزمنية', 'menu.projects.billing': 'فوترة المشاريع',
   'menu.core.dashboard': 'لوحة التحكم', 'menu.core.parties': 'الأطراف', 'menu.core.items': 'الأصناف', 'menu.core.audit': 'سجل التدقيق', 'menu.core.messages': 'سجل الرسائل',
   'menu.core.documents': 'خزنة المستندات', 'menu.core.import': 'استيراد البيانات', 'menu.core.approvals': 'الموافقات', 'menu.core.users': 'المستخدمون', 'menu.core.roles': 'الأدوار',
   'menu.core.settings': 'الإعدادات', 'menu.core.modules': 'الوحدات', 'menu.finance.journals': 'القيود اليومية', 'menu.finance.budgets': 'الموازنات', 'menu.finance.accounts': 'دليل الحسابات',
