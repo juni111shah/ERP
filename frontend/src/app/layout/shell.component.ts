@@ -44,24 +44,123 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     .sider {
       background: var(--erp-color-nav-bg);
       border-inline-end: 1px solid var(--erp-color-nav-border);
-      overflow: hidden;
+      overflow: visible !important;
       height: 100vh;
-      transition: all 0.24s cubic-bezier(0.2, 0, 0, 1) !important;
+      position: relative;
+      z-index: 100;
+      transition: width 0.24s cubic-bezier(0.2, 0, 0, 1) !important;
     }
     .sider ::ng-deep .ant-layout-sider-children {
       display: flex;
       flex-direction: column;
       height: 100%;
-      overflow: hidden;
+      overflow: visible !important;
+      position: relative;
     }
     .brand {
       height: 60px;
       display: flex;
       align-items: center;
-      padding: 0 15px;
+      justify-content: space-between;
+      padding: 0 14px 0 16px;
       border-bottom: 1px solid var(--erp-color-border-subtle);
-      overflow: hidden;
+      position: relative;
+      overflow: visible;
       flex-shrink: 0;
+      transition: padding 0.24s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .brand.collapsed {
+      padding: 0;
+      justify-content: center;
+    }
+    .brand erp-brand-logo {
+      flex: 1;
+      min-width: 0;
+    }
+    .brand.collapsed erp-brand-logo {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .sidebar-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      margin: 0;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--erp-color-text-secondary, #64748b);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+      outline: none;
+      z-index: 2;
+    }
+    .sidebar-toggle-btn:hover {
+      background: rgba(16, 149, 93, 0.08);
+      color: #10955d;
+      border-color: rgba(16, 149, 93, 0.2);
+    }
+    .sidebar-toggle-btn:active {
+      transform: scale(0.94);
+    }
+    .sidebar-toggle-btn .anticon {
+      font-size: 13px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-toggle-btn.collapsed {
+      position: absolute;
+      inset-inline-end: -13px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+      color: var(--erp-color-text-secondary, #475569);
+      z-index: 101;
+    }
+    .sidebar-toggle-btn.collapsed:hover {
+      background: #ffffff;
+      color: #10955d;
+      border-color: rgba(16, 149, 93, 0.4);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14), 0 2px 4px rgba(0, 0, 0, 0.06);
+      transform: translateY(-50%) scale(1.08);
+    }
+    .sidebar-toggle-btn.collapsed:active {
+      transform: translateY(-50%) scale(0.96);
+    }
+    .sidebar-toggle-btn.collapsed .anticon {
+      font-size: 11px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    :host-context([data-theme='dark']) .sidebar-toggle-btn.collapsed,
+    :host-context(.dark) .sidebar-toggle-btn.collapsed {
+      background: #1e293b;
+      border-color: #334155;
+      color: #94a3b8;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
+    :host-context([data-theme='dark']) .sidebar-toggle-btn.collapsed:hover,
+    :host-context(.dark) .sidebar-toggle-btn.collapsed:hover {
+      background: #1e293b;
+      color: #34d399;
+      border-color: rgba(52, 211, 153, 0.4);
     }
     .nav-scroll-area {
       flex: 1;
@@ -306,8 +405,18 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
   template: `
     <nz-layout class="root" [dir]="i18n.dir()">
       <nz-sider class="sider" nzCollapsible [nzCollapsed]="collapsed()" [nzTrigger]="null" nzWidth="248px" [nzCollapsedWidth]="64" nzTheme="light" data-testid="sidebar">
-        <div class="brand" data-testid="sidebar-brand">
+        <div class="brand" [class.collapsed]="collapsed()" data-testid="sidebar-brand">
           <erp-brand-logo [collapsed]="collapsed()" [subtitle]="workspaceName()"></erp-brand-logo>
+          <button
+            type="button"
+            class="sidebar-toggle-btn"
+            [class.collapsed]="collapsed()"
+            (click)="collapsed.set(!collapsed())"
+            [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+            [attr.title]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+            data-testid="nav-toggle">
+            <span nz-icon [nzType]="collapsed() ? 'double-right' : 'double-left'"></span>
+          </button>
         </div>
         <div class="nav-scroll-area">
           @for (g of menu(); track g.id) {
@@ -329,10 +438,6 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
       </nz-sider>
       <nz-layout>
         <nz-header class="header">
-          <button nz-button nzType="text" (click)="collapsed.set(!collapsed())" aria-label="Toggle navigation" data-testid="nav-toggle">
-            <span nz-icon [nzType]="collapsed() ? 'menu-unfold' : 'menu-fold'"></span>
-          </button>
-          <div class="topbar-divider"></div>
           <div class="topbar-title-wrap" data-testid="topbar-title-wrap">
             @if (pageTitle.module(); as mod) {
               <span class="topbar-module-badge">{{ mod }}</span>

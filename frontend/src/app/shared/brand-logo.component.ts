@@ -62,6 +62,10 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
                   transform 0.2s cubic-bezier(0.2, 0, 0, 1);
     }
 
+    .brand-container.collapsed {
+      justify-content: center;
+    }
+
     .brand-container.collapsed .brand-text {
       max-width: 0;
       margin-inline-start: 0;
