@@ -89,10 +89,15 @@ const CATEGORY_COLOR_MAP: Record<string, string> = {
     :host {
       display: block;
       width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
     }
 
     .chart-container {
       width: 100%;
+      min-width: 0;
+      max-width: 100%;
       min-height: 310px;
       position: relative;
     }
@@ -111,6 +116,11 @@ const CATEGORY_COLOR_MAP: Record<string, string> = {
     /* Refined ApexCharts styling */
     :host ::ng-deep .apexcharts-canvas {
       margin: 0 auto;
+      max-width: 100% !important;
+    }
+
+    :host ::ng-deep .apexcharts-canvas svg {
+      max-width: 100% !important;
     }
 
     :host ::ng-deep .apexcharts-tooltip {
@@ -170,6 +180,7 @@ export class ApexChartComponent implements AfterViewInit, OnDestroy {
   private readonly chartContainer = viewChild<ElementRef<HTMLDivElement>>('chartRef');
 
   private apexInstance: ApexCharts | null = null;
+  private resizeObserver: ResizeObserver | null = null;
   private isBrowser = typeof window !== 'undefined';
 
   readonly hasData = computed(() => {
@@ -198,6 +209,10 @@ export class ApexChartComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
     if (this.apexInstance) {
       this.apexInstance.destroy();
       this.apexInstance = null;
@@ -216,6 +231,18 @@ export class ApexChartComponent implements AfterViewInit, OnDestroy {
     const options = this.buildOptions(this.chart());
     this.apexInstance = new ApexCharts(el, options);
     this.apexInstance.render();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      if (this.resizeObserver) {
+        this.resizeObserver.disconnect();
+      }
+      this.resizeObserver = new ResizeObserver(() => {
+        if (this.apexInstance) {
+          window.dispatchEvent(new Event('resize'));
+        }
+      });
+      this.resizeObserver.observe(el);
+    }
   }
 
   private buildOptions(c: DashboardChart): ApexCharts.ApexOptions {
@@ -247,6 +274,9 @@ export class ApexChartComponent implements AfterViewInit, OnDestroy {
       series: seriesData,
       chart: {
         type: 'bar',
+        width: '100%',
+        redrawOnWindowResize: true,
+        redrawOnParentResize: true,
         height: isHbar ? Math.max(c.categories.length * 40 + 70, 270) : 310,
         stacked: isStacked,
         toolbar: {

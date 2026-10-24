@@ -58,6 +58,8 @@ interface KpiCluster {
 
     .dashboard-container {
       max-width: 1600px;
+      width: 100%;
+      min-width: 0;
       margin: 0 auto;
     }
 
@@ -425,16 +427,20 @@ interface KpiCluster {
     /* ---- TIER 2: ANALYTICS HUB & ACTION CENTER (CHART + ALERTS) ---- */
     .analytics-section {
       margin-bottom: 24px;
+      min-width: 0;
+      width: 100%;
     }
     .analytics-grid {
       display: grid;
-      grid-template-columns: 1fr 380px;
+      grid-template-columns: minmax(0, 1fr) 380px;
       gap: 20px;
       align-items: stretch;
+      min-width: 0;
+      width: 100%;
     }
     @media (max-width: 1100px) {
       .analytics-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
     }
 
@@ -447,6 +453,9 @@ interface KpiCluster {
       display: flex;
       flex-direction: column;
       height: 100%;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
     }
     .chart-panel-header {
       display: flex;
@@ -460,6 +469,7 @@ interface KpiCluster {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      min-width: 0;
     }
     .chart-badge {
       display: inline-flex;
@@ -474,13 +484,15 @@ interface KpiCluster {
     }
     .secondary-analytics-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 20px;
       margin-top: 20px;
+      min-width: 0;
+      width: 100%;
     }
     @media (max-width: 1024px) {
       .secondary-analytics-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
     }
     .chart-panel h3 {
@@ -531,11 +543,14 @@ interface KpiCluster {
     .chart-canvas-wrap {
       flex: 1;
       width: 100%;
+      min-width: 0;
+      max-width: 100%;
       min-height: 320px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       margin-top: 10px;
+      overflow: hidden;
     }
 
     /* Alerts Panel */
@@ -548,6 +563,9 @@ interface KpiCluster {
       display: flex;
       flex-direction: column;
       height: 100%;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
     }
     .alert-header {
       display: flex;
