@@ -1,22 +1,22 @@
 # Board
 
-Last Claude run: 2026-10-25 14:01 (no cards ready-for-review; queue healthy, no refill)
+Last Claude run: 2026-10-25 (reviewed TASK-001 and TASK-002 -> done; 13 open, no refill)
 Rotation position: next area = Order to cash (Sales, invoices, receipts)
-Needs human: nothing
+Needs human: nothing (note: TASK-004 in-progress, uncommitted work in tree; not stalled)
 
 | Status | Count |
 |---|---|
-| open | 14 |
+| open | 12 |
 | in-progress | 1 |
 | ready-for-review | 0 |
 | changes-requested | 0 |
 | blocked | 0 |
-| done | 0 |
+| done | 2 |
 
 | Card | Priority | Status | Title |
 |---|---|---|---|
-| TASK-001 | P0 | in-progress | Authorize attachments by the owning record's permission |
-| TASK-002 | P0 | open | Block portal tokens from staff endpoints |
+| TASK-001 | P0 | done | Authorize attachments by the owning record's permission |
+| TASK-002 | P0 | done | Block portal tokens from staff endpoints |
 | TASK-003 | P1 | open | Replace blanket exception mapping with domain exceptions |
 | TASK-004 | P0 | open | Work-order release/complete safe, correct inventory journals |
 | TASK-005 | P0 | open | POS orders priced and validated on the server |
