@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -25,6 +25,8 @@ import {
   PipelineStageSummaryDto
 } from '../../core/api/crm.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { SessionStore } from '../../core/session/session.store';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 import { StatCardComponent, StatTone } from '../../shared/stat-card.component';
@@ -52,6 +54,7 @@ import { StatCardComponent, StatTone } from '../../shared/stat-card.component';
     NzRadioModule,
     PagedTableComponent,
     StatCardComponent,
+    HasPermissionDirective,
   ],
   template: `
       <div class="erp-stat-grid erp-stat-grid--auto mb-4" data-testid="opp-stats">
@@ -69,7 +72,7 @@ import { StatCardComponent, StatTone } from '../../shared/stat-card.component';
         #table
         [list]="list"
         [columns]="columns">
-        <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="opp-new">
+        <button toolbar *erpHasPermission="'crm.opportunities.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="opp-new">
           <span nz-icon nzType="plus"></span> New Opportunity
         </button>
           <ng-template #cell let-row let-column="column">
@@ -88,7 +91,7 @@ import { StatCardComponent, StatTone } from '../../shared/stat-card.component';
                 <span>{{ row.probabilityPercent }}%</span>
               </span>
               <span *ngSwitchCase="'expectedRevenue'">
-                <strong class="text-primary">\${{ row.expectedRevenue | number:'1.0-0' }}</strong>
+                <strong class="text-primary">{{ currency() }} {{ row.expectedRevenue | number:'1.0-0' }}</strong>
               </span>
               <span *ngSwitchCase="'expectedCloseDate'">
                 <span>{{ row.expectedCloseDate || '-' }}</span>
@@ -98,11 +101,13 @@ import { StatCardComponent, StatTone } from '../../shared/stat-card.component';
               </span>
               <span *ngSwitchCase="'actions'">
                 <div class="table-actions">
-                  <button
-                    *ngIf="row.stage !== 'ClosedWon' && row.stage !== 'ClosedLost'"
-                    nz-button nzType="link" nzSize="small" nz-dropdown [nzDropdownMenu]="stageMenu">
-                    <span nz-icon nzType="step-forward"></span> Advance
-                  </button>
+                  @if (row.stage !== 'ClosedWon' && row.stage !== 'ClosedLost') {
+                    <button
+                      *erpHasPermission="'crm.opportunities.manage'"
+                      nz-button nzType="link" nzSize="small" nz-dropdown [nzDropdownMenu]="stageMenu">
+                      <span nz-icon nzType="step-forward"></span> Advance
+                    </button>
+                  }
                   <nz-dropdown-menu #stageMenu="nzDropdownMenu">
                     <ul nz-menu>
                       <li nz-menu-item *ngIf="row.stage !== 'Qualification'" (click)="advanceStage(row, 'Qualification', 20)">Move to Qualification (20%)</li>
@@ -111,12 +116,14 @@ import { StatCardComponent, StatTone } from '../../shared/stat-card.component';
                     </ul>
                   </nz-dropdown-menu>
 
-                  <button
-                    *ngIf="row.stage !== 'ClosedWon' && row.stage !== 'ClosedLost'"
-                    nz-button nzType="link" nzSize="small" class="text-success"
-                    (click)="openCloseModal(row)">
-                    <span nz-icon nzType="check-circle"></span> Close Deal
-                  </button>
+                  @if (row.stage !== 'ClosedWon' && row.stage !== 'ClosedLost') {
+                    <button
+                      *erpHasPermission="'crm.opportunities.manage'"
+                      nz-button nzType="link" nzSize="small" class="text-success"
+                      (click)="openCloseModal(row)">
+                      <span nz-icon nzType="check-circle"></span> Close Deal
+                    </button>
+                  }
                 </div>
               </span>
             </ng-container>
@@ -267,9 +274,11 @@ import { StatCardComponent, StatTone } from '../../shared/stat-card.component';
 export class OpportunitiesPipelinePageComponent implements OnInit {
   private readonly api = inject(CrmOpportunitiesApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
 
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || '$');
   readonly list = createPagedList<OpportunitySummaryDto>((q: any) => this.api.list(q));
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly stageSummaries = signal<PipelineStageSummaryDto[]>([]);

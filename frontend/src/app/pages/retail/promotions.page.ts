@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -25,6 +25,8 @@ import {
   RetailPromotionsApi
 } from '../../core/api/retail.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { SessionStore } from '../../core/session/session.store';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -48,7 +50,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzAlertModule,
     NzDividerModule,
     NzProgressModule,
-    PagedTableComponent
+    PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table
@@ -59,7 +62,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
         <button nz-button nzType="default" (click)="openSimulatorModal()">
           <span nz-icon nzType="thunderbolt"></span> Test Promo Code
         </button>
-        <button nz-button nzType="primary" (click)="openCreateModal()">
+        <button *erpHasPermission="'retail.promotions.manage'" nz-button nzType="primary" (click)="openCreateModal()">
           <span nz-icon nzType="plus"></span> Create Promotion
         </button>
       </div>
@@ -76,7 +79,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 </nz-tag>
               </span>
               <span *ngSwitchCase="'discountValue'" class="font-bold">
-                {{ row.type === 'PercentageDiscount' ? (row.discountValue + '%') : ('AED ' + (row.discountValue | number:'1.2-2')) }}
+                {{ row.type === 'PercentageDiscount' ? (row.discountValue + '%') : (currency() + ' ' + (row.discountValue | number:'1.2-2')) }}
               </span>
               <span *ngSwitchCase="'validity'">
                 <small class="text-secondary">{{ row.startDate }} &rarr; {{ row.endDate }}</small>
@@ -145,7 +148,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-form-control>
                   <nz-select formControlName="type">
                     <nz-option nzValue="PercentageDiscount" nzLabel="Percentage (%)"></nz-option>
-                    <nz-option nzValue="FixedAmountDiscount" nzLabel="Fixed Amount (AED)"></nz-option>
+                    <nz-option nzValue="FixedAmountDiscount" [nzLabel]="'Fixed Amount (' + currency() + ')'"></nz-option>
                   </nz-select>
                 </nz-form-control>
               </nz-form-item>
@@ -159,7 +162,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="row-3">
               <nz-form-item>
-                <nz-form-label>Min Order (AED)</nz-form-label>
+                <nz-form-label>Min Order ({{ currency() }})</nz-form-label>
                 <nz-form-control>
                   <nz-input-number formControlName="minimumOrderAmount" [nzMin]="0" style="width: 100%" placeholder="No min"></nz-input-number>
                 </nz-form-control>
@@ -222,7 +225,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <input nz-input [(ngModel)]="simCode" placeholder="Enter coupon code" style="text-transform: uppercase;" />
               </div>
               <div class="form-row">
-                <label>Basket Total (AED):</label>
+                <label>Basket Total ({{ currency() }}):</label>
                 <nz-input-number [(ngModel)]="simTotal" [nzMin]="1" style="width: 100%"></nz-input-number>
               </div>
               <button nz-button nzType="primary" [nzLoading]="isSimulating()" (click)="runSimulation()" [disabled]="!simCode">
@@ -243,16 +246,16 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <div *ngIf="res.isValid" class="discount-breakdown">
                 <div class="breakdown-row">
                   <span>Gross Basket Amount:</span>
-                  <span>AED {{ simTotal | number:'1.2-2' }}</span>
+                  <span>{{ currency() }} {{ simTotal | number:'1.2-2' }}</span>
                 </div>
                 <div class="breakdown-row discount-row">
                   <span>Promotion Discount:</span>
-                  <span>- AED {{ res.calculatedDiscount | number:'1.2-2' }}</span>
+                  <span>- {{ currency() }} {{ res.calculatedDiscount | number:'1.2-2' }}</span>
                 </div>
                 <nz-divider style="margin: 8px 0;"></nz-divider>
                 <div class="breakdown-row total-row font-bold">
                   <span>Payable Total:</span>
-                  <span>AED {{ (simTotal - res.calculatedDiscount) | number:'1.2-2' }}</span>
+                  <span>{{ currency() }} {{ (simTotal - res.calculatedDiscount) | number:'1.2-2' }}</span>
                 </div>
               </div>
             </div>
@@ -338,9 +341,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 export class PromotionsPageComponent implements OnInit {
   private readonly promotionsApi = inject(RetailPromotionsApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
 
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly isSaving = signal(false);
   readonly isSimulating = signal(false);

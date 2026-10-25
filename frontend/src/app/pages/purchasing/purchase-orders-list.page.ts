@@ -17,9 +17,10 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { LegalEntitiesApi } from '../../core/api/admin.api';
+import { ItemsApi, ItemDto, LegalEntitiesApi } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { PurchaseOrderInput, PurchaseOrderSummaryDto, PurchaseOrdersApi, PurchasingKpiApi, PurchasingKpiDto } from '../../core/api/purchasing.api';
+import { PartiesApi, PartyDto } from '../parties.page';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
@@ -166,9 +167,17 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             <div nz-row [nzGutter]="16">
               <div nz-col [nzSpan]="12">
                 <nz-form-item>
-                  <nz-form-label nzRequired>Vendor Name</nz-form-label>
-                  <nz-form-control nzErrorTip="Vendor name is required">
-                    <input nz-input formControlName="vendorName" placeholder="Supplier or Vendor Name" />
+                  <nz-form-label nzRequired>Vendor / Supplier</nz-form-label>
+                  <nz-form-control nzErrorTip="Vendor is required">
+                    <nz-select
+                      formControlName="vendorPartyId"
+                      nzShowSearch
+                      nzPlaceHolder="Select Vendor"
+                      (ngModelChange)="onVendorSelected($event)">
+                      @for (v of vendors(); track v.id) {
+                        <nz-option [nzValue]="v.id" [nzLabel]="v.name + ' (' + v.code + ')'"></nz-option>
+                      }
+                    </nz-select>
                   </nz-form-control>
                 </nz-form-item>
               </div>
@@ -221,7 +230,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
               <table class="lines-table">
                 <thead>
                   <tr>
-                    <th style="width: 120px;">Item Code</th>
+                    <th style="width: 220px;">Item / Product</th>
                     <th>Description</th>
                     <th style="width: 80px;">Qty</th>
                     <th style="width: 100px;">Price</th>
@@ -234,7 +243,19 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                 <tbody>
                   @for (ctrl of linesArray.controls; track $index) {
                     <tr [formGroupName]="$index">
-                      <td><input nz-input formControlName="itemCode" placeholder="Code" /></td>
+                      <td style="width: 220px;">
+                        <nz-select
+                          formControlName="itemId"
+                          nzShowSearch
+                          nzAllowClear
+                          nzPlaceHolder="Select Item"
+                          (ngModelChange)="onItemSelected($index, $event)"
+                          style="width: 100%;">
+                          @for (it of items(); track it.id) {
+                            <nz-option [nzValue]="it.id" [nzLabel]="it.sku + ' - ' + it.name"></nz-option>
+                          }
+                        </nz-select>
+                      </td>
                       <td><input nz-input formControlName="description" placeholder="Item description" /></td>
                       <td><nz-input-number formControlName="quantity" [nzMin]="1" [nzStep]="1" style="width: 100%;"></nz-input-number></td>
                       <td><nz-input-number formControlName="unitPrice" [nzMin]="0" style="width: 100%;"></nz-input-number></td>
@@ -320,23 +341,28 @@ export class PurchaseOrdersListPage {
   private readonly ordersApi = inject(PurchaseOrdersApi);
   private readonly kpiApi = inject(PurchasingKpiApi);
   private readonly entitiesApi = inject(LegalEntitiesApi);
+  private readonly partiesApi = inject(PartiesApi);
+  private readonly itemsApi = inject(ItemsApi);
 
   readonly list = createPagedList((q) => this.ordersApi.list(q), { sort: 'number' });
   readonly kpis = signal<PurchasingKpiDto | null>(null);
   readonly entities = signal<{ id: string; name: string }[]>([]);
+  readonly vendors = signal<PartyDto[]>([]);
+  readonly items = signal<ItemDto[]>([]);
   readonly drawerVisible = signal(false);
   readonly isSubmitting = signal(false);
 
   readonly form: FormGroup = this.fb.group({
     legalEntityId: ['', Validators.required],
     number: [''],
+    vendorPartyId: [null, Validators.required],
     vendorName: ['', Validators.required],
     vendorReference: [''],
     orderDate: [new Date(), Validators.required],
     expectedDeliveryDate: [null],
     currency: ['AED', Validators.required],
     paymentTerms: ['Net 30'],
-    deliveryAddress: [''],
+    deliveryAddress: ['Central Warehouse'],
     notes: [''],
     lines: this.fb.array([]),
   });
@@ -374,6 +400,8 @@ export class PurchaseOrdersListPage {
   constructor() {
     this.loadKpis();
     this.loadEntities();
+    this.loadVendors();
+    this.loadItems();
   }
 
   loadKpis(): void {
@@ -390,10 +418,53 @@ export class PurchaseOrdersListPage {
     });
   }
 
+  loadVendors(): void {
+    this.partiesApi.list({ page: 1, pageSize: 200 }).subscribe({
+      next: (res) => {
+        const vendorParties = res.items.filter((p) => p.roles?.some((r) => r.toLowerCase().includes('vendor') || r.toLowerCase().includes('supplier')));
+        this.vendors.set(vendorParties.length > 0 ? vendorParties : res.items);
+      },
+      error: () => {},
+    });
+  }
+
+  loadItems(): void {
+    this.itemsApi.list({ page: 1, pageSize: 200 }).subscribe({
+      next: (res) => this.items.set(res.items),
+      error: () => {},
+    });
+  }
+
+  onVendorSelected(partyId: string | null): void {
+    if (!partyId) return;
+    const v = this.vendors().find((x) => x.id === partyId);
+    if (v) {
+      this.form.patchValue({
+        vendorName: v.name,
+        currency: v.currencyCode || this.form.value.currency || 'AED',
+      });
+    }
+  }
+
+  onItemSelected(index: number, itemId: string | null): void {
+    if (!itemId) return;
+    const it = this.items().find((x) => x.id === itemId);
+    if (it) {
+      const lineGroup = this.linesArray.at(index);
+      lineGroup.patchValue({
+        itemCode: it.sku,
+        description: it.name,
+        unitOfMeasure: it.uom || 'EA',
+        unitPrice: it.purchasePrice || it.salesPrice || 0,
+      });
+    }
+  }
+
   openCreateDrawer(): void {
     this.form.reset({
       legalEntityId: this.entities()[0]?.id ?? '',
       number: '',
+      vendorPartyId: null,
       vendorName: '',
       vendorReference: '',
       orderDate: new Date(),
@@ -411,6 +482,7 @@ export class PurchaseOrdersListPage {
   addLine(): void {
     this.linesArray.push(
       this.fb.group({
+        itemId: [null],
         itemCode: [''],
         description: ['', Validators.required],
         quantity: [1, [Validators.required, Validators.min(0.01)]],
@@ -459,6 +531,7 @@ export class PurchaseOrdersListPage {
     const input: PurchaseOrderInput = {
       legalEntityId: raw.legalEntityId,
       number: raw.number || null,
+      vendorPartyId: raw.vendorPartyId || null,
       vendorName: raw.vendorName,
       vendorReference: raw.vendorReference || null,
       orderDate: this.formatDate(raw.orderDate),

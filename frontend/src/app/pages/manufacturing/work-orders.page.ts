@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -22,6 +22,8 @@ import {
   WorkOrderDto
 } from '../../core/api/manufacturing.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { SessionStore } from '../../core/session/session.store';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { WarehousesApi } from '../../modules/inventory/inventory.api';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
@@ -43,14 +45,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzInputNumberModule,
     NzDatePickerModule,
     NzSelectModule,
-    PagedTableComponent
+    PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table
       #table
       [list]="list"
       [columns]="columns">
-      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()">
+      <button toolbar *erpHasPermission="'manufacturing.workorders.manage'" nz-button nzType="primary" (click)="openCreateDrawer()">
         <span nz-icon nzType="plus"></span> New Work Order
       </button>
           <ng-template #cell let-row let-column="column">
@@ -77,34 +80,40 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <span>{{ row.dueDate || '-' }}</span>
               </span>
               <span *ngSwitchCase="'totalPlannedCost'">
-                <span>\${{ row.totalPlannedCost | number:'1.2-2' }}</span>
+                <span>{{ currency() }} {{ row.totalPlannedCost | number:'1.2-2' }}</span>
               </span>
               <span *ngSwitchCase="'actualTotalCost'">
-                <strong>\${{ row.actualTotalCost | number:'1.2-2' }}</strong>
+                <strong>{{ currency() }} {{ row.actualTotalCost | number:'1.2-2' }}</strong>
               </span>
               <span *ngSwitchCase="'actions'">
                 <div class="table-actions">
                   <a [href]="'/print/job-card/' + row.id" target="_blank" nz-button nzType="link" nzSize="small">
                     <span nz-icon nzType="printer"></span> Job Card
                   </a>
-                  <button
-                    *ngIf="row.status === 'Planned'"
-                    nz-button nzType="link" nzSize="small"
-                    (click)="releaseOrder(row)">
-                    <span nz-icon nzType="play-circle"></span> Release
-                  </button>
-                  <button
-                    *ngIf="row.status === 'Released' || row.status === 'InProgress'"
-                    nz-button nzType="link" nzSize="small" class="text-success"
-                    (click)="openCompleteModal(row)">
-                    <span nz-icon nzType="check-circle"></span> Complete
-                  </button>
-                  <button
-                    *ngIf="row.status !== 'Completed' && row.status !== 'Cancelled'"
-                    nz-button nzType="link" nzDanger nzSize="small"
-                    (click)="cancelOrder(row)">
-                    <span nz-icon nzType="close-circle"></span> Cancel
-                  </button>
+                  @if (row.status === 'Planned') {
+                    <button
+                      *erpHasPermission="'manufacturing.workorders.manage'"
+                      nz-button nzType="link" nzSize="small"
+                      (click)="releaseOrder(row)">
+                      <span nz-icon nzType="play-circle"></span> Release
+                    </button>
+                  }
+                  @if (row.status === 'Released' || row.status === 'InProgress') {
+                    <button
+                      *erpHasPermission="'manufacturing.workorders.manage'"
+                      nz-button nzType="link" nzSize="small" class="text-success"
+                      (click)="openCompleteModal(row)">
+                      <span nz-icon nzType="check-circle"></span> Complete
+                    </button>
+                  }
+                  @if (row.status !== 'Completed' && row.status !== 'Cancelled') {
+                    <button
+                      *erpHasPermission="'manufacturing.workorders.manage'"
+                      nz-button nzType="link" nzDanger nzSize="small"
+                      (click)="cancelOrder(row)">
+                      <span nz-icon nzType="close-circle"></span> Cancel
+                    </button>
+                  }
                 </div>
               </span>
             </ng-container>
@@ -242,9 +251,11 @@ export class WorkOrdersPageComponent implements OnInit {
   private readonly bomsApi = inject(ManufacturingBomsApi);
   private readonly warehousesApi = inject(WarehousesApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
 
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || '$');
   readonly list = createPagedList<WorkOrderDto>((q: any) => this.api.list(q));
   readonly legalEntities = signal<{ id: string; name: string }[]>([]);
   readonly warehouses = signal<{ id: string; name: string }[]>([]);

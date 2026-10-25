@@ -17,7 +17,9 @@ import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSpaceModule } from 'ng-zorro-antd/space';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { ItemsApi, LegalEntitiesApi } from '../../core/api/admin.api';
+import { ItemsApi, LegalEntitiesApi, TaxCodesApi } from '../../core/api/admin.api';
+import { SessionStore } from '../../core/session/session.store';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
 import {
   CreatePosOrderCommand,
@@ -58,6 +60,7 @@ interface CartItem extends PosOrderLineInput {
     NzSpaceModule,
     NzAlertModule,
     NzEmptyModule,
+    HasPermissionDirective,
     ThermalReceiptComponent,
   ],
   template: `
@@ -88,16 +91,16 @@ interface CartItem extends PosOrderLineInput {
             </nz-tag>
             <div class="drawer-cash-badge">
               <span class="label">Expected Cash:</span>
-              <strong>AED {{ session.expectedCash | number:'1.2-2' }}</strong>
+              <strong>{{ currency() }} {{ session.expectedCash | number:'1.2-2' }}</strong>
             </div>
-            <button nz-button nzDanger nzSize="small" (click)="openCloseShiftModal()">
+            <button *erpHasPermission="'pos.sessions.manage'" nz-button nzDanger nzSize="small" (click)="openCloseShiftModal()">
               <span nz-icon nzType="poweroff"></span>Close Shift
             </button>
           } @else {
             <nz-tag nzColor="error">
               <span nz-icon nzType="close-circle"></span> No Open Shift
             </nz-tag>
-            <button nz-button nzType="primary" nzSize="small" (click)="openOpenShiftModal()">
+            <button *erpHasPermission="'pos.sessions.manage'" nz-button nzType="primary" nzSize="small" (click)="openOpenShiftModal()">
               <span nz-icon nzType="play-circle"></span>Open Shift
             </button>
           }
@@ -125,7 +128,7 @@ interface CartItem extends PosOrderLineInput {
               <div class="item-tile" (click)="addToCart(item)">
                 <div class="item-tile-code">{{ item.code }}</div>
                 <div class="item-tile-title">{{ item.name }}</div>
-                <div class="item-tile-price">AED {{ item.price | number:'1.2-2' }}</div>
+                <div class="item-tile-price">{{ currency() }} {{ item.price | number:'1.2-2' }}</div>
               </div>
             } @empty {
               <div class="empty-catalog">
@@ -158,7 +161,7 @@ interface CartItem extends PosOrderLineInput {
               <div class="cart-line-card">
                 <div class="line-info">
                   <span class="line-name">{{ line.description }}</span>
-                  <span class="line-meta">AED {{ line.unitPrice | number:'1.2-2' }} · Tax {{ line.taxRate }}%</span>
+                  <span class="line-meta">{{ currency() }} {{ line.unitPrice | number:'1.2-2' }} · Tax {{ line.taxRate }}%</span>
                 </div>
 
                 <div class="line-qty-controls">
@@ -168,7 +171,7 @@ interface CartItem extends PosOrderLineInput {
                 </div>
 
                 <div class="line-total-col">
-                  <strong>AED {{ line.lineTotal | number:'1.2-2' }}</strong>
+                  <strong>{{ currency() }} {{ line.lineTotal | number:'1.2-2' }}</strong>
                   <span nz-icon nzType="delete" class="line-delete-btn" (click)="removeLine(i)"></span>
                 </div>
               </div>
@@ -185,20 +188,21 @@ interface CartItem extends PosOrderLineInput {
             <div class="totals-breakdown">
               <div class="summary-row">
                 <span>Subtotal:</span>
-                <span>AED {{ cartSubTotal() | number:'1.2-2' }}</span>
+                <span>{{ currency() }} {{ cartSubTotal() | number:'1.2-2' }}</span>
               </div>
               <div class="summary-row">
-                <span>VAT / Sales Tax (5%):</span>
-                <span>AED {{ cartTaxTotal() | number:'1.2-2' }}</span>
+                <span>VAT / Sales Tax ({{ defaultTaxRate() }}%):</span>
+                <span>{{ currency() }} {{ cartTaxTotal() | number:'1.2-2' }}</span>
               </div>
               <nz-divider style="margin: 8px 0;"></nz-divider>
               <div class="summary-row grand-total">
                 <span>Grand Total:</span>
-                <span>AED {{ cartTotal() | number:'1.2-2' }}</span>
+                <span>{{ currency() }} {{ cartTotal() | number:'1.2-2' }}</span>
               </div>
             </div>
 
             <button
+              *erpHasPermission="'pos.orders.create'"
               nz-button
               nzType="primary"
               nzBlock
@@ -207,7 +211,7 @@ interface CartItem extends PosOrderLineInput {
               [disabled]="cart().length === 0 || !activeSession()"
               (click)="openPaymentModal()"
             >
-              <span nz-icon nzType="credit-card"></span> Pay AED {{ cartTotal() | number:'1.2-2' }}
+              <span nz-icon nzType="credit-card"></span> Pay {{ currency() }} {{ cartTotal() | number:'1.2-2' }}
             </button>
           </div>
         </section>
@@ -224,7 +228,7 @@ interface CartItem extends PosOrderLineInput {
           <div class="payment-modal-body">
             <div class="payment-due-banner">
               <span class="due-label">Total Amount Due</span>
-              <span class="due-amount">AED {{ cartTotal() | number:'1.2-2' }}</span>
+              <span class="due-amount">{{ currency() }} {{ cartTotal() | number:'1.2-2' }}</span>
             </div>
 
             <div class="tender-options" style="margin-bottom: 16px;">
@@ -245,7 +249,7 @@ interface CartItem extends PosOrderLineInput {
                 ></nz-input-number>
 
                 <div class="quick-cash-row">
-                  <button nz-button nzSize="small" (click)="tenderedCash = cartTotal()">Exact (AED {{ cartTotal() | number:'1.0-0' }})</button>
+                  <button nz-button nzSize="small" (click)="tenderedCash = cartTotal()">Exact ({{ currency() }} {{ cartTotal() | number:'1.0-0' }})</button>
                   <button nz-button nzSize="small" (click)="quickCash(50)">50</button>
                   <button nz-button nzSize="small" (click)="quickCash(100)">100</button>
                   <button nz-button nzSize="small" (click)="quickCash(200)">200</button>
@@ -254,7 +258,7 @@ interface CartItem extends PosOrderLineInput {
 
                 <div class="change-display">
                   <span>Change Due to Customer:</span>
-                  <strong class="change-amount">AED {{ cashChange() | number:'1.2-2' }}</strong>
+                  <strong class="change-amount">{{ currency() }} {{ cashChange() | number:'1.2-2' }}</strong>
                 </div>
               </div>
             } @else {
@@ -312,7 +316,7 @@ interface CartItem extends PosOrderLineInput {
         <ng-container *nzModalContent>
           <div style="display: flex; flex-direction: column; gap: 14px;">
             <div>
-              <label style="font-weight: 600;">Opening Float Cash (AED)</label>
+              <label style="font-weight: 600;">Opening Float Cash ({{ currency() }})</label>
               <nz-input-number [(ngModel)]="openFloatCash" [nzMin]="0" style="width: 100%;"></nz-input-number>
             </div>
             <div>
@@ -335,17 +339,17 @@ interface CartItem extends PosOrderLineInput {
             <div style="display: flex; flex-direction: column; gap: 14px;">
               <nz-alert
                 nzType="info"
-                [nzMessage]="'Expected Drawer Cash: AED ' + (s.expectedCash | number:'1.2-2')"
+                [nzMessage]="'Expected Drawer Cash: ' + currency() + ' ' + (s.expectedCash | number:'1.2-2')"
                 nzShowIcon
               ></nz-alert>
               <div>
-                <label style="font-weight: 600;">Actual Physical Cash Counted (AED)</label>
+                <label style="font-weight: 600;">Actual Physical Cash Counted ({{ currency() }})</label>
                 <nz-input-number [(ngModel)]="actualCloseCash" [nzMin]="0" style="width: 100%; font-size: 16px;"></nz-input-number>
               </div>
               <div class="variance-box">
                 <span>Variance (Difference):</span>
                 <strong [style.color]="(actualCloseCash - s.expectedCash) < 0 ? '#dc2626' : '#16a34a'">
-                  AED {{ (actualCloseCash - s.expectedCash) | number:'1.2-2' }}
+                  {{ currency() }} {{ (actualCloseCash - s.expectedCash) | number:'1.2-2' }}
                 </strong>
               </div>
               <div>
@@ -527,13 +531,17 @@ export class PosTerminalPage {
   private readonly ordersApi = inject(PosOrdersApi);
   private readonly itemsApi = inject(ItemsApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly taxCodesApi = inject(TaxCodesApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
 
   readonly registers = signal<PosRegisterDto[]>([]);
   readonly selectedRegisterId = signal<string>('');
   readonly activeSession = signal<PosSessionDto | null>(null);
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
+  readonly defaultTaxRate = signal<number>(5);
 
-  readonly catalog = signal<{ id: string; code: string; name: string; price: number }[]>([
+  readonly catalog = signal<{ id: string; code: string; name: string; price: number; barcode?: string }[]>([
     { id: '1', code: 'BEV-01', name: 'Espresso Roast Coffee', price: 18.00 },
     { id: '2', code: 'BEV-02', name: 'Matcha Green Latte', price: 24.00 },
     { id: '3', code: 'BAK-01', name: 'Fresh Butter Croissant', price: 14.50 },
@@ -579,7 +587,7 @@ export class PosTerminalPage {
       status: ord.status,
       cashierName: ord.cashierName,
       customerName: ord.customerName,
-      currency: 'AED',
+      currency: this.currency(),
       lines: (ord.lines || []).map((l) => ({
         code: l.itemCode,
         description: l.description,
@@ -601,7 +609,12 @@ export class PosTerminalPage {
   readonly filteredCatalog = computed(() => {
     const q = this.searchQuery().toLowerCase().trim();
     if (!q) return this.catalog();
-    return this.catalog().filter((i) => i.name.toLowerCase().includes(q) || i.code.toLowerCase().includes(q));
+    return this.catalog().filter(
+      (i) =>
+        i.name.toLowerCase().includes(q) ||
+        i.code.toLowerCase().includes(q) ||
+        (i.barcode && i.barcode.toLowerCase().includes(q))
+    );
   });
 
   readonly cartSubTotal = computed(() => {
@@ -609,7 +622,11 @@ export class PosTerminalPage {
   });
 
   readonly cartTaxTotal = computed(() => {
-    return Math.round(this.cartSubTotal() * 0.05 * 100) / 100;
+    const totalTax = this.cart().reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice * (item.taxRate / 100),
+      0
+    );
+    return Math.round(totalTax * 100) / 100;
   });
 
   readonly cartTotal = computed(() => {
@@ -639,6 +656,16 @@ export class PosTerminalPage {
   }
 
   loadItemsCatalog(): void {
+    this.taxCodesApi.list({ page: 1, pageSize: 20 }).subscribe({
+      next: (res: any) => {
+        const items = res.items || [];
+        const std = items.find((t: any) => t.isStandard) || items[0];
+        if (std && typeof std.rate === 'number') {
+          this.defaultTaxRate.set(std.rate);
+        }
+      },
+    });
+
     this.itemsApi.list({ page: 1, pageSize: 100 }).subscribe({
       next: (res: any) => {
         if (res.items && res.items.length > 0) {
@@ -646,7 +673,8 @@ export class PosTerminalPage {
             id: i.id,
             code: i.sku || i.code || i.name.substring(0, 4).toUpperCase(),
             name: i.name,
-            price: i.salesPrice || 25.0,
+            barcode: i.barcode || '',
+            price: i.salesPrice || i.sellingPrice || 25.0,
           }));
           this.catalog.set(mapped);
         }
@@ -665,6 +693,7 @@ export class PosTerminalPage {
   addToCart(item: { id: string; code: string; name: string; price: number }): void {
     const current = [...this.cart()];
     const existingIndex = current.findIndex((c) => c.itemCode === item.code);
+    const taxRate = this.defaultTaxRate();
 
     if (existingIndex >= 0) {
       const existing = current[existingIndex];
@@ -672,7 +701,7 @@ export class PosTerminalPage {
       current[existingIndex] = {
         ...existing,
         quantity: newQty,
-        lineTotal: newQty * existing.unitPrice * 1.05,
+        lineTotal: Math.round(newQty * existing.unitPrice * (1 + (existing.taxRate / 100)) * 100) / 100,
       };
     } else {
       current.push({
@@ -682,8 +711,8 @@ export class PosTerminalPage {
         quantity: 1,
         unitPrice: item.price,
         discountPercent: 0,
-        taxRate: 5,
-        lineTotal: item.price * 1.05,
+        taxRate,
+        lineTotal: Math.round(item.price * (1 + (taxRate / 100)) * 100) / 100,
       });
     }
 
@@ -699,7 +728,7 @@ export class PosTerminalPage {
       current[index] = {
         ...line,
         quantity: newQty,
-        lineTotal: newQty * line.unitPrice * 1.05,
+        lineTotal: Math.round(newQty * line.unitPrice * (1 + (line.taxRate / 100)) * 100) / 100,
       };
     }
     this.cart.set(current);
@@ -790,13 +819,14 @@ export class PosTerminalPage {
     const reg = this.registers().find((r) => r.id === regId);
     if (!reg) return;
 
+    const user = this.sessionStore.me()?.user;
     this.sessionsApi
       .openSession({
         legalEntityId: reg.legalEntityId,
         registerId: reg.id,
         openingCash: this.openFloatCash,
-        cashierUserId: '00000000-0000-0000-0000-000000000001',
-        cashierName: 'POS Cashier',
+        cashierUserId: user?.id || '00000000-0000-0000-0000-000000000001',
+        cashierName: user?.fullName || user?.email || 'POS Cashier',
         notes: this.shiftNotes,
       })
       .subscribe({
@@ -821,10 +851,11 @@ export class PosTerminalPage {
     const s = this.activeSession();
     if (!s) return;
 
+    const user = this.sessionStore.me()?.user;
     this.sessionsApi
       .closeSession(s.id, {
         actualCash: this.actualCloseCash,
-        closedByUserId: '00000000-0000-0000-0000-000000000001',
+        closedByUserId: user?.id || '00000000-0000-0000-0000-000000000001',
         notes: this.closeNotes,
       })
       .subscribe({

@@ -194,6 +194,11 @@ internal sealed class RequisitionHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Requisition '{cmd.Id}' not found.");
 
+        if (req.Status == PurchaseRequisitionStatus.Ordered)
+            throw new ConflictException("Cannot change status of an already ordered requisition.");
+        if (cmd.Status == PurchaseRequisitionStatus.Ordered && !req.ConvertedPurchaseOrderId.HasValue)
+            throw new ConflictException("Cannot transition requisition to Ordered without converting to a purchase order.");
+
         req.Status = cmd.Status;
         await requisitions.SaveChangesAsync(ct);
         return await ToDtoAsync(req, ct);

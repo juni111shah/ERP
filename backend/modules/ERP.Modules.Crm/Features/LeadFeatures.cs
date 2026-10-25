@@ -123,15 +123,18 @@ public class LeadHandlers :
 {
     private readonly IRepository<CrmLead> _leadRepo;
     private readonly IRepository<CrmOpportunity> _oppRepo;
+    private readonly IRepository<ERP.Domain.Parties.Party> _partyRepo;
     private readonly INumberingService _numbering;
 
     public LeadHandlers(
         IRepository<CrmLead> leadRepo,
         IRepository<CrmOpportunity> oppRepo,
+        IRepository<ERP.Domain.Parties.Party> partyRepo,
         INumberingService numbering)
     {
         _leadRepo = leadRepo;
         _oppRepo = oppRepo;
+        _partyRepo = partyRepo;
         _numbering = numbering;
     }
 
@@ -159,6 +162,7 @@ public class LeadHandlers :
 
         _leadRepo.Add(lead);
         await _leadRepo.SaveChangesAsync(cancellationToken);
+
         return MapToDto(lead);
     }
 
@@ -189,6 +193,29 @@ public class LeadHandlers :
         var lead = await _leadRepo.FindAsync(request.Id, cancellationToken)
             ?? throw new KeyNotFoundException($"Lead {request.Id} not found.");
 
+        if (!lead.ConvertedPartyId.HasValue)
+        {
+            var isCompany = !string.IsNullOrWhiteSpace(lead.CompanyName);
+            var customerName = isCompany ? lead.CompanyName!.Trim() : lead.FullName.Trim();
+            var partyCode = await _numbering.NextAsync("CUST", lead.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+
+            var party = new ERP.Domain.Parties.Party
+            {
+                Code = partyCode,
+                Name = customerName,
+                Kind = isCompany ? ERP.Domain.Parties.PartyKind.Company : ERP.Domain.Parties.PartyKind.Individual,
+                Roles = ERP.Domain.Parties.PartyRoles.Customer,
+                Email = lead.Email,
+                Phone = lead.Phone,
+                IsActive = true
+            };
+
+            _partyRepo.Add(party);
+            await _partyRepo.SaveChangesAsync(cancellationToken);
+
+            lead.ConvertedPartyId = party.Id;
+        }
+
         var oppNumber = await _numbering.NextAsync("OPP", lead.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
 
         var opp = new CrmOpportunity
@@ -196,6 +223,7 @@ public class LeadHandlers :
             LegalEntityId = lead.LegalEntityId,
             OpportunityNumber = oppNumber,
             Title = request.OpportunityTitle.Trim(),
+            CustomerPartyId = lead.ConvertedPartyId,
             CustomerName = lead.CompanyName ?? lead.FullName,
             Stage = OpportunityStage.Qualification,
             ProbabilityPercent = 25,

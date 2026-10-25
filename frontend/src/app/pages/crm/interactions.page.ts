@@ -19,6 +19,7 @@ import {
   InteractionType
 } from '../../core/api/crm.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -37,7 +38,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzInputModule,
     NzDatePickerModule,
     NzSelectModule,
-    PagedTableComponent
+    PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <h1 class="erp-page-title">Customer Activity & Touchpoint Logs</h1>
@@ -47,7 +49,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       [list]="list"
       [columns]="columns">
       
-      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="activity-log">
+      <button toolbar *erpHasPermission="'crm.interactions.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="activity-log">
         <span nz-icon nzType="plus"></span> Log Activity
       </button>
 
@@ -83,12 +85,14 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           </span>
           <span *ngSwitchCase="'actions'">
             <div class="table-actions">
-              <button
-                *ngIf="!row.isResolved"
-                nz-button nzType="link" nzSize="small" class="text-success"
-                (click)="resolveInteraction(row)">
-                <span nz-icon nzType="check"></span> Mark Done
-              </button>
+              @if (!row.isResolved) {
+                <button
+                  *erpHasPermission="'crm.interactions.manage'"
+                  nz-button nzType="link" nzSize="small" class="text-success"
+                  (click)="resolveInteraction(row)">
+                  <span nz-icon nzType="check"></span> Mark Done
+                </button>
+              }
             </div>
           </span>
         </ng-container>

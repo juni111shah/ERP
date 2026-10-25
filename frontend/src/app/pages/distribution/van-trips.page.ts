@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -17,6 +17,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ItemsApi, LegalEntitiesApi } from '../../core/api/admin.api';
+import { SessionStore } from '../../core/session/session.store';
 import { createPagedList } from '../../core/api/paged-list';
 import {
   CompleteTripInput,
@@ -29,6 +30,7 @@ import {
   VanSalesTripSummaryDto
 } from '../../core/api/distribution.api';
 import { WarehousesApi } from '../../modules/inventory/inventory.api';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -52,14 +54,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzSelectModule,
     NzTableModule,
     NzDividerModule,
-    PagedTableComponent
+    PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table
       #table
       [list]="list"
       [columns]="columns">
-      <button toolbar nz-button nzType="primary" (click)="openDispatchModal()">
+      <button toolbar *erpHasPermission="'distribution.trips.manage'" nz-button nzType="primary" (click)="openDispatchModal()">
         <span nz-icon nzType="send"></span> Dispatch Van Trip
       </button>
           <ng-template #cell let-row let-column="column">
@@ -78,7 +81,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-tag [nzColor]="getStatusColor(row.status)">{{ row.status }}</nz-tag>
               </span>
               <span *ngSwitchCase="'totalSalesAmount'" class="font-bold">
-                AED {{ row.totalSalesAmount | number:'1.2-2' }}
+                {{ currency() }} {{ row.totalSalesAmount | number:'1.2-2' }}
               </span>
               <span *ngSwitchCase="'actions'">
                 <button nz-button nzType="link" nzSize="small" (click)="viewDetail(row)">
@@ -87,9 +90,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <a [href]="'/print/manifest/' + row.id" target="_blank" nz-button nzType="link" nzSize="small">
                   <span nz-icon nzType="printer"></span> Manifest
                 </a>
-                <button *ngIf="row.status === 'InProgress'" nz-button nzType="link" nzSize="small" (click)="openReconcileModal(row)">
-                  <span nz-icon nzType="check-circle"></span> Reconcile
-                </button>
+                @if (row.status === 'InProgress') {
+                  <button *erpHasPermission="'distribution.trips.manage'" nz-button nzType="link" nzSize="small" (click)="openReconcileModal(row)">
+                    <span nz-icon nzType="check-circle"></span> Reconcile
+                  </button>
+                }
               </span>
             </ng-container>
           </ng-template>
@@ -182,8 +187,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                     <div><small class="mono-code">{{ row.itemCode }}</small></div>
                   </td>
                   <td nzAlign="right">{{ row.loadedQuantity }} {{ row.uom }}</td>
-                  <td nzAlign="right">AED {{ row.unitPrice | number:'1.2-2' }}</td>
-                  <td nzAlign="right" class="font-bold">AED {{ (row.loadedQuantity * row.unitPrice) | number:'1.2-2' }}</td>
+                  <td nzAlign="right">{{ currency() }} {{ row.unitPrice | number:'1.2-2' }}</td>
+                  <td nzAlign="right" class="font-bold">{{ currency() }} {{ (row.loadedQuantity * row.unitPrice) | number:'1.2-2' }}</td>
                   <td nzAlign="right">
                     <button nz-button nzType="link" nzDanger (click)="removeLoadedItem(idx)">
                       <span nz-icon nzType="delete"></span>
@@ -241,7 +246,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                     <nz-input-number [(ngModel)]="item.damagedQuantity" [nzMin]="0" nzSize="small"></nz-input-number>
                   </td>
                   <td nzAlign="right" class="font-bold">
-                    AED {{ (item.soldQuantity * item.unitPrice) | number:'1.2-2' }}
+                    {{ currency() }} {{ (item.soldQuantity * item.unitPrice) | number:'1.2-2' }}
                   </td>
                 </tr>
               </tbody>
@@ -250,7 +255,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div class="reconcile-totals">
               <div class="total-block">
                 <span>Total Net Sales:</span>
-                <span class="font-bold" style="font-size: 18px; color: #1890ff">AED {{ calcTotalSales | number:'1.2-2' }}</span>
+                <span class="font-bold" style="font-size: 18px; color: #1890ff">{{ currency() }} {{ calcTotalSales | number:'1.2-2' }}</span>
               </div>
               <div class="total-block">
                 <span>Cash/Tender Collections Reconciled:</span>
@@ -293,11 +298,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               </div>
               <div class="stat-box">
                 <span class="text-secondary">Total Sales</span>
-                <strong style="color: #52c41a">AED {{ trip.totalSalesAmount | number:'1.2-2' }}</strong>
+                <strong style="color: #52c41a">{{ currency() }} {{ trip.totalSalesAmount | number:'1.2-2' }}</strong>
               </div>
               <div class="stat-box">
                 <span class="text-secondary">Collections</span>
-                <strong style="color: #1890ff">AED {{ trip.totalCollectionsAmount | number:'1.2-2' }}</strong>
+                <strong style="color: #1890ff">{{ currency() }} {{ trip.totalCollectionsAmount | number:'1.2-2' }}</strong>
               </div>
             </div>
 
@@ -324,7 +329,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                     <td nzAlign="right" class="font-bold">{{ it.soldQuantity }}</td>
                     <td nzAlign="right">{{ it.returnedQuantity }}</td>
                     <td nzAlign="right">{{ it.damagedQuantity }}</td>
-                    <td nzAlign="right">AED {{ it.unitPrice | number:'1.2-2' }}</td>
+                    <td nzAlign="right">{{ currency() }} {{ it.unitPrice | number:'1.2-2' }}</td>
                   </tr>
                 </tbody>
               </nz-table>
@@ -416,9 +421,11 @@ export class VanTripsPageComponent implements OnInit {
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly warehousesApi = inject(WarehousesApi);
   private readonly itemsApi = inject(ItemsApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
 
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly warehouses = signal<{ id: string; name: string }[]>([]);
   readonly routesList = signal<DistributionRouteSummaryDto[]>([]);
@@ -501,11 +508,12 @@ export class VanTripsPageComponent implements OnInit {
 
   openDispatchModal(): void {
     this.loadedItems.set([]);
+    const user = this.sessionStore.me()?.user;
     this.form.reset({
       legalEntityId: this.entities()[0]?.id || '',
       routeId: this.routesList()[0]?.id || '',
-      driverUserId: '00000000-0000-0000-0000-000000000001',
-      driverName: this.routesList()[0]?.driverName || 'Driver 1',
+      driverUserId: user?.id || '00000000-0000-0000-0000-000000000001',
+      driverName: this.routesList()[0]?.driverName || user?.fullName || 'Driver 1',
       vehicleNumber: this.routesList()[0]?.vehicleNumber || 'DXB-5510',
       warehouseId: this.warehouses()[0]?.id || '',
       departureDate: new Date()
@@ -553,11 +561,12 @@ export class VanTripsPageComponent implements OnInit {
 
     this.isSaving.set(true);
     const val = this.form.value;
+    const user = this.sessionStore.me()?.user;
     const input: CreateTripInput = {
       legalEntityId: val.legalEntityId,
       routeId: val.routeId,
-      driverUserId: val.driverUserId || '00000000-0000-0000-0000-000000000001',
-      driverName: val.driverName,
+      driverUserId: val.driverUserId || user?.id || '00000000-0000-0000-0000-000000000001',
+      driverName: val.driverName || user?.fullName || 'Driver 1',
       vehicleNumber: val.vehicleNumber,
       warehouseId: val.warehouseId,
       departureDate: new Date(val.departureDate).toISOString().split('T')[0],

@@ -55,8 +55,12 @@ public sealed class InventoryStockPostingService(
                 }
                 else
                 {
-                    try { offsetAccount = await posting.AccountForRoleAsync(SystemRoles.ApControl, token); }
-                    catch { offsetAccount = await posting.AccountForRoleAsync("inventory", token); }
+                    try { offsetAccount = await posting.AccountForRoleAsync("inventory.clearing", token); }
+                    catch
+                    {
+                        try { offsetAccount = await posting.AccountForRoleAsync(SystemRoles.ApControl, token); }
+                        catch { offsetAccount = await posting.AccountForRoleAsync("inventory", token); }
+                    }
                 }
 
                 var invAccount = await posting.AccountForRoleAsync("inventory", token);
@@ -98,7 +102,7 @@ public sealed class InventoryStockPostingService(
                 await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == warehouse.Id && m.ItemId == request.ItemId))
                     .ToListAsync(token));
 
-            var cost = position.AverageCost > 0 ? position.AverageCost : 0m;
+            var cost = position.AverageCost > 0 ? position.AverageCost : (item.PurchasePrice is > 0 ? item.PurchasePrice.Value : 0m);
             var m = new StockMovement
             {
                 LegalEntityId = warehouse.LegalEntityId,
@@ -144,12 +148,15 @@ public sealed class InventoryStockPostingService(
         if (warehouseId.HasValue)
         {
             var wh = await warehouses.FindAsync(warehouseId.Value, ct);
-            if (wh != null && wh.IsActive) return wh;
+            if (wh != null && wh.IsActive && (legalEntityId == Guid.Empty || wh.LegalEntityId == legalEntityId)) return wh;
         }
 
-        var defaultWh = await warehouses.Query(new Specification<Warehouse>(w => w.LegalEntityId == legalEntityId && w.IsActive))
-            .FirstOrDefaultAsync(ct);
-        if (defaultWh != null) return defaultWh;
+        if (legalEntityId != Guid.Empty)
+        {
+            var entityWh = await warehouses.Query(new Specification<Warehouse>(w => w.LegalEntityId == legalEntityId && w.IsActive))
+                .FirstOrDefaultAsync(ct);
+            if (entityWh != null) return entityWh;
+        }
 
         return await warehouses.Query(new Specification<Warehouse>(w => w.IsActive)).FirstOrDefaultAsync(ct);
     }

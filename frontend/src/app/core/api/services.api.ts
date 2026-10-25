@@ -248,6 +248,10 @@ export class ServicesMilestonesApi extends CrudApiService<MilestoneSummaryDto, M
   updateStatus(id: string, status: MilestoneStatus, invoiceId?: string | null): Observable<MilestoneDto> {
     return this.http.post<MilestoneDto>(`${this.url}/${id}/status`, { id, status, invoiceId });
   }
+
+  invoice(id: string): Observable<unknown> {
+    return this.http.post<unknown>(`${this.url}/${id}/invoice`, {});
+  }
 }
 
 @Injectable({ providedIn: 'root' })

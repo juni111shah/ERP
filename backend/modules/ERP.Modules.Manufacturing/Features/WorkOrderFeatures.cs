@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Finance;
 using ERP.Modules.Manufacturing.Domain;
 using FluentValidation;
 using MediatR;
@@ -123,17 +124,20 @@ public class WorkOrderHandlers :
     private readonly IRepository<BillOfMaterials> _boms;
     private readonly INumberingService _numbering;
     private readonly IStockPostingService _stockPosting;
+    private readonly IPostingService _posting;
 
     public WorkOrderHandlers(
         IRepository<WorkOrder> orders,
         IRepository<BillOfMaterials> boms,
         INumberingService numbering,
-        IStockPostingService stockPosting)
+        IStockPostingService stockPosting,
+        IPostingService posting)
     {
         _orders = orders;
         _boms = boms;
         _numbering = numbering;
         _stockPosting = stockPosting;
+        _posting = posting;
     }
 
     public async Task<WorkOrderDto> Handle(CreateWorkOrderCommand request, CancellationToken cancellationToken)
@@ -141,7 +145,7 @@ public class WorkOrderHandlers :
         var bom = await _boms.Query(new Specification<BillOfMaterials>(b => b.Id == request.BomId))
             .Include(b => b.Components)
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new KeyNotFoundException($"BOM {request.BomId} not found.");
+            ?? throw new NotFoundException($"BOM {request.BomId} not found.");
 
         var number = await _numbering.NextAsync("WorkOrder", request.LegalEntityId, request.StartDate, cancellationToken);
 
@@ -202,7 +206,12 @@ public class WorkOrderHandlers :
         var wo = await _orders.Query(new Specification<WorkOrder>(w => w.Id == request.Id))
             .Include(w => w.Operations)
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new KeyNotFoundException($"Work Order {request.Id} not found.");
+            ?? throw new NotFoundException($"Work Order {request.Id} not found.");
+
+        if (wo.Status == WorkOrderStatus.Completed)
+            throw new ConflictException("Cannot release an already completed Work Order.");
+        if (wo.Status == WorkOrderStatus.Cancelled)
+            throw new ConflictException("Cannot release a cancelled Work Order.");
 
         wo.Status = WorkOrderStatus.InProgress;
         await _orders.SaveChangesAsync(cancellationToken);
@@ -214,12 +223,21 @@ public class WorkOrderHandlers :
         var wo = await _orders.Query(new Specification<WorkOrder>(w => w.Id == request.Id))
             .Include(w => w.Operations)
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new KeyNotFoundException($"Work Order {request.Id} not found.");
+            ?? throw new NotFoundException($"Work Order {request.Id} not found.");
+
+        if (wo.Status == WorkOrderStatus.Completed)
+            throw new ConflictException("Work Order is already completed.");
+        if (wo.Status == WorkOrderStatus.Cancelled)
+            throw new ConflictException("Cannot complete a cancelled Work Order.");
+        if (wo.Status != WorkOrderStatus.InProgress)
+            throw new ConflictException($"Work Order must be in progress before completing (currently {wo.Status}).");
+
+        var actualCost = request.ActualTotalCost > 0 ? request.ActualTotalCost : wo.EstimatedTotalCost;
 
         wo.Status = WorkOrderStatus.Completed;
         wo.CompletedQuantity = request.CompletedQuantity;
         wo.ScrappedQuantity = request.ScrappedQuantity;
-        wo.ActualTotalCost = request.ActualTotalCost;
+        wo.ActualTotalCost = actualCost;
         wo.CompletionDate = DateOnly.FromDateTime(DateTime.UtcNow);
         if (!string.IsNullOrWhiteSpace(request.Notes))
         {
@@ -235,7 +253,15 @@ public class WorkOrderHandlers :
 
         if (wo.CompletedQuantity > 0 && wo.ProducedItemId != Guid.Empty)
         {
-            var unitCost = wo.CompletedQuantity > 0 ? Math.Round(wo.ActualTotalCost / wo.CompletedQuantity, 4) : 0m;
+            Guid? wipAccountId = null;
+            try { wipAccountId = await _posting.AccountForRoleAsync("wip", cancellationToken); }
+            catch
+            {
+                try { wipAccountId = await _posting.AccountForRoleAsync("inventory.clearing", cancellationToken); }
+                catch { wipAccountId = await _posting.AccountForRoleAsync("inventory", cancellationToken); }
+            }
+
+            var unitCost = wo.CompletedQuantity > 0 ? Math.Round(actualCost / wo.CompletedQuantity, 4) : 0m;
             await _stockPosting.ReceiveStockAsync(new StockReceiveRequest(
                 wo.LegalEntityId,
                 wo.ProducedItemId,
@@ -244,7 +270,8 @@ public class WorkOrderHandlers :
                 wo.CompletionDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
                 wo.WorkOrderNumber,
                 $"Produced via WO {wo.WorkOrderNumber} ({wo.ProducedItemCode})",
-                wo.WarehouseId != Guid.Empty ? wo.WarehouseId : null), cancellationToken);
+                wo.WarehouseId != Guid.Empty ? wo.WarehouseId : null,
+                OffsetAccountId: wipAccountId), cancellationToken);
 
             var bom = await _boms.Query(new Specification<BillOfMaterials>(b => b.Id == wo.BomId))
                 .Include(b => b.Components)
@@ -265,7 +292,8 @@ public class WorkOrderHandlers :
                             wo.CompletionDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
                             wo.WorkOrderNumber,
                             $"Consumed for WO {wo.WorkOrderNumber} ({c.ComponentItemCode})",
-                            wo.WarehouseId != Guid.Empty ? wo.WarehouseId : null), cancellationToken);
+                            wo.WarehouseId != Guid.Empty ? wo.WarehouseId : null,
+                            ExpenseAccountId: wipAccountId), cancellationToken);
                     }
                 }
             }
