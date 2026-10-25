@@ -72,6 +72,15 @@ public sealed class ManufacturingModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, ManufacturingDashboard>();
         services.AddScoped<ISearchProvider, ManufacturingSearch>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<WorkOrder>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "workorder", Manufacturing.Permissions.WorkOrdersRead, Manufacturing.Permissions.WorkOrdersManage));
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<WorkOrder>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "work_order", Manufacturing.Permissions.WorkOrdersRead, Manufacturing.Permissions.WorkOrdersManage));
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<BillOfMaterials>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "bom", Manufacturing.Permissions.BomsRead, Manufacturing.Permissions.BomsManage));
     }
 
     public override void ConfigureModel(ModelBuilder mb)

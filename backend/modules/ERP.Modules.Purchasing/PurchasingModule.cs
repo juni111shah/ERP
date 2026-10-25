@@ -74,6 +74,15 @@ public sealed class PurchasingModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, PurchasingDashboard>();
         services.AddScoped<ISearchProvider, PurchasingSearch>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<PurchaseOrder>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "purchaseorder", P.OrdersRead, P.OrdersManage));
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<PurchaseOrder>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "purchase_order", P.OrdersRead, P.OrdersManage));
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<PurchaseRequisition>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "requisition", P.RequisitionsRead, P.RequisitionsManage));
     }
 
     public override void ConfigureModel(ModelBuilder mb)

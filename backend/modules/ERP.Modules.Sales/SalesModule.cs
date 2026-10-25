@@ -69,6 +69,15 @@ public sealed class SalesModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, SalesDashboard>();
         services.AddScoped<ISearchProvider, SalesSearch>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<SalesOrder>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "salesorder", P.OrdersRead, P.OrdersManage));
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<SalesOrder>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "order", P.OrdersRead, P.OrdersManage));
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<SalesQuote>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "quote", P.QuotesRead, P.QuotesManage));
     }
 
     public override void ConfigureModel(ModelBuilder mb)

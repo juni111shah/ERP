@@ -1,3 +1,4 @@
+using ERP.Application.Abstractions;
 using ERP.Application.Dashboard;
 using ERP.Application.Search;
 using ERP.Application.Security;
@@ -35,6 +36,9 @@ public sealed class ServicesModule : ModuleBase
     {
         services.AddScoped<ISearchProvider, ServicesSearch>();
         services.AddScoped<IDashboardContributor, ServicesDashboard>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<ServiceEngagement>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "engagement", Services.Permissions.EngagementsRead, Services.Permissions.EngagementsManage));
     }
 
     public override void MapEndpoints(RouteGroupBuilder group) => ServicesEndpoints.Map(group);

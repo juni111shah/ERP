@@ -81,6 +81,9 @@ public sealed class HrModule : ModuleBase
         services.AddScoped<IDashboardContributor, HrDashboard>();
         services.AddScoped<ICashForecastSource, PayrollForecastSource>();
         services.AddScoped<ERP.Application.Search.ISearchProvider, HrSearch>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<Employee>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "employee", P.EmployeesRead, P.EmployeesManage));
     }
 
     public override void ConfigureModel(ModelBuilder mb)

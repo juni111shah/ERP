@@ -1,3 +1,4 @@
+using ERP.Application.Abstractions;
 using ERP.Application.Dashboard;
 using ERP.Application.Search;
 using ERP.Application.Security;
@@ -35,6 +36,12 @@ public sealed class CrmModule : ModuleBase
     {
         services.AddScoped<ISearchProvider, CrmSearch>();
         services.AddScoped<IDashboardContributor, CrmDashboard>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<CrmLead>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "lead", Crm.Permissions.LeadsRead, Crm.Permissions.LeadsManage));
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<CrmOpportunity>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "opportunity", Crm.Permissions.OpportunitiesRead, Crm.Permissions.OpportunitiesManage));
     }
 
     public override void MapEndpoints(RouteGroupBuilder group) => CrmEndpoints.Map(group);

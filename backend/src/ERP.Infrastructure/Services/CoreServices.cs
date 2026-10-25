@@ -116,8 +116,9 @@ public sealed class LocalFileStore(IConfiguration config) : IFileStore
 
     private string PathFor(string key)
     {
+        var rootWithSep = Root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
         var full = Path.GetFullPath(Path.Combine(Root, key));
-        if (!full.StartsWith(Root, StringComparison.Ordinal)) throw new InvalidOperationException("Invalid storage key.");
+        if (!full.StartsWith(rootWithSep, StringComparison.Ordinal)) throw new InvalidOperationException("Invalid storage key.");
         return full;
     }
 }

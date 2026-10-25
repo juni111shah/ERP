@@ -41,6 +41,8 @@ public sealed class EfEntityStore(AppDbContext db) : IEntityStore
         (IQueryable<Entity>)typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(entityType).Invoke(db, null)!;
 
     public Task<bool> ExistsAsync(Type entityType, Guid id, CancellationToken ct = default) => Set(entityType).AnyAsync(e => e.Id == id, ct);
+    public Task<TEntity?> FindAsync<TEntity>(Guid id, CancellationToken ct = default) where TEntity : Entity =>
+        db.Set<TEntity>().AsNoTracking().FirstOrDefaultAsync(e => e.Id == id, ct);
     public async Task<Entity?> FindForUpdateAsync(Type entityType, Guid id, CancellationToken ct = default) => await Set(entityType).FirstOrDefaultAsync(e => e.Id == id, ct);
     public Task<int> SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
 }

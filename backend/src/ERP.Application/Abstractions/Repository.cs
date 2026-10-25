@@ -74,6 +74,7 @@ public interface IUnitOfWork
 public interface IEntityStore
 {
     Task<bool> ExistsAsync(Type entityType, Guid id, CancellationToken ct = default);
+    Task<TEntity?> FindAsync<TEntity>(Guid id, CancellationToken ct = default) where TEntity : Entity;
     /// <summary>Tracked load for updates; null when the record is not visible to the caller.</summary>
     Task<Entity?> FindForUpdateAsync(Type entityType, Guid id, CancellationToken ct = default);
     Task<int> SaveChangesAsync(CancellationToken ct = default);

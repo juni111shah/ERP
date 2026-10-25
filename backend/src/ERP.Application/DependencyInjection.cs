@@ -51,6 +51,16 @@ public static class DependencyInjection
         services.AddScoped<IReminderSource, CoreReminderSource>();
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<ERP.Application.Finance.AccountNumbering>();
+
+        services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Parties.Party>(sp.GetRequiredService<IEntityStore>(), "party", Security.CorePermissions.PartiesRead, Security.CorePermissions.PartiesWrite));
+        services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Finance.Invoice>(sp.GetRequiredService<IEntityStore>(), "invoice", Security.CorePermissions.InvoicesRead, Security.CorePermissions.InvoicesWrite));
+        services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Finance.Bill>(sp.GetRequiredService<IEntityStore>(), "bill", Security.CorePermissions.BillsRead, Security.CorePermissions.BillsWrite));
+        services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Finance.Settlement>(sp.GetRequiredService<IEntityStore>(), "receipt", Security.CorePermissions.ReceiptsRead, Security.CorePermissions.ReceiptsWrite, s => s.Direction == ERP.Domain.Finance.InstrumentDirection.Received));
+        services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Finance.Settlement>(sp.GetRequiredService<IEntityStore>(), "payment", Security.CorePermissions.PaymentsRead, Security.CorePermissions.PaymentsWrite, s => s.Direction == ERP.Domain.Finance.InstrumentDirection.Issued));
+        services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Finance.JournalEntry>(sp.GetRequiredService<IEntityStore>(), "journal", Security.CorePermissions.JournalsRead, Security.CorePermissions.JournalsWrite));
+        services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Catalog.Item>(sp.GetRequiredService<IEntityStore>(), "item", Security.CorePermissions.ItemsRead, Security.CorePermissions.ItemsWrite));
+        services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Finance.PaymentInstrument>(sp.GetRequiredService<IEntityStore>(), "cheque", Security.CorePermissions.ChequesRead, Security.CorePermissions.ChequesWrite));
+
         services.AddValidatorsFromAssemblies(assemblies, includeInternalTypes: true);
         return services;
     }
