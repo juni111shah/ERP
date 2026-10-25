@@ -2,7 +2,7 @@
 
 Last Claude run: 2026-10-25 (reviewed TASK-004 -> done; 11 open, no refill)
 Rotation position: next area = Order to cash (Sales, invoices, receipts)
-Needs human: nothing (TASK-008 in-progress with uncommitted work in tree; not stalled)
+Needs human: DISK FULL on C: (ENOSPC) at the 2026-10-25 15:3x run. The clean-copy build of TASK-008 (f46af53) failed with "not enough space on the disk", so TASK-008 is NOT reviewed and stays ready-for-review. Free space on C: (scratchpad build copies under %TEMP%\claude, dotnet/npm caches), then re-run the review. Review notes so far: diff reads correct (clearing debited for received qty, variance line, tolerance check, billed-PO guard, reversal in transaction); card `commit:` says 84b8486 but the real commit is f46af53. TASK-014 is blocked legitimately (Angular 19.x has no patch; needs a human decision on a major upgrade to v20+). No refill done (11 open).
 
 | Status | Count |
 |---|---|

@@ -2,12 +2,12 @@
 id: TASK-008
 title: Goods receipts post to a GR/IR clearing account and the bill clears it
 priority: P0
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: AUDIT-DEEP B1, B11
-commit: 84b8486
+commit: f46af53
 ---
 
 ## Problem
@@ -48,3 +48,10 @@ Requisition flow.
 - Added comprehensive integration tests in `PurchasingLedgerTests.cs` verifying full receive -> bill clearing, tolerance enforcement, price variance allocation, and receipt deletion/reversal. All 392 unit and integration tests passing.
 
 ## Review (Claude)
+
+Verified at f46af53 in a clean `git archive` copy (built on D: because C: is full): `dotnet build backend/ERP.sln` 0 errors; `dotnet test --no-build` unit 213/213, integration 179/179 passed.
+- Receive then bill: clearing debited for received qty at PO cost, price difference to 5050 purchase variance, AP credited once (PurchasingLedgerTests ~L123-148).
+- Over-receipt beyond `purchasing.receiptTolerancePercent` returns 400 (tests ~L204-274); billed-PO guard present.
+- Delete receipt reverses stock, PO received qty and journal in one transaction; 409 if stock consumed (test ~L316-346).
+- Commit contains only TASK-008 changes. Card `commit:` hash corrected (was 84b8486).
+- Note: TASK-014 stays blocked (Angular major upgrade needs human decision).
