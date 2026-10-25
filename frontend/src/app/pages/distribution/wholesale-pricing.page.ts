@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -15,6 +15,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ItemsApi, LegalEntitiesApi } from '../../core/api/admin.api';
+import { SessionStore } from '../../core/session/session.store';
 import { createPagedList } from '../../core/api/paged-list';
 import {
   CreateWholesalePriceInput,
@@ -23,6 +24,7 @@ import {
   WholesaleRateCalculationDto,
   WholesaleTier
 } from '../../core/api/distribution.api';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -44,6 +46,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzSelectModule,
     NzAlertModule,
     NzDividerModule,
+    HasPermissionDirective,
     PagedTableComponent
   ],
   template: `
@@ -55,7 +58,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
         <button nz-button nzType="default" (click)="openSimulatorModal()">
           <span nz-icon nzType="calculator"></span> Calculate Wholesale Rate
         </button>
-        <button nz-button nzType="primary" (click)="openCreateModal()">
+        <button nz-button nzType="primary" *erpHasPermission="'distribution.pricing.manage'" (click)="openCreateModal()">
           <span nz-icon nzType="plus"></span> Add Pricing Tier
         </button>
       </div>
@@ -75,7 +78,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-tag nzColor="green">{{ row.discountPercentage }}% Off</nz-tag>
               </span>
               <span *ngSwitchCase="'wholesaleUnitPrice'" class="font-bold">
-                AED {{ row.wholesaleUnitPrice | number:'1.2-2' }}
+                {{ currency() }} {{ row.wholesaleUnitPrice | number:'1.2-2' }}
               </span>
               <span *ngSwitchCase="'isActive'">
                 <nz-tag [nzColor]="row.isActive ? 'success' : 'default'">
@@ -150,7 +153,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label nzRequired>Wholesale Unit Price (AED)</nz-form-label>
+                <nz-form-label nzRequired>Wholesale Unit Price ({{ currency() }})</nz-form-label>
                 <nz-form-control nzErrorTip="Price is required">
                   <nz-input-number formControlName="wholesaleUnitPrice" [nzMin]="0.01" style="width: 100%"></nz-input-number>
                 </nz-form-control>
@@ -228,14 +231,14 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <nz-alert
                 [nzType]="res.tierApplied ? 'success' : 'warning'"
                 [nzMessage]="res.tierApplied ? 'Tier Rule Applied' : 'No Specific Tier Rule Found'"
-                [nzDescription]="res.tierApplied ? ('Applied tier price of AED ' + res.unitPrice + ' per unit.') : 'Standard catalog pricing applies without volume bracket discount.'"
+                [nzDescription]="res.tierApplied ? ('Applied tier price of ' + currency() + ' ' + res.unitPrice + ' per unit.') : 'Standard catalog pricing applies without volume bracket discount.'"
                 nzShowIcon>
               </nz-alert>
 
               <div *ngIf="res.tierApplied" class="discount-breakdown">
                 <div class="breakdown-row">
                   <span>Unit Wholesale Price:</span>
-                  <span class="font-bold">AED {{ res.unitPrice | number:'1.2-2' }}</span>
+                  <span class="font-bold">{{ currency() }} {{ res.unitPrice | number:'1.2-2' }}</span>
                 </div>
                 <div class="breakdown-row">
                   <span>Order Quantity:</span>
@@ -244,7 +247,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-divider style="margin: 8px 0"></nz-divider>
                 <div class="breakdown-row total-row font-bold">
                   <span>Total Wholesale Quotation:</span>
-                  <span style="color: #1890ff">AED {{ res.extendedTotal | number:'1.2-2' }}</span>
+                  <span style="color: #1890ff">{{ currency() }} {{ res.extendedTotal | number:'1.2-2' }}</span>
                 </div>
               </div>
             </div>
@@ -309,8 +312,11 @@ export class WholesalePricingPageComponent implements OnInit {
   private readonly wholesaleApi = inject(DistributionWholesaleApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly itemsApi = inject(ItemsApi);
+  private readonly session = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
+
+  readonly currency = computed(() => this.session.me()?.workspace?.baseCurrency ?? 'AED');
 
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly catalogItems = signal<{ id: string; name: string; sku: string; salesPrice?: number }[]>([]);

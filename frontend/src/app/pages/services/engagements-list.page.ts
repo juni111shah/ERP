@@ -17,6 +17,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { LegalEntitiesApi } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { PartiesApi, PartyDto } from '../parties.page';
 import {
   EngagementDto,
   EngagementInput,
@@ -25,6 +26,7 @@ import {
   EngagementType,
   ServicesEngagementsApi
 } from '../../core/api/services.api';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -47,13 +49,14 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzInputNumberModule,
     NzDatePickerModule,
     NzSelectModule,
-    PagedTableComponent
+    PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table
       [list]="list"
       [columns]="columns">
-      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="engagement-new">
+      <button toolbar *erpHasPermission="'services.engagements.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="engagement-new">
         <span nz-icon nzType="plus"></span> New Engagement
       </button>
           <ng-template #cell let-row let-column="column">
@@ -99,7 +102,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
               <ng-container *ngSwitchCase="'actions'">
                 <div class="table-actions">
-                  <button nz-button nzType="text" nzSize="small" (click)="openStatusModal(row)" title="Update Status">
+                  <button *erpHasPermission="'services.engagements.manage'" nz-button nzType="text" nzSize="small" (click)="openStatusModal(row)" title="Update Status">
                     <span nz-icon nzType="edit"></span>
                   </button>
                   <button nz-button nzType="text" nzSize="small" (click)="viewDetails(row)" title="View Details">
@@ -140,9 +143,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="grid grid-cols-2 gap-4">
               <nz-form-item>
-                <nz-form-label nzRequired>Client Name</nz-form-label>
-                <nz-form-control nzErrorTip="Enter client name">
-                  <input nz-input formControlName="clientName" placeholder="Client company name" />
+                <nz-form-label nzRequired>Client / Customer</nz-form-label>
+                <nz-form-control nzErrorTip="Select client">
+                  <nz-select formControlName="clientId" nzShowSearch nzPlaceHolder="Select Client" (ngModelChange)="onClientSelected($event)">
+                    @for (c of clients(); track c.id) {
+                      <nz-option [nzValue]="c.id" [nzLabel]="c.name + ' (' + c.code + ')'"></nz-option>
+                    }
+                  </nz-select>
                 </nz-form-control>
               </nz-form-item>
 
@@ -287,6 +294,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 export class EngagementsListPage implements OnInit {
   private readonly api = inject(ServicesEngagementsApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly partiesApi = inject(PartiesApi);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
 
@@ -306,6 +314,7 @@ export class EngagementsListPage implements OnInit {
   ];
 
   readonly legalEntities = signal<{ id: string; name: string }[]>([]);
+  readonly clients = signal<PartyDto[]>([]);
   readonly drawerVisible = signal(false);
   readonly detailsVisible = signal(false);
   readonly statusModalVisible = signal(false);
@@ -318,7 +327,7 @@ export class EngagementsListPage implements OnInit {
   form: FormGroup = this.fb.group({
     legalEntityId: ['', [Validators.required]],
     title: ['', [Validators.required, Validators.maxLength(200)]],
-    clientId: ['00000000-0000-0000-0000-000000000001'],
+    clientId: [null, [Validators.required]],
     clientName: ['', [Validators.required]],
     type: ['FixedPrice' as EngagementType, [Validators.required]],
     contractValue: [25000, [Validators.required, Validators.min(0)]],
@@ -339,9 +348,37 @@ export class EngagementsListPage implements OnInit {
         }
       }
     });
+
+    this.partiesApi.list({ page: 1, pageSize: 200 }).subscribe({
+      next: res => {
+        const custs = res.items.filter(p => !p.roles || p.roles.length === 0 || p.roles.includes('Customer') || p.roles.some(r => r.toLowerCase().includes('client')));
+        this.clients.set(custs.length > 0 ? custs : res.items);
+      },
+      error: () => {}
+    });
+  }
+
+  onClientSelected(id: string): void {
+    const c = this.clients().find(x => x.id === id);
+    if (c) {
+      this.form.patchValue({ clientId: c.id, clientName: c.name });
+    }
   }
 
   openCreateDrawer(): void {
+    this.form.reset({
+      legalEntityId: this.legalEntities()[0]?.id || '',
+      title: '',
+      clientId: null,
+      clientName: '',
+      type: 'FixedPrice',
+      contractValue: 25000,
+      budgetedHours: 120,
+      startDate: new Date(),
+      targetEndDate: null,
+      leadConsultantName: '',
+      description: ''
+    });
     this.drawerVisible.set(true);
   }
 

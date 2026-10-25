@@ -1,5 +1,5 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
@@ -20,6 +20,8 @@ import {
   PosSessionsApi,
 } from '../../core/api/pos.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { SessionStore } from '../../core/session/session.store';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -43,14 +45,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzSpaceModule,
     NzAlertModule,
     PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table [list]="list" [columns]="columns">
       <div toolbar style="display:flex;align-items:center;gap:8px">
-        <button nz-button nzType="default" (click)="openDrawerTxModal()" data-testid="pos-drawer-tx">
+        <button *erpHasPermission="'pos.sessions.manage'" nz-button nzType="default" (click)="openDrawerTxModal()" data-testid="pos-drawer-tx">
           <span nz-icon nzType="swap"></span>Record Drawer Float / Drop
         </button>
-        <a routerLink="/pos/terminal" nz-button nzType="primary" data-testid="pos-open-terminal">
+        <a *erpHasPermission="'pos.sessions.manage'" routerLink="/pos/terminal" nz-button nzType="primary" data-testid="pos-open-terminal">
           <span nz-icon nzType="shop"></span>Open Terminal
         </a>
       </div>
@@ -64,17 +67,17 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             } @else if (column.key === 'closedAt') {
               {{ session.closedAt ? (session.closedAt | date:'medium') : '—' }}
             } @else if (column.key === 'openingCash') {
-              AED {{ session.openingCash | number:'1.2-2' }}
+              {{ currency() }} {{ session.openingCash | number:'1.2-2' }}
             } @else if (column.key === 'totalSales') {
-              <strong>AED {{ session.totalSales | number:'1.2-2' }}</strong>
+              <strong>{{ currency() }} {{ session.totalSales | number:'1.2-2' }}</strong>
             } @else if (column.key === 'expectedCash') {
-              AED {{ session.expectedCash | number:'1.2-2' }}
+              {{ currency() }} {{ session.expectedCash | number:'1.2-2' }}
             } @else if (column.key === 'actualCash') {
-              {{ session.status === 'Closed' ? ('AED ' + (session.actualCash | number:'1.2-2')) : '—' }}
+              {{ session.status === 'Closed' ? (currency() + ' ' + (session.actualCash | number:'1.2-2')) : '—' }}
             } @else if (column.key === 'cashDifference') {
               @if (session.status === 'Closed') {
                 <span [style.color]="session.cashDifference < 0 ? '#dc2626' : (session.cashDifference > 0 ? '#16a34a' : '#64748b')" style="font-weight: 600;">
-                  AED {{ session.cashDifference | number:'1.2-2' }}
+                  {{ currency() }} {{ session.cashDifference | number:'1.2-2' }}
                 </span>
               } @else {
                 <span style="color: #94a3b8;">Pending Close</span>
@@ -116,7 +119,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </div>
 
             <div>
-              <label style="font-weight: 600; display: block; margin-bottom: 4px;">Amount (AED)</label>
+              <label style="font-weight: 600; display: block; margin-bottom: 4px;">Amount ({{ currency() }})</label>
               <nz-input-number [(ngModel)]="txAmount" [nzMin]="1" style="width: 100%; font-size: 16px;"></nz-input-number>
             </div>
 
@@ -132,8 +135,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 })
 export class PosSessionsPage {
   private readonly api = inject(PosSessionsApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
 
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
   readonly list = createPagedList<PosSessionSummaryDto>((q: any) => this.api.list(q));
   readonly openSessions = signal<PosSessionSummaryDto[]>([]);
 
@@ -187,12 +192,13 @@ export class PosSessionsPage {
       return;
     }
 
+    const user = this.sessionStore.me()?.user;
     this.api
       .recordDrawerTransaction(this.selectedSessionId, {
         type: this.txType,
         amount: this.txAmount,
         reason: this.txReason,
-        performedByUserId: '00000000-0000-0000-0000-000000000001',
+        performedByUserId: user?.id || '00000000-0000-0000-0000-000000000001',
       })
       .subscribe({
         next: () => {

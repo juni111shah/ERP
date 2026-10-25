@@ -26,6 +26,7 @@ import {
   DistributionRouteSummaryDto
 } from '../../core/api/distribution.api';
 import { WarehousesApi } from '../../modules/inventory/inventory.api';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -47,14 +48,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzInputNumberModule,
     NzSelectModule,
     NzTableModule,
-    PagedTableComponent
+    PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table
       #table
       [list]="list"
       [columns]="columns">
-      <button toolbar nz-button nzType="primary" (click)="openCreateModal()">
+      <button toolbar *erpHasPermission="'distribution.routes.manage'" nz-button nzType="primary" (click)="openCreateModal()">
         <span nz-icon nzType="plus"></span> Add Route
       </button>
           <ng-template #cell let-row let-column="column">
@@ -192,7 +194,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div class="stops-section">
               <div class="section-header">
                 <h4>Customer Drop Stops ({{ r.stops.length }})</h4>
-                <button nz-button nzType="dashed" nzSize="small" (click)="openAddStopModal()">
+                <button *erpHasPermission="'distribution.routes.manage'" nz-button nzType="dashed" nzSize="small" (click)="openAddStopModal()">
                   <span nz-icon nzType="plus"></span> Add Customer Drop
                 </button>
               </div>

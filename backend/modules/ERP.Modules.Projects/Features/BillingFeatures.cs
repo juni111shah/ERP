@@ -101,6 +101,11 @@ internal sealed class BillingHandlers(
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
 
+        if (!p.CustomerId.HasValue)
+        {
+            throw new ConflictException($"Project '{p.Name}' has no customer assigned. An accounting invoice cannot be generated.");
+        }
+
         var tsQuery = timesheets.Query(new Specification<ProjectTimesheet>(x => x.ProjectId == p.Id && x.IsBillable && !x.IsBilled));
         if (i.TimesheetIds != null && i.TimesheetIds.Count > 0)
         {
@@ -117,12 +122,16 @@ internal sealed class BillingHandlers(
         }
         var msToBill = await msQuery.ToListAsync(ct);
 
+        if (tsToBill.Count == 0 && msToBill.Count == 0)
+        {
+            throw new ConflictException("No unbilled timesheets or achieved milestones found to bill.");
+        }
+
         decimal totalAmount = 0m;
         var invoiceLines = new List<InvoiceLineInput>();
 
         foreach (var ts in tsToBill)
         {
-            ts.IsBilled = true;
             totalAmount += ts.TotalAmount;
             invoiceLines.Add(new InvoiceLineInput(
                 $"{p.Number}: {ts.Description ?? "Timesheet"} ({ts.Hours:0.##} hrs @ {ts.HourlyRate:0.##})",
@@ -132,7 +141,6 @@ internal sealed class BillingHandlers(
 
         foreach (var ms in msToBill)
         {
-            ms.Status = MilestoneStatus.Invoiced;
             totalAmount += ms.Amount;
             invoiceLines.Add(new InvoiceLineInput(
                 $"{p.Number}: {ms.Title} (Milestone)",
@@ -140,26 +148,27 @@ internal sealed class BillingHandlers(
                 ms.Amount));
         }
 
-        Guid? invoiceId = null;
-        string? invoiceNumber = null;
+        var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
+            LegalEntityId: p.LegalEntityId,
+            PartyId: p.CustomerId.Value,
+            InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow),
+            DueDate: DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)),
+            Lines: invoiceLines,
+            Notes: $"Generated for Project {p.Number}: {p.Name}")), ct);
 
-        if (p.CustomerId.HasValue && invoiceLines.Count > 0)
+        foreach (var ts in tsToBill)
         {
-            var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
-                LegalEntityId: p.LegalEntityId,
-                PartyId: p.CustomerId.Value,
-                InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow),
-                DueDate: DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)),
-                Lines: invoiceLines,
-                Notes: $"Generated for Project {p.Number}: {p.Name}")), ct);
+            ts.IsBilled = true;
+        }
 
-            invoiceId = invoice.Id;
-            invoiceNumber = invoice.Number;
+        foreach (var ms in msToBill)
+        {
+            ms.Status = MilestoneStatus.Invoiced;
         }
 
         await timesheets.SaveChangesAsync(ct);
         await milestones.SaveChangesAsync(ct);
 
-        return new BillProjectResultDto(p.Id, tsToBill.Count, msToBill.Count, totalAmount, invoiceId, invoiceNumber);
+        return new BillProjectResultDto(p.Id, tsToBill.Count, msToBill.Count, totalAmount, invoice.Id, invoice.Number);
     }
 }

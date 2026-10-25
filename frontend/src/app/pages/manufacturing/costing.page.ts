@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -13,6 +13,7 @@ import { NzStatisticModule } from 'ng-zorro-antd/statistic';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { SessionStore } from '../../core/session/session.store';
 import {
   BomSummaryDto,
   CostRollupDto,
@@ -71,22 +72,22 @@ import {
             <div nz-row [nzGutter]="16" class="mb-4">
               <div nz-col [nzSpan]="6">
                 <nz-card [nzBordered]="false" class="stat-card">
-                  <nz-statistic [nzTitle]="'Raw Material Cost'" [nzValue]="(rollup.componentCost | number:'1.2-2') || '0.00'" [nzPrefix]="'$'"></nz-statistic>
+                  <nz-statistic [nzTitle]="'Raw Material Cost'" [nzValue]="(rollup.componentCost | number:'1.2-2') || '0.00'" [nzPrefix]="currency()"></nz-statistic>
                 </nz-card>
               </div>
               <div nz-col [nzSpan]="6">
                 <nz-card [nzBordered]="false" class="stat-card">
-                  <nz-statistic [nzTitle]="'Labor & Overhead'" [nzValue]="(rollup.laborAndOverheadCost | number:'1.2-2') || '0.00'" [nzPrefix]="'$'"></nz-statistic>
+                  <nz-statistic [nzTitle]="'Labor & Overhead'" [nzValue]="(rollup.laborAndOverheadCost | number:'1.2-2') || '0.00'" [nzPrefix]="currency()"></nz-statistic>
                 </nz-card>
               </div>
               <div nz-col [nzSpan]="6">
                 <nz-card [nzBordered]="false" class="stat-card">
-                  <nz-statistic [nzTitle]="'Total Batch Standard Cost'" [nzValue]="(rollup.totalStandardCost | number:'1.2-2') || '0.00'" [nzPrefix]="'$'"></nz-statistic>
+                  <nz-statistic [nzTitle]="'Total Batch Standard Cost'" [nzValue]="(rollup.totalStandardCost | number:'1.2-2') || '0.00'" [nzPrefix]="currency()"></nz-statistic>
                 </nz-card>
               </div>
               <div nz-col [nzSpan]="6">
                 <nz-card [nzBordered]="false" class="stat-card highlight">
-                  <nz-statistic [nzTitle]="'Calculated Cost / Unit'" [nzValue]="(rollup.calculatedStandardUnitCost | number:'1.2-2') || '0.00'" [nzPrefix]="'$'"></nz-statistic>
+                  <nz-statistic [nzTitle]="'Calculated Cost / Unit'" [nzValue]="(rollup.calculatedStandardUnitCost | number:'1.2-2') || '0.00'" [nzPrefix]="currency()"></nz-statistic>
                 </nz-card>
               </div>
             </div>
@@ -108,8 +109,8 @@ import {
                       <small class="text-secondary">{{ item.componentItemCode }}</small>
                     </td>
                     <td>{{ item.quantityPerUnit }} {{ item.unitOfMeasure }}</td>
-                    <td>\${{ item.unitCost | number:'1.2-2' }}</td>
-                    <td><strong>\${{ item.extendedCost | number:'1.2-2' }}</strong></td>
+                    <td>{{ currency() }} {{ item.unitCost | number:'1.2-2' }}</td>
+                    <td><strong>{{ currency() }} {{ item.extendedCost | number:'1.2-2' }}</strong></td>
                   </tr>
                 </tbody>
               </nz-table>
@@ -129,7 +130,7 @@ import {
                   <th>Scrap Qty</th>
                   <th>Planned Cost</th>
                   <th>Actual Cost</th>
-                  <th>Variance (\$)</th>
+                  <th>Variance ({{ currency() }})</th>
                   <th>Variance (%)</th>
                   <th>Evaluation</th>
                 </tr>
@@ -142,11 +143,11 @@ import {
                   <td>
                     <span [class.text-danger]="row.scrappedQuantity > 0">{{ row.scrappedQuantity }}</span>
                   </td>
-                  <td>\${{ row.totalPlannedCost | number:'1.2-2' }}</td>
-                  <td>\${{ row.actualTotalCost | number:'1.2-2' }}</td>
+                  <td>{{ currency() }} {{ row.totalPlannedCost | number:'1.2-2' }}</td>
+                  <td>{{ currency() }} {{ row.actualTotalCost | number:'1.2-2' }}</td>
                   <td>
                     <span [class.text-success]="row.isFavorable" [class.text-danger]="!row.isFavorable">
-                      {{ row.isFavorable ? '-' : '+' }}\${{ (row.varianceAmount < 0 ? -row.varianceAmount : row.varianceAmount) | number:'1.2-2' }}
+                      {{ row.isFavorable ? '-' : '+' }}{{ currency() }} {{ (row.varianceAmount < 0 ? -row.varianceAmount : row.varianceAmount) | number:'1.2-2' }}
                     </span>
                   </td>
                   <td>{{ row.variancePercent | number:'1.1-1' }}%</td>
@@ -186,8 +187,10 @@ import {
 export class ManufacturingCostingPageComponent implements OnInit {
   private readonly bomsApi = inject(ManufacturingBomsApi);
   private readonly costingApi = inject(ManufacturingCostingApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
 
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || '$');
   readonly availableBoms = signal<BomSummaryDto[]>([]);
   readonly rollupData = signal<CostRollupDto | null>(null);
   readonly variances = signal<VarianceAnalysisDto[]>([]);

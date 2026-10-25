@@ -237,6 +237,13 @@ internal sealed class PurchaseOrderHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Purchase order '{cmd.Id}' not found.");
 
+        if (order.Status == PurchaseOrderStatus.Billed)
+            throw new ConflictException("Cannot change status of an already billed purchase order.");
+        if (order.Status == PurchaseOrderStatus.Cancelled)
+            throw new ConflictException("Cannot change status of a cancelled purchase order.");
+        if (cmd.Status == PurchaseOrderStatus.Billed && !order.InvoicedBillId.HasValue)
+            throw new ConflictException("Cannot transition to Billed without converting to a vendor bill.");
+
         order.Status = cmd.Status;
         await orders.SaveChangesAsync(ct);
         return await ToDtoAsync(order, fields, ct);
@@ -258,18 +265,28 @@ internal sealed class PurchaseOrderHandlers(
             throw new ConflictException("Purchase order must have an assigned Vendor Party to generate an accounting bill.");
         }
 
-        // Find default expense account
+        // Find inventory clearing (GR/IR) account or default expense account
+        var clearingAccount = await accounts.Query(new Specification<Account>(a => a.SystemRole == SystemRoles.InventoryClearing && a.IsActive && a.IsPostable))
+            .FirstOrDefaultAsync(ct);
+
         var expenseAccount = await accounts.Query(new Specification<Account>(a => a.Type == AccountType.Expense && a.IsPostable))
             .OrderBy(a => a.Code)
             .FirstOrDefaultAsync(ct) ?? throw new ConflictException("No postable expense account configured in Chart of Accounts.");
 
-        var billLines = order.Lines.Select(l => new BillLineInput(
-            Description: $"{order.Number}: {l.Description}",
-            Quantity: l.Quantity,
-            Price: Math.Round(l.UnitPrice * (1m - (l.DiscountPercent / 100m)), 4),
-            AccountId: expenseAccount.Id,
-            ItemId: l.ItemId
-        )).ToList();
+        var billLines = order.Lines.Select(l =>
+        {
+            var acctId = (l.ReceivedQuantity > 0 && clearingAccount != null)
+                ? clearingAccount.Id
+                : expenseAccount.Id;
+
+            return new BillLineInput(
+                Description: $"{order.Number}: {l.Description}",
+                Quantity: l.Quantity,
+                Price: Math.Round(l.UnitPrice * (1m - (l.DiscountPercent / 100m)), 4),
+                AccountId: acctId,
+                ItemId: l.ItemId
+            );
+        }).ToList();
 
         var bill = await sender.Send(new CreateBill(new BillInput(
             LegalEntityId: order.LegalEntityId,

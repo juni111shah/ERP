@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -23,6 +23,8 @@ import {
   LeadSummaryDto
 } from '../../core/api/crm.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { SessionStore } from '../../core/session/session.store';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -43,14 +45,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzInputNumberModule,
     NzDatePickerModule,
     NzSelectModule,
-    PagedTableComponent
+    PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table
       #table
       [list]="list"
       [columns]="columns">
-        <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="lead-new">
+        <button toolbar *erpHasPermission="'crm.leads.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="lead-new">
           <span nz-icon nzType="user-add"></span> Add New Lead
         </button>
           <ng-template #cell let-row let-column="column">
@@ -75,19 +78,21 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-tag [nzColor]="getStatusColor(row.status)">{{ row.status }}</nz-tag>
               </span>
               <span *ngSwitchCase="'estimatedValue'">
-                <strong>\${{ row.estimatedValue | number:'1.0-0' }}</strong>
+                <strong>{{ currency() }} {{ row.estimatedValue | number:'1.0-0' }}</strong>
               </span>
               <span *ngSwitchCase="'assignedUserName'">
                 <span>{{ row.assignedUserName || 'Unassigned' }}</span>
               </span>
               <span *ngSwitchCase="'actions'">
                 <div class="table-actions">
-                  <button
-                    *ngIf="row.status !== 'Converted'"
-                    nz-button nzType="link" nzSize="small" class="text-primary"
-                    (click)="openConvertModal(row)">
-                    <span nz-icon nzType="arrow-right"></span> Convert to Deal
-                  </button>
+                  @if (row.status !== 'Converted') {
+                    <button
+                      *erpHasPermission="'crm.leads.manage'"
+                      nz-button nzType="link" nzSize="small" class="text-primary"
+                      (click)="openConvertModal(row)">
+                      <span nz-icon nzType="arrow-right"></span> Convert to Deal
+                    </button>
+                  }
                   <button nz-button nzType="link" nzSize="small" (click)="viewDetail(row)">
                     <span nz-icon nzType="eye"></span> Details
                   </button>
@@ -260,7 +265,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               </div>
               <div>
                 <span class="label">Estimated Deal:</span>
-                <p class="text-primary font-bold">\${{ lead.estimatedValue | number:'1.0-0' }}</p>
+                <p class="text-primary font-bold">{{ currency() }} {{ lead.estimatedValue | number:'1.0-0' }}</p>
               </div>
             </div>
 
@@ -295,9 +300,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 export class LeadsListPageComponent implements OnInit {
   private readonly api = inject(CrmLeadsApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
 
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || '$');
   readonly list = createPagedList<LeadSummaryDto>((q: any) => this.api.list(q));
   readonly entities = signal<{ id: string; name: string }[]>([]);
 

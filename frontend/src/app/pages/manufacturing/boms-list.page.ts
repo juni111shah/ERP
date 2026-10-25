@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -15,13 +15,15 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { LegalEntitiesApi } from '../../core/api/admin.api';
+import { ItemsApi, ItemDto, LegalEntitiesApi } from '../../core/api/admin.api';
 import {
   BomDto,
   BomSummaryDto,
   ManufacturingBomsApi
 } from '../../core/api/manufacturing.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { SessionStore } from '../../core/session/session.store';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -43,14 +45,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzInputNumberModule,
     NzSelectModule,
     NzTableModule,
-    PagedTableComponent
+    PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table
       #table
       [list]="list"
       [columns]="columns">
-      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()">
+      <button toolbar *erpHasPermission="'manufacturing.boms.manage'" nz-button nzType="primary" (click)="openCreateDrawer()">
         <span nz-icon nzType="plus"></span> Add BOM Recipe
       </button>
           <ng-template #cell let-row let-column="column">
@@ -69,7 +72,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-tag>{{ row.uom }}</nz-tag>
               </span>
               <span *ngSwitchCase="'totalUnitCost'">
-                <strong>\${{ row.totalUnitCost | number:'1.2-2' }}</strong>
+                <strong>{{ currency() }} {{ row.totalUnitCost | number:'1.2-2' }}</strong>
               </span>
               <span *ngSwitchCase="'version'">
                 <nz-tag nzColor="blue">v{{ row.version }}</nz-tag>
@@ -86,7 +89,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <button nz-button nzType="link" nzSize="small" (click)="viewDetail(row)">
                   <span nz-icon nzType="eye"></span> Recipe
                 </button>
-                <button nz-button nzType="link" nzDanger nzSize="small" (click)="deleteBom(row)">
+                <button *erpHasPermission="'manufacturing.boms.manage'" nz-button nzType="link" nzDanger nzSize="small" (click)="deleteBom(row)">
                   <span nz-icon nzType="delete"></span> Delete
                 </button>
               </span>
@@ -175,16 +178,20 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="grid grid-cols-2 gap-4">
               <nz-form-item>
-                <nz-form-label nzRequired>Recipe / Product Name</nz-form-label>
-                <nz-form-control nzErrorTip="Name is required">
-                  <input nz-input formControlName="name" placeholder="e.g. Ergonomic Office Desk Recipe" />
+                <nz-form-label nzRequired>Produced Product / Output Item</nz-form-label>
+                <nz-form-control nzErrorTip="Select produced item">
+                  <nz-select formControlName="outputItemId" nzShowSearch nzPlaceHolder="Select Item" (ngModelChange)="onOutputItemSelected($event)">
+                    @for (it of items(); track it.id) {
+                      <nz-option [nzValue]="it.id" [nzLabel]="it.sku + ' - ' + it.name"></nz-option>
+                    }
+                  </nz-select>
                 </nz-form-control>
               </nz-form-item>
 
               <nz-form-item>
-                <nz-form-label nzRequired>Produced Item Code</nz-form-label>
-                <nz-form-control nzErrorTip="Item code is required">
-                  <input nz-input formControlName="outputItemCode" placeholder="e.g. DSK-ERGO-01" />
+                <nz-form-label nzRequired>Recipe / Product Name</nz-form-label>
+                <nz-form-control nzErrorTip="Name is required">
+                  <input nz-input formControlName="name" placeholder="e.g. Ergonomic Office Desk Recipe" />
                 </nz-form-control>
               </nz-form-item>
             </div>
@@ -250,8 +257,17 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div formArrayName="components" class="components-list">
               <div *ngFor="let comp of componentsArray.controls; let i = index" [formGroupName]="i" class="component-row">
                 <div class="grid grid-cols-4 gap-2">
-                  <input nz-input formControlName="componentItemCode" placeholder="Raw Code (e.g. WD-OAK-01)" />
-                  <input nz-input formControlName="componentItemName" placeholder="Raw Name (e.g. Oak Board)" />
+                  <nz-select
+                    formControlName="componentItemId"
+                    nzShowSearch
+                    nzPlaceHolder="Select Raw Material"
+                    (ngModelChange)="onComponentItemSelected(i, $event)"
+                    class="w-full">
+                    @for (it of items(); track it.id) {
+                      <nz-option [nzValue]="it.id" [nzLabel]="it.sku + ' - ' + it.name"></nz-option>
+                    }
+                  </nz-select>
+                  <input nz-input formControlName="componentItemName" placeholder="Raw Name" />
                   <nz-input-number formControlName="quantityRequired" [nzMin]="0.01" nzPlaceHolder="Qty Req" class="w-full"></nz-input-number>
                   <div class="flex items-center gap-1">
                     <nz-input-number formControlName="unitCost" [nzMin]="0" nzPlaceHolder="Cost" class="w-full"></nz-input-number>
@@ -296,11 +312,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 export class BomsListPageComponent implements OnInit {
   private readonly api = inject(ManufacturingBomsApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly itemsApi = inject(ItemsApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
 
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || '$');
   readonly list = createPagedList<BomSummaryDto>((q: any) => this.api.list(q));
   readonly legalEntities = signal<{ id: string; name: string }[]>([]);
+  readonly items = signal<ItemDto[]>([]);
   readonly detailVisible = signal(false);
   readonly createVisible = signal(false);
   readonly isSubmitting = signal(false);
@@ -324,14 +344,23 @@ export class BomsListPageComponent implements OnInit {
   ngOnInit(): void {
     this.initForm();
     this.loadLegalEntities();
+    this.loadItems();
+  }
+
+  private loadItems(): void {
+    this.itemsApi.list({ page: 1, pageSize: 200 }).subscribe({
+      next: res => this.items.set(res.items || []),
+      error: () => {}
+    });
   }
 
   private initForm(): void {
     this.bomForm = this.fb.group({
       legalEntityId: ['', [Validators.required]],
       code: ['', [Validators.required]],
-      name: ['', [Validators.required]],
+      outputItemId: [null, [Validators.required]],
       outputItemCode: ['', [Validators.required]],
+      name: ['', [Validators.required]],
       baseQuantity: [1, [Validators.required, Validators.min(0.01)]],
       unitOfMeasure: ['PCS', [Validators.required]],
       version: ['1.0'],
@@ -346,9 +375,35 @@ export class BomsListPageComponent implements OnInit {
     return this.bomForm.get('components') as FormArray;
   }
 
+  onOutputItemSelected(itemId: string): void {
+    const it = this.items().find(x => x.id === itemId);
+    if (it) {
+      this.bomForm.patchValue({
+        outputItemId: it.id,
+        outputItemCode: it.sku,
+        name: this.bomForm.value.name || `${it.name} Recipe`,
+        unitOfMeasure: it.uom || 'PCS'
+      });
+    }
+  }
+
+  onComponentItemSelected(index: number, itemId: string): void {
+    const it = this.items().find(x => x.id === itemId);
+    if (it) {
+      const row = this.componentsArray.at(index);
+      row.patchValue({
+        componentItemId: it.id,
+        componentItemCode: it.sku,
+        componentItemName: it.name,
+        unitOfMeasure: it.uom || 'PCS',
+        unitCost: it.purchasePrice || it.salesPrice || 0
+      });
+    }
+  }
+
   addComponent(): void {
     const group = this.fb.group({
-      componentItemId: ['3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+      componentItemId: [null, Validators.required],
       componentItemCode: ['', Validators.required],
       componentItemName: ['', Validators.required],
       quantityRequired: [1, [Validators.required, Validators.min(0.01)]],
@@ -379,6 +434,9 @@ export class BomsListPageComponent implements OnInit {
   openCreateDrawer(): void {
     this.bomForm.reset({
       legalEntityId: this.legalEntities()[0]?.id || '',
+      outputItemId: null,
+      outputItemCode: '',
+      name: '',
       baseQuantity: 1,
       unitOfMeasure: 'PCS',
       version: '1.0',
@@ -411,7 +469,7 @@ export class BomsListPageComponent implements OnInit {
       legalEntityId: v.legalEntityId,
       code: v.code,
       name: v.name,
-      outputItemId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      outputItemId: v.outputItemId,
       outputItemCode: v.outputItemCode,
       outputItemName: v.name,
       baseQuantity: v.baseQuantity,

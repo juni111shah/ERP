@@ -15,11 +15,14 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { LegalEntitiesApi } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import {
+  EngagementSummaryDto,
   MilestoneInput,
   MilestoneStatus,
   MilestoneSummaryDto,
+  ServicesEngagementsApi,
   ServicesMilestonesApi
 } from '../../core/api/services.api';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -38,13 +41,14 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzInputNumberModule,
     NzDatePickerModule,
     NzSelectModule,
-    PagedTableComponent
+    PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table
       [list]="list"
       [columns]="columns">
-      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="milestone-new">
+      <button toolbar *erpHasPermission="'services.milestones.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="milestone-new">
         <span nz-icon nzType="plus"></span> Add Milestone
       </button>
           <ng-template #cell let-row let-column="column">
@@ -73,17 +77,17 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <ng-container *ngSwitchCase="'actions'">
                 <div class="table-actions">
                   @if (row.status === 'Planned') {
-                    <button nz-button nzType="text" nzSize="small" (click)="updateStatus(row, 'ReadyToInvoice')" title="Deliverable Approved (Ready to Invoice)">
+                    <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="updateStatus(row, 'ReadyToInvoice')" title="Deliverable Approved (Ready to Invoice)">
                       <span nz-icon nzType="check-circle" class="text-green-600"></span>
                     </button>
                   }
                   @if (row.status === 'ReadyToInvoice') {
-                    <button nz-button nzType="text" nzSize="small" (click)="updateStatus(row, 'Invoiced')" title="Mark as Invoiced">
-                      <span nz-icon nzType="file-done" class="text-blue-600"></span>
+                    <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="invoiceMilestone(row)" title="Generate Invoice">
+                      <span nz-icon nzType="file-text" class="text-blue-600"></span>
                     </button>
                   }
                   @if (row.status === 'Invoiced') {
-                    <button nz-button nzType="text" nzSize="small" (click)="updateStatus(row, 'Paid')" title="Mark as Paid">
+                    <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="updateStatus(row, 'Paid')" title="Mark as Paid">
                       <span nz-icon nzType="dollar-circle" class="text-emerald-600"></span>
                     </button>
                   }
@@ -108,6 +112,17 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Legal Entity">
                   @for (entity of legalEntities(); track entity.id) {
                     <nz-option [nzValue]="entity.id" [nzLabel]="entity.name"></nz-option>
+                  }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+
+            <nz-form-item>
+              <nz-form-label nzRequired>Service Engagement</nz-form-label>
+              <nz-form-control nzErrorTip="Select engagement">
+                <nz-select formControlName="engagementId" nzShowSearch nzPlaceHolder="Select Engagement">
+                  @for (eng of engagements(); track eng.id) {
+                    <nz-option [nzValue]="eng.id" [nzLabel]="eng.engagementCode + ' - ' + eng.title + ' (' + eng.clientName + ')'"></nz-option>
                   }
                 </nz-select>
               </nz-form-control>
@@ -161,6 +176,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 })
 export class MilestoneBillingPage implements OnInit {
   private readonly api = inject(ServicesMilestonesApi);
+  private readonly engagementsApi = inject(ServicesEngagementsApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
@@ -180,12 +196,13 @@ export class MilestoneBillingPage implements OnInit {
   ];
 
   readonly legalEntities = signal<{ id: string; name: string }[]>([]);
+  readonly engagements = signal<EngagementSummaryDto[]>([]);
   readonly drawerVisible = signal(false);
   readonly isSubmitting = signal(false);
 
   form: FormGroup = this.fb.group({
     legalEntityId: ['', [Validators.required]],
-    engagementId: ['00000000-0000-0000-0000-000000000001'],
+    engagementId: [null, [Validators.required]],
     title: ['', [Validators.required, Validators.maxLength(200)]],
     amount: [15000, [Validators.required, Validators.min(1)]],
     dueDate: [new Date(), [Validators.required]],
@@ -199,6 +216,16 @@ export class MilestoneBillingPage implements OnInit {
         this.legalEntities.set(items.map(e => ({ id: e.id, name: e.name })));
         if (items.length > 0) {
           this.form.patchValue({ legalEntityId: items[0].id });
+        }
+      }
+    });
+
+    this.engagementsApi.list({ page: 1, pageSize: 100 }).subscribe({
+      next: res => {
+        const items = res.items || [];
+        this.engagements.set(items);
+        if (items.length > 0 && !this.form.value.engagementId) {
+          this.form.patchValue({ engagementId: items[0].id });
         }
       }
     });
@@ -225,6 +252,16 @@ export class MilestoneBillingPage implements OnInit {
         this.list.reload();
       },
       error: () => this.msg.error('Failed to update milestone status')
+    });
+  }
+
+  invoiceMilestone(row: MilestoneSummaryDto): void {
+    this.api.invoice(row.id).subscribe({
+      next: () => {
+        this.msg.success(`Invoice generated for milestone ${row.milestoneCode}`);
+        this.list.reload();
+      },
+      error: (err) => this.msg.error(err?.error?.message ?? 'Failed to generate invoice for milestone')
     });
   }
 

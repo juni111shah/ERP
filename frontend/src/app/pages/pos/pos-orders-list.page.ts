@@ -17,6 +17,8 @@ import {
   PosOrderSummaryDto,
 } from '../../core/api/pos.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { SessionStore } from '../../core/session/session.store';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
 
@@ -38,11 +40,12 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
     NzInputModule,
     NzDividerModule,
     PagedTableComponent,
+    HasPermissionDirective,
     ThermalReceiptComponent,
   ],
   template: `
     <erp-paged-table [list]="list" [columns]="columns">
-      <a toolbar routerLink="/pos/terminal" nz-button nzType="primary" data-testid="pos-open-terminal">
+      <a toolbar *erpHasPermission="'pos.orders.create'" routerLink="/pos/terminal" nz-button nzType="primary" data-testid="pos-open-terminal">
         <span nz-icon nzType="shop"></span>Open Terminal
       </a>
           <ng-template #cell let-ord let-column="column">
@@ -59,7 +62,7 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
             } @else if (column.key === 'lineCount') {
               {{ ord.lineCount }} items
             } @else if (column.key === 'totalAmount') {
-              <strong>AED {{ ord.totalAmount | number:'1.2-2' }}</strong>
+              <strong>{{ currency() }} {{ ord.totalAmount | number:'1.2-2' }}</strong>
             } @else if (column.key === 'status') {
               <nz-tag [nzColor]="ord.status === 'Completed' ? 'green' : 'error'">
                 {{ ord.status }}
@@ -72,7 +75,7 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
                 Receipt
               </a>
               @if (ord.status === 'Completed') {
-                <button nz-button nzType="link" nzDanger nzSize="small" (click)="openVoidModal(ord)">
+                <button *erpHasPermission="'pos.orders.void'" nz-button nzType="link" nzDanger nzSize="small" (click)="openVoidModal(ord)">
                   Void
                 </button>
               }
@@ -112,7 +115,7 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
       >
         <ng-container *nzModalContent>
           <div style="display: flex; flex-direction: column; gap: 12px;">
-            <p>Are you sure you want to void order <strong>{{ orderToVoid?.number }}</strong> for AED {{ orderToVoid?.totalAmount | number:'1.2-2' }}?</p>
+            <p>Are you sure you want to void order <strong>{{ orderToVoid?.number }}</strong> for {{ currency() }} {{ orderToVoid?.totalAmount | number:'1.2-2' }}?</p>
             <div>
               <label style="font-weight: 600; display: block; margin-bottom: 4px;">Reason for Void</label>
               <input nz-input [(ngModel)]="voidReason" placeholder="e.g. Accidental ring-up / customer return" />
@@ -127,8 +130,10 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
 })
 export class PosOrdersListPage {
   private readonly api = inject(PosOrdersApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
 
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
   readonly list = createPagedList<PosOrderSummaryDto>((q: any) => this.api.list(q));
 
   readonly columns: TableColumn<PosOrderSummaryDto>[] = [
@@ -158,7 +163,7 @@ export class PosOrdersListPage {
       status: o.status,
       cashierName: o.cashierName,
       customerName: o.customerName,
-      currency: 'AED',
+      currency: this.currency(),
       lines: (o.lines || []).map((l) => ({
         code: l.itemCode,
         description: l.description,

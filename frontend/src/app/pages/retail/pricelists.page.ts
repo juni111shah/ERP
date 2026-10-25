@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -25,6 +25,8 @@ import {
   RetailPriceListSummaryDto
 } from '../../core/api/retail.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { SessionStore } from '../../core/session/session.store';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -47,14 +49,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzDatePickerModule,
     NzSelectModule,
     NzTableModule,
-    PagedTableComponent
+    PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table
       #table
       [list]="list"
       [columns]="columns">
-      <button toolbar nz-button nzType="primary" (click)="openCreateModal()">
+      <button toolbar *erpHasPermission="'retail.pricelists.manage'" nz-button nzType="primary" (click)="openCreateModal()">
         <span nz-icon nzType="plus"></span> Create Price List
       </button>
           <ng-template #cell let-row let-column="column">
@@ -298,9 +301,11 @@ export class PriceListsPageComponent implements OnInit {
   private readonly priceListsApi = inject(RetailPriceListsApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly itemsApi = inject(ItemsApi);
+  private readonly sessionStore = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
 
+  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly itemsList = signal<{ id: string; name: string; sku: string; salesPrice?: number }[]>([]);
   readonly isSaving = signal(false);
@@ -314,7 +319,7 @@ export class PriceListsPageComponent implements OnInit {
     code: ['', [Validators.required]],
     name: ['', [Validators.required]],
     type: ['Standard', [Validators.required]],
-    currency: ['AED', [Validators.required]],
+    currency: [this.currency(), [Validators.required]],
     validFrom: [null],
     validTo: [null],
     isDefault: [false],

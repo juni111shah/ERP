@@ -15,6 +15,7 @@ import { LegalEntitiesApi } from '../../core/api/admin.api';
 import { WarehousesApi, WarehouseRow } from '../../modules/inventory/inventory.api';
 import { RetailStoreDto, RetailStoreInput, RetailStoresApi } from '../../core/api/retail.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -32,6 +33,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzFormModule,
     NzInputModule,
     NzSelectModule,
+    HasPermissionDirective,
     PagedTableComponent
   ],
   template: `
@@ -39,7 +41,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       #table
       [list]="list"
       [columns]="columns">
-      <button toolbar nz-button nzType="primary" (click)="openCreateModal()">
+      <button toolbar nz-button nzType="primary" *erpHasPermission="'retail.stores.manage'" (click)="openCreateModal()">
         <span nz-icon nzType="plus"></span> Add Store
       </button>
           <ng-template #cell let-row let-column="column">
@@ -63,7 +65,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 </nz-tag>
               </span>
               <span *ngSwitchCase="'actions'">
-                <button nz-button nzType="link" nzSize="small" (click)="openEditModal(row)">
+                <button nz-button nzType="link" nzSize="small" *erpHasPermission="'retail.stores.manage'" (click)="openEditModal(row)">
                   <span nz-icon nzType="edit"></span> Edit
                 </button>
               </span>
