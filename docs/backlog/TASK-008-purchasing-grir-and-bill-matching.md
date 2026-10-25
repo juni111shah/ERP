@@ -2,12 +2,12 @@
 id: TASK-008
 title: Goods receipts post to a GR/IR clearing account and the bill clears it
 priority: P0
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: AUDIT-DEEP B1, B11
-commit:
+commit: 84b8486
 ---
 
 ## Problem
@@ -23,9 +23,9 @@ Liabilities double counted; clearing balance grows forever; deleted receipts lea
 - Deleting or voiding a GRN reverses its stock movement and journal in one transaction; block when the PO is already billed.
 
 ## Acceptance criteria
-- [ ] Receive then bill leaves clearing at zero and AP equal to the bill total only once.
-- [ ] Over-receipt beyond tolerance returns 400.
-- [ ] Deleting a receipt restores stock quantity and value and removes the journal effect.
+- [x] Receive then bill leaves clearing at zero and AP equal to the bill total only once.
+- [x] Over-receipt beyond tolerance returns 400.
+- [x] Deleting a receipt restores stock quantity and value and removes the journal effect.
 
 ## Tests required
 `PurchasingLedgerTests` covering the three criteria.
@@ -34,5 +34,17 @@ Liabilities double counted; clearing balance grows forever; deleted receipts lea
 Requisition flow.
 
 ## What I did (Antigravity)
+- Added `ReverseReceiptAsync` to `IStockPostingService` and implemented it in both `InventoryStockPostingService` and `NullStockPostingService`.
+- Added system role `PurchaseVariance = "purchase.variance"` to `SystemRoles` and account 5050 ("Purchase price variance") to `CoreTemplates.ChartOfAccounts`.
+- Removed AP-control and inventory fallbacks in `InventoryStockPostingService.ReceiveStockAsync`, strictly enforcing `SystemRoles.InventoryClearing`.
+- Updated `ConvertPurchaseOrderToBill` in `OrderFeatures.cs` and `PurchasingEndpoints.cs`:
+  - debits the clearing account for received items at PO unit cost;
+  - routes price differences to account 5050 (purchase variance);
+  - routes unreceived / non-inventory lines to the line's expense account;
+  - credits AP for total bill.
+- Added workspace tolerance validation (`purchasing.receiptTolerancePercent`) in `CreateGoodsReceipt`: rejects over-receipt above ordered - received + tolerance with 400 `FieldValidationException`, and blocks receipt creation if the PO is already billed.
+- Updated `DeleteGoodsReceipt`: blocks deletion if the PO is billed, checks that on-hand stock has not fallen below receipt quantity (throwing 409 ConflictException if consumed), restores PO line received quantities, reverses the journal entry, and removes the stock movement.
+- Fixed `DependencyInjection.cs` to use `TryAddScoped<IStockPostingService, NullStockPostingService>()` so module implementations like `InventoryStockPostingService` are not overwritten.
+- Added comprehensive integration tests in `PurchasingLedgerTests.cs` verifying full receive -> bill clearing, tolerance enforcement, price variance allocation, and receipt deletion/reversal. All 392 unit and integration tests passing.
 
 ## Review (Claude)

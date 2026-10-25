@@ -57,6 +57,7 @@ public static class CoreTemplates
         new("4100", "Service revenue", AccountType.Income, "income.services", ReportingGroup: "Revenue"),
         new("4900", "Other income", AccountType.Income, ReportingGroup: "Other income"),
         new("5000", "Cost of goods sold", AccountType.Expense, "cogs", ReportingGroup: "Cost of sales"),
+        new("5050", "Purchase price variance", AccountType.Expense, "purchase.variance", ReportingGroup: "Cost of sales"),
         new("6000", "Salaries and wages", AccountType.Expense, "payroll.expense", ReportingGroup: "Operating expenses"),
         new("6050", "End-of-service benefits", AccountType.Expense, "payroll.gratuity.expense", ReportingGroup: "Operating expenses"),
         new("6100", "Premises expense", AccountType.Expense, ReportingGroup: "Operating expenses"),

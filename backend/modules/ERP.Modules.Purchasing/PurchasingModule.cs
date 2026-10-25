@@ -44,6 +44,7 @@ public sealed class PurchasingModule : ModuleBase
     [
         new("purchasing.requireRequisitionApproval", "Require management approval for requisitions", "false", "bool"),
         new("purchasing.autoApproveOrdersBelow", "Threshold below which POs are auto-approved", "5000", "number"),
+        new("purchasing.receiptTolerancePercent", "Tolerance percentage allowed for goods over-receipt", "0", "number"),
     ];
 
     public override IEnumerable<CustomizableEntityDefinition> CustomizableEntities =>

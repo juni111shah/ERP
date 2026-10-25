@@ -37,6 +37,7 @@ public static class SystemRoles
     public const string Fx = "fx.gainloss";
     public const string InventoryClearing = "inventory.clearing";
     public const string Wip = "wip";
+    public const string PurchaseVariance = "purchase.variance";
 }
 
 public sealed class PostingService(

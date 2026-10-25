@@ -14,6 +14,7 @@ public sealed class InventoryStockPostingService(
     IReadRepository<Warehouse> warehouses,
     IReadRepository<Item> items,
     IPostingService posting,
+    IRepository<JournalEntry> journals,
     IUnitOfWork unitOfWork) : IStockPostingService
 {
     public async Task<bool> IsInventoryEnabledAsync(CancellationToken ct = default)
@@ -55,12 +56,7 @@ public sealed class InventoryStockPostingService(
                 }
                 else
                 {
-                    try { offsetAccount = await posting.AccountForRoleAsync("inventory.clearing", token); }
-                    catch
-                    {
-                        try { offsetAccount = await posting.AccountForRoleAsync(SystemRoles.ApControl, token); }
-                        catch { offsetAccount = await posting.AccountForRoleAsync("inventory", token); }
-                    }
+                    offsetAccount = await posting.AccountForRoleAsync(SystemRoles.InventoryClearing, token);
                 }
 
                 var invAccount = await posting.AccountForRoleAsync("inventory", token);
@@ -153,6 +149,43 @@ public sealed class InventoryStockPostingService(
             await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == wh.Id && m.ItemId == itemId))
                 .ToListAsync(ct));
         return pos.AverageCost > 0 ? pos.AverageCost : (item.PurchasePrice ?? 0m);
+    }
+
+    public async Task ReverseReceiptAsync(string reference, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reference)) return;
+        if (!await IsInventoryEnabledAsync(ct)) return;
+
+        var receiptMovements = await movements.Tracked(new Specification<StockMovement>(m => m.Reference == reference && m.Kind == MovementKind.Receipt))
+            .ToListAsync(ct);
+
+        if (receiptMovements.Count == 0) return;
+
+        foreach (var m in receiptMovements)
+        {
+            var currentStock = (await movements.Query(new Specification<StockMovement>(sm => sm.WarehouseId == m.WarehouseId && sm.ItemId == m.ItemId)).ToListAsync(ct))
+                .Sum(sm => sm.Quantity);
+
+            if (currentStock - m.Quantity < 0)
+            {
+                throw new ConflictException($"Cannot delete goods receipt because item stock ({currentStock}) has already been consumed below received quantity ({m.Quantity}).");
+            }
+
+            if (m.JournalEntryId.HasValue)
+            {
+                var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == m.JournalEntryId.Value).Include(j => j.Lines))
+                    .FirstOrDefaultAsync(ct);
+
+                if (journal != null && journal.Status == JournalStatus.Posted)
+                {
+                    await posting.ReverseTodayAsync(journal, $"Reversal of GRN {reference}", ct);
+                }
+            }
+
+            movements.Remove(m);
+        }
+
+        await movements.SaveChangesAsync(ct);
     }
 
     private async Task<Warehouse?> ResolveWarehouseAsync(Guid? warehouseId, Guid legalEntityId, CancellationToken ct)

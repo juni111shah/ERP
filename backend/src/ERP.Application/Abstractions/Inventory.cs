@@ -33,4 +33,5 @@ public interface IStockPostingService
     Task<Guid?> ReceiveStockAsync(StockReceiveRequest request, CancellationToken ct = default);
     Task<Guid?> IssueStockAsync(StockIssueRequest request, CancellationToken ct = default);
     Task<decimal> GetAverageCostAsync(Guid itemId, Guid? warehouseId = null, CancellationToken ct = default);
+    Task ReverseReceiptAsync(string reference, CancellationToken ct = default);
 }
