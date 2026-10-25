@@ -120,6 +120,9 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                 <a [routerLink]="['/sales/orders', row.id]" nz-button nzType="link" nzSize="small">
                   Manage
                 </a>
+                <a [href]="'/print/order/' + row.id" target="_blank" nz-button nzType="link" nzSize="small" (click)="$event.stopPropagation()">
+                  <span nz-icon nzType="printer"></span>Print
+                </a>
                 <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="link" nzDanger nzSize="small"
                         nz-popconfirm nzPopconfirmTitle="Delete this order?" (nzOnConfirm)="deleteOrder(row.id)">
                   Delete

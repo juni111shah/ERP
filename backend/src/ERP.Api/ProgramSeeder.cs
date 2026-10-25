@@ -1,15 +1,22 @@
 using ERP.Application.Abstractions;
+using ERP.Domain.Catalog;
 using ERP.Domain.Common;
+using ERP.Domain.Finance;
 using ERP.Domain.Identity;
 using ERP.Domain.Organizations;
+using ERP.Domain.Parties;
 using ERP.Domain.Platform;
 using ERP.Infrastructure.Persistence;
 using ERP.Modules.Crm.Domain;
 using ERP.Modules.Distribution.Domain;
+using ERP.Modules.Hr.Domain;
+using ERP.Modules.Inventory;
+using ERP.Modules.Inventory.Domain;
 using ERP.Modules.Manufacturing.Domain;
 using ERP.Modules.Pos.Domain;
 using ERP.Modules.Projects.Domain;
 using ERP.Modules.Purchasing.Domain;
+using ERP.Modules.RealEstate.Domain;
 using ERP.Modules.Retail.Domain;
 using ERP.Modules.Sales.Domain;
 using ERP.Modules.Services.Domain;
@@ -17,6 +24,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
+// Aliases to resolve conflicts across modules
+using MfgWorkOrder = ERP.Modules.Manufacturing.Domain.WorkOrder;
+using ReWorkOrder = ERP.Modules.RealEstate.Domain.WorkOrder;
+using MfgWorkOrderStatus = ERP.Modules.Manufacturing.Domain.WorkOrderStatus;
+using ReWorkOrderStatus = ERP.Modules.RealEstate.Domain.WorkOrderStatus;
+using ReLead = ERP.Modules.RealEstate.Domain.Lead;
+using CrmLead = ERP.Modules.Crm.Domain.CrmLead;
+using RePriority = ERP.Modules.RealEstate.Domain.Priority;
+using SvcMilestoneStatus = ERP.Modules.Services.Domain.MilestoneStatus;
 
 public static class ProgramSeeder
 {
@@ -26,54 +43,81 @@ public static class ProgramSeeder
         var section = config.GetSection("Seed");
         if (!section.GetValue<bool>("Enabled")) return;
 
-        var db = sp.GetRequiredService<AppDbContext>();
-        var log = sp.GetRequiredService<ILoggerFactory>().CreateLogger("ProgramSeeder");
+        var orgs = await sp.GetRequiredService<AppDbContext>().Organizations.ToListAsync(ct);
+        if (orgs.Count == 0) return;
 
-        var demo = await db.Organizations.FirstOrDefaultAsync(o => o.Code == "demo", ct);
-        if (demo is null) return;
-
-        var legalEntity = await db.LegalEntities.FirstOrDefaultAsync(e => e.OrgId == demo.Id, ct);
-        if (legalEntity is null) return;
-
-        var orgCtx = sp.GetRequiredService<IOrgContext>();
-        using (orgCtx.Use(demo.Id))
+        foreach (var org in orgs)
         {
-            await EnableModulesAsync(db, demo.Id, ct);
-            await SeedNumberSequencesAsync(db, demo.Id, legalEntity.Id, ct);
+            using var scope = sp.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var orgCtx = scope.ServiceProvider.GetRequiredService<IOrgContext>();
+            var log = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("ProgramSeeder");
 
-            // 1. Sales
-            await SeedSalesAsync(db, demo.Id, legalEntity.Id, ct);
+            using (orgCtx.Use(org.Id))
+            {
+                var legalEntity = await db.LegalEntities.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.OrgId == org.Id, ct);
+                if (legalEntity is null)
+                {
+                    log.LogWarning("Skipping org '{OrgCode}' - no LegalEntity found.", org.Code);
+                    continue;
+                }
 
-            // 2. Purchasing
-            await SeedPurchasingAsync(db, demo.Id, legalEntity.Id, ct);
+                orgCtx.SetLegalEntity(legalEntity.Id);
 
-            // 3. POS
-            await SeedPosAsync(db, demo.Id, legalEntity.Id, ct);
+                await EnableModulesAsync(db, sp, org.Id, ct);
+                await EnsureAdminAccessAsync(db, org.Id, ct);
+                await SeedNumberSequencesAsync(db, org.Id, legalEntity.Id, ct);
 
-            // 4. Retail
-            await SeedRetailAsync(db, demo.Id, legalEntity.Id, ct);
+                // Core master data & finance
+                await SeedMasterDataAsync(db, org.Id, legalEntity.Id, ct);
+                await SeedFinanceAsync(db, org.Id, legalEntity.Id, ct);
 
-            // 5. Distribution
-            await SeedDistributionAsync(db, demo.Id, legalEntity.Id, ct);
+                // 1. Real Estate
+                await SeedRealEstateAsync(db, org.Id, legalEntity.Id, ct);
 
-            // 6. Manufacturing
-            await SeedManufacturingAsync(db, demo.Id, legalEntity.Id, ct);
+                // 2. HR & Payroll
+                await SeedHrAsync(db, org.Id, legalEntity.Id, ct);
 
-            // 7. CRM
-            await SeedCrmAsync(db, demo.Id, legalEntity.Id, ct);
+                // 3. Inventory
+                await SeedInventoryAsync(db, org.Id, legalEntity.Id, ct);
 
-            // 8. Professional Services
-            await SeedServicesAsync(db, demo.Id, legalEntity.Id, ct);
+                // 4. Sales
+                await SeedSalesAsync(db, org.Id, legalEntity.Id, ct);
 
-            // 9. Projects
-            await SeedProjectsAsync(db, demo.Id, legalEntity.Id, ct);
+                // 5. Purchasing
+                await SeedPurchasingAsync(db, org.Id, legalEntity.Id, ct);
 
-            await db.SaveChangesAsync(ct);
-            log.LogInformation("Successfully verified and seeded test/demo data for all modular expansions in workspace 'demo'.");
+                // 6. POS
+                await SeedPosAsync(db, org.Id, legalEntity.Id, ct);
+
+                // 7. Retail
+                await SeedRetailAsync(db, org.Id, legalEntity.Id, ct);
+
+                // 8. Distribution
+                await SeedDistributionAsync(db, org.Id, legalEntity.Id, ct);
+
+                // 9. Manufacturing
+                await SeedManufacturingAsync(db, org.Id, legalEntity.Id, ct);
+
+                // 10. CRM
+                await SeedCrmAsync(db, org.Id, legalEntity.Id, ct);
+
+                // 11. Professional Services
+                await SeedServicesAsync(db, org.Id, legalEntity.Id, ct);
+
+                // 12. Projects
+                await SeedProjectsAsync(db, org.Id, legalEntity.Id, ct);
+
+                // 13. Comprehensive 2-Year Historical Data (24 months of activity)
+                await SeedTwoYearHistoryAsync(db, org.Id, legalEntity.Id, ct);
+
+                await db.SaveChangesAsync(ct);
+                log.LogInformation("Successfully verified and seeded demo data for workspace '{OrgName}' ({OrgCode}).", org.Name, org.Code);
+            }
         }
     }
 
-    private static async Task EnableModulesAsync(AppDbContext db, Guid orgId, CancellationToken ct)
+    private static async Task EnableModulesAsync(AppDbContext db, IServiceProvider sp, Guid orgId, CancellationToken ct)
     {
         var modulesToEnable = new[]
         {
@@ -83,7 +127,8 @@ public static class ProgramSeeder
 
         foreach (var mod in modulesToEnable)
         {
-            if (!await db.OrganizationModules.AnyAsync(m => m.OrgId == orgId && m.ModuleKey == mod, ct))
+            var existing = await db.OrganizationModules.IgnoreQueryFilters().FirstOrDefaultAsync(m => m.OrgId == orgId && m.ModuleKey == mod, ct);
+            if (existing is null)
             {
                 db.OrganizationModules.Add(new OrganizationModule
                 {
@@ -92,6 +137,36 @@ public static class ProgramSeeder
                     IsEnabled = true,
                     EnabledAt = DateTime.UtcNow
                 });
+            }
+            else if (!existing.IsEnabled)
+            {
+                existing.IsEnabled = true;
+                existing.EnabledAt = DateTime.UtcNow;
+                existing.DisabledAt = null;
+            }
+        }
+        await db.SaveChangesAsync(ct);
+
+        var cache = sp.GetService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+        cache?.Remove(ERP.Infrastructure.Services.ModuleAccess.CacheKey(orgId));
+    }
+
+    private static async Task EnsureAdminAccessAsync(AppDbContext db, Guid orgId, CancellationToken ct)
+    {
+        var adminRole = await db.Roles.IgnoreQueryFilters().FirstOrDefaultAsync(r => r.OrgId == orgId && r.Name == "Org admin", ct);
+        if (adminRole is null) return;
+
+        var users = await db.Users.Where(u => u.Email == "owner@demo.local" || u.Email == "admin@demo.local").ToListAsync(ct);
+        foreach (var user in users)
+        {
+            if (!await db.OrganizationMembers.IgnoreQueryFilters().AnyAsync(m => m.OrgId == orgId && m.UserId == user.Id, ct))
+            {
+                db.OrganizationMembers.Add(new OrganizationMember { OrgId = orgId, UserId = user.Id, JoinedAt = DateTime.UtcNow, IsActive = true });
+            }
+
+            if (!await db.UserRoles.IgnoreQueryFilters().AnyAsync(ur => ur.OrgId == orgId && ur.UserId == user.Id && ur.RoleId == adminRole.Id, ct))
+            {
+                db.UserRoles.Add(new UserRole { OrgId = orgId, UserId = user.Id, RoleId = adminRole.Id });
             }
         }
         await db.SaveChangesAsync(ct);
@@ -109,7 +184,13 @@ public static class ProgramSeeder
             ("mfg_bom", "BOM"), ("mfg_workorder", "WO"), ("mfg_costing", "CR"),
             ("crm_lead", "LEAD"), ("crm_opportunity", "OPP"),
             ("svc_engagement", "ENG"), ("svc_retainer", "RET"), ("svc_milestone", "MLS"),
-            ("project", "PRJ")
+            ("project", "PRJ"),
+            ("property", "PROP"), ("unit", "UNT"), ("lease", "LSE"), ("re_workorder", "WO"),
+            ("acquisition", "ACQ"), ("deal", "DEAL"), ("listing", "LST"),
+            ("employee", "EMP"), ("payroll", "PR"),
+            ("warehouse", "WH"),
+            ("party", "PTY"), ("item", "ITM"), ("invoice", "INV"), ("bill", "BIL"),
+            ("settlement", "SET"), ("journal", "JRN"), ("cheque", "CHQ")
         };
 
         foreach (var (docType, prefix) in docTypes)
@@ -128,6 +209,1604 @@ public static class ProgramSeeder
             }
         }
         await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedMasterDataAsync(AppDbContext db, Guid orgId, Guid legalEntityId, CancellationToken ct)
+    {
+        // 1. Business Units
+        if (!await db.BusinessUnits.AnyAsync(ct))
+        {
+            db.BusinessUnits.AddRange(
+                new BusinessUnit { LegalEntityId = legalEntityId, Code = "BU-COMM", Name = "Commercial & Enterprise Division", IsActive = true },
+                new BusinessUnit { LegalEntityId = legalEntityId, Code = "BU-RES", Name = "Residential & Property Portfolio", IsActive = true },
+                new BusinessUnit { LegalEntityId = legalEntityId, Code = "BU-RET", Name = "Retail & Consumer Operations", IsActive = true }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 2. Parties
+        if (!await db.Parties.AnyAsync(ct))
+        {
+            db.Parties.AddRange(
+                new Party
+                {
+                    Code = "CUST-001",
+                    Name = "Apex Global Trading LLC",
+                    Kind = PartyKind.Company,
+                    Roles = PartyRoles.Customer,
+                    Email = "procurement@apexglobal.example.com",
+                    Phone = "+971 4 398 1234",
+                    TaxNumber = "100294827100003",
+                    Address = "Sheikh Zayed Road, Latifa Tower Suite 1802, Dubai, UAE",
+                    CurrencyCode = "AED",
+                    PaymentTermsDays = 30,
+                    IsActive = true
+                },
+                new Party
+                {
+                    Code = "CUST-002",
+                    Name = "Oasis Retailers Corp",
+                    Kind = PartyKind.Company,
+                    Roles = PartyRoles.Customer,
+                    Email = "supplychain@oasisretail.example.com",
+                    Phone = "+971 4 456 7890",
+                    TaxNumber = "100389172600003",
+                    Address = "Al Quoz Industrial Area 3, Dubai, UAE",
+                    CurrencyCode = "AED",
+                    PaymentTermsDays = 30,
+                    IsActive = true
+                },
+                new Party
+                {
+                    Code = "CUST-003",
+                    Name = "Emaar Investment PJSC",
+                    Kind = PartyKind.Company,
+                    Roles = PartyRoles.Customer,
+                    Email = "investments@emaar.example.com",
+                    Phone = "+971 4 367 3333",
+                    TaxNumber = "100112233400003",
+                    Address = "Downtown Dubai, Emaar Square Bldg 3, Dubai, UAE",
+                    CurrencyCode = "AED",
+                    PaymentTermsDays = 45,
+                    IsActive = true
+                },
+                new Party
+                {
+                    Code = "VEND-001",
+                    Name = "TechSupply Electronics International",
+                    Kind = PartyKind.Company,
+                    Roles = PartyRoles.Vendor,
+                    Email = "sales@techsupply.example.com",
+                    Phone = "+971 4 881 5566",
+                    TaxNumber = "100492817200003",
+                    Address = "Jebel Ali Free Zone, South Zone, Warehouse 14B, Dubai",
+                    CurrencyCode = "AED",
+                    PaymentTermsDays = 60,
+                    IsActive = true
+                },
+                new Party
+                {
+                    Code = "VEND-002",
+                    Name = "Al Futtaim Facilities Management LLC",
+                    Kind = PartyKind.Company,
+                    Roles = PartyRoles.Vendor,
+                    Email = "service@alfuttaimfm.example.com",
+                    Phone = "+971 4 213 1122",
+                    TaxNumber = "100581920100003",
+                    Address = "Dubai Festival City, Tower 2, Floor 8, Dubai",
+                    CurrencyCode = "AED",
+                    PaymentTermsDays = 30,
+                    IsActive = true
+                },
+                new Party
+                {
+                    Code = "VEND-003",
+                    Name = "Dubai Electricity & Water Authority (DEWA)",
+                    Kind = PartyKind.Company,
+                    Roles = PartyRoles.Vendor,
+                    Email = "customercare@dewa.gov.ae",
+                    Phone = "+971 4 601 9999",
+                    TaxNumber = "100000000100003",
+                    Address = "Near Wafi Mall, Zabeel East, Dubai, UAE",
+                    CurrencyCode = "AED",
+                    PaymentTermsDays = 15,
+                    IsActive = true
+                },
+                new Party
+                {
+                    Code = "PART-001",
+                    Name = "Michael Schumacher",
+                    Kind = PartyKind.Individual,
+                    Roles = PartyRoles.Customer,
+                    Email = "m.schumacher@example.com",
+                    Phone = "+971 50 123 4567",
+                    Address = "Marina Bay Heights Unit 101, Dubai Marina, UAE",
+                    CurrencyCode = "AED",
+                    IsActive = true
+                },
+                new Party
+                {
+                    Code = "PART-002",
+                    Name = "Amina Al-Mansouri",
+                    Kind = PartyKind.Individual,
+                    Roles = PartyRoles.Customer,
+                    Email = "amina.mansouri@example.com",
+                    Phone = "+971 55 987 6543",
+                    Address = "Downtown Executive Tower Unit 201, Dubai, UAE",
+                    CurrencyCode = "AED",
+                    IsActive = true
+                },
+                new Party
+                {
+                    Code = "EMP-001",
+                    Name = "Tariq Al-Hashimi",
+                    Kind = PartyKind.Individual,
+                    Roles = PartyRoles.Employee,
+                    Email = "tariq@demo.local",
+                    Phone = "+971 52 334 4556",
+                    Address = "Al Barsha 2, Villa 18, Dubai, UAE",
+                    CurrencyCode = "AED",
+                    IsActive = true
+                },
+                new Party
+                {
+                    Code = "EMP-002",
+                    Name = "Sarah Jenkins",
+                    Kind = PartyKind.Individual,
+                    Roles = PartyRoles.Employee,
+                    Email = "sarah.j@demo.local",
+                    Phone = "+971 50 776 5544",
+                    Address = "Jumeirah Beach Residence, Sadaf 4, Dubai",
+                    CurrencyCode = "AED",
+                    IsActive = true
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 3. Items (Catalog)
+        if (!await db.Items.AnyAsync(ct))
+        {
+            var taxCode = await db.TaxCodes.FirstOrDefaultAsync(t => t.IsDefault, ct);
+            var incomeAcc = await db.Accounts.FirstOrDefaultAsync(a => a.Type == AccountType.Income, ct);
+            var expenseAcc = await db.Accounts.FirstOrDefaultAsync(a => a.Type == AccountType.Expense, ct);
+
+            db.Items.AddRange(
+                new Item
+                {
+                    Sku = "ERP-CORE",
+                    Name = "Enterprise ERP Core License & Database",
+                    Type = ItemType.Service,
+                    Uom = "ea",
+                    SalesPrice = 95000m,
+                    PurchasePrice = 45000m,
+                    TaxCodeId = taxCode?.Id,
+                    IncomeAccountId = incomeAcc?.Id,
+                    ExpenseAccountId = expenseAcc?.Id,
+                    IsActive = true
+                },
+                new Item
+                {
+                    Sku = "SRV-IMPL",
+                    Name = "Professional Implementation, Customization & Go-Live Support",
+                    Type = ItemType.Service,
+                    Uom = "day",
+                    SalesPrice = 3500m,
+                    PurchasePrice = 2000m,
+                    TaxCodeId = taxCode?.Id,
+                    IncomeAccountId = incomeAcc?.Id,
+                    ExpenseAccountId = expenseAcc?.Id,
+                    IsActive = true
+                },
+                new Item
+                {
+                    Sku = "POS-TERM-01",
+                    Name = "Dual-Screen Touch POS Terminal i5/8GB/SSD",
+                    Type = ItemType.Product,
+                    Uom = "pcs",
+                    SalesPrice = 4500m,
+                    PurchasePrice = 2800m,
+                    TaxCodeId = taxCode?.Id,
+                    IncomeAccountId = incomeAcc?.Id,
+                    ExpenseAccountId = expenseAcc?.Id,
+                    IsActive = true
+                },
+                new Item
+                {
+                    Sku = "POS-SCAN-2D",
+                    Name = "Wireless Omni-directional 2D Barcode Scanner",
+                    Type = ItemType.Product,
+                    Uom = "pcs",
+                    SalesPrice = 850m,
+                    PurchasePrice = 480m,
+                    TaxCodeId = taxCode?.Id,
+                    IncomeAccountId = incomeAcc?.Id,
+                    ExpenseAccountId = expenseAcc?.Id,
+                    IsActive = true
+                },
+                new Item
+                {
+                    Sku = "POS-PRN-80",
+                    Name = "Thermal High-Speed Receipt Printer 80mm USB/LAN",
+                    Type = ItemType.Product,
+                    Uom = "pcs",
+                    SalesPrice = 1500m,
+                    PurchasePrice = 950m,
+                    TaxCodeId = taxCode?.Id,
+                    IncomeAccountId = incomeAcc?.Id,
+                    ExpenseAccountId = expenseAcc?.Id,
+                    IsActive = true
+                },
+                new Item
+                {
+                    Sku = "HW-IOT-GW02",
+                    Name = "Industrial IoT Edge Gateway Hub",
+                    Type = ItemType.Product,
+                    Uom = "pcs",
+                    SalesPrice = 2200m,
+                    PurchasePrice = 1350m,
+                    TaxCodeId = taxCode?.Id,
+                    IncomeAccountId = incomeAcc?.Id,
+                    ExpenseAccountId = expenseAcc?.Id,
+                    IsActive = true
+                },
+                new Item
+                {
+                    Sku = "SRV-FM-MAINT",
+                    Name = "HVAC & Mechanical Preventive Maintenance",
+                    Type = ItemType.Service,
+                    Uom = "mth",
+                    SalesPrice = 3500m,
+                    PurchasePrice = 2200m,
+                    TaxCodeId = taxCode?.Id,
+                    IncomeAccountId = incomeAcc?.Id,
+                    ExpenseAccountId = expenseAcc?.Id,
+                    IsActive = true
+                },
+                new Item
+                {
+                    Sku = "SRV-PROP-MGMT",
+                    Name = "Monthly Asset & Property Management Fee",
+                    Type = ItemType.Service,
+                    Uom = "mth",
+                    SalesPrice = 5000m,
+                    PurchasePrice = 0m,
+                    TaxCodeId = taxCode?.Id,
+                    IncomeAccountId = incomeAcc?.Id,
+                    ExpenseAccountId = expenseAcc?.Id,
+                    IsActive = true
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    private static async Task SeedFinanceAsync(AppDbContext db, Guid orgId, Guid legalEntityId, CancellationToken ct)
+    {
+        var cust1 = await db.Parties.FirstOrDefaultAsync(p => p.Code == "CUST-001", ct);
+        var cust2 = await db.Parties.FirstOrDefaultAsync(p => p.Code == "CUST-002", ct);
+        var cust3 = await db.Parties.FirstOrDefaultAsync(p => p.Code == "CUST-003", ct);
+        var vend1 = await db.Parties.FirstOrDefaultAsync(p => p.Code == "VEND-001", ct);
+        var vend2 = await db.Parties.FirstOrDefaultAsync(p => p.Code == "VEND-002", ct);
+
+        var itemCore = await db.Items.FirstOrDefaultAsync(i => i.Sku == "ERP-CORE", ct);
+        var itemImpl = await db.Items.FirstOrDefaultAsync(i => i.Sku == "SRV-IMPL", ct);
+        var itemPos = await db.Items.FirstOrDefaultAsync(i => i.Sku == "POS-TERM-01", ct);
+        var taxCode = await db.TaxCodes.FirstOrDefaultAsync(t => t.IsDefault, ct);
+        var bankAcc = await db.Accounts.FirstOrDefaultAsync(a => a.IsBank, ct);
+        var arAcc = await db.Accounts.FirstOrDefaultAsync(a => a.SystemRole == "ar.control" || a.Type == AccountType.Asset, ct);
+        var apAcc = await db.Accounts.FirstOrDefaultAsync(a => a.SystemRole == "ap.control" || a.Type == AccountType.Liability, ct);
+        var incomeAcc = await db.Accounts.FirstOrDefaultAsync(a => a.Type == AccountType.Income, ct);
+        var expenseAcc = await db.Accounts.FirstOrDefaultAsync(a => a.Type == AccountType.Expense, ct);
+
+        // 1. Invoices
+        if (!await db.Invoices.AnyAsync(ct))
+        {
+            var inv1 = new Invoice
+            {
+                LegalEntityId = legalEntityId,
+                Number = "INV-2026-0001",
+                IsCreditNote = false,
+                PartyId = cust1?.Id ?? Guid.NewGuid(),
+                PartyName = cust1?.Name ?? "Apex Global Trading LLC",
+                InvoiceDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-20)),
+                DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                CurrencyCode = "AED",
+                ExchangeRate = 1m,
+                Net = 95000m,
+                Tax = 4750m,
+                Total = 99750m,
+                Paid = 99750m,
+                Status = DocumentStatus.Paid,
+                Notes = "Enterprise ERP Cloud Platform Deployment",
+                Lines = new List<InvoiceLine>
+                {
+                    new()
+                    {
+                        Seq = 1,
+                        ItemId = itemCore?.Id,
+                        Description = "Enterprise ERP Core License & Multi-tenant Database",
+                        Quantity = 1,
+                        Price = 95000m,
+                        TaxCodeId = taxCode?.Id,
+                        TaxAmount = 4750m
+                    }
+                }
+            };
+
+            var inv2 = new Invoice
+            {
+                LegalEntityId = legalEntityId,
+                Number = "INV-2026-0002",
+                IsCreditNote = false,
+                PartyId = cust2?.Id ?? Guid.NewGuid(),
+                PartyName = cust2?.Name ?? "Oasis Retailers Corp",
+                InvoiceDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-8)),
+                DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(22)),
+                CurrencyCode = "AED",
+                ExchangeRate = 1m,
+                Net = 68500m,
+                Tax = 3425m,
+                Total = 71925m,
+                Paid = 30000m,
+                Status = DocumentStatus.PartlyPaid,
+                Notes = "POS Hardware Fleet Deployment for Dubai Mall",
+                Lines = new List<InvoiceLine>
+                {
+                    new()
+                    {
+                        Seq = 1,
+                        ItemId = itemPos?.Id,
+                        Description = "Dual-Screen Touch POS Terminal i5/8GB/SSD (10 units)",
+                        Quantity = 10,
+                        Price = 4500m,
+                        TaxCodeId = taxCode?.Id,
+                        TaxAmount = 2250m
+                    },
+                    new()
+                    {
+                        Seq = 2,
+                        ItemId = itemImpl?.Id,
+                        Description = "On-site Installation, Staff Training and Staging",
+                        Quantity = 1,
+                        Price = 23500m,
+                        TaxCodeId = taxCode?.Id,
+                        TaxAmount = 1175m
+                    }
+                }
+            };
+
+            var inv3 = new Invoice
+            {
+                LegalEntityId = legalEntityId,
+                Number = "INV-2026-0003",
+                IsCreditNote = false,
+                PartyId = cust3?.Id ?? Guid.NewGuid(),
+                PartyName = cust3?.Name ?? "Emaar Investment PJSC",
+                InvoiceDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)),
+                DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(28)),
+                CurrencyCode = "AED",
+                ExchangeRate = 1m,
+                Net = 35000m,
+                Tax = 1750m,
+                Total = 36750m,
+                Paid = 0m,
+                Status = DocumentStatus.Issued,
+                Notes = "Portfolio Valuation & Real Estate Advisory Fee",
+                Lines = new List<InvoiceLine>
+                {
+                    new()
+                    {
+                        Seq = 1,
+                        ItemId = itemImpl?.Id,
+                        Description = "Quarterly Strategic Portfolio & Financial Audit",
+                        Quantity = 10,
+                        Price = 3500m,
+                        TaxCodeId = taxCode?.Id,
+                        TaxAmount = 1750m
+                    }
+                }
+            };
+
+            db.Invoices.AddRange(inv1, inv2, inv3);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 2. Bills
+        if (!await db.Bills.AnyAsync(ct))
+        {
+            var bill1 = new Bill
+            {
+                LegalEntityId = legalEntityId,
+                Number = "BIL-2026-0001",
+                PartyId = vend1?.Id ?? Guid.NewGuid(),
+                PartyName = vend1?.Name ?? "TechSupply Electronics International",
+                VendorReference = "TSE-INV-8841",
+                BillDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
+                DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(15)),
+                CurrencyCode = "AED",
+                ExchangeRate = 1m,
+                Net = 42500m,
+                Tax = 2125m,
+                Total = 44625m,
+                Paid = 44625m,
+                Status = DocumentStatus.Paid,
+                Notes = "Rugged Handheld Barcode Scanners and Multi-bay Docks",
+                Lines = new List<BillLine>
+                {
+                    new()
+                    {
+                        Seq = 1,
+                        ItemId = itemPos?.Id,
+                        Description = "Industrial Mobile Scanners & Multi-Dock Kits",
+                        Quantity = 15,
+                        Price = 2500m,
+                        TaxCodeId = taxCode?.Id,
+                        TaxAmount = 1875m,
+                        Net = 37500m,
+                        AccountId = expenseAcc?.Id
+                    },
+                    new()
+                    {
+                        Seq = 2,
+                        Description = "Charging Cradles",
+                        Quantity = 5,
+                        Price = 1000m,
+                        TaxCodeId = taxCode?.Id,
+                        TaxAmount = 250m,
+                        Net = 5000m,
+                        AccountId = expenseAcc?.Id
+                    }
+                }
+            };
+
+            var bill2 = new Bill
+            {
+                LegalEntityId = legalEntityId,
+                Number = "BIL-2026-0002",
+                PartyId = vend2?.Id ?? Guid.NewGuid(),
+                PartyName = vend2?.Name ?? "Al Futtaim Facilities Management LLC",
+                VendorReference = "AF-FM-9021",
+                BillDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
+                DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(25)),
+                CurrencyCode = "AED",
+                ExchangeRate = 1m,
+                Net = 25000m,
+                Tax = 1250m,
+                Total = 26250m,
+                Paid = 0m,
+                Status = DocumentStatus.Issued,
+                Notes = "Monthly Chiller and Building Maintenance Retainer",
+                Lines = new List<BillLine>
+                {
+                    new()
+                    {
+                        Seq = 1,
+                        Description = "Commercial Chiller & HVAC System Preventative Servicing",
+                        Quantity = 1,
+                        Price = 25000m,
+                        TaxCodeId = taxCode?.Id,
+                        TaxAmount = 1250m,
+                        Net = 25000m,
+                        AccountId = expenseAcc?.Id
+                    }
+                }
+            };
+
+            db.Bills.AddRange(bill1, bill2);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 3. Journal Entries
+        if (!await db.JournalEntries.AnyAsync(ct))
+        {
+            var jrn1 = new JournalEntry
+            {
+                LegalEntityId = legalEntityId,
+                Number = "JRN-2026-0001",
+                Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+                Memo = "Opening Equity Capital Contribution & Cash Injection",
+                Reference = "CAP-INJ-01",
+                CurrencyCode = "AED",
+                ExchangeRate = 1m,
+                Status = JournalStatus.Posted,
+                Amount = 500000m,
+                PostedAt = DateTime.UtcNow.AddDays(-30),
+                Lines = new List<JournalLine>
+                {
+                    new()
+                    {
+                        Seq = 1,
+                        AccountId = bankAcc?.Id ?? Guid.NewGuid(),
+                        Debit = 500000m,
+                        Credit = 0m,
+                        Description = "Cash at Bank - Emirates NBD Operating Account"
+                    },
+                    new()
+                    {
+                        Seq = 2,
+                        AccountId = arAcc?.Id ?? Guid.NewGuid(),
+                        Debit = 0m,
+                        Credit = 500000m,
+                        Description = "Shareholder Capital / Owner's Equity"
+                    }
+                }
+            };
+
+            var jrn2 = new JournalEntry
+            {
+                LegalEntityId = legalEntityId,
+                Number = "JRN-2026-0002",
+                Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
+                Memo = "Monthly Technology Depreciation & Amortization Provision",
+                Reference = "DEP-M09-2026",
+                CurrencyCode = "AED",
+                ExchangeRate = 1m,
+                Status = JournalStatus.Posted,
+                Amount = 12500m,
+                PostedAt = DateTime.UtcNow.AddDays(-10),
+                Lines = new List<JournalLine>
+                {
+                    new()
+                    {
+                        Seq = 1,
+                        AccountId = expenseAcc?.Id ?? Guid.NewGuid(),
+                        Debit = 12500m,
+                        Credit = 0m,
+                        Description = "Depreciation Expense - POS & Server Hardware"
+                    },
+                    new()
+                    {
+                        Seq = 2,
+                        AccountId = apAcc?.Id ?? Guid.NewGuid(),
+                        Debit = 0m,
+                        Credit = 12500m,
+                        Description = "Accumulated Depreciation - Plant & Equipment"
+                    }
+                }
+            };
+
+            db.JournalEntries.AddRange(jrn1, jrn2);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 4. Payment Instruments (Cheques / PDCs)
+        if (!await db.PaymentInstruments.AnyAsync(ct))
+        {
+            db.PaymentInstruments.AddRange(
+                new PaymentInstrument
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = "CHQ-2026-0001",
+                    Kind = InstrumentKind.PostDatedCheque,
+                    Direction = InstrumentDirection.Received,
+                    InstrumentNo = "408192",
+                    BankName = "Emirates NBD",
+                    Amount = 30000m,
+                    CurrencyCode = "AED",
+                    InstrumentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(15)),
+                    ReceivedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
+                    PartyId = cust2?.Id,
+                    PartyName = cust2?.Name,
+                    Status = InstrumentStatus.InCustody,
+                    BankAccountId = bankAcc?.Id,
+                    Notes = "Q4 Instalment PDC held in office vault"
+                },
+                new PaymentInstrument
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = "CHQ-2026-0002",
+                    Kind = InstrumentKind.PostDatedCheque,
+                    Direction = InstrumentDirection.Received,
+                    InstrumentNo = "889102",
+                    BankName = "First Abu Dhabi Bank",
+                    Amount = 25000m,
+                    CurrencyCode = "AED",
+                    InstrumentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(45)),
+                    ReceivedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
+                    PartyId = cust1?.Id,
+                    PartyName = cust1?.Name,
+                    Status = InstrumentStatus.Deposited,
+                    BankAccountId = bankAcc?.Id,
+                    DepositedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)),
+                    Notes = "Deposited at branch drop box for clearance"
+                },
+                new PaymentInstrument
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = "CHQ-2026-0003",
+                    Kind = InstrumentKind.Cheque,
+                    Direction = InstrumentDirection.Issued,
+                    InstrumentNo = "100412",
+                    BankName = "Dubai Islamic Bank",
+                    Amount = 44625m,
+                    CurrencyCode = "AED",
+                    InstrumentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-12)),
+                    ReceivedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
+                    PartyId = vend1?.Id,
+                    PartyName = vend1?.Name,
+                    Status = InstrumentStatus.Cleared,
+                    BankAccountId = bankAcc?.Id,
+                    ClearedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-8)),
+                    Notes = "Settlement for PO-2026-0001 delivered hardware"
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 5. Settlements (Receipts & Payments)
+        if (!await db.Settlements.AnyAsync(ct))
+        {
+            var inv1 = await db.Invoices.FirstOrDefaultAsync(i => i.Number == "INV-2026-0001", ct);
+            var bill1 = await db.Bills.FirstOrDefaultAsync(b => b.Number == "BIL-2026-0001", ct);
+
+            db.Settlements.AddRange(
+                new Settlement
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = "REC-2026-0001",
+                    Direction = InstrumentDirection.Received,
+                    PartyId = cust1?.Id ?? Guid.NewGuid(),
+                    PartyName = cust1?.Name ?? "Apex Global Trading LLC",
+                    Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
+                    Method = SettlementMethod.BankTransfer,
+                    BankAccountId = bankAcc?.Id,
+                    CurrencyCode = "AED",
+                    Amount = 99750m,
+                    Unallocated = 0m,
+                    Reference = "FT-ENBD-88491",
+                    Status = DocumentStatus.Paid,
+                    Allocations = inv1 != null ? new List<SettlementAllocation>
+                    {
+                        new() { InvoiceId = inv1.Id, Amount = 99750m }
+                    } : new()
+                },
+                new Settlement
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = "PAY-2026-0001",
+                    Direction = InstrumentDirection.Issued,
+                    PartyId = vend1?.Id ?? Guid.NewGuid(),
+                    PartyName = vend1?.Name ?? "TechSupply Electronics International",
+                    Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
+                    Method = SettlementMethod.BankTransfer,
+                    BankAccountId = bankAcc?.Id,
+                    CurrencyCode = "AED",
+                    Amount = 44625m,
+                    Unallocated = 0m,
+                    Reference = "SWIFT-OUT-49120",
+                    Status = DocumentStatus.Paid,
+                    Allocations = bill1 != null ? new List<SettlementAllocation>
+                    {
+                        new() { BillId = bill1.Id, Amount = 44625m }
+                    } : new()
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 6. Budgets
+        if (!await db.Budgets.AnyAsync(ct))
+        {
+            var budget = new Budget
+            {
+                LegalEntityId = legalEntityId,
+                Name = "Corporate Operating Budget 2026",
+                FiscalYear = 2026,
+                IsActive = true,
+                Notes = "Board approved annual operating budget across commercial units"
+            };
+
+            if (incomeAcc != null)
+            {
+                for (int m = 1; m <= 12; m++)
+                {
+                    budget.Lines.Add(new BudgetLine
+                    {
+                        AccountId = incomeAcc.Id,
+                        Month = m,
+                        Amount = 250000m
+                    });
+                }
+            }
+            if (expenseAcc != null)
+            {
+                for (int m = 1; m <= 12; m++)
+                {
+                    budget.Lines.Add(new BudgetLine
+                    {
+                        AccountId = expenseAcc.Id,
+                        Month = m,
+                        Amount = 145000m
+                    });
+                }
+            }
+            db.Budgets.Add(budget);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 7. Bank Statement Lines (Reconciliation)
+        if (!await db.BankStatementLines.AnyAsync(ct))
+        {
+            if (bankAcc != null)
+            {
+                db.BankStatementLines.AddRange(
+                    new BankStatementLine
+                    {
+                        LegalEntityId = legalEntityId,
+                        AccountId = bankAcc.Id,
+                        Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
+                        Description = "DIRECT DEPOSIT APEX GLOBAL TRADING REF 88491",
+                        Reference = "CR-88491",
+                        Amount = 99750m,
+                        Status = StatementLineStatus.Matched
+                    },
+                    new BankStatementLine
+                    {
+                        LegalEntityId = legalEntityId,
+                        AccountId = bankAcc.Id,
+                        Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
+                        Description = "TELEGRAPHIC TRANSFER TECHSUPPLY ELEC",
+                        Reference = "DR-49120",
+                        Amount = -44625m,
+                        Status = StatementLineStatus.Matched
+                    },
+                    new BankStatementLine
+                    {
+                        LegalEntityId = legalEntityId,
+                        AccountId = bankAcc.Id,
+                        Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)),
+                        Description = "POS SETTLEMENT DUBAI MALL TERMINAL BATCH 104",
+                        Reference = "CR-POS-104",
+                        Amount = 4650m,
+                        Status = StatementLineStatus.Unmatched
+                    }
+                );
+                await db.SaveChangesAsync(ct);
+            }
+        }
+    }
+
+    private static async Task SeedRealEstateAsync(AppDbContext db, Guid orgId, Guid legalEntityId, CancellationToken ct)
+    {
+        var tenant1 = await db.Parties.FirstOrDefaultAsync(p => p.Code == "PART-001", ct);
+        var tenant2 = await db.Parties.FirstOrDefaultAsync(p => p.Code == "PART-002", ct);
+        var tenant3 = await db.Parties.FirstOrDefaultAsync(p => p.Code == "CUST-001", ct);
+        var vendorFm = await db.Parties.FirstOrDefaultAsync(p => p.Code == "VEND-002", ct);
+        var agentUser = await db.Parties.FirstOrDefaultAsync(p => p.Code == "EMP-001", ct);
+
+        // 1. Unit Types
+        var utSet = db.Set<UnitType>();
+        if (!await utSet.AnyAsync(ct))
+        {
+            utSet.AddRange(
+                new UnitType { Code = "UT-STU", Name = "Studio Apartment", DefaultUsage = UnitUsage.Residential, DefaultBedrooms = 0, IsActive = true },
+                new UnitType { Code = "UT-1BR", Name = "1 Bedroom Modern Suite", DefaultUsage = UnitUsage.Residential, DefaultBedrooms = 1, IsActive = true },
+                new UnitType { Code = "UT-2BR", Name = "2 Bedroom Luxury Residence", DefaultUsage = UnitUsage.Residential, DefaultBedrooms = 2, IsActive = true },
+                new UnitType { Code = "UT-3BR", Name = "3 Bedroom Penthouse Suite", DefaultUsage = UnitUsage.Residential, DefaultBedrooms = 3, IsActive = true },
+                new UnitType { Code = "UT-OFF", Name = "Commercial Fitted Office", DefaultUsage = UnitUsage.Commercial, IsActive = true },
+                new UnitType { Code = "UT-RET", Name = "Ground Retail & Showroom", DefaultUsage = UnitUsage.Commercial, IsActive = true }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        var ut1Br = await utSet.FirstOrDefaultAsync(u => u.Code == "UT-1BR", ct);
+        var ut2Br = await utSet.FirstOrDefaultAsync(u => u.Code == "UT-2BR", ct);
+        var utOff = await utSet.FirstOrDefaultAsync(u => u.Code == "UT-OFF", ct);
+        var utRet = await utSet.FirstOrDefaultAsync(u => u.Code == "UT-RET", ct);
+
+        // 2. Properties
+        var propSet = db.Set<Property>();
+        if (!await propSet.AnyAsync(ct))
+        {
+            var p1 = new Property
+            {
+                LegalEntityId = legalEntityId,
+                Code = "PROP-MARINA",
+                Name = "Marina Bay Heights",
+                PropertyType = PropertyType.Residential,
+                OwnershipType = OwnershipType.Owned,
+                Region = "Dubai Marina",
+                Community = "Dubai Marina Waterfront",
+                PlotNumber = "DM-142-990",
+                YearBuilt = 2021,
+                TotalUnits = 48,
+                IndicativeValue = 85000000m,
+                IsActive = true,
+                Notes = "Luxury waterfront twin residential towers with private marina berths"
+            };
+            var p2 = new Property
+            {
+                LegalEntityId = legalEntityId,
+                Code = "PROP-DOWNTOWN",
+                Name = "Downtown Executive Tower",
+                PropertyType = PropertyType.Commercial,
+                OwnershipType = OwnershipType.Owned,
+                Region = "Downtown Dubai",
+                Community = "Burj Khalifa District",
+                PlotNumber = "DT-882-104",
+                YearBuilt = 2023,
+                TotalUnits = 24,
+                IndicativeValue = 120000000m,
+                IsActive = true,
+                Notes = "Grade A prime commercial building overlooking Dubai Fountain"
+            };
+            var p3 = new Property
+            {
+                LegalEntityId = legalEntityId,
+                Code = "PROP-PALM",
+                Name = "Palm Azure Residences",
+                PropertyType = PropertyType.Villa,
+                OwnershipType = OwnershipType.ManagedForOwner,
+                ManagementFeePercent = 5.0m,
+                Region = "Palm Jumeirah",
+                Community = "Frond N",
+                PlotNumber = "PJ-FN-012",
+                YearBuilt = 2022,
+                TotalUnits = 12,
+                IndicativeValue = 65000000m,
+                IsActive = true,
+                Notes = "Boutique beachfront luxury villas managed under exclusive contract"
+            };
+
+            propSet.AddRange(p1, p2, p3);
+            await db.SaveChangesAsync(ct);
+        }
+
+        var prop1 = await propSet.FirstOrDefaultAsync(p => p.Code == "PROP-MARINA", ct);
+        var prop2 = await propSet.FirstOrDefaultAsync(p => p.Code == "PROP-DOWNTOWN", ct);
+
+        // 3. Units
+        var unitSet = db.Set<Unit>();
+        if (!await unitSet.AnyAsync(ct) && prop1 != null && prop2 != null)
+        {
+            var u101 = Unit.Create(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)));
+            u101.LegalEntityId = legalEntityId;
+            u101.PropertyId = prop1.Id;
+            u101.UnitNumber = "101";
+            u101.UnitTypeId = ut1Br?.Id ?? Guid.NewGuid();
+            u101.Usage = UnitUsage.Residential;
+            u101.Floor = "1";
+            u101.Bedrooms = 1;
+            u101.AreaSqft = 920m;
+            u101.AskingRent = 85000m;
+            u101.Occupy();
+
+            var u201 = Unit.Create(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-90)));
+            u201.LegalEntityId = legalEntityId;
+            u201.PropertyId = prop1.Id;
+            u201.UnitNumber = "201";
+            u201.UnitTypeId = ut2Br?.Id ?? Guid.NewGuid();
+            u201.Usage = UnitUsage.Residential;
+            u201.Floor = "2";
+            u201.Bedrooms = 2;
+            u201.AreaSqft = 1380m;
+            u201.AskingRent = 120000m;
+            u201.Occupy();
+
+            var u301 = Unit.Create(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)));
+            u301.LegalEntityId = legalEntityId;
+            u301.PropertyId = prop1.Id;
+            u301.UnitNumber = "301";
+            u301.UnitTypeId = ut2Br?.Id ?? Guid.NewGuid();
+            u301.Usage = UnitUsage.Residential;
+            u301.Floor = "3";
+            u301.Bedrooms = 2;
+            u301.AreaSqft = 1420m;
+            u301.AskingRent = 125000m;
+
+            var uOff401 = Unit.Create(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-200)));
+            uOff401.LegalEntityId = legalEntityId;
+            uOff401.PropertyId = prop2.Id;
+            uOff401.UnitNumber = "OFF-401";
+            uOff401.UnitTypeId = utOff?.Id ?? Guid.NewGuid();
+            uOff401.Usage = UnitUsage.Commercial;
+            uOff401.Floor = "4";
+            uOff401.AreaSqft = 2250m;
+            uOff401.AskingRent = 160000m;
+            uOff401.Occupy();
+
+            var uRetG01 = Unit.Create(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)));
+            uRetG01.LegalEntityId = legalEntityId;
+            uRetG01.PropertyId = prop2.Id;
+            uRetG01.UnitNumber = "RET-G01";
+            uRetG01.UnitTypeId = utRet?.Id ?? Guid.NewGuid();
+            uRetG01.Usage = UnitUsage.Commercial;
+            uRetG01.Floor = "G";
+            uRetG01.AreaSqft = 1850m;
+            uRetG01.AskingRent = 280000m;
+
+            unitSet.AddRange(u101, u201, u301, uOff401, uRetG01);
+            await db.SaveChangesAsync(ct);
+
+            // Unit Rent Rates
+            var rateSet = db.Set<UnitRentRate>();
+            rateSet.AddRange(
+                new UnitRentRate { LegalEntityId = legalEntityId, UnitId = u101.Id, EffectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-1)), AnnualRent = 80000m, Reason = "Initial market launch" },
+                new UnitRentRate { LegalEntityId = legalEntityId, UnitId = u101.Id, EffectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-4)), AnnualRent = 85000m, Reason = "Annual market index revision" },
+                new UnitRentRate { LegalEntityId = legalEntityId, UnitId = uOff401.Id, EffectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-8)), AnnualRent = 160000m, Reason = "Commercial lease agreement" }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        var unit101 = await unitSet.FirstOrDefaultAsync(u => u.UnitNumber == "101", ct);
+        var unit201 = await unitSet.FirstOrDefaultAsync(u => u.UnitNumber == "201", ct);
+        var unitOff401 = await unitSet.FirstOrDefaultAsync(u => u.UnitNumber == "OFF-401", ct);
+
+        // 4. Leases
+        var leaseSet = db.Set<Lease>();
+        if (!await leaseSet.AnyAsync(ct) && unit101 != null && unitOff401 != null && prop1 != null && prop2 != null)
+        {
+            var l1 = new Lease
+            {
+                LegalEntityId = legalEntityId,
+                Number = "LSE-2026-0001",
+                UnitId = unit101.Id,
+                PropertyId = prop1.Id,
+                LesseePartyId = tenant1?.Id ?? Guid.NewGuid(),
+                StartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-3)),
+                EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(9)),
+                AnnualRent = 85000m,
+                CurrencyCode = "AED",
+                PaymentFrequency = 4,
+                SecurityDepositAmount = 5000m,
+                Notes = "Standard residential tenancy contract with 4 cheques"
+            };
+            l1.Activate(DateTime.UtcNow.AddMonths(-3), null);
+
+            var l2 = new Lease
+            {
+                LegalEntityId = legalEntityId,
+                Number = "LSE-2026-0002",
+                UnitId = unitOff401.Id,
+                PropertyId = prop2.Id,
+                LesseePartyId = tenant3?.Id ?? Guid.NewGuid(),
+                StartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-6)),
+                EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(6)),
+                AnnualRent = 160000m,
+                CurrencyCode = "AED",
+                PaymentFrequency = 2,
+                SecurityDepositAmount = 10000m,
+                Notes = "Commercial office lease agreement with semi-annual instalments"
+            };
+            l2.Activate(DateTime.UtcNow.AddMonths(-6), null);
+
+            leaseSet.AddRange(l1, l2);
+            await db.SaveChangesAsync(ct);
+
+            // Rent Instalments
+            var instSet = db.Set<RentInstalment>();
+            instSet.AddRange(
+                new RentInstalment { LeaseId = l1.Id, Sequence = 1, PeriodFrom = l1.StartDate, PeriodTo = l1.StartDate.AddMonths(3).AddDays(-1), DueDate = l1.StartDate, Amount = 21250m, Status = InstalmentStatus.Invoiced },
+                new RentInstalment { LeaseId = l1.Id, Sequence = 2, PeriodFrom = l1.StartDate.AddMonths(3), PeriodTo = l1.StartDate.AddMonths(6).AddDays(-1), DueDate = l1.StartDate.AddMonths(3), Amount = 21250m, Status = InstalmentStatus.Scheduled },
+                new RentInstalment { LeaseId = l1.Id, Sequence = 3, PeriodFrom = l1.StartDate.AddMonths(6), PeriodTo = l1.StartDate.AddMonths(9).AddDays(-1), DueDate = l1.StartDate.AddMonths(6), Amount = 21250m, Status = InstalmentStatus.Scheduled },
+                new RentInstalment { LeaseId = l1.Id, Sequence = 4, PeriodFrom = l1.StartDate.AddMonths(9), PeriodTo = l1.EndDate, DueDate = l1.StartDate.AddMonths(9), Amount = 21250m, Status = InstalmentStatus.Scheduled },
+                new RentInstalment { LeaseId = l2.Id, Sequence = 1, PeriodFrom = l2.StartDate, PeriodTo = l2.StartDate.AddMonths(6).AddDays(-1), DueDate = l2.StartDate, Amount = 80000m, Status = InstalmentStatus.Invoiced },
+                new RentInstalment { LeaseId = l2.Id, Sequence = 2, PeriodFrom = l2.StartDate.AddMonths(6), PeriodTo = l2.EndDate, DueDate = l2.StartDate.AddMonths(6), Amount = 80000m, Status = InstalmentStatus.Scheduled }
+            );
+
+            // Deposit Transactions
+            var depSet = db.Set<DepositTransaction>();
+            depSet.AddRange(
+                new DepositTransaction { LegalEntityId = legalEntityId, LeaseId = l1.Id, Date = l1.StartDate, Kind = DepositKind.Received, Amount = 5000m, Description = "Security deposit received via bank transfer" },
+                new DepositTransaction { LegalEntityId = legalEntityId, LeaseId = l2.Id, Date = l2.StartDate, Kind = DepositKind.Received, Amount = 10000m, Description = "Security deposit received via cheque" }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        var lease1 = await leaseSet.FirstOrDefaultAsync(l => l.Number == "LSE-2026-0001", ct);
+
+        // 5. Work Orders (Facilities)
+        var woSet = db.Set<ReWorkOrder>();
+        if (!await woSet.AnyAsync(ct) && prop1 != null)
+        {
+            var w1 = new ReWorkOrder
+            {
+                LegalEntityId = legalEntityId,
+                Number = "WO-2026-0001",
+                PropertyId = prop1.Id,
+                UnitId = unit101?.Id,
+                LeaseId = lease1?.Id,
+                Issue = "Central HVAC Chiller Unit Compressor Servicing",
+                Category = "HVAC",
+                Priority = RePriority.High,
+                ReportedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-4)),
+                ReportedBy = "Tenant - Michael Schumacher",
+                VendorPartyId = vendorFm?.Id,
+                Technician = "Ravi Kumar (Al Futtaim FM)",
+                EstimatedCost = 3500m,
+                ActualCost = 3450m,
+                Details = "Chiller compressor low cooling gas alarm and vibration check",
+                ResolutionNotes = "Topped up refrigerant R410A and replaced anti-vibration rubber mounts"
+            };
+            w1.MoveTo(ReWorkOrderStatus.Assigned, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-3)));
+            w1.MoveTo(ReWorkOrderStatus.InProgress, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)));
+            w1.MoveTo(ReWorkOrderStatus.Completed, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)), "Resolved and tested");
+
+            var w2 = new ReWorkOrder
+            {
+                LegalEntityId = legalEntityId,
+                Number = "WO-2026-0002",
+                PropertyId = prop1.Id,
+                UnitId = unit201?.Id,
+                Issue = "Master Bathroom Water Pressure Regulator Replacement",
+                Category = "Plumbing",
+                Priority = RePriority.Normal,
+                ReportedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)),
+                ReportedBy = "Tenant - Amina Al-Mansouri",
+                VendorPartyId = vendorFm?.Id,
+                Technician = "Kareem Nassar",
+                EstimatedCost = 850m,
+                Details = "Fluctuating water pressure in ensuite mixer shower valve"
+            };
+            w2.MoveTo(ReWorkOrderStatus.Assigned, DateOnly.FromDateTime(DateTime.UtcNow));
+
+            woSet.AddRange(w1, w2);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 6. Preventive Maintenance (PM Schedules)
+        var pmSet = db.Set<PmSchedule>();
+        if (!await pmSet.AnyAsync(ct) && prop1 != null)
+        {
+            pmSet.AddRange(
+                new PmSchedule
+                {
+                    LegalEntityId = legalEntityId,
+                    PropertyId = prop1.Id,
+                    Title = "Quarterly HVAC Chiller & Fan Coil Units Deep Servicing",
+                    Category = "HVAC",
+                    Priority = RePriority.High,
+                    FrequencyMonths = 3,
+                    NextDue = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(25)),
+                    LeadDays = 7,
+                    EstimatedCost = 8500m,
+                    IsActive = true,
+                    Notes = "Comprehensive seasonal coil washing, belt adjustments and refrigerant tests"
+                },
+                new PmSchedule
+                {
+                    LegalEntityId = legalEntityId,
+                    PropertyId = prop1.Id,
+                    Title = "Annual Fire Safety, Smoke Dampers & Emergency Light Certification",
+                    Category = "Fire Safety",
+                    Priority = RePriority.Critical,
+                    FrequencyMonths = 12,
+                    NextDue = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(60)),
+                    LeadDays = 14,
+                    EstimatedCost = 15000m,
+                    IsActive = true,
+                    Notes = "Civil Defence statutory compliance inspection and alarm panel testing"
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 7. Inspections
+        var inspSet = db.Set<Inspection>();
+        if (!await inspSet.AnyAsync(ct) && prop1 != null && unit101 != null)
+        {
+            var insp = new Inspection
+            {
+                LegalEntityId = legalEntityId,
+                PropertyId = prop1.Id,
+                UnitId = unit101.Id,
+                LeaseId = lease1?.Id,
+                Kind = InspectionKind.MoveIn,
+                InspectionDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-3)),
+                Inspector = "Tariq Al-Hashimi",
+                Status = InspectionStatus.Completed,
+                Notes = "Unit handed over in immaculate condition with keys and access cards",
+                DamageCost = 0m,
+                Items = new List<InspectionItem>
+                {
+                    new() { Area = "Living & Dining Room", Condition = ItemCondition.Good, Notes = "Walls and marble flooring spotless" },
+                    new() { Area = "Kitchen Appliances", Condition = ItemCondition.Good, Notes = "Cooker, oven and exhaust tested and sanitized" },
+                    new() { Area = "Master Bedroom", Condition = ItemCondition.Good, Notes = "Built-in wardrobes operational" },
+                    new() { Area = "Balcony & Glass Railings", Condition = ItemCondition.Good, Notes = "Clean and secure" }
+                }
+            };
+            inspSet.Add(insp);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 8. Listings & Leads
+        var listSet = db.Set<Listing>();
+        if (!await listSet.AnyAsync(ct) && prop1 != null)
+        {
+            var u301 = await unitSet.FirstOrDefaultAsync(u => u.UnitNumber == "301", ct);
+            var listing = new Listing
+            {
+                LegalEntityId = legalEntityId,
+                PropertyId = prop1.Id,
+                UnitId = u301?.Id,
+                Kind = ListingKind.Rent,
+                Title = "Stunning 2BR Marina Sea View with Balcony",
+                Price = 125000m,
+                Status = ListingStatus.Published,
+                Channels = "Bayut, PropertyFinder, Dubizzle, Website",
+                Description = "High-floor fully fitted luxury apartment with panoramic sea and yacht views",
+                ListedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15))
+            };
+            listSet.Add(listing);
+            await db.SaveChangesAsync(ct);
+
+            var leadSet = db.Set<ReLead>();
+            leadSet.AddRange(
+                new ReLead
+                {
+                    LegalEntityId = legalEntityId,
+                    Name = "Sultan Al-Qasimi",
+                    Phone = "+971 50 882 1199",
+                    Email = "sultan.q@example.com",
+                    Source = "PropertyFinder",
+                    Interest = "Looking for 2BR luxury apartment with sea view",
+                    ListingId = listing.Id,
+                    UnitId = u301?.Id,
+                    Stage = LeadStage.Viewing,
+                    FollowUpOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2)),
+                    Notes = "Viewing scheduled this Saturday morning at 11:00 AM"
+                },
+                new ReLead
+                {
+                    LegalEntityId = legalEntityId,
+                    Name = "Nathalie Dupont",
+                    Phone = "+971 55 441 2233",
+                    Email = "n.dupont@example.com",
+                    Source = "Website Direct",
+                    Interest = "Furnished 1BR or 2BR with quick move-in",
+                    Stage = LeadStage.Contacted,
+                    FollowUpOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                    Notes = "Sent brochure and video walk-through"
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 9. Acquisitions & Funding
+        var acqSet = db.Set<Acquisition>();
+        if (!await acqSet.AnyAsync(ct) && prop1 != null)
+        {
+            var acq = new Acquisition
+            {
+                LegalEntityId = legalEntityId,
+                Number = "ACQ-2026-0001",
+                PropertyId = prop1.Id,
+                SellerName = "Emaar Properties PJSC",
+                PurchaseDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-2)),
+                ContractReference = "EMAAR-SPA-2024-819",
+                PurchasePrice = 72000000m,
+                DownPayment = 18000000m,
+                TransferFees = 2880000m,
+                OtherCosts = 120000m,
+                CurrencyCode = "AED",
+                Notes = "Acquisition of Marina Bay Heights Tower directly from master developer"
+            };
+            acq.Complete(Guid.NewGuid(), DateTime.UtcNow.AddYears(-2));
+            acqSet.Add(acq);
+            await db.SaveChangesAsync(ct);
+
+            var fundSet = db.Set<FundingSource>();
+            var fund = new FundingSource
+            {
+                LegalEntityId = legalEntityId,
+                AcquisitionId = acq.Id,
+                Type = FundingType.BankMortgage,
+                Lender = "First Abu Dhabi Bank (FAB Commercial Banking)",
+                Principal = 54000000m,
+                AnnualRatePercent = 4.5m,
+                TermMonths = 240,
+                FirstDueDate = acq.PurchaseDate.AddMonths(1),
+                MonthlyPayment = 341500m
+            };
+            fundSet.Add(fund);
+            await db.SaveChangesAsync(ct);
+
+            var fundInstSet = db.Set<FundingInstalment>();
+            fundInstSet.AddRange(
+                new FundingInstalment
+                {
+                    LegalEntityId = legalEntityId,
+                    FundingSourceId = fund.Id,
+                    Sequence = 1,
+                    DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-1)),
+                    Principal = 139000m,
+                    Interest = 202500m,
+                    Total = 341500m,
+                    BalanceAfter = 53861000m,
+                    Status = InstalmentPayStatus.Paid,
+                    PaidOn = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-1))
+                },
+                new FundingInstalment
+                {
+                    LegalEntityId = legalEntityId,
+                    FundingSourceId = fund.Id,
+                    Sequence = 2,
+                    DueDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                    Principal = 139520m,
+                    Interest = 201980m,
+                    Total = 341500m,
+                    BalanceAfter = 53721480m,
+                    Status = InstalmentPayStatus.Scheduled
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 10. Brokerage Deals
+        var dealSet = db.Set<BrokerageDeal>();
+        if (!await dealSet.AnyAsync(ct) && prop1 != null)
+        {
+            var deal1 = new BrokerageDeal
+            {
+                LegalEntityId = legalEntityId,
+                Number = "DEAL-2026-0001",
+                DealType = DealType.Sale,
+                PropertyId = prop1.Id,
+                UnitReference = "Penthouse Suite 4801",
+                ClientName = "Emaar Investment PJSC",
+                ClientPartyId = tenant3?.Id,
+                AgentPartyId = agentUser?.Id,
+                DealDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-18)),
+                DealValue = 12500000m,
+                CurrencyCode = "AED",
+                CommissionRatePercent = 2.0m,
+                AgentSharePercent = 50.0m,
+                TeamLeadSharePercent = 10.0m,
+                Notes = "Direct investor transaction with agreed 2% commercial commission"
+            };
+            deal1.ComputeCommission();
+            deal1.MoveTo(DealStage.Agreed);
+
+            var deal2 = new BrokerageDeal
+            {
+                LegalEntityId = legalEntityId,
+                Number = "DEAL-2026-0002",
+                DealType = DealType.Lease,
+                PropertyId = prop2?.Id,
+                UnitReference = "Executive Suite OFF-401",
+                ClientName = "Apex Global Trading LLC",
+                ClientPartyId = tenant3?.Id,
+                AgentPartyId = agentUser?.Id,
+                DealDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-60)),
+                DealValue = 160000m,
+                CurrencyCode = "AED",
+                CommissionRatePercent = 5.0m,
+                AgentSharePercent = 60.0m,
+                TeamLeadSharePercent = 10.0m,
+                Notes = "Full year commercial lease placement"
+            };
+            deal2.ComputeCommission();
+            deal2.MoveTo(DealStage.Agreed);
+
+            dealSet.AddRange(deal1, deal2);
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    private static async Task SeedHrAsync(AppDbContext db, Guid orgId, Guid legalEntityId, CancellationToken ct)
+    {
+        var empSet = db.Set<Employee>();
+        if (!await empSet.AnyAsync(ct))
+        {
+            empSet.AddRange(
+                new Employee
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = "EMP-001",
+                    FullName = "Tariq Al-Hashimi",
+                    Designation = "Managing Director",
+                    Department = "Executive Management",
+                    JoinDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-3)),
+                    Email = "tariq@demo.local",
+                    Phone = "+971 52 334 4556",
+                    Nationality = "United Arab Emirates",
+                    Status = EmployeeStatus.Active,
+                    BasicSalary = 45000m,
+                    HousingAllowance = 20000m,
+                    TransportAllowance = 5000m,
+                    Iban = "AE290331000000012345671",
+                    LabourCardNumber = "784198501928371",
+                    BankRoutingCode = "033"
+                },
+                new Employee
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = "EMP-002",
+                    FullName = "Sarah Jenkins",
+                    Designation = "Senior Financial Controller",
+                    Department = "Finance & Accounting",
+                    JoinDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-2)),
+                    Email = "sarah.j@demo.local",
+                    Phone = "+971 50 776 5544",
+                    Nationality = "United Kingdom",
+                    Status = EmployeeStatus.Active,
+                    BasicSalary = 32000m,
+                    HousingAllowance = 12000m,
+                    TransportAllowance = 3000m,
+                    Iban = "AE540260000000098765432",
+                    LabourCardNumber = "784199018273645",
+                    BankRoutingCode = "026"
+                },
+                new Employee
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = "EMP-003",
+                    FullName = "Omar Farooq",
+                    Designation = "Senior Property & Facilities Manager",
+                    Department = "Real Estate Operations",
+                    JoinDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-18)),
+                    Email = "omar.f@demo.local",
+                    Phone = "+971 55 998 1122",
+                    Nationality = "Jordan",
+                    Status = EmployeeStatus.Active,
+                    BasicSalary = 24000m,
+                    HousingAllowance = 10000m,
+                    TransportAllowance = 2500m,
+                    Iban = "AE880440000000034567890",
+                    LabourCardNumber = "784199298374615",
+                    BankRoutingCode = "044"
+                },
+                new Employee
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = "EMP-004",
+                    FullName = "Layla Mansoor",
+                    Designation = "Human Resources & Talent Officer",
+                    Department = "Human Resources",
+                    JoinDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-14)),
+                    Email = "layla.m@demo.local",
+                    Phone = "+971 50 332 8877",
+                    Nationality = "Lebanon",
+                    Status = EmployeeStatus.Active,
+                    BasicSalary = 20000m,
+                    HousingAllowance = 8000m,
+                    TransportAllowance = 2000m,
+                    Iban = "AE120330000000056789012",
+                    LabourCardNumber = "784199482716354",
+                    BankRoutingCode = "033"
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        var emp1 = await empSet.FirstOrDefaultAsync(e => e.Number == "EMP-001", ct);
+        var emp2 = await empSet.FirstOrDefaultAsync(e => e.Number == "EMP-002", ct);
+        var emp3 = await empSet.FirstOrDefaultAsync(e => e.Number == "EMP-003", ct);
+        var emp4 = await empSet.FirstOrDefaultAsync(e => e.Number == "EMP-004", ct);
+
+        // 2. Attendance Records
+        var attSet = db.Set<AttendanceRecord>();
+        if (!await attSet.AnyAsync(ct) && emp1 != null && emp2 != null)
+        {
+            var currentMonth = DateTime.UtcNow.Month;
+            var currentYear = DateTime.UtcNow.Year;
+
+            attSet.AddRange(
+                new AttendanceRecord { LegalEntityId = legalEntityId, EmployeeId = emp1.Id, Year = currentYear, Month = currentMonth, WorkingDays = 26, DaysPresent = 26, OvertimeHours = 0m },
+                new AttendanceRecord { LegalEntityId = legalEntityId, EmployeeId = emp2.Id, Year = currentYear, Month = currentMonth, WorkingDays = 26, DaysPresent = 25, PaidLeaveDays = 1, OvertimeHours = 4m },
+                new AttendanceRecord { LegalEntityId = legalEntityId, EmployeeId = emp3!.Id, Year = currentYear, Month = currentMonth, WorkingDays = 26, DaysPresent = 26, OvertimeHours = 8.5m },
+                new AttendanceRecord { LegalEntityId = legalEntityId, EmployeeId = emp4!.Id, Year = currentYear, Month = currentMonth, WorkingDays = 26, DaysPresent = 26, OvertimeHours = 0m }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 3. Payroll Runs
+        var prSet = db.Set<PayrollRun>();
+        if (!await prSet.AnyAsync(ct) && emp1 != null && emp2 != null)
+        {
+            var prevMonth = DateTime.UtcNow.AddMonths(-1);
+            var prPrev = new PayrollRun
+            {
+                LegalEntityId = legalEntityId,
+                Number = $"PR-{prevMonth.Year}-{prevMonth.Month:D2}",
+                Year = prevMonth.Year,
+                Month = prevMonth.Month,
+                PlannedPayDate = DateOnly.FromDateTime(new DateTime(prevMonth.Year, prevMonth.Month, 28)),
+                PaidOn = DateOnly.FromDateTime(new DateTime(prevMonth.Year, prevMonth.Month, 28)),
+                Status = PayrollStatus.Paid,
+                Employees = 4,
+                GrossEarnings = 181500m,
+                Deductions = 0m,
+                NetPay = 181500m,
+                Notes = "Monthly automated payroll execution with bank WPS file uploaded and cleared",
+                Lines = new List<PayrollLine>
+                {
+                    new() { EmployeeId = emp1.Id, EmployeeName = emp1.FullName, EmployeeNumber = emp1.Number, Basic = emp1.BasicSalary, Allowances = emp1.Allowances, GrossEarnings = emp1.GrossMonthly, NetPay = emp1.GrossMonthly },
+                    new() { EmployeeId = emp2.Id, EmployeeName = emp2.FullName, EmployeeNumber = emp2.Number, Basic = emp2.BasicSalary, Allowances = emp2.Allowances, GrossEarnings = emp2.GrossMonthly, NetPay = emp2.GrossMonthly },
+                    new() { EmployeeId = emp3!.Id, EmployeeName = emp3.FullName, EmployeeNumber = emp3.Number, Basic = emp3.BasicSalary, Allowances = emp3.Allowances, GrossEarnings = emp3.GrossMonthly, NetPay = emp3.GrossMonthly },
+                    new() { EmployeeId = emp4!.Id, EmployeeName = emp4.FullName, EmployeeNumber = emp4.Number, Basic = emp4.BasicSalary, Allowances = emp4.Allowances, GrossEarnings = emp4.GrossMonthly, NetPay = emp4.GrossMonthly }
+                }
+            };
+
+            var currMonth = DateTime.UtcNow;
+            var prCurr = new PayrollRun
+            {
+                LegalEntityId = legalEntityId,
+                Number = $"PR-{currMonth.Year}-{currMonth.Month:D2}",
+                Year = currMonth.Year,
+                Month = currMonth.Month,
+                PlannedPayDate = DateOnly.FromDateTime(new DateTime(currMonth.Year, currMonth.Month, 28)),
+                Status = PayrollStatus.Draft,
+                Employees = 4,
+                GrossEarnings = 181500m,
+                Deductions = 0m,
+                NetPay = 181500m,
+                Notes = "Current pay period salary draft generation",
+                Lines = new List<PayrollLine>
+                {
+                    new() { EmployeeId = emp1.Id, EmployeeName = emp1.FullName, EmployeeNumber = emp1.Number, Basic = emp1.BasicSalary, Allowances = emp1.Allowances, GrossEarnings = emp1.GrossMonthly, NetPay = emp1.GrossMonthly },
+                    new() { EmployeeId = emp2.Id, EmployeeName = emp2.FullName, EmployeeNumber = emp2.Number, Basic = emp2.BasicSalary, Allowances = emp2.Allowances, GrossEarnings = emp2.GrossMonthly, NetPay = emp2.GrossMonthly },
+                    new() { EmployeeId = emp3.Id, EmployeeName = emp3.FullName, EmployeeNumber = emp3.Number, Basic = emp3.BasicSalary, Allowances = emp3.Allowances, GrossEarnings = emp3.GrossMonthly, NetPay = emp3.GrossMonthly },
+                    new() { EmployeeId = emp4.Id, EmployeeName = emp4.FullName, EmployeeNumber = emp4.Number, Basic = emp4.BasicSalary, Allowances = emp4.Allowances, GrossEarnings = emp4.GrossMonthly, NetPay = emp4.GrossMonthly }
+                }
+            };
+
+            prSet.AddRange(prPrev, prCurr);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 4. Review Cycles & Performance Reviews
+        var cycleSet = db.Set<ReviewCycle>();
+        if (!await cycleSet.AnyAsync(ct))
+        {
+            var cycle = new ReviewCycle
+            {
+                Name = "Annual Corporate Performance Review 2026",
+                PeriodStart = DateOnly.FromDateTime(new DateTime(DateTime.UtcNow.Year, 1, 1)),
+                PeriodEnd = DateOnly.FromDateTime(new DateTime(DateTime.UtcNow.Year, 12, 31)),
+                Status = ReviewCycleStatus.Open
+            };
+            cycleSet.Add(cycle);
+            await db.SaveChangesAsync(ct);
+
+            if (emp2 != null && emp3 != null)
+            {
+                var reviewSet = db.Set<PerformanceReview>();
+                var r1 = new PerformanceReview
+                {
+                    LegalEntityId = legalEntityId,
+                    EmployeeId = emp2.Id,
+                    CycleId = cycle.Id,
+                    ReviewerName = emp1?.FullName ?? "Tariq Al-Hashimi",
+                    OverallRating = 5,
+                    Goals = "Lead clean financial audits and automated monthly closing",
+                    Comments = "Exceptional performance in financial controls, tax compliance, and budget tracking.",
+                    Status = ReviewStatus.Submitted,
+                    SubmittedAt = DateTime.UtcNow.AddDays(-5),
+                    Competencies = new List<ReviewCompetency>
+                    {
+                        new() { Name = "Financial Reporting & Accuracy", Score = 5, Notes = "Flawless audit outcomes" },
+                        new() { Name = "Team Leadership & Compliance", Score = 5, Notes = "Strong team oversight" }
+                    }
+                };
+
+                var r2 = new PerformanceReview
+                {
+                    LegalEntityId = legalEntityId,
+                    EmployeeId = emp3.Id,
+                    CycleId = cycle.Id,
+                    ReviewerName = emp1?.FullName ?? "Tariq Al-Hashimi",
+                    OverallRating = 4,
+                    Goals = "Improve facilities maintenance response times below 4 hours",
+                    Comments = "Very solid operational execution across properties and high tenant satisfaction.",
+                    Status = ReviewStatus.Draft,
+                    Competencies = new List<ReviewCompetency>
+                    {
+                        new() { Name = "Facilities SLA & Preventative Maintenance", Score = 4, Notes = "Consistently timely" },
+                        new() { Name = "Tenant & Vendor Relationship Management", Score = 5, Notes = "Excellent feedback" }
+                    }
+                };
+
+                reviewSet.AddRange(r1, r2);
+                await db.SaveChangesAsync(ct);
+            }
+        }
+    }
+
+    private static async Task SeedInventoryAsync(AppDbContext db, Guid orgId, Guid legalEntityId, CancellationToken ct)
+    {
+        var whSet = db.Set<Warehouse>();
+        if (!await whSet.AnyAsync(ct))
+        {
+            whSet.AddRange(
+                new Warehouse
+                {
+                    LegalEntityId = legalEntityId,
+                    Code = "WH-JAFZA",
+                    Name = "Central Freezone Distribution Center",
+                    Address = "Jebel Ali Free Zone, South Distribution Park, Unit 14B, Dubai",
+                    IsActive = true
+                },
+                new Warehouse
+                {
+                    LegalEntityId = legalEntityId,
+                    Code = "WH-ALQUOZ",
+                    Name = "Al Quoz Operations & Spare Parts Depot",
+                    Address = "Al Quoz Industrial 3, Street 19, Warehouse 4, Dubai",
+                    IsActive = true
+                },
+                new Warehouse
+                {
+                    LegalEntityId = legalEntityId,
+                    Code = "WH-DOWNTOWN",
+                    Name = "Downtown Staging & Retail Stockroom",
+                    Address = "The Dubai Mall, Retail Staging Bay G-142, Dubai",
+                    IsActive = true
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        var wh1 = await whSet.FirstOrDefaultAsync(w => w.Code == "WH-JAFZA", ct);
+        var wh2 = await whSet.FirstOrDefaultAsync(w => w.Code == "WH-ALQUOZ", ct);
+        var itemPos = await db.Items.FirstOrDefaultAsync(i => i.Sku == "POS-TERM-01", ct);
+        var itemScan = await db.Items.FirstOrDefaultAsync(i => i.Sku == "POS-SCAN-2D", ct);
+        var itemIot = await db.Items.FirstOrDefaultAsync(i => i.Sku == "HW-IOT-GW02", ct);
+
+        // Stock Movements
+        var mvtSet = db.Set<StockMovement>();
+        if (!await mvtSet.AnyAsync(ct) && wh1 != null && wh2 != null && itemPos != null && itemScan != null)
+        {
+            mvtSet.AddRange(
+                new StockMovement
+                {
+                    LegalEntityId = legalEntityId,
+                    WarehouseId = wh1.Id,
+                    ItemId = itemPos.Id,
+                    Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-25)),
+                    Kind = MovementKind.Receipt,
+                    Quantity = 50,
+                    UnitCost = 2800m,
+                    Reference = "GR-2026-0001",
+                    Memo = "Initial stock arrival from vendor air shipment"
+                },
+                new StockMovement
+                {
+                    LegalEntityId = legalEntityId,
+                    WarehouseId = wh1.Id,
+                    ItemId = itemScan.Id,
+                    Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-25)),
+                    Kind = MovementKind.Receipt,
+                    Quantity = 80,
+                    UnitCost = 480m,
+                    Reference = "GR-2026-0001",
+                    Memo = "Barcode scanners incoming receipt"
+                },
+                new StockMovement
+                {
+                    LegalEntityId = legalEntityId,
+                    WarehouseId = wh1.Id,
+                    ItemId = itemPos.Id,
+                    Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
+                    Kind = MovementKind.Issue,
+                    Quantity = -10,
+                    UnitCost = 2800m,
+                    Reference = "SO-2026-0001",
+                    Memo = "Delivered to Oasis Retailers for Dubai Mall deployment"
+                },
+                new StockMovement
+                {
+                    LegalEntityId = legalEntityId,
+                    WarehouseId = wh2.Id,
+                    ItemId = itemScan.Id,
+                    Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
+                    Kind = MovementKind.TransferIn,
+                    Quantity = 20,
+                    UnitCost = 480m,
+                    Reference = "TRF-WH-001",
+                    Memo = "Restock transferred to Al Quoz depot"
+                }
+            );
+
+            // Stock Policies
+            var polSet = db.Set<StockPolicy>();
+            polSet.AddRange(
+                new StockPolicy { ItemId = itemPos.Id, ReorderLevel = 10, ReorderQuantity = 30 },
+                new StockPolicy { ItemId = itemScan.Id, ReorderLevel = 15, ReorderQuantity = 50 }
+            );
+            await db.SaveChangesAsync(ct);
+        }
     }
 
     private static async Task SeedSalesAsync(AppDbContext db, Guid orgId, Guid legalEntityId, CancellationToken ct)
@@ -223,6 +1902,7 @@ public static class ProgramSeeder
                 }
             };
             ordersSet.Add(order);
+            await db.SaveChangesAsync(ct);
         }
     }
 
@@ -319,6 +1999,7 @@ public static class ProgramSeeder
                 ReceivedBy = "Khalid Al-Marri",
                 Notes = "All 20 packages verified in pristine condition"
             });
+            await db.SaveChangesAsync(ct);
         }
     }
 
@@ -414,6 +2095,7 @@ public static class ProgramSeeder
                     }
                 }
             });
+            await db.SaveChangesAsync(ct);
         }
     }
 
@@ -471,6 +2153,7 @@ public static class ProgramSeeder
                 IsActive = true,
                 TimesUsed = 42
             });
+            await db.SaveChangesAsync(ct);
         }
     }
 
@@ -539,6 +2222,7 @@ public static class ProgramSeeder
                 WholesaleUnitPrice = 2000m,
                 IsActive = true
             });
+            await db.SaveChangesAsync(ct);
         }
     }
 
@@ -591,8 +2275,8 @@ public static class ProgramSeeder
             };
             bomSet.Add(bom);
 
-            var woSet = db.Set<WorkOrder>();
-            woSet.Add(new WorkOrder
+            var woSet = db.Set<MfgWorkOrder>();
+            woSet.Add(new MfgWorkOrder
             {
                 LegalEntityId = legalEntityId,
                 WorkOrderNumber = "WO-2026-0001",
@@ -605,7 +2289,7 @@ public static class ProgramSeeder
                 ScrappedQuantity = 1,
                 StartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5)),
-                Status = WorkOrderStatus.InProgress,
+                Status = MfgWorkOrderStatus.InProgress,
                 EstimatedTotalCost = 27000m,
                 ActualTotalCost = 9120m,
                 Operations = new List<WorkOrderOperation>
@@ -648,6 +2332,7 @@ public static class ProgramSeeder
                 LatestActualUnitCost = 136.20m,
                 CostVariance = 1.20m
             });
+            await db.SaveChangesAsync(ct);
         }
     }
 
@@ -716,6 +2401,7 @@ public static class ProgramSeeder
                 PerformedByName = "Demo Administrator",
                 IsResolved = true
             });
+            await db.SaveChangesAsync(ct);
         }
     }
 
@@ -772,7 +2458,7 @@ public static class ProgramSeeder
                 Amount = 45000m,
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
                 CompletionDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-3)),
-                Status = ERP.Modules.Services.Domain.MilestoneStatus.ReadyToInvoice,
+                Status = SvcMilestoneStatus.ReadyToInvoice,
                 Notes = "Client signed acceptance form on Oct 21"
             });
             mlsSet.Add(new BillingMilestone
@@ -783,7 +2469,7 @@ public static class ProgramSeeder
                 Title = "Phase 2 Production Cluster Cutover",
                 Amount = 60000m,
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)),
-                Status = ERP.Modules.Services.Domain.MilestoneStatus.Planned,
+                Status = SvcMilestoneStatus.Planned,
                 Notes = "Planned production maintenance window"
             });
 
@@ -803,6 +2489,7 @@ public static class ProgramSeeder
                 IsApproved = true,
                 ApprovedAt = DateTimeOffset.UtcNow
             });
+            await db.SaveChangesAsync(ct);
         }
     }
 
@@ -852,6 +2539,647 @@ public static class ProgramSeeder
                 ActualHours = 38m,
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10))
             });
+            await db.SaveChangesAsync(ct);
         }
     }
+
+    private static async Task SeedTwoYearHistoryAsync(AppDbContext db, Guid orgId, Guid legalEntityId, CancellationToken ct)
+    {
+        if (await db.Set<PayrollRun>().IgnoreQueryFilters().AnyAsync(r => r.OrgId == orgId && r.Number.StartsWith("PR-2025-"), ct))
+        {
+            return;
+        }
+
+        var customers = await db.Parties.IgnoreQueryFilters().Where(p => p.OrgId == orgId && (p.Roles & PartyRoles.Customer) != 0).ToListAsync(ct);
+        var vendors = await db.Parties.IgnoreQueryFilters().Where(p => p.OrgId == orgId && (p.Roles & PartyRoles.Vendor) != 0).ToListAsync(ct);
+        var employees = await db.Set<Employee>().IgnoreQueryFilters().Where(e => e.OrgId == orgId).ToListAsync(ct);
+        var items = await db.Items.IgnoreQueryFilters().Where(i => i.OrgId == orgId).ToListAsync(ct);
+        var reProperties = await db.Set<Property>().IgnoreQueryFilters().Where(p => p.OrgId == orgId).ToListAsync(ct);
+        var reUnits = await db.Set<Unit>().IgnoreQueryFilters().Where(u => u.OrgId == orgId).ToListAsync(ct);
+        var warehouses = await db.Set<Warehouse>().IgnoreQueryFilters().Where(w => w.OrgId == orgId).ToListAsync(ct);
+        var posRegisters = await db.Set<PosRegister>().IgnoreQueryFilters().Where(r => r.OrgId == orgId).ToListAsync(ct);
+        var routes = await db.Set<DistributionRoute>().IgnoreQueryFilters().Where(r => r.OrgId == orgId).ToListAsync(ct);
+        var boms = await db.Set<BillOfMaterials>().IgnoreQueryFilters().Where(b => b.OrgId == orgId).ToListAsync(ct);
+        var engagements = await db.Set<ServiceEngagement>().IgnoreQueryFilters().Where(e => e.OrgId == orgId).ToListAsync(ct);
+
+        var taxCode = await db.TaxCodes.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.OrgId == orgId && t.IsDefault, ct);
+        var bankAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.IsBank, ct);
+        var arAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && (a.SystemRole == "ar.control" || a.Type == AccountType.Asset), ct);
+        var apAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && (a.SystemRole == "ap.control" || a.Type == AccountType.Liability), ct);
+        var incomeAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.Type == AccountType.Income, ct);
+        var expenseAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.Type == AccountType.Expense, ct);
+
+        // 1. Budgets for 2025 and 2026
+        if (!await db.Budgets.IgnoreQueryFilters().AnyAsync(b => b.OrgId == orgId, ct))
+        {
+            foreach (var yr in new[] { 2025, 2026 })
+            {
+                var b = new Budget
+                {
+                    LegalEntityId = legalEntityId,
+                    FiscalYear = yr,
+                    Name = $"FY{yr} Annual Operating & Capital Budget",
+                    IsActive = true,
+                    Notes = $"Approved by board of directors for corporate operations in fiscal year {yr}"
+                };
+                for (int mth = 1; mth <= 12; mth++)
+                {
+                    if (incomeAcc != null)
+                        b.Lines.Add(new BudgetLine { AccountId = incomeAcc.Id, Month = mth, Amount = yr == 2025 ? 185000m : 240000m });
+                    if (expenseAcc != null)
+                        b.Lines.Add(new BudgetLine { AccountId = expenseAcc.Id, Month = mth, Amount = yr == 2025 ? 95000m : 110000m });
+                }
+                db.Budgets.Add(b);
+            }
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 2. Loop across the past 24 months (Nov 2024 through Oct 2026)
+        var now = DateTime.UtcNow;
+        var leadNames = new[] { "Sheikh Mansoor Al-Qasimi", "Farhan & Brothers Trading", "Gulf Prime Logistics LLC", "Elena Petrova Real Estate", "Al-Majid Technical Solutions", "Horizon Media Agency FZ" };
+
+        var existingPayrollYearsMonths = (await db.Set<PayrollRun>().IgnoreQueryFilters()
+            .Where(r => r.OrgId == orgId)
+            .Select(r => new { r.Year, r.Month })
+            .ToListAsync(ct))
+            .Select(r => (r.Year, r.Month))
+            .ToHashSet();
+
+        var existingAttendanceKeys = (await db.Set<AttendanceRecord>().IgnoreQueryFilters()
+            .Where(a => a.OrgId == orgId)
+            .Select(a => new { a.EmployeeId, a.Year, a.Month })
+            .ToListAsync(ct))
+            .Select(a => (a.EmployeeId, a.Year, a.Month))
+            .ToHashSet();
+
+        for (int m = 23; m >= 0; m--)
+        {
+            var targetDate = now.AddMonths(-m);
+            var year = targetDate.Year;
+            var month = targetDate.Month;
+            var daysInMonth = DateTime.DaysInMonth(year, month);
+            var isPastMonth = (m > 0);
+
+            // A. Invoices & Customer Settlements
+            if (customers.Count > 0 && items.Count > 0)
+            {
+                var cust = customers[m % customers.Count];
+                var item = items[m % items.Count];
+                var net = 25000m + (m * 850m) % 35000m;
+                var tax = Math.Round(net * 0.05m, 2);
+                var total = net + tax;
+
+                var inv = new Invoice
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = $"INV-{year}-{month:D2}-{m + 1:D3}",
+                    IsCreditNote = false,
+                    PartyId = cust.Id,
+                    PartyName = cust.Name,
+                    InvoiceDate = new DateOnly(year, month, Math.Min(5, daysInMonth)),
+                    DueDate = new DateOnly(year, month, Math.Min(25, daysInMonth)),
+                    CurrencyCode = "AED",
+                    ExchangeRate = 1m,
+                    Net = net,
+                    Tax = tax,
+                    Total = total,
+                    Paid = isPastMonth ? total : Math.Round(total * 0.4m, 2),
+                    Status = isPastMonth ? DocumentStatus.Paid : DocumentStatus.PartlyPaid,
+                    Notes = $"Professional commercial billing cycle for {year}-{month:D2}",
+                    Lines = new List<InvoiceLine>
+                    {
+                        new()
+                        {
+                            Seq = 1,
+                            ItemId = item.Id,
+                            Description = $"{item.Name} - Scheduled period fulfillment {year}-{month:D2}",
+                            Quantity = 1,
+                            Price = net,
+                            TaxCodeId = taxCode?.Id,
+                            TaxAmount = tax
+                        }
+                    }
+                };
+                db.Invoices.Add(inv);
+
+                if (isPastMonth)
+                {
+                    var settlement = new Settlement
+                    {
+                        LegalEntityId = legalEntityId,
+                        Number = $"RCT-{year}-{month:D2}-{m + 1:D3}",
+                        Direction = InstrumentDirection.Received,
+                        PartyId = cust.Id,
+                        PartyName = cust.Name,
+                        Date = new DateOnly(year, month, Math.Min(20, daysInMonth)),
+                        Method = SettlementMethod.BankTransfer,
+                        BankAccountId = bankAcc?.Id,
+                        CurrencyCode = "AED",
+                        Amount = total,
+                        Unallocated = 0m,
+                        Reference = $"WIRE-IN-{year}{month:D2}{m + 1:D2}",
+                        Status = DocumentStatus.Paid,
+                        Allocations = new List<SettlementAllocation>
+                        {
+                            new() { InvoiceId = inv.Id, Amount = total }
+                        }
+                    };
+                    db.Settlements.Add(settlement);
+                }
+            }
+
+            // B. Vendor Bills
+            if (vendors.Count > 0)
+            {
+                var vend = vendors[m % vendors.Count];
+                var billNet = 3800m + (m * 120m) % 2400m;
+                var billTax = Math.Round(billNet * 0.05m, 2);
+                var billTotal = billNet + billTax;
+
+                var bill = new Bill
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = $"BIL-{year}-{month:D2}-{m + 1:D3}",
+                    PartyId = vend.Id,
+                    PartyName = vend.Name,
+                    BillDate = new DateOnly(year, month, Math.Min(10, daysInMonth)),
+                    DueDate = new DateOnly(year, month, Math.Min(28, daysInMonth)),
+                    CurrencyCode = "AED",
+                    ExchangeRate = 1m,
+                    Net = billNet,
+                    Tax = billTax,
+                    Total = billTotal,
+                    Paid = isPastMonth ? billTotal : 0m,
+                    Status = isPastMonth ? DocumentStatus.Paid : DocumentStatus.Issued,
+                    VendorReference = $"VR-{year}{month:D2}-{m + 1:D2}",
+                    Notes = $"Consolidated utility and facility maintenance charges {year}-{month:D2}",
+                    Lines = new List<BillLine>
+                    {
+                        new()
+                        {
+                            Seq = 1,
+                            Description = $"Commercial utilities and maintenance service {year}-{month:D2}",
+                            Quantity = 1,
+                            Price = billNet,
+                            TaxAmount = billTax,
+                            Net = billNet,
+                            AccountId = expenseAcc?.Id
+                        }
+                    }
+                };
+                db.Bills.Add(bill);
+            }
+
+            // C. General Ledger Journal Entries
+            if (expenseAcc != null && arAcc != null)
+            {
+                var depAmount = 5500m + (m * 50m);
+                var jn = new JournalEntry
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = $"JV-{year}-{month:D2}-DEP",
+                    Date = new DateOnly(year, month, Math.Min(28, daysInMonth)),
+                    CurrencyCode = "AED",
+                    ExchangeRate = 1m,
+                    Amount = depAmount,
+                    Memo = $"Monthly asset depreciation and hardware amortization allocation for {year}-{month:D2}",
+                    Reference = $"DEP-{year}{month:D2}",
+                    Status = JournalStatus.Posted,
+                    PostedAt = DateTime.UtcNow,
+                    Lines = new List<JournalLine>
+                    {
+                        new() { Seq = 1, AccountId = expenseAcc.Id, Debit = depAmount, Credit = 0m, Description = "Depreciation & Operating Amortization Expense" },
+                        new() { Seq = 2, AccountId = arAcc.Id, Debit = 0m, Credit = depAmount, Description = "Accumulated Depreciation & Reserves" }
+                    }
+                };
+                jn.Recalculate();
+                db.JournalEntries.Add(jn);
+            }
+
+            // D. Bank Statement Lines
+            if (bankAcc != null)
+            {
+                db.BankStatementLines.AddRange(
+                    new BankStatementLine
+                    {
+                        LegalEntityId = legalEntityId,
+                        AccountId = bankAcc.Id,
+                        Date = new DateOnly(year, month, Math.Min(8, daysInMonth)),
+                        Description = $"Client wire transfer invoice settlement - {year}-{month:D2}",
+                        Reference = $"STMT-{year}{month:D2}-01",
+                        Amount = 28500m + (m * 400m) % 15000m,
+                        Status = StatementLineStatus.Matched
+                    },
+                    new BankStatementLine
+                    {
+                        LegalEntityId = legalEntityId,
+                        AccountId = bankAcc.Id,
+                        Date = new DateOnly(year, month, Math.Min(18, daysInMonth)),
+                        Description = $"Direct debit statutory utility & operational payment - {year}-{month:D2}",
+                        Reference = $"STMT-{year}{month:D2}-02",
+                        Amount = -(3800m + (m * 120m) % 2400m),
+                        Status = StatementLineStatus.Matched
+                    }
+                );
+            }
+
+            // E. HR Payroll & Attendance
+            if (employees.Count > 0)
+            {
+                if (!existingPayrollYearsMonths.Contains((year, month)))
+                {
+                    var grossSum = employees.Sum(e => e.GrossMonthly);
+                    var pr = new PayrollRun
+                    {
+                        LegalEntityId = legalEntityId,
+                        Number = $"PR-{year}-{month:D2}",
+                        Year = year,
+                        Month = month,
+                        PlannedPayDate = new DateOnly(year, month, Math.Min(28, daysInMonth)),
+                        PaidOn = isPastMonth ? new DateOnly(year, month, Math.Min(28, daysInMonth)) : null,
+                        Status = isPastMonth ? PayrollStatus.Paid : PayrollStatus.Draft,
+                        Employees = employees.Count,
+                        GrossEarnings = grossSum,
+                        Deductions = 0m,
+                        NetPay = grossSum,
+                        Notes = $"Automated payroll cycle with bank WPS file cleared for {year}-{month:D2}"
+                    };
+                    foreach (var emp in employees)
+                    {
+                        pr.Lines.Add(new PayrollLine
+                        {
+                            EmployeeId = emp.Id,
+                            EmployeeName = emp.FullName,
+                            EmployeeNumber = emp.Number,
+                            Basic = emp.BasicSalary,
+                            Allowances = emp.Allowances,
+                            GrossEarnings = emp.GrossMonthly,
+                            NetPay = emp.GrossMonthly
+                        });
+                    }
+                    db.Set<PayrollRun>().Add(pr);
+                    existingPayrollYearsMonths.Add((year, month));
+                }
+
+                foreach (var emp in employees)
+                {
+                    if (!existingAttendanceKeys.Contains((emp.Id, year, month)))
+                    {
+                        db.Set<AttendanceRecord>().Add(new AttendanceRecord
+                        {
+                            LegalEntityId = legalEntityId,
+                            EmployeeId = emp.Id,
+                            Year = year,
+                            Month = month,
+                            WorkingDays = 26,
+                            DaysPresent = 25 + (m % 2),
+                            PaidLeaveDays = (m % 2),
+                            OvertimeHours = (m * 1.5m) % 8m
+                        });
+                        existingAttendanceKeys.Add((emp.Id, year, month));
+                    }
+                }
+            }
+
+            // F. Inventory Stock Movements
+            if (warehouses.Count > 0 && items.Count > 0)
+            {
+                var wh = warehouses[m % warehouses.Count];
+                var itm = items[m % items.Count];
+                db.Set<StockMovement>().AddRange(
+                    new StockMovement
+                    {
+                        LegalEntityId = legalEntityId,
+                        WarehouseId = wh.Id,
+                        ItemId = itm.Id,
+                        Kind = MovementKind.Receipt,
+                        Quantity = 60 + (m % 20),
+                        UnitCost = 450m,
+                        Reference = $"GRN-{year}-{month:D2}-01",
+                        Date = new DateOnly(year, month, Math.Min(4, daysInMonth)),
+                        Memo = $"Supplier consignment replenishment batch {year}-{month:D2}"
+                    },
+                    new StockMovement
+                    {
+                        LegalEntityId = legalEntityId,
+                        WarehouseId = wh.Id,
+                        ItemId = itm.Id,
+                        Kind = MovementKind.Issue,
+                        Quantity = -(40 + (m % 15)),
+                        UnitCost = 450m,
+                        Reference = $"DISP-{year}-{month:D2}-01",
+                        Date = new DateOnly(year, month, Math.Min(22, daysInMonth)),
+                        Memo = $"Outbound customer order fulfillment batch {year}-{month:D2}"
+                    }
+                );
+            }
+
+            // G. Sales Quotes & Orders
+            if (customers.Count > 0 && items.Count > 0)
+            {
+                var cust = customers[m % customers.Count];
+                var itm = items[m % items.Count];
+                var qty = 5 + (m % 10);
+                var unitPrice = (decimal)(itm.SalesPrice ?? 2500m);
+                var total = qty * unitPrice;
+
+                var sq = new SalesQuote
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = $"QT-{year}-{month:D2}-{m + 1:D2}",
+                    CustomerName = cust.Name,
+                    CustomerEmail = cust.Email ?? "client@example.com",
+                    QuoteDate = new DateOnly(year, month, Math.Min(3, daysInMonth)),
+                    ValidUntil = new DateOnly(year, month, Math.Min(25, daysInMonth)),
+                    Currency = "AED",
+                    SubTotal = total,
+                    TaxTotal = Math.Round(total * 0.05m, 2),
+                    TotalAmount = total + Math.Round(total * 0.05m, 2),
+                    Status = SalesQuoteStatus.Accepted,
+                    Notes = $"Quarterly procurement proposal for {year}-{month:D2}",
+                    Lines = new List<SalesQuoteLine>
+                    {
+                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = qty, UnitPrice = unitPrice, LineTotal = total, TaxRate = 5m }
+                    }
+                };
+                db.Set<SalesQuote>().Add(sq);
+
+                var so = new SalesOrder
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = $"SO-{year}-{month:D2}-{m + 1:D2}",
+                    QuoteId = sq.Id,
+                    QuoteNumber = sq.Number,
+                    CustomerName = cust.Name,
+                    OrderDate = new DateOnly(year, month, Math.Min(8, daysInMonth)),
+                    ExpectedDeliveryDate = new DateOnly(year, month, Math.Min(24, daysInMonth)),
+                    Currency = "AED",
+                    SubTotal = total,
+                    TaxTotal = Math.Round(total * 0.05m, 2),
+                    TotalAmount = total + Math.Round(total * 0.05m, 2),
+                    Status = isPastMonth ? SalesOrderStatus.Delivered : SalesOrderStatus.Confirmed,
+                    ShippingAddress = cust.Address ?? "Commercial District, Dubai, UAE",
+                    Notes = $"Confirmed commercial purchase contract for {year}-{month:D2}",
+                    Lines = new List<SalesOrderLine>
+                    {
+                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = qty, UnitPrice = unitPrice, LineTotal = total, TaxRate = 5m }
+                    }
+                };
+                db.Set<SalesOrder>().Add(so);
+            }
+
+            // H. Purchasing Orders & Goods Receipts
+            if (vendors.Count > 0 && items.Count > 0)
+            {
+                var vend = vendors[m % vendors.Count];
+                var itm = items[m % items.Count];
+                var qty = 10 + (m % 15);
+                var cost = (decimal)(itm.PurchasePrice ?? 1500m);
+                var poTotal = qty * cost;
+
+                var po = new PurchaseOrder
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = $"PO-{year}-{month:D2}-{m + 1:D2}",
+                    VendorName = vend.Name,
+                    OrderDate = new DateOnly(year, month, Math.Min(6, daysInMonth)),
+                    ExpectedDeliveryDate = new DateOnly(year, month, Math.Min(22, daysInMonth)),
+                    Currency = "AED",
+                    SubTotal = poTotal,
+                    TaxTotal = Math.Round(poTotal * 0.05m, 2),
+                    TotalAmount = poTotal + Math.Round(poTotal * 0.05m, 2),
+                    Status = PurchaseOrderStatus.Approved,
+                    PaymentTerms = "Net 30 Days",
+                    Notes = $"Standard stock replenishment PO for {year}-{month:D2}",
+                    Lines = new List<PurchaseOrderLine>
+                    {
+                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = qty, UnitPrice = cost, LineTotal = poTotal, TaxRate = 5m }
+                    }
+                };
+                db.Set<PurchaseOrder>().Add(po);
+
+                if (isPastMonth)
+                {
+                    db.Set<GoodsReceipt>().Add(new GoodsReceipt
+                    {
+                        LegalEntityId = legalEntityId,
+                        Number = $"GRN-{year}-{month:D2}-{m + 1:D2}",
+                        PurchaseOrderId = po.Id,
+                        PurchaseOrderNumber = po.Number,
+                        VendorName = po.VendorName,
+                        ReceiptDate = new DateOnly(year, month, Math.Min(20, daysInMonth)),
+                        ReceivedBy = "Khalid Al-Marri",
+                        Notes = $"Packages verified in good order {year}-{month:D2}"
+                    });
+                }
+            }
+
+            // I. POS Sessions & Orders
+            if (posRegisters.Count > 0 && items.Count > 0)
+            {
+                var reg = posRegisters[m % posRegisters.Count];
+                var itm = items[m % items.Count];
+                var posSales = 14500m + (m * 450m) % 9000m;
+                var ordCount = 20 + (m % 10);
+                var sessDate = new DateTime(year, month, Math.Min(15, daysInMonth), 8, 30, 0, DateTimeKind.Utc);
+
+                var sess = new PosSession
+                {
+                    LegalEntityId = legalEntityId,
+                    RegisterId = reg.Id,
+                    RegisterName = reg.Name,
+                    CashierName = "Fatima Al-Zahra",
+                    OpenedByUserId = Guid.NewGuid(),
+                    OpenedAt = sessDate,
+                    ClosedAt = sessDate.AddHours(12),
+                    OpeningCash = 2000m,
+                    TotalSales = posSales,
+                    ExpectedCash = 2000m + (posSales * 0.45m),
+                    Status = PosSessionStatus.Closed,
+                    Notes = $"Daily retail shift for {year}-{month:D2}"
+                };
+                db.Set<PosSession>().Add(sess);
+
+                var ord = new PosOrder
+                {
+                    LegalEntityId = legalEntityId,
+                    RegisterId = reg.Id,
+                    SessionId = sess.Id,
+                    Number = $"POS-{year}{month:D2}-{m + 1:D3}",
+                    CustomerName = "Walk-in Retail Customer",
+                    CashierName = "Fatima Al-Zahra",
+                    OrderDate = sessDate.AddHours(4),
+                    SubTotal = 450m,
+                    TaxTotal = 22.5m,
+                    TotalAmount = 472.5m,
+                    Status = PosOrderStatus.Completed,
+                    PaymentStatus = PosPaymentStatus.Paid,
+                    Lines = new List<PosOrderLine>
+                    {
+                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = 1, UnitPrice = 450m, TaxRate = 5m, LineTotal = 472.5m }
+                    },
+                    Payments = new List<PosPayment>
+                    {
+                        new() { Method = PosPaymentMethod.Card, Amount = 472.5m, PaymentDate = sessDate.AddHours(4) }
+                    }
+                };
+                db.Set<PosOrder>().Add(ord);
+            }
+
+            // J. Distribution Trips
+            if (routes.Count > 0)
+            {
+                var rte = routes[m % routes.Count];
+                var tripSales = 8500m + (m * 350m) % 4000m;
+                db.Set<VanSalesTrip>().Add(new VanSalesTrip
+                {
+                    LegalEntityId = legalEntityId,
+                    TripNumber = $"TRIP-{year}-{month:D2}-{m + 1:D2}",
+                    RouteId = rte.Id,
+                    RouteName = rte.Name,
+                    DriverName = rte.DriverName ?? "Driver",
+                    VehicleNumber = rte.VehicleNumber ?? "Van",
+                    DepartureDate = new DateOnly(year, month, Math.Min(12, daysInMonth)),
+                    ReturnDate = new DateOnly(year, month, Math.Min(12, daysInMonth)),
+                    Status = TripStatus.Completed,
+                    TotalSalesAmount = tripSales,
+                    TotalCollectionsAmount = tripSales,
+                    Notes = $"Scheduled wholesale route distribution trip for {year}-{month:D2}"
+                });
+            }
+
+            // K. Manufacturing Work Orders
+            if (boms.Count > 0)
+            {
+                var bom = boms[0];
+                var mfgWo = new MfgWorkOrder
+                {
+                    LegalEntityId = legalEntityId,
+                    WorkOrderNumber = $"MFG-{year}-{month:D2}-01",
+                    BomId = bom.Id,
+                    BomCode = bom.Code,
+                    ProducedItemCode = bom.ProducedItemCode,
+                    ProducedItemName = bom.ProducedItemName,
+                    PlannedQuantity = 80 + (m % 20),
+                    CompletedQuantity = isPastMonth ? (80 + (m % 20)) : 40,
+                    ScrappedQuantity = 1,
+                    StartDate = new DateOnly(year, month, Math.Min(5, daysInMonth)),
+                    DueDate = new DateOnly(year, month, Math.Min(20, daysInMonth)),
+                    Status = isPastMonth ? MfgWorkOrderStatus.Completed : MfgWorkOrderStatus.InProgress,
+                    Notes = $"Production batch run for {bom.ProducedItemName} ({year}-{month:D2})"
+                };
+                db.Set<MfgWorkOrder>().Add(mfgWo);
+            }
+
+            // L. Real Estate Operations
+            if (reProperties.Count > 0)
+            {
+                var prop = reProperties[m % reProperties.Count];
+                var unit = reUnits.FirstOrDefault(u => u.PropertyId == prop.Id);
+                var issues = new[] { "Quarterly Chiller Compressor Check", "Plumbing Pressure Balancing", "Elevator Brake Testing", "Emergency Light Inverter Test", "Fire Alarm Sensor Calibrations" };
+                var categories = new[] { "HVAC", "Plumbing", "Elevator", "Electrical", "Fire Safety" };
+                var cost = 1450m + (m * 85m) % 2200m;
+
+                var reWo = new ReWorkOrder
+                {
+                    LegalEntityId = legalEntityId,
+                    Number = $"WO-{year}-{month:D2}-{m + 1:D2}",
+                    PropertyId = prop.Id,
+                    UnitId = unit?.Id,
+                    Issue = issues[m % issues.Length],
+                    Category = categories[m % categories.Length],
+                    Priority = RePriority.Normal,
+                    ReportedOn = new DateOnly(year, month, Math.Min(8, daysInMonth)),
+                    ReportedBy = "Facilities Monitoring System",
+                    Technician = "Ravi Kumar (Al Futtaim FM)",
+                    EstimatedCost = cost,
+                    ActualCost = isPastMonth ? cost : 0m,
+                    Details = $"Routine scheduled facilities servicing for {prop.Name}",
+                    ResolutionNotes = isPastMonth ? "Servicing completed and passed inspection test" : null
+                };
+                if (isPastMonth)
+                {
+                    reWo.MoveTo(ReWorkOrderStatus.Assigned, new DateOnly(year, month, Math.Min(9, daysInMonth)));
+                    reWo.MoveTo(ReWorkOrderStatus.InProgress, new DateOnly(year, month, Math.Min(10, daysInMonth)));
+                    reWo.MoveTo(ReWorkOrderStatus.Completed, new DateOnly(year, month, Math.Min(12, daysInMonth)), "Completed");
+                }
+                else
+                {
+                    reWo.MoveTo(ReWorkOrderStatus.Assigned, new DateOnly(year, month, Math.Min(9, daysInMonth)));
+                    reWo.MoveTo(ReWorkOrderStatus.InProgress, new DateOnly(year, month, Math.Min(10, daysInMonth)));
+                }
+                db.Set<ReWorkOrder>().Add(reWo);
+            }
+
+            // M. CRM Leads, Opportunities & Interactions
+            var crmLead = new CrmLead
+            {
+                LegalEntityId = legalEntityId,
+                LeadNumber = $"LEAD-{year}-{month:D2}-01",
+                FullName = leadNames[m % leadNames.Length],
+                CompanyName = $"{leadNames[m % leadNames.Length]} Holding",
+                JobTitle = "Managing Director",
+                Email = $"lead.{year}.{month}@example.com",
+                Phone = $"+971 50 {m + 100:D3} {m + 200:D4}",
+                Source = LeadSource.Referral,
+                Status = m > 2 ? LeadStatus.Qualified : LeadStatus.Contacted,
+                EstimatedValue = 150000m + (m * 10000m) % 200000m,
+                AssignedUserName = "Demo Administrator",
+                Notes = $"Inbound enterprise consultation inquiry from {year}-{month:D2}"
+            };
+            db.Set<CrmLead>().Add(crmLead);
+
+            var crmOpp = new CrmOpportunity
+            {
+                LegalEntityId = legalEntityId,
+                OpportunityNumber = $"OPP-{year}-{month:D2}-01",
+                Title = $"ERP Deployment & Integration - {leadNames[m % leadNames.Length]}",
+                CustomerName = crmLead.CompanyName,
+                Stage = m > 3 ? OpportunityStage.ClosedWon : (m > 1 ? OpportunityStage.Proposal : OpportunityStage.Qualification),
+                ExpectedRevenue = crmLead.EstimatedValue,
+                ProbabilityPercent = m > 3 ? 100 : 65,
+                ExpectedCloseDate = new DateOnly(year, month, Math.Min(26, daysInMonth)),
+                AssignedUserName = "Demo Administrator",
+                Notes = $"High-priority pipeline opportunity for {year}-{month:D2}"
+            };
+            db.Set<CrmOpportunity>().Add(crmOpp);
+
+            db.Set<CrmInteraction>().Add(new CrmInteraction
+            {
+                LegalEntityId = legalEntityId,
+                RelatedEntityKind = "Lead",
+                RelatedEntityId = crmLead.Id,
+                Type = InteractionType.Meeting,
+                Subject = $"Strategy Consultation & Demo Workshop {year}-{month:D2}",
+                Details = "Demonstrated core accounting, multi-currency reporting, and warehouse dispatch.",
+                InteractionDate = new DateTimeOffset(new DateTime(year, month, Math.Min(14, daysInMonth), 11, 0, 0, DateTimeKind.Utc)),
+                PerformedByName = "Demo Administrator",
+                IsResolved = true
+            });
+
+            // N. Professional Services & Time Entries
+            if (engagements.Count > 0)
+            {
+                var eng = engagements[0];
+                db.Set<TimeEntryRecord>().Add(new TimeEntryRecord
+                {
+                    LegalEntityId = legalEntityId,
+                    EngagementId = eng.Id,
+                    ConsultantUserId = Guid.NewGuid(),
+                    ConsultantName = "Alex Carter",
+                    ActivityDate = new DateOnly(year, month, Math.Min(16, daysInMonth)),
+                    Hours = 35m + (m % 10),
+                    HourlyRate = 220m,
+                    TotalAmount = (35m + (m % 10)) * 220m,
+                    TaskDescription = $"Monthly architectural consulting, code reviews and system tuning ({year}-{month:D2})",
+                    IsBillable = true,
+                    IsApproved = true,
+                    ApprovedAt = DateTimeOffset.UtcNow
+                });
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
 }
+

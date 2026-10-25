@@ -84,6 +84,9 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               </span>
               <span *ngSwitchCase="'actions'">
                 <div class="table-actions">
+                  <a [href]="'/print/job-card/' + row.id" target="_blank" nz-button nzType="link" nzSize="small">
+                    <span nz-icon nzType="printer"></span> Job Card
+                  </a>
                   <button
                     *ngIf="row.status === 'Planned'"
                     nz-button nzType="link" nzSize="small"

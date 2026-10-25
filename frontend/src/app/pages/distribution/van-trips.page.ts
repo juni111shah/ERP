@@ -84,6 +84,9 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <button nz-button nzType="link" nzSize="small" (click)="viewDetail(row)">
                   <span nz-icon nzType="eye"></span> Detail
                 </button>
+                <a [href]="'/print/manifest/' + row.id" target="_blank" nz-button nzType="link" nzSize="small">
+                  <span nz-icon nzType="printer"></span> Manifest
+                </a>
                 <button *ngIf="row.status === 'InProgress'" nz-button nzType="link" nzSize="small" (click)="openReconcileModal(row)">
                   <span nz-icon nzType="check-circle"></span> Reconcile
                 </button>
@@ -271,7 +274,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <h3>Trip {{ trip.tripNumber }}</h3>
                 <span>{{ trip.routeName }} &bull; {{ trip.departureDate }}</span>
               </div>
-              <div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <a [href]="'/print/manifest/' + trip.id" target="_blank" nz-button nzType="default" nzSize="small">
+                  <span nz-icon nzType="printer"></span> Print Manifest
+                </a>
                 <nz-tag [nzColor]="getStatusColor(trip.status)">{{ trip.status }}</nz-tag>
               </div>
             </div>

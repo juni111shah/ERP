@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -18,6 +18,7 @@ import {
 } from '../../core/api/pos.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
 
 @Component({
   selector: 'erp-pos-orders-list',
@@ -39,6 +40,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzInputModule,
     NzDividerModule,
     PagedTableComponent,
+    ThermalReceiptComponent,
   ],
   template: `
     <erp-paged-table [list]="list" [columns]="columns">
@@ -68,6 +70,9 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <button nz-button nzType="link" nzSize="small" (click)="viewOrder(ord.id)">
                 Details
               </button>
+              <a [href]="'/print/pos-receipt/' + ord.id" target="_blank" nz-button nzType="link" nzSize="small">
+                Receipt
+              </a>
               @if (ord.status === 'Completed') {
                 <button nz-button nzType="link" nzDanger nzSize="small" (click)="openVoidModal(ord)">
                   Void
@@ -80,51 +85,22 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       <!-- View Order Modal -->
       <nz-modal
         [(nzVisible)]="viewModalVisible"
-        [nzTitle]="'Order ' + (selectedOrder()?.number || '')"
+        [nzTitle]="'POS Receipt ' + (selectedOrder()?.number || '')"
         [nzFooter]="viewFooterTpl"
+        [nzWidth]="420"
         (nzOnCancel)="viewModalVisible = false"
       >
         <ng-container *nzModalContent>
-          @if (selectedOrder(); as o) {
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-              <div style="display: flex; justify-content: space-between;">
-                <div>
-                  <span style="color: #64748b; font-size: 12px;">Customer:</span>
-                  <div style="font-weight: 600;">{{ o.customerName }}</div>
-                </div>
-                <div style="text-align: right;">
-                  <span style="color: #64748b; font-size: 12px;">Cashier:</span>
-                  <div style="font-weight: 600;">{{ o.cashierName }}</div>
-                </div>
-              </div>
-
-              <nz-divider style="margin: 6px 0;"></nz-divider>
-
-              <div class="line-items-box">
-                @for (l of o.lines; track l.id) {
-                  <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
-                    <span>{{ l.itemCode }} · {{ l.description }} (x{{ l.quantity }})</span>
-                    <strong>AED {{ l.lineTotal | number:'1.2-2' }}</strong>
-                  </div>
-                }
-              </div>
-
-              <nz-divider style="margin: 6px 0;"></nz-divider>
-
-              <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: 700;">
-                <span>Total Amount:</span>
-                <span style="color: #2563eb;">AED {{ o.totalAmount | number:'1.2-2' }}</span>
-              </div>
-
-              @if (o.notes) {
-                <div style="background: #f8fafc; padding: 8px 12px; border-radius: 6px; font-size: 12px; color: #475569;">
-                  {{ o.notes }}
-                </div>
-              }
-            </div>
+          @if (thermalReceiptData(); as rc) {
+            <erp-thermal-receipt [receipt]="rc" />
           }
         </ng-container>
         <ng-template #viewFooterTpl>
+          @if (selectedOrder(); as o) {
+            <a [href]="'/print/pos-receipt/' + o.id" target="_blank" nz-button nzType="primary">
+              <span nz-icon nzType="printer"></span> Print Receipt
+            </a>
+          }
           <button nz-button (click)="viewModalVisible = false">Close</button>
         </ng-template>
       </nz-modal>
@@ -170,6 +146,39 @@ export class PosOrdersListPage {
 
   viewModalVisible = false;
   readonly selectedOrder = signal<PosOrderDto | null>(null);
+
+  readonly thermalReceiptData = computed<ThermalReceiptData | null>(() => {
+    const o = this.selectedOrder();
+    if (!o) return null;
+    return {
+      organizationName: 'HigherSquare 360 ERP',
+      organizationNameAr: 'هاير سكوير 360',
+      title: 'Tax Invoice / Cash Receipt',
+      titleAr: 'فاتورة ضريبية / إيصال مبيعات',
+      receiptNumber: o.number,
+      date: o.orderDate,
+      status: o.status,
+      cashierName: o.cashierName,
+      customerName: o.customerName,
+      currency: 'AED',
+      lines: (o.lines || []).map((l) => ({
+        code: l.itemCode,
+        description: l.description,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        lineTotal: l.lineTotal,
+      })),
+      subTotal: o.subTotal,
+      taxTotal: o.taxTotal,
+      totalAmount: o.totalAmount,
+      payments: (o.payments || []).map((p) => ({
+        method: p.method,
+        amount: p.amount,
+        changeAmount: p.changeAmount,
+      })),
+      notes: o.notes,
+    };
+  });
 
   voidModalVisible = false;
   orderToVoid: PosOrderSummaryDto | null = null;

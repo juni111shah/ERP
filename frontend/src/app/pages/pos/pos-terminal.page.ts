@@ -18,6 +18,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSpaceModule } from 'ng-zorro-antd/space';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ItemsApi, LegalEntitiesApi } from '../../core/api/admin.api';
+import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
 import {
   CreatePosOrderCommand,
   PosOrderDto,
@@ -58,6 +59,7 @@ interface CartItem extends PosOrderLineInput {
     NzSpaceModule,
     NzAlertModule,
     NzEmptyModule,
+    ThermalReceiptComponent,
   ],
   template: `
     <div class="pos-terminal-layout">
@@ -279,57 +281,24 @@ interface CartItem extends PosOrderLineInput {
       <!-- Completed Receipt Modal -->
       <nz-modal
         [(nzVisible)]="receiptModalVisible"
-        nzTitle="Sale Completed · Official Receipt"
+        nzTitle="Sale Completed · Official Thermal Receipt"
         [nzFooter]="receiptFooterTpl"
+        [nzWidth]="420"
         (nzOnCancel)="receiptModalVisible = false"
       >
         <ng-container *nzModalContent>
-          @if (completedOrder(); as ord) {
-            <div class="thermal-receipt">
-              <div class="receipt-header-center">
-                <h3>ENTERPRISE ERP STORE</h3>
-                <p>Tax Invoice / Receipt: <strong>{{ ord.number }}</strong></p>
-                <p>Date: {{ ord.orderDate | date:'medium' }}</p>
-                <p>Cashier: {{ ord.cashierName }}</p>
-              </div>
-              <nz-divider style="margin: 10px 0;"></nz-divider>
-              <div class="receipt-lines">
-                @for (l of ord.lines; track l.id) {
-                  <div class="receipt-line">
-                    <span>{{ l.description }} (x{{ l.quantity }})</span>
-                    <span>AED {{ l.lineTotal | number:'1.2-2' }}</span>
-                  </div>
-                }
-              </div>
-              <nz-divider style="margin: 10px 0;"></nz-divider>
-              <div class="receipt-total-row">
-                <span>Subtotal:</span>
-                <span>AED {{ ord.subTotal | number:'1.2-2' }}</span>
-              </div>
-              <div class="receipt-total-row">
-                <span>Tax:</span>
-                <span>AED {{ ord.taxTotal | number:'1.2-2' }}</span>
-              </div>
-              <div class="receipt-total-row receipt-grand">
-                <span>TOTAL:</span>
-                <span>AED {{ ord.totalAmount | number:'1.2-2' }}</span>
-              </div>
-              @for (p of ord.payments; track p.id) {
-                <div class="receipt-tender-row">
-                  <span>{{ p.method }}:</span>
-                  <span>AED {{ p.amount | number:'1.2-2' }} (Change: AED {{ p.changeAmount | number:'1.2-2' }})</span>
-                </div>
-              }
-              <div class="receipt-footer-center">
-                <p>Thank you for shopping with us!</p>
-                <p>Powered by Modular Enterprise ERP</p>
-              </div>
-            </div>
+          @if (thermalReceiptData(); as rc) {
+            <erp-thermal-receipt [receipt]="rc" />
           }
         </ng-container>
         <ng-template #receiptFooterTpl>
-          <button nz-button nzType="primary" (click)="receiptModalVisible = false">
-            <span nz-icon nzType="printer"></span>Done
+          @if (completedOrder(); as ord) {
+            <a [href]="'/print/pos-receipt/' + ord.id" target="_blank" nz-button nzType="primary">
+              <span nz-icon nzType="printer"></span> Print Official Receipt
+            </a>
+          }
+          <button nz-button (click)="receiptModalVisible = false">
+            Done
           </button>
         </ng-template>
       </nz-modal>
@@ -597,6 +566,38 @@ export class PosTerminalPage {
   closeNotes = '';
 
   readonly completedOrder = signal<PosOrderDto | null>(null);
+
+  readonly thermalReceiptData = computed<ThermalReceiptData | null>(() => {
+    const ord = this.completedOrder();
+    if (!ord) return null;
+    return {
+      organizationName: 'HigherSquare 360 ERP',
+      organizationNameAr: 'هاير سكوير 360',
+      title: 'Tax Invoice / Cash Receipt',
+      titleAr: 'فاتورة ضريبية / إيصال مبيعات',
+      receiptNumber: ord.number,
+      date: ord.orderDate,
+      status: ord.status,
+      cashierName: ord.cashierName,
+      customerName: ord.customerName,
+      currency: 'AED',
+      lines: (ord.lines || []).map((l) => ({
+        code: l.itemCode,
+        description: l.description,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        lineTotal: l.lineTotal,
+      })),
+      subTotal: ord.subTotal,
+      taxTotal: ord.taxTotal,
+      totalAmount: ord.totalAmount,
+      payments: (ord.payments || []).map((p) => ({
+        method: p.method,
+        amount: p.amount,
+        changeAmount: p.changeAmount,
+      })),
+    };
+  });
 
   readonly filteredCatalog = computed(() => {
     const q = this.searchQuery().toLowerCase().trim();

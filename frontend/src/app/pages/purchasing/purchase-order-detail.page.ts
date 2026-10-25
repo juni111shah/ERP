@@ -84,10 +84,13 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
               </button>
             }
             @if (o.invoicedBillId) {
-              <a [routerLink]="['/bills', o.invoicedBillId]" nz-button nzType="dashed">
+              <a [routerLink]="['/finance/bills', o.invoicedBillId]" nz-button nzType="dashed">
                 <span nz-icon nzType="file-text"></span>View Vendor Bill
               </a>
             }
+            <a [href]="'/print/purchase-order/' + o.id" target="_blank" nz-button data-testid="po-print">
+              <span nz-icon nzType="printer"></span>Print / PDF
+            </a>
             @if (o.status !== 'Cancelled' && o.status !== 'Billed') {
               <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzDanger
                       nz-popconfirm nzPopconfirmTitle="Cancel this purchase order?" (nzOnConfirm)="changeStatus('Cancelled')">
