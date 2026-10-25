@@ -174,10 +174,15 @@ public class TripHandlers :
 
     public async Task<VanSalesTripDto> Handle(CompleteTripCommand request, CancellationToken cancellationToken)
     {
-        var trip = await _trips.Query(new Specification<VanSalesTrip>(t => t.Id == request.TripId))
+        var trip = await _trips.Tracked(new Specification<VanSalesTrip>(t => t.Id == request.TripId))
             .Include(t => t.InventoryItems)
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new KeyNotFoundException($"Trip {request.TripId} not found.");
+            ?? throw new NotFoundException($"Trip {request.TripId} not found.");
+
+        if (trip.Status == TripStatus.Completed)
+        {
+            throw new ConflictException("Trip is already completed.");
+        }
 
         trip.Status = TripStatus.Completed;
         trip.ReturnDate = DateOnly.FromDateTime(DateTime.UtcNow);

@@ -152,8 +152,8 @@ public class OpportunityHandlers :
 
     public async Task<OpportunityDto> Handle(UpdateOpportunityStageCommand request, CancellationToken cancellationToken)
     {
-        var opp = await _oppRepo.FindAsync(request.Id, cancellationToken)
-            ?? throw new KeyNotFoundException($"Opportunity {request.Id} not found.");
+        var opp = await _oppRepo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException($"Opportunity {request.Id} not found.");
 
         opp.Stage = request.Stage;
         opp.ProbabilityPercent = request.ProbabilityPercent;
@@ -175,8 +175,13 @@ public class OpportunityHandlers :
 
     public async Task<OpportunityDto> Handle(CloseOpportunityCommand request, CancellationToken cancellationToken)
     {
-        var opp = await _oppRepo.FindAsync(request.Id, cancellationToken)
-            ?? throw new KeyNotFoundException($"Opportunity {request.Id} not found.");
+        var opp = await _oppRepo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException($"Opportunity {request.Id} not found.");
+
+        if (opp.Stage == OpportunityStage.ClosedWon || opp.Stage == OpportunityStage.ClosedLost)
+        {
+            throw new ConflictException("Opportunity is already closed.");
+        }
 
         opp.Stage = request.IsWon ? OpportunityStage.ClosedWon : OpportunityStage.ClosedLost;
         opp.ActualRevenue = request.IsWon ? request.ActualRevenue : 0;

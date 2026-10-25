@@ -142,7 +142,7 @@ public class SessionHandlers :
 
         if (activeSession != null)
         {
-            throw new InvalidOperationException($"Register '{register.Name}' already has an active open session.");
+            throw new ConflictException($"Register '{register.Name}' already has an active open session.");
         }
 
         var session = new PosSession
@@ -190,7 +190,7 @@ public class SessionHandlers :
 
         if (session.Status == PosSessionStatus.Closed)
         {
-            throw new InvalidOperationException("Session is already closed.");
+            throw new ConflictException("Session is already closed.");
         }
 
         session.Status = PosSessionStatus.Closed;
@@ -221,7 +221,7 @@ public class SessionHandlers :
 
         if (session.Status != PosSessionStatus.Open)
         {
-            throw new InvalidOperationException("Cannot record drawer transactions on a closed session.");
+            throw new ConflictException("Cannot record drawer transactions on a closed session.");
         }
 
         var tx = new CashDrawerTransaction

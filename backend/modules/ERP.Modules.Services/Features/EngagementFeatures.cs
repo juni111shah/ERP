@@ -135,9 +135,8 @@ public class EngagementHandlers :
 
     public async Task<EngagementDto> Handle(UpdateEngagementStatusCommand request, CancellationToken cancellationToken)
     {
-        var engagement = await _repo.FindAsync(request.Id, cancellationToken);
-        if (engagement is null)
-            throw new KeyNotFoundException($"Service engagement {request.Id} not found.");
+        var engagement = await _repo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException($"Service engagement {request.Id} not found.");
 
         engagement.Status = request.Status;
         if (request.Status == EngagementStatus.Completed && engagement.ActualEndDate is null)

@@ -2,6 +2,7 @@ using ERP.Application.Abstractions;
 using ERP.Application.Dashboard;
 using ERP.Application.Search;
 using ERP.Application.Security;
+using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Crm.Domain;
 using ERP.Modules.Crm.Features;
@@ -30,6 +31,18 @@ public sealed class CrmModule : ModuleBase
         new("crm.opportunities", "Sales pipeline", "/crm/opportunities", "funnel-plot", Crm.Permissions.OpportunitiesRead, 20, Key, "CRM", 220),
         new("crm.interactions", "Activity logs", "/crm/interactions", "phone", Crm.Permissions.InteractionsRead, 30, Key, "CRM", 220),
         new("crm.analytics", "CRM analytics", "/crm/analytics", "line-chart", Crm.Permissions.AnalyticsRead, 40, Key, "CRM", 220)
+    ];
+
+    public override IEnumerable<IndustryTemplate> IndustryTemplates =>
+    [
+        new("crm", "CRM & Sales", "Lead management, sales pipeline, and customer interactions.", IndustryAvailability.Available, [Key],
+            Roles: [],
+            Sequences:
+            [
+                new("LEAD", "LEAD", "{prefix}-{seq:5}", false),
+                new("OPP", "OPP", "{prefix}-{seq:5}", false),
+            ],
+            SortOrder: 60),
     ];
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)

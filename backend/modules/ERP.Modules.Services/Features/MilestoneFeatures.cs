@@ -4,6 +4,7 @@ using ERP.Application.Finance;
 using ERP.Modules.Services.Domain;
 using FluentValidation;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Modules.Services.Features;
 
@@ -124,9 +125,8 @@ public class MilestoneHandlers :
 
     public async Task<MilestoneDto> Handle(UpdateMilestoneStatusCommand request, CancellationToken cancellationToken)
     {
-        var milestone = await _repo.FindAsync(request.Id, cancellationToken);
-        if (milestone is null)
-            throw new KeyNotFoundException($"Billing milestone {request.Id} not found.");
+        var milestone = await _repo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException($"Billing milestone {request.Id} not found.");
 
         milestone.Status = request.Status;
         if (request.Status == MilestoneStatus.ReadyToInvoice && milestone.CompletionDate is null)
@@ -144,8 +144,8 @@ public class MilestoneHandlers :
 
     public async Task<InvoiceDto> Handle(InvoiceMilestoneCommand request, CancellationToken cancellationToken)
     {
-        var milestone = await _repo.FindAsync(request.Id, cancellationToken)
-            ?? throw new KeyNotFoundException($"Billing milestone {request.Id} not found.");
+        var milestone = await _repo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException($"Billing milestone {request.Id} not found.");
 
         if (milestone.Status == MilestoneStatus.Invoiced && milestone.InvoiceId.HasValue)
         {
@@ -153,11 +153,16 @@ public class MilestoneHandlers :
         }
 
         var engagement = await _engagements.FindAsync(milestone.EngagementId, cancellationToken)
-            ?? throw new InvalidOperationException($"Service engagement {milestone.EngagementId} not found.");
+            ?? throw new NotFoundException($"Service engagement {milestone.EngagementId} not found.");
+
+        if (engagement.Status == EngagementStatus.Cancelled)
+        {
+            throw new ConflictException("Cannot invoice milestone for a cancelled service engagement.");
+        }
 
         if (engagement.ClientId == Guid.Empty)
         {
-            throw new InvalidOperationException("Service engagement must have a valid client to generate an invoice.");
+            throw new ConflictException("Service engagement must have a valid client to generate an invoice.");
         }
 
         var invoice = await _sender.Send(new CreateInvoice(new InvoiceInput(

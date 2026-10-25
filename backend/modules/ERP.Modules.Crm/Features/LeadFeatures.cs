@@ -168,8 +168,8 @@ public class LeadHandlers :
 
     public async Task<LeadDto> Handle(UpdateLeadCommand request, CancellationToken cancellationToken)
     {
-        var lead = await _leadRepo.FindAsync(request.Id, cancellationToken)
-            ?? throw new KeyNotFoundException($"Lead {request.Id} not found.");
+        var lead = await _leadRepo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException($"Lead {request.Id} not found.");
 
         lead.FullName = request.FullName.Trim();
         lead.CompanyName = request.CompanyName?.Trim();
@@ -190,8 +190,8 @@ public class LeadHandlers :
 
     public async Task<Guid> Handle(ConvertLeadCommand request, CancellationToken cancellationToken)
     {
-        var lead = await _leadRepo.FindAsync(request.Id, cancellationToken)
-            ?? throw new KeyNotFoundException($"Lead {request.Id} not found.");
+        var lead = await _leadRepo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException($"Lead {request.Id} not found.");
 
         if (!lead.ConvertedPartyId.HasValue)
         {

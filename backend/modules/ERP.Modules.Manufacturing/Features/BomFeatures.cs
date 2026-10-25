@@ -186,7 +186,7 @@ public class BomHandlers :
         var bom = await _boms.Query(new Specification<BillOfMaterials>(b => b.Id == request.Id))
             .Include(b => b.Components)
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new KeyNotFoundException($"BOM {request.Id} not found.");
+            ?? throw new NotFoundException($"BOM {request.Id} not found.");
 
         bom.Name = request.Name.Trim();
         bom.OutputQuantity = request.OutputQuantity;

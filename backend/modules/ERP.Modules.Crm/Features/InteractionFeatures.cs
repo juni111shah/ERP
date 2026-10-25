@@ -100,7 +100,7 @@ public class InteractionHandlers :
     public async Task<bool> Handle(ResolveInteractionCommand request, CancellationToken cancellationToken)
     {
         var interaction = await _interactionRepo.FindAsync(request.Id, cancellationToken)
-            ?? throw new KeyNotFoundException($"Interaction {request.Id} not found.");
+            ?? throw new NotFoundException($"Interaction {request.Id} not found.");
 
         interaction.IsResolved = true;
         await _interactionRepo.SaveChangesAsync(cancellationToken);

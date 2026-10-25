@@ -3,6 +3,7 @@ using ERP.Application.Common;
 using ERP.Modules.Services.Domain;
 using FluentValidation;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Modules.Services.Features;
 
@@ -127,9 +128,8 @@ public class RetainerHandlers :
 
     public async Task<RetainerDto> Handle(UpdateRetainerStatusCommand request, CancellationToken cancellationToken)
     {
-        var contract = await _repo.FindAsync(request.Id, cancellationToken);
-        if (contract is null)
-            throw new KeyNotFoundException($"Retainer contract {request.Id} not found.");
+        var contract = await _repo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException($"Retainer contract {request.Id} not found.");
 
         contract.Status = request.Status;
         await _repo.SaveChangesAsync(cancellationToken);
