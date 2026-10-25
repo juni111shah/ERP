@@ -1106,7 +1106,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
                 <!-- Sales Group -->
                 <div class="quick-create-col">
                   <div class="quick-create-col-title">{{ 'menu.group.sales' | translate: 'Sales' }}</div>
-                  <a routerLink="/invoices" class="quick-create-item">
+                  <a routerLink="/finance/invoices" class="quick-create-item">
                     <span nz-icon nzType="file-text" class="item-icon green"></span>
                     <span>{{ 'menu.finance.invoices' | translate: 'Invoice' }}</span>
                   </a>
@@ -1118,7 +1118,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
                     <span nz-icon nzType="shopping-cart" class="item-icon green"></span>
                     <span>{{ 'menu.sales.orders' | translate: 'Sales Order' }}</span>
                   </a>
-                  <a routerLink="/parties" class="quick-create-item">
+                  <a routerLink="/parties" [queryParams]="{ type: 'customer' }" class="quick-create-item">
                     <span nz-icon nzType="user-add" class="item-icon blue"></span>
                     <span>{{ 'menu.sales.customers' | translate: 'Customer' }}</span>
                   </a>
@@ -1131,7 +1131,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
                     <span nz-icon nzType="shopping" class="item-icon orange"></span>
                     <span>{{ 'menu.purchasing.orders' | translate: 'Purchase Order' }}</span>
                   </a>
-                  <a routerLink="/bills" class="quick-create-item">
+                  <a routerLink="/finance/bills" class="quick-create-item">
                     <span nz-icon nzType="audit" class="item-icon orange"></span>
                     <span>{{ 'menu.finance.bills' | translate: 'Vendor Bill' }}</span>
                   </a>
@@ -1139,7 +1139,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
                     <span nz-icon nzType="inbox" class="item-icon orange"></span>
                     <span>{{ 'menu.purchasing.receipts' | translate: 'Goods Receipt' }}</span>
                   </a>
-                  <a routerLink="/parties" class="quick-create-item">
+                  <a routerLink="/parties" [queryParams]="{ type: 'vendor' }" class="quick-create-item">
                     <span nz-icon nzType="team" class="item-icon blue"></span>
                     <span>{{ 'menu.purchases.vendors' | translate: 'Vendor' }}</span>
                   </a>
@@ -1148,19 +1148,19 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
                 <!-- Finance Group -->
                 <div class="quick-create-col">
                   <div class="quick-create-col-title">{{ 'menu.group.finance' | translate: 'Finance' }}</div>
-                  <a routerLink="/journals" class="quick-create-item">
+                  <a routerLink="/finance/journals" class="quick-create-item">
                     <span nz-icon nzType="book" class="item-icon purple"></span>
                     <span>{{ 'menu.finance.journals' | translate: 'Journal Entry' }}</span>
                   </a>
-                  <a routerLink="/receipts" class="quick-create-item">
+                  <a routerLink="/finance/receipts" class="quick-create-item">
                     <span nz-icon nzType="dollar-circle" class="item-icon green"></span>
                     <span>{{ 'menu.finance.receipts' | translate: 'Receive Money' }}</span>
                   </a>
-                  <a routerLink="/payments" class="quick-create-item">
+                  <a routerLink="/finance/payments" class="quick-create-item">
                     <span nz-icon nzType="transaction" class="item-icon red"></span>
                     <span>{{ 'menu.finance.payments' | translate: 'Make Payment' }}</span>
                   </a>
-                  <a routerLink="/admin/coa" class="quick-create-item">
+                  <a routerLink="/finance/accounts" class="quick-create-item">
                     <span nz-icon nzType="apartment" class="item-icon purple"></span>
                     <span>{{ 'menu.finance.accounts' | translate: 'Account' }}</span>
                   </a>
@@ -1173,15 +1173,15 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
                     <span nz-icon nzType="calculator" class="item-icon teal"></span>
                     <span>{{ 'menu.pos.terminal' | translate: 'POS Terminal' }}</span>
                   </a>
-                  <a routerLink="/items" class="quick-create-item">
+                  <a routerLink="/catalog/items" class="quick-create-item">
                     <span nz-icon nzType="barcode" class="item-icon teal"></span>
                     <span>{{ 'menu.core.items' | translate: 'Item / Product' }}</span>
                   </a>
-                  <a routerLink="/manufacturing/work-orders" class="quick-create-item">
+                  <a routerLink="/manufacturing/workorders" class="quick-create-item">
                     <span nz-icon nzType="tool" class="item-icon slate"></span>
                     <span>{{ 'menu.manufacturing.workorders' | translate: 'Work Order' }}</span>
                   </a>
-                  <a routerLink="/realestate/leases" class="quick-create-item">
+                  <a routerLink="/real-estate/leases" class="quick-create-item">
                     <span nz-icon nzType="home" class="item-icon slate"></span>
                     <span>{{ 'menu.realestate.leases' | translate: 'Lease Contract' }}</span>
                   </a>

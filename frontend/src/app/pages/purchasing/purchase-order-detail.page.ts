@@ -84,7 +84,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
               </button>
             }
             @if (o.invoicedBillId) {
-              <a [routerLink]="['/bills', o.invoicedBillId]" nz-button nzType="dashed">
+              <a [routerLink]="['/finance/bills', o.invoicedBillId]" nz-button nzType="dashed">
                 <span nz-icon nzType="file-text"></span>View Vendor Bill
               </a>
             }

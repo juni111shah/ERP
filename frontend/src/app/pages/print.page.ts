@@ -1436,7 +1436,7 @@ export class PrintPage implements OnInit {
         next: ({ order, header }) => this.setLoaded({ header, order } as PrintOrderData),
         error: (err) => this.setError(err),
       });
-    } else if (type === 'purchase-order') {
+    } else if (type === 'purchase-order' || type === 'po') {
       forkJoin({
         po: this.http.get<any>(`${this.apiBase}/m/purchasing/orders/${id}`),
         header: this.loadHeader(),
@@ -1452,7 +1452,7 @@ export class PrintPage implements OnInit {
         next: ({ lease, header }) => this.setLoaded({ header, lease } as PrintLeaseData),
         error: (err) => this.setError(err),
       });
-    } else if (type === 'work-order') {
+    } else if (type === 'work-order' || type === 'workorder') {
       forkJoin({
         wo: this.http.get<any>(`${this.apiBase}/m/real-estate/work-orders/${id}`),
         header: this.loadHeader(),
