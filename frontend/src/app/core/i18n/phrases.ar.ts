@@ -460,6 +460,7 @@ const PAIRS: [string, string][] = [
   ['No data', 'لا توجد بيانات'],
   ['Mark all as read', 'تحديد الكل كمقروء'],
   ['All caught up', 'لا توجد إشعارات جديدة'],
+  ['No new notifications right now', 'لا توجد أي إشعارات جديدة حالياً'],
   ['Account security', 'أمان الحساب'],
   ['Two-factor authentication', 'المصادقة الثنائية'],
   ['Two-factor authentication is on.', 'المصادقة الثنائية مفعّلة.'],

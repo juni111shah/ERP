@@ -1216,12 +1216,21 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           <div class="topbar-divider"></div>
 
           <div class="topbar-actions-group">
-            <button type="button" class="topbar-action-btn bell-btn" aria-label="Notifications" nz-tooltip [nzTooltipTitle]="'shell.notifications' | translate: 'Notifications'" data-testid="notifications-bell" (click)="notificationsOpen.set(true)">
+            <button type="button" class="topbar-action-btn bell-btn" aria-label="Notifications"
+                    nz-dropdown [nzDropdownMenu]="notificationsMenu" nzTrigger="click" nzPlacement="bottomRight"
+                    [nzClickHide]="false"
+                    [nzVisible]="notificationsOpen()" (nzVisibleChange)="notificationsOpen.set($event)"
+                    data-testid="notifications-bell">
               <span nz-icon nzType="bell" class="action-btn-icon"></span>
               @if (unread().unread > 0) {
                 <span class="bell-badge-count">{{ unread().unread > 99 ? '99+' : unread().unread }}</span>
               }
             </button>
+
+            <nz-dropdown-menu #notificationsMenu="nzDropdownMenu">
+              <erp-notification-drawer [open]="notificationsOpen()" (closed)="notificationsOpen.set(false)" (changed)="bump()" />
+            </nz-dropdown-menu>
+
             <button type="button" class="topbar-action-btn lang-btn" (click)="i18n.toggle()" aria-label="Language" nz-tooltip [nzTooltipTitle]="i18n.lang() === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'" data-testid="lang-toggle">
               <span class="lang-text">{{ i18n.lang() === 'ar' ? 'EN' : 'العربية' }}</span>
             </button>
@@ -1246,7 +1255,6 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           </nz-dropdown-menu>
         </nz-header>
         <nz-content class="content"><router-outlet /></nz-content>
-        <erp-notification-drawer [open]="notificationsOpen()" (closed)="notificationsOpen.set(false)" (changed)="bump()" />
       </nz-layout>
     </nz-layout>`,
 })
