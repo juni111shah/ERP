@@ -46,7 +46,7 @@ public sealed class InventoryStockPostingService(
             };
 
             var value = Math.Round(request.Quantity * request.UnitCost, 2);
-            if (value > 0)
+            if (value > 0 && !request.SkipJournal)
             {
                 Guid offsetAccount;
                 if (request.OffsetAccountId.HasValue)
@@ -117,7 +117,7 @@ public sealed class InventoryStockPostingService(
             };
 
             var value = Math.Round(request.Quantity * cost, 2);
-            if (value > 0)
+            if (value > 0 && !request.SkipJournal)
             {
                 var expense = request.ExpenseAccountId ?? await posting.AccountForRoleAsync("cogs", token);
                 var invAccount = await posting.AccountForRoleAsync("inventory", token);
@@ -141,6 +141,18 @@ public sealed class InventoryStockPostingService(
             await movements.SaveChangesAsync(token);
             return m.Id;
         }, ct);
+    }
+
+    public async Task<decimal> GetAverageCostAsync(Guid itemId, Guid? warehouseId = null, CancellationToken ct = default)
+    {
+        var item = await items.FindAsync(itemId, ct);
+        if (item is null) return 0m;
+        var wh = await ResolveWarehouseAsync(warehouseId, Guid.Empty, ct);
+        if (wh is null) return item.PurchasePrice ?? 0m;
+        var pos = StockCosting.Replay(
+            await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == wh.Id && m.ItemId == itemId))
+                .ToListAsync(ct));
+        return pos.AverageCost > 0 ? pos.AverageCost : (item.PurchasePrice ?? 0m);
     }
 
     private async Task<Warehouse?> ResolveWarehouseAsync(Guid? warehouseId, Guid legalEntityId, CancellationToken ct)
