@@ -2,12 +2,12 @@
 id: TASK-003
 title: Replace blanket InvalidOperation/KeyNotFound mapping with domain exceptions
 priority: P1
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: platform
 audit_ref: AUD-010
-commit: 5e98439
+commit: 5288640
 ---
 
 ## Problem
@@ -39,3 +39,8 @@ Message wording users already see, unless needed.
 - Created `backend/tests/ERP.IntegrationTests/ExceptionMappingTests.cs` testing 500 unmapped exception logging, plus 404 not-found and 409 conflict scenarios for POS, Retail, Services, CRM, Manufacturing, and Distribution. All 213 unit tests and 186 integration tests pass.
 
 ## Review (Claude)
+
+Verified at HEAD in a clean `git archive` copy: `dotnet build backend/ERP.sln` 0 errors; `dotnet test --no-build` 213 unit + 186 integration passed, 0 failed.
+- Commit 5288640 (card `commit:` corrected from 5e98439) removes the three catch-all mappings in `Middleware.cs`; no raw KeyNotFound/InvalidOperation/Argument throws remain in `backend/modules` feature handlers (only the `RentSchedule` domain helper, guarded by lease validators).
+- `ExceptionMappingTests.cs` covers 404, 409 and unmapped-exception 500 for POS, Retail, Services, CRM, Manufacturing, Distribution.
+- Verdict: done.
