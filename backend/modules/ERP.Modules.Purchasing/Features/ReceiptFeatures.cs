@@ -97,7 +97,8 @@ internal sealed class ReceiptHandlers(
     IRepository<PurchaseOrder> orders,
     ILegalEntityGuard guard,
     INumberingService numbers,
-    ICustomFieldService fields) :
+    ICustomFieldService fields,
+    IStockPostingService stockPosting) :
     IRequestHandler<GetGoodsReceipt, GoodsReceiptDto>,
     IRequestHandler<CreateGoodsReceipt, GoodsReceiptDto>,
     IRequestHandler<DeleteGoodsReceipt, Unit>
@@ -150,6 +151,19 @@ internal sealed class ReceiptHandlers(
             if (poLine != null)
             {
                 poLine.ReceivedQuantity += l.QuantityReceived;
+            }
+
+            if (l.ItemId.HasValue && l.QuantityReceived > 0)
+            {
+                var unitCost = poLine?.UnitPrice ?? 0m;
+                await stockPosting.ReceiveStockAsync(new StockReceiveRequest(
+                    entity.Id,
+                    l.ItemId.Value,
+                    l.QuantityReceived,
+                    unitCost,
+                    i.ReceiptDate,
+                    grn.Number,
+                    $"GRN {grn.Number} (PO {order.Number})"), ct);
             }
         }
 

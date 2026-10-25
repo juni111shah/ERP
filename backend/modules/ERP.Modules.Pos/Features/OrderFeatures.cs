@@ -130,15 +130,18 @@ public class OrderHandlers :
     private readonly IRepository<PosOrder> _orders;
     private readonly IRepository<PosSession> _sessions;
     private readonly INumberingService _numbering;
+    private readonly IStockPostingService _stockPosting;
 
     public OrderHandlers(
         IRepository<PosOrder> orders,
         IRepository<PosSession> sessions,
-        INumberingService numbering)
+        INumberingService numbering,
+        IStockPostingService stockPosting)
     {
         _orders = orders;
         _sessions = sessions;
         _numbering = numbering;
+        _stockPosting = stockPosting;
     }
 
     public async Task<PosOrderDto> Handle(CreatePosOrderCommand request, CancellationToken cancellationToken)
@@ -239,6 +242,20 @@ public class OrderHandlers :
         await _orders.SaveChangesAsync(cancellationToken);
         await _sessions.SaveChangesAsync(cancellationToken);
 
+        foreach (var l in lines)
+        {
+            if (l.ItemId.HasValue && l.Quantity > 0)
+            {
+                await _stockPosting.IssueStockAsync(new StockIssueRequest(
+                    order.LegalEntityId,
+                    l.ItemId.Value,
+                    l.Quantity,
+                    DateOnly.FromDateTime(DateTime.UtcNow),
+                    order.Number,
+                    $"POS sale {order.Number} ({l.ItemCode})"), cancellationToken);
+            }
+        }
+
         return Map(order);
     }
 
@@ -269,6 +286,21 @@ public class OrderHandlers :
         }
 
         await _orders.SaveChangesAsync(cancellationToken);
+
+        foreach (var l in order.Lines)
+        {
+            if (l.ItemId.HasValue && l.Quantity > 0)
+            {
+                await _stockPosting.ReceiveStockAsync(new StockReceiveRequest(
+                    order.LegalEntityId,
+                    l.ItemId.Value,
+                    l.Quantity,
+                    l.UnitPrice,
+                    DateOnly.FromDateTime(DateTime.UtcNow),
+                    order.Number,
+                    $"POS void return {order.Number} ({l.ItemCode})"), cancellationToken);
+            }
+        }
 
         return Map(order);
     }

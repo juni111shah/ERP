@@ -59,7 +59,10 @@ public sealed class InventoryModule : ModuleBase
         [new("inventory.warehouse", "Warehouse", typeof(Warehouse), Key, WarehousesRead)];
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
-        => services.AddScoped<ERP.Application.Dashboard.IDashboardContributor, InventoryDashboard>();
+    {
+        services.AddScoped<ERP.Application.Dashboard.IDashboardContributor, InventoryDashboard>();
+        services.AddScoped<IStockPostingService, InventoryStockPostingService>();
+    }
 
     public override void ConfigureModel(ModelBuilder modelBuilder)
     {

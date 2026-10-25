@@ -202,7 +202,11 @@ export class ProjectBillingPage implements OnInit {
       nzOnOk: () => {
         this.billingApi.bill({ projectId: row.projectId }).subscribe({
           next: (res) => {
-            this.msg.success(`Successfully billed AED ${res.totalAmountBilled.toFixed(2)} for ${row.projectName}`);
+            if (res.invoiceNumber) {
+              this.msg.success(`Generated Invoice ${res.invoiceNumber} (AED ${res.totalAmountBilled.toFixed(2)}) for ${row.projectName}`);
+            } else {
+              this.msg.success(`Successfully billed AED ${res.totalAmountBilled.toFixed(2)} for ${row.projectName}`);
+            }
             this.loadOverview();
           },
         });

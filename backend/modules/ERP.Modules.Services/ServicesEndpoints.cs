@@ -122,6 +122,12 @@ internal static class ServicesEndpoints
             return Results.Ok(result);
         }).RequirePermission(Permissions.MilestonesManage);
 
+        group.MapPost("/milestones/{id:guid}/invoice", async (Guid id, ISender s, CancellationToken ct) =>
+        {
+            var invoice = await s.Send(new InvoiceMilestoneCommand(id), ct);
+            return Results.Ok(invoice);
+        }).RequirePermission(Permissions.MilestonesManage);
+
         // Time Entries
         group.MapPagedList<TimeEntryRecord, TimeEntrySummaryDto>(
             "/time-entries",

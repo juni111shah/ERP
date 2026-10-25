@@ -165,6 +165,8 @@ export interface BillProjectResultDto {
   billedTimesheetsCount: number;
   billedMilestonesCount: number;
   totalAmountBilled: number;
+  invoiceId?: string;
+  invoiceNumber?: string;
 }
 
 @Injectable({ providedIn: 'root' })
