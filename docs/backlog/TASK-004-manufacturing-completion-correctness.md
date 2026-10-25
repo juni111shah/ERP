@@ -2,12 +2,12 @@
 id: TASK-004
 title: Make work-order release/complete safe and post correct inventory journals
 priority: P0
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: manufacturing
 audit_ref: AUDIT-DEEP B2, B3
-commit: 3ce01c4
+commit: 351964a
 ---
 
 ## Problem
@@ -43,3 +43,11 @@ BOM and costing report calculations.
 - Added integration test suite `ManufacturingWorkflowTests` testing status guards, double completion rejection, trial balance balance, COGS neutrality, and transactional rollback on failure.
 
 ## Review (Claude)
+Reviewed commit 351964a (card originally listed 3ce01c4, corrected). Commit contains only this card's changes.
+- Status guards: Release requires Planned, Complete requires InProgress, Cancel only Planned/InProgress with 0 completed qty; all throw ConflictException (WorkOrderFeatures.cs).
+- Client `ActualTotalCost` is ignored; cost = issued components at stock average cost (fallback BOM unit cost) + operation/BOM conversion cost.
+- Single journal: Dr inventory (total), Cr inventory (materials), Cr WIP/absorption (conversion); component issues and FG receipt use `SkipJournal`, so COGS is untouched. Whole completion runs in `InTransactionAsync`.
+- BOM components validated as existing Products before posting.
+- Verified in clean `git archive` copy: `dotnet build backend/ERP.sln` 0 errors; `dotnet test` unit 213/213, integration 175/175 (incl. ManufacturingWorkflowTests: 409 on second complete, cost 115 / inventory 1015, debits = credits, COGS unchanged).
+- Observations (not blocking, no card needed beyond TASK-010): the "rollback" test exercises pre-transaction validation rather than a mid-transaction failure; issuing components does not check insufficient stock here; all three journal accounts fall back to the single `inventory` account when no WIP role exists.
+

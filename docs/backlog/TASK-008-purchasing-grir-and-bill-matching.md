@@ -2,7 +2,7 @@
 id: TASK-008
 title: Goods receipts post to a GR/IR clearing account and the bill clears it
 priority: P0
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: purchasing
