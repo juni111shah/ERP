@@ -39,6 +39,9 @@ public static class ProgramSeeder
 {
     public static async Task SeedModulesAsync(IServiceProvider sp, CancellationToken ct = default)
     {
+        var env = sp.GetService<Microsoft.Extensions.Hosting.IHostEnvironment>();
+        if (env is not null && (env.IsEnvironment("Testing") || env.EnvironmentName.Equals("Testing", StringComparison.OrdinalIgnoreCase))) return;
+
         var config = sp.GetRequiredService<IConfiguration>();
         var section = config.GetSection("Seed");
         if (!section.GetValue<bool>("Enabled")) return;
