@@ -142,7 +142,8 @@ internal sealed class OrderHandlers(
     ISender sender,
     ILegalEntityGuard guard,
     INumberingService numbers,
-    ICustomFieldService fields) :
+    ICustomFieldService fields,
+    IStockPostingService stockPosting) :
     IRequestHandler<GetOrder, OrderDto>,
     IRequestHandler<CreateOrder, OrderDto>,
     IRequestHandler<UpdateOrder, OrderDto>,
@@ -254,7 +255,19 @@ internal sealed class OrderHandlers(
             var line = order.Lines.FirstOrDefault(l => l.Id == ful.LineId);
             if (line != null)
             {
-                line.DeliveredQuantity = Math.Min(line.Quantity, Math.Max(0, ful.DeliveredQuantity));
+                var targetQty = Math.Min(line.Quantity, Math.Max(0, ful.DeliveredQuantity));
+                var delta = targetQty - line.DeliveredQuantity;
+                if (delta > 0 && line.ItemId.HasValue)
+                {
+                    await stockPosting.IssueStockAsync(new StockIssueRequest(
+                        order.LegalEntityId,
+                        line.ItemId.Value,
+                        delta,
+                        DateOnly.FromDateTime(DateTime.UtcNow),
+                        order.Number,
+                        $"Delivery for SO {order.Number} ({line.ItemCode})"), ct);
+                }
+                line.DeliveredQuantity = targetQty;
             }
         }
 
@@ -308,6 +321,18 @@ internal sealed class OrderHandlers(
 
         foreach (var l in order.Lines)
         {
+            var undelivered = l.Quantity - l.DeliveredQuantity;
+            if (undelivered > 0 && l.ItemId.HasValue)
+            {
+                await stockPosting.IssueStockAsync(new StockIssueRequest(
+                    order.LegalEntityId,
+                    l.ItemId.Value,
+                    undelivered,
+                    DateOnly.FromDateTime(DateTime.UtcNow),
+                    order.Number,
+                    $"Auto-fulfillment for Invoiced SO {order.Number} ({l.ItemCode})"), ct);
+                l.DeliveredQuantity = l.Quantity;
+            }
             l.InvoicedQuantity = l.Quantity;
         }
 

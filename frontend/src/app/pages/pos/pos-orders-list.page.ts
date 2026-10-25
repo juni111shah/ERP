@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -26,8 +26,6 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    CurrencyPipe,
-    DatePipe,
     DecimalPipe,
     FormsModule,
     RouterModule,

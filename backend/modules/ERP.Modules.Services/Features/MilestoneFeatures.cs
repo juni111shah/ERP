@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Finance;
 using ERP.Modules.Services.Domain;
 using FluentValidation;
 using MediatR;
@@ -47,6 +48,8 @@ public record UpdateMilestoneStatusCommand(
     MilestoneStatus Status,
     Guid? InvoiceId) : ICommand<MilestoneDto>;
 
+public record InvoiceMilestoneCommand(Guid Id) : ICommand<InvoiceDto>;
+
 public class CreateMilestoneValidator : AbstractValidator<CreateMilestoneCommand>
 {
     public CreateMilestoneValidator()
@@ -67,17 +70,34 @@ public class UpdateMilestoneStatusValidator : AbstractValidator<UpdateMilestoneS
     }
 }
 
+public class InvoiceMilestoneValidator : AbstractValidator<InvoiceMilestoneCommand>
+{
+    public InvoiceMilestoneValidator()
+    {
+        RuleFor(x => x.Id).NotEmpty();
+    }
+}
+
 public class MilestoneHandlers :
     IRequestHandler<CreateMilestoneCommand, MilestoneDto>,
-    IRequestHandler<UpdateMilestoneStatusCommand, MilestoneDto>
+    IRequestHandler<UpdateMilestoneStatusCommand, MilestoneDto>,
+    IRequestHandler<InvoiceMilestoneCommand, InvoiceDto>
 {
     private readonly IRepository<BillingMilestone> _repo;
+    private readonly IReadRepository<ServiceEngagement> _engagements;
     private readonly INumberingService _numbering;
+    private readonly ISender _sender;
 
-    public MilestoneHandlers(IRepository<BillingMilestone> repo, INumberingService numbering)
+    public MilestoneHandlers(
+        IRepository<BillingMilestone> repo,
+        IReadRepository<ServiceEngagement> engagements,
+        INumberingService numbering,
+        ISender sender)
     {
         _repo = repo;
+        _engagements = engagements;
         _numbering = numbering;
+        _sender = sender;
     }
 
     public async Task<MilestoneDto> Handle(CreateMilestoneCommand request, CancellationToken cancellationToken)
@@ -120,6 +140,45 @@ public class MilestoneHandlers :
 
         await _repo.SaveChangesAsync(cancellationToken);
         return Map(milestone);
+    }
+
+    public async Task<InvoiceDto> Handle(InvoiceMilestoneCommand request, CancellationToken cancellationToken)
+    {
+        var milestone = await _repo.FindAsync(request.Id, cancellationToken)
+            ?? throw new KeyNotFoundException($"Billing milestone {request.Id} not found.");
+
+        if (milestone.Status == MilestoneStatus.Invoiced && milestone.InvoiceId.HasValue)
+        {
+            return await _sender.Send(new GetInvoice(milestone.InvoiceId.Value), cancellationToken);
+        }
+
+        var engagement = await _engagements.FindAsync(milestone.EngagementId, cancellationToken)
+            ?? throw new InvalidOperationException($"Service engagement {milestone.EngagementId} not found.");
+
+        if (engagement.ClientId == Guid.Empty)
+        {
+            throw new InvalidOperationException("Service engagement must have a valid client to generate an invoice.");
+        }
+
+        var invoice = await _sender.Send(new CreateInvoice(new InvoiceInput(
+            LegalEntityId: milestone.LegalEntityId,
+            PartyId: engagement.ClientId,
+            InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow),
+            DueDate: milestone.DueDate,
+            Lines: [
+                new InvoiceLineInput(
+                    $"{milestone.MilestoneCode}: {milestone.Title} ({engagement.Title})",
+                    1,
+                    milestone.Amount)
+            ],
+            Notes: $"Milestone billing for {engagement.EngagementCode}: {engagement.Title}")), cancellationToken);
+
+        milestone.Status = MilestoneStatus.Invoiced;
+        milestone.InvoiceId = invoice.Id;
+        milestone.CompletionDate ??= DateOnly.FromDateTime(DateTime.UtcNow);
+
+        await _repo.SaveChangesAsync(cancellationToken);
+        return invoice;
     }
 
     private static MilestoneDto Map(BillingMilestone m) =>

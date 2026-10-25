@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -41,7 +41,6 @@ interface CartItem extends PosOrderLineInput {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    CurrencyPipe,
     DecimalPipe,
     FormsModule,
     RouterModule,

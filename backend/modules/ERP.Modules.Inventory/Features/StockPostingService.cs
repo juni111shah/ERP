@@ -1,0 +1,156 @@
+using ERP.Application.Abstractions;
+using ERP.Application.Common;
+using ERP.Application.Finance;
+using ERP.Domain.Catalog;
+using ERP.Domain.Finance;
+using ERP.Modules.Inventory.Domain;
+using Microsoft.EntityFrameworkCore;
+
+namespace ERP.Modules.Inventory.Features;
+
+public sealed class InventoryStockPostingService(
+    IModuleAccess moduleAccess,
+    IRepository<StockMovement> movements,
+    IReadRepository<Warehouse> warehouses,
+    IReadRepository<Item> items,
+    IPostingService posting,
+    IUnitOfWork unitOfWork) : IStockPostingService
+{
+    public async Task<bool> IsInventoryEnabledAsync(CancellationToken ct = default)
+        => await moduleAccess.IsEnabledAsync(InventoryModule.Key, ct);
+
+    public async Task<Guid?> ReceiveStockAsync(StockReceiveRequest request, CancellationToken ct = default)
+    {
+        if (request.Quantity <= 0) return null;
+        if (!await IsInventoryEnabledAsync(ct)) return null;
+
+        var item = await items.FindAsync(request.ItemId, ct);
+        if (item is null || item.Type != ItemType.Product) return null;
+
+        var warehouse = await ResolveWarehouseAsync(request.WarehouseId, request.LegalEntityId, ct);
+        if (warehouse is null) return null;
+
+        return await unitOfWork.InTransactionAsync(async token =>
+        {
+            var m = new StockMovement
+            {
+                LegalEntityId = warehouse.LegalEntityId,
+                WarehouseId = warehouse.Id,
+                ItemId = request.ItemId,
+                Date = request.Date,
+                Kind = MovementKind.Receipt,
+                Quantity = request.Quantity,
+                UnitCost = request.UnitCost,
+                Reference = request.Reference,
+                Memo = request.Memo ?? "Stock receipt"
+            };
+
+            var value = Math.Round(request.Quantity * request.UnitCost, 2);
+            if (value > 0)
+            {
+                Guid offsetAccount;
+                if (request.OffsetAccountId.HasValue)
+                {
+                    offsetAccount = request.OffsetAccountId.Value;
+                }
+                else
+                {
+                    try { offsetAccount = await posting.AccountForRoleAsync(SystemRoles.ApControl, token); }
+                    catch { offsetAccount = await posting.AccountForRoleAsync("inventory", token); }
+                }
+
+                var invAccount = await posting.AccountForRoleAsync("inventory", token);
+                var entry = await posting.PostAsync(new PostingRequest(
+                    warehouse.LegalEntityId,
+                    request.Date,
+                    "inventory",
+                    m.Id,
+                    m.Memo,
+                    request.Reference,
+                    [
+                        new PostingLine(invAccount, value, 0, m.Memo),
+                        new PostingLine(offsetAccount, 0, value, m.Memo)
+                    ]), token);
+
+                m.JournalEntryId = entry.Id;
+            }
+
+            movements.Add(m);
+            await movements.SaveChangesAsync(token);
+            return m.Id;
+        }, ct);
+    }
+
+    public async Task<Guid?> IssueStockAsync(StockIssueRequest request, CancellationToken ct = default)
+    {
+        if (request.Quantity <= 0) return null;
+        if (!await IsInventoryEnabledAsync(ct)) return null;
+
+        var item = await items.FindAsync(request.ItemId, ct);
+        if (item is null || item.Type != ItemType.Product) return null;
+
+        var warehouse = await ResolveWarehouseAsync(request.WarehouseId, request.LegalEntityId, ct);
+        if (warehouse is null) return null;
+
+        return await unitOfWork.InTransactionAsync(async token =>
+        {
+            var position = StockCosting.Replay(
+                await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == warehouse.Id && m.ItemId == request.ItemId))
+                    .ToListAsync(token));
+
+            var cost = position.AverageCost > 0 ? position.AverageCost : 0m;
+            var m = new StockMovement
+            {
+                LegalEntityId = warehouse.LegalEntityId,
+                WarehouseId = warehouse.Id,
+                ItemId = request.ItemId,
+                Date = request.Date,
+                Kind = MovementKind.Issue,
+                Quantity = -request.Quantity,
+                UnitCost = cost,
+                Reference = request.Reference,
+                Memo = request.Memo ?? "Stock issued"
+            };
+
+            var value = Math.Round(request.Quantity * cost, 2);
+            if (value > 0)
+            {
+                var expense = request.ExpenseAccountId ?? await posting.AccountForRoleAsync("cogs", token);
+                var invAccount = await posting.AccountForRoleAsync("inventory", token);
+
+                var entry = await posting.PostAsync(new PostingRequest(
+                    warehouse.LegalEntityId,
+                    request.Date,
+                    "inventory",
+                    m.Id,
+                    m.Memo,
+                    request.Reference,
+                    [
+                        new PostingLine(expense, value, 0, m.Memo),
+                        new PostingLine(invAccount, 0, value, m.Memo)
+                    ]), token);
+
+                m.JournalEntryId = entry.Id;
+            }
+
+            movements.Add(m);
+            await movements.SaveChangesAsync(token);
+            return m.Id;
+        }, ct);
+    }
+
+    private async Task<Warehouse?> ResolveWarehouseAsync(Guid? warehouseId, Guid legalEntityId, CancellationToken ct)
+    {
+        if (warehouseId.HasValue)
+        {
+            var wh = await warehouses.FindAsync(warehouseId.Value, ct);
+            if (wh != null && wh.IsActive) return wh;
+        }
+
+        var defaultWh = await warehouses.Query(new Specification<Warehouse>(w => w.LegalEntityId == legalEntityId && w.IsActive))
+            .FirstOrDefaultAsync(ct);
+        if (defaultWh != null) return defaultWh;
+
+        return await warehouses.Query(new Specification<Warehouse>(w => w.IsActive)).FirstOrDefaultAsync(ct);
+    }
+}

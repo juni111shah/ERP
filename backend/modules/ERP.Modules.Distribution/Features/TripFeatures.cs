@@ -110,15 +110,18 @@ public class TripHandlers :
     private readonly IRepository<VanSalesTrip> _trips;
     private readonly IRepository<DistributionRoute> _routes;
     private readonly INumberingService _numbering;
+    private readonly IStockPostingService _stockPosting;
 
     public TripHandlers(
         IRepository<VanSalesTrip> trips,
         IRepository<DistributionRoute> routes,
-        INumberingService numbering)
+        INumberingService numbering,
+        IStockPostingService stockPosting)
     {
         _trips = trips;
         _routes = routes;
         _numbering = numbering;
+        _stockPosting = stockPosting;
     }
 
     public async Task<VanSalesTripDto> Handle(CreateTripCommand request, CancellationToken cancellationToken)
@@ -197,6 +200,23 @@ public class TripHandlers :
         }
 
         await _trips.SaveChangesAsync(cancellationToken);
+
+        foreach (var item in trip.InventoryItems)
+        {
+            var issuedQty = item.SoldQuantity + item.DamagedQuantity;
+            if (issuedQty > 0 && item.ItemId != Guid.Empty)
+            {
+                await _stockPosting.IssueStockAsync(new StockIssueRequest(
+                    trip.LegalEntityId,
+                    item.ItemId,
+                    issuedQty,
+                    trip.ReturnDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                    trip.TripNumber,
+                    $"Van sales trip {trip.TripNumber} sold/damaged ({item.ItemCode})",
+                    trip.WarehouseId != Guid.Empty ? trip.WarehouseId : null), cancellationToken);
+            }
+        }
+
         return Map(trip);
     }
 

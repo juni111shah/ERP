@@ -1,5 +1,5 @@
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -22,7 +22,7 @@ import { matchText, TableToolsComponent } from '../../shared/table-tools.compone
   selector: 'erp-portal-home',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TableToolsComponent, TranslatePipe, DatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule, PaginationBarComponent],
+  imports: [TableToolsComponent, TranslatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule, PaginationBarComponent],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; } .lease { margin-bottom: 24px; }`],
   template: `
     <div class="top"><h1>{{ 'portal.welcome' | translate: 'Welcome' }}, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">{{ 'portal.signOut' | translate: 'Sign out' }}</button></div>

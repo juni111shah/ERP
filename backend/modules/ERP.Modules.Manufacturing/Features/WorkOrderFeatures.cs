@@ -122,15 +122,18 @@ public class WorkOrderHandlers :
     private readonly IRepository<WorkOrder> _orders;
     private readonly IRepository<BillOfMaterials> _boms;
     private readonly INumberingService _numbering;
+    private readonly IStockPostingService _stockPosting;
 
     public WorkOrderHandlers(
         IRepository<WorkOrder> orders,
         IRepository<BillOfMaterials> boms,
-        INumberingService numbering)
+        INumberingService numbering,
+        IStockPostingService stockPosting)
     {
         _orders = orders;
         _boms = boms;
         _numbering = numbering;
+        _stockPosting = stockPosting;
     }
 
     public async Task<WorkOrderDto> Handle(CreateWorkOrderCommand request, CancellationToken cancellationToken)
@@ -229,6 +232,45 @@ public class WorkOrderHandlers :
         }
 
         await _orders.SaveChangesAsync(cancellationToken);
+
+        if (wo.CompletedQuantity > 0 && wo.ProducedItemId != Guid.Empty)
+        {
+            var unitCost = wo.CompletedQuantity > 0 ? Math.Round(wo.ActualTotalCost / wo.CompletedQuantity, 4) : 0m;
+            await _stockPosting.ReceiveStockAsync(new StockReceiveRequest(
+                wo.LegalEntityId,
+                wo.ProducedItemId,
+                wo.CompletedQuantity,
+                unitCost,
+                wo.CompletionDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                wo.WorkOrderNumber,
+                $"Produced via WO {wo.WorkOrderNumber} ({wo.ProducedItemCode})",
+                wo.WarehouseId != Guid.Empty ? wo.WarehouseId : null), cancellationToken);
+
+            var bom = await _boms.Query(new Specification<BillOfMaterials>(b => b.Id == wo.BomId))
+                .Include(b => b.Components)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (bom != null && bom.Components.Count > 0)
+            {
+                var factor = wo.CompletedQuantity / (bom.OutputQuantity > 0 ? bom.OutputQuantity : 1);
+                foreach (var c in bom.Components)
+                {
+                    if (c.ComponentItemId != Guid.Empty && c.QuantityRequired > 0)
+                    {
+                        var reqQty = Math.Round(c.QuantityRequired * factor, 4);
+                        await _stockPosting.IssueStockAsync(new StockIssueRequest(
+                            wo.LegalEntityId,
+                            c.ComponentItemId,
+                            reqQty,
+                            wo.CompletionDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                            wo.WorkOrderNumber,
+                            $"Consumed for WO {wo.WorkOrderNumber} ({c.ComponentItemCode})",
+                            wo.WarehouseId != Guid.Empty ? wo.WarehouseId : null), cancellationToken);
+                    }
+                }
+            }
+        }
+
         return Map(wo);
     }
 

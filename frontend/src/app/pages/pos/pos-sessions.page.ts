@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -28,8 +28,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    CurrencyPipe,
-    DatePipe,
     DecimalPipe,
     FormsModule,
     RouterModule,
