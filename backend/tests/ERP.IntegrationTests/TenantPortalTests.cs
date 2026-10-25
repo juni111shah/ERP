@@ -113,4 +113,27 @@ public class TenantPortalTests(ApiFactory f) : IClassFixture<ApiFactory>
         var other = await TenantAsync();
         Assert.Equal(HttpStatusCode.NotFound, (await portal.PostAsJsonAsync($"{Re}/portal/requests", new { leaseId = other.LeaseId, issue = "x" })).StatusCode);
     }
+
+    [Fact]
+    public async Task Portal_token_is_forbidden_from_staff_endpoints_guarded_only_by_authentication()
+    {
+        var a = await TenantAsync();
+        var portal = await SignInAsync(a.Email);
+
+        // Acceptance criteria: Portal token gets 403 on POST /api/v1/approvals, GET /api/v1/dashboard, GET /api/v1/search, GET /api/v1/me
+        Assert.Equal(HttpStatusCode.Forbidden, (await portal.PostAsJsonAsync("/api/v1/approvals", new { scope = "test", title = "test" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await portal.GetAsync("/api/v1/dashboard")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await portal.GetAsync("/api/v1/search?q=test")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await portal.GetAsync("/api/v1/me")).StatusCode);
+
+        // Portal token still works on /api/v1/portal/*
+        Assert.Equal(HttpStatusCode.OK, (await portal.GetAsync($"{Portal}/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await portal.GetAsync($"{Portal}/invoices")).StatusCode);
+
+        // Staff tokens behave as before
+        Assert.Equal(HttpStatusCode.OK, (await a.Staff.GetAsync("/api/v1/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await a.Staff.GetAsync("/api/v1/dashboard")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await a.Staff.GetAsync("/api/v1/search?q=test")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await a.Staff.GetAsync($"{Portal}/me")).StatusCode);
+    }
 }

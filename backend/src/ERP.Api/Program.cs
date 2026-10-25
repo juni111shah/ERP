@@ -93,6 +93,12 @@ builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProv
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
 builder.Services.AddAuthorization(o =>
 {
+    var staff = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .RequireAssertion(ctx => !ctx.User.HasClaim(c => c.Type == "portal_party"))
+        .Build();
+    o.DefaultPolicy = staff;
+    o.FallbackPolicy = staff;
     o.AddPolicy("portal", p => p.RequireAuthenticatedUser().RequireClaim("portal_party"));
     o.AddPolicy("portal.customer", p => p.RequireAuthenticatedUser().RequireClaim("portal_party").RequireClaim("portal_kind", "customer"));
     o.AddPolicy("portal.vendor", p => p.RequireAuthenticatedUser().RequireClaim("portal_party").RequireClaim("portal_kind", "vendor"));
@@ -195,7 +201,6 @@ var registry = app.Services.GetRequiredService<ModuleRegistry>();
 foreach (var module in registry.Modules)
 {
     var group = api.MapGroup($"/m/{module.Manifest.Key}")
-        .RequireAuthorization()
         .WithMetadata(new ModuleGateMetadata(module.Manifest.Key))
         .WithTags($"Module: {module.Manifest.Name}");
     module.MapEndpoints(group);
