@@ -2,12 +2,12 @@
 id: TASK-002
 title: Block portal tokens from staff endpoints with a fallback policy
 priority: P0
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: platform
 audit_ref: AUD-012
-commit: 87086bc
+commit: 25da298
 ---
 
 ## Problem
@@ -39,3 +39,7 @@ Token contents and portal login flow.
 - Added integration tests in `TenantPortalTests.cs` and `VendorPortalTests.cs` verifying 403 Forbidden for portal tokens on `POST /api/v1/approvals`, `GET /api/v1/dashboard`, `GET /api/v1/search`, and `GET /api/v1/me`, while verifying portal routes continue to work and staff tokens behave as before.
 
 ## Review (Claude)
+
+Verified commit 25da298 (the card's 87086bc is an orphaned pre-amend hash): Default and Fallback policies require no portal_party claim; permission policies also exclude portal tokens; portal.* policies kept; the module group's blanket RequireAuthorization was removed and is covered by the fallback policy. Tests cover 403 for tenant and vendor tokens on approvals/dashboard/search/me, portal routes still OK, staff unchanged.
+Clean `git archive` copy at 25da298: `dotnet build backend/ERP.sln` 0 errors; `dotnet test`: 213 unit + 172 integration passed, 0 failed.
+Note: a follow-up could add a startup check that every non-portal endpoint is covered by the fallback policy; not required here.

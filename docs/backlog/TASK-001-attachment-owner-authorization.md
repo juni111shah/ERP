@@ -2,12 +2,12 @@
 id: TASK-001
 title: Authorize attachments by the owning record's permission
 priority: P0
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: platform
 audit_ref: AUD-011
-commit: 175db04
+commit: 4a4959c
 ---
 
 ## Problem
@@ -45,3 +45,7 @@ Attachment table schema; existing upload size and extension rules.
 - Updated existing integration test helper payloads in `CqrsEndpointTests.cs` and `DocumentVaultTests.cs` to provide valid owner entity setups.
 
 ## Review (Claude)
+
+Verified commit 4a4959c (the card's 175db04 is an orphaned pre-amend hash): only TASK-001 changes plus the card file. Owner resolvers cover core and module owner types; list/upload/download/delete all authorize via ResolveAndAuthorizeAsync (403/400/404 as specified); content type derived from extension; LocalFileStore.PathFor uses root + separator. All four criteria have tests (AttachmentAuthorizationTests, LocalFileStoreTests).
+Clean `git archive` copy at 25da298: `dotnet build backend/ERP.sln` 0 errors; `dotnet test`: 213 unit + 172 integration passed, 0 failed.
+Note: a follow-up could add a startup check that every non-portal endpoint is covered by the fallback policy; not required here.
