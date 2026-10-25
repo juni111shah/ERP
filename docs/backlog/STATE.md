@@ -1,13 +1,13 @@
 # Board
 
-Last Claude run: never (flow created 2026-10-25)
+Last Claude run: 2026-10-25 14:01 (no cards ready-for-review; queue healthy, no refill)
 Rotation position: next area = Order to cash (Sales, invoices, receipts)
 Needs human: nothing
 
 | Status | Count |
 |---|---|
-| open | 15 |
-| in-progress | 0 |
+| open | 14 |
+| in-progress | 1 |
 | ready-for-review | 0 |
 | changes-requested | 0 |
 | blocked | 0 |
@@ -15,7 +15,7 @@ Needs human: nothing
 
 | Card | Priority | Status | Title |
 |---|---|---|---|
-| TASK-001 | P0 | open | Authorize attachments by the owning record's permission |
+| TASK-001 | P0 | in-progress | Authorize attachments by the owning record's permission |
 | TASK-002 | P0 | open | Block portal tokens from staff endpoints |
 | TASK-003 | P1 | open | Replace blanket exception mapping with domain exceptions |
 | TASK-004 | P0 | open | Work-order release/complete safe, correct inventory journals |
