@@ -7,8 +7,8 @@ Needs human: C: disk is 100% full (reviews built from D:RP_review_tmp; free C: s
 | Status | Count |
 |---|---|
 | open | 9 |
-| in-progress | 1 |
-| ready-for-review | 0 |
+| in-progress | 0 |
+| ready-for-review | 1 |
 | changes-requested | 0 |
 | blocked | 1 |
 | done | 4 |
@@ -17,7 +17,7 @@ Needs human: C: disk is 100% full (reviews built from D:RP_review_tmp; free C: s
 |---|---|---|---|
 | TASK-001 | P0 | done | Authorize attachments by the owning record's permission |
 | TASK-002 | P0 | done | Block portal tokens from staff endpoints |
-| TASK-003 | P1 | in-progress | Replace blanket exception mapping with domain exceptions |
+| TASK-003 | P1 | ready-for-review | Replace blanket exception mapping with domain exceptions |
 | TASK-004 | P0 | done | Work-order release/complete safe, correct inventory journals |
 | TASK-005 | P0 | open | POS orders priced and validated on the server |
 | TASK-006 | P0 | open | POS void reverses cash, stock at original cost |
