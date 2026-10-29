@@ -28,6 +28,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { StatCardComponent } from '../../shared/stat-card.component';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
@@ -87,11 +88,11 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
             }
           }
           @case ('total') {
-            <b>AED {{ row.total | number: '1.2-2' }}</b>
+            <b>{{ currency() }} {{ row.total | number: '1.2-2' }}</b>
           }
           @case ('outstanding') {
             <span [class.unallocated-badge]="row.outstanding > 0">
-              AED {{ row.outstanding | number: '1.2-2' }}
+              {{ currency() }} {{ row.outstanding | number: '1.2-2' }}
             </span>
           }
           @case ('status') {
@@ -145,6 +146,8 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
     </ng-template>`,
 })
 export class BillsPage {
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(BillsApi);

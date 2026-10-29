@@ -26,6 +26,7 @@ import {
 } from '../../core/api/retail.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
@@ -304,8 +305,9 @@ export class PriceListsPageComponent implements OnInit {
   private readonly sessionStore = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
+  readonly currency = this.currencyService.currency;
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly itemsList = signal<{ id: string; name: string; sku: string; salesPrice?: number }[]>([]);
   readonly isSaving = signal(false);
@@ -364,7 +366,7 @@ export class PriceListsPageComponent implements OnInit {
       code: '',
       name: '',
       type: 'Standard',
-      currency: 'AED',
+      currency: this.currencyService.code(),
       validFrom: null,
       validTo: null,
       isDefault: false,

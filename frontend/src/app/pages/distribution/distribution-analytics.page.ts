@@ -8,6 +8,7 @@ import { NzStatisticModule } from 'ng-zorro-antd/statistic';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { DistributionKpiApi, DistributionKpiSummaryDto } from '../../core/api/distribution.api';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 @Component({
   selector: 'erp-distribution-analytics-page',
@@ -65,7 +66,7 @@ import { DistributionKpiApi, DistributionKpiSummaryDto } from '../../core/api/di
             <nz-statistic
               [nzValue]="((kpi()?.totalVanSalesMonth || 0) | number:'1.2-2') ?? '0.00'"
               [nzTitle]="'Van Sales (Month)'"
-              [nzPrefix]="'AED '">
+              [nzPrefix]="currency() + ' '">
             </nz-statistic>
             <div class="kpi-footer">
               <span class="text-secondary">{{ kpi()?.completedTripsMonth || 0 }} completed trips</span>
@@ -78,7 +79,7 @@ import { DistributionKpiApi, DistributionKpiSummaryDto } from '../../core/api/di
             <nz-statistic
               [nzValue]="((kpi()?.totalCollectionsMonth || 0) | number:'1.2-2') ?? '0.00'"
               [nzTitle]="'Cash Reconciled (Month)'"
-              [nzPrefix]="'AED '">
+              [nzPrefix]="currency() + ' '">
             </nz-statistic>
             <div class="kpi-footer">
               <span class="text-secondary">Direct driver collections</span>
@@ -131,7 +132,7 @@ import { DistributionKpiApi, DistributionKpiSummaryDto } from '../../core/api/di
                 <tr *ngFor="let rt of routesTable.data">
                   <td><strong>{{ rt.name }}</strong></td>
                   <td>{{ rt.driver }}</td>
-                  <td nzAlign="right" class="font-bold">AED {{ rt.revenue | number:'1.2-2' }}</td>
+                  <td nzAlign="right" class="font-bold">{{ currency() }} {{ rt.revenue | number:'1.2-2' }}</td>
                   <td nzAlign="right">
                     <nz-tag nzColor="success">Active</nz-tag>
                   </td>
@@ -185,6 +186,8 @@ import { DistributionKpiApi, DistributionKpiSummaryDto } from '../../core/api/di
 })
 export class DistributionAnalyticsPageComponent implements OnInit {
   private readonly kpiApi = inject(DistributionKpiApi);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
 
   readonly kpi = signal<DistributionKpiSummaryDto | null>(null);
 

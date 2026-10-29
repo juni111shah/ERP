@@ -13,6 +13,7 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { InventoryLookups, LowStockRow, StockApi, StockOnHand } from './inventory.api';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { FormsModule } from '@angular/forms';
 
@@ -52,12 +53,12 @@ type Action = 'receive' | 'issue' | 'adjust' | 'transfer' | 'policy';
               <td><span class="name-cell">{{ r.item }}</span></td>
               <td><nz-tag>{{ r.warehouse }}</nz-tag></td>
               <td style="text-align:right">{{ r.quantity | number: '1.0-4' }} {{ r.uom }}</td>
-              <td style="text-align:right">AED {{ r.averageCost | number: '1.2-2' }}</td>
-              <td style="text-align:right"><b>AED {{ r.value | number: '1.2-2' }}</b></td>
+              <td style="text-align:right">{{ currency() }} {{ r.averageCost | number: '1.2-2' }}</td>
+              <td style="text-align:right"><b>{{ currency() }} {{ r.value | number: '1.2-2' }}</b></td>
             </tr>
           } @empty { <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--erp-color-text-secondary)">No stock yet. Receive stock to get started.</td></tr> }
         </tbody>
-        @if (data(); as d) { <tfoot><tr><td colspan="5"><b>Total value</b></td><td style="text-align:right"><b data-testid="stock-total">AED {{ d.totalValue | number: '1.2-2' }}</b></td></tr></tfoot> }
+        @if (data(); as d) { <tfoot><tr><td colspan="5"><b>Total value</b></td><td style="text-align:right"><b data-testid="stock-total">{{ currency() }} {{ d.totalValue | number: '1.2-2' }}</b></td></tr></tfoot> }
       </nz-table>
     </div>
     <erp-record-drawer [title]="title()" [open]="current() !== null" [fields]="fields()" [value]="null" [saving]="saving()" [errors]="errors()" testId="stock-form" [width]="480"
@@ -67,6 +68,7 @@ export class StockPage {
   private readonly api = inject(StockApi);
   private readonly lookups = inject(InventoryLookups);
   private readonly message = inject(NzMessageService);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly actions: { key: Action; label: string }[] = [{ key: 'receive', label: 'Receive stock' }, { key: 'issue', label: 'Issue stock' }, { key: 'adjust', label: 'Adjust' }, { key: 'transfer', label: 'Transfer' }, { key: 'policy', label: 'Reorder level' }];
   readonly data = signal<StockOnHand | null>(null);
   readonly low = signal<LowStockRow[]>([]);

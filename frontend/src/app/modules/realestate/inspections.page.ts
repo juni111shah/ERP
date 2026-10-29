@@ -20,6 +20,7 @@ import { LookupOption } from '../../core/custom-fields/lookup-registry';
 import { Observable } from 'rxjs';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
@@ -37,7 +38,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
         @if (column.key === 'inspector') {
           <span class="name-cell">{{ row.inspector }}</span>
         } @else if (column.key === 'damageCost') {
-          <strong>AED {{ row.damageCost.toLocaleString() }}</strong>
+          <strong>{{ currency() }} {{ row.damageCost.toLocaleString() }}</strong>
         } @else if (column.key === 'status') {
           <erp-status-tag [status]="row.status" />
         } @else {
@@ -89,6 +90,7 @@ export class InspectionsPage {
   private readonly api = inject(InspectionsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly kinds = INSPECTION_KINDS;
   readonly conditions = CONDITIONS;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-inspectionDate' });

@@ -18,6 +18,7 @@ import {
 } from '../../core/api/pos.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
@@ -131,9 +132,10 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
 export class PosOrdersListPage {
   private readonly api = inject(PosOrdersApi);
   private readonly sessionStore = inject(SessionStore);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
+  readonly currency = this.currencyService.currency;
   readonly list = createPagedList<PosOrderSummaryDto>((q: any) => this.api.list(q));
 
   readonly columns: TableColumn<PosOrderSummaryDto>[] = [

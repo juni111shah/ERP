@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -15,9 +15,12 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { LegalEntitiesApi } from '../../core/api/admin.api';
 import {
   CrmInteractionsApi,
+  CrmLeadsApi,
+  CrmOpportunitiesApi,
   CustomerInteractionDto,
   InteractionType
 } from '../../core/api/crm.api';
+import { PartiesApi } from '../parties.page';
 import { createPagedList } from '../../core/api/paged-list';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
@@ -133,10 +136,21 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <nz-form-item>
                 <nz-form-label nzRequired>Related Context</nz-form-label>
                 <nz-form-control>
-                  <nz-select formControlName="relatedEntityKind">
+                  <nz-select formControlName="relatedEntityKind" (ngModelChange)="onRelatedKindChange($event)">
                     <nz-option nzValue="Lead" nzLabel="Lead Prospect"></nz-option>
                     <nz-option nzValue="Opportunity" nzLabel="Pipeline Deal"></nz-option>
                     <nz-option nzValue="Customer" nzLabel="Account / Client"></nz-option>
+                  </nz-select>
+                </nz-form-control>
+              </nz-form-item>
+
+              <nz-form-item>
+                <nz-form-label nzRequired>Related Record</nz-form-label>
+                <nz-form-control nzErrorTip="Please select a related record">
+                  <nz-select formControlName="relatedEntityId" nzShowSearch nzPlaceHolder="Select record">
+                    @for (r of relatedOptions(); track r.id) {
+                      <nz-option [nzValue]="r.id" [nzLabel]="r.name"></nz-option>
+                    }
                   </nz-select>
                 </nz-form-control>
               </nz-form-item>
@@ -195,11 +209,26 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 export class InteractionsPageComponent implements OnInit {
   private readonly api = inject(CrmInteractionsApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly leadsApi = inject(CrmLeadsApi);
+  private readonly oppsApi = inject(CrmOpportunitiesApi);
+  private readonly partiesApi = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
 
   readonly list = createPagedList<CustomerInteractionDto>((q: any) => this.api.list(q));
   readonly entities = signal<{ id: string; name: string }[]>([]);
+  readonly leads = signal<{ id: string; name: string }[]>([]);
+  readonly opportunities = signal<{ id: string; name: string }[]>([]);
+  readonly customers = signal<{ id: string; name: string }[]>([]);
+
+  readonly currentRelatedKind = signal<string>('Lead');
+  readonly relatedOptions = computed(() => {
+    const kind = this.currentRelatedKind();
+    if (kind === 'Lead') return this.leads();
+    if (kind === 'Opportunity') return this.opportunities();
+    if (kind === 'Customer') return this.customers();
+    return [];
+  });
 
   readonly createVisible = signal(false);
   readonly isSubmitting = signal(false);
@@ -220,12 +249,14 @@ export class InteractionsPageComponent implements OnInit {
   ngOnInit(): void {
     this.initForm();
     this.loadEntities();
+    this.loadRelatedData();
   }
 
   private initForm(): void {
     this.activityForm = this.fb.group({
       legalEntityId: ['', [Validators.required]],
       relatedEntityKind: ['Lead', [Validators.required]],
+      relatedEntityId: ['', [Validators.required]],
       type: ['Call', [Validators.required]],
       subject: ['', [Validators.required]],
       details: [''],
@@ -245,6 +276,53 @@ export class InteractionsPageComponent implements OnInit {
         }
       }
     });
+  }
+
+  private loadRelatedData(): void {
+    this.leadsApi.list({ page: 1, pageSize: 100 }).subscribe({
+      next: (res) => {
+        const items = (res.items || []).map((l: any) => ({
+          id: l.id,
+          name: l.fullName || l.companyName || l.leadNumber || l.id,
+        }));
+        this.leads.set(items);
+        if (items.length > 0 && !this.activityForm.get('relatedEntityId')?.value) {
+          this.activityForm.patchValue({ relatedEntityId: items[0].id });
+        }
+      },
+      error: () => {},
+    });
+
+    this.oppsApi.list({ page: 1, pageSize: 100 }).subscribe({
+      next: (res) => {
+        const items = (res.items || []).map((o: any) => ({
+          id: o.id,
+          name: o.title || o.dealNumber || o.id,
+        }));
+        this.opportunities.set(items);
+      },
+      error: () => {},
+    });
+
+    this.partiesApi.list({ page: 1, pageSize: 100, extra: { type: 'customer' } }).subscribe({
+      next: (res) => {
+        const items = (res.items || []).map((p: any) => ({
+          id: p.id,
+          name: p.name || p.id,
+        }));
+        this.customers.set(items);
+      },
+      error: () => {},
+    });
+  }
+
+  onRelatedKindChange(kind: string): void {
+    this.currentRelatedKind.set(kind);
+    let defaultId = '';
+    if (kind === 'Lead') defaultId = this.leads()[0]?.id || '';
+    else if (kind === 'Opportunity') defaultId = this.opportunities()[0]?.id || '';
+    else if (kind === 'Customer') defaultId = this.customers()[0]?.id || '';
+    this.activityForm.patchValue({ relatedEntityId: defaultId });
   }
 
   getTypeColor(type: InteractionType): string {
@@ -270,9 +348,12 @@ export class InteractionsPageComponent implements OnInit {
   }
 
   openCreateDrawer(): void {
+    this.currentRelatedKind.set('Lead');
+    const defaultLeadId = this.leads()[0]?.id || '';
     this.activityForm.reset({
       legalEntityId: this.entities()[0]?.id || '',
       relatedEntityKind: 'Lead',
+      relatedEntityId: defaultLeadId,
       type: 'Call',
       interactionDate: new Date(),
       followUpDate: new Date(Date.now() + 3 * 86400000)
@@ -295,13 +376,17 @@ export class InteractionsPageComponent implements OnInit {
       Object.values(this.activityForm.controls).forEach(c => c.markAsDirty());
       return;
     }
-    this.isSubmitting.set(true);
     const v = this.activityForm.value;
+    if (!v.relatedEntityId) {
+      this.message.error('Please select a related record.');
+      return;
+    }
+    this.isSubmitting.set(true);
 
     const payload = {
       legalEntityId: v.legalEntityId,
       relatedEntityKind: v.relatedEntityKind,
-      relatedEntityId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      relatedEntityId: v.relatedEntityId,
       type: v.type,
       subject: v.subject,
       details: v.details,

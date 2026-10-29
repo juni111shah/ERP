@@ -24,6 +24,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
@@ -66,7 +67,7 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
             <span class="name-cell">{{ row.partyName }}</span>
           }
           @case ('amount') {
-            <b>AED {{ row.amount | number: '1.2-2' }}</b>
+            <b>{{ currency() }} {{ row.amount | number: '1.2-2' }}</b>
           }
           @case ('status') {
             <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
@@ -141,6 +142,8 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
     </nz-modal>`,
 })
 export class ChequesPage {
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
   private readonly api = inject(ChequesApi);
   private readonly invoices = inject(InvoicesApi);
   private readonly parties = inject(PartiesApi);

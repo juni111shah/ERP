@@ -21,6 +21,7 @@ import { LegalEntitiesApi } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { PurchaseRequisitionInput, PurchaseRequisitionStatus, PurchaseRequisitionsApi, RequisitionInput, RequisitionSummaryDto } from '../../core/api/purchasing.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -70,7 +71,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 }
               </div>
             } @else if (column.key === 'estimatedTotal') {
-              <strong>AED {{ row.estimatedTotal | number:'1.2-2' }}</strong>
+              <strong>{{ currency() }} {{ row.estimatedTotal | number:'1.2-2' }}</strong>
             } @else if (column.key === 'status') {
               <nz-tag [nzColor]="statusColor(row.status)">{{ row.status }}</nz-tag>
             } @else if (column.key === 'actions') {
@@ -255,7 +256,9 @@ export class PurchaseRequisitionsPage {
   private readonly reqsApi = inject(PurchaseRequisitionsApi);
   private readonly entitiesApi = inject(LegalEntitiesApi);
   private readonly message = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
+  readonly currency = this.currencyService.currency;
   readonly list = createPagedList((q) => this.reqsApi.list(q), { sort: 'number' });
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly drawerVisible = signal(false);

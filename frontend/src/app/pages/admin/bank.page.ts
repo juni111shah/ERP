@@ -19,6 +19,7 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 /** Cash and bank: balances, bank statement import, reconciliation and transfers between accounts. */
 import { RevealDirective } from '../../shared/reveal.directive';
@@ -110,12 +111,12 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
                 <nz-tag nzColor="success">Selected</nz-tag>
               }
             </div>
-            <div class="bank-card-balance">AED {{ a.balance | number: '1.2-2' }}</div>
+            <div class="bank-card-balance">{{ currency() }} {{ a.balance | number: '1.2-2' }}</div>
           </div>
         }
         <div class="bank-card" style="cursor:default">
           <div class="bank-card-header"><span>Total Liquidity</span></div>
-          <div class="bank-card-balance">AED {{ p.total | number: '1.2-2' }}</div>
+          <div class="bank-card-balance">{{ currency() }} {{ p.total | number: '1.2-2' }}</div>
         </div>
       </div>
     }
@@ -138,7 +139,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
       <div class="rec-metrics-strip">
         <div class="rec-metric-item">
           <span class="rec-metric-label">{{ 'ui.bank.ledgerBalance' | translate: 'Ledger balance' }}</span>
-          <span class="rec-metric-val">AED {{ r.ledgerBalance | number: '1.2-2' }}</span>
+          <span class="rec-metric-val">{{ currency() }} {{ r.ledgerBalance | number: '1.2-2' }}</span>
         </div>
         <div class="rec-metric-divider"></div>
         <div class="rec-metric-item">
@@ -148,12 +149,12 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
         <div class="rec-metric-divider"></div>
         <div class="rec-metric-item">
           <span class="rec-metric-label">{{ 'ui.bank.unmatchedStatement' | translate: 'Unmatched statement' }}</span>
-          <span class="rec-metric-val">AED {{ r.unmatchedStatementTotal | number: '1.2-2' }}</span>
+          <span class="rec-metric-val">{{ currency() }} {{ r.unmatchedStatementTotal | number: '1.2-2' }}</span>
         </div>
         <div class="rec-metric-divider"></div>
         <div class="rec-metric-item">
           <span class="rec-metric-label">{{ 'ui.bank.unmatchedLedger' | translate: 'Unmatched ledger' }}</span>
-          <span class="rec-metric-val">AED {{ r.unmatchedLedgerTotal | number: '1.2-2' }}</span>
+          <span class="rec-metric-val">{{ currency() }} {{ r.unmatchedLedgerTotal | number: '1.2-2' }}</span>
         </div>
       </div>
 
@@ -171,7 +172,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
                 <td>{{ l.description }}</td>
                 <td><span class="code-pill">{{ l.reference || '—' }}</span></td>
                 <td class="num" [class.amt-inflow]="l.amount > 0" [class.amt-outflow]="l.amount < 0">
-                  {{ l.amount < 0 ? '- AED ' + ((-l.amount) | number: '1.2-2') : 'AED ' + (l.amount | number: '1.2-2') }}
+                  {{ l.amount < 0 ? '- ' + currency() + ' ' + ((-l.amount) | number: '1.2-2') : currency() + ' ' + (l.amount | number: '1.2-2') }}
                 </td>
                 <td><a *erpHasPermission="'finance.bank.write'" (click)="startBook(l)" data-testid="rec-book">Book it</a></td>
               </tr>
@@ -194,7 +195,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
                 <td><span class="code-pill">{{ l.number }}</span></td>
                 <td>{{ l.description }}</td>
                 <td class="num" [class.amt-inflow]="l.amount > 0" [class.amt-outflow]="l.amount < 0">
-                  {{ l.amount < 0 ? '- AED ' + ((-l.amount) | number: '1.2-2') : 'AED ' + (l.amount | number: '1.2-2') }}
+                  {{ l.amount < 0 ? '- ' + currency() + ' ' + ((-l.amount) | number: '1.2-2') : currency() + ' ' + (l.amount | number: '1.2-2') }}
                 </td>
               </tr>
             }
@@ -234,6 +235,9 @@ export class BankPage {
   private readonly i18n = inject(I18nService);
   private readonly api = inject(BankApi);
   private readonly message = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+
+  readonly currency = this.currencyService.currency;
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
   private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
   readonly entities = computed(() => this.entityPage().items);

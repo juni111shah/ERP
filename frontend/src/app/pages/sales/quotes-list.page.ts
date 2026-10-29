@@ -17,7 +17,8 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { ItemsApi, ItemDto, LegalEntitiesApi } from '../../core/api/admin.api';
+import { ItemsApi, ItemDto, LegalEntitiesApi, TaxCodeDto, TaxCodesApi } from '../../core/api/admin.api';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { createPagedList } from '../../core/api/paged-list';
 import { QuoteInput, QuoteSummaryDto, SalesKpiApi, SalesKpiDto, SalesQuotesApi } from '../../core/api/sales.api';
 import { PartiesApi, PartyDto } from '../parties.page';
@@ -338,12 +339,17 @@ export class QuotesListPage {
   private readonly entitiesApi = inject(LegalEntitiesApi);
   private readonly partiesApi = inject(PartiesApi);
   private readonly itemsApi = inject(ItemsApi);
+  private readonly taxCodesApi = inject(TaxCodesApi);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
+  readonly currency = this.currencyService.currency;
   readonly list = createPagedList((q) => this.quotesApi.list(q), { sort: 'number' });
   readonly kpis = signal<SalesKpiDto | null>(null);
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly customers = signal<PartyDto[]>([]);
   readonly items = signal<ItemDto[]>([]);
+  readonly taxCodes = signal<TaxCodeDto[]>([]);
+  readonly defaultTaxRate = signal<number>(0);
   readonly drawerVisible = signal(false);
   readonly isSubmitting = signal(false);
 
@@ -355,7 +361,7 @@ export class QuotesListPage {
     customerEmail: [''],
     quoteDate: [new Date(), Validators.required],
     validUntil: [null],
-    currency: ['AED', Validators.required],
+    currency: [this.currencyService.code(), Validators.required],
     terms: [''],
     notes: [''],
     lines: this.fb.array([]),
@@ -395,6 +401,21 @@ export class QuotesListPage {
     this.loadEntities();
     this.loadCustomers();
     this.loadItems();
+    this.loadTaxCodes();
+  }
+
+  loadTaxCodes(): void {
+    this.taxCodesApi.list({ page: 1, pageSize: 100 }).subscribe({
+      next: (res) => {
+        const items = res.items || [];
+        this.taxCodes.set(items);
+        const def = items.find((t) => t.isDefault) || items.find((t) => t.kind === 'vat' || t.kind === 'salesTax') || items[0];
+        if (def && typeof def.rate === 'number') {
+          this.defaultTaxRate.set(def.rate);
+        }
+      },
+      error: () => {},
+    });
   }
 
   loadKpis(): void {
@@ -432,7 +453,7 @@ export class QuotesListPage {
         customerPartyId: p.id,
         customerName: p.name,
         customerEmail: p.email || this.form.value.customerEmail,
-        currency: p.currencyCode || this.form.value.currency || 'AED',
+        currency: p.currencyCode || this.form.value.currency || this.currencyService.code(),
       });
     }
   }
@@ -440,6 +461,13 @@ export class QuotesListPage {
   onItemSelected(index: number, itemId: string): void {
     const it = this.items().find((x) => x.id === itemId);
     if (it) {
+      let taxRate = this.defaultTaxRate();
+      if (it.taxCodeId) {
+        const tc = this.taxCodes().find((t) => t.id === it.taxCodeId);
+        if (tc && typeof tc.rate === 'number') {
+          taxRate = tc.rate;
+        }
+      }
       const row = this.linesArray.at(index);
       row.patchValue({
         itemId: it.id,
@@ -447,6 +475,7 @@ export class QuotesListPage {
         description: it.name,
         unitOfMeasure: it.uom || 'EA',
         unitPrice: it.salesPrice ?? row.value.unitPrice ?? 0,
+        taxRate,
       });
     }
   }
@@ -460,7 +489,7 @@ export class QuotesListPage {
       customerEmail: '',
       quoteDate: new Date(),
       validUntil: null,
-      currency: 'AED',
+      currency: this.currencyService.code(),
       terms: '50% advance, balance on delivery',
       notes: '',
     });
@@ -479,7 +508,7 @@ export class QuotesListPage {
         unitOfMeasure: ['EA'],
         unitPrice: [0, [Validators.required, Validators.min(0)]],
         discountPercent: [0, [Validators.min(0), Validators.max(100)]],
-        taxRate: [5, [Validators.min(0), Validators.max(100)]],
+        taxRate: [this.defaultTaxRate(), [Validators.min(0), Validators.max(100)]],
       })
     );
   }

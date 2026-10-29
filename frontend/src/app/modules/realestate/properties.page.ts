@@ -12,6 +12,7 @@ import { OWNERSHIPS, PROPERTY_TYPES, PropertiesApi, PropertyDto, RealEstateLooku
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 /** Field specs for the property form (shared by the list and the detail page). */
 export function propertyFields(lookups: RealEstateLookups): FieldSpec[] {
@@ -85,7 +86,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             <nz-tag>{{ humanize(row.propertyType) }}</nz-tag>
           }
           @case ('indicativeValue') {
-            <b>AED {{ row.indicativeValue | number: '1.2-2' }}</b>
+            <b>{{ currency() }} {{ row.indicativeValue | number: '1.2-2' }}</b>
           }
           @case ('isActive') {
             <nz-tag [nzColor]="row.isActive ? 'green' : 'default'">
@@ -105,6 +106,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
 export class PropertiesPage {
   private readonly api = inject(PropertiesApi);
   private readonly router = inject(Router);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
 

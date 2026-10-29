@@ -23,6 +23,7 @@ import {
 } from '../../core/api/manufacturing.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
@@ -120,7 +121,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               </div>
               <div class="detail-prop">
                 <span class="label">Standard Unit Cost:</span>
-                <span class="val font-semibold text-primary">\${{ bom.standardCostPerUnit | number:'1.2-2' }}</span>
+                <span class="val font-semibold text-primary">{{ currency() }} {{ bom.standardCostPerUnit | number:'1.2-2' }}</span>
               </div>
             </div>
 
@@ -141,8 +142,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                     <small class="text-secondary">{{ c.componentItemCode }}</small>
                   </td>
                   <td>{{ c.quantityPerUnit }} {{ c.unitOfMeasure }}</td>
-                  <td>\${{ c.unitCost | number:'1.2-2' }}</td>
-                  <td>\${{ c.extendedCost | number:'1.2-2' }}</td>
+                  <td>{{ currency() }} {{ c.unitCost | number:'1.2-2' }}</td>
+                  <td>{{ currency() }} {{ c.extendedCost | number:'1.2-2' }}</td>
                 </tr>
               </tbody>
             </nz-table>
@@ -316,8 +317,9 @@ export class BomsListPageComponent implements OnInit {
   private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || '$');
+  readonly currency = this.currencyService.currency;
   readonly list = createPagedList<BomSummaryDto>((q: any) => this.api.list(q));
   readonly legalEntities = signal<{ id: string; name: string }[]>([]);
   readonly items = signal<ItemDto[]>([]);

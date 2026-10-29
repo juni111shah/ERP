@@ -16,6 +16,7 @@ import { createPagedList } from '../../core/api/paged-list';
 import { ProjectBillingType, ProjectInput, ProjectKpiDto, ProjectsApi, ProjectStatus, ProjectSummaryDto } from '../../core/api/projects.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 
@@ -96,7 +97,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
               <span class="billing-type-badge">{{ formatBillingType(row.billingType) }}</span>
             }
             @case ('budgetAmount') {
-              <span class="budget-cell">AED {{ row.budgetAmount | number: '1.2-2' }}</span>
+              <span class="budget-cell">{{ currency() }} {{ row.budgetAmount | number: '1.2-2' }}</span>
             }
             @case ('dates') {
               <span class="dates-cell">{{ row.startDate || '—' }} to {{ row.endDate || '—' }}</span>
@@ -163,6 +164,8 @@ import { StatCardComponent } from '../../shared/stat-card.component';
 export class ProjectsListPage {
   private readonly api = inject(ProjectsApi);
   private readonly router = inject(Router);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
   private readonly entities = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
   private readonly parties = toSignal(inject(PartiesApi).list({ page: 1, pageSize: 200, extra: { type: 'customer' } }).pipe(catchError(() => of({ items: [] as PartyDto[] }))), { initialValue: { items: [] as PartyDto[] } });
 

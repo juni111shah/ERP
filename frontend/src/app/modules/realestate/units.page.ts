@@ -17,6 +17,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 const STATUSES = ['vacant', 'reserved', 'occupied', 'unavailable'];
 
@@ -73,11 +74,11 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             <erp-status-tag [status]="row.status" />
           }
           @case ('askingRent') {
-            <b>AED {{ row.askingRent | number: '1.2-2' }}</b>
+            <b>{{ currency() }} {{ row.askingRent | number: '1.2-2' }}</b>
           }
           @case ('currentRent') {
             @if (row.currentRent) {
-              <b>AED {{ row.currentRent | number: '1.2-2' }}</b>
+              <b>{{ currency() }} {{ row.currentRent | number: '1.2-2' }}</b>
             } @else {
               <span class="muted-text">—</span>
             }
@@ -128,6 +129,7 @@ export class UnitsPage {
   private readonly api = inject(UnitsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;
   readonly statuses = STATUSES;
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'unitNumber' });

@@ -8,6 +8,7 @@ import { createPagedList } from '../../core/api/paged-list';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { MovementRow, MovementsApi } from './inventory.api';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 @Component({
   selector: 'erp-movements',
@@ -81,7 +82,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
             </span>
           }
           @case ('unitCost') {
-            <span style="font-weight:600; color:#0f172a;">AED {{ row.unitCost | number:'1.2-2' }}</span>
+            <span style="font-weight:600; color:#0f172a;">{{ currency() }} {{ row.unitCost | number:'1.2-2' }}</span>
           }
           @case ('reference') {
             @if (row.reference) {
@@ -109,6 +110,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 })
 export class MovementsPage {
   private readonly api = inject(MovementsApi);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
 
   readonly columns: TableColumn<MovementRow>[] = [

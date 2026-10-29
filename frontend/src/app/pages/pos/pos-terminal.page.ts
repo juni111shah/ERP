@@ -19,6 +19,7 @@ import { NzSpaceModule } from 'ng-zorro-antd/space';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ItemsApi, LegalEntitiesApi, TaxCodesApi } from '../../core/api/admin.api';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
 import {
@@ -536,13 +537,14 @@ export class PosTerminalPage {
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly taxCodesApi = inject(TaxCodesApi);
   private readonly sessionStore = inject(SessionStore);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
 
   readonly registers = signal<PosRegisterDto[]>([]);
   readonly selectedRegisterId = signal<string>('');
   readonly activeSession = signal<PosSessionDto | null>(null);
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
-  readonly defaultTaxRate = signal<number>(5);
+  readonly currency = this.currencyService.currency;
+  readonly defaultTaxRate = signal<number>(0);
 
   readonly catalog = signal<{ id: string; code: string; name: string; price: number; barcode?: string }[]>([
     { id: '1', code: 'BEV-01', name: 'Espresso Roast Coffee', price: 18.00 },
@@ -817,13 +819,17 @@ export class PosTerminalPage {
     if (!reg) return;
 
     const user = this.sessionStore.me()?.user;
+    if (!user?.id) {
+      this.message.error('User authentication is missing.');
+      return;
+    }
     this.sessionsApi
       .openSession({
         legalEntityId: reg.legalEntityId,
         registerId: reg.id,
         openingCash: this.openFloatCash,
-        cashierUserId: user?.id || '00000000-0000-0000-0000-000000000001',
-        cashierName: user?.fullName || user?.email || 'POS Cashier',
+        cashierUserId: user.id,
+        cashierName: user.fullName || user.email || 'POS Cashier',
         notes: this.shiftNotes,
       })
       .subscribe({
@@ -849,10 +855,14 @@ export class PosTerminalPage {
     if (!s) return;
 
     const user = this.sessionStore.me()?.user;
+    if (!user?.id) {
+      this.message.error('User authentication is missing.');
+      return;
+    }
     this.sessionsApi
       .closeSession(s.id, {
         actualCash: this.actualCloseCash,
-        closedByUserId: user?.id || '00000000-0000-0000-0000-000000000001',
+        closedByUserId: user.id,
         notes: this.closeNotes,
       })
       .subscribe({

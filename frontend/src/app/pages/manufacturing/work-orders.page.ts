@@ -23,6 +23,7 @@ import {
 } from '../../core/api/manufacturing.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { WarehousesApi } from '../../modules/inventory/inventory.api';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
@@ -206,7 +207,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div *ngIf="selectedOrder() as order" class="mb-4 order-summary-box">
               <p><strong>Order:</strong> {{ order.workOrderNumber }}</p>
               <p><strong>Planned Qty:</strong> {{ order.plannedQuantity }} {{ order.uom }}</p>
-              <p><strong>Planned Cost:</strong> \${{ order.totalPlannedCost | number:'1.2-2' }}</p>
+              <p><strong>Planned Cost:</strong> {{ currency() }} {{ order.totalPlannedCost | number:'1.2-2' }}</p>
             </div>
 
             <nz-form-item>
@@ -224,7 +225,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </nz-form-item>
 
             <nz-form-item>
-              <nz-form-label nzRequired>Actual Total Production Cost (\$)</nz-form-label>
+              <nz-form-label nzRequired>Actual Total Production Cost ({{ currency() }})</nz-form-label>
               <nz-form-control>
                 <nz-input-number formControlName="actualTotalCost" [nzMin]="0" class="w-full"></nz-input-number>
               </nz-form-control>
@@ -254,8 +255,9 @@ export class WorkOrdersPageComponent implements OnInit {
   private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || '$');
+  readonly currency = this.currencyService.currency;
   readonly list = createPagedList<WorkOrderDto>((q: any) => this.api.list(q));
   readonly legalEntities = signal<{ id: string; name: string }[]>([]);
   readonly warehouses = signal<{ id: string; name: string }[]>([]);

@@ -37,6 +37,7 @@ import {
   TimesheetDto,
 } from '../../core/api/projects.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 @Component({
   selector: 'erp-project-detail',
@@ -115,8 +116,8 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                 <span class="stat-label">Budget Consumption</span>
                 <span nz-icon nzType="dollar" class="stat-icon icon-budget"></span>
               </div>
-              <div class="stat-value">AED {{ proj.totalTimesheetCost | number: '1.0-0' }}</div>
-              <div class="stat-sub">of AED {{ proj.budgetAmount | number: '1.0-0' }} budget</div>
+              <div class="stat-value">{{ currency() }} {{ proj.totalTimesheetCost | number: '1.0-0' }}</div>
+              <div class="stat-sub">of {{ currency() }} {{ proj.budgetAmount | number: '1.0-0' }} budget</div>
               <nz-progress [nzPercent]="calcPercent(proj.totalTimesheetCost, proj.budgetAmount)" [nzStatus]="proj.totalTimesheetCost > proj.budgetAmount && proj.budgetAmount > 0 ? 'exception' : 'active'"></nz-progress>
             </nz-card>
           </div>
@@ -169,7 +170,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                     <div class="prop-row"><span class="prop-label">Client Name:</span> <span class="prop-val">{{ proj.customerName || 'None' }}</span></div>
                     <div class="prop-row"><span class="prop-label">Project Manager:</span> <span class="prop-val">{{ proj.managerName || 'Unassigned' }}</span></div>
                     <div class="prop-row"><span class="prop-label">Billing Model:</span> <span class="prop-val">{{ formatBillingType(proj.billingType) }}</span></div>
-                    <div class="prop-row"><span class="prop-label">Total Allocated Budget:</span> <span class="prop-val">AED {{ proj.budgetAmount | number: '1.2-2' }}</span></div>
+                    <div class="prop-row"><span class="prop-label">Total Allocated Budget:</span> <span class="prop-val">{{ currency() }} {{ proj.budgetAmount | number: '1.2-2' }}</span></div>
                     <div class="prop-row"><span class="prop-label">Start Date:</span> <span class="prop-val">{{ proj.startDate || '—' }}</span></div>
                     <div class="prop-row"><span class="prop-label">Target Completion:</span> <span class="prop-val">{{ proj.endDate || '—' }}</span></div>
                   </div>
@@ -251,7 +252,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                     <tr>
                       <td><span class="item-title">{{ m.title }}</span></td>
                       <td>{{ m.dueDate }}</td>
-                      <td><b>AED {{ m.amount | number: '1.2-2' }}</b></td>
+                      <td><b>{{ currency() }} {{ m.amount | number: '1.2-2' }}</b></td>
                       <td><nz-tag [nzColor]="milestoneStatusColor(m.status)">{{ m.status }}</nz-tag></td>
                       <td>{{ m.achievedDate || '—' }}</td>
                       <td>
@@ -300,8 +301,8 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                       <td>{{ ts.taskTitle || '—' }}</td>
                       <td>{{ ts.description || '—' }}</td>
                       <td>{{ ts.hours | number: '1.2-2' }}h</td>
-                      <td>AED {{ ts.hourlyRate | number: '1.2-2' }}</td>
-                      <td><b>AED {{ ts.totalAmount | number: '1.2-2' }}</b></td>
+                      <td>{{ currency() }} {{ ts.hourlyRate | number: '1.2-2' }}</td>
+                      <td><b>{{ currency() }} {{ ts.totalAmount | number: '1.2-2' }}</b></td>
                       <td>
                         @if (!ts.isBillable) {
                           <nz-tag nzColor="default">Non-Billable</nz-tag>
@@ -326,7 +327,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                     <p class="tab-subtitle">Review unbilled time entries and completed milestones for client invoicing.</p>
                   </div>
                   <button *erpHasPermission="'projects.billing.manage'" nz-button nzType="primary" [disabled]="unbilledTimesheets().length === 0 && unbilledMilestones().length === 0" (click)="generateBilling()">
-                    <span nz-icon nzType="dollar-circle"></span> Bill Work (AED {{ totalUnbilledAmount() | number: '1.2-2' }})
+                    <span nz-icon nzType="dollar-circle"></span> Bill Work ({{ currency() }} {{ totalUnbilledAmount() | number: '1.2-2' }})
                   </button>
                 </div>
 
@@ -334,13 +335,13 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                   <div nz-col [nzXs]="24" [nzMd]="12">
                     <nz-card nzTitle="Unbilled Hours" nzSize="small">
                       <p><b>{{ unbilledTimesheets().length }}</b> timesheet entries pending billing.</p>
-                      <p class="billing-stat-amount">Total: AED {{ unbilledHoursTotal() | number: '1.2-2' }}</p>
+                      <p class="billing-stat-amount">Total: {{ currency() }} {{ unbilledHoursTotal() | number: '1.2-2' }}</p>
                     </nz-card>
                   </div>
                   <div nz-col [nzXs]="24" [nzMd]="12">
                     <nz-card nzTitle="Achieved Milestones" nzSize="small">
                       <p><b>{{ unbilledMilestones().length }}</b> milestones reached and ready to invoice.</p>
-                      <p class="billing-stat-amount">Total: AED {{ unbilledMilestonesTotal() | number: '1.2-2' }}</p>
+                      <p class="billing-stat-amount">Total: {{ currency() }} {{ unbilledMilestonesTotal() | number: '1.2-2' }}</p>
                     </nz-card>
                   </div>
                 </div>
@@ -656,6 +657,9 @@ export class ProjectDetailPage implements OnInit {
   private readonly billingApi = inject(ProjectBillingApi);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+
+  readonly currency = this.currencyService.currency;
 
   readonly project = signal<ProjectDto | null>(null);
   readonly p = computed(() => this.project());
@@ -862,7 +866,7 @@ export class ProjectDetailPage implements OnInit {
       timesheetIds: unbilledTsIds,
       milestoneIds: unbilledMsIds,
     }).subscribe((res) => {
-      this.msg.success(`Billed ${res.billedTimesheetsCount} timesheets and ${res.billedMilestonesCount} milestones (AED ${res.totalAmountBilled.toFixed(2)})`);
+      this.msg.success(`Billed ${res.billedTimesheetsCount} timesheets and ${res.billedMilestonesCount} milestones (${this.currency()} ${res.totalAmountBilled.toFixed(2)})`);
       this.loadAll();
     });
   }

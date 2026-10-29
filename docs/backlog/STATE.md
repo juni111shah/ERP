@@ -7,8 +7,8 @@ Needs human: C: disk is 94% full (21G free). TASK-009 commit message lacked the 
 | Status | Count |
 |---|---|
 | open | 5 |
-| in-progress | 1 |
-| ready-for-review | 0 |
+| in-progress | 0 |
+| ready-for-review | 1 |
 | changes-requested | 0 |
 | blocked | 1 |
 | done | 8 |
@@ -26,7 +26,7 @@ Needs human: C: disk is 94% full (21G free). TASK-009 commit message lacked the 
 | TASK-009 | P1 | done | Enforce status transitions on module documents |
 | TASK-010 | P0 | open | Transactional postings and idempotency keys (schema) |
 | TASK-011 | P0 | done | Project and service billing create invoices or fail |
-| TASK-012 | P1 | in-progress | Remove hardcoded currency, tax, placeholder GUIDs |
+| TASK-012 | P1 | ready-for-review | Remove hardcoded currency, tax, placeholder GUIDs |
 | TASK-013 | P1 | open | UI permission gating in new modules |
 | TASK-014 | P0 | blocked | Angular security upgrade and CI gates |
 | TASK-015 | P1 | open | Integration tests for Sales and Purchasing |
