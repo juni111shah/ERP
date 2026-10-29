@@ -53,7 +53,7 @@ internal sealed class DealFinanceHandlers(
         var payout = Share(deal.AgentSharePercent) + Share(deal.TeamLeadSharePercent);
         if (payout <= 0) throw new ConflictException("This deal has no agent or team lead share to pay.");
         var bank = await accounts.FindAsync(cmd.BankAccountId, token);
-        if (bank is null || bank.Type != AccountType.Asset || !bank.IsPostable || !bank.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
+        if (bank is null || !ERP.Application.Finance.BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
         var expense = await posting.AccountForRoleAsync("realestate.expense.commission", token);
         var memo = $"Commission payout {deal.Number}";
         var journal = await posting.PostAsync(new PostingRequest(deal.LegalEntityId, cmd.Date, SourceType, deal.Id, memo, deal.Number,

@@ -198,7 +198,7 @@ internal sealed class BankHandlers(
     private async Task RequireCashAccountAsync(Guid id, string field, CancellationToken ct)
     {
         var a = await accounts.FindAsync(id, ct);
-        if (a is null || a.Type != AccountType.Asset || !a.IsPostable || !a.IsActive) throw new FieldValidationException(field, "Choose an active bank or cash account.");
+        if (a is null || !BankAccountRules.IsCashOrBank(a)) throw new FieldValidationException(field, "Choose an active bank or cash account.");
     }
 
     private static LedgerItem ToItem(LedgerRow r) => new(r.JournalLineId, r.JournalId, r.Number, r.Date, r.Description, r.Debit - r.Credit);

@@ -73,7 +73,7 @@ internal sealed class PaymentHandlers(
         var entity = await guard.RequireAsync(i.LegalEntityId, token);
         var party = await parties.FindAsync(i.PartyId, token) ?? throw new FieldValidationException("partyId", "Vendor not found.");
         var bank = await accounts.FindAsync(i.BankAccountId, token);
-        if (bank is null || bank.Type != AccountType.Asset || !bank.IsPostable || !bank.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
+        if (bank is null || !BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
 
         var settlement = new Settlement
         {

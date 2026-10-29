@@ -75,7 +75,7 @@ internal sealed class ReceiptHandlers(
         var entity = await guard.RequireAsync(i.LegalEntityId, ct);
         var party = await parties.FindAsync(i.PartyId, ct) ?? throw new FieldValidationException("partyId", "Customer not found.");
         var bank = await accounts.FindAsync(i.BankAccountId, ct);
-        if (bank is null || bank.Type != AccountType.Asset || !bank.IsPostable || !bank.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
+        if (bank is null || !BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
 
         var settlement = new Settlement
         {

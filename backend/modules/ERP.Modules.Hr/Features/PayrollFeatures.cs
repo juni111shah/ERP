@@ -208,7 +208,7 @@ internal sealed class PayrollHandlers(
         var run = await LoadAsync(cmd.Id, ct);
         if (run.Status != PayrollStatus.Posted) throw new ConflictException(run.Status == PayrollStatus.Paid ? "This payroll is already paid." : "Post the payroll before paying it.");
         var bank = await accounts.FindAsync(cmd.BankAccountId, ct);
-        if (bank is null || bank.Type != AccountType.Asset || !bank.IsPostable || !bank.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
+        if (bank is null || !ERP.Application.Finance.BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
         var payable = await posting.AccountForRoleAsync("payroll.accrued", ct);
         var memo = $"Salary payment {run.Year}-{run.Month:00}";
         var journal = await posting.PostAsync(new PostingRequest(run.LegalEntityId, cmd.Date, "payroll", run.Id, memo, run.Number, [new PostingLine(payable, run.NetPay, 0, memo), new PostingLine(bank.Id, 0, run.NetPay, memo)]), ct);

@@ -200,7 +200,7 @@ internal sealed class ChequeHandlers(
     private async Task RequireBankAsync(Guid accountId, CancellationToken ct)
     {
         var a = await accounts.FindAsync(accountId, ct);
-        if (a is null || a.Type != AccountType.Asset || !a.IsPostable || !a.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
+        if (a is null || !BankAccountRules.IsBankOnly(a)) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
     }
 
     private async Task<ChequeDto> ToDtoAsync(PaymentInstrument c, CancellationToken ct)
