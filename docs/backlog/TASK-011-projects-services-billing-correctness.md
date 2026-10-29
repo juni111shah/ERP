@@ -2,7 +2,7 @@
 id: TASK-011
 title: Project and service billing must create invoices or fail, using customer terms
 priority: P0
-status: ready-for-review
+status: done
 schema: no
 depends_on: [TASK-003]
 area: projects
@@ -44,3 +44,6 @@ Timesheet entry forms.
 - Created integration tests in `ProjectsBillingTests.cs` and `ServicesBillingTests.cs` covering all 4 acceptance criteria.
 
 ## Review (Claude)
+
+- 2026-10-30: DONE. Verified commit d5dac1b: all 4 criteria covered by `ProjectsBillingTests` (no customer -> 400, nothing flagged; invoice id on timesheets, customer terms) and `ServicesBillingTests` (not ReadyToInvoice rejected, manual Paid blocked, due = max(invoice date, milestone due), Paid only after settlement). Clean copy: build 0 errors, 223 unit + 201 integration passed, `ng build` succeeded.
+- Not delivered from "Change wanted" (not in criteria): revenue account from item/service setting; customer picker for engagement/retainer forms. Not blocking.

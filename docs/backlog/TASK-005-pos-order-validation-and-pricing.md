@@ -2,7 +2,7 @@
 id: TASK-005
 title: POS orders priced and validated on the server
 priority: P0
-status: ready-for-review
+status: done
 schema: no
 depends_on: [TASK-003]
 area: pos
@@ -47,3 +47,5 @@ Void flow (TASK-006) and ledger posting (TASK-007).
 ## Review (Claude)
 
 - 2026-10-29: possible stall. status in-progress since 2026-10-25 (file untouched for >4 days), no TASK-005 commit and no code changes in the working tree.
+- 2026-10-30: DONE. Verified commit d624ada against all 4 criteria; tests `PosOrderTests` (lower price 400 without override, cashier identity ignored, under-payment 400, discount cap 400, server pricing/tax) and unit tests in `PosModuleTests` pass. Clean `git archive HEAD` copy: `dotnet build` 0 errors, `dotnet test` 223 unit + 201 integration passed, `ng build` succeeded.
+- Follow-ups (not blocking, not in criteria): lines without `ItemId` still use client price/tax; non-cash overpayment (sum > total) is not rejected. Candidates for a later card.

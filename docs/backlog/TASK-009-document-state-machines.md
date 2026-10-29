@@ -2,7 +2,7 @@
 id: TASK-009
 title: Enforce allowed status transitions on all module documents
 priority: P1
-status: ready-for-review
+status: done
 schema: no
 depends_on: [TASK-003]
 area: platform
@@ -46,3 +46,6 @@ Posting logic.
 - Added comprehensive unit tests in `StatusTransitionTests.cs` (all 223 passed) and integration tests in `StatusTransitionIntegrationTests.cs` (all 201 passed). Frontend build verified (`ng build` succeeded).
 
 ## Review (Claude)
+
+- 2026-10-30: DONE. Card hash 158ab1c is no longer reachable (commit was amended); the change is HEAD-era commit 8787997 (message `feat(platform): TASK-009 ...`, should have started `TASK-009:`). Verified: shared `StatusTransitions` helper, maps for Sales/Purchasing/CRM/Services/Projects/Manufacturing, 409 with allowed list, system-only targets (Invoiced/Billed/Converted/Ordered) blocked, unit tests (`StatusTransitionTests`) and `StatusTransitionIntegrationTests` pass. Clean copy: build 0 errors, 223 unit + 201 integration passed, `ng build` succeeded.
+- Note: UI only hides Cancel after Delivered/Received; full button gating per allowed transition is not done (not in acceptance criteria).
