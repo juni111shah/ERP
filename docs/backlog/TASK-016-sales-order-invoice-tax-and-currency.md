@@ -7,7 +7,7 @@ schema: no
 depends_on: []
 area: sales
 audit_ref: order-to-cash review 2026-10-30
-commit: pending
+commit: eb05573
 ---
 
 ## Problem
