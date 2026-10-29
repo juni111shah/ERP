@@ -2,7 +2,7 @@
 id: TASK-006
 title: POS void reverses cash, stock at original cost, and respects closed sessions
 priority: P0
-status: open
+status: in-progress
 schema: no
 depends_on: [TASK-005]
 area: pos
