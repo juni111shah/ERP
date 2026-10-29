@@ -210,6 +210,20 @@ await step('enable Inventory and add stock', async () => {
   await call('POST', '/m/inventory/stock/issue', { warehouseId: wh.id, itemId: item.id, quantity: 12, date: addDays(-3), memo: 'Used for AC servicing' });
   await call('PUT', '/m/inventory/stock/policy', { itemId: item.id, reorderLevel: 30, reorderQuantity: 50 });
 });
+await step('leave types, holidays and requests', async () => {
+  const annual = await call('POST', '/m/hr/leave-types', { code: 'ANNUAL', name: 'Annual leave', isPaid: true, annualDays: 30, carryForwardCap: 10, requiresApproval: true });
+  const sick = await call('POST', '/m/hr/leave-types', { code: 'SICK', name: 'Sick leave', isPaid: true, annualDays: 15, carryForwardCap: 0, requiresApproval: false });
+  const unpaid = await call('POST', '/m/hr/leave-types', { code: 'UNPAID', name: 'Unpaid leave', isPaid: false, annualDays: 0, carryForwardCap: 0, requiresApproval: true });
+  const y = today.getFullYear();
+  for (const [date, name] of [[`${y}-12-02`, 'National Day'], [`${y}-12-03`, 'National Day holiday'], [`${y + 1}-01-01`, "New Year's Day"]]) await call('POST', '/m/hr/holidays', { date, name }).catch(() => {});
+  const nextWeekday = (offset) => { let d = new Date(today.getTime() + offset * 86400000); while ([0, 6].includes(d.getDay())) d = new Date(d.getTime() + 86400000); return iso(d); };
+  const plan = [[0, annual, 14, 18, true, true], [1, annual, 30, 32, true, false], [2, sick, 3, 4, true, false], [3, unpaid, 21, 22, true, false], [4, annual, 45, 49, false, false]];
+  for (const [e, type, from, to, submit, approve] of plan) {
+    if (!employees[e]) continue;
+    const r = await call('POST', '/m/hr/leave', { employeeId: employees[e].id, leaveTypeId: type.id, fromDate: nextWeekday(from), toDate: nextWeekday(to), reason: 'Demo request', submit });
+    if (approve) await call('POST', `/m/hr/leave/${r.id}/approve`, { comment: 'Approved' });
+  }
+});
 await step('performance review cycle', async () => {
   const cycle = await call('POST', '/m/hr/review-cycles', { name: `H1 ${today.getFullYear()} review`, periodStart: `${today.getFullYear()}-01-01`, periodEnd: `${today.getFullYear()}-06-30`, status: 'open' });
   if (employees[0]) await call('POST', '/m/hr/reviews', { cycleId: cycle.id, employeeId: employees[0].id, overallRating: 4, goals: 'Reduce vacancy days; improve tenant satisfaction', comments: 'Strong half-year.', competencies: [{ name: 'Ownership', score: 4 }, { name: 'Communication', score: 5 }] });

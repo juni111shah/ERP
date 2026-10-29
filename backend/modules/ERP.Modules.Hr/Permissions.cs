@@ -12,6 +12,9 @@ public static class P
     public const string PayrollPay = "hr.payroll.pay";
     public const string ReviewsRead = "hr.reviews.read";
     public const string ReviewsManage = "hr.reviews.manage";
+    public const string LeaveRead = "hr.leave.read";
+    public const string LeaveRequest = "hr.leave.request";
+    public const string LeaveApprove = "hr.leave.approve";
 }
 
 public static class Docs

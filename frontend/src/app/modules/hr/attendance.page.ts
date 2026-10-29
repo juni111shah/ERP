@@ -30,7 +30,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
       <nz-select [ngModel]="recorded()" (ngModelChange)="recorded.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterStatus' | translate: 'Filter by status'" style="width:170px" data-testid="att-recorded-filter"><nz-option nzValue="recorded" [nzLabel]="'ui.hr.recorded' | translate: 'Recorded'"></nz-option><nz-option nzValue="full" [nzLabel]="'ui.hr.fullAttendance' | translate: 'Full attendance'"></nz-option></nz-select>
     </erp-table-tools>
     <nz-table [nzData]="shown()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="att-table">
-      <thead><tr><th>Employee</th><th>Recorded</th><th>Working days</th><th>Present</th><th>Unpaid absence</th><th>Paid leave</th><th>Overtime hrs</th><th></th></tr></thead>
+      <thead><tr><th>Employee</th><th>Recorded</th><th>Working days</th><th>Present</th><th>Unpaid absence</th><th>Paid leave</th><th>Approved leave</th><th>Overtime hrs</th><th></th></tr></thead>
       <tbody>
         @for (r of shown(); track r.employeeId) {
           <tr [attr.data-testid]="'att-row-' + r.employeeNumber">
@@ -40,6 +40,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
             <td><nz-input-number [(ngModel)]="r.daysPresent" [nzMin]="0" [nzMax]="31" [nzPrecision]="0" (ngModelChange)="touch(r)"></nz-input-number></td>
             <td><nz-input-number [(ngModel)]="r.unpaidAbsentDays" [nzMin]="0" [nzMax]="31" [nzPrecision]="0" (ngModelChange)="touch(r)" [attr.data-testid]="'att-unpaid-' + r.employeeNumber"></nz-input-number></td>
             <td><nz-input-number [(ngModel)]="r.paidLeaveDays" [nzMin]="0" [nzMax]="31" [nzPrecision]="0" (ngModelChange)="touch(r)"></nz-input-number></td>
+            <td data-testid="att-leave">@if (r.leavePaidDays || r.leaveUnpaidDays) { <span>{{ r.leavePaidDays ?? 0 }} paid / {{ r.leaveUnpaidDays ?? 0 }} unpaid</span> } @else { <span style="opacity:.5">-</span> }</td>
             <td><nz-input-number [(ngModel)]="r.overtimeHours" [nzMin]="0" [nzPrecision]="1" (ngModelChange)="touch(r)" [attr.data-testid]="'att-ot-' + r.employeeNumber"></nz-input-number></td>
             <td *erpHasPermission="'hr.attendance.manage'">
               <button nz-button nzSize="small" nzType="primary" [disabled]="!dirty().has(r.employeeId)" (click)="save(r)" [attr.data-testid]="'att-save-' + r.employeeNumber">Save</button>

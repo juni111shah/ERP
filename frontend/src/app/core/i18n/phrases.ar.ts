@@ -907,6 +907,22 @@ const PAIRS: [string, string][] = [
   ['Draft renewals', 'تجديدات مسودة'], ['item / warehouse', 'صنف / مستودع'], ['Balance Due', 'الرصيد المستحق'], ['Days Overdue', 'أيام التأخير'],
   ['Group by customer', 'تجميع حسب العميل'], ['Group by business unit', 'تجميع حسب وحدة العمل'], ['Group by source', 'تجميع حسب المصدر'], ['All business units', 'كل وحدات العمل'], ['Source type (optional)', 'نوع المصدر (اختياري)'],
   ['Business unit', 'وحدة العمل'], ['Source', 'المصدر'], ['Direct invoices', 'فواتير مباشرة'], ['No business unit', 'بدون وحدة عمل'],
+  // leave management
+  ['Leave requests', 'طلبات الإجازة'], ['Leave balances', 'أرصدة الإجازات'], ['Leave types', 'أنواع الإجازات'], ['Public holidays', 'العطل الرسمية'],
+  ['Leave request', 'طلب إجازة'], ['New leave request', 'طلب إجازة جديد'], ['New request', 'طلب جديد'], ['No leave requests yet', 'لا توجد طلبات إجازة بعد'],
+  ['Search employee or reason', 'ابحث عن الموظف أو السبب'], ['Leave type', 'نوع الإجازة'], ['Save draft', 'حفظ كمسودة'], ['Submit', 'إرسال'], ['Approve', 'اعتماد'], ['Reject', 'رفض'],
+  ['Cancel request', 'إلغاء الطلب'], ['Reason', 'السبب'], ['Request submitted', 'تم إرسال الطلب'], ['Draft saved', 'تم حفظ المسودة'], ['Request approved', 'تم اعتماد الطلب'],
+  ['Request rejected', 'تم رفض الطلب'], ['Request cancelled', 'تم إلغاء الطلب'], ['Draft', 'مسودة'], ['Submitted', 'مُرسل'], ['Approved', 'معتمد'], ['Rejected', 'مرفوض'], ['Cancelled', 'ملغى'],
+  ['Choose the employee, leave type and dates', 'اختر الموظف ونوع الإجازة والتواريخ'], ['Comment for the decision (optional)', 'تعليق على القرار (اختياري)'],
+  ['working day(s) (weekends and public holidays are not counted)', 'يوم عمل (لا تُحسب عطلات نهاية الأسبوع والعطل الرسمية)'],
+  ['Edit leave type', 'تعديل نوع الإجازة'], ['New leave type', 'نوع إجازة جديد'], ['No leave types yet', 'لا توجد أنواع إجازات بعد'], ['Search leave types', 'ابحث في أنواع الإجازات'],
+  ['Paid leave', 'إجازة مدفوعة'], ['Paid', 'مدفوعة'], ['Unpaid', 'غير مدفوعة'], ['Days a year', 'أيام في السنة'], ['No limit', 'بلا حد'], ['Carry forward', 'ترحيل'],
+  ['Carry forward (max days)', 'الترحيل (الحد الأقصى بالأيام)'], ['Needs approval', 'يتطلب اعتماداً'], ['Needed', 'مطلوب'], ['Automatic', 'تلقائي'], ['Approval', 'الاعتماد'],
+  ['Unpaid leave is deducted from salary like an unpaid absence.', 'تُخصم الإجازة غير المدفوعة من الراتب مثل الغياب بدون أجر.'], ['0 = no yearly limit.', '0 = بلا حد سنوي.'],
+  ['Edit holiday', 'تعديل عطلة'], ['New holiday', 'عطلة جديدة'], ['No public holidays yet', 'لا توجد عطل رسمية بعد'], ['Search holidays', 'ابحث في العطل'],
+  ['Year', 'السنة'], ['Entitled', 'المستحق'], ['Carried', 'المرحّل'], ['Taken', 'المستخدم'], ['Pending', 'قيد الانتظار'], ['Remaining', 'المتبقي'],
+  ['No leave balances for this year yet.', 'لا توجد أرصدة إجازات لهذه السنة بعد.'], ['Approved leave', 'الإجازات المعتمدة'], ['Leave requests pending', 'طلبات إجازة بانتظار القرار'],
+  ['waiting for a decision', 'بانتظار القرار'], ['Leave request to approve', 'طلب إجازة بانتظار الاعتماد'], ['Weekend days (not counted as leave)', 'أيام عطلة نهاية الأسبوع (لا تُحسب إجازة)'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

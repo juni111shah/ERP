@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Modules.Hr.Features;
 
 /// <summary>Headcount and monthly payroll cost on the overview.</summary>
-public sealed class HrDashboard(IReadRepository<Employee> employees, IReadRepository<PayrollRun> runs, IReadRepository<PerformanceReview> reviews, ICurrentUser user) : IDashboardContributor
+public sealed class HrDashboard(IReadRepository<Employee> employees, IReadRepository<PayrollRun> runs, IReadRepository<PerformanceReview> reviews, IReadRepository<LeaveRequest> leaveRequests, ICurrentUser user) : IDashboardContributor
 {
     public string ModuleKey => HrModule.Key;
 
@@ -30,6 +30,11 @@ public sealed class HrDashboard(IReadRepository<Employee> employees, IReadReposi
         {
             var pending = await reviews.CountAsync(r => r.Status != ReviewStatus.Acknowledged && (entity == null || r.LegalEntityId == entity), ct);
             kpis.Add(new("reviews-pending", "Reviews pending", pending, "number", "draft or awaiting acknowledgement", 118, "/hr/reviews"));
+        }
+        if (user.HasPermission(P.LeaveApprove))
+        {
+            var waiting = await leaveRequests.CountAsync(r => r.Status == LeaveStatus.Submitted && (entity == null || r.LegalEntityId == entity), ct);
+            kpis.Add(new("leave-pending", "Leave requests pending", waiting, "number", "waiting for a decision", 119, "/hr/leave"));
         }
         return new DashboardContribution(kpis, [], []);
     }

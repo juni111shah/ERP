@@ -49,7 +49,7 @@ public sealed class GeneratePayrollValidator : AbstractValidator<GeneratePayroll
 public sealed class AdjustPayrollLineValidator : AbstractValidator<AdjustPayrollLine> { public AdjustPayrollLineValidator() => RuleFor(x => x.Note).MaximumLength(300); }
 
 internal sealed class PayrollHandlers(
-    IRepository<PayrollRun> runs, IRepository<PayrollLine> lineRows, IReadRepository<Employee> employees, IReadRepository<AttendanceRecord> attendance, IReadRepository<Account> accounts, IClock clock,
+    IRepository<PayrollRun> runs, IRepository<PayrollLine> lineRows, IReadRepository<Employee> employees, IReadRepository<AttendanceRecord> attendance, LeaveFeed leaveFeed, IReadRepository<Account> accounts, IClock clock,
     IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ISettingsService settings, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering,
     IUnitOfWork uow) :
     IRequestHandler<GetPayroll, PayrollDto>,
@@ -229,14 +229,16 @@ internal sealed class PayrollHandlers(
         var ids = staff.Select(s => s.Id).ToList();
         var records = (await attendance.Query(new Specification<AttendanceRecord>(r => r.Year == run.Year && r.Month == run.Month && ids.Contains(r.EmployeeId))).ToListAsync(ct)).ToDictionary(r => r.EmployeeId);
         var s = await ReadSettingsAsync(run.LegalEntityId, ct);
+        var leave = await leaveFeed.MonthAsync(run.Year, run.Month, ids, ct);
         return staff.Select(e =>
         {
             records.TryGetValue(e.Id, out var rec);
+            var absent = (rec?.UnpaidAbsentDays ?? 0) + leave.GetValueOrDefault(e.Id).Unpaid; // recorded absences + approved unpaid leave
             var (adj, note) = adjustments.TryGetValue(e.Id, out var a0) ? a0 : (0m, null);
-            var a = PayrollMath.Calculate(e.BasicSalary, e.Allowances, e.RecurringDeductions, rec?.UnpaidAbsentDays ?? 0, rec?.OvertimeHours ?? 0, adj, s.DaysBasis, s.OvertimeMultiplier, s.HoursPerDay);
+            var a = PayrollMath.Calculate(e.BasicSalary, e.Allowances, e.RecurringDeductions, absent, rec?.OvertimeHours ?? 0, adj, s.DaysBasis, s.OvertimeMultiplier, s.HoursPerDay);
             return new PayrollLine
             {
-                PayrollRunId = run.Id, EmployeeId = e.Id, EmployeeName = e.FullName, EmployeeNumber = e.Number, AbsentDays = rec?.UnpaidAbsentDays ?? 0, OvertimeHours = rec?.OvertimeHours ?? 0,
+                PayrollRunId = run.Id, EmployeeId = e.Id, EmployeeName = e.FullName, EmployeeNumber = e.Number, AbsentDays = absent, OvertimeHours = rec?.OvertimeHours ?? 0,
                 Basic = a.Basic, Allowances = a.Allowances, Overtime = a.Overtime, Absence = a.Absence, Adjustment = adj, AdjustmentNote = note, GrossEarnings = a.GrossEarnings, Deductions = a.Deductions, NetPay = a.NetPay,
             };
         }).ToList();
