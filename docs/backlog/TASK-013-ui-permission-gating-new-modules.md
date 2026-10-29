@@ -7,7 +7,7 @@ schema: no
 depends_on: []
 area: frontend
 audit_ref: AUD-055
-commit: pending
+commit: 534239a
 ---
 
 ## Problem
