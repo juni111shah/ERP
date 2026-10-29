@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Imports.IImportDefinition, ERP.Application.Imports.PartyImport>();
         services.AddScoped<ERP.Application.Imports.IImportDefinition, ERP.Application.Imports.ItemImport>();
         services.AddScoped<ERP.Application.Reminders.ReminderDispatcher>();
+        services.AddScoped<ERP.Application.Reminders.PermissionAudience>();
         services.AddScoped<IMessageChannel, InAppChannel>();
         services.AddScoped<IMessageChannel, OutboxEmailChannel>();
         services.AddScoped<IScheduledJob, ReminderJob>();

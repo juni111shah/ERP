@@ -163,7 +163,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.FiscalYear });
         });
         mb.Entity<BudgetLine>(b => { b.Property(x => x.Amount).HasPrecision(19, 4); b.HasIndex(x => new { x.BudgetId, x.AccountId, x.Month }).IsUnique(); });
-        mb.Entity<PaymentInstrument>(b => b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique());
+        mb.Entity<PaymentInstrument>(b => { b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique(); b.Property(x => x.FollowUpNote).HasMaxLength(500); });
         mb.Entity<Invoice>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();

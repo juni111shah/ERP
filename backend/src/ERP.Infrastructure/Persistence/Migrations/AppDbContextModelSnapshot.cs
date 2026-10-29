@@ -1215,6 +1215,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<DateOnly?>("BouncedOn")
+                        .HasColumnType("date");
+
                     b.Property<DateOnly?>("ClearedOn")
                         .HasColumnType("date");
 
@@ -1242,6 +1245,13 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("FollowUpNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateOnly?>("FollowUpOn")
+                        .HasColumnType("date");
 
                     b.Property<DateOnly>("InstrumentDate")
                         .HasColumnType("date");
