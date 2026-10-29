@@ -5,6 +5,7 @@ using ERP.Application.Customization;
 using ERP.Application.Finance;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
+using ERP.Domain.Finance;
 using ERP.Modules.Sales.Domain;
 using FluentValidation;
 using MediatR;
@@ -143,7 +144,8 @@ internal sealed class OrderHandlers(
     ILegalEntityGuard guard,
     INumberingService numbers,
     ICustomFieldService fields,
-    IStockPostingService stockPosting) :
+    IStockPostingService stockPosting,
+    IReadRepository<TaxCode> taxCodes) :
     IRequestHandler<GetOrder, OrderDto>,
     IRequestHandler<CreateOrder, OrderDto>,
     IRequestHandler<UpdateOrder, OrderDto>,
@@ -307,12 +309,40 @@ internal sealed class OrderHandlers(
             throw new ConflictException("Sales order must have an assigned Customer Party to generate an accounting invoice.");
         }
 
-        var invoiceLines = order.Lines.Select(l => new InvoiceLineInput(
-            Description: $"{order.Number}: {l.Description}",
-            Quantity: l.Quantity,
-            Price: Math.Round(l.UnitPrice * (1m - (l.DiscountPercent / 100m)), 4),
-            ItemId: l.ItemId
-        )).ToList();
+        var entity = await guard.RequireAsync(order.LegalEntityId, ct);
+        if (!string.Equals(order.Currency, entity.BaseCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ConflictException("Foreign-currency sales orders cannot be invoiced yet.");
+        }
+
+        var activeTaxCodes = await taxCodes.Query(new Specification<TaxCode>(t =>
+            t.IsActive && (t.LegalEntityId == order.LegalEntityId || t.LegalEntityId == null)))
+            .ToListAsync(ct);
+
+        var invoiceLines = new List<InvoiceLineInput>();
+        foreach (var l in order.Lines)
+        {
+            Guid? taxCodeId = null;
+            if (l.TaxRate > 0)
+            {
+                var matchedCode = activeTaxCodes.FirstOrDefault(t => t.LegalEntityId == order.LegalEntityId && t.Rate == l.TaxRate)
+                    ?? activeTaxCodes.FirstOrDefault(t => t.LegalEntityId == null && t.Rate == l.TaxRate);
+
+                if (matchedCode is null)
+                {
+                    throw new ConflictException($"No active tax code found for line '{l.Description}' with rate {l.TaxRate}%.");
+                }
+                taxCodeId = matchedCode.Id;
+            }
+
+            invoiceLines.Add(new InvoiceLineInput(
+                Description: $"{order.Number}: {l.Description}",
+                Quantity: l.Quantity,
+                Price: Math.Round(l.UnitPrice * (1m - (l.DiscountPercent / 100m)), 4),
+                TaxCodeId: taxCodeId,
+                ItemId: l.ItemId
+            ));
+        }
 
         var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
             LegalEntityId: order.LegalEntityId,
@@ -320,8 +350,17 @@ internal sealed class OrderHandlers(
             InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow),
             DueDate: order.ExpectedDeliveryDate,
             Lines: invoiceLines,
-            Notes: $"Generated from Sales Order {order.Number}"
+            Notes: $"Generated from Sales Order {order.Number}",
+            SourceType: "salesorder",
+            SourceId: order.Id
         )), ct);
+
+        var maxAllowedDiff = 0.01m * Math.Max(1, order.Lines.Count);
+        if (Math.Abs(invoice.Total - order.TotalAmount) > maxAllowedDiff)
+        {
+            await sender.Send(new DeleteInvoice(invoice.Id), ct);
+            throw new ConflictException($"Invoice total {invoice.Total} does not match sales order total {order.TotalAmount}.");
+        }
 
         foreach (var l in order.Lines)
         {
