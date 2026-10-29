@@ -2,12 +2,12 @@
 id: TASK-011
 title: Project and service billing must create invoices or fail, using customer terms
 priority: P0
-status: open
+status: ready-for-review
 schema: no
 depends_on: [TASK-003]
 area: projects
 audit_ref: AUDIT-DEEP B9, B10
-commit:
+commit: d5dac1b
 ---
 
 ## Problem
@@ -22,10 +22,10 @@ Work marked billed with no invoice; wrong due dates; unpaid milestones shown Pai
 - Engagement and retainer forms must use a customer picker (no fake GUID defaults).
 
 ## Acceptance criteria
-- [ ] Billing a project without a customer returns 400 and flags nothing.
-- [ ] Billed items always have an invoice id.
-- [ ] Milestone not ReadyToInvoice cannot be invoiced.
-- [ ] Milestone shows Paid only after the invoice is fully settled.
+- [x] Billing a project without a customer returns 400 and flags nothing.
+- [x] Billed items always have an invoice id.
+- [x] Milestone not ReadyToInvoice cannot be invoiced.
+- [x] Milestone shows Paid only after the invoice is fully settled.
 
 ## Tests required
 `ProjectsBillingTests`, `ServicesBillingTests` integration tests.
@@ -34,5 +34,13 @@ Work marked billed with no invoice; wrong due dates; unpaid milestones shown Pai
 Timesheet entry forms.
 
 ## What I did (Antigravity)
+- Added `FieldValidationException` (HTTP 400) when billing a project without a customer assigned, before modifying timesheets/milestones.
+- Updated `BillProject` to lookup default tax code, use customer payment terms (`DueDate: null`), link invoice via `SourceType`/`SourceId`, assign `ts.InvoiceId = invoice.Id`, and execute within `uow.InTransactionAsync`.
+- Updated `InvoiceInput` to optionally accept `SourceType` and `SourceId` and added `InvoicePaymentChanged` notification on full credit-note settlement.
+- Added `GetMilestoneQuery` and `MilestonePaymentNotificationHandler` in Services module to automatically synchronize milestone `Status = Paid` when its linked invoice is settled.
+- Constrained milestone invoicing to `ReadyToInvoice` status and calculated `DueDate = max(invoiceDate, milestoneDue)`.
+- Blocked manual transition to `Paid` via `UpdateMilestoneStatusCommand`.
+- Removed the manual "Mark as Paid" action button from `milestone-billing.page.ts`.
+- Created integration tests in `ProjectsBillingTests.cs` and `ServicesBillingTests.cs` covering all 4 acceptance criteria.
 
 ## Review (Claude)

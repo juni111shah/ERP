@@ -6,8 +6,8 @@ Needs human: C: disk is 100% full (reviews built from D:RP_review_tmp; free C: s
 
 | Status | Count |
 |---|---|
-| open | 8 |
-| in-progress | 0 |
+| open | 7 |
+| in-progress | 1 |
 | ready-for-review | 1 |
 | changes-requested | 0 |
 | blocked | 1 |
@@ -25,7 +25,7 @@ Needs human: C: disk is 100% full (reviews built from D:RP_review_tmp; free C: s
 | TASK-008 | P0 | done | GR/IR clearing and bill matching |
 | TASK-009 | P1 | open | Enforce status transitions on module documents |
 | TASK-010 | P0 | open | Transactional postings and idempotency keys (schema) |
-| TASK-011 | P0 | open | Project and service billing create invoices or fail |
+| TASK-011 | P0 | in-progress | Project and service billing create invoices or fail |
 | TASK-012 | P1 | open | Remove hardcoded currency, tax, placeholder GUIDs |
 | TASK-013 | P1 | open | UI permission gating in new modules |
 | TASK-014 | P0 | blocked | Angular security upgrade and CI gates |

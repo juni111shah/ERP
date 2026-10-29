@@ -86,11 +86,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                       <span nz-icon nzType="file-text" class="text-blue-600"></span>
                     </button>
                   }
-                  @if (row.status === 'Invoiced') {
-                    <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="updateStatus(row, 'Paid')" title="Mark as Paid">
-                      <span nz-icon nzType="dollar-circle" class="text-emerald-600"></span>
-                    </button>
-                  }
                 </div>
               </ng-container>
 

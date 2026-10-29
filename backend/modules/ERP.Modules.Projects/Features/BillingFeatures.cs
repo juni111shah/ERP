@@ -2,6 +2,7 @@ using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Finance;
 using ERP.Application.Security;
+using ERP.Domain.Finance;
 using ERP.Modules.Projects.Domain;
 using FluentValidation;
 using MediatR;
@@ -55,7 +56,9 @@ internal sealed class BillingHandlers(
     IRepository<Project> projects,
     IRepository<ProjectTimesheet> timesheets,
     IRepository<ProjectMilestone> milestones,
-    ISender sender) :
+    IReadRepository<TaxCode> taxCodes,
+    ISender sender,
+    IUnitOfWork uow) :
     IRequestHandler<GetBillingOverview, IReadOnlyList<ProjectBillingSummaryDto>>,
     IRequestHandler<BillProject, BillProjectResultDto>
 {
@@ -103,10 +106,10 @@ internal sealed class BillingHandlers(
 
         if (!p.CustomerId.HasValue)
         {
-            throw new ConflictException($"Project '{p.Name}' has no customer assigned. An accounting invoice cannot be generated.");
+            throw new FieldValidationException("customerId", $"Project '{p.Name}' has no customer assigned. An accounting invoice cannot be generated.");
         }
 
-        var tsQuery = timesheets.Query(new Specification<ProjectTimesheet>(x => x.ProjectId == p.Id && x.IsBillable && !x.IsBilled));
+        var tsQuery = timesheets.Tracked(new Specification<ProjectTimesheet>(x => x.ProjectId == p.Id && x.IsBillable && !x.IsBilled));
         if (i.TimesheetIds != null && i.TimesheetIds.Count > 0)
         {
             var ids = i.TimesheetIds.ToHashSet();
@@ -114,7 +117,7 @@ internal sealed class BillingHandlers(
         }
         var tsToBill = await tsQuery.ToListAsync(ct);
 
-        var msQuery = milestones.Query(new Specification<ProjectMilestone>(x => x.ProjectId == p.Id && x.Status == MilestoneStatus.Achieved));
+        var msQuery = milestones.Tracked(new Specification<ProjectMilestone>(x => x.ProjectId == p.Id && x.Status == MilestoneStatus.Achieved));
         if (i.MilestoneIds != null && i.MilestoneIds.Count > 0)
         {
             var ids = i.MilestoneIds.ToHashSet();
@@ -127,6 +130,9 @@ internal sealed class BillingHandlers(
             throw new ConflictException("No unbilled timesheets or achieved milestones found to bill.");
         }
 
+        var defaultTax = await taxCodes.Query(new Specification<TaxCode>(t => t.IsActive && t.IsDefault && (t.LegalEntityId == null || t.LegalEntityId == p.LegalEntityId))).FirstOrDefaultAsync(ct);
+        var defaultTaxCodeId = defaultTax?.Id;
+
         decimal totalAmount = 0m;
         var invoiceLines = new List<InvoiceLineInput>();
 
@@ -136,7 +142,8 @@ internal sealed class BillingHandlers(
             invoiceLines.Add(new InvoiceLineInput(
                 $"{p.Number}: {ts.Description ?? "Timesheet"} ({ts.Hours:0.##} hrs @ {ts.HourlyRate:0.##})",
                 ts.Hours,
-                ts.HourlyRate));
+                ts.HourlyRate,
+                TaxCodeId: defaultTaxCodeId));
         }
 
         foreach (var ms in msToBill)
@@ -145,30 +152,37 @@ internal sealed class BillingHandlers(
             invoiceLines.Add(new InvoiceLineInput(
                 $"{p.Number}: {ms.Title} (Milestone)",
                 1,
-                ms.Amount));
+                ms.Amount,
+                TaxCodeId: defaultTaxCodeId));
         }
 
-        var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
-            LegalEntityId: p.LegalEntityId,
-            PartyId: p.CustomerId.Value,
-            InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow),
-            DueDate: DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)),
-            Lines: invoiceLines,
-            Notes: $"Generated for Project {p.Number}: {p.Name}")), ct);
-
-        foreach (var ts in tsToBill)
+        return await uow.InTransactionAsync(async transactionCt =>
         {
-            ts.IsBilled = true;
-        }
+            var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
+                LegalEntityId: p.LegalEntityId,
+                PartyId: p.CustomerId.Value,
+                InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow),
+                DueDate: null,
+                Lines: invoiceLines,
+                Notes: $"Generated for Project {p.Number}: {p.Name}",
+                SourceType: "projects.project",
+                SourceId: p.Id)), transactionCt);
 
-        foreach (var ms in msToBill)
-        {
-            ms.Status = MilestoneStatus.Invoiced;
-        }
+            foreach (var ts in tsToBill)
+            {
+                ts.IsBilled = true;
+                ts.InvoiceId = invoice.Id;
+            }
 
-        await timesheets.SaveChangesAsync(ct);
-        await milestones.SaveChangesAsync(ct);
+            foreach (var ms in msToBill)
+            {
+                ms.Status = MilestoneStatus.Invoiced;
+            }
 
-        return new BillProjectResultDto(p.Id, tsToBill.Count, msToBill.Count, totalAmount, invoice.Id, invoice.Number);
+            await timesheets.SaveChangesAsync(transactionCt);
+            await milestones.SaveChangesAsync(transactionCt);
+
+            return new BillProjectResultDto(p.Id, tsToBill.Count, msToBill.Count, totalAmount, invoice.Id, invoice.Number);
+        }, ct);
     }
 }

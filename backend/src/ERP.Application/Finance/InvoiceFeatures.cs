@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Application.Finance;
 
 public sealed record InvoiceLineInput(string Description, decimal Quantity, decimal Price, Guid? TaxCodeId = null, Guid? AccountId = null, Guid? ItemId = null);
-public sealed record InvoiceInput(Guid LegalEntityId, Guid PartyId, DateOnly InvoiceDate, DateOnly? DueDate, List<InvoiceLineInput> Lines, bool IsCreditNote = false, string? Notes = null);
+public sealed record InvoiceInput(Guid LegalEntityId, Guid PartyId, DateOnly InvoiceDate, DateOnly? DueDate, List<InvoiceLineInput> Lines, bool IsCreditNote = false, string? Notes = null, string? SourceType = null, Guid? SourceId = null);
 
 public sealed record InvoiceLineDto(Guid Id, int Seq, Guid? ItemId, string Description, decimal Quantity, decimal Price, Guid? TaxCodeId, decimal TaxAmount, decimal Net, Guid? AccountId);
 public sealed record InvoiceDto(
@@ -94,7 +94,7 @@ public sealed class UpdateInvoiceValidator : AbstractValidator<UpdateInvoice> { 
 public sealed class ApplyCreditNoteValidator : AbstractValidator<ApplyCreditNote> { public ApplyCreditNoteValidator() => RuleFor(x => x.Amount).GreaterThan(0); }
 
 internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository<InvoiceLine> lineRows, IInvoicingService invoicing, IClock clock,
-    IRepository<AuditEvent> audit, ICurrentUser user, IRepository<CreditApplication> creditApplications) :
+    IRepository<AuditEvent> audit, ICurrentUser user, IRepository<CreditApplication> creditApplications, IPublisher publisher) :
     IRequestHandler<GetInvoice, InvoiceDto>,
     IRequestHandler<CreateInvoice, InvoiceDto>,
     IRequestHandler<UpdateInvoice, InvoiceDto>,
@@ -178,6 +178,10 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         SettlementStatus.Refresh(credit); SettlementStatus.Refresh(invoice);
         CreditApplications.Record(creditApplications, credit, invoice, cmd.Amount, DateOnly.FromDateTime(clock.UtcNow), user.UserId);
         await invoices.SaveChangesAsync(ct);
+        if (invoice.SourceType != null && invoice.Status == DocumentStatus.Paid)
+        {
+            await publisher.Publish(new InvoicePaymentChanged(invoice.Id, invoice.SourceType, invoice.SourceId, true), ct);
+        }
         return InvoiceDto.From(invoice);
     }
 
@@ -221,7 +225,7 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         => await invoices.Tracked(new Specification<Invoice>(i => i.Id == id).Include(i => i.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
 
     private static InvoiceDraft ToDraft(InvoiceInput i)
-        => new(i.LegalEntityId, i.PartyId, i.InvoiceDate, i.DueDate, i.Lines.Select(l => new InvoiceLineDraft(l.Description.Trim(), l.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId)).ToList(), i.IsCreditNote, Notes: i.Notes);
+        => new(i.LegalEntityId, i.PartyId, i.InvoiceDate, i.DueDate, i.Lines.Select(l => new InvoiceLineDraft(l.Description.Trim(), l.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId)).ToList(), i.IsCreditNote, SourceType: i.SourceType, SourceId: i.SourceId, Notes: i.Notes);
 }
 
 public static class SettlementStatus
