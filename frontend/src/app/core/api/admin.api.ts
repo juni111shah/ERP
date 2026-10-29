@@ -213,7 +213,7 @@ export class LedgerReportsApi {
 
 export interface InvoiceLine { id?: string; seq?: number; itemId?: string; description: string; quantity: number; price: number; taxCodeId?: string; taxAmount?: number; net?: number; accountId?: string; }
 export interface InvoiceSummary { id: string; number: string; isCreditNote: boolean; partyId: string; partyName?: string; invoiceDate: string; dueDate: string; total: number; paid: number; outstanding: number; status: string; currencyCode: string; net?: number; tax?: number; sourceType?: string | null; }
-export interface InvoiceDto extends InvoiceSummary { legalEntityId: string; net: number; tax: number; sourceType?: string | null; sourceId?: string; journalEntryId?: string; notes?: string; lines: InvoiceLine[]; }
+export interface InvoiceDto extends InvoiceSummary { legalEntityId: string; net: number; tax: number; sourceType?: string | null; sourceId?: string; journalEntryId?: string; notes?: string; lines: InvoiceLine[]; warnings?: string[]; }
 export interface AllocationLine { id: string; invoiceId: string; invoiceNumber: string; amount: number; }
 export interface ReceiptSummary { id: string; number: string; partyId: string; partyName?: string; date: string; method: string; amount: number; unallocated: number; status: string; currencyCode: string; }
 export interface ReceiptDto extends ReceiptSummary { legalEntityId: string; bankAccountId?: string; reference?: string; journalEntryId?: string; allocations: AllocationLine[]; }

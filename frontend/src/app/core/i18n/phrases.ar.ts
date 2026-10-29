@@ -935,6 +935,10 @@ const PAIRS: [string, string][] = [
   ['Year', 'السنة'], ['Entitled', 'المستحق'], ['Carried', 'المرحّل'], ['Taken', 'المستخدم'], ['Pending', 'قيد الانتظار'], ['Remaining', 'المتبقي'],
   ['No leave balances for this year yet.', 'لا توجد أرصدة إجازات لهذه السنة بعد.'], ['Approved leave', 'الإجازات المعتمدة'], ['Leave requests pending', 'طلبات إجازة بانتظار القرار'],
   ['waiting for a decision', 'بانتظار القرار'], ['Leave request to approve', 'طلب إجازة بانتظار الاعتماد'], ['Weekend days (not counted as leave)', 'أيام عطلة نهاية الأسبوع (لا تُحسب إجازة)'],
+  // tax return (country packs)
+  ['Tax return', 'الإقرار الضريبي'], ['The periodic tax return of one legal entity, laid out by its country (VAT 201, VAT100, GSTR-3B...). Choose the legal entity in the header first.', 'الإقرار الضريبي الدوري لكيان قانوني واحد بحسب تصميم بلده (نموذج 201، VAT100، GSTR-3B...). اختر الكيان القانوني من الأعلى أولاً.'],
+  ['Box', 'الخانة'], ['Return', 'الإقرار'], 
+  ['Choose a legal entity: its country decides the return layout.', 'اختر كياناً قانونياً: بلده يحدد تصميم الإقرار.'],
   // inventory depth
   ['Stock counts', 'جرد المخزون'], ['New count', 'جرد جديد'], ['New stock count', 'جرد مخزون جديد'], ['No stock counts yet', 'لا توجد عمليات جرد بعد'], ['Search count number or memo', 'ابحث برقم الجرد أو الملاحظة'],
   ['Count date', 'تاريخ الجرد'], ['Items', 'الأصناف'], ['Stock count', 'جرد المخزون'], ['Save counts', 'حفظ الكميات'], ['Post differences', 'ترحيل الفروقات'], ['Cancel count', 'إلغاء الجرد'],

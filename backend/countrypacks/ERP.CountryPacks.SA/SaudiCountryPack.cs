@@ -15,6 +15,9 @@ public sealed class SaudiCountryPack : ICountryPack
     public string DefaultCurrency => "SAR";
     public string DefaultTimeZone => "Asia/Riyadh";
 
+    public TaxReturnDefinition? TaxReturn => SaudiTaxReturn.Definition;
+    public IReadOnlyList<InvoiceField> InvoiceRequiredFields { get; } = [InvoiceField.SellerTaxNumber, InvoiceField.CustomerTaxNumber];
+
     public IReadOnlyList<TaxTemplate> Taxes { get; } =
     [
         new("VAT15", "VAT 15%", TaxKind.Vat, 15m, true),
