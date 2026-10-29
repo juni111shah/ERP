@@ -2,13 +2,13 @@
 
 Last Claude run: 2026-10-29 late (nothing ready-for-review; TASK-005 still in-progress, uncommitted POS edits in working tree suggest active work; 8 open, no refill)
 Rotation position: next area = Order to cash (Sales, invoices, receipts)
-Needs human: TASK-005 in-progress since 2026-10-25 with no commit (possible stall). C: disk is 100% full (reviews built from D:RP_review_tmp; free C: space). TASK-014 blocked: Angular 19.x has no patch for the advisories; needs a human decision on a major upgrade to v20+.
+Needs human: C: disk is 100% full (reviews built from D:RP_review_tmp; free C: space). TASK-014 blocked: Angular 19.x has no patch for the advisories; needs a human decision on a major upgrade to v20+.
 
 | Status | Count |
 |---|---|
 | open | 8 |
-| in-progress | 1 |
-| ready-for-review | 0 |
+| in-progress | 0 |
+| ready-for-review | 1 |
 | changes-requested | 0 |
 | blocked | 1 |
 | done | 5 |
@@ -19,7 +19,7 @@ Needs human: TASK-005 in-progress since 2026-10-25 with no commit (possible stal
 | TASK-002 | P0 | done | Block portal tokens from staff endpoints |
 | TASK-003 | P1 | done | Replace blanket exception mapping with domain exceptions |
 | TASK-004 | P0 | done | Work-order release/complete safe, correct inventory journals |
-| TASK-005 | P0 | in-progress | POS orders priced and validated on the server |
+| TASK-005 | P0 | ready-for-review | POS orders priced and validated on the server |
 | TASK-006 | P0 | open | POS void reverses cash, stock at original cost |
 | TASK-007 | P0 | open | Post POS sales and tax to the ledger |
 | TASK-008 | P0 | done | GR/IR clearing and bill matching |
