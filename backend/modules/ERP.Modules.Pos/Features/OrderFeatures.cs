@@ -172,6 +172,8 @@ public class OrderHandlers :
     private readonly ISettingsService _settings;
     private readonly ICurrentUser _currentUser;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IRepository<JournalEntry> _journals;
+    private const string PosJournalSource = "pos";
 
     public OrderHandlers(
         IRepository<PosOrder> orders,
@@ -183,8 +185,10 @@ public class OrderHandlers :
         IReadRepository<TaxCode> taxCodes,
         ISettingsService settings,
         ICurrentUser currentUser,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IRepository<JournalEntry> journals)
     {
+        _journals = journals;
         _orders = orders;
         _sessions = sessions;
         _numbering = numbering;
@@ -431,39 +435,38 @@ public class OrderHandlers :
             throw new ConflictException("Cannot place POS orders in a closed session.");
         }
 
-        // Post accounting journal for revenue & tax
-        try
-        {
-            var salesAccount = await _posting.AccountForRoleAsync("income.sales", token);
-            var taxAccount = taxTotal > 0 ? await _posting.AccountForRoleAsync(SystemRoles.TaxOutput, token) : Guid.Empty;
-            var cashAccount = await _posting.AccountForRoleAsync("cash", token);
-            var bankAccount = await _posting.AccountForRoleAsync("bank", token);
+        // Post the sale to the ledger in the same transaction: a failure here rolls the whole order back.
+        var salesAccount = await _posting.AccountForRoleAsync("income.sales", token);
+        var taxAccount = taxTotal > 0 ? await _posting.AccountForRoleAsync(SystemRoles.TaxOutput, token) : Guid.Empty;
+        var cashAccount = await RoleOrFallbackAsync("pos.cash", "cash", token);
+        var cardAccount = payments.Any(p => p.Method != PosPaymentMethod.Cash) ? await RoleOrFallbackAsync("pos.card-clearing", "bank", token) : Guid.Empty;
 
-            var postingLines = new List<PostingLine>();
-            foreach (var p in payments)
-            {
-                var acct = p.Method == PosPaymentMethod.Cash ? cashAccount : bankAccount;
-                postingLines.Add(new PostingLine(acct, p.Amount, 0, $"POS payment ({p.Method}) - {order.Number}"));
-            }
-            postingLines.Add(new PostingLine(salesAccount, 0, subtotal, $"POS sales revenue - {order.Number}"));
-            if (taxTotal > 0 && taxAccount != Guid.Empty)
-            {
-                postingLines.Add(new PostingLine(taxAccount, 0, taxTotal, $"POS tax output - {order.Number}"));
-            }
-
-            await _posting.PostAsync(new PostingRequest(
-                order.LegalEntityId,
-                DateOnly.FromDateTime(order.OrderDate.UtcDateTime),
-                "pos",
-                order.Id,
-                $"POS Order {order.Number}",
-                order.Number,
-                postingLines), token);
-        }
-        catch
+        var postingLines = new List<PostingLine>();
+        foreach (var p in payments)
         {
-            // Optional GL post fallback
+            var acct = p.Method == PosPaymentMethod.Cash ? cashAccount : cardAccount;
+            postingLines.Add(new PostingLine(acct, p.Amount, 0, $"POS payment ({p.Method}) - {order.Number}"));
         }
+        var unpaid = totalAmount - payments.Sum(p => p.Amount);
+        if (unpaid > 0)
+        {
+            postingLines.Add(new PostingLine(await _posting.AccountForRoleAsync(SystemRoles.ArControl, token), unpaid, 0, $"POS balance on account - {order.Number}"));
+        }
+        postingLines.Add(new PostingLine(salesAccount, 0, subtotal, $"POS sales revenue - {order.Number}"));
+        if (taxTotal > 0)
+        {
+            postingLines.Add(new PostingLine(taxAccount, 0, taxTotal, $"POS tax output - {order.Number}"));
+        }
+
+        await _posting.PostAsync(new PostingRequest(
+            order.LegalEntityId,
+            DateOnly.FromDateTime(order.OrderDate.UtcDateTime),
+            PosJournalSource,
+            order.Id,
+            $"POS Order {order.Number}",
+            order.Number,
+            postingLines), token);
+        await _orders.SaveChangesAsync(token);
 
         foreach (var l in lines)
         {
@@ -538,8 +541,22 @@ public class OrderHandlers :
 
             await _stockPosting.ReverseIssueAsync(order.Number, token);
 
+            var journal = await _journals.Tracked(new Specification<JournalEntry>(j => j.SourceType == PosJournalSource && j.SourceId == order.Id && j.Status == JournalStatus.Posted).Include(j => j.Lines))
+                .FirstOrDefaultAsync(token);
+            if (journal is not null)
+            {
+                await _posting.ReverseTodayAsync(journal, $"Void POS order {order.Number}", token);
+                await _orders.SaveChangesAsync(token);
+            }
+
             return Map(order);
         }, cancellationToken);
+    }
+
+    private async Task<Guid> RoleOrFallbackAsync(string role, string fallback, CancellationToken ct)
+    {
+        try { return await _posting.AccountForRoleAsync(role, ct); }
+        catch (ConflictException) { return await _posting.AccountForRoleAsync(fallback, ct); }
     }
 
     public async Task<PosOrderDto> Handle(GetPosOrderByIdQuery request, CancellationToken cancellationToken)
