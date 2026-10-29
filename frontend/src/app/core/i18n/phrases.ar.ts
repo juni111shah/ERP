@@ -932,6 +932,7 @@ const PAIRS: [string, string][] = [
   ['Items still in stock with no movement for the chosen number of days.', 'أصناف ما زالت في المخزون دون حركة خلال عدد الأيام المحدد.'], ['Items at or below their reorder level, with a suggested order quantity.', 'أصناف عند مستوى إعادة الطلب أو أقل منه مع كمية الطلب المقترحة.'],
   ['Average cost', 'متوسط التكلفة'], ['Opening', 'افتتاحي'], ['Receipts', 'الاستلام'], ['Issues', 'الصرف'], ['Adjustments', 'التسويات'], ['Closing', 'ختامي'], ['Closing value', 'القيمة الختامية'],
   ['Last movement', 'آخر حركة'], ['Days idle', 'أيام الخمول'], ['days idle', 'أيام خمول'], ['On hand', 'المتاح'], ['Reorder level', 'مستوى إعادة الطلب'], ['Reorder quantity', 'كمية إعادة الطلب'], ['Suggested order', 'الطلب المقترح'], ['Total stock value', 'إجمالي قيمة المخزون'],
+  ['Send by email', 'إرسال بالبريد الإلكتروني'], ['Message (optional)', 'رسالة (اختياري)'], ["Leave empty to use the party's email address.", 'اتركه فارغاً لاستخدام البريد الإلكتروني للطرف.'],
   // Sales module
   ['Sales', 'المبيعات'], ['Quotes', 'عروض الأسعار'], ['Sales orders', 'أوامر البيع'], ['Sales analytics', 'تحليلات المبيعات'],
   ['Sales Quotes', 'عروض أسعار المبيعات'], ['Sales Orders', 'أوامر البيع'], ['New Quote', 'عرض سعر جديد'], ['New Sales Order', 'أمر بيع جديد'],
