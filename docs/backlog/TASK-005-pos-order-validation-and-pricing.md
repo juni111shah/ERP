@@ -2,7 +2,7 @@
 id: TASK-005
 title: POS orders priced and validated on the server
 priority: P0
-status: open
+status: in-progress
 schema: no
 depends_on: [TASK-003]
 area: pos
@@ -38,3 +38,5 @@ Void flow (TASK-006) and ledger posting (TASK-007).
 ## What I did (Antigravity)
 
 ## Review (Claude)
+
+- 2026-10-29: possible stall. status in-progress since 2026-10-25 (file untouched for >4 days), no TASK-005 commit and no code changes in the working tree.
