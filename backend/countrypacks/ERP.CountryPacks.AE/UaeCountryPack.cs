@@ -15,6 +15,9 @@ public sealed class UaeCountryPack : ICountryPack
     public string DefaultCurrency => "AED";
     public string DefaultTimeZone => "Asia/Dubai";
 
+    public TaxReturnDefinition? TaxReturn => UaeTaxReturn.Definition;
+    public IReadOnlyList<InvoiceField> InvoiceRequiredFields { get; } = [InvoiceField.SellerTaxNumber, InvoiceField.CustomerTaxNumber];
+
     public IReadOnlyList<TaxTemplate> Taxes { get; } =
     [
         new("VAT5", "VAT 5%", TaxKind.Vat, 5m, true),
