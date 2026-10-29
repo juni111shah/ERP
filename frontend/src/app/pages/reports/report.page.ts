@@ -50,6 +50,7 @@ import { RevealDirective } from '../../shared/reveal.directive';
         @if (has('range')) { <nz-date-picker [(ngModel)]="from" nzPlaceHolder="From"></nz-date-picker><nz-date-picker [(ngModel)]="to" nzPlaceHolder="To"></nz-date-picker> }
         @if (has('asOf')) { <nz-date-picker [(ngModel)]="to" nzPlaceHolder="As of"></nz-date-picker> }
         @if (has('weeks')) { <nz-input-number [(ngModel)]="weeks" [nzMin]="1" [nzMax]="52" [nzPrecision]="0"></nz-input-number> <span>weeks</span> }
+        @if (has('days')) { <nz-input-number [(ngModel)]="days" [nzMin]="1" [nzMax]="3650" [nzPrecision]="0"></nz-input-number> <span>days idle</span> }
         @if (has('months')) { <nz-input-number [(ngModel)]="months" [nzMin]="1" [nzMax]="36" [nzPrecision]="0"></nz-input-number> <span>months</span> }
         <button nz-button nzType="primary" [nzLoading]="loading()" (click)="run()" data-testid="report-run">Run</button>
         <span class="spacer"></span>
@@ -82,6 +83,7 @@ export class ReportPage {
   from: Date | null = new Date(new Date().getFullYear(), 0, 1);
   to: Date | null = new Date();
   weeks = 13;
+  days = 90;
   ownerId: string | null = null;
   readonly owners = signal<{ id: string; name: string }[]>([]);
   searchOwners(term: string): void { this.http.get<{ items: { id: string; name: string }[] }>(`${this.base}/parties`, { params: { search: term, pageSize: 20 } }).subscribe((r) => this.owners.set(r.items)); }
@@ -122,6 +124,7 @@ export class ReportPage {
     if (this.has('asOf')) params['asOf'] = toIsoDate(this.to);
     if (this.has('weeks')) params['weeks'] = String(this.weeks);
     if (this.has('months')) params['months'] = String(this.months);
+    if (this.has('days')) params['days'] = String(this.days);
     this.loading.set(true);
     this.http.get(`${this.base}/${def.endpoint}`, { params }).subscribe({
       next: (d) => { this.data.set(d); this.loading.set(false); },

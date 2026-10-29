@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { NzInputModule } from 'ng-zorro-antd/input';
 import { createPagedList } from '../../core/api/paged-list';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { MovementRow, MovementsApi } from './inventory.api';
@@ -7,12 +9,21 @@ import { MovementRow, MovementsApi } from './inventory.api';
   selector: 'erp-movements',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent],
-  template: `<h1 class="erp-page-title">Stock movements</h1><erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search reference or memo" emptyText="No stock movements yet" [clickable]="false" />`,
+  imports: [FormsModule, NzInputModule, PagedTableComponent],
+  template: `
+    <h1 class="erp-page-title">Stock movements</h1>
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search reference or memo" emptyText="No stock movements yet" [clickable]="false">
+      <input toolbar nz-input style="width:200px" placeholder="Exact reference (e.g. CNT-00001)" [ngModel]="reference" (ngModelChange)="filterReference($event)" data-testid="movement-reference" />
+    </erp-paged-table>`,
 })
 export class MovementsPage {
   private readonly api = inject(MovementsApi);
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
+  reference = '';
+  filterReference(value: string): void {
+    this.reference = value;
+    this.list.setFilters(value.trim() ? [{ field: 'reference', op: 'eq', value: value.trim() }] : []);
+  }
   readonly columns: TableColumn<MovementRow>[] = [
     { key: 'date', label: 'Date', sortField: 'date', width: '120px' },
     { key: 'kind', label: 'Kind', value: (m) => m.kind.replace(/([A-Z])/g, ' $1').trim(), width: '120px' },

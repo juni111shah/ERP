@@ -907,6 +907,19 @@ const PAIRS: [string, string][] = [
   ['Draft renewals', 'تجديدات مسودة'], ['item / warehouse', 'صنف / مستودع'], ['Balance Due', 'الرصيد المستحق'], ['Days Overdue', 'أيام التأخير'],
   ['Group by customer', 'تجميع حسب العميل'], ['Group by business unit', 'تجميع حسب وحدة العمل'], ['Group by source', 'تجميع حسب المصدر'], ['All business units', 'كل وحدات العمل'], ['Source type (optional)', 'نوع المصدر (اختياري)'],
   ['Business unit', 'وحدة العمل'], ['Source', 'المصدر'], ['Direct invoices', 'فواتير مباشرة'], ['No business unit', 'بدون وحدة عمل'],
+  // inventory depth
+  ['Stock counts', 'جرد المخزون'], ['New count', 'جرد جديد'], ['New stock count', 'جرد مخزون جديد'], ['No stock counts yet', 'لا توجد عمليات جرد بعد'], ['Search count number or memo', 'ابحث برقم الجرد أو الملاحظة'],
+  ['Count date', 'تاريخ الجرد'], ['Items', 'الأصناف'], ['Stock count', 'جرد المخزون'], ['Save counts', 'حفظ الكميات'], ['Post differences', 'ترحيل الفروقات'], ['Cancel count', 'إلغاء الجرد'],
+  ['System', 'النظام'], ['Counted', 'المعدود'], ['Difference', 'الفرق'], ['Counts saved', 'تم حفظ الكميات'], ['Count posted', 'تم ترحيل الجرد'], ['Count cancelled', 'تم إلغاء الجرد'],
+  ['Post the differences?', 'ترحيل الفروقات؟'], ['One stock adjustment is booked for every item whose counted quantity differs from the system. This cannot be undone.', 'يتم قيد تسوية مخزون لكل صنف تختلف كميته المعدودة عن النظام. لا يمكن التراجع.'],
+  ['Could not save the counts', 'تعذر حفظ الكميات'], ['Could not post the count', 'تعذر ترحيل الجرد'], ['Could not cancel', 'تعذر الإلغاء'],
+  ['This warehouse holds no stock. Use "Save counts" after adding an item below.', 'هذا المستودع لا يحتوي على مخزون.'], ['Edit warehouse', 'تعديل المستودع'],
+  ['Exact reference (e.g. CNT-00001)', 'المرجع بالضبط (مثال CNT-00001)'], ['Stock valuation', 'تقييم المخزون'], ['Stock movement summary', 'ملخص حركة المخزون'], ['Slow-moving stock', 'مخزون بطيء الحركة'],
+  ['Reorder suggestions', 'اقتراحات إعادة الطلب'], ['Quantity, average cost and value of stock per warehouse and item at the end of the chosen date.', 'الكمية ومتوسط التكلفة وقيمة المخزون لكل مستودع وصنف في نهاية التاريخ المحدد.'],
+  ['Opening, receipts, issues, adjustments and closing quantity per item for a period. Transfers net to zero and are left out.', 'الرصيد الافتتاحي والاستلام والصرف والتسويات والرصيد الختامي لكل صنف خلال فترة. التحويلات تُلغي بعضها ولا تظهر.'],
+  ['Items still in stock with no movement for the chosen number of days.', 'أصناف ما زالت في المخزون دون حركة خلال عدد الأيام المحدد.'], ['Items at or below their reorder level, with a suggested order quantity.', 'أصناف عند مستوى إعادة الطلب أو أقل منه مع كمية الطلب المقترحة.'],
+  ['Average cost', 'متوسط التكلفة'], ['Opening', 'افتتاحي'], ['Receipts', 'الاستلام'], ['Issues', 'الصرف'], ['Adjustments', 'التسويات'], ['Closing', 'ختامي'], ['Closing value', 'القيمة الختامية'],
+  ['Last movement', 'آخر حركة'], ['Days idle', 'أيام الخمول'], ['days idle', 'أيام خمول'], ['On hand', 'المتاح'], ['Reorder level', 'مستوى إعادة الطلب'], ['Reorder quantity', 'كمية إعادة الطلب'], ['Suggested order', 'الطلب المقترح'], ['Total stock value', 'إجمالي قيمة المخزون'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);
