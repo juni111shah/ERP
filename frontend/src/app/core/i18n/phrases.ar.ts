@@ -1004,6 +1004,10 @@ const PAIRS: [string, string][] = [
   ['Active Engagements', 'المشاريع الاستشارية النشطة'], ['Retainer MRR', 'الإيراد الشهري المتكرر للاستبقاء'],
   ['Ready to Invoice', 'جاهز للفوترة'], ['Total Contract Value', 'إجمالي قيمة العقود'],
   ['Billable Ratio', 'نسبة الساعات القابلة للفوترة'], ['Total Logged Time', 'إجمالي ساعات العمل المسجلة'],
+  // party groups
+  ['Party groups', 'مجموعات الأطراف'], ['Party group', 'مجموعة الأطراف'], ['New party group', 'مجموعة أطراف جديدة'], ['Edit party group', 'تعديل مجموعة الأطراف'],
+  ['No party groups yet', 'لا توجد مجموعات أطراف بعد'], ['All party groups', 'جميع مجموعات الأطراف'], ['No group', 'بدون مجموعة'],
+  ['Group by party group', 'تجميع حسب مجموعة الأطراف'], ['Search code or name', 'ابحث بالرمز أو الاسم'], ['Party group not found.', 'مجموعة الأطراف غير موجودة.'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

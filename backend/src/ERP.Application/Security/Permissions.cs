@@ -24,6 +24,8 @@ public static class CorePermissions
     public const string EntitiesWrite = "core.entities.write";
     public const string BusinessUnitsRead = "core.businessunits.read";
     public const string BusinessUnitsWrite = "core.businessunits.write";
+    public const string PartyGroupsRead = "core.partygroups.read";
+    public const string PartyGroupsWrite = "core.partygroups.write";
     public const string UsersRead = "core.users.read";
     public const string UsersWrite = "core.users.write";
     public const string RolesRead = "core.roles.read";
@@ -84,6 +86,8 @@ public static class CorePermissions
         PermissionDefinition.Of(EntitiesWrite, "Create and edit legal entities, lock periods"),
         PermissionDefinition.Of(BusinessUnitsRead, "View business units"),
         PermissionDefinition.Of(BusinessUnitsWrite, "Create and edit business units"),
+        PermissionDefinition.Of(PartyGroupsRead, "View party groups"),
+        PermissionDefinition.Of(PartyGroupsWrite, "Create, edit and delete party groups"),
         PermissionDefinition.Of(UsersRead, "View users"),
         PermissionDefinition.Of(UsersWrite, "Invite, edit and deactivate users"),
         PermissionDefinition.Of(RolesRead, "View roles"),

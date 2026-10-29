@@ -16,6 +16,7 @@ public interface IAppDbContext
     DbSet<Organization> Organizations { get; }
     DbSet<LegalEntity> LegalEntities { get; }
     DbSet<BusinessUnit> BusinessUnits { get; }
+    DbSet<PartyGroup> PartyGroups { get; }
     DbSet<OrganizationModule> OrganizationModules { get; }
     DbSet<OrganizationMember> OrganizationMembers { get; }
     DbSet<Role> Roles { get; }

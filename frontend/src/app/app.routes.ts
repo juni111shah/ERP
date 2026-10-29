@@ -104,6 +104,7 @@ export const routes: Routes = [
       { path: 'reports/:slug', canMatch: [permissionGuard('finance.reports.read')], loadComponent: () => import('./pages/reports/report.page').then((m) => m.ReportPage) },
       { path: 'finance/tax-codes', canMatch: [permissionGuard('finance.tax.read')], loadComponent: () => import('./pages/admin/tax-codes.page').then((m) => m.TaxCodesPage) },
       { path: 'admin/legal-entities', canMatch: [permissionGuard('core.entities.read')], loadComponent: () => import('./pages/admin/legal-entities.page').then((m) => m.LegalEntitiesPage) },
+      { path: 'admin/party-groups', canMatch: [permissionGuard('core.partygroups.read')], loadComponent: () => import('./pages/admin/party-groups.page').then((m) => m.PartyGroupsPage) },
       { path: 'admin/business-units', canMatch: [permissionGuard('core.businessunits.read')], loadComponent: () => import('./pages/admin/business-units.page').then((m) => m.BusinessUnitsPage) },
       { path: 'admin/users', canMatch: [permissionGuard('core.users.read')], loadComponent: () => import('./pages/admin/users.page').then((m) => m.UsersPage) },
       { path: 'admin/roles', canMatch: [permissionGuard('core.roles.read')], loadComponent: () => import('./pages/admin/roles.page').then((m) => m.RolesPage) },
