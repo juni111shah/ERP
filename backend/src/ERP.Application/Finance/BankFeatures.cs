@@ -42,7 +42,7 @@ public sealed class ImportStatementValidator : AbstractValidator<ImportStatement
         {
             l.RuleFor(x => x.Description).NotEmpty().MaximumLength(300);
             l.RuleFor(x => x.Reference).MaximumLength(100);
-            l.RuleFor(x => x.Amount).NotEqual(0);
+            l.RuleFor(x => x.Amount).NotEqual(0).MustBeMoney();
         });
     }
 }
@@ -50,7 +50,7 @@ public sealed class TransferFundsValidator : AbstractValidator<TransferFunds>
 {
     public TransferFundsValidator()
     {
-        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
         RuleFor(x => x).Must(x => x.FromAccountId != x.ToAccountId).WithName("toAccountId").WithMessage("Choose two different accounts.");
     }
 }

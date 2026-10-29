@@ -28,6 +28,7 @@ public sealed class SettlementService(IRepository<Invoice> invoices, IRepository
         if (requested.Count == 0) return [];
         if (requested.GroupBy(r => r.InvoiceId).Any(g => g.Count() > 1)) throw new FieldValidationException("allocations", "An invoice can appear only once.");
         if (requested.Any(r => r.Amount <= 0)) throw new FieldValidationException("allocations", "Allocation amounts must be positive.");
+        if (requested.Any(r => !MoneyValidation.IsCents(r.Amount))) throw new FieldValidationException("allocations", "Allocation amounts can have at most 2 decimal places.");
         if (requested.Sum(r => r.Amount) > s.Unallocated) throw new FieldValidationException("allocations", "The allocations exceed the unallocated amount of the receipt.");
         var ids = requested.Select(r => r.InvoiceId).ToList();
         var open = await invoices.Tracked(new Specification<Invoice>(x => ids.Contains(x.Id))).ToListAsync(ct);

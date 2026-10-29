@@ -46,7 +46,7 @@ public sealed class PaymentInputValidator : AbstractValidator<PaymentInput>
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.PartyId).NotEmpty();
         RuleFor(x => x.BankAccountId).NotEmpty();
-        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
         RuleFor(x => x.Method).IsInEnum();
         RuleFor(x => x.Reference).MaximumLength(100);
         RuleFor(x => x.ChequeNo).NotEmpty().MaximumLength(50).When(x => x.Method == SettlementMethod.Instrument).WithMessage("Enter the cheque number.");

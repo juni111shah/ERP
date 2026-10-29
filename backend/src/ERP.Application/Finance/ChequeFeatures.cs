@@ -44,7 +44,7 @@ public sealed class ChequeInputValidator : AbstractValidator<ChequeInput>
         RuleFor(x => x.Kind).IsInEnum();
         RuleFor(x => x.InstrumentNo).NotEmpty().MaximumLength(50);
         RuleFor(x => x.BankName).MaximumLength(100);
-        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
         RuleFor(x => x.Notes).MaximumLength(500);
     }
 }

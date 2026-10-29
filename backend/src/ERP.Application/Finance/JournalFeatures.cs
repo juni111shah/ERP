@@ -39,8 +39,8 @@ public sealed class JournalInputValidator : AbstractValidator<JournalInput>
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
             l.RuleFor(x => x.AccountId).NotEmpty();
-            l.RuleFor(x => x.Debit).GreaterThanOrEqualTo(0);
-            l.RuleFor(x => x.Credit).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.Debit).GreaterThanOrEqualTo(0).MustBeMoney();
+            l.RuleFor(x => x.Credit).GreaterThanOrEqualTo(0).MustBeMoney();
             l.RuleFor(x => x).Must(x => (x.Debit > 0) != (x.Credit > 0)).WithMessage("Each line needs either a debit or a credit.");
         });
     }

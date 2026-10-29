@@ -91,7 +91,7 @@ public sealed class InvoiceInputValidator : AbstractValidator<InvoiceInput>
 }
 public sealed class CreateInvoiceValidator : AbstractValidator<CreateInvoice> { public CreateInvoiceValidator() => RuleFor(x => x.Input).SetValidator(new InvoiceInputValidator()); }
 public sealed class UpdateInvoiceValidator : AbstractValidator<UpdateInvoice> { public UpdateInvoiceValidator() => RuleFor(x => x.Input).SetValidator(new InvoiceInputValidator()); }
-public sealed class ApplyCreditNoteValidator : AbstractValidator<ApplyCreditNote> { public ApplyCreditNoteValidator() => RuleFor(x => x.Amount).GreaterThan(0); }
+public sealed class ApplyCreditNoteValidator : AbstractValidator<ApplyCreditNote> { public ApplyCreditNoteValidator() => RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney(); }
 
 internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository<InvoiceLine> lineRows, IInvoicingService invoicing, IClock clock,
     IRepository<AuditEvent> audit, ICurrentUser user, IRepository<CreditApplication> creditApplications, IPublisher publisher) :
