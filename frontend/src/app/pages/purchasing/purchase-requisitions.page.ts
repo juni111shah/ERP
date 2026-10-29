@@ -91,10 +91,12 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                     View PO
                   </a>
                 }
-                <button *erpHasPermission="'purchasing.requisitions.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                        nz-popconfirm nzPopconfirmTitle="Delete this requisition?" (nzOnConfirm)="deleteRequisition(row.id)">
-                  Delete
-                </button>
+                @if (row.status === 'Draft') {
+                  <button *erpHasPermission="'purchasing.requisitions.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                          nz-popconfirm nzPopconfirmTitle="Delete this requisition?" (nzOnConfirm)="deleteRequisition(row.id)">
+                    Delete
+                  </button>
+                }
               </div>
             }
           </ng-template>

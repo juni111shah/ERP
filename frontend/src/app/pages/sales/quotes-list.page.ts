@@ -121,10 +121,12 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                 Convert
               </button>
             }
-            <button *erpHasPermission="'sales.quotes.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                    nz-popconfirm nzPopconfirmTitle="Delete this quote?" (nzOnConfirm)="deleteQuote(row.id)">
-              Delete
-            </button>
+            @if (row.status === 'Draft') {
+              <button *erpHasPermission="'sales.quotes.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                      nz-popconfirm nzPopconfirmTitle="Delete this quote?" (nzOnConfirm)="deleteQuote(row.id)">
+                Delete
+              </button>
+            }
           </div>
         }
       </ng-template>

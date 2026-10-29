@@ -125,10 +125,12 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                 <a [href]="'/print/purchase-order/' + row.id" target="_blank" nz-button nzType="link" nzSize="small" (click)="$event.stopPropagation()">
                   <span nz-icon nzType="printer"></span>Print
                 </a>
-                <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                        nz-popconfirm nzPopconfirmTitle="Delete this purchase order?" (nzOnConfirm)="deleteOrder(row.id)">
-                  Delete
-                </button>
+                @if (row.status === 'Draft') {
+                  <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                          nz-popconfirm nzPopconfirmTitle="Delete this purchase order?" (nzOnConfirm)="deleteOrder(row.id)">
+                    Delete
+                  </button>
+                }
               </div>
             }
           </ng-template>
