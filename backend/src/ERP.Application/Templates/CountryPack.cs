@@ -28,6 +28,10 @@ public interface ICountryPack
     IReadOnlyList<CustomFieldSeed> CustomFields { get; }
     /// <summary>The country's end-of-service rule, when it has one (used by HR); null = none.</summary>
     EndOfServiceRule? EndOfService => null;
+    /// <summary>The country's periodic tax return (VAT return and the like), when the pack describes one; null = none.</summary>
+    TaxReturnDefinition? TaxReturn => null;
+    /// <summary>Items the country expects on a tax invoice; checked (as warnings only) when an invoice with tax is issued.</summary>
+    IReadOnlyList<InvoiceField> InvoiceRequiredFields => [];
 }
 
 /// <summary>Installed country packs, looked up by country code. Countries without a pack get the neutral core defaults.</summary>

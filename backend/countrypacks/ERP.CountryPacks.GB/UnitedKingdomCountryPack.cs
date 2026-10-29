@@ -15,6 +15,9 @@ public sealed class UnitedKingdomCountryPack : ICountryPack
     public string DefaultCurrency => "GBP";
     public string DefaultTimeZone => "Europe/London";
 
+    public TaxReturnDefinition? TaxReturn => UkTaxReturn.Definition;
+    public IReadOnlyList<InvoiceField> InvoiceRequiredFields { get; } = [InvoiceField.SellerTaxNumber];
+
     public IReadOnlyList<TaxTemplate> Taxes { get; } =
     [
         new("VAT20", "VAT 20%", TaxKind.Vat, 20m, true),

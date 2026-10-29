@@ -376,7 +376,7 @@ export class InvoicesPage {
     this.api.save(this.invoice()?.id ?? null, body).subscribe({
       next: (saved) => {
         if (!issue) { this.done('Draft saved'); return; }
-        this.api.issue(saved.id).subscribe({ next: (i) => this.done(`${this.i18n.t('ui.msg.issuedAs', 'Issued as')} ${i.number}`), error: (e) => { this.saving.set(false); this.invoice.set(saved); this.list.reload(); this.fail(e); } });
+        this.api.issue(saved.id).subscribe({ next: (i) => { this.done(`${this.i18n.t('ui.msg.issuedAs', 'Issued as')} ${i.number}`); for (const w of i.warnings ?? []) this.message.warning(w, { nzDuration: 8000 }); }, error: (e) => { this.saving.set(false); this.invoice.set(saved); this.list.reload(); this.fail(e); } });
       },
       error: (e) => { this.saving.set(false); this.fail(e); },
     });

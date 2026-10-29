@@ -907,6 +907,10 @@ const PAIRS: [string, string][] = [
   ['Draft renewals', 'تجديدات مسودة'], ['item / warehouse', 'صنف / مستودع'], ['Balance Due', 'الرصيد المستحق'], ['Days Overdue', 'أيام التأخير'],
   ['Group by customer', 'تجميع حسب العميل'], ['Group by business unit', 'تجميع حسب وحدة العمل'], ['Group by source', 'تجميع حسب المصدر'], ['All business units', 'كل وحدات العمل'], ['Source type (optional)', 'نوع المصدر (اختياري)'],
   ['Business unit', 'وحدة العمل'], ['Source', 'المصدر'], ['Direct invoices', 'فواتير مباشرة'], ['No business unit', 'بدون وحدة عمل'],
+  // tax return (country packs)
+  ['Tax return', 'الإقرار الضريبي'], ['The periodic tax return of one legal entity, laid out by its country (VAT 201, VAT100, GSTR-3B...). Choose the legal entity in the header first.', 'الإقرار الضريبي الدوري لكيان قانوني واحد بحسب تصميم بلده (نموذج 201، VAT100، GSTR-3B...). اختر الكيان القانوني من الأعلى أولاً.'],
+  ['Box', 'الخانة'], ['Return', 'الإقرار'], 
+  ['Choose a legal entity: its country decides the return layout.', 'اختر كياناً قانونياً: بلده يحدد تصميم الإقرار.'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

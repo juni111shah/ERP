@@ -33,6 +33,16 @@ const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 
 
 export const REPORTS: ReportDef[] = [
   {
+    slug: 'tax-return', title: 'Tax return', subtitle: 'The periodic tax return of one legal entity, laid out by its country (VAT 201, VAT100, GSTR-3B...). Choose the legal entity in the header first.',
+    endpoint: 'finance/reports/tax-return', filters: ['range'],
+    columns: () => [t('label', 'Box'), m('amount', 'Amount')],
+    rows: (x) => (x.rows as { label: string; labelAr: string; amount: number }[]).map((r) => ({ label: document.documentElement.lang === 'ar' ? r.labelAr : r.label, amount: r.amount })),
+    summary: (x) => [
+      { label: 'Return', value: document.documentElement.lang === 'ar' ? x.titleAr : x.title }, { label: 'Country', value: x.countryCode },
+      { label: 'Net payable', value: `${fmt(x.netPayable)} ${x.currencyCode}` }, ...(x.notes ? [{ label: 'Note', value: x.notes }] : []),
+    ],
+  },
+  {
     slug: 'tax-summary', title: 'Tax summary', subtitle: 'Output tax on issued invoices and credit notes against recoverable input tax on posted bills.',
     endpoint: 'finance/reports/tax-summary', filters: ['range'],
     columns: () => [t('section', 'Section'), t('code', 'Tax code'), t('name', 'Description'), n('rate', 'Rate %'), m('net', 'Net'), m('tax', 'Tax')],
