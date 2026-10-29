@@ -1,3 +1,4 @@
+import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -50,7 +51,7 @@ interface Bill {
 @Component({
   selector: 'erp-bill-detail',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   styles: [`
     .line-items-table { margin-top: 16px; }
     .totals-section {
@@ -132,10 +133,12 @@ interface Bill {
           </div>
         </div>
       </erp-detail-page>
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/bills/' + bill()!.id + '/email'" (closed)="emailOpen.set(false)" />
     }
   `
 })
 export class BillDetailPage implements OnInit {
+  readonly emailOpen = signal(false);
   private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
@@ -218,6 +221,13 @@ export class BillDetailPage implements OnInit {
         label: 'Print',
         icon: 'printer',
         handler: () => window.open(`/print/bill/${bil.id}`, '_blank')
+      },
+      {
+        label: 'Email',
+        icon: 'mail',
+        permission: 'core.email.send',
+        visible: bil.status !== 'draft' && bil.status !== 'voided',
+        handler: () => this.emailOpen.set(true)
       }
     ];
   });

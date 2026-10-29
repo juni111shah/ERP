@@ -121,6 +121,8 @@ export const routes: Routes = [
           { path: '', pathMatch: 'full', redirectTo: 'stock' },
           { path: 'stock', canMatch: [permissionGuard('inventory.stock.read')], loadComponent: () => import('./modules/inventory/stock.page').then((m) => m.StockPage) },
           { path: 'movements', canMatch: [permissionGuard('inventory.stock.read')], loadComponent: () => import('./modules/inventory/movements.page').then((m) => m.MovementsPage) },
+          { path: 'counts', canMatch: [permissionGuard('inventory.counts.read')], loadComponent: () => import('./modules/inventory/counts.page').then((m) => m.CountsPage) },
+          { path: 'counts/:id', canMatch: [permissionGuard('inventory.counts.read')], loadComponent: () => import('./modules/inventory/count-detail.page').then((m) => m.CountDetailPage) },
           { path: 'warehouses', canMatch: [permissionGuard('inventory.warehouses.read')], loadComponent: () => import('./modules/inventory/warehouses.page').then((m) => m.WarehousesPage) },
         ],
       },

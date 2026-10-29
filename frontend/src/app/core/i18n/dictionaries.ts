@@ -14,7 +14,7 @@ export const EN: Dictionary = {
   'pager.goToPage': 'Go to page', 'pager.rowsPerPage': 'Rows per page', 'pager.perPage': '/ page',
   // party statement of account (shared/party-statement.component.ts) and party detail tabs
   'party.statement': 'Statement', 'party.customerStatement': 'Customer statement', 'party.vendorStatement': 'Vendor statement', 'party.documents': 'Documents',
-  'statement.refresh': 'Refresh', 'statement.print': 'Print', 'statement.date': 'Date', 'statement.type': 'Type', 'statement.number': 'Number', 'statement.reference': 'Reference',
+  'statement.refresh': 'Refresh', 'statement.print': 'Print', 'statement.email': 'Email', 'email.title': 'Send by email', 'email.to': 'To', 'email.toHint': "Leave empty to use the party's email address.", 'email.message': 'Message (optional)', 'email.send': 'Send', 'statement.date': 'Date', 'statement.type': 'Type', 'statement.number': 'Number', 'statement.reference': 'Reference',
   'statement.debit': 'Debit', 'statement.credit': 'Credit', 'statement.balance': 'Balance', 'statement.opening': 'Opening balance', 'statement.closing': 'Closing balance',
   'statement.empty': 'No transactions in this period', 'statement.failed': 'Could not load the statement', 'statement.popupBlocked': 'Allow pop-ups for this site to print the statement',
   'statement.customerTitle': 'Customer statement', 'statement.vendorTitle': 'Vendor statement',
@@ -156,7 +156,7 @@ export const AR: Dictionary = {
   'pager.goToPage': 'الانتقال إلى الصفحة', 'pager.rowsPerPage': 'صفوف لكل صفحة', 'pager.perPage': '/ صفحة',
   // party statement of account and party detail tabs
   'party.statement': 'كشف حساب', 'party.customerStatement': 'كشف حساب العميل', 'party.vendorStatement': 'كشف حساب المورد', 'party.documents': 'المستندات',
-  'statement.refresh': 'تحديث', 'statement.print': 'طباعة', 'statement.date': 'التاريخ', 'statement.type': 'النوع', 'statement.number': 'الرقم', 'statement.reference': 'المرجع',
+  'statement.refresh': 'تحديث', 'statement.print': 'طباعة', 'statement.email': 'بريد إلكتروني', 'email.title': 'إرسال بالبريد الإلكتروني', 'email.to': 'إلى', 'email.toHint': 'اتركه فارغاً لاستخدام البريد الإلكتروني للطرف.', 'email.message': 'رسالة (اختياري)', 'email.send': 'إرسال', 'statement.date': 'التاريخ', 'statement.type': 'النوع', 'statement.number': 'الرقم', 'statement.reference': 'المرجع',
   'statement.debit': 'مدين', 'statement.credit': 'دائن', 'statement.balance': 'الرصيد', 'statement.opening': 'الرصيد الافتتاحي', 'statement.closing': 'الرصيد الختامي',
   'statement.empty': 'لا توجد معاملات في هذه الفترة', 'statement.failed': 'تعذّر تحميل كشف الحساب', 'statement.popupBlocked': 'اسمح بالنوافذ المنبثقة لهذا الموقع لطباعة كشف الحساب',
   'statement.customerTitle': 'كشف حساب العميل', 'statement.vendorTitle': 'كشف حساب المورد',
@@ -188,7 +188,7 @@ export const AR: Dictionary = {
   'menu.finance.bank': 'البنوك', 'menu.finance.reports': 'التقارير المالية', 'menu.realestate.properties': 'العقارات', 'menu.realestate.units': 'الوحدات', 'menu.realestate.leases': 'عقود الإيجار',
   'menu.realestate.unittypes': 'أنواع الوحدات', 'menu.realestate.acquisitions': 'الاستحواذات', 'menu.realestate.billing': 'فوترة الإيجار', 'menu.realestate.workorders': 'أوامر العمل',
   'menu.realestate.renewals': 'تجديد العقود', 'menu.realestate.pm': 'الصيانة الوقائية', 'menu.realestate.inspections': 'الفحوصات', 'menu.realestate.deals': 'الصفقات',
-  'menu.hr.employees': 'الموظفون', 'menu.hr.attendance': 'الحضور', 'menu.hr.payroll': 'الرواتب', 'menu.inventory.warehouses': 'المستودعات', 'menu.inventory.stock': 'المخزون الحالي', 'menu.inventory.movements': 'حركات المخزون',
+  'menu.hr.employees': 'الموظفون', 'menu.hr.attendance': 'الحضور', 'menu.hr.payroll': 'الرواتب', 'menu.inventory.warehouses': 'المستودعات', 'menu.inventory.stock': 'المخزون الحالي', 'menu.inventory.movements': 'حركات المخزون', 'menu.inventory.counts': 'جرد المخزون',
   // menu groups / items whose server ids had no entry (sidebar showed English in Arabic)
   'menu.group.workspace': 'مساحة العمل', 'menu.group.sales': 'المبيعات', 'menu.group.purchases': 'المشتريات', 'menu.group.purchasing': 'المشتريات',
   'menu.group.masterdata': 'البيانات الأساسية', 'menu.group.setup': 'الإعداد', 'menu.group.services': 'الخدمات', 'menu.group.retail': 'التجزئة',
