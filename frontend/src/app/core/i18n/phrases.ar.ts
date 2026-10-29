@@ -1004,6 +1004,14 @@ const PAIRS: [string, string][] = [
   ['Active Engagements', 'المشاريع الاستشارية النشطة'], ['Retainer MRR', 'الإيراد الشهري المتكرر للاستبقاء'],
   ['Ready to Invoice', 'جاهز للفوترة'], ['Total Contract Value', 'إجمالي قيمة العقود'],
   ['Billable Ratio', 'نسبة الساعات القابلة للفوترة'], ['Total Logged Time', 'إجمالي ساعات العمل المسجلة'],
+  // owner cost basis
+  ['Cost basis', 'أساس التكلفة'], ['Chargeable to', 'يتحمّل التكلفة'], ['Owner share %', 'حصة المالك %'], ['Shared with the owner', 'مشتركة مع المالك'],
+  ['Only for shared costs.', 'للتكاليف المشتركة فقط.'],
+  ['Leave empty for the default: the owner of a managed property, otherwise the company.', 'اتركه فارغاً للقيمة الافتراضية: المالك للعقار المُدار، وإلا الشركة.'],
+  ['When linked, the actual cost is the net amount of the bill (split across the work orders linked to it).', 'عند الربط تصبح التكلفة الفعلية هي صافي مبلغ الفاتورة (موزّعة على أوامر العمل المرتبطة بها).'],
+  ['Cost basis saved', 'تم حفظ أساس التكلفة'], ['Could not save the cost basis', 'تعذّر حفظ أساس التكلفة'],
+  ['Maintenance jobs in the period', 'أعمال الصيانة خلال الفترة'], ['Completed on', 'تاريخ الإنجاز'], ['Cost from', 'مصدر التكلفة'], ['Borne by', 'يتحملها'],
+  ['Owner pays', 'يدفع المالك'], ['Charged to tenant', 'محمّل على المستأجر'], ['Charged to tenants (memo, not deducted)', 'محمّل على المستأجرين (للعلم، غير مخصوم)'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

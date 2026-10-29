@@ -87,6 +87,13 @@ import { RevealDirective } from '../../shared/reveal.directive';
             @if (totals(); as t) { <tr class="total">@for (c of columns(); track c.key) { <td [class.num]="isNum(c)">{{ cell(t, c) }}</td> }</tr> }
           </tbody>
         </nz-table>
+        @for (sec of details(); track sec.title) {
+          <h3 style="margin-top:20px">{{ sec.title }}</h3>
+          <nz-table [nzData]="sec.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="report-detail-table">
+            <thead><tr>@for (c of sec.columns; track c.key) { <th [class.num]="isNum(c)">{{ c.label }}</th> }</tr></thead>
+            <tbody>@for (r of sec.rows; track $index) { <tr>@for (c of sec.columns; track c.key) { <td [class.num]="isNum(c)">{{ cell(r, c) }}</td> }</tr> }</tbody>
+          </nz-table>
+        }
       } @else if (!loading()) { <nz-empty nzNotFoundContent="Choose the filters and run the report."></nz-empty> }
     }`,
 })
@@ -112,6 +119,7 @@ export class ReportPage {
   readonly columns = computed<ReportColumn[]>(() => this.def()?.columns(this.data()) ?? []);
   readonly rows = computed(() => (this.data() ? this.def()!.rows(this.data()) : []));
   readonly totals = computed(() => (this.data() ? this.def()?.totals?.(this.data()) ?? null : null));
+  readonly details = computed(() => (this.data() ? this.def()?.details?.(this.data()) ?? [] : []));
   readonly summary = computed(() => (this.data() ? this.def()?.summary?.(this.data()) ?? [] : []));
 
   readonly entity = this.session.currentEntityId;
@@ -156,6 +164,10 @@ export class ReportPage {
     const quote = (s: string) => `"${s.replace(/"/g, '""')}"`;
     const lines = [cols.map((c) => quote(c.label)).join(',')];
     for (const r of [...this.rows(), ...(this.totals() ? [this.totals()!] : [])]) lines.push(cols.map((c) => quote(String(r[c.key] ?? ''))).join(','));
+    for (const sec of this.details()) {
+      lines.push('', quote(sec.title), sec.columns.map((c) => quote(c.label)).join(','));
+      for (const r of sec.rows) lines.push(sec.columns.map((c) => quote(String(r[c.key] ?? ''))).join(','));
+    }
     const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = `${this.slug()}.csv`; a.click(); URL.revokeObjectURL(url);
   }

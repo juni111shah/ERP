@@ -36,6 +36,12 @@ public class WorkOrder : LegalEntityScopedEntity, IHasCustomFields
     public decimal? ActualCost { get; set; }
     public string? Details { get; set; }
     public string? ResolutionNotes { get; set; }
+    /// <summary>Who bears the cost. Null = the default: the owner for a property managed for an owner, the company otherwise.</summary>
+    [Filterable] public CostResponsibility? ChargeableTo { get; set; }
+    /// <summary>Owner's share in percent when <see cref="ChargeableTo"/> is Shared.</summary>
+    public decimal OwnerSharePercent { get; set; } = 100;
+    /// <summary>The vendor bill (core) that paid for this work; when set, the actual cost comes from the bill.</summary>
+    [Filterable] public Guid? BillId { get; set; }
     public string? CustomFields { get; set; }
 
     public bool IsOpen => Status is WorkOrderStatus.New or WorkOrderStatus.Assigned or WorkOrderStatus.InProgress or WorkOrderStatus.OnHold;
