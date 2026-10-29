@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, Injectable, computed, inject, signal, OnInit } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { catchError, map, of } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -11,6 +12,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { CrudApiService } from '../core/api/crud-api.service';
+import { PartyGroupsApi } from '../core/api/admin.api';
 import { createPagedList } from '../core/api/paged-list';
 import { buildCustomFieldsGroup, toApiValues } from '../core/custom-fields/custom-field-form';
 import { CustomFieldMetadataService } from '../core/custom-fields/custom-field-metadata.service';
@@ -29,7 +31,7 @@ import { StatCardComponent } from '../shared/stat-card.component';
 export interface PartyDto {
   id: string; code: string; name: string; kind: string; roles: string[]; email?: string; phone?: string; taxNumber?: string;
   idNumber?: string; iban?: string; currencyCode?: string; paymentTermsDays?: number; address?: string; isActive: boolean;
-  customFields: Record<string, unknown>;
+  customFields: Record<string, unknown>; partyGroupId?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -40,6 +42,7 @@ export class PartiesApi extends CrudApiService<PartyDto, unknown> {
 const ROLES = ['Customer', 'Vendor', 'Employee', 'Other'];
 const titleFor = (type: string | null) => (type === 'customer' ? 'Customers' : type === 'vendor' ? 'Vendors' : 'Parties');
 const roleFilter = (type: string | null) => (type ? [{ field: 'roles', op: 'has' as const, value: type.toLowerCase() }] : []);
+const groupFilter = (id: string | null) => (id ? [{ field: 'partyGroupId', op: 'eq' as const, value: id }] : []);
 
 @Component({
   selector: 'erp-parties',
@@ -118,6 +121,9 @@ const roleFilter = (type: string | null) => (type ? [{ field: 'roles', op: 'has'
           @for (r of roles; track r) { <nz-option [nzValue]="r" [nzLabel]="r"></nz-option> }
         </nz-select>
       }
+      <nz-select toolbar style="width:180px" nzAllowClear nzPlaceHolder="All party groups" (ngModelChange)="filterGroup($event)" [ngModelOptions]="{standalone: true}" [ngModel]="null" data-testid="party-group-filter">
+        @for (g of groups(); track g.id) { <nz-option [nzValue]="g.id" [nzLabel]="g.name"></nz-option> }
+      </nz-select>
       <button toolbar *erpHasPermission="'core.parties.write'" nz-button nzType="primary" (click)="open(null)" data-testid="party-new"><span nz-icon nzType="plus"></span>New {{ typeFilter() === 'customer' ? 'customer' : typeFilter() === 'vendor' ? 'vendor' : 'party' }}</button>
     </erp-paged-table>
 
@@ -139,6 +145,7 @@ const roleFilter = (type: string | null) => (type ? [{ field: 'roles', op: 'has'
           <nz-form-item><nz-form-label>Payment terms (days)</nz-form-label><nz-form-control><input nz-input type="number" min="0" formControlName="paymentTermsDays" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>ID number</nz-form-label><nz-form-control [nzExtra]="sensitiveLocked() ? restrictedHint : ''"><input nz-input formControlName="idNumber" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>IBAN</nz-form-label><nz-form-control [nzExtra]="sensitiveLocked() ? restrictedHint : ''"><input nz-input formControlName="iban" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Party group</nz-form-label><nz-form-control><nz-select formControlName="partyGroupId" nzAllowClear nzPlaceHolder="No group" data-testid="party-group">@for (g of groups(); track g.id) { <nz-option [nzValue]="g.id" [nzLabel]="g.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Active</nz-form-label><nz-form-control><nz-switch formControlName="isActive"></nz-switch></nz-form-control></nz-form-item>
           @if (sections().length) { <erp-dynamic-fields [sections]="sections()" [group]="customGroup()" /> }
         </form>
@@ -151,6 +158,9 @@ const roleFilter = (type: string | null) => (type ? [{ field: 'roles', op: 'has'
 })
 export class PartiesPage implements OnInit {
   private readonly api = inject(PartiesApi);
+  private readonly groupsApi = inject(PartyGroupsApi);
+  readonly groups = toSignal(this.groupsApi.list({ page: 1, pageSize: 200, sort: 'code' }).pipe(map((r) => r.items), catchError(() => of([]))), { initialValue: [] });
+  private readonly groupFilterId = signal<string | null>(null);
   private readonly meta = inject(CustomFieldMetadataService);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
@@ -214,7 +224,7 @@ export class PartiesPage implements OnInit {
       if (type !== this.typeFilter()) {
         this.typeFilter.set(type);
         this.pageTitle.set(titleFor(type));
-        this.list.setFilters(roleFilter(type));
+        this.list.setFilters([...roleFilter(type), ...groupFilter(this.groupFilterId())]);
       }
       // `?edit=<id>` (from the party detail page's Edit) opens the edit drawer for that party.
       const editId = qp.get('edit');
@@ -235,7 +245,14 @@ export class PartiesPage implements OnInit {
   }
 
   filterRole(role: string | null): void {
-    this.list.setFilters(role ? [{ field: 'roles', op: 'has', value: role.toLowerCase() }] : []);
+    this.roleFilterValue = role;
+    this.list.setFilters([...roleFilter(role), ...groupFilter(this.groupFilterId())]);
+  }
+
+  private roleFilterValue: string | null = null;
+  filterGroup(id: string | null): void {
+    this.groupFilterId.set(id);
+    this.list.setFilters([...roleFilter(this.typeFilter() ?? this.roleFilterValue), ...groupFilter(id)]);
   }
 
   open(p: PartyDto | null): void {
@@ -300,6 +317,7 @@ export class PartiesPage implements OnInit {
       paymentTermsDays: [p?.paymentTermsDays ?? null, Validators.min(0)],
       idNumber: [{ value: p?.idNumber ?? '', disabled: locked }],
       iban: [{ value: p?.iban ?? '', disabled: locked }],
+      partyGroupId: [p?.partyGroupId ?? null],
       isActive: [p?.isActive ?? true],
       customFields: new FormGroup({}),
     });

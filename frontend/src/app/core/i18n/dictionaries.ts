@@ -202,7 +202,7 @@ export const AR: Dictionary = {
   'menu.distribution.routes': 'مسارات التوزيع', 'menu.distribution.trips': 'مبيعات التوزيع', 'menu.distribution.wholesale': 'أسعار الجملة', 'menu.distribution.analytics': 'تحليلات التوزيع',
   'menu.crm.leads': 'العملاء المحتملون', 'menu.crm.opportunities': 'فرص المبيعات', 'menu.crm.interactions': 'سجل الأنشطة', 'menu.crm.analytics': 'تحليلات علاقات العملاء',
   'menu.services.engagements': 'المشاريع الاستشارية', 'menu.services.retainers': 'عقود الخدمات', 'menu.services.milestones': 'فوترة المراحل', 'menu.services.analytics': 'تحليلات الخدمات',
-  'menu.core.approvalrules': 'قواعد الموافقة', 'menu.core.businessunits': 'وحدات الأعمال',
+  'menu.core.approvalrules': 'قواعد الموافقة', 'menu.core.businessunits': 'وحدات الأعمال', 'menu.core.partygroups': 'مجموعات الأطراف',
   'menu.core.customfields': 'الحقول المخصصة', 'menu.core.legalentities': 'الكيانات القانونية', 'menu.finance.taxcodes': 'الرموز الضريبية', 'menu.hr.reviewcycles': 'دورات التقييم',
   'menu.hr.reviews': 'تقييمات الأداء', 'menu.realestate.leads': 'العملاء المحتملون', 'menu.realestate.listings': 'القوائم العقارية',
   // login / account

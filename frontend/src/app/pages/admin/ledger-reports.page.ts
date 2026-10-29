@@ -13,7 +13,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { catchError, of } from 'rxjs';
 import {
-  AccountDto, AccountsApi, ArAgeing, BusinessUnitDto, BusinessUnitsApi, BalanceSheet, GeneralLedger, IncomeStatement, LedgerReportsApi, LegalEntitiesApi, LegalEntityDto, TrialBalance,
+  AccountDto, AccountsApi, ArAgeing, BusinessUnitDto, BusinessUnitsApi, BalanceSheet, GeneralLedger, IncomeStatement, LedgerReportsApi, LegalEntitiesApi, PartyGroupDto, PartyGroupsApi, LegalEntityDto, TrialBalance,
 } from '../../core/api/admin.api';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { asProblem } from '../../core/http/problem-details';
@@ -37,8 +37,10 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
           <nz-option nzValue="customer" nzLabel="Group by customer"></nz-option>
           <nz-option nzValue="businessUnit" nzLabel="Group by business unit"></nz-option>
           <nz-option nzValue="sourceType" nzLabel="Group by source"></nz-option>
+          <nz-option nzValue="partyGroup" nzLabel="Group by party group"></nz-option>
         </nz-select>
         <nz-select [(ngModel)]="businessUnitId" nzAllowClear nzPlaceHolder="All business units" style="width:220px" data-testid="rep-bu">@for (b of units(); track b.id) { <nz-option [nzValue]="b.id" [nzLabel]="b.name"></nz-option> }</nz-select>
+        <nz-select [(ngModel)]="partyGroupId" nzAllowClear nzPlaceHolder="All party groups" style="width:200px" data-testid="rep-party-group">@for (g of partyGroups(); track g.id) { <nz-option [nzValue]="g.id" [nzLabel]="g.name"></nz-option> }</nz-select>
         <input nz-input [(ngModel)]="sourceType" placeholder="Source type (optional)" style="width:200px" data-testid="rep-source" />
       }
       @if (tab() === 1) {
@@ -102,7 +104,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
       @case (4) {
         @if (ar(); as a) {
           <nz-table [nzData]="a.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="ar-table">
-            <thead><tr><th>{{ groupBy === 'businessUnit' ? 'Business unit' : groupBy === 'sourceType' ? 'Source' : 'Customer' }}</th><th class="num">Current</th><th class="num">1-30</th><th class="num">31-60</th><th class="num">61-90</th><th class="num">Over 90</th><th class="num">Total</th></tr></thead>
+            <thead><tr><th>{{ groupBy === 'businessUnit' ? 'Business unit' : groupBy === 'sourceType' ? 'Source' : groupBy === 'partyGroup' ? 'Party group' : 'Customer' }}</th><th class="num">Current</th><th class="num">1-30</th><th class="num">31-60</th><th class="num">61-90</th><th class="num">Over 90</th><th class="num">Total</th></tr></thead>
             <tbody>
               @for (r of a.rows; track r.partyId) { <tr><td>{{ r.partyName }}</td><td class="num">{{ r.current | number: '1.2-2' }}</td><td class="num">{{ r.days1To30 | number: '1.2-2' }}</td><td class="num">{{ r.days31To60 | number: '1.2-2' }}</td><td class="num">{{ r.days61To90 | number: '1.2-2' }}</td><td class="num">{{ r.over90 | number: '1.2-2' }}</td><td class="num">{{ r.total | number: '1.2-2' }}</td></tr> }
               <tr class="total"><td>Total</td><td class="num">{{ a.totals.current | number: '1.2-2' }}</td><td class="num">{{ a.totals.days1To30 | number: '1.2-2' }}</td><td class="num">{{ a.totals.days31To60 | number: '1.2-2' }}</td><td class="num">{{ a.totals.days61To90 | number: '1.2-2' }}</td><td class="num">{{ a.totals.over90 | number: '1.2-2' }}</td><td class="num">{{ a.totals.total | number: '1.2-2' }}</td></tr>
@@ -138,6 +140,8 @@ export class LedgerReportsPage {
   private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
   readonly entities = computed(() => this.entityPage().items);
   private readonly unitPage = toSignal(inject(BusinessUnitsApi).list({ page: 1, pageSize: 200 }).pipe(catchError(() => of({ items: [] as BusinessUnitDto[] }))), { initialValue: { items: [] as BusinessUnitDto[] } });
+  private readonly groupPage = toSignal(inject(PartyGroupsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as PartyGroupDto[] }))), { initialValue: { items: [] as PartyGroupDto[] } });
+  readonly partyGroups = computed(() => this.groupPage().items);
   readonly accounts = computed(() => this.accountPage().items);
   readonly tab = signal(Number(inject(ActivatedRoute).snapshot.queryParamMap.get('tab') ?? 0) || 0);
   readonly loading = signal(false);
@@ -151,6 +155,7 @@ export class LedgerReportsPage {
   readonly bs = signal<BalanceSheet | null>(null);
   groupBy = 'customer';
   businessUnitId: string | null = null;
+  partyGroupId: string | null = null;
   sourceType = '';
   readonly units = () => this.unitPage().items.filter((b) => !this.entityId || b.legalEntityId === this.entityId);
   readonly ar = signal<ArAgeing | null>(null);
@@ -172,7 +177,7 @@ export class LedgerReportsPage {
         if (!from) { this.loading.set(false); this.message.warning('Choose the "from" date'); return; }
         this.api.incomeStatement({ from, to, legalEntityId }).subscribe(done((v) => this.pl.set(v))); break;
       case 3: this.api.balanceSheet({ asOf: to, legalEntityId }).subscribe(done((v) => this.bs.set(v))); break;
-      case 4: this.api.arAgeing({ asOf: to, legalEntityId, businessUnitId: this.businessUnitId ?? undefined, sourceType: this.sourceType.trim() || undefined, groupBy: this.groupBy === 'customer' ? undefined : this.groupBy }).subscribe(done((v) => this.ar.set(v))); break;
+      case 4: this.api.arAgeing({ asOf: to, legalEntityId, businessUnitId: this.businessUnitId ?? undefined, partyGroupId: this.partyGroupId ?? undefined, sourceType: this.sourceType.trim() || undefined, groupBy: this.groupBy === 'customer' ? undefined : this.groupBy }).subscribe(done((v) => this.ar.set(v))); break;
       default: this.api.apAgeing({ asOf: to, legalEntityId }).subscribe(done((v) => this.ap.set(v)));
     }
   }

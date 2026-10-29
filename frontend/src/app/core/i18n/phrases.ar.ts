@@ -1004,6 +1004,10 @@ const PAIRS: [string, string][] = [
   ['Active Engagements', 'المشاريع الاستشارية النشطة'], ['Retainer MRR', 'الإيراد الشهري المتكرر للاستبقاء'],
   ['Ready to Invoice', 'جاهز للفوترة'], ['Total Contract Value', 'إجمالي قيمة العقود'],
   ['Billable Ratio', 'نسبة الساعات القابلة للفوترة'], ['Total Logged Time', 'إجمالي ساعات العمل المسجلة'],
+  // party groups
+  ['Party groups', 'مجموعات الأطراف'], ['Party group', 'مجموعة الأطراف'], ['New party group', 'مجموعة أطراف جديدة'], ['Edit party group', 'تعديل مجموعة الأطراف'],
+  ['No party groups yet', 'لا توجد مجموعات أطراف بعد'], ['All party groups', 'جميع مجموعات الأطراف'], ['No group', 'بدون مجموعة'],
+  ['Group by party group', 'تجميع حسب مجموعة الأطراف'], ['Search code or name', 'ابحث بالرمز أو الاسم'], ['Party group not found.', 'مجموعة الأطراف غير موجودة.'],
   // cheque bounce follow-up
   ['Follow-up due', 'المتابعة مستحقة'], ['Followed up', 'تمت المتابعة'], ['Log follow-up', 'تسجيل متابعة'], ['Bounced on', 'تاريخ الارتداد'], ['Followed up on', 'تمت المتابعة بتاريخ'],
   ['Replaces an earlier cheque that bounced', 'بديل لشيك سابق مرتد'], ['Replaced by a new cheque', 'تم استبداله بشيك جديد'],

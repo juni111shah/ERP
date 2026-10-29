@@ -33,6 +33,7 @@ export interface LegalEntityDto {
   id: string; code: string; name: string; legalName?: string; countryCode: string; baseCurrency: string; taxRegistrationNo?: string; isTaxRegistered: boolean;
   registrationNo?: string; address?: string; email?: string; phone?: string; booksLockedTo?: string; isActive: boolean; customFields: CustomFields;
 }
+export interface PartyGroupDto { id: string; code: string; name: string; isActive: boolean; }
 export interface BusinessUnitDto { id: string; legalEntityId: string; code: string; name: string; address?: string; isActive: boolean; customFields: CustomFields; }
 export interface RoleDto { id: string; name: string; description?: string; isBuiltIn: boolean; moduleKey?: string; permissions: string[]; }
 export interface PermissionDefinition { key: string; module: string; resource: string; action: string; description: string; }
@@ -124,6 +125,9 @@ export class LegalEntitiesApi extends CrudApiService<LegalEntityDto, unknown> {
 export class BusinessUnitsApi extends CrudApiService<BusinessUnitDto, unknown> { protected readonly resource = 'business-units'; }
 
 @Injectable({ providedIn: 'root' })
+export class PartyGroupsApi extends CrudApiService<PartyGroupDto, unknown> { protected readonly resource = 'party-groups'; }
+
+@Injectable({ providedIn: 'root' })
 export class RolesApi extends CrudApiService<RoleDto, unknown> {
   protected readonly resource = 'roles';
   permissions(): Observable<PermissionDefinition[]> { return this.http.get<PermissionDefinition[]>(`${this.baseUrl}/permissions`); }
@@ -205,7 +209,7 @@ export class LedgerReportsApi {
   generalLedger(p: { accountId: string; from?: string; to: string; legalEntityId?: string }): Observable<GeneralLedger> { return this.http.get<GeneralLedger>(`${this.base}/general-ledger`, { params: this.params(p) }); }
   incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
   balanceSheet(p: { asOf: string; legalEntityId?: string }): Observable<BalanceSheet> { return this.http.get<BalanceSheet>(`${this.base}/balance-sheet`, { params: this.params(p) }); }
-  arAgeing(p: { asOf: string; legalEntityId?: string; businessUnitId?: string; sourceType?: string; groupBy?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
+  arAgeing(p: { asOf: string; legalEntityId?: string; businessUnitId?: string; sourceType?: string; groupBy?: string; partyGroupId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
   apAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ap-ageing`, { params: this.params(p) }); }
 }
 
