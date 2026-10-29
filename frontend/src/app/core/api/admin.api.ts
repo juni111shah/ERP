@@ -254,9 +254,9 @@ export class ReceiptsApi extends CrudApiService<ReceiptSummary, unknown> {
 
 // ---- Cheque register ---------------------------------------------------------------------------------------------------------
 
-export interface ChequeRow { id: string; number: string; kind: string; direction: string; instrumentNo: string; bankName?: string; partyId?: string; partyName?: string; amount: number; instrumentDate: string; status: string; currencyCode: string; }
+export interface ChequeRow { id: string; number: string; kind: string; direction: string; instrumentNo: string; bankName?: string; partyId?: string; partyName?: string; amount: number; instrumentDate: string; status: string; currencyCode: string; bouncedOn?: string; followUpOn?: string; }
 export interface ChequeDto extends ChequeRow {
-  legalEntityId: string; receivedOn?: string; bankAccountId?: string; settlementId?: string; depositedOn?: string; clearedOn?: string; bounceReason?: string; replacesInstrumentId?: string; notes?: string;
+  legalEntityId: string; receivedOn?: string; bankAccountId?: string; settlementId?: string; depositedOn?: string; clearedOn?: string; bounceReason?: string; replacesInstrumentId?: string; notes?: string; bouncedOn?: string; followUpOn?: string; followUpNote?: string; replacedByChequeId?: string;
   allocations: AllocationLine[];
 }
 export interface ChequeSummary { inCustodyTotal: number; inCustodyCount: number; maturedTotal: number; maturedCount: number; next7DaysTotal: number; next30DaysTotal: number; depositedTotal: number; bouncedCount: number; }
@@ -273,6 +273,7 @@ export class ChequesApi extends CrudApiService<ChequeRow, unknown> {
   cancel(id: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/cancel`, {}); }
   deposit(id: string, bankAccountId: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/deposit`, { bankAccountId, date }); }
   clear(id: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/clear`, { date }); }
+  followUp(id: string, note: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/follow-up`, { note, date }); }
   bounce(id: string, date: string, reason: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/bounce`, { date, reason }); }
   replace(id: string, body: unknown): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/replace`, body); }
 }

@@ -1008,6 +1008,18 @@ const PAIRS: [string, string][] = [
   ['Party groups', 'مجموعات الأطراف'], ['Party group', 'مجموعة الأطراف'], ['New party group', 'مجموعة أطراف جديدة'], ['Edit party group', 'تعديل مجموعة الأطراف'],
   ['No party groups yet', 'لا توجد مجموعات أطراف بعد'], ['All party groups', 'جميع مجموعات الأطراف'], ['No group', 'بدون مجموعة'],
   ['Group by party group', 'تجميع حسب مجموعة الأطراف'], ['Search code or name', 'ابحث بالرمز أو الاسم'], ['Party group not found.', 'مجموعة الأطراف غير موجودة.'],
+  // cheque bounce follow-up
+  ['Follow-up due', 'المتابعة مستحقة'], ['Followed up', 'تمت المتابعة'], ['Log follow-up', 'تسجيل متابعة'], ['Bounced on', 'تاريخ الارتداد'], ['Followed up on', 'تمت المتابعة بتاريخ'],
+  ['Replaces an earlier cheque that bounced', 'بديل لشيك سابق مرتد'], ['Replaced by a new cheque', 'تم استبداله بشيك جديد'],
+  ['What was agreed with the customer?', 'ما الذي تم الاتفاق عليه مع العميل؟'], ['Enter the follow-up note', 'أدخل ملاحظة المتابعة'], ['Follow-up logged', 'تم تسجيل المتابعة'],
+  // owner cost basis
+  ['Cost basis', 'أساس التكلفة'], ['Chargeable to', 'يتحمّل التكلفة'], ['Owner share %', 'حصة المالك %'], ['Shared with the owner', 'مشتركة مع المالك'],
+  ['Only for shared costs.', 'للتكاليف المشتركة فقط.'],
+  ['Leave empty for the default: the owner of a managed property, otherwise the company.', 'اتركه فارغاً للقيمة الافتراضية: المالك للعقار المُدار، وإلا الشركة.'],
+  ['When linked, the actual cost is the net amount of the bill (split across the work orders linked to it).', 'عند الربط تصبح التكلفة الفعلية هي صافي مبلغ الفاتورة (موزّعة على أوامر العمل المرتبطة بها).'],
+  ['Cost basis saved', 'تم حفظ أساس التكلفة'], ['Could not save the cost basis', 'تعذّر حفظ أساس التكلفة'],
+  ['Maintenance jobs in the period', 'أعمال الصيانة خلال الفترة'], ['Completed on', 'تاريخ الإنجاز'], ['Cost from', 'مصدر التكلفة'], ['Borne by', 'يتحملها'],
+  ['Owner pays', 'يدفع المالك'], ['Charged to tenant', 'محمّل على المستأجر'], ['Charged to tenants (memo, not deducted)', 'محمّل على المستأجرين (للعلم، غير مخصوم)'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

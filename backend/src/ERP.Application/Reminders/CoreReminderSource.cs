@@ -24,6 +24,10 @@ public sealed class CoreReminderSource(IReadRepository<Bill> bills, IReadReposit
         var maturing = await cheques.Query(new Specification<PaymentInstrument>(c => c.Status == InstrumentStatus.InCustody && c.InstrumentDate <= horizon)).ToListAsync(ct);
         foreach (var c in maturing)
             result.Add(new($"cheque-due:{c.Id}", $"Cheque {c.InstrumentNo} matures {c.InstrumentDate:yyyy-MM-dd}", $"{c.PartyName}: {c.Amount:N2} {c.CurrencyCode}", "/finance/cheques", CorePermissions.ChequesApprove, Severity: "info"));
+        // A bounced cheque nobody has chased within three days of the bank returning it.
+        var unchased = await cheques.Query(new Specification<PaymentInstrument>(c => c.Status == InstrumentStatus.Bounced && c.FollowUpOn == null && c.BouncedOn != null && c.BouncedOn <= today.AddDays(-3))).ToListAsync(ct);
+        foreach (var c in unchased)
+            result.Add(new($"cheque-followup:{c.Id}", $"Follow up bounced cheque {c.InstrumentNo}", $"{c.PartyName}: {c.Amount:N2} {c.CurrencyCode} returned on {c.BouncedOn:yyyy-MM-dd} ({c.BounceReason}). Log a follow-up or register a replacement.", "/finance/cheques", CorePermissions.ChequesApprove));
         var expiring = await documents.Query(new Specification<ERP.Domain.Platform.Attachment>(a => a.ExpiresOn != null && a.ExpiresOn <= today.AddDays(30))).ToListAsync(ct);
         foreach (var d in expiring)
         {

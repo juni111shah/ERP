@@ -217,6 +217,7 @@ internal static class RealEstateEndpoints
             return Results.Created($"{Base}/work-orders/{created.Id}", created);
         }).RequirePermission(P.WorkOrdersCreate);
         g.MapPut("/{id:guid}", (Guid id, WorkOrderInput input, ISender s, CancellationToken ct) => s.Send(new UpdateWorkOrder(id, input), ct)).RequirePermission(P.WorkOrdersEdit);
+        g.MapPut("/{id:guid}/cost-basis", (Guid id, CostBasisInput input, ISender s, CancellationToken ct) => s.Send(new SetWorkOrderCostBasis(id, input), ct)).RequirePermission(P.WorkOrdersEdit);
         g.MapPost("/{id:guid}/status", (Guid id, WorkOrderStatusBody body, ISender s, CancellationToken ct) =>
             s.Send(new ChangeWorkOrderStatus(id, body.Status, body.ActualCost, body.ResolutionNotes), ct)).RequireAuthorization(); // permission depends on the target status
     }

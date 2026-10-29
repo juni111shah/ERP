@@ -22,6 +22,8 @@ export interface ReportDef {
   action?: { label: string; path: string; permission: string; done: string };
   /** headline numbers above the table */
   summary?: (data: any) => { label: string; value: string }[];
+  /** extra tables shown under the main one (for example the jobs behind a total); they are part of the CSV too */
+  details?: (data: any) => { title: string; columns: ReportColumn[]; rows: Record<string, unknown>[] }[];
 }
 
 const m = (key: string, label: string): ReportColumn => ({ key, label, type: 'money' });
@@ -70,7 +72,12 @@ export const REPORTS: ReportDef[] = [
     columns: () => [t('property', 'Property'), p('feePercent', 'Fee %'), m('rentCollected', 'Rent collected'), m('managementFee', 'Management fee'), m('maintenanceCosts', 'Maintenance'), m('netToOwner', 'Net to owner')],
     rows: (x) => x.rows,
     totals: (x) => ({ property: 'Total', feePercent: null, rentCollected: x.rentCollected, managementFee: x.managementFee, maintenanceCosts: x.maintenanceCosts, netToOwner: x.netToOwner }),
-    summary: (x) => [{ label: 'Owner', value: x.owner }, { label: 'Net payable to owner', value: fmt(x.netToOwner) }],
+    summary: (x) => [{ label: 'Owner', value: x.owner }, { label: 'Net payable to owner', value: fmt(x.netToOwner) }, ...(x.chargedToTenant > 0 ? [{ label: 'Charged to tenants (memo, not deducted)', value: fmt(x.chargedToTenant) }] : [])],
+    details: (x) => (x.lines?.length ? [{
+      title: 'Maintenance jobs in the period',
+      columns: [t('number', 'Work order'), t('property', 'Property'), t('issue', 'Issue'), d('completedOn', 'Completed on'), m('cost', 'Cost'), t('costSource', 'Cost from'), t('borneBy', 'Borne by'), m('ownerAmount', 'Owner pays'), m('tenantAmount', 'Charged to tenant')],
+      rows: x.lines,
+    }] : []),
   },
   {
     slug: 'stock-valuation', title: 'Stock valuation', subtitle: 'Quantity, average cost and value of stock per warehouse and item at the end of the chosen date.', module: 'inventory',

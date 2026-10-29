@@ -300,7 +300,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OrgId", "Code")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Accounts", t =>
                         {
@@ -1215,6 +1216,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<DateOnly?>("BouncedOn")
+                        .HasColumnType("date");
+
                     b.Property<DateOnly?>("ClearedOn")
                         .HasColumnType("date");
 
@@ -1242,6 +1246,13 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("FollowUpNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateOnly?>("FollowUpOn")
+                        .HasColumnType("date");
 
                     b.Property<DateOnly>("InstrumentDate")
                         .HasColumnType("date");
@@ -2179,6 +2190,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OrgId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("PartyGroupId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("PaymentTermsDays")
                         .HasColumnType("int");
 
@@ -2206,15 +2220,76 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("PartyGroupId");
+
                     b.HasIndex("OrgId", "Code")
                         .IsUnique();
 
                     b.HasIndex("OrgId", "Name");
 
+                    b.HasIndex("OrgId", "PartyGroupId");
+
                     b.ToTable("Parties", t =>
                         {
                             t.HasCheckConstraint("CK_Parties_CustomFields_IsJson", "[CustomFields] IS NULL OR ISJSON([CustomFields]) = 1");
                         });
+                });
+
+            modelBuilder.Entity("ERP.Domain.Parties.PartyGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrgId", "Code")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("PartyGroups");
                 });
 
             modelBuilder.Entity("ERP.Domain.Platform.ApprovalPolicy", b =>
@@ -8150,9 +8225,15 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasPrecision(19, 4)
                         .HasColumnType("decimal(19,4)");
 
+                    b.Property<Guid?>("BillId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Category")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("ChargeableTo")
+                        .HasColumnType("int");
 
                     b.Property<DateOnly?>("CompletedOn")
                         .HasColumnType("date");
@@ -8200,6 +8281,12 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("OrgId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("OwnerSharePercent")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(9, 4)
+                        .HasColumnType("decimal(9,4)")
+                        .HasDefaultValue(100m);
 
                     b.Property<int>("Priority")
                         .HasColumnType("int");
@@ -8252,6 +8339,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.HasIndex("PropertyId");
 
                     b.HasIndex("UnitId");
+
+                    b.HasIndex("OrgId", "BillId")
+                        .HasFilter("[BillId] IS NOT NULL");
 
                     b.HasIndex("OrgId", "UnitId");
 
@@ -9702,6 +9792,14 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("ERP.Domain.Parties.Party", b =>
+                {
+                    b.HasOne("ERP.Domain.Parties.PartyGroup", null)
+                        .WithMany()
+                        .HasForeignKey("PartyGroupId")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("ERP.Modules.Distribution.Domain.DeliveryStop", b =>

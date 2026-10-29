@@ -99,6 +99,13 @@ public sealed class ReminderDispatcher(IEnumerable<IReminderSource> sources, IEn
         => (await userRoles.Query(new Specification<UserRole>(ur => ur.Role!.Permissions.Any(p => p.Permission == permission || p.Permission == "*"))).Select(ur => ur.UserId).Distinct().ToListAsync(ct));
 }
 
+/// <summary>Who holds a permission (directly or through the "*" owner grant): the audience for in-app notifications.</summary>
+public sealed class PermissionAudience(IReadRepository<UserRole> userRoles)
+{
+    public async Task<List<Guid>> UsersWithAsync(string permission, CancellationToken ct)
+        => await userRoles.Query(new Specification<UserRole>(ur => ur.Role!.Permissions.Any(p => p.Permission == permission || p.Permission == "*"))).Select(ur => ur.UserId).Distinct().ToListAsync(ct);
+}
+
 /// <summary>Nightly job: send whatever reminders became due.</summary>
 public sealed class ReminderJob(ReminderDispatcher dispatcher) : IScheduledJob
 {
