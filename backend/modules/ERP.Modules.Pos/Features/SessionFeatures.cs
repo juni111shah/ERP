@@ -19,6 +19,7 @@ public record PosSessionSummaryDto(
     DateTimeOffset? ClosedAt,
     decimal OpeningCash,
     decimal TotalSales,
+    decimal TotalReturns,
     decimal ExpectedCash,
     decimal ActualCash,
     decimal CashDifference,
@@ -271,10 +272,11 @@ public class SessionHandlers :
 
         if (session == null) return null;
 
-        var transactions = await _drawerTransactions.Query(new Specification<CashDrawerTransaction>(
+        var transactions = (await _drawerTransactions.Query(new Specification<CashDrawerTransaction>(
             t => t.SessionId == session.Id))
+            .ToListAsync(cancellationToken))
             .OrderBy(t => t.Timestamp)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         session.DrawerTransactions = transactions;
 

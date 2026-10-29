@@ -277,4 +277,264 @@ public class PosOrderTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(5.00m, (decimal)line["taxRate"]!);
         Assert.Equal(210.00m, (decimal)line["lineTotal"]!);
     }
+
+    [Fact]
+    public async Task Void_in_closed_session_returns_409_and_changes_nothing()
+    {
+        var (admin, entity, regId, sessionId) = await SetupPosAsync();
+
+        var itemSku = "ITEM-" + Guid.NewGuid().ToString("N")[..6];
+        var itemRes = await admin.PostAsJsonAsync("/api/v1/items", new ItemInput(
+            Sku: itemSku,
+            Name: "Sample Item",
+            Type: ItemType.Product,
+            Uom: "ea",
+            SalesPrice: 50.00m,
+            PurchasePrice: 20.00m,
+            TaxCodeId: null));
+        itemRes.EnsureSuccessStatusCode();
+        var itemId = Guid.Parse((string)(await Json(itemRes))["id"]!);
+
+        var orderCmd = new CreatePosOrderCommand(
+            Guid.Parse(entity),
+            Guid.Parse(regId),
+            Guid.Parse(sessionId),
+            null,
+            "Customer 1",
+            [
+                new PosOrderLineInput(itemId, Quantity: 1, UnitPrice: 50.00m)
+            ],
+            [
+                new PosPaymentInput(PosPaymentMethod.Cash, 50.00m, 50.00m, 0m, null)
+            ]);
+
+        var orderRes = await admin.PostAsJsonAsync("/api/v1/m/pos/orders", orderCmd);
+        orderRes.EnsureSuccessStatusCode();
+        var orderId = (string)(await Json(orderRes))["id"]!;
+
+        // Close session
+        var closeRes = await admin.PostAsJsonAsync($"/api/v1/m/pos/sessions/{sessionId}/close", new
+        {
+            actualCash = 150m,
+            closedByUserId = Guid.NewGuid(),
+            notes = "End of shift"
+        });
+        closeRes.EnsureSuccessStatusCode();
+
+        // Attempt void in closed session -> 409 Conflict
+        var voidRes = await admin.PostAsJsonAsync($"/api/v1/m/pos/orders/{orderId}/void", new { reason = "Mistake" });
+        Assert.Equal(HttpStatusCode.Conflict, voidRes.StatusCode);
+
+        // Verify order is still Completed (not Voided)
+        var checkOrder = await admin.GetAsync($"/api/v1/m/pos/orders/{orderId}");
+        var orderJson = await Json(checkOrder);
+        Assert.Equal("Completed", (string)orderJson["status"]!, ignoreCase: true);
+
+        // Verify session totals are unchanged
+        var sessionsList = await Json(await admin.GetAsync("/api/v1/m/pos/sessions"));
+        var sessionSummary = sessionsList.AsArray().First(s => (string)s!["id"]! == sessionId);
+        Assert.Equal(50m, (decimal)sessionSummary!["totalSales"]!);
+        Assert.Equal(0m, (decimal)sessionSummary!["totalReturns"]!);
+        Assert.Equal(150m, (decimal)sessionSummary!["expectedCash"]!);
+    }
+
+    [Fact]
+    public async Task After_cash_void_expected_cash_equals_opening_cash_plus_remaining_cash_sales()
+    {
+        var (admin, entity, regId, sessionId) = await SetupPosAsync(); // opening cash = 100
+
+        var itemRes = await admin.PostAsJsonAsync("/api/v1/items", new ItemInput(
+            Sku: "ITEM-" + Guid.NewGuid().ToString("N")[..6],
+            Name: "Cash Item",
+            Type: ItemType.Product,
+            Uom: "ea",
+            SalesPrice: 50.00m,
+            PurchasePrice: 20.00m,
+            TaxCodeId: null));
+        itemRes.EnsureSuccessStatusCode();
+        var itemId = Guid.Parse((string)(await Json(itemRes))["id"]!);
+
+        // Order 1: 50 cash (tendered 60, change 10) -> cashIn = 50
+        var order1Res = await admin.PostAsJsonAsync("/api/v1/m/pos/orders", new CreatePosOrderCommand(
+            Guid.Parse(entity),
+            Guid.Parse(regId),
+            Guid.Parse(sessionId),
+            null,
+            "Customer 1",
+            [new PosOrderLineInput(itemId, Quantity: 1, UnitPrice: 50.00m)],
+            [new PosPaymentInput(PosPaymentMethod.Cash, 50.00m, 60.00m, 10.00m, null)]));
+        order1Res.EnsureSuccessStatusCode();
+        var order1Id = (string)(await Json(order1Res))["id"]!;
+
+        // Order 2: 30 cash (tendered 30, change 0) -> cashIn = 30
+        var order2Res = await admin.PostAsJsonAsync("/api/v1/m/pos/orders", new CreatePosOrderCommand(
+            Guid.Parse(entity),
+            Guid.Parse(regId),
+            Guid.Parse(sessionId),
+            null,
+            "Customer 2",
+            [new PosOrderLineInput(itemId, Quantity: 1, UnitPrice: 30.00m)],
+            [new PosPaymentInput(PosPaymentMethod.Cash, 30.00m, 30.00m, 0m, null)]));
+        order2Res.EnsureSuccessStatusCode();
+
+        // Check session before void: Expected = 100 + 50 + 30 = 180, TotalSales = 80
+        var sBefore = await Json(await admin.GetAsync($"/api/v1/m/pos/sessions/current?registerId={regId}"));
+        Assert.Equal(180m, (decimal)sBefore["expectedCash"]!);
+        Assert.Equal(80m, (decimal)sBefore["totalSales"]!);
+
+        // Void Order 1
+        var voidRes = await admin.PostAsJsonAsync($"/api/v1/m/pos/orders/{order1Id}/void", new { reason = "Wrong order" });
+        Assert.Equal(HttpStatusCode.OK, voidRes.StatusCode);
+        var voidedOrder = await Json(voidRes);
+        Assert.Equal("Voided", (string)voidedOrder["status"]!, ignoreCase: true);
+
+        // Check session after void: Expected = 100 + 30 = 130, TotalSales = 30, TotalReturns = 50
+        var sAfter = await Json(await admin.GetAsync($"/api/v1/m/pos/sessions/current?registerId={regId}"));
+        Assert.Equal(130m, (decimal)sAfter["expectedCash"]!);
+        Assert.Equal(30m, (decimal)sAfter["totalSales"]!);
+        Assert.Equal(50m, (decimal)sAfter["totalReturns"]!);
+    }
+
+    [Fact]
+    public async Task Inventory_value_after_sale_and_void_equals_value_before_sale()
+    {
+        var (c0, _) = await f.SignInAsync(ApiFactory.AdminEmail);
+        await c0.PostAsync("/api/v1/modules/inventory/enable", null);
+
+        var (admin, entity, regId, sessionId) = await SetupPosAsync();
+
+        // Create warehouse
+        var whRes = await admin.PostAsJsonAsync("/api/v1/m/inventory/warehouses", new
+        {
+            code = "WH-" + Guid.NewGuid().ToString("N")[..4],
+            name = "POS Warehouse",
+            legalEntityId = entity
+        });
+        whRes.EnsureSuccessStatusCode();
+        var whId = (string)(await Json(whRes))["id"]!;
+
+        // Update register to use this warehouse
+        await admin.PutAsJsonAsync($"/api/v1/m/pos/registers/{regId}", new UpdateRegisterCommand(
+            Id: Guid.Parse(regId),
+            Name: "Register with WH",
+            WarehouseId: Guid.Parse(whId),
+            DefaultCashAccountId: null,
+            IsActive: true,
+            ReceiptHeader: null,
+            ReceiptFooter: null,
+            CustomFields: null));
+
+        // Create item with SalesPrice = 50, PurchasePrice = 10 (different from actual stock cost)
+        var itemSku = "STK-" + Guid.NewGuid().ToString("N")[..6];
+        var itemRes = await admin.PostAsJsonAsync("/api/v1/items", new ItemInput(
+            Sku: itemSku,
+            Name: "Tracked Product",
+            Type: ItemType.Product,
+            Uom: "pcs",
+            SalesPrice: 50.00m,
+            PurchasePrice: 10.00m,
+            TaxCodeId: null));
+        itemRes.EnsureSuccessStatusCode();
+        var itemId = Guid.Parse((string)(await Json(itemRes))["id"]!);
+
+        // Receive 10 units at cost 15.00 -> total value = 150.00
+        var accounts = (await Json(await admin.GetAsync("/api/v1/finance/accounts?pageSize=300"))).AsArray();
+        var offsetAccount = (string)accounts.First(a => (string?)a!["code"] == "2000")!["id"]!;
+
+        var rcvRes = await admin.PostAsJsonAsync("/api/v1/m/inventory/stock/receive", new
+        {
+            warehouseId = whId,
+            itemId = itemId.ToString(),
+            quantity = 10m,
+            unitCost = 15.00m,
+            date = "2026-03-01",
+            offsetAccountId = offsetAccount
+        });
+        rcvRes.EnsureSuccessStatusCode();
+
+        // Check stock value before sale: Qty = 10, TotalValue = 150.00
+        var stockBefore = await Json(await admin.GetAsync($"/api/v1/m/inventory/stock?warehouseId={whId}&itemId={itemId}"));
+        var rowBefore = stockBefore["rows"]!.AsArray().Single();
+        var qtyBefore = (decimal)rowBefore!["quantity"]!;
+        var valueBefore = (decimal)rowBefore!["value"]!;
+        Assert.Equal(10m, qtyBefore);
+        Assert.Equal(150m, valueBefore);
+
+        // Place POS sale: sell 2 units for 50 each (total 100)
+        var orderCmd = new CreatePosOrderCommand(
+            Guid.Parse(entity),
+            Guid.Parse(regId),
+            Guid.Parse(sessionId),
+            null,
+            "Inventory Buyer",
+            [new PosOrderLineInput(itemId, Quantity: 2m, UnitPrice: 50.00m)],
+            [new PosPaymentInput(PosPaymentMethod.Cash, 100.00m, 100.00m, 0m, null)]);
+        var orderRes = await admin.PostAsJsonAsync("/api/v1/m/pos/orders", orderCmd);
+        orderRes.EnsureSuccessStatusCode();
+        var orderId = (string)(await Json(orderRes))["id"]!;
+
+        // Check stock after sale: Qty = 8, TotalValue = 120.00 (issued 2 @ 15 = 30)
+        var stockMid = await Json(await admin.GetAsync($"/api/v1/m/inventory/stock?warehouseId={whId}&itemId={itemId}"));
+        var rowMid = stockMid["rows"]!.AsArray().Single();
+        Assert.Equal(8m, (decimal)rowMid!["quantity"]!);
+        Assert.Equal(120m, (decimal)rowMid!["value"]!);
+
+        // Void the POS order
+        var voidRes = await admin.PostAsJsonAsync($"/api/v1/m/pos/orders/{orderId}/void", new { reason = "Void Sale" });
+        Assert.Equal(HttpStatusCode.OK, voidRes.StatusCode);
+
+        // Check stock after void: Qty = 10, TotalValue = 150.00 (restored at original 15 cost)
+        var stockAfter = await Json(await admin.GetAsync($"/api/v1/m/inventory/stock?warehouseId={whId}&itemId={itemId}"));
+        var rowAfter = stockAfter["rows"]!.AsArray().Single();
+        Assert.Equal(qtyBefore, (decimal)rowAfter!["quantity"]!);
+        Assert.Equal(valueBefore, (decimal)rowAfter!["value"]!);
+    }
+
+    [Fact]
+    public async Task Two_concurrent_orders_in_one_session_produce_correct_totals()
+    {
+        var (admin, entity, regId, sessionId) = await SetupPosAsync(); // opening cash = 100
+
+        var itemRes = await admin.PostAsJsonAsync("/api/v1/items", new ItemInput(
+            Sku: "ITEM-" + Guid.NewGuid().ToString("N")[..6],
+            Name: "Concurrent Product",
+            Type: ItemType.Product,
+            Uom: "ea",
+            SalesPrice: 100.00m,
+            PurchasePrice: 50.00m,
+            TaxCodeId: null));
+        itemRes.EnsureSuccessStatusCode();
+        var itemId = Guid.Parse((string)(await Json(itemRes))["id"]!);
+
+        var cmd1 = new CreatePosOrderCommand(
+            Guid.Parse(entity),
+            Guid.Parse(regId),
+            Guid.Parse(sessionId),
+            null,
+            "Buyer 1",
+            [new PosOrderLineInput(itemId, Quantity: 1, UnitPrice: 60.00m)],
+            [new PosPaymentInput(PosPaymentMethod.Cash, 60.00m, 60.00m, 0m, null)]);
+
+        var cmd2 = new CreatePosOrderCommand(
+            Guid.Parse(entity),
+            Guid.Parse(regId),
+            Guid.Parse(sessionId),
+            null,
+            "Buyer 2",
+            [new PosOrderLineInput(itemId, Quantity: 1, UnitPrice: 40.00m)],
+            [new PosPaymentInput(PosPaymentMethod.Cash, 40.00m, 40.00m, 0m, null)]);
+
+        // Send two concurrent orders simultaneously
+        var task1 = admin.PostAsJsonAsync("/api/v1/m/pos/orders", cmd1);
+        var task2 = admin.PostAsJsonAsync("/api/v1/m/pos/orders", cmd2);
+
+        var responses = await Task.WhenAll(task1, task2);
+        Assert.Equal(HttpStatusCode.Created, responses[0].StatusCode);
+        Assert.Equal(HttpStatusCode.Created, responses[1].StatusCode);
+
+        // Session totals must be exact sum without lost updates
+        var session = await Json(await admin.GetAsync($"/api/v1/m/pos/sessions/current?registerId={regId}"));
+        Assert.Equal(100m, (decimal)session["totalSales"]!); // 60 + 40
+        Assert.Equal(200m, (decimal)session["expectedCash"]!); // 100 opening + 60 + 40
+    }
 }

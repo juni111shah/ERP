@@ -188,6 +188,37 @@ public sealed class InventoryStockPostingService(
         await movements.SaveChangesAsync(ct);
     }
 
+    public async Task ReverseIssueAsync(string reference, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reference)) return;
+        if (!await IsInventoryEnabledAsync(ct)) return;
+
+        var issueMovements = await movements.Tracked(new Specification<StockMovement>(m => m.Reference == reference && m.Kind == MovementKind.Issue))
+            .ToListAsync(ct);
+
+        if (issueMovements.Count == 0) return;
+
+        var cogsAccount = await posting.AccountForRoleAsync("cogs", ct);
+
+        foreach (var m in issueMovements)
+        {
+            var qty = Math.Abs(m.Quantity);
+            var returnCost = m.UnitCost;
+
+            await ReceiveStockAsync(new StockReceiveRequest(
+                m.LegalEntityId,
+                m.ItemId,
+                qty,
+                returnCost,
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                reference,
+                $"POS void return {reference}",
+                m.WarehouseId,
+                OffsetAccountId: cogsAccount,
+                SkipJournal: !m.JournalEntryId.HasValue), ct);
+        }
+    }
+
     private async Task<Warehouse?> ResolveWarehouseAsync(Guid? warehouseId, Guid legalEntityId, CancellationToken ct)
     {
         if (warehouseId.HasValue)

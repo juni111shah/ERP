@@ -58,6 +58,7 @@ export interface PosSessionSummaryDto {
   closedAt?: string | null;
   openingCash: number;
   totalSales: number;
+  totalReturns: number;
   expectedCash: number;
   actualCash: number;
   cashDifference: number;
@@ -67,7 +68,6 @@ export interface PosSessionSummaryDto {
 }
 
 export interface PosSessionDto extends PosSessionSummaryDto {
-  totalReturns: number;
   totalPayIn: number;
   totalPayOut: number;
   customFields?: string | null;

@@ -327,17 +327,30 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         ApplyCrossCuttingConventions(mb, sqlServer);
     }
 
+    private static readonly SemaphoreSlim _sqliteTxLock = new(1, 1);
+
     /// <summary>Runs the work in one transaction through the provider's execution strategy (safe with SQL Server retry-on-failure).</summary>
     public async Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken ct = default)
     {
         if (Database.CurrentTransaction is not null) return await work(ct); // already inside one (e.g. onboarding): join it
-        return await Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+
+        var isSqlite = Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
+        if (isSqlite) await _sqliteTxLock.WaitAsync(ct);
+        try
         {
-            await using var tx = await Database.BeginTransactionAsync(ct);
-            var result = await work(ct);
-            await tx.CommitAsync(ct);
-            return result;
-        });
+            if (Database.CurrentTransaction is not null) return await work(ct);
+            return await Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+            {
+                await using var tx = await Database.BeginTransactionAsync(ct);
+                var result = await work(ct);
+                await tx.CommitAsync(ct);
+                return result;
+            });
+        }
+        finally
+        {
+            if (isSqlite) _sqliteTxLock.Release();
+        }
     }
 
     /// <summary>Global query filters, rowversion and the custom-fields JSON column for every entity (core and modules).</summary>

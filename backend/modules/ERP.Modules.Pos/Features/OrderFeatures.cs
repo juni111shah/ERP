@@ -171,6 +171,7 @@ public class OrderHandlers :
     private readonly IReadRepository<TaxCode> _taxCodes;
     private readonly ISettingsService _settings;
     private readonly ICurrentUser _currentUser;
+    private readonly IUnitOfWork _unitOfWork;
 
     public OrderHandlers(
         IRepository<PosOrder> orders,
@@ -181,7 +182,8 @@ public class OrderHandlers :
         IReadRepository<Item> items,
         IReadRepository<TaxCode> taxCodes,
         ISettingsService settings,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        IUnitOfWork unitOfWork)
     {
         _orders = orders;
         _sessions = sessions;
@@ -192,16 +194,21 @@ public class OrderHandlers :
         _taxCodes = taxCodes;
         _settings = settings;
         _currentUser = currentUser;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<PosOrderDto> Handle(CreatePosOrderCommand request, CancellationToken cancellationToken)
     {
-        var session = await _sessions.GetForUpdateAsync(request.SessionId, cancellationToken);
-
-        if (session.Status != PosSessionStatus.Open)
+        return await _unitOfWork.InTransactionAsync(async token =>
         {
-            throw new ConflictException("Cannot place POS orders in a closed session.");
-        }
+            var session = await _sessions.Query(new Specification<PosSession>(s => s.Id == request.SessionId))
+                .FirstOrDefaultAsync(token)
+                ?? throw new NotFoundException($"Session {request.SessionId} not found");
+
+            if (session.Status != PosSessionStatus.Open)
+            {
+                throw new ConflictException("Cannot place POS orders in a closed session.");
+            }
 
         // Cashier identity from ICurrentUser; client-supplied cashier is ignored
         var cashierId = (_currentUser.UserId.HasValue && _currentUser.UserId.Value != Guid.Empty)
@@ -401,30 +408,36 @@ public class OrderHandlers :
         };
 
         _orders.Add(order);
+        await _orders.SaveChangesAsync(token);
 
         decimal cashPaid = 0;
         foreach (var p in payments)
         {
             if (p.Method == PosPaymentMethod.Cash)
             {
-                cashPaid += (p.Amount - p.ChangeAmount);
+                var cashIn = p.TenderedAmount > 0 ? (p.TenderedAmount - p.ChangeAmount) : p.Amount;
+                cashPaid += cashIn;
             }
         }
 
-        // Update session totals
-        session.TotalSales += totalAmount;
-        session.ExpectedCash += cashPaid;
+        // Update session totals atomically via SQL increment
+        var updatedRows = await _sessions.Tracked(new Specification<PosSession>(s => s.Id == request.SessionId && s.Status == PosSessionStatus.Open))
+            .ExecuteUpdateAsync(setter => setter
+                .SetProperty(s => s.TotalSales, s => s.TotalSales + totalAmount)
+                .SetProperty(s => s.ExpectedCash, s => s.ExpectedCash + cashPaid), token);
 
-        await _orders.SaveChangesAsync(cancellationToken);
-        await _sessions.SaveChangesAsync(cancellationToken);
+        if (updatedRows == 0)
+        {
+            throw new ConflictException("Cannot place POS orders in a closed session.");
+        }
 
         // Post accounting journal for revenue & tax
         try
         {
-            var salesAccount = await _posting.AccountForRoleAsync("income.sales", cancellationToken);
-            var taxAccount = taxTotal > 0 ? await _posting.AccountForRoleAsync(SystemRoles.TaxOutput, cancellationToken) : Guid.Empty;
-            var cashAccount = await _posting.AccountForRoleAsync("cash", cancellationToken);
-            var bankAccount = await _posting.AccountForRoleAsync("bank", cancellationToken);
+            var salesAccount = await _posting.AccountForRoleAsync("income.sales", token);
+            var taxAccount = taxTotal > 0 ? await _posting.AccountForRoleAsync(SystemRoles.TaxOutput, token) : Guid.Empty;
+            var cashAccount = await _posting.AccountForRoleAsync("cash", token);
+            var bankAccount = await _posting.AccountForRoleAsync("bank", token);
 
             var postingLines = new List<PostingLine>();
             foreach (var p in payments)
@@ -445,7 +458,7 @@ public class OrderHandlers :
                 order.Id,
                 $"POS Order {order.Number}",
                 order.Number,
-                postingLines), cancellationToken);
+                postingLines), token);
         }
         catch
         {
@@ -462,70 +475,71 @@ public class OrderHandlers :
                     l.Quantity,
                     DateOnly.FromDateTime(DateTime.UtcNow),
                     order.Number,
-                    $"POS sale {order.Number} ({l.ItemCode})"), cancellationToken);
+                    $"POS sale {order.Number} ({l.ItemCode})"), token);
             }
         }
 
         return Map(order);
+    }, cancellationToken);
     }
 
     public async Task<PosOrderDto> Handle(VoidPosOrderCommand request, CancellationToken cancellationToken)
     {
-        var order = await _orders.Tracked(new Specification<PosOrder>(x => x.Id == request.OrderId))
-            .Include(x => x.Lines)
-            .Include(x => x.Payments)
-            .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new NotFoundException($"Order {request.OrderId} not found");
-
-        if (order.Status == PosOrderStatus.Voided)
+        return await _unitOfWork.InTransactionAsync(async token =>
         {
-            throw new ConflictException("Order is already voided.");
-        }
+            var order = await _orders.Tracked(new Specification<PosOrder>(x => x.Id == request.OrderId))
+                .Include(x => x.Lines)
+                .Include(x => x.Payments)
+                .FirstOrDefaultAsync(token)
+                ?? throw new NotFoundException($"Order {request.OrderId} not found");
 
-        order.Status = PosOrderStatus.Voided;
-        order.Notes = string.IsNullOrWhiteSpace(order.Notes)
-            ? $"Voided: {request.Reason}"
-            : $"{order.Notes} | Voided: {request.Reason}";
+            if (order.Status == PosOrderStatus.Voided)
+            {
+                throw new ConflictException("Order is already voided.");
+            }
 
-        var session = await _sessions.GetForUpdateAsync(order.SessionId, cancellationToken);
-        if (session != null && session.Status == PosSessionStatus.Open)
-        {
+            var session = await _sessions.Query(new Specification<PosSession>(s => s.Id == order.SessionId))
+                .FirstOrDefaultAsync(token)
+                ?? throw new NotFoundException($"Session {order.SessionId} not found");
+
+            if (session.Status != PosSessionStatus.Open)
+            {
+                throw new ConflictException("Cannot void orders in a closed session.");
+            }
+
             decimal cashRefunded = 0;
             foreach (var p in order.Payments)
             {
                 if (p.Method == PosPaymentMethod.Cash)
                 {
-                    cashRefunded += (p.Amount - p.ChangeAmount);
+                    var cashIn = p.TenderedAmount > 0 ? (p.TenderedAmount - p.ChangeAmount) : p.Amount;
+                    cashRefunded += cashIn;
                 }
             }
 
-            session.TotalReturns += order.TotalAmount;
-            session.TotalSales -= order.TotalAmount;
-            session.ExpectedCash -= cashRefunded;
-            await _sessions.SaveChangesAsync(cancellationToken);
-        }
+            var updatedSession = await _sessions.Tracked(new Specification<PosSession>(s => s.Id == order.SessionId && s.Status == PosSessionStatus.Open))
+                .ExecuteUpdateAsync(setter => setter
+                    .SetProperty(s => s.TotalReturns, s => s.TotalReturns + order.TotalAmount)
+                    .SetProperty(s => s.TotalSales, s => s.TotalSales - order.TotalAmount)
+                    .SetProperty(s => s.ExpectedCash, s => s.ExpectedCash - cashRefunded), token);
 
-        await _orders.SaveChangesAsync(cancellationToken);
-
-        foreach (var l in order.Lines)
-        {
-            if (l.ItemId.HasValue && l.Quantity > 0)
+            if (updatedSession == 0)
             {
-                var item = await _items.FindAsync(l.ItemId.Value, cancellationToken);
-                var costPrice = item?.PurchasePrice ?? 0m;
-
-                await _stockPosting.ReceiveStockAsync(new StockReceiveRequest(
-                    order.LegalEntityId,
-                    l.ItemId.Value,
-                    l.Quantity,
-                    costPrice,
-                    DateOnly.FromDateTime(DateTime.UtcNow),
-                    order.Number,
-                    $"POS void return {order.Number} ({l.ItemCode})"), cancellationToken);
+                throw new ConflictException("Cannot void orders in a closed session.");
             }
-        }
 
-        return Map(order);
+            order.Status = PosOrderStatus.Voided;
+            order.PaymentStatus = PosPaymentStatus.Refunded;
+            order.Notes = string.IsNullOrWhiteSpace(order.Notes)
+                ? $"Voided: {request.Reason}"
+                : $"{order.Notes} | Voided: {request.Reason}";
+
+            await _orders.SaveChangesAsync(token);
+
+            await _stockPosting.ReverseIssueAsync(order.Number, token);
+
+            return Map(order);
+        }, cancellationToken);
     }
 
     public async Task<PosOrderDto> Handle(GetPosOrderByIdQuery request, CancellationToken cancellationToken)

@@ -7,8 +7,8 @@ Needs human: C: disk is 94% full (21G free). TASK-009 commit message lacked the 
 | Status | Count |
 |---|---|
 | open | 7 |
-| in-progress | 1 |
-| ready-for-review | 0 |
+| in-progress | 0 |
+| ready-for-review | 1 |
 | changes-requested | 0 |
 | blocked | 1 |
 | done | 9 |
@@ -20,7 +20,7 @@ Needs human: C: disk is 94% full (21G free). TASK-009 commit message lacked the 
 | TASK-003 | P1 | done | Replace blanket exception mapping with domain exceptions |
 | TASK-004 | P0 | done | Work-order release/complete safe, correct inventory journals |
 | TASK-005 | P0 | done | POS orders priced and validated on the server |
-| TASK-006 | P0 | in-progress | POS void reverses cash, stock at original cost |
+| TASK-006 | P0 | ready-for-review | POS void reverses cash, stock at original cost |
 | TASK-007 | P0 | open | Post POS sales and tax to the ledger |
 | TASK-008 | P0 | done | GR/IR clearing and bill matching |
 | TASK-009 | P1 | done | Enforce status transitions on module documents |

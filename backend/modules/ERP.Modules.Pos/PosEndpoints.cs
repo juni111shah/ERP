@@ -48,7 +48,7 @@ internal static class PosEndpoints
         sessions.MapPagedList<PosSession, PosSessionSummaryDto>("", Permissions.SessionsRead,
             s => new PosSessionSummaryDto(
                 s.Id, s.LegalEntityId, s.RegisterId, s.RegisterName, s.OpenedByUserId, s.CashierName,
-                s.OpenedAt, s.ClosedByUserId, s.ClosedAt, s.OpeningCash, s.TotalSales,
+                s.OpenedAt, s.ClosedByUserId, s.ClosedAt, s.OpeningCash, s.TotalSales, s.TotalReturns,
                 s.ExpectedCash, s.ActualCash, s.CashDifference, s.Status, s.Notes, s.CreatedAt));
         sessions.MapGet("/current", (Guid registerId, ISender s, CancellationToken ct) =>
             s.Send(new GetCurrentSessionQuery(registerId), ct)).RequirePermission(Permissions.SessionsRead);
