@@ -10,6 +10,7 @@ public static class Permissions
     public const string OrdersCreate = "pos.orders.create";
     public const string OrdersVoid = "pos.orders.void";
     public const string AnalyticsRead = "pos.analytics.read";
+    public const string OrdersOverridePrice = "pos.orders.override-price";
 
     public static readonly string[] All =
     [
@@ -20,6 +21,7 @@ public static class Permissions
         OrdersRead,
         OrdersCreate,
         OrdersVoid,
-        AnalyticsRead
+        AnalyticsRead,
+        OrdersOverridePrice
     ];
 }

@@ -2,12 +2,12 @@
 id: TASK-005
 title: POS orders priced and validated on the server
 priority: P0
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: [TASK-003]
 area: pos
 audit_ref: AUDIT-DEEP A9, B5
-commit:
+commit: d624ada
 ---
 
 ## Problem
@@ -24,10 +24,10 @@ Anyone with `pos.orders.create` can sell at any price and tax, attribute sales t
 - Update the terminal page to send only item id, quantity, discount, payments, and to show server totals returned.
 
 ## Acceptance criteria
-- [ ] Posting a lower unit price than the item's price returns 400 unless the override permission is held.
-- [ ] Posting `cashierUserId` of another user is ignored; stored cashier equals the caller.
-- [ ] Under-payment returns 400.
-- [ ] Discount above the configured maximum returns 400.
+- [x] Posting a lower unit price than the item's price returns 400 unless the override permission is held.
+- [x] Posting `cashierUserId` of another user is ignored; stored cashier equals the caller.
+- [x] Under-payment returns 400.
+- [x] Discount above the configured maximum returns 400.
 
 ## Tests required
 `PosOrderTests` integration tests for each criterion; unit test for totals rounding.
@@ -36,6 +36,13 @@ Anyone with `pos.orders.create` can sell at any price and tax, attribute sales t
 Void flow (TASK-006) and ledger posting (TASK-007).
 
 ## What I did (Antigravity)
+- Added `OrdersOverridePrice = "pos.orders.override-price"` permission and settings `pos.maxDiscountPercent`, `pos.allowPartialPayment` in `ERP.Modules.Pos`.
+- Updated `CreatePosOrderCommand` and `PosOrderLineInput` to allow optional price/taxRate/cashier and ignore client-supplied cashier fields in favor of `ICurrentUser`.
+- Added server-side item pricing, tax code lookup, discount cap, and price override permission check.
+- Added payment validations (amount > 0, cash change math, non-cash tender matching, underpayment rejection unless `pos.allowPartialPayment` is set).
+- Updated frontend POS terminal and API client to send only itemId, quantity, discountPercent, and payments.
+- Added unit tests in `PosModuleTests.cs` for discount validation and half-away-from-zero totals rounding.
+- Added integration tests in `PosOrderTests.cs` verifying price override rejection/acceptance, cashier identity override, underpayment rejection, and discount cap.
 
 ## Review (Claude)
 

@@ -100,12 +100,12 @@ export interface RecordDrawerTransactionCommand {
 
 export interface PosOrderLineInput {
   itemId?: string | null;
-  itemCode: string;
-  description: string;
+  itemCode?: string | null;
+  description?: string | null;
   quantity: number;
-  unitPrice: number;
-  discountPercent: number;
-  taxRate: number;
+  unitPrice?: number | null;
+  discountPercent?: number;
+  taxRate?: number | null;
 }
 
 export interface PosPaymentInput {
@@ -122,8 +122,8 @@ export interface CreatePosOrderCommand {
   sessionId: string;
   customerPartyId?: string | null;
   customerName?: string | null;
-  cashierUserId: string;
-  cashierName: string;
+  cashierUserId?: string | null;
+  cashierName?: string | null;
   lines: PosOrderLineInput[];
   payments: PosPaymentInput[];
   notes?: string | null;

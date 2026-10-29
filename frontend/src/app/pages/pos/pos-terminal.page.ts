@@ -34,6 +34,9 @@ import {
 } from '../../core/api/pos.api';
 
 interface CartItem extends PosOrderLineInput {
+  unitPrice: number;
+  taxRate: number;
+  discountPercent: number;
   lineTotal: number;
 }
 
@@ -770,16 +773,10 @@ export class PosTerminalPage {
       registerId: session.registerId,
       sessionId: session.id,
       customerName: this.customerName(),
-      cashierUserId: session.openedByUserId,
-      cashierName: session.cashierName,
       lines: this.cart().map((l) => ({
         itemId: l.itemId,
-        itemCode: l.itemCode,
-        description: l.description,
         quantity: l.quantity,
-        unitPrice: l.unitPrice,
         discountPercent: l.discountPercent,
-        taxRate: l.taxRate,
       })),
       payments: [
         {
