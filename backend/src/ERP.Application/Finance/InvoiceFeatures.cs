@@ -32,10 +32,10 @@ public sealed record InvoiceSummaryDto(Guid Id, string Number, bool IsCreditNote
 }
 
 public sealed record GetInvoice(Guid Id) : IQuery<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesRead; }
-public sealed record CreateInvoice(InvoiceInput Input) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
+public sealed record CreateInvoice(InvoiceInput Input) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
 public sealed record UpdateInvoice(Guid Id, InvoiceInput Input) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
 public sealed record DeleteInvoice(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
-public sealed record IssueInvoice(Guid Id) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesIssue; }
+public sealed record IssueInvoice(Guid Id) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesIssue; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
 public sealed record VoidInvoice(Guid Id, string? Reason) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesVoid; }
 
@@ -44,7 +44,7 @@ public sealed class VoidInvoiceValidator : AbstractValidator<VoidInvoice>
     public VoidInvoiceValidator() => RuleFor(x => x.Reason).ValidVoidReason();
 }
 /// <summary>Uses (part of) an issued credit note to settle an open invoice of the same customer.</summary>
-public sealed record ApplyCreditNote(Guid CreditNoteId, Guid InvoiceId, decimal Amount) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesCredit; }
+public sealed record ApplyCreditNote(Guid CreditNoteId, Guid InvoiceId, decimal Amount) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesCredit; }
 
 /// <summary>One line to credit: an original invoice line and how much of its quantity to credit.</summary>
 public sealed record CreditNoteLineInput(Guid InvoiceLineId, decimal Quantity);
@@ -52,7 +52,7 @@ public sealed record CreditNoteLineInput(Guid InvoiceLineId, decimal Quantity);
 /// Drafts a credit note against an issued invoice: same customer and entity, the selected lines (all lines when none are given),
 /// linked through SourceType "invoice" + SourceId and CreditNoteForId. The total of the invoice's non-voided credit notes cannot exceed the invoice total.
 /// </summary>
-public sealed record CreateCreditNoteFromInvoice(Guid InvoiceId, DateOnly? Date, List<CreditNoteLineInput>? Lines, string? Notes) : ICommand<InvoiceDto>, IRequirePermission
+public sealed record CreateCreditNoteFromInvoice(Guid InvoiceId, DateOnly? Date, List<CreditNoteLineInput>? Lines, string? Notes) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission
 {
     public const string LinkType = "invoice";
     public string RequiredPermission => CorePermissions.InvoicesCredit;

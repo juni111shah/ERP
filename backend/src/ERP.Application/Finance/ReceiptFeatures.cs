@@ -30,7 +30,7 @@ public sealed record ReceiptSummaryDto(Guid Id, string Number, Guid PartyId, str
 
 public sealed record GetReceipt(Guid Id) : IQuery<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsRead; }
 /// <summary>Money received from a customer: Dr bank / cash, Cr receivables; optionally settles invoices at the same time. What is not allocated stays as customer credit.</summary>
-public sealed record CreateReceipt(ReceiptInput Input) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
+public sealed record CreateReceipt(ReceiptInput Input) : ICommand<ReceiptDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
 public sealed record AllocateReceipt(Guid Id, List<AllocationInput> Allocations) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
 public sealed record VoidReceipt(Guid Id, string? Reason) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }

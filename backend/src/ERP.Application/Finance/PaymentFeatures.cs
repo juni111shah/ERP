@@ -27,7 +27,7 @@ public sealed record PaymentSummaryDto(Guid Id, string Number, Guid PartyId, str
 
 public sealed record GetPayment(Guid Id) : IQuery<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsRead; }
 /// <summary>Pays a vendor: Dr payables, Cr bank / cash (or "cheques issued" for a cheque), settling bills at the same time.</summary>
-public sealed record CreatePayment(PaymentInput Input) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
+public sealed record CreatePayment(PaymentInput Input) : ICommand<PaymentDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
 public sealed record AllocatePayment(Guid Id, List<BillAllocationInput> Allocations) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
 public sealed record VoidPayment(Guid Id, string? Reason) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }

@@ -328,6 +328,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     }
 
     private static readonly SemaphoreSlim _sqliteTxLock = new(1, 1);
+    public void DiscardChanges() => ChangeTracker.Clear();
 
     /// <summary>Runs the work in one transaction through the provider's execution strategy (safe with SQL Server retry-on-failure).</summary>
     public async Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken ct = default)

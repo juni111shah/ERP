@@ -19,10 +19,10 @@ public sealed record JournalDto(
 public sealed record JournalSummaryDto(Guid Id, string Number, Guid LegalEntityId, DateOnly Date, string? Memo, string SourceType, JournalStatus Status, decimal Amount, string CurrencyCode);
 
 public sealed record GetJournal(Guid Id) : IQuery<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsRead; }
-public sealed record CreateJournal(JournalInput Input) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsWrite; }
+public sealed record CreateJournal(JournalInput Input) : ICommand<JournalDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsWrite; }
 public sealed record UpdateJournal(Guid Id, JournalInput Input) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsWrite; }
 public sealed record DeleteJournal(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsWrite; }
-public sealed record PostJournal(Guid Id) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsPost; }
+public sealed record PostJournal(Guid Id) : ICommand<JournalDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsPost; }
 public sealed record ReverseJournal(Guid Id, DateOnly? Date, string? Memo) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsReverse; }
 public sealed class ReverseJournalValidator : AbstractValidator<ReverseJournal> { public ReverseJournalValidator() => RuleFor(x => x.Memo).MaximumLength(400); }
 /// <summary>Closes the books of a legal entity up to (and including) a date. Nothing can be posted on or before it.</summary>

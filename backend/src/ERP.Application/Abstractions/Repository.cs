@@ -53,12 +53,18 @@ public interface IRepository<T> : IReadRepository<T> where T : Entity
     /// <summary>Soft-deletes ISoftDelete rows (via the save interceptor); hard-deletes the rest.</summary>
     void Remove(T entity);
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+
+    /// <summary>Forgets every tracked change and entity so a failed unit of work can be run again from a clean state.</summary>
+    void DiscardChanges();
 }
 
 /// <summary>Commits all pending changes of the request (shared DbContext).</summary>
 public interface IUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+
+    /// <summary>Forgets every tracked change and entity so a failed unit of work can be run again from a clean state.</summary>
+    void DiscardChanges();
 
     /// <summary>
     /// Runs <paramref name="work"/> in one database transaction (committed when it returns, rolled back when it throws).
@@ -78,4 +84,7 @@ public interface IEntityStore
     /// <summary>Tracked load for updates; null when the record is not visible to the caller.</summary>
     Task<Entity?> FindForUpdateAsync(Type entityType, Guid id, CancellationToken ct = default);
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+
+    /// <summary>Forgets every tracked change and entity so a failed unit of work can be run again from a clean state.</summary>
+    void DiscardChanges();
 }
