@@ -34,7 +34,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
     @if (!editing()) {
       <h1 class="erp-page-title">Budgets</h1>
       <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search budgets" emptyText="No budgets yet" (rowClick)="open($event.id)">
-        <button toolbar *erpHasPermission="'finance.budgets.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newBudget' | translate: 'New budget'" nz-tooltip [nzTooltipTitle]="'ui.add.newBudget' | translate: 'New budget'" nzType="primary" (click)="create()" data-testid="budget-new"><span nz-icon nzType="plus"></span>New budget</button>
+        <button toolbar *erpHasPermission="'finance.budgets.write'" nz-button nzType="primary" (click)="create()" data-testid="budget-new"><span nz-icon nzType="plus"></span> New budget</button>
       </erp-paged-table>
     } @else {
       <div class="bar">

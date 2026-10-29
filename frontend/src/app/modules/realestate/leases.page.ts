@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -57,13 +57,45 @@ export function leaseFields(lookups: RealEstateLookups, editing: boolean): Field
   ];
 }
 
+import { DecimalPipe } from '@angular/common';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { StatCardComponent } from '../../shared/stat-card.component';
+
 @Component({
   selector: 'erp-leases',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [DecimalPipe, NzTagModule, StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Leases</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="lease-stats">
+      <erp-stat-card label="Total leases"
+                     [value]="list.total()"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
+                     [tone]="0" />
+      <erp-stat-card label="Active tenancy"
+                     [value]="stats().active"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="active contracts"
+                     [tone]="1" />
+      <erp-stat-card label="Expiring in 60d"
+                     [value]="stats().expiringSoon"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().expiringSoon > 0 ? 'renewal action due' : 'no urgent expiries'"
+                     [tone]="stats().expiringSoon > 0 ? 2 : 'neutral'" />
+      <erp-stat-card label="Drafts"
+                     [value]="stats().drafts"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="in preparation"
+                     [tone]="3" />
+    </div>
+
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search lease number" emptyText="No leases yet" (rowClick)="open($event)">
       <nz-select toolbar style="width:200px" [ngModel]="view" (ngModelChange)="setView($event)" data-testid="lease-view">
         <nz-option nzValue="all" nzLabel="All leases"></nz-option>
@@ -72,9 +104,36 @@ export function leaseFields(lookups: RealEstateLookups, editing: boolean): Field
         <nz-option nzValue="draft" nzLabel="Drafts"></nz-option>
         <nz-option nzValue="past" nzLabel="Ended / terminated"></nz-option>
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.leases.create'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newLease' | translate: 'New lease'" nz-tooltip [nzTooltipTitle]="'ui.add.newLease' | translate: 'New lease'" nzType="primary" (click)="state.create()" data-testid="lease-new"><span nz-icon nzType="plus"></span>New lease</button>
+      <button toolbar *erpHasPermission="'realestate.leases.create'" nz-button nzType="primary" (click)="state.create()" data-testid="lease-new"><span nz-icon nzType="plus"></span>New lease</button>
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number }}</span>
+          }
+          @case ('tenantName') {
+            <span class="name-cell">{{ row.tenantName }}</span>
+          }
+          @case ('unitNumber') {
+            <span class="code-pill">{{ row.unitNumber }}</span>
+          }
+          @case ('status') {
+            <erp-status-tag [status]="row.status" />
+          }
+          @case ('daysToExpiry') {
+            @if (row.daysToExpiry != null) {
+              @if (row.daysToExpiry <= 60 && row.daysToExpiry >= 0) {
+                <nz-tag nzColor="orange">{{ value }}</nz-tag>
+              } @else if (row.daysToExpiry < 0) {
+                <nz-tag nzColor="default">{{ value }}</nz-tag>
+              } @else {
+                <span>{{ value }}</span>
+              }
+            }
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
     </erp-paged-table>
     <erp-record-drawer title="New lease" [open]="state.open()" [fields]="fields" customFieldEntityType="realestate.lease" [saving]="state.saving()" [errors]="state.errors()"
@@ -86,6 +145,19 @@ export class LeasesPage {
   private readonly router = inject(Router);
   view = 'all';
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-startDate' });
+
+  readonly stats = computed(() => {
+    const items = this.list.items();
+    const active = items.filter((l) => l.status === 'active').length;
+    const expiringSoon = items.filter((l) => l.daysToExpiry != null && l.daysToExpiry <= 60 && l.daysToExpiry >= 0).length;
+    const drafts = items.filter((l) => l.status === 'draft').length;
+    return {
+      active,
+      expiringSoon,
+      drafts,
+      count: items.length,
+    };
+  });
   readonly fields = leaseFields(inject(RealEstateLookups), false);
   readonly state = new MasterDataState<LeaseDto>({
     save: (_, body) => this.api.saveDraft(null, body), reload: () => this.list.reload(), message: inject(NzMessageService), entityName: 'Lease',

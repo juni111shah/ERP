@@ -290,15 +290,36 @@ export class JournalDetailPage implements OnInit {
   }
 
   viewSource(sourceType: string, sourceId: string): void {
+    const type = (sourceType ?? '').toLowerCase().trim();
     const routes: Record<string, string> = {
       'invoice': '/finance/invoices',
       'receipt': '/finance/receipts',
       'bill': '/finance/bills',
-      'payment': '/finance/payments'
+      'payment': '/finance/payments',
+      'cheque': '/finance/cheques',
+      'pos': '/pos/orders',
+      'posorder': '/pos/orders',
+      'pos-order': '/pos/orders',
+      'order': '/sales/orders',
+      'sales': '/sales/orders',
+      'salesorder': '/sales/orders',
+      'quote': '/sales/quotes',
+      'purchase': '/purchasing/orders',
+      'purchaseorder': '/purchasing/orders',
+      'purchasereceipt': '/purchasing/receipts',
+      'movement': '/inventory/movements',
+      'stock': '/inventory/stock',
+      'workorder': '/manufacturing/workorders',
+      'payroll': '/hr/payroll',
+      'lease': '/real-estate/leases'
     };
-    const basePath = routes[(sourceType ?? '').toLowerCase()];
+    const basePath = routes[type];
     if (basePath) {
-      this.router.navigate([basePath, sourceId]);
+      if (sourceId && sourceId !== '00000000-0000-0000-0000-000000000000') {
+        this.router.navigate([basePath, sourceId]);
+      } else {
+        this.router.navigate([basePath]);
+      }
     } else {
       this.message.warning('Cannot navigate to source document');
     }

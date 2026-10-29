@@ -29,21 +29,76 @@ import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
+import { StatCardComponent } from '../../shared/stat-card.component';
+
 /** Vendor payments: pay vendors by bank, cash or cheque, settle open bills at the same time (or later), clear issued cheques, and void. */
 @Component({
   selector: 'erp-payments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
     <h1 class="erp-page-title">Payments</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="payment-stats">
+      <erp-stat-card label="Total paid"
+                     [value]="stats().paid"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
+                     [tone]="0" />
+      <erp-stat-card label="Settled to bills"
+                     [value]="stats().allocated"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="applied to vendor invoices"
+                     [tone]="1" />
+      <erp-stat-card label="Unallocated advance"
+                     [value]="stats().unallocated"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().unallocated > 0 ? 'open vendor credit' : 'fully applied'"
+                     [tone]="stats().unallocated > 0 ? 2 : 'neutral'" />
+      <erp-stat-card label="Payments count"
+                     [value]="list.total()"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="total records"
+                     [tone]="3" />
+    </div>
+
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, vendor or reference" emptyText="No payments yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <nz-tag [nzColor]="row.status === 'voided' ? 'red' : 'green'">{{ row.status === 'voided' ? 'Voided' : 'Posted' }}</nz-tag> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number }}</span>
+          }
+          @case ('partyName') {
+            <span class="name-cell">{{ row.partyName }}</span>
+          }
+          @case ('amount') {
+            <b>{{ value }}</b>
+          }
+          @case ('unallocated') {
+            @if (row.unallocated > 0) {
+              <span class="unallocated-badge">{{ value }}</span>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @case ('status') {
+            <nz-tag [nzColor]="row.status === 'voided' ? 'red' : 'green'">
+              {{ row.status === 'voided' ? 'Voided' : 'Posted' }}
+            </nz-tag>
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
-      <button toolbar *erpHasPermission="'finance.payments.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newPayment' | translate: 'New payment'" nz-tooltip [nzTooltipTitle]="'ui.add.newPayment' | translate: 'New payment'" nzType="primary" (click)="open(null)" data-testid="payment-new"><span nz-icon nzType="plus"></span>New payment</button>
+      <button toolbar *erpHasPermission="'finance.payments.write'" nz-button nzType="primary" (click)="open(null)" data-testid="payment-new"><span nz-icon nzType="plus"></span>New payment</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="640" [nzTitle]="receipt() ? receipt()!.number : 'New payment'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
@@ -108,9 +163,23 @@ export class PaymentsPage {
   readonly banks = computed(() => this.accountPage().items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'cash' || a.systemRole === 'bank')));
   readonly methods = PAYMENT_METHODS;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
+
+  readonly stats = computed(() => {
+    const items = this.list.items();
+    const paid = items.reduce((s, p) => s + (p.amount || 0), 0);
+    const unallocated = items.reduce((s, p) => s + (p.unallocated || 0), 0);
+    const allocated = paid - unallocated;
+    return {
+      paid,
+      allocated,
+      unallocated,
+      count: items.length,
+    };
+  });
+
   readonly columns: TableColumn<PaymentSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
-    { key: 'partyName', label: 'Customer' },
+    { key: 'partyName', label: 'Vendor' },
     { key: 'date', label: 'Date', sortField: 'date', width: '120px', filterField: 'date' },
     { key: 'amount', label: 'Amount', sortField: 'amount', width: '130px', align: 'right', value: (r) => formatMoney(r.amount, r.currencyCode) },
     { key: 'unallocated', label: 'Unallocated', width: '130px', align: 'right', value: (r) => formatMoney(r.unallocated, r.currencyCode) },

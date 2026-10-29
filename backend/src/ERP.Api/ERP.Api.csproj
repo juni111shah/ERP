@@ -8,6 +8,15 @@
     <ProjectReference Include="..\..\modules\ERP.Modules.RealEstate\ERP.Modules.RealEstate.csproj" />
     <ProjectReference Include="..\..\modules\ERP.Modules.Inventory\ERP.Modules.Inventory.csproj" />
     <ProjectReference Include="..\..\modules\ERP.Modules.Hr\ERP.Modules.Hr.csproj" />
+    <ProjectReference Include="..\..\modules\ERP.Modules.Projects\ERP.Modules.Projects.csproj" />
+    <ProjectReference Include="..\..\modules\ERP.Modules.Sales\ERP.Modules.Sales.csproj" />
+    <ProjectReference Include="..\..\modules\ERP.Modules.Purchasing\ERP.Modules.Purchasing.csproj" />
+    <ProjectReference Include="..\..\modules\ERP.Modules.Pos\ERP.Modules.Pos.csproj" />
+    <ProjectReference Include="..\..\modules\ERP.Modules.Retail\ERP.Modules.Retail.csproj" />
+    <ProjectReference Include="..\..\modules\ERP.Modules.Distribution\ERP.Modules.Distribution.csproj" />
+    <ProjectReference Include="..\..\modules\ERP.Modules.Manufacturing\ERP.Modules.Manufacturing.csproj" />
+    <ProjectReference Include="..\..\modules\ERP.Modules.Crm\ERP.Modules.Crm.csproj" />
+    <ProjectReference Include="..\..\modules\ERP.Modules.Services\ERP.Modules.Services.csproj" />
     <ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.AE\ERP.CountryPacks.AE.csproj" />
     <ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.SA\ERP.CountryPacks.SA.csproj" />
     <ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.PK\ERP.CountryPacks.PK.csproj" />

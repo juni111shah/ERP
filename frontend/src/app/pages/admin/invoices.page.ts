@@ -58,7 +58,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
       <ng-template #cell let-row let-column="column" let-value="value">
         @switch (column.key) {
           @case ('status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> }
-          @case ('number') { {{ row.number || 'Draft' }} @if (row.isCreditNote) { <nz-tag nzColor="purple">Credit</nz-tag> } @if (source(row)) { <div class="sub">{{ source(row) }}</div> } }
+          @case ('number') { <span class="code-pill">{{ row.number || 'Draft' }}</span> @if (row.isCreditNote) { <nz-tag nzColor="purple" style="margin-inline-start:4px">Credit</nz-tag> } @if (source(row)) { <div class="sub">{{ source(row) }}</div> } }
           @case ('dueDate') { {{ row.dueDate }} @if (overdue(row) > 0) { <nz-tag nzColor="red" style="margin-inline-start:4px">{{ overdue(row) }}{{ 'ui.common.dayShort' | translate: 'd' }} {{ 'ui.inv.overdueLc' | translate: 'overdue' }}</nz-tag> } }
           @case ('lease') { {{ link(row)?.leaseNumber ?? '' }} }
           @case ('property') { {{ link(row)?.propertyName ?? '' }} @if (link(row)?.unitNumber) { <div class="sub">{{ 'ui.re.unit' | translate: 'Unit' }} {{ link(row)!.unitNumber }}</div> } }
@@ -70,7 +70,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
       </nz-select>
       <button toolbar nz-button (click)="list.reload()" data-testid="invoice-refresh"><span nz-icon nzType="reload"></span>Refresh</button>
       <button toolbar *erpHasPermission="'realestate.billing.run'" nz-button (click)="runBilling()" [nzLoading]="billing()" data-testid="invoice-run-billing"><span nz-icon nzType="thunderbolt"></span>Run billing</button>
-      <button toolbar *erpHasPermission="'finance.invoices.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addInvoice' | translate: 'Add invoice'" nz-tooltip [nzTooltipTitle]="'ui.add.addInvoice' | translate: 'Add invoice'" nzType="primary" (click)="open(null)" data-testid="invoice-new"><span nz-icon nzType="plus"></span>Add invoice</button>
+      <button toolbar *erpHasPermission="'finance.invoices.write'" nz-button nzType="primary" (click)="open(null)" data-testid="invoice-new"><span nz-icon nzType="plus"></span>Add invoice</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="860" [nzTitle]="title()" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
@@ -98,7 +98,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
               </div>
             }
           </div>
-          @if (editable()) { <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addLine' | translate: 'Add line'" nz-tooltip [nzTooltipTitle]="'ui.add.addLine' | translate: 'Add line'" type="button" (click)="addLine()" data-testid="inv-add-line"><span nz-icon nzType="plus"></span>Add line</button> }
+          @if (editable()) { <button nz-button nzType="dashed" type="button" (click)="addLine()" data-testid="inv-add-line"><span nz-icon nzType="plus"></span> Add line</button> }
           <div class="totals" data-testid="inv-totals">
             <span>Net <b>{{ totals().net.toFixed(2) }}</b></span><span>Tax <b>{{ totals().tax.toFixed(2) }}</b></span><span>Total <b>{{ (totals().net + totals().tax).toFixed(2) }}</b></span>
           </div>

@@ -16,26 +16,37 @@ import { CoaNumberingEditorComponent } from './coa/coa-numbering-editor.componen
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, CoaNumberingEditorComponent, HasPermissionDirective, NzButtonModule, NzInputModule, NzInputNumberModule, NzSwitchModule],
-  styles: [`.group { max-width: 640px; margin-bottom: 24px } .row { display:flex; gap:16px; align-items:center; padding:8px 0; border-bottom:1px solid var(--erp-color-border, #eee) } .label { flex:1 } .label small { display:block; color: var(--erp-color-text-secondary) }`],
+  styles: [`
+    .group-card { max-width: 740px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+    .group-card h3 { font-size: 16px; font-weight: 700; color: #1e293b; margin-top: 0; margin-bottom: 14px; text-transform: capitalize; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
+    .row { display:flex; gap:16px; align-items:center; padding:12px 0; border-bottom:1px solid #f1f5f9 }
+    .row:last-child { border-bottom: none; padding-bottom: 0; }
+    .label { flex:1; font-weight: 500; color: #334155; font-size: 14px; }
+    .label small { display:block; color: #64748b; font-weight: normal; font-size: 12.5px; margin-top: 2px; }
+  `],
   template: `
     <h1 class="erp-page-title">Settings</h1>
-    <erp-coa-numbering-editor />
+    <div style="max-width:740px; margin-bottom:24px;">
+      <erp-coa-numbering-editor />
+    </div>
     @for (g of groups(); track g.module) {
-      <section class="group">
+      <section class="group-card">
         <h3>{{ g.module === 'core' ? 'General' : g.module }}</h3>
         @for (s of g.items; track s.key) {
           <div class="row">
             <div class="label">{{ s.label }} @if (s.description) { <small>{{ s.description }}</small> }</div>
             @switch (s.type) {
               @case ('bool') { <nz-switch [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key"></nz-switch> }
-              @case ('text') { <input nz-input style="width:240px" [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
+              @case ('text') { <input nz-input style="width:260px" [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
               @default { <nz-input-number [ngModel]="draft()[s.key] ?? null" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key"></nz-input-number> }
             }
           </div>
         }
       </section>
     }
-    <button *erpHasPermission="'core.settings.write'" nz-button nzType="primary" [disabled]="!dirty()" [nzLoading]="saving()" (click)="save()" data-testid="settings-save">Save changes</button>`,
+    <div style="max-width:740px; display:flex; justify-content:flex-end;">
+      <button *erpHasPermission="'core.settings.write'" nz-button nzType="primary" nzSize="large" [disabled]="!dirty()" [nzLoading]="saving()" (click)="save()" data-testid="settings-save">Save changes</button>
+    </div>`,
 })
 export class SettingsPage {
   private readonly api = inject(AdminApi);

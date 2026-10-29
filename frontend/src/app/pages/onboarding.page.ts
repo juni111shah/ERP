@@ -13,6 +13,7 @@ import { catchError, of } from 'rxjs';
 import { API_BASE_URL } from '../core/api/api-config';
 import { CountryDto, CurrencyOption } from '../core/api/admin.api';
 import { applyProblemDetailsToForm, asProblem } from '../core/http/problem-details';
+import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { AUTH_STYLES, PASSWORD_HINT, PASSWORD_RULE } from './auth-layout';
 
 interface IndustryView { key: string; label: string; description: string; availability: string; suggestedModules: string[]; }
@@ -22,11 +23,11 @@ interface IndustryView { key: string; label: string; description: string; availa
   selector: 'erp-onboarding',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzRadioModule, NzSelectModule, NzAlertModule],
+  imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzRadioModule, NzSelectModule, NzAlertModule, BrandLogoComponent],
   styles: [AUTH_STYLES, `.industry { display: block; margin-bottom: 8px; } .industry small { display:block; color: var(--erp-color-text-secondary); margin-inline-start: 24px; }`],
   template: `
     <div class="card wide">
-      <div class="brand"><span class="brand-mark">E</span> ERP</div>
+      <div class="brand"><erp-brand-logo size="lg"></erp-brand-logo></div>
       <h1>Create your workspace</h1>
       <p class="sub">Choose what your business does. You can enable more modules later.</p>
       @if (done()) {

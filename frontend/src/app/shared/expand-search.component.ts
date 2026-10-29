@@ -51,6 +51,14 @@ export class ExpandSearchComponent {
 
   t(key: string, fallback: string): string { return this.i18n.t(key, fallback); }
 
+  focus(): void {
+    this.expanded.set(true);
+    setTimeout(() => {
+      this.field().nativeElement.focus();
+      this.field().nativeElement.select();
+    });
+  }
+
   toggle(): void {
     if (this.open() && !this.value() && document.activeElement === this.field().nativeElement) { this.expanded.set(false); return; }
     this.expanded.set(true);

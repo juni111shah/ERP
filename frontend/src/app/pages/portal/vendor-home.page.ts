@@ -30,26 +30,67 @@ import { matchText, TableToolsComponent } from '../../shared/table-tools.compone
     <erp-table-tools [search]="q()" (searchChange)="search($event)" (refresh)="refresh()" testId="vendor"></erp-table-tools>
     <nz-tabset>
       <nz-tab nzTitle="Bills">
-        <nz-table #tb [nzData]="billsShown()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="billPg.page()" [nzPageSize]="billPg.size()" data-testid="vendor-bills">
-          <thead><tr><th>Number</th><th>Your reference</th><th>Date</th><th>Due</th><th>Total</th><th>Outstanding</th><th>Status</th></tr></thead>
-          <tbody>@for (b of tb.data; track b.id) { <tr><td>{{ b.number }}</td><td>{{ b.vendorReference }}</td><td>{{ b.billDate }}</td><td>{{ b.dueDate }}</td><td>{{ b.total | currency: b.currencyCode }}</td><td>{{ b.outstanding | currency: b.currencyCode }}</td><td>{{ b.status }}</td></tr> }</tbody>
-        </nz-table>
+        <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-bottom:12px;">
+          <nz-table #tb [nzData]="billsShown()" nzSize="middle" [nzShowPagination]="false" [nzPageIndex]="billPg.page()" [nzPageSize]="billPg.size()" data-testid="vendor-bills">
+            <thead><tr><th>Number</th><th>Your reference</th><th>Date</th><th>Due</th><th>Total</th><th>Outstanding</th><th>Status</th></tr></thead>
+            <tbody>
+              @for (b of tb.data; track b.id) {
+                <tr>
+                  <td><span class="code-pill">{{ b.number }}</span></td>
+                  <td>{{ b.vendorReference || '—' }}</td>
+                  <td>{{ b.billDate }}</td>
+                  <td>{{ b.dueDate }}</td>
+                  <td><strong>{{ b.total | currency: b.currencyCode }}</strong></td>
+                  <td [style.color]="b.outstanding > 0 ? '#ef4444' : '#10955d'" style="font-weight:600;">{{ b.outstanding | currency: b.currencyCode }}</td>
+                  <td><nz-tag [nzColor]="b.status === 'paid' ? 'green' : (b.status === 'overdue' ? 'red' : 'blue')">{{ b.status }}</nz-tag></td>
+                </tr>
+              }
+            </tbody>
+          </nz-table>
+        </div>
         <erp-pagination-bar [total]="billsShown().length" [page]="billPg.page()" [pageSize]="billPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-bills" (pageChange)="billPg.change($event)" />
       </nz-tab>
       <nz-tab nzTitle="Payments">
-        <nz-table #tp [nzData]="paymentsShown()" nzSize="small" [nzShowPagination]="false" [nzPageIndex]="payPg.page()" [nzPageSize]="payPg.size()" data-testid="vendor-payments">
-          <thead><tr><th>Number</th><th>Date</th><th>Method</th><th>Amount</th><th>Reference</th></tr></thead>
-          <tbody>@for (p of tp.data; track p.id) { <tr><td>{{ p.number }}</td><td>{{ p.date }}</td><td>{{ p.method }}</td><td>{{ p.amount | currency: p.currencyCode }}</td><td>{{ p.reference }}</td></tr> }</tbody>
-        </nz-table>
+        <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-bottom:12px;">
+          <nz-table #tp [nzData]="paymentsShown()" nzSize="middle" [nzShowPagination]="false" [nzPageIndex]="payPg.page()" [nzPageSize]="payPg.size()" data-testid="vendor-payments">
+            <thead><tr><th>Number</th><th>Date</th><th>Method</th><th>Amount</th><th>Reference</th></tr></thead>
+            <tbody>
+              @for (p of tp.data; track p.id) {
+                <tr>
+                  <td><span class="code-pill">{{ p.number }}</span></td>
+                  <td>{{ p.date }}</td>
+                  <td><nz-tag>{{ p.method }}</nz-tag></td>
+                  <td><strong style="color:#10955d;">{{ p.amount | currency: p.currencyCode }}</strong></td>
+                  <td>{{ p.reference || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </nz-table>
+        </div>
         <erp-pagination-bar [total]="paymentsShown().length" [page]="payPg.page()" [pageSize]="payPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:vendor-payments" (pageChange)="payPg.change($event)" />
       </nz-tab>
       <nz-tab nzTitle="Statement">
         @if (statement(); as s) {
-          <p data-testid="vendor-balance"><b>{{ 'ui.portal.owedToYou' | translate: 'Owed to you' }}: {{ s.balance | currency }}</b> ({{ 'ui.common.asOfLc' | translate: 'as of' }} {{ s.asOf }})</p>
-          <nz-table [nzData]="s.items" nzSize="small" [nzShowPagination]="false">
-            <thead><tr><th>Bill</th><th>Due</th><th>Days overdue</th><th>Outstanding</th></tr></thead>
-            <tbody>@for (i of s.items; track i.number) { <tr><td>{{ i.number }}</td><td>{{ i.dueDate }}</td><td>{{ i.daysOverdue }}</td><td>{{ i.outstanding | currency }}</td></tr> }</tbody>
-          </nz-table>
+          <div style="background:#f8fafc; padding:16px; border-radius:12px; border:1px solid #e2e8f0; margin-bottom:16px;" data-testid="vendor-balance">
+            <span style="font-size:14px; color:#64748b;">{{ 'ui.portal.owedToYou' | translate: 'Owed to you' }}</span>
+            <div style="font-size:24px; font-weight:700; color:#10955d; margin:4px 0;">{{ s.balance | currency }}</div>
+            <span style="font-size:12px; color:#94a3b8;">{{ 'ui.common.asOfLc' | translate: 'as of' }} {{ s.asOf }}</span>
+          </div>
+          <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <nz-table [nzData]="s.items" nzSize="middle" [nzShowPagination]="false">
+              <thead><tr><th>Bill</th><th>Due</th><th>Days overdue</th><th>Outstanding</th></tr></thead>
+              <tbody>
+                @for (i of s.items; track i.number) {
+                  <tr>
+                    <td><span class="code-pill">{{ i.number }}</span></td>
+                    <td>{{ i.dueDate }}</td>
+                    <td><nz-tag [nzColor]="i.daysOverdue > 30 ? 'red' : 'orange'">{{ i.daysOverdue }} d</nz-tag></td>
+                    <td><strong style="color:#ef4444;">{{ i.outstanding | currency }}</strong></td>
+                  </tr>
+                }
+              </tbody>
+            </nz-table>
+          </div>
         }
       </nz-tab>
       <nz-tab nzTitle="Work orders">
