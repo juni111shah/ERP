@@ -76,7 +76,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
         var wMap = await warehouses.Query(new Specification<Warehouse>(w => wIds.Contains(w.Id))).ToDictionaryAsync(w => w.Id, w => w.Name, ct);
         var iMap = await items.Query(new Specification<Item>(i => iIds.Contains(i.Id))).Select(i => new { i.Id, i.Sku, i.Name, i.Uom }).ToDictionaryAsync(i => i.Id, ct);
         var rows = all.GroupBy(m => (m.WarehouseId, m.ItemId)).Select(g => (g.Key, Pos: StockCosting.Replay(g))).Where(x => x.Pos.Quantity != 0)
-            .Select(x => new StockRow(x.Key.WarehouseId, wMap.GetValueOrDefault(x.Key.WarehouseId, ""), x.Key.ItemId, iMap[x.Key.ItemId].Sku, iMap[x.Key.ItemId].Name, iMap[x.Key.ItemId].Uom, x.Pos.Quantity, x.Pos.AverageCost, x.Pos.Value))
+            .Select(x => new StockRow(x.Key.WarehouseId, wMap.GetValueOrDefault(x.Key.WarehouseId, ""), x.Key.ItemId, iMap.GetValueOrDefault(x.Key.ItemId)?.Sku ?? "?", iMap.GetValueOrDefault(x.Key.ItemId)?.Name ?? "(deleted item)", iMap.GetValueOrDefault(x.Key.ItemId)?.Uom ?? "", x.Pos.Quantity, x.Pos.AverageCost, x.Pos.Value))
             .OrderBy(r => r.Sku).ThenBy(r => r.Warehouse).ToList();
         return new(rows, rows.Sum(r => r.Value));
     }
@@ -88,7 +88,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
         var ids = rules.Select(r => r.ItemId).ToList();
         var qty = (await movements.Query(new Specification<StockMovement>(m => ids.Contains(m.ItemId))).Select(m => new { m.ItemId, m.Quantity }).ToListAsync(ct)).GroupBy(m => m.ItemId).ToDictionary(g => g.Key, g => g.Sum(m => m.Quantity));
         var map = await items.Query(new Specification<Item>(i => ids.Contains(i.Id))).Select(i => new { i.Id, i.Sku, i.Name }).ToDictionaryAsync(i => i.Id, ct);
-        return rules.Where(r => qty.GetValueOrDefault(r.ItemId) <= r.ReorderLevel).Select(r => new LowStockRow(r.ItemId, map[r.ItemId].Sku, map[r.ItemId].Name, qty.GetValueOrDefault(r.ItemId), r.ReorderLevel, r.ReorderQuantity)).OrderBy(r => r.Sku).ToList();
+        return rules.Where(r => qty.GetValueOrDefault(r.ItemId) <= r.ReorderLevel).Select(r => new LowStockRow(r.ItemId, map.GetValueOrDefault(r.ItemId)?.Sku ?? "?", map.GetValueOrDefault(r.ItemId)?.Name ?? "(deleted item)", qty.GetValueOrDefault(r.ItemId), r.ReorderLevel, r.ReorderQuantity)).OrderBy(r => r.Sku).ToList();
     }
 
     public Task<MovementDto> Handle(ReceiveStock cmd, CancellationToken ct) => unitOfWork.InTransactionAsync(async token =>
@@ -110,7 +110,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
     {
         var i = cmd.Input;
         var (wh, _) = await RequireAsync(i.WarehouseId, i.ItemId, token);
-        var position = await PositionAsync(i.WarehouseId, i.ItemId, token);
+        var position = await PositionAsync(i.WarehouseId, i.ItemId, token, i.Date);
         if (position.Quantity < i.Quantity) throw new ConflictException($"Only {position.Quantity:0.####} in stock; cannot issue {i.Quantity:0.####}.");
         var cost = position.AverageCost;
         var m = New(wh, i.ItemId, i.Date, MovementKind.Issue, -i.Quantity, cost, i.Reference, i.Memo);
@@ -131,7 +131,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
     {
         var i = cmd.Input;
         var (wh, _) = await RequireAsync(i.WarehouseId, i.ItemId, token);
-        var position = await PositionAsync(i.WarehouseId, i.ItemId, token);
+        var position = await PositionAsync(i.WarehouseId, i.ItemId, token, i.Date);
         if (i.QuantityDelta < 0 && position.Quantity < -i.QuantityDelta) throw new ConflictException($"Only {position.Quantity:0.####} in stock; cannot reduce by {-i.QuantityDelta:0.####}.");
         var cost = i.QuantityDelta > 0 ? i.UnitCost : position.AverageCost;
         var m = New(wh, i.ItemId, i.Date, MovementKind.Adjustment, i.QuantityDelta, cost, i.Reference, i.Memo ?? "Stock adjustment");
@@ -155,7 +155,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
         var (from, _) = await RequireAsync(i.FromWarehouseId, i.ItemId, token);
         var (to, _) = await RequireAsync(i.ToWarehouseId, i.ItemId, token);
         if (from.LegalEntityId != to.LegalEntityId) throw new ConflictException("Transfers are between warehouses of the same legal entity.");
-        var position = await PositionAsync(i.FromWarehouseId, i.ItemId, token);
+        var position = await PositionAsync(i.FromWarehouseId, i.ItemId, token, i.Date);
         if (position.Quantity < i.Quantity) throw new ConflictException($"Only {position.Quantity:0.####} in stock at the source warehouse.");
         var transfer = Guid.NewGuid();
         var memo = i.Memo ?? $"Transfer {from.Code} → {to.Code}";
@@ -191,8 +191,9 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
         if (!await accounts.AnyAsync(a => a.Id == accountId && a.IsActive && a.IsPostable, ct)) throw new FieldValidationException(field, "Choose an active, postable account.");
     }
 
-    private async Task<StockPosition> PositionAsync(Guid warehouseId, Guid itemId, CancellationToken ct)
-        => StockCosting.Replay(await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == warehouseId && m.ItemId == itemId)).ToListAsync(ct));
+    /// <summary>Position of one item in one warehouse, optionally only up to a date (so a backdated issue cannot use stock that arrives later).</summary>
+    private async Task<StockPosition> PositionAsync(Guid warehouseId, Guid itemId, CancellationToken ct, DateOnly? asOf = null)
+        => StockCosting.Replay(await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == warehouseId && m.ItemId == itemId && (asOf == null || m.Date <= asOf))).ToListAsync(ct));
 
     private static StockMovement New(Warehouse wh, Guid itemId, DateOnly date, MovementKind kind, decimal qty, decimal cost, string? reference, string? memo)
         => new() { LegalEntityId = wh.LegalEntityId, WarehouseId = wh.Id, ItemId = itemId, Date = date, Kind = kind, Quantity = qty, UnitCost = cost, Reference = reference, Memo = memo };
