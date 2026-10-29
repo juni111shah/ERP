@@ -99,6 +99,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
             <th>Present</th>
             <th>Unpaid absence</th>
             <th>Paid leave</th>
+            <th>Approved leave</th>
             <th>Overtime hrs</th>
             <th></th>
           </tr>
@@ -122,6 +123,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
               <td><nz-input-number [(ngModel)]="r.daysPresent" [nzMin]="0" [nzMax]="31" [nzPrecision]="0" (ngModelChange)="touch(r)" style="width:70px"></nz-input-number></td>
               <td><nz-input-number [(ngModel)]="r.unpaidAbsentDays" [nzMin]="0" [nzMax]="31" [nzPrecision]="0" (ngModelChange)="touch(r)" style="width:70px" [attr.data-testid]="'att-unpaid-' + r.employeeNumber"></nz-input-number></td>
               <td><nz-input-number [(ngModel)]="r.paidLeaveDays" [nzMin]="0" [nzMax]="31" [nzPrecision]="0" (ngModelChange)="touch(r)" style="width:70px"></nz-input-number></td>
+              <td data-testid="att-leave">@if (r.leavePaidDays || r.leaveUnpaidDays) { <span>{{ r.leavePaidDays ?? 0 }} paid / {{ r.leaveUnpaidDays ?? 0 }} unpaid</span> } @else { <span style="opacity:.5">-</span> }</td>
               <td><nz-input-number [(ngModel)]="r.overtimeHours" [nzMin]="0" [nzPrecision]="1" (ngModelChange)="touch(r)" style="width:75px" [attr.data-testid]="'att-ot-' + r.employeeNumber"></nz-input-number></td>
               <td *erpHasPermission="'hr.attendance.manage'">
                 <button nz-button nzSize="small" nzType="primary" [disabled]="!dirty().has(r.employeeId)" (click)="save(r)" [attr.data-testid]="'att-save-' + r.employeeNumber">Save</button>
