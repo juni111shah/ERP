@@ -33,3 +33,6 @@ Needs human: C: disk is 94% full (21G free). TASK-009 commit message lacked the 
 | TASK-016 | P0 | open | Invoice from sales order keeps tax, source link, currency |
 | TASK-017 | P0 | open | Sales order edit, fulfilment and due-date guards |
 | TASK-018 | P1 | open | Reopen sales order when its invoice is voided |
+| TASK-019 | P1 | open | Bank/cash account must be flagged IsBank (receipts, payments, cheques, transfers) |
+| TASK-020 | P1 | open | Reject or round money amounts to two decimals |
+| TASK-021 | P2 | open | Retry document commands on number/allocation concurrency conflicts |

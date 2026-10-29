@@ -2,7 +2,7 @@
 id: TASK-006
 title: POS void reverses cash, stock at original cost, and respects closed sessions
 priority: P0
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: [TASK-005]
 area: pos
@@ -24,10 +24,10 @@ Inventory valued at selling price, drawer expectation overstated, closed shifts 
 - One transaction for status, session totals, stock reversal.
 
 ## Acceptance criteria
-- [ ] Void in a closed session returns 409 and changes nothing.
-- [ ] After a cash void, expected cash equals opening cash plus remaining cash sales.
-- [ ] Inventory value after sale+void equals the value before the sale.
-- [ ] Two concurrent orders in one session produce correct totals.
+- [x] Void in a closed session returns 409 and changes nothing.
+- [x] After a cash void, expected cash equals opening cash plus remaining cash sales.
+- [x] Inventory value after sale+void equals the value before the sale.
+- [x] Two concurrent orders in one session produce correct totals.
 
 ## Tests required
 Integration tests for the four criteria (the concurrency test may use parallel tasks).
@@ -36,5 +36,13 @@ Integration tests for the four criteria (the concurrency test may use parallel t
 Order creation validation (TASK-005).
 
 ## What I did (Antigravity)
+- Added `ReverseIssueAsync` to `IStockPostingService` and implemented in `StockPostingService`: finds original stock movements for the order's reference where `Kind == MovementKind.Issue`, issuing offsetting receipt stock movements at original unit cost with the COGS account.
+- In `VoidPosOrderCommand` (`OrderFeatures.cs`): verified that the session is in `Open` status; otherwise throws `ConflictException` (409) and aborts.
+- Reduced `ExpectedCash` upon void by the actual cash received (`p.TenderedAmount > 0 ? (p.TenderedAmount - p.ChangeAmount) : p.Amount`).
+- Converted session totals updates on order creation and void to atomic SQL increments (`ExecuteUpdateAsync`) scoped to `s.Status == PosSessionStatus.Open`.
+- Enclosed order creation and void in single database transactions via `_unitOfWork.InTransactionAsync`.
+- Added `_sqliteTxLock` semaphore guard in `AppDbContext.InTransactionAsync` to serialize transactions on SQLite test runner connections.
+- Exposed `TotalReturns` on `PosSessionSummaryDto` in backend and frontend.
+- Added four integration tests in `PosOrderTests.cs` verifying all four acceptance criteria. All unit and integration tests passing (223 unit, 205 integration).
 
 ## Review (Claude)
