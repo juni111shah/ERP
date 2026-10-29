@@ -1004,6 +1004,10 @@ const PAIRS: [string, string][] = [
   ['Active Engagements', 'المشاريع الاستشارية النشطة'], ['Retainer MRR', 'الإيراد الشهري المتكرر للاستبقاء'],
   ['Ready to Invoice', 'جاهز للفوترة'], ['Total Contract Value', 'إجمالي قيمة العقود'],
   ['Billable Ratio', 'نسبة الساعات القابلة للفوترة'], ['Total Logged Time', 'إجمالي ساعات العمل المسجلة'],
+  // cheque bounce follow-up
+  ['Follow-up due', 'المتابعة مستحقة'], ['Followed up', 'تمت المتابعة'], ['Log follow-up', 'تسجيل متابعة'], ['Bounced on', 'تاريخ الارتداد'], ['Followed up on', 'تمت المتابعة بتاريخ'],
+  ['Replaces an earlier cheque that bounced', 'بديل لشيك سابق مرتد'], ['Replaced by a new cheque', 'تم استبداله بشيك جديد'],
+  ['What was agreed with the customer?', 'ما الذي تم الاتفاق عليه مع العميل؟'], ['Enter the follow-up note', 'أدخل ملاحظة المتابعة'], ['Follow-up logged', 'تم تسجيل المتابعة'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);
