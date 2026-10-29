@@ -11,6 +11,8 @@ import { API_BASE_URL } from '../core/api/api-config';
 import { I18nService } from '../core/i18n/i18n.service';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { RevealDirective } from './reveal.directive';
+import { EmailDocumentDrawerComponent } from './email-document-drawer.component';
+import { HasPermissionDirective } from './has-permission.directive';
 
 export interface PartyLedgerLine { date: string; kind: 'invoice' | 'creditNote' | 'receipt' | 'bill' | 'payment' | string; documentId: string; number: string; reference: string | null; currencyCode: string; debit: number; credit: number; balance: number }
 export interface PartyLedger { partyId: string; partyName: string | null; side: 'customer' | 'vendor'; from: string; to: string; openingBalance: number; lines: PartyLedgerLine[]; totalDebit: number; totalCredit: number; closingBalance: number }
@@ -29,14 +31,16 @@ const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '
   selector: 'erp-party-statement',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzIconModule, NzTableModule, TranslatePipe, RevealDirective],
+  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzIconModule, NzTableModule, TranslatePipe, RevealDirective, EmailDocumentDrawerComponent, HasPermissionDirective],
   styles: [`.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; } .num { text-align: end; white-space: nowrap; } .sum td { font-weight: 600; } .err { color: var(--erp-color-error, #cf1322); }`],
   template: `
     <div class="bar" erpReveal>
       <nz-range-picker [ngModel]="range()" (ngModelChange)="setRange($event)" [nzAllowClear]="false" data-testid="statement-range"></nz-range-picker>
       <button nz-button (click)="load()" [nzLoading]="loading()" data-testid="statement-refresh"><span nz-icon nzType="reload"></span>{{ 'statement.refresh' | translate: 'Refresh' }}</button>
       <button nz-button (click)="print()" [disabled]="!data()" data-testid="statement-print"><span nz-icon nzType="printer"></span>{{ 'statement.print' | translate: 'Print' }}</button>
+      <button *erpHasPermission="'core.email.send'" nz-button (click)="emailOpen.set(true)" data-testid="statement-email"><span nz-icon nzType="mail"></span>{{ 'statement.email' | translate: 'Email' }}</button>
     </div>
+    <erp-email-document-drawer [open]="emailOpen()" [path]="'parties/' + partyId() + '/statement/email'" [params]="emailParams()" (closed)="emailOpen.set(false)" />
     @if (error()) { <p class="err" data-testid="statement-error">{{ error() }}</p> }
     <nz-table #t [nzData]="data()?.lines ?? []" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loading()" [nzScroll]="{ x: '720px' }" data-testid="party-ledger">
       <thead><tr>
@@ -71,6 +75,8 @@ export class PartyStatementComponent {
   private readonly i18n = inject(I18nService);
 
   readonly partyId = input.required<string>();
+  readonly emailOpen = signal(false);
+  readonly emailParams = computed(() => ({ asOf: iso(this.range()[1]) }));
   readonly side = input.required<'customer' | 'vendor'>();
   readonly partyName = input<string>('');
 

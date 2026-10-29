@@ -1,3 +1,4 @@
+import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -40,7 +41,7 @@ interface Receipt {
 @Component({
   selector: 'erp-receipt-detail',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -81,10 +82,12 @@ interface Receipt {
           </div>
         }
       </erp-detail-page>
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/receipts/' + receipt()!.id + '/email'" (closed)="emailOpen.set(false)" />
     }
   `
 })
 export class ReceiptDetailPage implements OnInit {
+  readonly emailOpen = signal(false);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -133,7 +136,9 @@ export class ReceiptDetailPage implements OnInit {
       {
         label: 'Email',
         icon: 'mail',
-        handler: () => this.message.info('Email functionality will be implemented')
+        permission: 'core.email.send',
+        visible: rec.status === 'issued',
+        handler: () => this.emailOpen.set(true)
       }
     ];
   });

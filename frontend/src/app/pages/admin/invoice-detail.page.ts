@@ -1,3 +1,4 @@
+import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -31,7 +32,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
 @Component({
   selector: 'erp-invoice-detail',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
+  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
   styles: [`
     .section { margin-top: 16px; }
     .section ::ng-deep .ant-card-head-title { color:#b89b5e; text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:600; }
@@ -96,10 +97,12 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
           </nz-timeline>
         </div>
       </erp-detail-page>
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/invoices/' + invoice()!.id + '/email'" (closed)="emailOpen.set(false)" />
     }
   `
 })
 export class InvoiceDetailPage implements OnInit {
+  readonly emailOpen = signal(false);
   private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
@@ -202,6 +205,8 @@ export class InvoiceDetailPage implements OnInit {
       {
         label: 'Email',
         icon: 'mail',
+        permission: 'core.email.send',
+        visible: inv.status !== 'draft' && inv.status !== 'voided' && inv.status !== 'pendingApproval',
         handler: () => this.email()
       }
     ];
@@ -350,6 +355,6 @@ export class InvoiceDetailPage implements OnInit {
   }
 
   email(): void {
-    this.message.info('Email functionality will be implemented');
+    this.emailOpen.set(true);
   }
 }
