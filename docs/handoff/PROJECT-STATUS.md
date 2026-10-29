@@ -142,7 +142,7 @@ Migrations 21-26 are the "schema M1-M6" set (commit 7a97a05).
 
 # 4. Completed work log
 
-## 4.1 Pull requests #46 to #74 (all squash-merged into main)
+## 4.1 Pull requests #46 to #78 (all squash-merged into main)
 
 | PR | Commit | Summary |
 |---|---|---|
@@ -166,6 +166,9 @@ Migrations 21-26 are the "schema M1-M6" set (commit 7a97a05).
 | [#72](https://github.com/juni111shah/ERP/pull/72) | 36c572a | Inventory: stock counts, valuation/movement/slow-moving/reorder reports, warehouse edit, audit fixes, search, low-stock reminder. Migration `InventoryCounts` + `0021_InventoryCounts.sql` (not applied to any DB) |
 | [#73](https://github.com/juni111shah/ERP/pull/73) | 8c3ec67 | Country-pack tax returns (AE VAT201, SA, GB VAT100, IN GSTR-3B, PK, US) + non-blocking invoice tax-number warnings; no schema change |
 | [#74](https://github.com/juni111shah/ERP/pull/74) | a8de899 | HR leave management (types, balances, requests, holidays, attendance/payroll feed). Migration `HrLeave` + `0022_HrLeave.sql` (not applied to any DB) |
+| [#76](https://github.com/juni111shah/ERP/pull/76) | 2e265e8 | Owner cost basis: work order ChargeableTo / OwnerSharePercent / BillId; owner statement uses bill-linked cost and the owner's share. Migration `OwnerCostBasis` + `0023_OwnerCostBasis.sql` (not applied to any DB) |
+| [#77](https://github.com/juni111shah/ERP/pull/77) | ba0c341 | Cheque bounce follow-up (RE-PM-08) and replacement re-link (RE-PM-09): BouncedOn, FollowUpOn, FollowUpNote; reminder 3 days after a bounce with no follow-up. Migration `ChequeBounceFollowUp` + `0024_ChequeBounceFollowUp.sql` (not applied to any DB) |
+| [#78](https://github.com/juni111shah/ERP/pull/78) | (see git log) | Party groups (`PartyGroups`, `Parties.PartyGroupId`, ageing by party group) and reuse of soft-deleted account codes (filtered unique index). Migration `PartyGroupsAndCodeReuse` + `0025_PartyGroupsAndCodeReuse.sql` (not applied to any DB) |
 
 Earlier relevant commits on main: 7fe89dd (#44, manual-only journal reversal), 208acd3 (#45, SQA UI fixes), 7df8788 (void reasons in audit log, credit notes linked to invoices, new permissions, reverse guard, print fallbacks, unapplied allocations), 7a97a05 (schema M1-M6), 29362d9 (dev/staging/production pipeline).
 
@@ -196,8 +199,8 @@ Owner and coordinator: unless stated, the specialist agent prepares a patch or b
 
 ## 5.3 DB schema migrations (pm-schema) - PENDING (needs `pm-schema-proposal.md`; not available to the AI agent that did #60-#74)
 
-- Migrations 27-28 (`InventoryCounts`, `HrLeave`) exist in the repo and are **not applied to `ERP_Dev`**; apply only after a backup and owner approval.
-- Not started (no agent could read the proposal): CoreFx, CorePenaltiesDunning/PartyGroups, CoreReasonsAuditInstruments, CoreCustomerDeposits, CoreInstalmentPlans, RealEstatePm, deposit backfill. Also not done: cheque bounce follow-up (RE-PM-08/09), owner cost basis (RE-PM-20/21/22), party groups, soft-deleted account code reuse (filtered unique index). Their workers were stopped before pushing any code.
+- Migrations 27-31 (`InventoryCounts`, `HrLeave`, `OwnerCostBasis`, `ChequeBounceFollowUp`, `PartyGroupsAndCodeReuse`; scripts 0021-0025) exist in the repo and are **not applied to `ERP_Dev`**; apply only after a backup and owner approval.
+- Not started (no agent could read the proposal; PartyGroups itself now exists from #78): CoreFx, CorePenaltiesDunning, CoreReasonsAuditInstruments, CoreCustomerDeposits, CoreInstalmentPlans, RealEstatePm, deposit backfill. The BA P1 stories are now all done (RE-PM-42 and RE-PM-30 in #61, RE-PM-08/09 in #77, RE-PM-20/21/22 in #76) and so are party groups and soft-deleted account code reuse (#78).
 
 - **Owner:** DB Expert (prepares EF migrations); Grok Bot builds, merges, then applies to `ERP_Dev` **only after Muhammad approves** and after a backup.
 - **Sources:** `/workspace/erp-team/db/pm-schema-proposal.md` (status: PROPOSAL, nothing applied), SQL drafts `/workspace/erp-team/db/pm-sql/01_core_fx.sql` ... `99_smoke_test.sql` (guarded to run only on `*_Scratch` databases).
@@ -205,7 +208,7 @@ Owner and coordinator: unless stated, the specialist agent prepares a patch or b
 - **Next steps:** owner reviews the 10 BA recommendations in the proposal; DB Expert converts approved steps into EF migrations in `ERP.Infrastructure/Persistence/Migrations` + matching `database/scripts`; build/test; PR; apply to backed-up `ERP_Dev`.
 - **Acceptance criteria:** migrations are additive, existing rows stay valid, backfill report shows 0/0 mismatches, all tests pass, denylist test passes (core has no industry words), owner sign-off recorded.
 
-## 5.4 Business analyst P1 stories - PARTLY DONE (record history + ageing: PR #61)
+## 5.4 Business analyst P1 stories - DONE (#61, #76, #77, #78)
 
 Source: `/workspace/erp-team/ba/pm-workflows-gap.md` (section 14 "Top P1 stories"). Mapping of short names to story IDs below is best-effort **(unverified)**.
 
