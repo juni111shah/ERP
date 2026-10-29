@@ -36,3 +36,4 @@ Needs human: C: disk is 94% full (21G free). TASK-009 commit message lacked the 
 | TASK-019 | P1 | open | Bank/cash account must be flagged IsBank (receipts, payments, cheques, transfers) |
 | TASK-020 | P1 | open | Reject or round money amounts to two decimals |
 | TASK-021 | P2 | open | Retry document commands on number/allocation concurrency conflicts |
+| TASK-022 | P1 | open | Concurrency-capable integration test host (SQL Server) |

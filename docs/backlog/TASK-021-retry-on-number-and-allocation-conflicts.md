@@ -2,12 +2,12 @@
 id: TASK-021
 title: Retry document commands when a number or allocation hits a concurrency conflict
 priority: P2
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: []
 area: platform
 audit_ref: AUDIT-FULL finance core review
-commit:
+commit: 080f1f6
 owner: claude (separate worktree; Antigravity skip this card)
 ---
 
@@ -34,6 +34,11 @@ Integration test firing 20 concurrent requests; unit test for the behavior with 
 ## Do not touch
 Row version configuration; numbering format.
 
-## What I did (Antigravity)
+## What I did (Claude, implemented in separate worktree)
+- Added `IRetryOnConcurrency` marker, `IResetOnRetry`, `ConcurrencyRetryBehavior` (3 attempts, 25-100 ms jitter, registered after validation), `IUnitOfWork.DiscardChanges()` (clears the change tracker; implemented in `AppDbContext` and the repository wrappers) and `NumberingService.ResetForRetry()` (drops sequences created but not saved, otherwise a retry would reuse a detached sequence).
+- Marked as retryable: create invoice, issue invoice, apply credit note, create credit note from invoice, create receipt, create payment, create journal, post journal. These commit once (payments inside one transaction).
+- Deliberately NOT marked: POS order and goods receipt (they save in several steps until TASK-010 makes them one transaction, so a retry could duplicate a committed document), void/update commands, PostBill (two saves).
+- Tests: `ConcurrencyRetryBehaviorTests` (retries until success, gives up after 3 and rethrows, unmarked commands never retried). Full suite: 237 unit + 212 integration passed.
+- NOT verified: acceptance criterion 1 (20 parallel receipts). The integration test host runs on one shared SQLite connection and fails with unrelated errors under parallel requests ("nested transactions", "no more rows"), so concurrency cannot be tested end to end here. See TASK-022.
 
 ## Review (Claude)
