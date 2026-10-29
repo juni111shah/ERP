@@ -58,6 +58,9 @@ type Action = 'terminate' | 'renew';
         @if (l.status === 'holdingOver') {
           <button *erpHasPermission="'realestate.leases.terminate'" nz-button [disabled]="busy()" (click)="moveOut()" data-testid="lease-move-out">Confirm move-out</button>
         }
+        <a [href]="'/print/lease/' + l.id" target="_blank" nz-button data-testid="lease-print">
+          <span nz-icon nzType="printer"></span>Print Contract / PDF
+        </a>
       </div>
       <div class="erp-stat-grid" data-testid="lease-kpis">
         <erp-stat-card label="Annual rent" [value]="l.annualRent" format="number" [suffix]="l.currencyCode" [caption]="planLabel(l.paymentFrequency)" [tone]="0" />

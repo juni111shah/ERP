@@ -85,15 +85,9 @@ public sealed class ModuleRegistry
     /// <summary>Modules on the roadmap; listed as "unavailable" in Settings → Modules and onboarding.</summary>
     public static IReadOnlyList<ModuleManifest> Planned { get; } =
     [
-        new("sales", "Sales", "Quotes, sales orders, invoices and receipts.", "Horizontal", Status: ModuleStatus.Planned),
-        new("purchasing", "Purchasing", "Purchase orders, vendor bills and payments.", "Horizontal", Status: ModuleStatus.Planned),
-        new("pos", "Point of sale", "Counter sales, shifts and cash drawers.", "Retail", Status: ModuleStatus.Planned),
-        new("retail", "Retail", "Stores, price lists and promotions.", "Industry", Status: ModuleStatus.Planned),
-        new("distribution", "Distribution", "Routes, van sales and wholesale pricing.", "Industry", Status: ModuleStatus.Planned),
-        new("projects", "Projects", "Projects, tasks, timesheets and project billing.", "Horizontal", Status: ModuleStatus.Planned),
-        new("manufacturing", "Manufacturing", "Bills of materials, work orders and costing.", "Industry", Status: ModuleStatus.Planned),
-        new("crm", "CRM", "Leads, opportunities and pipeline.", "Horizontal", Status: ModuleStatus.Planned),
-        new("services", "Professional services", "Engagements, retainers and time billing.", "Industry", Status: ModuleStatus.Planned),
+        new("fleet", "Fleet & Logistics", "Vehicles, drivers, fuel logs and dispatch.", "Logistics", Status: ModuleStatus.Planned),
+        new("hospitality", "Hospitality", "Bookings, front desk and room service.", "Industry", Status: ModuleStatus.Planned),
+        new("maintenance", "Asset Maintenance", "Preventive maintenance, work orders and equipment schedules.", "Maintenance", Status: ModuleStatus.Planned),
     ];
 }
 

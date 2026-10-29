@@ -32,9 +32,17 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
   template: `
     <h1 class="erp-page-title">Inspections</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search inspector" emptyText="No inspections yet" (rowClick)="open($event.id)">
-      <button toolbar *erpHasPermission="'realestate.inspections.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newInspection' | translate: 'New inspection'" nz-tooltip [nzTooltipTitle]="'ui.add.newInspection' | translate: 'New inspection'" nzType="primary" (click)="create()" data-testid="insp-new"><span nz-icon nzType="plus"></span>New inspection</button>
+      <button toolbar *erpHasPermission="'realestate.inspections.manage'" nz-button nzType="primary" (click)="create()" data-testid="insp-new"><span nz-icon nzType="plus"></span> New inspection</button>
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
+        @if (column.key === 'inspector') {
+          <span class="name-cell">{{ row.inspector }}</span>
+        } @else if (column.key === 'damageCost') {
+          <strong>AED {{ row.damageCost.toLocaleString() }}</strong>
+        } @else if (column.key === 'status') {
+          <erp-status-tag [status]="row.status" />
+        } @else {
+          {{ value }}
+        }
       </ng-template>
     </erp-paged-table>
     <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Inspection' : 'New inspection'" nzWidth="760" (nzOnClose)="drawer.set(false)" [nzFooter]="footer">
@@ -56,12 +64,17 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
             @if (!locked()) { <button nz-button nzType="text" nzSize="small" (click)="removeItem(i)"><span nz-icon nzType="delete"></span></button> }
           </div>
         }
-        @if (!locked()) { <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addArea' | translate: 'Add area'" nz-tooltip [nzTooltipTitle]="'ui.add.addArea' | translate: 'Add area'" nzSize="small" (click)="addItem()" data-testid="insp-add-item"><span nz-icon nzType="plus"></span>Add area</button> }
+        @if (!locked()) { <button nz-button nzType="dashed" nzSize="small" (click)="addItem()" data-testid="insp-add-item"><span nz-icon nzType="plus"></span> Add area</button> }
         @if (damage() > 0) { <p style="margin-top:12px" data-testid="insp-damage"><b>{{ 'ui.re.damageCost' | translate: 'Estimated damage cost' }}: {{ damage() }}</b></p> }
       </ng-container>
     </nz-drawer>
     <ng-template #footer>
       <div style="display:flex;gap:8px;align-items:center">
+        @if (id()) {
+          <a [href]="'/print/inspection/' + id()" target="_blank" nz-button nzType="default">
+            <span nz-icon nzType="printer"></span> Print Report
+          </a>
+        }
         @if (!locked()) {
           <label nz-checkbox [(ngModel)]="raise">Raise repair work orders on completion</label>
           <span style="flex:1"></span>

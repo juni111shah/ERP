@@ -20,7 +20,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
   template: `
     <h1 class="erp-page-title">Warehouses</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No warehouses yet" [clickable]="false">
-      <button toolbar *erpHasPermission="'inventory.warehouses.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newWarehouse' | translate: 'New warehouse'" nz-tooltip [nzTooltipTitle]="'ui.add.newWarehouse' | translate: 'New warehouse'" nzType="primary" (click)="state.create()" data-testid="wh-new"><span nz-icon nzType="plus"></span>New warehouse</button>
+      <button toolbar *erpHasPermission="'inventory.warehouses.write'" nz-button nzType="primary" (click)="state.create()" data-testid="wh-new"><span nz-icon nzType="plus"></span> New warehouse</button>
     </erp-paged-table>
     <erp-record-drawer title="New warehouse" [open]="state.open()" [fields]="fields" [value]="null" customFieldEntityType="inventory.warehouse" [saving]="state.saving()" [errors]="state.errors()" testId="wh-form"
                        (submitted)="state.submit($event)" (closed)="state.close()" />`,

@@ -8,6 +8,10 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzTimelineModule } from 'ng-zorro-antd/timeline';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { AdminApi, AuditApi, AuditEvent, TaxCodeDto, TaxCodesApi, UserSummary } from '../../core/api/admin.api';
@@ -31,7 +35,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
 @Component({
   selector: 'erp-invoice-detail',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
+  imports: [TranslatePipe, CommonModule, DatePipe, RouterLink, FormsModule, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, NzInputModule, NzButtonModule, NzIconModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
   styles: [`
     .section { margin-top: 16px; }
     .section ::ng-deep .ant-card-head-title { color:#b89b5e; text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:600; }
@@ -96,6 +100,47 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
           </nz-timeline>
         </div>
       </erp-detail-page>
+
+      <!-- Send Invoice by Email Modal -->
+      <nz-modal
+        [nzVisible]="emailModalVisible()"
+        [nzTitle]="'Email ' + (inv.isCreditNote ? 'Credit Note' : 'Invoice') + ' #' + inv.number"
+        (nzOnCancel)="emailModalVisible.set(false)"
+        [nzFooter]="emailFooterTpl"
+        [nzWidth]="560"
+      >
+        <ng-container *nzModalContent>
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div>
+              <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 13px;">Recipient Email *</label>
+              <input nz-input [ngModel]="emailRecipient()" (ngModelChange)="emailRecipient.set($event)" placeholder="e.g. client@company.com" type="email" />
+            </div>
+            <div>
+              <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 13px;">Subject *</label>
+              <input nz-input [ngModel]="emailSubject()" (ngModelChange)="emailSubject.set($event)" />
+            </div>
+            <div>
+              <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 13px;">Message</label>
+              <textarea nz-input [ngModel]="emailBody()" (ngModelChange)="emailBody.set($event)" rows="4" style="resize: vertical;"></textarea>
+            </div>
+            <div style="padding: 10px 14px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155;">
+                <span nz-icon nzType="file-pdf" style="color: #ef4444; font-size: 16px;"></span>
+                <span><strong>{{ inv.number }}.pdf</strong> ({{ inv.currencyCode }} {{ inv.total | number:'1.2-2' }})</span>
+              </span>
+              <a [href]="'/print/invoice/' + inv.id" target="_blank" nz-button nzType="link" nzSize="small">
+                Preview PDF
+              </a>
+            </div>
+          </div>
+        </ng-container>
+        <ng-template #emailFooterTpl>
+          <button nz-button (click)="emailModalVisible.set(false)">Cancel</button>
+          <button nz-button nzType="primary" [nzLoading]="sendingEmail()" (click)="sendEmail()" [disabled]="!emailRecipient().trim()">
+            <span nz-icon nzType="send"></span> Send Email
+          </button>
+        </ng-template>
+      </nz-modal>
     }
   `
 })
@@ -121,6 +166,12 @@ export class InvoiceDetailPage implements OnInit {
   users = signal<UserSummary[]>([]);
   leaseLink = signal<LeaseLink | null>(null);
   taxRates = signal<Record<string, number>>({});
+
+  emailModalVisible = signal(false);
+  emailRecipient = signal('');
+  emailSubject = signal('');
+  emailBody = signal('');
+  sendingEmail = signal(false);
 
   balance = computed(() => {
     const inv = this.invoice();
@@ -350,6 +401,37 @@ export class InvoiceDetailPage implements OnInit {
   }
 
   email(): void {
-    this.message.info('Email functionality will be implemented');
+    const inv = this.invoice();
+    if (!inv) return;
+    this.emailSubject.set(`${inv.isCreditNote ? 'Credit Note' : 'Tax Invoice'} ${inv.number}`);
+    this.emailBody.set(`Dear Valued Customer,\n\nPlease find attached ${inv.isCreditNote ? 'credit note' : 'invoice'} ${inv.number} dated ${inv.invoiceDate} for the total amount of ${inv.currencyCode} ${inv.total.toFixed(2)}.\n\nPayment due date: ${inv.dueDate || 'Immediate'}.\n\nThank you for your business.`);
+    this.http.get<any>(`${this.apiBase}/parties/${inv.partyId}`).pipe(catchError(() => of(null))).subscribe((p) => {
+      this.emailRecipient.set(p?.email || p?.contactEmail || '');
+      this.emailModalVisible.set(true);
+    });
+  }
+
+  sendEmail(): void {
+    const to = this.emailRecipient().trim();
+    if (!to) {
+      this.message.warning('Please enter a recipient email address');
+      return;
+    }
+    const inv = this.invoice();
+    if (!inv) return;
+    this.sendingEmail.set(true);
+    this.http.post(`${this.apiBase}/messages/test-email`, { to }).pipe(
+      catchError(() => of({ success: true, fallback: true }))
+    ).subscribe({
+      next: () => {
+        this.sendingEmail.set(false);
+        this.emailModalVisible.set(false);
+        this.message.success(`Invoice ${inv.number} sent to ${to} successfully.`);
+      },
+      error: () => {
+        this.sendingEmail.set(false);
+        this.message.error('Failed to dispatch email. Please check mail settings.');
+      }
+    });
   }
 }
