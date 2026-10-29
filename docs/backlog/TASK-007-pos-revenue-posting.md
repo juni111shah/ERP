@@ -2,12 +2,13 @@
 id: TASK-007
 title: Post POS sales and tax to the ledger
 priority: P0
-status: open
+status: in-progress
 schema: no
 depends_on: [TASK-005, TASK-006]
 area: pos
 audit_ref: AUDIT-DEEP B5
 commit:
+owner: claude (worktree D:/ERP/work-claude, branch claude/impl; Antigravity skip)
 ---
 
 ## Problem

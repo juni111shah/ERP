@@ -2,12 +2,13 @@
 id: TASK-018
 title: Reopen the sales order when its generated invoice is voided
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: [TASK-016]
 area: sales
 audit_ref: order-to-cash review 2026-10-30
 commit:
+owner: claude (worktree D:/ERP/work-claude, branch claude/impl; Antigravity skip)
 ---
 
 ## Problem

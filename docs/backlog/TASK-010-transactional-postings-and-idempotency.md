@@ -2,12 +2,13 @@
 id: TASK-010
 title: Make documents and their postings one transaction; add idempotency keys
 priority: P0
-status: open
+status: in-progress
 schema: yes
 depends_on: [TASK-004, TASK-006, TASK-008]
 area: platform
 audit_ref: AUD-016, AUD-017
 commit:
+owner: claude (worktree D:/ERP/work-claude, branch claude/impl; Antigravity skip)
 ---
 
 ## Problem

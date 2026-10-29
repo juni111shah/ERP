@@ -2,12 +2,13 @@
 id: TASK-022
 title: Run integration tests on SQL Server (or per-request SQLite connections) so concurrency can be tested
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: testing
 audit_ref: found while implementing TASK-021
 commit:
+owner: claude (worktree D:/ERP/work-claude, branch claude/impl; Antigravity skip)
 ---
 
 ## Problem
