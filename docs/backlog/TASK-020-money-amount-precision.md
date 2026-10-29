@@ -2,12 +2,12 @@
 id: TASK-020
 title: Reject or round money amounts to two decimals in receipts, payments, cheques, bank and journals
 priority: P1
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: []
 area: finance
 audit_ref: AUDIT-FULL finance core review
-commit:
+commit: 6bec496
 owner: claude (separate worktree; Antigravity skip this card)
 ---
 
@@ -34,6 +34,11 @@ Unit tests for `MustBeMoney`; integration tests for the receipt/payment rejectio
 ## Do not touch
 Tax calculation rules; report logic.
 
-## What I did (Antigravity)
+## What I did (Claude, implemented in separate worktree)
+- Added `MoneyValidation.MustBeMoney()` (at most 2 decimal places) and applied it to receipt, payment, cheque, bank transfer, statement line, credit-note application and manual journal line amounts; `SettlementService.AllocateAsync` rejects allocations with more than 2 decimals.
+- Budget lines were deliberately left out: their column is `decimal(19,4)`.
+- Did not add explicit `HasPrecision(18,2)` to the model: the default type is already `decimal(18,2)`, so no change was needed and no migration is created.
+- Tests: `MoneyValidationTests` (unit), `MoneyPrecisionTests` (receipt, payment, allocation with 3 decimals return 400; auto-allocating 100.00 over three 33.33 invoices pays all three and leaves 0.01 unallocated).
+- Full suite in the worktree: 234 unit + 212 integration passed.
 
 ## Review (Claude)
