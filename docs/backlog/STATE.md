@@ -1,6 +1,6 @@
 # Board
 
-Last Claude run: 2026-10-30 02:00 (no ready-for-review cards; TASK-012 in-progress, edited 1h ago, no stall; 5 open, no refill)
+Last Claude run: 2026-10-30 02:30 (no ready-for-review cards; TASK-012 in-progress, edited ~2h ago, no stall; 5 open, no refill)
 Rotation position: next area = Order to cash (Sales, invoices, receipts)
 Needs human: C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997). TASK-014 blocked: Angular 19.x has no patch for the advisories; needs a human decision on a major upgrade to v20+.
 
