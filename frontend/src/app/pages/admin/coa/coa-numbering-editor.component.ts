@@ -21,10 +21,11 @@ import { HasPermissionDirective } from '../../../shared/has-permission.directive
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, NzButtonModule, NzInputNumberModule, NzRadioModule, NzSelectModule, TranslatePipe, HasPermissionDirective],
   styles: [`
-    .box { max-width: 640px; margin-bottom: 24px; }
-    .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 0; }
-    .hint { color: var(--erp-color-text-secondary); }
-    .mask { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; unicode-bidi: isolate; direction: ltr; }
+    .box { max-width: 740px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+    .box h3 { font-size: 16px; font-weight: 700; color: #1e293b; margin-top: 0; margin-bottom: 14px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 0; }
+    .hint { color: #64748b; font-size: 13px; line-height: 1.5; }
+    .mask { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; unicode-bidi: isolate; direction: ltr; font-weight: 600; color: #10955d; background: #f0fdf4; padding: 2px 6px; border-radius: 4px; }
   `],
   template: `
     <section class="box" data-testid="coa-numbering">

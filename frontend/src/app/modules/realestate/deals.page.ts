@@ -33,9 +33,19 @@ const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
       <nz-select toolbar style="width:170px" nzAllowClear nzPlaceHolder="All stages" [ngModel]="null" (ngModelChange)="filterStage($event)" data-testid="deal-stage-filter">
         @for (s of stages; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.deals.create'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newDeal' | translate: 'New deal'" nz-tooltip [nzTooltipTitle]="'ui.add.newDeal' | translate: 'New deal'" nzType="primary" (click)="state.create()" data-testid="deal-new"><span nz-icon nzType="plus"></span>New deal</button>
+      <button toolbar *erpHasPermission="'realestate.deals.create'" nz-button nzType="primary" (click)="state.create()" data-testid="deal-new"><span nz-icon nzType="plus"></span> New deal</button>
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'stage') { <erp-status-tag [status]="row.stage" /> } @else { {{ value }} }
+        @if (column.key === 'number') {
+          <span class="code-pill">{{ row.number }}</span>
+        } @else if (column.key === 'clientName') {
+          <span class="name-cell">{{ row.clientName }}</span>
+        } @else if (column.key === 'dealValue' || column.key === 'grossCommission') {
+          <strong>AED {{ (column.key === 'dealValue' ? row.dealValue : row.grossCommission).toLocaleString() }}</strong>
+        } @else if (column.key === 'stage') {
+          <erp-status-tag [status]="row.stage" />
+        } @else {
+          {{ value }}
+        }
       </ng-template>
     </erp-paged-table>
 

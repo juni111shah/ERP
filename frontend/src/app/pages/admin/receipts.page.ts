@@ -14,6 +14,7 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { catchError, of } from 'rxjs';
 import { AccountDto, AccountsApi, InvoiceSummary, InvoicesApi, LegalEntitiesApi, LegalEntityDto, ReceiptDto, ReceiptSummary, ReceiptsApi, SETTLEMENT_METHODS } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
@@ -27,7 +28,7 @@ import { PartiesApi } from '../parties.page';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { StatCardComponent } from '../../shared/stat-card.component';
 
 /** Customer receipts: record money received, settle open invoices at the same time (or later), and void. */
 @Component({
@@ -35,15 +36,66 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
-    NzInputNumberModule, NzSelectModule, NzTagModule],
+    NzInputNumberModule, NzSelectModule, NzTagModule, StatCardComponent],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
     <h1 class="erp-page-title">Receipts</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="receipt-stats">
+      <erp-stat-card label="Total collected"
+                     [value]="stats().collected"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
+                     [tone]="0" />
+      <erp-stat-card label="Allocated"
+                     [value]="stats().allocated"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="settled to invoices"
+                     [tone]="1" />
+      <erp-stat-card label="Unallocated"
+                     [value]="stats().unallocated"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().unallocatedCount ? stats().unallocatedCount + ' receipts have credit' : 'all settled'"
+                     [tone]="stats().unallocatedCount > 0 ? 2 : 'neutral'" />
+      <erp-stat-card label="Receipts"
+                     [value]="stats().count"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="recorded payments"
+                     [tone]="3" />
+    </div>
+
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, customer or reference" emptyText="No receipts yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <nz-tag [nzColor]="row.status === 'voided' ? 'red' : 'green'">{{ row.status === 'voided' ? 'Voided' : 'Posted' }}</nz-tag> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number }}</span>
+          }
+          @case ('partyName') {
+            <span class="name-cell">{{ row.partyName }}</span>
+          }
+          @case ('amount') {
+            <span style="font-weight:600;font-variant-numeric:tabular-nums">{{ value }}</span>
+          }
+          @case ('unallocated') {
+            @if (row.unallocated > 0) {
+              <span class="unallocated-badge">{{ value }}</span>
+            } @else {
+              <span class="muted-text">{{ value }}</span>
+            }
+          }
+          @case ('status') {
+            <nz-tag [nzColor]="row.status === 'voided' ? 'red' : 'green'">
+              <span nz-icon [nzType]="row.status === 'voided' ? 'close-circle' : 'check-circle'"></span>
+              {{ row.status === 'voided' ? 'Voided' : 'Posted' }}
+            </nz-tag>
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
-      <button toolbar *erpHasPermission="'finance.receipts.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newReceipt' | translate: 'New receipt'" nz-tooltip [nzTooltipTitle]="'ui.add.newReceipt' | translate: 'New receipt'" nzType="primary" (click)="open(null)" data-testid="receipt-new"><span nz-icon nzType="plus"></span>New receipt</button>
+      <button toolbar *erpHasPermission="'finance.receipts.write'" nz-button nzType="primary" (click)="open(null)" data-testid="receipt-new"><span nz-icon nzType="plus"></span>New receipt</button>
     </erp-paged-table>
 
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="640" [nzTitle]="receipt() ? receipt()!.number : 'New receipt'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
@@ -109,8 +161,24 @@ export class ReceiptsPage {
     { key: 'date', label: 'Date', sortField: 'date', width: '120px', filterField: 'date' },
     { key: 'amount', label: 'Amount', sortField: 'amount', width: '130px', align: 'right', value: (r) => formatMoney(r.amount, r.currencyCode) },
     { key: 'unallocated', label: 'Unallocated', width: '130px', align: 'right', value: (r) => formatMoney(r.unallocated, r.currencyCode) },
-    { key: 'status', label: 'Status', width: '100px', filterField: 'status', filterOptions: [{ value: 'issued', label: 'Posted' }, { value: 'voided', label: 'Voided' }] },
+    { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: [{ value: 'issued', label: 'Posted' }, { value: 'voided', label: 'Voided' }] },
   ];
+  readonly stats = computed(() => {
+    const rows = this.list.items();
+    const sum = (pick: (r: ReceiptSummary) => number, keep: (r: ReceiptSummary) => boolean) => {
+      const by = new Map<string, number>();
+      for (const r of rows) if (keep(r)) by.set(r.currencyCode, (by.get(r.currencyCode) ?? 0) + pick(r));
+      return by.size ? [...by].map(([c, v]) => formatMoney(v, c)).join(' · ') : '0.00';
+    };
+    const live = (r: ReceiptSummary) => r.status !== 'voided';
+    return {
+      count: rows.length,
+      collected: sum((r) => r.amount, live),
+      allocated: sum((r) => r.amount - r.unallocated, live),
+      unallocated: sum((r) => r.unallocated, (r) => live(r) && r.unallocated > 0),
+      unallocatedCount: rows.filter((r) => live(r) && r.unallocated > 0).length,
+    };
+  });
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);
   readonly receipt = signal<ReceiptDto | null>(null);

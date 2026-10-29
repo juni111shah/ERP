@@ -32,7 +32,7 @@
 // 1. PRIMITIVES
 // -----------------------------------------------------------------------------
 $erp-primitives: (
-  // Default brand: navy blue (from the spec requirement). Tenants replace it.
+  // Navy (secondary / dark nav)
   'navy-50': #e8f0f7,
   'navy-100': #cde0ed,
   'navy-200': #9bc1db,
@@ -45,18 +45,18 @@ $erp-primitives: (
   'navy-900': #0d1f38,
   'navy-950': #081424,
 
-  // Green (kept for charts / secondary use)
-  'green-50': #e8f7f0,
-  'green-100': #cbeedd,
-  'green-200': #9ddfc2,
+  // Green (Brand scale)
+  'green-50': #e6f7ef,
+  'green-100': #c8eedc,
+  'green-200': #9ee1bf,
   'green-300': #66cba2,
   'green-400': #34bc86,
-  'green-500': #12a06c,
-  'green-600': #0b8457,
-  'green-700': #08704b,
-  'green-800': #075e40,
-  'green-900': #0b3b2e,
-  'green-950': #062419,
+  'green-500': #17a367,
+  'green-600': #10955d,
+  'green-700': #0d7b4c,
+  'green-800': #0a623d,
+  'green-900': #074a2e,
+  'green-950': #032818,
 
   // Light neutrals (cool grey)
   'grey-0': #ffffff,
@@ -159,35 +159,35 @@ $erp-primitives: (
 // 2. BRAND SCALE (defaults; TenantThemeService overrides at runtime)
 // -----------------------------------------------------------------------------
 $erp-brand-default: (
-  'brand-50': p('navy-50'),
-  'brand-100': p('navy-100'),
-  'brand-200': p('navy-200'),
-  'brand-300': p('navy-300'),
-  'brand-400': p('navy-400'),
-  'brand-500': p('navy-500'),
-  'brand-600': p('navy-600'),
-  'brand-700': p('navy-700'),
-  'brand-800': p('navy-800'),
-  'brand-900': p('navy-900'),
-  'brand-950': p('navy-950'),
+  'brand-50': p('green-50'),
+  'brand-100': p('green-100'),
+  'brand-200': p('green-200'),
+  'brand-300': p('green-300'),
+  'brand-400': p('green-400'),
+  'brand-500': p('green-500'),
+  'brand-600': p('green-600'),
+  'brand-700': p('green-700'),
+  'brand-800': p('green-800'),
+  'brand-900': p('green-900'),
+  'brand-950': p('green-950'),
   // Resolved roles. The service picks the step that meets WCAG AA.
-  'brand-solid-light': p('navy-600'),     // fill for primary buttons (white text 5.02:1)
-  'brand-solid-hover-light': p('navy-700'),
-  'brand-solid-active-light': p('navy-800'),
+  'brand-solid-light': p('green-600'),     // fill for primary buttons (#10955d, white text 4.5+:1)
+  'brand-solid-hover-light': p('green-700'),
+  'brand-solid-active-light': p('green-800'),
   'brand-on-solid-light': p('white'),
-  'brand-text-light': p('navy-700'),      // links/brand text on white & canvas (≥5.8:1)
-  'brand-subtle-light': p('navy-50'),
-  'brand-subtle-hover-light': p('navy-100'),
-  'brand-border-light': p('navy-300'),
-  'brand-ink': p('navy-900'),             // headings tint (≥12:1)
-  'brand-solid-dark': p('navy-400'),      // 7.12:1 on dark surface
-  'brand-solid-hover-dark': p('navy-300'),
-  'brand-solid-active-dark': p('navy-500'),
-  'brand-on-solid-dark': p('navy-950'),   // 6.45:1 on navy-400
-  'brand-text-dark': p('navy-400'),
-  'brand-subtle-dark': #0d1e30,
-  'brand-subtle-hover-dark': #112638,
-  'brand-border-dark': #1d3d5f,
+  'brand-text-light': p('green-700'),      // links/brand text on white & canvas (≥5.4:1)
+  'brand-subtle-light': p('green-50'),
+  'brand-subtle-hover-light': p('green-100'),
+  'brand-border-light': p('green-300'),
+  'brand-ink': p('green-900'),             // headings tint
+  'brand-solid-dark': p('green-400'),      // on dark surface
+  'brand-solid-hover-dark': p('green-300'),
+  'brand-solid-active-dark': p('green-500'),
+  'brand-on-solid-dark': p('green-950'),
+  'brand-text-dark': p('green-400'),
+  'brand-subtle-dark': #0b2e21,
+  'brand-subtle-hover-dark': #0f3d2c,
+  'brand-border-dark': #1b5e43,
 );
 
 // -----------------------------------------------------------------------------

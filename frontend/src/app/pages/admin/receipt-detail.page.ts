@@ -5,9 +5,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { FormsModule } from '@angular/forms';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { ReceiptsApi } from '../../core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { catchError, of } from 'rxjs';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
@@ -99,6 +104,7 @@ export class ReceiptDetailPage implements OnInit {
   loading = signal(true);
   error = signal<string | null>(null);
   receipt = signal<Receipt | null>(null);
+
 
   actions = computed((): ActionButton[] => {
     const rec = this.receipt();

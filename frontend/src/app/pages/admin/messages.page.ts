@@ -7,6 +7,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { MessageLogApi, MessageLogRow } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { NzTagModule } from 'ng-zorro-antd/tag';
 import { I18nService } from '../../core/i18n/i18n.service';
 
 /** Communication log: every reminder the system sent (in-app, email outbox), with a button to run the reminder pass now. */
@@ -14,17 +15,27 @@ import { I18nService } from '../../core/i18n/i18n.service';
   selector: 'erp-messages',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, FormsModule, NzButtonModule, NzInputModule],
+  imports: [PagedTableComponent, FormsModule, NzButtonModule, NzInputModule, NzTagModule],
   providers: [DatePipe],
   template: `
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-      <h1 class="erp-page-title" style="margin:0">Message log</h1>
-      <span style="flex:1"></span>
-      <input nz-input style="width:220px" placeholder="Test email address" [(ngModel)]="testTo" data-testid="test-email-to" />
-      <button nz-button [nzLoading]="testing()" (click)="sendTest()" data-testid="test-email">Send test email</button>
-      <button nz-button nzType="primary" [nzLoading]="running()" (click)="run()" data-testid="send-reminders">Send due reminders now</button>
-    </div>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search subject or recipient" emptyText="No messages sent yet" [clickable]="false" />`,
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search subject or recipient" emptyText="No messages sent yet" [clickable]="false">
+      <div toolbar style="display:flex;align-items:center;gap:8px">
+        <input nz-input style="width:200px" placeholder="Test email address" [(ngModel)]="testTo" data-testid="test-email-to" />
+        <button nz-button [nzLoading]="testing()" (click)="sendTest()" data-testid="test-email">Send test email</button>
+        <button nz-button nzType="primary" [nzLoading]="running()" (click)="run()" data-testid="send-reminders">Send due reminders now</button>
+      </div>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @if (column.key === 'channel') {
+          <nz-tag [nzColor]="row.channel === 'email' ? 'blue' : 'purple'">{{ row.channel }}</nz-tag>
+        } @else if (column.key === 'subject') {
+          <span style="font-weight:600; color:#1e293b;">{{ row.subject }}</span>
+        } @else if (column.key === 'status') {
+          <nz-tag [nzColor]="row.status === 'sent' ? 'green' : (row.status === 'failed' ? 'red' : 'default')">{{ row.status }}</nz-tag>
+        } @else {
+          {{ value }}
+        }
+      </ng-template>
+    </erp-paged-table>`,
 })
 export class MessagesPage {
   private readonly i18n = inject(I18nService);
@@ -56,7 +67,7 @@ export class MessagesPage {
   run(): void {
     this.running.set(true);
     this.api.sendReminders().subscribe({
-      next: (r) => { this.running.set(false); this.toast.success(`${r.sent} ${this.i18n.t('ui.msg.remindersSent', 'reminder(s) sent')}`); this.list.reload(); },
+      next: (r: any) => { this.running.set(false); this.toast.success(`${r.sent} ${this.i18n.t('ui.msg.remindersSent', 'reminder(s) sent')}`); this.list.reload(); },
       error: () => this.running.set(false),
     });
   }

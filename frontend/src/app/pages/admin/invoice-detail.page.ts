@@ -9,6 +9,10 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzTimelineModule } from 'ng-zorro-antd/timeline';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { AdminApi, AuditApi, AuditEvent, TaxCodeDto, TaxCodesApi, UserSummary } from '../../core/api/admin.api';
@@ -124,6 +128,7 @@ export class InvoiceDetailPage implements OnInit {
   users = signal<UserSummary[]>([]);
   leaseLink = signal<LeaseLink | null>(null);
   taxRates = signal<Record<string, number>>({});
+
 
   balance = computed(() => {
     const inv = this.invoice();

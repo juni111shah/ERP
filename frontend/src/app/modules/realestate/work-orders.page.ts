@@ -43,9 +43,19 @@ const STATUS_LABEL: Record<string, string> = { assigned: 'Assign', inProgress: '
       <nz-select toolbar style="width:170px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="wo-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.workorders.create'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newWorkOrder' | translate: 'New work order'" nz-tooltip [nzTooltipTitle]="'ui.add.newWorkOrder' | translate: 'New work order'" nzType="primary" (click)="state.create()" data-testid="wo-new"><span nz-icon nzType="plus"></span>New work order</button>
+      <button toolbar *erpHasPermission="'realestate.workorders.create'" nz-button nzType="primary" (click)="state.create()" data-testid="wo-new"><span nz-icon nzType="plus"></span> New work order</button>
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
+        @if (column.key === 'number') {
+          <span class="code-pill">{{ row.number }}</span>
+        } @else if (column.key === 'issue') {
+          <span class="name-cell">{{ row.issue }}</span>
+        } @else if (column.key === 'status') {
+          <erp-status-tag [status]="row.status" />
+        } @else if (column.key === 'estimatedCost' || column.key === 'actualCost') {
+          <span [class.muted-text]="!value">AED {{ value ?? '—' }}</span>
+        } @else {
+          {{ value }}
+        }
       </ng-template>
     </erp-paged-table>
 
@@ -58,6 +68,9 @@ const STATUS_LABEL: Record<string, string> = { assigned: 'Assign', inProgress: '
           @for (next of nextStatuses(w); track next) {
             <button *erpHasPermission="permission(next)" nz-button nzSize="small" [nzDanger]="next === 'cancelled'" (click)="move(w, next)" [attr.data-testid]="'wo-' + next">{{ label(next) }}</button>
           }
+          <a [href]="'/print/work-order/' + w.id" target="_blank" nz-button nzSize="small" data-testid="wo-print">
+            <span nz-icon nzType="printer"></span>Print Work Order
+          </a>
         </div>
       }
     </erp-record-drawer>

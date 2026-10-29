@@ -15,11 +15,23 @@ public sealed class HrDashboard(IReadRepository<Employee> employees, IReadReposi
     {
         var entity = scope.LegalEntityId;
         var kpis = new List<KpiCard>();
+        var charts = new List<DashboardChart>();
         if (user.HasPermission(P.EmployeesRead))
         {
             var staff = await employees.Query(new Specification<Employee>(e => e.Status != EmployeeStatus.Terminated && (entity == null || e.LegalEntityId == entity)))
                 .Select(e => new { e.BasicSalary, e.HousingAllowance, e.TransportAllowance, e.OtherAllowances }).ToListAsync(ct);
             kpis.Add(new("employees", "Employees", staff.Count, "number", $"gross payroll {staff.Sum(s => s.BasicSalary + s.HousingAllowance + s.TransportAllowance + s.OtherAllowances):N0} a month", 110, "/hr/employees"));
+
+            var statuses = new[] { EmployeeStatus.Active, EmployeeStatus.OnLeave, EmployeeStatus.Terminated };
+            var counts = new List<decimal>();
+            foreach (var st in statuses)
+            {
+                var c = await employees.CountAsync(e => e.Status == st && (entity == null || e.LegalEntityId == entity), ct);
+                counts.Add((decimal)c);
+            }
+            charts.Add(new("hr-headcount", "Workforce status", "bar",
+                ["Active", "On Leave", "Terminated"],
+                [new("Headcount", counts)], "Employee employment status", 70));
         }
         if (user.HasPermission(P.PayrollRead))
         {
@@ -31,7 +43,7 @@ public sealed class HrDashboard(IReadRepository<Employee> employees, IReadReposi
             var pending = await reviews.CountAsync(r => r.Status != ReviewStatus.Acknowledged && (entity == null || r.LegalEntityId == entity), ct);
             kpis.Add(new("reviews-pending", "Reviews pending", pending, "number", "draft or awaiting acknowledgement", 118, "/hr/reviews"));
         }
-        return new DashboardContribution(kpis, [], []);
+        return new DashboardContribution(kpis, charts, []);
     }
 }
 

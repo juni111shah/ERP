@@ -1,0 +1,262 @@
+using ERP.Application.Abstractions;
+using ERP.Application.Common;
+using ERP.Modules.Distribution.Domain;
+using FluentValidation;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
+namespace ERP.Modules.Distribution.Features;
+
+public record TripInventoryItemDto(
+    Guid Id,
+    Guid TripId,
+    Guid ItemId,
+    string ItemCode,
+    string ItemName,
+    string Uom,
+    decimal LoadedQuantity,
+    decimal SoldQuantity,
+    decimal ReturnedQuantity,
+    decimal DamagedQuantity,
+    decimal UnitPrice);
+
+public record TripInventoryInput(
+    Guid ItemId,
+    string ItemCode,
+    string ItemName,
+    string Uom,
+    decimal LoadedQuantity,
+    decimal UnitPrice);
+
+public record VanSalesTripDto(
+    Guid Id,
+    Guid LegalEntityId,
+    string TripNumber,
+    Guid RouteId,
+    string RouteName,
+    Guid DriverUserId,
+    string DriverName,
+    string VehicleNumber,
+    Guid WarehouseId,
+    DateOnly DepartureDate,
+    DateOnly? ReturnDate,
+    TripStatus Status,
+    decimal TotalSalesAmount,
+    decimal TotalCollectionsAmount,
+    string? Notes,
+    List<TripInventoryItemDto> InventoryItems,
+    string? CustomFields,
+    DateTimeOffset CreatedAt);
+
+public record VanSalesTripSummaryDto(
+    Guid Id,
+    Guid LegalEntityId,
+    string TripNumber,
+    Guid RouteId,
+    string RouteName,
+    string DriverName,
+    string VehicleNumber,
+    DateOnly DepartureDate,
+    TripStatus Status,
+    decimal TotalSalesAmount,
+    decimal TotalCollectionsAmount,
+    int ItemCount,
+    DateTimeOffset CreatedAt);
+
+public record CreateTripCommand(
+    Guid LegalEntityId,
+    Guid RouteId,
+    Guid DriverUserId,
+    string DriverName,
+    string VehicleNumber,
+    Guid WarehouseId,
+    DateOnly DepartureDate,
+    string? Notes,
+    List<TripInventoryInput> Items,
+    string? CustomFields) : ICommand<VanSalesTripDto>;
+
+public record CompleteTripCommand(
+    Guid TripId,
+    decimal TotalSalesAmount,
+    decimal TotalCollectionsAmount,
+    List<RecordTripItemReconciliationInput> Items,
+    string? Notes) : ICommand<VanSalesTripDto>;
+
+public record RecordTripItemReconciliationInput(
+    Guid ItemId,
+    decimal SoldQuantity,
+    decimal ReturnedQuantity,
+    decimal DamagedQuantity);
+
+public record GetTripByIdQuery(Guid Id) : IQuery<VanSalesTripDto?>;
+
+public class CreateTripValidator : AbstractValidator<CreateTripCommand>
+{
+    public CreateTripValidator()
+    {
+        RuleFor(x => x.LegalEntityId).NotEmpty();
+        RuleFor(x => x.RouteId).NotEmpty();
+        RuleFor(x => x.DriverUserId).NotEmpty();
+        RuleFor(x => x.WarehouseId).NotEmpty();
+        RuleFor(x => x.Items).NotEmpty().WithMessage("At least one inventory item must be loaded for van sales.");
+    }
+}
+
+public class TripHandlers :
+    IRequestHandler<CreateTripCommand, VanSalesTripDto>,
+    IRequestHandler<CompleteTripCommand, VanSalesTripDto>,
+    IRequestHandler<GetTripByIdQuery, VanSalesTripDto?>
+{
+    private readonly IRepository<VanSalesTrip> _trips;
+    private readonly IRepository<DistributionRoute> _routes;
+    private readonly INumberingService _numbering;
+    private readonly IStockPostingService _stockPosting;
+
+    public TripHandlers(
+        IRepository<VanSalesTrip> trips,
+        IRepository<DistributionRoute> routes,
+        INumberingService numbering,
+        IStockPostingService stockPosting)
+    {
+        _trips = trips;
+        _routes = routes;
+        _numbering = numbering;
+        _stockPosting = stockPosting;
+    }
+
+    public async Task<VanSalesTripDto> Handle(CreateTripCommand request, CancellationToken cancellationToken)
+    {
+        var route = await _routes.FindAsync(request.RouteId, cancellationToken);
+        var routeName = route?.Name ?? "Route";
+
+        var tripNumber = await _numbering.NextAsync("VanSalesTrip", request.LegalEntityId, request.DepartureDate, cancellationToken);
+
+        var trip = new VanSalesTrip
+        {
+            LegalEntityId = request.LegalEntityId,
+            TripNumber = tripNumber,
+            RouteId = request.RouteId,
+            RouteName = routeName,
+            DriverUserId = request.DriverUserId,
+            DriverName = request.DriverName.Trim(),
+            VehicleNumber = request.VehicleNumber.Trim(),
+            WarehouseId = request.WarehouseId,
+            DepartureDate = request.DepartureDate,
+            Status = TripStatus.InProgress,
+            TotalSalesAmount = 0,
+            TotalCollectionsAmount = 0,
+            Notes = request.Notes?.Trim(),
+            CustomFields = request.CustomFields
+        };
+
+        foreach (var itm in request.Items)
+        {
+            trip.InventoryItems.Add(new TripInventoryItem
+            {
+                LegalEntityId = trip.LegalEntityId,
+                TripId = trip.Id,
+                ItemId = itm.ItemId,
+                ItemCode = itm.ItemCode.Trim(),
+                ItemName = itm.ItemName.Trim(),
+                Uom = string.IsNullOrWhiteSpace(itm.Uom) ? "PCS" : itm.Uom.Trim(),
+                LoadedQuantity = itm.LoadedQuantity,
+                SoldQuantity = 0,
+                ReturnedQuantity = 0,
+                DamagedQuantity = 0,
+                UnitPrice = itm.UnitPrice
+            });
+        }
+
+        _trips.Add(trip);
+        await _trips.SaveChangesAsync(cancellationToken);
+        return Map(trip);
+    }
+
+    public async Task<VanSalesTripDto> Handle(CompleteTripCommand request, CancellationToken cancellationToken)
+    {
+        var trip = await _trips.Query(new Specification<VanSalesTrip>(t => t.Id == request.TripId))
+            .Include(t => t.InventoryItems)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new KeyNotFoundException($"Trip {request.TripId} not found.");
+
+        trip.Status = TripStatus.Completed;
+        trip.ReturnDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        trip.TotalSalesAmount = request.TotalSalesAmount;
+        trip.TotalCollectionsAmount = request.TotalCollectionsAmount;
+        if (!string.IsNullOrWhiteSpace(request.Notes))
+        {
+            trip.Notes = (trip.Notes + " | Reconciled: " + request.Notes).Trim();
+        }
+
+        foreach (var rec in request.Items)
+        {
+            var line = trip.InventoryItems.FirstOrDefault(i => i.ItemId == rec.ItemId);
+            if (line != null)
+            {
+                line.SoldQuantity = rec.SoldQuantity;
+                line.ReturnedQuantity = rec.ReturnedQuantity;
+                line.DamagedQuantity = rec.DamagedQuantity;
+            }
+        }
+
+        await _trips.SaveChangesAsync(cancellationToken);
+
+        foreach (var item in trip.InventoryItems)
+        {
+            var issuedQty = item.SoldQuantity + item.DamagedQuantity;
+            if (issuedQty > 0 && item.ItemId != Guid.Empty)
+            {
+                await _stockPosting.IssueStockAsync(new StockIssueRequest(
+                    trip.LegalEntityId,
+                    item.ItemId,
+                    issuedQty,
+                    trip.ReturnDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                    trip.TripNumber,
+                    $"Van sales trip {trip.TripNumber} sold/damaged ({item.ItemCode})",
+                    trip.WarehouseId != Guid.Empty ? trip.WarehouseId : null), cancellationToken);
+            }
+        }
+
+        return Map(trip);
+    }
+
+    public async Task<VanSalesTripDto?> Handle(GetTripByIdQuery request, CancellationToken cancellationToken)
+    {
+        var trip = await _trips.Query(new Specification<VanSalesTrip>(t => t.Id == request.Id))
+            .Include(t => t.InventoryItems)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return trip is null ? null : Map(trip);
+    }
+
+    private static VanSalesTripDto Map(VanSalesTrip t) => new(
+        t.Id,
+        t.LegalEntityId,
+        t.TripNumber,
+        t.RouteId,
+        t.RouteName,
+        t.DriverUserId,
+        t.DriverName,
+        t.VehicleNumber,
+        t.WarehouseId,
+        t.DepartureDate,
+        t.ReturnDate,
+        t.Status,
+        t.TotalSalesAmount,
+        t.TotalCollectionsAmount,
+        t.Notes,
+        t.InventoryItems.Select(i => new TripInventoryItemDto(
+            i.Id,
+            i.TripId,
+            i.ItemId,
+            i.ItemCode,
+            i.ItemName,
+            i.Uom,
+            i.LoadedQuantity,
+            i.SoldQuantity,
+            i.ReturnedQuantity,
+            i.DamagedQuantity,
+            i.UnitPrice)).ToList(),
+        t.CustomFields,
+        t.CreatedAt);
+}

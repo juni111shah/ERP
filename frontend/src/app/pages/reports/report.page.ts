@@ -28,14 +28,33 @@ import { RevealDirective } from '../../shared/reveal.directive';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StatCardComponent, FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule, NzSelectModule, RevealDirective],
   styles: [`
-    .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px } .card { display:block; padding:14px 16px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px; background:var(--erp-color-surface, #fff); color:inherit } .card b { display:block; margin-bottom:4px } .card span { font-size:12px; color: var(--erp-color-text-secondary, #667) }
-    .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:12px 0 } .spacer { flex:1 } .num { text-align:right } .total td { font-weight:600 }
+    .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:16px; }
+    .card {
+      display:block;
+      padding:18px 20px;
+      border:1px solid #e2e8f0;
+      border-radius:12px;
+      background:#ffffff;
+      color:inherit;
+      text-decoration:none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .card:hover {
+      box-shadow: 0 8px 20px -4px rgba(16, 149, 93, 0.12);
+      border-color: #6ee7b7;
+      transform: translateY(-2px);
+    }
+    .card b { display:block; font-size:15px; font-weight:700; color:#0f172a; margin-bottom:6px; }
+    .card span { font-size:13px; color: #64748b; line-height:1.4; }
+    .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:16px 0 } .spacer { flex:1 } .num { text-align:right } .total td { font-weight:600 }
     .kpis { display:flex; gap:24px; flex-wrap:wrap; margin-bottom:12px } .kpi { padding:8px 14px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px } .kpi b { display:block; font-size:18px }
     @media print { .bar button, .bar nz-date-picker, .bar nz-input-number { display:none } }
   `],
   template: `
     @if (!def()) {
       <h1 class="erp-page-title">Reports</h1>
+      <p style="color:#64748b; margin-top:-8px; margin-bottom:16px;">Operational summaries, tax filings, financial statements, and performance analytics.</p>
       <div class="hub" data-testid="reports-hub">
         @for (r of available(); track r.slug) { <a class="card" [routerLink]="['/reports', r.slug]" [attr.data-testid]="'report-' + r.slug"><b>{{ r.title }}</b><span>{{ r.subtitle }}</span></a> }
         @for (l of ledgerLinks; track l.title) { <a class="card" [routerLink]="l.link" [queryParams]="{ tab: l.tab }"><b>{{ l.title }}</b><span>{{ l.note }}</span></a> }

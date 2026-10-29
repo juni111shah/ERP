@@ -18,16 +18,29 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication', 'Teamwork', 'Initiative'];
 
+import { NzTagModule } from 'ng-zorro-antd/tag';
+
 /** Performance reviews: overall rating, goals and competency scores. Draft -> Submitted -> Acknowledged by the employee. */
 @Component({
   selector: 'erp-reviews',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, NzIconModule, NzInputModule, NzSelectModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, NzIconModule, NzInputModule, NzSelectModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Performance reviews</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search reviewer" emptyText="No reviews yet" (rowClick)="open($event.id)">
-      <button toolbar *erpHasPermission="'hr.reviews.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newReview' | translate: 'New review'" nz-tooltip [nzTooltipTitle]="'ui.add.newReview' | translate: 'New review'" nzType="primary" (click)="create()" data-testid="review-new"><span nz-icon nzType="plus"></span>New review</button>
+      <button toolbar *erpHasPermission="'hr.reviews.manage'" nz-button nzType="primary" (click)="create()" data-testid="review-new"><span nz-icon nzType="plus"></span> New review</button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @if (column.key === 'employeeId') {
+          <span class="name-cell">{{ value }}</span>
+        } @else if (column.key === 'overallRating') {
+          <strong>{{ value }}</strong>
+        } @else if (column.key === 'status') {
+          <nz-tag [nzColor]="row.status === 'acknowledged' ? 'green' : (row.status === 'submitted' ? 'blue' : 'default')">{{ value }}</nz-tag>
+        } @else {
+          {{ value }}
+        }
+      </ng-template>
     </erp-paged-table>
     <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Review: ' + employeeName() : 'New review'" nzWidth="680" (nzOnClose)="drawer.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
@@ -48,7 +61,7 @@ const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication
             @if (!locked()) { <button nz-button nzType="text" nzSize="small" (click)="remove(i)"><span nz-icon nzType="delete"></span></button> }
           </div>
         }
-        @if (!locked()) { <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addCompetency' | translate: 'Add competency'" nz-tooltip [nzTooltipTitle]="'ui.add.addCompetency' | translate: 'Add competency'" nzSize="small" (click)="add()" data-testid="review-add-competency"><span nz-icon nzType="plus"></span>Add competency</button> }
+        @if (!locked()) { <button nz-button nzType="dashed" nzSize="small" (click)="add()" data-testid="review-add-competency"><span nz-icon nzType="plus"></span> Add competency</button> }
         <h4 style="margin-top:16px">Comments</h4>
         <textarea nz-input rows="3" [(ngModel)]="comments" [disabled]="locked()"></textarea>
       </ng-container>

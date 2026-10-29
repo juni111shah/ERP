@@ -1,4 +1,5 @@
-import { Component, Input, Output, EventEmitter, computed, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, computed, inject, OnInit, OnChanges } from '@angular/core';
+import { PageTitleService } from '../core/services/page-title.service';
 import { SessionStore } from '../core/session/session.store';
 import { RecordHistoryComponent } from './record-history.component';
 import { CommonModule } from '@angular/common';
@@ -188,7 +189,7 @@ export interface DescriptionItem {
     </nz-card>
   `
 })
-export class DetailPageComponent {
+export class DetailPageComponent implements OnInit, OnChanges {
   readonly tone = kpiTone;
   isNumber(v: unknown): boolean { return typeof v === 'number'; }
   @Input() backLink?: string[];
@@ -209,6 +210,26 @@ export class DetailPageComponent {
   @Input() recordType?: string;
   @Input() recordId?: string;
   private readonly session = inject(SessionStore);
+  private readonly pageTitle = inject(PageTitleService);
+
+  ngOnInit(): void {
+    this.updateTopBar();
+  }
+
+  ngOnChanges(): void {
+    this.updateTopBar();
+  }
+
+  private updateTopBar(): void {
+    if (this.title) {
+      this.pageTitle.setTitle(
+        this.title,
+        this.entityName !== 'Record' ? this.entityName : null,
+        this.status ? { text: this.status } : null
+      );
+    }
+  }
+
   /** The change history is only for people who may read the audit log. */
   canSeeHistory(): boolean { return !this.recordType || this.session.hasPermission('core.audit.read'); }
 }
