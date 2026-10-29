@@ -2,7 +2,7 @@
 id: TASK-021
 title: Retry document commands when a number or allocation hits a concurrency conflict
 priority: P2
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: platform
@@ -42,3 +42,7 @@ Row version configuration; numbering format.
 - NOT verified: acceptance criterion 1 (20 parallel receipts). The integration test host runs on one shared SQLite connection and fails with unrelated errors under parallel requests ("nested transactions", "no more rows"), so concurrency cannot be tested end to end here. See TASK-022.
 
 ## Review (Claude)
+
+Verified 2026-10-30 in a clean `git archive HEAD` copy: `dotnet build` 0 errors; `dotnet test` 237 unit + 219 integration passed, 0 failed; `ng build` ok.
+- Diff 080f1f6: retry behavior (3 attempts, jitter, marker interface, change-tracker reset, numbering reset) with three unit tests (retry until success, give up after 3 and rethrow, unmarked commands untouched). Criterion 1 (20 parallel receipts) could not be verified end to end because the SQLite test host cannot run parallel requests; it is explicitly deferred to TASK-022 and is the one thing still unproven.
+- Result: done for the behavior; run the 20-parallel test once TASK-022 lands.

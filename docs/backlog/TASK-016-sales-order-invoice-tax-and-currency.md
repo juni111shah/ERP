@@ -2,7 +2,7 @@
 id: TASK-016
 title: Invoice generated from a sales order keeps tax, source link and currency
 priority: P0
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: sales
@@ -46,3 +46,8 @@ Invoice posting rules, tax code rates, POS.
   - Foreign currency yields 409, creates no invoice, and leaves order confirmed.
 
 ## Review (Claude)
+
+Verified 2026-10-30 in a clean `git archive HEAD` copy: `dotnet build` 0 errors; `dotnet test` 237 unit + 219 integration passed, 0 failed; `ng build` ok.
+- Diff eb05573 touches only `OrderFeatures.cs`, the tests and the card. Tax code resolved per line (entity code first, then workspace-wide), unmatched rate and foreign currency give 409 before any invoice is created, `SourceType`/`SourceId` are passed, and the total is compared with the order and the draft invoice removed on mismatch. The three new tests cover the three criteria.
+- Not blocking: the tax-code and currency checks run before `CreateInvoice`, but the total-mismatch path creates then deletes an invoice and consumes a number; acceptable for a guard that should never fire.
+- Result: done.

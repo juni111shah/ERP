@@ -2,7 +2,7 @@
 id: TASK-020
 title: Reject or round money amounts to two decimals in receipts, payments, cheques, bank and journals
 priority: P1
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: finance
@@ -23,10 +23,10 @@ An amount such as `10.005` is held with three decimals while the journal balance
 - Set explicit `HasPrecision(18, 2)` for the money columns of Settlement, SettlementAllocation, JournalLine, Invoice and Bill totals in the model configuration **only if** it matches the existing column type, so no migration is generated (verify with `dotnet ef migrations has-pending-model-changes`).
 
 ## Acceptance criteria
-- [ ] A receipt, payment or allocation with 3 decimal places returns 400 on the amount field.
-- [ ] Auto-allocation of an amount spread over several invoices never leaves a sub-cent remainder.
-- [ ] The EF model still has no pending changes.
-- [ ] Existing finance tests still pass.
+- [x] A receipt, payment or allocation with 3 decimal places returns 400 on the amount field.
+- [x] Auto-allocation of an amount spread over several invoices never leaves a sub-cent remainder.
+- [x] The EF model still has no pending changes.
+- [x] Existing finance tests still pass.
 
 ## Tests required
 Unit tests for `MustBeMoney`; integration tests for the receipt/payment rejection and an auto-allocation case with an awkward amount (for example 100.00 over three invoices of 33.33).
@@ -42,3 +42,7 @@ Tax calculation rules; report logic.
 - Full suite in the worktree: 234 unit + 212 integration passed.
 
 ## Review (Claude)
+
+Verified 2026-10-30 in a clean `git archive HEAD` copy: `dotnet build` 0 errors; `dotnet test` 237 unit + 219 integration passed, 0 failed; `ng build` ok.
+- Diff 6bec496: `MustBeMoney` on receipts, payments, cheques, transfers, statement lines, credit-note applications and journal lines; allocations checked in `SettlementService`. No model change, so no migration. Tests cover 3-decimal receipt, payment and allocation (400) and the 100.00 over three 33.33 invoices case.
+- Result: done.

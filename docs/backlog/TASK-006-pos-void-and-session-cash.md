@@ -2,7 +2,7 @@
 id: TASK-006
 title: POS void reverses cash, stock at original cost, and respects closed sessions
 priority: P0
-status: ready-for-review
+status: done
 schema: no
 depends_on: [TASK-005]
 area: pos
@@ -46,3 +46,8 @@ Order creation validation (TASK-005).
 - Added four integration tests in `PosOrderTests.cs` verifying all four acceptance criteria. All unit and integration tests passing (223 unit, 205 integration).
 
 ## Review (Claude)
+
+Verified 2026-10-30 in a clean `git archive HEAD` copy: `dotnet build` 0 errors; `dotnet test` 237 unit + 219 integration passed, 0 failed; `ng build` ok.
+- Diff f521af6 matches the card. Void now needs an open session (409 otherwise, checked before any change), cash reduced by tendered minus change, stock reversed through `ReverseIssueAsync` at the original movement unit cost, session totals updated with `ExecuteUpdateAsync`, all inside `InTransactionAsync`. Four tests cover the four criteria.
+- Not blocking, follow-ups: (1) the POS revenue journal is not reversed on void and journal failures are swallowed by `catch {}`; this is TASK-007/TASK-010. (2) The static `_sqliteTxLock` in `AppDbContext.InTransactionAsync` exists only to make the SQLite test host work; TASK-022 should remove the need for it. (3) The commit message lacks the `TASK-006:` prefix.
+- Result: done.

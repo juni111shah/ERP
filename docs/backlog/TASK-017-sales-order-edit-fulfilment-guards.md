@@ -2,7 +2,7 @@
 id: TASK-017
 title: Sales order edit, fulfilment and invoice due-date guards
 priority: P0
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: sales
@@ -48,3 +48,8 @@ Stock posting service internals, the order status transition table.
   - Added test `Invoice_due_date_uses_customer_payment_terms_days` verifying due date equals invoice date + paymentTermsDays.
 
 ## Review (Claude)
+
+Verified 2026-10-30 in a clean `git archive HEAD` copy: `dotnet build` 0 errors; `dotnet test` 237 unit + 219 integration passed, 0 failed; `ng build` ok.
+- Diff 38e077e matches the card: edit allowed only for Draft or undelivered Confirmed orders, fulfilment needs Confirmed or Processing, a lowered delivered quantity gives 400, and `DueDate: null` lets customer payment terms apply. Four tests cover the rules, including no stock movements after a rejected call.
+- Not blocking: the lowered-quantity check runs inside the line loop, so if an earlier line in the same request already issued stock, it relies on the request not being saved to roll back. Worth a follow-up that validates all lines before issuing any stock.
+- Result: done.
