@@ -2,7 +2,7 @@
 id: TASK-012
 title: Remove hardcoded currency, tax rate and placeholder GUIDs from module pages
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: frontend
