@@ -20,7 +20,16 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
   template: `
     <h1 class="erp-page-title">Unit types</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No unit types yet" (rowClick)="state.edit($event)">
-      <button toolbar *erpHasPermission="'realestate.unittypes.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newUnitType' | translate: 'New unit type'" nz-tooltip [nzTooltipTitle]="'ui.add.newUnitType' | translate: 'New unit type'" nzType="primary" (click)="state.create()" data-testid="unittype-new"><span nz-icon nzType="plus"></span>New unit type</button>
+      <button toolbar *erpHasPermission="'realestate.unittypes.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="unittype-new"><span nz-icon nzType="plus"></span> New unit type</button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @if (column.key === 'code') {
+          <span class="code-pill">{{ row.code }}</span>
+        } @else if (column.key === 'name') {
+          <span class="name-cell">{{ row.name }}</span>
+        } @else {
+          {{ value }}
+        }
+      </ng-template>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit unit type' : 'New unit type'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
                        [saving]="state.saving()" [errors]="state.errors()" testId="unittype-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,

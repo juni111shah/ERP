@@ -21,7 +21,7 @@ public class ArchitectureTests
     [Fact]
     public void Core_assemblies_never_reference_module_assemblies()
     {
-        var result = Types.InAssemblies(CoreAssemblies).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.CountryPacks").GetResult();
+        var result = Types.InAssemblies(CoreAssemblies).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr", "ERP.Modules.Projects", "ERP.CountryPacks").GetResult();
         Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
         foreach (var a in CoreAssemblies)
             Assert.DoesNotContain(a.GetReferencedAssemblies(), r => r.Name!.StartsWith("ERP.Modules.", StringComparison.Ordinal) || r.Name.StartsWith("ERP.CountryPacks.", StringComparison.Ordinal));
@@ -48,6 +48,10 @@ public class ArchitectureTests
     {
         Assert.True(Types.InAssembly(typeof(RealEstateModule).Assembly).ShouldNot().HaveDependencyOn("ERP.Modules.Inventory").GetResult().IsSuccessful);
         Assert.True(Types.InAssembly(typeof(InventoryModule).Assembly).ShouldNot().HaveDependencyOn("ERP.Modules.RealEstate").GetResult().IsSuccessful);
+        Assert.True(Types.InAssembly(typeof(ERP.Modules.Projects.ProjectsModule).Assembly).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr").GetResult().IsSuccessful);
+        Assert.True(Types.InAssembly(typeof(ERP.Modules.Sales.SalesModule).Assembly).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr", "ERP.Modules.Projects").GetResult().IsSuccessful);
+        Assert.True(Types.InAssembly(typeof(ERP.Modules.Purchasing.PurchasingModule).Assembly).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr", "ERP.Modules.Projects", "ERP.Modules.Sales").GetResult().IsSuccessful);
+        Assert.True(Types.InAssembly(typeof(ERP.Modules.Pos.PosModule).Assembly).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr", "ERP.Modules.Projects", "ERP.Modules.Sales", "ERP.Modules.Purchasing").GetResult().IsSuccessful);
     }
 
     // ---- Endpoint -> MediatR (CQRS) -> Repository -> DB --------------------------------------------------------------
@@ -82,7 +86,7 @@ public class ArchitectureTests
     [Fact]
     public void Module_code_outside_handlers_never_touches_repositories()
     {
-        foreach (var assembly in new[] { typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly, typeof(ERP.Modules.Hr.HrModule).Assembly })
+        foreach (var assembly in new[] { typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly, typeof(ERP.Modules.Hr.HrModule).Assembly, typeof(ERP.Modules.Projects.ProjectsModule).Assembly, typeof(ERP.Modules.Sales.SalesModule).Assembly, typeof(ERP.Modules.Purchasing.PurchasingModule).Assembly, typeof(ERP.Modules.Pos.PosModule).Assembly, typeof(ERP.Modules.Retail.RetailModule).Assembly, typeof(ERP.Modules.Distribution.DistributionModule).Assembly, typeof(ERP.Modules.Manufacturing.ManufacturingModule).Assembly, typeof(ERP.Modules.Crm.CrmModule).Assembly, typeof(ERP.Modules.Services.ServicesModule).Assembly })
         {
             var result = Types.InAssembly(assembly).That().DoNotHaveNameEndingWith("Handlers").And().DoNotResideInNamespaceContaining(".Features")
                 .ShouldNot().HaveDependencyOnAny("ERP.Application.Abstractions.IRepository`1", "ERP.Application.Abstractions.IReadRepository`1").GetResult();
@@ -94,7 +98,7 @@ public class ArchitectureTests
     public void Every_mediator_request_has_a_handler()
     {
         // Catches a request type that was added without a handler (it would only fail at runtime on first use).
-        var assemblies = new[] { typeof(CorePermissions).Assembly, typeof(ModuleRegistry).Assembly, typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly, typeof(ERP.Modules.Hr.HrModule).Assembly };
+        var assemblies = new[] { typeof(CorePermissions).Assembly, typeof(ModuleRegistry).Assembly, typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly, typeof(ERP.Modules.Hr.HrModule).Assembly, typeof(ERP.Modules.Projects.ProjectsModule).Assembly, typeof(ERP.Modules.Sales.SalesModule).Assembly, typeof(ERP.Modules.Purchasing.PurchasingModule).Assembly, typeof(ERP.Modules.Pos.PosModule).Assembly, typeof(ERP.Modules.Retail.RetailModule).Assembly, typeof(ERP.Modules.Distribution.DistributionModule).Assembly, typeof(ERP.Modules.Manufacturing.ManufacturingModule).Assembly, typeof(ERP.Modules.Crm.CrmModule).Assembly, typeof(ERP.Modules.Services.ServicesModule).Assembly };
         var handled = assemblies.SelectMany(a => a.GetTypes())
             .SelectMany(t => t.GetInterfaces()).Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(MediatR.IRequestHandler<,>))
             .Select(i => i.GetGenericArguments()[0]).ToHashSet();

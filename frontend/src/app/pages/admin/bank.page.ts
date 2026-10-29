@@ -28,7 +28,69 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
-  styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center } .cards { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px } .card { padding:12px 16px; border:1px solid var(--erp-color-border, #eee); border-radius:8px; min-width:200px; cursor:pointer } .card.sel { border-color: var(--erp-color-primary, #1677ff) } .card b { display:block; font-size:20px } .num { text-align:right } h3 { margin: 20px 0 8px }`],
+  styles: [`
+    .bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center }
+    .bank-accounts-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:24px }
+    .bank-card {
+      background: var(--erp-color-bg-surface, #ffffff);
+      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      border-radius: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .bank-card:hover {
+      border-color: var(--erp-color-primary, #10955d);
+      box-shadow: 0 4px 12px rgba(16, 149, 93, 0.08);
+      transform: translateY(-1px);
+    }
+    .bank-card.sel {
+      border-color: var(--erp-color-primary, #10955d);
+      background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+      box-shadow: 0 0 0 1px var(--erp-color-primary, #10955d), 0 4px 12px rgba(16, 149, 93, 0.1);
+    }
+    .bank-card-header { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 500; color: var(--erp-color-text-secondary, #64748b); }
+    .bank-card-balance { font-size: 22px; font-weight: 700; color: var(--erp-color-text-title, #0f172a); letter-spacing: -0.3px; }
+    .rec-metrics-strip {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      background: var(--erp-color-bg-surface, #ffffff);
+      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      border-radius: 10px;
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+    .rec-metric-item { display: flex; flex-direction: column; gap: 2px; }
+    .rec-metric-label { font-size: 12px; color: var(--erp-color-text-secondary, #64748b); }
+    .rec-metric-val { font-size: 15px; font-weight: 600; color: var(--erp-color-text-title, #0f172a); }
+    .rec-metric-divider { width: 1px; height: 28px; background: var(--erp-color-border-subtle, #edf2f7); }
+    .bank-table-card {
+      background: var(--erp-color-bg-surface, #ffffff);
+      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      border-radius: 12px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .bank-table-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fafbfc;
+    }
+    .bank-table-title { font-size: 14px; font-weight: 600; color: var(--erp-color-text-title, #0f172a); display: flex; align-items: center; gap: 8px; }
+    .num { text-align: right }
+    .amt-inflow { color: #10955d; font-weight: 600; }
+    .amt-outflow { color: #e11d48; font-weight: 600; }
+  `],
   template: `
     <h1 class="erp-page-title">Cash and bank</h1>
     <div class="bar" erpReveal>
@@ -37,41 +99,108 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
       <button *erpHasPermission="'finance.bank.write'" nz-button (click)="transferOpen.set(true)" data-testid="bank-transfer"><span nz-icon nzType="swap"></span>Transfer</button>
       <button nz-button nzType="default" type="button" (click)="refresh()" data-testid="bank-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
     </div>
+
     @if (position(); as p) {
-      <div class="cards" data-testid="bank-cards">
+      <div class="bank-accounts-grid" data-testid="bank-cards">
         @for (a of p.accounts; track a.accountId) {
-          <div class="card" [class.sel]="a.accountId === accountId()" (click)="select(a.accountId)" [attr.data-testid]="'bank-card-' + a.code"><span>{{ a.code }} · {{ a.name }}</span><b>{{ a.balance | number: '1.2-2' }}</b></div>
+          <div class="bank-card" [class.sel]="a.accountId === accountId()" (click)="select(a.accountId)" [attr.data-testid]="'bank-card-' + a.code">
+            <div class="bank-card-header">
+              <span>{{ a.code }} · {{ a.name }}</span>
+              @if (a.accountId === accountId()) {
+                <nz-tag nzColor="success">Selected</nz-tag>
+              }
+            </div>
+            <div class="bank-card-balance">AED {{ a.balance | number: '1.2-2' }}</div>
+          </div>
         }
-        <div class="card" style="cursor:default"><span>Total</span><b>{{ p.total | number: '1.2-2' }}</b></div>
+        <div class="bank-card" style="cursor:default">
+          <div class="bank-card-header"><span>Total Liquidity</span></div>
+          <div class="bank-card-balance">AED {{ p.total | number: '1.2-2' }}</div>
+        </div>
       </div>
     }
+
     @if (rec(); as r) {
-      <div class="bar" erpReveal>
-        <h3 style="margin:0">{{ 'ui.bank.reconciliation' | translate: 'Reconciliation' }} — {{ r.code }} {{ r.name }}</h3>
+      <div class="bar" style="margin-top:12px">
+        <h3 style="margin:0;font-size:16px;font-weight:600">{{ 'ui.bank.reconciliation' | translate: 'Reconciliation' }} — {{ r.code }} {{ r.name }}</h3>
         <nz-tag [nzColor]="r.reconciled ? 'green' : 'orange'" data-testid="rec-status">{{ r.reconciled ? 'Reconciled' : 'Differences to review' }}</nz-tag>
         <span style="flex:1"></span>
         <ng-container *erpHasPermission="'finance.bank.write'">
-          <button nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.importStatement' | translate: 'Import statement'" nz-tooltip [nzTooltipTitle]="'ui.add.importStatement' | translate: 'Import statement'" (click)="importOpen.set(true)" data-testid="bank-import"><span nz-icon nzType="plus"></span>Import statement</button>
-          <button nz-button nzType="primary" [disabled]="!entityId" (click)="autoMatch()" data-testid="bank-automatch">Auto-match</button>
+          <button nz-button (click)="importOpen.set(true)" data-testid="bank-import"><span nz-icon nzType="plus"></span>Import statement</button>
+          <button nz-button nzType="primary" [disabled]="!entityId" (click)="autoMatch()" data-testid="bank-automatch"><span nz-icon nzType="sync"></span>Auto-match</button>
         </ng-container>
       </div>
-      @if (!entityId) { <p>Choose a legal entity above to import and match statements.</p> }
-      <p>{{ 'ui.bank.ledgerBalance' | translate: 'Ledger balance' }} {{ r.ledgerBalance | number: '1.2-2' }} · {{ r.matched }} {{ 'ui.bank.linesMatched' | translate: 'lines matched' }} · {{ 'ui.bank.unmatchedStatement' | translate: 'unmatched statement' }} {{ r.unmatchedStatementTotal | number: '1.2-2' }} · {{ 'ui.bank.unmatchedLedger' | translate: 'unmatched ledger' }} {{ r.unmatchedLedgerTotal | number: '1.2-2' }}</p>
-      <h3>On the statement, not in the books</h3>
-      <nz-table [nzData]="r.unmatchedStatement" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="rec-statement">
-        <thead><tr><th>Date</th><th>Description</th><th>Reference</th><th class="num">Amount</th><th></th></tr></thead>
-        <tbody>
-          @for (l of r.unmatchedStatement; track l.id) {
-            <tr><td>{{ l.date }}</td><td>{{ l.description }}</td><td>{{ l.reference }}</td><td class="num">{{ l.amount | number: '1.2-2' }}</td>
-              <td><a *erpHasPermission="'finance.bank.write'" (click)="startBook(l)" data-testid="rec-book">Book it</a></td></tr>
-          }
-        </tbody>
-      </nz-table>
-      <h3>In the books, not on the statement</h3>
-      <nz-table [nzData]="r.unmatchedLedger" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="rec-ledger">
-        <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Amount</th></tr></thead>
-        <tbody>@for (l of r.unmatchedLedger; track l.journalLineId) { <tr><td>{{ l.date }}</td><td>{{ l.number }}</td><td>{{ l.description }}</td><td class="num">{{ l.amount | number: '1.2-2' }}</td></tr> }</tbody>
-      </nz-table>
+
+      @if (!entityId) {
+        <p style="color:var(--erp-color-text-secondary);margin-bottom:12px">Choose a legal entity above to import and match statements.</p>
+      }
+
+      <div class="rec-metrics-strip">
+        <div class="rec-metric-item">
+          <span class="rec-metric-label">{{ 'ui.bank.ledgerBalance' | translate: 'Ledger balance' }}</span>
+          <span class="rec-metric-val">AED {{ r.ledgerBalance | number: '1.2-2' }}</span>
+        </div>
+        <div class="rec-metric-divider"></div>
+        <div class="rec-metric-item">
+          <span class="rec-metric-label">{{ 'ui.bank.linesMatched' | translate: 'Lines matched' }}</span>
+          <span class="rec-metric-val">{{ r.matched }}</span>
+        </div>
+        <div class="rec-metric-divider"></div>
+        <div class="rec-metric-item">
+          <span class="rec-metric-label">{{ 'ui.bank.unmatchedStatement' | translate: 'Unmatched statement' }}</span>
+          <span class="rec-metric-val">AED {{ r.unmatchedStatementTotal | number: '1.2-2' }}</span>
+        </div>
+        <div class="rec-metric-divider"></div>
+        <div class="rec-metric-item">
+          <span class="rec-metric-label">{{ 'ui.bank.unmatchedLedger' | translate: 'Unmatched ledger' }}</span>
+          <span class="rec-metric-val">AED {{ r.unmatchedLedgerTotal | number: '1.2-2' }}</span>
+        </div>
+      </div>
+
+      <div class="bank-table-card">
+        <div class="bank-table-header">
+          <span class="bank-table-title"><span nz-icon nzType="file-text"></span> On the statement, not in the books</span>
+          <nz-tag>{{ r.unmatchedStatement.length }} {{ r.unmatchedStatement.length === 1 ? 'line' : 'lines' }}</nz-tag>
+        </div>
+        <nz-table [nzData]="r.unmatchedStatement" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="rec-statement">
+          <thead><tr><th>Date</th><th>Description</th><th>Reference</th><th class="num">Amount</th><th></th></tr></thead>
+          <tbody>
+            @for (l of r.unmatchedStatement; track l.id) {
+              <tr>
+                <td>{{ l.date }}</td>
+                <td>{{ l.description }}</td>
+                <td><span class="code-pill">{{ l.reference || '—' }}</span></td>
+                <td class="num" [class.amt-inflow]="l.amount > 0" [class.amt-outflow]="l.amount < 0">
+                  {{ l.amount < 0 ? '- AED ' + ((-l.amount) | number: '1.2-2') : 'AED ' + (l.amount | number: '1.2-2') }}
+                </td>
+                <td><a *erpHasPermission="'finance.bank.write'" (click)="startBook(l)" data-testid="rec-book">Book it</a></td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      </div>
+
+      <div class="bank-table-card">
+        <div class="bank-table-header">
+          <span class="bank-table-title"><span nz-icon nzType="book"></span> In the books, not on the statement</span>
+          <nz-tag>{{ r.unmatchedLedger.length }} {{ r.unmatchedLedger.length === 1 ? 'line' : 'lines' }}</nz-tag>
+        </div>
+        <nz-table [nzData]="r.unmatchedLedger" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="rec-ledger">
+          <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Amount</th></tr></thead>
+          <tbody>
+            @for (l of r.unmatchedLedger; track l.journalLineId) {
+              <tr>
+                <td>{{ l.date }}</td>
+                <td><span class="code-pill">{{ l.number }}</span></td>
+                <td>{{ l.description }}</td>
+                <td class="num" [class.amt-inflow]="l.amount > 0" [class.amt-outflow]="l.amount < 0">
+                  {{ l.amount < 0 ? '- AED ' + ((-l.amount) | number: '1.2-2') : 'AED ' + (l.amount | number: '1.2-2') }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      </div>
     }
 
     <nz-modal [nzVisible]="importOpen()" nzTitle="Import bank statement" (nzOnCancel)="importOpen.set(false)" (nzOnOk)="runImport()" nzOkText="Import" [nzOkLoading]="busy()" [nzWidth]="640">

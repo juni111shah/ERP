@@ -62,7 +62,7 @@ const SUB_LABELS: Record<string, string> = {
               @if (p.kind === 'accounts' && !p.loading) { <span class="coa-count" data-testid="coa-count">{{ p.total }}</span> }
             </div>
             @if (p.kind === 'accounts') {
-              <button *erpHasPermission="'finance.accounts.write'" nz-button nzSize="small" nzType="link" erpReveal data-reveal="on" (click)="add(p)" [attr.data-testid]="'coa-add-' + i"
+              <button *erpHasPermission="'finance.accounts.write'" nz-button nzSize="small" nzType="link" (click)="add(p)" [attr.data-testid]="'coa-add-' + i"
                       [attr.aria-label]="(p.parent ? 'coa.addSub' : 'coa.addAccount') | translate: (p.parent ? 'Add sub-account' : 'Add account')"
                       [title]="(p.parent ? 'coa.addSub' : 'coa.addAccount') | translate: (p.parent ? 'Add sub-account' : 'Add account')">
                 <span nz-icon nzType="plus"></span>{{ (p.parent ? 'coa.addSub' : 'coa.addAccount') | translate: (p.parent ? 'Add sub-account' : 'Add account') }}

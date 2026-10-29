@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -20,21 +20,79 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const STATUSES = ['vacant', 'reserved', 'occupied', 'unavailable'];
 
+import { DecimalPipe } from '@angular/common';
+import { StatCardComponent } from '../../shared/stat-card.component';
+
 @Component({
   selector: 'erp-units',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [DecimalPipe, StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Units</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="unit-stats">
+      <erp-stat-card label="Total units"
+                     [value]="list.total()"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
+                     [tone]="0" />
+      <erp-stat-card label="Occupied / leased"
+                     [value]="stats().occupied"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="generating revenue"
+                     [tone]="1" />
+      <erp-stat-card label="Vacant units"
+                     [value]="stats().vacant"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().vacant > 0 ? 'available to let' : '100% full'"
+                     [tone]="stats().vacant > 0 ? 2 : 'neutral'" />
+      <erp-stat-card label="Potential rent"
+                     [value]="stats().potentialRent"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="annual asking on page"
+                     [tone]="3" />
+    </div>
+
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search unit number" emptyText="No units yet" (rowClick)="open($event)">
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="unit-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.units.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.addMany' | translate: 'Add many'" nz-tooltip [nzTooltipTitle]="'ui.add.addMany' | translate: 'Add many'" (click)="bulkOpen.set(true)" data-testid="unit-bulk"><span nz-icon nzType="appstore-add"></span>Add many</button>
-      <button toolbar *erpHasPermission="'realestate.units.manage'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newUnit' | translate: 'New unit'" nz-tooltip [nzTooltipTitle]="'ui.add.newUnit' | translate: 'New unit'" nzType="primary" (click)="state.create()" data-testid="unit-new"><span nz-icon nzType="plus"></span>New unit</button>
+      <button toolbar *erpHasPermission="'realestate.units.manage'" nz-button (click)="bulkOpen.set(true)" data-testid="unit-bulk"><span nz-icon nzType="appstore-add"></span>Add many</button>
+      <button toolbar *erpHasPermission="'realestate.units.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="unit-new"><span nz-icon nzType="plus"></span>New unit</button>
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('unitNumber') {
+            <span class="code-pill">{{ row.unitNumber }}</span>
+          }
+          @case ('status') {
+            <erp-status-tag [status]="row.status" />
+          }
+          @case ('askingRent') {
+            <b>AED {{ row.askingRent | number: '1.2-2' }}</b>
+          }
+          @case ('currentRent') {
+            @if (row.currentRent) {
+              <b>AED {{ row.currentRent | number: '1.2-2' }}</b>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @case ('tenantName') {
+            @if (row.tenantName) {
+              <span class="name-cell">{{ row.tenantName }}</span>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
     </erp-paged-table>
 
@@ -73,6 +131,19 @@ export class UnitsPage {
   readonly humanize = humanize;
   readonly statuses = STATUSES;
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'unitNumber' });
+
+  readonly stats = computed(() => {
+    const items = this.list.items();
+    const occupied = items.filter((u) => u.status === 'occupied').length;
+    const vacant = items.filter((u) => u.status === 'vacant').length;
+    const potentialRent = items.reduce((s, u) => s + (u.askingRent || 0), 0);
+    return {
+      occupied,
+      vacant,
+      potentialRent,
+      count: items.length,
+    };
+  });
   readonly state = new MasterDataState<UnitDto>({
     save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Unit',
   });

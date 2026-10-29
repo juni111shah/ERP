@@ -3,15 +3,17 @@
 
 .erp-stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-block-end: 16px;
+  width: 100%;
+  min-width: 0;
   &.erp-stat-grid--auto { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
   &.erp-stat-grid--full { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
   &.erp-stat-grid--compact { gap: 14px; }
 }
-@media (max-width: 1200px) { .erp-stat-grid:not(.erp-stat-grid--auto):not(.erp-stat-grid--full) { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 640px) { .erp-stat-grid:not(.erp-stat-grid--auto):not(.erp-stat-grid--full) { grid-template-columns: 1fr; } }
+@media (max-width: 1200px) { .erp-stat-grid:not(.erp-stat-grid--auto):not(.erp-stat-grid--full) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .erp-stat-grid:not(.erp-stat-grid--auto):not(.erp-stat-grid--full) { grid-template-columns: minmax(0, 1fr); } }
 
 erp-stat-card { display: block; min-width: 0; }
 

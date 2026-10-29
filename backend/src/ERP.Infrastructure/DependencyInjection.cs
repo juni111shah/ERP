@@ -87,6 +87,7 @@ public static class DependencyInjection
         services.AddSingleton<ISettingsCatalog, SettingsCatalog>();
         services.AddSingleton<INotificationPusher, NullNotificationPusher>();
         services.AddSingleton<IFileStore, LocalFileStore>();
+        services.AddScoped<IStockPostingService, NullStockPostingService>();
         return services;
     }
 }

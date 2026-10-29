@@ -54,25 +54,29 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
       @case (0) {
         @if (tb(); as t) {
           @if (!t.balanced) { <nz-alert nzType="error" nzShowIcon nzMessage="The trial balance does not balance."></nz-alert> }
-          <nz-table [nzData]="t.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="tb-table">
-            <thead><tr><th>Code</th><th>Account</th><th class="num">Opening</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Closing</th></tr></thead>
-            <tbody>
-              @for (r of t.rows; track r.accountId) { <tr><td>{{ r.code }}</td><td>{{ r.name }}</td><td class="num">{{ r.opening | number: '1.2-2' }}</td><td class="num">{{ r.debit | number: '1.2-2' }}</td><td class="num">{{ r.credit | number: '1.2-2' }}</td><td class="num">{{ r.closing | number: '1.2-2' }}</td></tr> }
-              <tr class="total"><td colspan="3">Total</td><td class="num">{{ t.totalDebit | number: '1.2-2' }}</td><td class="num">{{ t.totalCredit | number: '1.2-2' }}</td><td></td></tr>
-            </tbody>
-          </nz-table>
+          <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-top:12px;">
+            <nz-table [nzData]="t.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="tb-table">
+              <thead><tr><th>Code</th><th>Account</th><th class="num">Opening</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Closing</th></tr></thead>
+              <tbody>
+                @for (r of t.rows; track r.accountId) { <tr><td><span class="code-pill">{{ r.code }}</span></td><td style="font-weight:600; color:#1e293b;">{{ r.name }}</td><td class="num">{{ r.opening | number: '1.2-2' }}</td><td class="num">{{ r.debit | number: '1.2-2' }}</td><td class="num">{{ r.credit | number: '1.2-2' }}</td><td class="num" style="font-weight:600;">{{ r.closing | number: '1.2-2' }}</td></tr> }
+                <tr class="total" style="background:#f8fafc;"><td colspan="3" style="font-weight:700;">Total</td><td class="num" style="font-weight:700;">{{ t.totalDebit | number: '1.2-2' }}</td><td class="num" style="font-weight:700;">{{ t.totalCredit | number: '1.2-2' }}</td><td></td></tr>
+              </tbody>
+            </nz-table>
+          </div>
         }
       }
       @case (1) {
         @if (gl(); as g) {
-          <h4>{{ g.code }} · {{ g.name }} — {{ 'ui.ledger.openingLc' | translate: 'opening' }} {{ g.opening | number: '1.2-2' }}</h4>
-          <nz-table [nzData]="g.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="gl-table">
-            <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
-            <tbody>
-              @for (l of g.lines; track $index) { <tr><td>{{ l.date }}</td><td>{{ l.number }}</td><td>{{ l.description || l.memo }}</td><td class="num">{{ l.debit | number: '1.2-2' }}</td><td class="num">{{ l.credit | number: '1.2-2' }}</td><td class="num">{{ l.balance | number: '1.2-2' }}</td></tr> }
-              <tr class="total"><td colspan="5">Closing balance</td><td class="num">{{ g.closing | number: '1.2-2' }}</td></tr>
-            </tbody>
-          </nz-table>
+          <h4 style="font-size:16px; font-weight:700; color:#1e293b; margin:16px 0 8px;"><span class="code-pill">{{ g.code }}</span> {{ g.name }} — {{ 'ui.ledger.openingLc' | translate: 'opening' }} <strong>{{ g.opening | number: '1.2-2' }}</strong></h4>
+          <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <nz-table [nzData]="g.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="gl-table">
+              <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
+              <tbody>
+                @for (l of g.lines; track $index) { <tr><td>{{ l.date }}</td><td><span class="code-pill">{{ l.number }}</span></td><td>{{ l.description || l.memo }}</td><td class="num">{{ l.debit | number: '1.2-2' }}</td><td class="num">{{ l.credit | number: '1.2-2' }}</td><td class="num" style="font-weight:600;">{{ l.balance | number: '1.2-2' }}</td></tr> }
+                <tr class="total" style="background:#f8fafc;"><td colspan="5" style="font-weight:700;">Closing balance</td><td class="num" style="font-weight:700;">{{ g.closing | number: '1.2-2' }}</td></tr>
+              </tbody>
+            </nz-table>
+          </div>
         }
       }
       @case (2) {

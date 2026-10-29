@@ -32,15 +32,15 @@ type AccountDraft = Partial<AccountDto> & { id: string; _parentLabel?: string };
   template: `
     <div class="coa-page-head">
       <h1 class="erp-page-title">{{ 'coa.title' | translate: 'Chart of accounts' }}</h1>
-      <div class="coa-page-tools" erpReveal>
+      <div class="coa-page-tools">
         <nz-radio-group [ngModel]="view()" (ngModelChange)="setView($event)" nzButtonStyle="solid" nzSize="small" data-testid="coa-view">
           <label nz-radio-button nzValue="panels" data-testid="coa-view-panels"><span nz-icon nzType="partition"></span> {{ 'coa.view.panels' | translate: 'Step by step' }}</label>
           <label nz-radio-button nzValue="list" data-testid="coa-view-list"><span nz-icon nzType="unordered-list"></span> {{ 'coa.view.list' | translate: 'List view' }}</label>
         </nz-radio-group>
         @if (view() === 'panels') {
           <button nz-button nzType="default" type="button" (click)="refreshTree()" data-testid="coa-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
-          <button *erpHasPermission="'finance.accounts.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'coa.newAccount' | translate: 'New account'" nz-tooltip [nzTooltipTitle]="'coa.newAccount' | translate: 'New account'" nzType="primary" (click)="newAccount(null)" data-testid="account-new">
-            <span nz-icon nzType="plus"></span>{{ 'coa.newAccount' | translate: 'New account' }}
+          <button *erpHasPermission="'finance.accounts.write'" nz-button nzType="primary" (click)="newAccount(null)" data-testid="account-new">
+            <span nz-icon nzType="plus"></span> {{ 'coa.newAccount' | translate: 'New account' }}
           </button>
         }
       </div>
