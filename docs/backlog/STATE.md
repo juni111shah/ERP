@@ -1,6 +1,6 @@
 # Board
 
-Last Claude run: 2026-10-29 (nothing ready-for-review; TASK-005 possible stall; 8 open, no refill)
+Last Claude run: 2026-10-29 late (nothing ready-for-review; TASK-005 still in-progress, uncommitted POS edits in working tree suggest active work; 8 open, no refill)
 Rotation position: next area = Order to cash (Sales, invoices, receipts)
 Needs human: TASK-005 in-progress since 2026-10-25 with no commit (possible stall). C: disk is 100% full (reviews built from D:RP_review_tmp; free C: space). TASK-014 blocked: Angular 19.x has no patch for the advisories; needs a human decision on a major upgrade to v20+.
 
