@@ -8150,9 +8150,15 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasPrecision(19, 4)
                         .HasColumnType("decimal(19,4)");
 
+                    b.Property<Guid?>("BillId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Category")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("ChargeableTo")
+                        .HasColumnType("int");
 
                     b.Property<DateOnly?>("CompletedOn")
                         .HasColumnType("date");
@@ -8200,6 +8206,12 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("OrgId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("OwnerSharePercent")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(9, 4)
+                        .HasColumnType("decimal(9,4)")
+                        .HasDefaultValue(100m);
 
                     b.Property<int>("Priority")
                         .HasColumnType("int");
@@ -8252,6 +8264,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.HasIndex("PropertyId");
 
                     b.HasIndex("UnitId");
+
+                    b.HasIndex("OrgId", "BillId")
+                        .HasFilter("[BillId] IS NOT NULL");
 
                     b.HasIndex("OrgId", "UnitId");
 
