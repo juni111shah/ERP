@@ -2,12 +2,12 @@
 id: TASK-012
 title: Remove hardcoded currency, tax rate and placeholder GUIDs from module pages
 priority: P1
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: frontend
 audit_ref: AUD-006, AUD-007
-commit: 1a9cb5f
+commit: 7ca79a1
 ---
 
 ## Problem
@@ -42,3 +42,10 @@ Backend contracts.
 - Verified `npm run build` cleanly succeeded, Karma unit tests passed (3/3), and backend `dotnet test` passed (223 unit, 201 integration tests).
 
 ## Review (Claude)
+
+Reviewed 7ca79a1 (card hash 1a9cb5f was amended away). Verified in a clean `git archive` copy:
+- Forbidden-pattern grep over `frontend/src/app` matches only comments/doc strings (csv-export, stat-card, workspace-currency docs).
+- `WorkspaceCurrencyService` used by 38 files, including Sales, POS, Retail and Manufacturing pages; spec file added.
+- `npx ng build`: success (budget warnings only). `dotnet build backend/ERP.sln`: 0 errors. `dotnet test`: 223 unit + 201 integration passed.
+- Not re-run by me: the Karma spec (3 tests, reported passing by Antigravity).
+- Note: commit also included docs/backlog edits (STATE, this card); harmless.
