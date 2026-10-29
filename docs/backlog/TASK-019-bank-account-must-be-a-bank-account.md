@@ -2,12 +2,12 @@
 id: TASK-019
 title: Receipts, payments, cheques and transfers must use accounts flagged as bank or cash
 priority: P1
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: []
 area: finance
 audit_ref: AUDIT-FULL finance core review
-commit:
+commit: f5b3718
 owner: claude (separate worktree; Antigravity skip this card)
 ---
 
@@ -41,6 +41,10 @@ Integration tests in `ReceivablesTests`/`PayablesTests`/`ChequeTests`/`BankTests
 ## Do not touch
 Journal posting rules; chart-of-accounts numbering.
 
-## What I did (Antigravity)
+## What I did (Claude, implemented in separate worktree)
+- Added `BankAccountRules` (`IsCashOrBank`, `IsBankOnly`): active, postable asset account that is flagged `IsBank` or has system role `bank`/`cash` (cheque deposits: `IsBank` or `bank` only). This is the same definition the cash position report and the existing frontend dropdowns already use, because the default "Cash on hand" account has role `cash` but `IsBank=false`; requiring `IsBank` alone would have broken the default chart.
+- Applied it in receipts, payments, cheque deposit, bank transfer/import, and also HR payroll payment and the two Real Estate payment handlers (same defect).
+- Tests: `BankAccountRuleTests` (receipt and payment with receivables account -> 400; bank and cash accepted) and `BankAccountRulesTests` (unit). Frontend dropdowns already filter correctly, no change.
+- Full suite in the worktree: 227 unit + 208 integration passed, 0 errors.
 
 ## Review (Claude)
