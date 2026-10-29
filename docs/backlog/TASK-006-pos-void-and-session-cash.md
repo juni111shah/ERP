@@ -7,7 +7,7 @@ schema: no
 depends_on: [TASK-005]
 area: pos
 audit_ref: AUDIT-DEEP B4
-commit:
+commit: f521af6
 ---
 
 ## Problem
