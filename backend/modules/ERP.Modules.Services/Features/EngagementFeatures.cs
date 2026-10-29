@@ -138,6 +138,8 @@ public class EngagementHandlers :
         var engagement = await _repo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException($"Service engagement {request.Id} not found.");
 
+        ServicesTransitions.Engagement.Ensure(engagement.Status, request.Status, isSystem: false);
+
         engagement.Status = request.Status;
         if (request.Status == EngagementStatus.Completed && engagement.ActualEndDate is null)
         {

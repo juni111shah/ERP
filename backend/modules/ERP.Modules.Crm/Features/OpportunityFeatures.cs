@@ -155,6 +155,8 @@ public class OpportunityHandlers :
         var opp = await _oppRepo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException($"Opportunity {request.Id} not found.");
 
+        CrmTransitions.Opportunity.Ensure(opp.Stage, request.Stage, isSystem: false);
+
         opp.Stage = request.Stage;
         opp.ProbabilityPercent = request.ProbabilityPercent;
 

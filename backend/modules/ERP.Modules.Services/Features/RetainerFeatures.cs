@@ -131,6 +131,8 @@ public class RetainerHandlers :
         var contract = await _repo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException($"Retainer contract {request.Id} not found.");
 
+        ServicesTransitions.Retainer.Ensure(contract.Status, request.Status, isSystem: false);
+
         contract.Status = request.Status;
         await _repo.SaveChangesAsync(cancellationToken);
         return Map(contract);

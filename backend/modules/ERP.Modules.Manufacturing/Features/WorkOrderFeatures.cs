@@ -215,8 +215,7 @@ public class WorkOrderHandlers :
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Work Order {request.Id} not found.");
 
-        if (wo.Status != WorkOrderStatus.Planned)
-            throw new ConflictException($"Work Order must be Planned before releasing (currently {wo.Status}).");
+        ManufacturingTransitions.WorkOrder.Ensure(wo.Status, WorkOrderStatus.InProgress, isSystem: false);
 
         wo.Status = WorkOrderStatus.InProgress;
         await _orders.SaveChangesAsync(cancellationToken);
@@ -230,8 +229,7 @@ public class WorkOrderHandlers :
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Work Order {request.Id} not found.");
 
-        if (wo.Status != WorkOrderStatus.InProgress)
-            throw new ConflictException($"Work Order must be in progress before completing (currently {wo.Status}).");
+        ManufacturingTransitions.WorkOrder.Ensure(wo.Status, WorkOrderStatus.Completed, isSystem: false);
 
         var bom = await _boms.Query(new Specification<BillOfMaterials>(b => b.Id == wo.BomId))
             .Include(b => b.Components)
@@ -358,8 +356,7 @@ public class WorkOrderHandlers :
     public async Task<Unit> Handle(CancelWorkOrderCommand request, CancellationToken cancellationToken)
     {
         var wo = await _orders.GetForUpdateAsync(request.Id, cancellationToken);
-        if (wo.Status != WorkOrderStatus.Planned && wo.Status != WorkOrderStatus.InProgress)
-            throw new ConflictException($"Cannot cancel a Work Order in status {wo.Status}.");
+        ManufacturingTransitions.WorkOrder.Ensure(wo.Status, WorkOrderStatus.Cancelled, isSystem: false);
         if (wo.CompletedQuantity > 0)
             throw new ConflictException("Cannot cancel a Work Order with completed quantity.");
 

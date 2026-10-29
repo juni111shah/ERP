@@ -194,10 +194,7 @@ internal sealed class RequisitionHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Requisition '{cmd.Id}' not found.");
 
-        if (req.Status == PurchaseRequisitionStatus.Ordered)
-            throw new ConflictException("Cannot change status of an already ordered requisition.");
-        if (cmd.Status == PurchaseRequisitionStatus.Ordered && !req.ConvertedPurchaseOrderId.HasValue)
-            throw new ConflictException("Cannot transition requisition to Ordered without converting to a purchase order.");
+        PurchasingTransitions.Requisition.Ensure(req.Status, cmd.Status, isSystem: false);
 
         req.Status = cmd.Status;
         await requisitions.SaveChangesAsync(ct);
@@ -209,6 +206,8 @@ internal sealed class RequisitionHandlers(
         var req = await requisitions.Tracked(new Specification<PurchaseRequisition>(x => x.Id == cmd.Id))
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Requisition '{cmd.Id}' not found.");
+
+        PurchasingTransitions.Requisition.Ensure(req.Status, PurchaseRequisitionStatus.Ordered, isSystem: true);
 
         var order = new PurchaseOrder
         {

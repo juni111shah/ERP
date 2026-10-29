@@ -137,6 +137,7 @@ internal sealed class TaskHandlers(
     public async Task<TaskDto> Handle(ChangeTaskStatus cmd, CancellationToken ct)
     {
         var t = await tasks.GetForUpdateAsync(cmd.Id, ct);
+        ProjectsTransitions.Task.Ensure(t.Status, cmd.Status, isSystem: false);
         t.Status = cmd.Status;
         await tasks.SaveChangesAsync(ct);
         return await BuildDtoAsync(t, ct);

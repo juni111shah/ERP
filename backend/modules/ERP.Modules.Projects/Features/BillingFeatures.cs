@@ -176,6 +176,7 @@ internal sealed class BillingHandlers(
 
             foreach (var ms in msToBill)
             {
+                ProjectsTransitions.Milestone.Ensure(ms.Status, MilestoneStatus.Invoiced, isSystem: true);
                 ms.Status = MilestoneStatus.Invoiced;
             }
 

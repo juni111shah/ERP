@@ -91,6 +91,7 @@ internal sealed class MilestoneHandlers(
     {
         var m = await milestones.GetForUpdateAsync(cmd.Id, ct);
         var i = cmd.Input;
+        ProjectsTransitions.Milestone.Ensure(m.Status, i.Status, isSystem: false);
         m.Title = i.Title.Trim();
         m.DueDate = i.DueDate;
         m.Amount = i.Amount;
@@ -112,6 +113,7 @@ internal sealed class MilestoneHandlers(
     public async Task<MilestoneDto> Handle(AchieveMilestone cmd, CancellationToken ct)
     {
         var m = await milestones.GetForUpdateAsync(cmd.Id, ct);
+        ProjectsTransitions.Milestone.Ensure(m.Status, MilestoneStatus.Achieved, isSystem: false);
         m.Status = MilestoneStatus.Achieved;
         m.AchievedDate = cmd.AchievedDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
         await milestones.SaveChangesAsync(ct);

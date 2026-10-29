@@ -139,14 +139,7 @@ public class MilestoneHandlers :
         var milestone = await _repo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException($"Billing milestone {request.Id} not found.");
 
-        if (request.Status == MilestoneStatus.Paid)
-        {
-            throw new ConflictException("Milestone cannot be manually marked as Paid. Paid status is derived from invoice settlement.");
-        }
-        if (request.Status == MilestoneStatus.Invoiced && !request.InvoiceId.HasValue)
-        {
-            throw new ConflictException("Use the milestone invoice endpoint to generate an invoice.");
-        }
+        ServicesTransitions.Milestone.Ensure(milestone.Status, request.Status, isSystem: false);
 
         milestone.Status = request.Status;
         if (request.Status == MilestoneStatus.ReadyToInvoice && milestone.CompletionDate is null)
@@ -167,10 +160,7 @@ public class MilestoneHandlers :
         var milestone = await _repo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException($"Billing milestone {request.Id} not found.");
 
-        if (milestone.Status != MilestoneStatus.ReadyToInvoice)
-        {
-            throw new ConflictException($"Milestone '{milestone.MilestoneCode}' must be in ReadyToInvoice status to be invoiced.");
-        }
+        ServicesTransitions.Milestone.Ensure(milestone.Status, MilestoneStatus.Invoiced, isSystem: true);
 
         var engagement = await _engagements.FindAsync(milestone.EngagementId, cancellationToken)
             ?? throw new NotFoundException($"Service engagement {milestone.EngagementId} not found.");

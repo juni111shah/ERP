@@ -239,12 +239,7 @@ internal sealed class OrderHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Sales order '{cmd.Id}' not found.");
 
-        if (order.Status == SalesOrderStatus.Invoiced)
-            throw new ConflictException("Cannot change status of an already invoiced order.");
-        if (order.Status == SalesOrderStatus.Cancelled)
-            throw new ConflictException("Cannot change status of a cancelled order.");
-        if (cmd.Status == SalesOrderStatus.Invoiced && !order.InvoicedInvoiceId.HasValue)
-            throw new ConflictException("Cannot transition to Invoiced without converting to an accounting invoice.");
+        SalesTransitions.Order.Ensure(order.Status, cmd.Status, isSystem: false);
 
         order.Status = cmd.Status;
         await orders.SaveChangesAsync(ct);
@@ -304,6 +299,8 @@ internal sealed class OrderHandlers(
         {
             return await sender.Send(new GetInvoice(order.InvoicedInvoiceId.Value), ct);
         }
+
+        SalesTransitions.Order.Ensure(order.Status, SalesOrderStatus.Invoiced, isSystem: true);
 
         if (!order.CustomerPartyId.HasValue)
         {

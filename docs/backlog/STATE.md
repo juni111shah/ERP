@@ -6,9 +6,9 @@ Needs human: C: disk is 100% full (reviews built from D:RP_review_tmp; free C: s
 
 | Status | Count |
 |---|---|
-| open | 7 |
+| open | 6 |
 | in-progress | 0 |
-| ready-for-review | 2 |
+| ready-for-review | 3 |
 | changes-requested | 0 |
 | blocked | 1 |
 | done | 5 |
@@ -23,7 +23,7 @@ Needs human: C: disk is 100% full (reviews built from D:RP_review_tmp; free C: s
 | TASK-006 | P0 | open | POS void reverses cash, stock at original cost |
 | TASK-007 | P0 | open | Post POS sales and tax to the ledger |
 | TASK-008 | P0 | done | GR/IR clearing and bill matching |
-| TASK-009 | P1 | open | Enforce status transitions on module documents |
+| TASK-009 | P1 | ready-for-review | Enforce status transitions on module documents |
 | TASK-010 | P0 | open | Transactional postings and idempotency keys (schema) |
 | TASK-011 | P0 | ready-for-review | Project and service billing create invoices or fail |
 | TASK-012 | P1 | open | Remove hardcoded currency, tax, placeholder GUIDs |

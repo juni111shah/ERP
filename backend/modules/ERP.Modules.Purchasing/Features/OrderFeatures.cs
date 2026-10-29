@@ -239,12 +239,7 @@ internal sealed class PurchaseOrderHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Purchase order '{cmd.Id}' not found.");
 
-        if (order.Status == PurchaseOrderStatus.Billed)
-            throw new ConflictException("Cannot change status of an already billed purchase order.");
-        if (order.Status == PurchaseOrderStatus.Cancelled)
-            throw new ConflictException("Cannot change status of a cancelled purchase order.");
-        if (cmd.Status == PurchaseOrderStatus.Billed && !order.InvoicedBillId.HasValue)
-            throw new ConflictException("Cannot transition to Billed without converting to a vendor bill.");
+        PurchasingTransitions.Order.Ensure(order.Status, cmd.Status, isSystem: false);
 
         order.Status = cmd.Status;
         await orders.SaveChangesAsync(ct);
@@ -261,6 +256,8 @@ internal sealed class PurchaseOrderHandlers(
         {
             return await sender.Send(new GetBill(order.InvoicedBillId.Value), ct);
         }
+
+        PurchasingTransitions.Order.Ensure(order.Status, PurchaseOrderStatus.Billed, isSystem: true);
 
         if (!order.VendorPartyId.HasValue)
         {
