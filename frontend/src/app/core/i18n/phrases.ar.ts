@@ -919,6 +919,7 @@ const PAIRS: [string, string][] = [
   ['Draft renewals', 'تجديدات مسودة'], ['item / warehouse', 'صنف / مستودع'], ['Balance Due', 'الرصيد المستحق'], ['Days Overdue', 'أيام التأخير'],
   ['Group by customer', 'تجميع حسب العميل'], ['Group by business unit', 'تجميع حسب وحدة العمل'], ['Group by source', 'تجميع حسب المصدر'], ['All business units', 'كل وحدات العمل'], ['Source type (optional)', 'نوع المصدر (اختياري)'],
   ['Business unit', 'وحدة العمل'], ['Source', 'المصدر'], ['Direct invoices', 'فواتير مباشرة'], ['No business unit', 'بدون وحدة عمل'],
+  ['Send by email', 'إرسال بالبريد الإلكتروني'], ['Message (optional)', 'رسالة (اختياري)'], ["Leave empty to use the party's email address.", 'اتركه فارغاً لاستخدام البريد الإلكتروني للطرف.'],
   // Sales module
   ['Sales', 'المبيعات'], ['Quotes', 'عروض الأسعار'], ['Sales orders', 'أوامر البيع'], ['Sales analytics', 'تحليلات المبيعات'],
   ['Sales Quotes', 'عروض أسعار المبيعات'], ['Sales Orders', 'أوامر البيع'], ['New Quote', 'عرض سعر جديد'], ['New Sales Order', 'أمر بيع جديد'],

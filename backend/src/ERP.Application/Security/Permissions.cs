@@ -40,6 +40,7 @@ public static class CorePermissions
     public const string ItemsWrite = "core.items.write";
     public const string AttachmentsRead = "core.attachments.read";
     public const string AttachmentsWrite = "core.attachments.write";
+    public const string EmailSend = "core.email.send";
 
     public const string AccountsRead = "finance.accounts.read";
     public const string AccountsWrite = "finance.accounts.write";
@@ -99,6 +100,7 @@ public static class CorePermissions
         PermissionDefinition.Of(ItemsWrite, "Create and edit products and services"),
         PermissionDefinition.Of(AttachmentsRead, "View and download attachments"),
         PermissionDefinition.Of(AttachmentsWrite, "Upload and delete attachments"),
+        PermissionDefinition.Of(EmailSend, "Email invoices, receipts, bills, payments and statements to parties"),
         PermissionDefinition.Of(AccountsRead, "View the chart of accounts"),
         PermissionDefinition.Of(AccountsWrite, "Edit the chart of accounts"),
         PermissionDefinition.Of(JournalsRead, "View journals"),

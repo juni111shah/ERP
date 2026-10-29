@@ -1,3 +1,4 @@
+import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -41,7 +42,7 @@ interface Payment {
 @Component({
   selector: 'erp-payment-detail',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -82,10 +83,12 @@ interface Payment {
           </div>
         }
       </erp-detail-page>
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/payments/' + payment()!.id + '/email'" (closed)="emailOpen.set(false)" />
     }
   `
 })
 export class PaymentDetailPage implements OnInit {
+  readonly emailOpen = signal(false);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -130,6 +133,12 @@ export class PaymentDetailPage implements OnInit {
         label: 'Print',
         icon: 'printer',
         handler: () => window.open(`/print/payment/${pay.id}`, '_blank')
+      },
+      {
+        label: 'Email',
+        icon: 'mail',
+        permission: 'core.email.send',
+        handler: () => this.emailOpen.set(true)
       }
     ];
   });
