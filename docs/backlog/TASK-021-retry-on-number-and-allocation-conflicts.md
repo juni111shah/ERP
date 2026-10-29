@@ -2,12 +2,13 @@
 id: TASK-021
 title: Retry document commands when a number or allocation hits a concurrency conflict
 priority: P2
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: platform
 audit_ref: AUDIT-FULL finance core review
 commit:
+owner: claude (separate worktree; Antigravity skip this card)
 ---
 
 ## Problem

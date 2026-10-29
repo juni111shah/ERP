@@ -2,12 +2,13 @@
 id: TASK-019
 title: Receipts, payments, cheques and transfers must use accounts flagged as bank or cash
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: finance
 audit_ref: AUDIT-FULL finance core review
 commit:
+owner: claude (separate worktree; Antigravity skip this card)
 ---
 
 ## Problem

@@ -2,12 +2,13 @@
 id: TASK-020
 title: Reject or round money amounts to two decimals in receipts, payments, cheques, bank and journals
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: finance
 audit_ref: AUDIT-FULL finance core review
 commit:
+owner: claude (separate worktree; Antigravity skip this card)
 ---
 
 ## Problem
