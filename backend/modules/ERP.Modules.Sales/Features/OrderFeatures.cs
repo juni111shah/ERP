@@ -203,8 +203,10 @@ internal sealed class OrderHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Sales order '{cmd.Id}' not found.");
 
-        if (order.Status == SalesOrderStatus.Invoiced)
-            throw new ConflictException("Cannot edit an invoiced sales order.");
+        var canEdit = order.Status == SalesOrderStatus.Draft ||
+                      (order.Status == SalesOrderStatus.Confirmed && order.Lines.All(l => l.DeliveredQuantity == 0));
+        if (!canEdit)
+            throw new ConflictException($"Cannot edit sales order in status '{order.Status}'" + (order.Lines.Any(l => l.DeliveredQuantity > 0) ? " with delivered quantities." : "."));
 
         var i = cmd.Input;
         order.CustomerPartyId = i.CustomerPartyId;
@@ -254,12 +256,18 @@ internal sealed class OrderHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Sales order '{cmd.Id}' not found.");
 
+        if (order.Status != SalesOrderStatus.Confirmed && order.Status != SalesOrderStatus.Processing)
+            throw new ConflictException($"Cannot fulfill sales order in status '{order.Status}'. Only Confirmed or Processing orders can be fulfilled.");
+
         foreach (var ful in cmd.Lines)
         {
             var line = order.Lines.FirstOrDefault(l => l.Id == ful.LineId);
             if (line != null)
             {
-                var targetQty = Math.Min(line.Quantity, Math.Max(0, ful.DeliveredQuantity));
+                if (ful.DeliveredQuantity < line.DeliveredQuantity)
+                    throw new FieldValidationException("deliveredQuantity", $"Delivered quantity ({ful.DeliveredQuantity}) cannot be less than current delivered quantity ({line.DeliveredQuantity}).");
+
+                var targetQty = Math.Min(line.Quantity, ful.DeliveredQuantity);
                 var delta = targetQty - line.DeliveredQuantity;
                 if (delta > 0 && line.ItemId.HasValue)
                 {
@@ -348,7 +356,7 @@ internal sealed class OrderHandlers(
             LegalEntityId: order.LegalEntityId,
             PartyId: order.CustomerPartyId.Value,
             InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow),
-            DueDate: order.ExpectedDeliveryDate,
+            DueDate: null,
             Lines: invoiceLines,
             Notes: $"Generated from Sales Order {order.Number}",
             SourceType: "salesorder",

@@ -2,12 +2,12 @@
 id: TASK-017
 title: Sales order edit, fulfilment and invoice due-date guards
 priority: P0
-status: open
+status: ready-for-review
 schema: no
 depends_on: []
 area: sales
 audit_ref: order-to-cash review 2026-10-30
-commit:
+commit: pending
 ---
 
 ## Problem
@@ -25,10 +25,10 @@ Double stock issue, lost delivery history, stock out of sync with delivered quan
 - `ConvertOrderToInvoice`: pass `DueDate: null` so customer payment terms apply.
 
 ## Acceptance criteria
-- [ ] Editing a Delivered, Cancelled or Invoiced order returns 409 and changes nothing.
-- [ ] Fulfilment on a Draft or Cancelled order returns 409 and issues no stock.
-- [ ] Lowering a delivered quantity returns 400.
-- [ ] Invoice due date = invoice date + customer PaymentTermsDays.
+- [x] Editing a Delivered, Cancelled or Invoiced order returns 409 and changes nothing.
+- [x] Fulfilment on a Draft or Cancelled order returns 409 and issues no stock.
+- [x] Lowering a delivered quantity returns 400.
+- [x] Invoice due date = invoice date + customer PaymentTermsDays.
 
 ## Tests required
 Integration tests for each rule above, plus one asserting stock movements are not duplicated after a rejected call.
@@ -37,5 +37,14 @@ Integration tests for each rule above, plus one asserting stock movements are no
 Stock posting service internals, the order status transition table.
 
 ## What I did (Antigravity)
+- In `OrderFeatures.cs`:
+  - In `UpdateOrder`: restricted edits strictly to `Draft` status, or `Confirmed` status where no quantities have been delivered yet (`order.Lines.All(l => l.DeliveredQuantity == 0)`). Any other status throws `ConflictException` (409).
+  - In `UpdateOrderFulfillment`: required order status to be `Confirmed` or `Processing`, throwing `ConflictException` (409) otherwise. Added validation rejecting `DeliveredQuantity` less than current delivered quantity with `FieldValidationException` (400).
+  - In `ConvertOrderToInvoice`: passed `DueDate: null` in `InvoiceInput` so that customer payment terms days (`party.PaymentTermsDays`) calculate the invoice due date.
+- In `SalesOrderTests.cs`:
+  - Added test `Editing_delivered_cancelled_or_invoiced_order_returns_conflict_and_changes_nothing` verifying 409 on delivered, cancelled, and invoiced edits.
+  - Added test `Fulfillment_on_draft_or_cancelled_order_returns_conflict_and_issues_no_stock` verifying 409 and no inventory stock movements issued.
+  - Added test `Lowering_delivered_quantity_returns_bad_request_and_issues_no_stock` verifying 400 and no extra stock movements issued.
+  - Added test `Invoice_due_date_uses_customer_payment_terms_days` verifying due date equals invoice date + paymentTermsDays.
 
 ## Review (Claude)
