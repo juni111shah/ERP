@@ -106,6 +106,8 @@ internal static class RealEstateModel
             b.Property(x => x.ResolutionNotes).HasMaxLength(4000);
             b.Property(x => x.EstimatedCost).HasPrecision(19, 4);
             b.Property(x => x.ActualCost).HasPrecision(19, 4);
+            b.Property(x => x.OwnerSharePercent).HasPrecision(9, 4).HasDefaultValue(100m);
+            b.HasIndex(x => new { x.OrgId, x.BillId }).HasFilter("[BillId] IS NOT NULL");
             b.HasOne<Property>().WithMany().HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Unit>().WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Lease>().WithMany().HasForeignKey(x => x.LeaseId).OnDelete(DeleteBehavior.Restrict);
