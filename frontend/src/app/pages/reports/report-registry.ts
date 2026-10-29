@@ -3,7 +3,7 @@ import { currentLang, phraseNow, tNow } from '../../core/i18n/translate-now';
 /** Declarative definitions of the server-built reports. A report page needs no code of its own: add an entry here. */
 export type ColType = 'text' | 'money' | 'number' | 'percent' | 'date';
 export interface ReportColumn { key: string; label: string; type?: ColType; }
-export type ReportFilter = 'range' | 'asOf' | 'weeks' | 'months' | 'optionalAsOf' | 'owner';
+export type ReportFilter = 'range' | 'asOf' | 'weeks' | 'months' | 'optionalAsOf' | 'owner' | 'days';
 
 export interface ReportDef {
   slug: string;
@@ -71,6 +71,34 @@ export const REPORTS: ReportDef[] = [
     rows: (x) => x.rows,
     totals: (x) => ({ property: 'Total', feePercent: null, rentCollected: x.rentCollected, managementFee: x.managementFee, maintenanceCosts: x.maintenanceCosts, netToOwner: x.netToOwner }),
     summary: (x) => [{ label: 'Owner', value: x.owner }, { label: 'Net payable to owner', value: fmt(x.netToOwner) }],
+  },
+  {
+    slug: 'stock-valuation', title: 'Stock valuation', subtitle: 'Quantity, average cost and value of stock per warehouse and item at the end of the chosen date.', module: 'inventory',
+    endpoint: 'm/inventory/reports/valuation', filters: ['asOf'],
+    columns: () => [t('warehouse', 'Warehouse'), t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('quantity', 'Quantity'), m('averageCost', 'Average cost'), m('value', 'Value')],
+    rows: (x) => x.rows,
+    totals: (x) => ({ warehouse: 'Total', sku: '', item: '', uom: '', quantity: null, averageCost: null, value: x.totalValue }),
+    summary: (x) => [{ label: 'Total stock value', value: fmt(x.totalValue) }],
+  },
+  {
+    slug: 'stock-movement-summary', title: 'Stock movement summary', subtitle: 'Opening, receipts, issues, adjustments and closing quantity per item for a period. Transfers net to zero and are left out.', module: 'inventory',
+    endpoint: 'm/inventory/reports/movement-summary', filters: ['range'],
+    columns: () => [t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('opening', 'Opening'), n('receipts', 'Receipts'), n('issues', 'Issues'), n('adjustments', 'Adjustments'), n('closing', 'Closing'), m('closingValue', 'Closing value')],
+    rows: (x) => x.rows,
+    totals: (x) => ({ sku: 'Total', item: '', uom: '', opening: null, receipts: null, issues: null, adjustments: null, closing: null, closingValue: x.totalClosingValue }),
+  },
+  {
+    slug: 'slow-moving-stock', title: 'Slow-moving stock', subtitle: 'Items still in stock with no movement for the chosen number of days.', module: 'inventory',
+    endpoint: 'm/inventory/reports/slow-moving', filters: ['asOf', 'days'],
+    columns: () => [t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('quantity', 'Quantity'), m('value', 'Value'), d('lastMovement', 'Last movement'), n('daysIdle', 'Days idle')],
+    rows: (x) => x.rows,
+    totals: (x) => ({ sku: 'Total', item: '', uom: '', quantity: null, value: x.totalValue, lastMovement: null, daysIdle: null }),
+  },
+  {
+    slug: 'reorder-suggestions', title: 'Reorder suggestions', subtitle: 'Items at or below their reorder level, with a suggested order quantity.', module: 'inventory',
+    endpoint: 'm/inventory/reports/reorder', filters: [],
+    columns: () => [t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('onHand', 'On hand'), n('reorderLevel', 'Reorder level'), n('reorderQuantity', 'Reorder quantity'), n('suggestedOrder', 'Suggested order')],
+    rows: (x) => x.rows,
   },
   {
     slug: 'rent-roll', title: 'Rent roll', subtitle: 'Active leases with rent per area, held cheques and what each tenant owes.', module: 'realestate',

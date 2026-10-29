@@ -209,6 +209,13 @@ await step('enable Inventory and add stock', async () => {
   await call('POST', '/m/inventory/stock/receive', { warehouseId: wh.id, itemId: item.id, quantity: 40, unitCost: 52, date: addDays(-15), offsetAccountId: payable, reference: 'GRN-001' });
   await call('POST', '/m/inventory/stock/issue', { warehouseId: wh.id, itemId: item.id, quantity: 12, date: addDays(-3), memo: 'Used for AC servicing' });
   await call('PUT', '/m/inventory/stock/policy', { itemId: item.id, reorderLevel: 30, reorderQuantity: 50 });
+  // a physical count of the main store: 3 filters were found missing and the difference is posted
+  const count = await call('POST', '/m/inventory/counts', { warehouseId: wh.id, countDate: addDays(-1), memo: 'Monthly count' });
+  const sheet = count.lines.find((l) => l.itemId === item.id);
+  if (sheet) {
+    await call('PUT', `/m/inventory/counts/${count.id}/lines`, { lines: [{ itemId: item.id, countedQuantity: sheet.systemQuantity - 3 }] });
+    await call('POST', `/m/inventory/counts/${count.id}/post`);
+  }
 });
 await step('performance review cycle', async () => {
   const cycle = await call('POST', '/m/hr/review-cycles', { name: `H1 ${today.getFullYear()} review`, periodStart: `${today.getFullYear()}-01-01`, periodEnd: `${today.getFullYear()}-06-30`, status: 'open' });
