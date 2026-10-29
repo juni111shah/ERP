@@ -24,7 +24,8 @@ public static class SalesTransitions
             [SalesOrderStatus.Confirmed] = [SalesOrderStatus.Processing, SalesOrderStatus.Delivered, SalesOrderStatus.Cancelled, SalesOrderStatus.Invoiced],
             [SalesOrderStatus.Processing] = [SalesOrderStatus.Delivered, SalesOrderStatus.Cancelled, SalesOrderStatus.Invoiced],
             [SalesOrderStatus.Delivered] = [SalesOrderStatus.Invoiced],
-            [SalesOrderStatus.Invoiced] = [],
+            // Back-transitions are used only by the system when the generated invoice is voided (see OrderInvoiceVoidedHandler).
+            [SalesOrderStatus.Invoiced] = [SalesOrderStatus.Confirmed, SalesOrderStatus.Processing, SalesOrderStatus.Delivered],
             [SalesOrderStatus.Cancelled] = [],
         },
         systemOnly: [SalesOrderStatus.Invoiced]);

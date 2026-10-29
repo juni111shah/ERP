@@ -243,6 +243,8 @@ internal sealed class OrderHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Sales order '{cmd.Id}' not found.");
 
+        if (order.Status == SalesOrderStatus.Invoiced)
+            throw new ConflictException("An invoiced sales order is reopened by voiding its invoice.");
         SalesTransitions.Order.Ensure(order.Status, cmd.Status, isSystem: false);
 
         order.Status = cmd.Status;
