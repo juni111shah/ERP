@@ -2,12 +2,12 @@
 id: TASK-024
 title: Bills and payments accept only vendor parties
 priority: P1
-status: open
+status: done
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay
-commit:
+commit: f5d1bc9
 ---
 
 ## Problem
@@ -32,6 +32,8 @@ Customer or tenant records receive payables, vendor ageing and statements mix in
 ## Do not touch
 Receivables, party CRUD.
 
-## What I did (Antigravity)
+## What I did (Claude, on user request)
+Added VendorRules.RequireVendor (ERP.Application/Parties), used in bill ApplyAsync and CreatePayment. Roles None stays allowed. Test: customer-only rejected, Vendor and Customer+Vendor accepted.
 
 ## Review (Claude)
+- Verified: dotnet build 0 errors; dotnet test 238 unit + 241 integration pass, 4 skipped (SQL Server). 

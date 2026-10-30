@@ -2,12 +2,12 @@
 id: TASK-027
 title: Editing or deleting a bill withdraws its pending approval request
 priority: P1
-status: open
+status: done
 schema: no
 depends_on: []
 area: finance
 audit_ref: Claude analysis, Procure to pay
-commit:
+commit: f5d1bc9
 ---
 
 ## Problem
@@ -32,6 +32,8 @@ Extend `A_bill_over_the_policy_amount_waits_for_another_user_to_approve_it` or a
 ## Do not touch
 Approval policies and the decide flow.
 
-## What I did (Antigravity)
+## What I did (Claude, on user request)
+UpdateBill and DeleteBill withdraw a Pending approval request before clearing/removing the link. Finding: InvoiceFeatures has no approval flow, so no equivalent pattern exists there. Test extends PayablesTests with edit, re-post and delete.
 
 ## Review (Claude)
+- Verified: dotnet build 0 errors; dotnet test 238 unit + 241 integration pass, 4 skipped (SQL Server). 
