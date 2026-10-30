@@ -15,7 +15,6 @@ const routesPath = '/api/v1/m/distribution/routes';
 const tripsPath = '/api/v1/m/distribution/trips';
 const wholesalePath = '/api/v1/m/distribution/wholesale';
 
-const tripStatuses = [Option('scheduled', 'Scheduled'), Option('inProgress', 'In progress'), Option('completed', 'Completed'), Option('cancelled', 'Cancelled')];
 const wholesaleTiers = [Option('standard', 'Standard'), Option('bronze', 'Bronze'), Option('silver', 'Silver'), Option('gold', 'Gold'), Option('platinum', 'Platinum')];
 
 Widget _activeChip(Json r) => StatusChip(r['isActive'] == true ? 'Active' : 'Inactive', color: StatusChip.forStatus(r['isActive'] == true ? 'active' : 'inactive'));
@@ -105,8 +104,6 @@ class RoutesScreen extends StatelessWidget {
         searchHint: 'Search routes',
         emptyText: 'No routes found.',
         itemBuilder: routeTile,
-        filters: const [Option('true', 'Active'), Option('false', 'Inactive')],
-        filterKey: 'isActive',
         create: (ref) => routeForm(ref),
         createPermission: 'distribution.routes.manage',
       );
@@ -266,7 +263,6 @@ class TripsScreen extends StatelessWidget {
         searchHint: 'Search trips',
         emptyText: 'No trips found.',
         itemBuilder: tripTile,
-        filters: tripStatuses,
         create: (ref) => tripForm(ref),
         createPermission: 'distribution.trips.manage',
       );
@@ -379,8 +375,6 @@ class WholesaleScreen extends StatelessWidget {
         searchHint: 'Search wholesale prices',
         emptyText: 'No wholesale prices found.',
         itemBuilder: wholesaleTile,
-        filters: wholesaleTiers,
-        filterKey: 'tier',
         create: (ref) => wholesaleForm(ref),
         createPermission: 'distribution.pricing.manage',
       );
