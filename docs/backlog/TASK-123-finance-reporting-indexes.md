@@ -7,7 +7,7 @@ schema: yes
 depends_on: []
 area: performance
 audit_ref: Claude analysis, Performance
-commit:
+commit: bae5087
 ---
 
 ## Problem
