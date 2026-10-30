@@ -408,7 +408,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
               <div nz-row [nzGutter]="12">
                 <div nz-col [nzSpan]="12">
                   <nz-form-item>
-                    <nz-form-label nzRequired>Billing Amount (AED)</nz-form-label>
+                    <nz-form-label nzRequired>Billing Amount (QAR)</nz-form-label>
                     <nz-form-control><nz-input-number formControlName="amount" [nzMin]="0" style="width:100%"></nz-input-number></nz-form-control>
                   </nz-form-item>
                 </div>
@@ -450,7 +450,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
                 </div>
                 <div nz-col [nzSpan]="12">
                   <nz-form-item>
-                    <nz-form-label nzRequired>Hourly Rate (AED)</nz-form-label>
+                    <nz-form-label nzRequired>Hourly Rate (QAR)</nz-form-label>
                     <nz-form-control><nz-input-number formControlName="hourlyRate" [nzMin]="0" style="width:100%"></nz-input-number></nz-form-control>
                   </nz-form-item>
                 </div>

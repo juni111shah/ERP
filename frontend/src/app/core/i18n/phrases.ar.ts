@@ -567,7 +567,7 @@ const PAIRS: [string, string][] = [
   ['GMT+03:00 (Standard Time)', 'GMT+03:00 (التوقيت القياسي)'],
   ['Payment terms (days)', 'شروط الدفع (أيام)'],
   ['ID number', 'رقم الهوية'],
-  ['e.g. AED', 'مثل AED'],
+  ['e.g. QAR', 'مثل QAR'],
   ['Customers', 'العملاء'],
   ['Vendors', 'الموردون'],
   ['Saved', 'تم الحفظ'],

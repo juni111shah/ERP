@@ -12,6 +12,7 @@ using ERP.Modularity;
 using ERP.Application.Security;
 using ERP.Application.Templates;
 using ERP.CountryPacks.AE;
+using ERP.CountryPacks.QA;
 using ERP.CountryPacks.GB;
 using ERP.CountryPacks.IN;
 using ERP.CountryPacks.PK;
@@ -235,7 +236,7 @@ app.Run();
 public static class CountryPackCatalog
 {
     public static IReadOnlyList<ICountryPack> All() =>
-        [new UaeCountryPack(), new SaudiCountryPack(), new PakistanCountryPack(), new IndiaCountryPack(), new UnitedKingdomCountryPack(), new UnitedStatesCountryPack()];
+        [new UaeCountryPack(), new QatarCountryPack(), new SaudiCountryPack(), new PakistanCountryPack(), new IndiaCountryPack(), new UnitedKingdomCountryPack(), new UnitedStatesCountryPack()];
 }
 
 /// <summary>Installed modules. ERP_MODULES / Modules:Installed (comma list) narrows them; an empty value runs the core alone.</summary>

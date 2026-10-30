@@ -125,7 +125,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               </div>
               <div nz-col [nzSpan]="12">
                 <nz-form-item>
-                  <nz-form-label nzRequired>Hourly Rate (AED)</nz-form-label>
+                  <nz-form-label nzRequired>Hourly Rate (QAR)</nz-form-label>
                   <nz-form-control><nz-input-number formControlName="hourlyRate" [nzMin]="0" style="width:100%"></nz-input-number></nz-form-control>
                 </nz-form-item>
               </div>

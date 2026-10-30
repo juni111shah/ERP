@@ -12,14 +12,14 @@ describe('WorkspaceCurrencyService', () => {
     service = TestBed.inject(WorkspaceCurrencyService);
   });
 
-  it('defaults to USD when no workspace or entity currency is present', () => {
+  it('defaults to QAR when no workspace or entity currency is present', () => {
     sessionStore.me.set(null);
     sessionStore.setEntity(null);
     TestBed.flushEffects();
 
-    expect(service.currency()).toBe('USD');
-    expect(service.code()).toBe('USD');
-    expect(service.format(1234.5)).toBe('USD 1,234.50');
+    expect(service.currency()).toBe('QAR');
+    expect(service.code()).toBe('QAR');
+    expect(service.format(1234.5)).toBe('QAR 1,234.50');
   });
 
   it('returns workspace currency when no specific legal entity is selected', () => {

@@ -105,17 +105,17 @@ public class RealEstateApiTests(ApiFactory f) : IClassFixture<ApiFactory>
         var (c, entity) = await OwnerAsync();
         var (propertyId, unitId, tenantId) = await SetupAsync(c, entity);
 
-        // UAE pack fields are available on the lease form.
+        // Qatar pack fields are available on the lease form.
         var form = (await Ok(await c.GetAsync("/api/v1/custom-fields/form/realestate.lease"))).AsArray();
-        Assert.Contains(form, d => (string?)d!["key"] == "cf_ae_registration_no");
+        Assert.Contains(form, d => (string?)d!["key"] == "cf_qa_ejar_no");
 
-        var draft = await Ok(await c.PostAsJsonAsync($"{Re}/leases", LeaseBody(unitId, tenantId, customFields: new { cf_ae_registration_authority = "ejari", cf_ae_registration_no = "EJ-2026-1" })), HttpStatusCode.Created);
+        var draft = await Ok(await c.PostAsJsonAsync($"{Re}/leases", LeaseBody(unitId, tenantId, customFields: new { cf_qa_ejar_no = "EJ-2026-1" })), HttpStatusCode.Created);
         var leaseId = (string)draft["id"]!;
         Assert.Equal("draft", (string?)draft["status"]);
         Assert.StartsWith("LSE-", (string)draft["number"]!);
         Assert.Equal("exempt", (string?)draft["suggestedVat"]); // residential unit
         Assert.Equal(120_000m, (decimal)draft["rentForTerm"]!);
-        Assert.Equal("EJ-2026-1", (string?)draft["customFields"]!["cf_ae_registration_no"]);
+        Assert.Equal("EJ-2026-1", (string?)draft["customFields"]!["cf_qa_ejar_no"]);
         Assert.Equal("vacant", (string?)(await Ok(await c.GetAsync($"{Re}/units/{unitId}")))["status"]); // a draft does not occupy
 
         // Only drafts are editable.
@@ -363,9 +363,9 @@ public class RealEstateApiTests(ApiFactory f) : IClassFixture<ApiFactory>
     {
         var (c, _) = await OwnerAsync();
         var ae = (await Ok(await c.GetAsync("/api/v1/custom-fields/form/realestate.unit"))).AsArray();
-        Assert.Contains(ae, d => (string?)d!["key"] == "cf_ae_premise_no");
+        Assert.Contains(ae, d => (string?)d!["key"] == "cf_qa_kahramaa_no");
         var property = (await Ok(await c.GetAsync("/api/v1/custom-fields/form/realestate.property"))).AsArray();
-        Assert.Contains(property, d => (string?)d!["key"] == "cf_ae_title_deed_no");
+        Assert.Contains(property, d => (string?)d!["key"] == "cf_qa_plot_no");
 
         var key = "re-pk-" + Guid.NewGuid().ToString("N")[..6];
         await Ok(await f.Client().PostAsJsonAsync("/api/v1/platform/onboarding", new
@@ -375,7 +375,7 @@ public class RealEstateApiTests(ApiFactory f) : IClassFixture<ApiFactory>
         }), HttpStatusCode.Created);
         var (pk, _) = await f.SignInAsync($"admin+{key}@example.test", "Qa#Passw0rd1");
         var pkLease = (await Ok(await pk.GetAsync("/api/v1/custom-fields/form/realestate.lease"))).AsArray();
-        Assert.DoesNotContain(pkLease, d => ((string?)d!["key"])?.StartsWith("cf_ae_") == true);
+        Assert.DoesNotContain(pkLease, d => ((string?)d!["key"])?.StartsWith("cf_qa_") == true);
     }
 
     [Fact]

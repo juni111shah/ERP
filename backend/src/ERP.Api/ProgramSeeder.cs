@@ -234,14 +234,14 @@ public static class ProgramSeeder
                 new Party
                 {
                     Code = "CUST-001",
-                    Name = "Apex Global Trading LLC",
+                    Name = "Apex Global Trading W.L.L.",
                     Kind = PartyKind.Company,
                     Roles = PartyRoles.Customer,
                     Email = "procurement@apexglobal.example.com",
-                    Phone = "+971 4 398 1234",
-                    TaxNumber = "100294827100003",
-                    Address = "Sheikh Zayed Road, Latifa Tower Suite 1802, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    Phone = "+974 4398 1234",
+                    TaxNumber = "TC-482917",
+                    Address = "Corniche Street, Doha Tower Suite 1802, West Bay, Doha, Qatar",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 30,
                     IsActive = true
                 },
@@ -252,24 +252,24 @@ public static class ProgramSeeder
                     Kind = PartyKind.Company,
                     Roles = PartyRoles.Customer,
                     Email = "supplychain@oasisretail.example.com",
-                    Phone = "+971 4 456 7890",
-                    TaxNumber = "100389172600003",
-                    Address = "Al Quoz Industrial Area 3, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    Phone = "+974 4456 7890",
+                    TaxNumber = "TC-389172",
+                    Address = "Industrial Area, Street 24, Doha, Qatar",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 30,
                     IsActive = true
                 },
                 new Party
                 {
                     Code = "CUST-003",
-                    Name = "Emaar Investment PJSC",
+                    Name = "Qatari Diar Investment Q.P.S.C.",
                     Kind = PartyKind.Company,
                     Roles = PartyRoles.Customer,
-                    Email = "investments@emaar.example.com",
-                    Phone = "+971 4 367 3333",
-                    TaxNumber = "100112233400003",
-                    Address = "Downtown Dubai, Emaar Square Bldg 3, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    Email = "investments@qataridiar.example.com",
+                    Phone = "+974 4367 3333",
+                    TaxNumber = "TC-112233",
+                    Address = "Msheireb Downtown Bldg 3, Doha, Qatar",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 45,
                     IsActive = true
                 },
@@ -280,38 +280,38 @@ public static class ProgramSeeder
                     Kind = PartyKind.Company,
                     Roles = PartyRoles.Vendor,
                     Email = "sales@techsupply.example.com",
-                    Phone = "+971 4 881 5566",
-                    TaxNumber = "100492817200003",
-                    Address = "Jebel Ali Free Zone, South Zone, Warehouse 14B, Dubai",
-                    CurrencyCode = "AED",
+                    Phone = "+974 4881 5566",
+                    TaxNumber = "TC-492817",
+                    Address = "Ras Bufontas Free Zone, Warehouse 14B, Doha",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 60,
                     IsActive = true
                 },
                 new Party
                 {
                     Code = "VEND-002",
-                    Name = "Al Futtaim Facilities Management LLC",
+                    Name = "Al Mana Facilities Management W.L.L.",
                     Kind = PartyKind.Company,
                     Roles = PartyRoles.Vendor,
-                    Email = "service@alfuttaimfm.example.com",
-                    Phone = "+971 4 213 1122",
-                    TaxNumber = "100581920100003",
-                    Address = "Dubai Festival City, Tower 2, Floor 8, Dubai",
-                    CurrencyCode = "AED",
+                    Email = "service@almanafm.example.com",
+                    Phone = "+974 4213 1122",
+                    TaxNumber = "TC-581920",
+                    Address = "Lusail Marina, Tower 2, Floor 8, Doha",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 30,
                     IsActive = true
                 },
                 new Party
                 {
                     Code = "VEND-003",
-                    Name = "Dubai Electricity & Water Authority (DEWA)",
+                    Name = "Qatar General Electricity & Water Corporation (Kahramaa)",
                     Kind = PartyKind.Company,
                     Roles = PartyRoles.Vendor,
-                    Email = "customercare@dewa.gov.ae",
-                    Phone = "+971 4 601 9999",
-                    TaxNumber = "100000000100003",
-                    Address = "Near Wafi Mall, Zabeel East, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    Email = "customercare@kahramaa.com.qa",
+                    Phone = "+974 4601 9999",
+                    TaxNumber = "TC-000000",
+                    Address = "Near Mall of Qatar, Al Rayyan, Doha, Qatar",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 15,
                     IsActive = true
                 },
@@ -322,9 +322,9 @@ public static class ProgramSeeder
                     Kind = PartyKind.Individual,
                     Roles = PartyRoles.Customer,
                     Email = "m.schumacher@example.com",
-                    Phone = "+971 50 123 4567",
-                    Address = "Marina Bay Heights Unit 101, Dubai Marina, UAE",
-                    CurrencyCode = "AED",
+                    Phone = "+974 5012 3456",
+                    Address = "Pearl Bay Heights Unit 101, The Pearl-Qatar, Doha, Qatar",
+                    CurrencyCode = "QAR",
                     IsActive = true
                 },
                 new Party
@@ -334,9 +334,9 @@ public static class ProgramSeeder
                     Kind = PartyKind.Individual,
                     Roles = PartyRoles.Customer,
                     Email = "amina.mansouri@example.com",
-                    Phone = "+971 55 987 6543",
-                    Address = "Downtown Executive Tower Unit 201, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    Phone = "+974 5598 7654",
+                    Address = "West Bay Executive Tower Unit 201, Doha, Qatar",
+                    CurrencyCode = "QAR",
                     IsActive = true
                 },
                 new Party
@@ -346,9 +346,9 @@ public static class ProgramSeeder
                     Kind = PartyKind.Individual,
                     Roles = PartyRoles.Employee,
                     Email = "tariq@demo.local",
-                    Phone = "+971 52 334 4556",
-                    Address = "Al Barsha 2, Villa 18, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    Phone = "+974 5233 4455",
+                    Address = "Al Waab, Villa 18, Doha, Qatar",
+                    CurrencyCode = "QAR",
                     IsActive = true
                 },
                 new Party
@@ -358,12 +358,19 @@ public static class ProgramSeeder
                     Kind = PartyKind.Individual,
                     Roles = PartyRoles.Employee,
                     Email = "sarah.j@demo.local",
-                    Phone = "+971 50 776 5544",
-                    Address = "Jumeirah Beach Residence, Sadaf 4, Dubai",
-                    CurrencyCode = "AED",
+                    Phone = "+974 5077 6554",
+                    Address = "West Bay Lagoon Residence, Sadaf 4, Doha",
+                    CurrencyCode = "QAR",
                     IsActive = true
                 }
             );
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 2b. Qatar levies no VAT: one default 0% tax code so documents and reports have a code to carry
+        if (!await db.TaxCodes.AnyAsync(ct))
+        {
+            db.TaxCodes.Add(new TaxCode { Code = "QA0", Name = "No VAT (Qatar)", Kind = TaxKind.Vat, Rate = 0m, IsDefault = true, IsRecoverable = false });
             await db.SaveChangesAsync(ct);
         }
 
@@ -511,15 +518,15 @@ public static class ProgramSeeder
                 Number = "INV-2026-0001",
                 IsCreditNote = false,
                 PartyId = cust1?.Id ?? Guid.NewGuid(),
-                PartyName = cust1?.Name ?? "Apex Global Trading LLC",
+                PartyName = cust1?.Name ?? "Apex Global Trading W.L.L.",
                 InvoiceDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-20)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Net = 95000m,
-                Tax = 4750m,
-                Total = 99750m,
-                Paid = 99750m,
+                Tax = 0m,
+                Total = 95000m,
+                Paid = 95000m,
                 Status = DocumentStatus.Paid,
                 Notes = "Enterprise ERP Cloud Platform Deployment",
                 Lines = new List<InvoiceLine>
@@ -532,7 +539,7 @@ public static class ProgramSeeder
                         Quantity = 1,
                         Price = 95000m,
                         TaxCodeId = taxCode?.Id,
-                        TaxAmount = 4750m
+                        TaxAmount = 0m
                     }
                 }
             };
@@ -546,14 +553,14 @@ public static class ProgramSeeder
                 PartyName = cust2?.Name ?? "Oasis Retailers Corp",
                 InvoiceDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-8)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(22)),
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Net = 68500m,
-                Tax = 3425m,
-                Total = 71925m,
+                Tax = 0m,
+                Total = 68500m,
                 Paid = 30000m,
                 Status = DocumentStatus.PartlyPaid,
-                Notes = "POS Hardware Fleet Deployment for Dubai Mall",
+                Notes = "POS Hardware Fleet Deployment for Villaggio Mall",
                 Lines = new List<InvoiceLine>
                 {
                     new()
@@ -564,7 +571,7 @@ public static class ProgramSeeder
                         Quantity = 10,
                         Price = 4500m,
                         TaxCodeId = taxCode?.Id,
-                        TaxAmount = 2250m
+                        TaxAmount = 0m
                     },
                     new()
                     {
@@ -574,7 +581,7 @@ public static class ProgramSeeder
                         Quantity = 1,
                         Price = 23500m,
                         TaxCodeId = taxCode?.Id,
-                        TaxAmount = 1175m
+                        TaxAmount = 0m
                     }
                 }
             };
@@ -585,14 +592,14 @@ public static class ProgramSeeder
                 Number = "INV-2026-0003",
                 IsCreditNote = false,
                 PartyId = cust3?.Id ?? Guid.NewGuid(),
-                PartyName = cust3?.Name ?? "Emaar Investment PJSC",
+                PartyName = cust3?.Name ?? "Qatari Diar Investment Q.P.S.C.",
                 InvoiceDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(28)),
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Net = 35000m,
-                Tax = 1750m,
-                Total = 36750m,
+                Tax = 0m,
+                Total = 35000m,
                 Paid = 0m,
                 Status = DocumentStatus.Issued,
                 Notes = "Portfolio Valuation & Real Estate Advisory Fee",
@@ -606,7 +613,7 @@ public static class ProgramSeeder
                         Quantity = 10,
                         Price = 3500m,
                         TaxCodeId = taxCode?.Id,
-                        TaxAmount = 1750m
+                        TaxAmount = 0m
                     }
                 }
             };
@@ -627,12 +634,12 @@ public static class ProgramSeeder
                 VendorReference = "TSE-INV-8841",
                 BillDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(15)),
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Net = 42500m,
-                Tax = 2125m,
-                Total = 44625m,
-                Paid = 44625m,
+                Tax = 0m,
+                Total = 42500m,
+                Paid = 42500m,
                 Status = DocumentStatus.Paid,
                 Notes = "Rugged Handheld Barcode Scanners and Multi-bay Docks",
                 Lines = new List<BillLine>
@@ -645,7 +652,7 @@ public static class ProgramSeeder
                         Quantity = 15,
                         Price = 2500m,
                         TaxCodeId = taxCode?.Id,
-                        TaxAmount = 1875m,
+                        TaxAmount = 0m,
                         Net = 37500m,
                         AccountId = expenseAcc?.Id
                     },
@@ -656,7 +663,7 @@ public static class ProgramSeeder
                         Quantity = 5,
                         Price = 1000m,
                         TaxCodeId = taxCode?.Id,
-                        TaxAmount = 250m,
+                        TaxAmount = 0m,
                         Net = 5000m,
                         AccountId = expenseAcc?.Id
                     }
@@ -668,15 +675,15 @@ public static class ProgramSeeder
                 LegalEntityId = legalEntityId,
                 Number = "BIL-2026-0002",
                 PartyId = vend2?.Id ?? Guid.NewGuid(),
-                PartyName = vend2?.Name ?? "Al Futtaim Facilities Management LLC",
+                PartyName = vend2?.Name ?? "Al Mana Facilities Management W.L.L.",
                 VendorReference = "AF-FM-9021",
                 BillDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(25)),
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Net = 25000m,
-                Tax = 1250m,
-                Total = 26250m,
+                Tax = 0m,
+                Total = 25000m,
                 Paid = 0m,
                 Status = DocumentStatus.Issued,
                 Notes = "Monthly Chiller and Building Maintenance Retainer",
@@ -689,7 +696,7 @@ public static class ProgramSeeder
                         Quantity = 1,
                         Price = 25000m,
                         TaxCodeId = taxCode?.Id,
-                        TaxAmount = 1250m,
+                        TaxAmount = 0m,
                         Net = 25000m,
                         AccountId = expenseAcc?.Id
                     }
@@ -710,7 +717,7 @@ public static class ProgramSeeder
                 Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
                 Memo = "Opening Equity Capital Contribution & Cash Injection",
                 Reference = "CAP-INJ-01",
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Status = JournalStatus.Posted,
                 Amount = 500000m,
@@ -723,7 +730,7 @@ public static class ProgramSeeder
                         AccountId = bankAcc?.Id ?? Guid.NewGuid(),
                         Debit = 500000m,
                         Credit = 0m,
-                        Description = "Cash at Bank - Emirates NBD Operating Account"
+                        Description = "Cash at Bank - QNB Operating Account"
                     },
                     new()
                     {
@@ -743,7 +750,7 @@ public static class ProgramSeeder
                 Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
                 Memo = "Monthly Technology Depreciation & Amortization Provision",
                 Reference = "DEP-M09-2026",
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Status = JournalStatus.Posted,
                 Amount = 12500m,
@@ -784,9 +791,9 @@ public static class ProgramSeeder
                     Kind = InstrumentKind.PostDatedCheque,
                     Direction = InstrumentDirection.Received,
                     InstrumentNo = "408192",
-                    BankName = "Emirates NBD",
+                    BankName = "QNB",
                     Amount = 30000m,
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     InstrumentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(15)),
                     ReceivedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
                     PartyId = cust2?.Id,
@@ -802,9 +809,9 @@ public static class ProgramSeeder
                     Kind = InstrumentKind.PostDatedCheque,
                     Direction = InstrumentDirection.Received,
                     InstrumentNo = "889102",
-                    BankName = "First Abu Dhabi Bank",
+                    BankName = "First Al Khor Bank",
                     Amount = 25000m,
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     InstrumentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(45)),
                     ReceivedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
                     PartyId = cust1?.Id,
@@ -821,9 +828,9 @@ public static class ProgramSeeder
                     Kind = InstrumentKind.Cheque,
                     Direction = InstrumentDirection.Issued,
                     InstrumentNo = "100412",
-                    BankName = "Dubai Islamic Bank",
-                    Amount = 44625m,
-                    CurrencyCode = "AED",
+                    BankName = "Masraf Al Rayan",
+                    Amount = 42500m,
+                    CurrencyCode = "QAR",
                     InstrumentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-12)),
                     ReceivedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
                     PartyId = vend1?.Id,
@@ -850,18 +857,18 @@ public static class ProgramSeeder
                     Number = "REC-2026-0001",
                     Direction = InstrumentDirection.Received,
                     PartyId = cust1?.Id ?? Guid.NewGuid(),
-                    PartyName = cust1?.Name ?? "Apex Global Trading LLC",
+                    PartyName = cust1?.Name ?? "Apex Global Trading W.L.L.",
                     Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
                     Method = SettlementMethod.BankTransfer,
                     BankAccountId = bankAcc?.Id,
-                    CurrencyCode = "AED",
-                    Amount = 99750m,
+                    CurrencyCode = "QAR",
+                    Amount = 95000m,
                     Unallocated = 0m,
                     Reference = "FT-ENBD-88491",
                     Status = DocumentStatus.Paid,
                     Allocations = inv1 != null ? new List<SettlementAllocation>
                     {
-                        new() { InvoiceId = inv1.Id, Amount = 99750m }
+                        new() { InvoiceId = inv1.Id, Amount = 95000m }
                     } : new()
                 },
                 new Settlement
@@ -874,14 +881,14 @@ public static class ProgramSeeder
                     Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
                     Method = SettlementMethod.BankTransfer,
                     BankAccountId = bankAcc?.Id,
-                    CurrencyCode = "AED",
-                    Amount = 44625m,
+                    CurrencyCode = "QAR",
+                    Amount = 42500m,
                     Unallocated = 0m,
                     Reference = "SWIFT-OUT-49120",
                     Status = DocumentStatus.Paid,
                     Allocations = bill1 != null ? new List<SettlementAllocation>
                     {
-                        new() { BillId = bill1.Id, Amount = 44625m }
+                        new() { BillId = bill1.Id, Amount = 42500m }
                     } : new()
                 }
             );
@@ -941,7 +948,7 @@ public static class ProgramSeeder
                         Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
                         Description = "DIRECT DEPOSIT APEX GLOBAL TRADING REF 88491",
                         Reference = "CR-88491",
-                        Amount = 99750m,
+                        Amount = 95000m,
                         Status = StatementLineStatus.Matched
                     },
                     new BankStatementLine
@@ -951,7 +958,7 @@ public static class ProgramSeeder
                         Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
                         Description = "TELEGRAPHIC TRANSFER TECHSUPPLY ELEC",
                         Reference = "DR-49120",
-                        Amount = -44625m,
+                        Amount = -42500m,
                         Status = StatementLineStatus.Matched
                     },
                     new BankStatementLine
@@ -959,7 +966,7 @@ public static class ProgramSeeder
                         LegalEntityId = legalEntityId,
                         AccountId = bankAcc.Id,
                         Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)),
-                        Description = "POS SETTLEMENT DUBAI MALL TERMINAL BATCH 104",
+                        Description = "POS SETTLEMENT VILLAGGIO MALL TERMINAL BATCH 104",
                         Reference = "CR-POS-104",
                         Amount = 4650m,
                         Status = StatementLineStatus.Unmatched
@@ -1006,11 +1013,11 @@ public static class ProgramSeeder
             {
                 LegalEntityId = legalEntityId,
                 Code = "PROP-MARINA",
-                Name = "Marina Bay Heights",
+                Name = "Pearl Bay Heights",
                 PropertyType = PropertyType.Residential,
                 OwnershipType = OwnershipType.Owned,
-                Region = "Dubai Marina",
-                Community = "Dubai Marina Waterfront",
+                Region = "The Pearl-Qatar",
+                Community = "The Pearl-Qatar Waterfront",
                 PlotNumber = "DM-142-990",
                 YearBuilt = 2021,
                 TotalUnits = 48,
@@ -1022,27 +1029,27 @@ public static class ProgramSeeder
             {
                 LegalEntityId = legalEntityId,
                 Code = "PROP-DOWNTOWN",
-                Name = "Downtown Executive Tower",
+                Name = "West Bay Executive Tower",
                 PropertyType = PropertyType.Commercial,
                 OwnershipType = OwnershipType.Owned,
-                Region = "Downtown Dubai",
-                Community = "Burj Khalifa District",
+                Region = "West Bay",
+                Community = "West Bay Central District",
                 PlotNumber = "DT-882-104",
                 YearBuilt = 2023,
                 TotalUnits = 24,
                 IndicativeValue = 120000000m,
                 IsActive = true,
-                Notes = "Grade A prime commercial building overlooking Dubai Fountain"
+                Notes = "Grade A prime commercial building overlooking the Doha Corniche"
             };
             var p3 = new Property
             {
                 LegalEntityId = legalEntityId,
                 Code = "PROP-PALM",
-                Name = "Palm Azure Residences",
+                Name = "Pearl Azure Residences",
                 PropertyType = PropertyType.Villa,
                 OwnershipType = OwnershipType.ManagedForOwner,
                 ManagementFeePercent = 5.0m,
-                Region = "Palm Jumeirah",
+                Region = "The Pearl-Qatar",
                 Community = "Frond N",
                 PlotNumber = "PJ-FN-012",
                 YearBuilt = 2022,
@@ -1150,7 +1157,7 @@ public static class ProgramSeeder
                 StartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-3)),
                 EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(9)),
                 AnnualRent = 85000m,
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 PaymentFrequency = 4,
                 SecurityDepositAmount = 5000m,
                 Notes = "Standard residential tenancy contract with 4 cheques"
@@ -1167,7 +1174,7 @@ public static class ProgramSeeder
                 StartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-6)),
                 EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(6)),
                 AnnualRent = 160000m,
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 PaymentFrequency = 2,
                 SecurityDepositAmount = 10000m,
                 Notes = "Commercial office lease agreement with semi-annual instalments"
@@ -1216,7 +1223,7 @@ public static class ProgramSeeder
                 ReportedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-4)),
                 ReportedBy = "Tenant - Michael Schumacher",
                 VendorPartyId = vendorFm?.Id,
-                Technician = "Ravi Kumar (Al Futtaim FM)",
+                Technician = "Ravi Kumar (Al Mana FM)",
                 EstimatedCost = 3500m,
                 ActualCost = 3450m,
                 Details = "Chiller compressor low cooling gas alarm and vibration check",
@@ -1324,7 +1331,7 @@ public static class ProgramSeeder
                 PropertyId = prop1.Id,
                 UnitId = u301?.Id,
                 Kind = ListingKind.Rent,
-                Title = "Stunning 2BR Marina Sea View with Balcony",
+                Title = "Stunning 2BR Pearl Sea View with Balcony",
                 Price = 125000m,
                 Status = ListingStatus.Published,
                 Channels = "Bayut, PropertyFinder, Dubizzle, Website",
@@ -1340,7 +1347,7 @@ public static class ProgramSeeder
                 {
                     LegalEntityId = legalEntityId,
                     Name = "Sultan Al-Qasimi",
-                    Phone = "+971 50 882 1199",
+                    Phone = "+974 5088 2119",
                     Email = "sultan.q@example.com",
                     Source = "PropertyFinder",
                     Interest = "Looking for 2BR luxury apartment with sea view",
@@ -1354,7 +1361,7 @@ public static class ProgramSeeder
                 {
                     LegalEntityId = legalEntityId,
                     Name = "Nathalie Dupont",
-                    Phone = "+971 55 441 2233",
+                    Phone = "+974 5544 1223",
                     Email = "n.dupont@example.com",
                     Source = "Website Direct",
                     Interest = "Furnished 1BR or 2BR with quick move-in",
@@ -1375,15 +1382,15 @@ public static class ProgramSeeder
                 LegalEntityId = legalEntityId,
                 Number = "ACQ-2026-0001",
                 PropertyId = prop1.Id,
-                SellerName = "Emaar Properties PJSC",
+                SellerName = "Qatari Diar Real Estate Q.P.S.C.",
                 PurchaseDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-2)),
-                ContractReference = "EMAAR-SPA-2024-819",
+                ContractReference = "QD-SPA-2024-819",
                 PurchasePrice = 72000000m,
                 DownPayment = 18000000m,
                 TransferFees = 2880000m,
                 OtherCosts = 120000m,
-                CurrencyCode = "AED",
-                Notes = "Acquisition of Marina Bay Heights Tower directly from master developer"
+                CurrencyCode = "QAR",
+                Notes = "Acquisition of Pearl Bay Heights Tower directly from master developer"
             };
             acq.Complete(Guid.NewGuid(), DateTime.UtcNow.AddYears(-2));
             acqSet.Add(acq);
@@ -1395,7 +1402,7 @@ public static class ProgramSeeder
                 LegalEntityId = legalEntityId,
                 AcquisitionId = acq.Id,
                 Type = FundingType.BankMortgage,
-                Lender = "First Abu Dhabi Bank (FAB Commercial Banking)",
+                Lender = "Qatar International Islamic Bank (QIIB Commercial Banking)",
                 Principal = 54000000m,
                 AnnualRatePercent = 4.5m,
                 TermMonths = 240,
@@ -1447,12 +1454,12 @@ public static class ProgramSeeder
                 DealType = DealType.Sale,
                 PropertyId = prop1.Id,
                 UnitReference = "Penthouse Suite 4801",
-                ClientName = "Emaar Investment PJSC",
+                ClientName = "Qatari Diar Investment Q.P.S.C.",
                 ClientPartyId = tenant3?.Id,
                 AgentPartyId = agentUser?.Id,
                 DealDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-18)),
                 DealValue = 12500000m,
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 CommissionRatePercent = 2.0m,
                 AgentSharePercent = 50.0m,
                 TeamLeadSharePercent = 10.0m,
@@ -1468,12 +1475,12 @@ public static class ProgramSeeder
                 DealType = DealType.Lease,
                 PropertyId = prop2?.Id,
                 UnitReference = "Executive Suite OFF-401",
-                ClientName = "Apex Global Trading LLC",
+                ClientName = "Apex Global Trading W.L.L.",
                 ClientPartyId = tenant3?.Id,
                 AgentPartyId = agentUser?.Id,
                 DealDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-60)),
                 DealValue = 160000m,
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 CommissionRatePercent = 5.0m,
                 AgentSharePercent = 60.0m,
                 TeamLeadSharePercent = 10.0m,
@@ -1502,13 +1509,13 @@ public static class ProgramSeeder
                     Department = "Executive Management",
                     JoinDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-3)),
                     Email = "tariq@demo.local",
-                    Phone = "+971 52 334 4556",
-                    Nationality = "United Arab Emirates",
+                    Phone = "+974 5233 4455",
+                    Nationality = "Qatar",
                     Status = EmployeeStatus.Active,
                     BasicSalary = 45000m,
                     HousingAllowance = 20000m,
                     TransportAllowance = 5000m,
-                    Iban = "AE290331000000012345671",
+                    Iban = "QA90QNBA000000000000012345671",
                     LabourCardNumber = "784198501928371",
                     BankRoutingCode = "033"
                 },
@@ -1521,13 +1528,13 @@ public static class ProgramSeeder
                     Department = "Finance & Accounting",
                     JoinDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-2)),
                     Email = "sarah.j@demo.local",
-                    Phone = "+971 50 776 5544",
+                    Phone = "+974 5077 6554",
                     Nationality = "United Kingdom",
                     Status = EmployeeStatus.Active,
                     BasicSalary = 32000m,
                     HousingAllowance = 12000m,
                     TransportAllowance = 3000m,
-                    Iban = "AE540260000000098765432",
+                    Iban = "QA17DOHB000000000000098765432",
                     LabourCardNumber = "784199018273645",
                     BankRoutingCode = "026"
                 },
@@ -1540,13 +1547,13 @@ public static class ProgramSeeder
                     Department = "Real Estate Operations",
                     JoinDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-18)),
                     Email = "omar.f@demo.local",
-                    Phone = "+971 55 998 1122",
+                    Phone = "+974 5599 8112",
                     Nationality = "Jordan",
                     Status = EmployeeStatus.Active,
                     BasicSalary = 24000m,
                     HousingAllowance = 10000m,
                     TransportAllowance = 2500m,
-                    Iban = "AE880440000000034567890",
+                    Iban = "QA20MAFR000000000000034567890",
                     LabourCardNumber = "784199298374615",
                     BankRoutingCode = "044"
                 },
@@ -1559,13 +1566,13 @@ public static class ProgramSeeder
                     Department = "Human Resources",
                     JoinDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-14)),
                     Email = "layla.m@demo.local",
-                    Phone = "+971 50 332 8877",
+                    Phone = "+974 5033 2887",
                     Nationality = "Lebanon",
                     Status = EmployeeStatus.Active,
                     BasicSalary = 20000m,
                     HousingAllowance = 8000m,
                     TransportAllowance = 2000m,
-                    Iban = "AE120330000000056789012",
+                    Iban = "QA42CBQA000000000000056789012",
                     LabourCardNumber = "784199482716354",
                     BankRoutingCode = "033"
                 }
@@ -1612,7 +1619,7 @@ public static class ProgramSeeder
                 GrossEarnings = 181500m,
                 Deductions = 0m,
                 NetPay = 181500m,
-                Notes = "Monthly automated payroll execution with bank WPS file uploaded and cleared",
+                Notes = "Monthly automated payroll execution with bank WPS (Qatar Wage Protection System) file uploaded and cleared",
                 Lines = new List<PayrollLine>
                 {
                     new() { EmployeeId = emp1.Id, EmployeeName = emp1.FullName, EmployeeNumber = emp1.Number, Basic = emp1.BasicSalary, Allowances = emp1.Allowances, GrossEarnings = emp1.GrossMonthly, NetPay = emp1.GrossMonthly },
@@ -1716,33 +1723,33 @@ public static class ProgramSeeder
                 new Warehouse
                 {
                     LegalEntityId = legalEntityId,
-                    Code = "WH-JAFZA",
-                    Name = "Central Freezone Distribution Center",
-                    Address = "Jebel Ali Free Zone, South Distribution Park, Unit 14B, Dubai",
+                    Code = "WH-RASBUF",
+                    Name = "Ras Bufontas Free Zone Distribution Center",
+                    Address = "Logistics Village Qatar, Umm Alhoul, Unit 14B, Doha",
                     IsActive = true
                 },
                 new Warehouse
                 {
                     LegalEntityId = legalEntityId,
-                    Code = "WH-ALQUOZ",
-                    Name = "Al Quoz Operations & Spare Parts Depot",
-                    Address = "Al Quoz Industrial 3, Street 19, Warehouse 4, Dubai",
+                    Code = "WH-INDUST",
+                    Name = "Industrial Area Operations & Spare Parts Depot",
+                    Address = "Industrial Area, Street 19, Warehouse 4, Doha",
                     IsActive = true
                 },
                 new Warehouse
                 {
                     LegalEntityId = legalEntityId,
-                    Code = "WH-DOWNTOWN",
-                    Name = "Downtown Staging & Retail Stockroom",
-                    Address = "The Dubai Mall, Retail Staging Bay G-142, Dubai",
+                    Code = "WH-WESTBAY",
+                    Name = "West Bay Staging & Retail Stockroom",
+                    Address = "The Villaggio Mall, Retail Staging Bay G-142, Doha",
                     IsActive = true
                 }
             );
             await db.SaveChangesAsync(ct);
         }
 
-        var wh1 = await whSet.FirstOrDefaultAsync(w => w.Code == "WH-JAFZA", ct);
-        var wh2 = await whSet.FirstOrDefaultAsync(w => w.Code == "WH-ALQUOZ", ct);
+        var wh1 = await whSet.FirstOrDefaultAsync(w => w.Code == "WH-RASBUF", ct);
+        var wh2 = await whSet.FirstOrDefaultAsync(w => w.Code == "WH-INDUST", ct);
         var itemPos = await db.Items.FirstOrDefaultAsync(i => i.Sku == "POS-TERM-01", ct);
         var itemScan = await db.Items.FirstOrDefaultAsync(i => i.Sku == "POS-SCAN-2D", ct);
         var itemIot = await db.Items.FirstOrDefaultAsync(i => i.Sku == "HW-IOT-GW02", ct);
@@ -1786,7 +1793,7 @@ public static class ProgramSeeder
                     Quantity = -10,
                     UnitCost = 2800m,
                     Reference = "SO-2026-0001",
-                    Memo = "Delivered to Oasis Retailers for Dubai Mall deployment"
+                    Memo = "Delivered to Oasis Retailers for Villaggio Mall deployment"
                 },
                 new StockMovement
                 {
@@ -1798,7 +1805,7 @@ public static class ProgramSeeder
                     Quantity = 20,
                     UnitCost = 480m,
                     Reference = "TRF-WH-001",
-                    Memo = "Restock transferred to Al Quoz depot"
+                    Memo = "Restock transferred to Industrial Area depot"
                 }
             );
 
@@ -1821,15 +1828,15 @@ public static class ProgramSeeder
             {
                 LegalEntityId = legalEntityId,
                 Number = "QT-2026-0001",
-                CustomerName = "Apex Global Trading LLC",
+                CustomerName = "Apex Global Trading W.L.L.",
                 CustomerEmail = "procurement@apexglobal.example.com",
                 QuoteDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
                 ValidUntil = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20)),
-                Currency = "AED",
+                Currency = "QAR",
                 Status = SalesQuoteStatus.Sent,
                 SubTotal = 145000m,
-                TaxTotal = 7250m,
-                TotalAmount = 152250m,
+                TaxTotal = 0m,
+                TotalAmount = 145000m,
                 Notes = "Enterprise ERP Core Deployment Pack with Cloud Hosting",
                 Lines = new List<SalesQuoteLine>
                 {
@@ -1840,7 +1847,7 @@ public static class ProgramSeeder
                         Quantity = 1,
                         UnitPrice = 95000m,
                         LineTotal = 95000m,
-                        TaxRate = 5m
+                        TaxRate = 0m
                     },
                     new()
                     {
@@ -1849,7 +1856,7 @@ public static class ProgramSeeder
                         Quantity = 1,
                         UnitPrice = 50000m,
                         LineTotal = 50000m,
-                        TaxRate = 5m
+                        TaxRate = 0m
                     }
                 }
             };
@@ -1865,13 +1872,13 @@ public static class ProgramSeeder
                 CustomerName = "Oasis Retailers Corp",
                 OrderDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-3)),
                 ExpectedDeliveryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
-                Currency = "AED",
+                Currency = "QAR",
                 Status = SalesOrderStatus.Confirmed,
                 SubTotal = 68500m,
-                TaxTotal = 3425m,
-                TotalAmount = 71925m,
+                TaxTotal = 0m,
+                TotalAmount = 68500m,
                 PaymentTerms = "Net 30",
-                ShippingAddress = "Al Quoz Industrial Area 3, Dubai, UAE",
+                ShippingAddress = "Industrial Area, Street 24, Doha, Qatar",
                 Notes = "Deliver to central staging warehouse with calibration reports",
                 Lines = new List<SalesOrderLine>
                 {
@@ -1882,7 +1889,7 @@ public static class ProgramSeeder
                         Quantity = 10,
                         UnitPrice = 4500m,
                         LineTotal = 45000m,
-                        TaxRate = 5m
+                        TaxRate = 0m
                     },
                     new()
                     {
@@ -1891,7 +1898,7 @@ public static class ProgramSeeder
                         Quantity = 10,
                         UnitPrice = 850m,
                         LineTotal = 8500m,
-                        TaxRate = 5m
+                        TaxRate = 0m
                     },
                     new()
                     {
@@ -1900,7 +1907,7 @@ public static class ProgramSeeder
                         Quantity = 10,
                         UnitPrice = 1500m,
                         LineTotal = 15000m,
-                        TaxRate = 5m
+                        TaxRate = 0m
                     }
                 }
             };
@@ -1958,13 +1965,13 @@ public static class ProgramSeeder
                 VendorReference = "TSE-INV-8841",
                 OrderDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-6)),
                 ExpectedDeliveryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(8)),
-                Currency = "AED",
+                Currency = "QAR",
                 Status = PurchaseOrderStatus.Approved,
                 SubTotal = 42500m,
-                TaxTotal = 2125m,
-                TotalAmount = 44625m,
+                TaxTotal = 0m,
+                TotalAmount = 42500m,
                 PaymentTerms = "Net 60",
-                DeliveryAddress = "Jebel Ali Free Zone, Warehouse Unit 14B, Dubai",
+                DeliveryAddress = "Ras Bufontas Free Zone, Warehouse Unit 14B, Doha",
                 Notes = "Air freight shipment, customs clearance handled by vendor",
                 Lines = new List<PurchaseOrderLine>
                 {
@@ -1975,7 +1982,7 @@ public static class ProgramSeeder
                         Quantity = 15,
                         UnitPrice = 2500m,
                         LineTotal = 37500m,
-                        TaxRate = 5m
+                        TaxRate = 0m
                     },
                     new()
                     {
@@ -1984,7 +1991,7 @@ public static class ProgramSeeder
                         Quantity = 5,
                         UnitPrice = 1000m,
                         LineTotal = 5000m,
-                        TaxRate = 5m
+                        TaxRate = 0m
                     }
                 }
             };
@@ -2017,7 +2024,7 @@ public static class ProgramSeeder
                 Code = "REG-001",
                 Name = "Flagship Counter 01",
                 IsActive = true,
-                ReceiptHeader = "=== DEMO TRADING LLC - DUBAI MALL ===\nTax Invoice / TRN: 100294827100003",
+                ReceiptHeader = "=== DEMO TRADING W.L.L. - VILLAGGIO MALL ===\nInvoice / Tax Card: TC-482917",
                 ReceiptFooter = "Thank you for shopping with us!\nExchange within 14 days with original receipt."
             };
             var reg2 = new PosRegister
@@ -2026,7 +2033,7 @@ public static class ProgramSeeder
                 Code = "REG-002",
                 Name = "Express Self-Checkout A",
                 IsActive = true,
-                ReceiptHeader = "=== DEMO TRADING LLC - EXPRESS ===\nTax Invoice",
+                ReceiptHeader = "=== DEMO TRADING W.L.L. - EXPRESS ===\nInvoice",
                 ReceiptFooter = "Visit us online at demotrading.local"
             };
             regSet.AddRange(reg1, reg2);
@@ -2074,7 +2081,7 @@ public static class ProgramSeeder
                         Quantity = 1,
                         UnitPrice = 250m,
                         LineTotal = 250m,
-                        TaxRate = 5m
+                        TaxRate = 0m
                     },
                     new()
                     {
@@ -2083,7 +2090,7 @@ public static class ProgramSeeder
                         Quantity = 1,
                         UnitPrice = 130m,
                         LineTotal = 130m,
-                        TaxRate = 5m
+                        TaxRate = 0m
                     }
                 },
                 Payments = new List<PosPayment>
@@ -2111,22 +2118,22 @@ public static class ProgramSeeder
             {
                 LegalEntityId = legalEntityId,
                 Code = "STR-001",
-                Name = "Downtown Flagship Boutique",
+                Name = "Villaggio Flagship Boutique",
                 StoreManagerName = "Noura Al-Zaabi",
-                Phone = "+971 4 398 1234",
+                Phone = "+974 4398 1234",
                 Email = "downtown@demotrading.local",
-                Address = "The Dubai Mall, Ground Floor Unit G-142",
+                Address = "The Villaggio Mall, Ground Floor Unit G-142",
                 IsActive = true
             });
             storeSet.Add(new RetailStore
             {
                 LegalEntityId = legalEntityId,
                 Code = "STR-002",
-                Name = "Marina Promenade Branch",
+                Name = "Porto Arabia Promenade Branch",
                 StoreManagerName = "Karim Mansour",
-                Phone = "+971 4 456 7890",
+                Phone = "+974 4456 7890",
                 Email = "marina@demotrading.local",
-                Address = "Dubai Marina Walk, Retail Unit R-08",
+                Address = "Porto Arabia Walk, Retail Unit R-08",
                 IsActive = true
             });
 
@@ -2137,10 +2144,10 @@ public static class ProgramSeeder
                 Code = "PL-RETAIL-2026",
                 Name = "Standard Consumer Retail Price List 2026",
                 Type = PriceListType.Standard,
-                Currency = "AED",
+                Currency = "QAR",
                 ValidFrom = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-60)),
                 IsActive = true,
-                Description = "All UAE brick-and-mortar retail locations standard tier"
+                Description = "All Qatar brick-and-mortar retail locations standard tier"
             });
 
             var promoSet = db.Set<RetailPromotion>();
@@ -2169,7 +2176,7 @@ public static class ProgramSeeder
             {
                 LegalEntityId = legalEntityId,
                 Code = "RTE-NORTH-01",
-                Name = "Deira & Bur Dubai Commercial Route",
+                Name = "Msheireb & Old Doha Commercial Route",
                 DriverName = "Farhan Tariq",
                 VehicleNumber = "DXB-VAN-7819",
                 VehicleCapacityKg = 1500m,
@@ -2181,16 +2188,16 @@ public static class ProgramSeeder
                     {
                         CustomerName = "Al Baraha Supermarket",
                         SequenceOrder = 1,
-                        Address = "Al Baraha St, Deira, Dubai",
-                        ContactPhone = "+971 4 271 1122",
+                        Address = "Al Baraha St, Msheireb, Doha",
+                        ContactPhone = "+974 4271 1122",
                         PreferredTimeWindow = "08:00 - 10:00"
                     },
                     new()
                     {
                         CustomerName = "Al Fahidi Electronics Market",
                         SequenceOrder = 2,
-                        Address = "Al Fahidi St, Bur Dubai",
-                        ContactPhone = "+971 4 353 3344",
+                        Address = "Al Fahidi St, Bur Doha",
+                        ContactPhone = "+974 4353 3344",
                         PreferredTimeWindow = "10:30 - 12:30"
                     }
                 }
@@ -2352,7 +2359,7 @@ public static class ProgramSeeder
                 CompanyName = "Vance Healthcare Group",
                 JobTitle = "Chief Technology Officer",
                 Email = "j.vance@vancehealth.example.com",
-                Phone = "+971 50 812 3456",
+                Phone = "+974 5081 2345",
                 Source = LeadSource.Website,
                 Status = LeadStatus.Qualified,
                 EstimatedValue = 185000m,
@@ -2364,10 +2371,10 @@ public static class ProgramSeeder
                 LegalEntityId = legalEntityId,
                 LeadNumber = "LEAD-2026-0002",
                 FullName = "Fatima Al-Nuaimi",
-                CompanyName = "Emirates Petro-Chemicals FZE",
+                CompanyName = "Qatar Petro-Chemicals Q.S.C.",
                 JobTitle = "VP Supply Chain & Operations",
                 Email = "fatima@epcfze.example.com",
-                Phone = "+971 55 921 7890",
+                Phone = "+974 5592 1789",
                 Source = LeadSource.Referral,
                 Status = LeadStatus.Contacted,
                 EstimatedValue = 340000m,
@@ -2419,7 +2426,7 @@ public static class ProgramSeeder
                 EngagementCode = "ENG-2026-0001",
                 Title = "Cloud Infrastructure & Microservices Transformation",
                 ClientId = Guid.NewGuid(),
-                ClientName = "Apex Global Trading LLC",
+                ClientName = "Apex Global Trading W.L.L.",
                 Type = EngagementType.FixedPrice,
                 Status = EngagementStatus.Active,
                 ContractValue = 145000m,
@@ -2546,12 +2553,19 @@ public static class ProgramSeeder
         }
     }
 
+    /// <summary>Months of demo history, counted back from the current month (3.5 years). Demo data only.</summary>
+    private const int HistoryMonths = 42;
+    /// <summary>The first version of the seeder covered only this many months; a database seeded then is backfilled with the older months.</summary>
+    private const int LegacyHistoryMonths = 24;
+
     private static async Task SeedTwoYearHistoryAsync(AppDbContext db, Guid orgId, Guid legalEntityId, CancellationToken ct)
     {
-        if (await db.Set<PayrollRun>().IgnoreQueryFilters().AnyAsync(r => r.OrgId == orgId && r.Number.StartsWith("PR-2025-"), ct))
-        {
-            return;
-        }
+        var clock = DateTime.UtcNow;
+        var oldest = clock.AddMonths(-(HistoryMonths - 1));
+        var legacyOldest = clock.AddMonths(-(LegacyHistoryMonths - 1));
+        async Task<bool> HasPayrollAsync(DateTime month) { var number = $"PR-{month.Year}-{month.Month:D2}"; return await db.Set<PayrollRun>().IgnoreQueryFilters().AnyAsync(r => r.OrgId == orgId && r.Number == number, ct); }
+        if (await HasPayrollAsync(oldest)) return; // already seeded with the full history
+        var backfillOnly = await HasPayrollAsync(legacyOldest); // seeded by the 24-month version: add only the older months
 
         var customers = await db.Parties.IgnoreQueryFilters().Where(p => p.OrgId == orgId && (p.Roles & PartyRoles.Customer) != 0).ToListAsync(ct);
         var vendors = await db.Parties.IgnoreQueryFilters().Where(p => p.OrgId == orgId && (p.Roles & PartyRoles.Vendor) != 0).ToListAsync(ct);
@@ -2572,11 +2586,12 @@ public static class ProgramSeeder
         var incomeAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.Type == AccountType.Income, ct);
         var expenseAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.Type == AccountType.Expense, ct);
 
-        // 1. Budgets for 2025 and 2026
-        if (!await db.Budgets.IgnoreQueryFilters().AnyAsync(b => b.OrgId == orgId, ct))
+        // 1. One annual budget per fiscal year in the history window (budgets grow about 15% a year)
         {
-            foreach (var yr in new[] { 2025, 2026 })
+            var budgetYears = (await db.Budgets.IgnoreQueryFilters().Where(b => b.OrgId == orgId).Select(b => b.FiscalYear).ToListAsync(ct)).ToHashSet();
+            foreach (var yr in Enumerable.Range(oldest.Year, clock.Year - oldest.Year + 1).Where(y => !budgetYears.Contains(y)))
             {
+                var scale = (decimal)Math.Pow(1.15, yr - oldest.Year);
                 var b = new Budget
                 {
                     LegalEntityId = legalEntityId,
@@ -2588,18 +2603,19 @@ public static class ProgramSeeder
                 for (int mth = 1; mth <= 12; mth++)
                 {
                     if (incomeAcc != null)
-                        b.Lines.Add(new BudgetLine { AccountId = incomeAcc.Id, Month = mth, Amount = yr == 2025 ? 185000m : 240000m });
+                        b.Lines.Add(new BudgetLine { AccountId = incomeAcc.Id, Month = mth, Amount = Math.Round(150000m * scale, 0) });
                     if (expenseAcc != null)
-                        b.Lines.Add(new BudgetLine { AccountId = expenseAcc.Id, Month = mth, Amount = yr == 2025 ? 95000m : 110000m });
+                        b.Lines.Add(new BudgetLine { AccountId = expenseAcc.Id, Month = mth, Amount = Math.Round(80000m * scale, 0) });
                 }
                 db.Budgets.Add(b);
             }
             await db.SaveChangesAsync(ct);
         }
 
-        // 2. Loop across the past 24 months (Nov 2024 through Oct 2026)
-        var now = DateTime.UtcNow;
-        var leadNames = new[] { "Sheikh Mansoor Al-Qasimi", "Farhan & Brothers Trading", "Gulf Prime Logistics LLC", "Elena Petrova Real Estate", "Al-Majid Technical Solutions", "Horizon Media Agency FZ" };
+        // 2. Loop across the history window, oldest month first
+        var now = clock;
+        var newestMonthOffset = backfillOnly ? LegacyHistoryMonths : 0;
+        var leadNames = new[] { "Sheikh Mansoor Al-Qasimi", "Farhan & Brothers Trading", "Gulf Prime Logistics W.L.L.", "Elena Petrova Real Estate", "Al-Majid Technical Solutions", "Horizon Media Agency FZ" };
 
         var existingPayrollYearsMonths = (await db.Set<PayrollRun>().IgnoreQueryFilters()
             .Where(r => r.OrgId == orgId)
@@ -2615,7 +2631,7 @@ public static class ProgramSeeder
             .Select(a => (a.EmployeeId, a.Year, a.Month))
             .ToHashSet();
 
-        for (int m = 23; m >= 0; m--)
+        for (int m = HistoryMonths - 1; m >= newestMonthOffset; m--)
         {
             var targetDate = now.AddMonths(-m);
             var year = targetDate.Year;
@@ -2628,8 +2644,8 @@ public static class ProgramSeeder
             {
                 var cust = customers[m % customers.Count];
                 var item = items[m % items.Count];
-                var net = 25000m + (m * 850m) % 35000m;
-                var tax = Math.Round(net * 0.05m, 2);
+                var net = Math.Round((25000m + (m * 850m) % 35000m) * (1m + (HistoryMonths - 1 - m) * 0.01m), 2); // sales trend upward over the years
+                var tax = Math.Round(net * 0m, 2);
                 var total = net + tax;
 
                 var inv = new Invoice
@@ -2641,7 +2657,7 @@ public static class ProgramSeeder
                     PartyName = cust.Name,
                     InvoiceDate = new DateOnly(year, month, Math.Min(5, daysInMonth)),
                     DueDate = new DateOnly(year, month, Math.Min(25, daysInMonth)),
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     ExchangeRate = 1m,
                     Net = net,
                     Tax = tax,
@@ -2677,7 +2693,7 @@ public static class ProgramSeeder
                         Date = new DateOnly(year, month, Math.Min(20, daysInMonth)),
                         Method = SettlementMethod.BankTransfer,
                         BankAccountId = bankAcc?.Id,
-                        CurrencyCode = "AED",
+                        CurrencyCode = "QAR",
                         Amount = total,
                         Unallocated = 0m,
                         Reference = $"WIRE-IN-{year}{month:D2}{m + 1:D2}",
@@ -2696,7 +2712,7 @@ public static class ProgramSeeder
             {
                 var vend = vendors[m % vendors.Count];
                 var billNet = 3800m + (m * 120m) % 2400m;
-                var billTax = Math.Round(billNet * 0.05m, 2);
+                var billTax = Math.Round(billNet * 0m, 2);
                 var billTotal = billNet + billTax;
 
                 var bill = new Bill
@@ -2707,7 +2723,7 @@ public static class ProgramSeeder
                     PartyName = vend.Name,
                     BillDate = new DateOnly(year, month, Math.Min(10, daysInMonth)),
                     DueDate = new DateOnly(year, month, Math.Min(28, daysInMonth)),
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     ExchangeRate = 1m,
                     Net = billNet,
                     Tax = billTax,
@@ -2742,7 +2758,7 @@ public static class ProgramSeeder
                     LegalEntityId = legalEntityId,
                     Number = $"JV-{year}-{month:D2}-DEP",
                     Date = new DateOnly(year, month, Math.Min(28, daysInMonth)),
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     ExchangeRate = 1m,
                     Amount = depAmount,
                     Memo = $"Monthly asset depreciation and hardware amortization allocation for {year}-{month:D2}",
@@ -2805,7 +2821,7 @@ public static class ProgramSeeder
                         GrossEarnings = grossSum,
                         Deductions = 0m,
                         NetPay = grossSum,
-                        Notes = $"Automated payroll cycle with bank WPS file cleared for {year}-{month:D2}"
+                        Notes = $"Automated payroll cycle with bank WPS (Qatar Wage Protection System) file cleared for {year}-{month:D2}"
                     };
                     foreach (var emp in employees)
                     {
@@ -2894,15 +2910,15 @@ public static class ProgramSeeder
                     CustomerEmail = cust.Email ?? "client@example.com",
                     QuoteDate = new DateOnly(year, month, Math.Min(3, daysInMonth)),
                     ValidUntil = new DateOnly(year, month, Math.Min(25, daysInMonth)),
-                    Currency = "AED",
+                    Currency = "QAR",
                     SubTotal = total,
-                    TaxTotal = Math.Round(total * 0.05m, 2),
-                    TotalAmount = total + Math.Round(total * 0.05m, 2),
+                    TaxTotal = Math.Round(total * 0m, 2),
+                    TotalAmount = total + Math.Round(total * 0m, 2),
                     Status = SalesQuoteStatus.Accepted,
                     Notes = $"Quarterly procurement proposal for {year}-{month:D2}",
                     Lines = new List<SalesQuoteLine>
                     {
-                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = qty, UnitPrice = unitPrice, LineTotal = total, TaxRate = 5m }
+                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = qty, UnitPrice = unitPrice, LineTotal = total, TaxRate = 0m }
                     }
                 };
                 db.Set<SalesQuote>().Add(sq);
@@ -2916,16 +2932,16 @@ public static class ProgramSeeder
                     CustomerName = cust.Name,
                     OrderDate = new DateOnly(year, month, Math.Min(8, daysInMonth)),
                     ExpectedDeliveryDate = new DateOnly(year, month, Math.Min(24, daysInMonth)),
-                    Currency = "AED",
+                    Currency = "QAR",
                     SubTotal = total,
-                    TaxTotal = Math.Round(total * 0.05m, 2),
-                    TotalAmount = total + Math.Round(total * 0.05m, 2),
+                    TaxTotal = Math.Round(total * 0m, 2),
+                    TotalAmount = total + Math.Round(total * 0m, 2),
                     Status = isPastMonth ? SalesOrderStatus.Delivered : SalesOrderStatus.Confirmed,
-                    ShippingAddress = cust.Address ?? "Commercial District, Dubai, UAE",
+                    ShippingAddress = cust.Address ?? "Commercial District, Doha, Qatar",
                     Notes = $"Confirmed commercial purchase contract for {year}-{month:D2}",
                     Lines = new List<SalesOrderLine>
                     {
-                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = qty, UnitPrice = unitPrice, LineTotal = total, TaxRate = 5m }
+                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = qty, UnitPrice = unitPrice, LineTotal = total, TaxRate = 0m }
                     }
                 };
                 db.Set<SalesOrder>().Add(so);
@@ -2947,16 +2963,16 @@ public static class ProgramSeeder
                     VendorName = vend.Name,
                     OrderDate = new DateOnly(year, month, Math.Min(6, daysInMonth)),
                     ExpectedDeliveryDate = new DateOnly(year, month, Math.Min(22, daysInMonth)),
-                    Currency = "AED",
+                    Currency = "QAR",
                     SubTotal = poTotal,
-                    TaxTotal = Math.Round(poTotal * 0.05m, 2),
-                    TotalAmount = poTotal + Math.Round(poTotal * 0.05m, 2),
+                    TaxTotal = Math.Round(poTotal * 0m, 2),
+                    TotalAmount = poTotal + Math.Round(poTotal * 0m, 2),
                     Status = PurchaseOrderStatus.Approved,
                     PaymentTerms = "Net 30 Days",
                     Notes = $"Standard stock replenishment PO for {year}-{month:D2}",
                     Lines = new List<PurchaseOrderLine>
                     {
-                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = qty, UnitPrice = cost, LineTotal = poTotal, TaxRate = 5m }
+                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = qty, UnitPrice = cost, LineTotal = poTotal, TaxRate = 0m }
                     }
                 };
                 db.Set<PurchaseOrder>().Add(po);
@@ -3019,7 +3035,7 @@ public static class ProgramSeeder
                     PaymentStatus = PosPaymentStatus.Paid,
                     Lines = new List<PosOrderLine>
                     {
-                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = 1, UnitPrice = 450m, TaxRate = 5m, LineTotal = 472.5m }
+                        new() { ItemCode = itm.Sku, Description = itm.Name, Quantity = 1, UnitPrice = 450m, TaxRate = 0m, LineTotal = 450m }
                     },
                     Payments = new List<PosPayment>
                     {
@@ -3094,7 +3110,7 @@ public static class ProgramSeeder
                     Priority = RePriority.Normal,
                     ReportedOn = new DateOnly(year, month, Math.Min(8, daysInMonth)),
                     ReportedBy = "Facilities Monitoring System",
-                    Technician = "Ravi Kumar (Al Futtaim FM)",
+                    Technician = "Ravi Kumar (Al Mana FM)",
                     EstimatedCost = cost,
                     ActualCost = isPastMonth ? cost : 0m,
                     Details = $"Routine scheduled facilities servicing for {prop.Name}",
@@ -3123,7 +3139,7 @@ public static class ProgramSeeder
                 CompanyName = $"{leadNames[m % leadNames.Length]} Holding",
                 JobTitle = "Managing Director",
                 Email = $"lead.{year}.{month}@example.com",
-                Phone = $"+971 50 {m + 100:D3} {m + 200:D4}",
+                Phone = $"+974 5{(m + 100) % 1000:D3} {m + 2000:D4}",
                 Source = LeadSource.Referral,
                 Status = m > 2 ? LeadStatus.Qualified : LeadStatus.Contacted,
                 EstimatedValue = 150000m + (m * 10000m) % 200000m,

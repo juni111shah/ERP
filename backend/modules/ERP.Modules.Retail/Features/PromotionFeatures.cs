@@ -186,7 +186,7 @@ public class PromotionHandlers :
 
         if (promo.MinimumOrderAmount.HasValue && request.OrderTotal < promo.MinimumOrderAmount.Value)
         {
-            return new PromoValidationResultDto(false, $"Order must be at least AED {promo.MinimumOrderAmount:N2} to use this coupon.", null, 0, 0);
+            return new PromoValidationResultDto(false, $"Order must be at least QAR {promo.MinimumOrderAmount:N2} to use this coupon.", null, 0, 0);
         }
 
         decimal discount = 0;
