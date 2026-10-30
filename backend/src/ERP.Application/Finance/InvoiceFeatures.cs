@@ -128,6 +128,11 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         // Keep the link a module or a source invoice set (ToDraft has no source fields).
         var fresh = await invoicing.ApplyAsync(invoice, ToDraft(cmd.Input) with { SourceType = invoice.SourceType, SourceId = invoice.SourceId, BusinessUnitId = invoice.BusinessUnitId, CreditNoteForId = invoice.CreditNoteForId }, ct);
         await EnsureWithinUncreditedAsync(invoice, ct);
+        // A draft credit note keeps pointing each line at the invoice line it reverses, so editing cannot get around the per-line cap.
+        var oldLines = invoice.Lines.OrderBy(l => l.Seq).ToList();
+        for (var n = 0; n < fresh.Count && n < oldLines.Count; n++)
+            if (oldLines[n].SourceLineId != null && oldLines[n].Description == fresh[n].Description) fresh[n].SourceLineId = oldLines[n].SourceLineId;
+        await EnsureWithinLineCapsAsync(invoice, fresh, ct);
         foreach (var old in invoice.Lines.ToList()) lineRows.Remove(old);
         lineRows.AddRange(fresh);
         await invoices.SaveChangesAsync(ct);
@@ -206,13 +211,20 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         if (source.IsCreditNote) throw new ConflictException("A credit note cannot be credited.");
         if (source.Status is not (DocumentStatus.Issued or DocumentStatus.PartlyPaid or DocumentStatus.Paid)) throw new ConflictException("Only an issued invoice can be credited.");
         var byId = source.Lines.ToDictionary(l => l.Id);
-        var picked = cmd.Lines is { Count: > 0 } sel ? sel : source.Lines.Select(l => new CreditNoteLineInput(l.Id, l.Quantity)).ToList();
+        var credited = await CreditedPerLineAsync(source.Id, excludeCreditId: null, ct);
+        // With no lines given, propose only what is still uncredited on each line.
+        var picked = cmd.Lines is { Count: > 0 } sel
+            ? sel
+            : source.Lines.Select(l => new CreditNoteLineInput(l.Id, l.Quantity - credited.GetValueOrDefault(l.Id))).Where(p => p.Quantity > 0).ToList();
+        if (picked.Count == 0) throw new ConflictException("Every line of this invoice has already been credited.");
         var lines = new List<InvoiceLineDraft>();
         foreach (var p in picked)
         {
             if (!byId.TryGetValue(p.InvoiceLineId, out var l)) throw new FieldValidationException("lines", "A line does not belong to this invoice.");
+            var left = l.Quantity - credited.GetValueOrDefault(l.Id);
             if (p.Quantity <= 0 || p.Quantity > l.Quantity) throw new FieldValidationException("lines", $"Quantity for '{l.Description}' must be between 0 and {l.Quantity}.");
-            lines.Add(new InvoiceLineDraft(l.Description, p.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId));
+            if (p.Quantity > left) throw new FieldValidationException("lines", $"'{l.Description}' has only {left} left to credit (already credited {l.Quantity - left} of {l.Quantity}).");
+            lines.Add(new InvoiceLineDraft(l.Description, p.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId, SourceLineId: l.Id));
         }
         var date = cmd.Date ?? DateOnly.FromDateTime(clock.UtcNow);
         var credit = await invoicing.BuildAsync(new InvoiceDraft(source.LegalEntityId, source.PartyId, date, date, lines, IsCreditNote: true,
@@ -221,6 +233,31 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         await EnsureWithinUncreditedAsync(credit, ct);
         await invoices.SaveChangesAsync(ct);
         return InvoiceDto.From(credit);
+    }
+
+    /// <summary>Quantity already credited per line of an invoice by its non-voided credit notes (lines carry SourceLineId). Credit notes raised before SourceLineId existed are covered only by the document-total cap.</summary>
+    private async Task<Dictionary<Guid, decimal>> CreditedPerLineAsync(Guid invoiceId, Guid? excludeCreditId, CancellationToken ct)
+    {
+        var notes = await invoices.Query(new Specification<Invoice>(i => i.IsCreditNote && i.SourceType == CreateCreditNoteFromInvoice.LinkType && i.SourceId == invoiceId
+                && i.Id != excludeCreditId && i.Status != DocumentStatus.Voided).Include(i => i.Lines)).ToListAsync(ct);
+        return notes.SelectMany(n => n.Lines).Where(l => l.SourceLineId != null).GroupBy(l => l.SourceLineId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
+    }
+
+    /// <summary>A draft credit note being saved: its lines that point at an invoice line cannot, together with the other credit notes, exceed that line's quantity.</summary>
+    private async Task EnsureWithinLineCapsAsync(Invoice credit, IEnumerable<InvoiceLine> creditLines, CancellationToken ct)
+    {
+        if (!credit.IsCreditNote || credit.SourceType != CreateCreditNoteFromInvoice.LinkType || credit.SourceId is not { } sourceId) return;
+        var mine = creditLines.Where(l => l.SourceLineId != null).GroupBy(l => l.SourceLineId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
+        if (mine.Count == 0) return;
+        var others = await CreditedPerLineAsync(sourceId, credit.Id, ct);
+        var original = await invoices.Query(new Specification<Invoice>(i => i.Id == sourceId).Include(i => i.Lines)).SelectMany(i => i.Lines).ToListAsync(ct);
+        foreach (var (lineId, qty) in mine)
+        {
+            var line = original.FirstOrDefault(l => l.Id == lineId);
+            if (line is null) continue;
+            var left = line.Quantity - others.GetValueOrDefault(lineId);
+            if (qty > left) throw new FieldValidationException("lines", $"'{line.Description}' has only {left} left to credit (already credited {line.Quantity - left} of {line.Quantity}).");
+        }
     }
 
     /// <summary>For a credit note linked to an invoice: all of that invoice's non-voided credit notes together cannot exceed its total.</summary>

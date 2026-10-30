@@ -1036,6 +1036,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<int>("Seq")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("SourceLineId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("TaxAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");

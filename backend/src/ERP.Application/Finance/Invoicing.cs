@@ -11,7 +11,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Application.Finance;
 
-public sealed record InvoiceLineDraft(string Description, decimal Quantity, decimal Price, Guid? TaxCodeId = null, Guid? AccountId = null, Guid? ItemId = null);
+/// <summary>SourceLineId is set only when a credit note line is built from a line of the invoice being credited.</summary>
+public sealed record InvoiceLineDraft(string Description, decimal Quantity, decimal Price, Guid? TaxCodeId = null, Guid? AccountId = null, Guid? ItemId = null, Guid? SourceLineId = null);
 
 /// <summary>What a caller (a screen, or a module's billing run) wants invoiced.</summary>
 public sealed record InvoiceDraft(
@@ -75,7 +76,7 @@ public sealed class InvoicingService(
             var net = Money.Round(l.Quantity * l.Price);
             var tax = l.TaxCodeId is { } t ? Money.Round(net * rates[t] / 100m) : 0m;
             var account = l.AccountId ?? await posting.AccountForRoleAsync(l.ItemId is { } iid && itemTypes.TryGetValue(iid, out var type) && type == ItemType.Product ? "income.sales" : "income.services", ct);
-            result.Add(new InvoiceLine { InvoiceId = invoice.Id, Seq = seq++, ItemId = l.ItemId, Description = l.Description, Quantity = l.Quantity, Price = l.Price, TaxCodeId = l.TaxCodeId, TaxAmount = tax, Net = net, AccountId = account });
+            result.Add(new InvoiceLine { InvoiceId = invoice.Id, Seq = seq++, ItemId = l.ItemId, Description = l.Description, Quantity = l.Quantity, Price = l.Price, TaxCodeId = l.TaxCodeId, TaxAmount = tax, Net = net, AccountId = account, SourceLineId = l.SourceLineId });
         }
         invoice.PartyId = party.Id; invoice.PartyName = party.Name; invoice.IsCreditNote = d.IsCreditNote;
         invoice.InvoiceDate = d.InvoiceDate;

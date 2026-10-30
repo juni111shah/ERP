@@ -60,6 +60,8 @@ public class InvoiceLine : Entity
     public decimal TaxAmount { get; set; }
     public decimal Net { get; set; }
     public Guid? AccountId { get; set; }
+    /// <summary>For a credit note line: the line of the credited invoice it reverses (null otherwise); used to cap the credited quantity per line.</summary>
+    public Guid? SourceLineId { get; set; }
 }
 
 /// <summary>Vendor bill (core payables). Schema only in sprint 0.</summary>
