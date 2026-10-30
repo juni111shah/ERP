@@ -17,7 +17,7 @@ public sealed record CustomerStatementDto(Guid PartyId, string? PartyName, DateO
 public sealed record GetArAgeing(DateOnly AsOf, Guid? LegalEntityId, Guid? BusinessUnitId = null, string? SourceType = null, string? GroupBy = null) : IQuery<ArAgeingDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 public sealed record GetCustomerStatement(Guid PartyId, DateOnly AsOf, Guid? LegalEntityId) : IQuery<CustomerStatementDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 
-internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadRepository<Settlement> settlements, IReadRepository<ERP.Domain.Organizations.BusinessUnit> businessUnits) :
+internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadRepository<Settlement> settlements, IReadRepository<CreditApplication> creditApplications, IReadRepository<ERP.Domain.Organizations.BusinessUnit> businessUnits) :
     IRequestHandler<GetArAgeing, ArAgeingDto>,
     IRequestHandler<GetCustomerStatement, CustomerStatementDto>
 {
@@ -34,7 +34,7 @@ internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadR
         {
             foreach (var o in open) rows[o.PartyId] = Ageing.Add(rows.GetValueOrDefault(o.PartyId) ?? new AgeingRow(o.PartyId, o.PartyName, 0, 0, 0, 0, 0, 0), q.AsOf, o.DueDate, Signed(o));
             if (!filtered)
-                foreach (var (party, name, amount) in await UnallocatedAsync(q.LegalEntityId, null, ct)) rows[party] = Ageing.Add(rows.GetValueOrDefault(party) ?? new AgeingRow(party, name, 0, 0, 0, 0, 0, 0), q.AsOf, q.AsOf, -amount);
+                foreach (var (party, name, amount) in await UnallocatedAsync(q.AsOf, q.LegalEntityId, null, ct)) rows[party] = Ageing.Add(rows.GetValueOrDefault(party) ?? new AgeingRow(party, name, 0, 0, 0, 0, 0, 0), q.AsOf, q.AsOf, -amount);
         }
         else
         {
@@ -63,26 +63,53 @@ internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadR
     public async Task<CustomerStatementDto> Handle(GetCustomerStatement q, CancellationToken ct)
     {
         var open = await OpenAsync(q.AsOf, q.LegalEntityId, q.PartyId, ct);
-        var unallocated = (await UnallocatedAsync(q.LegalEntityId, q.PartyId, ct)).Sum(u => u.Amount);
+        var unallocated = (await UnallocatedAsync(q.AsOf, q.LegalEntityId, q.PartyId, ct)).Sum(u => u.Amount);
         var items = open.OrderBy(o => o.DueDate).Select(o => new AgeingItem(o.Id, o.Number, o.IsCreditNote, o.InvoiceDate, o.DueDate, Math.Max(0, q.AsOf.DayNumber - o.DueDate.DayNumber), o.Total - o.Paid)).ToList();
         return new CustomerStatementDto(q.PartyId, open.FirstOrDefault()?.PartyName, q.AsOf, items, unallocated, open.Sum(Signed) - unallocated);
     }
 
     private static decimal Signed(Open o) => (o.IsCreditNote ? -1 : 1) * (o.Total - o.Paid);
 
+    /// <summary>Documents open at the end of <paramref name="asOf"/>: later receipts, credit applications and voids do not change the picture. An allocation counts from the date of its receipt.</summary>
     private async Task<List<Open>> OpenAsync(DateOnly asOf, Guid? entityId, Guid? partyId, CancellationToken ct, Guid? businessUnitId = null, string? sourceType = null)
-        => await invoices.Query(new Specification<Invoice>(i => (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid) && i.InvoiceDate <= asOf
+    {
+        var cutoff = CutOff(asOf);
+        var rows = await invoices.Query(new Specification<Invoice>(i => (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid || i.Status == DocumentStatus.Paid || i.Status == DocumentStatus.Voided)
+                && i.InvoiceDate <= asOf && !(i.VoidedAt != null && i.VoidedAt < cutoff)
                 && (entityId == null || i.LegalEntityId == entityId) && (partyId == null || i.PartyId == partyId)
                 && (businessUnitId == null || i.BusinessUnitId == businessUnitId) && (string.IsNullOrWhiteSpace(sourceType) || i.SourceType == sourceType)))
-            .Select(i => new Open(i.PartyId, i.PartyName, i.Id, i.Number, i.IsCreditNote, i.InvoiceDate, i.DueDate, i.Total, i.Paid, i.BusinessUnitId, i.SourceType)).ToListAsync(ct);
-
-    private async Task<List<(Guid Party, string? Name, decimal Amount)>> UnallocatedAsync(Guid? entityId, Guid? partyId, CancellationToken ct)
-    {
-        var rows = await settlements.Query(new Specification<Settlement>(s => s.Direction == InstrumentDirection.Received && s.Status == DocumentStatus.Issued && s.Unallocated > 0
-                && (entityId == null || s.LegalEntityId == entityId) && (partyId == null || s.PartyId == partyId)))
-            .Select(s => new { s.PartyId, s.PartyName, s.Unallocated }).ToListAsync(ct);
-        return rows.GroupBy(r => r.PartyId).Select(g => (g.Key, g.First().PartyName, g.Sum(r => r.Unallocated))).ToList();
+            .Select(i => new Open(i.PartyId, i.PartyName, i.Id, i.Number, i.IsCreditNote, i.InvoiceDate, i.DueDate, i.Total, 0m, i.BusinessUnitId, i.SourceType)).ToListAsync(ct);
+        if (rows.Count == 0) return rows;
+        var paid = (await Received(asOf, entityId, partyId).SelectMany(s => s.Allocations).Select(a => new { a.InvoiceId, a.Amount }).ToListAsync(ct))
+            .Where(a => a.InvoiceId != null).GroupBy(a => a.InvoiceId!.Value).ToDictionary(g => g.Key, g => g.Sum(a => a.Amount));
+        var applied = await creditApplications.Query(new Specification<CreditApplication>(c => c.Date <= asOf && (entityId == null || c.LegalEntityId == entityId))).Select(c => new { c.CreditNoteId, c.InvoiceId, c.Amount }).ToListAsync(ct);
+        foreach (var c in applied)
+        {
+            paid[c.CreditNoteId] = paid.GetValueOrDefault(c.CreditNoteId) + c.Amount; // used up on the credit note
+            paid[c.InvoiceId] = paid.GetValueOrDefault(c.InvoiceId) + c.Amount;       // and settles the invoice
+        }
+        return rows.Select(o => o with { Paid = paid.GetValueOrDefault(o.Id) }).Where(o => o.Total - o.Paid > 0).ToList();
     }
+
+    private async Task<List<(Guid Party, string? Name, decimal Amount)>> UnallocatedAsync(DateOnly asOf, Guid? entityId, Guid? partyId, CancellationToken ct)
+    {
+        var receipts = await Received(asOf, entityId, partyId).Select(s => new { s.Id, s.PartyId, s.PartyName, s.Amount }).ToListAsync(ct);
+        var allocated = (await Received(asOf, entityId, partyId).SelectMany(s => s.Allocations).Select(a => new { a.SettlementId, a.Amount }).ToListAsync(ct))
+            .GroupBy(a => a.SettlementId).ToDictionary(g => g.Key, g => g.Sum(a => a.Amount));
+        return receipts.Select(r => (r.PartyId, r.PartyName, Open: r.Amount - allocated.GetValueOrDefault(r.Id))).Where(r => r.Open > 0)
+            .GroupBy(r => r.PartyId).Select(g => (g.Key, g.First().PartyName, g.Sum(r => r.Open))).ToList();
+    }
+
+    /// <summary>Receipts dated on or before the date that were not voided by the end of that day.</summary>
+    private IQueryable<Settlement> Received(DateOnly asOf, Guid? entityId, Guid? partyId)
+    {
+        var cutoff = CutOff(asOf);
+        return settlements.Query(new Specification<Settlement>(s => s.Direction == InstrumentDirection.Received && s.Date <= asOf && !(s.VoidedAt != null && s.VoidedAt < cutoff)
+            && (s.Status == DocumentStatus.Issued || s.Status == DocumentStatus.Voided)
+            && (entityId == null || s.LegalEntityId == entityId) && (partyId == null || s.PartyId == partyId)));
+    }
+
+    private static DateTime CutOff(DateOnly asOf) => asOf.AddDays(1).ToDateTime(TimeOnly.MinValue);
 }
 
 /// <summary>Buckets an amount by days past due (shared by receivables and payables ageing).</summary>
