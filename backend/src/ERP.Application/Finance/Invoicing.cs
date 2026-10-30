@@ -52,6 +52,7 @@ public sealed class InvoicingService(
     {
         var entity = await guard.RequireAsync(d.LegalEntityId, ct);
         var party = await parties.FindAsync(d.PartyId, ct) ?? throw new FieldValidationException("partyId", "Customer not found.");
+        ERP.Application.Parties.CustomerRules.RequireCustomer(party);
         if (d.Lines.Count == 0) throw new FieldValidationException("lines", "An invoice needs at least one line.");
 
         var taxIds = d.Lines.Where(l => l.TaxCodeId is not null).Select(l => l.TaxCodeId!.Value).Distinct().ToList();

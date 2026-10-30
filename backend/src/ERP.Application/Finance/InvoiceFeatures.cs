@@ -10,7 +10,9 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Application.Finance;
 
 public sealed record InvoiceLineInput(string Description, decimal Quantity, decimal Price, Guid? TaxCodeId = null, Guid? AccountId = null, Guid? ItemId = null);
-public sealed record InvoiceInput(Guid LegalEntityId, Guid PartyId, DateOnly InvoiceDate, DateOnly? DueDate, List<InvoiceLineInput> Lines, bool IsCreditNote = false, string? Notes = null, string? SourceType = null, Guid? SourceId = null);
+/// <summary>SourceType and SourceId are set only by module billing code; they are never read from a request body.</summary>
+public sealed record InvoiceInput(Guid LegalEntityId, Guid PartyId, DateOnly InvoiceDate, DateOnly? DueDate, List<InvoiceLineInput> Lines, bool IsCreditNote = false, string? Notes = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] string? SourceType = null, [property: System.Text.Json.Serialization.JsonIgnore] Guid? SourceId = null);
 
 public sealed record InvoiceLineDto(Guid Id, int Seq, Guid? ItemId, string Description, decimal Quantity, decimal Price, Guid? TaxCodeId, decimal TaxAmount, decimal Net, Guid? AccountId);
 public sealed record InvoiceDto(
@@ -33,11 +35,11 @@ public sealed record InvoiceSummaryDto(Guid Id, string Number, bool IsCreditNote
 
 public sealed record GetInvoice(Guid Id) : IQuery<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesRead; }
 public sealed record CreateInvoice(InvoiceInput Input) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
-public sealed record UpdateInvoice(Guid Id, InvoiceInput Input) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
+public sealed record UpdateInvoice(Guid Id, InvoiceInput Input) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
 public sealed record DeleteInvoice(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
 public sealed record IssueInvoice(Guid Id) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesIssue; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
-public sealed record VoidInvoice(Guid Id, string? Reason) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesVoid; }
+public sealed record VoidInvoice(Guid Id, string? Reason) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesVoid; }
 
 public sealed class VoidInvoiceValidator : AbstractValidator<VoidInvoice>
 {
@@ -79,13 +81,16 @@ public sealed class InvoiceInputValidator : AbstractValidator<InvoiceInput>
     {
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.PartyId).NotEmpty();
+        RuleFor(x => x.InvoiceDate).MustBePlausibleDate();
+        RuleFor(x => x.DueDate).MustBePlausibleDate();
+        RuleFor(x => x).Must(x => x.DueDate is null || x.DueDate >= x.InvoiceDate).WithName("dueDate").WithMessage("The due date cannot be before the invoice date.");
         RuleFor(x => x.Notes).MaximumLength(1000);
         RuleFor(x => x.Lines).NotNull().Must(l => l is { Count: > 0 }).WithMessage("An invoice needs at least one line.");
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
             l.RuleFor(x => x.Description).NotEmpty().MaximumLength(400);
-            l.RuleFor(x => x.Quantity).GreaterThan(0);
-            l.RuleFor(x => x.Price).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.Quantity).GreaterThan(0).MustHaveAtMostDecimals(4);
+            l.RuleFor(x => x.Price).GreaterThanOrEqualTo(0).MustHaveAtMostDecimals(4);
         });
     }
 }

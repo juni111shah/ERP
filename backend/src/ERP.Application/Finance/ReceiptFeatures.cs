@@ -31,9 +31,9 @@ public sealed record ReceiptSummaryDto(Guid Id, string Number, Guid PartyId, str
 public sealed record GetReceipt(Guid Id) : IQuery<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsRead; }
 /// <summary>Money received from a customer: Dr bank / cash, Cr receivables; optionally settles invoices at the same time. What is not allocated stays as customer credit.</summary>
 public sealed record CreateReceipt(ReceiptInput Input) : ICommand<ReceiptDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
-public sealed record AllocateReceipt(Guid Id, List<AllocationInput> Allocations) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
+public sealed record AllocateReceipt(Guid Id, List<AllocationInput> Allocations) : ICommand<ReceiptDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
-public sealed record VoidReceipt(Guid Id, string? Reason) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
+public sealed record VoidReceipt(Guid Id, string? Reason) : ICommand<ReceiptDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
 
 public sealed class VoidReceiptValidator : AbstractValidator<VoidReceipt>
 {
@@ -46,6 +46,7 @@ public sealed class ReceiptInputValidator : AbstractValidator<ReceiptInput>
     {
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.PartyId).NotEmpty();
+        RuleFor(x => x.Date).MustBePlausibleDate();
         RuleFor(x => x.BankAccountId).NotEmpty();
         RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
         RuleFor(x => x.Method).IsInEnum().Must(m => m != SettlementMethod.Instrument).WithMessage("Cheques are recorded in the cheque register.");
@@ -74,6 +75,7 @@ internal sealed class ReceiptHandlers(
         var i = cmd.Input;
         var entity = await guard.RequireAsync(i.LegalEntityId, ct);
         var party = await parties.FindAsync(i.PartyId, ct) ?? throw new FieldValidationException("partyId", "Customer not found.");
+        ERP.Application.Parties.CustomerRules.RequireCustomer(party);
         var bank = await accounts.FindAsync(i.BankAccountId, ct);
         if (bank is null || !BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
 
