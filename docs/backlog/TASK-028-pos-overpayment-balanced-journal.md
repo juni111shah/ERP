@@ -2,12 +2,12 @@
 id: TASK-028
 title: POS rejects or caps overpayment so the sale journal always balances
 priority: P0
-status: open
+status: done
 schema: no
 depends_on: []
 area: pos
 audit_ref: TASK-005 review follow-up
-commit:
+commit: cdcb51b
 ---
 
 ## Problem
@@ -35,6 +35,8 @@ Integration tests in `PosOrderTests`, one per criterion; assert journal debit eq
 ## Do not touch
 Void flow, price override rules, ledger account roles.
 
-## What I did (Antigravity)
+## What I did (Claude)
+Handler rejects paymentsSum > total (400 on payments); change stays on TenderedAmount/ChangeAmount. Four integration tests (cash 150 on 100, tendered 150 gives change 50 and ExpectedCash +100, 60+60 cards, exact payment).
 
 ## Review (Claude)
+- Verified: build 0 errors; 253 unit and 284 integration tests pass (4 SQL Server skipped). Journal balance is enforced by the posting service, so a 201 proves it balanced.
