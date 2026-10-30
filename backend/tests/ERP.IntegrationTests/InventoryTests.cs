@@ -132,4 +132,21 @@ public class InventoryTests(ApiFactory f) : IClassFixture<ApiFactory>
 
         await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1.5m, unitCost = 2.25m, date = "2026-05-01", offsetAccountId = x.Offset }), HttpStatusCode.Created);
     }
+
+    [Fact]
+    public async Task A_warehouse_that_holds_stock_cannot_be_deactivated()
+    {
+        var x = await SetupAsync();
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 5, unitCost = 10m, date = "2026-05-01", offsetAccountId = x.Offset }), HttpStatusCode.Created);
+
+        async Task<bool> IsActive() => (bool)(await Ok(await x.C.GetAsync($"{Inv}/warehouses?pageSize=100"))).AsArray().Single(w => (string)w!["id"]! == x.Wh1)!["isActive"]!;
+        object Update(bool active) => new { name = "Renamed", address = (string?)null, isActive = active };
+        await Ok(await x.C.PutAsJsonAsync($"{Inv}/warehouses/{x.Wh1}", Update(true))); // renaming with stock is fine
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.PutAsJsonAsync($"{Inv}/warehouses/{x.Wh1}", Update(false))).StatusCode);
+        Assert.True(await IsActive());
+
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/transfer", new { fromWarehouseId = x.Wh1, toWarehouseId = x.Wh2, itemId = x.Item, quantity = 5, date = "2026-05-02" }), HttpStatusCode.Created);
+        Assert.False((bool)(await Ok(await x.C.PutAsJsonAsync($"{Inv}/warehouses/{x.Wh1}", Update(false))))["isActive"]!);
+        Assert.False(await IsActive());
+    }
 }
