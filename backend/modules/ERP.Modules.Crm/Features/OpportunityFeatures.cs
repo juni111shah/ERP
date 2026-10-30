@@ -134,6 +134,8 @@ public class OpportunityHandlers :
     public async Task<OpportunityDto> Handle(CreateOpportunityCommand request, CancellationToken cancellationToken)
     {
         await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
+        if (request.Stage is OpportunityStage.ClosedWon or OpportunityStage.ClosedLost)
+            throw new FieldValidationException("stage", "A new opportunity starts open. Close it with the close action.");
         if (request.CustomerPartyId is { } partyId && !await _parties.AnyAsync(p => p.Id == partyId, cancellationToken))
             throw new FieldValidationException("customerPartyId", "Customer not found.");
         var number = await _numbering.NextAsync("OPP", request.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
@@ -167,8 +169,9 @@ public class OpportunityHandlers :
 
         CrmTransitions.Opportunity.Ensure(opp.Stage, request.Stage, isSystem: false);
 
+        var wasClosed = opp.Stage is OpportunityStage.ClosedWon or OpportunityStage.ClosedLost;
         opp.Stage = request.Stage;
-        opp.ProbabilityPercent = request.ProbabilityPercent;
+        opp.ProbabilityPercent = request.Stage switch { OpportunityStage.ClosedWon => 100, OpportunityStage.ClosedLost => 0, _ => request.ProbabilityPercent };
 
         if (request.Stage == OpportunityStage.ClosedWon)
         {
@@ -179,6 +182,13 @@ public class OpportunityHandlers :
         {
             opp.ActualCloseDate = DateOnly.FromDateTime(DateTime.UtcNow);
             opp.ActualRevenue = 0;
+        }
+        else if (wasClosed)
+        {
+            // reopened: nothing of the earlier close may linger
+            opp.ActualCloseDate = null;
+            opp.ActualRevenue = 0;
+            opp.CloseReason = null;
         }
 
         await _oppRepo.SaveChangesAsync(cancellationToken);
@@ -195,7 +205,9 @@ public class OpportunityHandlers :
             throw new ConflictException("Opportunity is already closed.");
         }
 
-        opp.Stage = request.IsWon ? OpportunityStage.ClosedWon : OpportunityStage.ClosedLost;
+        var target = request.IsWon ? OpportunityStage.ClosedWon : OpportunityStage.ClosedLost;
+        CrmTransitions.Opportunity.Ensure(opp.Stage, target, isSystem: false); // a deal is won only from Negotiation
+        opp.Stage = target;
         opp.ActualRevenue = request.IsWon ? request.ActualRevenue : 0;
         opp.ActualCloseDate = DateOnly.FromDateTime(DateTime.UtcNow);
         opp.CloseReason = request.CloseReason;

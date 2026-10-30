@@ -89,4 +89,28 @@ public class CrmModuleTests(ApiFactory f) : IClassFixture<ApiFactory>
         await Ok(await c.PutAsJsonAsync($"{Crm}/leads/{id}", LeadUpdate(id, entity, 3)));
         await Ok(await c.PostAsJsonAsync($"{Crm}/leads/{id}/convert", new { id, opportunityTitle = "Deal", expectedRevenue = 1m }));
     }
+
+    [Fact]
+    public async Task Opportunity_close_follows_the_pipeline_and_reopening_clears_the_close()
+    {
+        var (c, entity) = await SetupAsync();
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync($"{Crm}/opportunities", NewOpp(entity, stage: 4))).StatusCode); // cannot be born closed
+        var opp = await Ok(await c.PostAsJsonAsync($"{Crm}/opportunities", NewOpp(entity)), HttpStatusCode.Created);
+        var id = (string)opp["id"]!;
+
+        Assert.Equal(HttpStatusCode.Conflict, (await c.PostAsJsonAsync($"{Crm}/opportunities/{id}/close", new { id, isWon = true, actualRevenue = 5000m })).StatusCode); // not yet in negotiation
+        await Ok(await c.PostAsJsonAsync($"{Crm}/opportunities/{id}/stage", new { id, stage = 2, probabilityPercent = 40 }));
+        await Ok(await c.PostAsJsonAsync($"{Crm}/opportunities/{id}/stage", new { id, stage = 3, probabilityPercent = 60 }));
+        var won = await Ok(await c.PostAsJsonAsync($"{Crm}/opportunities/{id}/close", new { id, isWon = true, actualRevenue = 4800m, closeReason = "Price" }));
+        Assert.Equal((100, 4800m), ((int)won["probabilityPercent"]!, (decimal)won["actualRevenue"]!));
+
+        var lost = await Ok(await c.PostAsJsonAsync($"{Crm}/opportunities", NewOpp(entity)), HttpStatusCode.Created);
+        var lostId = (string)lost["id"]!;
+        var closed = await Ok(await c.PostAsJsonAsync($"{Crm}/opportunities/{lostId}/stage", new { id = lostId, stage = 5, probabilityPercent = 55 }));
+        Assert.Equal(0, (int)closed["probabilityPercent"]!); // closing lost forces 0%, whatever the request says
+        await Ok(await c.PostAsJsonAsync($"{Crm}/opportunities/{lostId}/close", new { id = lostId, isWon = false, actualRevenue = 0m }), HttpStatusCode.Conflict);
+        var reopened = await Ok(await c.PostAsJsonAsync($"{Crm}/opportunities/{lostId}/stage", new { id = lostId, stage = 1, probabilityPercent = 20 }));
+        Assert.Null((string?)reopened["actualCloseDate"]);
+        Assert.Equal(0m, (decimal)reopened["actualRevenue"]!);
+    }
 }
