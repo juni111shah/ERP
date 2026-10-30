@@ -64,36 +64,23 @@ internal sealed class BillingHandlers(
 {
     public async Task<IReadOnlyList<ProjectBillingSummaryDto>> Handle(GetBillingOverview q, CancellationToken ct)
     {
-        var allProjects = await projects.Query().OrderBy(p => p.Name).ToListAsync(ct);
-        var unbilledTs = await timesheets.Query(new Specification<ProjectTimesheet>(x => x.IsBillable && !x.IsBilled)).ToListAsync(ct);
-        var achievedMs = await milestones.Query(new Specification<ProjectMilestone>(x => x.Status == MilestoneStatus.Achieved)).ToListAsync(ct);
+        // Only the columns the summary needs, grouped by project once (no per-project rescans of whole tables).
+        var unbilled = (await timesheets.Query(new Specification<ProjectTimesheet>(x => x.IsBillable && !x.IsBilled)).Select(x => new { x.ProjectId, x.Hours, x.TotalAmount }).ToListAsync(ct))
+            .GroupBy(x => x.ProjectId).ToDictionary(g => g.Key, g => (Hours: g.Sum(x => x.Hours), Amount: g.Sum(x => x.TotalAmount)));
+        var achieved = (await milestones.Query(new Specification<ProjectMilestone>(x => x.Status == MilestoneStatus.Achieved)).Select(x => new { x.ProjectId, x.Amount }).ToListAsync(ct))
+            .GroupBy(x => x.ProjectId).ToDictionary(g => g.Key, g => (Count: g.Count(), Amount: g.Sum(x => x.Amount)));
+        var billable = unbilled.Keys.Concat(achieved.Keys).ToHashSet();
+        var allProjects = await projects.Query(new Specification<Project>(p => p.Status == ProjectStatus.Active || billable.Contains(p.Id)))
+            .OrderBy(p => p.Name).Select(p => new { p.Id, p.Number, p.Name, p.BillingType, p.Status }).ToListAsync(ct);
 
         var list = new List<ProjectBillingSummaryDto>();
-
         foreach (var p in allProjects)
         {
-            var pTs = unbilledTs.Where(x => x.ProjectId == p.Id).ToList();
-            var pMs = achievedMs.Where(x => x.ProjectId == p.Id).ToList();
-
-            var hours = pTs.Sum(x => x.Hours);
-            var hoursAmount = pTs.Sum(x => x.TotalAmount);
-            var msCount = pMs.Count;
-            var msAmount = pMs.Sum(x => x.Amount);
+            var (hours, hoursAmount) = unbilled.GetValueOrDefault(p.Id);
+            var (msCount, msAmount) = achieved.GetValueOrDefault(p.Id);
             var total = hoursAmount + msAmount;
-
             if (total > 0 || p.Status == ProjectStatus.Active)
-            {
-                list.Add(new ProjectBillingSummaryDto(
-                    p.Id,
-                    p.Number,
-                    p.Name,
-                    p.BillingType,
-                    hours,
-                    hoursAmount,
-                    msCount,
-                    msAmount,
-                    total));
-            }
+                list.Add(new ProjectBillingSummaryDto(p.Id, p.Number, p.Name, p.BillingType, hours, hoursAmount, msCount, msAmount, total));
         }
 
         return list;
