@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\modules\ERP.Modules.Crm\ERP.Modules.Crm.csproj" />
     <ProjectReference Include="..\..\modules\ERP.Modules.Services\ERP.Modules.Services.csproj" />
     <ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.AE\ERP.CountryPacks.AE.csproj" />
+    <ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.QA\ERP.CountryPacks.QA.csproj" />
     <ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.SA\ERP.CountryPacks.SA.csproj" />
     <ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.PK\ERP.CountryPacks.PK.csproj" />
     <ProjectReference Include="..\..\countrypacks\ERP.CountryPacks.IN\ERP.CountryPacks.IN.csproj" />

@@ -28,8 +28,8 @@ public static class DevSeeder
         var adminEmail = section["AdminEmail"] ?? "admin@demo.local";
         var onboarding = sp.GetRequiredService<OnboardingService>();
 
-        var demo = await onboarding.CreateWorkspaceAsync(new("Demo Workspace", "demo", "generic", "QA", "QAR", "Asia/Qatar", "Demo Trading LLC", adminEmail, "Demo Administrator", password), ct);
-        var re = await onboarding.CreateWorkspaceAsync(new("Demo Properties", "demo-re", "realestate", "QA", "QAR", "Asia/Qatar", "Demo Properties LLC", section["MultiWorkspaceEmail"] ?? "owner@demo.local", "Workspace Owner", password), ct);
+        var demo = await onboarding.CreateWorkspaceAsync(new("Demo Workspace", "demo", "generic", "QA", "QAR", "Asia/Qatar", "Demo Trading W.L.L.", adminEmail, "Demo Administrator", password), ct);
+        var re = await onboarding.CreateWorkspaceAsync(new("Demo Properties", "demo-re", "realestate", "QA", "QAR", "Asia/Qatar", "Demo Properties W.L.L.", section["MultiWorkspaceEmail"] ?? "owner@demo.local", "Workspace Owner", password), ct);
         // The owner also joins the generic workspace, to exercise the workspace picker.
         var users = sp.GetRequiredService<UserManager<AppUser>>();
         var orgCtx = sp.GetRequiredService<ERP.Application.Abstractions.IOrgContext>();

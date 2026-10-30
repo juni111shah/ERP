@@ -45,8 +45,8 @@ console.log('Seeding demo data into workspace demo-re ...');
 // ---- Property owners (landlords): paid out, so they carry the Vendor role. Own existence check, so a re-run on an already
 // seeded workspace adds only the owners that are missing and touches nothing else.
 const ownerSeeds = [
-  { name: 'Rashid Al Falasi', kind: 'Individual', email: 'owner1@example.com', phone: '+971500000201' },
-  { name: 'Marina Holdings LLC', kind: 'Company', email: 'owner2@example.com', phone: '+971500000202' },
+  { name: 'Rashid Al Thani', kind: 'Individual', email: 'owner1@example.com', phone: '+97455000201' },
+  { name: 'Pearl Holdings W.L.L.', kind: 'Company', email: 'owner2@example.com', phone: '+97455000202' },
 ];
 await step('owners', async () => {
   for (const o of ownerSeeds) {
@@ -67,11 +67,11 @@ const bank = accounts.find((a) => a.systemRole === 'bank')?.id;
 const expenseAcc = acct('6900') ?? accounts.find((a) => a.type === 'expense')?.id;
 
 // ---- Parties and catalogue ----------------------------------------------------------------------------------------------
-const tenantNames = ['Al Noor Trading LLC', 'Sara Ahmed', 'Gulf Tech Solutions', 'Khalid Al Mansoori', 'Bluewave Cafe', 'Priya Nair', 'Omar Hassan', 'Desert Rose Salon'];
+const tenantNames = ['Al Noor Trading W.L.L.', 'Sara Ahmed', 'Gulf Tech Solutions', 'Khalid Al Marri', 'Bluewave Cafe', 'Priya Nair', 'Omar Hassan', 'Desert Rose Salon'];
 const tenants = [];
 await step('customers / tenants', async () => {
   for (const [i, name] of tenantNames.entries()) {
-    const p = await call('POST', '/parties', { name, kind: i % 2 === 0 ? 'Company' : 'Individual', roles: 'Customer', email: `tenant${i + 1}@example.com`, phone: `+97150000${100 + i}`, paymentTermsDays: 15 });
+    const p = await call('POST', '/parties', { name, kind: i % 2 === 0 ? 'Company' : 'Individual', roles: 'Customer', email: `tenant${i + 1}@example.com`, phone: `+9745500${100 + i}`, paymentTermsDays: 15 });
     tenants.push(p);
   }
 });
@@ -96,8 +96,8 @@ await step('unit types', async () => {
 });
 const properties = [];
 await step('properties', async () => {
-  for (const [name, type, community, value] of [['Marina Heights Tower', 'residential', 'Dubai Marina', 42_000_000], ['Palm Business Centre', 'commercial', 'Business Bay', 28_000_000], ['Garden Court Villas', 'villa', 'Arabian Ranches', 18_500_000]])
-    properties.push(await call('POST', '/m/realestate/properties', { legalEntityId: entity, name, propertyType: type, ownershipType: 'owned', region: 'Dubai', community, yearBuilt: 2016, totalUnits: 0, indicativeValue: value }));
+  for (const [name, type, community, value] of [['Pearl Heights Tower', 'residential', 'The Pearl-Qatar', 42_000_000], ['West Bay Business Centre', 'commercial', 'West Bay', 28_000_000], ['Garden Court Villas', 'villa', 'Arabian Ranches', 18_500_000]])
+    properties.push(await call('POST', '/m/realestate/properties', { legalEntityId: entity, name, propertyType: type, ownershipType: 'owned', region: 'Doha', community, yearBuilt: 2016, totalUnits: 0, indicativeValue: value }));
 });
 const units = [];
 await step('units', async () => {
@@ -135,7 +135,7 @@ await step('receipts (some tenants have paid)', async () => {
   }
 });
 await step('post-dated cheques', async () => {
-  for (const [i, d] of [[2, 20], [3, 45], [5, 70]]) await call('POST', '/finance/cheques', { legalEntityId: entity, partyId: tenants[i].id, kind: 'postDatedCheque', instrumentNo: String(700100 + i), bankName: 'Emirates NBD', amount: 25_000 + i * 1000, instrumentDate: addDays(d), receivedOn: addDays(-3) });
+  for (const [i, d] of [[2, 20], [3, 45], [5, 70]]) await call('POST', '/finance/cheques', { legalEntityId: entity, partyId: tenants[i].id, kind: 'postDatedCheque', instrumentNo: String(700100 + i), bankName: 'QNB', amount: 25_000 + i * 1000, instrumentDate: addDays(d), receivedOn: addDays(-3) });
 });
 
 // ---- Operations ---------------------------------------------------------------------------------------------------------
@@ -148,13 +148,13 @@ await step('preventive maintenance schedules', async () => {
     await call('POST', '/m/realestate/pm-schedules', { propertyId: properties[0].id, title: t, category: c, frequencyMonths: m, nextDue: addDays(d), leadDays: 7, estimatedCost: 600 });
 });
 await step('brokerage deals', async () => {
-  const sale = await call('POST', '/m/realestate/deals', { legalEntityId: entity, dealType: 'sale', clientName: 'Rashid Al Falasi', dealDate: addDays(-20), dealValue: 3_200_000, commissionRatePercent: 2, propertyId: properties[0].id, agentPartyId: agents[0].id, agentSharePercent: 40 });
+  const sale = await call('POST', '/m/realestate/deals', { legalEntityId: entity, dealType: 'sale', clientName: 'Rashid Al Thani', dealDate: addDays(-20), dealValue: 3_200_000, commissionRatePercent: 2, propertyId: properties[0].id, agentPartyId: agents[0].id, agentSharePercent: 40 });
   for (const stage of ['viewing', 'negotiation', 'agreed']) await call('POST', `/m/realestate/deals/${sale.id}/stage`, { stage });
   await call('POST', '/m/realestate/deals', { legalEntityId: entity, dealType: 'lease', clientName: 'Nadia Karim', dealDate: addDays(-5), dealValue: 95_000, commissionRatePercent: 5, propertyId: properties[1].id, agentPartyId: agents[1].id, agentSharePercent: 35 });
 });
 await step('acquisition with bank mortgage', async () => {
-  const prop = await call('POST', '/m/realestate/properties', { legalEntityId: entity, name: 'Skyline Plaza (new purchase)', propertyType: 'commercial', ownershipType: 'owned', region: 'Dubai', community: 'DIFC', totalUnits: 0, indicativeValue: 12_000_000 });
-  await call('POST', '/m/realestate/acquisitions', { legalEntityId: entity, propertyId: prop.id, sellerName: 'Emaar Developments', purchaseDate: addDays(-10), contractReference: 'SPA-2026-118', purchasePrice: 12_000_000, downPayment: 2_400_000, transferFees: 480_000, otherCosts: 25_000, payFromAccountId: bank, funding: [{ type: 'bankMortgage', lender: 'Mashreq Bank', principal: 7_200_000, annualRatePercent: 5.4, termMonths: 180, firstDueDate: addDays(30) }] });
+  const prop = await call('POST', '/m/realestate/properties', { legalEntityId: entity, name: 'Skyline Plaza (new purchase)', propertyType: 'commercial', ownershipType: 'owned', region: 'Doha', community: 'DIFC', totalUnits: 0, indicativeValue: 12_000_000 });
+  await call('POST', '/m/realestate/acquisitions', { legalEntityId: entity, propertyId: prop.id, sellerName: 'Qatari Diar Developments', purchaseDate: addDays(-10), contractReference: 'SPA-2026-118', purchasePrice: 12_000_000, downPayment: 2_400_000, transferFees: 480_000, otherCosts: 25_000, payFromAccountId: bank, funding: [{ type: 'bankMortgage', lender: 'Doha Bank Bank', principal: 7_200_000, annualRatePercent: 5.4, termMonths: 180, firstDueDate: addDays(30) }] });
 });
 
 // ---- Finance: bills, payments, journal, budget --------------------------------------------------------------------------
@@ -197,7 +197,7 @@ await step('CRM listings and leads', async () => {
     if (i === 0) await call('POST', `/m/realestate/listings/${l.id}/status`, { status: 'published' }).catch(() => {});
   }
   for (const [name, source, days] of [['Hamad Al Suwaidi', 'Website', 2], ['Jessica Moore', 'Walk-in', 5], ['Tariq Mehmood', 'Referral', -1]])
-    await call('POST', '/m/realestate/leads', { legalEntityId: entity, name, phone: '+9715011122' + days, email: name.split(' ')[0].toLowerCase() + '@example.com', source, interest: '1 bedroom near the Marina', followUpOn: addDays(days) });
+    await call('POST', '/m/realestate/leads', { legalEntityId: entity, name, phone: '+9745501' + String(1000 + Number(days)).slice(-4), email: name.split(' ')[0].toLowerCase() + '@example.com', source, interest: '1 bedroom near the Marina', followUpOn: addDays(days) });
 });
 await step('enable Inventory and add stock', async () => {
   await call('POST', '/modules/inventory/enable'); await login();
