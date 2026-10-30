@@ -2,12 +2,13 @@
 id: TASK-129
 title: Validate dates and quantity/price precision on invoice and receipt inputs
 priority: P2
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: sales
 audit_ref: Claude analysis, Order to cash (second pass)
 commit:
+owner: claude (worktree work-claude; Antigravity skip)
 ---
 
 ## Problem

@@ -2,12 +2,13 @@
 id: TASK-126
 title: Invoices and receipts accept only customer parties
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: sales
 audit_ref: Claude analysis, Order to cash (second pass)
 commit:
+owner: claude (worktree work-claude; Antigravity skip)
 ---
 
 ## Problem

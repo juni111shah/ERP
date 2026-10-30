@@ -2,12 +2,13 @@
 id: TASK-127
 title: The public invoice API must not accept SourceType and SourceId
 priority: P2
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: sales
 audit_ref: Claude analysis, Order to cash (second pass)
 commit:
+owner: claude (worktree work-claude; Antigravity skip)
 ---
 
 ## Problem

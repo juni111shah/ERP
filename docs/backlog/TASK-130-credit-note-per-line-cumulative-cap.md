@@ -2,12 +2,13 @@
 id: TASK-130
 title: Cumulative credited quantity per invoice line cannot exceed the invoiced quantity
 priority: P2
-status: open
+status: in-progress
 schema: yes
 depends_on: []
 area: sales
 audit_ref: Claude analysis, Order to cash (second pass)
 commit:
+owner: claude (worktree work-claude; Antigravity skip)
 ---
 
 ## Problem
