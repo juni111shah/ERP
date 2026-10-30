@@ -217,7 +217,16 @@ function humanizeValue(v: string): string {
                             [storageKey]="pageSizeKey()" (pageChange)="onPage($event)" />
       }
     </div>
-    <ng-template #empty><nz-empty [nzNotFoundContent]="emptyText()"></nz-empty></ng-template>`,
+    <ng-template #empty>
+      @if (list().error()) {
+        <div role="alert" data-testid="table-error">
+          <nz-empty [nzNotFoundContent]="t('table.loadFailed', 'The data could not be loaded.')"></nz-empty>
+          <button nz-button nzSize="small" type="button" (click)="list().reload()" data-testid="table-retry">{{ t('table.retry', 'Try again') }}</button>
+        </div>
+      } @else {
+        <nz-empty [nzNotFoundContent]="emptyText()"></nz-empty>
+      }
+    </ng-template>`,
 })
 export class PagedTableComponent<T> {
   private readonly csvService = inject(CsvExportService);
