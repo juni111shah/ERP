@@ -2,12 +2,13 @@
 id: TASK-133
 title: Purchase orders are editable only while Draft or Submitted and deletable only when nothing depends on them
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
 commit:
+owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
 ## Problem

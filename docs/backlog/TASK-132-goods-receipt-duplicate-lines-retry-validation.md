@@ -2,12 +2,13 @@
 id: TASK-132
 title: Goods receipt lines are checked together, commands retry on conflicts, dates and precision are validated
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
 commit:
+owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
 ## Problem

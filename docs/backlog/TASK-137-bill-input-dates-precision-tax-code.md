@@ -2,12 +2,13 @@
 id: TASK-137
 title: Bill input validates dates, quantity/price precision and active tax codes
 priority: P2
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
 commit:
+owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
 ## Problem

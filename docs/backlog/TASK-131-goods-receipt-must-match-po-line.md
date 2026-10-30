@@ -2,12 +2,13 @@
 id: TASK-131
 title: Goods receipts are accepted only for open purchase orders and take item data from the order line
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
 commit:
+owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
 ## Problem

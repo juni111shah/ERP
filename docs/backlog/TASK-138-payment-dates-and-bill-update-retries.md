@@ -2,12 +2,13 @@
 id: TASK-138
 title: Payment and cheque dates are validated; bill edit and delete retry on conflicts
 priority: P2
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
 commit:
+owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
 ## Problem

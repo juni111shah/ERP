@@ -2,12 +2,13 @@
 id: TASK-134
 title: Converting a purchase order to a bill keeps the tax and uses a valid due date
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
 commit:
+owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
 ## Problem

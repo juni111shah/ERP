@@ -2,12 +2,13 @@
 id: TASK-135
 title: Converting a purchase order to a bill is atomic, uses configured accounts and validates price overrides
 priority: P1
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
 commit:
+owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
 ## Problem

@@ -2,12 +2,13 @@
 id: TASK-136
 title: Purchase order vendor, currency, dates and precision are validated
 priority: P2
-status: open
+status: in-progress
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
 commit:
+owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
 ## Problem
