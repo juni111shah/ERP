@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../kit/registry.dart';
+import 'acquisition_screens.dart';
+import 'crm_screens.dart';
 import 'lease_screens.dart';
 import 'maintenance_screens.dart';
 import 'property_screens.dart';
@@ -16,4 +18,8 @@ final List<MobileScreen> realestateScreens = <MobileScreen>[
   MobileScreen(id: 're-workorders', title: 'Work orders', menuIds: const ['realestate.workorders'], icon: Icons.build_outlined, builder: (_) => const WorkOrdersScreen()),
   MobileScreen(id: 're-pm', title: 'Preventive maintenance', menuIds: const ['realestate.pm'], icon: Icons.event_repeat, builder: (_) => const PreventiveMaintenanceScreen()),
   MobileScreen(id: 're-inspections', title: 'Inspections', menuIds: const ['realestate.inspections'], icon: Icons.fact_check_outlined, builder: (_) => const InspectionsScreen()),
+  MobileScreen(id: 're-acquisitions', title: 'Acquisitions', menuIds: const ['realestate.acquisitions'], icon: Icons.account_balance_outlined, builder: (_) => const AcquisitionsScreen()),
+  MobileScreen(id: 're-listings', title: 'Listings', menuIds: const ['realestate.listings'], icon: Icons.storefront_outlined, builder: (_) => const ListingsScreen()),
+  MobileScreen(id: 're-leads', title: 'Leads', menuIds: const ['realestate.leads'], icon: Icons.group_outlined, builder: (_) => const LeadsScreen()),
+  MobileScreen(id: 're-deals', title: 'Deals', menuIds: const ['realestate.deals'], icon: Icons.handshake_outlined, builder: (_) => const DealsScreen()),
 ];
