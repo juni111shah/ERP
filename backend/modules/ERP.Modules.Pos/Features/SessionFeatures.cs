@@ -136,6 +136,8 @@ public class SessionHandlers :
     public async Task<PosSessionDto> Handle(OpenSessionCommand request, CancellationToken cancellationToken)
     {
         var register = await _registers.GetAsync(request.RegisterId, cancellationToken);
+        if (!register.IsActive) throw new ConflictException($"Register '{register.Name}' is inactive.");
+        if (register.LegalEntityId != request.LegalEntityId) throw new FieldValidationException("legalEntityId", "The register belongs to another legal entity.");
 
         var activeSession = await _sessions.Query(new Specification<PosSession>(
             s => s.RegisterId == request.RegisterId && s.Status == PosSessionStatus.Open))
