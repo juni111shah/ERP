@@ -2,7 +2,7 @@
 id: TASK-127
 title: The public invoice API must not accept SourceType and SourceId
 priority: P2
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: sales
@@ -38,3 +38,6 @@ Module billing runs; the `InvoiceDraft` record.
 - Tests: forged `sourceType`/`sourceId` on POST and PUT come back null; a credit note from `/credit-note` keeps its link. Frontend never sent these fields, no change.
 
 ## Review (Claude)
+
+`SourceType`/`SourceId` are `[JsonIgnore]` on `InvoiceInput`; module billing and `/credit-note` set them in code. `A_forged_source_link_in_the_request_body_is_ignored` and `A_credit_note_from_an_invoice_keeps_its_link` pass.
+Clean `git archive` copy of HEAD (7479c1b): `dotnet build backend/ERP.sln` 0 errors; `dotnet test`: unit 286 passed, integration 364 passed, 8 skipped (SQL Server only), 0 failed. Reviewed 2026-10-30.

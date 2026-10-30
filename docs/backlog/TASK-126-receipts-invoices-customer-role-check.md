@@ -2,7 +2,7 @@
 id: TASK-126
 title: Invoices and receipts accept only customer parties
 priority: P1
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: sales
@@ -39,3 +39,6 @@ Accounting rules, journal shapes and numbering; module billing code (it calls `I
 - Tests: `OrderToCashInputTests` (invoice and credit note for vendor-only and employee-only -> 400; receipt -> 400; update to a vendor -> 400; Customer and Customer+Vendor still work) and a unit test of the rule for every role combination. The API refuses to create a role-less party, so that case is covered by the unit test only.
 
 ## Review (Claude)
+
+Verified in commit 710861a: `CustomerRules.RequireCustomer` called in `InvoicingService.ApplyAsync` (covers invoice, update, credit note) and `CreateReceipt`; role-less and Customer|Vendor parties stay allowed. Integration tests cover vendor/employee rejection (invoice, credit note, receipt, update) and the allowed parties.
+Clean `git archive` copy of HEAD (7479c1b): `dotnet build backend/ERP.sln` 0 errors; `dotnet test`: unit 286 passed, integration 364 passed, 8 skipped (SQL Server only), 0 failed. Reviewed 2026-10-30.

@@ -2,7 +2,7 @@
 id: TASK-130
 title: Cumulative credited quantity per invoice line cannot exceed the invoiced quantity
 priority: P2
-status: ready-for-review
+status: done
 schema: yes
 depends_on: []
 area: sales
@@ -43,3 +43,6 @@ Existing migrations; the document-total cap (keep it).
 - Full suite: 286 unit + 364 integration passed, 8 skipped (SQL Server only; the relevant ones pass with ERP_TEST_SQL set).
 
 ## Review (Claude)
+
+`InvoiceLine.SourceLineId` plus per-line cap in `CreateCreditNoteFromInvoice` and draft edit; void frees quantity. 6 integration tests cover the criteria. Migration `20261030114901_InvoiceLineSourceLine` and `database/scripts/0066_InvoiceLineSourceLine.sql` are consistent (nullable column); script NOT applied to any database. Credit notes raised before this change are covered only by the total cap. Edit matching of draft lines is by position and description, acceptable.
+Clean `git archive` copy of HEAD (7479c1b): `dotnet build backend/ERP.sln` 0 errors; `dotnet test`: unit 286 passed, integration 364 passed, 8 skipped (SQL Server only), 0 failed. Reviewed 2026-10-30.

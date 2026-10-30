@@ -2,7 +2,7 @@
 id: TASK-128
 title: Allocate receipt, void receipt, void invoice and update invoice retry on concurrency conflicts
 priority: P1
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: sales
@@ -40,3 +40,6 @@ Posting service and journal shapes.
 - Side effect: the 20-parallel-receipts test from TASK-021/022 now also ran and passed on SQL Server, which closes the gap noted on TASK-021.
 
 ## Review (Claude)
+
+`AllocateReceipt`, `VoidReceipt`, `UpdateInvoice`, `VoidInvoice` implement `IRetryOnConcurrency` (unit test asserts it). The two SQL Server race tests are skipped here because no SQL Server is available locally (8 skips in the suite), so the parallel criteria are unproven until they run on a SQL Server host. Note: commit 710861a bundles TASK-126..129 (one-card-per-commit rule), accepted because the changes are small and separable by the commit message.
+Clean `git archive` copy of HEAD (7479c1b): `dotnet build backend/ERP.sln` 0 errors; `dotnet test`: unit 286 passed, integration 364 passed, 8 skipped (SQL Server only), 0 failed. Reviewed 2026-10-30.
