@@ -72,7 +72,8 @@ internal sealed class BillingHandlers(
 
         foreach (var p in allProjects)
         {
-            var pTs = unbilledTs.Where(x => x.ProjectId == p.Id).ToList();
+            if (p.BillingType == ProjectBillingType.NonBillable) continue;
+            var pTs = p.BillingType == ProjectBillingType.FixedFee ? new List<ProjectTimesheet>() : unbilledTs.Where(x => x.ProjectId == p.Id).ToList();
             var pMs = achievedMs.Where(x => x.ProjectId == p.Id).ToList();
 
             var hours = pTs.Sum(x => x.Hours);
@@ -104,6 +105,11 @@ internal sealed class BillingHandlers(
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
 
+        if (p.BillingType == ProjectBillingType.NonBillable)
+            throw new ConflictException($"Project '{p.Name}' is non-billable and cannot be invoiced.");
+        if (p.Status is ProjectStatus.Planning or ProjectStatus.Cancelled)
+            throw new ConflictException($"Project '{p.Name}' is {p.Status.ToString().ToLowerInvariant()} and cannot be invoiced.");
+
         if (!p.CustomerId.HasValue)
         {
             throw new FieldValidationException("customerId", $"Project '{p.Name}' has no customer assigned. An accounting invoice cannot be generated.");
@@ -115,7 +121,7 @@ internal sealed class BillingHandlers(
             var ids = i.TimesheetIds.ToHashSet();
             tsQuery = tsQuery.Where(x => ids.Contains(x.Id));
         }
-        var tsToBill = await tsQuery.ToListAsync(ct);
+        var tsToBill = p.BillingType == ProjectBillingType.FixedFee ? new List<ProjectTimesheet>() : await tsQuery.ToListAsync(ct); // a fixed-fee project bills milestones only
 
         var msQuery = milestones.Tracked(new Specification<ProjectMilestone>(x => x.ProjectId == p.Id && x.Status == MilestoneStatus.Achieved));
         if (i.MilestoneIds != null && i.MilestoneIds.Count > 0)

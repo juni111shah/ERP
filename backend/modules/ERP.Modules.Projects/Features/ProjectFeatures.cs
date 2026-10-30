@@ -119,6 +119,7 @@ internal sealed class ProjectHandlers(
     IReadRepository<ProjectTask> tasks,
     IReadRepository<ProjectMilestone> milestones,
     IReadRepository<ProjectTimesheet> timesheets,
+    IReadRepository<ERP.Domain.Parties.Party> parties,
     ILegalEntityGuard guard,
     INumberingService numbers,
     ICustomFieldService fields) :
@@ -139,6 +140,9 @@ internal sealed class ProjectHandlers(
     {
         var i = cmd.Input;
         var entity = await guard.RequireAsync(i.LegalEntityId, ct);
+        if (i.Status is not (ProjectStatus.Planning or ProjectStatus.Active))
+            throw new FieldValidationException("status", "A new project starts as Planning or Active.");
+        await EnsureCustomerAsync(i.CustomerId, ct);
         var p = new Project { LegalEntityId = entity.Id };
         Map(i, p);
         p.Number = string.IsNullOrWhiteSpace(i.Number)
@@ -161,6 +165,8 @@ internal sealed class ProjectHandlers(
         if (i.LegalEntityId != p.LegalEntityId)
             await guard.RequireAsync(i.LegalEntityId, ct);
 
+        await EnsureCustomerAsync(i.CustomerId, ct);
+        if (i.Status != p.Status) ProjectsTransitions.Project.Ensure(p.Status, i.Status, isSystem: false);
         var number = string.IsNullOrWhiteSpace(i.Number) ? p.Number : i.Number.Trim();
         if (number != p.Number && await projects.AnyAsync(x => x.Number == number && x.Id != p.Id, ct))
             throw new ConflictException($"Project number '{number}' is already in use.");
@@ -177,6 +183,8 @@ internal sealed class ProjectHandlers(
     public async Task<Unit> Handle(DeleteProject cmd, CancellationToken ct)
     {
         var p = await projects.GetForUpdateAsync(cmd.Id, ct);
+        if (await timesheets.AnyAsync(x => x.ProjectId == p.Id && x.IsBilled, ct) || await milestones.AnyAsync(x => x.ProjectId == p.Id && x.Status == MilestoneStatus.Invoiced, ct))
+            throw new ConflictException("A project with invoiced work cannot be deleted. Complete or cancel it instead.");
         projects.Remove(p);
         await projects.SaveChangesAsync(ct);
         return Unit.Value;
@@ -213,6 +221,14 @@ internal sealed class ProjectHandlers(
             totalBudget,
             totalHours,
             unbilledHoursAmount + unbilledMilestoneAmount);
+    }
+
+    private async Task EnsureCustomerAsync(Guid? customerId, CancellationToken ct)
+    {
+        if (customerId is not { } id) return;
+        var party = await parties.FindAsync(id, ct) ?? throw new FieldValidationException("customerId", "Customer not found.");
+        if (party.Roles != ERP.Domain.Parties.PartyRoles.None && !party.Roles.HasFlag(ERP.Domain.Parties.PartyRoles.Customer))
+            throw new FieldValidationException("customerId", "Choose a customer.");
     }
 
     private static void Map(ProjectInput i, Project p)
