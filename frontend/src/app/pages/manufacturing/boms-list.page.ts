@@ -272,7 +272,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                   <nz-input-number formControlName="quantityRequired" [nzMin]="0.01" nzPlaceHolder="Qty Req" class="w-full"></nz-input-number>
                   <div class="flex items-center gap-1">
                     <nz-input-number formControlName="unitCost" [nzMin]="0" nzPlaceHolder="Cost" class="w-full"></nz-input-number>
-                    <button nz-button nzType="text" nzDanger nzSize="small" type="button" (click)="removeComponent(i)">
+                    <button aria-label="Remove component" nz-button nzType="text" nzDanger nzSize="small" type="button" (click)="removeComponent(i)">
                       <span nz-icon nzType="minus-circle"></span>
                     </button>
                   </div>

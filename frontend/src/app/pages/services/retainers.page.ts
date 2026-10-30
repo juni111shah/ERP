@@ -90,11 +90,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <ng-container *ngSwitchCase="'actions'">
                 <div class="table-actions" *erpHasPermission="'services.retainers.manage'">
                   @if (row.status === 'Active') {
-                    <button nz-button nzType="text" nzSize="small" (click)="toggleStatus(row, 'Paused')" title="Pause Retainer">
+                    <button aria-label="Pause Retainer" nz-button nzType="text" nzSize="small" (click)="toggleStatus(row, 'Paused')" title="Pause Retainer">
                       <span nz-icon nzType="pause-circle"></span>
                     </button>
                   } @else {
-                    <button nz-button nzType="text" nzSize="small" (click)="toggleStatus(row, 'Active')" title="Activate Retainer">
+                    <button aria-label="Activate Retainer" nz-button nzType="text" nzSize="small" (click)="toggleStatus(row, 'Active')" title="Activate Retainer">
                       <span nz-icon nzType="play-circle"></span>
                     </button>
                   }

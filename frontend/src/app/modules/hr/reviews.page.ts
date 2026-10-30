@@ -58,7 +58,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
             <input nz-input placeholder="Competency" [ngModel]="c.name" (ngModelChange)="patch(i, { name: $event })" [disabled]="locked()" />
             <nz-select [ngModel]="c.score" (ngModelChange)="patch(i, { score: $event })" [nzDisabled]="locked()">@for (n of [1, 2, 3, 4, 5]; track n) { <nz-option [nzValue]="n" [nzLabel]="'' + n"></nz-option> }</nz-select>
             <input nz-input placeholder="Notes" [ngModel]="c.notes" (ngModelChange)="patch(i, { notes: $event })" [disabled]="locked()" />
-            @if (!locked()) { <button nz-button nzType="text" nzSize="small" (click)="remove(i)"><span nz-icon nzType="delete"></span></button> }
+            @if (!locked()) { <button aria-label="Remove" nz-button nzType="text" nzSize="small" (click)="remove(i)"><span nz-icon nzType="delete"></span></button> }
           </div>
         }
         @if (!locked()) { <button nz-button nzType="dashed" nzSize="small" (click)="add()" data-testid="review-add-competency"><span nz-icon nzType="plus"></span> Add competency</button> }

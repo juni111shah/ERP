@@ -65,7 +65,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
                       <td><nz-input-number [ngModel]="r.months[mi]" (ngModelChange)="setCell(i, mi, $event)" [nzMin]="0" [nzStep]="100" [nzPrecision]="0" style="width:84px" [attr.data-testid]="'cell-' + i + '-' + mi"></nz-input-number></td>
                     }
                     <td class="num"><b>{{ total(r) | number: '1.0-0' }}</b></td>
-                    <td><button nz-button nzType="text" nzSize="small" (click)="removeRow(i)"><span nz-icon nzType="delete"></span></button></td>
+                    <td><button aria-label="Remove row" nz-button nzType="text" nzSize="small" (click)="removeRow(i)"><span nz-icon nzType="delete"></span></button></td>
                   </tr>
                 } @empty { <tr><td colspan="15">Add accounts to start planning.</td></tr> }
               </tbody>

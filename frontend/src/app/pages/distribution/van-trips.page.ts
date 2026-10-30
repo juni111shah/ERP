@@ -191,7 +191,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                   <td nzAlign="right">{{ currency() }} {{ row.unitPrice | number:'1.2-2' }}</td>
                   <td nzAlign="right" class="font-bold">{{ currency() }} {{ (row.loadedQuantity * row.unitPrice) | number:'1.2-2' }}</td>
                   <td nzAlign="right">
-                    <button nz-button nzType="link" nzDanger (click)="removeLoadedItem(idx)">
+                    <button aria-label="Remove loaded item" nz-button nzType="link" nzDanger (click)="removeLoadedItem(idx)">
                       <span nz-icon nzType="delete"></span>
                     </button>
                   </td>

@@ -42,7 +42,7 @@ export function daysUntil(date?: string | null): number | null {
             <td>{{ a.category }}</td>
             <td>@if (a.expiresOn) { <nz-tag [nzColor]="tone(a.expiresOn)">{{ a.expiresOn }}</nz-tag> }</td>
             <td>{{ a.createdAt | date: 'yyyy-MM-dd' }}</td>
-            <td><button *erpHasPermission="'core.attachments.write'" nz-button nzType="text" nzSize="small" (click)="remove(a)"><span nz-icon nzType="delete"></span></button></td>
+            <td><button aria-label="Remove" *erpHasPermission="'core.attachments.write'" nz-button nzType="text" nzSize="small" (click)="remove(a)"><span nz-icon nzType="delete"></span></button></td>
           </tr>
         } @empty { <tr><td colspan="5">No documents yet.</td></tr> }
       </tbody>

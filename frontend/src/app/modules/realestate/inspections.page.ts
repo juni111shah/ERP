@@ -62,7 +62,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
             <nz-select [ngModel]="it.condition" (ngModelChange)="patch(i, { condition: $event })" [nzDisabled]="locked()">@for (c of conditions; track c.value) { <nz-option [nzValue]="c.value" [nzLabel]="c.label"></nz-option> }</nz-select>
             <input nz-input placeholder="Notes" [ngModel]="it.notes" (ngModelChange)="patch(i, { notes: $event })" [disabled]="locked()" />
             <nz-input-number [ngModel]="it.repairCost" (ngModelChange)="patch(i, { repairCost: $event ?? 0 })" [nzMin]="0" [nzDisabled]="locked()"></nz-input-number>
-            @if (!locked()) { <button nz-button nzType="text" nzSize="small" (click)="removeItem(i)"><span nz-icon nzType="delete"></span></button> }
+            @if (!locked()) { <button aria-label="Remove item" nz-button nzType="text" nzSize="small" (click)="removeItem(i)"><span nz-icon nzType="delete"></span></button> }
           </div>
         }
         @if (!locked()) { <button nz-button nzType="dashed" nzSize="small" (click)="addItem()" data-testid="insp-add-item"><span nz-icon nzType="plus"></span> Add area</button> }
