@@ -31,9 +31,9 @@ public static class AuthEndpoints
         }).AllowAnonymous().RequireRateLimiting("login");
 
         g.MapGet("/2fa", (ISender sender, CancellationToken ct) => sender.Send(new GetTwoFactorStatus(), ct)).RequireAuthorization();
-        g.MapPost("/2fa/setup", (ISender sender, CancellationToken ct) => sender.Send(new BeginTwoFactorSetup(), ct)).RequireAuthorization();
-        g.MapPost("/2fa/enable", (TwoFactorCodeRequest r, ISender sender, CancellationToken ct) => sender.Send(new EnableTwoFactor(r.Code), ct)).RequireAuthorization();
-        g.MapPost("/2fa/disable", async (DisableTwoFactorRequest r, ISender sender, CancellationToken ct) => { await sender.Send(new DisableTwoFactor(r.Password, r.Code), ct); return Results.NoContent(); }).RequireAuthorization();
+        g.MapPost("/2fa/setup", (ISender sender, CancellationToken ct) => sender.Send(new BeginTwoFactorSetup(), ct)).RequireAuthorization().RequireRateLimiting("login");
+        g.MapPost("/2fa/enable", (TwoFactorCodeRequest r, ISender sender, CancellationToken ct) => sender.Send(new EnableTwoFactor(r.Code), ct)).RequireAuthorization().RequireRateLimiting("login");
+        g.MapPost("/2fa/disable", async (DisableTwoFactorRequest r, ISender sender, CancellationToken ct) => { await sender.Send(new DisableTwoFactor(r.Password, r.Code), ct); return Results.NoContent(); }).RequireAuthorization().RequireRateLimiting("login");
 
         g.MapPost("/select-workspace", async (SelectWorkspaceRequest r, ISender sender, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
         {
@@ -92,7 +92,7 @@ public static class AuthEndpoints
         {
             await sender.Send(new ChangePassword(r.CurrentPassword, r.NewPassword), ct);
             return Results.NoContent();
-        }).RequireAuthorization();
+        }).RequireAuthorization().RequireRateLimiting("login");
     }
 
     private static object SessionBody(SessionResult s) => new
