@@ -828,8 +828,6 @@ export class PosTerminalPage {
         legalEntityId: reg.legalEntityId,
         registerId: reg.id,
         openingCash: this.openFloatCash,
-        cashierUserId: user.id,
-        cashierName: user.fullName || user.email || 'POS Cashier',
         notes: this.shiftNotes,
       })
       .subscribe({
@@ -862,7 +860,6 @@ export class PosTerminalPage {
     this.sessionsApi
       .closeSession(s.id, {
         actualCash: this.actualCloseCash,
-        closedByUserId: user.id,
         notes: this.closeNotes,
       })
       .subscribe({

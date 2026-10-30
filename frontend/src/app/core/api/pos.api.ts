@@ -78,15 +78,12 @@ export interface OpenSessionCommand {
   legalEntityId: string;
   registerId: string;
   openingCash: number;
-  cashierUserId: string;
-  cashierName: string;
   notes?: string | null;
 }
 
 export interface CloseSessionCommand {
   sessionId?: string;
   actualCash: number;
-  closedByUserId: string;
   notes?: string | null;
 }
 
@@ -95,7 +92,6 @@ export interface RecordDrawerTransactionCommand {
   type: CashMovementType;
   amount: number;
   reason: string;
-  performedByUserId: string;
 }
 
 export interface PosOrderLineInput {

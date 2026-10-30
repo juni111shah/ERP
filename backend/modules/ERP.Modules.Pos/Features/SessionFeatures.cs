@@ -60,26 +60,29 @@ public record PosSessionDto(
     List<CashDrawerTransactionDto> DrawerTransactions,
     DateTimeOffset CreatedAt);
 
+/// <summary>CashierUserId and CashierName are ignored: the opening cashier is the signed-in caller.</summary>
 public record OpenSessionCommand(
     Guid LegalEntityId,
     Guid RegisterId,
     decimal OpeningCash,
-    Guid CashierUserId,
-    string CashierName,
+    Guid? CashierUserId,
+    string? CashierName,
     string? Notes) : ICommand<PosSessionDto>;
 
+/// <summary>ClosedByUserId is ignored: the closing user is the signed-in caller.</summary>
 public record CloseSessionCommand(
     Guid SessionId,
     decimal ActualCash,
-    Guid ClosedByUserId,
+    Guid? ClosedByUserId,
     string? Notes) : ICommand<PosSessionDto>;
 
+/// <summary>PerformedByUserId is ignored: the movement is attributed to the signed-in caller.</summary>
 public record RecordDrawerTransactionCommand(
     Guid SessionId,
     CashMovementType Type,
     decimal Amount,
     string Reason,
-    Guid PerformedByUserId) : ICommand<CashDrawerTransactionDto>;
+    Guid? PerformedByUserId) : ICommand<CashDrawerTransactionDto>;
 
 public record GetCurrentSessionQuery(Guid RegisterId) : IQuery<PosSessionDto?>;
 
@@ -90,7 +93,6 @@ public class OpenSessionValidator : AbstractValidator<OpenSessionCommand>
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.RegisterId).NotEmpty();
         RuleFor(x => x.OpeningCash).GreaterThanOrEqualTo(0);
-        RuleFor(x => x.CashierName).NotEmpty();
     }
 }
 
@@ -119,150 +121,159 @@ public class SessionHandlers :
     IRequestHandler<RecordDrawerTransactionCommand, CashDrawerTransactionDto>,
     IRequestHandler<GetCurrentSessionQuery, PosSessionDto?>
 {
+    /// <summary>Filtered unique index: one open session per register (see PosModule).</summary>
+    public const string OneOpenSessionIndex = "UX_pos_Sessions_OneOpenPerRegister";
+
     private readonly IRepository<PosSession> _sessions;
     private readonly IRepository<PosRegister> _registers;
     private readonly IRepository<CashDrawerTransaction> _drawerTransactions;
+    private readonly ICurrentUser _user;
+    private readonly IUnitOfWork _uow;
+    private readonly IDbErrors _dbErrors;
 
     public SessionHandlers(
         IRepository<PosSession> sessions,
         IRepository<PosRegister> registers,
-        IRepository<CashDrawerTransaction> drawerTransactions)
+        IRepository<CashDrawerTransaction> drawerTransactions,
+        ICurrentUser user,
+        IUnitOfWork uow,
+        IDbErrors dbErrors)
     {
         _sessions = sessions;
         _registers = registers;
         _drawerTransactions = drawerTransactions;
+        _user = user;
+        _uow = uow;
+        _dbErrors = dbErrors;
     }
+
+    private Guid CallerId => _user.UserId is { } id && id != Guid.Empty ? id : throw new ForbiddenException();
+
+    private string CallerName => !string.IsNullOrWhiteSpace(_user.Email) ? _user.Email! : CallerId.ToString();
 
     public async Task<PosSessionDto> Handle(OpenSessionCommand request, CancellationToken cancellationToken)
     {
+        var caller = CallerId;
         var register = await _registers.GetAsync(request.RegisterId, cancellationToken);
+        var conflict = $"Register '{register.Name}' already has an active open session.";
 
         var activeSession = await _sessions.Query(new Specification<PosSession>(
             s => s.RegisterId == request.RegisterId && s.Status == PosSessionStatus.Open))
             .FirstOrDefaultAsync(cancellationToken);
+        if (activeSession != null) throw new ConflictException(conflict);
 
-        if (activeSession != null)
+        try
         {
-            throw new ConflictException($"Register '{register.Name}' already has an active open session.");
-        }
-
-        var session = new PosSession
-        {
-            LegalEntityId = request.LegalEntityId,
-            RegisterId = request.RegisterId,
-            RegisterName = register.Name,
-            OpenedByUserId = request.CashierUserId,
-            CashierName = request.CashierName,
-            OpenedAt = DateTimeOffset.UtcNow,
-            OpeningCash = request.OpeningCash,
-            ExpectedCash = request.OpeningCash,
-            ActualCash = 0,
-            CashDifference = 0,
-            Status = PosSessionStatus.Open,
-            Notes = request.Notes
-        };
-
-        _sessions.Add(session);
-
-        if (request.OpeningCash > 0)
-        {
-            var openFloat = new CashDrawerTransaction
+            return await _uow.InTransactionAsync(async token =>
             {
-                SessionId = session.Id,
-                Type = CashMovementType.FloatIn,
-                Amount = request.OpeningCash,
-                Reason = "Opening cash float",
-                PerformedByUserId = request.CashierUserId,
-                Timestamp = session.OpenedAt
-            };
-            _drawerTransactions.Add(openFloat);
-            session.DrawerTransactions.Add(openFloat);
+                var session = new PosSession
+                {
+                    LegalEntityId = request.LegalEntityId,
+                    RegisterId = request.RegisterId,
+                    RegisterName = register.Name,
+                    OpenedByUserId = caller,
+                    CashierName = CallerName,
+                    OpenedAt = DateTimeOffset.UtcNow,
+                    OpeningCash = request.OpeningCash,
+                    ExpectedCash = request.OpeningCash,
+                    ActualCash = 0,
+                    CashDifference = 0,
+                    Status = PosSessionStatus.Open,
+                    Notes = request.Notes
+                };
+                _sessions.Add(session);
+
+                if (request.OpeningCash > 0)
+                {
+                    var openFloat = new CashDrawerTransaction
+                    {
+                        SessionId = session.Id,
+                        Type = CashMovementType.FloatIn,
+                        Amount = request.OpeningCash,
+                        Reason = "Opening cash float",
+                        PerformedByUserId = caller,
+                        Timestamp = session.OpenedAt
+                    };
+                    _drawerTransactions.Add(openFloat);
+                    session.DrawerTransactions.Add(openFloat);
+                }
+
+                await _sessions.SaveChangesAsync(token); // session and float in one save
+                return Map(session);
+            }, cancellationToken);
         }
-
-        await _sessions.SaveChangesAsync(cancellationToken);
-        await _drawerTransactions.SaveChangesAsync(cancellationToken);
-
-        return Map(session);
+        catch (DbUpdateException ex) when (IsOneOpenViolation(ex))
+        {
+            throw new ConflictException(conflict);
+        }
     }
 
-    public async Task<PosSessionDto> Handle(CloseSessionCommand request, CancellationToken cancellationToken)
+    private bool IsOneOpenViolation(Exception ex)
+        => _dbErrors.IsUniqueViolation(ex, OneOpenSessionIndex) || ex.ToString().Contains("pos_Sessions.RegisterId", StringComparison.Ordinal); // SQLite names columns, not indexes
+
+    public Task<PosSessionDto> Handle(CloseSessionCommand request, CancellationToken cancellationToken) => _uow.InTransactionAsync(async token =>
     {
-        var session = await _sessions.GetForUpdateAsync(request.SessionId, cancellationToken);
+        var caller = CallerId;
+        var existing = await _sessions.Query(new Specification<PosSession>(s => s.Id == request.SessionId)).Select(s => new { s.Notes }).FirstOrDefaultAsync(token)
+            ?? throw new NotFoundException($"Session {request.SessionId} not found");
+        var notes = string.IsNullOrWhiteSpace(request.Notes) ? existing.Notes
+            : string.IsNullOrWhiteSpace(existing.Notes) ? request.Notes : $"{existing.Notes} | {request.Notes}";
+        var closedAt = DateTimeOffset.UtcNow;
+        var actual = request.ActualCash;
 
-        if (session.Status == PosSessionStatus.Closed)
-        {
-            throw new ConflictException("Session is already closed.");
-        }
+        // Close only while open, and take the difference from the committed ExpectedCash in the same statement.
+        var rows = await _sessions.Tracked(new Specification<PosSession>(s => s.Id == request.SessionId && s.Status == PosSessionStatus.Open))
+            .ExecuteUpdateAsync(set => set
+                .SetProperty(s => s.Status, PosSessionStatus.Closed)
+                .SetProperty(s => s.ClosedByUserId, (Guid?)caller)
+                .SetProperty(s => s.ClosedAt, (DateTimeOffset?)closedAt)
+                .SetProperty(s => s.ActualCash, actual)
+                .SetProperty(s => s.CashDifference, s => actual - s.ExpectedCash)
+                .SetProperty(s => s.Notes, notes), token);
+        if (rows == 0) throw new ConflictException("Session is already closed.");
 
-        session.Status = PosSessionStatus.Closed;
-        session.ClosedByUserId = request.ClosedByUserId;
-        session.ClosedAt = DateTimeOffset.UtcNow;
-        session.ActualCash = request.ActualCash;
-        session.CashDifference = session.ActualCash - session.ExpectedCash;
-        if (!string.IsNullOrWhiteSpace(request.Notes))
-        {
-            session.Notes = string.IsNullOrWhiteSpace(session.Notes)
-                ? request.Notes
-                : $"{session.Notes} | {request.Notes}";
-        }
-
-        await _sessions.SaveChangesAsync(cancellationToken);
-
-        var transactions = await _drawerTransactions.Query(new Specification<CashDrawerTransaction>(
-            t => t.SessionId == session.Id))
-            .ToListAsync(cancellationToken);
-        session.DrawerTransactions = transactions;
-
+        var session = await _sessions.Query(new Specification<PosSession>(s => s.Id == request.SessionId)).FirstAsync(token);
+        session.DrawerTransactions = await _drawerTransactions.Query(new Specification<CashDrawerTransaction>(t => t.SessionId == session.Id)).ToListAsync(token);
         return Map(session);
-    }
+    }, cancellationToken);
 
-    public async Task<CashDrawerTransactionDto> Handle(RecordDrawerTransactionCommand request, CancellationToken cancellationToken)
+    public Task<CashDrawerTransactionDto> Handle(RecordDrawerTransactionCommand request, CancellationToken cancellationToken) => _uow.InTransactionAsync(async token =>
     {
-        var session = await _sessions.GetForUpdateAsync(request.SessionId, cancellationToken);
+        var caller = CallerId;
+        var amount = request.Amount;
+        var openOnly = new Specification<PosSession>(s => s.Id == request.SessionId && s.Status == PosSessionStatus.Open);
 
-        if (session.Status != PosSessionStatus.Open)
+        var rows = request.Type switch
         {
+            CashMovementType.FloatIn or CashMovementType.PayIn => await _sessions.Tracked(openOnly).ExecuteUpdateAsync(set => set
+                .SetProperty(s => s.TotalPayIn, s => s.TotalPayIn + amount)
+                .SetProperty(s => s.ExpectedCash, s => s.ExpectedCash + amount), token),
+            CashMovementType.PayOut or CashMovementType.DropOut => await _sessions.Tracked(openOnly).ExecuteUpdateAsync(set => set
+                .SetProperty(s => s.TotalPayOut, s => s.TotalPayOut + amount)
+                .SetProperty(s => s.ExpectedCash, s => s.ExpectedCash - amount), token),
+            _ => 0,
+        };
+        if (rows == 0)
+        {
+            if (!await _sessions.Query(new Specification<PosSession>(s => s.Id == request.SessionId)).AnyAsync(token))
+                throw new NotFoundException($"Session {request.SessionId} not found");
             throw new ConflictException("Cannot record drawer transactions on a closed session.");
         }
 
         var tx = new CashDrawerTransaction
         {
-            SessionId = session.Id,
+            SessionId = request.SessionId,
             Type = request.Type,
             Amount = request.Amount,
             Reason = request.Reason.Trim(),
-            PerformedByUserId = request.PerformedByUserId,
+            PerformedByUserId = caller,
             Timestamp = DateTimeOffset.UtcNow
         };
-
         _drawerTransactions.Add(tx);
+        await _drawerTransactions.SaveChangesAsync(token);
 
-        switch (request.Type)
-        {
-            case CashMovementType.FloatIn:
-            case CashMovementType.PayIn:
-                session.TotalPayIn += request.Amount;
-                session.ExpectedCash += request.Amount;
-                break;
-            case CashMovementType.PayOut:
-            case CashMovementType.DropOut:
-                session.TotalPayOut += request.Amount;
-                session.ExpectedCash -= request.Amount;
-                break;
-        }
-
-        await _drawerTransactions.SaveChangesAsync(cancellationToken);
-        await _sessions.SaveChangesAsync(cancellationToken);
-
-        return new CashDrawerTransactionDto(
-            tx.Id,
-            tx.SessionId,
-            tx.Type,
-            tx.Amount,
-            tx.Reason,
-            tx.PerformedByUserId,
-            tx.Timestamp);
-    }
+        return new CashDrawerTransactionDto(tx.Id, tx.SessionId, tx.Type, tx.Amount, tx.Reason, tx.PerformedByUserId, tx.Timestamp);
+    }, cancellationToken);
 
     public async Task<PosSessionDto?> Handle(GetCurrentSessionQuery request, CancellationToken cancellationToken)
     {

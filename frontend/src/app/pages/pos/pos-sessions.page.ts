@@ -204,7 +204,6 @@ export class PosSessionsPage {
         type: this.txType,
         amount: this.txAmount,
         reason: this.txReason,
-        performedByUserId: user.id,
       })
       .subscribe({
         next: () => {
