@@ -7,17 +7,18 @@ import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { AuthService } from '../core/auth/auth.service';
 import { asProblem } from '../core/http/problem-details';
+import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { AUTH_STYLES, PASSWORD_HINT, PASSWORD_RULE } from './auth-layout';
 
 @Component({
   selector: 'erp-reset-password',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule],
+  imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule, BrandLogoComponent],
   styles: [AUTH_STYLES],
   template: `
     <div class="card">
-      <div class="brand"><span class="brand-mark">E</span> ERP</div>
+      <div class="brand"><erp-brand-logo size="lg"></erp-brand-logo></div>
       <h1>Choose a new password</h1>
       @if (done()) {
         <nz-alert nzType="success" nzShowIcon nzMessage="Your password has been changed and other devices were signed out." data-testid="reset-done"></nz-alert>

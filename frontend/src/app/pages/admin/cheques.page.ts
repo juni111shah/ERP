@@ -23,34 +23,62 @@ import { asProblem, controlError } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { RecordHistoryComponent } from '../../shared/record-history.component';
+import { StatCardComponent } from '../../shared/stat-card.component';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+
+import { DecimalPipe } from '@angular/common';
 
 const COLORS: Record<string, string> = { inCustody: 'blue', deposited: 'gold', cleared: 'green', bounced: 'red', replaced: 'default', cancelled: 'default', issued: 'cyan' };
 const LABELS: Record<string, string> = { inCustody: 'In custody', postDatedCheque: 'Post-dated' };
-type Action = 'deposit' | 'clear' | 'bounce' | null;
+type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
 
 /** Cheque and post-dated cheque register for cheques received from customers. */
 @Component({
   selector: 'erp-cheques',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [DecimalPipe, RecordHistoryComponent, StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
-  styles: [`.kpis { display:flex; gap:24px; margin-bottom:16px; flex-wrap:wrap } .kpi { min-width:150px } .kpi b { display:block; font-size:20px } .alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
+  styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
     <h1 class="erp-page-title">Cheque register</h1>
-    @if (summary(); as s) {
-      <div class="kpis" data-testid="cheque-kpis">
-        <div class="kpi">In custody<b>{{ s.inCustodyTotal.toFixed(2) }}</b>{{ s.inCustodyCount }} cheques</div>
-        <div class="kpi">Matured, to deposit<b>{{ s.maturedTotal.toFixed(2) }}</b>{{ s.maturedCount }} cheques</div>
-        <div class="kpi">Next 7 days<b>{{ s.next7DaysTotal.toFixed(2) }}</b></div>
-        <div class="kpi">Next 30 days<b>{{ s.next30DaysTotal.toFixed(2) }}</b></div>
-        <div class="kpi">Awaiting clearing<b>{{ s.depositedTotal.toFixed(2) }}</b></div>
-        <div class="kpi">Bounced<b>{{ s.bouncedCount }}</b></div>
-      </div>
-    }
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="cheque-kpis">
+      @let s = summary();
+      <erp-stat-card label="In custody" [loading]="!s" [value]="s ? s.inCustodyTotal.toFixed(2) : null" [caption]="s ? s.inCustodyCount + ' ' + ('ui.cheque.chequesLc' | translate: 'cheques') : null" [tone]="0" />
+      <erp-stat-card label="Matured, to deposit" [loading]="!s" [value]="s ? s.maturedTotal.toFixed(2) : null" [caption]="s ? s.maturedCount + ' ' + ('ui.cheque.chequesLc' | translate: 'cheques') : null" [tone]="s && s.maturedCount > 0 ? 'warning' : 1" />
+      <erp-stat-card label="Next 7 days" [loading]="!s" [value]="s ? s.next7DaysTotal.toFixed(2) : null" [tone]="2" />
+      <erp-stat-card label="Next 30 days" [loading]="!s" [value]="s ? s.next30DaysTotal.toFixed(2) : null" [tone]="5" />
+      <erp-stat-card label="Awaiting clearing" [loading]="!s" [value]="s ? s.depositedTotal.toFixed(2) : null" [tone]="4" />
+      <erp-stat-card label="Bounced" [loading]="!s" [value]="s ? s.bouncedCount : null" format="number" [tone]="s && s.bouncedCount > 0 ? 'danger' : 'neutral'" />
+    </div>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, cheque no., customer or bank" emptyText="No cheques yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number }}</span>
+          }
+          @case ('instrumentNo') {
+            <span class="code-pill">{{ row.instrumentNo }}</span>
+          }
+          @case ('partyName') {
+            <span class="name-cell">{{ row.partyName }}</span>
+          }
+          @case ('amount') {
+            <b>{{ currency() }} {{ row.amount | number: '1.2-2' }}</b>
+          }
+          @case ('status') {
+            <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
+            @if (row.status === 'bounced' && !row.followUpOn) { <nz-tag nzColor="orange" data-testid="ch-followup-due">Follow-up due</nz-tag> }
+            @if (row.status === 'bounced' && row.followUpOn) { <nz-tag nzColor="blue">Followed up</nz-tag> }
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" [ngModelOptions]="{standalone: true}" (ngModelChange)="filterStatus($event)" data-testid="cheque-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="label(s)"></nz-option> }
@@ -76,7 +104,7 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
         <h4>Invoices this cheque pays</h4>
         @for (o of openInvoices(); track o.id) {
           <div class="alloc">
-            <span>{{ o.number }} · due {{ o.dueDate }} · outstanding {{ o.outstanding.toFixed(2) }}</span>
+            <span>{{ o.number }} · {{ 'ui.re.dueLc' | translate: 'due' }} {{ o.dueDate }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ o.outstanding.toFixed(2) }}</span>
             <nz-input-number [ngModel]="amounts()[o.id] ?? 0" (ngModelChange)="setAmount(o.id, $event)" [nzMin]="0" [nzMax]="o.outstanding" [nzPrecision]="2" [ngModelOptions]="{standalone: true}" [attr.data-testid]="'ch-alloc-' + o.number"></nz-input-number>
           </div>
         } @empty { <div>No open invoices for this customer; the cheque will stay as customer credit.</div> }
@@ -92,16 +120,21 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
         @if (cheque(); as c) {
           <p><nz-tag [nzColor]="color(c.status)">{{ label(c.status) }}</nz-tag> {{ c.number }}</p>
           <p>{{ c.partyName }} · {{ c.bankName }} · <b>{{ c.amount.toFixed(2) }} {{ c.currencyCode }}</b></p>
-          <p>Cheque date {{ c.instrumentDate }} @if (c.depositedOn) { · deposited {{ c.depositedOn }} } @if (c.clearedOn) { · cleared {{ c.clearedOn }} }</p>
-          @if (c.bounceReason) { <p>Returned: {{ c.bounceReason }}</p> }
-          @for (a of c.allocations; track a.id) { <div>Pays {{ a.invoiceNumber }}: {{ a.amount.toFixed(2) }}</div> }
+          <p>{{ 'ui.cheque.date' | translate: 'Cheque date' }} {{ c.instrumentDate }} @if (c.depositedOn) { · {{ 'ui.cheque.depositedLc' | translate: 'deposited' }} {{ c.depositedOn }} } @if (c.clearedOn) { · {{ 'ui.cheque.clearedLc' | translate: 'cleared' }} {{ c.clearedOn }} }</p>
+          @if (c.bounceReason) { <p>{{ 'ui.cheque.returned' | translate: 'Returned' }}: {{ c.bounceReason }} @if (c.bouncedOn) { · <span>Bounced on</span> <bdi dir="ltr">{{ c.bouncedOn }}</bdi> }</p> }
+          @if (c.followUpOn) { <p data-testid="ch-followup-note"><span>Followed up on</span> <bdi dir="ltr">{{ c.followUpOn }}</bdi>: {{ c.followUpNote }}</p> }
+          @if (c.replacesInstrumentId) { <p><span>Replaces an earlier cheque that bounced</span></p> }
+          @if (c.replacedByChequeId) { <p data-testid="ch-replaced-by"><span>Replaced by a new cheque</span></p> }
+          @for (a of c.allocations; track a.id) { <div>{{ 'ui.cheque.pays' | translate: 'Pays' }} {{ a.invoiceNumber }}: {{ a.amount.toFixed(2) }}</div> }
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap" *erpHasPermission="'finance.cheques.approve'">
             @if (c.status === 'inCustody') { <button nz-button nzType="primary" (click)="act('deposit')" data-testid="ch-deposit">Deposit</button> }
             @if (c.status === 'deposited') { <button nz-button nzType="primary" (click)="act('clear')" data-testid="ch-clear">Mark cleared</button> }
             @if (c.status === 'inCustody' || c.status === 'deposited') { <button nz-button nzDanger (click)="act('bounce')" data-testid="ch-bounce">Bounced</button> }
+            @if (c.status === 'bounced') { <button nz-button (click)="act('followup')" data-testid="ch-followup">Log follow-up</button> }
             @if (c.status === 'bounced') { <button nz-button nzType="primary" (click)="openNew(c)" data-testid="ch-replace">Register replacement</button> }
           </div>
           @if (c.status === 'inCustody') { <button *erpHasPermission="'finance.cheques.write'" nz-button style="margin-top:12px" (click)="cancel()" data-testid="ch-cancel">Cancel this entry</button> }
+          <div *erpHasPermission="'core.audit.read'" style="margin-top:20px"><erp-record-history recordType="PaymentInstrument" [recordId]="c.id" /></div>
         }
       </ng-container>
     </nz-drawer>
@@ -112,11 +145,14 @@ type Action = 'deposit' | 'clear' | 'bounce' | null;
         @if (action() === 'deposit') {
           <nz-select [(ngModel)]="actionBank" style="width:100%" nzPlaceHolder="Deposit to bank account" data-testid="act-bank">@for (a of banks(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
         }
-        @if (action() === 'bounce') { <input nz-input [(ngModel)]="actionReason" placeholder="Reason given by the bank" data-testid="act-reason" /> }
+        @if (action() === 'bounce') { <input aria-label="Reason given by the bank" nz-input [(ngModel)]="actionReason" placeholder="Reason given by the bank" data-testid="act-reason" /> }
+        @if (action() === 'followup') { <textarea aria-label="What was agreed with the customer?" nz-input rows="3" maxlength="500" [(ngModel)]="actionReason" placeholder="What was agreed with the customer?" data-testid="act-note"></textarea> }
       </ng-container>
     </nz-modal>`,
 })
 export class ChequesPage {
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
   private readonly api = inject(ChequesApi);
   private readonly invoices = inject(InvoicesApi);
   private readonly parties = inject(PartiesApi);
@@ -148,7 +184,7 @@ export class ChequesPage {
   readonly openInvoices = signal<InvoiceSummary[]>([]);
   readonly amounts = signal<Record<string, number>>({});
   readonly action = signal<Action>(null);
-  readonly actionTitle = computed(() => ({ deposit: 'Deposit cheque', clear: 'Mark cheque cleared', bounce: 'Cheque bounced', null: '' })[String(this.action()) as 'deposit']);
+  readonly actionTitle = computed(() => ({ deposit: 'Deposit cheque', clear: 'Mark cheque cleared', bounce: 'Cheque bounced', followup: 'Log follow-up', null: '' })[String(this.action()) as 'deposit']);
   actionDate: Date | null = new Date();
   actionBank: string | null = null;
   actionReason = '';
@@ -217,10 +253,11 @@ export class ChequesPage {
     const date = toIsoDate(this.actionDate);
     const call = a === 'deposit' ? (this.actionBank ? this.api.deposit(c.id, this.actionBank, date) : null)
       : a === 'clear' ? this.api.clear(c.id, date)
+      : a === 'followup' ? (this.actionReason.trim() ? this.api.followUp(c.id, this.actionReason.trim(), date) : null)
       : (this.actionReason.trim() ? this.api.bounce(c.id, date, this.actionReason.trim()) : null);
-    if (!call) { this.message.warning(a === 'deposit' ? 'Choose a bank account' : 'Enter the reason'); return; }
+    if (!call) { this.message.warning(a === 'deposit' ? 'Choose a bank account' : a === 'followup' ? 'Enter the follow-up note' : 'Enter the reason'); return; }
     this.saving.set(true);
-    call.subscribe({ next: () => { this.action.set(null); this.done('Cheque updated'); }, error: (e) => this.fail(e) });
+    call.subscribe({ next: () => { this.action.set(null); this.done(a === 'followup' ? 'Follow-up logged' : 'Cheque updated'); }, error: (e) => this.fail(e) });
   }
 
   cancel(): void {

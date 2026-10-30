@@ -14,7 +14,11 @@ import { AccountDto, AccountsApi, BudgetDetail, BudgetSummary, BudgetVsActual, B
 import { createPagedList } from '../../core/api/paged-list';
 import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 interface Row { accountId: string; label: string; type: string; months: number[]; }
@@ -24,13 +28,13 @@ interface Row { accountId: string; label: string; type: string; months: number[]
   selector: 'erp-budgets',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
+  imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
   styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px } .num { text-align:right } .bad { color: var(--erp-color-error, #cf1322) } .good { color: var(--erp-color-success, #389e0d) } .grid { overflow:auto }`],
   template: `
     @if (!editing()) {
       <h1 class="erp-page-title">Budgets</h1>
       <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search budgets" emptyText="No budgets yet" (rowClick)="open($event.id)">
-        <button toolbar *erpHasPermission="'finance.budgets.write'" nz-button nzType="primary" (click)="create()" data-testid="budget-new"><span nz-icon nzType="plus"></span>New budget</button>
+        <button toolbar *erpHasPermission="'finance.budgets.write'" nz-button nzType="primary" (click)="create()" data-testid="budget-new"><span nz-icon nzType="plus"></span> New budget</button>
       </erp-paged-table>
     } @else {
       <div class="bar">
@@ -44,7 +48,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
         <nz-tab nzTitle="Plan">
           <div class="bar">
             <nz-select style="width:240px" nzPlaceHolder="Legal entity" [(ngModel)]="entityId" [nzDisabled]="!!id()" data-testid="budget-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
-            <input nz-input style="width:240px" placeholder="Name" [(ngModel)]="name" data-testid="budget-name" />
+            <input aria-label="Name" nz-input style="width:240px" placeholder="Name" [(ngModel)]="name" data-testid="budget-name" />
             <nz-input-number [(ngModel)]="year" [nzMin]="2000" [nzMax]="2100" [nzPrecision]="0" data-testid="budget-year"></nz-input-number>
             <nz-select style="width:280px" nzShowSearch nzPlaceHolder="Add an income/expense account" [ngModel]="null" (ngModelChange)="addRow($event)" data-testid="budget-add-account">
               @for (a of addable(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }
@@ -61,7 +65,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
                       <td><nz-input-number [ngModel]="r.months[mi]" (ngModelChange)="setCell(i, mi, $event)" [nzMin]="0" [nzStep]="100" [nzPrecision]="0" style="width:84px" [attr.data-testid]="'cell-' + i + '-' + mi"></nz-input-number></td>
                     }
                     <td class="num"><b>{{ total(r) | number: '1.0-0' }}</b></td>
-                    <td><button nz-button nzType="text" nzSize="small" (click)="removeRow(i)"><span nz-icon nzType="delete"></span></button></td>
+                    <td><button aria-label="Remove row" nz-button nzType="text" nzSize="small" (click)="removeRow(i)"><span nz-icon nzType="delete"></span></button></td>
                   </tr>
                 } @empty { <tr><td colspan="15">Add accounts to start planning.</td></tr> }
               </tbody>
@@ -70,13 +74,21 @@ interface Row { accountId: string; label: string; type: string; months: number[]
         </nz-tab>
         @if (id()) {
           <nz-tab nzTitle="Budget vs actual" (nzSelect)="loadActual()">
-            <div class="bar">
+            <div class="bar" erpReveal>
               <nz-select style="width:110px" [(ngModel)]="fromMonth" (ngModelChange)="loadActual()">@for (m of months; track m; let i = $index) { <nz-option [nzValue]="i + 1" [nzLabel]="m"></nz-option> }</nz-select>
               <span>to</span>
               <nz-select style="width:110px" [(ngModel)]="toMonth" (ngModelChange)="loadActual()">@for (m of months; track m; let i = $index) { <nz-option [nzValue]="i + 1" [nzLabel]="m"></nz-option> }</nz-select>
+              <button nz-button nzType="default" type="button" (click)="loadActual()" data-testid="budget-actual-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
             </div>
             @if (actual(); as a) {
-              <p data-testid="budget-net">Net budget {{ a.budgetNet | number: '1.0-0' }} · Net actual {{ a.actualNet | number: '1.0-0' }}</p>
+              <div class="erp-stat-grid erp-stat-grid--auto" data-testid="budget-net">
+                <erp-stat-card label="Budgeted income" [value]="a.budgetIncome" format="number" [tone]="2" />
+                <erp-stat-card label="Actual income" [value]="a.actualIncome" format="number" [tone]="4" />
+                <erp-stat-card label="Budgeted expense" [value]="a.budgetExpense" format="number" [tone]="3" />
+                <erp-stat-card label="Actual expense" [value]="a.actualExpense" format="number" [tone]="a.actualExpense > a.budgetExpense ? 'danger' : 0" />
+                <erp-stat-card label="Net budget" [value]="a.budgetNet" format="number" [tone]="5" />
+                <erp-stat-card label="Net actual" [value]="a.actualNet" format="number" [tone]="a.actualNet >= a.budgetNet ? 'success' : 'danger'" />
+              </div>
               <nz-table [nzData]="a.rows" nzSize="small" [nzShowPagination]="false" data-testid="budget-actual-table">
                 <thead><tr><th>Account</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">%</th></tr></thead>
                 <tbody>

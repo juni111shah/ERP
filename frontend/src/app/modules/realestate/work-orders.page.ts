@@ -11,8 +11,15 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
-import { PRIORITIES, RealEstateLookups, WorkOrderDto, WorkOrdersApi, humanize } from './realestate.api';
+import { BillsApi } from '../../core/api/admin.api';
+import { LookupOption } from '../../core/custom-fields/lookup-registry';
+import { Observable, map } from 'rxjs';
+import { COST_RESPONSIBILITIES, PRIORITIES, RealEstateLookups, WorkOrderDto, WorkOrdersApi, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 /** Next statuses per status (mirrors the backend lifecycle) and the permission each target needs. */
 const NEXT: Record<string, string[]> = {
@@ -33,16 +40,26 @@ const STATUS_LABEL: Record<string, string> = { assigned: 'Assign', inProgress: '
   selector: 'erp-work-orders',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Work orders</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search issue or category" emptyText="No work orders yet" (rowClick)="state.edit($event)">
       <nz-select toolbar style="width:170px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="wo-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.workorders.create'" nz-button nzType="primary" (click)="state.create()" data-testid="wo-new"><span nz-icon nzType="plus"></span>New work order</button>
+      <button toolbar *erpHasPermission="'realestate.workorders.create'" nz-button nzType="primary" (click)="state.create()" data-testid="wo-new"><span nz-icon nzType="plus"></span> New work order</button>
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <erp-status-tag [status]="row.status" /> } @else { {{ value }} }
+        @if (column.key === 'number') {
+          <span class="code-pill">{{ row.number }}</span>
+        } @else if (column.key === 'issue') {
+          <span class="name-cell">{{ row.issue }}</span>
+        } @else if (column.key === 'status') {
+          <erp-status-tag [status]="row.status" />
+        } @else if (column.key === 'estimatedCost' || column.key === 'actualCost') {
+          <span [class.muted-text]="!value">{{ value ? (currency() + ' ' + value) : '—' }}</span>
+        } @else {
+          {{ value }}
+        }
       </ng-template>
     </erp-paged-table>
 
@@ -55,9 +72,15 @@ const STATUS_LABEL: Record<string, string> = { assigned: 'Assign', inProgress: '
           @for (next of nextStatuses(w); track next) {
             <button *erpHasPermission="permission(next)" nz-button nzSize="small" [nzDanger]="next === 'cancelled'" (click)="move(w, next)" [attr.data-testid]="'wo-' + next">{{ label(next) }}</button>
           }
+          <button *erpHasPermission="'realestate.workorders.edit'" nz-button nzSize="small" (click)="openCostBasis(w)" data-testid="wo-cost-basis"><span nz-icon nzType="dollar"></span>{{ 'Cost basis' | translate: 'Cost basis' }}</button>
+          <a [href]="'/print/work-order/' + w.id" target="_blank" nz-button nzSize="small" data-testid="wo-print">
+            <span nz-icon nzType="printer"></span>Print Work Order
+          </a>
         </div>
       }
     </erp-record-drawer>
+    <erp-record-drawer title="Cost basis" [open]="costBasisFor() !== null" [fields]="costBasisFields" [value]="$any(costBasisFor())" [saving]="moveSaving()" [errors]="moveErrors()" [width]="460" testId="wo-cost-basis-form"
+                       (submitted)="saveCostBasis($event)" (closed)="costBasisFor.set(null)" />
     <erp-record-drawer title="Complete work order" [open]="completing() !== null" [fields]="completeFields" [saving]="moveSaving()" [errors]="moveErrors()" [width]="420" testId="wo-complete-form"
                        submitLabel="Complete" (submitted)="complete($event)" (closed)="completing.set(null)" />`,
 })
@@ -65,6 +88,7 @@ export class WorkOrdersPage {
   private readonly api = inject(WorkOrdersApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;
   readonly statuses = Object.keys(NEXT);
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-reportedOn' });
@@ -100,9 +124,31 @@ export class WorkOrdersPage {
     { key: 'actualCost', label: 'Actual cost', type: 'number', min: 0 },
     { key: 'resolutionNotes', label: 'Resolution notes', type: 'textarea', maxLength: 4000 },
   ];
+  private readonly bills = inject(BillsApi);
+  readonly costBasisFor = signal<WorkOrderDto | null>(null);
+  readonly costBasisFields: FieldSpec[] = [
+    { key: 'chargeableTo', label: 'Chargeable to', type: 'select', options: COST_RESPONSIBILITIES, hint: 'Leave empty for the default: the owner of a managed property, otherwise the company.' },
+    { key: 'ownerSharePercent', label: 'Owner share %', type: 'number', min: 0, max: 100, precision: 2, hint: 'Only for shared costs.', hidden: (v) => v['chargeableTo'] !== 'shared' },
+    { key: 'billId', label: 'Vendor bill', type: 'lookup', hint: 'When linked, the actual cost is the net amount of the bill (split across the work orders linked to it).',
+      lookup: (term: string): Observable<LookupOption[]> => this.bills.list({ page: 1, pageSize: 20, search: term, sort: '-billDate' }).pipe(map((r) => r.items.map((b) => ({ value: b.id, label: `${b.number} · ${b.partyName ?? ''} · ${b.total.toLocaleString()} ${b.currencyCode} (${b.status})` })))),
+      currentLabel: (r) => (r['billId'] ? 'Linked bill' : undefined) },
+  ];
   readonly completing = signal<WorkOrderDto | null>(null);
   readonly moveSaving = signal(false);
   readonly moveErrors = signal<ProblemDetails | null>(null);
+
+  openCostBasis(w: WorkOrderDto): void { this.moveErrors.set(null); this.costBasisFor.set(w); }
+
+  saveCostBasis(values: Record<string, unknown>): void {
+    const w = this.costBasisFor();
+    if (!w) return;
+    this.moveSaving.set(true);
+    const chargeableTo = (values['chargeableTo'] as string | null) ?? null;
+    this.api.setCostBasis(w.id, { chargeableTo, ownerSharePercent: chargeableTo === 'shared' ? (values['ownerSharePercent'] as number | null) : null, billId: (values['billId'] as string | null) ?? null }).subscribe({
+      next: () => { this.moveSaving.set(false); this.costBasisFor.set(null); this.state.close(); this.message.success('Cost basis saved'); this.list.reload(); },
+      error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.moveErrors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not save the cost basis'); },
+    });
+  }
 
   nextStatuses(w: WorkOrderDto): string[] { return NEXT[w.status] ?? []; }
   permission(status: string): string { return PERMISSION[status] ?? 'realestate.workorders.edit'; }

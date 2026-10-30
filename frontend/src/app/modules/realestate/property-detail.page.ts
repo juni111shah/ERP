@@ -1,3 +1,4 @@
+import { RecordHistoryComponent } from '../../shared/record-history.component';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -16,13 +17,15 @@ import { RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { propertyFields } from './properties.page';
 import { PropertiesApi, PropertyDto, PropertySummary, RealEstateLookups, UnitListItem, UnitsApi, humanize, DESCRIPTION_COLUMNS } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { StatCardComponent } from '../../shared/stat-card.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Property detail: KPI cards (spec RE-PROP-03), info and the property's units. */
 @Component({
   selector: 'erp-property-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule,
+  imports: [StatCardComponent, RecordHistoryComponent, TranslatePipe, RouterLink, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule,
     NzGridModule, NzProgressModule, NzStatisticModule, NzTagModule],
   template: `
     @if (summary(); as s) {
@@ -31,13 +34,13 @@ import { StatusTagComponent } from './status-tag.component';
         <button *erpHasPermission="'realestate.properties.manage'" nz-button style="margin-inline-start:16px" (click)="state.edit(s.property)" data-testid="property-edit">Edit</button>
       </h1>
       @if (s.unitsNotFullyRegistered) {
-        <nz-tag nzColor="gold" data-testid="units-warning">{{ s.registeredUnits }} of {{ s.property.totalUnits }} units registered</nz-tag>
+        <nz-tag nzColor="gold" data-testid="units-warning">{{ s.registeredUnits }} {{ 'ui.common.of' | translate: 'of' }} {{ s.property.totalUnits }} {{ 'ui.re.unitsRegistered' | translate: 'units registered' }}</nz-tag>
       }
-      <div nz-row [nzGutter]="[16, 16]" style="margin-top:16px">
-        <div nz-col [nzXs]="24" [nzMd]="6"><nz-card><nz-statistic nzTitle="Units registered" [nzValue]="s.registeredUnits + ' / ' + s.property.totalUnits"></nz-statistic></nz-card></div>
-        <div nz-col [nzXs]="24" [nzMd]="6"><nz-card><nz-statistic nzTitle="Occupied units" [nzValue]="s.occupiedUnits"></nz-statistic><nz-progress [nzPercent]="s.occupancyPercent" nzSize="small"></nz-progress></nz-card></div>
-        <div nz-col [nzXs]="24" [nzMd]="6"><nz-card><nz-statistic nzTitle="Contracted annual rent" [nzValue]="s.contractedAnnualRent.toLocaleString()"></nz-statistic></nz-card></div>
-        <div nz-col [nzXs]="24" [nzMd]="6"><nz-card><nz-statistic nzTitle="Gross yield" [nzValue]="s.grossYieldPercent" nzSuffix="%"></nz-statistic></nz-card></div>
+      <div class="erp-stat-grid" style="margin-top:16px" data-testid="property-kpis">
+        <erp-stat-card label="Units registered" [value]="s.registeredUnits + ' / ' + s.property.totalUnits" [tone]="0" />
+        <erp-stat-card label="Occupied units" [value]="s.occupiedUnits" format="number" [tone]="1"><nz-progress [nzPercent]="s.occupancyPercent" nzSize="small"></nz-progress></erp-stat-card>
+        <erp-stat-card label="Contracted annual rent" [value]="s.contractedAnnualRent" format="number" [tone]="2" />
+        <erp-stat-card label="Gross yield" [value]="s.grossYieldPercent" format="percent" [tone]="3" />
       </div>
       <nz-card style="margin-top:16px" nzTitle="Details">
         <nz-descriptions nzBordered [nzColumn]="descriptionColumns">
@@ -58,6 +61,7 @@ import { StatusTagComponent } from './status-tag.component';
           </ng-template>
         </erp-paged-table>
       </nz-card>
+      <nz-card *erpHasPermission="'core.audit.read'" style="margin-top:16px" [nzTitle]="'history.title' | translate: 'History'"><erp-record-history recordType="Property" [recordId]="s.property.id" /></nz-card>
       <erp-record-drawer title="Edit property" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())" customFieldEntityType="realestate.property"
                          [saving]="state.saving()" [errors]="state.errors()" testId="property-form" (submitted)="state.submit($event)" (closed)="state.close()" />
     }`,

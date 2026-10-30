@@ -12,11 +12,11 @@ namespace ERP.Application.Parties;
 
 public sealed record PartyDto(
     Guid Id, string Code, string Name, string Kind, string[] Roles, string? Email, string? Phone, string? TaxNumber,
-    string? IdNumber, string? Iban, string? CurrencyCode, int? PaymentTermsDays, string? Address, bool IsActive, JsonObject CustomFields);
+    string? IdNumber, string? Iban, string? CurrencyCode, int? PaymentTermsDays, string? Address, bool IsActive, JsonObject CustomFields, Guid? PartyGroupId = null);
 
 public sealed record PartyInput(
     string Name, PartyKind Kind, PartyRoles Roles, string? Email, string? Phone, string? TaxNumber, string? IdNumber,
-    string? Iban, string? CurrencyCode, int? PaymentTermsDays, string? Address, bool IsActive = true, JsonObject? CustomFields = null);
+    string? Iban, string? CurrencyCode, int? PaymentTermsDays, string? Address, bool IsActive = true, JsonObject? CustomFields = null, Guid? PartyGroupId = null);
 
 public static class Masking
 {
@@ -84,7 +84,7 @@ public sealed class UpdatePartyValidator : AbstractValidator<UpdateParty>
     }
 }
 
-internal sealed class PartyHandlers(IRepository<Party> parties, INumberingService numbers, ICustomFieldService fields, ICurrentUser user) :
+internal sealed class PartyHandlers(IRepository<Party> parties, IReadRepository<PartyGroup> groups, INumberingService numbers, ICustomFieldService fields, ICurrentUser user) :
     IRequestHandler<ListParties, PagedResult<PartyDto>>,
     IRequestHandler<GetParty, PartyDto>,
     IRequestHandler<CreateParty, PartyDto>,
@@ -115,6 +115,7 @@ internal sealed class PartyHandlers(IRepository<Party> parties, INumberingServic
     public async Task<PartyDto> Handle(CreateParty cmd, CancellationToken ct)
     {
         var p = new Party { Code = await numbers.NextAsync("party", ct: ct) };
+        await EnsureGroupAsync(cmd.Input.PartyGroupId, ct);
         Map(cmd.Input, p);
         await fields.ApplyAsync(EntityType, p, cmd.Input.CustomFields, isCreate: true, ct);
         parties.Add(p);
@@ -126,6 +127,7 @@ internal sealed class PartyHandlers(IRepository<Party> parties, INumberingServic
     {
         var p = await parties.GetForUpdateAsync(cmd.Id, ct);
         var (idNumber, iban) = (p.IdNumber, p.Iban);
+        await EnsureGroupAsync(cmd.Input.PartyGroupId, ct);
         Map(cmd.Input, p);
         // A user who only sees masked values must not overwrite the real ones with the mask.
         if (!user.HasPermission(CorePermissions.SensitiveRead)) { p.IdNumber = idNumber; p.Iban = iban; }
@@ -138,7 +140,12 @@ internal sealed class PartyHandlers(IRepository<Party> parties, INumberingServic
     {
         p.Name = i.Name.Trim(); p.Kind = i.Kind; p.Roles = i.Roles; p.Email = i.Email; p.Phone = i.Phone; p.TaxNumber = i.TaxNumber;
         p.IdNumber = i.IdNumber; p.Iban = i.Iban; p.CurrencyCode = string.IsNullOrWhiteSpace(i.CurrencyCode) ? null : i.CurrencyCode.Trim().ToUpperInvariant(); p.PaymentTermsDays = i.PaymentTermsDays;
-        p.Address = i.Address; p.IsActive = i.IsActive;
+        p.Address = i.Address; p.IsActive = i.IsActive; p.PartyGroupId = i.PartyGroupId;
+    }
+
+    private async Task EnsureGroupAsync(Guid? groupId, CancellationToken ct)
+    {
+        if (groupId is { } id && !await groups.AnyAsync(g => g.Id == id, ct)) throw new FieldValidationException("partyGroupId", "Party group not found.");
     }
 
     private PartyDto ToDto(Party p, JsonObject cf)
@@ -147,6 +154,6 @@ internal sealed class PartyHandlers(IRepository<Party> parties, INumberingServic
         var roles = Enum.GetValues<PartyRoles>().Where(r => r != PartyRoles.None && p.Roles.HasFlag(r)).Select(r => r.ToString()).ToArray();
         return new(p.Id, p.Code, p.Name, p.Kind.ToString(), roles, p.Email, p.Phone, p.TaxNumber,
             sensitive ? p.IdNumber : Masking.Mask(p.IdNumber), sensitive ? p.Iban : Masking.Mask(p.Iban),
-            p.CurrencyCode, p.PaymentTermsDays, p.Address, p.IsActive, cf);
+            p.CurrencyCode, p.PaymentTermsDays, p.Address, p.IsActive, cf, p.PartyGroupId);
     }
 }

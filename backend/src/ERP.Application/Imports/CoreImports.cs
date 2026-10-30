@@ -19,7 +19,7 @@ public sealed class PartyImport(ISender sender) : IImportDefinition
     [
         new("name", true, "Al Noor Trading LLC"), new("kind", false, "Company", "Individual or Company (default Company)"), new("roles", false, "Customer", "Customer, Vendor, Employee, Other - separate several with ;"),
         new("email", false, "accounts@alnoor.example"), new("phone", false, "+971500000001"), new("taxNumber", false, "100123456700003"), new("idNumber", false, ""),
-        new("iban", false, ""), new("currencyCode", false, "AED"), new("paymentTermsDays", false, "30"), new("address", false, "Business Bay, Dubai"),
+        new("iban", false, ""), new("currencyCode", false, "QAR"), new("paymentTermsDays", false, "30"), new("address", false, "West Bay, Doha"),
     ];
 
     public async Task ImportRowAsync(ImportRow r, CancellationToken ct)

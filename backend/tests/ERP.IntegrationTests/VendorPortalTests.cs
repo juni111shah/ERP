@@ -97,6 +97,10 @@ public class VendorPortalTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await vendor.GetAsync($"{Portal}/statement")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await vendor.GetAsync($"{Re}/portal/leases")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await vendor.GetAsync($"{Fin}/bills")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await vendor.GetAsync("/api/v1/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await vendor.GetAsync("/api/v1/dashboard")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await vendor.GetAsync("/api/v1/search?q=test")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await vendor.PostAsJsonAsync("/api/v1/approvals", new { scope = "test", title = "test" })).StatusCode);
 
         var tenantEmail = U("tenant") + "@example.com";
         await Ok(await x.Staff.PostAsJsonAsync("/api/v1/parties", new { name = U("Tenant "), kind = "Individual", roles = "Customer", email = tenantEmail }), HttpStatusCode.Created);

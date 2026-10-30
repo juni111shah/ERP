@@ -24,20 +24,79 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { formatMoney } from './invoice-sheet.component';
 import { PartiesApi } from '../parties.page';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+
+import { StatCardComponent } from '../../shared/stat-card.component';
 
 /** Vendor payments: pay vendors by bank, cash or cheque, settle open bills at the same time (or later), clear issued cheques, and void. */
 @Component({
   selector: 'erp-payments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
     <h1 class="erp-page-title">Payments</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="payment-stats">
+      <erp-stat-card label="Total paid"
+                     [value]="stats().paid"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
+                     [tone]="0" />
+      <erp-stat-card label="Settled to bills"
+                     [value]="stats().allocated"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="applied to vendor invoices"
+                     [tone]="1" />
+      <erp-stat-card label="Unallocated advance"
+                     [value]="stats().unallocated"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().unallocated > 0 ? 'open vendor credit' : 'fully applied'"
+                     [tone]="stats().unallocated > 0 ? 2 : 'neutral'" />
+      <erp-stat-card label="Payments count"
+                     [value]="list.total()"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="total records"
+                     [tone]="3" />
+    </div>
+
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, vendor or reference" emptyText="No payments yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <nz-tag [nzColor]="row.status === 'voided' ? 'red' : 'green'">{{ row.status === 'voided' ? 'Voided' : 'Posted' }}</nz-tag> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number }}</span>
+          }
+          @case ('partyName') {
+            <span class="name-cell">{{ row.partyName }}</span>
+          }
+          @case ('amount') {
+            <b>{{ value }}</b>
+          }
+          @case ('unallocated') {
+            @if (row.unallocated > 0) {
+              <span class="unallocated-badge">{{ value }}</span>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @case ('status') {
+            <nz-tag [nzColor]="row.status === 'voided' ? 'red' : 'green'">
+              {{ row.status === 'voided' ? 'Voided' : 'Posted' }}
+            </nz-tag>
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
       <button toolbar *erpHasPermission="'finance.payments.write'" nz-button nzType="primary" (click)="open(null)" data-testid="payment-new"><span nz-icon nzType="plus"></span>New payment</button>
     </erp-paged-table>
@@ -70,7 +129,7 @@ import { PartiesApi } from '../parties.page';
           <h4 style="margin-top:16px">Settle bills</h4>
           @for (o of openInvoices(); track o.id) {
             <div class="alloc">
-              <span>{{ o.number }} · due {{ o.dueDate }} · outstanding {{ o.outstanding.toFixed(2) }}</span>
+              <span>{{ o.number }} · {{ 'ui.re.dueLc' | translate: 'due' }} {{ o.dueDate }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ o.outstanding.toFixed(2) }}</span>
               <nz-input-number [ngModel]="amounts()[o.id] ?? 0" (ngModelChange)="setAmount(o.id, $event)" [nzMin]="0" [nzMax]="o.outstanding" [nzPrecision]="2" [ngModelOptions]="{standalone: true}" [attr.data-testid]="'alloc-' + o.number"></nz-input-number>
             </div>
           } @empty { <div>No open bills for this vendor.</div> }
@@ -82,13 +141,14 @@ import { PartiesApi } from '../parties.page';
       @if (receipt()?.id) { <button nz-button (click)="openDetails(receipt()!.id)" style="margin-inline-start:8px" data-testid="payment-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(receipt()!.id)" style="margin-inline-start:8px" data-testid="payment-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
       @if (receipt()?.status === 'issued') {
         @if (receipt()!.paymentInstrumentId) { <button *erpHasPermission="'finance.cheques.approve'" nz-button (click)="clearCheque()" style="margin-inline-start:8px" data-testid="pm-clear">Cheque cleared</button> }
-        <button *erpHasPermission="'finance.payments.write'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="pm-void">Void</button>
+        <button *erpHasPermission="'finance.payments.write'" nz-button nzDanger (click)="voidDocument()" style="margin-inline-start:8px" data-testid="pm-void">Void</button>
         @if (receipt()!.unallocated > 0) { <button *erpHasPermission="'finance.payments.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="allocate()" style="margin-inline-start:8px" data-testid="pm-allocate">Allocate</button> }
       }
       @if (!receipt()) { <button *erpHasPermission="'finance.payments.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="create()" style="margin-inline-start:8px" data-testid="pm-save">Record payment</button> }
     </ng-template>`,
 })
 export class PaymentsPage {
+  private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(PaymentsApi);
   private readonly router = inject(Router);
@@ -103,9 +163,23 @@ export class PaymentsPage {
   readonly banks = computed(() => this.accountPage().items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'cash' || a.systemRole === 'bank')));
   readonly methods = PAYMENT_METHODS;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
+
+  readonly stats = computed(() => {
+    const items = this.list.items();
+    const paid = items.reduce((s, p) => s + (p.amount || 0), 0);
+    const unallocated = items.reduce((s, p) => s + (p.unallocated || 0), 0);
+    const allocated = paid - unallocated;
+    return {
+      paid,
+      allocated,
+      unallocated,
+      count: items.length,
+    };
+  });
+
   readonly columns: TableColumn<PaymentSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
-    { key: 'partyName', label: 'Customer' },
+    { key: 'partyName', label: 'Vendor' },
     { key: 'date', label: 'Date', sortField: 'date', width: '120px', filterField: 'date' },
     { key: 'amount', label: 'Amount', sortField: 'amount', width: '130px', align: 'right', value: (r) => formatMoney(r.amount, r.currencyCode) },
     { key: 'unallocated', label: 'Unallocated', width: '130px', align: 'right', value: (r) => formatMoney(r.unallocated, r.currencyCode) },
@@ -194,7 +268,7 @@ export class PaymentsPage {
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.create({ ...v, date: toIsoDate(v.date!), reference: v.reference || null, chequeNo: v.method === 'instrument' ? v.chequeNo : null, chequeDate: v.method === 'instrument' && v.chequeDate ? toIsoDate(v.chequeDate) : null, bankName: v.bankName || null, allocations: this.allocations() }).subscribe({
-      next: (r) => this.done(`Paid ${(r as PaymentDto).number}`),
+      next: (r) => this.done(`${this.i18n.t('ui.msg.paid', 'Paid')} ${(r as PaymentDto).number}`),
       error: (e) => this.fail(e),
     });
   }
@@ -212,7 +286,7 @@ export class PaymentsPage {
     if (r?.paymentInstrumentId) this.api.clearCheque(r.paymentInstrumentId, toIsoDate(new Date())).subscribe({ next: () => this.done('Cheque marked as cleared'), error: (e) => this.fail(e) });
   }
 
-  void(): void {
+  voidDocument(): void {
     const r = this.receipt();
     if (!r) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.

@@ -10,6 +10,8 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 interface JournalLine {
   id: string;
@@ -43,7 +45,7 @@ interface Journal {
 @Component({
   selector: 'erp-journal-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -53,17 +55,18 @@ interface Journal {
       <erp-detail-page
         [backLink]="['/finance/journals']"
         [backLabel]="'Back to Journal Entries'"
-        [title]="'Journal Entry #' + journal()!.number"
+        [title]="('ui.title.journalNo' | translate: 'Journal Entry #') + journal()!.number"
         [status]="journal()!.status"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
         [createdAt]="journal()!.date"
-        [entityName]="'Journal Entry'">
+        [entityName]="'Journal Entry'"
+        recordType="JournalEntry" [recordId]="journal()!.id">
         
         <div content style="margin-top: 16px;">
           <h3>Journal Lines</h3>
-          <nz-table #linesTable [nzData]="journal()!.lines" [nzFrontPagination]="false" nzSize="small">
+          <nz-table #linesTable [nzData]="journal()!.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
             <thead>
               <tr>
                 <th style="width: 40px;">#</th>
@@ -102,6 +105,7 @@ interface Journal {
   `
 })
 export class JournalDetailPage implements OnInit {
+  private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -250,7 +254,7 @@ export class JournalDetailPage implements OnInit {
     const jrn = this.journal();
     if (!jrn) return;
     this.api.post(jrn.id).subscribe({
-      next: (res) => { this.journal.set(res as unknown as Journal); this.message.success(`Posted as ${res.number}`); },
+      next: (res) => { this.journal.set(res as unknown as Journal); this.message.success(`${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${res.number}`); },
       error: (err) => this.fail(err, 'Failed to post journal')
     });
   }
@@ -277,7 +281,7 @@ export class JournalDetailPage implements OnInit {
       if (reason === null) return;
       this.api.reverse(jrn.id, reason || undefined).subscribe({
         next: (rev) => {
-          this.message.success(`Reversed by ${rev.number}`);
+          this.message.success(`${this.i18n.t('ui.msg.reversedBy', 'Reversed by')} ${rev.number}`);
           this.api.detail(jrn.id).subscribe((j) => this.journal.set(j as unknown as Journal));
         },
         error: (err) => this.fail(err, 'Failed to reverse journal')
@@ -286,15 +290,36 @@ export class JournalDetailPage implements OnInit {
   }
 
   viewSource(sourceType: string, sourceId: string): void {
+    const type = (sourceType ?? '').toLowerCase().trim();
     const routes: Record<string, string> = {
       'invoice': '/finance/invoices',
       'receipt': '/finance/receipts',
       'bill': '/finance/bills',
-      'payment': '/finance/payments'
+      'payment': '/finance/payments',
+      'cheque': '/finance/cheques',
+      'pos': '/pos/orders',
+      'posorder': '/pos/orders',
+      'pos-order': '/pos/orders',
+      'order': '/sales/orders',
+      'sales': '/sales/orders',
+      'salesorder': '/sales/orders',
+      'quote': '/sales/quotes',
+      'purchase': '/purchasing/orders',
+      'purchaseorder': '/purchasing/orders',
+      'purchasereceipt': '/purchasing/receipts',
+      'movement': '/inventory/movements',
+      'stock': '/inventory/stock',
+      'workorder': '/manufacturing/workorders',
+      'payroll': '/hr/payroll',
+      'lease': '/real-estate/leases'
     };
-    const basePath = routes[(sourceType ?? '').toLowerCase()];
+    const basePath = routes[type];
     if (basePath) {
-      this.router.navigate([basePath, sourceId]);
+      if (sourceId && sourceId !== '00000000-0000-0000-0000-000000000000') {
+        this.router.navigate([basePath, sourceId]);
+      } else {
+        this.router.navigate([basePath]);
+      }
     } else {
       this.message.warning('Cannot navigate to source document');
     }

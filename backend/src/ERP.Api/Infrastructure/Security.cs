@@ -17,6 +17,7 @@ public sealed class PermissionPolicyProvider(IOptions<AuthorizationOptions> opti
     {
         if (policyName.StartsWith(PermissionEndpointExtensions.PolicyPrefix, StringComparison.Ordinal))
             return new AuthorizationPolicyBuilder().RequireAuthenticatedUser()
+                .RequireAssertion(ctx => !ctx.User.HasClaim(c => c.Type == "portal_party"))
                 .AddRequirements(new PermissionRequirement(policyName[PermissionEndpointExtensions.PolicyPrefix.Length..])).Build();
         return await base.GetPolicyAsync(policyName);
     }

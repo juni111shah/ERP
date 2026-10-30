@@ -14,25 +14,24 @@ public static class CoreMenu
         new("sales.customers", "Customers", "/parties?type=customer", "team", CorePermissions.PartiesRead, 10, "sales", "Sales", 30),
         new("finance.invoices", "Invoices", "/finance/invoices", "file-text", CorePermissions.InvoicesRead, 20, "sales", "Sales", 30),
         new("finance.receipts", "Receipts", "/finance/receipts", "wallet", CorePermissions.ReceiptsRead, 30, "sales", "Sales", 30),
-        new("core.reports.ar", "Reports", "/reports?category=ar", "bar-chart", CorePermissions.ReportsRead, 40, "sales", "Sales", 30),
         
         // Purchases group
         new("purchases.vendors", "Vendors", "/parties?type=vendor", "team", CorePermissions.PartiesRead, 10, "purchases", "Purchases", 40),
         new("finance.bills", "Bills", "/finance/bills", "file-text", CorePermissions.BillsRead, 20, "purchases", "Purchases", 40),
         new("finance.payments", "Payments", "/finance/payments", "wallet", CorePermissions.PaymentsRead, 30, "purchases", "Purchases", 40),
-        new("core.reports.ap", "Reports", "/reports?category=ap", "bar-chart", CorePermissions.ReportsRead, 40, "purchases", "Purchases", 40),
         
         // Finance & Accounting group
         new("finance.budgets", "Budgets", "/finance/budgets", "bar-chart", CorePermissions.BudgetsRead, 5, "finance", "Finance & Accounting", 50),
         new("finance.journals", "Journals", "/finance/journals", "book", CorePermissions.JournalsRead, 10, "finance", "Finance & Accounting", 50),
         new("finance.cheques", "Cheque register", "/finance/cheques", "credit-card", CorePermissions.ChequesRead, 15, "finance", "Finance & Accounting", 50),
         new("finance.bank", "Cash and bank", "/finance/bank", "bank", CorePermissions.BankRead, 20, "finance", "Finance & Accounting", 50),
-        new("core.reports", "Reports hub", "/reports", "bar-chart", CorePermissions.ReportsRead, 30, "finance", "Finance & Accounting", 50),
+        new("core.reports", "Reports", "/reports", "bar-chart", CorePermissions.ReportsRead, 30, "finance", "Finance & Accounting", 50),
         new("finance.accounts", "Chart of accounts", "/finance/accounts", "account-book", CorePermissions.AccountsRead, 40, "finance", "Finance & Accounting", 50),
         new("finance.taxcodes", "Tax codes", "/finance/tax-codes", "percentage", CorePermissions.TaxRead, 50, "finance", "Finance & Accounting", 50),
         
         // Master Data group
         new("core.parties", "All parties", "/parties", "team", CorePermissions.PartiesRead, 10, "masterdata", "Master Data", 60),
+        new("core.partygroups", "Party groups", "/admin/party-groups", "team", CorePermissions.PartyGroupsRead, 15, "masterdata", "Master Data", 60),
         new("core.items", "Items", "/catalog/items", "shopping", CorePermissions.ItemsRead, 20, "masterdata", "Master Data", 60),
         
         // Setup group

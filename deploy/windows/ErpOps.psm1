@@ -54,6 +54,18 @@ function Get-ErpSettings {
     return $s
 }
 
+function Get-ErpPublicUrl {
+    param([hashtable]$Settings, [string]$Environment)
+    $local = Join-Path $Settings.BaseRoot 'public-urls.psd1'
+    if (Test-Path $local) {
+        $l = Import-PowerShellDataFile -Path $local
+        if ($l.ContainsKey($Environment) -and $l[$Environment]) { return ([string]$l[$Environment]).TrimEnd('/') }
+    }
+    $e = $Settings.Environments[$Environment]
+    if ($e.ContainsKey('PublicUrl') -and $e['PublicUrl']) { return ([string]$e['PublicUrl']).TrimEnd('/') }
+    return $null
+}
+
 function Get-ErpEnv {
     param([Parameter(Mandatory)][ValidateSet('staging', 'production')][string]$Environment)
     $s = Get-ErpSettings
@@ -76,8 +88,10 @@ function Get-ErpEnv {
         Cloudflared       = $s.Cloudflared
         KeepReleases      = [int]$s.KeepReleases
         SecretTarget      = "ERP:${Environment}:SigningKey"
-        # Set PublicUrl in environments.psd1 once a named tunnel serves this environment; the quick tunnel is then retired.
-        PublicUrl         = $(if ($e.ContainsKey('PublicUrl') -and $e['PublicUrl']) { [string]$e['PublicUrl'] } else { $null })
+        # Permanent public URL (named tunnel). Set once on the machine in <BaseRoot>\public-urls.psd1 (written by
+        # deploy\cloudflare\setup-named-tunnel.ps1) or in environments.psd1. When set, the quick tunnel is retired and
+        # the API gets it as ERP_Hosting__PublicUrl (CORS origin + Email:AppBaseUrl).
+        PublicUrl         = (Get-ErpPublicUrl -Settings $s -Environment $Environment)
     }
 }
 
@@ -147,6 +161,8 @@ function Start-ErpApp {
         ASPNETCORE_URLS        = $Cfg.LocalUrl
         Storage__Root          = $Cfg.Storage
         Auth__SigningKey       = $key
+        # Always set (empty = none) so a value inherited from the user's environment can't leak into staging/production.
+        ERP_Hosting__PublicUrl = $(if ($Cfg.PublicUrl) { $Cfg.PublicUrl } else { '' })
     }
     if ($AllowSelfSignup) { $vars['Onboarding__AllowSelfSignup'] = 'true' }
     $exe = Join-Path $Cfg.Current 'ERP.Api.exe'
@@ -261,6 +277,6 @@ function Start-ErpTunnel {
     throw "Tunnel for $($Cfg.Name) did not report a URL within 60s; see $log"
 }
 
-Export-ModuleMember -Function Get-ErpSettings, Get-ErpEnv, Initialize-ErpDirs, Test-ErpSecret, New-ErpSecret,
+Export-ModuleMember -Function Get-ErpSettings, Get-ErpPublicUrl, Get-ErpEnv, Initialize-ErpDirs, Test-ErpSecret, New-ErpSecret,
     Get-ErpListenerPid, Start-ErpDetached, Stop-ErpApp, Start-ErpApp, Wait-ErpHealthy, Get-ErpCurrentRelease, Set-ErpCurrentRelease,
     Remove-ErpOldReleases, Backup-ErpDatabase, Get-ErpTunnelProcess, Stop-ErpTunnel, Start-ErpTunnel

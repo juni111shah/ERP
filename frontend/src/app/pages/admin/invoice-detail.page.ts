@@ -1,3 +1,4 @@
+import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -8,6 +9,10 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzTimelineModule } from 'ng-zorro-antd/timeline';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { AdminApi, AuditApi, AuditEvent, TaxCodeDto, TaxCodesApi, UserSummary } from '../../core/api/admin.api';
@@ -16,6 +21,8 @@ import { askReason } from '../../shared/reason-prompt';
 import { AttachmentsComponent } from '../../shared/attachments.component';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 import { InvoiceExtras, InvoiceExtrasService, InvoiceSheetComponent, InvoiceSheetData, daysOverdue, formatMoney, humanizeSource } from './invoice-sheet.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 interface Invoice extends InvoiceSheetData {
   legalEntityId: string;
@@ -29,7 +36,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
 @Component({
   selector: 'erp-invoice-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
+  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
   styles: [`
     .section { margin-top: 16px; }
     .section ::ng-deep .ant-card-head-title { color:#b89b5e; text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:600; }
@@ -46,7 +53,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
       <erp-detail-page
         [backLink]="['/finance/invoices']"
         [backLabel]="'Back to Invoices'"
-        [title]="(inv.isCreditNote ? 'Credit Note' : 'Invoice') + ' #' + inv.number"
+        [title]="(inv.isCreditNote ? ('ui.title.creditNoteNo' | translate: 'Credit Note #') : ('ui.title.invoiceNo' | translate: 'Invoice #')) + inv.number"
         [status]="inv.status"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
@@ -54,7 +61,8 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
         [hasDocumentsContent]="true"
         [hasHistoryContent]="history().length > 0"
         [createdAt]="inv.invoiceDate"
-        [entityName]="inv.isCreditNote ? 'Credit Note' : 'Invoice'">
+        [entityName]="inv.isCreditNote ? 'Credit Note' : 'Invoice'"
+        recordType="Invoice" [recordId]="inv.id">
 
         <div content>
           <div class="section"><erp-invoice-sheet [invoice]="inv" [extras]="extras()" [taxRates]="taxRates()" /></div>
@@ -93,10 +101,13 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
           </nz-timeline>
         </div>
       </erp-detail-page>
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/invoices/' + invoice()!.id + '/email'" (closed)="emailOpen.set(false)" />
     }
   `
 })
 export class InvoiceDetailPage implements OnInit {
+  readonly emailOpen = signal(false);
+  private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -117,6 +128,7 @@ export class InvoiceDetailPage implements OnInit {
   users = signal<UserSummary[]>([]);
   leaseLink = signal<LeaseLink | null>(null);
   taxRates = signal<Record<string, number>>({});
+
 
   balance = computed(() => {
     const inv = this.invoice();
@@ -198,6 +210,8 @@ export class InvoiceDetailPage implements OnInit {
       {
         label: 'Email',
         icon: 'mail',
+        permission: 'core.email.send',
+        visible: inv.status !== 'draft' && inv.status !== 'voided' && inv.status !== 'pendingApproval',
         handler: () => this.email()
       }
     ];
@@ -228,13 +242,13 @@ export class InvoiceDetailPage implements OnInit {
     if (link) {
       items.push({ label: 'Service period', value: `${fmt(link.periodFrom)} – ${fmt(link.periodTo)}` });
       items.push({ label: 'Lease', value: link.leaseNumber ?? '—' });
-      items.push({ label: 'Property', value: [link.propertyName, link.unitNumber ? `unit ${link.unitNumber}` : ''].filter((x) => !!x).join(', ') });
+      items.push({ label: 'Property', value: [link.propertyName, link.unitNumber ? `${this.i18n.t('ui.re.unitLc', 'unit')} ${link.unitNumber}` : ''].filter((x) => !!x).join(', ') });
     }
     const src = humanizeSource(inv.sourceType);
     if (src) items.push({ label: 'Source', value: src });
     const x = this.extras();
     const originalId = inv.creditNoteForId ?? x?.originalInvoiceId ?? (inv.isCreditNote && inv.sourceType === 'invoice' ? inv.sourceId : null);
-    if (originalId) items.push({ label: 'Credit Note For', value: x?.originalInvoiceNumber ? `Invoice ${x.originalInvoiceNumber}` : 'View original invoice', routerLink: ['/finance/invoices', originalId] });
+    if (originalId) items.push({ label: 'Credit Note For', value: x?.originalInvoiceNumber ? `${this.i18n.t('ui.label.invoice', 'Invoice')} ${x.originalInvoiceNumber}` : 'View original invoice', routerLink: ['/finance/invoices', originalId] });
     return items;
   });
 
@@ -300,7 +314,7 @@ export class InvoiceDetailPage implements OnInit {
     const inv = this.invoice();
     if (!inv) return;
     this.http.post<Invoice>(`${this.apiBase}/finance/invoices/${inv.id}/credit-note`, {}).subscribe({
-      next: (note) => { this.message.success(`Draft credit note ${note.number} created`); void this.router.navigate(['/finance/invoices'], { queryParams: { open: note.id } }); },
+      next: (note) => { this.message.success(`${this.i18n.t('ui.msg.draftCnCreated', 'Draft credit note created')}: ${note.number}`); void this.router.navigate(['/finance/invoices'], { queryParams: { open: note.id } }); },
       error: (e) => this.message.error(problemMessage(e, 'Could not create the credit note', 'lines')),
     });
   }
@@ -346,6 +360,6 @@ export class InvoiceDetailPage implements OnInit {
   }
 
   email(): void {
-    this.message.info('Email functionality will be implemented');
+    this.emailOpen.set(true);
   }
 }

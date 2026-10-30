@@ -35,6 +35,11 @@ public static class SystemRoles
     public const string TaxOutput = "tax.output";
     public const string TaxInput = "tax.input";
     public const string Fx = "fx.gainloss";
+    public const string InventoryClearing = "inventory.clearing";
+    public const string Wip = "wip";
+    public const string PurchaseVariance = "purchase.variance";
+    /// <summary>Expense account that bills raised from purchase orders use for lines that are not (yet) received into stock.</summary>
+    public const string PurchasesExpense = "purchases.expense";
 }
 
 public sealed class PostingService(

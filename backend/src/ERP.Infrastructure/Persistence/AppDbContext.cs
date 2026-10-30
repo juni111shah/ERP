@@ -38,6 +38,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<LegalEntity> LegalEntities => Set<LegalEntity>();
     public DbSet<BusinessUnit> BusinessUnits => Set<BusinessUnit>();
+    public DbSet<PartyGroup> PartyGroups => Set<PartyGroup>();
     public DbSet<OrganizationModule> OrganizationModules => Set<OrganizationModule>();
     public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
     public new DbSet<Role> Roles => Set<Role>();
@@ -67,6 +68,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PortalOtp> PortalOtps => Set<PortalOtp>();
     public DbSet<MessageLog> MessageLogs => Set<MessageLog>();
@@ -136,6 +138,8 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         {
             b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique();
             b.HasIndex(x => new { x.OrgId, x.Name });
+            b.HasIndex(x => new { x.OrgId, x.PartyGroupId });
+            b.HasOne<PartyGroup>().WithMany().HasForeignKey(x => x.PartyGroupId).OnDelete(DeleteBehavior.NoAction);
             b.Property(x => x.Name).HasMaxLength(200).IsRequired();
         });
         mb.Entity<Item>(b => b.HasIndex(x => new { x.OrgId, x.Sku }).IsUnique());
@@ -146,10 +150,18 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Property(x => x.Rate).HasPrecision(18, 8);
         });
         mb.Entity<TaxCode>(b => { b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Code }).IsUnique(); b.Property(x => x.Rate).HasPrecision(9, 4); });
-        mb.Entity<Account>(b => { b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique(); b.Property(x => x.Code).HasMaxLength(20); });
+        // Unique among live rows only, so the code of a deleted account can be used again.
+        mb.Entity<Account>(b => { b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0"); b.Property(x => x.Code).HasMaxLength(20); });
+        mb.Entity<PartyGroup>(b =>
+        {
+            b.Property(x => x.Code).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+        });
         mb.Entity<JournalEntry>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status, x.Date }); // reports and books-lock checks filter by entity, status and date range
             b.Property(x => x.ExchangeRate).HasPrecision(18, 8);
             b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.JournalEntryId).OnDelete(DeleteBehavior.Cascade);
             b.Ignore(x => x.TotalDebit); b.Ignore(x => x.TotalCredit);
@@ -163,10 +175,11 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.FiscalYear });
         });
         mb.Entity<BudgetLine>(b => { b.Property(x => x.Amount).HasPrecision(19, 4); b.HasIndex(x => new { x.BudgetId, x.AccountId, x.Month }).IsUnique(); });
-        mb.Entity<PaymentInstrument>(b => b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique());
+        mb.Entity<PaymentInstrument>(b => { b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique(); b.Property(x => x.FollowUpNote).HasMaxLength(500); });
         mb.Entity<Invoice>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status, x.InvoiceDate }); // ageing, statements, dashboards
             b.Property(x => x.ExchangeRate).HasPrecision(18, 8);
             b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne<Invoice>().WithMany().HasForeignKey(x => x.CreditNoteForId).OnDelete(DeleteBehavior.NoAction);
@@ -192,6 +205,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         mb.Entity<Bill>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status, x.BillDate }); // AP ageing, statements, dashboards
             // A vendor's reference is unique among its live bills (blank, deleted and voided bills are ignored).
             b.HasIndex(x => new { x.OrgId, x.PartyId, x.VendorReference }).IsUnique()
                 .HasFilter(sqlServer
@@ -205,6 +219,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         mb.Entity<Settlement>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Direction, x.Date }); // receipts/payments lists, advances, statements
             b.HasMany(x => x.Allocations).WithOne().HasForeignKey(x => x.SettlementId).OnDelete(DeleteBehavior.Cascade);
         });
         mb.Entity<SettlementAllocation>(b =>
@@ -229,6 +244,16 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Property(x => x.Before).Metadata.SetMaxLength(null);
             b.Property(x => x.After).Metadata.SetMaxLength(null);
             b.Property(x => x.ChangedFields).HasMaxLength(4000);
+        });
+        mb.Entity<IdempotencyRecord>(b =>
+        {
+            b.HasIndex(x => new { x.OrgId, x.UserId, x.Route, x.Key }).IsUnique();
+            b.HasIndex(x => x.CreatedAt);
+            b.Property(x => x.Key).HasMaxLength(100);
+            b.Property(x => x.Route).HasMaxLength(300);
+            b.Property(x => x.RequestHash).HasMaxLength(64);
+            b.Property(x => x.ContentType).HasMaxLength(100);
+            b.Property(x => x.ResponseBody).Metadata.SetMaxLength(null);
         });
         mb.Entity<Notification>(b => b.HasIndex(x => new { x.OrgId, x.UserId, x.ReadAt }));
         mb.Entity<PortalOtp>(b => { b.HasIndex(x => new { x.OrgId, x.PartyId }); b.Property(x => x.CodeHash).HasMaxLength(100); });
@@ -327,17 +352,31 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         ApplyCrossCuttingConventions(mb, sqlServer);
     }
 
+    private static readonly SemaphoreSlim _sqliteTxLock = new(1, 1);
+    public void DiscardChanges() => ChangeTracker.Clear();
+
     /// <summary>Runs the work in one transaction through the provider's execution strategy (safe with SQL Server retry-on-failure).</summary>
     public async Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken ct = default)
     {
         if (Database.CurrentTransaction is not null) return await work(ct); // already inside one (e.g. onboarding): join it
-        return await Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+
+        var isSqlite = Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
+        if (isSqlite) await _sqliteTxLock.WaitAsync(ct);
+        try
         {
-            await using var tx = await Database.BeginTransactionAsync(ct);
-            var result = await work(ct);
-            await tx.CommitAsync(ct);
-            return result;
-        });
+            if (Database.CurrentTransaction is not null) return await work(ct);
+            return await Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+            {
+                await using var tx = await Database.BeginTransactionAsync(ct);
+                var result = await work(ct);
+                await tx.CommitAsync(ct);
+                return result;
+            });
+        }
+        finally
+        {
+            if (isSqlite) _sqliteTxLock.Release();
+        }
     }
 
     /// <summary>Global query filters, rowversion and the custom-fields JSON column for every entity (core and modules).</summary>

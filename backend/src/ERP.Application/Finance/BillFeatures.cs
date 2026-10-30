@@ -1,6 +1,7 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Organizations;
+using ERP.Application.Parties;
 using ERP.Application.Security;
 using ERP.Domain.Catalog;
 using ERP.Domain.Finance;
@@ -31,12 +32,12 @@ public sealed record BillSummaryDto(Guid Id, string Number, Guid PartyId, string
 
 public sealed record GetBill(Guid Id) : IQuery<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsRead; }
 public sealed record CreateBill(BillInput Input) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
-public sealed record UpdateBill(Guid Id, BillInput Input) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
-public sealed record DeleteBill(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
+public sealed record UpdateBill(Guid Id, BillInput Input) : ICommand<BillDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
+public sealed record DeleteBill(Guid Id) : ICommand, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
 /// <summary>Posts the bill (Dr expenses and input tax, Cr payables). When an approval policy covers the amount the bill waits for a decision first.</summary>
-public sealed record PostBill(Guid Id) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsPost; }
+public sealed record PostBill(Guid Id) : ICommand<BillDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.BillsPost; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
-public sealed record VoidBill(Guid Id, string? Reason) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsVoid; }
+public sealed record VoidBill(Guid Id, string? Reason) : ICommand<BillDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.BillsVoid; }
 
 public sealed class VoidBillValidator : AbstractValidator<VoidBill>
 {
@@ -49,6 +50,9 @@ public sealed class BillInputValidator : AbstractValidator<BillInput>
     {
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.PartyId).NotEmpty();
+        RuleFor(x => x.BillDate).MustBePlausibleDate();
+        RuleFor(x => x.DueDate).MustBePlausibleDate();
+        RuleFor(x => x).Must(x => x.DueDate is null || x.DueDate >= x.BillDate).WithName("dueDate").WithMessage("The due date cannot be before the bill date.");
         RuleFor(x => x.VendorReference).MaximumLength(100);
         RuleFor(x => x.Notes).MaximumLength(1000);
         RuleFor(x => x.BusinessUnitId).NotEqual(Guid.Empty).When(x => x.BusinessUnitId is not null).WithMessage("Choose a business unit or leave it empty.");
@@ -56,8 +60,8 @@ public sealed class BillInputValidator : AbstractValidator<BillInput>
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
             l.RuleFor(x => x.Description).NotEmpty().MaximumLength(400);
-            l.RuleFor(x => x.Quantity).GreaterThan(0);
-            l.RuleFor(x => x.Price).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.Quantity).GreaterThan(0).MustHaveAtMostDecimals(4);
+            l.RuleFor(x => x.Price).GreaterThanOrEqualTo(0).MustHaveAtMostDecimals(4);
             l.RuleFor(x => x.AccountId).NotEmpty().WithMessage("Choose the expense account.");
         });
     }
@@ -68,7 +72,7 @@ public sealed class UpdateBillValidator : AbstractValidator<UpdateBill> { public
 internal sealed class BillHandlers(
     IRepository<Bill> bills, IRepository<BillLine> lineRows, IReadRepository<Party> parties, IReadRepository<TaxCode> taxCodes, IReadRepository<Account> accounts, IRepository<JournalEntry> journals,
     IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering,
-    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock, IDbErrors dbErrors, IReadRepository<BusinessUnit> businessUnits, IReferenceCheck references) :
+    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock, IDbErrors dbErrors, IReadRepository<BusinessUnit> businessUnits, IReferenceCheck references, IUnitOfWork uow) :
     IRequestHandler<GetBill, BillDto>,
     IRequestHandler<CreateBill, BillDto>,
     IRequestHandler<UpdateBill, BillDto>,
@@ -90,7 +94,9 @@ internal sealed class BillHandlers(
         return ToDto(bill);
     }
 
-    public async Task<BillDto> Handle(UpdateBill cmd, CancellationToken ct)
+    public Task<BillDto> Handle(UpdateBill cmd, CancellationToken ct) => uow.InTransactionAsync(token => UpdateBillCoreAsync(cmd, token), ct);
+
+    private async Task<BillDto> UpdateBillCoreAsync(UpdateBill cmd, CancellationToken ct)
     {
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status is not (DocumentStatus.Draft or DocumentStatus.PendingApproval)) throw new ConflictException("Only a draft bill can be edited. Void it instead.");
@@ -98,22 +104,36 @@ internal sealed class BillHandlers(
         var fresh = await ApplyAsync(bill, cmd.Input, ct);
         foreach (var old in bill.Lines.ToList()) lineRows.Remove(old);
         lineRows.AddRange(fresh);
-        bill.Status = DocumentStatus.Draft; bill.ApprovalRequestId = null; // an edit invalidates a pending approval request
+        await WithdrawPendingAsync(bill, ct); // an edit invalidates a pending approval request
+        bill.Status = DocumentStatus.Draft; bill.ApprovalRequestId = null;
         await SaveAsync(bill, ct);
         bill.Lines.Clear(); bill.Lines.AddRange(fresh);
         return ToDto(bill);
     }
 
-    public async Task<Unit> Handle(DeleteBill cmd, CancellationToken ct)
+    public Task<Unit> Handle(DeleteBill cmd, CancellationToken ct) => uow.InTransactionAsync(token => DeleteBillCoreAsync(cmd, token), ct);
+
+    private async Task<Unit> DeleteBillCoreAsync(DeleteBill cmd, CancellationToken ct)
     {
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status is not (DocumentStatus.Draft or DocumentStatus.PendingApproval)) throw new ConflictException("Only a draft bill can be deleted.");
+        await WithdrawPendingAsync(bill, ct);
         bills.Remove(bill);
         await bills.SaveChangesAsync(ct);
         return Unit.Value;
     }
 
-    public async Task<BillDto> Handle(PostBill cmd, CancellationToken ct)
+    /// <summary>Withdraws the bill's approval request while it is still pending; a decided request only loses its link.</summary>
+    private async Task WithdrawPendingAsync(Bill bill, CancellationToken ct)
+    {
+        if (bill.ApprovalRequestId is not { } rid) return;
+        var request = await approvalRequests.FindAsync(rid, ct);
+        if (request?.Status == ApprovalStatus.Pending) await approvals.WithdrawAsync(rid, ct);
+    }
+
+    public Task<BillDto> Handle(PostBill cmd, CancellationToken ct) => uow.InTransactionAsync(token => PostBillCoreAsync(cmd, token), ct);
+
+    private async Task<BillDto> PostBillCoreAsync(PostBill cmd, CancellationToken ct)
     {
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status is not (DocumentStatus.Draft or DocumentStatus.PendingApproval)) throw new ConflictException("Only a draft bill can be posted.");
@@ -150,7 +170,9 @@ internal sealed class BillHandlers(
         return ToDto(bill);
     }
 
-    public async Task<BillDto> Handle(VoidBill cmd, CancellationToken ct)
+    public Task<BillDto> Handle(VoidBill cmd, CancellationToken ct) => uow.InTransactionAsync(token => VoidBillCoreAsync(cmd, token), ct);
+
+    private async Task<BillDto> VoidBillCoreAsync(VoidBill cmd, CancellationToken ct)
     {
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status != DocumentStatus.Issued || bill.Paid != 0) throw new ConflictException("Only a posted bill with nothing paid can be voided.");
@@ -183,6 +205,7 @@ internal sealed class BillHandlers(
     private async Task<List<BillLine>> ApplyAsync(Bill bill, BillInput i, CancellationToken ct)
     {
         var party = await parties.FindAsync(i.PartyId, ct) ?? throw new FieldValidationException("partyId", "Vendor not found.");
+        VendorRules.RequireVendor(party);
         var reference = i.VendorReference?.Trim();
         if (!string.IsNullOrEmpty(reference) && await bills.AnyAsync(b => b.PartyId == party.Id && b.VendorReference == reference && b.Id != bill.Id && b.Status != DocumentStatus.Voided, ct))
             throw new ConflictException(DuplicateReferenceMessage(reference));
@@ -191,8 +214,8 @@ internal sealed class BillHandlers(
         var found = await accounts.Query(new Specification<Account>(a => accountIds.Contains(a.Id) && a.IsPostable && a.IsActive)).Select(a => a.Id).ToListAsync(ct);
         if (found.Count != accountIds.Count) throw new FieldValidationException("lines", "An account was not found or cannot be posted to.");
         var taxIds = i.Lines.Where(l => l.TaxCodeId is not null).Select(l => l.TaxCodeId!.Value).Distinct().ToList();
-        var taxes = await taxCodes.Query(new Specification<TaxCode>(t => taxIds.Contains(t.Id))).Select(t => new { t.Id, t.Rate, t.IsRecoverable }).ToDictionaryAsync(t => t.Id, ct);
-        if (taxes.Count != taxIds.Count) throw new FieldValidationException("lines", "A tax code was not found.");
+        var taxes = await taxCodes.Query(new Specification<TaxCode>(t => taxIds.Contains(t.Id) && t.IsActive)).Select(t => new { t.Id, t.Rate, t.IsRecoverable }).ToDictionaryAsync(t => t.Id, ct);
+        if (taxes.Count != taxIds.Count) throw new FieldValidationException("lines", "A tax code was not found or is no longer active.");
         var itemIds = i.Lines.Where(l => l.ItemId is not null).Select(l => l.ItemId!.Value).Distinct().ToList();
         if (!await references.AllExistAsync<Item>(itemIds, ct))
             throw new FieldValidationException("lines", "An item was not found.");

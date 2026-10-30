@@ -129,8 +129,13 @@ public sealed class AuthService(
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.");
         if (user.TwoFactorEnabled) throw new ConflictException("Two-factor authentication is already on.");
         if (await users.GetAuthenticatorKeyAsync(user) is null) throw new ConflictException("Start the setup first.");
+        await EnsureNotLockedAsync(user);
         if (!await users.VerifyTwoFactorTokenAsync(user, users.Options.Tokens.AuthenticatorTokenProvider, code.Replace(" ", "").Replace("-", "")))
+        {
+            await CountFailureAsync(user);
             throw new FieldValidationException("code", "The code is incorrect. Check the time on your phone and try the next code.");
+        }
+        await users.ResetAccessFailedCountAsync(user);
         await users.SetTwoFactorEnabledAsync(user, true);
         return (await users.GenerateNewTwoFactorRecoveryCodesAsync(user, 8))!.ToList();
     }
@@ -138,10 +143,24 @@ public sealed class AuthService(
     public async Task DisableTwoFactorAsync(Guid userId, string password, string code, CancellationToken ct)
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.");
-        if (!await users.CheckPasswordAsync(user, password)) throw new FieldValidationException("password", "The password is incorrect.");
-        if (user.TwoFactorEnabled && !await VerifyTwoFactorAsync(user, code)) throw new FieldValidationException("code", "The code is incorrect.");
+        await EnsureNotLockedAsync(user);
+        if (!await users.CheckPasswordAsync(user, password)) { await CountFailureAsync(user); throw new FieldValidationException("password", "The password is incorrect."); }
+        if (user.TwoFactorEnabled && !await VerifyTwoFactorAsync(user, code)) { await CountFailureAsync(user); throw new FieldValidationException("code", "The code is incorrect."); }
+        await users.ResetAccessFailedCountAsync(user);
         await users.SetTwoFactorEnabledAsync(user, false);
         await users.ResetAuthenticatorKeyAsync(user);
+    }
+
+    /// <summary>A wrong password or code on a signed-in confirmation counts like a failed sign-in, so a stolen token cannot be used to guess either.</summary>
+    private async Task CountFailureAsync(AppUser user)
+    {
+        await users.AccessFailedAsync(user);
+        if (await users.IsLockedOutAsync(user)) throw Locked(user);
+    }
+
+    private async Task EnsureNotLockedAsync(AppUser user)
+    {
+        if (await users.IsLockedOutAsync(user)) throw Locked(user);
     }
 
     private AuthException Locked(AppUser user)
@@ -212,6 +231,18 @@ public sealed class AuthService(
     }
 
     public static string DenyKey(string jti) => $"jwt:deny:{jti}";
+    /// <summary>Access tokens carry their issue time in milliseconds (<see cref="IssuedAtClaim"/>); one issued before this cutoff is rejected.</summary>
+    public const string IssuedAtClaim = "iatms";
+    public static string CutoffKey(Guid userId, Guid? orgId = null) => orgId is null ? $"jwt:cutoff:{userId}" : $"jwt:cutoff:{userId}:{orgId}";
+
+    public async Task RevokeSessionsAsync(Guid userId, Guid? orgId, string reason, CancellationToken ct)
+    {
+        var tokens = db.RefreshTokens.Where(t => t.UserId == userId && t.RevokedAt == null);
+        if (orgId is { } o) tokens = tokens.Where(t => t.OrgId == o);
+        await tokens.ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, clock.UtcNow).SetProperty(t => t.RevokedReason, reason), ct);
+        var cutoff = new DateTimeOffset(DateTime.SpecifyKind(clock.UtcNow, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+        await cache.SetStringAsync(CutoffKey(userId, orgId), cutoff.ToString(), new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(_o.AccessTokenMinutes + 1) }, ct);
+    }
 
     private async Task DenyAsync(string? jti, DateTime? exp, CancellationToken ct)
     {
@@ -249,8 +280,13 @@ public sealed class AuthService(
     public async Task ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken ct)
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.");
+        await EnsureNotLockedAsync(user);
         if (!await users.CheckPasswordAsync(user, currentPassword))
+        {
+            await CountFailureAsync(user);
             throw new FieldValidationException("currentPassword", "The current password is incorrect.");
+        }
+        await users.ResetAccessFailedCountAsync(user);
         await SetPasswordAsync(user, newPassword);
         await RevokeAllAsync(user.Id, "password-changed", ct);
     }
@@ -269,9 +305,7 @@ public sealed class AuthService(
         await users.UpdateSecurityStampAsync(user);
     }
 
-    private Task RevokeAllAsync(Guid userId, string reason, CancellationToken ct)
-        => db.RefreshTokens.Where(t => t.UserId == userId && t.RevokedAt == null)
-            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, clock.UtcNow).SetProperty(t => t.RevokedReason, reason), ct);
+    private Task RevokeAllAsync(Guid userId, string reason, CancellationToken ct) => RevokeSessionsAsync(userId, null, reason, ct);
 
     /// <summary>Active workspaces of a user. Membership is looked up across workspaces on purpose (explicit UserId predicate).</summary>
     public async Task<IReadOnlyList<WorkspaceOption>> WorkspacesForAsync(Guid userId, CancellationToken ct)
@@ -307,6 +341,7 @@ public sealed class AuthService(
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new(IssuedAtClaim, new DateTimeOffset(DateTime.SpecifyKind(now, DateTimeKind.Utc)).ToUnixTimeMilliseconds().ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? ""),
             new("name", user.FullName),
             new(ErpClaims.Org, ws.Id.ToString()),

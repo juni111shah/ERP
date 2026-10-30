@@ -74,15 +74,18 @@ your account (for Windows SQL auth), and the deploy scripts would need a service
 ## 5. Permanent URLs
 
 Quick tunnels (`*.trycloudflare.com`) get a new random URL whenever they restart. For stable URLs you need a Cloudflare
-account and a domain on Cloudflare:
+account and a domain on Cloudflare. Then it's one script, run three times
+([cloudflare-named-tunnels.md](cloudflare-named-tunnels.md#run-order)):
 
 ```powershell
-& 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel login          # browser sign-in, you do this
-& 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel create erp
-& 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel route dns erp staging.<your-domain>
-& 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel route dns erp erp.<your-domain>
+# 0. (you) add <domain> to Cloudflare, point its nameservers there, wait until the zone is Active
+# 1. normal PowerShell; opens the browser for `cloudflared tunnel login` (you)
+powershell -NoProfile -ExecutionPolicy Bypass -File <checkout>\deploy\cloudflare\setup-named-tunnel.ps1 -Domain <domain>
+# 2. ELEVATED PowerShell (you): installs the cloudflared Windows service
+powershell -NoProfile -ExecutionPolicy Bypass -File <checkout>\deploy\cloudflare\setup-named-tunnel.ps1 -Domain <domain> -InstallService
+# 3. normal PowerShell again: switches staging/production to the permanent URLs and stops their quick tunnels
+powershell -NoProfile -ExecutionPolicy Bypass -File <checkout>\deploy\cloudflare\setup-named-tunnel.ps1 -Domain <domain>
 ```
 
-Then add a `config.yml` with ingress rules `staging.<domain> → http://localhost:5180` and `erp.<domain> → http://localhost:5280`.
-Full plan per environment: [cloudflare-named-tunnels.md](cloudflare-named-tunnels.md). Run it with `cloudflared tunnel run erp`, or install it as a service with `cloudflared service install` (admin). After that,
-stop the quick tunnels: `.\erp-env.ps1 tunnel-stop`. Cloudflare Access can put a login in front of staging.
+Add `-WhatIf` to any run to see what it would do. The dev quick tunnel keeps running until you add `-StopDevQuickTunnel`.
+Cloudflare Access can put a login in front of dev and staging.

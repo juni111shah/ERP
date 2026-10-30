@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { AbstractControl, FormGroup } from '@angular/forms';
 import { ProblemDetails } from '../api/api.models';
+import { tNow } from '../i18n/translate-now';
 
 export function asProblem(err: unknown): ProblemDetails | null {
   if (err instanceof HttpErrorResponse && err.error && typeof err.error === 'object') {
@@ -45,11 +46,11 @@ export function controlError(control: AbstractControl | null): string {
   const e = control?.errors;
   if (!e) return '';
   if (e['server']) return e['server'];
-  if (e['required']) return 'Required';
-  if (e['maxlength']) return `Max ${e['maxlength'].requiredLength} characters`;
-  if (e['minlength']) return `Min ${e['minlength'].requiredLength} characters`;
-  if (e['min']) return `Must be ≥ ${e['min'].min}`;
-  if (e['max']) return `Must be ≤ ${e['max'].max}`;
-  if (e['pattern']) return 'Invalid format';
-  return 'Invalid value';
+  if (e['required']) return tNow('ui.valid.required', 'Required');
+  if (e['maxlength']) return tNow('ui.valid.maxLength', 'Max {n} characters', { n: e['maxlength'].requiredLength });
+  if (e['minlength']) return tNow('ui.valid.minLength', 'Min {n} characters', { n: e['minlength'].requiredLength });
+  if (e['min']) return tNow('ui.valid.min', 'Must be ≥ {n}', { n: e['min'].min });
+  if (e['max']) return tNow('ui.valid.max', 'Must be ≤ {n}', { n: e['max'].max });
+  if (e['pattern']) return tNow('ui.valid.pattern', 'Invalid format');
+  return tNow('ui.valid.invalid', 'Invalid value');
 }

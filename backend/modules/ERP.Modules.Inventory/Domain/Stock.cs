@@ -17,7 +17,7 @@ public class StockMovement : LegalEntityScopedEntity
     [Filterable] public MovementKind Kind { get; set; }
     public decimal Quantity { get; set; }
     public decimal UnitCost { get; set; }
-    [Searchable] public string? Reference { get; set; }
+    [Searchable, Filterable] public string? Reference { get; set; }
     [Searchable] public string? Memo { get; set; }
     public Guid? JournalEntryId { get; set; }
     /// <summary>Ties the two sides of a transfer together.</summary>
@@ -30,4 +30,33 @@ public class StockPolicy : OrgEntity
     public Guid ItemId { get; set; }
     public decimal ReorderLevel { get; set; }
     public decimal ReorderQuantity { get; set; }
+}
+
+public enum StockCountStatus { Draft = 0, Counting = 1, Posted = 2, Cancelled = 3 }
+
+/// <summary>
+/// A physical count of one warehouse. Creating it snapshots the system quantity of every item held there; counters then enter what they found
+/// and posting books one adjustment per difference at the average cost. A posted count never changes again.
+/// </summary>
+[DefaultSort("-countDate")]
+public class StockCount : LegalEntityScopedEntity
+{
+    [Searchable, Sortable] public string Number { get; set; } = default!;
+    [Filterable] public Guid WarehouseId { get; set; }
+    [Filterable, Sortable] public DateOnly CountDate { get; set; }
+    [Filterable] public StockCountStatus Status { get; set; } = StockCountStatus.Draft;
+    [Searchable] public string? Memo { get; set; }
+    public DateTime? PostedAt { get; set; }
+    public List<StockCountLine> Lines { get; set; } = new();
+}
+
+public class StockCountLine : Entity
+{
+    public Guid StockCountId { get; set; }
+    public Guid ItemId { get; set; }
+    /// <summary>System quantity when the sheet was created.</summary>
+    public decimal SystemQuantity { get; set; }
+    /// <summary>What was counted; null = not counted yet (posting ignores it).</summary>
+    public decimal? CountedQuantity { get; set; }
+    public Guid? MovementId { get; set; }
 }

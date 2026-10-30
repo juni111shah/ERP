@@ -3,7 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { LookupOption } from '../custom-fields/lookup-registry';
 import { API_BASE_URL } from './api-config';
-import { CrudApiService } from './crud-api.service';
+import { ListQuery, PagedResult } from './api.models';
+import { CrudApiService, toHttpParams } from './crud-api.service';
 
 type CustomFields = Record<string, unknown>;
 
@@ -14,11 +15,25 @@ export interface AccountDto {
   id: string; code: string; name: string; type: string; reportingGroup?: string; systemRole?: string; isBank: boolean; isSystem: boolean; isActive: boolean;
   parentId?: string; isPostable: boolean; currencyCode?: string; customFields: CustomFields;
 }
+export interface AccountCategoryDto {
+  type: string; accountCount: number; activeCount: number; primaryCount: number; hasChildren: boolean; balance?: number | null;
+}
+export interface AccountNodeDto {
+  id: string; code: string; name: string; type: string; parentId?: string | null; reportingGroup?: string | null; systemRole?: string | null;
+  isPostable: boolean; isBank: boolean; isSystem: boolean; isActive: boolean; currencyCode?: string | null; childCount: number; hasChildren: boolean; balance?: number | null;
+  /** derived sub-category key within the type (e.g. 'current'); for a nested account the panels use its top same-type ancestor's */
+  subcategory?: string | null;
+}
+/** A derived sub-category of an account type (Current assets, Non-current assets, …); key is unique within the type. */
+export interface AccountSubcategoryDto {
+  key: string; type: string; name: string; order: number; accountCount: number; activeCount: number; primaryCount: number; hasChildren: boolean; balance?: number | null;
+}
 export interface TaxCodeDto { id: string; code: string; name: string; kind: string; rate: number; isDefault: boolean; isRecoverable: boolean; isActive: boolean; }
 export interface LegalEntityDto {
   id: string; code: string; name: string; legalName?: string; countryCode: string; baseCurrency: string; taxRegistrationNo?: string; isTaxRegistered: boolean;
   registrationNo?: string; address?: string; email?: string; phone?: string; booksLockedTo?: string; isActive: boolean; customFields: CustomFields;
 }
+export interface PartyGroupDto { id: string; code: string; name: string; isActive: boolean; }
 export interface BusinessUnitDto { id: string; legalEntityId: string; code: string; name: string; address?: string; isActive: boolean; customFields: CustomFields; }
 export interface RoleDto { id: string; name: string; description?: string; isBuiltIn: boolean; moduleKey?: string; permissions: string[]; }
 export interface PermissionDefinition { key: string; module: string; resource: string; action: string; description: string; }
@@ -53,8 +68,48 @@ export const yesNo = (v: unknown): string => (v ? 'Yes' : 'No');
 @Injectable({ providedIn: 'root' })
 export class ItemsApi extends CrudApiService<ItemDto, unknown> { protected readonly resource = 'items'; }
 
+export interface CoaNumbering { mode: 'free' | 'hierarchical'; segments: number[]; separator: string; pattern: string; maxLength: number; }
+
 @Injectable({ providedIn: 'root' })
-export class AccountsApi extends CrudApiService<AccountDto, unknown> { protected readonly resource = 'finance/accounts'; }
+export class AccountsApi extends CrudApiService<AccountDto, unknown> {
+  protected readonly resource = 'finance/accounts';
+
+  // ---- Step-by-step chart of accounts: one level per request -------------------------------------------------------------
+  /** The five account categories with counts (and natural-side balances when asked and the user may read reports). */
+  categories(includeBalances = false): Observable<AccountCategoryDto[]> {
+    return this.http.get<AccountCategoryDto[]>(`${this.url}/tree/categories`, { params: includeBalances ? { includeBalances: true } : {} });
+  }
+  /** Primary accounts of one category: no parent, or a parent of another type. Paged and searchable (code, name). */
+  categoryAccounts(type: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {
+    return this.http.get<PagedResult<AccountNodeDto>>(`${this.url}/tree/categories/${encodeURIComponent(type)}/accounts`, { params: toHttpParams(query) });
+  }
+  /** The sub-categories of one category (always all of them, in order), with counts. */
+  subcategories(type: string, includeBalances = false): Observable<AccountSubcategoryDto[]> {
+    return this.http.get<AccountSubcategoryDto[]>(`${this.url}/tree/categories/${encodeURIComponent(type)}/subcategories`, { params: includeBalances ? { includeBalances: true } : {} });
+  }
+  /** Primary accounts of one sub-category. Paged and searchable (code, name). */
+  subcategoryAccounts(type: string, key: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {
+    return this.http.get<PagedResult<AccountNodeDto>>(`${this.url}/tree/categories/${encodeURIComponent(type)}/subcategories/${encodeURIComponent(key)}/accounts`, { params: toHttpParams(query) });
+  }
+  /** Direct children of one account. */
+  children(id: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {
+    return this.http.get<PagedResult<AccountNodeDto>>(`${this.url}/${id}/children`, { params: toHttpParams(query) });
+  }
+  /** Numbering mask of the chart of accounts (free or hierarchical). */
+  numbering(): Observable<CoaNumbering> { return this.http.get<CoaNumbering>(`${this.baseUrl}/finance/coa-numbering`); }
+  setNumbering(body: { mode: string; segments: number[]; separator: string }): Observable<CoaNumbering> { return this.http.put<CoaNumbering>(`${this.baseUrl}/finance/coa-numbering`, body); }
+  /** Next free code under a parent (or the next top-level code of a type). Empty in free mode. */
+  nextCode(parentId: string | null, type: string | null): Observable<{ code: string }> {
+    const params: Record<string, string> = {};
+    if (parentId) params['parentId'] = parentId;
+    if (type) params['type'] = type;
+    return this.http.get<{ code: string }>(`${this.url}/next-code`, { params });
+  }
+  /** Root-first ancestors of an account, the account itself last (breadcrumbs, re-opening a path). */
+  path(id: string): Observable<AccountNodeDto[]> {
+    return this.http.get<AccountNodeDto[]>(`${this.url}/${id}/path`);
+  }
+}
 
 @Injectable({ providedIn: 'root' })
 export class TaxCodesApi extends CrudApiService<TaxCodeDto, unknown> { protected readonly resource = 'finance/tax-codes'; }
@@ -68,6 +123,9 @@ export class LegalEntitiesApi extends CrudApiService<LegalEntityDto, unknown> {
 
 @Injectable({ providedIn: 'root' })
 export class BusinessUnitsApi extends CrudApiService<BusinessUnitDto, unknown> { protected readonly resource = 'business-units'; }
+
+@Injectable({ providedIn: 'root' })
+export class PartyGroupsApi extends CrudApiService<PartyGroupDto, unknown> { protected readonly resource = 'party-groups'; }
 
 @Injectable({ providedIn: 'root' })
 export class RolesApi extends CrudApiService<RoleDto, unknown> {
@@ -151,7 +209,7 @@ export class LedgerReportsApi {
   generalLedger(p: { accountId: string; from?: string; to: string; legalEntityId?: string }): Observable<GeneralLedger> { return this.http.get<GeneralLedger>(`${this.base}/general-ledger`, { params: this.params(p) }); }
   incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
   balanceSheet(p: { asOf: string; legalEntityId?: string }): Observable<BalanceSheet> { return this.http.get<BalanceSheet>(`${this.base}/balance-sheet`, { params: this.params(p) }); }
-  arAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
+  arAgeing(p: { asOf: string; legalEntityId?: string; businessUnitId?: string; sourceType?: string; groupBy?: string; partyGroupId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
   apAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ap-ageing`, { params: this.params(p) }); }
 }
 
@@ -159,7 +217,7 @@ export class LedgerReportsApi {
 
 export interface InvoiceLine { id?: string; seq?: number; itemId?: string; description: string; quantity: number; price: number; taxCodeId?: string; taxAmount?: number; net?: number; accountId?: string; }
 export interface InvoiceSummary { id: string; number: string; isCreditNote: boolean; partyId: string; partyName?: string; invoiceDate: string; dueDate: string; total: number; paid: number; outstanding: number; status: string; currencyCode: string; net?: number; tax?: number; sourceType?: string | null; }
-export interface InvoiceDto extends InvoiceSummary { legalEntityId: string; net: number; tax: number; sourceType?: string | null; sourceId?: string; journalEntryId?: string; notes?: string; lines: InvoiceLine[]; }
+export interface InvoiceDto extends InvoiceSummary { legalEntityId: string; net: number; tax: number; sourceType?: string | null; sourceId?: string; journalEntryId?: string; notes?: string; lines: InvoiceLine[]; warnings?: string[]; }
 export interface AllocationLine { id: string; invoiceId: string; invoiceNumber: string; amount: number; }
 export interface ReceiptSummary { id: string; number: string; partyId: string; partyName?: string; date: string; method: string; amount: number; unallocated: number; status: string; currencyCode: string; }
 export interface ReceiptDto extends ReceiptSummary { legalEntityId: string; bankAccountId?: string; reference?: string; journalEntryId?: string; allocations: AllocationLine[]; }
@@ -196,9 +254,9 @@ export class ReceiptsApi extends CrudApiService<ReceiptSummary, unknown> {
 
 // ---- Cheque register ---------------------------------------------------------------------------------------------------------
 
-export interface ChequeRow { id: string; number: string; kind: string; direction: string; instrumentNo: string; bankName?: string; partyId?: string; partyName?: string; amount: number; instrumentDate: string; status: string; currencyCode: string; }
+export interface ChequeRow { id: string; number: string; kind: string; direction: string; instrumentNo: string; bankName?: string; partyId?: string; partyName?: string; amount: number; instrumentDate: string; status: string; currencyCode: string; bouncedOn?: string; followUpOn?: string; }
 export interface ChequeDto extends ChequeRow {
-  legalEntityId: string; receivedOn?: string; bankAccountId?: string; settlementId?: string; depositedOn?: string; clearedOn?: string; bounceReason?: string; replacesInstrumentId?: string; notes?: string;
+  legalEntityId: string; receivedOn?: string; bankAccountId?: string; settlementId?: string; depositedOn?: string; clearedOn?: string; bounceReason?: string; replacesInstrumentId?: string; notes?: string; bouncedOn?: string; followUpOn?: string; followUpNote?: string; replacedByChequeId?: string;
   allocations: AllocationLine[];
 }
 export interface ChequeSummary { inCustodyTotal: number; inCustodyCount: number; maturedTotal: number; maturedCount: number; next7DaysTotal: number; next30DaysTotal: number; depositedTotal: number; bouncedCount: number; }
@@ -215,6 +273,7 @@ export class ChequesApi extends CrudApiService<ChequeRow, unknown> {
   cancel(id: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/cancel`, {}); }
   deposit(id: string, bankAccountId: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/deposit`, { bankAccountId, date }); }
   clear(id: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/clear`, { date }); }
+  followUp(id: string, note: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/follow-up`, { note, date }); }
   bounce(id: string, date: string, reason: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/bounce`, { date, reason }); }
   replace(id: string, body: unknown): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/replace`, body); }
 }

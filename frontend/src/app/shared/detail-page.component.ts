@@ -1,21 +1,38 @@
-import { Component, Input, Output, EventEmitter, computed } from '@angular/core';
-import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
+import { Component, Input, Output, EventEmitter, computed, inject, OnInit, OnChanges } from '@angular/core';
+import { PageTitleService } from '../core/services/page-title.service';
+import { SessionStore } from '../core/session/session.store';
+import { RecordHistoryComponent } from './record-history.component';
+import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDescriptionsModule } from 'ng-zorro-antd/descriptions';
-import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzStatisticModule } from 'ng-zorro-antd/statistic';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { HasPermissionDirective } from './has-permission.directive';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { RevealDirective } from './reveal.directive';
+import { StatCardComponent, StatTone } from './stat-card.component';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 export interface KpiCard {
   title: string;
   value: number | string;
   suffix?: string;
+  /** Legacy colour hint ({ color }): red/green shades map to the stat card's danger/success tones. */
   valueStyle?: Record<string, string>;
+  caption?: string;
+  tone?: StatTone;
+}
+
+/** Maps the legacy `valueStyle.color` of a KpiCard to a stat-card tone (red-ish = danger, green-ish = success). */
+export function kpiTone(card: KpiCard, index: number): StatTone {
+  if (card.tone !== undefined) return card.tone;
+  const c = (card.valueStyle?.['color'] ?? '').toLowerCase();
+  if (c === '#ff4d4f' || c === '#cf1322' || c === 'red') return 'danger';
+  if (c === '#52c41a' || c === '#389e0d' || c === 'green') return 'success';
+  return index;
 }
 
 export interface ActionButton {
@@ -25,6 +42,10 @@ export interface ActionButton {
   danger?: boolean;
   permission?: string;
   visible?: boolean;
+  /** Create/Add action: icon-first with the label revealed on hover / keyboard focus, plus a tooltip and aria-label. */
+  reveal?: boolean;
+  /** Translate key for the tooltip / aria-label of a `reveal` action (falls back to `label`). */
+  labelKey?: string;
   handler: () => void;
 }
 
@@ -38,11 +59,11 @@ export interface DescriptionItem {
 @Component({
   selector: 'erp-detail-page',
   standalone: true,
-  imports: [
-    CommonModule, DatePipe, CurrencyPipe, RouterLink,
-    NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule,
-    NzIconModule, NzStatisticModule, NzTabsModule, NzTagModule,
-    HasPermissionDirective
+  imports: [StatCardComponent, TranslatePipe, 
+    CommonModule, RouterLink,
+    NzButtonModule, NzCardModule, NzDescriptionsModule,
+    NzIconModule, NzTabsModule, NzTagModule,
+    HasPermissionDirective, RevealDirective, NzToolTipModule, RecordHistoryComponent
   ],
   styles: [`
     .erp-page-title {
@@ -95,6 +116,9 @@ export interface DescriptionItem {
             <button 
               *erpHasPermission="action.permission ?? ''"
               nz-button 
+              erpReveal [attr.data-reveal]="action.reveal ? 'on' : 'off'"
+              [attr.aria-label]="action.reveal ? ((action.labelKey ?? '') | translate: action.label) : null"
+              nz-tooltip [nzTooltipTitle]="action.reveal ? ((action.labelKey ?? '') | translate: action.label) : null"
               [nzType]="action.type ?? 'default'"
               [nzDanger]="action.danger ?? false"
               (click)="action.handler()">
@@ -106,18 +130,9 @@ export interface DescriptionItem {
     }
 
     @if (kpiCards.length > 0) {
-      <div nz-row [nzGutter]="[16, 16]">
-        @for (card of kpiCards; track card.title) {
-          <div nz-col [nzXs]="24" [nzMd]="6">
-            <nz-card>
-              <nz-statistic 
-                [nzTitle]="card.title"
-                [nzValue]="card.value"
-                [nzSuffix]="card.suffix ?? ''"
-                [nzValueStyle]="card.valueStyle ?? {}">
-              </nz-statistic>
-            </nz-card>
-          </div>
+      <div class="erp-stat-grid erp-stat-grid--auto" data-testid="detail-kpis">
+        @for (card of kpiCards; track card.title; let i = $index) {
+          <erp-stat-card [label]="card.title" [value]="card.value" [format]="isNumber(card.value) ? 'number' : 'text'" [suffix]="card.suffix ?? null" [caption]="card.caption ?? null" [tone]="tone(card, i)" />
         }
       </div>
     }
@@ -155,14 +170,16 @@ export interface DescriptionItem {
           </nz-tab>
         }
         
-        @if (showHistory) {
-          <nz-tab nzTitle="History">
+        @if (showHistory && canSeeHistory()) {
+          <nz-tab [nzTitle]="'history.title' | translate: 'History'">
             <div style="padding: 16px;">
               <ng-content select="[history]"></ng-content>
-              @if (!hasHistoryContent) {
+              @if (recordType && recordId) {
+                <erp-record-history [recordType]="recordType" [recordId]="recordId" />
+              } @else if (!hasHistoryContent) {
                 <div class="history-item">
                   <div class="history-timestamp">{{ createdAt }}</div>
-                  <div>{{ entityName }} created</div>
+                  <div>{{ entityName }} {{ 'ui.detail.createdLc' | translate: 'created' }}</div>
                 </div>
               }
             </div>
@@ -172,7 +189,9 @@ export interface DescriptionItem {
     </nz-card>
   `
 })
-export class DetailPageComponent {
+export class DetailPageComponent implements OnInit, OnChanges {
+  readonly tone = kpiTone;
+  isNumber(v: unknown): boolean { return typeof v === 'number'; }
   @Input() backLink?: string[];
   @Input() backLabel = 'Back';
   @Input() title = '';
@@ -187,4 +206,30 @@ export class DetailPageComponent {
   @Input() hasHistoryContent = false;
   @Input() entityName = 'Record';
   @Input() createdAt?: string;
+  /** Audit record class ("Invoice", "Bill", "Party"...) and id: when both are set the History tab shows the record's change history. */
+  @Input() recordType?: string;
+  @Input() recordId?: string;
+  private readonly session = inject(SessionStore);
+  private readonly pageTitle = inject(PageTitleService);
+
+  ngOnInit(): void {
+    this.updateTopBar();
+  }
+
+  ngOnChanges(): void {
+    this.updateTopBar();
+  }
+
+  private updateTopBar(): void {
+    if (this.title) {
+      this.pageTitle.setTitle(
+        this.title,
+        this.entityName !== 'Record' ? this.entityName : null,
+        this.status ? { text: this.status } : null
+      );
+    }
+  }
+
+  /** The change history is only for people who may read the audit log. */
+  canSeeHistory(): boolean { return !this.recordType || this.session.hasPermission('core.audit.read'); }
 }

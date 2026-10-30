@@ -12,6 +12,7 @@ using ERP.Modularity;
 using ERP.Application.Security;
 using ERP.Application.Templates;
 using ERP.CountryPacks.AE;
+using ERP.CountryPacks.QA;
 using ERP.CountryPacks.GB;
 using ERP.CountryPacks.IN;
 using ERP.CountryPacks.PK;
@@ -35,6 +36,12 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 });
 builder.Services.AddWindowsService(); // no-op unless the process was started by the Windows service control manager
 
+// ERP_-prefixed environment variables (e.g. ERP_Hosting__PublicUrl) override everything else; deploy scripts and the
+// named-tunnel setup use them so a machine-specific value never has to be committed.
+builder.Configuration.AddEnvironmentVariables(prefix: "ERP_");
+// Public origin (named-tunnel hostname). Empty by default: localhost and quick-tunnel behaviour unchanged.
+var publicOrigin = PublicOrigin.Normalize(builder.Configuration[PublicOrigin.Key]);
+
 builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration).Enrich.FromLogContext().WriteTo.Console());
 
 // ---- Module composition (the host is the only place that references module assemblies) ----
@@ -54,6 +61,7 @@ var auth = builder.Configuration.GetSection(AuthOptions.Section).Get<AuthOptions
 if (Encoding.UTF8.GetByteCount(auth.SigningKey) < 32)
     throw new InvalidOperationException("Auth:SigningKey must be at least 32 bytes. Set it via environment variable Auth__SigningKey or user secrets.");
 
+builder.Services.AddResponseCompression(o => o.EnableForHttps = true); // Brotli/gzip for JSON and the served SPA (text types only; bearer-token API, no cookie secrets in bodies)
 builder.Services.AddDistributedMemoryCache(); // swap for Redis (AddStackExchangeRedisCache) when scaled out
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o =>
 {
@@ -79,7 +87,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
             var jti = ctx.Principal?.FindFirst("jti")?.Value;
             if (string.IsNullOrEmpty(jti) || ctx.Principal?.FindFirst(ErpClaims.Org) is null) { ctx.Fail("Missing claims."); return; }
             var cache = ctx.HttpContext.RequestServices.GetRequiredService<IDistributedCache>();
-            if (await cache.GetStringAsync(AuthService.DenyKey(jti)) is not null) ctx.Fail("Token revoked.");
+            if (await cache.GetStringAsync(AuthService.DenyKey(jti)) is not null) { ctx.Fail("Token revoked."); return; }
+            // A password change/reset or a deactivation ends every access token issued before it (portal tokens carry no issue time and are not affected).
+            if (long.TryParse(ctx.Principal?.FindFirst(AuthService.IssuedAtClaim)?.Value, out var issued) && Guid.TryParse(ctx.Principal!.FindFirst("sub")?.Value ?? ctx.Principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId))
+            {
+                var org = Guid.Parse(ctx.Principal.FindFirst(ErpClaims.Org)!.Value);
+                foreach (var key in new[] { AuthService.CutoffKey(userId), AuthService.CutoffKey(userId, org) })
+                    if (long.TryParse(await cache.GetStringAsync(key), out var cutoff) && issued < cutoff) { ctx.Fail("Session ended."); return; }
+            }
         },
     };
 });
@@ -87,6 +102,12 @@ builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProv
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
 builder.Services.AddAuthorization(o =>
 {
+    var staff = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .RequireAssertion(ctx => !ctx.User.HasClaim(c => c.Type == "portal_party"))
+        .Build();
+    o.DefaultPolicy = staff;
+    o.FallbackPolicy = staff;
     o.AddPolicy("portal", p => p.RequireAuthenticatedUser().RequireClaim("portal_party"));
     o.AddPolicy("portal.customer", p => p.RequireAuthenticatedUser().RequireClaim("portal_party").RequireClaim("portal_kind", "customer"));
     o.AddPolicy("portal.vendor", p => p.RequireAuthenticatedUser().RequireClaim("portal_party").RequireClaim("portal_kind", "vendor"));
@@ -126,8 +147,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
     o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     o.ForwardLimit = 2;
 });
+if (publicOrigin is not null) builder.Services.PostConfigure<EmailOptions>(o => o.AppBaseUrl = publicOrigin); // links in emails
 builder.Services.AddCors(o => o.AddPolicy("web", p => p
-    .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:4200"])
+    .WithOrigins(PublicOrigin.CorsOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:4200"], publicOrigin))
     .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
@@ -142,6 +164,7 @@ var app = builder.Build();
 var serveSpa = app.Environment.WebRootFileProvider.GetFileInfo("index.html").Exists;
 
 app.UseForwardedHeaders();
+app.UseResponseCompression();
 app.UseExceptionHandler();
 // Empty-bodied API errors (401 challenge, 403 forbid, 404 no route, 405) get the same error envelope.
 app.UseStatusCodePages(async ctx =>
@@ -176,6 +199,7 @@ app.UseAuthentication();
 app.UseMiddleware<ModuleGateMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<LegalEntityScopeMiddleware>();
+app.UseMiddleware<IdempotencyMiddleware>();
 
 // Every /api/v1 endpoint (core and modules) returns the standard ApiResponse envelope.
 var api = app.MapGroup("/api/v1");
@@ -188,7 +212,6 @@ var registry = app.Services.GetRequiredService<ModuleRegistry>();
 foreach (var module in registry.Modules)
 {
     var group = api.MapGroup($"/m/{module.Manifest.Key}")
-        .RequireAuthorization()
         .WithMetadata(new ModuleGateMetadata(module.Manifest.Key))
         .WithTags($"Module: {module.Manifest.Name}");
     module.MapEndpoints(group);
@@ -213,13 +236,13 @@ app.Run();
 public static class CountryPackCatalog
 {
     public static IReadOnlyList<ICountryPack> All() =>
-        [new UaeCountryPack(), new SaudiCountryPack(), new PakistanCountryPack(), new IndiaCountryPack(), new UnitedKingdomCountryPack(), new UnitedStatesCountryPack()];
+        [new UaeCountryPack(), new QatarCountryPack(), new SaudiCountryPack(), new PakistanCountryPack(), new IndiaCountryPack(), new UnitedKingdomCountryPack(), new UnitedStatesCountryPack()];
 }
 
 /// <summary>Installed modules. ERP_MODULES / Modules:Installed (comma list) narrows them; an empty value runs the core alone.</summary>
 public static class ModuleCatalog
 {
-    public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule()];
+    public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule(), new ERP.Modules.Projects.ProjectsModule(), new ERP.Modules.Sales.SalesModule(), new ERP.Modules.Purchasing.PurchasingModule(), new ERP.Modules.Pos.PosModule(), new ERP.Modules.Retail.RetailModule(), new ERP.Modules.Distribution.DistributionModule(), new ERP.Modules.Manufacturing.ManufacturingModule(), new ERP.Modules.Crm.CrmModule(), new ERP.Modules.Services.ServicesModule()];
 
     public static IReadOnlyList<IModule> Select(IConfiguration config)
     {
@@ -241,6 +264,7 @@ public static class DatabaseStartup
             await scope.ServiceProvider.GetRequiredService<IDatabaseInitializer>().InitializeAsync(db);
         }
         await DevSeeder.SeedAsync(scope.ServiceProvider);
+        await ProgramSeeder.SeedModulesAsync(scope.ServiceProvider);
     }
 }
 

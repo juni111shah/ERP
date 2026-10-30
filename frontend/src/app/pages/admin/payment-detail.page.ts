@@ -1,3 +1,4 @@
+import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -10,6 +11,7 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 interface BillAllocation {
   id: string;
@@ -40,7 +42,7 @@ interface Payment {
 @Component({
   selector: 'erp-payment-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -50,18 +52,19 @@ interface Payment {
       <erp-detail-page
         [backLink]="['/finance/payments']"
         [backLabel]="'Back to Payments'"
-        [title]="'Payment #' + payment()!.number"
+        [title]="('ui.title.paymentNo' | translate: 'Payment #') + payment()!.number"
         [status]="payment()!.status"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
         [createdAt]="payment()!.date"
-        [entityName]="'Payment'">
+        [entityName]="'Payment'"
+        recordType="Settlement" [recordId]="payment()!.id">
         
         @if (payment()!.allocations.length > 0) {
           <div content style="margin-top: 16px;">
             <h3>Applied to Bills</h3>
-            <nz-table #allocTable [nzData]="payment()!.allocations" [nzFrontPagination]="false" nzSize="small">
+            <nz-table #allocTable [nzData]="payment()!.allocations" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
               <thead>
                 <tr>
                   <th>Bill Number</th>
@@ -80,10 +83,12 @@ interface Payment {
           </div>
         }
       </erp-detail-page>
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/payments/' + payment()!.id + '/email'" (closed)="emailOpen.set(false)" />
     }
   `
 })
 export class PaymentDetailPage implements OnInit {
+  readonly emailOpen = signal(false);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -128,6 +133,12 @@ export class PaymentDetailPage implements OnInit {
         label: 'Print',
         icon: 'printer',
         handler: () => window.open(`/print/payment/${pay.id}`, '_blank')
+      },
+      {
+        label: 'Email',
+        icon: 'mail',
+        permission: 'core.email.send',
+        handler: () => this.emailOpen.set(true)
       }
     ];
   });

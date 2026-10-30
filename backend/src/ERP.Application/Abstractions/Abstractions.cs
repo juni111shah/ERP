@@ -111,6 +111,8 @@ public interface IUserDirectory
     Task<UserProfile?> GetProfileAsync(Guid userId, CancellationToken ct = default);
     /// <summary>Members of the current workspace with their roles.</summary>
     Task<IReadOnlyList<UserSummary>> ListMembersAsync(CancellationToken ct = default);
+    /// <summary>Only the given users (members of the current workspace among them), with their roles.</summary>
+    Task<IReadOnlyList<UserSummary>> ListMembersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default);
     /// <summary>Finds the account by email or creates it with the temporary password (throws FieldValidationException when the password is rejected).</summary>
     Task<UserAccount> EnsureAccountAsync(string email, string fullName, string? temporaryPassword, CancellationToken ct = default);
 }

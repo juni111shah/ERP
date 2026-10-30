@@ -2,3 +2,6 @@
 // Sass emits each module's CSS once, so partials can `@use 'tokens' as erp` freely.
 @use 'tokens';
 @use 'dynamic-fields';
+@use 'reveal';
+@use 'expand-search';
+@use 'stat-card';

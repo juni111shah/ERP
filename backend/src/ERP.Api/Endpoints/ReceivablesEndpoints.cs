@@ -54,7 +54,8 @@ public static class ReceivablesEndpoints
 
 
         var reports = api.MapGroup("/finance/reports").WithTags("Finance reports");
-        reports.MapGet("/ar-ageing", (DateOnly asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetArAgeing(asOf, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
+        reports.MapGet("/ar-ageing", (DateOnly asOf, Guid? legalEntityId, Guid? businessUnitId, string? sourceType, string? groupBy, Guid? partyGroupId, ISender s, CancellationToken ct) => s.Send(new GetArAgeing(asOf, legalEntityId, businessUnitId, sourceType, groupBy, partyGroupId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapGet("/customer-statement", (Guid partyId, DateOnly asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetCustomerStatement(partyId, asOf, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
+        reports.MapGet("/customer-ledger", (Guid partyId, DateOnly from, DateOnly to, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetCustomerLedger(partyId, from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
     }
 }

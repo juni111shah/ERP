@@ -189,7 +189,7 @@ public class PlatformTests(ApiFactory f) : IClassFixture<ApiFactory>
 
     [Theory]
     [InlineData("qa-generic", "generic", new string[0])]
-    [InlineData("qa-retail", "retail", new[] { "inventory" })]
+    [InlineData("qa-retail", "retail", new[] { "inventory", "pos", "retail", "sales" })]
     [InlineData("qa-re", "realestate", new[] { "realestate" })]
     public async Task Onboarding_enables_the_industry_bundle_and_neutral_seed(string key, string industry, string[] expected)
     {

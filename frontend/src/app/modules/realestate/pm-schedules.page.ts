@@ -8,23 +8,35 @@ import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { PRIORITIES, PmScheduleDto, PmSchedulesApi, RealEstateLookups, humanize } from './realestate.api';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Recurring maintenance tasks; the nightly job (or "Run now") raises a work order shortly before each is due. */
 @Component({
   selector: 'erp-pm-schedules',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Preventive maintenance</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search schedules" emptyText="No schedules yet" (rowClick)="state.edit($event)">
-      <button toolbar *erpHasPermission="'realestate.pm.manage'" nz-button (click)="run()" data-testid="pm-run">Run now</button>
-      <button toolbar *erpHasPermission="'realestate.pm.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="pm-new"><span nz-icon nzType="plus"></span>New schedule</button>
+      <button toolbar *erpHasPermission="'realestate.pm.manage'" nz-button (click)="run()" data-testid="pm-run"><span nz-icon nzType="thunderbolt"></span> Run now</button>
+      <button toolbar *erpHasPermission="'realestate.pm.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="pm-new"><span nz-icon nzType="plus"></span> New schedule</button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @if (column.key === 'title') {
+          <span class="name-cell">{{ row.title }}</span>
+        } @else {
+          {{ value }}
+        }
+      </ng-template>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit schedule' : 'New schedule'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
                        [saving]="state.saving()" [errors]="state.errors()" testId="pm-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class PmSchedulesPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(PmSchedulesApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
@@ -35,7 +47,7 @@ export class PmSchedulesPage {
   readonly columns: TableColumn<PmScheduleDto>[] = [
     { key: 'title', label: 'Task' },
     { key: 'category', label: 'Category' },
-    { key: 'frequencyMonths', label: 'Every', value: (s) => `${s.frequencyMonths} month(s)`, width: '110px' },
+    { key: 'frequencyMonths', label: 'Every', value: (s) => `${s.frequencyMonths} ${this.i18n.t('ui.common.monthsParen', 'month(s)')}`, width: '110px' },
     { key: 'nextDue', label: 'Next due', sortField: 'nextDue', width: '120px' },
     { key: 'priority', label: 'Priority', value: (s) => humanize(s.priority), width: '100px' },
     { key: 'isActive', label: 'Active', value: (s) => (s.isActive ? 'Yes' : 'Paused'), width: '80px' },
@@ -56,6 +68,6 @@ export class PmSchedulesPage {
   ];
 
   run(): void {
-    this.api.run().subscribe({ next: (r) => { this.message.success(`${r.workOrdersCreated} work order(s) raised`); this.list.reload(); }, error: () => this.message.error('Could not run the schedules') });
+    this.api.run().subscribe({ next: (r) => { this.message.success(`${r.workOrdersCreated} ${this.i18n.t('ui.msg.workOrdersRaised', 'work order(s) raised')}`); this.list.reload(); }, error: () => this.message.error('Could not run the schedules') });
   }
 }
