@@ -352,13 +352,19 @@ export interface KpiCard { key: string; label: string; value: number; format: 'm
 export interface ChartSeriesDto { name: string; values: number[]; }
 export interface DashboardChart { key: string; title: string; kind: 'bar' | 'stacked' | 'hbar'; categories: string[]; series: ChartSeriesDto[]; subtitle?: string; order: number; }
 export interface DashboardAlert { severity: 'critical' | 'warning' | 'info'; category: string; urgency: 'action' | 'upcoming' | 'info'; message: string; link?: string; rank: number; }
-export interface DashboardDto { asOf: string; kpis: KpiCard[]; charts: DashboardChart[]; alerts: DashboardAlert[]; }
+/** `from`/`to` (yyyy-MM-dd) echo the reporting period the figures cover. */
+export interface DashboardDto { asOf: string; from?: string; to?: string; kpis: KpiCard[]; charts: DashboardChart[]; alerts: DashboardAlert[]; }
+export interface DashboardPeriod { from?: string; to?: string; }
 
 @Injectable({ providedIn: 'root' })
 export class DashboardApi {
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
-  get(): Observable<DashboardDto> { return this.http.get<DashboardDto>(`${this.base}/dashboard`); }
+  /** Without a period the server uses the last year ending today. */
+  get(period: DashboardPeriod = {}): Observable<DashboardDto> {
+    const params = Object.fromEntries(Object.entries(period).filter(([, v]) => !!v)) as Record<string, string>;
+    return this.http.get<DashboardDto>(`${this.base}/dashboard`, { params });
+  }
 }
 
 // ---- Budgets -------------------------------------------------------------------------------------------------------------

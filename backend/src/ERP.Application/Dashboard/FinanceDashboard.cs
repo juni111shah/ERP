@@ -6,7 +6,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Application.Dashboard;
 
-/// <summary>The industry-neutral cards: receivables, collections, cash, cheques, payables, approvals and the result for the year.</summary>
+/// <summary>
+/// The industry-neutral cards: receivables, collections, cash, cheques, payables, approvals and the result for the period.
+/// Billed, collected, net result and expenses cover the scope's period; cash is the balance at the end of the period;
+/// receivables, ageing, payables, cheques and approvals are open items today.
+/// </summary>
 public sealed class FinanceDashboard(
     IReadRepository<Invoice> invoices, IReadRepository<Bill> bills, IReadRepository<Settlement> settlements, IReadRepository<PaymentInstrument> instruments,
     IReadRepository<JournalEntry> journals, IReadRepository<Account> accounts, IReadRepository<ApprovalRequest> approvals, ISettingsService settings, ICurrentUser user) : IDashboardContributor
@@ -20,8 +24,7 @@ public sealed class FinanceDashboard(
         var entity = scope.LegalEntityId;
         var kpis = new List<KpiCard>(); var charts = new List<DashboardChart>(); var alerts = new List<DashboardAlert>();
         var canSee = (string p) => user.HasPermission(p);
-        var monthStart = new DateOnly(scope.Today.Year, scope.Today.Month, 1);
-        var yearStart = new DateOnly(scope.Today.Year, 1, 1);
+        var (from, to) = (scope.From, scope.To);
 
         if (canSee(CorePermissions.InvoicesRead))
         {
@@ -32,19 +35,18 @@ public sealed class FinanceDashboard(
             var overdue = open.Where(i => i.DueDate < scope.Today).Sum(i => sign(i.IsCreditNote) * (i.Total - i.Paid));
             kpis.Add(new("receivables", "Receivables", receivable, "money", $"overdue {overdue:N0}", 30, "/finance/invoices"));
 
-            var from12 = monthStart.AddMonths(-11);
-            var billed = await invoices.Query(new Specification<Invoice>(i => i.InvoiceDate >= from12 && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.Voided && (entity == null || i.LegalEntityId == entity)))
+            var billed = await invoices.Query(new Specification<Invoice>(i => i.InvoiceDate >= from && i.InvoiceDate <= to && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.Voided && (entity == null || i.LegalEntityId == entity)))
                 .Select(i => new { i.InvoiceDate, i.IsCreditNote, i.Net }).ToListAsync(ct);
             var collected = canSee(CorePermissions.ReceiptsRead)
-                ? await settlements.Query(new Specification<Settlement>(s => s.Direction == InstrumentDirection.Received && s.Status == DocumentStatus.Issued && s.Date >= from12 && (entity == null || s.LegalEntityId == entity)))
+                ? await settlements.Query(new Specification<Settlement>(s => s.Direction == InstrumentDirection.Received && s.Status == DocumentStatus.Issued && s.Date >= from && s.Date <= to && (entity == null || s.LegalEntityId == entity)))
                     .Select(s => new { s.Date, s.Amount }).ToListAsync(ct)
                 : [];
-            var months = Enumerable.Range(0, 12).Select(i => from12.AddMonths(i)).ToList();
+            var months = DashboardRange.Months(from, to);
             var billedByMonth = months.Select(m => billed.Where(b => b.InvoiceDate.Year == m.Year && b.InvoiceDate.Month == m.Month).Sum(b => b.IsCreditNote ? -b.Net : b.Net)).ToList();
             var collectedByMonth = months.Select(m => collected.Where(c => c.Date.Year == m.Year && c.Date.Month == m.Month).Sum(c => c.Amount)).ToList();
-            kpis.Add(new("collected", "Collected this month", collectedByMonth[^1], "money", $"billed {billedByMonth[^1]:N0}", 40, "/finance/receipts"));
+            kpis.Add(new("collected", "Collected in period", collectedByMonth.Sum(), "money", $"billed {billedByMonth.Sum():N0}", 40, "/finance/receipts"));
             charts.Add(new("billed-collected", "Billed vs collected", "bar", months.Select(m => m.ToString("MMM yy")).ToList(),
-                [new("Billed", billedByMonth), new("Collected", collectedByMonth)], "Invoices net of credit notes, and receipts, last 12 months", 10));
+                [new("Billed", billedByMonth), new("Collected", collectedByMonth)], "Invoices net of credit notes, and receipts, for the selected period", 10));
 
             var buckets = new decimal[5];
             foreach (var i in open)
@@ -65,9 +67,9 @@ public sealed class FinanceDashboard(
         if (canSee(CorePermissions.BankRead))
         {
             var cashIds = await accounts.Query(new Specification<Account>(a => a.IsActive && a.Type == AccountType.Asset && (a.IsBank || a.SystemRole == "cash" || a.SystemRole == "bank"))).Select(a => a.Id).ToListAsync(ct);
-            var moves = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= scope.Today && (entity == null || j.LegalEntityId == entity)))
+            var moves = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= to && (entity == null || j.LegalEntityId == entity)))
                 .SelectMany(j => j.Lines.Where(l => cashIds.Contains(l.AccountId)), (j, l) => new { l.Debit, l.Credit }).ToListAsync(ct);
-            kpis.Add(new("cash", "Cash and bank", moves.Sum(m => m.Debit - m.Credit), "money", "all bank and cash accounts", 60, "/finance/bank"));
+            kpis.Add(new("cash", "Cash and bank", moves.Sum(m => m.Debit - m.Credit), "money", $"all bank and cash accounts, at {to:dd MMM yyyy}", 60, "/finance/bank"));
         }
 
         if (canSee(CorePermissions.ChequesRead))
@@ -85,7 +87,7 @@ public sealed class FinanceDashboard(
 
         if (canSee(CorePermissions.ReportsRead))
         {
-            var lines = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date >= yearStart && j.Date <= scope.Today && (entity == null || j.LegalEntityId == entity)))
+            var lines = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date >= from && j.Date <= to && (entity == null || j.LegalEntityId == entity)))
                 .SelectMany(j => j.Lines, (j, l) => new Line(l.AccountId, j.Date, l.Debit, l.Credit)).ToListAsync(ct);
             var info = await accounts.Query(new Specification<Account>(a => a.Type == AccountType.Income || a.Type == AccountType.Expense)).Select(a => new { a.Id, a.Type, a.ReportingGroup, a.Name }).ToListAsync(ct);
             var income = 0m; var expense = 0m; var byGroup = new Dictionary<string, decimal>();
@@ -96,9 +98,9 @@ public sealed class FinanceDashboard(
                 if (a.Type == AccountType.Income) income += l.Credit - l.Debit;
                 else { var v = l.Debit - l.Credit; expense += v; var g = a.ReportingGroup ?? a.Name; byGroup[g] = byGroup.GetValueOrDefault(g) + v; }
             }
-            kpis.Add(new("net-result", "Net result year to date", income - expense, "money", "income less expenses", 50, "/finance/reports"));
+            kpis.Add(new("net-result", "Net result for period", income - expense, "money", "income less expenses", 50, "/finance/reports"));
             var top = byGroup.Where(g => g.Value != 0).OrderByDescending(g => g.Value).Take(8).ToList();
-            charts.Add(new("expenses", "Expenses year to date", "hbar", top.Select(g => g.Key).ToList(), [new("Expenses", top.Select(g => g.Value).ToList())], $"total {expense:N2}", 40));
+            charts.Add(new("expenses", "Expenses for period", "hbar", top.Select(g => g.Key).ToList(), [new("Expenses", top.Select(g => g.Value).ToList())], $"total {expense:N2}", 40));
         }
 
         var pending = await approvals.CountAsync(a => a.Status == ApprovalStatus.Pending && (user.HasPermission(CorePermissions.ApprovalsDecide) ? a.RequestedBy != user.UserId : a.RequestedBy == user.UserId), ct);
