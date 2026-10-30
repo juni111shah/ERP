@@ -166,4 +166,47 @@ public class LedgerTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Empty((await Ok(await c.GetAsync("/api/v1/finance/journals?filter=status:eq:posted&search=findme-xyz"))).AsArray());
         Assert.Equal(HttpStatusCode.Forbidden, (await f.Client().GetAsync("/api/v1/finance/journals")).StatusCode == HttpStatusCode.Unauthorized ? HttpStatusCode.Forbidden : HttpStatusCode.OK);
     }
+
+    [Fact]
+    public async Task Ledger_reports_reject_reversed_or_oversized_date_ranges()
+    {
+        var c = await AdminAsync();
+        var entity = await NewEntityAsync(c);
+        var acc = await AccountsAsync(c);
+        var id = acc.First(a => a.Key.StartsWith('1')).Value;
+        const string R = "/api/v1/finance/reports";
+        foreach (var url in new[]
+        {
+            $"{R}/trial-balance?from=2026-06-01&to=2026-05-01&legalEntityId={entity}",
+            $"{R}/trial-balance?from=2010-01-01&to=2026-05-01&legalEntityId={entity}",
+            $"{R}/income-statement?from=2026-06-01&to=2026-05-01&legalEntityId={entity}",
+            $"{R}/income-statement?from=0001-01-01&to=2026-05-01&legalEntityId={entity}",
+            $"{R}/general-ledger?accountId={id}&from=2026-06-01&to=2026-05-01&legalEntityId={entity}",
+            $"{R}/balance-sheet?asOf=0001-01-01&legalEntityId={entity}",
+        })
+            Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync(url)).StatusCode);
+        // a valid range and an open-ended trial balance (no start date) still work
+        await Ok(await c.GetAsync($"{R}/trial-balance?from=2026-01-01&to=2026-05-01&legalEntityId={entity}"));
+        await Ok(await c.GetAsync($"{R}/trial-balance?to=2026-05-01&legalEntityId={entity}"));
+    }
+
+    [Fact]
+    public async Task A_manual_journal_cannot_use_a_header_or_inactive_account_even_if_deactivated_after_drafting()
+    {
+        var c = await AdminAsync();
+        var entity = await NewEntityAsync(c);
+        var acc = await AccountsAsync(c);
+        var (cash, income) = (acc.First(a => a.Key.StartsWith('1')).Value, acc.First(a => a.Key.StartsWith('4')).Value);
+        var tag = Guid.NewGuid().ToString("N")[..4].ToUpperInvariant();
+        var header = (string)(await Ok(await c.PostAsJsonAsync("/api/v1/finance/accounts", new { code = "19" + tag, name = "Header " + tag, type = "asset", isPostable = false }), HttpStatusCode.Created))["id"]!;
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync("/api/v1/finance/journals", Journal(entity, "2026-03-01", header, income, 10m))).StatusCode);
+
+        var spare = (string)(await Ok(await c.PostAsJsonAsync("/api/v1/finance/accounts", new { code = "18" + tag, name = "Spare " + tag, type = "asset", isPostable = true }), HttpStatusCode.Created))["id"]!;
+        var draft = await Ok(await c.PostAsJsonAsync("/api/v1/finance/journals", Journal(entity, "2026-03-01", spare, income, 10m)), HttpStatusCode.Created);
+        await Ok(await c.PutAsJsonAsync($"/api/v1/finance/accounts/{spare}", new { code = "18" + tag, name = "Spare " + tag, type = "asset", isPostable = true, isActive = false }));
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsync($"/api/v1/finance/journals/{(string)draft["id"]!}/post", null)).StatusCode);
+
+        var ok = await Ok(await c.PostAsJsonAsync("/api/v1/finance/journals", Journal(entity, "2026-03-01", cash, income, 10m)), HttpStatusCode.Created);
+        Assert.Equal("posted", (string)(await Ok(await c.PostAsync($"/api/v1/finance/journals/{(string)ok["id"]!}/post", null)))["status"]!);
+    }
 }
