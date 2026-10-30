@@ -2,12 +2,12 @@
 id: TASK-025
 title: AP ageing and vendor statement must reflect the as-of date
 priority: P1
-status: open
+status: done
 schema: no
 depends_on: []
 area: finance-reports
 audit_ref: Claude analysis, Procure to pay
-commit:
+commit: f5d1bc9
 ---
 
 ## Problem
@@ -34,6 +34,8 @@ A month-end AP ageing re-run later does not reproduce the month-end numbers; it 
 ## Do not touch
 Report DTO shapes and endpoints.
 
-## What I did (Antigravity)
+## What I did (Claude, on user request)
+OpenAsync and AdvancesAsync in ApAgeing.cs now compute as of the date: bills voided on or before as-of are excluded, later voids and payments ignored, paid computed from allocations of payments dated <= as-of (allocations carry no date of their own, so a later allocation counts from its payment date). Aggregation done client-side because SQLite cannot Sum decimals in projections. Finding: ArAgeing.cs:81 (AR advances) uses current Unallocated and status, the same flaw; not fixed here, needs a new card.
 
 ## Review (Claude)
+- Verified: dotnet build 0 errors; dotnet test 238 unit + 241 integration pass, 4 skipped (SQL Server). 

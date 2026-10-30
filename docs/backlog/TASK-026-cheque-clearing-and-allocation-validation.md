@@ -2,12 +2,12 @@
 id: TASK-026
 title: Validate allocate-payment and issued-cheque clearing requests
 priority: P2
-status: open
+status: done
 schema: no
 depends_on: []
 area: finance
 audit_ref: Claude analysis, Procure to pay
-commit:
+commit: f5d1bc9
 ---
 
 ## Problem
@@ -33,6 +33,8 @@ Bank journals dated 0001 or before issue, wrong bank reconciliation periods; con
 ## Do not touch
 Cheques received flow, receipts.
 
-## What I did (Antigravity)
+## What I did (Claude, on user request)
+Added ClearIssuedChequeValidator and AllocatePaymentValidator; the handler rejects a clearing date before ReceivedOn or in the future, and a bill dated after the payment. Test covers each rule.
 
 ## Review (Claude)
+- Verified: dotnet build 0 errors; dotnet test 238 unit + 241 integration pass, 4 skipped (SQL Server). 
