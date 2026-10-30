@@ -82,7 +82,7 @@ internal sealed class AcquisitionHandlers(
 
     public async Task<AcquisitionOverviewDto> Handle(GetAcquisitionOverview q, CancellationToken ct)
     {
-        var done = await acquisitions.Query(new Specification<Acquisition>(a => a.Status == AcquisitionStatus.Completed)).Select(a => new { a.Id, a.PurchasePrice, a.DownPayment }).ToListAsync(ct);
+        var done = await acquisitions.Query(new Specification<Acquisition>(a => a.Status != AcquisitionStatus.Cancelled)).Select(a => new { a.Id, a.PurchasePrice, a.DownPayment }).ToListAsync(ct);
         var ids = done.Select(a => a.Id).ToList();
         var funding = await sources.Query(new Specification<FundingSource>(f => ids.Contains(f.AcquisitionId))).Select(f => new { f.Id, f.Principal }).ToListAsync(ct);
         var fundingIds = funding.Select(f => f.Id).ToList();
@@ -150,7 +150,7 @@ internal sealed class AcquisitionHandlers(
         if (a.CashAtCompletion > 0)
         {
             var bank = await accounts.FindAsync(a.PayFromAccountId!.Value, token);
-            if (bank is null || bank.Type != AccountType.Asset || !bank.IsPostable || !bank.IsActive) throw new FieldValidationException("payFromAccountId", "Choose an active bank account.");
+            if (bank is null || !ERP.Application.Finance.BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("payFromAccountId", "Choose an active bank account.");
             lines.Add(new PostingLine(bank.Id, 0, a.CashAtCompletion, memo));
         }
         if (financed > 0)
@@ -178,7 +178,7 @@ internal sealed class AcquisitionHandlers(
         if (earlier) throw new ConflictException("Pay the earlier instalments first.");
         var source = await sources.GetAsync(inst.FundingSourceId, token);
         var bank = await accounts.FindAsync(cmd.BankAccountId, token);
-        if (bank is null || bank.Type != AccountType.Asset || !bank.IsPostable || !bank.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
+        if (bank is null || !ERP.Application.Finance.BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
         var count = await instalments.CountAsync(i => i.FundingSourceId == source.Id, token);
         var memo = $"{source.Lender} instalment {inst.Sequence}/{count}";
         var lines = new List<PostingLine> { new(await posting.AccountForRoleAsync("realestate.financing", token), inst.Principal, 0, memo) };

@@ -10,21 +10,52 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+
+import { DecimalPipe } from '@angular/common';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 @Component({
   selector: 'erp-items',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [DecimalPipe, NzTagModule, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Items</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search SKU or name" emptyText="No items yet" (rowClick)="state.edit($event)">
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('sku') {
+            <span class="code-pill">{{ row.sku }}</span>
+          }
+          @case ('name') {
+            <span class="name-cell">{{ row.name }}</span>
+          }
+          @case ('type') {
+            <nz-tag [nzColor]="row.type === 'product' ? 'blue' : 'purple'">{{ row.type === 'product' ? 'Product' : 'Service' }}</nz-tag>
+          }
+          @case ('salesPrice') {
+            <b>{{ currency() }} {{ row.salesPrice | number: '1.2-2' }}</b>
+          }
+          @case ('isActive') {
+            <nz-tag [nzColor]="row.isActive ? 'green' : 'default'">{{ row.isActive ? 'Active' : 'Inactive' }}</nz-tag>
+          }
+          @default {
+            {{ value }}
+          }
+        }
+      </ng-template>
       <button toolbar *erpHasPermission="'core.items.write'" nz-button nzType="primary" (click)="state.create()" data-testid="item-new"><span nz-icon nzType="plus"></span>New item</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit item' : 'New item'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="item"
                        [saving]="state.saving()" [errors]="state.errors()" testId="item-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class ItemsPage {
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
   private readonly api = inject(ItemsApi);
   private readonly taxes = toSignal(inject(TaxCodesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'sku' });

@@ -14,16 +14,34 @@ export class CsvExportService {
     let csvData: any[];
     
     if (columns && columns.length > 0) {
+      // Money cells arrive display-formatted ("AED -6,500.00"); export them as plain numbers plus one Currency column.
+      const moneyCols = new Set(columns.filter(col => {
+        const vals = data.map(row => this.getNestedProperty(row, col.field)).filter(v => v !== null && v !== undefined && v !== '');
+        return vals.length > 0 && vals.every(v => typeof v === 'string' && CsvExportService.MONEY.test(v.trim()));
+      }).map(col => col.field));
+      const addCurrency = moneyCols.size > 0 && !columns.some(col => col.header.toLowerCase() === 'currency');
       csvData = data.map(row => {
         const obj: any = {};
+        let currency = '';
         columns.forEach(col => {
           const value = this.getNestedProperty(row, col.field);
-          obj[col.header] = value ?? '';
+          const money = moneyCols.has(col.field) && typeof value === 'string' ? CsvExportService.MONEY.exec(value.trim()) : null;
+          if (money) {
+            currency ||= money[1];
+            obj[col.header] = money[2].replace(/,/g, '');
+          } else {
+            obj[col.header] = this.safeCell(value ?? '');
+          }
         });
+        if (addCurrency) obj['Currency'] = currency;
         return obj;
       });
     } else {
-      csvData = data;
+      csvData = data.map(row => {
+        const obj: any = {};
+        Object.entries(row as any).forEach(([k, v]) => { obj[k] = this.safeCell(v); });
+        return obj;
+      });
     }
 
     const csv = Papa.unparse(csvData, {
@@ -32,6 +50,19 @@ export class CsvExportService {
     });
 
     this.downloadCsv(csv, filename);
+  }
+
+  /** A formatMoney() display value: ISO currency code, a space, then an en-US number ("AED 6,500.00", "AED -1,234.50"). */
+  private static readonly MONEY = /^([A-Z]{3}) (-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)$/;
+
+  /**
+   * Guards against spreadsheet formula injection: text starting with = + - @ tab or CR gets a leading single quote.
+   * Numbers, and strings that are plain numbers such as "-12.50" or "-1,234", are left as they are.
+   */
+  private safeCell(value: any): any {
+    if (typeof value !== 'string' || value === '') return value;
+    if (/^-?\d[\d,]*(\.\d+)?$/.test(value.trim())) return value;
+    return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   }
 
   private getNestedProperty(obj: any, path: string): any {
@@ -66,7 +97,7 @@ export class CsvExportService {
     const headers: string[] = [];
     
     headerCells.forEach(cell => {
-      headers.push((cell.textContent || '').trim());
+      headers.push(this.safeCell((cell.textContent || '').trim()));
     });
     
     if (headers.length > 0) {
@@ -78,7 +109,7 @@ export class CsvExportService {
       const cells = row.querySelectorAll('td');
       const rowData: string[] = [];
       cells.forEach(cell => {
-        rowData.push((cell.textContent || '').trim());
+        rowData.push(this.safeCell((cell.textContent || '').trim()));
       });
       if (rowData.length > 0) {
         rows.push(rowData);

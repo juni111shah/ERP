@@ -11,26 +11,43 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { CompetencyDto, EmployeeSummary, EmployeesApi, RATINGS, ReviewCycleDto, ReviewCyclesApi, ReviewDto, ReviewRow, ReviewsApi } from './hr.api';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication', 'Teamwork', 'Initiative'];
+
+import { NzTagModule } from 'ng-zorro-antd/tag';
 
 /** Performance reviews: overall rating, goals and competency scores. Draft -> Submitted -> Acknowledged by the employee. */
 @Component({
   selector: 'erp-reviews',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, NzIconModule, NzInputModule, NzSelectModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, NzIconModule, NzInputModule, NzSelectModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Performance reviews</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search reviewer" emptyText="No reviews yet" (rowClick)="open($event.id)">
-      <button toolbar *erpHasPermission="'hr.reviews.manage'" nz-button nzType="primary" (click)="create()" data-testid="review-new"><span nz-icon nzType="plus"></span>New review</button>
+      <button toolbar *erpHasPermission="'hr.reviews.manage'" nz-button nzType="primary" (click)="create()" data-testid="review-new"><span nz-icon nzType="plus"></span> New review</button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @if (column.key === 'employeeId') {
+          <span class="name-cell">{{ value }}</span>
+        } @else if (column.key === 'overallRating') {
+          <strong>{{ value }}</strong>
+        } @else if (column.key === 'status') {
+          <nz-tag [nzColor]="row.status === 'acknowledged' ? 'green' : (row.status === 'submitted' ? 'blue' : 'default')">{{ value }}</nz-tag>
+        } @else {
+          {{ value }}
+        }
+      </ng-template>
     </erp-paged-table>
     <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Review: ' + employeeName() : 'New review'" nzWidth="680" (nzOnClose)="drawer.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <nz-select nzShowSearch nzPlaceHolder="Employee" [(ngModel)]="employeeId" [nzDisabled]="!!id()" data-testid="review-employee">@for (e of employees(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.number + ' · ' + e.fullName"></nz-option> }</nz-select>
           <nz-select nzPlaceHolder="Cycle" [(ngModel)]="cycleId" [nzDisabled]="!!id()" data-testid="review-cycle">@for (c of openCycles(); track c.id) { <nz-option [nzValue]="c.id" [nzLabel]="c.name"></nz-option> }</nz-select>
-          <input nz-input placeholder="Reviewer" [(ngModel)]="reviewer" [disabled]="locked()" data-testid="review-reviewer" />
+          <input aria-label="Reviewer" nz-input placeholder="Reviewer" [(ngModel)]="reviewer" [disabled]="locked()" data-testid="review-reviewer" />
           <nz-select nzAllowClear nzPlaceHolder="Overall rating" [(ngModel)]="rating" [nzDisabled]="locked()" data-testid="review-rating">@for (r of ratings; track r.value) { <nz-option [nzValue]="r.value" [nzLabel]="r.label"></nz-option> }</nz-select>
         </div>
         <h4 style="margin-top:16px">Goals</h4>
@@ -38,13 +55,13 @@ const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication
         <h4 style="margin-top:16px">Competencies</h4>
         @for (c of competencies(); track $index; let i = $index) {
           <div style="display:grid;grid-template-columns:1.3fr 90px 1.5fr 32px;gap:8px;margin-bottom:8px;align-items:center">
-            <input nz-input placeholder="Competency" [ngModel]="c.name" (ngModelChange)="patch(i, { name: $event })" [disabled]="locked()" />
+            <input aria-label="Competency" nz-input placeholder="Competency" [ngModel]="c.name" (ngModelChange)="patch(i, { name: $event })" [disabled]="locked()" />
             <nz-select [ngModel]="c.score" (ngModelChange)="patch(i, { score: $event })" [nzDisabled]="locked()">@for (n of [1, 2, 3, 4, 5]; track n) { <nz-option [nzValue]="n" [nzLabel]="'' + n"></nz-option> }</nz-select>
-            <input nz-input placeholder="Notes" [ngModel]="c.notes" (ngModelChange)="patch(i, { notes: $event })" [disabled]="locked()" />
-            @if (!locked()) { <button nz-button nzType="text" nzSize="small" (click)="remove(i)"><span nz-icon nzType="delete"></span></button> }
+            <input aria-label="Notes" nz-input placeholder="Notes" [ngModel]="c.notes" (ngModelChange)="patch(i, { notes: $event })" [disabled]="locked()" />
+            @if (!locked()) { <button aria-label="Remove" nz-button nzType="text" nzSize="small" (click)="remove(i)"><span nz-icon nzType="delete"></span></button> }
           </div>
         }
-        @if (!locked()) { <button nz-button nzSize="small" (click)="add()" data-testid="review-add-competency"><span nz-icon nzType="plus"></span>Add competency</button> }
+        @if (!locked()) { <button nz-button nzType="dashed" nzSize="small" (click)="add()" data-testid="review-add-competency"><span nz-icon nzType="plus"></span> Add competency</button> }
         <h4 style="margin-top:16px">Comments</h4>
         <textarea nz-input rows="3" [(ngModel)]="comments" [disabled]="locked()"></textarea>
       </ng-container>
@@ -61,6 +78,7 @@ const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication
     </ng-template>`,
 })
 export class ReviewsPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(ReviewsApi);
   private readonly employeesApi = inject(EmployeesApi);
   private readonly cyclesApi = inject(ReviewCyclesApi);
@@ -88,7 +106,7 @@ export class ReviewsPage {
   readonly employeeName = signal('');
   readonly competencies = signal<CompetencyDto[]>([]);
   readonly locked = computed(() => this.status() !== 'draft');
-  readonly statusLabel = computed(() => (this.id() ? `Status: ${this.status()}` : 'New review'));
+  readonly statusLabel = computed(() => (this.id() ? `${this.i18n.t('ui.common.statusLabel', 'Status')}: ${this.status()}` : 'New review'));
   employeeId: string | null = null;
   cycleId: string | null = null;
   reviewer = '';

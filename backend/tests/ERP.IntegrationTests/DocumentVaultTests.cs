@@ -24,7 +24,8 @@ public class DocumentVaultTests(ApiFactory f) : IClassFixture<ApiFactory>
     public async Task Documents_keep_category_and_expiry_appear_in_the_vault_and_trigger_reminders()
     {
         var (c, _) = await f.SignInAsync(ApiFactory.AdminEmail);
-        var owner = Guid.NewGuid();
+        var partyRes = await c.PostAsJsonAsync("/api/v1/parties", new { name = "Vault Party", kind = "Company", roles = "Customer" });
+        var owner = Guid.Parse((string)ApiFactory.Unwrap(JsonNode.Parse(await partyRes.Content.ReadAsStringAsync())!)["id"]!);
         var soon = DateTime.UtcNow.AddDays(10).ToString("yyyy-MM-dd");
         var name = "licence-" + Guid.NewGuid().ToString("N")[..6] + ".pdf";
         var up = await c.PostAsync("/api/v1/attachments", Form(owner, name, "Trade licence", soon));

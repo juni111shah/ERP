@@ -11,6 +11,9 @@ import { SelectOption } from '../../shared/record-drawer.component';
 const BASE = 'm/inventory';
 
 export interface WarehouseRow { id: string; code: string; name: string; legalEntityId: string; address?: string; isActive: boolean; }
+export interface CountRow { id: string; number: string; warehouseId: string; countDate: string; status: string; lines: number; memo?: string; }
+export interface CountLine { itemId: string; sku: string; item: string; uom: string; systemQuantity: number; countedQuantity?: number | null; variance?: number | null; movementId?: string; }
+export interface CountDetail { id: string; number: string; warehouseId: string; warehouse: string; countDate: string; status: string; memo?: string; postedAt?: string; lines: CountLine[]; }
 export interface MovementRow { id: string; warehouseId: string; itemId: string; date: string; kind: string; quantity: number; unitCost: number; reference?: string; memo?: string; journalEntryId?: string; }
 export interface StockRow { warehouseId: string; warehouse: string; itemId: string; sku: string; item: string; uom: string; quantity: number; averageCost: number; value: number; }
 export interface StockOnHand { rows: StockRow[]; totalValue: number; }
@@ -19,13 +22,21 @@ export interface LowStockRow { itemId: string; sku: string; item: string; onHand
 @Injectable({ providedIn: 'root' })
 export class WarehousesApi extends CrudApiService<WarehouseRow, unknown> { protected readonly resource = `${BASE}/warehouses`; }
 @Injectable({ providedIn: 'root' })
+export class CountsApi extends CrudApiService<CountRow, unknown> {
+  protected readonly resource = `${BASE}/counts`;
+  detail(id: string): Observable<CountDetail> { return this.http.get<CountDetail>(`${this.url}/${id}`); }
+  saveLines(id: string, lines: { itemId: string; countedQuantity: number | null }[]): Observable<CountDetail> { return this.http.put<CountDetail>(`${this.url}/${id}/lines`, { lines }); }
+  post(id: string): Observable<CountDetail> { return this.http.post<CountDetail>(`${this.url}/${id}/post`, {}); }
+  cancel(id: string): Observable<CountDetail> { return this.http.post<CountDetail>(`${this.url}/${id}/cancel`, {}); }
+}
+@Injectable({ providedIn: 'root' })
 export class MovementsApi extends CrudApiService<MovementRow, unknown> { protected readonly resource = `${BASE}/movements`; }
 
 @Injectable({ providedIn: 'root' })
 export class StockApi {
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
-  onHand(): Observable<StockOnHand> { return this.http.get<StockOnHand>(`${this.base}/${BASE}/stock`); }
+  onHand(warehouseId?: string | null): Observable<StockOnHand> { return this.http.get<StockOnHand>(`${this.base}/${BASE}/stock`, { params: warehouseId ? { warehouseId } : {} }); }
   low(): Observable<LowStockRow[]> { return this.http.get<LowStockRow[]>(`${this.base}/${BASE}/stock/low`); }
   act(action: 'receive' | 'issue' | 'adjust' | 'transfer', body: unknown): Observable<unknown> { return this.http.post(`${this.base}/${BASE}/stock/${action}`, body); }
   setPolicy(body: { itemId: string; reorderLevel: number; reorderQuantity: number }): Observable<unknown> { return this.http.put(`${this.base}/${BASE}/stock/policy`, body); }

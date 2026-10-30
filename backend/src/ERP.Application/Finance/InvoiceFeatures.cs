@@ -10,17 +10,21 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Application.Finance;
 
 public sealed record InvoiceLineInput(string Description, decimal Quantity, decimal Price, Guid? TaxCodeId = null, Guid? AccountId = null, Guid? ItemId = null);
-public sealed record InvoiceInput(Guid LegalEntityId, Guid PartyId, DateOnly InvoiceDate, DateOnly? DueDate, List<InvoiceLineInput> Lines, bool IsCreditNote = false, string? Notes = null);
+/// <summary>SourceType and SourceId are set only by module billing code; they are never read from a request body.</summary>
+public sealed record InvoiceInput(Guid LegalEntityId, Guid PartyId, DateOnly InvoiceDate, DateOnly? DueDate, List<InvoiceLineInput> Lines, bool IsCreditNote = false, string? Notes = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] string? SourceType = null, [property: System.Text.Json.Serialization.JsonIgnore] Guid? SourceId = null);
 
 public sealed record InvoiceLineDto(Guid Id, int Seq, Guid? ItemId, string Description, decimal Quantity, decimal Price, Guid? TaxCodeId, decimal TaxAmount, decimal Net, Guid? AccountId);
 public sealed record InvoiceDto(
     Guid Id, string Number, bool IsCreditNote, Guid LegalEntityId, Guid PartyId, string? PartyName, DateOnly InvoiceDate, DateOnly DueDate, string CurrencyCode, decimal Net, decimal Tax,
-    decimal Total, decimal Paid, DocumentStatus Status, string? SourceType, Guid? SourceId, Guid? JournalEntryId, string? Notes, IReadOnlyList<InvoiceLineDto> Lines)
+    decimal Total, decimal Paid, DocumentStatus Status, string? SourceType, Guid? SourceId, Guid? JournalEntryId, string? Notes, IReadOnlyList<InvoiceLineDto> Lines,
+    Guid? CreditNoteForId = null, string? VoidReason = null, DateTime? VoidedAt = null, IReadOnlyList<string>? Warnings = null)
 {
     public decimal Outstanding => Total - Paid;
     public static InvoiceDto From(Invoice i) => new(
         i.Id, i.Number, i.IsCreditNote, i.LegalEntityId, i.PartyId, i.PartyName, i.InvoiceDate, i.DueDate, i.CurrencyCode, i.Net, i.Tax, i.Total, i.Paid, i.Status, i.SourceType, i.SourceId,
-        i.JournalEntryId, i.Notes, i.Lines.OrderBy(l => l.Seq).Select(l => new InvoiceLineDto(l.Id, l.Seq, l.ItemId, l.Description, l.Quantity, l.Price, l.TaxCodeId, l.TaxAmount, l.Net, l.AccountId)).ToList());
+        i.JournalEntryId, i.Notes, i.Lines.OrderBy(l => l.Seq).Select(l => new InvoiceLineDto(l.Id, l.Seq, l.ItemId, l.Description, l.Quantity, l.Price, l.TaxCodeId, l.TaxAmount, l.Net, l.AccountId)).ToList(),
+        i.CreditNoteForId, i.VoidReason, i.VoidedAt);
 }
 
 public sealed record InvoiceSummaryDto(Guid Id, string Number, bool IsCreditNote, Guid PartyId, string? PartyName, DateOnly InvoiceDate, DateOnly DueDate, decimal Total, decimal Paid, DocumentStatus Status, string CurrencyCode,
@@ -30,27 +34,27 @@ public sealed record InvoiceSummaryDto(Guid Id, string Number, bool IsCreditNote
 }
 
 public sealed record GetInvoice(Guid Id) : IQuery<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesRead; }
-public sealed record CreateInvoice(InvoiceInput Input) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
-public sealed record UpdateInvoice(Guid Id, InvoiceInput Input) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
+public sealed record CreateInvoice(InvoiceInput Input) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
+public sealed record UpdateInvoice(Guid Id, InvoiceInput Input) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
 public sealed record DeleteInvoice(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesWrite; }
-public sealed record IssueInvoice(Guid Id) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesIssue; }
+public sealed record IssueInvoice(Guid Id) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesIssue; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
-public sealed record VoidInvoice(Guid Id, string? Reason) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesVoid; }
+public sealed record VoidInvoice(Guid Id, string? Reason) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesVoid; }
 
 public sealed class VoidInvoiceValidator : AbstractValidator<VoidInvoice>
 {
     public VoidInvoiceValidator() => RuleFor(x => x.Reason).ValidVoidReason();
 }
 /// <summary>Uses (part of) an issued credit note to settle an open invoice of the same customer.</summary>
-public sealed record ApplyCreditNote(Guid CreditNoteId, Guid InvoiceId, decimal Amount) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesCredit; }
+public sealed record ApplyCreditNote(Guid CreditNoteId, Guid InvoiceId, decimal Amount) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.InvoicesCredit; }
 
 /// <summary>One line to credit: an original invoice line and how much of its quantity to credit.</summary>
 public sealed record CreditNoteLineInput(Guid InvoiceLineId, decimal Quantity);
 /// <summary>
 /// Drafts a credit note against an issued invoice: same customer and entity, the selected lines (all lines when none are given),
-/// linked through SourceType "invoice" + SourceId. The total of the invoice's non-voided credit notes cannot exceed the invoice total.
+/// linked through SourceType "invoice" + SourceId and CreditNoteForId. The total of the invoice's non-voided credit notes cannot exceed the invoice total.
 /// </summary>
-public sealed record CreateCreditNoteFromInvoice(Guid InvoiceId, DateOnly? Date, List<CreditNoteLineInput>? Lines, string? Notes) : ICommand<InvoiceDto>, IRequirePermission
+public sealed record CreateCreditNoteFromInvoice(Guid InvoiceId, DateOnly? Date, List<CreditNoteLineInput>? Lines, string? Notes) : ICommand<InvoiceDto>, IRetryOnConcurrency, IRequirePermission
 {
     public const string LinkType = "invoice";
     public string RequiredPermission => CorePermissions.InvoicesCredit;
@@ -77,22 +81,26 @@ public sealed class InvoiceInputValidator : AbstractValidator<InvoiceInput>
     {
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.PartyId).NotEmpty();
+        RuleFor(x => x.InvoiceDate).MustBePlausibleDate();
+        RuleFor(x => x.DueDate).MustBePlausibleDate();
+        RuleFor(x => x).Must(x => x.DueDate is null || x.DueDate >= x.InvoiceDate).WithName("dueDate").WithMessage("The due date cannot be before the invoice date.");
         RuleFor(x => x.Notes).MaximumLength(1000);
         RuleFor(x => x.Lines).NotNull().Must(l => l is { Count: > 0 }).WithMessage("An invoice needs at least one line.");
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
             l.RuleFor(x => x.Description).NotEmpty().MaximumLength(400);
-            l.RuleFor(x => x.Quantity).GreaterThan(0);
-            l.RuleFor(x => x.Price).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.Quantity).GreaterThan(0).MustHaveAtMostDecimals(4);
+            l.RuleFor(x => x.Price).GreaterThanOrEqualTo(0).MustHaveAtMostDecimals(4);
         });
     }
 }
 public sealed class CreateInvoiceValidator : AbstractValidator<CreateInvoice> { public CreateInvoiceValidator() => RuleFor(x => x.Input).SetValidator(new InvoiceInputValidator()); }
 public sealed class UpdateInvoiceValidator : AbstractValidator<UpdateInvoice> { public UpdateInvoiceValidator() => RuleFor(x => x.Input).SetValidator(new InvoiceInputValidator()); }
-public sealed class ApplyCreditNoteValidator : AbstractValidator<ApplyCreditNote> { public ApplyCreditNoteValidator() => RuleFor(x => x.Amount).GreaterThan(0); }
+public sealed class ApplyCreditNoteValidator : AbstractValidator<ApplyCreditNote> { public ApplyCreditNoteValidator() => RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney(); }
 
 internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository<InvoiceLine> lineRows, IInvoicingService invoicing, IClock clock,
-    IRepository<AuditEvent> audit, ICurrentUser user) :
+    IRepository<AuditEvent> audit, ICurrentUser user, IRepository<CreditApplication> creditApplications, IPublisher publisher,
+    IReadRepository<ERP.Domain.Organizations.LegalEntity> legalEntities, IReadRepository<ERP.Domain.Parties.Party> parties, ERP.Application.Templates.CountryPackRegistry countryPacks) :
     IRequestHandler<GetInvoice, InvoiceDto>,
     IRequestHandler<CreateInvoice, InvoiceDto>,
     IRequestHandler<UpdateInvoice, InvoiceDto>,
@@ -118,8 +126,13 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         if (invoice.Status != DocumentStatus.Draft) throw new ConflictException("Only a draft can be edited. Void it or issue a credit note.");
         if (cmd.Input.LegalEntityId != invoice.LegalEntityId) throw new FieldValidationException("legalEntityId", "The legal entity of an invoice cannot change.");
         // Keep the link a module or a source invoice set (ToDraft has no source fields).
-        var fresh = await invoicing.ApplyAsync(invoice, ToDraft(cmd.Input) with { SourceType = invoice.SourceType, SourceId = invoice.SourceId, BusinessUnitId = invoice.BusinessUnitId }, ct);
+        var fresh = await invoicing.ApplyAsync(invoice, ToDraft(cmd.Input) with { SourceType = invoice.SourceType, SourceId = invoice.SourceId, BusinessUnitId = invoice.BusinessUnitId, CreditNoteForId = invoice.CreditNoteForId }, ct);
         await EnsureWithinUncreditedAsync(invoice, ct);
+        // A draft credit note keeps pointing each line at the invoice line it reverses, so editing cannot get around the per-line cap.
+        var oldLines = invoice.Lines.OrderBy(l => l.Seq).ToList();
+        for (var n = 0; n < fresh.Count && n < oldLines.Count; n++)
+            if (oldLines[n].SourceLineId != null && oldLines[n].Description == fresh[n].Description) fresh[n].SourceLineId = oldLines[n].SourceLineId;
+        await EnsureWithinLineCapsAsync(invoice, fresh, ct);
         foreach (var old in invoice.Lines.ToList()) lineRows.Remove(old);
         lineRows.AddRange(fresh);
         await invoices.SaveChangesAsync(ct);
@@ -142,7 +155,16 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         await EnsureWithinUncreditedAsync(invoice, ct);
         await invoicing.IssueAsync(invoice, ct);
         await invoices.SaveChangesAsync(ct);
-        return InvoiceDto.From(invoice);
+        return InvoiceDto.From(invoice) with { Warnings = await RequirementWarningsAsync(invoice, ct) };
+    }
+
+    /// <summary>What the country pack expects on a tax invoice and is missing; informational only.</summary>
+    private async Task<IReadOnlyList<string>> RequirementWarningsAsync(Invoice invoice, CancellationToken ct)
+    {
+        var entity = await legalEntities.FindAsync(invoice.LegalEntityId, ct);
+        if (entity is null) return [];
+        var customer = await parties.FindAsync(invoice.PartyId, ct);
+        return InvoiceRequirements.Warnings(countryPacks.Find(entity.CountryCode), entity, customer, invoice);
     }
 
     public async Task<InvoiceDto> Handle(VoidInvoice cmd, CancellationToken ct)
@@ -160,15 +182,26 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         var invoice = await LoadAsync(cmd.InvoiceId, ct);
         if (!credit.IsCreditNote || invoice.IsCreditNote) throw new ConflictException("Apply a credit note to an invoice.");
         if (credit.PartyId != invoice.PartyId || credit.LegalEntityId != invoice.LegalEntityId) throw new ConflictException("The credit note and the invoice must belong to the same customer and legal entity.");
+        // A linked credit note applies to its own invoice while that invoice is still open. Once the original is fully
+        // paid, what is left on the note is on-account credit for the customer and can go to any of their open invoices.
         if (credit.SourceType == CreateCreditNoteFromInvoice.LinkType && credit.SourceId is { } src && src != invoice.Id)
-            throw new ConflictException("This credit note was raised against another invoice and can only be applied to it.");
+        {
+            var sourceStatus = await invoices.Query(new Specification<Invoice>(i => i.Id == src)).Select(i => (DocumentStatus?)i.Status).FirstOrDefaultAsync(ct);
+            if (sourceStatus != DocumentStatus.Paid)
+                throw new ConflictException("This credit note was raised against another invoice and can only be applied to it while that invoice is still open.");
+        }
         if (!IsOpen(credit) || !IsOpen(invoice)) throw new ConflictException("Both documents must be issued and not fully settled.");
         if (cmd.Amount > credit.Total - credit.Paid) throw new FieldValidationException("amount", "The amount exceeds what is left on the credit note.");
         if (cmd.Amount > invoice.Total - invoice.Paid) throw new FieldValidationException("amount", "The amount exceeds what is outstanding on the invoice.");
         // Both documents sit in receivables, so applying one to the other needs no new journal.
         credit.Paid += cmd.Amount; invoice.Paid += cmd.Amount;
         SettlementStatus.Refresh(credit); SettlementStatus.Refresh(invoice);
+        CreditApplications.Record(creditApplications, credit, invoice, cmd.Amount, DateOnly.FromDateTime(clock.UtcNow), user.UserId);
         await invoices.SaveChangesAsync(ct);
+        if (invoice.SourceType != null && invoice.Status == DocumentStatus.Paid)
+        {
+            await publisher.Publish(new InvoicePaymentChanged(invoice.Id, invoice.SourceType, invoice.SourceId, true), ct);
+        }
         return InvoiceDto.From(invoice);
     }
 
@@ -178,20 +211,53 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         if (source.IsCreditNote) throw new ConflictException("A credit note cannot be credited.");
         if (source.Status is not (DocumentStatus.Issued or DocumentStatus.PartlyPaid or DocumentStatus.Paid)) throw new ConflictException("Only an issued invoice can be credited.");
         var byId = source.Lines.ToDictionary(l => l.Id);
-        var picked = cmd.Lines is { Count: > 0 } sel ? sel : source.Lines.Select(l => new CreditNoteLineInput(l.Id, l.Quantity)).ToList();
+        var credited = await CreditedPerLineAsync(source.Id, excludeCreditId: null, ct);
+        // With no lines given, propose only what is still uncredited on each line.
+        var picked = cmd.Lines is { Count: > 0 } sel
+            ? sel
+            : source.Lines.Select(l => new CreditNoteLineInput(l.Id, l.Quantity - credited.GetValueOrDefault(l.Id))).Where(p => p.Quantity > 0).ToList();
+        if (picked.Count == 0) throw new ConflictException("Every line of this invoice has already been credited.");
         var lines = new List<InvoiceLineDraft>();
         foreach (var p in picked)
         {
             if (!byId.TryGetValue(p.InvoiceLineId, out var l)) throw new FieldValidationException("lines", "A line does not belong to this invoice.");
+            var left = l.Quantity - credited.GetValueOrDefault(l.Id);
             if (p.Quantity <= 0 || p.Quantity > l.Quantity) throw new FieldValidationException("lines", $"Quantity for '{l.Description}' must be between 0 and {l.Quantity}.");
-            lines.Add(new InvoiceLineDraft(l.Description, p.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId));
+            if (p.Quantity > left) throw new FieldValidationException("lines", $"'{l.Description}' has only {left} left to credit (already credited {l.Quantity - left} of {l.Quantity}).");
+            lines.Add(new InvoiceLineDraft(l.Description, p.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId, SourceLineId: l.Id));
         }
         var date = cmd.Date ?? DateOnly.FromDateTime(clock.UtcNow);
         var credit = await invoicing.BuildAsync(new InvoiceDraft(source.LegalEntityId, source.PartyId, date, date, lines, IsCreditNote: true,
-            SourceType: CreateCreditNoteFromInvoice.LinkType, SourceId: source.Id, BusinessUnitId: source.BusinessUnitId, Notes: cmd.Notes ?? $"Credit for {source.Number}"), ct);
+            SourceType: CreateCreditNoteFromInvoice.LinkType, SourceId: source.Id, BusinessUnitId: source.BusinessUnitId, Notes: cmd.Notes ?? $"Credit for {source.Number}",
+            CreditNoteForId: source.Id), ct);
         await EnsureWithinUncreditedAsync(credit, ct);
         await invoices.SaveChangesAsync(ct);
         return InvoiceDto.From(credit);
+    }
+
+    /// <summary>Quantity already credited per line of an invoice by its non-voided credit notes (lines carry SourceLineId). Credit notes raised before SourceLineId existed are covered only by the document-total cap.</summary>
+    private async Task<Dictionary<Guid, decimal>> CreditedPerLineAsync(Guid invoiceId, Guid? excludeCreditId, CancellationToken ct)
+    {
+        var notes = await invoices.Query(new Specification<Invoice>(i => i.IsCreditNote && i.SourceType == CreateCreditNoteFromInvoice.LinkType && i.SourceId == invoiceId
+                && i.Id != excludeCreditId && i.Status != DocumentStatus.Voided).Include(i => i.Lines)).ToListAsync(ct);
+        return notes.SelectMany(n => n.Lines).Where(l => l.SourceLineId != null).GroupBy(l => l.SourceLineId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
+    }
+
+    /// <summary>A draft credit note being saved: its lines that point at an invoice line cannot, together with the other credit notes, exceed that line's quantity.</summary>
+    private async Task EnsureWithinLineCapsAsync(Invoice credit, IEnumerable<InvoiceLine> creditLines, CancellationToken ct)
+    {
+        if (!credit.IsCreditNote || credit.SourceType != CreateCreditNoteFromInvoice.LinkType || credit.SourceId is not { } sourceId) return;
+        var mine = creditLines.Where(l => l.SourceLineId != null).GroupBy(l => l.SourceLineId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
+        if (mine.Count == 0) return;
+        var others = await CreditedPerLineAsync(sourceId, credit.Id, ct);
+        var original = await invoices.Query(new Specification<Invoice>(i => i.Id == sourceId).Include(i => i.Lines)).SelectMany(i => i.Lines).ToListAsync(ct);
+        foreach (var (lineId, qty) in mine)
+        {
+            var line = original.FirstOrDefault(l => l.Id == lineId);
+            if (line is null) continue;
+            var left = line.Quantity - others.GetValueOrDefault(lineId);
+            if (qty > left) throw new FieldValidationException("lines", $"'{line.Description}' has only {left} left to credit (already credited {line.Quantity - left} of {line.Quantity}).");
+        }
     }
 
     /// <summary>For a credit note linked to an invoice: all of that invoice's non-voided credit notes together cannot exceed its total.</summary>
@@ -199,8 +265,8 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
     {
         if (!credit.IsCreditNote || credit.SourceType != CreateCreditNoteFromInvoice.LinkType || credit.SourceId is not { } sourceId) return;
         var sourceTotal = await invoices.Query(new Specification<Invoice>(i => i.Id == sourceId)).Select(i => (decimal?)i.Total).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
-        var others = await invoices.Query(new Specification<Invoice>(i => i.IsCreditNote && i.SourceType == CreateCreditNoteFromInvoice.LinkType && i.SourceId == sourceId
-                && i.Id != credit.Id && i.Status != DocumentStatus.Voided)).SumAsync(i => i.Total, ct);
+        var others = (await invoices.Query(new Specification<Invoice>(i => i.IsCreditNote && i.SourceType == CreateCreditNoteFromInvoice.LinkType && i.SourceId == sourceId
+                && i.Id != credit.Id && i.Status != DocumentStatus.Voided)).Select(i => i.Total).ToListAsync(ct)).Sum(); // summed in memory: a handful of rows, and SQLite cannot SUM decimals
         var left = sourceTotal - others;
         if (credit.Total > left) throw new FieldValidationException("lines", $"The credit ({credit.Total:0.00}) exceeds the uncredited amount of the invoice ({left:0.00}).");
     }
@@ -211,7 +277,7 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         => await invoices.Tracked(new Specification<Invoice>(i => i.Id == id).Include(i => i.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
 
     private static InvoiceDraft ToDraft(InvoiceInput i)
-        => new(i.LegalEntityId, i.PartyId, i.InvoiceDate, i.DueDate, i.Lines.Select(l => new InvoiceLineDraft(l.Description.Trim(), l.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId)).ToList(), i.IsCreditNote, Notes: i.Notes);
+        => new(i.LegalEntityId, i.PartyId, i.InvoiceDate, i.DueDate, i.Lines.Select(l => new InvoiceLineDraft(l.Description.Trim(), l.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId)).ToList(), i.IsCreditNote, SourceType: i.SourceType, SourceId: i.SourceId, Notes: i.Notes);
 }
 
 public static class SettlementStatus

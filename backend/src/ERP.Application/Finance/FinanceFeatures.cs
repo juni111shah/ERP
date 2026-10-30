@@ -84,7 +84,7 @@ public sealed class UpdateAccountValidator : AbstractValidator<UpdateAccount>
     public UpdateAccountValidator() => RuleFor(x => x.Input).SetValidator(new AccountInputValidator());
 }
 
-internal sealed class FinanceHandlers(IRepository<TaxCode> taxCodes, IRepository<Account> accounts, ICustomFieldService fields) :
+internal sealed class FinanceHandlers(IRepository<TaxCode> taxCodes, IRepository<Account> accounts, ICustomFieldService fields, AccountNumbering numbering) :
     IRequestHandler<CreateTaxCode, TaxCodeDto>,
     IRequestHandler<UpdateTaxCode, TaxCodeDto>,
     IRequestHandler<CreateAccount, AccountDto>,
@@ -120,11 +120,13 @@ internal sealed class FinanceHandlers(IRepository<TaxCode> taxCodes, IRepository
         var code = i.Code.Trim();
         if (await accounts.AnyAsync(a => a.Code == code, ct)) throw new ConflictException($"An account with code '{code}' exists.");
         await EnsureParentAsync(i.ParentId, null, ct);
+        await numbering.ValidateAsync(code, i.ParentId, i.Type, ct);
         var account = new Account { Code = code, Type = i.Type };
         Map(i, account);
         await fields.ApplyAsync(AccountType, account, i.CustomFields, isCreate: true, ct);
         accounts.Add(account);
-        await accounts.SaveChangesAsync(ct);
+        try { await accounts.SaveChangesAsync(ct); }
+        catch (DbUpdateException) { throw new ConflictException($"An account with code '{code}' was just created by someone else. Request a new code and try again."); }
         return AccountDto.From(account, await fields.ReadAsync(AccountType, account, ct));
     }
 
@@ -133,6 +135,7 @@ internal sealed class FinanceHandlers(IRepository<TaxCode> taxCodes, IRepository
         var i = cmd.Input;
         var account = await accounts.GetForUpdateAsync(cmd.Id, ct);
         var code = i.Code.Trim();
+        var (oldCode, oldParent, oldType) = (account.Code, account.ParentId, account.Type);
         if (account.IsSystem)
         {
             if (code != account.Code || i.Type != account.Type) throw new ConflictException("The code and type of a system account cannot change (posting rules depend on them).");
@@ -144,6 +147,8 @@ internal sealed class FinanceHandlers(IRepository<TaxCode> taxCodes, IRepository
             account.Code = code; account.Type = i.Type;
         }
         await EnsureParentAsync(i.ParentId, account.Id, ct);
+        // Only a changed code, parent or type is checked against the mask, so editing legacy accounts keeps working.
+        if (code != oldCode || i.ParentId != oldParent || i.Type != oldType) await numbering.ValidateAsync(code, i.ParentId, i.Type, ct);
         Map(i, account);
         await fields.ApplyAsync(AccountType, account, i.CustomFields, isCreate: false, ct);
         await accounts.SaveChangesAsync(ct);

@@ -8,6 +8,13 @@ import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { API_BASE_URL } from '../core/api/api-config';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../shared/detail-page.component';
+import { AttachmentsComponent } from '../shared/attachments.component';
+import { PartyStatementComponent } from '../shared/party-statement.component';
+import { matchText, TableToolsComponent } from '../shared/table-tools.component';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { SessionStore } from '../core/session/session.store';
+import { I18nService } from '../core/i18n/i18n.service';
+import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 
 interface Transaction {
   id: string;
@@ -42,7 +49,7 @@ interface Party {
 @Component({
   selector: 'erp-party-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent],
+  imports: [KeyboardClickDirective, TableToolsComponent, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent, AttachmentsComponent, PartyStatementComponent, TranslatePipe],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -60,7 +67,8 @@ interface Party {
         [createdAt]="''"
         [entityName]="partyType()"
         [showDocuments]="false"
-        [showHistory]="false">
+        [showHistory]="true"
+        recordType="Party" [recordId]="party()!.id">
         
         <div content style="margin-top: 24px;">
         <nz-tabset>
@@ -68,7 +76,8 @@ interface Party {
             <nz-tab nzTitle="Recent Transactions">
               <div style="padding: 16px;">
                 <h3>Recent Sales Transactions</h3>
-                <nz-table #txTable [nzData]="transactions()" [nzFrontPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
+                <erp-table-tools [(search)]="txQ" (refresh)="loadTransactions(party()!.id)" [loading]="loadingTx()" testId="party-tx-sales"></erp-table-tools>
+                <nz-table #txTable [nzData]="txShown()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -81,12 +90,12 @@ interface Party {
                   </thead>
                   <tbody>
                     @for (tx of txTable.data; track tx.id) {
-                      <tr style="cursor: pointer;" (click)="viewTransaction(tx)">
+                      <tr erpKeyboardClick erpKeyboardClickRole="" style="cursor: pointer;" (click)="viewTransaction(tx)">
                         <td>{{ tx.type }}</td>
                         <td>{{ tx.number }}</td>
                         <td>{{ tx.date | date:'dd MMM yyyy' }}</td>
-                        <td style="text-align: right;">{{ tx.amount | currency:party()!.currencyCode || 'USD' }}</td>
-                        <td style="text-align: right;">{{ tx.outstanding | currency:party()!.currencyCode || 'USD' }}</td>
+                        <td style="text-align: right;">{{ tx.amount | currency:party()!.currencyCode || 'QAR' }}</td>
+                        <td style="text-align: right;">{{ tx.outstanding | currency:party()!.currencyCode || 'QAR' }}</td>
                         <td>{{ tx.status }}</td>
                       </tr>
                     }
@@ -97,17 +106,20 @@ interface Party {
                 </nz-table>
               </div>
             </nz-tab>
-            <nz-tab nzTitle="Statement">
-              <div style="padding: 16px;">
-                <p><i>Customer statement functionality will be fully implemented</i></p>
-              </div>
-            </nz-tab>
+            @if (canReports()) {
+              <nz-tab [nzTitle]="isVendor() ? ('party.customerStatement' | translate: 'Customer statement') : ('party.statement' | translate: 'Statement')">
+                <ng-template nz-tab>
+                  <div style="padding: 16px;" data-testid="party-statement-tab"><erp-party-statement [partyId]="party()!.id" side="customer" [partyName]="party()!.name" /></div>
+                </ng-template>
+              </nz-tab>
+            }
           }
           @if (isVendor()) {
             <nz-tab nzTitle="Recent Transactions">
               <div style="padding: 16px;">
                 <h3>Recent Purchase Transactions</h3>
-                <nz-table #txTable [nzData]="transactions()" [nzFrontPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
+                <erp-table-tools [(search)]="txQ" (refresh)="loadTransactions(party()!.id)" [loading]="loadingTx()" testId="party-tx-purchases"></erp-table-tools>
+                <nz-table #txTable [nzData]="txShown()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loadingTx()">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -120,12 +132,12 @@ interface Party {
                   </thead>
                   <tbody>
                     @for (tx of txTable.data; track tx.id) {
-                      <tr style="cursor: pointer;" (click)="viewTransaction(tx)">
+                      <tr erpKeyboardClick erpKeyboardClickRole="" style="cursor: pointer;" (click)="viewTransaction(tx)">
                         <td>{{ tx.type }}</td>
                         <td>{{ tx.number }}</td>
                         <td>{{ tx.date | date:'dd MMM yyyy' }}</td>
-                        <td style="text-align: right;">{{ tx.amount | currency:party()!.currencyCode || 'USD' }}</td>
-                        <td style="text-align: right;">{{ tx.outstanding | currency:party()!.currencyCode || 'USD' }}</td>
+                        <td style="text-align: right;">{{ tx.amount | currency:party()!.currencyCode || 'QAR' }}</td>
+                        <td style="text-align: right;">{{ tx.outstanding | currency:party()!.currencyCode || 'QAR' }}</td>
                         <td>{{ tx.status }}</td>
                       </tr>
                     }
@@ -136,12 +148,21 @@ interface Party {
                 </nz-table>
               </div>
             </nz-tab>
+            @if (canReports()) {
+              <nz-tab [nzTitle]="isCustomer() ? ('party.vendorStatement' | translate: 'Vendor statement') : ('party.statement' | translate: 'Statement')">
+                <ng-template nz-tab>
+                  <div style="padding: 16px;" data-testid="party-vendor-statement-tab"><erp-party-statement [partyId]="party()!.id" side="vendor" [partyName]="party()!.name" /></div>
+                </ng-template>
+              </nz-tab>
+            }
           }
-          <nz-tab nzTitle="Documents">
-            <div style="padding: 16px;">
-              <p><i>Document attachments will be displayed here</i></p>
-            </div>
-          </nz-tab>
+          @if (canDocuments()) {
+            <nz-tab [nzTitle]="'party.documents' | translate: 'Documents'">
+              <ng-template nz-tab>
+                <div style="padding: 16px;" data-testid="party-documents-tab"><erp-attachments ownerType="party" [ownerId]="party()!.id" /></div>
+              </ng-template>
+            </nz-tab>
+          }
           <nz-tab nzTitle="History">
             <div style="padding: 16px;">
               <p><i>Audit history will be displayed here</i></p>
@@ -154,8 +175,8 @@ interface Party {
       <nz-drawer [nzVisible]="statementOpen()" [nzWidth]="720" [nzTitle]="statementTitle()" (nzOnClose)="statementOpen.set(false)">
         <ng-container *nzDrawerContent>
           @if (statement(); as st) {
-            <p>As of {{ st.asOf | date:'dd MMM yyyy' }}</p>
-            <nz-table #stTable [nzData]="st.items" [nzFrontPagination]="false" nzSize="small" data-testid="party-statement">
+            <p>{{ 'ui.common.asOf' | translate: 'As of' }} {{ st.asOf | date:'dd MMM yyyy' }}</p>
+            <nz-table #stTable [nzData]="st.items" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="party-statement">
               <thead><tr><th>Number</th><th>Date</th><th>Due</th><th style="text-align: right;">Days overdue</th><th style="text-align: right;">Outstanding</th></tr></thead>
               <tbody>
                 @for (it of stTable.data; track it.invoiceId) {
@@ -169,7 +190,7 @@ interface Party {
                 } @empty { <tr><td colspan="5" style="text-align: center; color: #999;">Nothing outstanding</td></tr> }
               </tbody>
             </nz-table>
-            <p style="text-align: right; margin-top: 12px;">Unallocated: {{ (st.unallocatedReceipts ?? st.unallocatedPayments ?? 0) | number:'1.2-2' }}<br /><b>Balance: {{ st.balance | number:'1.2-2' }}</b></p>
+            <p style="text-align: right; margin-top: 12px;">{{ 'ui.party.unallocated' | translate: 'Unallocated' }}: {{ (st.unallocatedReceipts ?? st.unallocatedPayments ?? 0) | number:'1.2-2' }}<br /><b>{{ 'ui.party.balance' | translate: 'Balance' }}: {{ st.balance | number:'1.2-2' }}</b></p>
           } @else { <p>Loading…</p> }
         </ng-container>
       </nz-drawer>
@@ -177,11 +198,15 @@ interface Party {
   `
 })
 export class PartyDetailPage implements OnInit {
+  private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly apiBase = inject(API_BASE_URL);
+  private readonly session = inject(SessionStore);
+  readonly canReports = computed(() => this.session.hasPermission('finance.reports.read'));
+  readonly canDocuments = computed(() => this.session.hasPermission('core.attachments.read'));
 
   statementOpen = signal(false);
   statementTitle = signal('Statement');
@@ -192,6 +217,9 @@ export class PartyDetailPage implements OnInit {
   party = signal<Party | null>(null);
   transactions = signal<Transaction[]>([]);
   loadingTx = signal(false);
+  readonly txQ = signal('');
+  /** Client-side search over the loaded recent transactions (type, number, status). */
+  readonly txShown = computed(() => this.transactions().filter((t) => matchText(this.txQ(), t.type, t.number, t.status)));
 
   isCustomer = computed(() => this.party()?.roles.includes('Customer') ?? false);
   isVendor = computed(() => this.party()?.roles.includes('Vendor') ?? false);
@@ -221,6 +249,8 @@ export class PartyDetailPage implements OnInit {
         label: 'New Invoice',
         icon: 'file-add',
         type: 'primary',
+        reveal: true,
+        labelKey: 'ui.add.newInvoice',
         permission: 'finance.invoices.write',
         handler: () => this.router.navigate(['/finance/invoices'], { queryParams: { partyId: p.id } })
       });
@@ -237,6 +267,8 @@ export class PartyDetailPage implements OnInit {
         label: 'New Bill',
         icon: 'file-add',
         type: 'primary',
+        reveal: true,
+        labelKey: 'ui.add.newBill',
         permission: 'finance.bills.write',
         handler: () => this.router.navigate(['/finance/bills'], { queryParams: { partyId: p.id } })
       });
@@ -262,12 +294,12 @@ export class PartyDetailPage implements OnInit {
         {
           title: 'Total Sales',
           value: p.totalSales ?? 0,
-          suffix: p.currencyCode ?? 'USD'
+          suffix: p.currencyCode ?? 'QAR'
         },
         {
           title: 'Outstanding',
           value: p.outstandingReceivables ?? 0,
-          suffix: p.currencyCode ?? 'USD',
+          suffix: p.currencyCode ?? 'QAR',
           valueStyle: { color: (p.outstandingReceivables ?? 0) > 0 ? '#fa8c16' : '#52c41a' }
         }
       );
@@ -276,7 +308,7 @@ export class PartyDetailPage implements OnInit {
         cards.push({
           title: 'Credit Limit',
           value: p.creditLimit,
-          suffix: p.currencyCode ?? 'USD'
+          suffix: p.currencyCode ?? 'QAR'
         });
       }
     }
@@ -286,12 +318,12 @@ export class PartyDetailPage implements OnInit {
         {
           title: 'Total Purchases',
           value: p.totalPurchases ?? 0,
-          suffix: p.currencyCode ?? 'USD'
+          suffix: p.currencyCode ?? 'QAR'
         },
         {
           title: 'Outstanding Payables',
           value: p.outstandingPayables ?? 0,
-          suffix: p.currencyCode ?? 'USD',
+          suffix: p.currencyCode ?? 'QAR',
           valueStyle: { color: (p.outstandingPayables ?? 0) > 0 ? '#fa8c16' : '#52c41a' }
         }
       );
@@ -300,7 +332,7 @@ export class PartyDetailPage implements OnInit {
     if (p.paymentTermsDays) {
       cards.push({
         title: 'Payment Terms',
-        value: `${p.paymentTermsDays} days`
+        value: `${p.paymentTermsDays} ${this.i18n.t('ui.common.days', 'days')}`
       });
     }
 
@@ -396,7 +428,7 @@ export class PartyDetailPage implements OnInit {
     const d = new Date();
     const asOf = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     this.statement.set(null);
-    this.statementTitle.set(`${kind === 'customer' ? 'Customer' : 'Vendor'} statement · ${p.name}`);
+    this.statementTitle.set(`${kind === 'customer' ? this.i18n.t('ui.party.customerStatement', 'Customer statement') : this.i18n.t('ui.party.vendorStatement', 'Vendor statement')} · ${p.name}`);
     this.statementOpen.set(true);
     this.http.get<any>(`${this.apiBase}/finance/reports/${kind}-statement`, { params: { partyId: p.id, asOf } }).subscribe({
       next: (res) => this.statement.set(res),

@@ -10,6 +10,7 @@
     <PackageReference Include="coverlet.collector"><PrivateAssets>all</PrivateAssets></PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" /> <!-- pins the patched native SQLite (GHSA-2m69-gcr7-jv3q); the EF Sqlite bundle pulls 2.1.6 -->
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

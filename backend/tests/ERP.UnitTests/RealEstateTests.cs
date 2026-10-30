@@ -22,6 +22,14 @@ public class RentScheduleTests
     }
 
     [Fact]
+    public void Default_lease_end_date_is_a_one_year_term_and_clamps_a_leap_day_like_AddYears()
+    {
+        Assert.Equal(D(2027, 10, 31), Lease.DefaultEndDate(D(2026, 11, 1)));
+        Assert.Equal(D(2026, 12, 31), Lease.DefaultEndDate(D(2026, 1, 1)));
+        Assert.Equal(D(2029, 2, 27), Lease.DefaultEndDate(D(2028, 2, 29))); // 29 Feb + 1 year = 28 Feb, minus a day
+    }
+
+    [Fact]
     public void Rounding_remainder_goes_to_the_last_instalment_so_the_total_is_exact()
     {
         var s = RentSchedule.Generate(D(2026, 1, 1), D(2026, 12, 31), 98_000m, 12);

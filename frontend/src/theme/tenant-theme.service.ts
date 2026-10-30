@@ -15,7 +15,7 @@
  * Industry-neutral: nothing here knows about modules or business types.
  * Angular 17+ (standalone, signals). No third-party dependencies.
  */
-import { DOCUMENT } from '@angular/common';
+
 import {
   DestroyRef,
   Injectable,
@@ -23,6 +23,7 @@ import {
   effect,
   inject,
   signal,
+  DOCUMENT
 } from '@angular/core';
 
 // ---------------------------------------------------------------------------
@@ -113,7 +114,7 @@ export class TenantThemeService {
 
   readonly mode = computed(() => this.prefs().mode);
   readonly density = computed(() => this.prefs().density);
-  readonly lang = computed(() => this.prefs().lang);
+  readonly lang = computed(() => this.prefs().lang || 'en');
   /** Theme actually rendered. */
   readonly resolvedTheme = computed<'light' | 'dark'>(() =>
     this.mode() === 'system' ? (this.systemDark() ? 'dark' : 'light') : (this.mode() as 'light' | 'dark'),

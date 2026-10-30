@@ -2,6 +2,7 @@ using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Security;
 using ERP.Domain.Finance;
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,6 +36,35 @@ public sealed record GetIncomeStatement(DateOnly From, DateOnly To, Guid? LegalE
 public sealed record GetBalanceSheet(DateOnly AsOf, Guid? LegalEntityId) : IQuery<BalanceSheetDto>, IRequirePermission
 {
     public string RequiredPermission => CorePermissions.ReportsRead;
+}
+
+public sealed class GetTrialBalanceValidator : AbstractValidator<GetTrialBalance>
+{
+    public GetTrialBalanceValidator() => ReportRange.Apply(this, x => x.From, x => x.To);
+}
+public sealed class GetGeneralLedgerValidator : AbstractValidator<GetGeneralLedger>
+{
+    public GetGeneralLedgerValidator() { RuleFor(x => x.AccountId).NotEmpty(); ReportRange.Apply(this, x => x.From, x => x.To); }
+}
+public sealed class GetIncomeStatementValidator : AbstractValidator<GetIncomeStatement>
+{
+    public GetIncomeStatementValidator() => ReportRange.Apply(this, x => (DateOnly?)x.From, x => x.To);
+}
+public sealed class GetBalanceSheetValidator : AbstractValidator<GetBalanceSheet>
+{
+    public GetBalanceSheetValidator() => RuleFor(x => x.AsOf).NotEqual(default(DateOnly)).WithMessage("Enter the report date.");
+}
+
+/// <summary>Shared date-range rules of the ledger reports: real dates, start on or before end, at most 10 years (same cap as the party ledgers).</summary>
+internal static class ReportRange
+{
+    public static void Apply<T>(AbstractValidator<T> v, Func<T, DateOnly?> from, Func<T, DateOnly> to)
+    {
+        v.RuleFor(x => to(x)).NotEqual(default(DateOnly)).WithName("To").WithMessage("Enter the end date.");
+        v.RuleFor(x => from(x)).Must(f => f is null || f.Value != default).WithName("From").WithMessage("Enter a valid start date.");
+        v.RuleFor(x => x).Must(x => from(x) is not { } f || f <= to(x)).WithName("To").WithMessage("The end date must be on or after the start date.");
+        v.RuleFor(x => x).Must(x => from(x) is not { } f || to(x).DayNumber - f.DayNumber <= PartyLedger.MaxDays).WithName("To").WithMessage("The date range can be at most 10 years.");
+    }
 }
 
 internal sealed class LedgerReportHandlers(IReadRepository<JournalEntry> journals, IReadRepository<Account> accounts) :

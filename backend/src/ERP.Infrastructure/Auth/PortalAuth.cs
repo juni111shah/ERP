@@ -24,7 +24,7 @@ namespace ERP.Infrastructure.Auth;
 /// </summary>
 public sealed class PortalAuth(AppDbContext db, IOrgContext org, IEnumerable<IMessageChannel> channels, IClock clock, IOptions<AuthOptions> options, Microsoft.Extensions.Logging.ILogger<PortalAuth> logger) : IPortalAuth
 {
-    public const int CodeMinutes = 10, MaxAttempts = 5, TokenMinutes = 60;
+    public const int CodeMinutes = 10, MaxAttempts = 5, TokenMinutes = 60, MaxCodesPerHour = 5;
     private readonly AuthOptions _o = options.Value;
 
     public async Task RequestCodeAsync(string workspaceCode, string email, string? kind, CancellationToken ct)
@@ -33,6 +33,8 @@ public sealed class PortalAuth(AppDbContext db, IOrgContext org, IEnumerable<IMe
         if (party is null) return;
         using var _ = org.Use(orgId);
         var now = clock.UtcNow;
+        // At most MaxCodesPerHour codes per person: more would let someone flood the inbox or farm fresh guesses. The answer stays the same.
+        if (await db.PortalOtps.CountAsync(x => x.PartyId == party.Id && x.CreatedAt > now.AddHours(-1), ct) >= MaxCodesPerHour) return;
         foreach (var old in await db.PortalOtps.Where(x => x.PartyId == party.Id && x.UsedAt == null).ToListAsync(ct)) old.UsedAt = now;
         var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
         db.PortalOtps.Add(new PortalOtp { OrgId = orgId, PartyId = party.Id, CodeHash = AuthService.Hash(code + party.Id), ExpiresAt = now.AddMinutes(CodeMinutes) });

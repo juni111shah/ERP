@@ -43,5 +43,6 @@ public static class PayablesEndpoints
         var reports = api.MapGroup("/finance/reports").WithTags("Finance reports");
         reports.MapGet("/ap-ageing", (DateOnly asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetApAgeing(asOf, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapGet("/vendor-statement", (Guid partyId, DateOnly asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetVendorStatement(partyId, asOf, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
+        reports.MapGet("/vendor-ledger", (Guid partyId, DateOnly from, DateOnly to, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetVendorLedger(partyId, from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
     }
 }

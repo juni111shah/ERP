@@ -20,11 +20,48 @@ public sealed record WorkOrderInput(
 public sealed record WorkOrderDto(
     Guid Id, string? Number, Guid PropertyId, Guid? UnitId, Guid? LeaseId, Guid LegalEntityId, string Issue, string? Category, Priority Priority,
     WorkOrderStatus Status, DateOnly ReportedOn, string? ReportedBy, Guid? VendorPartyId, string? Technician, DateOnly? ScheduledFor, DateOnly? CompletedOn,
-    decimal EstimatedCost, decimal? ActualCost, string? Details, string? ResolutionNotes, JsonObject CustomFields)
+    decimal EstimatedCost, decimal? ActualCost, string? Details, string? ResolutionNotes, JsonObject CustomFields,
+    CostResponsibility? ChargeableTo = null, decimal OwnerSharePercent = 100, Guid? BillId = null)
 {
     public static WorkOrderDto From(WorkOrder w, JsonObject customFields) => new(
         w.Id, w.Number, w.PropertyId, w.UnitId, w.LeaseId, w.LegalEntityId, w.Issue, w.Category, w.Priority, w.Status, w.ReportedOn, w.ReportedBy,
-        w.VendorPartyId, w.Technician, w.ScheduledFor, w.CompletedOn, w.EstimatedCost, w.ActualCost, w.Details, w.ResolutionNotes, customFields);
+        w.VendorPartyId, w.Technician, w.ScheduledFor, w.CompletedOn, w.EstimatedCost, w.ActualCost, w.Details, w.ResolutionNotes, customFields, w.ChargeableTo, w.OwnerSharePercent, w.BillId);
+}
+
+/// <summary>Who bears the cost of a work order and which vendor bill paid for it. Allowed in any status (the bill usually arrives after the work is done).</summary>
+public sealed record CostBasisInput(CostResponsibility? ChargeableTo, decimal? OwnerSharePercent, Guid? BillId);
+public sealed record SetWorkOrderCostBasis(Guid Id, CostBasisInput Input) : ICommand<WorkOrderDto>, IRequirePermission { public string RequiredPermission => P.WorkOrdersEdit; }
+
+public sealed class SetWorkOrderCostBasisValidator : AbstractValidator<SetWorkOrderCostBasis>
+{
+    public SetWorkOrderCostBasisValidator()
+    {
+        RuleFor(x => x.Input.ChargeableTo).IsInEnum().When(x => x.Input.ChargeableTo is not null);
+        RuleFor(x => x.Input.OwnerSharePercent).InclusiveBetween(0m, 100m).When(x => x.Input.OwnerSharePercent is not null);
+        RuleFor(x => x.Input.OwnerSharePercent).NotNull().When(x => x.Input.ChargeableTo == CostResponsibility.Shared).WithMessage("Enter the owner's share for a shared cost.");
+    }
+}
+
+internal sealed class WorkOrderCostBasisHandler(IRepository<WorkOrder> workOrders, IReadRepository<ERP.Domain.Finance.Bill> bills, ICustomFieldService fields) : IRequestHandler<SetWorkOrderCostBasis, WorkOrderDto>
+{
+    public async Task<WorkOrderDto> Handle(SetWorkOrderCostBasis cmd, CancellationToken ct)
+    {
+        var w = await workOrders.GetForUpdateAsync(cmd.Id, ct);
+        var i = cmd.Input;
+        if (i.BillId is { } billId)
+        {
+            var bill = await bills.Query(new Specification<ERP.Domain.Finance.Bill>(b => b.Id == billId)).Select(b => new { b.LegalEntityId, b.Status }).FirstOrDefaultAsync(ct)
+                ?? throw new FieldValidationException("billId", "Bill not found.");
+            if (bill.Status is ERP.Domain.Finance.DocumentStatus.Draft or ERP.Domain.Finance.DocumentStatus.PendingApproval or ERP.Domain.Finance.DocumentStatus.Voided)
+                throw new FieldValidationException("billId", "Link a posted bill (drafts and voided bills carry no cost).");
+            if (bill.LegalEntityId != w.LegalEntityId) throw new FieldValidationException("billId", "The bill belongs to another legal entity.");
+        }
+        w.ChargeableTo = i.ChargeableTo;
+        w.OwnerSharePercent = i.ChargeableTo == CostResponsibility.Shared ? i.OwnerSharePercent!.Value : i.ChargeableTo is CostResponsibility.Company or CostResponsibility.Tenant ? 0m : 100m;
+        w.BillId = i.BillId;
+        await workOrders.SaveChangesAsync(ct);
+        return WorkOrderDto.From(w, await fields.ReadAsync(Docs.WorkOrder, w, ct));
+    }
 }
 
 public sealed record GetWorkOrder(Guid Id) : IQuery<WorkOrderDto>, IRequirePermission

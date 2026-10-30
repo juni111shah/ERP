@@ -2,7 +2,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
@@ -22,7 +22,14 @@ import { LookupOption } from '../../core/custom-fields/lookup-registry';
 import { asProblem, controlError, problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { DecimalPipe } from '@angular/common';
 import { PartiesApi } from '../parties.page';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { StatCardComponent } from '../../shared/stat-card.component';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
 const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pendingApproval: 'Needs approval', issued: 'Posted' };
@@ -32,13 +39,69 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
   selector: 'erp-bills',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
+  imports: [DecimalPipe, StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.line { display:grid; grid-template-columns: 2fr 1.6fr .7fr .9fr 1.1fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 }`],
   template: `
     <h1 class="erp-page-title">Bills</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="bill-stats">
+      <erp-stat-card label="Total billed"
+                     [value]="stats().billed"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
+                     [tone]="0" />
+      <erp-stat-card label="Outstanding"
+                     [value]="stats().outstanding"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().outstanding > 0 ? 'payable balance' : 'all settled'"
+                     [tone]="stats().outstanding > 0 ? 2 : 'neutral'" />
+      <erp-stat-card label="Draft bills"
+                     [value]="stats().drafts"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="pending submission"
+                     [tone]="3" />
+      <erp-stat-card label="Bills count"
+                     [value]="list.total()"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="total records"
+                     [tone]="1" />
+    </div>
+
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, vendor or reference" emptyText="No bills yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number || 'Draft' }}</span>
+          }
+          @case ('partyName') {
+            <span class="name-cell">{{ row.partyName }}</span>
+          }
+          @case ('vendorReference') {
+            @if (row.vendorReference) {
+              <span class="code-pill">{{ row.vendorReference }}</span>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @case ('total') {
+            <b>{{ currency() }} {{ row.total | number: '1.2-2' }}</b>
+          }
+          @case ('outstanding') {
+            <span [class.unallocated-badge]="row.outstanding > 0">
+              {{ currency() }} {{ row.outstanding | number: '1.2-2' }}
+            </span>
+          }
+          @case ('status') {
+            <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
       <button toolbar *erpHasPermission="'finance.bills.write'" nz-button nzType="primary" (click)="open(null)" data-testid="bill-new"><span nz-icon nzType="plus"></span>New bill</button>
     </erp-paged-table>
@@ -52,21 +115,21 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
             <nz-select formControlName="partyId" nzShowSearch nzServerSearch (nzOnSearch)="searchParties($event)" data-testid="bill-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Vendor reference</nz-form-label><nz-form-control [nzErrorTip]="err('vendorReference')"><input nz-input formControlName="vendorReference" data-testid="bill-ref" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Bill date</nz-form-label><nz-form-control [nzErrorTip]="err('billDate')"><nz-date-picker formControlName="billDate" style="width:100%" data-testid="bill-date"></nz-date-picker></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Due date</nz-form-label><nz-form-control [nzErrorTip]="err('dueDate')" nzExtra="Leave empty to use the vendor's payment terms."><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Due date</nz-form-label><nz-form-control [nzErrorTip]="err('dueDate')" nzExtra="Follows the bill date + the vendor's payment terms until you change it. Leave empty to use the terms."><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
           <h4>Lines</h4>
           <div formArrayName="lines">
             @for (l of lines.controls; track $index) {
               <div class="line" [formGroupName]="$index">
-                <input nz-input formControlName="description" placeholder="Description" [attr.data-testid]="'bill-desc-' + $index" />
+                <input aria-label="Description" nz-input formControlName="description" placeholder="Description" [attr.data-testid]="'bill-desc-' + $index" />
                 <nz-select formControlName="accountId" nzShowSearch nzPlaceHolder="Expense account" [attr.data-testid]="'bill-account-' + $index">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
                 <nz-input-number formControlName="quantity" [nzMin]="0.0001" [nzPrecision]="2"></nz-input-number>
                 <nz-input-number formControlName="price" [nzMin]="0" [nzPrecision]="2" [attr.data-testid]="'bill-price-' + $index"></nz-input-number>
                 <nz-select formControlName="taxCodeId" nzAllowClear nzPlaceHolder="No tax">@for (t of taxes(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.code + ' ' + t.rate + '%'"></nz-option> }</nz-select>
-                @if (editable()) { <button nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
+                @if (editable()) { <button aria-label="Remove line" nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
               </div>
             }
           </div>
-          @if (editable()) { <button nz-button type="button" (click)="addLine()" data-testid="bill-add-line"><span nz-icon nzType="plus"></span>Add line</button> }
+          @if (editable()) { <button nz-button nzType="dashed" type="button" (click)="addLine()" data-testid="bill-add-line"><span nz-icon nzType="plus"></span> Add line</button> }
           <div class="totals"><span>Net <b>{{ totals().net.toFixed(2) }}</b></span><span>Tax <b>{{ totals().tax.toFixed(2) }}</b></span><span>Total <b>{{ (totals().net + totals().tax).toFixed(2) }}</b></span></div>
         </form>
       </ng-container>
@@ -74,7 +137,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (bill()?.id) { <button nz-button (click)="openDetails(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
-      @if (bill()?.status === 'issued' && bill()!.paid === 0) { <button *erpHasPermission="'finance.bills.void'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="bill-void">Void</button> }
+      @if (bill()?.status === 'issued' && bill()!.paid === 0) { <button *erpHasPermission="'finance.bills.void'" nz-button nzDanger (click)="voidDocument()" style="margin-inline-start:8px" data-testid="bill-void">Void</button> }
       @if (editable()) {
         @if (bill()?.id) { <button *erpHasPermission="'finance.bills.write'" nz-button nzDanger (click)="remove()" style="margin-inline-start:8px" data-testid="bill-delete">Delete</button> }
         <button *erpHasPermission="'finance.bills.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="bill-save">Save draft</button>
@@ -83,6 +146,9 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
     </ng-template>`,
 })
 export class BillsPage {
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
+  private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(BillsApi);
   private readonly modal = inject(NzModalService);
@@ -97,6 +163,19 @@ export class BillsPage {
   readonly taxes = computed(() => this.taxPage().items.filter((t) => t.isActive));
   readonly accounts = computed(() => this.accountPage().items.filter((a) => a.isPostable && a.isActive && (a.type === 'expense' || a.type === 'asset')));
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-billDate' });
+
+  readonly stats = computed(() => {
+    const items = this.list.items();
+    const billed = items.reduce((s, b) => s + (b.total || 0), 0);
+    const outstanding = items.reduce((s, b) => s + (b.outstanding || 0), 0);
+    const drafts = items.filter((b) => b.status === 'draft').length;
+    return {
+      billed,
+      outstanding,
+      drafts,
+      count: items.length,
+    };
+  });
   readonly columns: TableColumn<BillSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
     { key: 'partyName', label: 'Vendor' },
@@ -116,6 +195,49 @@ export class BillsPage {
     lines: this.fb.array<unknown>([]),
   });
   private readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.value });
+  /** Payment terms (days) per vendor id; null = the vendor has no terms. Same pattern as the invoices drawer. */
+  private readonly partyTerms = new Map<string, number | null>();
+  /** True once the user picked a due date themselves; then bill date / vendor changes no longer move it. */
+  private dueDateTouched = false;
+  private syncingDueDate = false;
+
+  constructor() {
+    const c = this.form.controls;
+    c.partyId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => { if (!this.syncingDueDate && id) this.withTerms(id, () => this.recalcDueDate()); });
+    c.billDate.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => { if (!this.syncingDueDate) this.recalcDueDate(); });
+    c.dueDate.valueChanges.pipe(takeUntilDestroyed()).subscribe((d) => {
+      if (this.syncingDueDate) return;
+      // Clearing the due date hands it back to the payment terms (the API applies them to an empty due date).
+      this.dueDateTouched = !!d;
+      if (!d) this.recalcDueDate();
+    });
+  }
+
+  /** Mirrors the API rule (BillFeatures.cs): due date = bill date + the vendor's PaymentTermsDays. No terms: leave the due date alone. */
+  private termsDueDate(billDate: Date | null | undefined, partyId: string | null | undefined): Date | null {
+    const days = partyId ? this.partyTerms.get(partyId) : undefined;
+    if (!billDate || days === undefined || days === null) return null;
+    return new Date(billDate.getFullYear(), billDate.getMonth(), billDate.getDate() + days);
+  }
+
+  private recalcDueDate(): void {
+    if (this.dueDateTouched || !this.editable()) return;
+    const v = this.form.getRawValue();
+    const due = this.termsDueDate(v.billDate, v.partyId);
+    if (!due) return;
+    this.syncingDueDate = true;
+    this.form.controls.dueDate.setValue(due);
+    this.syncingDueDate = false;
+  }
+
+  /** Runs `then` once the vendor's payment terms are known (from the search results or a single lookup). */
+  private withTerms(partyId: string, then: () => void): void {
+    if (this.partyTerms.has(partyId)) { then(); return; }
+    this.parties.get(partyId).subscribe({
+      next: (p) => { this.partyTerms.set(partyId, p.paymentTermsDays ?? null); if (this.form.controls.partyId.value === partyId) then(); },
+      error: () => undefined,
+    });
+  }
   readonly totals = computed(() => {
     const lines = (this.value().lines ?? []) as { quantity?: number | null; price?: number | null; taxCodeId?: string | null }[];
     const rate = (id?: string | null) => this.taxes().find((t) => t.id === id)?.rate ?? 0;
@@ -137,7 +259,7 @@ export class BillsPage {
   removeLine(i: number): void { if (this.lines.length > 1) this.lines.removeAt(i); }
 
   searchParties(term: string): void {
-    this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => this.partyOptions.set(r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))));
+    this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => { r.items.forEach((p) => this.partyTerms.set(p.id, p.paymentTermsDays ?? null)); this.partyOptions.set(r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))); });
   }
 
   /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
@@ -159,6 +281,7 @@ export class BillsPage {
     this.lines.clear();
     for (const l of b?.lines ?? [{}]) this.lines.push(this.newLine(l) as never);
     const entities = this.entities();
+    this.syncingDueDate = true;
     this.form.patchValue({
       legalEntityId: b?.legalEntityId ?? (entities.length === 1 ? entities[0].id : ''), partyId: b?.partyId ?? '', vendorReference: b?.vendorReference ?? '',
       billDate: b ? new Date(b.billDate + 'T00:00:00') : new Date(), dueDate: b ? new Date(b.dueDate + 'T00:00:00') : null,
@@ -166,6 +289,15 @@ export class BillsPage {
     this.partyOptions.set(b ? [{ value: b.partyId, label: b.partyName ?? b.partyId }] : []);
     if (!b) this.searchParties('');
     this.editable() ? this.form.enable() : this.form.disable();
+    this.syncingDueDate = false;
+    // A new bill follows the terms; an opened draft keeps its due date as an override only if it differs from date + terms.
+    this.dueDateTouched = !!b;
+    if (b && this.editable()) this.withTerms(b.partyId, () => {
+      // Same rule as the API: no terms counts as 0 days, so such a draft is "automatic" when due = bill date.
+      const v = this.form.getRawValue(), days = this.partyTerms.get(b.partyId) ?? 0, d = v.billDate;
+      const auto = d ? toIsoDate(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days)) : null;
+      this.dueDateTouched = !v.dueDate || toIsoDate(v.dueDate) !== auto;
+    });
     this.drawerOpen.set(true);
   }
 
@@ -181,7 +313,7 @@ export class BillsPage {
       next: (saved) => {
         if (!post) { this.done('Draft saved'); return; }
         this.api.post(saved.id).subscribe({
-          next: (b) => this.done(b.status === 'pendingApproval' ? 'Sent for approval. Post it again once it is approved.' : `Posted as ${b.number}`),
+          next: (b) => this.done(b.status === 'pendingApproval' ? 'Sent for approval. Post it again once it is approved.' : `${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${b.number}`),
           error: (e) => { this.saving.set(false); this.bill.set(saved); this.list.reload(); this.fail(e); },
         });
       },
@@ -189,7 +321,7 @@ export class BillsPage {
     });
   }
 
-  void(): void {
+  voidDocument(): void {
     const b = this.bill();
     if (!b) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.

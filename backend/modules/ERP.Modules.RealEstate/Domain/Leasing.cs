@@ -42,6 +42,9 @@ public class Lease : LegalEntityScopedEntity, IHasCustomFields
 
     public bool IsOccupying => Status is LeaseStatus.Active or LeaseStatus.HoldingOver;
 
+    /// <summary>End date used when none is given: a one-year term (the same term a renewal gets), i.e. start + 1 year - 1 day.</summary>
+    public static DateOnly DefaultEndDate(DateOnly start) => start.AddYears(1).AddDays(-1);
+
     public void Activate(DateTime now, Guid? userId)
     {
         if (Status != LeaseStatus.Draft) throw new DomainException($"Only a draft lease can be activated (this lease is {Status}).");

@@ -1,9 +1,8 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, HostListener, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzInputModule } from 'ng-zorro-antd/input';
+import { ExpandSearchComponent } from '../shared/expand-search.component';
+import { I18nService } from '../core/i18n/i18n.service';
 import { Subject, catchError, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { API_BASE_URL } from '../core/api/api-config';
 
@@ -14,38 +13,76 @@ interface SearchHit { category: string; title: string; subtitle?: string; link: 
   selector: 'erp-global-search',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzInputModule, NzIconModule],
+  imports: [ExpandSearchComponent],
   styles: [`
-    :host { position: relative; display: block; width: 360px; max-width: 40vw; }
-    .panel { position: absolute; top: 48px; inset-inline: 0; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.12); max-height: 420px; overflow: auto; z-index: 1000; line-height: 1.4; }
-    .cat { padding: 8px 12px 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--erp-color-text-tertiary); }
-    .hit { padding: 6px 12px; cursor: pointer; }
-    .hit:hover { background: var(--erp-color-bg-canvas); }
-    .sub { font-size: 12px; color: var(--erp-color-text-tertiary); }
-    .empty { padding: 12px; color: var(--erp-color-text-tertiary); }
+    :host { position: relative; display: inline-flex; align-items: center; }
+    .panel { position: absolute; top: 44px; inset-inline-start: 0; width: 360px; max-width: 80vw; background: var(--erp-color-bg-surface, #ffffff); border: 1px solid var(--erp-color-border-subtle, #e2e8f0); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.15); max-height: 420px; overflow: auto; z-index: 1000; line-height: 1.4; padding: 4px; }
+    .cat { padding: 8px 12px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--erp-brand-solid-light, #10955d); }
+    .hit { padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: background 0.15s ease; }
+    .hit:hover { background: rgba(16, 149, 93, 0.08); }
+    .hit-title { font-weight: 600; color: var(--erp-color-text-primary, #0f172a); }
+    .sub { font-size: 12px; color: var(--erp-color-text-tertiary, #64748b); margin-top: 2px; }
+    .empty { padding: 16px; text-align: center; color: var(--erp-color-text-tertiary, #64748b); font-size: 13px; }
+    .search-kbd-hint {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 5px;
+      font-size: 10.5px;
+      font-family: inherit;
+      color: #94a3b8;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      margin-inline-start: 4px;
+      pointer-events: none;
+      line-height: 1.3;
+    }
+    :host-context([data-theme='dark']) .search-kbd-hint {
+      background: #1e293b;
+      border-color: #334155;
+      color: #64748b;
+    }
+    @media (max-width: 768px) {
+      .search-kbd-hint { display: none; }
+    }
   `],
   template: `
-    <nz-input-group [nzPrefix]="icon"><input nz-input placeholder="Search records" [ngModel]="term()" (ngModelChange)="type($event)" (focus)="open.set(true)" (blur)="close()" data-testid="global-search" /></nz-input-group>
-    <ng-template #icon><span nz-icon nzType="search"></span></ng-template>
+    <erp-expand-search #searchComp [value]="term()" (valueChange)="type($event)" width="320px" testId="global-search" [label]="t('ui.search.records', 'Search records')"
+                       (focusin)="open.set(true)" (focusout)="close()" />
+    @if (!open() && !term()) {
+      <kbd class="search-kbd-hint" aria-hidden="true">Ctrl K</kbd>
+    }
     @if (open() && term().trim().length >= 2) {
       <div class="panel" data-testid="search-results">
         @for (h of hits(); track $index; let i = $index) {
           @if (i === 0 || hits()[i - 1].category !== h.category) { <div class="cat">{{ h.category }}</div> }
           <div class="hit" (mousedown)="go(h)" [attr.data-testid]="'search-hit'">
-            <div>{{ h.title }}</div>@if (h.subtitle) { <div class="sub">{{ h.subtitle }}</div> }
+            <div class="hit-title">{{ h.title }}</div>
+            @if (h.subtitle) { <div class="sub">{{ h.subtitle }}</div> }
           </div>
-        } @empty { <div class="empty">No matches</div> }
+        } @empty { <div class="empty">{{ t('ui.search.noMatches', 'No matches') }}</div> }
       </div>
     }`,
 })
 export class GlobalSearchComponent {
+  private readonly i18n = inject(I18nService);
+  t(key: string, fallback: string): string { return this.i18n.t(key, fallback); }
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
   private readonly router = inject(Router);
+  readonly searchComp = viewChild<ExpandSearchComponent>('searchComp');
   readonly term = signal('');
   readonly open = signal(false);
   readonly hits = signal<SearchHit[]>([]);
   private readonly typed = new Subject<string>();
+
+  @HostListener('window:keydown', ['$event'])
+  handleGlobalHotkey(e: KeyboardEvent): void {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      this.searchComp()?.focus();
+    }
+  }
 
   constructor() {
     this.typed.pipe(

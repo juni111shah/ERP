@@ -8,10 +8,12 @@ namespace ERP.Application.Common;
 public interface ISequenceDefaults { ERP.Application.Templates.SequenceTemplate? Find(string documentType); }
 
 /// <summary>Allocates document numbers (INV-2026-000001) from the workspace's sequences. Saved with the caller's unit of work.</summary>
-public sealed class NumberingService(IRepository<NumberSequence> sequences, IClock clock, IEnumerable<ISequenceDefaults> defaults) : INumberingService
+public sealed class NumberingService(IRepository<NumberSequence> sequences, IClock clock, IEnumerable<ISequenceDefaults> defaults) : INumberingService, IResetOnRetry
 {
     // Sequences created during this request but not saved yet; a second number in the same unit of work must continue them.
     private readonly Dictionary<(string Type, Guid? Entity, int Year), NumberSequence> created = new();
+
+    public void ResetForRetry() => created.Clear();
 
     public async Task<string> NextAsync(string documentType, Guid? legalEntityId = null, DateOnly? date = null, CancellationToken ct = default)
     {

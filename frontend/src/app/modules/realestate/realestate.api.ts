@@ -49,6 +49,7 @@ export interface WorkOrderDto {
   id: string; number?: string; propertyId: string; unitId?: string; leaseId?: string; legalEntityId: string; issue: string; category?: string; priority: string;
   status: string; reportedOn: string; reportedBy?: string; vendorPartyId?: string; technician?: string; scheduledFor?: string; completedOn?: string;
   estimatedCost: number; actualCost?: number; details?: string; resolutionNotes?: string; customFields: CustomFields;
+  chargeableTo?: string; ownerSharePercent?: number; billId?: string;
 }
 export interface DealDto {
   id: string; number?: string; legalEntityId: string; dealType: string; propertyId?: string; unitId?: string; unitReference?: string; clientPartyId?: string;
@@ -131,7 +132,11 @@ export class LeasesApi extends CrudApiService<LeaseListItem, unknown> {
 export class WorkOrdersApi extends CrudApiService<WorkOrderDto, unknown> {
   protected readonly resource = `${BASE}/work-orders`;
   changeStatus(id: string, body: { status: string; actualCost?: number | null; resolutionNotes?: string | null }): Observable<WorkOrderDto> { return this.http.post<WorkOrderDto>(`${this.url}/${id}/status`, body); }
+  /** Who bears the cost and which vendor bill paid for the work (allowed in any status). */
+  setCostBasis(id: string, body: { chargeableTo: string | null; ownerSharePercent: number | null; billId: string | null }): Observable<WorkOrderDto> { return this.http.put<WorkOrderDto>(`${this.url}/${id}/cost-basis`, body); }
 }
+
+export const COST_RESPONSIBILITIES = [{ value: 'owner', label: 'Owner' }, { value: 'company', label: 'Company' }, { value: 'tenant', label: 'Tenant' }, { value: 'shared', label: 'Shared with the owner' }];
 
 @Injectable({ providedIn: 'root' })
 export class DealsApi extends CrudApiService<DealDto, unknown> {

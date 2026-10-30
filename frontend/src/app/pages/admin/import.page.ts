@@ -8,16 +8,19 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { asProblem } from '../../core/http/problem-details';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 interface ImportDef { key: string; label: string; columns: { name: string; required: boolean; example: string; hint?: string }[]; }
 interface ImportResult { total: number; created: number; errors: { row: number; message: string }[]; dryRun: boolean; }
 
 /** Bulk-load data from CSV: pick what to import, download the template, check the file (dry run), then import. */
+import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
+
 @Component({
   selector: 'erp-import',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzAlertModule, NzButtonModule, NzSelectModule, NzTableModule],
+  imports: [FormsModule, NzAlertModule, NzButtonModule, NzSelectModule, NzTableModule, PaginationBarComponent],
   template: `
     <h1 class="erp-page-title">Data import</h1>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
@@ -27,28 +30,41 @@ interface ImportResult { total: number; created: number; errors: { row: number; 
       @if (current(); as d) { <button nz-button (click)="template()" data-testid="import-template">Download CSV template</button> }
     </div>
     @if (current(); as d) {
-      <nz-table [nzData]="d.columns" nzSize="small" [nzShowPagination]="false" style="max-width:760px;margin-bottom:16px">
-        <thead><tr><th>Column</th><th>Required</th><th>Example</th><th>Notes</th></tr></thead>
-        <tbody>@for (c of d.columns; track c.name) { <tr><td><code>{{ c.name }}</code></td><td>{{ c.required ? 'Yes' : '' }}</td><td>{{ c.example }}</td><td>{{ c.hint }}</td></tr> }</tbody>
-      </nz-table>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <input type="file" accept=".csv,text/csv" #file (change)="result.set(null)" data-testid="import-file" />
-        <button nz-button [nzLoading]="busy()" (click)="run(file, true)" data-testid="import-check">Check file</button>
-        <button nz-button nzType="primary" [nzLoading]="busy()" [disabled]="!canImport()" (click)="run(file, false)" data-testid="import-run">Import</button>
+      <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); max-width:800px; margin-bottom:16px;">
+        <nz-table [nzData]="d.columns" nzSize="middle" [nzShowPagination]="false">
+          <thead><tr><th>Column</th><th>Required</th><th>Example</th><th>Notes</th></tr></thead>
+          <tbody>
+            @for (c of d.columns; track c.name) {
+              <tr>
+                <td><span class="code-pill">{{ c.name }}</span></td>
+                <td>@if (c.required) { <span style="color:#ef4444; font-weight:600;">Yes</span> } @else { <span style="color:#94a3b8;">Optional</span> }</td>
+                <td style="color:#334155;">{{ c.example }}</td>
+                <td style="color:#64748b; font-size:12.5px;">{{ c.hint }}</td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#f8fafc;padding:16px;border-radius:12px;border:1px solid #e2e8f0;max-width:800px;">
+        <input type="file" accept=".csv,text/csv" #file (change)="result.set(null)" data-testid="import-file" style="font-size:13px;" />
+        <button nz-button [nzLoading]="busy()" (click)="run(file, true)" data-testid="import-check">Check file (dry run)</button>
+        <button nz-button nzType="primary" [nzLoading]="busy()" [disabled]="!canImport()" (click)="run(file, false)" data-testid="import-run">Start import</button>
       </div>
     }
     @if (result(); as r) {
       <nz-alert style="margin-top:16px;max-width:760px" [nzType]="r.errors.length ? 'warning' : 'success'" nzShowIcon data-testid="import-result"
                 [nzMessage]="r.dryRun ? (r.created + ' of ' + r.total + ' rows are ready to import' + (r.errors.length ? ', ' + r.errors.length + ' have problems' : '')) : (r.created + ' of ' + r.total + ' rows imported' + (r.errors.length ? ', ' + r.errors.length + ' skipped' : ''))"></nz-alert>
       @if (r.errors.length) {
-        <nz-table [nzData]="r.errors" nzSize="small" style="max-width:760px;margin-top:8px" data-testid="import-errors">
+        <nz-table #te [nzData]="r.errors" nzSize="small" style="max-width:760px;margin-top:8px" [nzShowPagination]="false" [nzPageIndex]="errPg.page()" [nzPageSize]="errPg.size()" data-testid="import-errors">
           <thead><tr><th style="width:80px">Row</th><th>Problem</th></tr></thead>
-          <tbody>@for (e of r.errors; track e.row) { <tr><td>{{ e.row }}</td><td>{{ e.message }}</td></tr> }</tbody>
+          <tbody>@for (e of te.data; track e.row) { <tr><td>{{ e.row }}</td><td>{{ e.message }}</td></tr> }</tbody>
         </nz-table>
+        <div style="max-width:760px"><erp-pagination-bar [total]="r.errors.length" [page]="errPg.page()" [pageSize]="errPg.size()" [hideOnSinglePage]="true" (pageChange)="errPg.change($event)" /></div>
       }
     }`,
 })
 export class ImportPage {
+  private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
   private readonly message = inject(NzMessageService);
@@ -56,6 +72,7 @@ export class ImportPage {
   readonly key = signal<string | null>(null);
   readonly result = signal<ImportResult | null>(null);
   readonly busy = signal(false);
+  readonly errPg = new ClientPager(10);
 
   constructor() { this.http.get<ImportDef[]>(`${this.base}/imports`).subscribe((d) => this.defs.set(d)); }
 
@@ -76,7 +93,7 @@ export class ImportPage {
     const form = new FormData(); form.append('file', file);
     this.busy.set(true);
     this.http.post<ImportResult>(`${this.base}/imports/${this.key()}`, form, { params: { dryRun } }).subscribe({
-      next: (r) => { this.busy.set(false); this.result.set(r); if (!dryRun) { this.message.success(`${r.created} row(s) imported`); input.value = ''; } },
+      next: (r) => { this.busy.set(false); this.result.set(r); if (!dryRun) { this.message.success(`${r.created} ${this.i18n.t('ui.msg.rowsImported', 'row(s) imported')}`); input.value = ''; } },
       error: (e) => { this.busy.set(false); this.message.error(asProblem(e)?.detail ?? 'The import failed'); },
     });
   }

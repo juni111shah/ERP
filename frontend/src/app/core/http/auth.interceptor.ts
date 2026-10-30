@@ -1,7 +1,7 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, switchMap, throwError } from 'rxjs';
+import { catchError, of, switchMap, throwError } from 'rxjs';
 import { API_BASE_URL } from '../api/api-config';
 import { AuthService } from '../auth/auth.service';
 import { SessionStore } from '../session/session.store';
@@ -22,16 +22,29 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     setHeaders: { 'X-ERP-Client': 'web', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
 
-  return next(withAuth(session.accessToken())).pipe(
+  const toLogin = () => void router.navigateByUrl(`/auth/login?returnUrl=${encodeURIComponent(router.url)}`);
+  const sentToken = session.accessToken();
+
+  return next(withAuth(sentToken)).pipe(
     catchError((err: unknown) => {
       const isAuthCall = AUTH_PATHS.some((p) => req.url.includes(p));
       if (!(err instanceof HttpErrorResponse) || err.status !== 401 || isAuthCall) return throwError(() => err);
-      return auth.refresh().pipe(switchMap((token) => {
+      // A refresh already rotated the token while this request was in flight: retry with the current token rather than rotating again.
+      const current = session.accessToken();
+      const fresh$ = current && current !== sentToken ? of(current) : auth.refresh();
+      return fresh$.pipe(switchMap((token) => {
         if (!token) {
-          void router.navigateByUrl(`/auth/login?returnUrl=${encodeURIComponent(router.url)}`);
+          toLogin();
           return throwError(() => err);
         }
-        return next(withAuth(token));
+        return next(withAuth(token)).pipe(catchError((retryErr: unknown) => {
+          // Still 401 with a freshly issued token: the session is not usable, so sign out instead of sitting on the page.
+          if (retryErr instanceof HttpErrorResponse && retryErr.status === 401) {
+            session.clear();
+            toLogin();
+          }
+          return throwError(() => retryErr);
+        }));
       }));
     }),
   );
