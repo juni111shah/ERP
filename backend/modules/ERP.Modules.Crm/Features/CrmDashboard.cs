@@ -1,3 +1,4 @@
+using ERP.Application.Common;
 using ERP.Application.Abstractions;
 using ERP.Application.Dashboard;
 using ERP.Modules.Crm.Domain;
@@ -30,12 +31,8 @@ public sealed class CrmDashboard(
             kpis.Add(new("crm-active-deals", "Active Deals", activeOpps, "number", "pipeline opportunities", 185, "/crm/opportunities"));
 
             var stages = new[] { OpportunityStage.Qualification, OpportunityStage.Proposal, OpportunityStage.Negotiation, OpportunityStage.ClosedWon, OpportunityStage.ClosedLost };
-            var counts = new List<decimal>();
-            foreach (var st in stages)
-            {
-                var c = await opportunities.CountAsync(o => o.Stage == st && (entity == null || o.LegalEntityId == entity), ct);
-                counts.Add((decimal)c);
-            }
+            var grouped = await opportunities.Query().Where(o => entity == null || o.LegalEntityId == entity).CountByAsync(o => o.Stage, ct);
+            var counts = stages.Select(k => (decimal)grouped.GetValueOrDefault(k)).ToList();
             charts.Add(new("crm-funnel", "CRM opportunity pipeline", "bar",
                 ["Qualification", "Proposal", "Negotiation", "Won", "Lost"],
                 [new("Opportunities", counts)], "Deals by pipeline stage", 35));

@@ -524,6 +524,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[VendorReference] IS NOT NULL AND [VendorReference] <> N'' AND [IsDeleted] = 0 AND [Status] <> N'Voided'");
 
+                    b.HasIndex("OrgId", "LegalEntityId", "Status", "BillDate");
+
                     b.ToTable("Bills", t =>
                         {
                             t.HasCheckConstraint("CK_Bills_CustomFields_IsJson", "[CustomFields] IS NULL OR ISJSON([CustomFields]) = 1");
@@ -983,6 +985,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.HasIndex("OrgId", "LegalEntityId", "Number")
                         .IsUnique();
 
+                    b.HasIndex("OrgId", "LegalEntityId", "Status", "InvoiceDate");
+
                     b.ToTable("Invoices", t =>
                         {
                             t.HasCheckConstraint("CK_Invoices_CreditNoteFor", "[CreditNoteForId] IS NULL OR ([IsCreditNote] = 1 AND [CreditNoteForId] <> [Id])");
@@ -1145,6 +1149,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OrgId", "LegalEntityId", "Number")
                         .IsUnique();
+
+                    b.HasIndex("OrgId", "LegalEntityId", "Status", "Date");
 
                     b.ToTable("JournalEntries");
                 });
@@ -1454,6 +1460,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OrgId", "LegalEntityId", "Number")
                         .IsUnique();
+
+                    b.HasIndex("OrgId", "LegalEntityId", "Direction", "Date");
 
                     b.ToTable("Settlements", t =>
                         {

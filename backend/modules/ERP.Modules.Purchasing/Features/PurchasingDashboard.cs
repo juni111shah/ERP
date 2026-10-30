@@ -1,3 +1,4 @@
+using ERP.Application.Common;
 using ERP.Application.Abstractions;
 using ERP.Application.Dashboard;
 using ERP.Modules.Purchasing.Domain;
@@ -29,12 +30,8 @@ public sealed class PurchasingDashboard(
             kpis.Add(new("open-purchase-orders", "Open Procurement", openOrdersCount, "number", $"pending PO value {openOrdersAmount:N0}", 125, "/purchasing/orders"));
 
             var poStatuses = new[] { PurchaseOrderStatus.Draft, PurchaseOrderStatus.Approved, PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.Received, PurchaseOrderStatus.Cancelled };
-            var poCounts = new List<decimal>();
-            foreach (var st in poStatuses)
-            {
-                var c = await orders.CountAsync(o => o.Status == st && (entity == null || o.LegalEntityId == entity), ct);
-                poCounts.Add((decimal)c);
-            }
+            var grouped = await orders.Query().Where(o => entity == null || o.LegalEntityId == entity).CountByAsync(o => o.Status, ct);
+            var poCounts = poStatuses.Select(k => (decimal)grouped.GetValueOrDefault(k)).ToList();
             charts.Add(new("purchasing-orders-status", "Procurement orders by status", "hbar",
                 ["Draft", "Approved", "Partially Received", "Received", "Cancelled"],
                 [new("Purchase Orders", poCounts)], "Vendor procurement status distribution", 40));

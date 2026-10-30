@@ -42,7 +42,7 @@ internal sealed class RecordHistoryHandler(IReadRepository<AuditEvent> audits, I
         var spec = new Specification<AuditEvent>(a => a.RecordType == q.RecordType && a.RecordId == q.RecordId);
         var total = await audits.CountAsync(a => a.RecordType == q.RecordType && a.RecordId == q.RecordId, ct);
         var page = await audits.Query(spec).OrderByDescending(a => a.OccurredAt).Skip((q.Page - 1) * q.PageSize).Take(q.PageSize).ToListAsync(ct);
-        var names = (await directory.ListMembersAsync(ct)).ToDictionary(u => u.Id, u => u.FullName);
+        var names = (await directory.ListMembersAsync(page.Where(a => a.UserId != null).Select(a => a.UserId!.Value).Distinct().ToList(), ct)).ToDictionary(u => u.Id, u => u.FullName);
         var items = page.Select(a => new HistoryEntry(a.Id, a.OccurredAt, a.UserId, a.UserId is { } u ? names.GetValueOrDefault(u) : null, a.Action, Changes(a))).ToList();
         return new PagedResult<HistoryEntry>(items, total, q.Page, q.PageSize);
     }

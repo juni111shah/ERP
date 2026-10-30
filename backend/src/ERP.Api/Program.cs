@@ -60,6 +60,7 @@ var auth = builder.Configuration.GetSection(AuthOptions.Section).Get<AuthOptions
 if (Encoding.UTF8.GetByteCount(auth.SigningKey) < 32)
     throw new InvalidOperationException("Auth:SigningKey must be at least 32 bytes. Set it via environment variable Auth__SigningKey or user secrets.");
 
+builder.Services.AddResponseCompression(o => o.EnableForHttps = true); // Brotli/gzip for JSON and the served SPA (text types only; bearer-token API, no cookie secrets in bodies)
 builder.Services.AddDistributedMemoryCache(); // swap for Redis (AddStackExchangeRedisCache) when scaled out
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o =>
 {
@@ -162,6 +163,7 @@ var app = builder.Build();
 var serveSpa = app.Environment.WebRootFileProvider.GetFileInfo("index.html").Exists;
 
 app.UseForwardedHeaders();
+app.UseResponseCompression();
 app.UseExceptionHandler();
 // Empty-bodied API errors (401 challenge, 403 forbid, 404 no route, 405) get the same error envelope.
 app.UseStatusCodePages(async ctx =>

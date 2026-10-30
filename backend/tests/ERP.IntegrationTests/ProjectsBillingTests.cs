@@ -143,4 +143,20 @@ public class ProjectsBillingTests(ApiFactory f) : IClassFixture<ApiFactory>
         var msCheck = await Ok(await s.C.GetAsync($"{Prj}/milestones/{milestoneId}"));
         Assert.Equal("invoiced", (string)msCheck["status"]!, ignoreCase: true);
     }
+
+    [Fact]
+    public async Task Billing_overview_totals_unbilled_time_per_project_and_hides_idle_inactive_projects()
+    {
+        var s = await NewAsync();
+        async Task<string> NewProject(string name, string status) => (string)(await Ok(await s.C.PostAsJsonAsync($"{Prj}/projects", new { legalEntityId = s.Entity, customerId = s.Customer, name, status, billingType = "TimeAndMaterials", budgetAmount = 1000m }), HttpStatusCode.Created))["id"]!;
+        var busy = await NewProject("Busy " + Guid.NewGuid().ToString("N")[..5], "Active");
+        var idle = await NewProject("Idle " + Guid.NewGuid().ToString("N")[..5], "OnHold");
+        foreach (var hours in new[] { 8m, 2m })
+            await Ok(await s.C.PostAsJsonAsync($"{Prj}/timesheets", new { projectId = busy, date = "2026-06-01", workerName = "Alice", hours, hourlyRate = 100m, description = "Work", isBillable = true }), HttpStatusCode.Created);
+
+        var overview = (await Ok(await s.C.GetAsync($"{Prj}/billing/overview"))).AsArray();
+        var row = overview.Single(r => (string)r!["projectId"]! == busy)!;
+        Assert.Equal((10m, 1000m, 1000m), ((decimal)row["unbilledHours"]!, (decimal)row["unbilledHoursAmount"]!, (decimal)row["totalUnbilledAmount"]!));
+        Assert.DoesNotContain(overview, r => (string)r!["projectId"]! == idle);
+    }
 }

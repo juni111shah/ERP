@@ -161,6 +161,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         mb.Entity<JournalEntry>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status, x.Date }); // reports and books-lock checks filter by entity, status and date range
             b.Property(x => x.ExchangeRate).HasPrecision(18, 8);
             b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.JournalEntryId).OnDelete(DeleteBehavior.Cascade);
             b.Ignore(x => x.TotalDebit); b.Ignore(x => x.TotalCredit);
@@ -178,6 +179,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         mb.Entity<Invoice>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status, x.InvoiceDate }); // ageing, statements, dashboards
             b.Property(x => x.ExchangeRate).HasPrecision(18, 8);
             b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne<Invoice>().WithMany().HasForeignKey(x => x.CreditNoteForId).OnDelete(DeleteBehavior.NoAction);
@@ -203,6 +205,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         mb.Entity<Bill>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status, x.BillDate }); // AP ageing, statements, dashboards
             // A vendor's reference is unique among its live bills (blank, deleted and voided bills are ignored).
             b.HasIndex(x => new { x.OrgId, x.PartyId, x.VendorReference }).IsUnique()
                 .HasFilter(sqlServer
@@ -216,6 +219,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         mb.Entity<Settlement>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Direction, x.Date }); // receipts/payments lists, advances, statements
             b.HasMany(x => x.Allocations).WithOne().HasForeignKey(x => x.SettlementId).OnDelete(DeleteBehavior.Cascade);
         });
         mb.Entity<SettlementAllocation>(b =>

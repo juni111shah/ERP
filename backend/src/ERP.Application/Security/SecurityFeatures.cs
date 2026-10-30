@@ -170,7 +170,7 @@ internal sealed partial class SecurityHandlers(
     }
 
     private async Task<UserSummary> SummaryAsync(Guid userId, CancellationToken ct)
-        => (await directory.ListMembersAsync(ct)).First(u => u.Id == userId);
+        => (await directory.ListMembersAsync([userId], ct)).First(u => u.Id == userId);
 
     public async Task<UserAccount> Handle(InviteUser cmd, CancellationToken ct)
     {
