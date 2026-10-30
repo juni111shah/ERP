@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../kit/registry.dart';
 import 'inventory_screens.dart';
+import 'manufacturing_screens.dart';
 import 'pos_screens.dart';
 
 /// Screens of this area for the More menu: POS, Inventory, Manufacturing.
@@ -15,4 +16,8 @@ final List<MobileScreen> opsScreens = <MobileScreen>[
   MobileScreen(id: 'inventory.movements', title: 'Stock movements', menuIds: const ['inventory.movements'], icon: Icons.swap_horiz, builder: (_) => const MovementsScreen()),
   MobileScreen(id: 'inventory.counts', title: 'Stock counts', menuIds: const ['inventory.counts'], icon: Icons.fact_check_outlined, builder: (_) => const CountsScreen()),
   MobileScreen(id: 'inventory.warehouses', title: 'Warehouses', menuIds: const ['inventory.warehouses'], icon: Icons.warehouse_outlined, builder: (_) => const WarehousesScreen()),
+  MobileScreen(id: 'manufacturing.boms', title: 'Bills of materials', menuIds: const ['manufacturing.boms'], icon: Icons.account_tree_outlined, builder: (_) => const BomsScreen()),
+  MobileScreen(id: 'manufacturing.workorders', title: 'Work orders', menuIds: const ['manufacturing.workorders'], icon: Icons.build_outlined, builder: (_) => const WorkOrdersScreen()),
+  MobileScreen(id: 'manufacturing.costing', title: 'Product costing', menuIds: const ['manufacturing.costing'], icon: Icons.calculate_outlined, builder: (_) => const CostingScreen()),
+  MobileScreen(id: 'manufacturing.analytics', title: 'Manufacturing analytics', menuIds: const ['manufacturing.analytics'], icon: Icons.pie_chart_outline, builder: (_) => const MfgAnalyticsScreen()),
 ];
