@@ -1,6 +1,6 @@
 # Board
 
-Last Claude run: 2026-10-30 (no cards to review; second pass started: Order to cash analysed, 5 new cards TASK-126..130)
+Last Claude run: 2026-10-30 (no ready-for-review cards; 5 open, queue not refilled; Antigravity has not started TASK-126..130). Earlier this day: Order to cash analysed, 5 new cards TASK-126..130
 Rotation position: second pass, Order to cash done. Next run analyses Procure to pay.
 Needs human: Decide whether to merge antigravity/dashboard-and-modules into main (never pushed). Schema change TASK-010 (script database/scripts/0026_IdempotencyRecords.sql) must be applied by a human. TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-022 lands. TASK-006 commit message lacks the `TASK-006:` prefix. C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997).  Migration scripts 0026 (Idempotency), 0027 (POS one open session per register; fails if a register has two open sessions) and 0065 (finance reporting indexes; locks tables while building) are not applied to any database. Branch antigravity/dashboard-and-modules was pushed; main rejects direct pushes (repository rules), so merge via pull request. Known gaps: CreateStockCount numbering races (CountAsync+1); about 56 selects/date pickers lack aria-labels and many forms lack validation messages; Services module not analysed; SQL Server parallel tests unrun locally.
 
