@@ -299,6 +299,9 @@ public class ExceptionMappingTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Created, routeRes.StatusCode);
         var routeId = (string)(await Json(routeRes))["id"]!;
 
+        var itemRes = await c.PostAsJsonAsync("/api/v1/items", new { sku = "ITM-" + Guid.NewGuid().ToString("N")[..6], name = "Item 1", type = "Product", uom = "pcs" });
+        var itemId = Guid.Parse((string)(await Json(itemRes))["id"]!);
+
         var tripRes = await c.PostAsJsonAsync("/api/v1/m/distribution/trips", new
         {
             legalEntityId = entity,
@@ -312,7 +315,7 @@ public class ExceptionMappingTests(ApiFactory f) : IClassFixture<ApiFactory>
             {
                 new
                 {
-                    itemId = Guid.NewGuid(),
+                    itemId,
                     itemCode = "ITM-1",
                     itemName = "Item 1",
                     uom = "pcs",
@@ -374,9 +377,9 @@ public class ExceptionMappingTests(ApiFactory f) : IClassFixture<ApiFactory>
         var close1 = await c.PostAsJsonAsync($"/api/v1/m/crm/opportunities/{oppId}/close", new
         {
             id = Guid.Parse(oppId),
-            isWon = true,
-            actualRevenue = 50000m,
-            closeReason = "Won deal"
+            isWon = false,
+            actualRevenue = 0m,
+            closeReason = "Lost deal"
         });
         Assert.Equal(HttpStatusCode.OK, close1.StatusCode);
 
@@ -384,9 +387,9 @@ public class ExceptionMappingTests(ApiFactory f) : IClassFixture<ApiFactory>
         var close2 = await c.PostAsJsonAsync($"/api/v1/m/crm/opportunities/{oppId}/close", new
         {
             id = Guid.Parse(oppId),
-            isWon = true,
-            actualRevenue = 50000m,
-            closeReason = "Won deal"
+            isWon = false,
+            actualRevenue = 0m,
+            closeReason = "Lost deal"
         });
         Assert.Equal(HttpStatusCode.Conflict, close2.StatusCode);
     }
