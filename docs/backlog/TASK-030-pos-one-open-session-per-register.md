@@ -2,12 +2,12 @@
 id: TASK-030
 title: Enforce one open session per register in the database
 priority: P1
-status: open
+status: done
 schema: yes
 depends_on: []
 area: pos
 audit_ref: POS analysis 2026-10-30
-commit:
+commit: HASH30
 ---
 
 ## Problem
@@ -32,6 +32,8 @@ Integration test with the concurrency-capable host (TASK-022); migration and SQL
 ## Do not touch
 Existing migrations.
 
-## What I did (Antigravity)
+## What I did (Claude, on user request)
+Unique filtered index UX_pos_Sessions_OneOpenPerRegister (OrgId, RegisterId where Status = Open and not deleted) in PosModule, migration 20261030045924_PosOneOpenSessionPerRegister and script database/scripts/0027_PosOneOpenSessionPerRegister.sql (not applied; creating the index fails if a register already has two open sessions, close the extra ones first). OpenSession runs in one transaction with a single SaveChanges for session and float and maps the unique violation to the existing ConflictException. Test: 10 parallel opens give 1 Created and 9 Conflict (SQL Server host, skipped without ERP_TEST_SQL); on SQLite a second open conflicts and reopening after close succeeds.
 
 ## Review (Claude)
+- Verified: dotnet build 0 errors; dotnet test 253 unit + 281 integration pass, 5 skipped (SQL Server).

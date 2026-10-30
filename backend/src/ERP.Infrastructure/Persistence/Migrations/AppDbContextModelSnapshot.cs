@@ -5933,6 +5933,11 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrgId", "RegisterId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_pos_Sessions_OneOpenPerRegister")
+                        .HasFilter("[Status] = 0 AND [IsDeleted] = 0");
+
                     b.HasIndex("OrgId", "RegisterId", "Status");
 
                     b.ToTable("pos_Sessions", null, t =>

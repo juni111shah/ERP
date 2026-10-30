@@ -2,12 +2,12 @@
 id: TASK-029
 title: Session drawer and close use atomic updates and the caller's identity
 priority: P0
-status: open
+status: done
 schema: no
 depends_on: []
 area: pos
 audit_ref: POS analysis 2026-10-30
-commit:
+commit: 5612472
 ---
 
 ## Problem
@@ -34,6 +34,8 @@ Integration tests in a new `PosSessionTests`, using the concurrency-capable host
 ## Do not touch
 Order pricing and payment rules, ledger posting.
 
-## What I did (Antigravity)
+## What I did (Claude, on user request)
+Drawer transaction and close run in InTransactionAsync and use ExecuteUpdateAsync filtered on Status == Open (increments for pay in/out; close sets Status, ActualCash and CashDifference = ActualCash - committed ExpectedCash in one statement; 0 rows -> 409). Open, close and drawer take user id and name from ICurrentUser; request-body CashierUserId/CashierName/ClosedByUserId/PerformedByUserId are ignored (now nullable) and the frontend no longer sends them. Tests in PosSessionTests (SQLite: identity, close difference, 409 after close; SQL Server: interleaved sales and pay-ins, skipped without ERP_TEST_SQL).
 
 ## Review (Claude)
+- Verified: dotnet build 0 errors; dotnet test 253 unit + 281 integration pass, 5 skipped (SQL Server).

@@ -82,9 +82,20 @@ public class PosSessionTests(ApiFactory f) : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Ten_parallel_opens_on_one_register_give_exactly_one_session_and_reopening_after_close_works()
+    public async Task A_second_open_on_a_register_conflicts_until_the_first_session_is_closed()
     {
         var (admin, entity, register, _) = await RegisterAsync(f);
+        var first = await Json(await OpenAsync(admin, entity, register, 10m));
+        Assert.Equal(HttpStatusCode.Conflict, (await OpenAsync(admin, entity, register, 10m)).StatusCode);
+        await Json(await admin.PostAsJsonAsync($"{Pos}/sessions/{(string)first["id"]!}/close", new { actualCash = 10m }));
+        (await OpenAsync(admin, entity, register, 10m)).EnsureSuccessStatusCode();
+    }
+
+    [SqlServerFact]
+    public async Task Ten_parallel_opens_on_one_register_give_exactly_one_session_on_sql_server()
+    {
+        using var sql = new SqlServerApiFactory();
+        var (admin, entity, register, _) = await RegisterAsync(sql);
         var results = await Task.WhenAll(Enumerable.Range(0, 10).Select(async _ =>
         {
             var res = await OpenAsync(admin, entity, register, 10m);
@@ -92,10 +103,6 @@ public class PosSessionTests(ApiFactory f) : IClassFixture<ApiFactory>
         }));
         Assert.Equal(1, results.Count(r => r.StatusCode == HttpStatusCode.Created));
         Assert.All(results.Where(r => r.StatusCode != HttpStatusCode.Created), r => Assert.True(r.StatusCode == HttpStatusCode.Conflict, $"{r.StatusCode}: {r.Body}"));
-
-        var open = ApiFactory.Unwrap(JsonNode.Parse(results.Single(r => r.StatusCode == HttpStatusCode.Created).Body)!);
-        await Json(await admin.PostAsJsonAsync($"{Pos}/sessions/{(string)open["id"]!}/close", new { actualCash = 10m }));
-        (await OpenAsync(admin, entity, register, 10m)).EnsureSuccessStatusCode();
     }
 
     [SqlServerFact]

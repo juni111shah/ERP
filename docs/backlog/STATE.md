@@ -43,8 +43,8 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | TASK-026 | P2 | done | Validate allocate-payment and issued-cheque clearing |
 | TASK-027 | P1 | done | Editing or deleting a bill withdraws its pending approval |
 | TASK-028 | P0 | open | POS rejects or caps overpayment so the sale journal always balances |
-| TASK-029 | P0 | open | Session drawer and close use atomic updates and the caller's identity |
-| TASK-030 | P1 | open | Enforce one open session per register in the database (schema) |
+| TASK-029 | P0 | done | Session drawer and close use atomic updates and the caller's identity |
+| TASK-030 | P1 | done | Enforce one open session per register in the database (schema) |
 | TASK-031 | P1 | open | Sales use the register's warehouse and cash account; inactive registers cannot trade |
 | TASK-032 | P1 | open | Void needs a reason; free-text lines need price override permission |
 | TASK-033 | P2 | open | POS KPIs aggregate in SQL, respect the legal entity, drop hardcoded AED |

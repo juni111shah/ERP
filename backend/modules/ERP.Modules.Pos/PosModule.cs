@@ -108,6 +108,7 @@ public sealed class PosModule : ModuleBase
             b.Property(x => x.CashDifference).HasPrecision(19, 4);
             b.Property(x => x.Notes).HasMaxLength(1000);
             b.HasIndex(x => new { x.OrgId, x.RegisterId, x.Status });
+            b.HasIndex(x => new { x.OrgId, x.RegisterId }).IsUnique().HasDatabaseName("UX_pos_Sessions_OneOpenPerRegister").HasFilter("[Status] = 0 AND [IsDeleted] = 0");
             b.HasMany(x => x.DrawerTransactions).WithOne().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
         });
 
