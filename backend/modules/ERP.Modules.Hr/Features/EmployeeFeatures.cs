@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Customization;
+using ERP.Application.Finance;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
 using ERP.Application.Templates;
@@ -35,7 +36,7 @@ public sealed record CreateEmployee(EmployeeInput Input) : ICommand<EmployeeDto>
 public sealed record UpdateEmployee(Guid Id, EmployeeInput Input) : ICommand<EmployeeDto>, IRequirePermission { public string RequiredPermission => P.EmployeesManage; }
 public sealed record DeleteEmployee(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => P.EmployeesManage; }
 
-public sealed class EmployeeInputValidator : AbstractValidator<EmployeeInput>
+public sealed partial class EmployeeInputValidator : AbstractValidator<EmployeeInput>
 {
     public EmployeeInputValidator()
     {
@@ -49,13 +50,19 @@ public sealed class EmployeeInputValidator : AbstractValidator<EmployeeInput>
         RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
         RuleFor(x => x.Status).IsInEnum();
         RuleFor(x => x.BasicSalary).GreaterThan(0).WithMessage("The basic salary must be greater than zero.");
-        RuleFor(x => x.HousingAllowance).GreaterThanOrEqualTo(0);
-        RuleFor(x => x.TransportAllowance).GreaterThanOrEqualTo(0);
-        RuleFor(x => x.OtherAllowances).GreaterThanOrEqualTo(0);
-        RuleFor(x => x.RecurringDeductions).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.BasicSalary).MustBeMoney();
+        RuleFor(x => x.HousingAllowance).GreaterThanOrEqualTo(0).MustBeMoney();
+        RuleFor(x => x.TransportAllowance).GreaterThanOrEqualTo(0).MustBeMoney();
+        RuleFor(x => x.OtherAllowances).GreaterThanOrEqualTo(0).MustBeMoney();
+        RuleFor(x => x.RecurringDeductions).GreaterThanOrEqualTo(0).MustBeMoney();
+        RuleFor(x => x.Iban).Must(IsIbanShape).When(x => !string.IsNullOrWhiteSpace(x.Iban)).WithMessage("Enter a valid IBAN: 2 letters, 2 digits, then 11 to 30 letters or digits, without spaces.");
         RuleFor(x => x).Must(x => x.TerminationDate is null || x.TerminationDate >= x.JoinDate).WithName("terminationDate").WithMessage("The termination date cannot be before the join date.");
         RuleFor(x => x).Must(x => x.Status != EmployeeStatus.Terminated || x.TerminationDate is not null).WithName("terminationDate").WithMessage("Enter the termination date for a terminated employee.");
     }
+}
+public sealed partial class EmployeeInputValidator
+{
+    private static bool IsIbanShape(string? v) => v is not null && System.Text.RegularExpressions.Regex.IsMatch(v.Trim(), "^[A-Za-z]{2}[0-9]{2}[A-Za-z0-9]{11,30}$");
 }
 public sealed class CreateEmployeeValidator : AbstractValidator<CreateEmployee> { public CreateEmployeeValidator() => RuleFor(x => x.Input).SetValidator(new EmployeeInputValidator()); }
 public sealed class UpdateEmployeeValidator : AbstractValidator<UpdateEmployee> { public UpdateEmployeeValidator() => RuleFor(x => x.Input).SetValidator(new EmployeeInputValidator()); }
@@ -125,7 +132,7 @@ internal sealed class EmployeeHandlers(
     {
         e.FullName = i.FullName.Trim(); e.Designation = i.Designation.Trim(); e.Department = i.Department?.Trim(); e.JoinDate = i.JoinDate; e.TerminationDate = i.TerminationDate;
         e.Email = i.Email?.Trim(); e.Phone = i.Phone?.Trim(); e.Nationality = i.Nationality?.Trim(); e.Status = i.Status; e.BasicSalary = i.BasicSalary;
-        e.HousingAllowance = i.HousingAllowance; e.TransportAllowance = i.TransportAllowance; e.OtherAllowances = i.OtherAllowances; e.RecurringDeductions = i.RecurringDeductions; e.Iban = i.Iban?.Trim();
+        e.HousingAllowance = i.HousingAllowance; e.TransportAllowance = i.TransportAllowance; e.OtherAllowances = i.OtherAllowances; e.RecurringDeductions = i.RecurringDeductions; e.Iban = string.IsNullOrWhiteSpace(i.Iban) ? null : i.Iban.Trim().ToUpperInvariant();
         e.LabourCardNumber = string.IsNullOrWhiteSpace(i.LabourCardNumber) ? null : i.LabourCardNumber.Trim(); e.BankRoutingCode = string.IsNullOrWhiteSpace(i.BankRoutingCode) ? null : i.BankRoutingCode.Trim();
     }
 
