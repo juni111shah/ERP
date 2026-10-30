@@ -41,12 +41,14 @@ public sealed class FinanceDashboard(
                 ? await settlements.Query(new Specification<Settlement>(s => s.Direction == InstrumentDirection.Received && s.Status == DocumentStatus.Issued && s.Date >= from && s.Date <= to && (entity == null || s.LegalEntityId == entity)))
                     .Select(s => new { s.Date, s.Amount }).ToListAsync(ct)
                 : [];
-            var months = DashboardRange.Months(from, to);
-            var billedByMonth = months.Select(m => billed.Where(b => b.InvoiceDate.Year == m.Year && b.InvoiceDate.Month == m.Month).Sum(b => b.IsCreditNote ? -b.Net : b.Net)).ToList();
-            var collectedByMonth = months.Select(m => collected.Where(c => c.Date.Year == m.Year && c.Date.Month == m.Month).Sum(c => c.Amount)).ToList();
-            kpis.Add(new("collected", "Collected in period", collectedByMonth.Sum(), "money", $"billed {billedByMonth.Sum():N0}", 40, "/finance/receipts"));
-            charts.Add(new("billed-collected", "Billed vs collected", "bar", months.Select(m => m.ToString("MMM yy")).ToList(),
-                [new("Billed", billedByMonth), new("Collected", collectedByMonth)], "Invoices net of credit notes, and receipts, for the selected period", 10));
+            // whole weeks / months / quarters counted back from the end of the period, so no stub bar at either end
+            var granularity = DashboardRange.Granularity(from, to);
+            var periods = DashboardRange.Buckets(from, to, granularity);
+            var billedByBucket = periods.Select(p => billed.Where(b => b.InvoiceDate >= p.From && b.InvoiceDate <= p.To).Sum(b => b.IsCreditNote ? -b.Net : b.Net)).ToList();
+            var collectedByBucket = periods.Select(p => collected.Where(c => c.Date >= p.From && c.Date <= p.To).Sum(c => c.Amount)).ToList();
+            kpis.Add(new("collected", "Collected in period", collectedByBucket.Sum(), "money", $"billed {billedByBucket.Sum():N0}", 40, "/finance/receipts"));
+            charts.Add(new("billed-collected", "Billed vs collected", "bar", periods.Select(p => DashboardRange.Label(p, granularity)).ToList(),
+                [new("Billed", billedByBucket), new("Collected", collectedByBucket)], "Invoices net of credit notes, and receipts, for the selected period", 10, periods, granularity));
 
             var buckets = new decimal[5];
             foreach (var i in open)
@@ -69,7 +71,8 @@ public sealed class FinanceDashboard(
             var cashIds = await accounts.Query(new Specification<Account>(a => a.IsActive && a.Type == AccountType.Asset && (a.IsBank || a.SystemRole == "cash" || a.SystemRole == "bank"))).Select(a => a.Id).ToListAsync(ct);
             var moves = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= to && (entity == null || j.LegalEntityId == entity)))
                 .SelectMany(j => j.Lines.Where(l => cashIds.Contains(l.AccountId)), (j, l) => new { l.Debit, l.Credit }).ToListAsync(ct);
-            kpis.Add(new("cash", "Cash and bank", moves.Sum(m => m.Debit - m.Credit), "money", $"all bank and cash accounts, at {to:dd MMM yyyy}", 60, "/finance/bank"));
+            kpis.Add(new("cash", "Cash and bank", moves.Sum(m => m.Debit - m.Credit), "money", $"all bank and cash accounts, at {to.ToString("dd MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}", 60, "/finance/bank",
+                "kpi.cash.caption", new Dictionary<string, string> { ["date"] = to.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) }));
         }
 
         if (canSee(CorePermissions.ChequesRead))

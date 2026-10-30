@@ -33,7 +33,7 @@ public class DashboardTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(400m, (decimal)Kpi(d, "net-result")["value"]!);
         Assert.DoesNotContain(d["kpis"]!.AsArray(), k => (string?)k!["key"] == "portfolio");
         var billed = d["charts"]!.AsArray().First(ch => (string?)ch!["key"] == "billed-collected")!;
-        Assert.Equal(13, billed["categories"]!.AsArray().Count); // default period: today minus 12 months up to today, by calendar month
+        Assert.Equal(12, billed["categories"]!.AsArray().Count); // default period: the 12 months ending today, 12 whole-month buckets
         Assert.Equal(400m, (decimal)billed["series"]![0]!["values"]!.AsArray().Last()!);
         var ageing = d["charts"]!.AsArray().First(ch => (string?)ch!["key"] == "ar-ageing")!;
         Assert.Equal(400m, (decimal)ageing["series"]![0]!["values"]![0]!); // due today = current
@@ -52,7 +52,13 @@ public class DashboardTests(ApiFactory f) : IClassFixture<ApiFactory>
         JsonNode Chart(JsonNode d) => d["charts"]!.AsArray().First(ch => (string?)ch!["key"] == "billed-collected")!;
 
         var d = await Ok(await c.GetAsync($"/api/v1/dashboard?legalEntityId={entity}"));
-        Assert.Equal(iso(today.AddYears(-1)), (string)d["from"]!);
+        Assert.Equal(iso(today.AddYears(-1).AddDays(1)), (string)d["from"]!);
+        Assert.Equal("month", (string)Chart(d)["granularity"]!);
+        Assert.Equal(12, Chart(d)["buckets"]!.AsArray().Count);
+        Assert.Equal(iso(today), (string)Chart(d)["buckets"]!.AsArray().Last()!["to"]!);
+        var cash = Kpi(d, "cash");
+        Assert.Equal("kpi.cash.caption", (string)cash["captionKey"]!);
+        Assert.Equal(iso(today), (string)cash["captionArgs"]!["date"]!);
         Assert.Equal(iso(today), (string)d["to"]!);
         Assert.Equal(250m, (decimal)Kpi(d, "net-result")["value"]!);
 
@@ -61,21 +67,30 @@ public class DashboardTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(iso(today.AddYears(-3)), (string)past["from"]!);
         Assert.Equal(0m, (decimal)Kpi(past, "net-result")["value"]!);
         Assert.Equal(250m, (decimal)Kpi(past, "receivables")["value"]!);
-        Assert.Equal(13, Chart(past)["categories"]!.AsArray().Count);
+        Assert.Equal(12, Chart(past)["categories"]!.AsArray().Count); // one leading day is merged into the first month
+        Assert.Equal(iso(today.AddYears(-2)), (string)Kpi(past, "cash")["captionArgs"]!["date"]!); // cash is as of the end of the period
         Assert.All(Chart(past)["series"]![0]!["values"]!.AsArray(), v => Assert.Equal(0m, (decimal)v!));
 
-        // a one-month period: two calendar months, the invoice in the last one
-        var month = await Ok(await c.GetAsync($"/api/v1/dashboard?legalEntityId={entity}&from={iso(today.AddMonths(-1))}&to={iso(today)}"));
-        Assert.Equal(2, Chart(month)["categories"]!.AsArray().Count);
+        // a one-month period: weekly buckets, the invoice in the last one
+        var month = await Ok(await c.GetAsync($"/api/v1/dashboard?legalEntityId={entity}&from={iso(today.AddMonths(-1).AddDays(1))}&to={iso(today)}"));
+        Assert.Equal("week", (string)Chart(month)["granularity"]!);
+        Assert.InRange(Chart(month)["categories"]!.AsArray().Count, 4, 5);
         Assert.Equal(250m, (decimal)Chart(month)["series"]![0]!["values"]!.AsArray().Last()!);
         Assert.Equal(250m, (decimal)Kpi(month, "net-result")["value"]!);
 
         // only "to": the period is the year before it
         var onlyTo = await Ok(await c.GetAsync($"/api/v1/dashboard?legalEntityId={entity}&to={iso(today.AddMonths(-6))}"));
-        Assert.Equal(iso(today.AddMonths(-6).AddYears(-1)), (string)onlyTo["from"]!);
+        Assert.Equal(iso(today.AddMonths(-6).AddYears(-1).AddDays(1)), (string)onlyTo["from"]!);
 
         Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync($"/api/v1/dashboard?from={iso(today)}&to={iso(today.AddDays(-1))}")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync($"/api/v1/dashboard?from={iso(today.AddYears(-11))}&to={iso(today)}")).StatusCode);
+        // at most 5 years, and no future end date (one day of slack for clients ahead of UTC)
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync($"/api/v1/dashboard?from={iso(today.AddYears(-5))}&to={iso(today)}")).StatusCode);
+        var fiveYears = await Ok(await c.GetAsync($"/api/v1/dashboard?legalEntityId={entity}&from={iso(today.AddYears(-5).AddDays(1))}&to={iso(today)}"));
+        Assert.Equal("quarter", (string)Chart(fiveYears)["granularity"]!);
+        Assert.Equal(20, Chart(fiveYears)["categories"]!.AsArray().Count);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync($"/api/v1/dashboard?from={iso(today)}&to={iso(today.AddDays(3))}")).StatusCode);
+        await Ok(await c.GetAsync($"/api/v1/dashboard?legalEntityId={entity}&from={iso(today.AddMonths(-1))}&to={iso(today.AddDays(1))}"));
     }
 
     [Fact]
