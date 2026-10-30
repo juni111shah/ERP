@@ -50,6 +50,8 @@ public static class DependencyInjection
         services.AddScoped<IMessageChannel, InAppChannel>();
         services.AddScoped<IMessageChannel, OutboxEmailChannel>();
         services.AddScoped<IScheduledJob, ReminderJob>();
+        services.AddScoped<IScheduledJob, ERP.Application.Common.IdempotencyCleanupJob>();
+        services.AddScoped<ERP.Application.Common.IdempotencyService>();
         services.AddScoped<IReminderSource, CoreReminderSource>();
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<ERP.Application.Finance.AccountNumbering>();

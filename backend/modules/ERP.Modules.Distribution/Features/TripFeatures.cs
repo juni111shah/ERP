@@ -111,13 +111,16 @@ public class TripHandlers :
     private readonly IRepository<DistributionRoute> _routes;
     private readonly INumberingService _numbering;
     private readonly IStockPostingService _stockPosting;
+    private readonly IUnitOfWork _unitOfWork;
 
     public TripHandlers(
         IRepository<VanSalesTrip> trips,
         IRepository<DistributionRoute> routes,
         INumberingService numbering,
-        IStockPostingService stockPosting)
+        IStockPostingService stockPosting,
+        IUnitOfWork unitOfWork)
     {
+        _unitOfWork = unitOfWork;
         _trips = trips;
         _routes = routes;
         _numbering = numbering;
@@ -172,7 +175,11 @@ public class TripHandlers :
         return Map(trip);
     }
 
-    public async Task<VanSalesTripDto> Handle(CompleteTripCommand request, CancellationToken cancellationToken)
+    // Trip status and the stock issues for what was sold or damaged commit together.
+    public Task<VanSalesTripDto> Handle(CompleteTripCommand request, CancellationToken cancellationToken)
+        => _unitOfWork.InTransactionAsync(token => CompleteAsync(request, token), cancellationToken);
+
+    private async Task<VanSalesTripDto> CompleteAsync(CompleteTripCommand request, CancellationToken cancellationToken)
     {
         var trip = await _trips.Tracked(new Specification<VanSalesTrip>(t => t.Id == request.TripId))
             .Include(t => t.InventoryItems)

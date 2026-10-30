@@ -440,4 +440,70 @@ public class SalesOrderTests(ApiFactory f) : IClassFixture<ApiFactory>
         // Due date must equal invoice date + 15 days
         Assert.Equal(invoiceDate.AddDays(15), dueDate);
     }
+
+    [Fact]
+    public async Task Voiding_the_generated_invoice_reopens_the_order_and_allows_invoicing_again()
+    {
+        var s = await NewAsync();
+        var orderRes = await Ok(await s.C.PostAsJsonAsync($"{Sales}/orders", new
+        {
+            legalEntityId = s.Entity,
+            customerPartyId = s.Customer,
+            customerName = "Reopen Buyer",
+            orderDate = "2026-06-01",
+            currency = "AED",
+            lines = new[] { new { itemCode = "SRV-20", description = "Consulting", quantity = 1m, unitPrice = 100m, taxRate = 5m } }
+        }), HttpStatusCode.Created);
+        var orderId = (string)orderRes["id"]!;
+        await Ok(await s.C.PutAsJsonAsync($"{Sales}/orders/{orderId}/status", new { status = "Confirmed" }));
+
+        var first = await Ok(await s.C.PostAsync($"{Sales}/orders/{orderId}/convert-to-invoice", null));
+        var firstId = (string)first["id"]!;
+        await Ok(await s.C.PostAsync($"{Fin}/invoices/{firstId}/issue", null));
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/invoices/{firstId}/void", new { reason = "Wrong price" }));
+
+        var reopened = await Ok(await s.C.GetAsync($"{Sales}/orders/{orderId}"));
+        Assert.NotEqual("invoiced", ((string)reopened["status"]!).ToLowerInvariant());
+        Assert.Null(reopened["invoicedInvoiceId"]);
+        Assert.All(reopened["lines"]!.AsArray(), l => Assert.Equal(0m, (decimal)l!["invoicedQuantity"]!));
+
+        var second = await Ok(await s.C.PostAsync($"{Sales}/orders/{orderId}/convert-to-invoice", null));
+        Assert.NotEqual(firstId, (string)second["id"]!);
+        var again = await Ok(await s.C.GetAsync($"{Sales}/orders/{orderId}"));
+        Assert.Equal("invoiced", (string)again["status"]!, ignoreCase: true);
+        Assert.Equal((string)second["id"]!, (string)again["invoicedInvoiceId"]!);
+    }
+
+    [Fact]
+    public async Task Voiding_an_invoice_without_a_source_leaves_orders_alone()
+    {
+        var s = await NewAsync();
+        var orderRes = await Ok(await s.C.PostAsJsonAsync($"{Sales}/orders", new
+        {
+            legalEntityId = s.Entity,
+            customerPartyId = s.Customer,
+            customerName = "Other Buyer",
+            orderDate = "2026-06-01",
+            currency = "AED",
+            lines = new[] { new { itemCode = "SRV-21", description = "Consulting", quantity = 1m, unitPrice = 100m, taxRate = 5m } }
+        }), HttpStatusCode.Created);
+        var orderId = (string)orderRes["id"]!;
+        await Ok(await s.C.PutAsJsonAsync($"{Sales}/orders/{orderId}/status", new { status = "Confirmed" }));
+        var inv = await Ok(await s.C.PostAsync($"{Sales}/orders/{orderId}/convert-to-invoice", null));
+
+        var manual = await Ok(await s.C.PostAsJsonAsync($"{Fin}/invoices", new
+        {
+            legalEntityId = s.Entity,
+            partyId = s.Customer,
+            invoiceDate = "2026-06-01",
+            lines = new[] { new { description = "Manual", quantity = 1m, price = 50m } }
+        }), HttpStatusCode.Created);
+        var manualId = (string)manual["id"]!;
+        await Ok(await s.C.PostAsync($"{Fin}/invoices/{manualId}/issue", null));
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/invoices/{manualId}/void", new { reason = "Entered twice" }));
+
+        var order = await Ok(await s.C.GetAsync($"{Sales}/orders/{orderId}"));
+        Assert.Equal("invoiced", (string)order["status"]!, ignoreCase: true);
+        Assert.Equal((string)inv["id"]!, (string)order["invoicedInvoiceId"]!);
+    }
 }

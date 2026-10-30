@@ -145,7 +145,8 @@ internal sealed class OrderHandlers(
     INumberingService numbers,
     ICustomFieldService fields,
     IStockPostingService stockPosting,
-    IReadRepository<TaxCode> taxCodes) :
+    IReadRepository<TaxCode> taxCodes,
+    IUnitOfWork uow) :
     IRequestHandler<GetOrder, OrderDto>,
     IRequestHandler<CreateOrder, OrderDto>,
     IRequestHandler<UpdateOrder, OrderDto>,
@@ -243,6 +244,8 @@ internal sealed class OrderHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Sales order '{cmd.Id}' not found.");
 
+        if (order.Status == SalesOrderStatus.Invoiced)
+            throw new ConflictException("An invoiced sales order is reopened by voiding its invoice.");
         SalesTransitions.Order.Ensure(order.Status, cmd.Status, isSystem: false);
 
         order.Status = cmd.Status;
@@ -250,7 +253,10 @@ internal sealed class OrderHandlers(
         return await ToDtoAsync(order, fields, ct);
     }
 
-    public async Task<OrderDto> Handle(UpdateOrderFulfillment cmd, CancellationToken ct)
+    // Stock issues, status and totals commit together: a failure part-way leaves no half-fulfilled order.
+    public Task<OrderDto> Handle(UpdateOrderFulfillment cmd, CancellationToken ct) => uow.InTransactionAsync(token => FulfillAsync(cmd, token), ct);
+
+    private async Task<OrderDto> FulfillAsync(UpdateOrderFulfillment cmd, CancellationToken ct)
     {
         var order = await orders.Tracked(new Specification<SalesOrder>(x => x.Id == cmd.Id))
             .Include(x => x.Lines)
@@ -299,7 +305,10 @@ internal sealed class OrderHandlers(
         return await ToDtoAsync(order, fields, ct);
     }
 
-    public async Task<InvoiceDto> Handle(ConvertOrderToInvoice cmd, CancellationToken ct)
+    // Invoice, auto-fulfilment stock issue and order status commit together.
+    public Task<InvoiceDto> Handle(ConvertOrderToInvoice cmd, CancellationToken ct) => uow.InTransactionAsync(token => ConvertAsync(cmd, token), ct);
+
+    private async Task<InvoiceDto> ConvertAsync(ConvertOrderToInvoice cmd, CancellationToken ct)
     {
         var order = await orders.Tracked(new Specification<SalesOrder>(x => x.Id == cmd.Id))
             .Include(x => x.Lines)

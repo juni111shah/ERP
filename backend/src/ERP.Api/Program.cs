@@ -189,6 +189,7 @@ app.UseAuthentication();
 app.UseMiddleware<ModuleGateMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<LegalEntityScopeMiddleware>();
+app.UseMiddleware<IdempotencyMiddleware>();
 
 // Every /api/v1 endpoint (core and modules) returns the standard ApiResponse envelope.
 var api = app.MapGroup("/api/v1");

@@ -1,6 +1,6 @@
 # Board
 
-Last Claude run: 2026-10-30 04:45 (reviewed TASK-006, 016, 017, 019, 020, 021 -> all done; clean-copy build at HEAD 0 errors, 237 unit + 219 integration pass, ng build ok; 6 open cards so no refill)
+Last Claude run: 2026-10-30 (Claude implemented TASK-007, 010, 018, 022 on branch claude/impl in worktree D:/ERP/work-claude; TASK-015 is being done by Antigravity; branch not yet merged into antigravity/dashboard-and-modules)
 Rotation position: Order to cash analysed (Sales order to invoice). Next area = Procure to pay (Purchasing, bills, payments)
 Needs human: TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-022 lands. TASK-006 commit message lacks the `TASK-006:` prefix. C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997). TASK-014 blocked: Angular 19.x has no patch for the advisories; needs a human decision on a major upgrade to v20+.
 
@@ -21,10 +21,10 @@ Needs human: TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-
 | TASK-004 | P0 | done | Work-order release/complete safe, correct inventory journals |
 | TASK-005 | P0 | done | POS orders priced and validated on the server |
 | TASK-006 | P0 | done | POS void reverses cash, stock at original cost |
-| TASK-007 | P0 | open | Post POS sales and tax to the ledger |
+| TASK-007 | P0 | done | Post POS sales and tax to the ledger |
 | TASK-008 | P0 | done | GR/IR clearing and bill matching |
 | TASK-009 | P1 | done | Enforce status transitions on module documents |
-| TASK-010 | P0 | open | Transactional postings and idempotency keys (schema) |
+| TASK-010 | P0 | done | Transactional postings and idempotency keys (schema) |
 | TASK-011 | P0 | done | Project and service billing create invoices or fail |
 | TASK-012 | P1 | done | Remove hardcoded currency, tax, placeholder GUIDs |
 | TASK-013 | P1 | open | UI permission gating in new modules |
@@ -32,8 +32,8 @@ Needs human: TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-
 | TASK-015 | P1 | open | Integration tests for Sales and Purchasing |
 | TASK-016 | P0 | done | Invoice from sales order keeps tax, source link, currency |
 | TASK-017 | P0 | done | Sales order edit, fulfilment and due-date guards |
-| TASK-018 | P1 | open | Reopen sales order when its invoice is voided |
+| TASK-018 | P1 | done | Reopen sales order when its invoice is voided |
 | TASK-019 | P1 | done | Bank/cash account must be flagged IsBank (receipts, payments, cheques, transfers) |
 | TASK-020 | P1 | done | Reject or round money amounts to two decimals |
 | TASK-021 | P2 | done | Retry document commands on number/allocation concurrency conflicts |
-| TASK-022 | P1 | open | Concurrency-capable integration test host (SQL Server) |
+| TASK-022 | P1 | done | Concurrency-capable integration test host (SQL Server) |

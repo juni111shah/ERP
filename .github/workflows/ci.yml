@@ -26,6 +26,26 @@ jobs:
         with: { global-json-file: backend/global.json }
       - run: dotnet build ERP.sln -c Release
       - run: dotnet test ERP.sln -c Release --no-build
+  backend-sql:
+    name: Backend SQL Server tests
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env: { ACCEPT_EULA: 'Y', MSSQL_SA_PASSWORD: 'Ci#Test-Passw0rd' }
+        ports: ['1433:1433']
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Ci#Test-Passw0rd' -Q 'SELECT 1'"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { global-json-file: backend/global.json }
+      - run: dotnet build ERP.sln -c Release
+      - run: dotnet test tests/ERP.IntegrationTests -c Release --no-build --filter "FullyQualifiedName~ParallelIssuingTests"
+        env:
+          ERP_TEST_SQL: Server=localhost,1433;User Id=sa;Password=Ci#Test-Passw0rd;TrustServerCertificate=true
   frontend:
     name: Frontend build
     runs-on: ubuntu-latest

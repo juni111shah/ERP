@@ -67,6 +67,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PortalOtp> PortalOtps => Set<PortalOtp>();
     public DbSet<MessageLog> MessageLogs => Set<MessageLog>();
@@ -229,6 +230,16 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Property(x => x.Before).Metadata.SetMaxLength(null);
             b.Property(x => x.After).Metadata.SetMaxLength(null);
             b.Property(x => x.ChangedFields).HasMaxLength(4000);
+        });
+        mb.Entity<IdempotencyRecord>(b =>
+        {
+            b.HasIndex(x => new { x.OrgId, x.UserId, x.Route, x.Key }).IsUnique();
+            b.HasIndex(x => x.CreatedAt);
+            b.Property(x => x.Key).HasMaxLength(100);
+            b.Property(x => x.Route).HasMaxLength(300);
+            b.Property(x => x.RequestHash).HasMaxLength(64);
+            b.Property(x => x.ContentType).HasMaxLength(100);
+            b.Property(x => x.ResponseBody).Metadata.SetMaxLength(null);
         });
         mb.Entity<Notification>(b => b.HasIndex(x => new { x.OrgId, x.UserId, x.ReadAt }));
         mb.Entity<PortalOtp>(b => { b.HasIndex(x => new { x.OrgId, x.PartyId }); b.Property(x => x.CodeHash).HasMaxLength(100); });
