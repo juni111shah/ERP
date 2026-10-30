@@ -1,6 +1,8 @@
+using ERP.Application.Abstractions;
 using ERP.Application.Dashboard;
 using ERP.Application.Search;
 using ERP.Application.Security;
+using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Crm.Domain;
 using ERP.Modules.Crm.Features;
@@ -31,10 +33,28 @@ public sealed class CrmModule : ModuleBase
         new("crm.analytics", "CRM analytics", "/crm/analytics", "line-chart", Crm.Permissions.AnalyticsRead, 40, Key, "CRM", 220)
     ];
 
+    public override IEnumerable<IndustryTemplate> IndustryTemplates =>
+    [
+        new("crm", "CRM & Sales", "Lead management, sales pipeline, and customer interactions.", IndustryAvailability.Available, [Key],
+            Roles: [],
+            Sequences:
+            [
+                new("LEAD", "LEAD", "{prefix}-{seq:5}", false),
+                new("OPP", "OPP", "{prefix}-{seq:5}", false),
+            ],
+            SortOrder: 60),
+    ];
+
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ISearchProvider, CrmSearch>();
         services.AddScoped<IDashboardContributor, CrmDashboard>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<CrmLead>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "lead", Crm.Permissions.LeadsRead, Crm.Permissions.LeadsManage));
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<CrmOpportunity>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "opportunity", Crm.Permissions.OpportunitiesRead, Crm.Permissions.OpportunitiesManage));
     }
 
     public override void MapEndpoints(RouteGroupBuilder group) => CrmEndpoints.Map(group);

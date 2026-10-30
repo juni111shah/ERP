@@ -13,6 +13,7 @@ namespace ERP.Modules.Purchasing;
 public sealed record ChangePurchaseOrderStatusBody(PurchaseOrderStatus Status);
 public sealed record ChangeRequisitionStatusBody(PurchaseRequisitionStatus Status);
 public sealed record ConvertRequisitionBody(Guid? VendorPartyId, string VendorName);
+public sealed record ConvertToBillBody(Dictionary<Guid, decimal>? UnitPriceOverrides = null);
 
 internal static class PurchasingEndpoints
 {
@@ -35,7 +36,16 @@ internal static class PurchasingEndpoints
         orders.MapPut("/{id:guid}", (Guid id, PurchaseOrderInput input, ISender s, CancellationToken ct) => s.Send(new UpdatePurchaseOrder(id, input), ct)).RequirePermission(P.OrdersManage);
         orders.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeletePurchaseOrder(id), ct); return Results.NoContent(); }).RequirePermission(P.OrdersManage);
         orders.MapPut("/{id:guid}/status", (Guid id, ChangePurchaseOrderStatusBody b, ISender s, CancellationToken ct) => s.Send(new ChangePurchaseOrderStatus(id, b.Status), ct)).RequirePermission(P.OrdersManage);
-        orders.MapPost("/{id:guid}/convert-to-bill", (Guid id, ISender s, CancellationToken ct) => s.Send(new ConvertPurchaseOrderToBill(id), ct)).RequirePermission(P.OrdersManage);
+        orders.MapPost("/{id:guid}/convert-to-bill", async (Guid id, HttpRequest req, ISender s, CancellationToken ct) =>
+        {
+            ConvertToBillBody? body = null;
+            if (req.ContentLength > 0)
+            {
+                body = await req.ReadFromJsonAsync<ConvertToBillBody>(cancellationToken: ct);
+            }
+            var bill = await s.Send(new ConvertPurchaseOrderToBill(id, body?.UnitPriceOverrides), ct);
+            return Results.Ok(bill);
+        }).RequirePermission(P.OrdersManage);
 
         var requisitions = group.MapGroup("/requisitions");
         requisitions.MapPagedList<PurchaseRequisition, RequisitionSummaryDto>("", P.RequisitionsRead,

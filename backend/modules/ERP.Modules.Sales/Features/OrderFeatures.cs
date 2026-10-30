@@ -5,6 +5,7 @@ using ERP.Application.Customization;
 using ERP.Application.Finance;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
+using ERP.Domain.Finance;
 using ERP.Modules.Sales.Domain;
 using FluentValidation;
 using MediatR;
@@ -143,7 +144,9 @@ internal sealed class OrderHandlers(
     ILegalEntityGuard guard,
     INumberingService numbers,
     ICustomFieldService fields,
-    IStockPostingService stockPosting) :
+    IStockPostingService stockPosting,
+    IReadRepository<TaxCode> taxCodes,
+    IUnitOfWork uow) :
     IRequestHandler<GetOrder, OrderDto>,
     IRequestHandler<CreateOrder, OrderDto>,
     IRequestHandler<UpdateOrder, OrderDto>,
@@ -201,8 +204,10 @@ internal sealed class OrderHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Sales order '{cmd.Id}' not found.");
 
-        if (order.Status == SalesOrderStatus.Invoiced)
-            throw new ConflictException("Cannot edit an invoiced sales order.");
+        var canEdit = order.Status == SalesOrderStatus.Draft ||
+                      (order.Status == SalesOrderStatus.Confirmed && order.Lines.All(l => l.DeliveredQuantity == 0));
+        if (!canEdit)
+            throw new ConflictException($"Cannot edit sales order in status '{order.Status}'" + (order.Lines.Any(l => l.DeliveredQuantity > 0) ? " with delivered quantities." : "."));
 
         var i = cmd.Input;
         order.CustomerPartyId = i.CustomerPartyId;
@@ -240,29 +245,35 @@ internal sealed class OrderHandlers(
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Sales order '{cmd.Id}' not found.");
 
         if (order.Status == SalesOrderStatus.Invoiced)
-            throw new ConflictException("Cannot change status of an already invoiced order.");
-        if (order.Status == SalesOrderStatus.Cancelled)
-            throw new ConflictException("Cannot change status of a cancelled order.");
-        if (cmd.Status == SalesOrderStatus.Invoiced && !order.InvoicedInvoiceId.HasValue)
-            throw new ConflictException("Cannot transition to Invoiced without converting to an accounting invoice.");
+            throw new ConflictException("An invoiced sales order is reopened by voiding its invoice.");
+        SalesTransitions.Order.Ensure(order.Status, cmd.Status, isSystem: false);
 
         order.Status = cmd.Status;
         await orders.SaveChangesAsync(ct);
         return await ToDtoAsync(order, fields, ct);
     }
 
-    public async Task<OrderDto> Handle(UpdateOrderFulfillment cmd, CancellationToken ct)
+    // Stock issues, status and totals commit together: a failure part-way leaves no half-fulfilled order.
+    public Task<OrderDto> Handle(UpdateOrderFulfillment cmd, CancellationToken ct) => uow.InTransactionAsync(token => FulfillAsync(cmd, token), ct);
+
+    private async Task<OrderDto> FulfillAsync(UpdateOrderFulfillment cmd, CancellationToken ct)
     {
         var order = await orders.Tracked(new Specification<SalesOrder>(x => x.Id == cmd.Id))
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Sales order '{cmd.Id}' not found.");
+
+        if (order.Status != SalesOrderStatus.Confirmed && order.Status != SalesOrderStatus.Processing)
+            throw new ConflictException($"Cannot fulfill sales order in status '{order.Status}'. Only Confirmed or Processing orders can be fulfilled.");
 
         foreach (var ful in cmd.Lines)
         {
             var line = order.Lines.FirstOrDefault(l => l.Id == ful.LineId);
             if (line != null)
             {
-                var targetQty = Math.Min(line.Quantity, Math.Max(0, ful.DeliveredQuantity));
+                if (ful.DeliveredQuantity < line.DeliveredQuantity)
+                    throw new FieldValidationException("deliveredQuantity", $"Delivered quantity ({ful.DeliveredQuantity}) cannot be less than current delivered quantity ({line.DeliveredQuantity}).");
+
+                var targetQty = Math.Min(line.Quantity, ful.DeliveredQuantity);
                 var delta = targetQty - line.DeliveredQuantity;
                 if (delta > 0 && line.ItemId.HasValue)
                 {
@@ -294,7 +305,10 @@ internal sealed class OrderHandlers(
         return await ToDtoAsync(order, fields, ct);
     }
 
-    public async Task<InvoiceDto> Handle(ConvertOrderToInvoice cmd, CancellationToken ct)
+    // Invoice, auto-fulfilment stock issue and order status commit together.
+    public Task<InvoiceDto> Handle(ConvertOrderToInvoice cmd, CancellationToken ct) => uow.InTransactionAsync(token => ConvertAsync(cmd, token), ct);
+
+    private async Task<InvoiceDto> ConvertAsync(ConvertOrderToInvoice cmd, CancellationToken ct)
     {
         var order = await orders.Tracked(new Specification<SalesOrder>(x => x.Id == cmd.Id))
             .Include(x => x.Lines)
@@ -305,26 +319,65 @@ internal sealed class OrderHandlers(
             return await sender.Send(new GetInvoice(order.InvoicedInvoiceId.Value), ct);
         }
 
+        SalesTransitions.Order.Ensure(order.Status, SalesOrderStatus.Invoiced, isSystem: true);
+
         if (!order.CustomerPartyId.HasValue)
         {
             throw new ConflictException("Sales order must have an assigned Customer Party to generate an accounting invoice.");
         }
 
-        var invoiceLines = order.Lines.Select(l => new InvoiceLineInput(
-            Description: $"{order.Number}: {l.Description}",
-            Quantity: l.Quantity,
-            Price: Math.Round(l.UnitPrice * (1m - (l.DiscountPercent / 100m)), 4),
-            ItemId: l.ItemId
-        )).ToList();
+        var entity = await guard.RequireAsync(order.LegalEntityId, ct);
+        if (!string.Equals(order.Currency, entity.BaseCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ConflictException("Foreign-currency sales orders cannot be invoiced yet.");
+        }
+
+        var activeTaxCodes = await taxCodes.Query(new Specification<TaxCode>(t =>
+            t.IsActive && (t.LegalEntityId == order.LegalEntityId || t.LegalEntityId == null)))
+            .ToListAsync(ct);
+
+        var invoiceLines = new List<InvoiceLineInput>();
+        foreach (var l in order.Lines)
+        {
+            Guid? taxCodeId = null;
+            if (l.TaxRate > 0)
+            {
+                var matchedCode = activeTaxCodes.FirstOrDefault(t => t.LegalEntityId == order.LegalEntityId && t.Rate == l.TaxRate)
+                    ?? activeTaxCodes.FirstOrDefault(t => t.LegalEntityId == null && t.Rate == l.TaxRate);
+
+                if (matchedCode is null)
+                {
+                    throw new ConflictException($"No active tax code found for line '{l.Description}' with rate {l.TaxRate}%.");
+                }
+                taxCodeId = matchedCode.Id;
+            }
+
+            invoiceLines.Add(new InvoiceLineInput(
+                Description: $"{order.Number}: {l.Description}",
+                Quantity: l.Quantity,
+                Price: Math.Round(l.UnitPrice * (1m - (l.DiscountPercent / 100m)), 4),
+                TaxCodeId: taxCodeId,
+                ItemId: l.ItemId
+            ));
+        }
 
         var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
             LegalEntityId: order.LegalEntityId,
             PartyId: order.CustomerPartyId.Value,
             InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow),
-            DueDate: order.ExpectedDeliveryDate,
+            DueDate: null,
             Lines: invoiceLines,
-            Notes: $"Generated from Sales Order {order.Number}"
+            Notes: $"Generated from Sales Order {order.Number}",
+            SourceType: "salesorder",
+            SourceId: order.Id
         )), ct);
+
+        var maxAllowedDiff = 0.01m * Math.Max(1, order.Lines.Count);
+        if (Math.Abs(invoice.Total - order.TotalAmount) > maxAllowedDiff)
+        {
+            await sender.Send(new DeleteInvoice(invoice.Id), ct);
+            throw new ConflictException($"Invoice total {invoice.Total} does not match sales order total {order.TotalAmount}.");
+        }
 
         foreach (var l in order.Lines)
         {

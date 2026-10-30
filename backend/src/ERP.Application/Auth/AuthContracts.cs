@@ -58,4 +58,6 @@ public interface IAuthService
     Task ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken ct);
     Task<IReadOnlyList<WorkspaceOption>> WorkspacesForAsync(Guid userId, CancellationToken ct);
     Task<AccessGrant> ResolveAccessAsync(Guid userId, Guid orgId, CancellationToken ct);
+    /// <summary>Ends the user's sessions at once: refresh tokens are revoked and access tokens issued before now are rejected. With an org id only that workspace is affected; without one, all of them.</summary>
+    Task RevokeSessionsAsync(Guid userId, Guid? orgId, string reason, CancellationToken ct);
 }

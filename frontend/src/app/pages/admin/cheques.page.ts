@@ -24,6 +24,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { RecordHistoryComponent } from '../../shared/record-history.component';
 import { StatCardComponent } from '../../shared/stat-card.component';
@@ -67,7 +68,7 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
             <span class="name-cell">{{ row.partyName }}</span>
           }
           @case ('amount') {
-            <b>AED {{ row.amount | number: '1.2-2' }}</b>
+            <b>{{ currency() }} {{ row.amount | number: '1.2-2' }}</b>
           }
           @case ('status') {
             <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
@@ -144,12 +145,14 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
         @if (action() === 'deposit') {
           <nz-select [(ngModel)]="actionBank" style="width:100%" nzPlaceHolder="Deposit to bank account" data-testid="act-bank">@for (a of banks(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
         }
-        @if (action() === 'bounce') { <input nz-input [(ngModel)]="actionReason" placeholder="Reason given by the bank" data-testid="act-reason" /> }
-        @if (action() === 'followup') { <textarea nz-input rows="3" maxlength="500" [(ngModel)]="actionReason" placeholder="What was agreed with the customer?" data-testid="act-note"></textarea> }
+        @if (action() === 'bounce') { <input aria-label="Reason given by the bank" nz-input [(ngModel)]="actionReason" placeholder="Reason given by the bank" data-testid="act-reason" /> }
+        @if (action() === 'followup') { <textarea aria-label="What was agreed with the customer?" nz-input rows="3" maxlength="500" [(ngModel)]="actionReason" placeholder="What was agreed with the customer?" data-testid="act-note"></textarea> }
       </ng-container>
     </nz-modal>`,
 })
 export class ChequesPage {
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
   private readonly api = inject(ChequesApi);
   private readonly invoices = inject(InvoicesApi);
   private readonly parties = inject(PartiesApi);

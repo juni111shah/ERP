@@ -28,6 +28,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { StatCardComponent } from '../../shared/stat-card.component';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
@@ -87,11 +88,11 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
             }
           }
           @case ('total') {
-            <b>AED {{ row.total | number: '1.2-2' }}</b>
+            <b>{{ currency() }} {{ row.total | number: '1.2-2' }}</b>
           }
           @case ('outstanding') {
             <span [class.unallocated-badge]="row.outstanding > 0">
-              AED {{ row.outstanding | number: '1.2-2' }}
+              {{ currency() }} {{ row.outstanding | number: '1.2-2' }}
             </span>
           }
           @case ('status') {
@@ -119,12 +120,12 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
           <div formArrayName="lines">
             @for (l of lines.controls; track $index) {
               <div class="line" [formGroupName]="$index">
-                <input nz-input formControlName="description" placeholder="Description" [attr.data-testid]="'bill-desc-' + $index" />
+                <input aria-label="Description" nz-input formControlName="description" placeholder="Description" [attr.data-testid]="'bill-desc-' + $index" />
                 <nz-select formControlName="accountId" nzShowSearch nzPlaceHolder="Expense account" [attr.data-testid]="'bill-account-' + $index">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
                 <nz-input-number formControlName="quantity" [nzMin]="0.0001" [nzPrecision]="2"></nz-input-number>
                 <nz-input-number formControlName="price" [nzMin]="0" [nzPrecision]="2" [attr.data-testid]="'bill-price-' + $index"></nz-input-number>
                 <nz-select formControlName="taxCodeId" nzAllowClear nzPlaceHolder="No tax">@for (t of taxes(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.code + ' ' + t.rate + '%'"></nz-option> }</nz-select>
-                @if (editable()) { <button nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
+                @if (editable()) { <button aria-label="Remove line" nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
               </div>
             }
           </div>
@@ -136,7 +137,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (bill()?.id) { <button nz-button (click)="openDetails(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
-      @if (bill()?.status === 'issued' && bill()!.paid === 0) { <button *erpHasPermission="'finance.bills.void'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="bill-void">Void</button> }
+      @if (bill()?.status === 'issued' && bill()!.paid === 0) { <button *erpHasPermission="'finance.bills.void'" nz-button nzDanger (click)="voidDocument()" style="margin-inline-start:8px" data-testid="bill-void">Void</button> }
       @if (editable()) {
         @if (bill()?.id) { <button *erpHasPermission="'finance.bills.write'" nz-button nzDanger (click)="remove()" style="margin-inline-start:8px" data-testid="bill-delete">Delete</button> }
         <button *erpHasPermission="'finance.bills.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="bill-save">Save draft</button>
@@ -145,6 +146,8 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
     </ng-template>`,
 })
 export class BillsPage {
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(BillsApi);
@@ -318,7 +321,7 @@ export class BillsPage {
     });
   }
 
-  void(): void {
+  voidDocument(): void {
     const b = this.bill();
     if (!b) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.

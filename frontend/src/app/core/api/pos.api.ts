@@ -58,6 +58,7 @@ export interface PosSessionSummaryDto {
   closedAt?: string | null;
   openingCash: number;
   totalSales: number;
+  totalReturns: number;
   expectedCash: number;
   actualCash: number;
   cashDifference: number;
@@ -67,7 +68,6 @@ export interface PosSessionSummaryDto {
 }
 
 export interface PosSessionDto extends PosSessionSummaryDto {
-  totalReturns: number;
   totalPayIn: number;
   totalPayOut: number;
   customFields?: string | null;
@@ -78,15 +78,12 @@ export interface OpenSessionCommand {
   legalEntityId: string;
   registerId: string;
   openingCash: number;
-  cashierUserId: string;
-  cashierName: string;
   notes?: string | null;
 }
 
 export interface CloseSessionCommand {
   sessionId?: string;
   actualCash: number;
-  closedByUserId: string;
   notes?: string | null;
 }
 
@@ -95,17 +92,16 @@ export interface RecordDrawerTransactionCommand {
   type: CashMovementType;
   amount: number;
   reason: string;
-  performedByUserId: string;
 }
 
 export interface PosOrderLineInput {
   itemId?: string | null;
-  itemCode: string;
-  description: string;
+  itemCode?: string | null;
+  description?: string | null;
   quantity: number;
-  unitPrice: number;
-  discountPercent: number;
-  taxRate: number;
+  unitPrice?: number | null;
+  discountPercent?: number;
+  taxRate?: number | null;
 }
 
 export interface PosPaymentInput {
@@ -122,8 +118,8 @@ export interface CreatePosOrderCommand {
   sessionId: string;
   customerPartyId?: string | null;
   customerName?: string | null;
-  cashierUserId: string;
-  cashierName: string;
+  cashierUserId?: string | null;
+  cashierName?: string | null;
   lines: PosOrderLineInput[];
   payments: PosPaymentInput[];
   notes?: string | null;

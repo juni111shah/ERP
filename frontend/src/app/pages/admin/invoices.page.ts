@@ -90,11 +90,11 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
           <div formArrayName="lines">
             @for (l of lines.controls; track $index) {
               <div class="line" [formGroupName]="$index">
-                <input nz-input formControlName="description" placeholder="Description" [attr.data-testid]="'inv-desc-' + $index" />
+                <input aria-label="Description" nz-input formControlName="description" placeholder="Description" [attr.data-testid]="'inv-desc-' + $index" />
                 <nz-input-number formControlName="quantity" [nzMin]="0.0001" [nzPrecision]="2" [attr.data-testid]="'inv-qty-' + $index"></nz-input-number>
                 <nz-input-number formControlName="price" [nzMin]="0" [nzPrecision]="2" [attr.data-testid]="'inv-price-' + $index"></nz-input-number>
                 <nz-select formControlName="taxCodeId" nzAllowClear nzPlaceHolder="No tax">@for (t of taxes(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.code + ' ' + t.rate + '%'"></nz-option> }</nz-select>
-                @if (editable()) { <button nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
+                @if (editable()) { <button aria-label="Remove line" nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
               </div>
             }
           </div>
@@ -109,7 +109,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (invoice(); as inv) {
         @if (inv.id) { <button nz-button (click)="openDetails(inv.id)" style="margin-inline-start:8px" data-testid="inv-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printInvoice(inv.id)" style="margin-inline-start:8px" data-testid="inv-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
-        @if (inv.status === 'issued' && inv.paid === 0) { <button *erpHasPermission="'finance.invoices.void'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="inv-void">Void</button> }
+        @if (inv.status === 'issued' && inv.paid === 0) { <button *erpHasPermission="'finance.invoices.void'" nz-button nzDanger (click)="voidDocument()" style="margin-inline-start:8px" data-testid="inv-void">Void</button> }
         @if (inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid')) { <button *erpHasPermission="'finance.invoices.credit'" nz-button (click)="applyOpen.set(true)" style="margin-inline-start:8px" data-testid="inv-apply">Apply to invoice</button> }
       }
       @if (editable()) {
@@ -382,7 +382,7 @@ export class InvoicesPage {
     });
   }
 
-  void(): void {
+  voidDocument(): void {
     const inv = this.invoice();
     if (!inv) return;
     void askReason(this.modal, 'Void this invoice?', 'Void Invoice', 'This reverses its journal and cannot be undone. The invoice will be marked as voided.').then((reason) => {

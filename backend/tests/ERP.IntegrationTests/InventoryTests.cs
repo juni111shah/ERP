@@ -96,4 +96,57 @@ public class InventoryTests(ApiFactory f) : IClassFixture<ApiFactory>
         var (owner, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re"); // inventory is not enabled there
         Assert.NotEqual(HttpStatusCode.OK, (await owner.GetAsync($"{Inv}/stock")).StatusCode);
     }
+
+    [Fact]
+    public async Task A_backdated_stock_out_cannot_use_stock_that_later_movements_already_consumed()
+    {
+        var x = await SetupAsync();
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 10, unitCost = 10m, date = "2026-01-01", offsetAccountId = x.Offset }), HttpStatusCode.Created);
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/issue", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 10, date = "2026-01-05" }), HttpStatusCode.Created);
+        var before = await BalanceAsync(x, "1300");
+
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.PostAsJsonAsync($"{Inv}/stock/issue", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 5, date = "2026-01-02" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.PostAsJsonAsync($"{Inv}/stock/adjust", new { warehouseId = x.Wh1, itemId = x.Item, quantityDelta = -5, date = "2026-01-02" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.PostAsJsonAsync($"{Inv}/stock/transfer", new { fromWarehouseId = x.Wh1, toWarehouseId = x.Wh2, itemId = x.Item, quantity = 5, date = "2026-01-02" })).StatusCode);
+        Assert.Equal(before, await BalanceAsync(x, "1300")); // nothing was posted
+
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 10, unitCost = 10m, date = "2026-01-03", offsetAccountId = x.Offset }), HttpStatusCode.Created);
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/issue", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 5, date = "2026-01-04" }), HttpStatusCode.Created); // still within stock on every later date
+    }
+
+    [Fact]
+    public async Task Stock_commands_reject_missing_dates_empty_ids_and_extra_decimals()
+    {
+        var x = await SetupAsync();
+        async Task<HttpStatusCode> Post(string path, object body) => (await x.C.PostAsJsonAsync($"{Inv}/stock/{path}", body)).StatusCode;
+
+        // omitted date deserialises to 0001-01-01
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1, unitCost = 1m, offsetAccountId = x.Offset }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("issue", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1 }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("adjust", new { warehouseId = x.Wh1, itemId = x.Item, quantityDelta = 1 }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("transfer", new { fromWarehouseId = x.Wh1, toWarehouseId = x.Wh2, itemId = x.Item, quantity = 1 }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1.00001m, unitCost = 1m, date = "2026-05-01", offsetAccountId = x.Offset }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1, unitCost = 1.00001m, date = "2026-05-01", offsetAccountId = x.Offset }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("transfer", new { fromWarehouseId = Guid.Empty, toWarehouseId = x.Wh2, itemId = Guid.Empty, quantity = 1, date = "2026-05-01" }));
+
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1.5m, unitCost = 2.25m, date = "2026-05-01", offsetAccountId = x.Offset }), HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task A_warehouse_that_holds_stock_cannot_be_deactivated()
+    {
+        var x = await SetupAsync();
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 5, unitCost = 10m, date = "2026-05-01", offsetAccountId = x.Offset }), HttpStatusCode.Created);
+
+        async Task<bool> IsActive() => (bool)(await Ok(await x.C.GetAsync($"{Inv}/warehouses?pageSize=100"))).AsArray().Single(w => (string)w!["id"]! == x.Wh1)!["isActive"]!;
+        object Update(bool active) => new { name = "Renamed", address = (string?)null, isActive = active };
+        await Ok(await x.C.PutAsJsonAsync($"{Inv}/warehouses/{x.Wh1}", Update(true))); // renaming with stock is fine
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.PutAsJsonAsync($"{Inv}/warehouses/{x.Wh1}", Update(false))).StatusCode);
+        Assert.True(await IsActive());
+
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/transfer", new { fromWarehouseId = x.Wh1, toWarehouseId = x.Wh2, itemId = x.Item, quantity = 5, date = "2026-05-02" }), HttpStatusCode.Created);
+        Assert.False((bool)(await Ok(await x.C.PutAsJsonAsync($"{Inv}/warehouses/{x.Wh1}", Update(false))))["isActive"]!);
+        Assert.False(await IsActive());
+    }
 }

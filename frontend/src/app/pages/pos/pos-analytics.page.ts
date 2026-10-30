@@ -6,6 +6,7 @@ import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { PosKpiApi, PosKpiSummaryDto } from '../../core/api/pos.api';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { StatCardComponent } from '../../shared/stat-card.component';
 
 @Component({
@@ -81,7 +82,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
               </div>
               <div class="breakdown-item">
                 <span class="label">Average Transaction Value:</span>
-                <span class="val">AED {{ kpis()?.averageTicket ?? 0 | number:'1.2-2' }}</span>
+                <span class="val">{{ currency() }} {{ kpis()?.averageTicket ?? 0 | number:'1.2-2' }}</span>
               </div>
             </div>
 
@@ -244,6 +245,8 @@ import { StatCardComponent } from '../../shared/stat-card.component';
 })
 export class PosAnalyticsPage {
   private readonly kpiApi = inject(PosKpiApi);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
   readonly kpis = signal<PosKpiSummaryDto | null>(null);
   readonly loading = signal(false);
 

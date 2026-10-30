@@ -10,6 +10,7 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ProjectBillingApi, ProjectBillingSummaryDto } from '../../core/api/projects.api';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 
 import { StatCardComponent } from '../../shared/stat-card.component';
@@ -88,10 +89,10 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                 </td>
                 <td><span class="billing-type-badge">{{ formatBillingType(row.billingType) }}</span></td>
                 <td>{{ row.unbilledHours | number: '1.1-1' }}h</td>
-                <td>AED {{ row.unbilledHoursAmount | number: '1.2-2' }}</td>
+                <td>{{ currency() }} {{ row.unbilledHoursAmount | number: '1.2-2' }}</td>
                 <td>{{ row.achievedMilestonesCount }}</td>
-                <td>AED {{ row.achievedMilestonesAmount | number: '1.2-2' }}</td>
-                <td><b class="total-unbilled-val">AED {{ row.totalUnbilledAmount | number: '1.2-2' }}</b></td>
+                <td>{{ currency() }} {{ row.achievedMilestonesAmount | number: '1.2-2' }}</td>
+                <td><b class="total-unbilled-val">{{ currency() }} {{ row.totalUnbilledAmount | number: '1.2-2' }}</b></td>
                 <td>
                   <button *erpHasPermission="'projects.billing.manage'" nz-button nzType="primary" nzSize="small" [disabled]="row.totalUnbilledAmount <= 0" (click)="confirmBill(row)">
                     <span nz-icon nzType="dollar"></span> Bill Work
@@ -154,7 +155,9 @@ export class ProjectBillingPage implements OnInit {
   private readonly billingApi = inject(ProjectBillingApi);
   private readonly modal = inject(NzModalService);
   private readonly msg = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
+  readonly currency = this.currencyService.currency;
   readonly items = signal<ProjectBillingSummaryDto[]>([]);
   readonly loading = signal(false);
 
@@ -196,16 +199,16 @@ export class ProjectBillingPage implements OnInit {
   confirmBill(row: ProjectBillingSummaryDto): void {
     this.modal.confirm({
       nzTitle: `Bill Work for ${row.projectName}?`,
-      nzContent: `This will mark ${row.unbilledHours} hours (AED ${row.unbilledHoursAmount.toFixed(2)}) and ${row.achievedMilestonesCount} milestones (AED ${row.achievedMilestonesAmount.toFixed(2)}) as billed. Total: AED ${row.totalUnbilledAmount.toFixed(2)}.`,
+      nzContent: `This will mark ${row.unbilledHours} hours (${this.currency()} ${row.unbilledHoursAmount.toFixed(2)}) and ${row.achievedMilestonesCount} milestones (${this.currency()} ${row.achievedMilestonesAmount.toFixed(2)}) as billed. Total: ${this.currency()} ${row.totalUnbilledAmount.toFixed(2)}.`,
       nzOkText: 'Generate Billing',
       nzOkType: 'primary',
       nzOnOk: () => {
         this.billingApi.bill({ projectId: row.projectId }).subscribe({
           next: (res) => {
             if (res.invoiceNumber) {
-              this.msg.success(`Generated Invoice ${res.invoiceNumber} (AED ${res.totalAmountBilled.toFixed(2)}) for ${row.projectName}`);
+              this.msg.success(`Generated Invoice ${res.invoiceNumber} (${this.currency()} ${res.totalAmountBilled.toFixed(2)}) for ${row.projectName}`);
             } else {
-              this.msg.success(`Successfully billed AED ${res.totalAmountBilled.toFixed(2)} for ${row.projectName}`);
+              this.msg.success(`Successfully billed ${this.currency()} ${res.totalAmountBilled.toFixed(2)} for ${row.projectName}`);
             }
             this.loadOverview();
           },

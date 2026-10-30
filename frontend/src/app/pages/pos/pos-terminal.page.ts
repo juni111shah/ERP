@@ -2,6 +2,7 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
@@ -19,6 +20,7 @@ import { NzSpaceModule } from 'ng-zorro-antd/space';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ItemsApi, LegalEntitiesApi, TaxCodesApi } from '../../core/api/admin.api';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
 import {
@@ -34,6 +36,9 @@ import {
 } from '../../core/api/pos.api';
 
 interface CartItem extends PosOrderLineInput {
+  unitPrice: number;
+  taxRate: number;
+  discountPercent: number;
   lineTotal: number;
 }
 
@@ -41,7 +46,7 @@ interface CartItem extends PosOrderLineInput {
   selector: 'erp-pos-terminal',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [KeyboardClickDirective, 
     CommonModule,
     DecimalPipe,
     FormsModule,
@@ -113,7 +118,7 @@ interface CartItem extends PosOrderLineInput {
         <section class="catalog-section">
           <div class="catalog-search-bar">
             <nz-input-group [nzPrefix]="searchPrefix">
-              <input
+              <input aria-label="Scan barcode, SKU or search item title..."
                 nz-input
                 placeholder="Scan barcode, SKU or search item title..."
                 [ngModel]="searchQuery()"
@@ -125,7 +130,7 @@ interface CartItem extends PosOrderLineInput {
 
           <div class="catalog-grid">
             @for (item of filteredCatalog(); track item.id) {
-              <div class="item-tile" (click)="addToCart(item)">
+              <div erpKeyboardClick class="item-tile" (click)="addToCart(item)">
                 <div class="item-tile-code">{{ item.code }}</div>
                 <div class="item-tile-title">{{ item.name }}</div>
                 <div class="item-tile-price">{{ currency() }} {{ item.price | number:'1.2-2' }}</div>
@@ -152,7 +157,7 @@ interface CartItem extends PosOrderLineInput {
 
           <div class="customer-bar">
             <span nz-icon nzType="user" style="color: #64748b;"></span>
-            <input nz-input nzSize="small" placeholder="Walk-in Customer" [ngModel]="customerName()" (ngModelChange)="customerName.set($event)" />
+            <input aria-label="Walk-in Customer" nz-input nzSize="small" placeholder="Walk-in Customer" [ngModel]="customerName()" (ngModelChange)="customerName.set($event)" />
           </div>
 
           <!-- Cart Line Items -->
@@ -172,7 +177,7 @@ interface CartItem extends PosOrderLineInput {
 
                 <div class="line-total-col">
                   <strong>{{ currency() }} {{ line.lineTotal | number:'1.2-2' }}</strong>
-                  <span nz-icon nzType="delete" class="line-delete-btn" (click)="removeLine(i)"></span>
+                  <span erpKeyboardClick nz-icon nzType="delete" class="line-delete-btn" (click)="removeLine(i)"></span>
                 </div>
               </div>
             } @empty {
@@ -264,7 +269,7 @@ interface CartItem extends PosOrderLineInput {
             } @else {
               <div class="card-tender-section">
                 <label style="font-weight: 600; display: block; margin-bottom: 6px;">Card Transaction Authorization / Ref</label>
-                <input nz-input placeholder="e.g. AUTH-88492" [(ngModel)]="cardReference" />
+                <input aria-label="e.g. AUTH-88492" nz-input placeholder="e.g. AUTH-88492" [(ngModel)]="cardReference" />
                 <p style="margin-top: 6px; font-size: 12px; color: #64748b;">
                   Swipe / tap on payment terminal, then confirm receipt approval.
                 </p>
@@ -321,7 +326,7 @@ interface CartItem extends PosOrderLineInput {
             </div>
             <div>
               <label style="font-weight: 600;">Shift Opening Notes</label>
-              <input nz-input [(ngModel)]="shiftNotes" placeholder="Morning / afternoon shift notes..." />
+              <input aria-label="Morning / afternoon shift notes..." nz-input [(ngModel)]="shiftNotes" placeholder="Morning / afternoon shift notes..." />
             </div>
           </div>
         </ng-container>
@@ -354,7 +359,7 @@ interface CartItem extends PosOrderLineInput {
               </div>
               <div>
                 <label style="font-weight: 600;">Closing Notes</label>
-                <input nz-input [(ngModel)]="closeNotes" placeholder="Shift handover / cash drop comments..." />
+                <input aria-label="Shift handover / cash drop comments..." nz-input [(ngModel)]="closeNotes" placeholder="Shift handover / cash drop comments..." />
               </div>
             </div>
           }
@@ -533,13 +538,14 @@ export class PosTerminalPage {
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly taxCodesApi = inject(TaxCodesApi);
   private readonly sessionStore = inject(SessionStore);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
 
   readonly registers = signal<PosRegisterDto[]>([]);
   readonly selectedRegisterId = signal<string>('');
   readonly activeSession = signal<PosSessionDto | null>(null);
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
-  readonly defaultTaxRate = signal<number>(5);
+  readonly currency = this.currencyService.currency;
+  readonly defaultTaxRate = signal<number>(0);
 
   readonly catalog = signal<{ id: string; code: string; name: string; price: number; barcode?: string }[]>([
     { id: '1', code: 'BEV-01', name: 'Espresso Roast Coffee', price: 18.00 },
@@ -770,16 +776,10 @@ export class PosTerminalPage {
       registerId: session.registerId,
       sessionId: session.id,
       customerName: this.customerName(),
-      cashierUserId: session.openedByUserId,
-      cashierName: session.cashierName,
       lines: this.cart().map((l) => ({
         itemId: l.itemId,
-        itemCode: l.itemCode,
-        description: l.description,
         quantity: l.quantity,
-        unitPrice: l.unitPrice,
         discountPercent: l.discountPercent,
-        taxRate: l.taxRate,
       })),
       payments: [
         {
@@ -820,13 +820,15 @@ export class PosTerminalPage {
     if (!reg) return;
 
     const user = this.sessionStore.me()?.user;
+    if (!user?.id) {
+      this.message.error('User authentication is missing.');
+      return;
+    }
     this.sessionsApi
       .openSession({
         legalEntityId: reg.legalEntityId,
         registerId: reg.id,
         openingCash: this.openFloatCash,
-        cashierUserId: user?.id || '00000000-0000-0000-0000-000000000001',
-        cashierName: user?.fullName || user?.email || 'POS Cashier',
         notes: this.shiftNotes,
       })
       .subscribe({
@@ -852,10 +854,13 @@ export class PosTerminalPage {
     if (!s) return;
 
     const user = this.sessionStore.me()?.user;
+    if (!user?.id) {
+      this.message.error('User authentication is missing.');
+      return;
+    }
     this.sessionsApi
       .closeSession(s.id, {
         actualCash: this.actualCloseCash,
-        closedByUserId: user?.id || '00000000-0000-0000-0000-000000000001',
         notes: this.closeNotes,
       })
       .subscribe({

@@ -1,6 +1,7 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Finance;
+using ERP.Domain.Catalog;
 using ERP.Modules.Manufacturing.Domain;
 using FluentValidation;
 using MediatR;
@@ -125,19 +126,28 @@ public class WorkOrderHandlers :
     private readonly INumberingService _numbering;
     private readonly IStockPostingService _stockPosting;
     private readonly IPostingService _posting;
+    private readonly IReadRepository<Item> _items;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly ERP.Application.Organizations.ILegalEntityGuard _guard;
 
     public WorkOrderHandlers(
         IRepository<WorkOrder> orders,
         IRepository<BillOfMaterials> boms,
         INumberingService numbering,
         IStockPostingService stockPosting,
-        IPostingService posting)
+        IPostingService posting,
+        IReadRepository<Item> items,
+        IUnitOfWork unitOfWork,
+        ERP.Application.Organizations.ILegalEntityGuard guard)
     {
+        _guard = guard;
         _orders = orders;
         _boms = boms;
         _numbering = numbering;
         _stockPosting = stockPosting;
         _posting = posting;
+        _items = items;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<WorkOrderDto> Handle(CreateWorkOrderCommand request, CancellationToken cancellationToken)
@@ -146,6 +156,12 @@ public class WorkOrderHandlers :
             .Include(b => b.Components)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"BOM {request.BomId} not found.");
+
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
+        if (bom.LegalEntityId != request.LegalEntityId) throw new FieldValidationException("bomId", "This BOM belongs to another legal entity.");
+        if (!bom.IsActive) throw new ConflictException($"BOM {bom.Code} is inactive.");
+        if (!await _stockPosting.IsWarehouseUsableAsync(request.WarehouseId, request.LegalEntityId, cancellationToken))
+            throw new FieldValidationException("warehouseId", "Choose an active warehouse of this legal entity.");
 
         var number = await _numbering.NextAsync("WorkOrder", request.LegalEntityId, request.StartDate, cancellationToken);
 
@@ -170,7 +186,7 @@ public class WorkOrderHandlers :
             WarehouseId = request.WarehouseId,
             StartDate = request.StartDate,
             DueDate = request.DueDate,
-            Status = WorkOrderStatus.Draft,
+            Status = WorkOrderStatus.Planned,
             EstimatedTotalCost = estimatedCost,
             ActualTotalCost = 0,
             Notes = request.Notes?.Trim(),
@@ -203,15 +219,12 @@ public class WorkOrderHandlers :
 
     public async Task<WorkOrderDto> Handle(ReleaseWorkOrderCommand request, CancellationToken cancellationToken)
     {
-        var wo = await _orders.Query(new Specification<WorkOrder>(w => w.Id == request.Id))
+        var wo = await _orders.Tracked(new Specification<WorkOrder>(w => w.Id == request.Id))
             .Include(w => w.Operations)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Work Order {request.Id} not found.");
 
-        if (wo.Status == WorkOrderStatus.Completed)
-            throw new ConflictException("Cannot release an already completed Work Order.");
-        if (wo.Status == WorkOrderStatus.Cancelled)
-            throw new ConflictException("Cannot release a cancelled Work Order.");
+        ManufacturingTransitions.WorkOrder.Ensure(wo.Status, WorkOrderStatus.InProgress, isSystem: false);
 
         wo.Status = WorkOrderStatus.InProgress;
         await _orders.SaveChangesAsync(cancellationToken);
@@ -220,64 +233,51 @@ public class WorkOrderHandlers :
 
     public async Task<WorkOrderDto> Handle(CompleteWorkOrderCommand request, CancellationToken cancellationToken)
     {
-        var wo = await _orders.Query(new Specification<WorkOrder>(w => w.Id == request.Id))
+        var wo = await _orders.Tracked(new Specification<WorkOrder>(w => w.Id == request.Id))
             .Include(w => w.Operations)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Work Order {request.Id} not found.");
 
-        if (wo.Status == WorkOrderStatus.Completed)
-            throw new ConflictException("Work Order is already completed.");
-        if (wo.Status == WorkOrderStatus.Cancelled)
-            throw new ConflictException("Cannot complete a cancelled Work Order.");
-        if (wo.Status != WorkOrderStatus.InProgress)
-            throw new ConflictException($"Work Order must be in progress before completing (currently {wo.Status}).");
+        ManufacturingTransitions.WorkOrder.Ensure(wo.Status, WorkOrderStatus.Completed, isSystem: false);
 
-        var actualCost = request.ActualTotalCost > 0 ? request.ActualTotalCost : wo.EstimatedTotalCost;
+        var bom = await _boms.Query(new Specification<BillOfMaterials>(b => b.Id == wo.BomId))
+            .Include(b => b.Components)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException($"BOM {wo.BomId} not found.");
 
-        wo.Status = WorkOrderStatus.Completed;
-        wo.CompletedQuantity = request.CompletedQuantity;
-        wo.ScrappedQuantity = request.ScrappedQuantity;
-        wo.ActualTotalCost = actualCost;
-        wo.CompletionDate = DateOnly.FromDateTime(DateTime.UtcNow);
-        if (!string.IsNullOrWhiteSpace(request.Notes))
+        // Reject completion if a BOM component item is missing or not a Product
+        var componentIds = bom.Components.Select(c => c.ComponentItemId).Distinct().ToList();
+        var componentTypes = await _items.Query(new Specification<Item>(i => componentIds.Contains(i.Id))).ToDictionaryAsync(i => i.Id, i => i.Type, cancellationToken); // one query for all components
+        foreach (var c in bom.Components)
         {
-            wo.Notes = (wo.Notes + " | Completed: " + request.Notes).Trim();
+            if (!componentTypes.TryGetValue(c.ComponentItemId, out var componentType) || componentType != ItemType.Product)
+                throw new ConflictException($"Component item '{c.ComponentItemCode}' was not found or is not a Product.");
         }
 
-        foreach (var op in wo.Operations)
+        return await _unitOfWork.InTransactionAsync(async token =>
         {
-            op.Status = OperationStatus.Completed;
-        }
-
-        await _orders.SaveChangesAsync(cancellationToken);
-
-        if (wo.CompletedQuantity > 0 && wo.ProducedItemId != Guid.Empty)
-        {
-            Guid? wipAccountId = null;
-            try { wipAccountId = await _posting.AccountForRoleAsync("wip", cancellationToken); }
-            catch
+            var completionDate = wo.CompletionDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            wo.CompletionDate = completionDate;
+            wo.Status = WorkOrderStatus.Completed;
+            wo.CompletedQuantity = request.CompletedQuantity;
+            wo.ScrappedQuantity = request.ScrappedQuantity;
+            if (!string.IsNullOrWhiteSpace(request.Notes))
             {
-                try { wipAccountId = await _posting.AccountForRoleAsync("inventory.clearing", cancellationToken); }
-                catch { wipAccountId = await _posting.AccountForRoleAsync("inventory", cancellationToken); }
+                wo.Notes = (wo.Notes + " | Completed: " + request.Notes).Trim();
             }
 
-            var unitCost = wo.CompletedQuantity > 0 ? Math.Round(actualCost / wo.CompletedQuantity, 4) : 0m;
-            await _stockPosting.ReceiveStockAsync(new StockReceiveRequest(
-                wo.LegalEntityId,
-                wo.ProducedItemId,
-                wo.CompletedQuantity,
-                unitCost,
-                wo.CompletionDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                wo.WorkOrderNumber,
-                $"Produced via WO {wo.WorkOrderNumber} ({wo.ProducedItemCode})",
-                wo.WarehouseId != Guid.Empty ? wo.WarehouseId : null,
-                OffsetAccountId: wipAccountId), cancellationToken);
+            foreach (var op in wo.Operations)
+            {
+                op.Status = OperationStatus.Completed;
+            }
 
-            var bom = await _boms.Query(new Specification<BillOfMaterials>(b => b.Id == wo.BomId))
-                .Include(b => b.Components)
-                .FirstOrDefaultAsync(cancellationToken);
+            // Compute conversion cost from operations on the work order or BOM unit costs
+            var opCost = wo.Operations.Sum(o => (o.ActualHours > 0 ? o.ActualHours : o.PlannedHours) * o.HourlyRate);
+            var bomConversionPerUnit = bom.LaborCostPerUnit + bom.OverheadCostPerUnit;
+            var conversionCost = opCost > 0 ? opCost : Math.Round(bomConversionPerUnit * wo.CompletedQuantity, 2);
 
-            if (bom != null && bom.Components.Count > 0)
+            decimal totalMaterialCost = 0m;
+            if (wo.CompletedQuantity > 0 && bom.Components.Count > 0)
             {
                 var factor = wo.CompletedQuantity / (bom.OutputQuantity > 0 ? bom.OutputQuantity : 1);
                 foreach (var c in bom.Components)
@@ -285,26 +285,91 @@ public class WorkOrderHandlers :
                     if (c.ComponentItemId != Guid.Empty && c.QuantityRequired > 0)
                     {
                         var reqQty = Math.Round(c.QuantityRequired * factor, 4);
+                        var avgCost = await _stockPosting.GetAverageCostAsync(c.ComponentItemId, wo.WarehouseId, token);
+                        var unitCost = avgCost > 0 ? avgCost : c.UnitCost;
+                        totalMaterialCost += Math.Round(reqQty * unitCost, 2);
+
                         await _stockPosting.IssueStockAsync(new StockIssueRequest(
                             wo.LegalEntityId,
                             c.ComponentItemId,
                             reqQty,
-                            wo.CompletionDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                            completionDate,
                             wo.WorkOrderNumber,
                             $"Consumed for WO {wo.WorkOrderNumber} ({c.ComponentItemCode})",
                             wo.WarehouseId != Guid.Empty ? wo.WarehouseId : null,
-                            ExpenseAccountId: wipAccountId), cancellationToken);
+                            SkipJournal: true), token);
                     }
                 }
             }
-        }
 
-        return Map(wo);
+            var actualTotalCost = totalMaterialCost + conversionCost;
+            wo.ActualTotalCost = actualTotalCost;
+
+            if (wo.CompletedQuantity > 0 && wo.ProducedItemId != Guid.Empty)
+            {
+                var finishedUnitCost = wo.CompletedQuantity > 0 ? Math.Round(actualTotalCost / wo.CompletedQuantity, 4) : 0m;
+                await _stockPosting.ReceiveStockAsync(new StockReceiveRequest(
+                    wo.LegalEntityId,
+                    wo.ProducedItemId,
+                    wo.CompletedQuantity,
+                    finishedUnitCost,
+                    completionDate,
+                    wo.WorkOrderNumber,
+                    $"Produced via WO {wo.WorkOrderNumber} ({wo.ProducedItemCode})",
+                    wo.WarehouseId != Guid.Empty ? wo.WarehouseId : null,
+                    SkipJournal: true), token);
+            }
+
+            // Post one balanced journal group:
+            // Dr Finished-goods inventory, Cr Raw-material inventory (components) and Cr WIP/absorption for conversion cost.
+            if (actualTotalCost > 0)
+            {
+                var invAccountId = await _posting.AccountForRoleAsync("inventory", token);
+                Guid wipAccountId;
+                try { wipAccountId = await _posting.AccountForRoleAsync(SystemRoles.Wip, token); }
+                catch
+                {
+                    try { wipAccountId = await _posting.AccountForRoleAsync(SystemRoles.InventoryClearing, token); }
+                    catch { wipAccountId = await _posting.AccountForRoleAsync("inventory", token); }
+                }
+
+                var lines = new List<PostingLine>
+                {
+                    new(invAccountId, actualTotalCost, 0, $"Finished goods produced - WO {wo.WorkOrderNumber}")
+                };
+
+                if (totalMaterialCost > 0)
+                {
+                    lines.Add(new(invAccountId, 0, totalMaterialCost, $"Raw materials consumed - WO {wo.WorkOrderNumber}"));
+                }
+
+                if (conversionCost > 0)
+                {
+                    lines.Add(new(wipAccountId, 0, conversionCost, $"Conversion cost absorption - WO {wo.WorkOrderNumber}"));
+                }
+
+                await _posting.PostAsync(new PostingRequest(
+                    wo.LegalEntityId,
+                    completionDate,
+                    "manufacturing",
+                    wo.Id,
+                    $"Production completion WO {wo.WorkOrderNumber}",
+                    wo.WorkOrderNumber,
+                    lines), token);
+            }
+
+            await _orders.SaveChangesAsync(token);
+            return Map(wo);
+        }, cancellationToken);
     }
 
     public async Task<Unit> Handle(CancelWorkOrderCommand request, CancellationToken cancellationToken)
     {
         var wo = await _orders.GetForUpdateAsync(request.Id, cancellationToken);
+        ManufacturingTransitions.WorkOrder.Ensure(wo.Status, WorkOrderStatus.Cancelled, isSystem: false);
+        if (wo.CompletedQuantity > 0)
+            throw new ConflictException("Cannot cancel a Work Order with completed quantity.");
+
         wo.Status = WorkOrderStatus.Cancelled;
         if (!string.IsNullOrWhiteSpace(request.Reason))
         {

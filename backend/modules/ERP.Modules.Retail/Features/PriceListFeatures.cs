@@ -120,10 +120,18 @@ public class PriceListHandlers :
 
     public async Task<RetailPriceListDto> Handle(CreatePriceListCommand request, CancellationToken cancellationToken)
     {
+        var code = request.Code.Trim();
+        var exists = await _priceLists.Query(new Specification<RetailPriceList>(x => x.Code == code))
+            .AnyAsync(cancellationToken);
+        if (exists)
+        {
+            throw new ConflictException($"Price list code '{code}' already exists.");
+        }
+
         var priceList = new RetailPriceList
         {
             LegalEntityId = request.LegalEntityId,
-            Code = request.Code.Trim(),
+            Code = code,
             Name = request.Name.Trim(),
             Type = request.Type,
             Currency = request.Currency.Trim().ToUpperInvariant(),
@@ -154,7 +162,7 @@ public class PriceListHandlers :
         var priceList = await _priceLists.Tracked(new Specification<RetailPriceList>(x => x.Id == request.Id))
             .Include(x => x.Items)
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new KeyNotFoundException($"PriceList {request.Id} not found");
+            ?? throw new NotFoundException($"PriceList {request.Id} not found");
 
         priceList.Name = request.Name.Trim();
         priceList.Type = request.Type;
@@ -198,7 +206,7 @@ public class PriceListHandlers :
         var priceList = await _priceLists.Query(new Specification<RetailPriceList>(x => x.Id == request.Id))
             .Include(x => x.Items)
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new KeyNotFoundException($"PriceList {request.Id} not found");
+            ?? throw new NotFoundException($"PriceList {request.Id} not found");
 
         return Map(priceList);
     }

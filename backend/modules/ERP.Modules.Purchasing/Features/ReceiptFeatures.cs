@@ -98,7 +98,9 @@ internal sealed class ReceiptHandlers(
     ILegalEntityGuard guard,
     INumberingService numbers,
     ICustomFieldService fields,
-    IStockPostingService stockPosting) :
+    IStockPostingService stockPosting,
+    ISettingsService settings,
+    IUnitOfWork unitOfWork) :
     IRequestHandler<GetGoodsReceipt, GoodsReceiptDto>,
     IRequestHandler<CreateGoodsReceipt, GoodsReceiptDto>,
     IRequestHandler<DeleteGoodsReceipt, Unit>
@@ -119,109 +121,155 @@ internal sealed class ReceiptHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Purchase order '{i.PurchaseOrderId}' not found.");
 
-        var grn = new GoodsReceipt
+        if (order.Status == PurchaseOrderStatus.Billed || order.InvoicedBillId.HasValue)
         {
-            LegalEntityId = entity.Id,
-            PurchaseOrderId = order.Id,
-            PurchaseOrderNumber = order.Number,
-            VendorName = order.VendorName,
-            ReceivedBy = i.ReceivedBy.Trim(),
-            ReceiptDate = i.ReceiptDate,
-            DeliveryNoteNumber = i.DeliveryNoteNumber?.Trim(),
-            Notes = i.Notes,
-        };
+            throw new ConflictException("Cannot create a goods receipt for an already billed purchase order.");
+        }
 
-        grn.Number = string.IsNullOrWhiteSpace(i.Number)
-            ? await numbers.NextAsync(Docs.GoodsReceipt, entity.Id, i.ReceiptDate, ct)
-            : i.Number.Trim();
+        decimal tolerancePct = 0m;
+        try
+        {
+            var raw = await settings.GetRawAsync("purchasing.receiptTolerancePercent", ct: ct);
+            if (!string.IsNullOrWhiteSpace(raw) && decimal.TryParse(raw.Trim('"'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+                tolerancePct = Math.Max(0m, parsed);
+        }
+        catch { tolerancePct = 0m; }
 
         foreach (var l in i.Lines)
         {
-            grn.Lines.Add(new GoodsReceiptLine
-            {
-                PurchaseOrderLineId = l.PurchaseOrderLineId,
-                ItemId = l.ItemId,
-                ItemCode = l.ItemCode.Trim(),
-                Description = l.Description.Trim(),
-                QuantityReceived = l.QuantityReceived,
-                UnitOfMeasure = string.IsNullOrWhiteSpace(l.UnitOfMeasure) ? "EA" : l.UnitOfMeasure.Trim()
-            });
+            var poLine = order.Lines.FirstOrDefault(x => x.Id == l.PurchaseOrderLineId)
+                ?? throw new FieldValidationException("lines", $"Purchase order line '{l.PurchaseOrderLineId}' not found on order '{order.Number}'.");
 
-            var poLine = order.Lines.FirstOrDefault(x => x.Id == l.PurchaseOrderLineId);
-            if (poLine != null)
-            {
-                poLine.ReceivedQuantity += l.QuantityReceived;
-            }
+            if (l.QuantityReceived <= 0)
+                throw new FieldValidationException("lines", "Received quantity must be greater than zero.");
 
-            if (l.ItemId.HasValue && l.QuantityReceived > 0)
+            var remaining = poLine.Quantity - poLine.ReceivedQuantity;
+            var toleranceQty = poLine.Quantity * (tolerancePct / 100m);
+            var maxAllowed = remaining + toleranceQty;
+
+            if (l.QuantityReceived > maxAllowed)
             {
-                var unitCost = poLine?.UnitPrice ?? 0m;
-                await stockPosting.ReceiveStockAsync(new StockReceiveRequest(
-                    entity.Id,
-                    l.ItemId.Value,
-                    l.QuantityReceived,
-                    unitCost,
-                    i.ReceiptDate,
-                    grn.Number,
-                    $"GRN {grn.Number} (PO {order.Number})"), ct);
+                throw new FieldValidationException("lines",
+                    $"Received quantity {l.QuantityReceived} exceeds the maximum allowable quantity {maxAllowed:0.####} (ordered: {poLine.Quantity:0.####}, already received: {poLine.ReceivedQuantity:0.####}, tolerance: {tolerancePct}%).");
             }
         }
 
-        var allReceived = order.Lines.All(l => l.ReceivedQuantity >= l.Quantity);
-        var anyReceived = order.Lines.Any(l => l.ReceivedQuantity > 0);
-
-        if (allReceived && order.Status != PurchaseOrderStatus.Billed)
+        return await unitOfWork.InTransactionAsync(async token =>
         {
-            order.Status = PurchaseOrderStatus.Received;
-        }
-        else if (anyReceived && order.Status != PurchaseOrderStatus.Billed)
-        {
-            order.Status = PurchaseOrderStatus.PartiallyReceived;
-        }
+            var grn = new GoodsReceipt
+            {
+                LegalEntityId = entity.Id,
+                PurchaseOrderId = order.Id,
+                PurchaseOrderNumber = order.Number,
+                VendorName = order.VendorName,
+                ReceivedBy = i.ReceivedBy.Trim(),
+                ReceiptDate = i.ReceiptDate,
+                DeliveryNoteNumber = i.DeliveryNoteNumber?.Trim(),
+                Notes = i.Notes,
+            };
 
-        await fields.ApplyAsync(Docs.GoodsReceipt, grn, i.CustomFields, isCreate: true, ct);
+            grn.Number = string.IsNullOrWhiteSpace(i.Number)
+                ? await numbers.NextAsync(Docs.GoodsReceipt, entity.Id, i.ReceiptDate, token)
+                : i.Number.Trim();
 
-        receipts.Add(grn);
-        await receipts.SaveChangesAsync(ct);
-        await orders.SaveChangesAsync(ct);
+            foreach (var l in i.Lines)
+            {
+                grn.Lines.Add(new GoodsReceiptLine
+                {
+                    PurchaseOrderLineId = l.PurchaseOrderLineId,
+                    ItemId = l.ItemId,
+                    ItemCode = l.ItemCode.Trim(),
+                    Description = l.Description.Trim(),
+                    QuantityReceived = l.QuantityReceived,
+                    UnitOfMeasure = string.IsNullOrWhiteSpace(l.UnitOfMeasure) ? "EA" : l.UnitOfMeasure.Trim()
+                });
 
-        return await ToDtoAsync(grn, ct);
+                var poLine = order.Lines.FirstOrDefault(x => x.Id == l.PurchaseOrderLineId);
+                if (poLine != null)
+                {
+                    poLine.ReceivedQuantity += l.QuantityReceived;
+                }
+
+                if (l.ItemId.HasValue && l.QuantityReceived > 0)
+                {
+                    var unitCost = poLine != null ? Math.Round(poLine.UnitPrice * (1m - (poLine.DiscountPercent / 100m)), 4) : 0m;
+                    await stockPosting.ReceiveStockAsync(new StockReceiveRequest(
+                        entity.Id,
+                        l.ItemId.Value,
+                        l.QuantityReceived,
+                        unitCost,
+                        i.ReceiptDate,
+                        grn.Number,
+                        $"GRN {grn.Number} (PO {order.Number})"), token);
+                }
+            }
+
+            var allReceived = order.Lines.All(l => l.ReceivedQuantity >= l.Quantity);
+            var anyReceived = order.Lines.Any(l => l.ReceivedQuantity > 0);
+
+            if (allReceived && order.Status != PurchaseOrderStatus.Billed)
+            {
+                order.Status = PurchaseOrderStatus.Received;
+            }
+            else if (anyReceived && order.Status != PurchaseOrderStatus.Billed)
+            {
+                order.Status = PurchaseOrderStatus.PartiallyReceived;
+            }
+
+            await fields.ApplyAsync(Docs.GoodsReceipt, grn, i.CustomFields, isCreate: true, token);
+
+            receipts.Add(grn);
+            await receipts.SaveChangesAsync(token);
+            await orders.SaveChangesAsync(token);
+
+            return await ToDtoAsync(grn, token);
+        }, ct);
     }
 
     public async Task<Unit> Handle(DeleteGoodsReceipt cmd, CancellationToken ct)
     {
-        var grn = await receipts.Tracked(new Specification<GoodsReceipt>(x => x.Id == cmd.Id))
-            .Include(x => x.Lines)
-            .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Goods receipt '{cmd.Id}' not found.");
-
-        var order = await orders.Tracked(new Specification<PurchaseOrder>(x => x.Id == grn.PurchaseOrderId))
-            .Include(x => x.Lines)
-            .FirstOrDefaultAsync(ct);
-
-        if (order != null)
+        return await unitOfWork.InTransactionAsync(async token =>
         {
-            foreach (var l in grn.Lines)
-            {
-                var poLine = order.Lines.FirstOrDefault(x => x.Id == l.PurchaseOrderLineId);
-                if (poLine != null)
-                {
-                    poLine.ReceivedQuantity = Math.Max(0, poLine.ReceivedQuantity - l.QuantityReceived);
-                }
-            }
-            if (order.Lines.All(l => l.ReceivedQuantity == 0) && order.Status != PurchaseOrderStatus.Billed)
-            {
-                order.Status = PurchaseOrderStatus.Approved;
-            }
-            else if (order.Lines.Any(l => l.ReceivedQuantity > 0) && order.Status != PurchaseOrderStatus.Billed)
-            {
-                order.Status = PurchaseOrderStatus.PartiallyReceived;
-            }
-            await orders.SaveChangesAsync(ct);
-        }
+            var grn = await receipts.Tracked(new Specification<GoodsReceipt>(x => x.Id == cmd.Id))
+                .Include(x => x.Lines)
+                .FirstOrDefaultAsync(token) ?? throw new NotFoundException($"Goods receipt '{cmd.Id}' not found.");
 
-        receipts.Remove(grn);
-        await receipts.SaveChangesAsync(ct);
-        return Unit.Value;
+            var order = await orders.Tracked(new Specification<PurchaseOrder>(x => x.Id == grn.PurchaseOrderId))
+                .Include(x => x.Lines)
+                .FirstOrDefaultAsync(token);
+
+            if (order != null && (order.Status == PurchaseOrderStatus.Billed || order.InvoicedBillId.HasValue))
+            {
+                throw new ConflictException("Cannot delete a goods receipt for an already billed purchase order.");
+            }
+
+            if (order != null)
+            {
+                foreach (var l in grn.Lines)
+                {
+                    var poLine = order.Lines.FirstOrDefault(x => x.Id == l.PurchaseOrderLineId);
+                    if (poLine != null)
+                    {
+                        poLine.ReceivedQuantity = Math.Max(0, poLine.ReceivedQuantity - l.QuantityReceived);
+                    }
+                }
+                if (order.Lines.All(l => l.ReceivedQuantity == 0) && order.Status != PurchaseOrderStatus.Billed)
+                {
+                    order.Status = PurchaseOrderStatus.Approved;
+                }
+                else if (order.Lines.Any(l => l.ReceivedQuantity > 0) && order.Status != PurchaseOrderStatus.Billed)
+                {
+                    order.Status = PurchaseOrderStatus.PartiallyReceived;
+                }
+                await orders.SaveChangesAsync(token);
+            }
+
+            await stockPosting.ReverseReceiptAsync(grn.Number, token);
+
+            receipts.Remove(grn);
+            await receipts.SaveChangesAsync(token);
+            return Unit.Value;
+        }, ct);
     }
 
     private async Task<GoodsReceiptDto> ToDtoAsync(GoodsReceipt g, CancellationToken ct)

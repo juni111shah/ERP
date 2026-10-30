@@ -1031,6 +1031,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           } @else {
             <button
               type="button"
+              [attr.aria-label]="'shell.searchMenu' | translate: 'Search menu...'"
               class="sidebar-search-collapsed-btn"
               (click)="expandAndSearch()"
               nz-tooltip

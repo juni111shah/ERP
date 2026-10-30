@@ -26,6 +26,7 @@ import {
 } from '../../core/api/retail.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
@@ -222,7 +223,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div class="sim-inputs">
               <div class="form-row">
                 <label>Promo Code:</label>
-                <input nz-input [(ngModel)]="simCode" placeholder="Enter coupon code" style="text-transform: uppercase;" />
+                <input aria-label="Enter coupon code" nz-input [(ngModel)]="simCode" placeholder="Enter coupon code" style="text-transform: uppercase;" />
               </div>
               <div class="form-row">
                 <label>Basket Total ({{ currency() }}):</label>
@@ -344,8 +345,9 @@ export class PromotionsPageComponent implements OnInit {
   private readonly sessionStore = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
+  readonly currency = this.currencyService.currency;
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly isSaving = signal(false);
   readonly isSimulating = signal(false);

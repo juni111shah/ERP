@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Crm.Domain;
 using FluentValidation;
 using MediatR;
@@ -48,7 +49,8 @@ public class LogInteractionValidator : AbstractValidator<LogInteractionCommand>
     public LogInteractionValidator()
     {
         RuleFor(x => x.LegalEntityId).NotEmpty();
-        RuleFor(x => x.RelatedEntityKind).NotEmpty();
+        RuleFor(x => x.RelatedEntityKind).NotEmpty().Must(k => InteractionHandlers.Kinds.Contains(k?.Trim() ?? "", StringComparer.OrdinalIgnoreCase))
+            .WithMessage("The related record must be a Lead, Opportunity or Customer.");
         RuleFor(x => x.RelatedEntityId).NotEmpty();
         RuleFor(x => x.Subject).NotEmpty().MaximumLength(200);
     }
@@ -67,26 +69,55 @@ public class InteractionHandlers :
     IRequestHandler<ResolveInteractionCommand, bool>,
     IRequestHandler<GetInteractionsByRelatedEntityQuery, List<CustomerInteractionDto>>
 {
-    private readonly IRepository<CrmInteraction> _interactionRepo;
+    public static readonly string[] Kinds = ["Lead", "Opportunity", "Customer"];
 
-    public InteractionHandlers(IRepository<CrmInteraction> interactionRepo)
+    private readonly IRepository<CrmInteraction> _interactionRepo;
+    private readonly IReadRepository<CrmLead> _leads;
+    private readonly IReadRepository<CrmOpportunity> _opportunities;
+    private readonly IReadRepository<ERP.Domain.Parties.Party> _parties;
+    private readonly ILegalEntityGuard _guard;
+    private readonly ICurrentUser _user;
+
+    public InteractionHandlers(
+        IRepository<CrmInteraction> interactionRepo,
+        IReadRepository<CrmLead> leads,
+        IReadRepository<CrmOpportunity> opportunities,
+        IReadRepository<ERP.Domain.Parties.Party> parties,
+        ILegalEntityGuard guard,
+        ICurrentUser user)
     {
         _interactionRepo = interactionRepo;
+        _leads = leads;
+        _opportunities = opportunities;
+        _parties = parties;
+        _guard = guard;
+        _user = user;
     }
 
     public async Task<CustomerInteractionDto> Handle(LogInteractionCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
+        var kind = Kinds.First(k => string.Equals(k, request.RelatedEntityKind.Trim(), StringComparison.OrdinalIgnoreCase));
+        var id = request.RelatedEntityId;
+        var found = kind switch
+        {
+            "Lead" => await _leads.AnyAsync(l => l.Id == id && l.LegalEntityId == request.LegalEntityId, cancellationToken),
+            "Opportunity" => await _opportunities.AnyAsync(o => o.Id == id && o.LegalEntityId == request.LegalEntityId, cancellationToken),
+            _ => await _parties.AnyAsync(p => p.Id == id, cancellationToken),
+        };
+        if (!found) throw new FieldValidationException("relatedEntityId", $"{kind} not found.");
+
         var interaction = new CrmInteraction
         {
             LegalEntityId = request.LegalEntityId,
-            RelatedEntityKind = request.RelatedEntityKind.Trim(),
+            RelatedEntityKind = kind,
             RelatedEntityId = request.RelatedEntityId,
             Type = request.Type,
             Subject = request.Subject.Trim(),
             Details = request.Details,
             InteractionDate = request.InteractionDate ?? DateTimeOffset.UtcNow,
-            PerformedByUserId = request.PerformedByUserId,
-            PerformedByName = request.PerformedByName,
+            PerformedByUserId = _user.UserId, // the caller, never a value sent in the request
+            PerformedByName = _user.Email,
             FollowUpDate = request.FollowUpDate,
             IsResolved = request.IsResolved,
             CustomFields = request.CustomFields
@@ -100,7 +131,7 @@ public class InteractionHandlers :
     public async Task<bool> Handle(ResolveInteractionCommand request, CancellationToken cancellationToken)
     {
         var interaction = await _interactionRepo.FindAsync(request.Id, cancellationToken)
-            ?? throw new KeyNotFoundException($"Interaction {request.Id} not found.");
+            ?? throw new NotFoundException($"Interaction {request.Id} not found.");
 
         interaction.IsResolved = true;
         await _interactionRepo.SaveChangesAsync(cancellationToken);

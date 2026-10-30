@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { I18nService } from '../core/i18n/i18n.service';
+import { WorkspaceCurrencyService } from '../core/services/workspace-currency.service';
 
 export interface ThermalReceiptLine {
   code?: string;
@@ -526,10 +527,11 @@ export interface ThermalReceiptData {
 })
 export class ThermalReceiptComponent {
   private readonly i18n = inject(I18nService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
   readonly receipt = input.required<ThermalReceiptData>();
   readonly isAr = computed(() => this.i18n.lang() === 'ar');
-  readonly curr = computed(() => this.receipt().currency || 'AED');
+  readonly curr = computed(() => this.receipt().currency || this.currencyService.currency());
 
   readonly statusLabel = computed(() => {
     const raw = this.receipt().status || 'Completed';

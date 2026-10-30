@@ -2,8 +2,11 @@ using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Security;
 using ERP.Application.Organizations;
+using ERP.Modules.Inventory.Domain;
+using ERP.Modules.Inventory.Features;
 using FluentValidation;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Modules.Inventory;
 
@@ -35,7 +38,7 @@ public sealed class CreateWarehouseValidator : AbstractValidator<CreateWarehouse
     }
 }
 
-internal sealed class WarehouseHandlers(IRepository<Warehouse> warehouses, ILegalEntityGuard legalEntityGuard) :
+internal sealed class WarehouseHandlers(IRepository<Warehouse> warehouses, ILegalEntityGuard legalEntityGuard, IReadRepository<StockMovement> movements) :
     IRequestHandler<CreateWarehouse, WarehouseDto>,
     IRequestHandler<UpdateWarehouse, WarehouseDto>
 {
@@ -54,8 +57,16 @@ internal sealed class WarehouseHandlers(IRepository<Warehouse> warehouses, ILega
     public async Task<WarehouseDto> Handle(UpdateWarehouse cmd, CancellationToken ct)
     {
         var w = await warehouses.GetForUpdateAsync(cmd.Id, ct);
+        if (w.IsActive && !cmd.Input.IsActive && await HoldsStockAsync(w.Id, ct))
+            throw new ConflictException($"Warehouse {w.Code} still holds stock. Move or issue it first.");
         w.Name = cmd.Input.Name.Trim(); w.Address = cmd.Input.Address; w.IsActive = cmd.Input.IsActive;
         await warehouses.SaveChangesAsync(ct);
         return new(w.Id, w.Code, w.Name, w.LegalEntityId, w.Address, w.IsActive);
+    }
+
+    private async Task<bool> HoldsStockAsync(Guid warehouseId, CancellationToken ct)
+    {
+        var all = await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == warehouseId)).ToListAsync(ct);
+        return all.GroupBy(m => m.ItemId).Any(g => StockCosting.Replay(g).Quantity != 0);
     }
 }

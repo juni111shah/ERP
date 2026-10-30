@@ -1,6 +1,7 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Organizations;
+using ERP.Application.Parties;
 using ERP.Application.Security;
 using ERP.Domain.Catalog;
 using ERP.Domain.Finance;
@@ -34,9 +35,9 @@ public sealed record CreateBill(BillInput Input) : ICommand<BillDto>, IRequirePe
 public sealed record UpdateBill(Guid Id, BillInput Input) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
 public sealed record DeleteBill(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
 /// <summary>Posts the bill (Dr expenses and input tax, Cr payables). When an approval policy covers the amount the bill waits for a decision first.</summary>
-public sealed record PostBill(Guid Id) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsPost; }
+public sealed record PostBill(Guid Id) : ICommand<BillDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.BillsPost; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
-public sealed record VoidBill(Guid Id, string? Reason) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsVoid; }
+public sealed record VoidBill(Guid Id, string? Reason) : ICommand<BillDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.BillsVoid; }
 
 public sealed class VoidBillValidator : AbstractValidator<VoidBill>
 {
@@ -68,7 +69,7 @@ public sealed class UpdateBillValidator : AbstractValidator<UpdateBill> { public
 internal sealed class BillHandlers(
     IRepository<Bill> bills, IRepository<BillLine> lineRows, IReadRepository<Party> parties, IReadRepository<TaxCode> taxCodes, IReadRepository<Account> accounts, IRepository<JournalEntry> journals,
     IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering,
-    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock, IDbErrors dbErrors, IReadRepository<BusinessUnit> businessUnits, IReferenceCheck references) :
+    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock, IDbErrors dbErrors, IReadRepository<BusinessUnit> businessUnits, IReferenceCheck references, IUnitOfWork uow) :
     IRequestHandler<GetBill, BillDto>,
     IRequestHandler<CreateBill, BillDto>,
     IRequestHandler<UpdateBill, BillDto>,
@@ -90,7 +91,9 @@ internal sealed class BillHandlers(
         return ToDto(bill);
     }
 
-    public async Task<BillDto> Handle(UpdateBill cmd, CancellationToken ct)
+    public Task<BillDto> Handle(UpdateBill cmd, CancellationToken ct) => uow.InTransactionAsync(token => UpdateBillCoreAsync(cmd, token), ct);
+
+    private async Task<BillDto> UpdateBillCoreAsync(UpdateBill cmd, CancellationToken ct)
     {
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status is not (DocumentStatus.Draft or DocumentStatus.PendingApproval)) throw new ConflictException("Only a draft bill can be edited. Void it instead.");
@@ -98,22 +101,36 @@ internal sealed class BillHandlers(
         var fresh = await ApplyAsync(bill, cmd.Input, ct);
         foreach (var old in bill.Lines.ToList()) lineRows.Remove(old);
         lineRows.AddRange(fresh);
-        bill.Status = DocumentStatus.Draft; bill.ApprovalRequestId = null; // an edit invalidates a pending approval request
+        await WithdrawPendingAsync(bill, ct); // an edit invalidates a pending approval request
+        bill.Status = DocumentStatus.Draft; bill.ApprovalRequestId = null;
         await SaveAsync(bill, ct);
         bill.Lines.Clear(); bill.Lines.AddRange(fresh);
         return ToDto(bill);
     }
 
-    public async Task<Unit> Handle(DeleteBill cmd, CancellationToken ct)
+    public Task<Unit> Handle(DeleteBill cmd, CancellationToken ct) => uow.InTransactionAsync(token => DeleteBillCoreAsync(cmd, token), ct);
+
+    private async Task<Unit> DeleteBillCoreAsync(DeleteBill cmd, CancellationToken ct)
     {
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status is not (DocumentStatus.Draft or DocumentStatus.PendingApproval)) throw new ConflictException("Only a draft bill can be deleted.");
+        await WithdrawPendingAsync(bill, ct);
         bills.Remove(bill);
         await bills.SaveChangesAsync(ct);
         return Unit.Value;
     }
 
-    public async Task<BillDto> Handle(PostBill cmd, CancellationToken ct)
+    /// <summary>Withdraws the bill's approval request while it is still pending; a decided request only loses its link.</summary>
+    private async Task WithdrawPendingAsync(Bill bill, CancellationToken ct)
+    {
+        if (bill.ApprovalRequestId is not { } rid) return;
+        var request = await approvalRequests.FindAsync(rid, ct);
+        if (request?.Status == ApprovalStatus.Pending) await approvals.WithdrawAsync(rid, ct);
+    }
+
+    public Task<BillDto> Handle(PostBill cmd, CancellationToken ct) => uow.InTransactionAsync(token => PostBillCoreAsync(cmd, token), ct);
+
+    private async Task<BillDto> PostBillCoreAsync(PostBill cmd, CancellationToken ct)
     {
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status is not (DocumentStatus.Draft or DocumentStatus.PendingApproval)) throw new ConflictException("Only a draft bill can be posted.");
@@ -150,7 +167,9 @@ internal sealed class BillHandlers(
         return ToDto(bill);
     }
 
-    public async Task<BillDto> Handle(VoidBill cmd, CancellationToken ct)
+    public Task<BillDto> Handle(VoidBill cmd, CancellationToken ct) => uow.InTransactionAsync(token => VoidBillCoreAsync(cmd, token), ct);
+
+    private async Task<BillDto> VoidBillCoreAsync(VoidBill cmd, CancellationToken ct)
     {
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status != DocumentStatus.Issued || bill.Paid != 0) throw new ConflictException("Only a posted bill with nothing paid can be voided.");
@@ -183,6 +202,7 @@ internal sealed class BillHandlers(
     private async Task<List<BillLine>> ApplyAsync(Bill bill, BillInput i, CancellationToken ct)
     {
         var party = await parties.FindAsync(i.PartyId, ct) ?? throw new FieldValidationException("partyId", "Vendor not found.");
+        VendorRules.RequireVendor(party);
         var reference = i.VendorReference?.Trim();
         if (!string.IsNullOrEmpty(reference) && await bills.AnyAsync(b => b.PartyId == party.Id && b.VendorReference == reference && b.Id != bill.Id && b.Status != DocumentStatus.Voided, ct))
             throw new ConflictException(DuplicateReferenceMessage(reference));

@@ -18,6 +18,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ItemsApi, LegalEntitiesApi } from '../../core/api/admin.api';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { createPagedList } from '../../core/api/paged-list';
 import {
   CompleteTripInput,
@@ -190,7 +191,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                   <td nzAlign="right">{{ currency() }} {{ row.unitPrice | number:'1.2-2' }}</td>
                   <td nzAlign="right" class="font-bold">{{ currency() }} {{ (row.loadedQuantity * row.unitPrice) | number:'1.2-2' }}</td>
                   <td nzAlign="right">
-                    <button nz-button nzType="link" nzDanger (click)="removeLoadedItem(idx)">
+                    <button aria-label="Remove loaded item" nz-button nzType="link" nzDanger (click)="removeLoadedItem(idx)">
                       <span nz-icon nzType="delete"></span>
                     </button>
                   </td>
@@ -424,8 +425,9 @@ export class VanTripsPageComponent implements OnInit {
   private readonly sessionStore = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
+  readonly currency = this.currencyService.currency;
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly warehouses = signal<{ id: string; name: string }[]>([]);
   readonly routesList = signal<DistributionRouteSummaryDto[]>([]);
@@ -507,13 +509,23 @@ export class VanTripsPageComponent implements OnInit {
   }
 
   openDispatchModal(): void {
-    this.loadedItems.set([]);
     const user = this.sessionStore.me()?.user;
+    if (!user?.id) {
+      this.msg.error('User authentication is missing.');
+      return;
+    }
+    const legalEntityId = this.entities()[0]?.id || '';
+    if (!legalEntityId) {
+      this.msg.error('No legal entity available.');
+      return;
+    }
+
+    this.loadedItems.set([]);
     this.form.reset({
-      legalEntityId: this.entities()[0]?.id || '',
+      legalEntityId,
       routeId: this.routesList()[0]?.id || '',
-      driverUserId: user?.id || '00000000-0000-0000-0000-000000000001',
-      driverName: this.routesList()[0]?.driverName || user?.fullName || 'Driver 1',
+      driverUserId: user.id,
+      driverName: this.routesList()[0]?.driverName || user.fullName || 'Driver 1',
       vehicleNumber: this.routesList()[0]?.vehicleNumber || 'DXB-5510',
       warehouseId: this.warehouses()[0]?.id || '',
       departureDate: new Date()
@@ -562,10 +574,21 @@ export class VanTripsPageComponent implements OnInit {
     this.isSaving.set(true);
     const val = this.form.value;
     const user = this.sessionStore.me()?.user;
+    const driverUserId = val.driverUserId || user?.id;
+    if (!driverUserId) {
+      this.isSaving.set(false);
+      this.msg.error('Driver user ID is required.');
+      return;
+    }
+    if (!val.legalEntityId) {
+      this.isSaving.set(false);
+      this.msg.error('Legal entity is required.');
+      return;
+    }
     const input: CreateTripInput = {
       legalEntityId: val.legalEntityId,
       routeId: val.routeId,
-      driverUserId: val.driverUserId || user?.id || '00000000-0000-0000-0000-000000000001',
+      driverUserId,
       driverName: val.driverName || user?.fullName || 'Driver 1',
       vehicleNumber: val.vehicleNumber,
       warehouseId: val.warehouseId,

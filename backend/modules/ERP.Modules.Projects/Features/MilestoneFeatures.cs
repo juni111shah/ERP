@@ -73,6 +73,8 @@ internal sealed class MilestoneHandlers(
     {
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
+        ProjectRules.EnsureOpen(p);
+        if (i.Status == MilestoneStatus.Invoiced) throw new FieldValidationException("status", "A milestone becomes Invoiced only when its project is billed.");
         var m = new ProjectMilestone
         {
             ProjectId = p.Id,
@@ -80,7 +82,7 @@ internal sealed class MilestoneHandlers(
             DueDate = i.DueDate,
             Amount = i.Amount,
             Status = i.Status,
-            AchievedDate = i.AchievedDate,
+            AchievedDate = AchievedDateFor(i),
         };
         milestones.Add(m);
         await milestones.SaveChangesAsync(ct);
@@ -91,11 +93,14 @@ internal sealed class MilestoneHandlers(
     {
         var m = await milestones.GetForUpdateAsync(cmd.Id, ct);
         var i = cmd.Input;
+        if (m.Status == MilestoneStatus.Invoiced) throw new ConflictException("An invoiced milestone cannot be edited.");
+        if (i.Status != m.Status) ProjectsTransitions.Milestone.Ensure(m.Status, i.Status, isSystem: false);
+        var achieved = AchievedDateFor(i);
         m.Title = i.Title.Trim();
         m.DueDate = i.DueDate;
         m.Amount = i.Amount;
         m.Status = i.Status;
-        m.AchievedDate = i.AchievedDate;
+        m.AchievedDate = achieved;
 
         await milestones.SaveChangesAsync(ct);
         return await BuildDtoAsync(m, ct);
@@ -104,6 +109,7 @@ internal sealed class MilestoneHandlers(
     public async Task<Unit> Handle(DeleteMilestone cmd, CancellationToken ct)
     {
         var m = await milestones.GetForUpdateAsync(cmd.Id, ct);
+        if (m.Status == MilestoneStatus.Invoiced) throw new ConflictException("An invoiced milestone cannot be deleted.");
         milestones.Remove(m);
         await milestones.SaveChangesAsync(ct);
         return Unit.Value;
@@ -112,10 +118,23 @@ internal sealed class MilestoneHandlers(
     public async Task<MilestoneDto> Handle(AchieveMilestone cmd, CancellationToken ct)
     {
         var m = await milestones.GetForUpdateAsync(cmd.Id, ct);
+        ProjectsTransitions.Milestone.Ensure(m.Status, MilestoneStatus.Achieved, isSystem: false);
+        var achieved = cmd.AchievedDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        if (achieved > DateOnly.FromDateTime(DateTime.UtcNow)) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");
         m.Status = MilestoneStatus.Achieved;
-        m.AchievedDate = cmd.AchievedDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        m.AchievedDate = achieved;
         await milestones.SaveChangesAsync(ct);
         return await BuildDtoAsync(m, ct);
+    }
+
+    /// <summary>Pending milestones carry no achieved date; achieved ones default to today and cannot be dated in the future.</summary>
+    private static DateOnly? AchievedDateFor(MilestoneInput i)
+    {
+        if (i.Status == MilestoneStatus.Pending) return null;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var date = i.AchievedDate ?? today;
+        if (date > today) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");
+        return date;
     }
 
     private async Task<MilestoneDto> BuildDtoAsync(ProjectMilestone m, CancellationToken ct)

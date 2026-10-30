@@ -31,6 +31,7 @@ public sealed class PosModule : ModuleBase
         PermissionDefinition.Of(Pos.Permissions.OrdersCreate, "Process counter sales at POS terminal"),
         PermissionDefinition.Of(Pos.Permissions.OrdersVoid, "Void POS counter sales"),
         PermissionDefinition.Of(Pos.Permissions.AnalyticsRead, "View POS sales and shift analytics"),
+        PermissionDefinition.Of(Pos.Permissions.OrdersOverridePrice, "Override POS item sales price"),
     ];
 
     public override IEnumerable<MenuItemDefinition> Menu =>
@@ -46,6 +47,8 @@ public sealed class PosModule : ModuleBase
     [
         new("pos.allowNegativeDrawer", "Allow drawer balance to go below zero", "false", "bool"),
         new("pos.enforceFloatAtOpen", "Require cashier to specify opening float cash", "true", "bool"),
+        new("pos.maxDiscountPercent", "Maximum discount percent allowed on POS order lines", "100", "number"),
+        new("pos.allowPartialPayment", "Allow partial payment on POS orders", "false", "bool"),
     ];
 
     public override IEnumerable<CustomizableEntityDefinition> CustomizableEntities =>
@@ -105,6 +108,7 @@ public sealed class PosModule : ModuleBase
             b.Property(x => x.CashDifference).HasPrecision(19, 4);
             b.Property(x => x.Notes).HasMaxLength(1000);
             b.HasIndex(x => new { x.OrgId, x.RegisterId, x.Status });
+            b.HasIndex(x => new { x.OrgId, x.RegisterId }).IsUnique().HasDatabaseName("UX_pos_Sessions_OneOpenPerRegister").HasFilter("[Status] = 0 AND [IsDeleted] = 0");
             b.HasMany(x => x.DrawerTransactions).WithOne().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
         });
 

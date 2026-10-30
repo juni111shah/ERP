@@ -1,6 +1,8 @@
+using ERP.Application.Abstractions;
 using ERP.Application.Dashboard;
 using ERP.Application.Search;
 using ERP.Application.Security;
+using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Services.Domain;
 using ERP.Modules.Services.Features;
@@ -31,10 +33,26 @@ public sealed class ServicesModule : ModuleBase
         new("services.analytics", "Services analytics", "/services/analytics", "line-chart", Services.Permissions.AnalyticsRead, 40, Key, "Services", 230)
     ];
 
+    public override IEnumerable<IndustryTemplate> IndustryTemplates =>
+    [
+        new("professional_services", "Professional Services", "Client engagements, retainers, and milestone billing.", IndustryAvailability.Available, [Key],
+            Roles: [],
+            Sequences:
+            [
+                new("ENG", "ENG", "{prefix}-{seq:5}", false),
+                new("RET", "RET", "{prefix}-{seq:5}", false),
+                new("MLS", "MLS", "{prefix}-{seq:5}", false),
+            ],
+            SortOrder: 65),
+    ];
+
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ISearchProvider, ServicesSearch>();
         services.AddScoped<IDashboardContributor, ServicesDashboard>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<ServiceEngagement>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "engagement", Services.Permissions.EngagementsRead, Services.Permissions.EngagementsManage));
     }
 
     public override void MapEndpoints(RouteGroupBuilder group) => ServicesEndpoints.Map(group);

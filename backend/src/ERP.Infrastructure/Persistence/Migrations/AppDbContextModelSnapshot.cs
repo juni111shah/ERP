@@ -524,6 +524,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[VendorReference] IS NOT NULL AND [VendorReference] <> N'' AND [IsDeleted] = 0 AND [Status] <> N'Voided'");
 
+                    b.HasIndex("OrgId", "LegalEntityId", "Status", "BillDate");
+
                     b.ToTable("Bills", t =>
                         {
                             t.HasCheckConstraint("CK_Bills_CustomFields_IsJson", "[CustomFields] IS NULL OR ISJSON([CustomFields]) = 1");
@@ -983,6 +985,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.HasIndex("OrgId", "LegalEntityId", "Number")
                         .IsUnique();
 
+                    b.HasIndex("OrgId", "LegalEntityId", "Status", "InvoiceDate");
+
                     b.ToTable("Invoices", t =>
                         {
                             t.HasCheckConstraint("CK_Invoices_CreditNoteFor", "[CreditNoteForId] IS NULL OR ([IsCreditNote] = 1 AND [CreditNoteForId] <> [Id])");
@@ -1031,6 +1035,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("Seq")
                         .HasColumnType("int");
+
+                    b.Property<Guid?>("SourceLineId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("TaxAmount")
                         .HasPrecision(18, 2)
@@ -1145,6 +1152,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OrgId", "LegalEntityId", "Number")
                         .IsUnique();
+
+                    b.HasIndex("OrgId", "LegalEntityId", "Status", "Date");
 
                     b.ToTable("JournalEntries");
                 });
@@ -1454,6 +1463,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OrgId", "LegalEntityId", "Number")
                         .IsUnique();
+
+                    b.HasIndex("OrgId", "LegalEntityId", "Direction", "Date");
 
                     b.ToTable("Settlements", t =>
                         {
@@ -2576,6 +2587,56 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.HasIndex("OrgId", "RecordType", "RecordId");
 
                     b.ToTable("AuditEvents");
+                });
+
+            modelBuilder.Entity("ERP.Domain.Platform.IdempotencyRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ResponseBody")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Route")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("OrgId", "UserId", "Route", "Key")
+                        .IsUnique();
+
+                    b.ToTable("IdempotencyRecords");
                 });
 
             modelBuilder.Entity("ERP.Domain.Platform.MessageLog", b =>
@@ -5882,6 +5943,11 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrgId", "RegisterId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_pos_Sessions_OneOpenPerRegister")
+                        .HasFilter("[Status] = 0 AND [IsDeleted] = 0");
 
                     b.HasIndex("OrgId", "RegisterId", "Status");
 

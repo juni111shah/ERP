@@ -77,18 +77,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <ng-container *ngSwitchCase="'actions'">
                 <div class="table-actions">
                   @if (row.status === 'Planned') {
-                    <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="updateStatus(row, 'ReadyToInvoice')" title="Deliverable Approved (Ready to Invoice)">
+                    <button aria-label="Deliverable Approved (Ready to Invoice)" *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="updateStatus(row, 'ReadyToInvoice')" title="Deliverable Approved (Ready to Invoice)">
                       <span nz-icon nzType="check-circle" class="text-green-600"></span>
                     </button>
                   }
                   @if (row.status === 'ReadyToInvoice') {
-                    <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="invoiceMilestone(row)" title="Generate Invoice">
+                    <button aria-label="Generate Invoice" *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="invoiceMilestone(row)" title="Generate Invoice">
                       <span nz-icon nzType="file-text" class="text-blue-600"></span>
-                    </button>
-                  }
-                  @if (row.status === 'Invoiced') {
-                    <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="updateStatus(row, 'Paid')" title="Mark as Paid">
-                      <span nz-icon nzType="dollar-circle" class="text-emerald-600"></span>
                     </button>
                   }
                 </div>

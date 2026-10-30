@@ -16,6 +16,7 @@ import { createPagedList } from '../../core/api/paged-list';
 import { ProjectBillingType, ProjectInput, ProjectKpiDto, ProjectsApi, ProjectStatus, ProjectSummaryDto } from '../../core/api/projects.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 
@@ -96,17 +97,17 @@ import { StatCardComponent } from '../../shared/stat-card.component';
               <span class="billing-type-badge">{{ formatBillingType(row.billingType) }}</span>
             }
             @case ('budgetAmount') {
-              <span class="budget-cell">AED {{ row.budgetAmount | number: '1.2-2' }}</span>
+              <span class="budget-cell">{{ currency() }} {{ row.budgetAmount | number: '1.2-2' }}</span>
             }
             @case ('dates') {
               <span class="dates-cell">{{ row.startDate || '—' }} to {{ row.endDate || '—' }}</span>
             }
             @case ('actions') {
               <div class="actions-cell" (click)="$event.stopPropagation()">
-                <button nz-button nzType="text" nzSize="small" [routerLink]="['/projects', row.id]" nzTooltipTitle="View Project Details">
+                <button aria-label="View Project Details" nz-button nzType="text" nzSize="small" [routerLink]="['/projects', row.id]" nzTooltipTitle="View Project Details">
                   <span nz-icon nzType="eye"></span>
                 </button>
-                <button *erpHasPermission="'projects.projects.manage'" nz-button nzType="text" nzSize="small" (click)="state.edit(row)" nzTooltipTitle="Edit Project">
+                <button aria-label="Edit Project" *erpHasPermission="'projects.projects.manage'" nz-button nzType="text" nzSize="small" (click)="state.edit(row)" nzTooltipTitle="Edit Project">
                   <span nz-icon nzType="edit"></span>
                 </button>
               </div>
@@ -163,6 +164,8 @@ import { StatCardComponent } from '../../shared/stat-card.component';
 export class ProjectsListPage {
   private readonly api = inject(ProjectsApi);
   private readonly router = inject(Router);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
   private readonly entities = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
   private readonly parties = toSignal(inject(PartiesApi).list({ page: 1, pageSize: 200, extra: { type: 'customer' } }).pipe(catchError(() => of({ items: [] as PartyDto[] }))), { initialValue: { items: [] as PartyDto[] } });
 
@@ -232,7 +235,7 @@ export class ProjectsListPage {
       ],
       default: 'TimeAndMaterials',
     },
-    { key: 'budgetAmount', label: 'Total Budget (AED)', type: 'number', min: 0, default: 0 },
+    { key: 'budgetAmount', label: 'Total Budget (QAR)', type: 'number', min: 0, default: 0 },
     { key: 'startDate', label: 'Start Date', type: 'date' },
     { key: 'endDate', label: 'Target Completion Date', type: 'date' },
     { key: 'description', label: 'Description & Scope', type: 'textarea', maxLength: 2000 },

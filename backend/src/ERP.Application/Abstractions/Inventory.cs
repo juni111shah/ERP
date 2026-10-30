@@ -9,7 +9,8 @@ public sealed record StockReceiveRequest(
     string? Reference = null,
     string? Memo = null,
     Guid? WarehouseId = null,
-    Guid? OffsetAccountId = null);
+    Guid? OffsetAccountId = null,
+    bool SkipJournal = false);
 
 public sealed record StockIssueRequest(
     Guid LegalEntityId,
@@ -19,7 +20,8 @@ public sealed record StockIssueRequest(
     string? Reference = null,
     string? Memo = null,
     Guid? WarehouseId = null,
-    Guid? ExpenseAccountId = null);
+    Guid? ExpenseAccountId = null,
+    bool SkipJournal = false);
 
 /// <summary>
 /// Service allowing other modules (Purchasing, Sales, POS, Manufacturing, Distribution)
@@ -28,6 +30,11 @@ public sealed record StockIssueRequest(
 public interface IStockPostingService
 {
     Task<bool> IsInventoryEnabledAsync(CancellationToken ct = default);
+    /// <summary>True when the warehouse exists, is active and belongs to the legal entity. Always true when the Inventory module is off (nothing is stocked then).</summary>
+    Task<bool> IsWarehouseUsableAsync(Guid warehouseId, Guid legalEntityId, CancellationToken ct = default);
     Task<Guid?> ReceiveStockAsync(StockReceiveRequest request, CancellationToken ct = default);
     Task<Guid?> IssueStockAsync(StockIssueRequest request, CancellationToken ct = default);
+    Task<decimal> GetAverageCostAsync(Guid itemId, Guid? warehouseId = null, CancellationToken ct = default);
+    Task ReverseReceiptAsync(string reference, CancellationToken ct = default);
+    Task ReverseIssueAsync(string reference, CancellationToken ct = default);
 }

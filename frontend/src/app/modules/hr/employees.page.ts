@@ -16,6 +16,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { EMPLOYEE_STATUSES, EmployeeDto, EmployeeSummary, EmployeesApi } from './hr.api';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { StatCardComponent } from '../../shared/stat-card.component';
@@ -101,7 +102,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             }
           }
           @case ('grossMonthly') {
-            <b>AED {{ row.grossMonthly | number: '1.2-2' }}</b>
+            <b>{{ currency() }} {{ row.grossMonthly | number: '1.2-2' }}</b>
           }
           @case ('status') {
             <nz-tag [nzColor]="row.status === 'active' ? 'green' : row.status === 'terminated' ? 'red' : 'blue'">
@@ -123,6 +124,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
 })
 export class EmployeesPage {
   private readonly api = inject(EmployeesApi);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
   readonly statuses = EMPLOYEE_STATUSES;
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'number' });

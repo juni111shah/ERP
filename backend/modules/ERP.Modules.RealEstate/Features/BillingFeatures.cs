@@ -79,7 +79,7 @@ internal sealed class BillingHandlers(
     {
         var i = await instalments.GetForUpdateAsync(cmd.InstalmentId, ct);
         if (i.Status != InstalmentStatus.Scheduled) throw new ConflictException("This instalment is already invoiced or cancelled.");
-        var inv = await TryInvoiceAsync(i, ct) ?? throw new ConflictException("The lease of this instalment is not active, so it cannot be invoiced.");
+        var inv = await TryInvoiceAsync(i, ct) ?? throw new ConflictException("The lease of this instalment was never activated, so it cannot be invoiced.");
         await instalments.SaveChangesAsync(ct);
         return new InstalmentInvoiceDto(i.Id, inv.Id, inv.Number, inv.Total);
     }
@@ -97,7 +97,8 @@ internal sealed class BillingHandlers(
     private async Task<Invoice?> TryInvoiceAsync(RentInstalment i, CancellationToken ct)
     {
         var lease = await leases.FindAsync(i.LeaseId, ct);
-        if (lease is null || !lease.IsOccupying) return null;
+        // A terminated, ended or renewed lease still owes the instalments it was scheduled with (termination pro-rates the last one); only drafts and cancelled leases never bill.
+        if (lease is null || lease.Status is LeaseStatus.Draft or LeaseStatus.Cancelled) return null;
         var unit = await units.GetAsync(lease.UnitId, ct);
         var property = await properties.GetAsync(lease.PropertyId, ct);
         // Commercial rent is standard-rated unless the lease names a tax code; residential rent is exempt unless it does.

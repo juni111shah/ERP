@@ -26,4 +26,17 @@ public static class StockCosting
         }
         return new(qty, Math.Round(value, 4));
     }
+
+    /// <summary>First date on which the running quantity would be negative once <paramref name="candidate"/> is added (candidate sorts last on its date), or null.</summary>
+    public static DateOnly? FirstShortfall(IEnumerable<StockMovement> existing, StockMovement candidate)
+    {
+        var rows = existing.Select(m => (Date: m.Date, Created: m.CreatedAt, Quantity: m.Quantity)).Append((Date: candidate.Date, Created: DateTime.MaxValue, Quantity: candidate.Quantity)).OrderBy(r => r.Date).ThenBy(r => r.Created);
+        decimal qty = 0;
+        foreach (var r in rows)
+        {
+            qty += r.Quantity;
+            if (qty < 0) return r.Date;
+        }
+        return null;
+    }
 }

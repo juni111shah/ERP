@@ -10,6 +10,7 @@ import { createPagedList } from '../../core/api/paged-list';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { MovementRow, MovementsApi } from './inventory.api';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 @Component({
   selector: 'erp-movements',
@@ -66,7 +67,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
     </div>
 
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search reference, memo, or warehouse..." emptyText="No stock movements yet" [clickable]="false">
-      <input toolbar nz-input style="width:200px" placeholder="Exact reference (e.g. CNT-00001)" [ngModel]="reference" (ngModelChange)="filterReference($event)" data-testid="movement-reference" />
+      <input aria-label="Exact reference (e.g. CNT-00001)" toolbar nz-input style="width:200px" placeholder="Exact reference (e.g. CNT-00001)" [ngModel]="reference" (ngModelChange)="filterReference($event)" data-testid="movement-reference" />
       <ng-template #cell let-row let-column="column" let-value="value">
         @switch (column.key) {
           @case ('date') {
@@ -84,7 +85,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
             </span>
           }
           @case ('unitCost') {
-            <span style="font-weight:600; color:#0f172a;">AED {{ row.unitCost | number:'1.2-2' }}</span>
+            <span style="font-weight:600; color:#0f172a;">{{ currency() }} {{ row.unitCost | number:'1.2-2' }}</span>
           }
           @case ('reference') {
             @if (row.reference) {
@@ -118,6 +119,7 @@ export class MovementsPage {
   }
 
   private readonly api = inject(MovementsApi);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
 
   readonly columns: TableColumn<MovementRow>[] = [

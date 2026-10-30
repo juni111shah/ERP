@@ -19,6 +19,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
 import { createPagedList } from '../../core/api/paged-list';
 import { ProjectTasksApi, ProjectTimesheetsApi, ProjectsApi, TimesheetDto } from '../../core/api/projects.api';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
@@ -66,10 +67,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <span class="hours-val">{{ row.hours | number: '1.2-2' }}h</span>
             }
             @case ('hourlyRate') {
-              <span>AED {{ row.hourlyRate | number: '1.2-2' }}</span>
+              <span>{{ currency() }} {{ row.hourlyRate | number: '1.2-2' }}</span>
             }
             @case ('totalAmount') {
-              <span class="amount-val">AED {{ row.totalAmount | number: '1.2-2' }}</span>
+              <span class="amount-val">{{ currency() }} {{ row.totalAmount | number: '1.2-2' }}</span>
             }
             @case ('status') {
               @if (!row.isBillable) {
@@ -124,7 +125,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               </div>
               <div nz-col [nzSpan]="12">
                 <nz-form-item>
-                  <nz-form-label nzRequired>Hourly Rate (AED)</nz-form-label>
+                  <nz-form-label nzRequired>Hourly Rate (QAR)</nz-form-label>
                   <nz-form-control><nz-input-number formControlName="hourlyRate" [nzMin]="0" style="width:100%"></nz-input-number></nz-form-control>
                 </nz-form-item>
               </div>
@@ -172,6 +173,9 @@ export class ProjectTimesheetsPage {
   private readonly projectsApi = inject(ProjectsApi);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+
+  readonly currency = this.currencyService.currency;
 
   readonly projects = toSignal(this.projectsApi.list({ page: 1, pageSize: 200 }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
   readonly list = createPagedList((q) => this.timesheetsApi.list(q), { sort: 'date' });

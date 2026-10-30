@@ -19,6 +19,7 @@ import { StatusTagComponent } from './status-tag.component';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 /** Next statuses per status (mirrors the backend lifecycle) and the permission each target needs. */
 const NEXT: Record<string, string[]> = {
@@ -55,7 +56,7 @@ const STATUS_LABEL: Record<string, string> = { assigned: 'Assign', inProgress: '
         } @else if (column.key === 'status') {
           <erp-status-tag [status]="row.status" />
         } @else if (column.key === 'estimatedCost' || column.key === 'actualCost') {
-          <span [class.muted-text]="!value">AED {{ value ?? '—' }}</span>
+          <span [class.muted-text]="!value">{{ value ? (currency() + ' ' + value) : '—' }}</span>
         } @else {
           {{ value }}
         }
@@ -87,6 +88,7 @@ export class WorkOrdersPage {
   private readonly api = inject(WorkOrdersApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;
   readonly statuses = Object.keys(NEXT);
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-reportedOn' });

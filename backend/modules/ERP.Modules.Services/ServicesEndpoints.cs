@@ -109,6 +109,12 @@ internal static class ServicesEndpoints
                 m.Status,
                 m.CreatedAt));
 
+        group.MapGet("/milestones/{id:guid}", async (Guid id, ISender s, CancellationToken ct) =>
+        {
+            var result = await s.Send(new GetMilestoneQuery(id), ct);
+            return Results.Ok(result);
+        }).RequirePermission(Permissions.MilestonesRead);
+
         group.MapPost("/milestones", async (CreateMilestoneCommand cmd, ISender s, CancellationToken ct) =>
         {
             var result = await s.Send(cmd, ct);

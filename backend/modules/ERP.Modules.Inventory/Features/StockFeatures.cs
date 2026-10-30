@@ -30,28 +30,51 @@ public sealed record AdjustStock(AdjustStockInput Input) : ICommand<MovementDto>
 public sealed record TransferStock(TransferStockInput Input) : ICommand<IReadOnlyList<MovementDto>>, IRequirePermission { public string RequiredPermission => InventoryModule.StockWrite; }
 public sealed record SetStockPolicy(StockPolicyInput Input) : ICommand, IRequirePermission { public string RequiredPermission => InventoryModule.StockWrite; }
 
+/// <summary>Shared rules for stock commands: a real date, and at most 4 decimals (what the stock ledger keeps) within a sane range.</summary>
+internal static class StockRules
+{
+    public static IRuleBuilderOptions<T, DateOnly> ValidStockDate<T>(this IRuleBuilder<T, DateOnly> rule)
+        => rule.Must(d => d != default && d >= DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-10) && d <= DateOnly.FromDateTime(DateTime.UtcNow).AddYears(10))
+            .WithMessage("Enter a valid date.");
+
+    public static IRuleBuilderOptions<T, decimal> FourDecimals<T>(this IRuleBuilder<T, decimal> rule)
+        => rule.Must(v => decimal.Round(v, 4) == v && Math.Abs(v) < 1_000_000_000m).WithMessage("Use at most 4 decimals and less than 1,000,000,000.");
+}
+
 public sealed class ReceiveStockValidator : AbstractValidator<ReceiveStock>
 {
     public ReceiveStockValidator()
     {
-        RuleFor(x => x.Input.Quantity).GreaterThan(0); RuleFor(x => x.Input.UnitCost).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.Input.Quantity).GreaterThan(0).FourDecimals(); RuleFor(x => x.Input.UnitCost).GreaterThanOrEqualTo(0).FourDecimals();
         RuleFor(x => x.Input.WarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty(); RuleFor(x => x.Input.OffsetAccountId).NotEmpty();
+        RuleFor(x => x.Input.Date).ValidStockDate();
     }
 }
 public sealed class IssueStockValidator : AbstractValidator<IssueStock>
 {
-    public IssueStockValidator() { RuleFor(x => x.Input.Quantity).GreaterThan(0); RuleFor(x => x.Input.WarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty(); }
+    public IssueStockValidator()
+    {
+        RuleFor(x => x.Input.Quantity).GreaterThan(0).FourDecimals(); RuleFor(x => x.Input.WarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty();
+        RuleFor(x => x.Input.Date).ValidStockDate();
+    }
 }
 public sealed class AdjustStockValidator : AbstractValidator<AdjustStock>
 {
-    public AdjustStockValidator() { RuleFor(x => x.Input.QuantityDelta).NotEqual(0); RuleFor(x => x.Input.UnitCost).GreaterThanOrEqualTo(0); RuleFor(x => x.Input.WarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty(); }
+    public AdjustStockValidator()
+    {
+        RuleFor(x => x.Input.QuantityDelta).NotEqual(0).FourDecimals(); RuleFor(x => x.Input.UnitCost).GreaterThanOrEqualTo(0).FourDecimals();
+        RuleFor(x => x.Input.WarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty();
+        RuleFor(x => x.Input.Date).ValidStockDate();
+    }
 }
 public sealed class TransferStockValidator : AbstractValidator<TransferStock>
 {
     public TransferStockValidator()
     {
-        RuleFor(x => x.Input.Quantity).GreaterThan(0);
+        RuleFor(x => x.Input.Quantity).GreaterThan(0).FourDecimals();
+        RuleFor(x => x.Input.FromWarehouseId).NotEmpty(); RuleFor(x => x.Input.ToWarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty();
         RuleFor(x => x.Input.ToWarehouseId).NotEqual(x => x.Input.FromWarehouseId).WithMessage("Choose two different warehouses.");
+        RuleFor(x => x.Input.Date).ValidStockDate();
     }
 }
 public sealed class SetStockPolicyValidator : AbstractValidator<SetStockPolicy>
@@ -114,6 +137,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
         if (position.Quantity < i.Quantity) throw new ConflictException($"Only {position.Quantity:0.####} in stock; cannot issue {i.Quantity:0.####}.");
         var cost = position.AverageCost;
         var m = New(wh, i.ItemId, i.Date, MovementKind.Issue, -i.Quantity, cost, i.Reference, i.Memo);
+        await EnsureNoShortfallAsync(m, token);
         var value = Math.Round(i.Quantity * cost, 2);
         if (value > 0)
         {
@@ -135,6 +159,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
         if (i.QuantityDelta < 0 && position.Quantity < -i.QuantityDelta) throw new ConflictException($"Only {position.Quantity:0.####} in stock; cannot reduce by {-i.QuantityDelta:0.####}.");
         var cost = i.QuantityDelta > 0 ? i.UnitCost : position.AverageCost;
         var m = New(wh, i.ItemId, i.Date, MovementKind.Adjustment, i.QuantityDelta, cost, i.Reference, i.Memo ?? "Stock adjustment");
+        if (i.QuantityDelta < 0) await EnsureNoShortfallAsync(m, token);
         var value = Math.Round(Math.Abs(i.QuantityDelta) * cost, 2);
         if (value > 0)
         {
@@ -160,6 +185,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
         var transfer = Guid.NewGuid();
         var memo = i.Memo ?? $"Transfer {from.Code} → {to.Code}";
         var outM = New(from, i.ItemId, i.Date, MovementKind.TransferOut, -i.Quantity, position.AverageCost, i.Reference, memo); outM.TransferId = transfer;
+        await EnsureNoShortfallAsync(outM, token);
         var inM = New(to, i.ItemId, i.Date, MovementKind.TransferIn, i.Quantity, position.AverageCost, i.Reference, memo); inM.TransferId = transfer;
         movements.AddRange([outM, inM]);
         await movements.SaveChangesAsync(token);
@@ -194,6 +220,14 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
     /// <summary>Position of one item in one warehouse, optionally only up to a date (so a backdated issue cannot use stock that arrives later).</summary>
     private async Task<StockPosition> PositionAsync(Guid warehouseId, Guid itemId, CancellationToken ct, DateOnly? asOf = null)
         => StockCosting.Replay(await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == warehouseId && m.ItemId == itemId && (asOf == null || m.Date <= asOf))).ToListAsync(ct));
+
+    /// <summary>A backdated movement must not use stock that later movements already consumed.</summary>
+    private async Task EnsureNoShortfallAsync(StockMovement candidate, CancellationToken ct)
+    {
+        var existing = await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == candidate.WarehouseId && m.ItemId == candidate.ItemId)).ToListAsync(ct);
+        if (StockCosting.FirstShortfall(existing, candidate) is { } day)
+            throw new ConflictException($"This would leave stock negative on {day:yyyy-MM-dd}; later movements already use that stock.");
+    }
 
     private static StockMovement New(Warehouse wh, Guid itemId, DateOnly date, MovementKind kind, decimal qty, decimal cost, string? reference, string? memo)
         => new() { LegalEntityId = wh.LegalEntityId, WarehouseId = wh.Id, ItemId = itemId, Date = date, Kind = kind, Quantity = qty, UnitCost = cost, Reference = reference, Memo = memo };

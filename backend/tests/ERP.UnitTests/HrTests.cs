@@ -47,6 +47,15 @@ public class HrTests
     }
 
     [Fact]
+    public void The_qatar_rule_gives_21_days_for_each_year_of_service()
+    {
+        var asOf = new DateOnly(2026, 10, 22);
+        var g = new GratuityCalculator(new CountryPackRegistry([new ERP.CountryPacks.QA.QatarCountryPack()])).Calculate(6_000m, asOf.AddYears(-7).AddDays(-3), null, asOf, "QA");
+        Assert.True(g.Eligible);
+        Assert.InRange(g.EntitlementDays, 147m, 148.5m); // 7 x 21
+    }
+
+    [Fact]
     public void Under_a_year_of_service_there_is_no_entitlement()
     {
         var asOf = new DateOnly(2026, 10, 22);

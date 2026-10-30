@@ -20,6 +20,7 @@ import {
   PosRegistersApi,
 } from '../../core/api/pos.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -42,10 +43,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzSwitchModule,
     NzDividerModule,
     PagedTableComponent,
+    HasPermissionDirective,
   ],
   template: `
     <erp-paged-table [list]="list" [columns]="columns">
-      <button toolbar nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="pos-register-new">
+      <button toolbar *erpHasPermission="'pos.registers.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="pos-register-new">
         <span nz-icon nzType="plus"></span>Add New Register
       </button>
           <ng-template #cell let-reg let-column="column">
@@ -62,7 +64,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             } @else if (column.key === 'createdAt') {
               {{ reg.createdAt | date:'mediumDate' }}
             } @else if (column.key === 'actions') {
-              <button nz-button nzType="link" nzSize="small" (click)="editRegister(reg)">
+              <button *erpHasPermission="'pos.registers.manage'" nz-button nzType="link" nzSize="small" (click)="editRegister(reg)">
                 Edit
               </button>
             }

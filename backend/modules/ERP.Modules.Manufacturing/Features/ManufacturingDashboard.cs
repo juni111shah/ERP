@@ -1,3 +1,4 @@
+using ERP.Application.Common;
 using ERP.Application.Abstractions;
 using ERP.Application.Dashboard;
 using ERP.Modules.Manufacturing.Domain;
@@ -30,12 +31,8 @@ public sealed class ManufacturingDashboard(
             kpis.Add(new("mfg-open-workorders", "Open Work Orders", activeWorkOrders, "number", "orders in production pipeline", 175, "/manufacturing/workorders"));
 
             var statuses = new[] { WorkOrderStatus.Draft, WorkOrderStatus.Planned, WorkOrderStatus.InProgress, WorkOrderStatus.Completed, WorkOrderStatus.Cancelled };
-            var counts = new List<decimal>();
-            foreach (var st in statuses)
-            {
-                var c = await workOrders.CountAsync(w => w.Status == st && (entity == null || w.LegalEntityId == entity), ct);
-                counts.Add((decimal)c);
-            }
+            var grouped = await workOrders.Query().Where(w => entity == null || w.LegalEntityId == entity).CountByAsync(w => w.Status, ct);
+            var counts = statuses.Select(k => (decimal)grouped.GetValueOrDefault(k)).ToList();
             charts.Add(new("mfg-production", "Work orders by status", "bar",
                 ["Draft", "Planned", "In Progress", "Completed", "Cancelled"],
                 [new("Work Orders", counts)], "Manufacturing floor status distribution", 45));

@@ -21,6 +21,7 @@ import { LegalEntitiesApi } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { PurchaseRequisitionInput, PurchaseRequisitionStatus, PurchaseRequisitionsApi, RequisitionInput, RequisitionSummaryDto } from '../../core/api/purchasing.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 @Component({
@@ -70,7 +71,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 }
               </div>
             } @else if (column.key === 'estimatedTotal') {
-              <strong>AED {{ row.estimatedTotal | number:'1.2-2' }}</strong>
+              <strong>{{ currency() }} {{ row.estimatedTotal | number:'1.2-2' }}</strong>
             } @else if (column.key === 'status') {
               <nz-tag [nzColor]="statusColor(row.status)">{{ row.status }}</nz-tag>
             } @else if (column.key === 'actions') {
@@ -90,10 +91,12 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                     View PO
                   </a>
                 }
-                <button *erpHasPermission="'purchasing.requisitions.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                        nz-popconfirm nzPopconfirmTitle="Delete this requisition?" (nzOnConfirm)="deleteRequisition(row.id)">
-                  Delete
-                </button>
+                @if (row.status === 'Draft') {
+                  <button *erpHasPermission="'purchasing.requisitions.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                          nz-popconfirm nzPopconfirmTitle="Delete this requisition?" (nzOnConfirm)="deleteRequisition(row.id)">
+                    Delete
+                  </button>
+                }
               </div>
             }
           </ng-template>
@@ -190,8 +193,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <tbody>
                   @for (ctrl of linesArray.controls; track $index) {
                     <tr [formGroupName]="$index">
-                      <td><input nz-input formControlName="itemCode" placeholder="Code" /></td>
-                      <td><input nz-input formControlName="description" placeholder="Item description" /></td>
+                      <td><input aria-label="Code" nz-input formControlName="itemCode" placeholder="Code" /></td>
+                      <td><input aria-label="Item description" nz-input formControlName="description" placeholder="Item description" /></td>
                       <td><nz-input-number formControlName="quantity" [nzMin]="1" style="width: 100%;"></nz-input-number></td>
                       <td><nz-input-number formControlName="estimatedUnitPrice" [nzMin]="0" style="width: 100%;"></nz-input-number></td>
                       <td class="line-calc">{{ (ctrl.value.quantity || 0) * (ctrl.value.estimatedUnitPrice || 0) | number:'1.2-2' }}</td>
@@ -209,7 +212,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div nz-form-item style="margin-top: 16px;">
               <nz-form-label>Business Justification / Reason</nz-form-label>
               <nz-form-control>
-                <textarea nz-input formControlName="reason" rows="2" placeholder="Why are these items needed?"></textarea>
+                <textarea aria-label="Why are these items needed?" nz-input formControlName="reason" rows="2" placeholder="Why are these items needed?"></textarea>
               </nz-form-control>
             </div>
 
@@ -230,7 +233,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
         <ng-container *nzModalContent>
           <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 8px; font-weight: 600;">Vendor / Supplier Name:</label>
-            <input nz-input [(ngModel)]="vendorNameInput" placeholder="Enter supplier name" />
+            <input aria-label="Enter supplier name" nz-input [(ngModel)]="vendorNameInput" placeholder="Enter supplier name" />
           </div>
         </ng-container>
       </nz-modal>
@@ -255,7 +258,9 @@ export class PurchaseRequisitionsPage {
   private readonly reqsApi = inject(PurchaseRequisitionsApi);
   private readonly entitiesApi = inject(LegalEntitiesApi);
   private readonly message = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
+  readonly currency = this.currencyService.currency;
   readonly list = createPagedList((q) => this.reqsApi.list(q), { sort: 'number' });
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly drawerVisible = signal(false);

@@ -141,7 +141,7 @@ const groupFilter = (id: string | null) => (id ? [{ field: 'partyGroupId', op: '
           <nz-form-item><nz-form-label>Phone</nz-form-label><nz-form-control><input nz-input formControlName="phone" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Tax number</nz-form-label><nz-form-control><input nz-input formControlName="taxNumber" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Address</nz-form-label><nz-form-control><textarea nz-input rows="2" formControlName="address" data-testid="party-address"></textarea></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Currency</nz-form-label><nz-form-control><input nz-input formControlName="currencyCode" maxlength="3" placeholder="e.g. AED" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Currency</nz-form-label><nz-form-control><input nz-input formControlName="currencyCode" maxlength="3" placeholder="e.g. QAR" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Payment terms (days)</nz-form-label><nz-form-control><input nz-input type="number" min="0" formControlName="paymentTermsDays" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>ID number</nz-form-label><nz-form-control [nzExtra]="sensitiveLocked() ? restrictedHint : ''"><input nz-input formControlName="idNumber" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>IBAN</nz-form-label><nz-form-control [nzExtra]="sensitiveLocked() ? restrictedHint : ''"><input nz-input formControlName="iban" /></nz-form-control></nz-form-item>

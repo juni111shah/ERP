@@ -224,10 +224,7 @@ internal sealed class QuoteHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Quote '{cmd.Id}' not found.");
 
-        if (quote.Status == SalesQuoteStatus.Converted)
-            throw new ConflictException("Cannot change status of an already converted quote.");
-        if (cmd.Status == SalesQuoteStatus.Converted && !quote.ConvertedSalesOrderId.HasValue)
-            throw new ConflictException("Cannot transition quote to Converted without converting to an order.");
+        SalesTransitions.Quote.Ensure(quote.Status, cmd.Status, isSystem: false);
 
         quote.Status = cmd.Status;
         await quotes.SaveChangesAsync(ct);
@@ -247,6 +244,8 @@ internal sealed class QuoteHandlers(
                 .FirstOrDefaultAsync(ct);
             if (existingOrder != null) return await OrderHandlers.ToDtoAsync(existingOrder, fields, ct);
         }
+
+        SalesTransitions.Quote.Ensure(quote.Status, SalesQuoteStatus.Converted, isSystem: true);
 
         var order = new SalesOrder
         {

@@ -73,6 +73,9 @@ public sealed class ProjectsModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, ProjectsDashboard>();
         services.AddScoped<ISearchProvider, ProjectsSearch>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<Project>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "project", P.ProjectsRead, P.ProjectsManage));
     }
 
     public override void ConfigureModel(ModelBuilder mb)

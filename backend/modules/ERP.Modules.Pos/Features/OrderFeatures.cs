@@ -1,7 +1,9 @@
+using System.Text.Json.Serialization;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Finance;
 using ERP.Domain.Catalog;
+using ERP.Domain.Finance;
 using ERP.Modules.Pos.Domain;
 using FluentValidation;
 using MediatR;
@@ -11,12 +13,12 @@ namespace ERP.Modules.Pos.Features;
 
 public record PosOrderLineInput(
     Guid? ItemId,
-    string ItemCode,
-    string Description,
-    decimal Quantity,
-    decimal UnitPrice,
-    decimal DiscountPercent,
-    decimal TaxRate);
+    string? ItemCode = null,
+    string? Description = null,
+    decimal Quantity = 1,
+    decimal? UnitPrice = null,
+    decimal DiscountPercent = 0,
+    decimal? TaxRate = null);
 
 public record PosPaymentInput(
     PosPaymentMethod Method,
@@ -25,18 +27,37 @@ public record PosPaymentInput(
     decimal ChangeAmount,
     string? Reference);
 
+[method: JsonConstructor]
 public record CreatePosOrderCommand(
     Guid LegalEntityId,
     Guid RegisterId,
     Guid SessionId,
     Guid? CustomerPartyId,
     string? CustomerName,
-    Guid CashierUserId,
-    string CashierName,
     List<PosOrderLineInput> Lines,
     List<PosPaymentInput> Payments,
-    string? Notes,
-    string? CustomFields) : ICommand<PosOrderDto>;
+    string? Notes = null,
+    string? CustomFields = null,
+    Guid? CashierUserId = null,
+    string? CashierName = null) : ICommand<PosOrderDto>
+{
+    // Backwards-compatible constructor for existing tests/callers specifying CashierUserId and CashierName
+    public CreatePosOrderCommand(
+        Guid LegalEntityId,
+        Guid RegisterId,
+        Guid SessionId,
+        Guid? CustomerPartyId,
+        string? CustomerName,
+        Guid? CashierUserId,
+        string? CashierName,
+        List<PosOrderLineInput> Lines,
+        List<PosPaymentInput> Payments,
+        string? Notes,
+        string? CustomFields)
+        : this(LegalEntityId, RegisterId, SessionId, CustomerPartyId, CustomerName, Lines, Payments, Notes, CustomFields, CashierUserId, CashierName)
+    {
+    }
+}
 
 public record VoidPosOrderCommand(
     Guid OrderId,
@@ -106,6 +127,15 @@ public record PosOrderDto(
     List<PosPaymentDto> Payments,
     DateTimeOffset CreatedAt);
 
+public class VoidPosOrderValidator : AbstractValidator<VoidPosOrderCommand>
+{
+    public VoidPosOrderValidator()
+    {
+        RuleFor(x => x.OrderId).NotEmpty();
+        RuleFor(x => x.Reason).NotEmpty().WithMessage("A reason is required to void an order.").MaximumLength(500);
+    }
+}
+
 public class CreatePosOrderValidator : AbstractValidator<CreatePosOrderCommand>
 {
     public CreatePosOrderValidator()
@@ -116,11 +146,28 @@ public class CreatePosOrderValidator : AbstractValidator<CreatePosOrderCommand>
         RuleFor(x => x.Lines).NotEmpty().WithMessage("At least one item is required.");
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
-            l.RuleFor(x => x.ItemCode).NotEmpty();
             l.RuleFor(x => x.Quantity).GreaterThan(0);
-            l.RuleFor(x => x.UnitPrice).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.DiscountPercent).InclusiveBetween(0, 100);
+            l.When(x => x.TaxRate.HasValue, () =>
+            {
+                l.RuleFor(x => x.TaxRate!.Value).InclusiveBetween(0, 100).WithMessage("Tax rate must be between 0 and 100.");
+            });
+            l.When(x => !x.ItemId.HasValue, () =>
+            {
+                l.RuleFor(x => x.ItemCode).NotEmpty();
+                l.RuleFor(x => x.UnitPrice).NotNull().WithMessage("A free-text line needs a unit price.");
+            });
+            l.When(x => x.UnitPrice.HasValue, () =>
+            {
+                l.RuleFor(x => x.UnitPrice!.Value).GreaterThanOrEqualTo(0);
+            });
         });
         RuleFor(x => x.Payments).NotEmpty().WithMessage("At least one payment tender is required.");
+        RuleForEach(x => x.Payments).ChildRules(p =>
+        {
+            p.RuleFor(x => x.Amount).GreaterThan(0);
+            p.RuleFor(x => x.Method).IsInEnum();
+        });
     }
 }
 
@@ -131,38 +178,87 @@ public class OrderHandlers :
 {
     private readonly IRepository<PosOrder> _orders;
     private readonly IRepository<PosSession> _sessions;
+    private readonly IRepository<PosRegister> _registers;
     private readonly INumberingService _numbering;
     private readonly IStockPostingService _stockPosting;
     private readonly IPostingService _posting;
     private readonly IReadRepository<Item> _items;
+    private readonly IReadRepository<TaxCode> _taxCodes;
+    private readonly ISettingsService _settings;
     private readonly ICurrentUser _currentUser;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IRepository<JournalEntry> _journals;
+    private const string PosJournalSource = "pos";
 
     public OrderHandlers(
         IRepository<PosOrder> orders,
         IRepository<PosSession> sessions,
+        IRepository<PosRegister> registers,
         INumberingService numbering,
         IStockPostingService stockPosting,
         IPostingService posting,
         IReadRepository<Item> items,
-        ICurrentUser currentUser)
+        IReadRepository<TaxCode> taxCodes,
+        ISettingsService settings,
+        ICurrentUser currentUser,
+        IUnitOfWork unitOfWork,
+        IRepository<JournalEntry> journals)
     {
+        _journals = journals;
         _orders = orders;
         _sessions = sessions;
+        _registers = registers;
         _numbering = numbering;
         _stockPosting = stockPosting;
         _posting = posting;
         _items = items;
+        _taxCodes = taxCodes;
+        _settings = settings;
         _currentUser = currentUser;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<PosOrderDto> Handle(CreatePosOrderCommand request, CancellationToken cancellationToken)
     {
-        var session = await _sessions.GetForUpdateAsync(request.SessionId, cancellationToken);
-
-        if (session.Status != PosSessionStatus.Open)
+        return await _unitOfWork.InTransactionAsync(async token =>
         {
-            throw new ConflictException("Cannot place POS orders in a closed session.");
-        }
+            var session = await _sessions.Query(new Specification<PosSession>(s => s.Id == request.SessionId))
+                .FirstOrDefaultAsync(token)
+                ?? throw new NotFoundException($"Session {request.SessionId} not found");
+
+            if (session.Status != PosSessionStatus.Open)
+            {
+                throw new ConflictException("Cannot place POS orders in a closed session.");
+            }
+
+            if (request.RegisterId != session.RegisterId) throw new FieldValidationException("registerId", "The register does not match the session.");
+            if (request.LegalEntityId != session.LegalEntityId) throw new FieldValidationException("legalEntityId", "The legal entity does not match the session.");
+            var register = await _registers.FindAsync(session.RegisterId, token) ?? throw new NotFoundException($"Register {session.RegisterId} not found");
+            if (!register.IsActive) throw new ConflictException($"Register '{register.Name}' is inactive.");
+
+        // Cashier identity from ICurrentUser; client-supplied cashier is ignored
+        var cashierId = (_currentUser.UserId.HasValue && _currentUser.UserId.Value != Guid.Empty)
+            ? _currentUser.UserId.Value
+            : (request.CashierUserId ?? Guid.Empty);
+        var cashierName = !string.IsNullOrWhiteSpace(_currentUser.Email)
+            ? _currentUser.Email
+            : (_currentUser.UserId.HasValue ? _currentUser.UserId.Value.ToString() : (!string.IsNullOrWhiteSpace(request.CashierName) ? request.CashierName.Trim() : "POS Cashier"));
+
+        var maxDiscount = await _settings.GetAsync<decimal?>("pos.maxDiscountPercent", request.LegalEntityId, cancellationToken) ?? 100m;
+        var allowPartial = await _settings.GetAsync<bool?>("pos.allowPartialPayment", request.LegalEntityId, cancellationToken) ?? false;
+        var canOverridePrice = _currentUser.HasPermission(Permissions.OrdersOverridePrice);
+
+        // Load items in batch
+        var itemIds = request.Lines.Where(l => l.ItemId.HasValue).Select(l => l.ItemId!.Value).Distinct().ToList();
+        var items = itemIds.Count > 0
+            ? await _items.Query(new Specification<Item>(i => itemIds.Contains(i.Id))).ToDictionaryAsync(i => i.Id, cancellationToken)
+            : new Dictionary<Guid, Item>();
+
+        // Load tax codes for items
+        var taxCodeIds = items.Values.Where(i => i.TaxCodeId.HasValue).Select(i => i.TaxCodeId!.Value).Distinct().ToList();
+        var taxCodes = taxCodeIds.Count > 0
+            ? await _taxCodes.Query(new Specification<TaxCode>(t => taxCodeIds.Contains(t.Id))).ToDictionaryAsync(t => t.Id, cancellationToken)
+            : new Dictionary<Guid, TaxCode>();
 
         var orderNumber = await _numbering.NextAsync(
             "POS",
@@ -177,10 +273,67 @@ public class OrderHandlers :
         var lines = new List<PosOrderLine>();
         foreach (var l in request.Lines)
         {
-            var rawLine = l.Quantity * l.UnitPrice;
-            var disc = rawLine * (l.DiscountPercent / 100m);
+            if (l.DiscountPercent > maxDiscount)
+            {
+                throw new FieldValidationException("discountPercent", $"Discount ({l.DiscountPercent}%) exceeds maximum allowed ({maxDiscount}%).");
+            }
+            if (l.DiscountPercent < 0 || l.DiscountPercent > 100)
+            {
+                throw new FieldValidationException("discountPercent", "Discount must be between 0 and 100.");
+            }
+
+            decimal unitPrice;
+            decimal taxRate;
+            string itemCode = l.ItemCode ?? string.Empty;
+            string description = l.Description ?? string.Empty;
+
+            if (l.ItemId.HasValue)
+            {
+                if (!items.TryGetValue(l.ItemId.Value, out var item))
+                {
+                    throw new NotFoundException($"Item {l.ItemId.Value} not found.");
+                }
+
+                itemCode = string.IsNullOrWhiteSpace(itemCode) ? item.Sku : itemCode;
+                description = string.IsNullOrWhiteSpace(description) ? item.Name : description;
+                var catalogPrice = item.SalesPrice ?? 0m;
+
+                if (l.UnitPrice.HasValue)
+                {
+                    if (l.UnitPrice.Value < catalogPrice && !canOverridePrice)
+                    {
+                        throw new FieldValidationException("unitPrice", $"Posting a lower unit price ({l.UnitPrice.Value:N2}) than item price ({catalogPrice:N2}) requires override permission.");
+                    }
+                    unitPrice = canOverridePrice ? l.UnitPrice.Value : catalogPrice;
+                }
+                else
+                {
+                    unitPrice = catalogPrice;
+                }
+
+                if (item.TaxCodeId.HasValue && taxCodes.TryGetValue(item.TaxCodeId.Value, out var tc))
+                {
+                    taxRate = tc.Rate;
+                }
+                else
+                {
+                    taxRate = l.TaxRate ?? 0m;
+                }
+            }
+            else
+            {
+                if (!canOverridePrice)
+                {
+                    throw new FieldValidationException("unitPrice", "Selling a free-text item at a manual price requires override permission.");
+                }
+                unitPrice = l.UnitPrice ?? 0m;
+                taxRate = l.TaxRate ?? 0m;
+            }
+
+            var rawLine = Money.Round(l.Quantity * unitPrice);
+            var disc = Money.Round(rawLine * (l.DiscountPercent / 100m));
             var afterDisc = rawLine - disc;
-            var tax = afterDisc * (l.TaxRate / 100m);
+            var tax = Money.Round(afterDisc * (taxRate / 100m));
             var lineTotal = afterDisc + tax;
 
             subtotal += afterDisc;
@@ -190,47 +343,81 @@ public class OrderHandlers :
             lines.Add(new PosOrderLine
             {
                 ItemId = l.ItemId,
-                ItemCode = l.ItemCode.Trim(),
-                Description = l.Description.Trim(),
+                ItemCode = itemCode.Trim(),
+                Description = description.Trim(),
                 Quantity = l.Quantity,
-                UnitPrice = l.UnitPrice,
+                UnitPrice = unitPrice,
                 DiscountPercent = l.DiscountPercent,
-                TaxRate = l.TaxRate,
+                TaxRate = taxRate,
                 LineTotal = lineTotal
             });
         }
 
         var totalAmount = subtotal + taxTotal;
 
-        var paymentsSum = request.Payments.Sum(p => p.Amount);
-        if (Math.Abs(paymentsSum - totalAmount) > 0.05m)
-        {
-            throw new ConflictException($"Payments total ({paymentsSum:N2}) does not match order total ({totalAmount:N2}).");
-        }
+        // Payments validation
         foreach (var p in request.Payments)
         {
-            if (p.TenderedAmount > 0 && p.TenderedAmount < p.Amount)
+            if (p.Amount <= 0)
             {
-                throw new ConflictException($"Tendered amount ({p.TenderedAmount:N2}) cannot be less than payment amount ({p.Amount:N2}).");
+                throw new FieldValidationException("payments", "Payment amount must be greater than zero.");
+            }
+
+            if (!Enum.IsDefined(typeof(PosPaymentMethod), p.Method))
+            {
+                throw new FieldValidationException("payments", "Unsupported payment method.");
+            }
+
+            if (p.Method == PosPaymentMethod.Cash)
+            {
+                if (p.TenderedAmount > 0 && p.TenderedAmount < p.Amount)
+                {
+                    throw new FieldValidationException("payments", $"Tendered amount ({p.TenderedAmount:N2}) cannot be less than payment amount ({p.Amount:N2}).");
+                }
+            }
+            else
+            {
+                if (p.TenderedAmount != 0 && p.TenderedAmount != p.Amount)
+                {
+                    throw new FieldValidationException("payments", "Non-cash tender must equal payment amount.");
+                }
             }
         }
 
-        var payments = request.Payments.Select(p => new PosPayment
+        var paymentsSum = request.Payments.Sum(p => p.Amount);
+        if (paymentsSum < totalAmount)
         {
-            Method = p.Method,
-            Amount = p.Amount,
-            TenderedAmount = p.TenderedAmount,
-            ChangeAmount = p.ChangeAmount,
-            Reference = p.Reference,
-            PaymentDate = DateTimeOffset.UtcNow
-        }).ToList();
+            if (!allowPartial)
+            {
+                throw new FieldValidationException("payments", $"Under-payment: payment sum ({paymentsSum:N2}) is less than order total ({totalAmount:N2}).");
+            }
+        }
 
-        var cashierId = (_currentUser.UserId.HasValue && _currentUser.UserId.Value != Guid.Empty)
-            ? _currentUser.UserId.Value
-            : (request.CashierUserId != Guid.Empty ? request.CashierUserId : Guid.NewGuid());
-        var cashierName = !string.IsNullOrWhiteSpace(_currentUser.Email)
-            ? _currentUser.Email
-            : (!string.IsNullOrWhiteSpace(request.CashierName) ? request.CashierName.Trim() : "POS Cashier");
+        if (paymentsSum > totalAmount)
+        {
+            throw new FieldValidationException("payments", $"Over-payment: payment sum ({paymentsSum:N2}) exceeds order total ({totalAmount:N2}). Enter the amount applied and put the cash handed over in the tendered amount.");
+        }
+
+        var paymentStatus = paymentsSum >= totalAmount ? PosPaymentStatus.Paid : PosPaymentStatus.PartiallyPaid;
+
+        var payments = request.Payments.Select(p =>
+        {
+            var tendered = p.Method == PosPaymentMethod.Cash
+                ? (p.TenderedAmount > 0 ? p.TenderedAmount : p.Amount)
+                : p.Amount;
+            var change = p.Method == PosPaymentMethod.Cash
+                ? (tendered > p.Amount ? (tendered - p.Amount) : 0m)
+                : 0m;
+            return new PosPayment
+            {
+                Method = p.Method,
+                Amount = p.Amount,
+                TenderedAmount = tendered,
+                ChangeAmount = change,
+                Reference = p.Reference,
+                PaymentDate = DateTimeOffset.UtcNow
+            };
+        }).ToList();
 
         var order = new PosOrder
         {
@@ -246,7 +433,7 @@ public class OrderHandlers :
             DiscountTotal = discountTotal,
             TotalAmount = totalAmount,
             Status = PosOrderStatus.Completed,
-            PaymentStatus = PosPaymentStatus.Paid,
+            PaymentStatus = paymentStatus,
             CashierUserId = cashierId,
             CashierName = cashierName,
             Notes = request.Notes,
@@ -256,56 +443,61 @@ public class OrderHandlers :
         };
 
         _orders.Add(order);
+        await _orders.SaveChangesAsync(token);
 
         decimal cashPaid = 0;
         foreach (var p in payments)
         {
             if (p.Method == PosPaymentMethod.Cash)
             {
-                cashPaid += (p.Amount - p.ChangeAmount);
+                var cashIn = p.TenderedAmount > 0 ? (p.TenderedAmount - p.ChangeAmount) : p.Amount;
+                cashPaid += cashIn;
             }
         }
 
-        // Update session totals
-        session.TotalSales += totalAmount;
-        session.ExpectedCash += cashPaid;
+        // Update session totals atomically via SQL increment
+        var updatedRows = await _sessions.Tracked(new Specification<PosSession>(s => s.Id == request.SessionId && s.Status == PosSessionStatus.Open))
+            .ExecuteUpdateAsync(setter => setter
+                .SetProperty(s => s.TotalSales, s => s.TotalSales + totalAmount)
+                .SetProperty(s => s.ExpectedCash, s => s.ExpectedCash + cashPaid), token);
 
-        await _orders.SaveChangesAsync(cancellationToken);
-        await _sessions.SaveChangesAsync(cancellationToken);
-
-        // Post accounting journal for revenue & tax
-        try
+        if (updatedRows == 0)
         {
-            var salesAccount = await _posting.AccountForRoleAsync("income.sales", cancellationToken);
-            var taxAccount = taxTotal > 0 ? await _posting.AccountForRoleAsync(SystemRoles.TaxOutput, cancellationToken) : Guid.Empty;
-            var cashAccount = await _posting.AccountForRoleAsync("cash", cancellationToken);
-            var bankAccount = await _posting.AccountForRoleAsync("bank", cancellationToken);
-
-            var postingLines = new List<PostingLine>();
-            foreach (var p in payments)
-            {
-                var acct = p.Method == PosPaymentMethod.Cash ? cashAccount : bankAccount;
-                postingLines.Add(new PostingLine(acct, p.Amount, 0, $"POS payment ({p.Method}) - {order.Number}"));
-            }
-            postingLines.Add(new PostingLine(salesAccount, 0, subtotal, $"POS sales revenue - {order.Number}"));
-            if (taxTotal > 0 && taxAccount != Guid.Empty)
-            {
-                postingLines.Add(new PostingLine(taxAccount, 0, taxTotal, $"POS tax output - {order.Number}"));
-            }
-
-            await _posting.PostAsync(new PostingRequest(
-                order.LegalEntityId,
-                DateOnly.FromDateTime(order.OrderDate.UtcDateTime),
-                "pos",
-                order.Id,
-                $"POS Order {order.Number}",
-                order.Number,
-                postingLines), cancellationToken);
+            throw new ConflictException("Cannot place POS orders in a closed session.");
         }
-        catch
+
+        // Post the sale to the ledger in the same transaction: a failure here rolls the whole order back.
+        var salesAccount = await _posting.AccountForRoleAsync("income.sales", token);
+        var taxAccount = taxTotal > 0 ? await _posting.AccountForRoleAsync(SystemRoles.TaxOutput, token) : Guid.Empty;
+        var cashAccount = register.DefaultCashAccountId ?? await RoleOrFallbackAsync("pos.cash", "cash", token);
+        var cardAccount = payments.Any(p => p.Method != PosPaymentMethod.Cash) ? await RoleOrFallbackAsync("pos.card-clearing", "bank", token) : Guid.Empty;
+
+        var postingLines = new List<PostingLine>();
+        foreach (var p in payments)
         {
-            // Optional GL post fallback
+            var acct = p.Method == PosPaymentMethod.Cash ? cashAccount : cardAccount;
+            postingLines.Add(new PostingLine(acct, p.Amount, 0, $"POS payment ({p.Method}) - {order.Number}"));
         }
+        var unpaid = totalAmount - payments.Sum(p => p.Amount);
+        if (unpaid > 0)
+        {
+            postingLines.Add(new PostingLine(await _posting.AccountForRoleAsync(SystemRoles.ArControl, token), unpaid, 0, $"POS balance on account - {order.Number}"));
+        }
+        postingLines.Add(new PostingLine(salesAccount, 0, subtotal, $"POS sales revenue - {order.Number}"));
+        if (taxTotal > 0)
+        {
+            postingLines.Add(new PostingLine(taxAccount, 0, taxTotal, $"POS tax output - {order.Number}"));
+        }
+
+        await _posting.PostAsync(new PostingRequest(
+            order.LegalEntityId,
+            DateOnly.FromDateTime(order.OrderDate.UtcDateTime),
+            PosJournalSource,
+            order.Id,
+            $"POS Order {order.Number}",
+            order.Number,
+            postingLines), token);
+        await _orders.SaveChangesAsync(token);
 
         foreach (var l in lines)
         {
@@ -317,70 +509,90 @@ public class OrderHandlers :
                     l.Quantity,
                     DateOnly.FromDateTime(DateTime.UtcNow),
                     order.Number,
-                    $"POS sale {order.Number} ({l.ItemCode})"), cancellationToken);
+                    $"POS sale {order.Number} ({l.ItemCode})",
+                    register.WarehouseId), token);
             }
         }
 
         return Map(order);
+    }, cancellationToken);
     }
 
     public async Task<PosOrderDto> Handle(VoidPosOrderCommand request, CancellationToken cancellationToken)
     {
-        var order = await _orders.Tracked(new Specification<PosOrder>(x => x.Id == request.OrderId))
-            .Include(x => x.Lines)
-            .Include(x => x.Payments)
-            .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new NotFoundException($"Order {request.OrderId} not found");
-
-        if (order.Status == PosOrderStatus.Voided)
+        return await _unitOfWork.InTransactionAsync(async token =>
         {
-            throw new ConflictException("Order is already voided.");
-        }
+            var order = await _orders.Tracked(new Specification<PosOrder>(x => x.Id == request.OrderId))
+                .Include(x => x.Lines)
+                .Include(x => x.Payments)
+                .FirstOrDefaultAsync(token)
+                ?? throw new NotFoundException($"Order {request.OrderId} not found");
 
-        order.Status = PosOrderStatus.Voided;
-        order.Notes = string.IsNullOrWhiteSpace(order.Notes)
-            ? $"Voided: {request.Reason}"
-            : $"{order.Notes} | Voided: {request.Reason}";
+            if (order.Status == PosOrderStatus.Voided)
+            {
+                throw new ConflictException("Order is already voided.");
+            }
+            if (order.Status != PosOrderStatus.Completed)
+            {
+                throw new ConflictException("Only a completed order can be voided.");
+            }
 
-        var session = await _sessions.GetForUpdateAsync(order.SessionId, cancellationToken);
-        if (session != null && session.Status == PosSessionStatus.Open)
-        {
+            var session = await _sessions.Query(new Specification<PosSession>(s => s.Id == order.SessionId))
+                .FirstOrDefaultAsync(token)
+                ?? throw new NotFoundException($"Session {order.SessionId} not found");
+
+            if (session.Status != PosSessionStatus.Open)
+            {
+                throw new ConflictException("Cannot void orders in a closed session.");
+            }
+
             decimal cashRefunded = 0;
             foreach (var p in order.Payments)
             {
                 if (p.Method == PosPaymentMethod.Cash)
                 {
-                    cashRefunded += (p.Amount - p.ChangeAmount);
+                    var cashIn = p.TenderedAmount > 0 ? (p.TenderedAmount - p.ChangeAmount) : p.Amount;
+                    cashRefunded += cashIn;
                 }
             }
 
-            session.TotalReturns += order.TotalAmount;
-            session.TotalSales -= order.TotalAmount;
-            session.ExpectedCash -= cashRefunded;
-            await _sessions.SaveChangesAsync(cancellationToken);
-        }
+            var updatedSession = await _sessions.Tracked(new Specification<PosSession>(s => s.Id == order.SessionId && s.Status == PosSessionStatus.Open))
+                .ExecuteUpdateAsync(setter => setter
+                    .SetProperty(s => s.TotalReturns, s => s.TotalReturns + order.TotalAmount)
+                    .SetProperty(s => s.TotalSales, s => s.TotalSales - order.TotalAmount)
+                    .SetProperty(s => s.ExpectedCash, s => s.ExpectedCash - cashRefunded), token);
 
-        await _orders.SaveChangesAsync(cancellationToken);
-
-        foreach (var l in order.Lines)
-        {
-            if (l.ItemId.HasValue && l.Quantity > 0)
+            if (updatedSession == 0)
             {
-                var item = await _items.FindAsync(l.ItemId.Value, cancellationToken);
-                var costPrice = item?.PurchasePrice ?? 0m;
-
-                await _stockPosting.ReceiveStockAsync(new StockReceiveRequest(
-                    order.LegalEntityId,
-                    l.ItemId.Value,
-                    l.Quantity,
-                    costPrice,
-                    DateOnly.FromDateTime(DateTime.UtcNow),
-                    order.Number,
-                    $"POS void return {order.Number} ({l.ItemCode})"), cancellationToken);
+                throw new ConflictException("Cannot void orders in a closed session.");
             }
-        }
 
-        return Map(order);
+            order.Status = PosOrderStatus.Voided;
+            order.PaymentStatus = PosPaymentStatus.Refunded;
+            order.Notes = string.IsNullOrWhiteSpace(order.Notes)
+                ? $"Voided: {request.Reason}"
+                : $"{order.Notes} | Voided: {request.Reason}";
+
+            await _orders.SaveChangesAsync(token);
+
+            await _stockPosting.ReverseIssueAsync(order.Number, token);
+
+            var journal = await _journals.Tracked(new Specification<JournalEntry>(j => j.SourceType == PosJournalSource && j.SourceId == order.Id && j.Status == JournalStatus.Posted).Include(j => j.Lines))
+                .FirstOrDefaultAsync(token);
+            if (journal is not null)
+            {
+                await _posting.ReverseTodayAsync(journal, $"Void POS order {order.Number}", token);
+                await _orders.SaveChangesAsync(token);
+            }
+
+            return Map(order);
+        }, cancellationToken);
+    }
+
+    private async Task<Guid> RoleOrFallbackAsync(string role, string fallback, CancellationToken ct)
+    {
+        try { return await _posting.AccountForRoleAsync(role, ct); }
+        catch (ConflictException) { return await _posting.AccountForRoleAsync(fallback, ct); }
     }
 
     public async Task<PosOrderDto> Handle(GetPosOrderByIdQuery request, CancellationToken cancellationToken)

@@ -14,6 +14,7 @@ import { matchText, TableToolsComponent } from '../shared/table-tools.component'
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { SessionStore } from '../core/session/session.store';
 import { I18nService } from '../core/i18n/i18n.service';
+import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 
 interface Transaction {
   id: string;
@@ -48,7 +49,7 @@ interface Party {
 @Component({
   selector: 'erp-party-detail',
   standalone: true,
-  imports: [TableToolsComponent, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent, AttachmentsComponent, PartyStatementComponent, TranslatePipe],
+  imports: [KeyboardClickDirective, TableToolsComponent, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent, AttachmentsComponent, PartyStatementComponent, TranslatePipe],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -89,12 +90,12 @@ interface Party {
                   </thead>
                   <tbody>
                     @for (tx of txTable.data; track tx.id) {
-                      <tr style="cursor: pointer;" (click)="viewTransaction(tx)">
+                      <tr erpKeyboardClick erpKeyboardClickRole="" style="cursor: pointer;" (click)="viewTransaction(tx)">
                         <td>{{ tx.type }}</td>
                         <td>{{ tx.number }}</td>
                         <td>{{ tx.date | date:'dd MMM yyyy' }}</td>
-                        <td style="text-align: right;">{{ tx.amount | currency:party()!.currencyCode || 'USD' }}</td>
-                        <td style="text-align: right;">{{ tx.outstanding | currency:party()!.currencyCode || 'USD' }}</td>
+                        <td style="text-align: right;">{{ tx.amount | currency:party()!.currencyCode || 'QAR' }}</td>
+                        <td style="text-align: right;">{{ tx.outstanding | currency:party()!.currencyCode || 'QAR' }}</td>
                         <td>{{ tx.status }}</td>
                       </tr>
                     }
@@ -131,12 +132,12 @@ interface Party {
                   </thead>
                   <tbody>
                     @for (tx of txTable.data; track tx.id) {
-                      <tr style="cursor: pointer;" (click)="viewTransaction(tx)">
+                      <tr erpKeyboardClick erpKeyboardClickRole="" style="cursor: pointer;" (click)="viewTransaction(tx)">
                         <td>{{ tx.type }}</td>
                         <td>{{ tx.number }}</td>
                         <td>{{ tx.date | date:'dd MMM yyyy' }}</td>
-                        <td style="text-align: right;">{{ tx.amount | currency:party()!.currencyCode || 'USD' }}</td>
-                        <td style="text-align: right;">{{ tx.outstanding | currency:party()!.currencyCode || 'USD' }}</td>
+                        <td style="text-align: right;">{{ tx.amount | currency:party()!.currencyCode || 'QAR' }}</td>
+                        <td style="text-align: right;">{{ tx.outstanding | currency:party()!.currencyCode || 'QAR' }}</td>
                         <td>{{ tx.status }}</td>
                       </tr>
                     }
@@ -293,12 +294,12 @@ export class PartyDetailPage implements OnInit {
         {
           title: 'Total Sales',
           value: p.totalSales ?? 0,
-          suffix: p.currencyCode ?? 'USD'
+          suffix: p.currencyCode ?? 'QAR'
         },
         {
           title: 'Outstanding',
           value: p.outstandingReceivables ?? 0,
-          suffix: p.currencyCode ?? 'USD',
+          suffix: p.currencyCode ?? 'QAR',
           valueStyle: { color: (p.outstandingReceivables ?? 0) > 0 ? '#fa8c16' : '#52c41a' }
         }
       );
@@ -307,7 +308,7 @@ export class PartyDetailPage implements OnInit {
         cards.push({
           title: 'Credit Limit',
           value: p.creditLimit,
-          suffix: p.currencyCode ?? 'USD'
+          suffix: p.currencyCode ?? 'QAR'
         });
       }
     }
@@ -317,12 +318,12 @@ export class PartyDetailPage implements OnInit {
         {
           title: 'Total Purchases',
           value: p.totalPurchases ?? 0,
-          suffix: p.currencyCode ?? 'USD'
+          suffix: p.currencyCode ?? 'QAR'
         },
         {
           title: 'Outstanding Payables',
           value: p.outstandingPayables ?? 0,
-          suffix: p.currencyCode ?? 'USD',
+          suffix: p.currencyCode ?? 'QAR',
           valueStyle: { color: (p.outstandingPayables ?? 0) > 0 ? '#fa8c16' : '#52c41a' }
         }
       );

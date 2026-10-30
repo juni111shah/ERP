@@ -179,11 +179,96 @@ public class HrApiTests(ApiFactory f) : IClassFixture<ApiFactory>
 
         var dashboard = await Ok(await x.C.GetAsync("/api/v1/dashboard"));
         Assert.Contains(dashboard["kpis"]!.AsArray(), k => (string?)k!["key"] == "employees");
+        var headcount = dashboard["charts"]!.AsArray().First(ch => (string?)ch!["key"] == "hr-headcount")!["series"]![0]!["values"]!.AsArray().Select(v => (decimal)v!).ToList();
+        Assert.Equal(3, headcount.Count); // Active, On Leave, Terminated: one grouped query, zero for missing statuses
+        Assert.True(headcount[0] >= 1 && headcount[2] == 0, string.Join(",", headcount));
         var forecast = await Ok(await x.C.GetAsync($"{Fin}/reports/cash-forecast?weeks=8&legalEntityId={x.Entity}"));
         Assert.Contains(forecast["sources"]!.AsArray(), s => (string?)s!["key"] == "payroll");
 
         var (admin, _) = await f.SignInAsync(ApiFactory.AdminEmail); // the general workspace has no HR module
         Assert.Equal(HttpStatusCode.Forbidden, (await admin.GetAsync($"{Hr}/employees")).StatusCode);
         Assert.DoesNotContain((await Ok(await admin.GetAsync("/api/v1/dashboard")))["kpis"]!.AsArray(), k => (string?)k!["key"] == "employees");
+    }
+
+    [Fact]
+    public async Task Pay_amounts_are_money_and_an_adjustment_cannot_make_pay_negative()
+    {
+        var x = await SetupAsync();
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Hr}/employees", Employee(x, "Odd", 1_000.123m))).StatusCode);
+        await Ok(await x.C.PostAsJsonAsync($"{Hr}/employees", Employee(x, "Small", 1_000m)), HttpStatusCode.Created);
+        var run = await Ok(await x.C.PostAsJsonAsync($"{Hr}/payroll", new { legalEntityId = x.Entity, year = 2026, month = 4 }), HttpStatusCode.Created);
+        var line = (string)run["lines"]![0]!["id"]!;
+        var runId = (string)run["id"]!;
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PutAsJsonAsync($"{Hr}/payroll/{runId}/lines/{line}", new { adjustment = 10.005m })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PutAsJsonAsync($"{Hr}/payroll/{runId}/lines/{line}", new { adjustment = -5_000m })).StatusCode);
+        await Ok(await x.C.PutAsJsonAsync($"{Hr}/payroll/{runId}/lines/{line}", new { adjustment = -200m, note = "Fine" }));
+    }
+
+    [Fact]
+    public async Task Paying_a_payroll_needs_a_real_date_not_before_its_month()
+    {
+        var x = await SetupAsync();
+        await Ok(await x.C.PostAsJsonAsync($"{Hr}/employees", Employee(x, "Payee", 5_000m)), HttpStatusCode.Created);
+        var run = await Ok(await x.C.PostAsJsonAsync($"{Hr}/payroll", new { legalEntityId = x.Entity, year = 2026, month = 5 }), HttpStatusCode.Created);
+        var id = (string)run["id"]!;
+        await Ok(await x.C.PostAsync($"{Hr}/payroll/{id}/post", null));
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Hr}/payroll/{id}/pay", new { bankAccountId = x.Bank, date = "0001-01-01" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Hr}/payroll/{id}/pay", new { bankAccountId = x.Bank, date = "2026-04-30" })).StatusCode);
+        Assert.Equal("paid", (string)(await Ok(await x.C.PostAsJsonAsync($"{Hr}/payroll/{id}/pay", new { bankAccountId = x.Bank, date = "2026-05-28" })))["status"]!);
+    }
+
+    [Fact]
+    public async Task Changing_or_deleting_a_payroll_withdraws_its_pending_approval()
+    {
+        var x = await SetupAsync();
+        await Ok(await x.C.PostAsJsonAsync($"{Hr}/employees", Employee(x, "Approval Edit", 5_000m)), HttpStatusCode.Created);
+        async Task<string> StatusAsync(string requestId)
+            => ((string)(await Ok(await x.C.GetAsync("/api/v1/approvals?scope=mine"))).AsArray().Single(a => (string)a!["id"]! == requestId)!["status"]!).ToLowerInvariant();
+        Assert.Equal(HttpStatusCode.NoContent, (await x.C.PutAsJsonAsync("/api/v1/settings", new Dictionary<string, object> { ["hr.payrollRequiresApproval"] = true })).StatusCode);
+        try
+        {
+            var first = await Ok(await x.C.PostAsJsonAsync($"{Hr}/payroll", new { legalEntityId = x.Entity, year = 2026, month = 6 }), HttpStatusCode.Created);
+            var id = (string)first["id"]!;
+            var pending = await Ok(await x.C.PostAsync($"{Hr}/payroll/{id}/post", null));
+            var requestId = (string)pending["approvalRequestId"]!;
+            Assert.Equal("pending", await StatusAsync(requestId));
+            await Ok(await x.C.PostAsync($"{Hr}/payroll/{id}/recalculate", null));
+            Assert.Equal("withdrawn", await StatusAsync(requestId));
+
+            var again = await Ok(await x.C.PostAsync($"{Hr}/payroll/{id}/post", null));
+            var secondRequest = (string)again["approvalRequestId"]!;
+            Assert.NotEqual(requestId, secondRequest);
+            Assert.Equal(HttpStatusCode.NoContent, (await x.C.DeleteAsync($"{Hr}/payroll/{id}")).StatusCode);
+            Assert.Equal("withdrawn", await StatusAsync(secondRequest));
+        }
+        finally { await x.C.PutAsJsonAsync("/api/v1/settings", new Dictionary<string, object> { ["hr.payrollRequiresApproval"] = false }); }
+    }
+
+    [Fact]
+    public async Task Attendance_cannot_change_after_the_payroll_is_posted_or_for_a_month_the_employee_was_not_employed()
+    {
+        var x = await SetupAsync();
+        var emp = await Ok(await x.C.PostAsJsonAsync($"{Hr}/employees", Employee(x, "Attend", 4_000m, join: "2026-03-10")), HttpStatusCode.Created);
+        var employeeId = (string)emp["id"]!;
+        object Att(int month) => new { employeeId, year = 2026, month, workingDays = 26, daysPresent = 24, unpaidAbsentDays = 2, paidLeaveDays = 0, overtimeHours = 0 };
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PutAsJsonAsync($"{Hr}/attendance", Att(2))).StatusCode); // joined in March
+        var saved = await Ok(await x.C.PutAsJsonAsync($"{Hr}/attendance", Att(7)));
+        var run = await Ok(await x.C.PostAsJsonAsync($"{Hr}/payroll", new { legalEntityId = x.Entity, year = 2026, month = 7 }), HttpStatusCode.Created);
+        await Ok(await x.C.PutAsJsonAsync($"{Hr}/attendance", Att(7))); // a draft run does not lock attendance
+        await Ok(await x.C.PostAsync($"{Hr}/payroll/{(string)run["id"]!}/post", null));
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.PutAsJsonAsync($"{Hr}/attendance", Att(7))).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.DeleteAsync($"{Hr}/attendance/{(string)saved["recordId"]!}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task An_iban_must_look_like_one_and_is_stored_upper_case()
+    {
+        var x = await SetupAsync();
+        object WithIban(string? iban) => new { legalEntityId = x.Entity, fullName = "Iban " + Guid.NewGuid().ToString("N")[..5], designation = "Agent", joinDate = "2020-01-01", status = "active", basicSalary = 1_000m, housingAllowance = 0m, transportAllowance = 0m, otherAllowances = 0m, recurringDeductions = 0m, iban };
+        foreach (var bad in new[] { "12345", "AE07 0331 2345 6789 0123 456", "AE0703312", "AEXX0331234567890123456" })
+            Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Hr}/employees", WithIban(bad))).StatusCode);
+        var ok = await Ok(await x.C.PostAsJsonAsync($"{Hr}/employees", WithIban("ae070331234567890123456")), HttpStatusCode.Created);
+        Assert.Equal("AE070331234567890123456", (string)ok["iban"]!);
+        await Ok(await x.C.PostAsJsonAsync($"{Hr}/employees", WithIban(null)), HttpStatusCode.Created);
     }
 }

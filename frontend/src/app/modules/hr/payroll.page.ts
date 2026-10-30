@@ -18,6 +18,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 const COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', posted: 'blue', paid: 'green' };
 
@@ -37,7 +38,7 @@ import { DecimalPipe } from '@angular/common';
             <span class="code-pill">{{ row.number }}</span>
           }
           @case ('netPay') {
-            <b>AED {{ row.netPay | number: '1.2-2' }}</b>
+            <b>{{ currency() }} {{ row.netPay | number: '1.2-2' }}</b>
           }
           @case ('status') {
             <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
@@ -57,6 +58,7 @@ export class PayrollPage {
   private readonly api = inject(PayrollApi);
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-year' });
   readonly drawer = signal(false);

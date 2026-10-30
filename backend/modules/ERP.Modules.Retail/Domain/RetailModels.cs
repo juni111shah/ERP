@@ -55,7 +55,7 @@ public class RetailPriceList : LegalEntityScopedEntity, IHasCustomFields
     [Filterable]
     public PriceListType Type { get; set; } = PriceListType.Standard;
 
-    public string Currency { get; set; } = "AED";
+    public string Currency { get; set; } = "QAR";
 
     [Sortable, Filterable]
     public DateOnly? ValidFrom { get; set; }

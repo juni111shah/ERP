@@ -220,4 +220,110 @@ public class PayablesTests(ApiFactory f) : IClassFixture<ApiFactory>
 
         Assert.Equal(HttpStatusCode.NoContent, (await s.C.DeleteAsync($"/api/v1/approval-policies/{(string)policy["id"]!}")).StatusCode);
     }
+
+    private static async Task<string> ApprovalStatusAsync(Setup s, string requestId)
+        => ((string)(await Ok(await s.C.GetAsync("/api/v1/approvals?scope=mine"))).AsArray().Single(a => (string)a!["id"]! == requestId)!["status"]!).ToLowerInvariant();
+
+    private static async Task<(string BillId, string RequestId)> PendingBillAsync(Setup s, string reference)
+    {
+        var big = await Ok(await s.C.PostAsJsonAsync($"{Fin}/bills", Bill(s, 3_000m, reference, tax: null)), HttpStatusCode.Created); // 6000
+        var pending = await Ok(await s.C.PostAsync($"{Fin}/bills/{(string)big["id"]!}/post", null));
+        Assert.Equal("pendingApproval", (string)pending["status"]!);
+        return ((string)big["id"]!, (string)pending["approvalRequestId"]!);
+    }
+
+    [Fact]
+    public async Task Editing_or_deleting_a_bill_withdraws_its_pending_approval()
+    {
+        var s = await NewAsync();
+        var policy = await Ok(await s.C.PostAsJsonAsync("/api/v1/approval-policies", new { documentType = "bill", minAmount = 5_000m }), HttpStatusCode.Created);
+
+        var (billId, requestId) = await PendingBillAsync(s, "W-1");
+        Assert.Equal("pending", await ApprovalStatusAsync(s, requestId));
+        await Ok(await s.C.PutAsJsonAsync($"{Fin}/bills/{billId}", Bill(s, 3_100m, "W-1", tax: null)));
+        Assert.Equal("withdrawn", await ApprovalStatusAsync(s, requestId));
+        var resubmitted = await Ok(await s.C.PostAsync($"{Fin}/bills/{billId}/post", null));
+        Assert.Equal("pendingApproval", (string)resubmitted["status"]!);
+        Assert.NotEqual(requestId, (string)resubmitted["approvalRequestId"]!);
+
+        var (second, secondRequest) = await PendingBillAsync(s, "W-2");
+        Assert.Equal(HttpStatusCode.NoContent, (await s.C.DeleteAsync($"{Fin}/bills/{second}")).StatusCode);
+        Assert.Equal("withdrawn", await ApprovalStatusAsync(s, secondRequest));
+
+        await s.C.DeleteAsync($"/api/v1/approval-policies/{(string)policy["id"]!}");
+    }
+
+    [Fact]
+    public async Task Bills_and_payments_accept_only_vendor_parties()
+    {
+        var s = await NewAsync();
+        async Task<string> NewParty(string roles) => (string)(await Ok(await s.C.PostAsJsonAsync("/api/v1/parties", new { name = "P " + Guid.NewGuid().ToString("N")[..6], kind = "Company", roles }), HttpStatusCode.Created))["id"]!;
+        object BillFor(string party, string reference) => new { legalEntityId = s.Entity, partyId = party, vendorReference = reference, billDate = "2026-04-01", lines = new[] { new { description = "x", quantity = 1m, price = 10m, accountId = s.Expense } } };
+        object PaymentFor(string party) => new { legalEntityId = s.Entity, partyId = party, date = "2026-04-22", method = "bankTransfer", bankAccountId = s.Bank, amount = 10m };
+        var customer = await NewParty("Customer");
+        var both = await NewParty("Customer, Vendor");
+
+        var badBill = await s.C.PostAsJsonAsync($"{Fin}/bills", BillFor(customer, "R-1"));
+        Assert.Equal(HttpStatusCode.BadRequest, badBill.StatusCode);
+        Assert.Contains("partyid", (await badBill.Content.ReadAsStringAsync()).ToLowerInvariant());
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/payments", PaymentFor(customer))).StatusCode);
+
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/bills", BillFor(both, "R-2")), HttpStatusCode.Created);
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/payments", PaymentFor(both)), HttpStatusCode.Created);
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/payments", PaymentFor(s.Vendor)), HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task Ageing_and_statement_reproduce_a_past_as_of_date()
+    {
+        var s = await NewAsync();
+        var paidLater = await PostedAsync(s, Bill(s, 50m, "H-1", "2026-01-01", null)); // 100
+        var voidedLater = await PostedAsync(s, Bill(s, 25m, "H-2", "2026-01-02", null)); // 50
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/payments", new { legalEntityId = s.Entity, partyId = s.Vendor, date = "2026-02-15", method = "bankTransfer", bankAccountId = s.Bank, amount = 100m, allocations = new[] { new { billId = paidLater, amount = 100m } } }), HttpStatusCode.Created);
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/bills/{voidedLater}/void", VoidReason)); // voided today, after both dates below
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/payments", new { legalEntityId = s.Entity, partyId = s.Vendor, date = "2026-02-15", method = "cash", bankAccountId = s.Bank, amount = 30m }), HttpStatusCode.Created); // advance
+
+        async Task<decimal> Total(string asOf)
+        {
+            var report = await Ok(await s.C.GetAsync($"{Fin}/reports/ap-ageing?asOf={asOf}&legalEntityId={s.Entity}"));
+            return (decimal?)report["rows"]!.AsArray().SingleOrDefault(r => (string)r!["partyId"]! == s.Vendor)?["total"] ?? 0m;
+        }
+        Assert.Equal(150m, await Total("2026-01-31"));      // both bills open, the 15 Feb payments do not exist yet
+        Assert.Equal(20m, await Total("2026-02-28"));        // first bill paid; second (voided only today) still open: 50 less the 30 advance
+        var statement = await Ok(await s.C.GetAsync($"{Fin}/reports/vendor-statement?partyId={s.Vendor}&asOf=2026-01-31&legalEntityId={s.Entity}"));
+        Assert.Equal((150m, 0m), ((decimal)statement["balance"]!, (decimal)statement["unallocatedPayments"]!));
+        Assert.Equal(-30m, await Total("2026-12-31"));       // today: the second bill is voided, only the advance remains
+    }
+
+    [Fact]
+    public async Task Allocation_and_cheque_clearing_requests_are_validated()
+    {
+        var s = await NewAsync();
+        var billId = await PostedAsync(s, Bill(s, 100m, "C-1", "2026-02-05", null)); // 200
+        var early = await Ok(await s.C.PostAsJsonAsync($"{Fin}/payments", new { legalEntityId = s.Entity, partyId = s.Vendor, date = "2026-02-01", method = "bankTransfer", bankAccountId = s.Bank, amount = 200m }), HttpStatusCode.Created);
+        var id = (string)early["id"]!;
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/payments/{id}/allocate", new { allocations = Array.Empty<object>() })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/payments/{id}/allocate", new { allocations = new[] { new { billId, amount = 200m } } })).StatusCode); // bill dated after payment
+
+        var cheque = await Ok(await s.C.PostAsJsonAsync($"{Fin}/payments", new { legalEntityId = s.Entity, partyId = s.Vendor, date = "2026-05-01", method = "instrument", bankAccountId = s.Bank, amount = 10m, chequeNo = "900100" }), HttpStatusCode.Created);
+        var chequeId = (string)cheque["paymentInstrumentId"]!;
+        foreach (var date in new[] { "0001-01-01", "2026-04-30", "2099-01-01" })
+            Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/cheques/{chequeId}/clear-issued", new { date })).StatusCode);
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/cheques/{chequeId}/clear-issued", new { date = "2026-05-02" }));
+    }
+
+    [Fact]
+    public async Task A_failing_journal_leaves_a_payment_that_cannot_be_voided_untouched()
+    {
+        var s = await NewAsync();
+        var billId = await PostedAsync(s, Bill(s, 50m, "L-1", tax: null)); // 100
+        var payment = await Ok(await s.C.PostAsJsonAsync($"{Fin}/payments", new { legalEntityId = s.Entity, partyId = s.Vendor, date = "2026-04-20", method = "bankTransfer", bankAccountId = s.Bank, amount = 100m, allocations = new[] { new { billId, amount = 100m } } }), HttpStatusCode.Created);
+        var id = (string)payment["id"]!;
+        Assert.True((await s.C.PutAsJsonAsync($"/api/v1/legal-entities/{s.Entity}/books-lock", new { through = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd") })).IsSuccessStatusCode);
+
+        Assert.False((await s.C.PostAsJsonAsync($"{Fin}/payments/{id}/void", VoidReason)).IsSuccessStatusCode); // the reversal cannot post
+        Assert.Equal("issued", (string)(await Ok(await s.C.GetAsync($"{Fin}/payments/{id}")))["status"]!);
+        var bill = await Ok(await s.C.GetAsync($"{Fin}/bills/{billId}"));
+        Assert.Equal(("paid", 0m), ((string)bill["status"]!, (decimal)bill["outstanding"]!));
+    }
 }

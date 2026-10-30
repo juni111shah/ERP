@@ -238,4 +238,26 @@ public class ReceivablesTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsync($"{Fin}/invoices/{(string)draft["id"]!}/issue", null)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await s.C.DeleteAsync($"{Fin}/invoices/{(string)draft["id"]!}")).StatusCode);
     }
+
+    [Fact]
+    public async Task Ageing_and_statement_reproduce_a_past_as_of_date()
+    {
+        var s = await NewAsync();
+        var paidLater = await IssuedAsync(s, Invoice(s, 50m, "2026-01-01", tax: false)); // 100
+        var voidedLater = await IssuedAsync(s, Invoice(s, 25m, "2026-01-02", tax: false)); // 50
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/receipts", new { legalEntityId = s.Entity, partyId = s.Party, date = "2026-02-15", method = "bankTransfer", bankAccountId = s.Bank, amount = 100m, allocations = new[] { new { invoiceId = paidLater, amount = 100m } } }), HttpStatusCode.Created);
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/invoices/{voidedLater}/void", VoidReason)); // voided today, after both dates below
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/receipts", new { legalEntityId = s.Entity, partyId = s.Party, date = "2026-02-15", method = "cash", bankAccountId = s.Bank, amount = 30m }), HttpStatusCode.Created); // on account
+
+        async Task<decimal> Total(string asOf)
+        {
+            var report = await Ok(await s.C.GetAsync($"{Fin}/reports/ar-ageing?asOf={asOf}&legalEntityId={s.Entity}"));
+            return (decimal?)report["rows"]!.AsArray().SingleOrDefault(r => (string)r!["partyId"]! == s.Party)?["total"] ?? 0m;
+        }
+        Assert.Equal(150m, await Total("2026-01-31"));
+        Assert.Equal(20m, await Total("2026-02-28")); // first paid; second (voided only today) open: 50 less the 30 on account
+        var statement = await Ok(await s.C.GetAsync($"{Fin}/reports/customer-statement?partyId={s.Party}&asOf=2026-01-31&legalEntityId={s.Entity}"));
+        Assert.Equal((150m, 0m), ((decimal)statement["balance"]!, (decimal)statement["unallocatedReceipts"]!));
+        Assert.Equal(-30m, await Total("2026-12-31")); // today: the second invoice is voided, only the receipt on account remains
+    }
 }

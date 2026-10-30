@@ -9,6 +9,7 @@ import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzStatisticModule } from 'ng-zorro-antd/statistic';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { LegalEntitiesApi } from '../../core/api/admin.api';
+import { SessionStore } from '../../core/session/session.store';
 import { ServicesKpiApi, ServicesKpisDto } from '../../core/api/services.api';
 
 import { StatCardComponent } from '../../shared/stat-card.component';
@@ -162,21 +163,26 @@ import { StatCardComponent } from '../../shared/stat-card.component';
 export class ServicesAnalyticsPage implements OnInit {
   private readonly kpiApi = inject(ServicesKpiApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly sessionStore = inject(SessionStore);
 
   readonly kpis = signal<ServicesKpisDto | null>(null);
-  currentLegalEntityId: string = '00000000-0000-0000-0000-000000000001';
+  currentLegalEntityId: string = this.sessionStore.currentEntityId() || this.sessionStore.me()?.legalEntities[0]?.id || '';
 
   ngOnInit(): void {
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => {
-        const items = res.items || [];
-        if (items.length > 0) {
-          this.currentLegalEntityId = items[0].id;
-        }
-        this.loadKpis();
-      },
-      error: () => this.loadKpis()
-    });
+    if (this.currentLegalEntityId) {
+      this.loadKpis();
+    } else {
+      this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
+        next: res => {
+          const items = res.items || [];
+          if (items.length > 0) {
+            this.currentLegalEntityId = items[0].id;
+            this.loadKpis();
+          }
+        },
+        error: () => {}
+      });
+    }
   }
 
   loadKpis(): void {

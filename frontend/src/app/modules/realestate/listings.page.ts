@@ -17,6 +17,7 @@ import { StatusTagComponent } from './status-tag.component';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { StatCardComponent } from '../../shared/stat-card.component';
 
 /** Properties and units offered for rent or sale: draft, publish, close. */
@@ -70,7 +71,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             <nz-tag [nzColor]="row.kind === 'rent' ? 'cyan' : 'gold'">{{ humanize(row.kind) }}</nz-tag>
           }
           @case ('price') {
-            <b>AED {{ row.price | number: '1.2-2' }}</b>
+            <b>{{ currency() }} {{ row.price | number: '1.2-2' }}</b>
             @if (row.kind === 'rent') {
               <span style="font-size:12px;color:var(--erp-color-text-secondary)"> / yr</span>
             }
@@ -117,6 +118,7 @@ export class ListingsPage {
   private readonly api = inject(ListingsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;
   readonly statuses = ['draft', 'published', 'closed'];
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-listedOn' });

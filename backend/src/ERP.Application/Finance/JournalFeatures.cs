@@ -19,10 +19,10 @@ public sealed record JournalDto(
 public sealed record JournalSummaryDto(Guid Id, string Number, Guid LegalEntityId, DateOnly Date, string? Memo, string SourceType, JournalStatus Status, decimal Amount, string CurrencyCode);
 
 public sealed record GetJournal(Guid Id) : IQuery<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsRead; }
-public sealed record CreateJournal(JournalInput Input) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsWrite; }
+public sealed record CreateJournal(JournalInput Input) : ICommand<JournalDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsWrite; }
 public sealed record UpdateJournal(Guid Id, JournalInput Input) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsWrite; }
 public sealed record DeleteJournal(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsWrite; }
-public sealed record PostJournal(Guid Id) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsPost; }
+public sealed record PostJournal(Guid Id) : ICommand<JournalDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsPost; }
 public sealed record ReverseJournal(Guid Id, DateOnly? Date, string? Memo) : ICommand<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsReverse; }
 public sealed class ReverseJournalValidator : AbstractValidator<ReverseJournal> { public ReverseJournalValidator() => RuleFor(x => x.Memo).MaximumLength(400); }
 /// <summary>Closes the books of a legal entity up to (and including) a date. Nothing can be posted on or before it.</summary>
@@ -39,8 +39,8 @@ public sealed class JournalInputValidator : AbstractValidator<JournalInput>
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
             l.RuleFor(x => x.AccountId).NotEmpty();
-            l.RuleFor(x => x.Debit).GreaterThanOrEqualTo(0);
-            l.RuleFor(x => x.Credit).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.Debit).GreaterThanOrEqualTo(0).MustBeMoney();
+            l.RuleFor(x => x.Credit).GreaterThanOrEqualTo(0).MustBeMoney();
             l.RuleFor(x => x).Must(x => (x.Debit > 0) != (x.Credit > 0)).WithMessage("Each line needs either a debit or a credit.");
         });
     }
@@ -103,6 +103,7 @@ internal sealed class JournalHandlers(
     {
         var journal = await LoadDraftAsync(cmd.Id, ct);
         var entity = await guard.RequireAsync(journal.LegalEntityId, ct);
+        await EnsurePostableAsync(journal.Lines.Select(l => l.AccountId).Distinct().ToList(), ct); // an account may have been deactivated since the draft was saved
         journal.Recalculate();
         journal.EnsureCanPost(entity.BooksLockedTo);
         journal.Number = await numbering.NextAsync("journal", entity.Id, journal.Date, ct);
@@ -152,11 +153,19 @@ internal sealed class JournalHandlers(
         return j;
     }
 
+    /// <summary>Manual journals bypass <see cref="IPostingService.PostAsync"/>, so they check the accounts themselves: found, active, not a header.</summary>
+    private async Task EnsurePostableAsync(List<Guid> ids, CancellationToken ct)
+    {
+        var found = await accounts.Query(new Specification<Account>(a => ids.Contains(a.Id))).Select(a => new { a.Id, a.Code, a.IsPostable, a.IsActive }).ToListAsync(ct);
+        if (found.Count != ids.Count) throw new FieldValidationException("lines", "One of the accounts was not found.");
+        var bad = found.FirstOrDefault(a => !a.IsPostable || !a.IsActive);
+        if (bad is not null) throw new FieldValidationException("lines", $"Account {bad.Code} cannot be posted to (inactive or a header account).");
+    }
+
     private async Task<List<JournalLine>> ApplyAsync(JournalEntry journal, JournalInput i, CancellationToken ct)
     {
         var ids = i.Lines.Select(l => l.AccountId).Distinct().ToList();
-        var found = await accounts.Query(new Specification<Account>(a => ids.Contains(a.Id))).Select(a => a.Id).ToListAsync(ct);
-        if (found.Count != ids.Count) throw new FieldValidationException("lines", "One of the accounts was not found.");
+        await EnsurePostableAsync(ids, ct);
         journal.Date = i.Date; journal.Memo = i.Memo?.Trim(); journal.Reference = i.Reference?.Trim();
         var seq = 1;
         var lines = i.Lines.Select(l => new JournalLine { JournalEntryId = journal.Id, Seq = seq++, AccountId = l.AccountId, Debit = l.Debit, Credit = l.Credit, Description = l.Description, PartyId = l.PartyId, BusinessUnitId = l.BusinessUnitId }).ToList();

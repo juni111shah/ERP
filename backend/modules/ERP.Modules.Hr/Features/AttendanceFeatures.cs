@@ -35,7 +35,7 @@ public sealed class SaveAttendanceValidator : AbstractValidator<SaveAttendance>
     }
 }
 
-internal sealed class AttendanceHandlers(IRepository<AttendanceRecord> records, IReadRepository<Employee> employees, LeaveFeed leaveFeed) :
+internal sealed class AttendanceHandlers(IRepository<AttendanceRecord> records, IReadRepository<Employee> employees, LeaveFeed leaveFeed, IReadRepository<PayrollRun> payrollRuns) :
     IRequestHandler<ListAttendance, IReadOnlyList<AttendanceRowDto>>,
     IRequestHandler<SaveAttendance, AttendanceRowDto>,
     IRequestHandler<DeleteAttendance, Unit>
@@ -61,6 +61,9 @@ internal sealed class AttendanceHandlers(IRepository<AttendanceRecord> records, 
     {
         var i = cmd.Input;
         var e = await employees.GetAsync(i.EmployeeId, ct);
+        var monthStart = new DateOnly(i.Year, i.Month, 1);
+        if (!e.IsPayableIn(monthStart, monthStart.AddMonths(1).AddDays(-1))) throw new FieldValidationException("employeeId", "This employee is not on the payroll in that month.");
+        await EnsureNotPostedAsync(e.LegalEntityId, i.Year, i.Month, ct);
         var r = await records.Tracked(new Specification<AttendanceRecord>(x => x.EmployeeId == e.Id && x.Year == i.Year && x.Month == i.Month)).FirstOrDefaultAsync(ct);
         if (r is null) { r = new AttendanceRecord { LegalEntityId = e.LegalEntityId, EmployeeId = e.Id, Year = i.Year, Month = i.Month }; records.Add(r); }
         r.WorkingDays = i.WorkingDays; r.DaysPresent = i.DaysPresent; r.UnpaidAbsentDays = i.UnpaidAbsentDays; r.PaidLeaveDays = i.PaidLeaveDays; r.OvertimeHours = i.OvertimeHours;
@@ -68,9 +71,17 @@ internal sealed class AttendanceHandlers(IRepository<AttendanceRecord> records, 
         return new AttendanceRowDto(e.Id, e.Number, e.FullName, e.Designation, e.LegalEntityId, r.Id, true, r.WorkingDays, r.DaysPresent, r.UnpaidAbsentDays, r.PaidLeaveDays, r.OvertimeHours);
     }
 
+    private async Task EnsureNotPostedAsync(Guid entityId, int year, int month, CancellationToken ct)
+    {
+        if (await payrollRuns.AnyAsync(p => p.LegalEntityId == entityId && p.Year == year && p.Month == month && (p.Status == PayrollStatus.Posted || p.Status == PayrollStatus.Paid), ct))
+            throw new ConflictException("The payroll for this month is already posted, so its attendance can no longer change.");
+    }
+
     public async Task<Unit> Handle(DeleteAttendance cmd, CancellationToken ct)
     {
-        records.Remove(await records.GetForUpdateAsync(cmd.RecordId, ct));
+        var record = await records.GetForUpdateAsync(cmd.RecordId, ct);
+        await EnsureNotPostedAsync(record.LegalEntityId, record.Year, record.Month, ct);
+        records.Remove(record);
         await records.SaveChangesAsync(ct);
         return Unit.Value;
     }

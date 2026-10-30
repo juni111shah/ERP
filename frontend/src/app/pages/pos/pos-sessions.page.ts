@@ -21,6 +21,7 @@ import {
 } from '../../core/api/pos.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
@@ -125,7 +126,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div>
               <label style="font-weight: 600; display: block; margin-bottom: 4px;">Reason / Memo</label>
-              <input nz-input [(ngModel)]="txReason" placeholder="e.g. Midday safe drop to main vault" />
+              <input aria-label="e.g. Midday safe drop to main vault" nz-input [(ngModel)]="txReason" placeholder="e.g. Midday safe drop to main vault" />
             </div>
           </div>
         </ng-container>
@@ -136,9 +137,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 export class PosSessionsPage {
   private readonly api = inject(PosSessionsApi);
   private readonly sessionStore = inject(SessionStore);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
+  readonly currency = this.currencyService.currency;
   readonly list = createPagedList<PosSessionSummaryDto>((q: any) => this.api.list(q));
   readonly openSessions = signal<PosSessionSummaryDto[]>([]);
 
@@ -193,12 +195,15 @@ export class PosSessionsPage {
     }
 
     const user = this.sessionStore.me()?.user;
+    if (!user?.id) {
+      this.message.error('User authentication is missing.');
+      return;
+    }
     this.api
       .recordDrawerTransaction(this.selectedSessionId, {
         type: this.txType,
         amount: this.txAmount,
         reason: this.txReason,
-        performedByUserId: user?.id || '00000000-0000-0000-0000-000000000001',
       })
       .subscribe({
         next: () => {

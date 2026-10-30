@@ -16,6 +16,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 import { DecimalPipe } from '@angular/common';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 @Component({
   selector: 'erp-items',
@@ -37,7 +38,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
             <nz-tag [nzColor]="row.type === 'product' ? 'blue' : 'purple'">{{ row.type === 'product' ? 'Product' : 'Service' }}</nz-tag>
           }
           @case ('salesPrice') {
-            <b>AED {{ row.salesPrice | number: '1.2-2' }}</b>
+            <b>{{ currency() }} {{ row.salesPrice | number: '1.2-2' }}</b>
           }
           @case ('isActive') {
             <nz-tag [nzColor]="row.isActive ? 'green' : 'default'">{{ row.isActive ? 'Active' : 'Inactive' }}</nz-tag>
@@ -53,6 +54,8 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
                        [saving]="state.saving()" [errors]="state.errors()" testId="item-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class ItemsPage {
+  private readonly currencyService = inject(WorkspaceCurrencyService);
+  readonly currency = this.currencyService.currency;
   private readonly api = inject(ItemsApi);
   private readonly taxes = toSignal(inject(TaxCodesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'sku' });

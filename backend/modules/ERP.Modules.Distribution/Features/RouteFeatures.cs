@@ -168,7 +168,7 @@ public class RouteHandlers :
         var route = await _routes.Query(new Specification<DistributionRoute>(r => r.Id == request.Id))
             .Include(r => r.Stops)
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new KeyNotFoundException($"Route {request.Id} not found.");
+            ?? throw new NotFoundException($"Route {request.Id} not found.");
 
         route.Name = request.Name.Trim();
         route.Description = request.Description?.Trim();

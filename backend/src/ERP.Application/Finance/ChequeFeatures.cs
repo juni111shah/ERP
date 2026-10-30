@@ -47,7 +47,7 @@ public sealed class ChequeInputValidator : AbstractValidator<ChequeInput>
         RuleFor(x => x.Kind).IsInEnum();
         RuleFor(x => x.InstrumentNo).NotEmpty().MaximumLength(50);
         RuleFor(x => x.BankName).MaximumLength(100);
-        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
         RuleFor(x => x.Notes).MaximumLength(500);
     }
 }
@@ -237,7 +237,7 @@ internal sealed class ChequeHandlers(
     private async Task RequireBankAsync(Guid accountId, CancellationToken ct)
     {
         var a = await accounts.FindAsync(accountId, ct);
-        if (a is null || a.Type != AccountType.Asset || !a.IsPostable || !a.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
+        if (a is null || !BankAccountRules.IsBankOnly(a)) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
     }
 
     private async Task<ChequeDto> ToDtoAsync(PaymentInstrument c, CancellationToken ct)

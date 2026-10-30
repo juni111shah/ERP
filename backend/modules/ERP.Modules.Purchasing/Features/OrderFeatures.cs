@@ -5,6 +5,7 @@ using ERP.Application.Customization;
 using ERP.Application.Finance;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
+using ERP.Domain.Catalog;
 using ERP.Domain.Finance;
 using ERP.Modules.Purchasing.Domain;
 using FluentValidation;
@@ -103,7 +104,7 @@ public sealed record CreatePurchaseOrder(PurchaseOrderInput Input) : ICommand<Pu
 public sealed record UpdatePurchaseOrder(Guid Id, PurchaseOrderInput Input) : ICommand<PurchaseOrderDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 public sealed record DeletePurchaseOrder(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 public sealed record ChangePurchaseOrderStatus(Guid Id, PurchaseOrderStatus Status) : ICommand<PurchaseOrderDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
-public sealed record ConvertPurchaseOrderToBill(Guid Id) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
+public sealed record ConvertPurchaseOrderToBill(Guid Id, IReadOnlyDictionary<Guid, decimal>? UnitPriceOverrides = null) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 
 public sealed class PurchaseOrderInputValidator : AbstractValidator<PurchaseOrderInput>
 {
@@ -137,6 +138,7 @@ public sealed class UpdatePurchaseOrderValidator : AbstractValidator<UpdatePurch
 internal sealed class PurchaseOrderHandlers(
     IRepository<PurchaseOrder> orders,
     IReadRepository<Account> accounts,
+    IReadRepository<Item> items,
     ISender sender,
     ILegalEntityGuard guard,
     INumberingService numbers,
@@ -237,12 +239,7 @@ internal sealed class PurchaseOrderHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Purchase order '{cmd.Id}' not found.");
 
-        if (order.Status == PurchaseOrderStatus.Billed)
-            throw new ConflictException("Cannot change status of an already billed purchase order.");
-        if (order.Status == PurchaseOrderStatus.Cancelled)
-            throw new ConflictException("Cannot change status of a cancelled purchase order.");
-        if (cmd.Status == PurchaseOrderStatus.Billed && !order.InvoicedBillId.HasValue)
-            throw new ConflictException("Cannot transition to Billed without converting to a vendor bill.");
+        PurchasingTransitions.Order.Ensure(order.Status, cmd.Status, isSystem: false);
 
         order.Status = cmd.Status;
         await orders.SaveChangesAsync(ct);
@@ -260,33 +257,79 @@ internal sealed class PurchaseOrderHandlers(
             return await sender.Send(new GetBill(order.InvoicedBillId.Value), ct);
         }
 
+        PurchasingTransitions.Order.Ensure(order.Status, PurchaseOrderStatus.Billed, isSystem: true);
+
         if (!order.VendorPartyId.HasValue)
         {
             throw new ConflictException("Purchase order must have an assigned Vendor Party to generate an accounting bill.");
         }
 
-        // Find inventory clearing (GR/IR) account or default expense account
+        // Find inventory clearing (GR/IR) account
         var clearingAccount = await accounts.Query(new Specification<Account>(a => a.SystemRole == SystemRoles.InventoryClearing && a.IsActive && a.IsPostable))
-            .FirstOrDefaultAsync(ct);
+            .FirstOrDefaultAsync(ct) ?? throw new ConflictException("No account is set up for 'inventory.clearing'. Add one in the chart of accounts.");
 
         var expenseAccount = await accounts.Query(new Specification<Account>(a => a.Type == AccountType.Expense && a.IsPostable))
             .OrderBy(a => a.Code)
             .FirstOrDefaultAsync(ct) ?? throw new ConflictException("No postable expense account configured in Chart of Accounts.");
 
-        var billLines = order.Lines.Select(l =>
-        {
-            var acctId = (l.ReceivedQuantity > 0 && clearingAccount != null)
-                ? clearingAccount.Id
-                : expenseAccount.Id;
+        var varianceAccount = await accounts.Query(new Specification<Account>(a => (a.SystemRole == SystemRoles.PurchaseVariance || a.SystemRole == "cogs" || a.Name.Contains("variance")) && a.IsActive && a.IsPostable))
+            .OrderBy(a => a.SystemRole == SystemRoles.PurchaseVariance ? 0 : 1)
+            .FirstOrDefaultAsync(ct) ?? expenseAccount;
 
-            return new BillLineInput(
-                Description: $"{order.Number}: {l.Description}",
-                Quantity: l.Quantity,
-                Price: Math.Round(l.UnitPrice * (1m - (l.DiscountPercent / 100m)), 4),
-                AccountId: acctId,
-                ItemId: l.ItemId
-            );
-        }).ToList();
+        var itemIds = order.Lines.Where(l => l.ItemId.HasValue).Select(l => l.ItemId!.Value).Distinct().ToList();
+        var productItemIds = (await items.Query(new Specification<Item>(x => itemIds.Contains(x.Id) && x.Type == ItemType.Product))
+            .Select(x => x.Id)
+            .ToListAsync(ct)).ToHashSet();
+
+        var billLines = new List<BillLineInput>();
+        foreach (var l in order.Lines)
+        {
+            var isProduct = l.ItemId.HasValue && productItemIds.Contains(l.ItemId.Value);
+            var poNetPrice = Math.Round(l.UnitPrice * (1m - (l.DiscountPercent / 100m)), 4);
+            var targetPrice = poNetPrice;
+            if (cmd.UnitPriceOverrides != null && cmd.UnitPriceOverrides.TryGetValue(l.Id, out var overridePrice))
+            {
+                targetPrice = overridePrice;
+            }
+
+            var billQty = Math.Max(l.Quantity, l.ReceivedQuantity);
+            var receivedQty = isProduct ? Math.Min(billQty, l.ReceivedQuantity) : 0m;
+            var unreceivedQty = billQty - receivedQty;
+
+            if (receivedQty > 0)
+            {
+                billLines.Add(new BillLineInput(
+                    Description: $"{order.Number}: {l.Description}",
+                    Quantity: receivedQty,
+                    Price: poNetPrice,
+                    AccountId: clearingAccount.Id,
+                    ItemId: l.ItemId
+                ));
+
+                var priceDiff = targetPrice - poNetPrice;
+                if (priceDiff != 0)
+                {
+                    billLines.Add(new BillLineInput(
+                        Description: $"{order.Number}: Purchase price variance for {l.Description}",
+                        Quantity: receivedQty,
+                        Price: priceDiff,
+                        AccountId: varianceAccount.Id,
+                        ItemId: l.ItemId
+                    ));
+                }
+            }
+
+            if (unreceivedQty > 0)
+            {
+                billLines.Add(new BillLineInput(
+                    Description: $"{order.Number}: {l.Description}" + (receivedQty > 0 ? " (Pending)" : ""),
+                    Quantity: unreceivedQty,
+                    Price: targetPrice,
+                    AccountId: expenseAccount.Id,
+                    ItemId: l.ItemId
+                ));
+            }
+        }
 
         var bill = await sender.Send(new CreateBill(new BillInput(
             LegalEntityId: order.LegalEntityId,
@@ -300,7 +343,7 @@ internal sealed class PurchaseOrderHandlers(
 
         foreach (var l in order.Lines)
         {
-            l.BilledQuantity = l.Quantity;
+            l.BilledQuantity = Math.Max(l.Quantity, l.ReceivedQuantity);
         }
 
         order.Status = PurchaseOrderStatus.Billed;

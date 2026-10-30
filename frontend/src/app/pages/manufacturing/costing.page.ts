@@ -14,6 +14,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import {
   BomSummaryDto,
   CostRollupDto,
@@ -189,8 +190,9 @@ export class ManufacturingCostingPageComponent implements OnInit {
   private readonly costingApi = inject(ManufacturingCostingApi);
   private readonly sessionStore = inject(SessionStore);
   private readonly message = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || '$');
+  readonly currency = this.currencyService.currency;
   readonly availableBoms = signal<BomSummaryDto[]>([]);
   readonly rollupData = signal<CostRollupDto | null>(null);
   readonly variances = signal<VarianceAnalysisDto[]>([]);

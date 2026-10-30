@@ -16,6 +16,7 @@ import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ItemsApi, LegalEntitiesApi } from '../../core/api/admin.api';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { createPagedList } from '../../core/api/paged-list';
 import {
   CreateWholesalePriceInput,
@@ -313,10 +314,11 @@ export class WholesalePricingPageComponent implements OnInit {
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly itemsApi = inject(ItemsApi);
   private readonly session = inject(SessionStore);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
 
-  readonly currency = computed(() => this.session.me()?.workspace?.baseCurrency ?? 'AED');
+  readonly currency = this.currencyService.currency;
 
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly catalogItems = signal<{ id: string; name: string; sku: string; salesPrice?: number }[]>([]);

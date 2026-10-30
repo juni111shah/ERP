@@ -89,6 +89,8 @@ internal sealed class TaskHandlers(
     {
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
+        ProjectRules.EnsureOpen(p);
+        await EnsureMilestoneInProjectAsync(i.MilestoneId, p.Id, ct);
         var t = new ProjectTask
         {
             ProjectId = p.Id,
@@ -112,6 +114,8 @@ internal sealed class TaskHandlers(
     {
         var t = await tasks.GetForUpdateAsync(cmd.Id, ct);
         var i = cmd.Input;
+        await EnsureMilestoneInProjectAsync(i.MilestoneId, t.ProjectId, ct);
+        if (i.Status != t.Status) ProjectsTransitions.Task.Ensure(t.Status, i.Status, isSystem: false);
         t.MilestoneId = i.MilestoneId;
         t.Title = i.Title.Trim();
         t.Description = i.Description?.Trim();
@@ -137,9 +141,16 @@ internal sealed class TaskHandlers(
     public async Task<TaskDto> Handle(ChangeTaskStatus cmd, CancellationToken ct)
     {
         var t = await tasks.GetForUpdateAsync(cmd.Id, ct);
+        ProjectsTransitions.Task.Ensure(t.Status, cmd.Status, isSystem: false);
         t.Status = cmd.Status;
         await tasks.SaveChangesAsync(ct);
         return await BuildDtoAsync(t, ct);
+    }
+
+    private async Task EnsureMilestoneInProjectAsync(Guid? milestoneId, Guid projectId, CancellationToken ct)
+    {
+        if (milestoneId is { } mid && !await milestones.AnyAsync(m => m.Id == mid && m.ProjectId == projectId, ct))
+            throw new FieldValidationException("milestoneId", "Milestone not found in this project.");
     }
 
     private async Task<TaskDto> BuildDtoAsync(ProjectTask t, CancellationToken ct)

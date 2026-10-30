@@ -184,11 +184,11 @@ import { FormsModule } from '@angular/forms';
             @for (f of fundingRows.controls; track $index) {
               <div class="fund" [formGroupName]="$index">
                 <nz-select formControlName="type">@for (t of types; track t.value) { <nz-option [nzValue]="t.value" [nzLabel]="t.label"></nz-option> }</nz-select>
-                <input nz-input formControlName="lender" placeholder="Lender" [attr.data-testid]="'fund-lender-' + $index" />
+                <input aria-label="Lender" nz-input formControlName="lender" placeholder="Lender" [attr.data-testid]="'fund-lender-' + $index" />
                 <nz-input-number formControlName="principal" [nzMin]="0" [nzPrecision]="2" [attr.data-testid]="'fund-principal-' + $index"></nz-input-number>
                 <nz-input-number formControlName="annualRatePercent" [nzMin]="0" [nzMax]="100" [nzPrecision]="2"></nz-input-number>
                 <nz-input-number formControlName="termMonths" [nzMin]="1" [nzMax]="600" [nzPrecision]="0"></nz-input-number>
-                <button nz-button nzType="text" type="button" (click)="removeFunding($index)"><span nz-icon nzType="delete"></span></button>
+                <button aria-label="Remove funding line" nz-button nzType="text" type="button" (click)="removeFunding($index)"><span nz-icon nzType="delete"></span></button>
               </div>
             }
           </div>

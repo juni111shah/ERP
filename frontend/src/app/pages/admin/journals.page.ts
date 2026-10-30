@@ -108,8 +108,8 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
                 <nz-select formControlName="accountId" nzShowSearch nzPlaceHolder="Account" [attr.data-testid]="'j-account-' + $index">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
                 <nz-input-number formControlName="debit" [nzMin]="0" [nzPrecision]="2" nzPlaceHolder="Debit" [attr.data-testid]="'j-debit-' + $index"></nz-input-number>
                 <nz-input-number formControlName="credit" [nzMin]="0" [nzPrecision]="2" nzPlaceHolder="Credit" [attr.data-testid]="'j-credit-' + $index"></nz-input-number>
-                <input nz-input formControlName="description" placeholder="Description" />
-                @if (editable()) { <button nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
+                <input aria-label="Description" nz-input formControlName="description" placeholder="Description" />
+                @if (editable()) { <button aria-label="Remove line" nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
               </div>
             }
           </div>

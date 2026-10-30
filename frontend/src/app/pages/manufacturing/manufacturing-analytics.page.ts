@@ -9,6 +9,7 @@ import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzStatisticModule } from 'ng-zorro-antd/statistic';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ManufacturingKpiApi, ManufacturingKpisDto } from '../../core/api/manufacturing.api';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 @Component({
   selector: 'erp-manufacturing-analytics-page',
@@ -77,7 +78,7 @@ import { ManufacturingKpiApi, ManufacturingKpisDto } from '../../core/api/manufa
               <nz-statistic
                 [nzTitle]="'Month Production Cost'"
                 [nzValue]="(k.monthProductionCost | number:'1.2-2') || '0.00'"
-                [nzPrefix]="'$'">
+                [nzPrefix]="currency() + ' '">
               </nz-statistic>
             </nz-card>
           </div>
@@ -161,7 +162,9 @@ import { ManufacturingKpiApi, ManufacturingKpisDto } from '../../core/api/manufa
 })
 export class ManufacturingAnalyticsPageComponent implements OnInit {
   private readonly kpiApi = inject(ManufacturingKpiApi);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
+  readonly currency = this.currencyService.currency;
   readonly kpis = signal<ManufacturingKpisDto | null>(null);
 
   ngOnInit(): void {

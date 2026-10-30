@@ -127,7 +127,7 @@ public class TimeEntryHandlers :
     {
         var entry = await _timeRepo.FindAsync(request.Id, cancellationToken);
         if (entry is null)
-            throw new KeyNotFoundException($"Time entry {request.Id} not found.");
+            throw new NotFoundException($"Time entry {request.Id} not found.");
 
         entry.IsApproved = true;
         entry.ApprovedByUserId = request.ApprovedByUserId;

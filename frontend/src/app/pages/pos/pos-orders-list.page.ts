@@ -18,6 +18,7 @@ import {
 } from '../../core/api/pos.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
@@ -118,7 +119,7 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
             <p>Are you sure you want to void order <strong>{{ orderToVoid?.number }}</strong> for {{ currency() }} {{ orderToVoid?.totalAmount | number:'1.2-2' }}?</p>
             <div>
               <label style="font-weight: 600; display: block; margin-bottom: 4px;">Reason for Void</label>
-              <input nz-input [(ngModel)]="voidReason" placeholder="e.g. Accidental ring-up / customer return" />
+              <input aria-label="e.g. Accidental ring-up / customer return" nz-input [(ngModel)]="voidReason" placeholder="e.g. Accidental ring-up / customer return" />
             </div>
           </div>
         </ng-container>
@@ -131,9 +132,10 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
 export class PosOrdersListPage {
   private readonly api = inject(PosOrdersApi);
   private readonly sessionStore = inject(SessionStore);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
+  readonly currency = this.currencyService.currency;
   readonly list = createPagedList<PosOrderSummaryDto>((q: any) => this.api.list(q));
 
   readonly columns: TableColumn<PosOrderSummaryDto>[] = [

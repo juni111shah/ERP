@@ -83,7 +83,8 @@ public class CqrsEndpointTests(ApiFactory f) : IClassFixture<ApiFactory>
     public async Task Attachments_are_uploaded_listed_downloaded_and_deleted()
     {
         var admin = await AdminAsync();
-        var ownerId = Guid.NewGuid();
+        var partyRes = await admin.PostAsJsonAsync("/api/v1/parties", new { name = "Attachment Test Party", kind = "Company", roles = "Customer" });
+        var ownerId = Guid.Parse((string)(await ApiFactory.Json(partyRes))["id"]!);
         MultipartFormDataContent Form(string name, string content, string ownerType = "party")
         {
             var form = new MultipartFormDataContent { { new StringContent(ownerType), "ownerType" }, { new StringContent(ownerId.ToString()), "ownerId" } };

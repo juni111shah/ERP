@@ -25,10 +25,10 @@ public record CreateRegisterCommand(
     string Name,
     Guid? WarehouseId,
     Guid? DefaultCashAccountId,
-    bool IsActive,
-    string? ReceiptHeader,
-    string? ReceiptFooter,
-    string? CustomFields) : ICommand<PosRegisterDto>;
+    bool IsActive = true,
+    string? ReceiptHeader = null,
+    string? ReceiptFooter = null,
+    string? CustomFields = null) : ICommand<PosRegisterDto>;
 
 public record UpdateRegisterCommand(
     Guid Id,
@@ -70,10 +70,18 @@ public class RegisterHandlers :
     IRequestHandler<GetRegisterByIdQuery, PosRegisterDto?>
 {
     private readonly IRepository<PosRegister> _registers;
+    private readonly IRepository<PosSession> _sessions;
 
-    public RegisterHandlers(IRepository<PosRegister> registers)
+    public RegisterHandlers(IRepository<PosRegister> registers, IRepository<PosSession> sessions)
     {
         _registers = registers;
+        _sessions = sessions;
+    }
+
+    private async Task EnsureNoOpenSessionAsync(Guid registerId, string action, CancellationToken ct)
+    {
+        if (await _sessions.AnyAsync(s => s.RegisterId == registerId && s.Status == PosSessionStatus.Open, ct))
+            throw new ConflictException($"Close the open session before you {action} this register.");
     }
 
     public async Task<PosRegisterDto?> Handle(GetRegisterByIdQuery request, CancellationToken cancellationToken)
@@ -105,6 +113,7 @@ public class RegisterHandlers :
     public async Task<PosRegisterDto> Handle(UpdateRegisterCommand request, CancellationToken cancellationToken)
     {
         var register = await _registers.GetForUpdateAsync(request.Id, cancellationToken);
+        if (!request.IsActive && register.IsActive) await EnsureNoOpenSessionAsync(register.Id, "deactivate", cancellationToken);
 
         register.Name = request.Name.Trim();
         register.WarehouseId = request.WarehouseId;
@@ -121,6 +130,7 @@ public class RegisterHandlers :
     public async Task<Unit> Handle(DeleteRegisterCommand request, CancellationToken cancellationToken)
     {
         var register = await _registers.GetForUpdateAsync(request.Id, cancellationToken);
+        await EnsureNoOpenSessionAsync(register.Id, "delete", cancellationToken);
         _registers.Remove(register);
         await _registers.SaveChangesAsync(cancellationToken);
         return Unit.Value;

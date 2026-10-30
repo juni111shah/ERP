@@ -194,10 +194,7 @@ internal sealed class RequisitionHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Requisition '{cmd.Id}' not found.");
 
-        if (req.Status == PurchaseRequisitionStatus.Ordered)
-            throw new ConflictException("Cannot change status of an already ordered requisition.");
-        if (cmd.Status == PurchaseRequisitionStatus.Ordered && !req.ConvertedPurchaseOrderId.HasValue)
-            throw new ConflictException("Cannot transition requisition to Ordered without converting to a purchase order.");
+        PurchasingTransitions.Requisition.Ensure(req.Status, cmd.Status, isSystem: false);
 
         req.Status = cmd.Status;
         await requisitions.SaveChangesAsync(ct);
@@ -210,6 +207,8 @@ internal sealed class RequisitionHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Requisition '{cmd.Id}' not found.");
 
+        PurchasingTransitions.Requisition.Ensure(req.Status, PurchaseRequisitionStatus.Ordered, isSystem: true);
+
         var order = new PurchaseOrder
         {
             LegalEntityId = req.LegalEntityId,
@@ -218,7 +217,7 @@ internal sealed class RequisitionHandlers(
             VendorName = string.IsNullOrWhiteSpace(cmd.VendorName) ? "Unassigned Vendor" : cmd.VendorName.Trim(),
             OrderDate = DateOnly.FromDateTime(DateTime.UtcNow),
             ExpectedDeliveryDate = req.RequiredDate,
-            Currency = "AED",
+            Currency = "QAR",
             Status = PurchaseOrderStatus.Draft,
             Notes = req.Reason,
             Number = await numbers.NextAsync(Docs.PurchaseOrder, req.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), ct),

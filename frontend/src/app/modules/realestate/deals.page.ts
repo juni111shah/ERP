@@ -17,6 +17,7 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { DEAL_TYPES, DealDto, DealsApi, RealEstateLookups, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
@@ -40,7 +41,7 @@ const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
         } @else if (column.key === 'clientName') {
           <span class="name-cell">{{ row.clientName }}</span>
         } @else if (column.key === 'dealValue' || column.key === 'grossCommission') {
-          <strong>AED {{ (column.key === 'dealValue' ? row.dealValue : row.grossCommission).toLocaleString() }}</strong>
+          <strong>{{ currency() }} {{ (column.key === 'dealValue' ? row.dealValue : row.grossCommission).toLocaleString() }}</strong>
         } @else if (column.key === 'stage') {
           <erp-status-tag [status]="row.stage" />
         } @else {
@@ -75,6 +76,7 @@ export class DealsPage {
   private readonly api = inject(DealsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;
   readonly stages = [...PIPELINE, 'lost'];
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-dealDate' });

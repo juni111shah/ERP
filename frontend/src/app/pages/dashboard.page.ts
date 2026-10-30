@@ -857,7 +857,7 @@ interface KpiCluster {
 
                 <div class="matrix-search-box">
                   <span nz-icon nzType="search" class="search-icon"></span>
-                  <input
+                  <input [attr.aria-label]="'Search ' + activeCategoryKpis().length + ' metrics (e.g. sales, cash, stock)...'"
                     type="text"
                     class="matrix-search-input"
                     [placeholder]="'Search ' + activeCategoryKpis().length + ' metrics (e.g. sales, cash, stock)...'"

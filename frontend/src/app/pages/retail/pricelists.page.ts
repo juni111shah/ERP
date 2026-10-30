@@ -26,6 +26,7 @@ import {
 } from '../../core/api/retail.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { SessionStore } from '../../core/session/session.store';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
@@ -110,7 +111,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <nz-form-item>
                 <nz-form-label nzRequired>Price List Name</nz-form-label>
                 <nz-form-control nzErrorTip="Name is required">
-                  <input nz-input formControlName="name" placeholder="e.g. Standard Store Retail AED" />
+                  <input nz-input formControlName="name" placeholder="e.g. Standard Store Retail QAR" />
                 </nz-form-control>
               </nz-form-item>
             </div>
@@ -139,6 +140,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-form-label nzRequired>Currency</nz-form-label>
                 <nz-form-control>
                   <nz-select formControlName="currency">
+                    <nz-option nzValue="QAR" nzLabel="QAR"></nz-option>
                     <nz-option nzValue="AED" nzLabel="AED"></nz-option>
                     <nz-option nzValue="SAR" nzLabel="SAR"></nz-option>
                     <nz-option nzValue="USD" nzLabel="USD"></nz-option>
@@ -304,8 +306,9 @@ export class PriceListsPageComponent implements OnInit {
   private readonly sessionStore = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || 'AED');
+  readonly currency = this.currencyService.currency;
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly itemsList = signal<{ id: string; name: string; sku: string; salesPrice?: number }[]>([]);
   readonly isSaving = signal(false);
@@ -364,7 +367,7 @@ export class PriceListsPageComponent implements OnInit {
       code: '',
       name: '',
       type: 'Standard',
-      currency: 'AED',
+      currency: this.currencyService.code(),
       validFrom: null,
       validTo: null,
       isDefault: false,
