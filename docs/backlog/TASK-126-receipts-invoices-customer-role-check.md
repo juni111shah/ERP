@@ -2,12 +2,12 @@
 id: TASK-126
 title: Invoices and receipts accept only customer parties
 priority: P1
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: []
 area: sales
 audit_ref: Claude analysis, Order to cash (second pass)
-commit:
+commit: 710861a
 owner: claude (worktree work-claude; Antigravity skip)
 ---
 
@@ -22,10 +22,10 @@ Receivables and ageing contain vendors and employees; customer statements and th
 - Call it in `InvoicingService.ApplyAsync` and in `CreateReceipt`. Credit notes use the same path and get the check too.
 
 ## Acceptance criteria
-- [ ] Creating or updating an invoice or credit note for a vendor-only party returns 400 with an error on `partyId`.
-- [ ] Creating a receipt for a vendor-only or employee-only party returns 400 with an error on `partyId`.
-- [ ] A party with roles Customer|Vendor, and one with no roles, still work.
-- [ ] Module billing runs for customers (real estate, projects, sales orders) still pass their tests.
+- [x] Creating or updating an invoice or credit note for a vendor-only party returns 400 with an error on `partyId`.
+- [x] Creating a receipt for a vendor-only or employee-only party returns 400 with an error on `partyId`.
+- [x] A party with roles Customer|Vendor, and one with no roles, still work.
+- [x] Module billing runs for customers (real estate, projects, sales orders) still pass their tests.
 
 ## Tests required
 Integration tests for invoice, credit note and receipt with a vendor-only party (400), a Customer|Vendor party (OK) and a role-less party (OK).
@@ -33,6 +33,9 @@ Integration tests for invoice, credit note and receipt with a vendor-only party 
 ## Do not touch
 Accounting rules, journal shapes and numbering; module billing code (it calls `IInvoicingService` directly).
 
-## What I did (Antigravity)
+## What I did (Claude, implemented in separate worktree)
+- Added `CustomerRules.RequireCustomer` beside `VendorRules`: a party with roles must include Customer; a role-less party stays allowed. 400 on `partyId`, "Choose a customer."
+- Called it in `InvoicingService.ApplyAsync` (covers create/update invoice and credit note) and in `CreateReceipt`. Module billing is unaffected (their tests pass).
+- Tests: `OrderToCashInputTests` (invoice and credit note for vendor-only and employee-only -> 400; receipt -> 400; update to a vendor -> 400; Customer and Customer+Vendor still work) and a unit test of the rule for every role combination. The API refuses to create a role-less party, so that case is covered by the unit test only.
 
 ## Review (Claude)

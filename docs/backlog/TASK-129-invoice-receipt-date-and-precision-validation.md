@@ -2,12 +2,12 @@
 id: TASK-129
 title: Validate dates and quantity/price precision on invoice and receipt inputs
 priority: P2
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: []
 area: sales
 audit_ref: Claude analysis, Order to cash (second pass)
-commit:
+commit: 710861a
 owner: claude (worktree work-claude; Antigravity skip)
 ---
 
@@ -23,9 +23,9 @@ A receipt or invoice dated year 1 posts a journal in a non-existent period and b
 - Error keys: `invoiceDate`, `dueDate`, `date`, and the line quantity/price fields.
 
 ## Acceptance criteria
-- [ ] Default/zero dates and dates far in the future return 400 with the key above.
-- [ ] Quantity 1.00001 and price 9.12345 are rejected; 1.2345 is accepted.
-- [ ] Existing seeded data and tests still pass.
+- [x] Default/zero dates and dates far in the future return 400 with the key above.
+- [x] Quantity 1.00001 and price 9.12345 are rejected; 1.2345 is accepted.
+- [x] Existing seeded data and tests still pass.
 
 ## Tests required
 Validator unit tests for each rule and one integration test per endpoint (invoice, receipt).
@@ -33,6 +33,9 @@ Validator unit tests for each rule and one integration test per endpoint (invoic
 ## Do not touch
 Rounding of `Net`/`Tax` in `InvoicingService`.
 
-## What I did (Antigravity)
+## What I did (Claude, implemented in separate worktree)
+- `MoneyValidation` gained `MustBePlausibleDate` (after 2000-01-01, at most one year ahead), `MustHaveAtMostDecimals(places)` and testable `IsPlausibleDate`/`HasAtMostDecimals`.
+- Invoice: `invoiceDate` and `dueDate` plausible, due date not before invoice date (error key `dueDate`), line quantity and price at most 4 decimals. Receipt: `date` plausible. `InvoicingService` rounding left untouched.
+- Tests: unit tests for the helpers and boundaries; integration tests for 0001-01-01, 1999-12-31 and 2099-01-01 on invoice and receipt, due before invoice date, quantity 1.00001 / price 9.12345 rejected and 1.2345 / 9.1234 accepted. Whole suite still passes, so seeded data and demo history are within range.
 
 ## Review (Claude)

@@ -2,12 +2,12 @@
 id: TASK-127
 title: The public invoice API must not accept SourceType and SourceId
 priority: P2
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: []
 area: sales
 audit_ref: Claude analysis, Order to cash (second pass)
-commit:
+commit: 710861a
 owner: claude (worktree work-claude; Antigravity skip)
 ---
 
@@ -23,9 +23,9 @@ Manual invoices can masquerade as module-generated ones (wrong SourceType in lis
 - Update the frontend invoice form model if it sends these fields.
 
 ## Acceptance criteria
-- [ ] A POST/PUT with sourceType/sourceId in the body creates or leaves an invoice with SourceType and SourceId null (or unchanged on update).
-- [ ] Credit notes from `/credit-note` and module-generated invoices keep their links.
-- [ ] `dotnet test` and `ng build` pass.
+- [x] A POST/PUT with sourceType/sourceId in the body creates or leaves an invoice with SourceType and SourceId null (or unchanged on update).
+- [x] Credit notes from `/credit-note` and module-generated invoices keep their links.
+- [x] `dotnet test` and `ng build` pass.
 
 ## Tests required
 Integration test: post an invoice with a forged sourceType "salesorder" and a random sourceId; assert both come back null. Existing credit-note linkage tests still pass.
@@ -33,6 +33,8 @@ Integration test: post an invoice with a forged sourceType "salesorder" and a ra
 ## Do not touch
 Module billing runs; the `InvoiceDraft` record.
 
-## What I did (Antigravity)
+## What I did (Claude, implemented in separate worktree)
+- Three module billing runs (Projects, Sales, Services) send `SourceType`/`SourceId` through `CreateInvoice`, so the fields stay on `InvoiceInput`, but both are now `[JsonIgnore]`: a request body can no longer set them, while code still can. `UpdateInvoice` already kept the stored link.
+- Tests: forged `sourceType`/`sourceId` on POST and PUT come back null; a credit note from `/credit-note` keeps its link. Frontend never sent these fields, no change.
 
 ## Review (Claude)
