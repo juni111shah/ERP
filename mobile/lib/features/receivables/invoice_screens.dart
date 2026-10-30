@@ -9,7 +9,9 @@ import '../../kit/field.dart';
 import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
+import '../../kit/data_version.dart';
 import '../common/paged_list_view.dart';
+import 'receipt_screens.dart';
 
 // REFERENCE IMPLEMENTATION. Every other area follows this shape:
 //   1. a ListScreen (path, tile, status chips, create form + permission),
@@ -141,6 +143,22 @@ class InvoiceDetailScreen extends StatelessWidget {
             run: (ref, d, _) => ref.read(apiProvider).post('$_invoicesPath/$id/issue'),
           ),
           ActionSpec(
+            label: 'Record receipt',
+            icon: Icons.payments_outlined,
+            permission: 'finance.receipts.write',
+            visible: (d) => d['isCreditNote'] != true && const {'issued', 'partlyPaid'}.contains(d['status']),
+            form: (d) => receiptForm(ref, partyId: d['partyId']?.toString(), partyName: d['partyName']?.toString(), invoice: d),
+            run: (ref, d, _) async => null,
+          ),
+          ActionSpec(
+            label: 'Apply credit',
+            icon: Icons.swap_horiz,
+            permission: 'finance.invoices.credit',
+            visible: (d) => d['isCreditNote'] == true && const {'issued', 'partlyPaid'}.contains(d['status']),
+            form: (d) => applyCreditForm(d),
+            run: (ref, d, _) async => null,
+          ),
+          ActionSpec(
             label: 'Credit note',
             icon: Icons.assignment_return_outlined,
             permission: 'finance.invoices.credit',
@@ -199,7 +217,74 @@ class InvoiceDetailScreen extends StatelessWidget {
           // Quantity x price (+ tax), not the stored line net: demo data has lines whose net was never filled in.
           trailing: Text(formatMoney(((l['quantity'] as num?) ?? 0) * ((l['price'] as num?) ?? 0) + ((l['taxAmount'] as num?) ?? 0))),
         ),
+      InvoiceAllocations(invoiceId: d['id'].toString()),
       if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: 8), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
+    ]);
+  }
+}
+
+/// Apply a credit note to an open invoice of the same customer.
+FormSpec applyCreditForm(Json creditNote) {
+  final available = (toNum(creditNote['total']) ?? 0) - (toNum(creditNote['paid']) ?? 0);
+  return FormSpec(
+    title: 'Apply ${creditNote['number']}',
+    intro: 'Available: ${creditNote['currencyCode'] ?? ''} ${formatMoney(available)}',
+    initial: {'amount': available > 0 ? available.toStringAsFixed(2) : null},
+    fields: [
+      Field.lookup('invoiceId', 'Invoice', path: _invoicesPath, labelKey: 'number', subtitleKey: 'partyName', required: true, query: {'filter': 'partyId:eq:${creditNote['partyId']}'}),
+      Field.money('amount', 'Amount', required: true, min: 0.01, max: available > 0 ? available : null),
+    ],
+    submit: (ref, body, raw) => ref.read(apiProvider).post('$_invoicesPath/${creditNote['id']}/apply-credit', body: body),
+  );
+}
+
+/// Receipts and credit applied to an invoice (`GET /finance/invoices/{id}/allocations`).
+class InvoiceAllocations extends ConsumerStatefulWidget {
+  const InvoiceAllocations({super.key, required this.invoiceId});
+
+  final String invoiceId;
+
+  @override
+  ConsumerState<InvoiceAllocations> createState() => _InvoiceAllocationsState();
+}
+
+class _InvoiceAllocationsState extends ConsumerState<InvoiceAllocations> {
+  List<Json>? _rows;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await ref.read(apiProvider).get('$_invoicesPath/${widget.invoiceId}/allocations');
+      final list = data is List ? data : ((data as Json)['items'] as List<dynamic>? ?? const []);
+      if (mounted) setState(() => _rows = list.cast<Json>());
+    } catch (_) {
+      if (mounted) setState(() => _rows = const []);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(dataVersionProvider, (_, _) => _load());
+    final rows = _rows;
+    if (rows == null || rows.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SizedBox(height: 8),
+      Text('Receipts and payments', style: Theme.of(context).textTheme.titleMedium),
+      for (final a in rows)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text('${a['number']}'),
+          subtitle: Text('${formatDate(a['date'])} · ${humanize(a['method']?.toString())}${(a['reference'] ?? '').toString().isEmpty ? '' : ' · ${a['reference']}'}'),
+          trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(money(a, 'amount')),
+            if (a['status'] == 'voided') const StatusChip('Voided', color: Colors.red),
+          ]),
+        ),
     ]);
   }
 }

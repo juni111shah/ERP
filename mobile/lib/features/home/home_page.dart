@@ -4,8 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/session.dart';
 import '../dashboard/dashboard_page.dart';
-import '../documents/documents_pages.dart';
 import '../receivables/invoice_screens.dart';
+import '../receivables/party_screens.dart';
+import '../receivables/receipt_screens.dart';
 import '../more/more_page.dart';
 
 /// The signed-in shell: bottom navigation over the main areas. The tab contents are rebuilt when the workspace changes.
@@ -40,7 +41,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         key: ValueKey(workspace?.id),
         child: IndexedStack(
           index: _index,
-          children: const [DashboardPage(), InvoicesScreen(showAppBar: false), ReceiptsPage(), PartiesPage(), MorePage()],
+          children: const [DashboardPage(), InvoicesScreen(showAppBar: false), ReceiptsScreen(showAppBar: false), PartiesScreen(title: 'Customers', role: 'Customer', showAppBar: false), MorePage()],
         ),
       ),
       bottomNavigationBar: NavigationBar(
