@@ -105,3 +105,4 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | TASK-136 | P2 | open | Purchase order vendor, currency, dates and precision validated |
 | TASK-137 | P2 | open | Bill input dates, precision, active tax codes |
 | TASK-138 | P2 | open | Payment and cheque dates validated; bill edit/delete retry |
+| TASK-139 | P1 | open | Demo data covers every status of every document type across three years |

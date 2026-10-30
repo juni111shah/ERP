@@ -64,7 +64,7 @@ public static class CoreTemplates
         new("6200", "Utilities", AccountType.Expense, ReportingGroup: "Operating expenses"),
         new("6300", "Bank charges", AccountType.Expense, ReportingGroup: "Operating expenses"),
         new("6400", "Depreciation", AccountType.Expense, ReportingGroup: "Operating expenses"),
-        new("6900", "General expenses", AccountType.Expense, ReportingGroup: "Operating expenses"),
+        new("6900", "General expenses", AccountType.Expense, "purchases.expense", ReportingGroup: "Operating expenses"),
         new("7900", "Exchange gain or loss", AccountType.Expense, "fx.gainloss", ReportingGroup: "Other expenses"),
     ];
 

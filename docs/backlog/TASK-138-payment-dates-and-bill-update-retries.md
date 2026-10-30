@@ -2,12 +2,13 @@
 id: TASK-138
 title: Payment and cheque dates are validated; bill edit and delete retry on conflicts
 priority: P2
-status: open
+status: ready-for-review
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
-commit:
+commit: e5cbf2c
+owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
 ## Problem
@@ -21,8 +22,8 @@ Payments and clearances posted to year 1 or the far future; intermittent errors 
 - Add `IRetryOnConcurrency` to `UpdateBill` and `DeleteBill`.
 
 ## Acceptance criteria
-- [ ] Payment date 0001-01-01 or 2099, cheque date 1999 and clearing date 0002-01-01 each return 400 with the matching key.
-- [ ] `UpdateBill` and `DeleteBill` are retryable.
+- [x] Payment date 0001-01-01 or 2099, cheque date 1999 and clearing date 0002-01-01 each return 400 with the matching key.
+- [x] `UpdateBill` and `DeleteBill` are retryable.
 
 ## Tests required
 Validator tests, one integration test per rule, a unit test for the retry markers.
@@ -30,6 +31,8 @@ Validator tests, one integration test per rule, a unit test for the retry marker
 ## Do not touch
 Posting behaviour of payments and cheques.
 
-## What I did (Antigravity)
+## What I did (Claude, branch claude/p2p)
+- Payment `Date`, `ChequeDate` and the clearing `Date` use `MustBePlausibleDate`. `UpdateBill` and `DeleteBill` are `IRetryOnConcurrency`.
+- Tests: validator boundary unit tests, integration tests for payment, cheque and clearing dates, retry markers.
 
 ## Review (Claude)

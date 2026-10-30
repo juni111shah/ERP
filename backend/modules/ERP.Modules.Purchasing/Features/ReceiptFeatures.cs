@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Customization;
+using ERP.Application.Finance;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
 using ERP.Modules.Purchasing.Domain;
@@ -68,8 +69,8 @@ public sealed record GoodsReceiptDto(
     DateTime CreatedAt);
 
 public sealed record GetGoodsReceipt(Guid Id) : IQuery<GoodsReceiptDto>, IRequirePermission { public string RequiredPermission => P.ReceiptsRead; }
-public sealed record CreateGoodsReceipt(GoodsReceiptInput Input) : ICommand<GoodsReceiptDto>, IRequirePermission { public string RequiredPermission => P.ReceiptsManage; }
-public sealed record DeleteGoodsReceipt(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => P.ReceiptsManage; }
+public sealed record CreateGoodsReceipt(GoodsReceiptInput Input) : ICommand<GoodsReceiptDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => P.ReceiptsManage; }
+public sealed record DeleteGoodsReceipt(Guid Id) : ICommand, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => P.ReceiptsManage; }
 
 public sealed class GoodsReceiptInputValidator : AbstractValidator<GoodsReceiptInput>
 {
@@ -78,11 +79,12 @@ public sealed class GoodsReceiptInputValidator : AbstractValidator<GoodsReceiptI
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.PurchaseOrderId).NotEmpty();
         RuleFor(x => x.ReceivedBy).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.ReceiptDate).MustBePlausibleDate();
         RuleFor(x => x.Lines).NotEmpty().WithMessage("Goods receipt must have at least one line.");
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
             l.RuleFor(x => x.Description).NotEmpty();
-            l.RuleFor(x => x.QuantityReceived).GreaterThan(0);
+            l.RuleFor(x => x.QuantityReceived).GreaterThan(0).MustHaveAtMostDecimals(4);
         });
     }
 }
@@ -126,6 +128,17 @@ internal sealed class ReceiptHandlers(
             throw new ConflictException("Cannot create a goods receipt for an already billed purchase order.");
         }
 
+        if (order.Status is not (PurchaseOrderStatus.Approved or PurchaseOrderStatus.PartiallyReceived))
+            throw new ConflictException("Only an approved purchase order can be received.");
+        if (order.LegalEntityId != i.LegalEntityId)
+            throw new FieldValidationException("legalEntityId", "The goods receipt must be for the legal entity of the purchase order.");
+        foreach (var l in i.Lines)
+        {
+            var match = order.Lines.FirstOrDefault(x => x.Id == l.PurchaseOrderLineId);
+            if (match is not null && l.ItemId is not null && l.ItemId != match.ItemId)
+                throw new FieldValidationException("lines", $"Line '{match.Description}' is for a different item than the purchase order line.");
+        }
+
         decimal tolerancePct = 0m;
         try
         {
@@ -135,22 +148,24 @@ internal sealed class ReceiptHandlers(
         }
         catch { tolerancePct = 0m; }
 
-        foreach (var l in i.Lines)
+        // Lines for the same order line count together, so splitting a quantity over several lines cannot get past the limit.
+        foreach (var group in i.Lines.GroupBy(x => x.PurchaseOrderLineId))
         {
-            var poLine = order.Lines.FirstOrDefault(x => x.Id == l.PurchaseOrderLineId)
-                ?? throw new FieldValidationException("lines", $"Purchase order line '{l.PurchaseOrderLineId}' not found on order '{order.Number}'.");
+            var poLine = order.Lines.FirstOrDefault(x => x.Id == group.Key)
+                ?? throw new FieldValidationException("lines", $"Purchase order line '{group.Key}' not found on order '{order.Number}'.");
 
-            if (l.QuantityReceived <= 0)
+            if (group.Any(l => l.QuantityReceived <= 0))
                 throw new FieldValidationException("lines", "Received quantity must be greater than zero.");
 
+            var requested = group.Sum(l => l.QuantityReceived);
             var remaining = poLine.Quantity - poLine.ReceivedQuantity;
             var toleranceQty = poLine.Quantity * (tolerancePct / 100m);
             var maxAllowed = remaining + toleranceQty;
 
-            if (l.QuantityReceived > maxAllowed)
+            if (requested > maxAllowed)
             {
                 throw new FieldValidationException("lines",
-                    $"Received quantity {l.QuantityReceived} exceeds the maximum allowable quantity {maxAllowed:0.####} (ordered: {poLine.Quantity:0.####}, already received: {poLine.ReceivedQuantity:0.####}, tolerance: {tolerancePct}%).");
+                    $"Received quantity {requested} exceeds the maximum allowable quantity {maxAllowed:0.####} (ordered: {poLine.Quantity:0.####}, already received: {poLine.ReceivedQuantity:0.####}, tolerance: {tolerancePct}%).");
             }
         }
 
@@ -174,28 +189,26 @@ internal sealed class ReceiptHandlers(
 
             foreach (var l in i.Lines)
             {
+                var poLine = order.Lines.First(x => x.Id == l.PurchaseOrderLineId); // validated above
+                // Item, code, description and unit come from the order line, never from the request.
                 grn.Lines.Add(new GoodsReceiptLine
                 {
                     PurchaseOrderLineId = l.PurchaseOrderLineId,
-                    ItemId = l.ItemId,
-                    ItemCode = l.ItemCode.Trim(),
-                    Description = l.Description.Trim(),
+                    ItemId = poLine.ItemId,
+                    ItemCode = poLine.ItemCode,
+                    Description = poLine.Description,
                     QuantityReceived = l.QuantityReceived,
-                    UnitOfMeasure = string.IsNullOrWhiteSpace(l.UnitOfMeasure) ? "EA" : l.UnitOfMeasure.Trim()
+                    UnitOfMeasure = string.IsNullOrWhiteSpace(poLine.UnitOfMeasure) ? "EA" : poLine.UnitOfMeasure
                 });
 
-                var poLine = order.Lines.FirstOrDefault(x => x.Id == l.PurchaseOrderLineId);
-                if (poLine != null)
-                {
-                    poLine.ReceivedQuantity += l.QuantityReceived;
-                }
+                poLine.ReceivedQuantity += l.QuantityReceived;
 
-                if (l.ItemId.HasValue && l.QuantityReceived > 0)
+                if (poLine.ItemId.HasValue && l.QuantityReceived > 0)
                 {
-                    var unitCost = poLine != null ? Math.Round(poLine.UnitPrice * (1m - (poLine.DiscountPercent / 100m)), 4) : 0m;
+                    var unitCost = Math.Round(poLine.UnitPrice * (1m - (poLine.DiscountPercent / 100m)), 4);
                     await stockPosting.ReceiveStockAsync(new StockReceiveRequest(
                         entity.Id,
-                        l.ItemId.Value,
+                        poLine.ItemId.Value,
                         l.QuantityReceived,
                         unitCost,
                         i.ReceiptDate,

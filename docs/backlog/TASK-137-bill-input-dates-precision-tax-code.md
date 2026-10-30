@@ -2,12 +2,13 @@
 id: TASK-137
 title: Bill input validates dates, quantity/price precision and active tax codes
 priority: P2
-status: open
+status: ready-for-review
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
-commit:
+commit: e5cbf2c
+owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
 ## Problem
@@ -22,9 +23,9 @@ Bills dated in a non-existent period, drifting line totals, tax booked with a wi
 - `ApplyAsync` accepts only active tax codes.
 
 ## Acceptance criteria
-- [ ] Bill dated 0001-01-01 or 2099 returns 400 on `billDate`; due before bill date returns 400 on `dueDate`.
-- [ ] Quantity 1.00001 and price 9.12345 rejected; 1.2345 accepted.
-- [ ] An inactive tax code returns 400 on `lines`.
+- [x] Bill dated 0001-01-01 or 2099 returns 400 on `billDate`; due before bill date returns 400 on `dueDate`.
+- [x] Quantity 1.00001 and price 9.12345 rejected; 1.2345 accepted.
+- [x] An inactive tax code returns 400 on `lines`.
 
 ## Tests required
 Validator unit tests plus one integration test per rule.
@@ -32,6 +33,8 @@ Validator unit tests plus one integration test per rule.
 ## Do not touch
 Posting logic and Net/Tax rounding.
 
-## What I did (Antigravity)
+## What I did (Claude, branch claude/p2p)
+- Bill: `BillDate` and `DueDate` plausible, due not before bill date (key `dueDate`), quantity and price at most 4 decimals. Only active tax codes are accepted (400 on `lines`).
+- Tests: `BillPaymentInputTests` and `BillPaymentRulesTests`.
 
 ## Review (Claude)
