@@ -129,8 +129,13 @@ public sealed class AuthService(
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.");
         if (user.TwoFactorEnabled) throw new ConflictException("Two-factor authentication is already on.");
         if (await users.GetAuthenticatorKeyAsync(user) is null) throw new ConflictException("Start the setup first.");
+        await EnsureNotLockedAsync(user);
         if (!await users.VerifyTwoFactorTokenAsync(user, users.Options.Tokens.AuthenticatorTokenProvider, code.Replace(" ", "").Replace("-", "")))
+        {
+            await CountFailureAsync(user);
             throw new FieldValidationException("code", "The code is incorrect. Check the time on your phone and try the next code.");
+        }
+        await users.ResetAccessFailedCountAsync(user);
         await users.SetTwoFactorEnabledAsync(user, true);
         return (await users.GenerateNewTwoFactorRecoveryCodesAsync(user, 8))!.ToList();
     }
@@ -138,10 +143,24 @@ public sealed class AuthService(
     public async Task DisableTwoFactorAsync(Guid userId, string password, string code, CancellationToken ct)
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.");
-        if (!await users.CheckPasswordAsync(user, password)) throw new FieldValidationException("password", "The password is incorrect.");
-        if (user.TwoFactorEnabled && !await VerifyTwoFactorAsync(user, code)) throw new FieldValidationException("code", "The code is incorrect.");
+        await EnsureNotLockedAsync(user);
+        if (!await users.CheckPasswordAsync(user, password)) { await CountFailureAsync(user); throw new FieldValidationException("password", "The password is incorrect."); }
+        if (user.TwoFactorEnabled && !await VerifyTwoFactorAsync(user, code)) { await CountFailureAsync(user); throw new FieldValidationException("code", "The code is incorrect."); }
+        await users.ResetAccessFailedCountAsync(user);
         await users.SetTwoFactorEnabledAsync(user, false);
         await users.ResetAuthenticatorKeyAsync(user);
+    }
+
+    /// <summary>A wrong password or code on a signed-in confirmation counts like a failed sign-in, so a stolen token cannot be used to guess either.</summary>
+    private async Task CountFailureAsync(AppUser user)
+    {
+        await users.AccessFailedAsync(user);
+        if (await users.IsLockedOutAsync(user)) throw Locked(user);
+    }
+
+    private async Task EnsureNotLockedAsync(AppUser user)
+    {
+        if (await users.IsLockedOutAsync(user)) throw Locked(user);
     }
 
     private AuthException Locked(AppUser user)
@@ -249,8 +268,13 @@ public sealed class AuthService(
     public async Task ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken ct)
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.");
+        await EnsureNotLockedAsync(user);
         if (!await users.CheckPasswordAsync(user, currentPassword))
+        {
+            await CountFailureAsync(user);
             throw new FieldValidationException("currentPassword", "The current password is incorrect.");
+        }
+        await users.ResetAccessFailedCountAsync(user);
         await SetPasswordAsync(user, newPassword);
         await RevokeAllAsync(user.Id, "password-changed", ct);
     }
