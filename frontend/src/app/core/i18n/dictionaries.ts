@@ -3,6 +3,14 @@ export type Lang = 'en' | 'ar';
 export type Dictionary = Record<string, string>;
 
 export const EN: Dictionary = {
+  // overview date range
+  'ui.overview.range.group': 'Date range', 'ui.overview.range.preset.1m': 'Last month', 'ui.overview.range.preset.3m': 'Last 3 months',
+  'ui.overview.range.preset.6m': 'Last 6 months', 'ui.overview.range.preset.1y': 'Last year', 'ui.overview.range.preset.2y': 'Last 2 years',
+  'ui.overview.range.preset.3y': 'Last 3 years', 'ui.overview.range.custom': 'Custom', 'ui.overview.range.from': 'Start date', 'ui.overview.range.to': 'End date',
+  'ui.overview.range.narrow': 'Narrow range (to {{target}})', 'ui.overview.range.widen': 'Widen range (to {{target}})', 'ui.overview.range.refresh': 'Refresh',
+  'ui.overview.range.maxSpan': 'Pick a range of 5 years or less',
+  'ui.overview.range.short.1m': '1M', 'ui.overview.range.short.3m': '3M', 'ui.overview.range.short.6m': '6M',
+  'ui.overview.range.short.1y': '1Y', 'ui.overview.range.short.2y': '2Y', 'ui.overview.range.short.3y': '3Y',
   // shared data table
   'table.columns': 'Columns', 'table.clearFilters': 'Clear filters', 'table.resetLayout': 'Reset layout', 'table.pinStart': 'Pin to start', 'table.pinEnd': 'Pin to end',
   'table.dragToReorder': 'Drag to reorder', 'table.contains': 'Contains…', 'table.any': 'Any', 'table.min': 'Min', 'table.max': 'Max', 'table.reset': 'Reset', 'table.apply': 'Apply',
@@ -145,6 +153,14 @@ export const EN: Dictionary = {
 };
 
 export const AR: Dictionary = {
+  // overview date range
+  'ui.overview.range.group': 'النطاق الزمني', 'ui.overview.range.preset.1m': 'آخر شهر', 'ui.overview.range.preset.3m': 'آخر 3 أشهر',
+  'ui.overview.range.preset.6m': 'آخر 6 أشهر', 'ui.overview.range.preset.1y': 'آخر سنة', 'ui.overview.range.preset.2y': 'آخر سنتين',
+  'ui.overview.range.preset.3y': 'آخر 3 سنوات', 'ui.overview.range.custom': 'مخصص', 'ui.overview.range.from': 'تاريخ البداية', 'ui.overview.range.to': 'تاريخ النهاية',
+  'ui.overview.range.narrow': 'تضييق النطاق (إلى {{target}})', 'ui.overview.range.widen': 'توسيع النطاق (إلى {{target}})', 'ui.overview.range.refresh': 'تحديث',
+  'ui.overview.range.maxSpan': 'اختر نطاقًا لا يتجاوز 5 سنوات',
+  'ui.overview.range.short.1m': 'شهر', 'ui.overview.range.short.3m': '3 أشهر', 'ui.overview.range.short.6m': '6 أشهر',
+  'ui.overview.range.short.1y': 'سنة', 'ui.overview.range.short.2y': 'سنتان', 'ui.overview.range.short.3y': '3 سنوات',
   // shared data table
   'table.columns': 'الأعمدة', 'table.clearFilters': 'مسح عوامل التصفية', 'table.resetLayout': 'إعادة ضبط التخطيط', 'table.pinStart': 'تثبيت في البداية', 'table.pinEnd': 'تثبيت في النهاية',
   'table.dragToReorder': 'اسحب لإعادة الترتيب', 'table.contains': 'يحتوي على…', 'table.any': 'الكل', 'table.min': 'الحد الأدنى', 'table.max': 'الحد الأقصى', 'table.reset': 'إعادة تعيين', 'table.apply': 'تطبيق',

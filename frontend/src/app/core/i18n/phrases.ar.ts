@@ -165,7 +165,7 @@ const PAIRS: [string, string][] = [
   ['Leases expiring', 'عقود تنتهي'], ['Agent share', 'حصة الوكيل'], ['Team lead share', 'حصة قائد الفريق'], ['Company share', 'حصة الشركة'], ['Paid out', 'المدفوع'],
   // dashboard cards and charts (server-provided labels)
   ['Portfolio value', 'قيمة المحفظة'], ['Receivables', 'الذمم المدينة'], ['Payables', 'الذمم الدائنة'], ['Collected this month', 'المحصّل هذا الشهر'], ['Net result year to date', 'صافي النتيجة منذ بداية السنة'],
-  ['Expenses year to date', 'المصروفات منذ بداية السنة'], ['Billed vs collected', 'المفوتر مقابل المحصّل'], ['Cheques in custody', 'الشيكات في الحوزة'], ['Open work orders', 'أوامر العمل المفتوحة'],
+  ['Expenses year to date', 'المصروفات منذ بداية السنة'], ['Collected in period', 'المحصّل خلال الفترة'], ['Net result for period', 'صافي النتيجة للفترة'], ['Expenses for period', 'المصروفات للفترة'], ['Billed vs collected', 'المفوتر مقابل المحصّل'], ['Cheques in custody', 'الشيكات في الحوزة'], ['Open work orders', 'أوامر العمل المفتوحة'],
   ['Pending approvals', 'الموافقات المعلقة'], ['Payroll runs open', 'دورات الرواتب المفتوحة'], ['Reviews pending', 'التقييمات المعلقة'], ['Occupancy by property', 'الإشغال حسب العقار'], ['Leasing', 'التأجير'],
   ['Inventory', 'المخزون'], ['Differences to review', 'فروقات للمراجعة'], ['Reconciled', 'تمت المطابقة'],
   ['Income and expenses for a period', 'الإيرادات والمصروفات لفترة'], ['Assets, liabilities and equity as of a date', 'الأصول والخصوم وحقوق الملكية حتى تاريخ'], ['Opening, movement and closing per account', 'الافتتاحي والحركة والختامي لكل حساب'],
@@ -652,6 +652,7 @@ const PAIRS: [string, string][] = [
   ['Setup', 'الإعداد'],
   ['Module not enabled', 'الوحدة غير مفعّلة'],
   ['Invoices net of credit notes, and receipts, last 12 months', 'الفواتير بعد خصم الإشعارات الدائنة، وسندات القبض، آخر 12 شهراً'],
+  ['Invoices net of credit notes, and receipts, for the selected period', 'الفواتير بعد خصم الإشعارات الدائنة، وسندات القبض، للفترة المحددة'],
   ['Open balance', 'الرصيد المفتوح'],
   ['Units by status', 'الوحدات حسب الحالة'],
   ['Leases ending', 'عقود الإيجار المنتهية'],
