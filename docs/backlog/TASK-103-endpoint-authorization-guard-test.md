@@ -7,7 +7,7 @@ schema: no
 depends_on: []
 area: security
 audit_ref: Claude analysis, Security and tenancy
-commit:
+commit: 73fcdb0
 ---
 
 ## Problem
