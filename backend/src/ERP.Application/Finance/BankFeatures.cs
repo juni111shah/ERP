@@ -40,6 +40,7 @@ public sealed class ImportStatementValidator : AbstractValidator<ImportStatement
         RuleFor(x => x.Lines).NotNull().Must(l => l is { Count: > 0 and <= 2000 }).WithMessage("Import between 1 and 2000 lines at a time.");
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
+            l.RuleFor(x => x.Date).NotEqual(default(DateOnly)).WithMessage("Enter the statement line date.");
             l.RuleFor(x => x.Description).NotEmpty().MaximumLength(300);
             l.RuleFor(x => x.Reference).MaximumLength(100);
             l.RuleFor(x => x.Amount).NotEqual(0).MustBeMoney();
@@ -51,6 +52,8 @@ public sealed class TransferFundsValidator : AbstractValidator<TransferFunds>
     public TransferFundsValidator()
     {
         RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
+        RuleFor(x => x.Date).NotEqual(default(DateOnly)).WithMessage("Enter the transfer date.");
+        RuleFor(x => x.Memo).MaximumLength(300);
         RuleFor(x => x).Must(x => x.FromAccountId != x.ToAccountId).WithName("toAccountId").WithMessage("Choose two different accounts.");
     }
 }
@@ -134,6 +137,9 @@ internal sealed class BankHandlers(
     {
         var l = await lines.GetForUpdateAsync(cmd.LineId, token);
         if (l.Status == StatementLineStatus.Matched) throw new ConflictException("This statement line is already matched.");
+        // Unmatching a booked line leaves its journal behind; booking again would double the entry, so match the line to that journal instead.
+        if (await journals.AnyAsync(j => j.SourceType == "bank" && j.SourceId == l.Id && j.Status == JournalStatus.Posted, token))
+            throw new ConflictException("This line was already booked from the statement. Match it to its ledger entry instead of booking it again.");
         var counter = await accounts.FindAsync(cmd.CounterAccountId, token);
         if (counter is null || !counter.IsPostable || !counter.IsActive || counter.Id == l.AccountId) throw new FieldValidationException("counterAccountId", "Choose a different active, postable account.");
         var memo = cmd.Memo?.Trim() is { Length: > 0 } m ? m : l.Description;
