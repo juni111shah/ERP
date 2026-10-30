@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Development only: the Flutter tool needs INTERNET for hot reload, and the local dev API is plain http (10.0.2.2:5080).
+         Release builds do not get usesCleartextTraffic, so staging and production must use https. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <application android:usesCleartextTraffic="true"/>
+</manifest>
