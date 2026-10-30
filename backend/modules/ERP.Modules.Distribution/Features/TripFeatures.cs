@@ -1,5 +1,8 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Finance;
+using ERP.Application.Organizations;
+using ERP.Domain.Catalog;
 using ERP.Modules.Distribution.Domain;
 using FluentValidation;
 using MediatR;
@@ -99,6 +102,33 @@ public class CreateTripValidator : AbstractValidator<CreateTripCommand>
         RuleFor(x => x.DriverUserId).NotEmpty();
         RuleFor(x => x.WarehouseId).NotEmpty();
         RuleFor(x => x.Items).NotEmpty().WithMessage("At least one inventory item must be loaded for van sales.");
+        RuleFor(x => x.DriverName).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.VehicleNumber).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.Items).Must(i => i is null || i.Select(x => x.ItemId).Distinct().Count() == i.Count).WithMessage("An item can be loaded only once.");
+        RuleForEach(x => x.Items).ChildRules(l =>
+        {
+            l.RuleFor(x => x.ItemId).NotEmpty();
+            l.RuleFor(x => x.LoadedQuantity).GreaterThan(0);
+            l.RuleFor(x => x.UnitPrice).GreaterThanOrEqualTo(0);
+        });
+    }
+}
+
+public class CompleteTripValidator : AbstractValidator<CompleteTripCommand>
+{
+    public CompleteTripValidator()
+    {
+        RuleFor(x => x.TripId).NotEmpty();
+        RuleFor(x => x.TotalSalesAmount).GreaterThanOrEqualTo(0).MustBeMoney();
+        RuleFor(x => x.TotalCollectionsAmount).GreaterThanOrEqualTo(0).MustBeMoney();
+        RuleFor(x => x.Items).NotNull();
+        RuleFor(x => x.Items).Must(i => i is null || i.Select(x => x.ItemId).Distinct().Count() == i.Count).WithMessage("An item can be reconciled only once.");
+        RuleForEach(x => x.Items).ChildRules(l =>
+        {
+            l.RuleFor(x => x.SoldQuantity).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.ReturnedQuantity).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.DamagedQuantity).GreaterThanOrEqualTo(0);
+        });
     }
 }
 
@@ -112,14 +142,20 @@ public class TripHandlers :
     private readonly INumberingService _numbering;
     private readonly IStockPostingService _stockPosting;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILegalEntityGuard _guard;
+    private readonly IReadRepository<Item> _catalog;
 
     public TripHandlers(
         IRepository<VanSalesTrip> trips,
         IRepository<DistributionRoute> routes,
         INumberingService numbering,
         IStockPostingService stockPosting,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ILegalEntityGuard guard,
+        IReadRepository<Item> catalog)
     {
+        _guard = guard;
+        _catalog = catalog;
         _unitOfWork = unitOfWork;
         _trips = trips;
         _routes = routes;
@@ -129,8 +165,14 @@ public class TripHandlers :
 
     public async Task<VanSalesTripDto> Handle(CreateTripCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var route = await _routes.FindAsync(request.RouteId, cancellationToken);
-        var routeName = route?.Name ?? "Route";
+        if (route is null || route.LegalEntityId != request.LegalEntityId) throw new FieldValidationException("routeId", "Route not found in this legal entity.");
+        var routeName = route.Name;
+
+        var itemIds = request.Items.Select(i => i.ItemId).ToList();
+        var catalog = await _catalog.Query(new Specification<Item>(i => itemIds.Contains(i.Id))).Select(i => new { i.Id, i.Sku, i.Name }).ToDictionaryAsync(i => i.Id, cancellationToken);
+        if (catalog.Count != itemIds.Distinct().Count()) throw new FieldValidationException("items", "An item was not found.");
 
         var tripNumber = await _numbering.NextAsync("VanSalesTrip", request.LegalEntityId, request.DepartureDate, cancellationToken);
 
@@ -159,8 +201,8 @@ public class TripHandlers :
                 LegalEntityId = trip.LegalEntityId,
                 TripId = trip.Id,
                 ItemId = itm.ItemId,
-                ItemCode = itm.ItemCode.Trim(),
-                ItemName = itm.ItemName.Trim(),
+                ItemCode = catalog[itm.ItemId].Sku, // from the catalog, not from the request
+                ItemName = catalog[itm.ItemId].Name,
                 Uom = string.IsNullOrWhiteSpace(itm.Uom) ? "PCS" : itm.Uom.Trim(),
                 LoadedQuantity = itm.LoadedQuantity,
                 SoldQuantity = 0,
@@ -189,6 +231,15 @@ public class TripHandlers :
         if (trip.Status == TripStatus.Completed)
         {
             throw new ConflictException("Trip is already completed.");
+        }
+        if (trip.Status == TripStatus.Cancelled) throw new ConflictException("A cancelled trip cannot be completed.");
+
+        foreach (var rec in request.Items)
+        {
+            var loaded = trip.InventoryItems.FirstOrDefault(i => i.ItemId == rec.ItemId)
+                ?? throw new FieldValidationException("items", "An item in the reconciliation was not loaded on this trip.");
+            if (rec.SoldQuantity + rec.ReturnedQuantity + rec.DamagedQuantity > loaded.LoadedQuantity)
+                throw new FieldValidationException("items", $"{loaded.ItemCode}: sold, returned and damaged exceed the {loaded.LoadedQuantity} loaded.");
         }
 
         trip.Status = TripStatus.Completed;
