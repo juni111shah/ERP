@@ -537,4 +537,75 @@ public class PosOrderTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(100m, (decimal)session["totalSales"]!); // 60 + 40
         Assert.Equal(200m, (decimal)session["expectedCash"]!); // 100 opening + 60 + 40
     }
+
+    private static CreatePosOrderCommand Adhoc(string entity, string regId, string sessionId, decimal price, PosPaymentInput[] pay, decimal? taxRate = 0m)
+        => new(Guid.Parse(entity), Guid.Parse(regId), Guid.Parse(sessionId), null, "Customer",
+            [new PosOrderLineInput(null, ItemCode: "ADHOC-" + Guid.NewGuid().ToString("N")[..4], Description: "Adhoc", Quantity: 1, UnitPrice: price, DiscountPercent: 0, TaxRate: taxRate)],
+            [.. pay]);
+
+    [Fact]
+    public async Task Cash_amount_above_the_order_total_is_rejected()
+    {
+        var (admin, entity, regId, sessionId) = await SetupPosAsync();
+        var res = await admin.PostAsJsonAsync("/api/v1/m/pos/orders", Adhoc(entity, regId, sessionId, 100m, [new PosPaymentInput(PosPaymentMethod.Cash, 150m, 150m, 0m, null)]));
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Cash_tendered_above_the_total_gives_change_and_raises_expected_cash_by_the_amount_applied()
+    {
+        var (admin, entity, regId, sessionId) = await SetupPosAsync(); // opening 100
+        var res = await admin.PostAsJsonAsync("/api/v1/m/pos/orders", Adhoc(entity, regId, sessionId, 100m, [new PosPaymentInput(PosPaymentMethod.Cash, 100m, 150m, 0m, null)]));
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode); // created means the ledger entry balanced
+        var order = await Json(res);
+        Assert.Equal(50m, (decimal)order["payments"]![0]!["changeAmount"]!);
+        var session = await Json(await admin.GetAsync($"/api/v1/m/pos/sessions/current?registerId={regId}"));
+        Assert.Equal(200m, (decimal)session["expectedCash"]!);
+    }
+
+    [Fact]
+    public async Task Two_card_lines_that_together_exceed_the_total_are_rejected()
+    {
+        var (admin, entity, regId, sessionId) = await SetupPosAsync();
+        var res = await admin.PostAsJsonAsync("/api/v1/m/pos/orders", Adhoc(entity, regId, sessionId, 100m,
+            [new PosPaymentInput(PosPaymentMethod.Card, 60m, 60m, 0m, null), new PosPaymentInput(PosPaymentMethod.Card, 60m, 60m, 0m, null)]));
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Exact_payment_still_succeeds()
+    {
+        var (admin, entity, regId, sessionId) = await SetupPosAsync();
+        var res = await admin.PostAsJsonAsync("/api/v1/m/pos/orders", Adhoc(entity, regId, sessionId, 100m,
+            [new PosPaymentInput(PosPaymentMethod.Card, 60m, 60m, 0m, null), new PosPaymentInput(PosPaymentMethod.Cash, 40m, 40m, 0m, null)]));
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Void_with_a_blank_reason_returns_400()
+    {
+        var (admin, entity, regId, sessionId) = await SetupPosAsync();
+        var order = await Json(await admin.PostAsJsonAsync("/api/v1/m/pos/orders", Adhoc(entity, regId, sessionId, 20m, [new PosPaymentInput(PosPaymentMethod.Cash, 20m, 20m, 0m, null)])));
+        var id = (string)order["id"]!;
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync($"/api/v1/m/pos/orders/{id}/void", new { reason = "  " })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync($"/api/v1/m/pos/orders/{id}/void", new { reason = new string('x', 501) })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Free_text_lines_need_the_price_override_permission_and_a_valid_tax_rate()
+    {
+        var (admin, entity, regId, sessionId) = await SetupPosAsync();
+        var roleRes = await admin.PostAsJsonAsync("/api/v1/roles", new RoleInput("CashierNoOverride_" + Guid.NewGuid().ToString("N")[..6], "No override",
+            [Permissions.OrdersCreate, Permissions.OrdersRead, Permissions.RegistersRead, Permissions.SessionsRead]));
+        roleRes.EnsureSuccessStatusCode();
+        var email = $"cashier_{Guid.NewGuid():N}@demo.local";
+        (await admin.PostAsJsonAsync("/api/v1/users", new { email, fullName = "Cashier", temporaryPassword = "Temp#Passw0rd", roleIds = new[] { Guid.Parse((string)(await Json(roleRes))["id"]!) } })).EnsureSuccessStatusCode();
+        var (cashier, _) = await f.SignInAsync(email, "Temp#Passw0rd");
+        var pay = new[] { new PosPaymentInput(PosPaymentMethod.Cash, 25m, 25m, 0m, null) };
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await cashier.PostAsJsonAsync("/api/v1/m/pos/orders", Adhoc(entity, regId, sessionId, 25m, pay))).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync("/api/v1/m/pos/orders", Adhoc(entity, regId, sessionId, 25m, pay))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/m/pos/orders", Adhoc(entity, regId, sessionId, 25m, pay, 101m))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/m/pos/orders", Adhoc(entity, regId, sessionId, 25m, pay, -1m))).StatusCode);
+    }
 }
