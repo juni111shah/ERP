@@ -7,7 +7,7 @@ schema: yes
 depends_on: []
 area: pos
 audit_ref: POS analysis 2026-10-30
-commit: HASH30
+commit: 5238d77
 ---
 
 ## Problem
