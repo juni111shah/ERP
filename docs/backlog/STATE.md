@@ -1,6 +1,6 @@
 # Board
 
-Last Claude run: 2026-10-30 (eleventh run: no cards ready-for-review, none in-progress, 6 open so no refill)
+Last Claude run: 2026-10-30 (twelfth run: no cards ready-for-review, none in-progress, 6 open so no refill; HEAD 6205e11 pins SQLitePCLRaw in test projects)
 Rotation position: POS and Retail analysed (orders, sessions, registers, KPIs). Next area = Inventory and Manufacturing
 Needs human: Decide whether to merge antigravity/dashboard-and-modules into main (never pushed). Schema change TASK-010 (script database/scripts/0026_IdempotencyRecords.sql) must be applied by a human. TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-022 lands. TASK-006 commit message lacks the `TASK-006:` prefix. C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997). 
 
