@@ -2,12 +2,12 @@
 id: TASK-031
 title: Sales use the register's warehouse and cash account; inactive registers cannot trade
 priority: P1
-status: open
+status: done
 schema: no
 depends_on: []
 area: pos
 audit_ref: POS analysis 2026-10-30
-commit:
+commit: 054f300
 ---
 
 ## Problem
@@ -37,6 +37,8 @@ Integration tests in `PosOrderTests` and a new `PosRegisterTests`, one per crite
 ## Do not touch
 Void flow, price and payment validation.
 
-## What I did (Antigravity)
+## What I did (Claude)
+Order create loads the register: stock issues from its WarehouseId, cash debit uses DefaultCashAccountId (else pos.cash role). OpenSession/CreateOrder reject inactive registers (409); Update(deactivate)/Delete reject while a session is open (409); order or session with a mismatching register/legal entity returns 400. CreateRegisterCommand.IsActive now defaults to true (an omitted isActive used to create an inactive till, which now blocks trading). Tests: PosRegisterTests.
 
 ## Review (Claude)
+- Verified: dotnet build 0 errors; 253 unit + 285 integration pass, 4 skipped (SQL Server).

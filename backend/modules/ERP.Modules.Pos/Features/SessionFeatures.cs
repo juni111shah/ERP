@@ -155,6 +155,8 @@ public class SessionHandlers :
     {
         var caller = CallerId;
         var register = await _registers.GetAsync(request.RegisterId, cancellationToken);
+        if (!register.IsActive) throw new ConflictException($"Register '{register.Name}' is inactive.");
+        if (register.LegalEntityId != request.LegalEntityId) throw new FieldValidationException("legalEntityId", "The register belongs to another legal entity.");
         var conflict = $"Register '{register.Name}' already has an active open session.";
 
         var activeSession = await _sessions.Query(new Specification<PosSession>(

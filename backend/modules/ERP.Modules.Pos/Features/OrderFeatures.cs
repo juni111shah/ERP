@@ -178,6 +178,7 @@ public class OrderHandlers :
 {
     private readonly IRepository<PosOrder> _orders;
     private readonly IRepository<PosSession> _sessions;
+    private readonly IRepository<PosRegister> _registers;
     private readonly INumberingService _numbering;
     private readonly IStockPostingService _stockPosting;
     private readonly IPostingService _posting;
@@ -192,6 +193,7 @@ public class OrderHandlers :
     public OrderHandlers(
         IRepository<PosOrder> orders,
         IRepository<PosSession> sessions,
+        IRepository<PosRegister> registers,
         INumberingService numbering,
         IStockPostingService stockPosting,
         IPostingService posting,
@@ -205,6 +207,7 @@ public class OrderHandlers :
         _journals = journals;
         _orders = orders;
         _sessions = sessions;
+        _registers = registers;
         _numbering = numbering;
         _stockPosting = stockPosting;
         _posting = posting;
@@ -227,6 +230,11 @@ public class OrderHandlers :
             {
                 throw new ConflictException("Cannot place POS orders in a closed session.");
             }
+
+            if (request.RegisterId != session.RegisterId) throw new FieldValidationException("registerId", "The register does not match the session.");
+            if (request.LegalEntityId != session.LegalEntityId) throw new FieldValidationException("legalEntityId", "The legal entity does not match the session.");
+            var register = await _registers.FindAsync(session.RegisterId, token) ?? throw new NotFoundException($"Register {session.RegisterId} not found");
+            if (!register.IsActive) throw new ConflictException($"Register '{register.Name}' is inactive.");
 
         // Cashier identity from ICurrentUser; client-supplied cashier is ignored
         var cashierId = (_currentUser.UserId.HasValue && _currentUser.UserId.Value != Guid.Empty)
@@ -461,7 +469,7 @@ public class OrderHandlers :
         // Post the sale to the ledger in the same transaction: a failure here rolls the whole order back.
         var salesAccount = await _posting.AccountForRoleAsync("income.sales", token);
         var taxAccount = taxTotal > 0 ? await _posting.AccountForRoleAsync(SystemRoles.TaxOutput, token) : Guid.Empty;
-        var cashAccount = await RoleOrFallbackAsync("pos.cash", "cash", token);
+        var cashAccount = register.DefaultCashAccountId ?? await RoleOrFallbackAsync("pos.cash", "cash", token);
         var cardAccount = payments.Any(p => p.Method != PosPaymentMethod.Cash) ? await RoleOrFallbackAsync("pos.card-clearing", "bank", token) : Guid.Empty;
 
         var postingLines = new List<PostingLine>();
@@ -501,7 +509,8 @@ public class OrderHandlers :
                     l.Quantity,
                     DateOnly.FromDateTime(DateTime.UtcNow),
                     order.Number,
-                    $"POS sale {order.Number} ({l.ItemCode})"), token);
+                    $"POS sale {order.Number} ({l.ItemCode})",
+                    register.WarehouseId), token);
             }
         }
 

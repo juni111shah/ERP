@@ -80,7 +80,7 @@ internal static class PosEndpoints
             s.Send(new VoidPosOrderCommand(id, b.Reason), ct)).RequirePermission(Permissions.OrdersVoid);
 
         // Analytics / KPIs
-        group.MapGet("/kpis", (ISender s, CancellationToken ct) =>
-            s.Send(new GetPosKpiSummaryQuery(), ct)).RequirePermission(Permissions.AnalyticsRead);
+        group.MapGet("/kpis", (Guid? legalEntityId, ISender s, CancellationToken ct) =>
+            s.Send(new GetPosKpiSummaryQuery(legalEntityId), ct)).RequirePermission(Permissions.AnalyticsRead);
     }
 }
