@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Crm.Domain;
 using FluentValidation;
 using MediatR;
@@ -125,13 +126,16 @@ public class LeadHandlers :
     private readonly IRepository<CrmOpportunity> _oppRepo;
     private readonly IRepository<ERP.Domain.Parties.Party> _partyRepo;
     private readonly INumberingService _numbering;
+    private readonly ILegalEntityGuard _guard;
 
     public LeadHandlers(
         IRepository<CrmLead> leadRepo,
         IRepository<CrmOpportunity> oppRepo,
         IRepository<ERP.Domain.Parties.Party> partyRepo,
-        INumberingService numbering)
+        INumberingService numbering,
+        ILegalEntityGuard guard)
     {
+        _guard = guard;
         _leadRepo = leadRepo;
         _oppRepo = oppRepo;
         _partyRepo = partyRepo;
@@ -140,6 +144,7 @@ public class LeadHandlers :
 
     public async Task<LeadDto> Handle(CreateLeadCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var number = await _numbering.NextAsync("LEAD", request.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
 
         var lead = new CrmLead

@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Crm.Domain;
 using FluentValidation;
 using MediatR;
@@ -115,17 +116,26 @@ public class OpportunityHandlers :
 {
     private readonly IRepository<CrmOpportunity> _oppRepo;
     private readonly INumberingService _numbering;
+    private readonly ILegalEntityGuard _guard;
+    private readonly IReadRepository<ERP.Domain.Parties.Party> _parties;
 
     public OpportunityHandlers(
         IRepository<CrmOpportunity> oppRepo,
-        INumberingService numbering)
+        INumberingService numbering,
+        ILegalEntityGuard guard,
+        IReadRepository<ERP.Domain.Parties.Party> parties)
     {
+        _guard = guard;
+        _parties = parties;
         _oppRepo = oppRepo;
         _numbering = numbering;
     }
 
     public async Task<OpportunityDto> Handle(CreateOpportunityCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
+        if (request.CustomerPartyId is { } partyId && !await _parties.AnyAsync(p => p.Id == partyId, cancellationToken))
+            throw new FieldValidationException("customerPartyId", "Customer not found.");
         var number = await _numbering.NextAsync("OPP", request.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
 
         var opp = new CrmOpportunity
