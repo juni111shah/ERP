@@ -11,7 +11,7 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | ready-for-review | 0 |
 | changes-requested | 0 |
 | blocked | 0 |
-| done | 26 |
+| done | 28 |
 
 | Card | Priority | Status | Title |
 |---|---|---|---|
@@ -48,3 +48,4 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | TASK-031 | P1 | open | Sales use the register's warehouse and cash account; inactive registers cannot trade |
 | TASK-032 | P1 | open | Void needs a reason; free-text lines need price override permission |
 | TASK-033 | P2 | open | POS KPIs aggregate in SQL, respect the legal entity, drop hardcoded AED |
+| TASK-034 | P1 | done | AR ageing and customer statement honour the as-of date |
