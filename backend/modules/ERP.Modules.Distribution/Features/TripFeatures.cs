@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Finance;
 using ERP.Application.Organizations;
 using ERP.Domain.Catalog;
 using ERP.Modules.Distribution.Domain;
@@ -113,6 +114,24 @@ public class CreateTripValidator : AbstractValidator<CreateTripCommand>
     }
 }
 
+public class CompleteTripValidator : AbstractValidator<CompleteTripCommand>
+{
+    public CompleteTripValidator()
+    {
+        RuleFor(x => x.TripId).NotEmpty();
+        RuleFor(x => x.TotalSalesAmount).GreaterThanOrEqualTo(0).MustBeMoney();
+        RuleFor(x => x.TotalCollectionsAmount).GreaterThanOrEqualTo(0).MustBeMoney();
+        RuleFor(x => x.Items).NotNull();
+        RuleFor(x => x.Items).Must(i => i is null || i.Select(x => x.ItemId).Distinct().Count() == i.Count).WithMessage("An item can be reconciled only once.");
+        RuleForEach(x => x.Items).ChildRules(l =>
+        {
+            l.RuleFor(x => x.SoldQuantity).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.ReturnedQuantity).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.DamagedQuantity).GreaterThanOrEqualTo(0);
+        });
+    }
+}
+
 public class TripHandlers :
     IRequestHandler<CreateTripCommand, VanSalesTripDto>,
     IRequestHandler<CompleteTripCommand, VanSalesTripDto>,
@@ -212,6 +231,15 @@ public class TripHandlers :
         if (trip.Status == TripStatus.Completed)
         {
             throw new ConflictException("Trip is already completed.");
+        }
+        if (trip.Status == TripStatus.Cancelled) throw new ConflictException("A cancelled trip cannot be completed.");
+
+        foreach (var rec in request.Items)
+        {
+            var loaded = trip.InventoryItems.FirstOrDefault(i => i.ItemId == rec.ItemId)
+                ?? throw new FieldValidationException("items", "An item in the reconciliation was not loaded on this trip.");
+            if (rec.SoldQuantity + rec.ReturnedQuantity + rec.DamagedQuantity > loaded.LoadedQuantity)
+                throw new FieldValidationException("items", $"{loaded.ItemCode}: sold, returned and damaged exceed the {loaded.LoadedQuantity} loaded.");
         }
 
         trip.Status = TripStatus.Completed;

@@ -55,4 +55,25 @@ public class DistributionTripTests(ApiFactory f) : IClassFixture<ApiFactory>
         var line = trip["inventoryItems"]!.AsArray().Single()!;
         Assert.Equal((x.Sku, "Water 1L"), ((string)line["itemCode"]!, (string)line["itemName"]!)); // taken from the catalog
     }
+
+    [Fact]
+    public async Task A_trip_completes_only_with_a_reconciliation_that_matches_what_was_loaded()
+    {
+        var x = await SetupAsync();
+        var trip = await Ok(await x.C.PostAsJsonAsync($"{Dist}/trips", Trip(x)), HttpStatusCode.Created); // 10 loaded
+        var id = (string)trip["id"]!;
+        object Body(object[] items, decimal sales = 0m) => new { tripId = id, totalSalesAmount = sales, totalCollectionsAmount = 0m, items };
+        object Line(decimal sold, decimal returned, decimal damaged, string? item = null) => new { itemId = item ?? x.Item, soldQuantity = sold, returnedQuantity = returned, damagedQuantity = damaged };
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Dist}/trips/{id}/complete", Body([Line(6m, 5m, 0m)]))).StatusCode); // 11 of 10
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Dist}/trips/{id}/complete", Body([Line(-1m, 0m, 0m)]))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Dist}/trips/{id}/complete", Body([Line(0m, 1m, 0m, Guid.NewGuid().ToString())]))).StatusCode); // not on the trip
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Dist}/trips/{id}/complete", Body([Line(0m, 1m, 0m)], sales: -5m))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Dist}/trips/{id}/complete", Body([Line(0m, 1m, 0m), Line(0m, 1m, 0m)]))).StatusCode); // duplicate line
+        Assert.Equal("inProgress", ((string)(await Ok(await x.C.GetAsync($"{Dist}/trips/{id}")))["status"]!), ignoreCase: true); // nothing half done
+
+        var done = await Ok(await x.C.PostAsJsonAsync($"{Dist}/trips/{id}/complete", Body([Line(0m, 10m, 0m)])));
+        Assert.Equal("completed", (string)done["status"]!, ignoreCase: true);
+        Assert.Equal(10m, (decimal)done["inventoryItems"]!.AsArray().Single()!["returnedQuantity"]!);
+    }
 }
