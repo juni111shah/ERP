@@ -81,6 +81,8 @@ internal sealed class TimesheetHandlers(
     {
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
+        ProjectRules.EnsureOpen(p);
+        await EnsureTaskInProjectAsync(i.TaskId, p.Id, ct);
         var ts = new ProjectTimesheet
         {
             ProjectId = p.Id,
@@ -89,9 +91,9 @@ internal sealed class TimesheetHandlers(
             WorkerName = i.WorkerName.Trim(),
             Hours = i.Hours,
             HourlyRate = i.HourlyRate,
-            TotalAmount = Math.Round(i.Hours * i.HourlyRate, 4),
+            TotalAmount = ERP.Application.Finance.Money.Round(i.Hours * i.HourlyRate),
             Description = i.Description?.Trim(),
-            IsBillable = i.IsBillable,
+            IsBillable = i.IsBillable && p.BillingType != ProjectBillingType.NonBillable,
             IsBilled = false,
         };
         timesheets.Add(ts);
@@ -104,14 +106,16 @@ internal sealed class TimesheetHandlers(
         var ts = await timesheets.GetForUpdateAsync(cmd.Id, ct);
         if (ts.IsBilled) throw new ConflictException("Cannot edit a billed timesheet.");
         var i = cmd.Input;
+        var p = await projects.GetAsync(ts.ProjectId, ct);
+        await EnsureTaskInProjectAsync(i.TaskId, ts.ProjectId, ct);
         ts.TaskId = i.TaskId;
         ts.Date = i.Date;
         ts.WorkerName = i.WorkerName.Trim();
         ts.Hours = i.Hours;
         ts.HourlyRate = i.HourlyRate;
-        ts.TotalAmount = Math.Round(i.Hours * i.HourlyRate, 4);
+        ts.TotalAmount = ERP.Application.Finance.Money.Round(i.Hours * i.HourlyRate);
         ts.Description = i.Description?.Trim();
-        ts.IsBillable = i.IsBillable;
+        ts.IsBillable = i.IsBillable && p.BillingType != ProjectBillingType.NonBillable;
 
         await timesheets.SaveChangesAsync(ct);
         return await BuildDtoAsync(ts, ct);
@@ -124,6 +128,12 @@ internal sealed class TimesheetHandlers(
         timesheets.Remove(ts);
         await timesheets.SaveChangesAsync(ct);
         return Unit.Value;
+    }
+
+    private async Task EnsureTaskInProjectAsync(Guid? taskId, Guid projectId, CancellationToken ct)
+    {
+        if (taskId is { } tid && !await tasks.AnyAsync(t => t.Id == tid && t.ProjectId == projectId, ct))
+            throw new FieldValidationException("taskId", "Task not found in this project.");
     }
 
     private async Task<TimesheetDto> BuildDtoAsync(ProjectTimesheet ts, CancellationToken ct)
