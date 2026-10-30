@@ -217,7 +217,7 @@ internal sealed class RequisitionHandlers(
             VendorName = string.IsNullOrWhiteSpace(cmd.VendorName) ? "Unassigned Vendor" : cmd.VendorName.Trim(),
             OrderDate = DateOnly.FromDateTime(DateTime.UtcNow),
             ExpectedDeliveryDate = req.RequiredDate,
-            Currency = "AED",
+            Currency = "QAR",
             Status = PurchaseOrderStatus.Draft,
             Notes = req.Reason,
             Number = await numbers.NextAsync(Docs.PurchaseOrder, req.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), ct),

@@ -241,7 +241,7 @@ public static class ProgramSeeder
                     Phone = "+971 4 398 1234",
                     TaxNumber = "100294827100003",
                     Address = "Sheikh Zayed Road, Latifa Tower Suite 1802, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 30,
                     IsActive = true
                 },
@@ -255,7 +255,7 @@ public static class ProgramSeeder
                     Phone = "+971 4 456 7890",
                     TaxNumber = "100389172600003",
                     Address = "Al Quoz Industrial Area 3, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 30,
                     IsActive = true
                 },
@@ -269,7 +269,7 @@ public static class ProgramSeeder
                     Phone = "+971 4 367 3333",
                     TaxNumber = "100112233400003",
                     Address = "Downtown Dubai, Emaar Square Bldg 3, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 45,
                     IsActive = true
                 },
@@ -283,7 +283,7 @@ public static class ProgramSeeder
                     Phone = "+971 4 881 5566",
                     TaxNumber = "100492817200003",
                     Address = "Jebel Ali Free Zone, South Zone, Warehouse 14B, Dubai",
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 60,
                     IsActive = true
                 },
@@ -297,7 +297,7 @@ public static class ProgramSeeder
                     Phone = "+971 4 213 1122",
                     TaxNumber = "100581920100003",
                     Address = "Dubai Festival City, Tower 2, Floor 8, Dubai",
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 30,
                     IsActive = true
                 },
@@ -311,7 +311,7 @@ public static class ProgramSeeder
                     Phone = "+971 4 601 9999",
                     TaxNumber = "100000000100003",
                     Address = "Near Wafi Mall, Zabeel East, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     PaymentTermsDays = 15,
                     IsActive = true
                 },
@@ -324,7 +324,7 @@ public static class ProgramSeeder
                     Email = "m.schumacher@example.com",
                     Phone = "+971 50 123 4567",
                     Address = "Marina Bay Heights Unit 101, Dubai Marina, UAE",
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     IsActive = true
                 },
                 new Party
@@ -336,7 +336,7 @@ public static class ProgramSeeder
                     Email = "amina.mansouri@example.com",
                     Phone = "+971 55 987 6543",
                     Address = "Downtown Executive Tower Unit 201, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     IsActive = true
                 },
                 new Party
@@ -348,7 +348,7 @@ public static class ProgramSeeder
                     Email = "tariq@demo.local",
                     Phone = "+971 52 334 4556",
                     Address = "Al Barsha 2, Villa 18, Dubai, UAE",
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     IsActive = true
                 },
                 new Party
@@ -360,7 +360,7 @@ public static class ProgramSeeder
                     Email = "sarah.j@demo.local",
                     Phone = "+971 50 776 5544",
                     Address = "Jumeirah Beach Residence, Sadaf 4, Dubai",
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     IsActive = true
                 }
             );
@@ -514,7 +514,7 @@ public static class ProgramSeeder
                 PartyName = cust1?.Name ?? "Apex Global Trading LLC",
                 InvoiceDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-20)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Net = 95000m,
                 Tax = 4750m,
@@ -546,7 +546,7 @@ public static class ProgramSeeder
                 PartyName = cust2?.Name ?? "Oasis Retailers Corp",
                 InvoiceDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-8)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(22)),
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Net = 68500m,
                 Tax = 3425m,
@@ -588,7 +588,7 @@ public static class ProgramSeeder
                 PartyName = cust3?.Name ?? "Emaar Investment PJSC",
                 InvoiceDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(28)),
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Net = 35000m,
                 Tax = 1750m,
@@ -627,7 +627,7 @@ public static class ProgramSeeder
                 VendorReference = "TSE-INV-8841",
                 BillDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(15)),
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Net = 42500m,
                 Tax = 2125m,
@@ -672,7 +672,7 @@ public static class ProgramSeeder
                 VendorReference = "AF-FM-9021",
                 BillDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(25)),
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Net = 25000m,
                 Tax = 1250m,
@@ -710,7 +710,7 @@ public static class ProgramSeeder
                 Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
                 Memo = "Opening Equity Capital Contribution & Cash Injection",
                 Reference = "CAP-INJ-01",
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Status = JournalStatus.Posted,
                 Amount = 500000m,
@@ -743,7 +743,7 @@ public static class ProgramSeeder
                 Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
                 Memo = "Monthly Technology Depreciation & Amortization Provision",
                 Reference = "DEP-M09-2026",
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 ExchangeRate = 1m,
                 Status = JournalStatus.Posted,
                 Amount = 12500m,
@@ -786,7 +786,7 @@ public static class ProgramSeeder
                     InstrumentNo = "408192",
                     BankName = "Emirates NBD",
                     Amount = 30000m,
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     InstrumentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(15)),
                     ReceivedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
                     PartyId = cust2?.Id,
@@ -804,7 +804,7 @@ public static class ProgramSeeder
                     InstrumentNo = "889102",
                     BankName = "First Abu Dhabi Bank",
                     Amount = 25000m,
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     InstrumentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(45)),
                     ReceivedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
                     PartyId = cust1?.Id,
@@ -823,7 +823,7 @@ public static class ProgramSeeder
                     InstrumentNo = "100412",
                     BankName = "Dubai Islamic Bank",
                     Amount = 44625m,
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     InstrumentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-12)),
                     ReceivedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
                     PartyId = vend1?.Id,
@@ -854,7 +854,7 @@ public static class ProgramSeeder
                     Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-15)),
                     Method = SettlementMethod.BankTransfer,
                     BankAccountId = bankAcc?.Id,
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     Amount = 99750m,
                     Unallocated = 0m,
                     Reference = "FT-ENBD-88491",
@@ -874,7 +874,7 @@ public static class ProgramSeeder
                     Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
                     Method = SettlementMethod.BankTransfer,
                     BankAccountId = bankAcc?.Id,
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     Amount = 44625m,
                     Unallocated = 0m,
                     Reference = "SWIFT-OUT-49120",
@@ -1150,7 +1150,7 @@ public static class ProgramSeeder
                 StartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-3)),
                 EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(9)),
                 AnnualRent = 85000m,
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 PaymentFrequency = 4,
                 SecurityDepositAmount = 5000m,
                 Notes = "Standard residential tenancy contract with 4 cheques"
@@ -1167,7 +1167,7 @@ public static class ProgramSeeder
                 StartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-6)),
                 EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(6)),
                 AnnualRent = 160000m,
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 PaymentFrequency = 2,
                 SecurityDepositAmount = 10000m,
                 Notes = "Commercial office lease agreement with semi-annual instalments"
@@ -1382,7 +1382,7 @@ public static class ProgramSeeder
                 DownPayment = 18000000m,
                 TransferFees = 2880000m,
                 OtherCosts = 120000m,
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 Notes = "Acquisition of Marina Bay Heights Tower directly from master developer"
             };
             acq.Complete(Guid.NewGuid(), DateTime.UtcNow.AddYears(-2));
@@ -1452,7 +1452,7 @@ public static class ProgramSeeder
                 AgentPartyId = agentUser?.Id,
                 DealDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-18)),
                 DealValue = 12500000m,
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 CommissionRatePercent = 2.0m,
                 AgentSharePercent = 50.0m,
                 TeamLeadSharePercent = 10.0m,
@@ -1473,7 +1473,7 @@ public static class ProgramSeeder
                 AgentPartyId = agentUser?.Id,
                 DealDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-60)),
                 DealValue = 160000m,
-                CurrencyCode = "AED",
+                CurrencyCode = "QAR",
                 CommissionRatePercent = 5.0m,
                 AgentSharePercent = 60.0m,
                 TeamLeadSharePercent = 10.0m,
@@ -1825,7 +1825,7 @@ public static class ProgramSeeder
                 CustomerEmail = "procurement@apexglobal.example.com",
                 QuoteDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
                 ValidUntil = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20)),
-                Currency = "AED",
+                Currency = "QAR",
                 Status = SalesQuoteStatus.Sent,
                 SubTotal = 145000m,
                 TaxTotal = 7250m,
@@ -1865,7 +1865,7 @@ public static class ProgramSeeder
                 CustomerName = "Oasis Retailers Corp",
                 OrderDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-3)),
                 ExpectedDeliveryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
-                Currency = "AED",
+                Currency = "QAR",
                 Status = SalesOrderStatus.Confirmed,
                 SubTotal = 68500m,
                 TaxTotal = 3425m,
@@ -1958,7 +1958,7 @@ public static class ProgramSeeder
                 VendorReference = "TSE-INV-8841",
                 OrderDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-6)),
                 ExpectedDeliveryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(8)),
-                Currency = "AED",
+                Currency = "QAR",
                 Status = PurchaseOrderStatus.Approved,
                 SubTotal = 42500m,
                 TaxTotal = 2125m,
@@ -2137,7 +2137,7 @@ public static class ProgramSeeder
                 Code = "PL-RETAIL-2026",
                 Name = "Standard Consumer Retail Price List 2026",
                 Type = PriceListType.Standard,
-                Currency = "AED",
+                Currency = "QAR",
                 ValidFrom = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-60)),
                 IsActive = true,
                 Description = "All UAE brick-and-mortar retail locations standard tier"
@@ -2546,12 +2546,19 @@ public static class ProgramSeeder
         }
     }
 
+    /// <summary>Months of demo history, counted back from the current month (3.5 years). Demo data only.</summary>
+    private const int HistoryMonths = 42;
+    /// <summary>The first version of the seeder covered only this many months; a database seeded then is backfilled with the older months.</summary>
+    private const int LegacyHistoryMonths = 24;
+
     private static async Task SeedTwoYearHistoryAsync(AppDbContext db, Guid orgId, Guid legalEntityId, CancellationToken ct)
     {
-        if (await db.Set<PayrollRun>().IgnoreQueryFilters().AnyAsync(r => r.OrgId == orgId && r.Number.StartsWith("PR-2025-"), ct))
-        {
-            return;
-        }
+        var clock = DateTime.UtcNow;
+        var oldest = clock.AddMonths(-(HistoryMonths - 1));
+        var legacyOldest = clock.AddMonths(-(LegacyHistoryMonths - 1));
+        async Task<bool> HasPayrollAsync(DateTime month) { var number = $"PR-{month.Year}-{month.Month:D2}"; return await db.Set<PayrollRun>().IgnoreQueryFilters().AnyAsync(r => r.OrgId == orgId && r.Number == number, ct); }
+        if (await HasPayrollAsync(oldest)) return; // already seeded with the full history
+        var backfillOnly = await HasPayrollAsync(legacyOldest); // seeded by the 24-month version: add only the older months
 
         var customers = await db.Parties.IgnoreQueryFilters().Where(p => p.OrgId == orgId && (p.Roles & PartyRoles.Customer) != 0).ToListAsync(ct);
         var vendors = await db.Parties.IgnoreQueryFilters().Where(p => p.OrgId == orgId && (p.Roles & PartyRoles.Vendor) != 0).ToListAsync(ct);
@@ -2572,11 +2579,12 @@ public static class ProgramSeeder
         var incomeAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.Type == AccountType.Income, ct);
         var expenseAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.Type == AccountType.Expense, ct);
 
-        // 1. Budgets for 2025 and 2026
-        if (!await db.Budgets.IgnoreQueryFilters().AnyAsync(b => b.OrgId == orgId, ct))
+        // 1. One annual budget per fiscal year in the history window (budgets grow about 15% a year)
         {
-            foreach (var yr in new[] { 2025, 2026 })
+            var budgetYears = (await db.Budgets.IgnoreQueryFilters().Where(b => b.OrgId == orgId).Select(b => b.FiscalYear).ToListAsync(ct)).ToHashSet();
+            foreach (var yr in Enumerable.Range(oldest.Year, clock.Year - oldest.Year + 1).Where(y => !budgetYears.Contains(y)))
             {
+                var scale = (decimal)Math.Pow(1.15, yr - oldest.Year);
                 var b = new Budget
                 {
                     LegalEntityId = legalEntityId,
@@ -2588,17 +2596,18 @@ public static class ProgramSeeder
                 for (int mth = 1; mth <= 12; mth++)
                 {
                     if (incomeAcc != null)
-                        b.Lines.Add(new BudgetLine { AccountId = incomeAcc.Id, Month = mth, Amount = yr == 2025 ? 185000m : 240000m });
+                        b.Lines.Add(new BudgetLine { AccountId = incomeAcc.Id, Month = mth, Amount = Math.Round(150000m * scale, 0) });
                     if (expenseAcc != null)
-                        b.Lines.Add(new BudgetLine { AccountId = expenseAcc.Id, Month = mth, Amount = yr == 2025 ? 95000m : 110000m });
+                        b.Lines.Add(new BudgetLine { AccountId = expenseAcc.Id, Month = mth, Amount = Math.Round(80000m * scale, 0) });
                 }
                 db.Budgets.Add(b);
             }
             await db.SaveChangesAsync(ct);
         }
 
-        // 2. Loop across the past 24 months (Nov 2024 through Oct 2026)
-        var now = DateTime.UtcNow;
+        // 2. Loop across the history window, oldest month first
+        var now = clock;
+        var newestMonthOffset = backfillOnly ? LegacyHistoryMonths : 0;
         var leadNames = new[] { "Sheikh Mansoor Al-Qasimi", "Farhan & Brothers Trading", "Gulf Prime Logistics LLC", "Elena Petrova Real Estate", "Al-Majid Technical Solutions", "Horizon Media Agency FZ" };
 
         var existingPayrollYearsMonths = (await db.Set<PayrollRun>().IgnoreQueryFilters()
@@ -2615,7 +2624,7 @@ public static class ProgramSeeder
             .Select(a => (a.EmployeeId, a.Year, a.Month))
             .ToHashSet();
 
-        for (int m = 23; m >= 0; m--)
+        for (int m = HistoryMonths - 1; m >= newestMonthOffset; m--)
         {
             var targetDate = now.AddMonths(-m);
             var year = targetDate.Year;
@@ -2628,7 +2637,7 @@ public static class ProgramSeeder
             {
                 var cust = customers[m % customers.Count];
                 var item = items[m % items.Count];
-                var net = 25000m + (m * 850m) % 35000m;
+                var net = Math.Round((25000m + (m * 850m) % 35000m) * (1m + (HistoryMonths - 1 - m) * 0.01m), 2); // sales trend upward over the years
                 var tax = Math.Round(net * 0.05m, 2);
                 var total = net + tax;
 
@@ -2641,7 +2650,7 @@ public static class ProgramSeeder
                     PartyName = cust.Name,
                     InvoiceDate = new DateOnly(year, month, Math.Min(5, daysInMonth)),
                     DueDate = new DateOnly(year, month, Math.Min(25, daysInMonth)),
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     ExchangeRate = 1m,
                     Net = net,
                     Tax = tax,
@@ -2677,7 +2686,7 @@ public static class ProgramSeeder
                         Date = new DateOnly(year, month, Math.Min(20, daysInMonth)),
                         Method = SettlementMethod.BankTransfer,
                         BankAccountId = bankAcc?.Id,
-                        CurrencyCode = "AED",
+                        CurrencyCode = "QAR",
                         Amount = total,
                         Unallocated = 0m,
                         Reference = $"WIRE-IN-{year}{month:D2}{m + 1:D2}",
@@ -2707,7 +2716,7 @@ public static class ProgramSeeder
                     PartyName = vend.Name,
                     BillDate = new DateOnly(year, month, Math.Min(10, daysInMonth)),
                     DueDate = new DateOnly(year, month, Math.Min(28, daysInMonth)),
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     ExchangeRate = 1m,
                     Net = billNet,
                     Tax = billTax,
@@ -2742,7 +2751,7 @@ public static class ProgramSeeder
                     LegalEntityId = legalEntityId,
                     Number = $"JV-{year}-{month:D2}-DEP",
                     Date = new DateOnly(year, month, Math.Min(28, daysInMonth)),
-                    CurrencyCode = "AED",
+                    CurrencyCode = "QAR",
                     ExchangeRate = 1m,
                     Amount = depAmount,
                     Memo = $"Monthly asset depreciation and hardware amortization allocation for {year}-{month:D2}",
@@ -2894,7 +2903,7 @@ public static class ProgramSeeder
                     CustomerEmail = cust.Email ?? "client@example.com",
                     QuoteDate = new DateOnly(year, month, Math.Min(3, daysInMonth)),
                     ValidUntil = new DateOnly(year, month, Math.Min(25, daysInMonth)),
-                    Currency = "AED",
+                    Currency = "QAR",
                     SubTotal = total,
                     TaxTotal = Math.Round(total * 0.05m, 2),
                     TotalAmount = total + Math.Round(total * 0.05m, 2),
@@ -2916,7 +2925,7 @@ public static class ProgramSeeder
                     CustomerName = cust.Name,
                     OrderDate = new DateOnly(year, month, Math.Min(8, daysInMonth)),
                     ExpectedDeliveryDate = new DateOnly(year, month, Math.Min(24, daysInMonth)),
-                    Currency = "AED",
+                    Currency = "QAR",
                     SubTotal = total,
                     TaxTotal = Math.Round(total * 0.05m, 2),
                     TotalAmount = total + Math.Round(total * 0.05m, 2),
@@ -2947,7 +2956,7 @@ public static class ProgramSeeder
                     VendorName = vend.Name,
                     OrderDate = new DateOnly(year, month, Math.Min(6, daysInMonth)),
                     ExpectedDeliveryDate = new DateOnly(year, month, Math.Min(22, daysInMonth)),
-                    Currency = "AED",
+                    Currency = "QAR",
                     SubTotal = poTotal,
                     TaxTotal = Math.Round(poTotal * 0.05m, 2),
                     TotalAmount = poTotal + Math.Round(poTotal * 0.05m, 2),

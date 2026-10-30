@@ -215,7 +215,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                 <nz-form-item>
                   <nz-form-label nzRequired>Currency</nz-form-label>
                   <nz-form-control>
-                    <input nz-input formControlName="currency" placeholder="AED" />
+                    <input nz-input formControlName="currency" placeholder="QAR" />
                   </nz-form-control>
                 </nz-form-item>
               </div>

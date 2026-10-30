@@ -111,7 +111,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <nz-form-item>
                 <nz-form-label nzRequired>Price List Name</nz-form-label>
                 <nz-form-control nzErrorTip="Name is required">
-                  <input nz-input formControlName="name" placeholder="e.g. Standard Store Retail AED" />
+                  <input nz-input formControlName="name" placeholder="e.g. Standard Store Retail QAR" />
                 </nz-form-control>
               </nz-form-item>
             </div>
@@ -140,6 +140,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-form-label nzRequired>Currency</nz-form-label>
                 <nz-form-control>
                   <nz-select formControlName="currency">
+                    <nz-option nzValue="QAR" nzLabel="QAR"></nz-option>
                     <nz-option nzValue="AED" nzLabel="AED"></nz-option>
                     <nz-option nzValue="SAR" nzLabel="SAR"></nz-option>
                     <nz-option nzValue="USD" nzLabel="USD"></nz-option>

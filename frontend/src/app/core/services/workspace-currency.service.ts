@@ -15,7 +15,7 @@ export class WorkspaceCurrencyService {
         return entity.baseCurrency;
       }
     }
-    return me?.workspace?.baseCurrency || 'USD';
+    return me?.workspace?.baseCurrency || 'QAR';
   });
 
   /** Returns current currency code, e.g. 'USD', 'EUR', 'AED' */

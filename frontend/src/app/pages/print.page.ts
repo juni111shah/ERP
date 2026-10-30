@@ -1233,7 +1233,7 @@ export class PrintPage implements OnInit {
       status: pr.posOrder.status,
       cashierName: pr.posOrder.cashierName,
       customerName: pr.posOrder.customerName,
-      currency: d.header.baseCurrency || 'USD',
+      currency: d.header.baseCurrency || 'QAR',
       lines: (pr.posOrder.lines || []).map((l: any) => ({
         code: l.itemCode,
         description: l.description,
@@ -1560,7 +1560,7 @@ export class PrintPage implements OnInit {
           registrationNo: entity.registrationNo || '',
           phone: entity.phone || '',
           email: entity.email || '',
-          baseCurrency: entity.baseCurrency || ws?.baseCurrency || 'USD',
+          baseCurrency: entity.baseCurrency || ws?.baseCurrency || 'QAR',
           countryCode: entity.countryCode || ws?.countryCode || 'AE',
         } as PrintHeader;
       }),
@@ -1574,7 +1574,7 @@ export class PrintPage implements OnInit {
           registrationNo: '',
           phone: '',
           email: '',
-          baseCurrency: ws?.baseCurrency || 'USD',
+          baseCurrency: ws?.baseCurrency || 'QAR',
           countryCode: ws?.countryCode || 'AE',
         } as PrintHeader);
       })

@@ -36,7 +36,7 @@ public sealed class PurchasingSearch(
                 .Select(r => new { r.Id, r.Number, r.RequesterName, r.Status, r.EstimatedTotal })
                 .ToListAsync(ct);
 
-            hits.AddRange(rList.Select(r => new SearchHit("Purchase Requisitions", $"{r.Number} · {r.RequesterName}", $"Est: AED {r.EstimatedTotal:N2} · {r.Status}", $"/purchasing/requisitions")));
+            hits.AddRange(rList.Select(r => new SearchHit("Purchase Requisitions", $"{r.Number} · {r.RequesterName}", $"Est: QAR {r.EstimatedTotal:N2} · {r.Status}", $"/purchasing/requisitions")));
         }
 
         return hits;

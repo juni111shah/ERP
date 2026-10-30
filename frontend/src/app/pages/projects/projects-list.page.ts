@@ -235,7 +235,7 @@ export class ProjectsListPage {
       ],
       default: 'TimeAndMaterials',
     },
-    { key: 'budgetAmount', label: 'Total Budget (AED)', type: 'number', min: 0, default: 0 },
+    { key: 'budgetAmount', label: 'Total Budget (QAR)', type: 'number', min: 0, default: 0 },
     { key: 'startDate', label: 'Start Date', type: 'date' },
     { key: 'endDate', label: 'Target Completion Date', type: 'date' },
     { key: 'description', label: 'Description & Scope', type: 'textarea', maxLength: 2000 },
