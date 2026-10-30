@@ -23,6 +23,13 @@ public class SessionSecurityTests(ApiFactory f) : IClassFixture<ApiFactory>
         return (email, (string)(await ApiFactory.Json(invite))["id"]!, admin);
     }
 
+    private static async Task<HttpResponseMessage> RefreshAsync(HttpClient c)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/refresh");
+        req.Headers.Add("X-ERP-Client", "web");
+        return await c.SendAsync(req);
+    }
+
     private static Task<HttpResponseMessage> Change(HttpClient c, string current) => c.PostAsJsonAsync("/api/v1/auth/change-password", new { currentPassword = current, newPassword = "Brand#New2026x" });
 
     [Fact]
@@ -65,5 +72,31 @@ public class SessionSecurityTests(ApiFactory f) : IClassFixture<ApiFactory>
             var e = endpoints.Single(x => x.RoutePattern.RawText!.EndsWith(route, StringComparison.OrdinalIgnoreCase));
             Assert.True(e.Metadata.GetMetadata<EnableRateLimitingAttribute>() is not null, $"{route} has no rate limiting policy");
         }
+    }
+
+    [Fact]
+    public async Task Changing_the_password_ends_access_tokens_issued_before_it()
+    {
+        var (email, _, _) = await NewUserAsync();
+        var (user, _) = await f.SignInAsync(email, Temp);
+        Assert.Equal(HttpStatusCode.OK, (await user.GetAsync("/api/v1/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Change(user, Temp)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await user.GetAsync("/api/v1/me")).StatusCode);
+
+        var (fresh, _) = await f.SignInAsync(email, "Brand#New2026x");
+        Assert.Equal(HttpStatusCode.OK, (await fresh.GetAsync("/api/v1/me")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Deactivating_a_user_ends_their_session_immediately()
+    {
+        var (email, userId, admin) = await NewUserAsync();
+        var (user, session) = await f.SignInAsync(email, Temp);
+        Assert.Equal(HttpStatusCode.OK, (await user.GetAsync("/api/v1/me")).StatusCode);
+
+        var res = await admin.PostAsJsonAsync($"/api/v1/users/{userId}/active", new { isActive = false });
+        Assert.True(res.IsSuccessStatusCode, await res.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await user.GetAsync("/api/v1/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await RefreshAsync(user)).StatusCode);
     }
 }

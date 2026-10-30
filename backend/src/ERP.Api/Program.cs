@@ -85,7 +85,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
             var jti = ctx.Principal?.FindFirst("jti")?.Value;
             if (string.IsNullOrEmpty(jti) || ctx.Principal?.FindFirst(ErpClaims.Org) is null) { ctx.Fail("Missing claims."); return; }
             var cache = ctx.HttpContext.RequestServices.GetRequiredService<IDistributedCache>();
-            if (await cache.GetStringAsync(AuthService.DenyKey(jti)) is not null) ctx.Fail("Token revoked.");
+            if (await cache.GetStringAsync(AuthService.DenyKey(jti)) is not null) { ctx.Fail("Token revoked."); return; }
+            // A password change/reset or a deactivation ends every access token issued before it (portal tokens carry no issue time and are not affected).
+            if (long.TryParse(ctx.Principal?.FindFirst(AuthService.IssuedAtClaim)?.Value, out var issued) && Guid.TryParse(ctx.Principal!.FindFirst("sub")?.Value ?? ctx.Principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId))
+            {
+                var org = Guid.Parse(ctx.Principal.FindFirst(ErpClaims.Org)!.Value);
+                foreach (var key in new[] { AuthService.CutoffKey(userId), AuthService.CutoffKey(userId, org) })
+                    if (long.TryParse(await cache.GetStringAsync(key), out var cutoff) && issued < cutoff) { ctx.Fail("Session ended."); return; }
+            }
         },
     };
 });

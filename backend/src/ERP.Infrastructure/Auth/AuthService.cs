@@ -231,6 +231,18 @@ public sealed class AuthService(
     }
 
     public static string DenyKey(string jti) => $"jwt:deny:{jti}";
+    /// <summary>Access tokens carry their issue time in milliseconds (<see cref="IssuedAtClaim"/>); one issued before this cutoff is rejected.</summary>
+    public const string IssuedAtClaim = "iatms";
+    public static string CutoffKey(Guid userId, Guid? orgId = null) => orgId is null ? $"jwt:cutoff:{userId}" : $"jwt:cutoff:{userId}:{orgId}";
+
+    public async Task RevokeSessionsAsync(Guid userId, Guid? orgId, string reason, CancellationToken ct)
+    {
+        var tokens = db.RefreshTokens.Where(t => t.UserId == userId && t.RevokedAt == null);
+        if (orgId is { } o) tokens = tokens.Where(t => t.OrgId == o);
+        await tokens.ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, clock.UtcNow).SetProperty(t => t.RevokedReason, reason), ct);
+        var cutoff = new DateTimeOffset(DateTime.SpecifyKind(clock.UtcNow, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+        await cache.SetStringAsync(CutoffKey(userId, orgId), cutoff.ToString(), new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(_o.AccessTokenMinutes + 1) }, ct);
+    }
 
     private async Task DenyAsync(string? jti, DateTime? exp, CancellationToken ct)
     {
@@ -293,9 +305,7 @@ public sealed class AuthService(
         await users.UpdateSecurityStampAsync(user);
     }
 
-    private Task RevokeAllAsync(Guid userId, string reason, CancellationToken ct)
-        => db.RefreshTokens.Where(t => t.UserId == userId && t.RevokedAt == null)
-            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, clock.UtcNow).SetProperty(t => t.RevokedReason, reason), ct);
+    private Task RevokeAllAsync(Guid userId, string reason, CancellationToken ct) => RevokeSessionsAsync(userId, null, reason, ct);
 
     /// <summary>Active workspaces of a user. Membership is looked up across workspaces on purpose (explicit UserId predicate).</summary>
     public async Task<IReadOnlyList<WorkspaceOption>> WorkspacesForAsync(Guid userId, CancellationToken ct)
@@ -331,6 +341,7 @@ public sealed class AuthService(
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new(IssuedAtClaim, new DateTimeOffset(DateTime.SpecifyKind(now, DateTimeKind.Utc)).ToUnixTimeMilliseconds().ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? ""),
             new("name", user.FullName),
             new(ErpClaims.Org, ws.Id.ToString()),
