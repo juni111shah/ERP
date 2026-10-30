@@ -103,6 +103,7 @@ internal sealed class JournalHandlers(
     {
         var journal = await LoadDraftAsync(cmd.Id, ct);
         var entity = await guard.RequireAsync(journal.LegalEntityId, ct);
+        await EnsurePostableAsync(journal.Lines.Select(l => l.AccountId).Distinct().ToList(), ct); // an account may have been deactivated since the draft was saved
         journal.Recalculate();
         journal.EnsureCanPost(entity.BooksLockedTo);
         journal.Number = await numbering.NextAsync("journal", entity.Id, journal.Date, ct);
@@ -152,11 +153,19 @@ internal sealed class JournalHandlers(
         return j;
     }
 
+    /// <summary>Manual journals bypass <see cref="IPostingService.PostAsync"/>, so they check the accounts themselves: found, active, not a header.</summary>
+    private async Task EnsurePostableAsync(List<Guid> ids, CancellationToken ct)
+    {
+        var found = await accounts.Query(new Specification<Account>(a => ids.Contains(a.Id))).Select(a => new { a.Id, a.Code, a.IsPostable, a.IsActive }).ToListAsync(ct);
+        if (found.Count != ids.Count) throw new FieldValidationException("lines", "One of the accounts was not found.");
+        var bad = found.FirstOrDefault(a => !a.IsPostable || !a.IsActive);
+        if (bad is not null) throw new FieldValidationException("lines", $"Account {bad.Code} cannot be posted to (inactive or a header account).");
+    }
+
     private async Task<List<JournalLine>> ApplyAsync(JournalEntry journal, JournalInput i, CancellationToken ct)
     {
         var ids = i.Lines.Select(l => l.AccountId).Distinct().ToList();
-        var found = await accounts.Query(new Specification<Account>(a => ids.Contains(a.Id))).Select(a => a.Id).ToListAsync(ct);
-        if (found.Count != ids.Count) throw new FieldValidationException("lines", "One of the accounts was not found.");
+        await EnsurePostableAsync(ids, ct);
         journal.Date = i.Date; journal.Memo = i.Memo?.Trim(); journal.Reference = i.Reference?.Trim();
         var seq = 1;
         var lines = i.Lines.Select(l => new JournalLine { JournalEntryId = journal.Id, Seq = seq++, AccountId = l.AccountId, Debit = l.Debit, Credit = l.Credit, Description = l.Description, PartyId = l.PartyId, BusinessUnitId = l.BusinessUnitId }).ToList();
