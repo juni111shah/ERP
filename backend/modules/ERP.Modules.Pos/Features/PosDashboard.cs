@@ -19,9 +19,7 @@ public sealed class PosDashboard(
 
         if (user.HasPermission(Permissions.OrdersRead))
         {
-            var startOfDay = DateTimeOffset.UtcNow.Date;
-            var todayOrdersQuery = orders.Query().Where(o => o.OrderDate >= startOfDay && o.Status == PosOrderStatus.Completed
-                && (entity == null || o.LegalEntityId == entity));
+            var todayOrdersQuery = PosToday.CompletedOrders(orders.Query(), entity);
 
             var todaySales = await todayOrdersQuery.SumAsync(o => (decimal?)o.TotalAmount, ct) ?? 0m;
             var todayCount = await todayOrdersQuery.CountAsync(ct);

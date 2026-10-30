@@ -24,7 +24,7 @@ public sealed class PosSearch(
                 .Select(o => new { o.Id, o.Number, o.CustomerName, o.Status, o.TotalAmount })
                 .ToListAsync(ct);
 
-            hits.AddRange(oList.Select(o => new SearchHit("POS Orders", $"{o.Number} · {o.CustomerName}", $"AED {o.TotalAmount:N2} · {o.Status}", $"/pos/orders/{o.Id}")));
+            hits.AddRange(oList.Select(o => new SearchHit("POS Orders", $"{o.Number} · {o.CustomerName}", $"{o.TotalAmount:N2} · {o.Status}", $"/pos/orders/{o.Id}")));
         }
 
         if (user.HasPermission(Permissions.RegistersRead) && hits.Count < limit)
