@@ -1,12 +1,12 @@
 # Board
 
-Last Claude run (user asked Claude to implement 023-027 itself on branch claude/payables, commit f5d1bc9, not merged):  2026-10-30 (ninth run: no cards ready-for-review, no in-progress cards, 5 open so no refill)
-Rotation position: Procure to pay analysed (bills, payments, AP ageing). Next area = POS and Retail
+Last Claude run: 2026-10-30 (tenth run: no cards ready-for-review, no in-progress cards, 0 open so refilled with TASK-028 to 033)
+Rotation position: POS and Retail analysed (orders, sessions, registers, KPIs). Next area = Inventory and Manufacturing
 Needs human: Decide whether to merge antigravity/dashboard-and-modules into main (never pushed). Schema change TASK-010 (script database/scripts/0021_IdempotencyRecords.sql) must be applied by a human. TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-022 lands. TASK-006 commit message lacks the `TASK-006:` prefix. C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997). TASK-014 blocked: Angular 19.x has no patch for the advisories; needs a human decision on a major upgrade to v20+.
 
 | Status | Count |
 |---|---|
-| open | 0 |
+| open | 6 |
 | in-progress | 0 |
 | ready-for-review | 0 |
 | changes-requested | 0 |
@@ -42,3 +42,9 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | TASK-025 | P1 | done | AP ageing and vendor statement honour the as-of date |
 | TASK-026 | P2 | done | Validate allocate-payment and issued-cheque clearing |
 | TASK-027 | P1 | done | Editing or deleting a bill withdraws its pending approval |
+| TASK-028 | P0 | open | POS rejects or caps overpayment so the sale journal always balances |
+| TASK-029 | P0 | open | Session drawer and close use atomic updates and the caller's identity |
+| TASK-030 | P1 | open | Enforce one open session per register in the database (schema) |
+| TASK-031 | P1 | open | Sales use the register's warehouse and cash account; inactive registers cannot trade |
+| TASK-032 | P1 | open | Void needs a reason; free-text lines need price override permission |
+| TASK-033 | P2 | open | POS KPIs aggregate in SQL, respect the legal entity, drop hardcoded AED |
