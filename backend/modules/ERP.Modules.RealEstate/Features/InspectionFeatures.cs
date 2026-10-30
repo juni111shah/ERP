@@ -113,6 +113,7 @@ internal sealed class InspectionHandlers(IRepository<Inspection> inspections, IR
         var property = await properties.FindAsync(i.PropertyId, ct) ?? throw new FieldValidationException("propertyId", "Property not found.");
         if (i.UnitId is { } unitId && !await units.AnyAsync(u => u.Id == unitId && u.PropertyId == i.PropertyId, ct)) throw new FieldValidationException("unitId", "That unit is not in this property.");
         if (i.LeaseId is { } leaseId && !await leases.AnyAsync(l => l.Id == leaseId && l.PropertyId == i.PropertyId, ct)) throw new FieldValidationException("leaseId", "That lease is not in this property.");
+        if (i.LeaseId is { } lid && i.UnitId is { } uid && !await leases.AnyAsync(l => l.Id == lid && l.UnitId == uid, ct)) throw new FieldValidationException("leaseId", "That lease is not for the chosen unit.");
         x.LegalEntityId = property.LegalEntityId; x.PropertyId = i.PropertyId; x.UnitId = i.UnitId; x.LeaseId = i.LeaseId; x.Kind = i.Kind;
         x.InspectionDate = i.InspectionDate; x.Inspector = i.Inspector; x.Notes = i.Notes;
     }

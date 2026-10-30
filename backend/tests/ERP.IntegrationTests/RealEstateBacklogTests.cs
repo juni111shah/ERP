@@ -67,4 +67,79 @@ public class RealEstateBacklogTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal((decimal)first["amount"]!, (decimal)invoice["net"]!);
         Assert.True((decimal)first["amount"]! < 30_000m);
     }
+
+    [Fact]
+    public async Task A_lease_needs_a_customer_tenant_a_real_tax_code_and_a_free_unit()
+    {
+        var x = await OwnerAsync();
+        var (propertyId, typeId) = await PropertyAsync(x);
+        var unit = await UnitAsync(x, propertyId, typeId, "1");
+        var vendor = await TenantAsync(x, "Vendor");
+        object Body(string tenant, string unitId, Guid? tax = null) => new { unitId, lesseePartyId = tenant, startDate = "2026-01-01", endDate = "2026-12-31", annualRent = 100_000m, paymentFrequency = 4, taxCodeId = tax };
+        var bad = await x.C.PostAsJsonAsync($"{Re}/leases", Body(vendor, unit));
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        Assert.Contains("lesseepartyid", (await bad.Content.ReadAsStringAsync()).ToLowerInvariant());
+
+        var customer = await TenantAsync(x, "Customer");
+        var noTax = await x.C.PostAsJsonAsync($"{Re}/leases", Body(customer, unit, Guid.NewGuid()));
+        Assert.Equal(HttpStatusCode.BadRequest, noTax.StatusCode);
+        Assert.Contains("taxcodeid", (await noTax.Content.ReadAsStringAsync()).ToLowerInvariant());
+
+        var draft = await Ok(await x.C.PostAsJsonAsync($"{Re}/leases", Body(customer, unit)), HttpStatusCode.Created);
+        var (busy, _, _) = await LeaseAsync(x, "2026-01-01", "2026-12-31"); // activated: its unit is occupied
+        var occupiedUnit = (string)(await Ok(await x.C.GetAsync($"{Re}/leases/{busy}")))["unitId"]!;
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PutAsJsonAsync($"{Re}/leases/{(string)draft["id"]!}", Body(customer, occupiedUnit))).StatusCode);
+        await Ok(await x.C.PutAsJsonAsync($"{Re}/leases/{(string)draft["id"]!}", Body(customer, unit)));
+    }
+
+    [Fact]
+    public async Task Creating_with_activate_now_and_renewing_leave_one_consistent_lease_each()
+    {
+        var x = await OwnerAsync();
+        var (leaseId, unitId, _) = await LeaseAsync(x, "2026-01-01", "2026-12-31");
+        var renewal = await Ok(await x.C.PostAsJsonAsync($"{Re}/leases/{leaseId}/renew", new { }), HttpStatusCode.Created);
+        Assert.Equal("draft", (string)renewal["status"]!);
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.PostAsJsonAsync($"{Re}/leases/{leaseId}/renew", new { })).StatusCode); // a second renewal is refused
+        var activated = await Ok(await x.C.PostAsync($"{Re}/leases/{(string)renewal["id"]!}/activate", null));
+        Assert.Equal("active", (string)activated["status"]!);
+        Assert.Equal("renewed", (string)(await Ok(await x.C.GetAsync($"{Re}/leases/{leaseId}")))["status"]!);
+
+        // creating on the busy unit is refused and leaves no extra lease behind
+        var before = (await Ok(await x.C.GetAsync($"{Re}/leases?pageSize=200"))).AsArray().Count;
+        var tenant = await TenantAsync(x);
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Re}/leases", new { unitId, lesseePartyId = tenant, startDate = "2027-01-01", endDate = "2027-12-31", annualRent = 1m, paymentFrequency = 4, activateNow = true })).StatusCode);
+        Assert.Equal(before, (await Ok(await x.C.GetAsync($"{Re}/leases?pageSize=200"))).AsArray().Count);
+    }
+
+    [Fact]
+    public async Task Deposit_money_goes_through_a_bank_account_and_to_the_cent()
+    {
+        var x = await OwnerAsync();
+        var (leaseId, _, _) = await LeaseAsync(x, "2026-01-01", "2026-12-31");
+        var receivables = (string)x.Accounts.First(a => (string?)a!["systemRole"] == "ar.control")!["id"]!;
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Re}/leases/{leaseId}/deposit", new { bankAccountId = receivables, date = "2026-01-02", amount = 1_000m })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Re}/leases/{leaseId}/deposit", new { bankAccountId = x.Bank, date = "2026-01-02", amount = 1_000.005m })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Re}/leases/{leaseId}/deposit", new { bankAccountId = x.Bank, date = "0001-01-01", amount = 1_000m })).StatusCode);
+        var ok = await Ok(await x.C.PostAsJsonAsync($"{Re}/leases/{leaseId}/deposit", new { bankAccountId = x.Bank, date = "2026-01-02", amount = 1_000.5m }));
+        Assert.Equal(1_000.5m, (decimal)ok["held"]!);
+
+        await Ok(await x.C.PostAsJsonAsync($"{Re}/leases/{leaseId}/terminate", new { date = "2026-03-31", reason = "Tenant left" }));
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Re}/leases/{leaseId}/deposit/settle", new { date = "2026-04-05", damages = 0.001m, refund = 0m })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PostAsJsonAsync($"{Re}/leases/{leaseId}/deposit/settle", new { date = "2026-04-05", damages = 0m, refund = 500m, refundBankAccountId = receivables })).StatusCode);
+        await Ok(await x.C.PostAsJsonAsync($"{Re}/leases/{leaseId}/deposit/settle", new { date = "2026-04-05", damages = 0m, refund = 500m, refundBankAccountId = x.Bank }));
+    }
+
+    [Fact]
+    public async Task An_inspection_lease_must_belong_to_the_chosen_unit()
+    {
+        var x = await OwnerAsync();
+        var (leaseId, unitId, propertyId) = await LeaseAsync(x, "2026-01-01", "2026-12-31");
+        var (_, typeId) = await PropertyAsync(x);
+        var otherUnit = await UnitAsync(x, propertyId, typeId, "2");
+        object Body(string unit) => new { propertyId, unitId = unit, leaseId, kind = "routine", inspectionDate = "2026-03-01", items = new[] { new { area = "Kitchen", condition = "good" } } };
+        var bad = await x.C.PostAsJsonAsync($"{Re}/inspections", Body(otherUnit));
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        Assert.Contains("leaseid", (await bad.Content.ReadAsStringAsync()).ToLowerInvariant());
+        await Ok(await x.C.PostAsJsonAsync($"{Re}/inspections", Body(unitId)), HttpStatusCode.Created);
+    }
 }

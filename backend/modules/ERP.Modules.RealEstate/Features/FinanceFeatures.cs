@@ -100,17 +100,23 @@ public sealed record TransferSecurityDeposit(Guid FromLeaseId, Guid ToLeaseId) :
 
 public sealed class RecordSecurityDepositValidator : AbstractValidator<RecordSecurityDeposit>
 {
-    public RecordSecurityDepositValidator() { RuleFor(x => x.Amount).GreaterThan(0); RuleFor(x => x.BankAccountId).NotEmpty(); }
+    public RecordSecurityDepositValidator()
+    {
+        RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
+        RuleFor(x => x.BankAccountId).NotEmpty();
+        RuleFor(x => x.Date).NotEqual(default(DateOnly)).WithMessage("Enter the date.");
+    }
 }
 public sealed class SettleSecurityDepositValidator : AbstractValidator<SettleSecurityDeposit>
 {
     public SettleSecurityDepositValidator()
     {
-        RuleFor(x => x.Input.Damages).GreaterThanOrEqualTo(0);
-        RuleFor(x => x.Input.Refund).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.Input.Date).NotEqual(default(DateOnly)).WithMessage("Enter the settlement date.");
+        RuleFor(x => x.Input.Damages).GreaterThanOrEqualTo(0).MustBeMoney();
+        RuleFor(x => x.Input.Refund).GreaterThanOrEqualTo(0).MustBeMoney();
         RuleFor(x => x.Input.DamagesDescription).MaximumLength(300);
         RuleFor(x => x.Input.RefundBankAccountId).NotEmpty().When(x => x.Input.Refund > 0).WithMessage("Choose the bank account the refund is paid from.");
-        RuleForEach(x => x.Input.Arrears).ChildRules(a => a.RuleFor(y => y.Amount).GreaterThan(0));
+        RuleForEach(x => x.Input.Arrears).ChildRules(a => a.RuleFor(y => y.Amount).GreaterThan(0).MustBeMoney());
     }
 }
 
@@ -222,7 +228,7 @@ internal sealed class DepositHandlers(
     private async Task RequireBankAsync(Guid id, string field, CancellationToken ct)
     {
         var a = await accounts.FindAsync(id, ct);
-        if (a is null || a.Type != AccountType.Asset || !a.IsPostable || !a.IsActive) throw new FieldValidationException(field, "Choose an active bank account.");
+        if (a is null || !BankAccountRules.IsCashOrBank(a)) throw new FieldValidationException(field, "Choose an active bank or cash account.");
     }
 }
 
