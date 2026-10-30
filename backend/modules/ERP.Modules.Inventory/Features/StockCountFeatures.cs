@@ -66,12 +66,14 @@ internal sealed class StockCountHandlers(IRepository<StockCount> counts, IReposi
         var count = await LoadAsync(cmd.Id, true, ct);
         if (count.Status is StockCountStatus.Posted or StockCountStatus.Cancelled) throw new ConflictException($"A {count.Status.ToString().ToLowerInvariant()} count can no longer be changed.");
         var added = new List<StockCountLine>();
+        var newIds = cmd.Lines.Select(l => l.ItemId).Where(id => count.Lines.All(l => l.ItemId != id)).Distinct().ToList();
+        var newItems = newIds.Count == 0 ? [] : await items.Query(new Specification<Item>(i => newIds.Contains(i.Id))).ToDictionaryAsync(i => i.Id, ct); // one query for every new line
         foreach (var input in cmd.Lines)
         {
-            var line = count.Lines.FirstOrDefault(l => l.ItemId == input.ItemId);
+            var line = count.Lines.FirstOrDefault(l => l.ItemId == input.ItemId) ?? added.FirstOrDefault(l => l.ItemId == input.ItemId);
             if (line is null)
             {
-                var item = await items.FindAsync(input.ItemId, ct) ?? throw new FieldValidationException("lines", "Item not found.");
+                var item = newItems.GetValueOrDefault(input.ItemId) ?? throw new FieldValidationException("lines", "Item not found.");
                 if (item.Type != ItemType.Product) throw new FieldValidationException("lines", $"{item.Sku} is not a stocked product.");
                 line = new StockCountLine { StockCountId = count.Id, ItemId = item.Id, SystemQuantity = 0 };
                 added.Add(line);
@@ -93,9 +95,12 @@ internal sealed class StockCountHandlers(IRepository<StockCount> counts, IReposi
         if (count.Lines.All(l => l.CountedQuantity is null)) throw new ConflictException("Enter at least one counted quantity before posting.");
         var wh = await warehouses.GetAsync(count.WarehouseId, token);
         var today = DateOnly.FromDateTime(clock.UtcNow);
-        foreach (var line in count.Lines.Where(l => l.CountedQuantity is not null && l.MovementId is null))
+        var toPost = count.Lines.Where(l => l.CountedQuantity is not null && l.MovementId is null).ToList();
+        var itemIds = toPost.Select(l => l.ItemId).ToList();
+        var history = (await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == count.WarehouseId && itemIds.Contains(m.ItemId))).ToListAsync(token)).ToLookup(m => m.ItemId); // one query, not one per line
+        foreach (var line in toPost)
         {
-            var position = StockCosting.Replay(await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == count.WarehouseId && m.ItemId == line.ItemId)).ToListAsync(token));
+            var position = StockCosting.Replay(history[line.ItemId].ToList());
             var delta = line.CountedQuantity!.Value - position.Quantity;
             if (delta == 0) continue;
             var cost = position.AverageCost;

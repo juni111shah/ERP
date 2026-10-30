@@ -177,4 +177,27 @@ public class InventoryDepthTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(1, low); // the same item is not reminded twice on one day (per recipient)
         Assert.True((int)second["sent"]! >= 0);
     }
+
+    [Fact]
+    public async Task Count_lines_for_new_items_are_resolved_together_and_unknown_items_are_rejected()
+    {
+        var x = await SetupAsync();
+        await Receive(x, 10, 5m, "2026-07-01");
+        var count = await Ok(await x.C.PostAsJsonAsync($"{Inv}/counts", new { warehouseId = x.Wh, countDate = "2026-07-31" }), HttpStatusCode.Created);
+        var id = (string)count["id"]!;
+        async Task<string> NewItem() => (string)(await Ok(await x.C.PostAsJsonAsync("/api/v1/items", new { sku = "BLK-" + Guid.NewGuid().ToString("N")[..6], name = "Bulk", type = "product", uom = "pcs", isActive = true }), HttpStatusCode.Created))["id"]!;
+        var a = await NewItem();
+        var b = await NewItem();
+
+        var bad = await x.C.PutAsJsonAsync($"{Inv}/counts/{id}/lines", new { lines = new object[] { new { itemId = a, countedQuantity = 1m }, new { itemId = Guid.NewGuid(), countedQuantity = 1m } } });
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+
+        var saved = await Ok(await x.C.PutAsJsonAsync($"{Inv}/counts/{id}/lines", new { lines = new object[] { new { itemId = a, countedQuantity = 2m }, new { itemId = b, countedQuantity = 4m }, new { itemId = b, countedQuantity = 5m }, new { itemId = x.Item, countedQuantity = 10m } } }));
+        var lines = saved["lines"]!.AsArray();
+        Assert.Equal(3, lines.Count); // the two new items once each, plus the held item
+        Assert.Equal(5m, (decimal)lines.Single(l => (string)l!["itemId"]! == b)!["countedQuantity"]!); // the later entry for a repeated item wins
+        var posted = await Ok(await x.C.PostAsync($"{Inv}/counts/{id}/post", null));
+        Assert.Equal("Posted", (string)posted["status"]!, ignoreCase: true);
+        Assert.Equal(2m, (decimal)posted["lines"]!.AsArray().Single(l => (string)l!["itemId"]! == a)!["variance"]!);
+    }
 }

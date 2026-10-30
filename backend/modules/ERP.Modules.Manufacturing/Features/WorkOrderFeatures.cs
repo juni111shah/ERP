@@ -237,10 +237,11 @@ public class WorkOrderHandlers :
             ?? throw new NotFoundException($"BOM {wo.BomId} not found.");
 
         // Reject completion if a BOM component item is missing or not a Product
+        var componentIds = bom.Components.Select(c => c.ComponentItemId).Distinct().ToList();
+        var componentTypes = await _items.Query(new Specification<Item>(i => componentIds.Contains(i.Id))).ToDictionaryAsync(i => i.Id, i => i.Type, cancellationToken); // one query for all components
         foreach (var c in bom.Components)
         {
-            var compItem = await _items.FindAsync(c.ComponentItemId, cancellationToken);
-            if (compItem is null || compItem.Type != ItemType.Product)
+            if (!componentTypes.TryGetValue(c.ComponentItemId, out var componentType) || componentType != ItemType.Product)
                 throw new ConflictException($"Component item '{c.ComponentItemCode}' was not found or is not a Product.");
         }
 
