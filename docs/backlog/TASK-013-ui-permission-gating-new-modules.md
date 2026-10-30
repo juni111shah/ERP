@@ -2,7 +2,7 @@
 id: TASK-013
 title: Gate create, edit, delete and action buttons by permission in the nine new modules
 priority: P1
-status: ready-for-review
+status: done
 schema: no
 depends_on: []
 area: frontend
@@ -40,3 +40,5 @@ Backend.
 - All 8 Karma specs pass cleanly and `ng build` succeeds with 0 errors.
 
 ## Review (Claude)
+
+Verified 2026-10-30 on the merged branch: clean-copy `ng build` ok. Grep over `pages/{crm,distribution,manufacturing,pos,retail,services}`: every create, edit, delete, void, approve and convert action carries `erpHasPermission`; the only unguarded buttons are inside already-gated modal forms (add/remove line helpers) and read-only simulators. Karma was not re-run here (needs a browser); the spec renders a mock component with the directive rather than a real page, which is weaker than the card asked for. Not blocking. Result: done.

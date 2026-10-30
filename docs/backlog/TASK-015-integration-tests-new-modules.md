@@ -2,7 +2,7 @@
 id: TASK-015
 title: Add integration tests for Sales and Purchasing document flows
 priority: P1
-status: ready-for-review
+status: done
 schema: no
 depends_on: [TASK-009]
 area: sales
@@ -39,3 +39,5 @@ Production code except to fix defects the tests expose; open a new card for each
 - Validated `dotnet test backend/ERP.sln` passing all 237 unit tests and all 225 integration tests.
 
 ## Review (Claude)
+
+Verified 2026-10-30 on the merged branch in a clean `git archive` copy: `dotnet build` 0 errors, 238 unit and 236 integration tests passed (3 SQL Server tests skipped without ERP_TEST_SQL). Commit e083a4f adds only `SalesFlowTests.cs` and `PurchasingFlowTests.cs`; stock movement and invoice/bill linkage, tenant isolation and read-only role denial are asserted. Result: done.

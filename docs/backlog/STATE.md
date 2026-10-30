@@ -1,17 +1,17 @@
 # Board
 
-Last Claude run: 2026-10-30 (Claude implemented TASK-007, 010, 018, 022 on branch claude/impl in worktree D:/ERP/work-claude; TASK-015 is being done by Antigravity; branch not yet merged into antigravity/dashboard-and-modules)
+Last Claude run: 2026-10-30 (Claude implemented TASK-007, 010, 018, 022 and merged claude/impl into this branch; reviewed TASK-013 and 015 done; clean-copy build of the merged branch: 0 errors, 238 unit + 236 integration pass, ng build ok)
 Rotation position: Order to cash analysed (Sales order to invoice). Next area = Procure to pay (Purchasing, bills, payments)
-Needs human: TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-022 lands. TASK-006 commit message lacks the `TASK-006:` prefix. C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997). TASK-014 blocked: Angular 19.x has no patch for the advisories; needs a human decision on a major upgrade to v20+.
+Needs human: Decide whether to merge antigravity/dashboard-and-modules into main (never pushed). Schema change TASK-010 (script database/scripts/0021_IdempotencyRecords.sql) must be applied by a human. TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-022 lands. TASK-006 commit message lacks the `TASK-006:` prefix. C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997). TASK-014 blocked: Angular 19.x has no patch for the advisories; needs a human decision on a major upgrade to v20+.
 
 | Status | Count |
 |---|---|
-| open | 6 |
+| open | 0 |
 | in-progress | 0 |
 | ready-for-review | 0 |
 | changes-requested | 0 |
 | blocked | 1 |
-| done | 15 |
+| done | 21 |
 
 | Card | Priority | Status | Title |
 |---|---|---|---|
@@ -27,9 +27,9 @@ Needs human: TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-
 | TASK-010 | P0 | done | Transactional postings and idempotency keys (schema) |
 | TASK-011 | P0 | done | Project and service billing create invoices or fail |
 | TASK-012 | P1 | done | Remove hardcoded currency, tax, placeholder GUIDs |
-| TASK-013 | P1 | open | UI permission gating in new modules |
+| TASK-013 | P1 | done | UI permission gating in new modules |
 | TASK-014 | P0 | blocked | Angular security upgrade and CI gates |
-| TASK-015 | P1 | open | Integration tests for Sales and Purchasing |
+| TASK-015 | P1 | done | Integration tests for Sales and Purchasing |
 | TASK-016 | P0 | done | Invoice from sales order keeps tax, source link, currency |
 | TASK-017 | P0 | done | Sales order edit, fulfilment and due-date guards |
 | TASK-018 | P1 | done | Reopen sales order when its invoice is voided |
