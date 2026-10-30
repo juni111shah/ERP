@@ -3,6 +3,8 @@ using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Customization;
 using ERP.Application.Security;
+using ERP.Application.Finance;
+using ERP.Domain.Finance;
 using ERP.Domain.Organizations;
 using ERP.Domain.Parties;
 using ERP.Modules.RealEstate.Domain;
@@ -50,7 +52,7 @@ public sealed record GetLease(Guid Id) : IQuery<LeaseDto>, IRequirePermission
     public string RequiredPermission => P.LeasesRead;
 }
 
-public sealed record CreateLease(LeaseInput Input) : ICommand<LeaseDto>, IRequirePermission
+public sealed record CreateLease(LeaseInput Input) : ICommand<LeaseDto>, IRetryOnConcurrency, IRequirePermission
 {
     public string RequiredPermission => Input.ActivateNow ? P.LeasesActivate : P.LeasesCreate;
 }
@@ -65,7 +67,7 @@ public sealed record ActivateLease(Guid Id) : ICommand<LeaseDto>, IRequirePermis
     public string RequiredPermission => P.LeasesActivate;
 }
 
-public sealed record RenewLease(Guid Id, RenewalInput Input) : ICommand<LeaseDto>, IRequirePermission
+public sealed record RenewLease(Guid Id, RenewalInput Input) : ICommand<LeaseDto>, IRetryOnConcurrency, IRequirePermission
 {
     public string RequiredPermission => P.LeasesRenew;
 }
@@ -180,7 +182,7 @@ internal sealed class LeaseQueryHandlers(
 
 internal sealed class LeaseCommandHandlers(
     IRepository<Lease> leases, IRepository<RentInstalment> instalments, IRepository<Unit> units, IReadRepository<Property> properties,
-    IReadRepository<Party> parties, IReadRepository<LegalEntity> legalEntities, IReadRepository<WorkOrder> workOrders, INumberingService numbers,
+    IReadRepository<Party> parties, IReadRepository<LegalEntity> legalEntities, IReadRepository<WorkOrder> workOrders, IReadRepository<TaxCode> taxCodes, INumberingService numbers,
     ICustomFieldService fields, IUnitOfWork unitOfWork, ICurrentUser user, IClock clock, LeaseDtoFactory factory, LeaseExpiryProcessor expiry) :
     IRequestHandler<CreateLease, LeaseDto>,
     IRequestHandler<UpdateLease, LeaseDto>,
@@ -194,7 +196,10 @@ internal sealed class LeaseCommandHandlers(
 {
     private DateOnly Today => factory.Today;
 
-    public async Task<LeaseDto> Handle(CreateLease cmd, CancellationToken ct)
+    /// <summary>One transaction: a lease created with ActivateNow is never left behind as a draft when activation fails.</summary>
+    public Task<LeaseDto> Handle(CreateLease cmd, CancellationToken ct) => unitOfWork.InTransactionAsync(token => CreateCoreAsync(cmd, token), ct);
+
+    private async Task<LeaseDto> CreateCoreAsync(CreateLease cmd, CancellationToken ct)
     {
         var i = cmd.Input;
         var (unit, property, _, legalEntity) = await LoadContextAsync(i, ct);
@@ -216,6 +221,8 @@ internal sealed class LeaseCommandHandlers(
         if (lease.Status != LeaseStatus.Draft)
             throw new ConflictException("Only a draft lease can be edited. Use an amendment, renewal or termination for an active lease.");
         var (unit, _, _, _) = await LoadContextAsync(cmd.Input, ct);
+        if (unit.Id != lease.UnitId && unit.Status is not (UnitStatus.Vacant or UnitStatus.Reserved))
+            throw new FieldValidationException("unitId", $"Unit {unit.UnitNumber} is {unit.Status}; only vacant or reserved units can be let.");
         Map(cmd.Input, lease, unit);
         await fields.ApplyAsync(Docs.Lease, lease, cmd.Input.CustomFields, isCreate: false, ct);
         await leases.SaveChangesAsync(ct);
@@ -265,7 +272,9 @@ internal sealed class LeaseCommandHandlers(
         return await factory.BuildAsync(lease, token);
     }, ct);
 
-    public async Task<LeaseDto> Handle(RenewLease cmd, CancellationToken ct)
+    public Task<LeaseDto> Handle(RenewLease cmd, CancellationToken ct) => unitOfWork.InTransactionAsync(token => RenewCoreAsync(cmd, token), ct);
+
+    private async Task<LeaseDto> RenewCoreAsync(RenewLease cmd, CancellationToken ct)
     {
         var old = await leases.GetAsync(cmd.Id, ct);
         if (!old.IsOccupying) throw new ConflictException($"Only an active lease can be renewed (this lease is {old.Status}).");
@@ -358,6 +367,8 @@ internal sealed class LeaseCommandHandlers(
         var unit = await units.FindAsync(i.UnitId, ct) ?? throw new FieldValidationException("unitId", "Unit not found.");
         var property = await properties.GetAsync(unit.PropertyId, ct);
         var tenant = await parties.FindAsync(i.LesseePartyId, ct) ?? throw new FieldValidationException("lesseePartyId", "Tenant not found.");
+        if (tenant.Roles != PartyRoles.None && !tenant.Roles.HasFlag(PartyRoles.Customer)) throw new FieldValidationException("lesseePartyId", "Choose a customer as the tenant.");
+        if (i.TaxCodeId is { } taxId && !await taxCodes.AnyAsync(t => t.Id == taxId && t.IsActive, ct)) throw new FieldValidationException("taxCodeId", "Tax code not found.");
         var legalEntity = await legalEntities.GetAsync(property.LegalEntityId, ct);
         return (unit, property, tenant, legalEntity);
     }
