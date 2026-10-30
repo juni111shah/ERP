@@ -20,6 +20,12 @@ public sealed class InventoryStockPostingService(
     public async Task<bool> IsInventoryEnabledAsync(CancellationToken ct = default)
         => await moduleAccess.IsEnabledAsync(InventoryModule.Key, ct);
 
+    public async Task<bool> IsWarehouseUsableAsync(Guid warehouseId, Guid legalEntityId, CancellationToken ct = default)
+    {
+        if (!await IsInventoryEnabledAsync(ct)) return true;
+        return await warehouses.AnyAsync(w => w.Id == warehouseId && w.IsActive && w.LegalEntityId == legalEntityId, ct);
+    }
+
     public async Task<Guid?> ReceiveStockAsync(StockReceiveRequest request, CancellationToken ct = default)
     {
         if (request.Quantity <= 0) return null;
