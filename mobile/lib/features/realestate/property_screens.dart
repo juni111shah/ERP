@@ -10,6 +10,8 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'common.dart';
+import 'lease_screens.dart';
+import 'maintenance_screens.dart';
 
 const _propertiesPath = '$rePath/properties';
 const _unitsPath = '$rePath/units';
@@ -114,7 +116,7 @@ class PropertyDetailScreen extends StatelessWidget {
             label: 'New work order',
             icon: Icons.build_outlined,
             permission: 'realestate.workorders.create',
-            form: (d) => propertyWorkOrderForm(ref, id, '${(d['property'] as Json)['name']}'),
+            form: (d) => workOrderForm(ref, propertyId: id, propertyName: '${(d['property'] as Json)['name']}'),
             run: (ref, d, _) async => null,
           ),
         ],
@@ -122,9 +124,6 @@ class PropertyDetailScreen extends StatelessWidget {
     });
   }
 }
-
-/// Set by maintenance_screens to avoid an import cycle.
-FormSpec Function(WidgetRef ref, String propertyId, String propertyName) propertyWorkOrderForm = (ref, id, name) => throw UnimplementedError();
 
 Widget propertyBody(BuildContext context, Json d) {
   final p = d['property'] as Json;
@@ -293,7 +292,7 @@ class UnitDetailScreen extends StatelessWidget {
         if ((d['notes'] ?? '').toString().isNotEmpty) Text(d['notes'].toString()),
         const SizedBox(height: 8),
         Text('Leases', style: Theme.of(context).textTheme.titleMedium),
-        RelatedList(path: '$rePath/leases', query: {'filter': 'unitId:eq:${d['id']}', 'pageSize': 20}, tile: leaseTileHook, empty: 'No leases for this unit.'),
+        RelatedList(path: '$rePath/leases', query: {'filter': 'unitId:eq:${d['id']}', 'pageSize': 20}, tile: leaseTile, empty: 'No leases for this unit.'),
         const SizedBox(height: 8),
         Text('Rent history', style: Theme.of(context).textTheme.titleMedium),
         RelatedList(
@@ -303,9 +302,6 @@ class UnitDetailScreen extends StatelessWidget {
         ),
       ]);
 }
-
-/// Set by lease_screens to avoid an import cycle.
-Widget Function(BuildContext, Json) leaseTileHook = (c, j) => const SizedBox.shrink();
 
 // ---- Unit types -------------------------------------------------------------------------------------------------------------------
 
