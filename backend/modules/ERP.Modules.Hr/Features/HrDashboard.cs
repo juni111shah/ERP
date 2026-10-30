@@ -1,3 +1,4 @@
+using ERP.Application.Common;
 using ERP.Application.Abstractions;
 using ERP.Application.Dashboard;
 using ERP.Application.Finance;
@@ -23,12 +24,8 @@ public sealed class HrDashboard(IReadRepository<Employee> employees, IReadReposi
             kpis.Add(new("employees", "Employees", staff.Count, "number", $"gross payroll {staff.Sum(s => s.BasicSalary + s.HousingAllowance + s.TransportAllowance + s.OtherAllowances):N0} a month", 110, "/hr/employees"));
 
             var statuses = new[] { EmployeeStatus.Active, EmployeeStatus.OnLeave, EmployeeStatus.Terminated };
-            var counts = new List<decimal>();
-            foreach (var st in statuses)
-            {
-                var c = await employees.CountAsync(e => e.Status == st && (entity == null || e.LegalEntityId == entity), ct);
-                counts.Add((decimal)c);
-            }
+            var grouped = await employees.Query().Where(e => entity == null || e.LegalEntityId == entity).CountByAsync(e => e.Status, ct);
+            var counts = statuses.Select(k => (decimal)grouped.GetValueOrDefault(k)).ToList();
             charts.Add(new("hr-headcount", "Workforce status", "bar",
                 ["Active", "On Leave", "Terminated"],
                 [new("Headcount", counts)], "Employee employment status", 70));

@@ -1,3 +1,4 @@
+using ERP.Application.Common;
 using ERP.Application.Abstractions;
 using ERP.Application.Dashboard;
 using ERP.Modules.Projects.Domain;
@@ -31,12 +32,8 @@ public sealed class ProjectsDashboard(
             kpis.Add(new("pending-tasks", "Open Tasks", pendingTasks, "number", "tasks to complete", 135, "/projects/tasks"));
 
             var taskStatuses = new[] { ProjectTaskStatus.Todo, ProjectTaskStatus.InProgress, ProjectTaskStatus.Review, ProjectTaskStatus.Done };
-            var taskCounts = new List<decimal>();
-            foreach (var ts in taskStatuses)
-            {
-                var c = await tasks.CountAsync(t => t.Status == ts, ct);
-                taskCounts.Add((decimal)c);
-            }
+            var grouped = await tasks.Query().CountByAsync(t => t.Status, ct);
+            var taskCounts = taskStatuses.Select(k => (decimal)grouped.GetValueOrDefault(k)).ToList();
             charts.Add(new("project-tasks-status", "Project tasks by status", "hbar",
                 ["To Do", "In Progress", "In Review", "Done"],
                 [new("Tasks", taskCounts)], "Task workflow progress", 60));

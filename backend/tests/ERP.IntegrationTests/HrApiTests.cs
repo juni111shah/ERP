@@ -179,6 +179,9 @@ public class HrApiTests(ApiFactory f) : IClassFixture<ApiFactory>
 
         var dashboard = await Ok(await x.C.GetAsync("/api/v1/dashboard"));
         Assert.Contains(dashboard["kpis"]!.AsArray(), k => (string?)k!["key"] == "employees");
+        var headcount = dashboard["charts"]!.AsArray().First(ch => (string?)ch!["key"] == "hr-headcount")!["series"]![0]!["values"]!.AsArray().Select(v => (decimal)v!).ToList();
+        Assert.Equal(3, headcount.Count); // Active, On Leave, Terminated: one grouped query, zero for missing statuses
+        Assert.True(headcount[0] >= 1 && headcount[2] == 0, string.Join(",", headcount));
         var forecast = await Ok(await x.C.GetAsync($"{Fin}/reports/cash-forecast?weeks=8&legalEntityId={x.Entity}"));
         Assert.Contains(forecast["sources"]!.AsArray(), s => (string?)s!["key"] == "payroll");
 
