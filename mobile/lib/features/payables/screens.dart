@@ -1,4 +1,9 @@
-import '../../kit/registry.dart';
+import 'package:flutter/material.dart';
 
-/// Screens of this area for the More menu. Add a MobileScreen per server menu entry you build.
-final List<MobileScreen> payablesScreens = <MobileScreen>[];
+import '../../kit/registry.dart';
+import 'bill_screens.dart';
+
+/// Screens of this area for the More menu.
+final List<MobileScreen> payablesScreens = <MobileScreen>[
+  MobileScreen(id: 'bills', title: 'Bills', menuIds: const ['finance.bills'], icon: Icons.description_outlined, builder: (_) => const BillsScreen()),
+];
