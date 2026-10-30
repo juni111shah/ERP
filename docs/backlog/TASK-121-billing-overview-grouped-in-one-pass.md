@@ -7,7 +7,7 @@ schema: no
 depends_on: []
 area: performance
 audit_ref: Claude analysis, Performance
-commit:
+commit: 06152f4
 ---
 
 ## Problem
