@@ -223,7 +223,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div class="sim-inputs">
               <div class="form-row">
                 <label>Promo Code:</label>
-                <input nz-input [(ngModel)]="simCode" placeholder="Enter coupon code" style="text-transform: uppercase;" />
+                <input aria-label="Enter coupon code" nz-input [(ngModel)]="simCode" placeholder="Enter coupon code" style="text-transform: uppercase;" />
               </div>
               <div class="form-row">
                 <label>Basket Total ({{ currency() }}):</label>

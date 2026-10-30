@@ -45,12 +45,12 @@ const TONE: Record<string, string> = { draft: 'default', submitted: 'blue', appr
             <nz-date-picker [(ngModel)]="to" (ngModelChange)="preview()" [nzDisabled]="!editable()" nzPlaceHolder="To" data-testid="leave-to"></nz-date-picker>
           </div>
           @if (days() !== null) { <div data-testid="leave-days"><b>{{ days() }}</b> working day(s) (weekends and public holidays are not counted)</div> }
-          <textarea nz-input rows="3" placeholder="Reason" [(ngModel)]="reason" [disabled]="!editable()" maxlength="500" data-testid="leave-reason"></textarea>
+          <textarea aria-label="Reason" nz-input rows="3" placeholder="Reason" [(ngModel)]="reason" [disabled]="!editable()" maxlength="500" data-testid="leave-reason"></textarea>
           @if (detail(); as d) {
             <div><nz-tag [nzColor]="tone(d.status)">{{ label(d.status) }}</nz-tag>
               @if (d.decisionComment) { <span>{{ d.decisionComment }}</span> }</div>
           }
-          @if (canDecide()) { <input nz-input placeholder="Comment for the decision (optional)" [(ngModel)]="comment" maxlength="500" data-testid="leave-comment" /> }
+          @if (canDecide()) { <input aria-label="Comment for the decision (optional)" nz-input placeholder="Comment for the decision (optional)" [(ngModel)]="comment" maxlength="500" data-testid="leave-comment" /> }
         </div>
       </ng-container>
     </nz-drawer>

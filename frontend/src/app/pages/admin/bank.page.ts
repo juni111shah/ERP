@@ -208,7 +208,7 @@ import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
     <nz-modal [nzVisible]="importOpen()" nzTitle="Import bank statement" (nzOnCancel)="importOpen.set(false)" (nzOnOk)="runImport()" nzOkText="Import" [nzOkLoading]="busy()" [nzWidth]="640">
       <ng-container *nzModalContent>
         <p>Paste one line per row: <code>date, description, reference, amount</code> (date as 2026-05-31; money out is negative).</p>
-        <textarea nz-input rows="10" [(ngModel)]="importText" placeholder="2026-05-03, Deposit, D1, 10000" data-testid="import-text"></textarea>
+        <textarea aria-label="2026-05-03, Deposit, D1, 10000" nz-input rows="10" [(ngModel)]="importText" placeholder="2026-05-03, Deposit, D1, 10000" data-testid="import-text"></textarea>
       </ng-container>
     </nz-modal>
 
@@ -218,7 +218,7 @@ import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
         <nz-select [(ngModel)]="bookAccount" nzShowSearch style="width:100%;margin-bottom:12px" nzPlaceHolder="Other account (for example bank charges)" data-testid="book-account">
           @for (a of postable(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }
         </nz-select>
-        <input nz-input [(ngModel)]="bookMemo" placeholder="Memo (optional)" />
+        <input aria-label="Memo (optional)" nz-input [(ngModel)]="bookMemo" placeholder="Memo (optional)" />
       </ng-container>
     </nz-modal>
 

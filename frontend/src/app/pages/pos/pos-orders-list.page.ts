@@ -119,7 +119,7 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
             <p>Are you sure you want to void order <strong>{{ orderToVoid?.number }}</strong> for {{ currency() }} {{ orderToVoid?.totalAmount | number:'1.2-2' }}?</p>
             <div>
               <label style="font-weight: 600; display: block; margin-bottom: 4px;">Reason for Void</label>
-              <input nz-input [(ngModel)]="voidReason" placeholder="e.g. Accidental ring-up / customer return" />
+              <input aria-label="e.g. Accidental ring-up / customer return" nz-input [(ngModel)]="voidReason" placeholder="e.g. Accidental ring-up / customer return" />
             </div>
           </div>
         </ng-container>

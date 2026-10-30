@@ -170,7 +170,7 @@ function humanizeValue(v: string): string {
                 <nz-dropdown-menu #menu="nzDropdownMenu">
                   <div class="flt ant-table-filter-dropdown" (click)="$event.stopPropagation()" [attr.data-testid]="'filter-panel-' + v.key">
                     @switch (kind) {
-                      @case ('text') { <input nz-input [(ngModel)]="draft.text" [placeholder]="t('table.contains', 'Contains…')" (keyup.enter)="apply(v.key)" /> }
+                      @case ('text') { <input [attr.aria-label]="t('table.contains', 'Contains…')" nz-input [(ngModel)]="draft.text" [placeholder]="t('table.contains', 'Contains…')" (keyup.enter)="apply(v.key)" /> }
                       @case ('select') {
                         <nz-select nzMode="multiple" [(ngModel)]="draft.values" [nzPlaceHolder]="t('table.any', 'Any')" nzAllowClear style="width:100%">
                           @for (o of options()[v.key] ?? []; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }

@@ -145,8 +145,8 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
         @if (action() === 'deposit') {
           <nz-select [(ngModel)]="actionBank" style="width:100%" nzPlaceHolder="Deposit to bank account" data-testid="act-bank">@for (a of banks(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
         }
-        @if (action() === 'bounce') { <input nz-input [(ngModel)]="actionReason" placeholder="Reason given by the bank" data-testid="act-reason" /> }
-        @if (action() === 'followup') { <textarea nz-input rows="3" maxlength="500" [(ngModel)]="actionReason" placeholder="What was agreed with the customer?" data-testid="act-note"></textarea> }
+        @if (action() === 'bounce') { <input aria-label="Reason given by the bank" nz-input [(ngModel)]="actionReason" placeholder="Reason given by the bank" data-testid="act-reason" /> }
+        @if (action() === 'followup') { <textarea aria-label="What was agreed with the customer?" nz-input rows="3" maxlength="500" [(ngModel)]="actionReason" placeholder="What was agreed with the customer?" data-testid="act-note"></textarea> }
       </ng-container>
     </nz-modal>`,
 })

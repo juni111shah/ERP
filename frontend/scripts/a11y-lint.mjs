@@ -1,4 +1,5 @@
-// Fails when a template has an icon-only <button> without an accessible name, or a click handler on a non-interactive element without keyboard support.
+// Fails when a template has an icon-only <button> without an accessible name, a click handler on a non-interactive element without keyboard support,
+// or an input/textarea whose only label is a placeholder.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -14,8 +15,14 @@ for (const file of walk('src/app')) {
   for (const m of s.matchAll(/<(div|span|tr|li|td)\b([^>]*\(click\)[^>]*)>/g)) {
     if (m[1] === 'li' && /nz-menu-item/.test(m[2])) continue;
     if (/\(click\)="\$event\.stopPropagation\(\)"/.test(m[2])) continue; // only stops bubbling, not an action
-     // ng-zorro menu items are keyboard operable
     if (!/erpKeyboardClick|\(keydown|\(keyup|tabindex|role="button"/.test(m[2])) problems.push(`${file}:${line(m.index)} <${m[1]}> with (click) is not keyboard accessible (add erpKeyboardClick)`);
+  }
+  for (const m of s.matchAll(/<(input|textarea)(\s[^>]*)>/g)) {
+    if (/aria-label|type="(hidden|checkbox|radio|file)"/.test(m[2]) || !/(^|[\s\]])placeholder="/.test(m[2] + ' ')) continue;
+    const before = s.slice(Math.max(0, m.index - 500), m.index);
+    const form = before.lastIndexOf('<nz-form-item');
+    if (form >= 0 && !before.slice(form).includes('</nz-form-item>')) continue; // inside a labelled form item
+    problems.push(`${file}:${line(m.index)} <${m[1]}> has only a placeholder, add aria-label`);
   }
 }
 if (problems.length) { console.error(problems.join('\n')); process.exit(1); }

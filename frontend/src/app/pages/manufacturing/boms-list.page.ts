@@ -268,7 +268,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                       <nz-option [nzValue]="it.id" [nzLabel]="it.sku + ' - ' + it.name"></nz-option>
                     }
                   </nz-select>
-                  <input nz-input formControlName="componentItemName" placeholder="Raw Name" />
+                  <input aria-label="Raw Name" nz-input formControlName="componentItemName" placeholder="Raw Name" />
                   <nz-input-number formControlName="quantityRequired" [nzMin]="0.01" nzPlaceHolder="Qty Req" class="w-full"></nz-input-number>
                   <div class="flex items-center gap-1">
                     <nz-input-number formControlName="unitCost" [nzMin]="0" nzPlaceHolder="Cost" class="w-full"></nz-input-number>

@@ -47,7 +47,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <nz-select nzShowSearch nzPlaceHolder="Employee" [(ngModel)]="employeeId" [nzDisabled]="!!id()" data-testid="review-employee">@for (e of employees(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.number + ' · ' + e.fullName"></nz-option> }</nz-select>
           <nz-select nzPlaceHolder="Cycle" [(ngModel)]="cycleId" [nzDisabled]="!!id()" data-testid="review-cycle">@for (c of openCycles(); track c.id) { <nz-option [nzValue]="c.id" [nzLabel]="c.name"></nz-option> }</nz-select>
-          <input nz-input placeholder="Reviewer" [(ngModel)]="reviewer" [disabled]="locked()" data-testid="review-reviewer" />
+          <input aria-label="Reviewer" nz-input placeholder="Reviewer" [(ngModel)]="reviewer" [disabled]="locked()" data-testid="review-reviewer" />
           <nz-select nzAllowClear nzPlaceHolder="Overall rating" [(ngModel)]="rating" [nzDisabled]="locked()" data-testid="review-rating">@for (r of ratings; track r.value) { <nz-option [nzValue]="r.value" [nzLabel]="r.label"></nz-option> }</nz-select>
         </div>
         <h4 style="margin-top:16px">Goals</h4>
@@ -55,9 +55,9 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
         <h4 style="margin-top:16px">Competencies</h4>
         @for (c of competencies(); track $index; let i = $index) {
           <div style="display:grid;grid-template-columns:1.3fr 90px 1.5fr 32px;gap:8px;margin-bottom:8px;align-items:center">
-            <input nz-input placeholder="Competency" [ngModel]="c.name" (ngModelChange)="patch(i, { name: $event })" [disabled]="locked()" />
+            <input aria-label="Competency" nz-input placeholder="Competency" [ngModel]="c.name" (ngModelChange)="patch(i, { name: $event })" [disabled]="locked()" />
             <nz-select [ngModel]="c.score" (ngModelChange)="patch(i, { score: $event })" [nzDisabled]="locked()">@for (n of [1, 2, 3, 4, 5]; track n) { <nz-option [nzValue]="n" [nzLabel]="'' + n"></nz-option> }</nz-select>
-            <input nz-input placeholder="Notes" [ngModel]="c.notes" (ngModelChange)="patch(i, { notes: $event })" [disabled]="locked()" />
+            <input aria-label="Notes" nz-input placeholder="Notes" [ngModel]="c.notes" (ngModelChange)="patch(i, { notes: $event })" [disabled]="locked()" />
             @if (!locked()) { <button aria-label="Remove" nz-button nzType="text" nzSize="small" (click)="remove(i)"><span nz-icon nzType="delete"></span></button> }
           </div>
         }

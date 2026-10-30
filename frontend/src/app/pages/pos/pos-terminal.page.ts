@@ -118,7 +118,7 @@ interface CartItem extends PosOrderLineInput {
         <section class="catalog-section">
           <div class="catalog-search-bar">
             <nz-input-group [nzPrefix]="searchPrefix">
-              <input
+              <input aria-label="Scan barcode, SKU or search item title..."
                 nz-input
                 placeholder="Scan barcode, SKU or search item title..."
                 [ngModel]="searchQuery()"
@@ -157,7 +157,7 @@ interface CartItem extends PosOrderLineInput {
 
           <div class="customer-bar">
             <span nz-icon nzType="user" style="color: #64748b;"></span>
-            <input nz-input nzSize="small" placeholder="Walk-in Customer" [ngModel]="customerName()" (ngModelChange)="customerName.set($event)" />
+            <input aria-label="Walk-in Customer" nz-input nzSize="small" placeholder="Walk-in Customer" [ngModel]="customerName()" (ngModelChange)="customerName.set($event)" />
           </div>
 
           <!-- Cart Line Items -->
@@ -269,7 +269,7 @@ interface CartItem extends PosOrderLineInput {
             } @else {
               <div class="card-tender-section">
                 <label style="font-weight: 600; display: block; margin-bottom: 6px;">Card Transaction Authorization / Ref</label>
-                <input nz-input placeholder="e.g. AUTH-88492" [(ngModel)]="cardReference" />
+                <input aria-label="e.g. AUTH-88492" nz-input placeholder="e.g. AUTH-88492" [(ngModel)]="cardReference" />
                 <p style="margin-top: 6px; font-size: 12px; color: #64748b;">
                   Swipe / tap on payment terminal, then confirm receipt approval.
                 </p>
@@ -326,7 +326,7 @@ interface CartItem extends PosOrderLineInput {
             </div>
             <div>
               <label style="font-weight: 600;">Shift Opening Notes</label>
-              <input nz-input [(ngModel)]="shiftNotes" placeholder="Morning / afternoon shift notes..." />
+              <input aria-label="Morning / afternoon shift notes..." nz-input [(ngModel)]="shiftNotes" placeholder="Morning / afternoon shift notes..." />
             </div>
           </div>
         </ng-container>
@@ -359,7 +359,7 @@ interface CartItem extends PosOrderLineInput {
               </div>
               <div>
                 <label style="font-weight: 600;">Closing Notes</label>
-                <input nz-input [(ngModel)]="closeNotes" placeholder="Shift handover / cash drop comments..." />
+                <input aria-label="Shift handover / cash drop comments..." nz-input [(ngModel)]="closeNotes" placeholder="Shift handover / cash drop comments..." />
               </div>
             </div>
           }

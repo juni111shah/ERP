@@ -53,14 +53,14 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
           <nz-select nzPlaceHolder="Unit (optional)" nzShowSearch nzServerSearch nzAllowClear [(ngModel)]="unitId" (nzOnSearch)="searchUnit($event)" [nzDisabled]="locked()" data-testid="insp-unit">@for (o of unitOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select>
           <nz-select [(ngModel)]="kind" [nzDisabled]="locked()" data-testid="insp-kind">@for (k of kinds; track k.value) { <nz-option [nzValue]="k.value" [nzLabel]="k.label"></nz-option> }</nz-select>
           <nz-date-picker [(ngModel)]="date" [nzDisabled]="locked()" data-testid="insp-date"></nz-date-picker>
-          <input nz-input placeholder="Inspector" [(ngModel)]="inspector" [disabled]="locked()" data-testid="insp-inspector" />
+          <input aria-label="Inspector" nz-input placeholder="Inspector" [(ngModel)]="inspector" [disabled]="locked()" data-testid="insp-inspector" />
         </div>
         <h4 style="margin-top:16px">Checklist</h4>
         @for (it of items(); track $index; let i = $index) {
           <div style="display:grid;grid-template-columns:1.4fr 1fr 1.4fr 110px 32px;gap:8px;margin-bottom:8px;align-items:center">
-            <input nz-input placeholder="Area" [ngModel]="it.area" (ngModelChange)="patch(i, { area: $event })" [disabled]="locked()" [attr.data-testid]="'insp-area-' + i" />
+            <input aria-label="Area" nz-input placeholder="Area" [ngModel]="it.area" (ngModelChange)="patch(i, { area: $event })" [disabled]="locked()" [attr.data-testid]="'insp-area-' + i" />
             <nz-select [ngModel]="it.condition" (ngModelChange)="patch(i, { condition: $event })" [nzDisabled]="locked()">@for (c of conditions; track c.value) { <nz-option [nzValue]="c.value" [nzLabel]="c.label"></nz-option> }</nz-select>
-            <input nz-input placeholder="Notes" [ngModel]="it.notes" (ngModelChange)="patch(i, { notes: $event })" [disabled]="locked()" />
+            <input aria-label="Notes" nz-input placeholder="Notes" [ngModel]="it.notes" (ngModelChange)="patch(i, { notes: $event })" [disabled]="locked()" />
             <nz-input-number [ngModel]="it.repairCost" (ngModelChange)="patch(i, { repairCost: $event ?? 0 })" [nzMin]="0" [nzDisabled]="locked()"></nz-input-number>
             @if (!locked()) { <button aria-label="Remove item" nz-button nzType="text" nzSize="small" (click)="removeItem(i)"><span nz-icon nzType="delete"></span></button> }
           </div>

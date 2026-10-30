@@ -255,7 +255,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                           }
                         </nz-select>
                       </td>
-                      <td><input nz-input formControlName="description" placeholder="Item description" /></td>
+                      <td><input aria-label="Item description" nz-input formControlName="description" placeholder="Item description" /></td>
                       <td><nz-input-number formControlName="quantity" [nzMin]="1" [nzStep]="1" style="width: 100%;"></nz-input-number></td>
                       <td><nz-input-number formControlName="unitPrice" [nzMin]="0" style="width: 100%;"></nz-input-number></td>
                       <td><nz-input-number formControlName="discountPercent" [nzMin]="0" [nzMax]="100" style="width: 100%;"></nz-input-number></td>

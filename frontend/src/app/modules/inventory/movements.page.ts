@@ -67,7 +67,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
     </div>
 
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search reference, memo, or warehouse..." emptyText="No stock movements yet" [clickable]="false">
-      <input toolbar nz-input style="width:200px" placeholder="Exact reference (e.g. CNT-00001)" [ngModel]="reference" (ngModelChange)="filterReference($event)" data-testid="movement-reference" />
+      <input aria-label="Exact reference (e.g. CNT-00001)" toolbar nz-input style="width:200px" placeholder="Exact reference (e.g. CNT-00001)" [ngModel]="reference" (ngModelChange)="filterReference($event)" data-testid="movement-reference" />
       <ng-template #cell let-row let-column="column" let-value="value">
         @switch (column.key) {
           @case ('date') {
