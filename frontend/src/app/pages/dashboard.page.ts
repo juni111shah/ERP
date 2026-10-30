@@ -1,12 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
+import { NzDatePickerComponent, NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -20,54 +19,70 @@ import { ApexChartComponent } from '../shared/apex-chart.component';
 import { RevealDirective } from '../shared/reveal.directive';
 import { StatCardComponent, StatFormat } from '../shared/stat-card.component';
 
-/** Overview period presets, shortest first (the +/- buttons step through them). `custom` is a picked date range. */
+/** Overview period presets, shortest first, offered in the range dropdown next to `custom` (a picked date range). */
 export type RangePreset = '1m' | '3m' | '6m' | '1y' | '2y' | '3y' | 'custom';
 export interface DashboardRange { preset: RangePreset; from: string; to: string; }
-export const RANGE_PRESETS: { key: Exclude<RangePreset, 'custom'>; months: number; labelKey: string; label: string; short: string }[] = [
-  { key: '1m', months: 1, labelKey: 'ui.overview.range.preset.1m', label: 'Last month', short: '1M' },
-  { key: '3m', months: 3, labelKey: 'ui.overview.range.preset.3m', label: 'Last 3 months', short: '3M' },
-  { key: '6m', months: 6, labelKey: 'ui.overview.range.preset.6m', label: 'Last 6 months', short: '6M' },
-  { key: '1y', months: 12, labelKey: 'ui.overview.range.preset.1y', label: 'Last year', short: '1Y' },
-  { key: '2y', months: 24, labelKey: 'ui.overview.range.preset.2y', label: 'Last 2 years', short: '2Y' },
-  { key: '3y', months: 36, labelKey: 'ui.overview.range.preset.3y', label: 'Last 3 years', short: '3Y' },
+export const RANGE_PRESETS: { key: Exclude<RangePreset, 'custom'>; months: number; labelKey: string; label: string }[] = [
+  { key: '1m', months: 1, labelKey: 'ui.overview.range.preset.1m', label: 'Last month' },
+  { key: '3m', months: 3, labelKey: 'ui.overview.range.preset.3m', label: 'Last 3 months' },
+  { key: '6m', months: 6, labelKey: 'ui.overview.range.preset.6m', label: 'Last 6 months' },
+  // "Last year" is the trailing 12 months ending today, not the previous calendar year
+  { key: '1y', months: 12, labelKey: 'ui.overview.range.preset.1y', label: 'Last year' },
+  { key: '2y', months: 24, labelKey: 'ui.overview.range.preset.2y', label: 'Last 2 years' },
+  { key: '3y', months: 36, labelKey: 'ui.overview.range.preset.3y', label: 'Last 3 years' },
 ];
-/** Longest custom period the picker accepts (the API allows up to 10 years). */
+/** Longest period the overview accepts (the API enforces the same 5-year limit). */
 export const MAX_RANGE_MONTHS = 60;
-const RANGE_KEY = 'erp.overview.range';
-const DEFAULT_PRESET: RangePreset = '1y';
+export const RANGE_KEY = 'erp.overview.range';
+const DEFAULT_PRESET = '1y' as const;
 const pad = (n: number) => String(n).padStart(2, '0');
-const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const parseIso = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+export const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export const parseIso = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const startOfToday = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 /** Same day n months earlier, clamped to the month's last day (31 Mar minus 1 month = 28/29 Feb), like the server's AddMonths. */
 export function minusMonths(d: Date, n: number): Date {
   const t = new Date(d.getFullYear(), d.getMonth() - n, 1);
   t.setDate(Math.min(d.getDate(), new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate()));
   return t;
 }
+/** First day of an n-month period ending on `end` inclusive: one day after the same day n months back (1Y = 31 Oct 2025 – 30 Oct 2026). */
+export const periodStart = (end: Date, months: number) => addDays(minusMonths(end, months), 1);
 export function presetRange(preset: Exclude<RangePreset, 'custom'>, end = startOfToday()): DashboardRange {
   const months = RANGE_PRESETS.find((p) => p.key === preset)!.months;
-  return { preset, from: isoDate(minusMonths(end, months)), to: isoDate(end) };
+  return { preset, from: isoDate(periodStart(end, months)), to: isoDate(end) };
 }
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
-/** A period from query params: `?range=1y`, or `?from=2025-10-31&to=2026-10-30` for a custom period. */
-export function rangeFromParams(p: ParamMap): DashboardRange | null {
+/** A real calendar date in yyyy-MM-dd (rejects 2026-02-31). */
+export const isRealDate = (s: unknown): s is string => typeof s === 'string' && ISO.test(s) && isoDate(parseIso(s)) === s;
+/** A usable period: real dates, from ≤ to, to not after today, and at most 5 years long. */
+export function validRange(from: unknown, to: unknown, today = startOfToday()): boolean {
+  if (!isRealDate(from) || !isRealDate(to) || from > to || to > isoDate(today)) return false;
+  return from >= isoDate(periodStart(parseIso(to), MAX_RANGE_MONTHS));
+}
+/** A period from query params: `?range=1y`, or `?from=2025-10-31&to=2026-10-30` for a custom period. Invalid params give null. */
+export function rangeFromParams(p: ParamMap, today = startOfToday()): DashboardRange | null {
   const preset = p.get('range');
-  if (preset && RANGE_PRESETS.some((x) => x.key === preset)) return presetRange(preset as Exclude<RangePreset, 'custom'>);
+  if (preset && RANGE_PRESETS.some((x) => x.key === preset)) return presetRange(preset as Exclude<RangePreset, 'custom'>, today);
   const from = p.get('from'), to = p.get('to');
-  if (from && to && ISO.test(from) && ISO.test(to) && from <= to && to <= isoDate(startOfToday())) return { preset: 'custom', from, to };
+  if (validRange(from, to, today)) return { preset: 'custom', from: from!, to: to! };
   return null;
 }
-/** The last choice in this browser; relative presets are recomputed against today. */
-function storedRange(): DashboardRange | null {
+export const hasRangeParams = (p: ParamMap) => p.has('range') || p.has('from') || p.has('to');
+/** The last choice in this browser; relative presets are recomputed against today, custom periods are re-validated. */
+export function storedRange(today = startOfToday()): DashboardRange | null {
   try {
     const saved = JSON.parse(localStorage.getItem(RANGE_KEY) ?? 'null') as DashboardRange | null;
-    if (saved?.preset === 'custom' && ISO.test(saved.from) && ISO.test(saved.to) && saved.from <= saved.to) return saved;
-    if (saved && RANGE_PRESETS.some((p) => p.key === saved.preset)) return presetRange(saved.preset as Exclude<RangePreset, 'custom'>);
+    if (saved?.preset === 'custom' && validRange(saved.from, saved.to, today)) return { preset: 'custom', from: saved.from, to: saved.to };
+    if (saved && RANGE_PRESETS.some((p) => p.key === saved.preset)) return presetRange(saved.preset as Exclude<RangePreset, 'custom'>, today);
   } catch { /* storage unavailable or corrupt */ }
   return null;
 }
-const sameRange = (a: DashboardRange, b: DashboardRange) => a.preset === b.preset && a.from === b.from && a.to === b.to;
+export const sameRange = (a: DashboardRange, b: DashboardRange) => a.preset === b.preset && a.from === b.from && a.to === b.to;
+const rangeParams = (r: DashboardRange) => (r.preset === 'custom' ? { range: null, from: r.from, to: r.to } : { range: r.preset, from: null, to: null });
+/** Latin digits in both languages (matches the rest of the app's figures). */
+const latn = (locale: string) => `${locale}-u-nu-latn`;
+const FSI = '\u2068', PDI = '\u2069';
 
 const URGENCY: Record<string, { label: string; color: string }> = {
   action: { label: 'Action needed', color: 'red' },
@@ -145,27 +160,28 @@ interface KpiCluster {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      flex-wrap: nowrap;
-      gap: 16px;
+      flex-wrap: wrap;
+      gap: var(--erp-space-2, 8px) 16px;
       margin-bottom: 22px;
       background: #ffffff;
       padding: 7px 12px;
       border-radius: 14px;
       border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-      overflow-x: auto;
-      scrollbar-width: none;
     }
-    .dashboard-toolbar::-webkit-scrollbar {
-      display: none;
+    @media (max-width: 767px) {
+      .dashboard-toolbar { flex-direction: column; align-items: stretch; }
+      .dashboard-toolbar .category-tabs { flex-wrap: wrap; }
+      .dashboard-toolbar .toolbar-meta { flex-wrap: wrap; }
     }
 
     .category-tabs {
       display: flex;
       align-items: center;
       gap: 4px;
-      flex-wrap: nowrap;
-      flex-shrink: 0;
+      flex-wrap: wrap;
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .tab-pill {
@@ -264,46 +280,62 @@ interface KpiCluster {
       display: flex;
       align-items: center;
       gap: 10px;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       flex-shrink: 0;
     }
 
+    /* ---- PERIOD ROW: dropdown (+ picker for Custom) + Refresh, then the period caption ---- */
+    .range-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--erp-space-2, 8px) 12px;
+      margin-bottom: 12px;
+    }
     .range-control {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
+      flex-wrap: wrap;
+      gap: var(--erp-space-2, 8px);
     }
     .range-select {
-      min-width: 132px;
+      min-width: 150px;
     }
     .range-picker {
-      width: 236px;
+      width: 260px;
     }
-
-    .scope-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 5px 12px;
-      background: #f8fafc;
-      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
-      border-radius: 20px;
+    .range-caption {
+      font-size: 13px;
+      color: var(--erp-color-text-secondary, #475569);
+      unicode-bidi: plaintext;
+    }
+    .range-error {
       font-size: 12px;
-      font-weight: 500;
+      color: var(--erp-color-error, #dc2626);
+    }
+    @media (hover: none) {
+      /* touch: compact icon-only Refresh (tooltip + aria-label still name it) */
+      .range-control .range-btn-label { display: none; }
+    }
+    @media (max-width: 767px) {
+      .range-control { width: 100%; }
+      .range-select { flex: 1 1 140px; }
+      .range-picker { flex: 1 1 100%; width: auto; }
+    }
+    .load-error, .period-empty {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--erp-space-2, 8px);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      border-radius: 10px;
+      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      background: #f8fafc;
       color: var(--erp-color-text-secondary, #475569);
     }
-    .pulse-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #10b981;
-      display: inline-block;
-      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
-    }
-    .meta-divider {
-      color: #cbd5e1;
-    }
+    .load-error { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+    .load-error-icon { font-size: 18px; }
 
     .view-mode-toggle {
       display: inline-flex;
@@ -775,21 +807,77 @@ interface KpiCluster {
         {{ 'dashboard.welcome' | translate: 'Welcome' }}, {{ session.me()?.user?.fullName }}
       </span>
 
+      <!-- The period for every card and chart. Its own row, outside the data block, so it stays usable while loading or after an error. -->
+      <div class="range-bar" data-testid="dashboard-range-bar">
+        <div class="range-control" erpReveal [erpRevealSelects]="false" role="group" [attr.aria-label]="'ui.overview.range.group' | translate: 'Date range'" data-testid="dashboard-range">
+          <nz-select
+            class="range-select"
+            data-reveal="off"
+            [ngModel]="selectValue()"
+            (ngModelChange)="setPreset($event)"
+            [nzDropdownMatchSelectWidth]="false"
+            [attr.aria-label]="'ui.overview.range.group' | translate: 'Date range'"
+            data-testid="dashboard-range-preset">
+            @for (p of presets; track p.key) {
+              <nz-option [nzValue]="p.key" [nzLabel]="p.labelKey | translate: p.label"></nz-option>
+            }
+            <nz-option nzValue="custom" [nzLabel]="'ui.overview.range.custom' | translate: 'Custom'"></nz-option>
+          </nz-select>
+          @if (showPicker()) {
+            <nz-range-picker
+              class="range-picker"
+              data-reveal="off"
+              nzFormat="dd MMM yyyy"
+              [nzInputReadOnly]="true"
+              (nzOnOpenChange)="onPickerOpenChange($event)"
+              (nzOnCalendarChange)="onCalendarChange($event)"
+              [ngModel]="rangeDates()"
+              (ngModelChange)="setCustomRange($event)"
+              [nzAllowClear]="false"
+              [nzDisabledDate]="disabledDate"
+              [nzRenderExtraFooter]="maxSpanHint()"
+              [nzPlaceHolder]="rangePlaceholders()"
+              [attr.aria-describedby]="rangeError() ? 'dashboard-range-error' : null"
+              data-testid="dashboard-range-picker"></nz-range-picker>
+          }
+          <button nz-button type="button" (click)="refresh()"
+            [nz-tooltip]="'ui.overview.range.refreshHint' | translate: 'Reload the figures for this period'"
+            [attr.aria-label]="'ui.overview.range.refresh' | translate: 'Refresh'" data-testid="dashboard-range-refresh">
+            <span nz-icon nzType="reload" [nzSpin]="loading()"></span><span class="range-btn-label">{{ 'ui.overview.range.refresh' | translate: 'Refresh' }}</span>
+          </button>
+        </div>
+        <span class="range-caption" data-testid="dashboard-range-caption">@for (seg of captionParts(); track $index) {@if (seg.bdi) {<bdi>{{ seg.text }}</bdi>} @else {<span>{{ seg.text }}</span>}}</span>
+        @if (rangeError(); as err) {
+          <span class="range-error" id="dashboard-range-error" role="alert" data-testid="dashboard-range-error">{{ err }}</span>
+        }
+        <span class="sr-only" aria-live="polite" data-testid="dashboard-range-live">{{ announcement() }}</span>
+      </div>
+
       <nz-spin [nzSpinning]="loading() && !!data()" [attr.aria-busy]="loading()">
         @if (!data()) {
-          <!-- Skeleton Loading State -->
-          <div class="hero-kpis-wrap" data-testid="dashboard-loading">
-            <div class="erp-stat-grid">
-              @for (i of [0, 1, 2, 3]; track i) {
-                <erp-stat-card label="" [loading]="true" [tone]="i" />
-              }
+          @if (loadError()) {
+            <div class="load-error" role="alert" data-testid="dashboard-error">
+              <span nz-icon nzType="warning" class="load-error-icon"></span>
+              <span>{{ 'ui.overview.range.error' | translate: "Couldn't load the overview for this period." }}</span>
+              <button nz-button nzType="primary" type="button" (click)="refresh()" data-testid="dashboard-retry">
+                <span nz-icon nzType="reload"></span>{{ 'ui.overview.range.retry' | translate: 'Retry' }}
+              </button>
             </div>
-            <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 6 }"></nz-skeleton>
-          </div>
+          } @else {
+            <!-- Skeleton Loading State -->
+            <div class="hero-kpis-wrap" data-testid="dashboard-loading">
+              <div class="erp-stat-grid">
+                @for (i of [0, 1, 2, 3]; track i) {
+                  <erp-stat-card label="" [loading]="true" [tone]="i" />
+                }
+              </div>
+              <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 6 }"></nz-skeleton>
+            </div>
+          }
         }
 
         @if (data(); as d) {
-          <!-- Modern Control Bar: Categories, Entity Scope & View Modes -->
+          <!-- Modern Control Bar: Categories & View Modes -->
           <div class="dashboard-toolbar">
             <div class="category-tabs">
               <button
@@ -876,54 +964,6 @@ interface KpiCluster {
             </div>
 
             <div class="toolbar-meta">
-              <div class="range-control" erpReveal [erpRevealSelects]="false" role="group" [attr.aria-label]="'ui.overview.range.group' | translate: 'Date range'" data-testid="dashboard-range">
-                <nz-select
-                  class="range-select"
-                  nzSize="small"
-                  data-reveal="off"
-                  [ngModel]="range().preset"
-                  (ngModelChange)="setPreset($event)"
-                  [nzDropdownMatchSelectWidth]="false"
-                  [attr.aria-label]="'ui.overview.range.group' | translate: 'Date range'"
-                  data-testid="dashboard-range-preset">
-                  @for (p of presets; track p.key) {
-                    <nz-option [nzValue]="p.key" [nzLabel]="p.labelKey | translate: p.label"></nz-option>
-                  }
-                  <nz-option nzValue="custom" [nzLabel]="'ui.overview.range.custom' | translate: 'Custom'"></nz-option>
-                </nz-select>
-                <nz-range-picker
-                  class="range-picker"
-                  nzSize="small"
-                  nzFormat="dd MMM yyyy"
-                  [nzOpen]="pickerOpen()"
-                  (nzOnOpenChange)="pickerOpen.set($event)"
-                  [ngModel]="rangeDates()"
-                  (ngModelChange)="setCustomRange($event)"
-                  [nzAllowClear]="false"
-                  [nzDisabledDate]="disabledDate"
-                  [nzRanges]="pickerRanges()"
-                  [nzPlaceHolder]="rangePlaceholders()"
-                  data-testid="dashboard-range-picker"></nz-range-picker>
-                <button nz-button nzSize="small" type="button" (click)="stepRange(-1)" [disabled]="!canStep(-1)"
-                  [nz-tooltip]="stepLabel(-1)" [attr.aria-label]="stepLabel(-1)" data-testid="dashboard-range-narrow">
-                  <span nz-icon nzType="zoom-in"></span>{{ stepLabel(-1) }}
-                </button>
-                <button nz-button nzSize="small" type="button" (click)="stepRange(1)" [disabled]="!canStep(1)"
-                  [nz-tooltip]="stepLabel(1)" [attr.aria-label]="stepLabel(1)" data-testid="dashboard-range-widen">
-                  <span nz-icon nzType="zoom-out"></span>{{ stepLabel(1) }}
-                </button>
-                <button nz-button nzSize="small" type="button" (click)="refresh()"
-                  [attr.aria-label]="'ui.overview.range.refresh' | translate: 'Refresh'" data-testid="dashboard-range-refresh">
-                  <span nz-icon nzType="reload" [nzSpin]="loading()"></span>{{ 'ui.overview.range.refresh' | translate: 'Refresh' }}
-                </button>
-              </div>
-              <div class="scope-pill">
-                <span class="pulse-dot"></span>
-                <span>{{ session.currentEntityId() ? ('Entity: ' + (currentEntityName() || 'Active')) : 'All Legal Entities' }}</span>
-                <span class="meta-divider">•</span>
-                <span>{{ 'ui.common.asOfLc' | translate: 'as of' }} {{ d.asOf }}</span>
-              </div>
-
               <div class="view-mode-toggle">
                 <button
                   class="toggle-btn"
@@ -940,6 +980,16 @@ interface KpiCluster {
               </div>
             </div>
           </div>
+
+          @if (periodEmpty()) {
+            <div class="period-empty" role="status" data-testid="dashboard-empty">
+              <span nz-icon nzType="info-circle"></span>
+              <span>{{ 'ui.overview.range.empty' | translate: 'Nothing was billed or collected in this period.' }}</span>
+              @if (canShowLonger()) {
+                <button nz-button nzType="link" type="button" (click)="setPreset('3y')" data-testid="dashboard-empty-action">{{ 'ui.overview.range.emptyAction' | translate: 'Show the last 3 years' }}</button>
+              }
+            </div>
+          }
 
           @if (viewMode() === 'curated') {
             <!-- TIER 1: STRATEGIC HIGHLIGHTS (4 HERO STAT CARDS) -->
@@ -1060,7 +1110,7 @@ interface KpiCluster {
                       </div>
                       <h3>{{ currentFinanceChart()?.title ?? 'Financial Trends' }}</h3>
                       @if (currentFinanceChart()?.subtitle) {
-                        <div class="sub">{{ currentFinanceChart()?.subtitle }}</div>
+                        <div class="sub">{{ currentFinanceChart()?.subtitle }}@if (bucketLabel(currentFinanceChart())) {<span> · {{ bucketLabel(currentFinanceChart()) }}</span>}</div>
                       }
                     </div>
                     <div class="chart-selector-tabs">
@@ -1259,7 +1309,7 @@ interface KpiCluster {
                           </div>
                           <h3>{{ c.title }}</h3>
                           @if (c.subtitle) {
-                            <div class="sub">{{ c.subtitle }}</div>
+                            <div class="sub">{{ c.subtitle }}@if (bucketLabel(c)) {<span> · {{ bucketLabel(c) }}</span>}</div>
                           }
                         </div>
                       </div>
@@ -1347,22 +1397,69 @@ export class DashboardPage {
 
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  private readonly message = inject(NzMessageService);
 
-  /** One shared period for every card and chart: URL (?range= or ?from=&to=) wins over the browser's last choice, then the 1-year default. */
+  /**
+   * One shared period for every card and chart: URL (?range= or ?from=&to=) wins over the browser's last choice, then the "Last year"
+   * default (the trailing 12 months). Picked from one dropdown; "Custom" shows a date-range picker, a preset hides it again.
+   */
   readonly presets = RANGE_PRESETS;
-  readonly range = signal<DashboardRange>(rangeFromParams(this.route.snapshot.queryParamMap) ?? storedRange() ?? presetRange(DEFAULT_PRESET as Exclude<RangePreset, 'custom'>));
-  readonly pickerOpen = signal(false);
-  readonly rangeDates = computed<Date[]>(() => [parseIso(this.range().from), parseIso(this.range().to)]);
+  readonly range = signal<DashboardRange>(rangeFromParams(this.route.snapshot.queryParamMap) ?? storedRange() ?? presetRange(DEFAULT_PRESET));
+  /** "Custom" chosen in the dropdown but no dates picked yet: the picker shows (and opens) while the figures keep the current period. */
+  readonly customPending = signal(false);
+  readonly showPicker = computed(() => this.range().preset === 'custom' || this.customPending());
+  readonly selectValue = computed<RangePreset>(() => (this.showPicker() ? 'custom' : this.range().preset));
+  private readonly picker = viewChild(NzDatePickerComponent);
+  /** Why the last picked range was rejected (shown inline under the picker), or null. */
+  readonly rangeError = signal<string | null>(null);
+  /** The first date clicked in the open picker, so dates more than 5 years away from it are disabled. */
+  private readonly calendarAnchor = signal<Date | null>(null);
+  /** Bumped to hand the picker the current period again after a rejected pick (without reloading the figures). */
+  private readonly pickerReset = signal(0);
+  readonly rangeDates = computed<Date[]>(() => { this.pickerReset(); return [parseIso(this.range().from), parseIso(this.range().to)]; });
   readonly rangePlaceholders = computed(() => [this.i18n.t('ui.overview.range.from', 'Start date'), this.i18n.t('ui.overview.range.to', 'End date')]);
-  /** The presets again inside the picker popup, for quick access. */
-  readonly pickerRanges = computed<Record<string, Date[]>>(() => {
-    this.i18n.lang();
-    return Object.fromEntries(RANGE_PRESETS.map((p) => { const r = presetRange(p.key); return [this.i18n.t(p.labelKey, p.label), [parseIso(r.from), parseIso(r.to)]]; }));
+  readonly maxSpanHint = computed(() => this.i18n.t('ui.overview.range.maxSpan', 'Pick a range of 5 years or less, ending today or earlier'));
+  /** No future dates, and once a first date is picked nothing that would make the period longer than 5 years. */
+  readonly disabledDate = (d: Date): boolean => {
+    const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const today = startOfToday();
+    if (day > today) return true;
+    const a = this.calendarAnchor();
+    if (!a) return false;
+    const [f, t] = day < a ? [day, a] : [a, day];
+    return !validRange(isoDate(f), isoDate(t), today);
+  };
+  /** "30 Oct 2025 – 30 Oct 2026" / "من 31 أكتوبر 2025 إلى 30 أكتوبر 2026", with each date bidi-isolated. */
+  readonly captionParts = computed<{ text: string; bdi: boolean }[]>(() => {
+    const r = this.range();
+    const locale = latn(this.i18n.locale());
+    const values: Record<string, string> = { '{from}': this.fmtDate(r.from, locale), '{to}': this.fmtDate(r.to, locale) };
+    return this.i18n.t('ui.overview.range.caption', '{from} – {to}').split(/(\{from\}|\{to\})/).filter((x) => x !== '')
+      .map((x) => (x in values ? { text: values[x], bdi: true } : { text: x, bdi: false }));
   });
-  readonly disabledDate = (d: Date): boolean => d > new Date(startOfToday().getTime() + 86_400_000 - 1);
 
-  readonly data = signal<DashboardDto | null>(null);
+  /** The API response as received; `data` is the same with captions and chart axis labels in the user's language. */
+  private readonly raw = signal<DashboardDto | null>(null);
+  readonly loadError = signal(false);
+  readonly data = computed<DashboardDto | null>(() => {
+    const d = this.raw();
+    if (!d) return null;
+    const locale = latn(this.i18n.locale());
+    return { ...d, kpis: d.kpis.map((k) => this.localizeKpi(k, locale)), charts: d.charts.map((c) => this.localizeChart(c, locale)) };
+  });
+  /** Screen-reader announcement once the figures for a period have loaded. */
+  readonly announcement = computed(() => {
+    const d = this.raw();
+    if (!d?.from || !d.to) return '';
+    const locale = latn(this.i18n.locale());
+    return this.i18n.t('ui.overview.range.showing', 'Showing {from} – {to}')
+      .replace('{from}', FSI + this.fmtDate(d.from, locale) + PDI).replace('{to}', FSI + this.fmtDate(d.to, locale) + PDI);
+  });
+  /** Nothing billed or collected in the period: say so instead of showing an empty chart without explanation. */
+  readonly periodEmpty = computed(() => {
+    const c = this.raw()?.charts.find((x) => x.key === 'billed-collected');
+    return !!c && c.series.every((s) => s.values.every((v) => v === 0));
+  });
+  readonly canShowLonger = computed(() => this.range().from > presetRange('3y').from);
   readonly loading = signal(false);
   readonly activeCategory = signal<DomainCategory>('all');
   readonly viewMode = signal<'curated' | 'all'>('curated');
@@ -1429,12 +1526,6 @@ export class DashboardPage {
     ];
   });
 
-  readonly currentEntityName = computed(() => {
-    const id = this.session.currentEntityId();
-    if (!id) return null;
-    return this.session.me()?.legalEntities?.find((e) => e.id === id)?.name ?? null;
-  });
-
   readonly timezoneLabel = computed(() => {
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -1454,77 +1545,102 @@ export class DashboardPage {
       const range = this.range();
       untracked(() => this.load(range));
     });
-    // Back/forward and shared links: follow the URL when it names a different period.
+    // Back/forward and shared links follow the URL. With no (or invalid) range params the period comes from this browser's last choice,
+    // then the default, and is written back to the URL without a new history entry so the address always names the period shown.
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((p) => {
-      const r = rangeFromParams(p);
-      if (r && !sameRange(r, this.range())) this.range.set(r);
+      const fromUrl = rangeFromParams(p);
+      const r = fromUrl ?? storedRange() ?? presetRange(DEFAULT_PRESET);
+      if (!sameRange(r, this.range())) { this.customPending.set(false); this.rangeError.set(null); this.range.set(r); }
+      if (!fromUrl) void this.router.navigate([], { relativeTo: this.route, queryParams: rangeParams(r), queryParamsHandling: 'merge', replaceUrl: true });
     });
   }
 
-  refresh(): void { this.load(this.range()); }
-
-  /** "Narrow range (to 6M)" / "Widen range (to 2Y)", naming the preset the step goes to. */
-  stepLabel(dir: -1 | 1): string {
-    const next = this.nextPreset(dir);
-    const key = dir < 0 ? 'ui.overview.range.narrow' : 'ui.overview.range.widen';
-    const text = this.i18n.t(key, dir < 0 ? 'Narrow range (to {{target}})' : 'Widen range (to {{target}})');
-    if (!next) return text.replace(/\s*[(（][^()（）]*\{\{target\}\}[^()（）]*[)）]/, '').replace('{{target}}', '');
-    return text.replace('{{target}}', this.i18n.t('ui.overview.range.short.' + next.key, next.short));
+  /** Reloads the figures. A preset is re-anchored on today first, so a page left open past midnight moves on to the new day. */
+  refresh(): void {
+    const r = this.range();
+    if (r.preset !== 'custom') {
+      const fresh = presetRange(r.preset);
+      if (!sameRange(fresh, r)) { this.saveRange(fresh); return; }
+    }
+    this.load(r);
   }
 
+  /** A preset applies at once and hides the picker; "Custom" only shows the picker and opens it (no request until dates are picked). */
   setPreset(preset: RangePreset): void {
-    if (preset === 'custom') { this.saveRange({ ...this.range(), preset: 'custom' }); this.pickerOpen.set(true); return; }
+    this.rangeError.set(null);
+    if (preset === 'custom') {
+      this.customPending.set(true);
+      setTimeout(() => this.picker()?.open());
+      return;
+    }
+    this.customPending.set(false);
     this.saveRange(presetRange(preset));
   }
 
+  onPickerOpenChange(_open: boolean): void { this.calendarAnchor.set(null); }
+
+  onCalendarChange(dates: (Date | null)[] | null): void {
+    const picked = (dates ?? []).filter((d): d is Date => !!d);
+    this.calendarAnchor.set(picked.length === 1 ? picked[0] : null);
+  }
+
   setCustomRange(dates: (Date | null)[] | null): void {
-    const [from, to] = dates ?? [];
-    if (!from || !to) return;
-    const [a, b] = from <= to ? [from, to] : [to, from];
-    if (a < minusMonths(b, MAX_RANGE_MONTHS)) {
-      this.message.warning(this.i18n.t('ui.overview.range.maxSpan', 'Pick a range of 5 years or less'));
-      this.pickerOpen.set(true);
-      return; // no request for an invalid period
+    const [a, b] = dates ?? [];
+    if (!a || !b) return;
+    const [from, to] = [isoDate(a), isoDate(b)].sort();
+    if (!validRange(from, to)) {
+      this.rangeError.set(this.maxSpanHint());
+      this.pickerReset.update((n) => n + 1); // hands the picker the current period back, clearing the rejected dates
+      return;
     }
-    const picked: DashboardRange = { preset: 'custom', from: isoDate(a), to: isoDate(b) };
-    const match = RANGE_PRESETS.find((p) => sameRange({ ...presetRange(p.key) }, { ...picked, preset: p.key }));
-    this.saveRange(match ? presetRange(match.key) : picked);
-  }
-
-  /** Length of the current period in whole months (approximate for a custom range). */
-  private rangeMonths(): number {
-    const r = this.range();
-    const preset = RANGE_PRESETS.find((p) => p.key === r.preset);
-    if (preset) return preset.months;
-    return Math.max(0, (parseIso(r.to).getTime() - parseIso(r.from).getTime()) / (86_400_000 * 30.4375));
-  }
-
-  private nextPreset(dir: -1 | 1) {
-    const months = this.rangeMonths();
-    return dir > 0 ? RANGE_PRESETS.find((p) => p.months > months + 0.05) : [...RANGE_PRESETS].reverse().find((p) => p.months < months - 0.05);
-  }
-
-  canStep(dir: -1 | 1): boolean { return !!this.nextPreset(dir); }
-
-  /** One preset shorter or longer. A preset period ends today; a custom period keeps its end date. */
-  stepRange(dir: -1 | 1): void {
-    const next = this.nextPreset(dir);
-    if (!next) return;
-    const r = this.range();
-    if (r.preset === 'custom') {
-      const end = parseIso(r.to);
-      this.saveRange({ preset: 'custom', from: isoDate(minusMonths(end, next.months)), to: r.to });
-    } else {
-      this.saveRange(presetRange(next.key));
-    }
+    this.rangeError.set(null);
+    this.customPending.set(false);
+    this.saveRange({ preset: 'custom', from, to });
   }
 
   private saveRange(r: DashboardRange): void {
     try { localStorage.setItem(RANGE_KEY, JSON.stringify(r)); } catch { /* storage unavailable */ }
     if (sameRange(r, this.range())) return;
     this.range.set(r);
-    const queryParams = r.preset === 'custom' ? { range: null, from: r.from, to: r.to } : { range: r.preset, from: null, to: null };
-    void this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: 'merge' });
+    void this.router.navigate([], { relativeTo: this.route, queryParams: rangeParams(r), queryParamsHandling: 'merge' });
+  }
+
+  private fmtDate(iso: string, locale: string, options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }): string {
+    return isRealDate(iso) ? new Intl.DateTimeFormat(locale, options).format(parseIso(iso)) : iso;
+  }
+
+  /** A caption the API sends as a key with {name} args (e.g. the cash card's "at {date}") is translated here, dates in the user's locale. */
+  private localizeKpi(k: KpiCard, locale: string): KpiCard {
+    if (!k.captionKey) return k;
+    const template = this.i18n.t(k.captionKey, '');
+    if (!template) return k;
+    const caption = template.replace(/\{(\w+)\}/g, (m: string, name: string) => {
+      const v = k.captionArgs?.[name];
+      if (v == null) return m;
+      return isRealDate(v) ? FSI + this.fmtDate(v, locale) + PDI : v;
+    });
+    return { ...k, caption };
+  }
+
+  /** Axis labels for time-series charts from their buckets: weeks by start day, months by name, quarters as "Nov – Jan 26". */
+  private localizeChart(c: DashboardChart, locale: string): DashboardChart {
+    if (!c.buckets?.length || c.buckets.length !== c.categories.length) return c;
+    const categories = c.buckets.map((b) => {
+      const from = parseIso(b.from), to = parseIso(b.to);
+      if (c.granularity === 'week') return this.fmtDate(b.from, locale, { day: 'numeric', month: 'short' });
+      if (c.granularity === 'quarter') {
+        return `${new Intl.DateTimeFormat(locale, { month: 'short' }).format(addDays(from, 14))} – ${new Intl.DateTimeFormat(locale, { month: 'short', year: '2-digit' }).format(addDays(to, -14))}`;
+      }
+      const mid = addDays(from, Math.floor((to.getTime() - from.getTime()) / 86_400_000 / 2));
+      return new Intl.DateTimeFormat(locale, { month: 'short', year: '2-digit' }).format(mid);
+    });
+    return { ...c, categories };
+  }
+
+  /** "by week" / "by month" / "by quarter" under a time-series chart. */
+  bucketLabel(c: DashboardChart | null | undefined): string {
+    const g = c?.granularity;
+    return g ? this.i18n.t('ui.overview.range.bucket.' + g, 'by ' + g) : '';
   }
 
   setCategory(cat: DomainCategory): void {
@@ -1795,10 +1911,11 @@ export class DashboardPage {
 
   private load(range: DashboardRange = this.range()): void {
     this.loading.set(true);
+    this.loadError.set(false);
     this.pending?.unsubscribe(); // cancels the stale request when the period or entity changes again
     this.pending = this.api.get({ from: range.from, to: range.to }).subscribe({
       next: (d) => {
-        this.data.set(d);
+        this.raw.set(d);
         if (d.charts.length > 0) {
           if (!this.selectedChartKey()) {
             this.selectedChartKey.set(d.charts[0].key);
@@ -1812,7 +1929,8 @@ export class DashboardPage {
         }
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      // no endless skeleton and no figures from the previous period: show the error with a Retry instead
+      error: () => { this.raw.set(null); this.loadError.set(true); this.loading.set(false); },
     });
   }
 }
