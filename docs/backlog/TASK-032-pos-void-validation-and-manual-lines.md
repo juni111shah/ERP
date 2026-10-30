@@ -2,12 +2,12 @@
 id: TASK-032
 title: Void needs a reason; free-text lines need price override permission
 priority: P1
-status: open
+status: done
 schema: no
 depends_on: []
 area: pos
 audit_ref: TASK-005 review follow-up
-commit:
+commit: cdcb51b
 ---
 
 ## Problem
@@ -35,6 +35,8 @@ Integration tests in `PosOrderTests`, one per criterion.
 ## Do not touch
 Void accounting (TASK-006 and TASK-007 behaviour).
 
-## What I did (Antigravity)
+## What I did (Claude)
+Added VoidPosOrderValidator (reason required, max 500), free-text lines require OrdersOverridePrice and UnitPrice, TaxRate 0-100 validated, explicit Completed-only void check. Two integration tests.
 
 ## Review (Claude)
+- Verified: build 0 errors; 253 unit and 284 integration tests pass (4 SQL Server skipped). Journal balance is enforced by the posting service, so a 201 proves it balanced.

@@ -127,6 +127,15 @@ public record PosOrderDto(
     List<PosPaymentDto> Payments,
     DateTimeOffset CreatedAt);
 
+public class VoidPosOrderValidator : AbstractValidator<VoidPosOrderCommand>
+{
+    public VoidPosOrderValidator()
+    {
+        RuleFor(x => x.OrderId).NotEmpty();
+        RuleFor(x => x.Reason).NotEmpty().WithMessage("A reason is required to void an order.").MaximumLength(500);
+    }
+}
+
 public class CreatePosOrderValidator : AbstractValidator<CreatePosOrderCommand>
 {
     public CreatePosOrderValidator()
@@ -139,9 +148,14 @@ public class CreatePosOrderValidator : AbstractValidator<CreatePosOrderCommand>
         {
             l.RuleFor(x => x.Quantity).GreaterThan(0);
             l.RuleFor(x => x.DiscountPercent).InclusiveBetween(0, 100);
+            l.When(x => x.TaxRate.HasValue, () =>
+            {
+                l.RuleFor(x => x.TaxRate!.Value).InclusiveBetween(0, 100).WithMessage("Tax rate must be between 0 and 100.");
+            });
             l.When(x => !x.ItemId.HasValue, () =>
             {
                 l.RuleFor(x => x.ItemCode).NotEmpty();
+                l.RuleFor(x => x.UnitPrice).NotNull().WithMessage("A free-text line needs a unit price.");
             });
             l.When(x => x.UnitPrice.HasValue, () =>
             {
@@ -300,6 +314,10 @@ public class OrderHandlers :
             }
             else
             {
+                if (!canOverridePrice)
+                {
+                    throw new FieldValidationException("unitPrice", "Selling a free-text item at a manual price requires override permission.");
+                }
                 unitPrice = l.UnitPrice ?? 0m;
                 taxRate = l.TaxRate ?? 0m;
             }
@@ -365,6 +383,11 @@ public class OrderHandlers :
             {
                 throw new FieldValidationException("payments", $"Under-payment: payment sum ({paymentsSum:N2}) is less than order total ({totalAmount:N2}).");
             }
+        }
+
+        if (paymentsSum > totalAmount)
+        {
+            throw new FieldValidationException("payments", $"Over-payment: payment sum ({paymentsSum:N2}) exceeds order total ({totalAmount:N2}). Enter the amount applied and put the cash handed over in the tendered amount.");
         }
 
         var paymentStatus = paymentsSum >= totalAmount ? PosPaymentStatus.Paid : PosPaymentStatus.PartiallyPaid;
@@ -499,6 +522,10 @@ public class OrderHandlers :
             if (order.Status == PosOrderStatus.Voided)
             {
                 throw new ConflictException("Order is already voided.");
+            }
+            if (order.Status != PosOrderStatus.Completed)
+            {
+                throw new ConflictException("Only a completed order can be voided.");
             }
 
             var session = await _sessions.Query(new Specification<PosSession>(s => s.Id == order.SessionId))
