@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { NzInputModule } from 'ng-zorro-antd/input';
 import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -14,7 +16,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
   selector: 'erp-movements',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, DatePipe, DecimalPipe, RouterModule, NzButtonModule, NzIconModule, NzTagModule, PagedTableComponent, TranslatePipe],
+  imports: [CommonModule, FormsModule, NzInputModule, DatePipe, DecimalPipe, RouterModule, NzButtonModule, NzIconModule, NzTagModule, PagedTableComponent, TranslatePipe],
   styles: [`
     .qty-badge {
       display: inline-flex;
@@ -65,6 +67,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
     </div>
 
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search reference, memo, or warehouse..." emptyText="No stock movements yet" [clickable]="false">
+      <input toolbar nz-input style="width:200px" placeholder="Exact reference (e.g. CNT-00001)" [ngModel]="reference" (ngModelChange)="filterReference($event)" data-testid="movement-reference" />
       <ng-template #cell let-row let-column="column" let-value="value">
         @switch (column.key) {
           @case ('date') {
@@ -109,6 +112,12 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
   `,
 })
 export class MovementsPage {
+  reference = '';
+  filterReference(value: string): void {
+    this.reference = value;
+    this.list.setFilters(value.trim() ? [{ field: 'reference', op: 'eq', value: value.trim() }] : []);
+  }
+
   private readonly api = inject(MovementsApi);
   readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });

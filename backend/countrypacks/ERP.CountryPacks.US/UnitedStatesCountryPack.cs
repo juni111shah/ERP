@@ -15,6 +15,9 @@ public sealed class UnitedStatesCountryPack : ICountryPack
     public string DefaultCurrency => "USD";
     public string DefaultTimeZone => "America/New_York";
 
+    public TaxReturnDefinition? TaxReturn => UsTaxReturn.Definition;
+    public IReadOnlyList<InvoiceField> InvoiceRequiredFields { get; } = [];
+
     public IReadOnlyList<TaxTemplate> Taxes { get; } =
     [
         new("ST", "Sales tax (set your rate)", TaxKind.SalesTax, 0m, true, false),

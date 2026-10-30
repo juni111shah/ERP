@@ -3,7 +3,7 @@ import { currentLang, phraseNow, tNow } from '../../core/i18n/translate-now';
 /** Declarative definitions of the server-built reports. A report page needs no code of its own: add an entry here. */
 export type ColType = 'text' | 'money' | 'number' | 'percent' | 'date';
 export interface ReportColumn { key: string; label: string; type?: ColType; }
-export type ReportFilter = 'range' | 'asOf' | 'weeks' | 'months' | 'optionalAsOf' | 'owner';
+export type ReportFilter = 'range' | 'asOf' | 'weeks' | 'months' | 'optionalAsOf' | 'owner' | 'days';
 
 export interface ReportDef {
   slug: string;
@@ -22,6 +22,8 @@ export interface ReportDef {
   action?: { label: string; path: string; permission: string; done: string };
   /** headline numbers above the table */
   summary?: (data: any) => { label: string; value: string }[];
+  /** extra tables shown under the main one (for example the jobs behind a total); they are part of the CSV too */
+  details?: (data: any) => { title: string; columns: ReportColumn[]; rows: Record<string, unknown>[] }[];
 }
 
 const m = (key: string, label: string): ReportColumn => ({ key, label, type: 'money' });
@@ -32,6 +34,16 @@ const d = (key: string, label: string): ReportColumn => ({ key, label, type: 'da
 const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const REPORTS: ReportDef[] = [
+  {
+    slug: 'tax-return', title: 'Tax return', subtitle: 'The periodic tax return of one legal entity, laid out by its country (VAT 201, VAT100, GSTR-3B...). Choose the legal entity in the header first.',
+    endpoint: 'finance/reports/tax-return', filters: ['range'],
+    columns: () => [t('label', 'Box'), m('amount', 'Amount')],
+    rows: (x) => (x.rows as { label: string; labelAr: string; amount: number }[]).map((r) => ({ label: document.documentElement.lang === 'ar' ? r.labelAr : r.label, amount: r.amount })),
+    summary: (x) => [
+      { label: 'Return', value: document.documentElement.lang === 'ar' ? x.titleAr : x.title }, { label: 'Country', value: x.countryCode },
+      { label: 'Net payable', value: `${fmt(x.netPayable)} ${x.currencyCode}` }, ...(x.notes ? [{ label: 'Note', value: x.notes }] : []),
+    ],
+  },
   {
     slug: 'tax-summary', title: 'Tax summary', subtitle: 'Output tax on issued invoices and credit notes against recoverable input tax on posted bills.',
     endpoint: 'finance/reports/tax-summary', filters: ['range'],
@@ -60,7 +72,40 @@ export const REPORTS: ReportDef[] = [
     columns: () => [t('property', 'Property'), p('feePercent', 'Fee %'), m('rentCollected', 'Rent collected'), m('managementFee', 'Management fee'), m('maintenanceCosts', 'Maintenance'), m('netToOwner', 'Net to owner')],
     rows: (x) => x.rows,
     totals: (x) => ({ property: 'Total', feePercent: null, rentCollected: x.rentCollected, managementFee: x.managementFee, maintenanceCosts: x.maintenanceCosts, netToOwner: x.netToOwner }),
-    summary: (x) => [{ label: 'Owner', value: x.owner }, { label: 'Net payable to owner', value: fmt(x.netToOwner) }],
+    summary: (x) => [{ label: 'Owner', value: x.owner }, { label: 'Net payable to owner', value: fmt(x.netToOwner) }, ...(x.chargedToTenant > 0 ? [{ label: 'Charged to tenants (memo, not deducted)', value: fmt(x.chargedToTenant) }] : [])],
+    details: (x) => (x.lines?.length ? [{
+      title: 'Maintenance jobs in the period',
+      columns: [t('number', 'Work order'), t('property', 'Property'), t('issue', 'Issue'), d('completedOn', 'Completed on'), m('cost', 'Cost'), t('costSource', 'Cost from'), t('borneBy', 'Borne by'), m('ownerAmount', 'Owner pays'), m('tenantAmount', 'Charged to tenant')],
+      rows: x.lines,
+    }] : []),
+  },
+  {
+    slug: 'stock-valuation', title: 'Stock valuation', subtitle: 'Quantity, average cost and value of stock per warehouse and item at the end of the chosen date.', module: 'inventory',
+    endpoint: 'm/inventory/reports/valuation', filters: ['asOf'],
+    columns: () => [t('warehouse', 'Warehouse'), t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('quantity', 'Quantity'), m('averageCost', 'Average cost'), m('value', 'Value')],
+    rows: (x) => x.rows,
+    totals: (x) => ({ warehouse: 'Total', sku: '', item: '', uom: '', quantity: null, averageCost: null, value: x.totalValue }),
+    summary: (x) => [{ label: 'Total stock value', value: fmt(x.totalValue) }],
+  },
+  {
+    slug: 'stock-movement-summary', title: 'Stock movement summary', subtitle: 'Opening, receipts, issues, adjustments and closing quantity per item for a period. Transfers net to zero and are left out.', module: 'inventory',
+    endpoint: 'm/inventory/reports/movement-summary', filters: ['range'],
+    columns: () => [t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('opening', 'Opening'), n('receipts', 'Receipts'), n('issues', 'Issues'), n('adjustments', 'Adjustments'), n('closing', 'Closing'), m('closingValue', 'Closing value')],
+    rows: (x) => x.rows,
+    totals: (x) => ({ sku: 'Total', item: '', uom: '', opening: null, receipts: null, issues: null, adjustments: null, closing: null, closingValue: x.totalClosingValue }),
+  },
+  {
+    slug: 'slow-moving-stock', title: 'Slow-moving stock', subtitle: 'Items still in stock with no movement for the chosen number of days.', module: 'inventory',
+    endpoint: 'm/inventory/reports/slow-moving', filters: ['asOf', 'days'],
+    columns: () => [t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('quantity', 'Quantity'), m('value', 'Value'), d('lastMovement', 'Last movement'), n('daysIdle', 'Days idle')],
+    rows: (x) => x.rows,
+    totals: (x) => ({ sku: 'Total', item: '', uom: '', quantity: null, value: x.totalValue, lastMovement: null, daysIdle: null }),
+  },
+  {
+    slug: 'reorder-suggestions', title: 'Reorder suggestions', subtitle: 'Items at or below their reorder level, with a suggested order quantity.', module: 'inventory',
+    endpoint: 'm/inventory/reports/reorder', filters: [],
+    columns: () => [t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('onHand', 'On hand'), n('reorderLevel', 'Reorder level'), n('reorderQuantity', 'Reorder quantity'), n('suggestedOrder', 'Suggested order')],
+    rows: (x) => x.rows,
   },
   {
     slug: 'rent-roll', title: 'Rent roll', subtitle: 'Active leases with rent per area, held cheques and what each tenant owes.', module: 'realestate',

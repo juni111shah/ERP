@@ -9,5 +9,9 @@ export const HR_ROUTES: Routes = [
   { path: 'payroll', canMatch: [permissionGuard('hr.payroll.read')], loadComponent: () => import('./payroll.page').then((m) => m.PayrollPage) },
   { path: 'reviews', canMatch: [permissionGuard('hr.reviews.read')], loadComponent: () => import('./reviews.page').then((m) => m.ReviewsPage) },
   { path: 'review-cycles', canMatch: [permissionGuard('hr.reviews.read')], loadComponent: () => import('./review-cycles.page').then((m) => m.ReviewCyclesPage) },
+  { path: 'leave', canMatch: [permissionGuard('hr.leave.read')], loadComponent: () => import('./leave.page').then((m) => m.LeavePage) },
+  { path: 'leave-balances', canMatch: [permissionGuard('hr.leave.read')], loadComponent: () => import('./leave-balances.page').then((m) => m.LeaveBalancesPage) },
+  { path: 'leave-types', canMatch: [permissionGuard('hr.leave.read')], loadComponent: () => import('./leave-types.page').then((m) => m.LeaveTypesPage) },
+  { path: 'holidays', canMatch: [permissionGuard('hr.leave.read')], loadComponent: () => import('./holidays.page').then((m) => m.HolidaysPage) },
   { path: 'payroll/:id', canMatch: [permissionGuard('hr.payroll.read')], loadComponent: () => import('./payroll-detail.page').then((m) => m.PayrollDetailPage) },
 ];

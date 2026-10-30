@@ -38,6 +38,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<LegalEntity> LegalEntities => Set<LegalEntity>();
     public DbSet<BusinessUnit> BusinessUnits => Set<BusinessUnit>();
+    public DbSet<PartyGroup> PartyGroups => Set<PartyGroup>();
     public DbSet<OrganizationModule> OrganizationModules => Set<OrganizationModule>();
     public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
     public new DbSet<Role> Roles => Set<Role>();
@@ -137,6 +138,8 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         {
             b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique();
             b.HasIndex(x => new { x.OrgId, x.Name });
+            b.HasIndex(x => new { x.OrgId, x.PartyGroupId });
+            b.HasOne<PartyGroup>().WithMany().HasForeignKey(x => x.PartyGroupId).OnDelete(DeleteBehavior.NoAction);
             b.Property(x => x.Name).HasMaxLength(200).IsRequired();
         });
         mb.Entity<Item>(b => b.HasIndex(x => new { x.OrgId, x.Sku }).IsUnique());
@@ -147,7 +150,14 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Property(x => x.Rate).HasPrecision(18, 8);
         });
         mb.Entity<TaxCode>(b => { b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Code }).IsUnique(); b.Property(x => x.Rate).HasPrecision(9, 4); });
-        mb.Entity<Account>(b => { b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique(); b.Property(x => x.Code).HasMaxLength(20); });
+        // Unique among live rows only, so the code of a deleted account can be used again.
+        mb.Entity<Account>(b => { b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0"); b.Property(x => x.Code).HasMaxLength(20); });
+        mb.Entity<PartyGroup>(b =>
+        {
+            b.Property(x => x.Code).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+        });
         mb.Entity<JournalEntry>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();
@@ -164,7 +174,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.FiscalYear });
         });
         mb.Entity<BudgetLine>(b => { b.Property(x => x.Amount).HasPrecision(19, 4); b.HasIndex(x => new { x.BudgetId, x.AccountId, x.Month }).IsUnique(); });
-        mb.Entity<PaymentInstrument>(b => b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique());
+        mb.Entity<PaymentInstrument>(b => { b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique(); b.Property(x => x.FollowUpNote).HasMaxLength(500); });
         mb.Entity<Invoice>(b =>
         {
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique();

@@ -15,6 +15,9 @@ public sealed class PakistanCountryPack : ICountryPack
     public string DefaultCurrency => "PKR";
     public string DefaultTimeZone => "Asia/Karachi";
 
+    public TaxReturnDefinition? TaxReturn => PakistanTaxReturn.Definition;
+    public IReadOnlyList<InvoiceField> InvoiceRequiredFields { get; } = [InvoiceField.SellerTaxNumber, InvoiceField.CustomerTaxNumber];
+
     public IReadOnlyList<TaxTemplate> Taxes { get; } =
     [
         new("GST18", "Sales tax 18%", TaxKind.SalesTax, 18m, true),

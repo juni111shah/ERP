@@ -104,7 +104,7 @@ Status legend: **Complete** = built, merged, builds/tests green; **Partial** = u
 | AP: bills, payments | Complete | `BillFeatures.cs`, `PaymentFeatures.cs`, `pages/admin/bills.page.ts`, `payments.page.ts` | Bill due date from vendor terms (#53) |
 | Cheques / PDC, bank | Complete | `ChequeFeatures.cs`, `pages/admin/cheques.page.ts`, `bank.page.ts` | Cheque details + PDC badge on prints (66385aa) |
 | Printing | Complete | `ERP.Application/Printing/PrintFeatures.cs`, `pages/print.page.ts` | Party-name fallback, Unapplied/On account rows, credit-note original invoice |
-| Budgets, approvals, audit, attachments, documents, messages, imports | Complete (unverified depth) | `pages/admin/budgets|approvals|approval-rules|audit|documents|messages|import.page.ts` | Email sending: SMTP optional, off by default; some Email buttons still stubs (SQA L-2) |
+| Budgets, approvals, audit, attachments, documents, messages, imports | Complete (unverified depth) | `pages/admin/budgets|approvals|approval-rules|audit|documents|messages|import.page.ts` | Email sending: SMTP optional, off by default; document emailing is real since #71 (never tried against a live SMTP server) |
 | Custom fields | Complete | `ERP.Application/Customization`, `pages/custom-fields.page.ts` | JSON column per extensible table |
 | Reports | Partial | `pages/reports/report-registry.ts`, `report.page.ts`, `pages/admin/ledger-reports.page.ts` | Trial balance etc.; ageing by dimension is BA P1 (5.4) |
 | Overview dashboard + stat cards | Partial | `pages/dashboard.page.ts` (Executive Highlights: `.hero-kpis-grid` / `.kpi-card`) | **Unification in progress** (5.2) |
@@ -142,7 +142,7 @@ Migrations 21-26 are the "schema M1-M6" set (commit 7a97a05).
 
 # 4. Completed work log
 
-## 4.1 Pull requests #46 to #62 (all squash-merged into main)
+## 4.1 Pull requests #46 to #78 (all squash-merged into main)
 
 | PR | Commit | Summary |
 |---|---|---|
@@ -162,6 +162,13 @@ Migrations 21-26 are the "schema M1-M6" set (commit 7a97a05).
 | [#60](https://github.com/juni111shah/ERP/pull/60) | db19f90 | Hierarchical CoA numbering (Option A) + SQA H-1, M-A, M-B (partial) |
 | [#61](https://github.com/juni111shah/ERP/pull/61) | 8adb557 | Record history tab, AR ageing by business unit/source, expand-search header search |
 | [#62](https://github.com/juni111shah/ERP/pull/62) | 2f20813 | Unified `erp-stat-card`, skeleton loading, locale-aware numbers |
+| [#71](https://github.com/juni111shah/ERP/pull/71) | 78c57e9 | Real document emailing (invoice, receipt, bill, payment, party statement) via `IEmailSender`, `core.email.send`, logged in the message log; replaces the modal that only called `/messages/test-email` |
+| [#72](https://github.com/juni111shah/ERP/pull/72) | 36c572a | Inventory: stock counts, valuation/movement/slow-moving/reorder reports, warehouse edit, audit fixes, search, low-stock reminder. Migration `InventoryCounts` + `0021_InventoryCounts.sql` (not applied to any DB) |
+| [#73](https://github.com/juni111shah/ERP/pull/73) | 8c3ec67 | Country-pack tax returns (AE VAT201, SA, GB VAT100, IN GSTR-3B, PK, US) + non-blocking invoice tax-number warnings; no schema change |
+| [#74](https://github.com/juni111shah/ERP/pull/74) | a8de899 | HR leave management (types, balances, requests, holidays, attendance/payroll feed). Migration `HrLeave` + `0022_HrLeave.sql` (not applied to any DB) |
+| [#76](https://github.com/juni111shah/ERP/pull/76) | 2e265e8 | Owner cost basis: work order ChargeableTo / OwnerSharePercent / BillId; owner statement uses bill-linked cost and the owner's share. Migration `OwnerCostBasis` + `0023_OwnerCostBasis.sql` (not applied to any DB) |
+| [#77](https://github.com/juni111shah/ERP/pull/77) | ba0c341 | Cheque bounce follow-up (RE-PM-08) and replacement re-link (RE-PM-09): BouncedOn, FollowUpOn, FollowUpNote; reminder 3 days after a bounce with no follow-up. Migration `ChequeBounceFollowUp` + `0024_ChequeBounceFollowUp.sql` (not applied to any DB) |
+| [#78](https://github.com/juni111shah/ERP/pull/78) | (see git log) | Party groups (`PartyGroups`, `Parties.PartyGroupId`, ageing by party group) and reuse of soft-deleted account codes (filtered unique index). Migration `PartyGroupsAndCodeReuse` + `0025_PartyGroupsAndCodeReuse.sql` (not applied to any DB) |
 
 Earlier relevant commits on main: 7fe89dd (#44, manual-only journal reversal), 208acd3 (#45, SQA UI fixes), 7df8788 (void reasons in audit log, credit notes linked to invoices, new permissions, reverse guard, print fallbacks, unapplied allocations), 7a97a05 (schema M1-M6), 29362d9 (dev/staging/production pipeline).
 
@@ -190,7 +197,10 @@ Owner and coordinator: unless stated, the specialist agent prepares a patch or b
 - Shared `erp-stat-card` (`shared/stat-card.component.ts`, `theme/_stat-card.scss`, `.erp-stat-grid`) with ng-zorro skeleton loading, EN/AR + RTL, bdi-isolated numbers. Used by the Overview (hero, compact and full grids; stale dashboard responses are cancelled), invoices, cheques, budgets, report summaries, shared detail pages (invoice, bill, receipt, payment, journal, party), acquisitions, lease/property detail, renewals and inventory stock. `LOCALE_ID` follows the saved language; `I18nService.date()` added.
 - Verified with `tools/smoke-stat-cards.mjs` (12/12) against a **mocked API** (the real API needs SQL Server, which the sandbox lacks); please check against `ERP_Dev` on the PC. Pages with no stat cards of their own (billing results, payroll detail, HR pages) were not converted.
 
-## 5.3 DB schema migrations (pm-schema) - PENDING owner approval
+## 5.3 DB schema migrations (pm-schema) - PENDING (needs `pm-schema-proposal.md`; not available to the AI agent that did #60-#74)
+
+- Migrations 27-31 (`InventoryCounts`, `HrLeave`, `OwnerCostBasis`, `ChequeBounceFollowUp`, `PartyGroupsAndCodeReuse`; scripts 0021-0025) exist in the repo and are **not applied to `ERP_Dev`**; apply only after a backup and owner approval.
+- Not started (no agent could read the proposal; PartyGroups itself now exists from #78): CoreFx, CorePenaltiesDunning, CoreReasonsAuditInstruments, CoreCustomerDeposits, CoreInstalmentPlans, RealEstatePm, deposit backfill. The BA P1 stories are now all done (RE-PM-42 and RE-PM-30 in #61, RE-PM-08/09 in #77, RE-PM-20/21/22 in #76) and so are party groups and soft-deleted account code reuse (#78).
 
 - **Owner:** DB Expert (prepares EF migrations); Grok Bot builds, merges, then applies to `ERP_Dev` **only after Muhammad approves** and after a backup.
 - **Sources:** `/workspace/erp-team/db/pm-schema-proposal.md` (status: PROPOSAL, nothing applied), SQL drafts `/workspace/erp-team/db/pm-sql/01_core_fx.sql` ... `99_smoke_test.sql` (guarded to run only on `*_Scratch` databases).
@@ -198,7 +208,7 @@ Owner and coordinator: unless stated, the specialist agent prepares a patch or b
 - **Next steps:** owner reviews the 10 BA recommendations in the proposal; DB Expert converts approved steps into EF migrations in `ERP.Infrastructure/Persistence/Migrations` + matching `database/scripts`; build/test; PR; apply to backed-up `ERP_Dev`.
 - **Acceptance criteria:** migrations are additive, existing rows stay valid, backfill report shows 0/0 mismatches, all tests pass, denylist test passes (core has no industry words), owner sign-off recorded.
 
-## 5.4 Business analyst P1 stories - PARTLY DONE (record history + ageing: PR #61)
+## 5.4 Business analyst P1 stories - DONE (#61, #76, #77, #78)
 
 Source: `/workspace/erp-team/ba/pm-workflows-gap.md` (section 14 "Top P1 stories"). Mapping of short names to story IDs below is best-effort **(unverified)**.
 
@@ -260,7 +270,7 @@ Next steps: each owner delivers a patch (`git diff --binary origin/main..HEAD`) 
 - Journals and budget lines reference accounts by `AccountId`, not code, so code changes do not break postings.
 - The box (Linux) has no SQL Server; integration tests that need SQL Server or the running app must be run on the PC (unverified whether the box has a dotnet SDK at any moment; it varies).
 - `/workspace/erp` on the box is used by in-progress work; use a separate `git worktree` for new tasks.
-- Email buttons partly stubbed; SMTP off by default.
+- SMTP off by default; document emailing works through `IEmailSender` (#71) but has not been tried against a live SMTP server.
 
 # 7. How to pick up a task
 

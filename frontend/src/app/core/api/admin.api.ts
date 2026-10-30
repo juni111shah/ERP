@@ -33,6 +33,7 @@ export interface LegalEntityDto {
   id: string; code: string; name: string; legalName?: string; countryCode: string; baseCurrency: string; taxRegistrationNo?: string; isTaxRegistered: boolean;
   registrationNo?: string; address?: string; email?: string; phone?: string; booksLockedTo?: string; isActive: boolean; customFields: CustomFields;
 }
+export interface PartyGroupDto { id: string; code: string; name: string; isActive: boolean; }
 export interface BusinessUnitDto { id: string; legalEntityId: string; code: string; name: string; address?: string; isActive: boolean; customFields: CustomFields; }
 export interface RoleDto { id: string; name: string; description?: string; isBuiltIn: boolean; moduleKey?: string; permissions: string[]; }
 export interface PermissionDefinition { key: string; module: string; resource: string; action: string; description: string; }
@@ -124,6 +125,9 @@ export class LegalEntitiesApi extends CrudApiService<LegalEntityDto, unknown> {
 export class BusinessUnitsApi extends CrudApiService<BusinessUnitDto, unknown> { protected readonly resource = 'business-units'; }
 
 @Injectable({ providedIn: 'root' })
+export class PartyGroupsApi extends CrudApiService<PartyGroupDto, unknown> { protected readonly resource = 'party-groups'; }
+
+@Injectable({ providedIn: 'root' })
 export class RolesApi extends CrudApiService<RoleDto, unknown> {
   protected readonly resource = 'roles';
   permissions(): Observable<PermissionDefinition[]> { return this.http.get<PermissionDefinition[]>(`${this.baseUrl}/permissions`); }
@@ -205,7 +209,7 @@ export class LedgerReportsApi {
   generalLedger(p: { accountId: string; from?: string; to: string; legalEntityId?: string }): Observable<GeneralLedger> { return this.http.get<GeneralLedger>(`${this.base}/general-ledger`, { params: this.params(p) }); }
   incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
   balanceSheet(p: { asOf: string; legalEntityId?: string }): Observable<BalanceSheet> { return this.http.get<BalanceSheet>(`${this.base}/balance-sheet`, { params: this.params(p) }); }
-  arAgeing(p: { asOf: string; legalEntityId?: string; businessUnitId?: string; sourceType?: string; groupBy?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
+  arAgeing(p: { asOf: string; legalEntityId?: string; businessUnitId?: string; sourceType?: string; groupBy?: string; partyGroupId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
   apAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ap-ageing`, { params: this.params(p) }); }
 }
 
@@ -213,7 +217,7 @@ export class LedgerReportsApi {
 
 export interface InvoiceLine { id?: string; seq?: number; itemId?: string; description: string; quantity: number; price: number; taxCodeId?: string; taxAmount?: number; net?: number; accountId?: string; }
 export interface InvoiceSummary { id: string; number: string; isCreditNote: boolean; partyId: string; partyName?: string; invoiceDate: string; dueDate: string; total: number; paid: number; outstanding: number; status: string; currencyCode: string; net?: number; tax?: number; sourceType?: string | null; }
-export interface InvoiceDto extends InvoiceSummary { legalEntityId: string; net: number; tax: number; sourceType?: string | null; sourceId?: string; journalEntryId?: string; notes?: string; lines: InvoiceLine[]; }
+export interface InvoiceDto extends InvoiceSummary { legalEntityId: string; net: number; tax: number; sourceType?: string | null; sourceId?: string; journalEntryId?: string; notes?: string; lines: InvoiceLine[]; warnings?: string[]; }
 export interface AllocationLine { id: string; invoiceId: string; invoiceNumber: string; amount: number; }
 export interface ReceiptSummary { id: string; number: string; partyId: string; partyName?: string; date: string; method: string; amount: number; unallocated: number; status: string; currencyCode: string; }
 export interface ReceiptDto extends ReceiptSummary { legalEntityId: string; bankAccountId?: string; reference?: string; journalEntryId?: string; allocations: AllocationLine[]; }
@@ -250,9 +254,9 @@ export class ReceiptsApi extends CrudApiService<ReceiptSummary, unknown> {
 
 // ---- Cheque register ---------------------------------------------------------------------------------------------------------
 
-export interface ChequeRow { id: string; number: string; kind: string; direction: string; instrumentNo: string; bankName?: string; partyId?: string; partyName?: string; amount: number; instrumentDate: string; status: string; currencyCode: string; }
+export interface ChequeRow { id: string; number: string; kind: string; direction: string; instrumentNo: string; bankName?: string; partyId?: string; partyName?: string; amount: number; instrumentDate: string; status: string; currencyCode: string; bouncedOn?: string; followUpOn?: string; }
 export interface ChequeDto extends ChequeRow {
-  legalEntityId: string; receivedOn?: string; bankAccountId?: string; settlementId?: string; depositedOn?: string; clearedOn?: string; bounceReason?: string; replacesInstrumentId?: string; notes?: string;
+  legalEntityId: string; receivedOn?: string; bankAccountId?: string; settlementId?: string; depositedOn?: string; clearedOn?: string; bounceReason?: string; replacesInstrumentId?: string; notes?: string; bouncedOn?: string; followUpOn?: string; followUpNote?: string; replacedByChequeId?: string;
   allocations: AllocationLine[];
 }
 export interface ChequeSummary { inCustodyTotal: number; inCustodyCount: number; maturedTotal: number; maturedCount: number; next7DaysTotal: number; next30DaysTotal: number; depositedTotal: number; bouncedCount: number; }
@@ -269,6 +273,7 @@ export class ChequesApi extends CrudApiService<ChequeRow, unknown> {
   cancel(id: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/cancel`, {}); }
   deposit(id: string, bankAccountId: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/deposit`, { bankAccountId, date }); }
   clear(id: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/clear`, { date }); }
+  followUp(id: string, note: string, date: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/follow-up`, { note, date }); }
   bounce(id: string, date: string, reason: string): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/bounce`, { date, reason }); }
   replace(id: string, body: unknown): Observable<ChequeDto> { return this.http.post<ChequeDto>(`${this.url}/${id}/replace`, body); }
 }

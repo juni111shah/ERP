@@ -31,6 +31,7 @@ public static class CoreMenu
         
         // Master Data group
         new("core.parties", "All parties", "/parties", "team", CorePermissions.PartiesRead, 10, "masterdata", "Master Data", 60),
+        new("core.partygroups", "Party groups", "/admin/party-groups", "team", CorePermissions.PartyGroupsRead, 15, "masterdata", "Master Data", 60),
         new("core.items", "Items", "/catalog/items", "shopping", CorePermissions.ItemsRead, 20, "masterdata", "Master Data", 60),
         
         // Setup group

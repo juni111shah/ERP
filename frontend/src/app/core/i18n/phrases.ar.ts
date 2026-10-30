@@ -919,6 +919,40 @@ const PAIRS: [string, string][] = [
   ['Draft renewals', 'تجديدات مسودة'], ['item / warehouse', 'صنف / مستودع'], ['Balance Due', 'الرصيد المستحق'], ['Days Overdue', 'أيام التأخير'],
   ['Group by customer', 'تجميع حسب العميل'], ['Group by business unit', 'تجميع حسب وحدة العمل'], ['Group by source', 'تجميع حسب المصدر'], ['All business units', 'كل وحدات العمل'], ['Source type (optional)', 'نوع المصدر (اختياري)'],
   ['Business unit', 'وحدة العمل'], ['Source', 'المصدر'], ['Direct invoices', 'فواتير مباشرة'], ['No business unit', 'بدون وحدة عمل'],
+  // leave management
+  ['Leave requests', 'طلبات الإجازة'], ['Leave balances', 'أرصدة الإجازات'], ['Leave types', 'أنواع الإجازات'], ['Public holidays', 'العطل الرسمية'],
+  ['Leave request', 'طلب إجازة'], ['New leave request', 'طلب إجازة جديد'], ['New request', 'طلب جديد'], ['No leave requests yet', 'لا توجد طلبات إجازة بعد'],
+  ['Search employee or reason', 'ابحث عن الموظف أو السبب'], ['Leave type', 'نوع الإجازة'], ['Save draft', 'حفظ كمسودة'], ['Submit', 'إرسال'], ['Approve', 'اعتماد'], ['Reject', 'رفض'],
+  ['Cancel request', 'إلغاء الطلب'], ['Reason', 'السبب'], ['Request submitted', 'تم إرسال الطلب'], ['Draft saved', 'تم حفظ المسودة'], ['Request approved', 'تم اعتماد الطلب'],
+  ['Request rejected', 'تم رفض الطلب'], ['Request cancelled', 'تم إلغاء الطلب'], ['Draft', 'مسودة'], ['Submitted', 'مُرسل'], ['Approved', 'معتمد'], ['Rejected', 'مرفوض'], ['Cancelled', 'ملغى'],
+  ['Choose the employee, leave type and dates', 'اختر الموظف ونوع الإجازة والتواريخ'], ['Comment for the decision (optional)', 'تعليق على القرار (اختياري)'],
+  ['working day(s) (weekends and public holidays are not counted)', 'يوم عمل (لا تُحسب عطلات نهاية الأسبوع والعطل الرسمية)'],
+  ['Edit leave type', 'تعديل نوع الإجازة'], ['New leave type', 'نوع إجازة جديد'], ['No leave types yet', 'لا توجد أنواع إجازات بعد'], ['Search leave types', 'ابحث في أنواع الإجازات'],
+  ['Paid leave', 'إجازة مدفوعة'], ['Paid', 'مدفوعة'], ['Unpaid', 'غير مدفوعة'], ['Days a year', 'أيام في السنة'], ['No limit', 'بلا حد'], ['Carry forward', 'ترحيل'],
+  ['Carry forward (max days)', 'الترحيل (الحد الأقصى بالأيام)'], ['Needs approval', 'يتطلب اعتماداً'], ['Needed', 'مطلوب'], ['Automatic', 'تلقائي'], ['Approval', 'الاعتماد'],
+  ['Unpaid leave is deducted from salary like an unpaid absence.', 'تُخصم الإجازة غير المدفوعة من الراتب مثل الغياب بدون أجر.'], ['0 = no yearly limit.', '0 = بلا حد سنوي.'],
+  ['Edit holiday', 'تعديل عطلة'], ['New holiday', 'عطلة جديدة'], ['No public holidays yet', 'لا توجد عطل رسمية بعد'], ['Search holidays', 'ابحث في العطل'],
+  ['Year', 'السنة'], ['Entitled', 'المستحق'], ['Carried', 'المرحّل'], ['Taken', 'المستخدم'], ['Pending', 'قيد الانتظار'], ['Remaining', 'المتبقي'],
+  ['No leave balances for this year yet.', 'لا توجد أرصدة إجازات لهذه السنة بعد.'], ['Approved leave', 'الإجازات المعتمدة'], ['Leave requests pending', 'طلبات إجازة بانتظار القرار'],
+  ['waiting for a decision', 'بانتظار القرار'], ['Leave request to approve', 'طلب إجازة بانتظار الاعتماد'], ['Weekend days (not counted as leave)', 'أيام عطلة نهاية الأسبوع (لا تُحسب إجازة)'],
+  // tax return (country packs)
+  ['Tax return', 'الإقرار الضريبي'], ['The periodic tax return of one legal entity, laid out by its country (VAT 201, VAT100, GSTR-3B...). Choose the legal entity in the header first.', 'الإقرار الضريبي الدوري لكيان قانوني واحد بحسب تصميم بلده (نموذج 201، VAT100، GSTR-3B...). اختر الكيان القانوني من الأعلى أولاً.'],
+  ['Box', 'الخانة'], ['Return', 'الإقرار'], 
+  ['Choose a legal entity: its country decides the return layout.', 'اختر كياناً قانونياً: بلده يحدد تصميم الإقرار.'],
+  // inventory depth
+  ['Stock counts', 'جرد المخزون'], ['New count', 'جرد جديد'], ['New stock count', 'جرد مخزون جديد'], ['No stock counts yet', 'لا توجد عمليات جرد بعد'], ['Search count number or memo', 'ابحث برقم الجرد أو الملاحظة'],
+  ['Count date', 'تاريخ الجرد'], ['Items', 'الأصناف'], ['Stock count', 'جرد المخزون'], ['Save counts', 'حفظ الكميات'], ['Post differences', 'ترحيل الفروقات'], ['Cancel count', 'إلغاء الجرد'],
+  ['System', 'النظام'], ['Counted', 'المعدود'], ['Difference', 'الفرق'], ['Counts saved', 'تم حفظ الكميات'], ['Count posted', 'تم ترحيل الجرد'], ['Count cancelled', 'تم إلغاء الجرد'],
+  ['Post the differences?', 'ترحيل الفروقات؟'], ['One stock adjustment is booked for every item whose counted quantity differs from the system. This cannot be undone.', 'يتم قيد تسوية مخزون لكل صنف تختلف كميته المعدودة عن النظام. لا يمكن التراجع.'],
+  ['Could not save the counts', 'تعذر حفظ الكميات'], ['Could not post the count', 'تعذر ترحيل الجرد'], ['Could not cancel', 'تعذر الإلغاء'],
+  ['This warehouse holds no stock. Use "Save counts" after adding an item below.', 'هذا المستودع لا يحتوي على مخزون.'], ['Edit warehouse', 'تعديل المستودع'],
+  ['Exact reference (e.g. CNT-00001)', 'المرجع بالضبط (مثال CNT-00001)'], ['Stock valuation', 'تقييم المخزون'], ['Stock movement summary', 'ملخص حركة المخزون'], ['Slow-moving stock', 'مخزون بطيء الحركة'],
+  ['Reorder suggestions', 'اقتراحات إعادة الطلب'], ['Quantity, average cost and value of stock per warehouse and item at the end of the chosen date.', 'الكمية ومتوسط التكلفة وقيمة المخزون لكل مستودع وصنف في نهاية التاريخ المحدد.'],
+  ['Opening, receipts, issues, adjustments and closing quantity per item for a period. Transfers net to zero and are left out.', 'الرصيد الافتتاحي والاستلام والصرف والتسويات والرصيد الختامي لكل صنف خلال فترة. التحويلات تُلغي بعضها ولا تظهر.'],
+  ['Items still in stock with no movement for the chosen number of days.', 'أصناف ما زالت في المخزون دون حركة خلال عدد الأيام المحدد.'], ['Items at or below their reorder level, with a suggested order quantity.', 'أصناف عند مستوى إعادة الطلب أو أقل منه مع كمية الطلب المقترحة.'],
+  ['Average cost', 'متوسط التكلفة'], ['Opening', 'افتتاحي'], ['Receipts', 'الاستلام'], ['Issues', 'الصرف'], ['Adjustments', 'التسويات'], ['Closing', 'ختامي'], ['Closing value', 'القيمة الختامية'],
+  ['Last movement', 'آخر حركة'], ['Days idle', 'أيام الخمول'], ['days idle', 'أيام خمول'], ['On hand', 'المتاح'], ['Reorder level', 'مستوى إعادة الطلب'], ['Reorder quantity', 'كمية إعادة الطلب'], ['Suggested order', 'الطلب المقترح'], ['Total stock value', 'إجمالي قيمة المخزون'],
+  ['Send by email', 'إرسال بالبريد الإلكتروني'], ['Message (optional)', 'رسالة (اختياري)'], ["Leave empty to use the party's email address.", 'اتركه فارغاً لاستخدام البريد الإلكتروني للطرف.'],
   // Sales module
   ['Sales', 'المبيعات'], ['Quotes', 'عروض الأسعار'], ['Sales orders', 'أوامر البيع'], ['Sales analytics', 'تحليلات المبيعات'],
   ['Sales Quotes', 'عروض أسعار المبيعات'], ['Sales Orders', 'أوامر البيع'], ['New Quote', 'عرض سعر جديد'], ['New Sales Order', 'أمر بيع جديد'],
@@ -970,6 +1004,22 @@ const PAIRS: [string, string][] = [
   ['Active Engagements', 'المشاريع الاستشارية النشطة'], ['Retainer MRR', 'الإيراد الشهري المتكرر للاستبقاء'],
   ['Ready to Invoice', 'جاهز للفوترة'], ['Total Contract Value', 'إجمالي قيمة العقود'],
   ['Billable Ratio', 'نسبة الساعات القابلة للفوترة'], ['Total Logged Time', 'إجمالي ساعات العمل المسجلة'],
+  // party groups
+  ['Party groups', 'مجموعات الأطراف'], ['Party group', 'مجموعة الأطراف'], ['New party group', 'مجموعة أطراف جديدة'], ['Edit party group', 'تعديل مجموعة الأطراف'],
+  ['No party groups yet', 'لا توجد مجموعات أطراف بعد'], ['All party groups', 'جميع مجموعات الأطراف'], ['No group', 'بدون مجموعة'],
+  ['Group by party group', 'تجميع حسب مجموعة الأطراف'], ['Search code or name', 'ابحث بالرمز أو الاسم'], ['Party group not found.', 'مجموعة الأطراف غير موجودة.'],
+  // cheque bounce follow-up
+  ['Follow-up due', 'المتابعة مستحقة'], ['Followed up', 'تمت المتابعة'], ['Log follow-up', 'تسجيل متابعة'], ['Bounced on', 'تاريخ الارتداد'], ['Followed up on', 'تمت المتابعة بتاريخ'],
+  ['Replaces an earlier cheque that bounced', 'بديل لشيك سابق مرتد'], ['Replaced by a new cheque', 'تم استبداله بشيك جديد'],
+  ['What was agreed with the customer?', 'ما الذي تم الاتفاق عليه مع العميل؟'], ['Enter the follow-up note', 'أدخل ملاحظة المتابعة'], ['Follow-up logged', 'تم تسجيل المتابعة'],
+  // owner cost basis
+  ['Cost basis', 'أساس التكلفة'], ['Chargeable to', 'يتحمّل التكلفة'], ['Owner share %', 'حصة المالك %'], ['Shared with the owner', 'مشتركة مع المالك'],
+  ['Only for shared costs.', 'للتكاليف المشتركة فقط.'],
+  ['Leave empty for the default: the owner of a managed property, otherwise the company.', 'اتركه فارغاً للقيمة الافتراضية: المالك للعقار المُدار، وإلا الشركة.'],
+  ['When linked, the actual cost is the net amount of the bill (split across the work orders linked to it).', 'عند الربط تصبح التكلفة الفعلية هي صافي مبلغ الفاتورة (موزّعة على أوامر العمل المرتبطة بها).'],
+  ['Cost basis saved', 'تم حفظ أساس التكلفة'], ['Could not save the cost basis', 'تعذّر حفظ أساس التكلفة'],
+  ['Maintenance jobs in the period', 'أعمال الصيانة خلال الفترة'], ['Completed on', 'تاريخ الإنجاز'], ['Cost from', 'مصدر التكلفة'], ['Borne by', 'يتحملها'],
+  ['Owner pays', 'يدفع المالك'], ['Charged to tenant', 'محمّل على المستأجر'], ['Charged to tenants (memo, not deducted)', 'محمّل على المستأجرين (للعلم، غير مخصوم)'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

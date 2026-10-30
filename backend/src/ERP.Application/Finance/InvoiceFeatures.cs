@@ -16,7 +16,7 @@ public sealed record InvoiceLineDto(Guid Id, int Seq, Guid? ItemId, string Descr
 public sealed record InvoiceDto(
     Guid Id, string Number, bool IsCreditNote, Guid LegalEntityId, Guid PartyId, string? PartyName, DateOnly InvoiceDate, DateOnly DueDate, string CurrencyCode, decimal Net, decimal Tax,
     decimal Total, decimal Paid, DocumentStatus Status, string? SourceType, Guid? SourceId, Guid? JournalEntryId, string? Notes, IReadOnlyList<InvoiceLineDto> Lines,
-    Guid? CreditNoteForId = null, string? VoidReason = null, DateTime? VoidedAt = null)
+    Guid? CreditNoteForId = null, string? VoidReason = null, DateTime? VoidedAt = null, IReadOnlyList<string>? Warnings = null)
 {
     public decimal Outstanding => Total - Paid;
     public static InvoiceDto From(Invoice i) => new(
@@ -94,7 +94,8 @@ public sealed class UpdateInvoiceValidator : AbstractValidator<UpdateInvoice> { 
 public sealed class ApplyCreditNoteValidator : AbstractValidator<ApplyCreditNote> { public ApplyCreditNoteValidator() => RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney(); }
 
 internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository<InvoiceLine> lineRows, IInvoicingService invoicing, IClock clock,
-    IRepository<AuditEvent> audit, ICurrentUser user, IRepository<CreditApplication> creditApplications, IPublisher publisher) :
+    IRepository<AuditEvent> audit, ICurrentUser user, IRepository<CreditApplication> creditApplications, IPublisher publisher,
+    IReadRepository<ERP.Domain.Organizations.LegalEntity> legalEntities, IReadRepository<ERP.Domain.Parties.Party> parties, ERP.Application.Templates.CountryPackRegistry countryPacks) :
     IRequestHandler<GetInvoice, InvoiceDto>,
     IRequestHandler<CreateInvoice, InvoiceDto>,
     IRequestHandler<UpdateInvoice, InvoiceDto>,
@@ -144,7 +145,16 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         await EnsureWithinUncreditedAsync(invoice, ct);
         await invoicing.IssueAsync(invoice, ct);
         await invoices.SaveChangesAsync(ct);
-        return InvoiceDto.From(invoice);
+        return InvoiceDto.From(invoice) with { Warnings = await RequirementWarningsAsync(invoice, ct) };
+    }
+
+    /// <summary>What the country pack expects on a tax invoice and is missing; informational only.</summary>
+    private async Task<IReadOnlyList<string>> RequirementWarningsAsync(Invoice invoice, CancellationToken ct)
+    {
+        var entity = await legalEntities.FindAsync(invoice.LegalEntityId, ct);
+        if (entity is null) return [];
+        var customer = await parties.FindAsync(invoice.PartyId, ct);
+        return InvoiceRequirements.Warnings(countryPacks.Find(entity.CountryCode), entity, customer, invoice);
     }
 
     public async Task<InvoiceDto> Handle(VoidInvoice cmd, CancellationToken ct)

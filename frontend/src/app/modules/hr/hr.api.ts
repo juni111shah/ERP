@@ -15,7 +15,7 @@ export interface EmployeeDto {
 }
 export interface AttendanceRow {
   employeeId: string; employeeNumber: string; employeeName: string; designation: string; legalEntityId: string; recordId?: string; recorded: boolean; workingDays: number; daysPresent: number;
-  unpaidAbsentDays: number; paidLeaveDays: number; overtimeHours: number;
+  unpaidAbsentDays: number; paidLeaveDays: number; overtimeHours: number; leavePaidDays?: number; leaveUnpaidDays?: number;
 }
 export interface PayrollSummary { id: string; number: string; legalEntityId: string; year: number; month: number; status: string; employees: number; grossEarnings: number; deductions: number; netPay: number; paidOn?: string; }
 export interface PayrollLine {
@@ -79,4 +79,29 @@ export class ReviewsApi extends CrudApiService<ReviewRow, unknown> {
   save(id: string | null, body: unknown): Observable<ReviewDto> { return id ? this.http.put<ReviewDto>(`${this.url}/${id}`, body) : this.http.post<ReviewDto>(this.url, body); }
   submit(id: string): Observable<ReviewDto> { return this.http.post<ReviewDto>(`${this.url}/${id}/submit`, {}); }
   acknowledge(id: string): Observable<ReviewDto> { return this.http.post<ReviewDto>(`${this.url}/${id}/acknowledge`, {}); }
+}
+
+// ---- Leave ---------------------------------------------------------------------------------------------------------------
+
+export const LEAVE_STATUS_LABELS: Record<string, string> = { draft: 'Draft', submitted: 'Submitted', approved: 'Approved', rejected: 'Rejected', cancelled: 'Cancelled' };
+export interface LeaveTypeDto { id: string; code: string; name: string; isPaid: boolean; annualDays: number; carryForwardCap: number; requiresApproval: boolean; isActive: boolean; }
+export interface HolidayDto { id: string; date: string; name: string; }
+export interface LeaveRequestRow { id: string; employeeId: string; employeeName: string; leaveTypeId: string; fromDate: string; toDate: string; days: number; status: string; reason?: string; }
+export interface LeaveRequestDto extends LeaveRequestRow { leaveTypeName: string; isPaid: boolean; submittedAt?: string; decidedAt?: string; decisionComment?: string; }
+export interface LeaveBalanceRow { employeeId: string; employeeNumber: string; employeeName: string; leaveTypeId: string; leaveTypeCode: string; leaveTypeName: string; year: number; entitled: number; carried: number; taken: number; pending: number; remaining: number; }
+
+@Injectable({ providedIn: 'root' })
+export class LeaveTypesApi extends CrudApiService<LeaveTypeDto, unknown> { protected readonly resource = `${BASE}/leave-types`; }
+
+@Injectable({ providedIn: 'root' })
+export class HolidaysApi extends CrudApiService<HolidayDto, unknown> { protected readonly resource = `${BASE}/holidays`; }
+
+@Injectable({ providedIn: 'root' })
+export class LeaveApi extends CrudApiService<LeaveRequestRow, unknown> {
+  protected readonly resource = `${BASE}/leave`;
+  detail(id: string): Observable<LeaveRequestDto> { return this.http.get<LeaveRequestDto>(`${this.url}/${id}`); }
+  save(id: string | null, body: unknown): Observable<LeaveRequestDto> { return id ? this.http.put<LeaveRequestDto>(`${this.url}/${id}`, body) : this.http.post<LeaveRequestDto>(this.url, body); }
+  action(id: string, name: 'submit' | 'cancel' | 'approve' | 'reject', comment?: string): Observable<LeaveRequestDto> { return this.http.post<LeaveRequestDto>(`${this.url}/${id}/${name}`, { comment }); }
+  days(from: string, to: string): Observable<{ workingDays: number }> { return this.http.get<{ workingDays: number }>(`${this.url}/days`, { params: { from, to } }); }
+  balances(year: number): Observable<LeaveBalanceRow[]> { return this.http.get<LeaveBalanceRow[]>(`${this.url}/balances`, { params: { year } }); }
 }
