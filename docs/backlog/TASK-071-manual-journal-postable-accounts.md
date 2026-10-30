@@ -7,7 +7,7 @@ schema: no
 depends_on: []
 area: finance
 audit_ref: Claude analysis, Finance reports and period close
-commit: HASH
+commit: 74a6c7a
 ---
 
 ## Problem
