@@ -240,7 +240,7 @@ public static class ProgramSeeder
                     Email = "procurement@apexglobal.example.com",
                     Phone = "+974 4398 1234",
                     TaxNumber = "TC-482917",
-                    Address = "Sheikh Zayed Road, Latifa Tower Suite 1802, Doha, Qatar",
+                    Address = "Corniche Street, Doha Tower Suite 1802, West Bay, Doha, Qatar",
                     CurrencyCode = "QAR",
                     PaymentTermsDays = 30,
                     IsActive = true
@@ -254,7 +254,7 @@ public static class ProgramSeeder
                     Email = "supplychain@oasisretail.example.com",
                     Phone = "+974 4456 7890",
                     TaxNumber = "TC-389172",
-                    Address = "Al Quoz Industrial Area 3, Doha, Qatar",
+                    Address = "Industrial Area, Street 24, Doha, Qatar",
                     CurrencyCode = "QAR",
                     PaymentTermsDays = 30,
                     IsActive = true
@@ -265,7 +265,7 @@ public static class ProgramSeeder
                     Name = "Qatari Diar Investment Q.P.S.C.",
                     Kind = PartyKind.Company,
                     Roles = PartyRoles.Customer,
-                    Email = "investments@emaar.example.com",
+                    Email = "investments@qataridiar.example.com",
                     Phone = "+974 4367 3333",
                     TaxNumber = "TC-112233",
                     Address = "Msheireb Downtown Bldg 3, Doha, Qatar",
@@ -282,7 +282,7 @@ public static class ProgramSeeder
                     Email = "sales@techsupply.example.com",
                     Phone = "+974 4881 5566",
                     TaxNumber = "TC-492817",
-                    Address = "Jebel Ali Free Zone, South Zone, Warehouse 14B, Doha",
+                    Address = "Ras Bufontas Free Zone, Warehouse 14B, Doha",
                     CurrencyCode = "QAR",
                     PaymentTermsDays = 60,
                     IsActive = true
@@ -290,10 +290,10 @@ public static class ProgramSeeder
                 new Party
                 {
                     Code = "VEND-002",
-                    Name = "Al Futtaim Facilities Management W.L.L.",
+                    Name = "Al Mana Facilities Management W.L.L.",
                     Kind = PartyKind.Company,
                     Roles = PartyRoles.Vendor,
-                    Email = "service@alfuttaimfm.example.com",
+                    Email = "service@almanafm.example.com",
                     Phone = "+974 4213 1122",
                     TaxNumber = "TC-581920",
                     Address = "Lusail Marina, Tower 2, Floor 8, Doha",
@@ -310,7 +310,7 @@ public static class ProgramSeeder
                     Email = "customercare@kahramaa.com.qa",
                     Phone = "+974 4601 9999",
                     TaxNumber = "TC-000000",
-                    Address = "Near Wafi Mall, Zabeel East, Doha, Qatar",
+                    Address = "Near Mall of Qatar, Al Rayyan, Doha, Qatar",
                     CurrencyCode = "QAR",
                     PaymentTermsDays = 15,
                     IsActive = true
@@ -347,7 +347,7 @@ public static class ProgramSeeder
                     Roles = PartyRoles.Employee,
                     Email = "tariq@demo.local",
                     Phone = "+974 5233 4455",
-                    Address = "Al Barsha 2, Villa 18, Doha, Qatar",
+                    Address = "Al Waab, Villa 18, Doha, Qatar",
                     CurrencyCode = "QAR",
                     IsActive = true
                 },
@@ -675,7 +675,7 @@ public static class ProgramSeeder
                 LegalEntityId = legalEntityId,
                 Number = "BIL-2026-0002",
                 PartyId = vend2?.Id ?? Guid.NewGuid(),
-                PartyName = vend2?.Name ?? "Al Futtaim Facilities Management W.L.L.",
+                PartyName = vend2?.Name ?? "Al Mana Facilities Management W.L.L.",
                 VendorReference = "AF-FM-9021",
                 BillDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
                 DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(25)),
@@ -966,7 +966,7 @@ public static class ProgramSeeder
                         LegalEntityId = legalEntityId,
                         AccountId = bankAcc.Id,
                         Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)),
-                        Description = "POS SETTLEMENT DUBAI MALL TERMINAL BATCH 104",
+                        Description = "POS SETTLEMENT VILLAGGIO MALL TERMINAL BATCH 104",
                         Reference = "CR-POS-104",
                         Amount = 4650m,
                         Status = StatementLineStatus.Unmatched
@@ -1223,7 +1223,7 @@ public static class ProgramSeeder
                 ReportedOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-4)),
                 ReportedBy = "Tenant - Michael Schumacher",
                 VendorPartyId = vendorFm?.Id,
-                Technician = "Ravi Kumar (Al Futtaim FM)",
+                Technician = "Ravi Kumar (Al Mana FM)",
                 EstimatedCost = 3500m,
                 ActualCost = 3450m,
                 Details = "Chiller compressor low cooling gas alarm and vibration check",
@@ -1384,7 +1384,7 @@ public static class ProgramSeeder
                 PropertyId = prop1.Id,
                 SellerName = "Qatari Diar Real Estate Q.P.S.C.",
                 PurchaseDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-2)),
-                ContractReference = "EMAAR-SPA-2024-819",
+                ContractReference = "QD-SPA-2024-819",
                 PurchasePrice = 72000000m,
                 DownPayment = 18000000m,
                 TransferFees = 2880000m,
@@ -1402,7 +1402,7 @@ public static class ProgramSeeder
                 LegalEntityId = legalEntityId,
                 AcquisitionId = acq.Id,
                 Type = FundingType.BankMortgage,
-                Lender = "First Al Khor Bank (FAB Commercial Banking)",
+                Lender = "Qatar International Islamic Bank (QIIB Commercial Banking)",
                 Principal = 54000000m,
                 AnnualRatePercent = 4.5m,
                 TermMonths = 240,
@@ -1723,23 +1723,23 @@ public static class ProgramSeeder
                 new Warehouse
                 {
                     LegalEntityId = legalEntityId,
-                    Code = "WH-JAFZA",
-                    Name = "Central Freezone Distribution Center",
-                    Address = "Jebel Ali Free Zone, South Distribution Park, Unit 14B, Doha",
+                    Code = "WH-RASBUF",
+                    Name = "Ras Bufontas Free Zone Distribution Center",
+                    Address = "Logistics Village Qatar, Umm Alhoul, Unit 14B, Doha",
                     IsActive = true
                 },
                 new Warehouse
                 {
                     LegalEntityId = legalEntityId,
-                    Code = "WH-ALQUOZ",
-                    Name = "Al Quoz Operations & Spare Parts Depot",
-                    Address = "Al Quoz Industrial 3, Street 19, Warehouse 4, Doha",
+                    Code = "WH-INDUST",
+                    Name = "Industrial Area Operations & Spare Parts Depot",
+                    Address = "Industrial Area, Street 19, Warehouse 4, Doha",
                     IsActive = true
                 },
                 new Warehouse
                 {
                     LegalEntityId = legalEntityId,
-                    Code = "WH-DOWNTOWN",
+                    Code = "WH-WESTBAY",
                     Name = "West Bay Staging & Retail Stockroom",
                     Address = "The Villaggio Mall, Retail Staging Bay G-142, Doha",
                     IsActive = true
@@ -1748,8 +1748,8 @@ public static class ProgramSeeder
             await db.SaveChangesAsync(ct);
         }
 
-        var wh1 = await whSet.FirstOrDefaultAsync(w => w.Code == "WH-JAFZA", ct);
-        var wh2 = await whSet.FirstOrDefaultAsync(w => w.Code == "WH-ALQUOZ", ct);
+        var wh1 = await whSet.FirstOrDefaultAsync(w => w.Code == "WH-RASBUF", ct);
+        var wh2 = await whSet.FirstOrDefaultAsync(w => w.Code == "WH-INDUST", ct);
         var itemPos = await db.Items.FirstOrDefaultAsync(i => i.Sku == "POS-TERM-01", ct);
         var itemScan = await db.Items.FirstOrDefaultAsync(i => i.Sku == "POS-SCAN-2D", ct);
         var itemIot = await db.Items.FirstOrDefaultAsync(i => i.Sku == "HW-IOT-GW02", ct);
@@ -1805,7 +1805,7 @@ public static class ProgramSeeder
                     Quantity = 20,
                     UnitCost = 480m,
                     Reference = "TRF-WH-001",
-                    Memo = "Restock transferred to Al Quoz depot"
+                    Memo = "Restock transferred to Industrial Area depot"
                 }
             );
 
@@ -1878,7 +1878,7 @@ public static class ProgramSeeder
                 TaxTotal = 0m,
                 TotalAmount = 68500m,
                 PaymentTerms = "Net 30",
-                ShippingAddress = "Al Quoz Industrial Area 3, Doha, Qatar",
+                ShippingAddress = "Industrial Area, Street 24, Doha, Qatar",
                 Notes = "Deliver to central staging warehouse with calibration reports",
                 Lines = new List<SalesOrderLine>
                 {
@@ -1971,7 +1971,7 @@ public static class ProgramSeeder
                 TaxTotal = 0m,
                 TotalAmount = 42500m,
                 PaymentTerms = "Net 60",
-                DeliveryAddress = "Jebel Ali Free Zone, Warehouse Unit 14B, Doha",
+                DeliveryAddress = "Ras Bufontas Free Zone, Warehouse Unit 14B, Doha",
                 Notes = "Air freight shipment, customs clearance handled by vendor",
                 Lines = new List<PurchaseOrderLine>
                 {
@@ -3110,7 +3110,7 @@ public static class ProgramSeeder
                     Priority = RePriority.Normal,
                     ReportedOn = new DateOnly(year, month, Math.Min(8, daysInMonth)),
                     ReportedBy = "Facilities Monitoring System",
-                    Technician = "Ravi Kumar (Al Futtaim FM)",
+                    Technician = "Ravi Kumar (Al Mana FM)",
                     EstimatedCost = cost,
                     ActualCost = isPastMonth ? cost : 0m,
                     Details = $"Routine scheduled facilities servicing for {prop.Name}",

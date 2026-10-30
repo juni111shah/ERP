@@ -153,7 +153,7 @@ await step('brokerage deals', async () => {
   await call('POST', '/m/realestate/deals', { legalEntityId: entity, dealType: 'lease', clientName: 'Nadia Karim', dealDate: addDays(-5), dealValue: 95_000, commissionRatePercent: 5, propertyId: properties[1].id, agentPartyId: agents[1].id, agentSharePercent: 35 });
 });
 await step('acquisition with bank mortgage', async () => {
-  const prop = await call('POST', '/m/realestate/properties', { legalEntityId: entity, name: 'Skyline Plaza (new purchase)', propertyType: 'commercial', ownershipType: 'owned', region: 'Doha', community: 'DIFC', totalUnits: 0, indicativeValue: 12_000_000 });
+  const prop = await call('POST', '/m/realestate/properties', { legalEntityId: entity, name: 'Skyline Plaza (new purchase)', propertyType: 'commercial', ownershipType: 'owned', region: 'Doha', community: 'QFC', totalUnits: 0, indicativeValue: 12_000_000 });
   await call('POST', '/m/realestate/acquisitions', { legalEntityId: entity, propertyId: prop.id, sellerName: 'Qatari Diar Developments', purchaseDate: addDays(-10), contractReference: 'SPA-2026-118', purchasePrice: 12_000_000, downPayment: 2_400_000, transferFees: 480_000, otherCosts: 25_000, payFromAccountId: bank, funding: [{ type: 'bankMortgage', lender: 'Doha Bank Bank', principal: 7_200_000, annualRatePercent: 5.4, termMonths: 180, firstDueDate: addDays(30) }] });
 });
 

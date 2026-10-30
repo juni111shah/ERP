@@ -28,8 +28,20 @@ public static class DevSeeder
         var adminEmail = section["AdminEmail"] ?? "admin@demo.local";
         var onboarding = sp.GetRequiredService<OnboardingService>();
 
-        var demo = await onboarding.CreateWorkspaceAsync(new("Demo Workspace", "demo", "generic", "QA", "QAR", "Asia/Qatar", "Demo Trading W.L.L.", adminEmail, "Demo Administrator", password), ct);
-        var re = await onboarding.CreateWorkspaceAsync(new("Demo Properties", "demo-re", "realestate", "QA", "QAR", "Asia/Qatar", "Demo Properties W.L.L.", section["MultiWorkspaceEmail"] ?? "owner@demo.local", "Workspace Owner", password), ct);
+        var demo = await onboarding.CreateWorkspaceAsync(new("Demo Workspace", "demo", "generic", "QA", "QAR", "Asia/Qatar", "Al Rayyan Trading W.L.L.", adminEmail, "Demo Administrator", password), ct);
+        var re = await onboarding.CreateWorkspaceAsync(new("Demo Properties", "demo-re", "realestate", "QA", "QAR", "Asia/Qatar", "Lusail Properties W.L.L.", section["MultiWorkspaceEmail"] ?? "owner@demo.local", "Workspace Owner", password), ct);
+        // Qatar company details on the two demo legal entities (display name, registered name, CR number, address, contact).
+        var details = new[]
+        {
+            (demo.LegalEntityId, "Al Rayyan Trading W.L.L.", "CR-84215", "Corniche Street, Doha Tower, 18th Floor, West Bay, Doha, Qatar", "info@alrayyan-trading.example.com", "+974 4411 2200"),
+            (re.LegalEntityId, "Lusail Properties W.L.L.", "CR-73908", "Marina Promenade, Lusail City, Doha, Qatar", "info@lusail-properties.example.com", "+974 4412 3300"),
+        };
+        foreach (var (id, legalName, cr, address, email, phone) in details)
+        {
+            var entity = await db.LegalEntities.IgnoreQueryFilters().FirstAsync(e => e.Id == id, ct);
+            entity.LegalName = legalName; entity.RegistrationNo = cr; entity.Address = address; entity.Email = email; entity.Phone = phone;
+        }
+        await db.SaveChangesAsync(ct);
         // The owner also joins the generic workspace, to exercise the workspace picker.
         var users = sp.GetRequiredService<UserManager<AppUser>>();
         var orgCtx = sp.GetRequiredService<ERP.Application.Abstractions.IOrgContext>();
