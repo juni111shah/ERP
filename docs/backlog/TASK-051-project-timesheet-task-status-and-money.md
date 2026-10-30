@@ -7,7 +7,7 @@ schema: no
 depends_on: []
 area: projects
 audit_ref: Claude analysis, Projects and Services
-commit: HASH
+commit: a9ededb
 ---
 
 ## Problem
