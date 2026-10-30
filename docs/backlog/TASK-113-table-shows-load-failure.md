@@ -7,7 +7,7 @@ schema: no
 depends_on: []
 area: frontend-ux
 audit_ref: Claude analysis, UI/UX and accessibility
-commit: PENDING
+commit: bee7c76
 ---
 
 ## Problem
