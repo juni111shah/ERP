@@ -150,7 +150,8 @@ public class ProjectsBillingTests(ApiFactory f) : IClassFixture<ApiFactory>
         var s = await NewAsync();
         async Task<string> NewProject(string name, string status) => (string)(await Ok(await s.C.PostAsJsonAsync($"{Prj}/projects", new { legalEntityId = s.Entity, customerId = s.Customer, name, status, billingType = "TimeAndMaterials", budgetAmount = 1000m }), HttpStatusCode.Created))["id"]!;
         var busy = await NewProject("Busy " + Guid.NewGuid().ToString("N")[..5], "Active");
-        var idle = await NewProject("Idle " + Guid.NewGuid().ToString("N")[..5], "OnHold");
+        var idle = await NewProject("Idle " + Guid.NewGuid().ToString("N")[..5], "Active");
+        await Ok(await s.C.PutAsJsonAsync($"{Prj}/projects/{idle}/status", new { status = "OnHold" })); // a new project cannot start on hold
         foreach (var hours in new[] { 8m, 2m })
             await Ok(await s.C.PostAsJsonAsync($"{Prj}/timesheets", new { projectId = busy, date = "2026-06-01", workerName = "Alice", hours, hourlyRate = 100m, description = "Work", isBillable = true }), HttpStatusCode.Created);
 
