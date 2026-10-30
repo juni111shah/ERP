@@ -21,7 +21,8 @@ import { ItemsApi, LegalEntitiesApi, TaxCodesApi } from '../../core/api/admin.ap
 import { SessionStore } from '../../core/session/session.store';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
-import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
+import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
+import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
 import {
   CreatePosOrderCommand,
   PosOrderDto,
@@ -45,7 +46,7 @@ interface CartItem extends PosOrderLineInput {
   selector: 'erp-pos-terminal',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [KeyboardClickDirective, 
     CommonModule,
     DecimalPipe,
     FormsModule,
@@ -129,7 +130,7 @@ interface CartItem extends PosOrderLineInput {
 
           <div class="catalog-grid">
             @for (item of filteredCatalog(); track item.id) {
-              <div class="item-tile" (click)="addToCart(item)">
+              <div erpKeyboardClick class="item-tile" (click)="addToCart(item)">
                 <div class="item-tile-code">{{ item.code }}</div>
                 <div class="item-tile-title">{{ item.name }}</div>
                 <div class="item-tile-price">{{ currency() }} {{ item.price | number:'1.2-2' }}</div>
@@ -176,7 +177,7 @@ interface CartItem extends PosOrderLineInput {
 
                 <div class="line-total-col">
                   <strong>{{ currency() }} {{ line.lineTotal | number:'1.2-2' }}</strong>
-                  <span nz-icon nzType="delete" class="line-delete-btn" (click)="removeLine(i)"></span>
+                  <span erpKeyboardClick nz-icon nzType="delete" class="line-delete-btn" (click)="removeLine(i)"></span>
                 </div>
               </div>
             } @empty {

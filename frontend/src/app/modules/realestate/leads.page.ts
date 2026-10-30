@@ -19,7 +19,8 @@ import { StatusTagComponent } from './status-tag.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatCardComponent } from '../../shared/stat-card.component';
+import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
 
 const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', viewing: 'negotiating' };
 
@@ -28,7 +29,7 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
   selector: 'erp-leads',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, StatCardComponent],
+  imports: [KeyboardClickDirective, NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, StatCardComponent],
   styles: [`
     .pipeline-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
     .stage-chip {
@@ -78,7 +79,7 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
 
       <div class="pipeline-strip" data-testid="lead-pipeline">
         @for (s of p.stages; track s.stage) {
-          <div class="stage-chip" [class.active]="selectedStage() === s.stage" (click)="filterStage(selectedStage() === s.stage ? null : s.stage)">
+          <div erpKeyboardClick class="stage-chip" [class.active]="selectedStage() === s.stage" (click)="filterStage(selectedStage() === s.stage ? null : s.stage)">
             <span>{{ humanize(s.stage) }}:</span>
             <b>{{ s.count }}</b>
           </div>

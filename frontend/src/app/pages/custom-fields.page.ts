@@ -19,14 +19,15 @@ import { applyProblemDetailsToForm, asProblem, controlError } from '../core/http
 import { HasPermissionDirective } from '../shared/has-permission.directive';
 import { RevealDirective } from '../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 
 /** Custom fields admin (Odoo Studio style): pick an entity type, list its fields, add / edit / deactivate in a drawer. */
 @Component({
   selector: 'erp-custom-fields',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzSelectModule, NzButtonModule, NzDrawerModule, NzFormModule,
+  imports: [KeyboardClickDirective, TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzSelectModule, NzButtonModule, NzDrawerModule, NzFormModule,
     NzInputModule, NzInputNumberModule, NzSwitchModule, NzTagModule, NzIconModule],
   styles: [`.bar { display:flex; gap:12px; margin-bottom:12px; align-items:center } .spacer { flex:1 }`],
   template: `
@@ -44,7 +45,7 @@ import { TranslatePipe } from '../core/i18n/translate.pipe';
         <thead><tr><th>Label</th><th>Key</th><th>Type</th><th>Section</th><th>Required</th><th>Status</th></tr></thead>
         <tbody>
           @for (d of defs(); track d.id) {
-            <tr (click)="open(d)" style="cursor:pointer" [attr.data-testid]="'cf-row-' + d.key">
+            <tr erpKeyboardClick erpKeyboardClickRole="" (click)="open(d)" style="cursor:pointer" [attr.data-testid]="'cf-row-' + d.key">
               <td style="font-weight:600; color:#1e293b;">{{ d.label }}</td>
               <td><span class="code-pill">{{ d.key }}</span></td>
               <td><nz-tag nzColor="blue">{{ typeLabel(d.dataType) }}</nz-tag></td>
