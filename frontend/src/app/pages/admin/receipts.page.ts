@@ -133,7 +133,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (receipt()?.id) { <button nz-button (click)="openDetails(receipt()!.id)" style="margin-inline-start:8px" data-testid="receipt-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(receipt()!.id)" style="margin-inline-start:8px" data-testid="receipt-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
       @if (receipt()?.status === 'issued') {
-        <button *erpHasPermission="'finance.receipts.write'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="rc-void">Void</button>
+        <button *erpHasPermission="'finance.receipts.write'" nz-button nzDanger (click)="voidDocument()" style="margin-inline-start:8px" data-testid="rc-void">Void</button>
         @if (receipt()!.unallocated > 0) { <button *erpHasPermission="'finance.receipts.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="allocate()" style="margin-inline-start:8px" data-testid="rc-allocate">Allocate</button> }
       }
       @if (!receipt()) { <button *erpHasPermission="'finance.receipts.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="create()" style="margin-inline-start:8px" data-testid="rc-save">Record receipt</button> }
@@ -273,7 +273,7 @@ export class ReceiptsPage {
     this.api.allocate(r.id, allocations).subscribe({ next: () => this.done('Receipt allocated'), error: (e) => this.fail(e) });
   }
 
-  void(): void {
+  voidDocument(): void {
     const r = this.receipt();
     if (!r) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.

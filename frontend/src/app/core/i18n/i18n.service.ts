@@ -29,7 +29,7 @@ export class I18nService {
     effect(() => {
       const dir = this.dir();
       if (this.rootDir && this.rootDir.value !== dir) {
-        (this.rootDir as { value: 'ltr' | 'rtl' }).value = dir; // typed readonly, but a plain field the CDK reads on each access
+        this.rootDir.valueSignal.set(dir); // CDK 20: `value` is a getter over this signal
         this.rootDir.change.emit(dir);
       }
     });

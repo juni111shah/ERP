@@ -137,7 +137,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Close</button>
       @if (bill()?.id) { <button nz-button (click)="openDetails(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(bill()!.id)" style="margin-inline-start:8px" data-testid="bill-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
-      @if (bill()?.status === 'issued' && bill()!.paid === 0) { <button *erpHasPermission="'finance.bills.void'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="bill-void">Void</button> }
+      @if (bill()?.status === 'issued' && bill()!.paid === 0) { <button *erpHasPermission="'finance.bills.void'" nz-button nzDanger (click)="voidDocument()" style="margin-inline-start:8px" data-testid="bill-void">Void</button> }
       @if (editable()) {
         @if (bill()?.id) { <button *erpHasPermission="'finance.bills.write'" nz-button nzDanger (click)="remove()" style="margin-inline-start:8px" data-testid="bill-delete">Delete</button> }
         <button *erpHasPermission="'finance.bills.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="bill-save">Save draft</button>
@@ -321,7 +321,7 @@ export class BillsPage {
     });
   }
 
-  void(): void {
+  voidDocument(): void {
     const b = this.bill();
     if (!b) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.

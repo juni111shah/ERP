@@ -26,6 +26,22 @@ jobs:
         with: { global-json-file: backend/global.json }
       - run: dotnet build ERP.sln -c Release
       - run: dotnet test ERP.sln -c Release --no-build
+      - name: Fail on High or Critical vulnerable packages
+        run: |
+          dotnet list ERP.sln package --vulnerable --include-transitive 2>&1 | tee vuln.txt
+          if grep -qE '> .*(High|Critical)' vuln.txt; then echo 'High or Critical vulnerable package found'; exit 1; fi
+      - name: Every new migration has a script in database/scripts
+        working-directory: .
+        run: |
+          # Migrations from 20261029000000 on must appear (by MigrationId) in a script; older ones were scripted in grouped files.
+          status=0
+          for f in backend/src/ERP.Infrastructure/Persistence/Migrations/*.cs; do
+            id=$(basename "$f" .cs)
+            case "$id" in *.Designer|*Snapshot) continue;; esac
+            [ "${id%%_*}" -ge 20261029000000 ] || continue
+            grep -rqF "$id" database/scripts || { echo "No script for migration $id"; status=1; }
+          done
+          exit $status
   backend-sql:
     name: Backend SQL Server tests
     runs-on: ubuntu-latest
@@ -55,4 +71,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm, cache-dependency-path: frontend/package-lock.json }
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
       - run: npx ng build
+      - run: npx ng test --watch=false --browsers=ChromeHeadless

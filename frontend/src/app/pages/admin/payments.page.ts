@@ -141,7 +141,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
       @if (receipt()?.id) { <button nz-button (click)="openDetails(receipt()!.id)" style="margin-inline-start:8px" data-testid="payment-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(receipt()!.id)" style="margin-inline-start:8px" data-testid="payment-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
       @if (receipt()?.status === 'issued') {
         @if (receipt()!.paymentInstrumentId) { <button *erpHasPermission="'finance.cheques.approve'" nz-button (click)="clearCheque()" style="margin-inline-start:8px" data-testid="pm-clear">Cheque cleared</button> }
-        <button *erpHasPermission="'finance.payments.write'" nz-button nzDanger (click)="void()" style="margin-inline-start:8px" data-testid="pm-void">Void</button>
+        <button *erpHasPermission="'finance.payments.write'" nz-button nzDanger (click)="voidDocument()" style="margin-inline-start:8px" data-testid="pm-void">Void</button>
         @if (receipt()!.unallocated > 0) { <button *erpHasPermission="'finance.payments.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="allocate()" style="margin-inline-start:8px" data-testid="pm-allocate">Allocate</button> }
       }
       @if (!receipt()) { <button *erpHasPermission="'finance.payments.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="create()" style="margin-inline-start:8px" data-testid="pm-save">Record payment</button> }
@@ -286,7 +286,7 @@ export class PaymentsPage {
     if (r?.paymentInstrumentId) this.api.clearCheque(r.paymentInstrumentId, toIsoDate(new Date())).subscribe({ next: () => this.done('Cheque marked as cleared'), error: (e) => this.fail(e) });
   }
 
-  void(): void {
+  voidDocument(): void {
     const r = this.receipt();
     if (!r) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.
