@@ -96,4 +96,21 @@ public class InventoryTests(ApiFactory f) : IClassFixture<ApiFactory>
         var (owner, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re"); // inventory is not enabled there
         Assert.NotEqual(HttpStatusCode.OK, (await owner.GetAsync($"{Inv}/stock")).StatusCode);
     }
+
+    [Fact]
+    public async Task A_backdated_stock_out_cannot_use_stock_that_later_movements_already_consumed()
+    {
+        var x = await SetupAsync();
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 10, unitCost = 10m, date = "2026-01-01", offsetAccountId = x.Offset }), HttpStatusCode.Created);
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/issue", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 10, date = "2026-01-05" }), HttpStatusCode.Created);
+        var before = await BalanceAsync(x, "1300");
+
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.PostAsJsonAsync($"{Inv}/stock/issue", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 5, date = "2026-01-02" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.PostAsJsonAsync($"{Inv}/stock/adjust", new { warehouseId = x.Wh1, itemId = x.Item, quantityDelta = -5, date = "2026-01-02" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.PostAsJsonAsync($"{Inv}/stock/transfer", new { fromWarehouseId = x.Wh1, toWarehouseId = x.Wh2, itemId = x.Item, quantity = 5, date = "2026-01-02" })).StatusCode);
+        Assert.Equal(before, await BalanceAsync(x, "1300")); // nothing was posted
+
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 10, unitCost = 10m, date = "2026-01-03", offsetAccountId = x.Offset }), HttpStatusCode.Created);
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/issue", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 5, date = "2026-01-04" }), HttpStatusCode.Created); // still within stock on every later date
+    }
 }

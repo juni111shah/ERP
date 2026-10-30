@@ -114,6 +114,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
         if (position.Quantity < i.Quantity) throw new ConflictException($"Only {position.Quantity:0.####} in stock; cannot issue {i.Quantity:0.####}.");
         var cost = position.AverageCost;
         var m = New(wh, i.ItemId, i.Date, MovementKind.Issue, -i.Quantity, cost, i.Reference, i.Memo);
+        await EnsureNoShortfallAsync(m, token);
         var value = Math.Round(i.Quantity * cost, 2);
         if (value > 0)
         {
@@ -135,6 +136,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
         if (i.QuantityDelta < 0 && position.Quantity < -i.QuantityDelta) throw new ConflictException($"Only {position.Quantity:0.####} in stock; cannot reduce by {-i.QuantityDelta:0.####}.");
         var cost = i.QuantityDelta > 0 ? i.UnitCost : position.AverageCost;
         var m = New(wh, i.ItemId, i.Date, MovementKind.Adjustment, i.QuantityDelta, cost, i.Reference, i.Memo ?? "Stock adjustment");
+        if (i.QuantityDelta < 0) await EnsureNoShortfallAsync(m, token);
         var value = Math.Round(Math.Abs(i.QuantityDelta) * cost, 2);
         if (value > 0)
         {
@@ -160,6 +162,7 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
         var transfer = Guid.NewGuid();
         var memo = i.Memo ?? $"Transfer {from.Code} → {to.Code}";
         var outM = New(from, i.ItemId, i.Date, MovementKind.TransferOut, -i.Quantity, position.AverageCost, i.Reference, memo); outM.TransferId = transfer;
+        await EnsureNoShortfallAsync(outM, token);
         var inM = New(to, i.ItemId, i.Date, MovementKind.TransferIn, i.Quantity, position.AverageCost, i.Reference, memo); inM.TransferId = transfer;
         movements.AddRange([outM, inM]);
         await movements.SaveChangesAsync(token);
@@ -194,6 +197,14 @@ internal sealed class StockHandlers(IRepository<StockMovement> movements, IRepos
     /// <summary>Position of one item in one warehouse, optionally only up to a date (so a backdated issue cannot use stock that arrives later).</summary>
     private async Task<StockPosition> PositionAsync(Guid warehouseId, Guid itemId, CancellationToken ct, DateOnly? asOf = null)
         => StockCosting.Replay(await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == warehouseId && m.ItemId == itemId && (asOf == null || m.Date <= asOf))).ToListAsync(ct));
+
+    /// <summary>A backdated movement must not use stock that later movements already consumed.</summary>
+    private async Task EnsureNoShortfallAsync(StockMovement candidate, CancellationToken ct)
+    {
+        var existing = await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == candidate.WarehouseId && m.ItemId == candidate.ItemId)).ToListAsync(ct);
+        if (StockCosting.FirstShortfall(existing, candidate) is { } day)
+            throw new ConflictException($"This would leave stock negative on {day:yyyy-MM-dd}; later movements already use that stock.");
+    }
 
     private static StockMovement New(Warehouse wh, Guid itemId, DateOnly date, MovementKind kind, decimal qty, decimal cost, string? reference, string? memo)
         => new() { LegalEntityId = wh.LegalEntityId, WarehouseId = wh.Id, ItemId = itemId, Date = date, Kind = kind, Quantity = qty, UnitCost = cost, Reference = reference, Memo = memo };
