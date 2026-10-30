@@ -11,7 +11,7 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | ready-for-review | 0 |
 | changes-requested | 0 |
 | blocked | 1 |
-| done | 26 |
+| done | 27 |
 
 | Card | Priority | Status | Title |
 |---|---|---|---|
@@ -42,3 +42,4 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | TASK-025 | P1 | done | AP ageing and vendor statement honour the as-of date |
 | TASK-026 | P2 | done | Validate allocate-payment and issued-cheque clearing |
 | TASK-027 | P1 | done | Editing or deleting a bill withdraws its pending approval |
+| TASK-028 | P1 | done | AR ageing and customer statement honour the as-of date |
