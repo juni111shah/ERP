@@ -48,7 +48,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
         <nz-tab nzTitle="Plan">
           <div class="bar">
             <nz-select style="width:240px" nzPlaceHolder="Legal entity" [(ngModel)]="entityId" [nzDisabled]="!!id()" data-testid="budget-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
-            <input nz-input style="width:240px" placeholder="Name" [(ngModel)]="name" data-testid="budget-name" />
+            <input aria-label="Name" nz-input style="width:240px" placeholder="Name" [(ngModel)]="name" data-testid="budget-name" />
             <nz-input-number [(ngModel)]="year" [nzMin]="2000" [nzMax]="2100" [nzPrecision]="0" data-testid="budget-year"></nz-input-number>
             <nz-select style="width:280px" nzShowSearch nzPlaceHolder="Add an income/expense account" [ngModel]="null" (ngModelChange)="addRow($event)" data-testid="budget-add-account">
               @for (a of addable(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }
@@ -65,7 +65,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
                       <td><nz-input-number [ngModel]="r.months[mi]" (ngModelChange)="setCell(i, mi, $event)" [nzMin]="0" [nzStep]="100" [nzPrecision]="0" style="width:84px" [attr.data-testid]="'cell-' + i + '-' + mi"></nz-input-number></td>
                     }
                     <td class="num"><b>{{ total(r) | number: '1.0-0' }}</b></td>
-                    <td><button nz-button nzType="text" nzSize="small" (click)="removeRow(i)"><span nz-icon nzType="delete"></span></button></td>
+                    <td><button aria-label="Remove row" nz-button nzType="text" nzSize="small" (click)="removeRow(i)"><span nz-icon nzType="delete"></span></button></td>
                   </tr>
                 } @empty { <tr><td colspan="15">Add accounts to start planning.</td></tr> }
               </tbody>

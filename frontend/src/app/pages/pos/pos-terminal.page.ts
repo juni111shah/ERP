@@ -2,6 +2,7 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
@@ -45,7 +46,7 @@ interface CartItem extends PosOrderLineInput {
   selector: 'erp-pos-terminal',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [KeyboardClickDirective, 
     CommonModule,
     DecimalPipe,
     FormsModule,
@@ -117,7 +118,7 @@ interface CartItem extends PosOrderLineInput {
         <section class="catalog-section">
           <div class="catalog-search-bar">
             <nz-input-group [nzPrefix]="searchPrefix">
-              <input
+              <input aria-label="Scan barcode, SKU or search item title..."
                 nz-input
                 placeholder="Scan barcode, SKU or search item title..."
                 [ngModel]="searchQuery()"
@@ -129,7 +130,7 @@ interface CartItem extends PosOrderLineInput {
 
           <div class="catalog-grid">
             @for (item of filteredCatalog(); track item.id) {
-              <div class="item-tile" (click)="addToCart(item)">
+              <div erpKeyboardClick class="item-tile" (click)="addToCart(item)">
                 <div class="item-tile-code">{{ item.code }}</div>
                 <div class="item-tile-title">{{ item.name }}</div>
                 <div class="item-tile-price">{{ currency() }} {{ item.price | number:'1.2-2' }}</div>
@@ -156,7 +157,7 @@ interface CartItem extends PosOrderLineInput {
 
           <div class="customer-bar">
             <span nz-icon nzType="user" style="color: #64748b;"></span>
-            <input nz-input nzSize="small" placeholder="Walk-in Customer" [ngModel]="customerName()" (ngModelChange)="customerName.set($event)" />
+            <input aria-label="Walk-in Customer" nz-input nzSize="small" placeholder="Walk-in Customer" [ngModel]="customerName()" (ngModelChange)="customerName.set($event)" />
           </div>
 
           <!-- Cart Line Items -->
@@ -176,7 +177,7 @@ interface CartItem extends PosOrderLineInput {
 
                 <div class="line-total-col">
                   <strong>{{ currency() }} {{ line.lineTotal | number:'1.2-2' }}</strong>
-                  <span nz-icon nzType="delete" class="line-delete-btn" (click)="removeLine(i)"></span>
+                  <span erpKeyboardClick nz-icon nzType="delete" class="line-delete-btn" (click)="removeLine(i)"></span>
                 </div>
               </div>
             } @empty {
@@ -268,7 +269,7 @@ interface CartItem extends PosOrderLineInput {
             } @else {
               <div class="card-tender-section">
                 <label style="font-weight: 600; display: block; margin-bottom: 6px;">Card Transaction Authorization / Ref</label>
-                <input nz-input placeholder="e.g. AUTH-88492" [(ngModel)]="cardReference" />
+                <input aria-label="e.g. AUTH-88492" nz-input placeholder="e.g. AUTH-88492" [(ngModel)]="cardReference" />
                 <p style="margin-top: 6px; font-size: 12px; color: #64748b;">
                   Swipe / tap on payment terminal, then confirm receipt approval.
                 </p>
@@ -325,7 +326,7 @@ interface CartItem extends PosOrderLineInput {
             </div>
             <div>
               <label style="font-weight: 600;">Shift Opening Notes</label>
-              <input nz-input [(ngModel)]="shiftNotes" placeholder="Morning / afternoon shift notes..." />
+              <input aria-label="Morning / afternoon shift notes..." nz-input [(ngModel)]="shiftNotes" placeholder="Morning / afternoon shift notes..." />
             </div>
           </div>
         </ng-container>
@@ -358,7 +359,7 @@ interface CartItem extends PosOrderLineInput {
               </div>
               <div>
                 <label style="font-weight: 600;">Closing Notes</label>
-                <input nz-input [(ngModel)]="closeNotes" placeholder="Shift handover / cash drop comments..." />
+                <input aria-label="Shift handover / cash drop comments..." nz-input [(ngModel)]="closeNotes" placeholder="Shift handover / cash drop comments..." />
               </div>
             </div>
           }

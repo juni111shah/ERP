@@ -23,7 +23,8 @@ import { I18nService } from '../core/i18n/i18n.service';
 import { CsvExportService } from '../core/services/csv-export.service';
 import { ExpandSearchComponent } from './expand-search.component';
 import { PageChange, PaginationBarComponent } from './pagination-bar.component';
-import { RevealDirective } from './reveal.directive';
+import { RevealDirective } from './reveal.directive';
+import { KeyboardClickDirective } from './keyboard-click.directive';
 
 export type ColumnFilterKind = 'text' | 'select' | 'date' | 'number';
 export type ColumnPin = 'left' | 'right';
@@ -84,7 +85,7 @@ function humanizeValue(v: string): string {
   selector: 'erp-paged-table',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ExpandSearchComponent, FormsModule, NgTemplateOutlet, CdkDropList, CdkDrag, CdkDragHandle, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule, NzCheckboxModule,
+  imports: [KeyboardClickDirective, ExpandSearchComponent, FormsModule, NgTemplateOutlet, CdkDropList, CdkDrag, CdkDragHandle, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule, NzCheckboxModule,
     NzDatePickerModule, NzDropDownModule, NzInputNumberModule, NzPopoverModule, NzSelectModule, NzToolTipModule, PaginationBarComponent, RevealDirective],
   providers: [provideNzIconsPatch([FilterFill, HolderOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline, UndoOutline])],
   styles: [`.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; } .bar .search { max-width: 320px; } .spacer { flex: 1; } tr.clickable { cursor: pointer; }
@@ -169,7 +170,7 @@ function humanizeValue(v: string): string {
                 <nz-dropdown-menu #menu="nzDropdownMenu">
                   <div class="flt ant-table-filter-dropdown" (click)="$event.stopPropagation()" [attr.data-testid]="'filter-panel-' + v.key">
                     @switch (kind) {
-                      @case ('text') { <input nz-input [(ngModel)]="draft.text" [placeholder]="t('table.contains', 'Contains…')" (keyup.enter)="apply(v.key)" /> }
+                      @case ('text') { <input [attr.aria-label]="t('table.contains', 'Contains…')" nz-input [(ngModel)]="draft.text" [placeholder]="t('table.contains', 'Contains…')" (keyup.enter)="apply(v.key)" /> }
                       @case ('select') {
                         <nz-select nzMode="multiple" [(ngModel)]="draft.values" [nzPlaceHolder]="t('table.any', 'Any')" nzAllowClear style="width:100%">
                           @for (o of options()[v.key] ?? []; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }
@@ -197,7 +198,7 @@ function humanizeValue(v: string): string {
       </thead>
       <tbody>
         @for (row of tbl.data; track $index) {
-          <tr [class.clickable]="clickable()" (click)="rowClick.emit(row)" [attr.data-testid]="'row-' + $index">
+          <tr [erpKeyboardClick]="clickable()" erpKeyboardClickRole="" [class.clickable]="clickable()" (click)="rowClick.emit(row)" [attr.data-testid]="'row-' + $index">
             @for (v of visibleColumns(); track v.key) {
               <td [nzAlign]="v.col.align ?? null" [nzLeft]="v.pin === 'left'" [nzRight]="v.pin === 'right'">
                 @if (cell(); as tpl) { <ng-container *ngTemplateOutlet="tpl; context: { $implicit: row, column: v.col, value: read(row, v.col) }" /> }
@@ -216,7 +217,16 @@ function humanizeValue(v: string): string {
                             [storageKey]="pageSizeKey()" (pageChange)="onPage($event)" />
       }
     </div>
-    <ng-template #empty><nz-empty [nzNotFoundContent]="emptyText()"></nz-empty></ng-template>`,
+    <ng-template #empty>
+      @if (list().error()) {
+        <div role="alert" data-testid="table-error">
+          <nz-empty [nzNotFoundContent]="t('table.loadFailed', 'The data could not be loaded.')"></nz-empty>
+          <button nz-button nzSize="small" type="button" (click)="list().reload()" data-testid="table-retry">{{ t('table.retry', 'Try again') }}</button>
+        </div>
+      } @else {
+        <nz-empty [nzNotFoundContent]="emptyText()"></nz-empty>
+      }
+    </ng-template>`,
 })
 export class PagedTableComponent<T> {
   private readonly csvService = inject(CsvExportService);

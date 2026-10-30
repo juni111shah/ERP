@@ -5,7 +5,8 @@ import { ChangeDetectionStrategy, Component, inject, input, output, signal, effe
 import { Router, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { API_BASE_URL } from '../core/api/api-config';
+import { API_BASE_URL } from '../core/api/api-config';
+import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 
 interface NotificationDto {
   id: string;
@@ -22,7 +23,7 @@ interface NotificationDto {
   selector: 'erp-notification-drawer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, DatePipe, RouterLink, NzButtonModule, NzIconModule],
+  imports: [KeyboardClickDirective, TranslatePipe, DatePipe, RouterLink, NzButtonModule, NzIconModule],
   styles: [`
     :host {
       display: block;
@@ -294,7 +295,7 @@ interface NotificationDto {
       <!-- Items list -->
       <div class="notif-list">
         @for (n of items(); track n.id) {
-          <div class="notif-item" [class.unread]="!n.readAt" (click)="openItem(n)" data-testid="notification-item">
+          <div erpKeyboardClick class="notif-item" [class.unread]="!n.readAt" (click)="openItem(n)" data-testid="notification-item">
             <div class="notif-item-icon" [class.unread]="!n.readAt">
               <span nz-icon [nzType]="getIcon(n.severity)" nzTheme="outline"></span>
             </div>

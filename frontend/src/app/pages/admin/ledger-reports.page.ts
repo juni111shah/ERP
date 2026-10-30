@@ -41,7 +41,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
         </nz-select>
         <nz-select [(ngModel)]="businessUnitId" nzAllowClear nzPlaceHolder="All business units" style="width:220px" data-testid="rep-bu">@for (b of units(); track b.id) { <nz-option [nzValue]="b.id" [nzLabel]="b.name"></nz-option> }</nz-select>
         <nz-select [(ngModel)]="partyGroupId" nzAllowClear nzPlaceHolder="All party groups" style="width:200px" data-testid="rep-party-group">@for (g of partyGroups(); track g.id) { <nz-option [nzValue]="g.id" [nzLabel]="g.name"></nz-option> }</nz-select>
-        <input nz-input [(ngModel)]="sourceType" placeholder="Source type (optional)" style="width:200px" data-testid="rep-source" />
+        <input aria-label="Source type (optional)" nz-input [(ngModel)]="sourceType" placeholder="Source type (optional)" style="width:200px" data-testid="rep-source" />
       }
       @if (tab() === 1) {
         <nz-select [(ngModel)]="accountId" nzShowSearch nzPlaceHolder="Account" style="width:280px" data-testid="rep-account">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>

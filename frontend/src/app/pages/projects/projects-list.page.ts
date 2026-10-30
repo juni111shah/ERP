@@ -104,10 +104,10 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             }
             @case ('actions') {
               <div class="actions-cell" (click)="$event.stopPropagation()">
-                <button nz-button nzType="text" nzSize="small" [routerLink]="['/projects', row.id]" nzTooltipTitle="View Project Details">
+                <button aria-label="View Project Details" nz-button nzType="text" nzSize="small" [routerLink]="['/projects', row.id]" nzTooltipTitle="View Project Details">
                   <span nz-icon nzType="eye"></span>
                 </button>
-                <button *erpHasPermission="'projects.projects.manage'" nz-button nzType="text" nzSize="small" (click)="state.edit(row)" nzTooltipTitle="Edit Project">
+                <button aria-label="Edit Project" *erpHasPermission="'projects.projects.manage'" nz-button nzType="text" nzSize="small" (click)="state.edit(row)" nzTooltipTitle="Edit Project">
                   <span nz-icon nzType="edit"></span>
                 </button>
               </div>

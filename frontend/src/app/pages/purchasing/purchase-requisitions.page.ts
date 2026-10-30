@@ -193,8 +193,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <tbody>
                   @for (ctrl of linesArray.controls; track $index) {
                     <tr [formGroupName]="$index">
-                      <td><input nz-input formControlName="itemCode" placeholder="Code" /></td>
-                      <td><input nz-input formControlName="description" placeholder="Item description" /></td>
+                      <td><input aria-label="Code" nz-input formControlName="itemCode" placeholder="Code" /></td>
+                      <td><input aria-label="Item description" nz-input formControlName="description" placeholder="Item description" /></td>
                       <td><nz-input-number formControlName="quantity" [nzMin]="1" style="width: 100%;"></nz-input-number></td>
                       <td><nz-input-number formControlName="estimatedUnitPrice" [nzMin]="0" style="width: 100%;"></nz-input-number></td>
                       <td class="line-calc">{{ (ctrl.value.quantity || 0) * (ctrl.value.estimatedUnitPrice || 0) | number:'1.2-2' }}</td>
@@ -212,7 +212,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div nz-form-item style="margin-top: 16px;">
               <nz-form-label>Business Justification / Reason</nz-form-label>
               <nz-form-control>
-                <textarea nz-input formControlName="reason" rows="2" placeholder="Why are these items needed?"></textarea>
+                <textarea aria-label="Why are these items needed?" nz-input formControlName="reason" rows="2" placeholder="Why are these items needed?"></textarea>
               </nz-form-control>
             </div>
 
@@ -233,7 +233,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
         <ng-container *nzModalContent>
           <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 8px; font-weight: 600;">Vendor / Supplier Name:</label>
-            <input nz-input [(ngModel)]="vendorNameInput" placeholder="Enter supplier name" />
+            <input aria-label="Enter supplier name" nz-input [(ngModel)]="vendorNameInput" placeholder="Enter supplier name" />
           </div>
         </ng-container>
       </nz-modal>

@@ -126,7 +126,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div>
               <label style="font-weight: 600; display: block; margin-bottom: 4px;">Reason / Memo</label>
-              <input nz-input [(ngModel)]="txReason" placeholder="e.g. Midday safe drop to main vault" />
+              <input aria-label="e.g. Midday safe drop to main vault" nz-input [(ngModel)]="txReason" placeholder="e.g. Midday safe drop to main vault" />
             </div>
           </div>
         </ng-container>

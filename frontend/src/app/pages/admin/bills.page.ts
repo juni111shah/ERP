@@ -120,12 +120,12 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
           <div formArrayName="lines">
             @for (l of lines.controls; track $index) {
               <div class="line" [formGroupName]="$index">
-                <input nz-input formControlName="description" placeholder="Description" [attr.data-testid]="'bill-desc-' + $index" />
+                <input aria-label="Description" nz-input formControlName="description" placeholder="Description" [attr.data-testid]="'bill-desc-' + $index" />
                 <nz-select formControlName="accountId" nzShowSearch nzPlaceHolder="Expense account" [attr.data-testid]="'bill-account-' + $index">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
                 <nz-input-number formControlName="quantity" [nzMin]="0.0001" [nzPrecision]="2"></nz-input-number>
                 <nz-input-number formControlName="price" [nzMin]="0" [nzPrecision]="2" [attr.data-testid]="'bill-price-' + $index"></nz-input-number>
                 <nz-select formControlName="taxCodeId" nzAllowClear nzPlaceHolder="No tax">@for (t of taxes(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.code + ' ' + t.rate + '%'"></nz-option> }</nz-select>
-                @if (editable()) { <button nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
+                @if (editable()) { <button aria-label="Remove line" nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
               </div>
             }
           </div>

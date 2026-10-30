@@ -23,12 +23,13 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
 
 /** Cash and bank: balances, bank statement import, reconciliation and transfers between accounts. */
 import { RevealDirective } from '../../shared/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
 @Component({
   selector: 'erp-bank',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
+  imports: [KeyboardClickDirective, NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
   styles: [`
     .bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center }
     .bank-accounts-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:24px }
@@ -104,7 +105,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
     @if (position(); as p) {
       <div class="bank-accounts-grid" data-testid="bank-cards">
         @for (a of p.accounts; track a.accountId) {
-          <div class="bank-card" [class.sel]="a.accountId === accountId()" (click)="select(a.accountId)" [attr.data-testid]="'bank-card-' + a.code">
+          <div erpKeyboardClick class="bank-card" [class.sel]="a.accountId === accountId()" (click)="select(a.accountId)" [attr.data-testid]="'bank-card-' + a.code">
             <div class="bank-card-header">
               <span>{{ a.code }} · {{ a.name }}</span>
               @if (a.accountId === accountId()) {
@@ -207,7 +208,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
     <nz-modal [nzVisible]="importOpen()" nzTitle="Import bank statement" (nzOnCancel)="importOpen.set(false)" (nzOnOk)="runImport()" nzOkText="Import" [nzOkLoading]="busy()" [nzWidth]="640">
       <ng-container *nzModalContent>
         <p>Paste one line per row: <code>date, description, reference, amount</code> (date as 2026-05-31; money out is negative).</p>
-        <textarea nz-input rows="10" [(ngModel)]="importText" placeholder="2026-05-03, Deposit, D1, 10000" data-testid="import-text"></textarea>
+        <textarea aria-label="2026-05-03, Deposit, D1, 10000" nz-input rows="10" [(ngModel)]="importText" placeholder="2026-05-03, Deposit, D1, 10000" data-testid="import-text"></textarea>
       </ng-container>
     </nz-modal>
 
@@ -217,7 +218,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
         <nz-select [(ngModel)]="bookAccount" nzShowSearch style="width:100%;margin-bottom:12px" nzPlaceHolder="Other account (for example bank charges)" data-testid="book-account">
           @for (a of postable(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }
         </nz-select>
-        <input nz-input [(ngModel)]="bookMemo" placeholder="Memo (optional)" />
+        <input aria-label="Memo (optional)" nz-input [(ngModel)]="bookMemo" placeholder="Memo (optional)" />
       </ng-container>
     </nz-modal>
 

@@ -23,8 +23,8 @@ import { asProblem } from '../core/http/problem-details';
         <nz-alert nzType="success" nzShowIcon [nzMessage]="'security.on' | translate: 'Two-factor authentication is on.'" style="margin-bottom:16px" data-testid="tf-on"></nz-alert>
         <p>To switch it off, confirm your password and a current code.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input nz-input type="password" placeholder="Password" [(ngModel)]="password" style="width:200px" data-testid="tf-password" />
-          <input nz-input placeholder="Code" [(ngModel)]="code" style="width:140px" data-testid="tf-code" />
+          <input aria-label="Password" nz-input type="password" placeholder="Password" [(ngModel)]="password" style="width:200px" data-testid="tf-password" />
+          <input aria-label="Code" nz-input placeholder="Code" [(ngModel)]="code" style="width:140px" data-testid="tf-code" />
           <button nz-button nzDanger [nzLoading]="busy()" (click)="disable()" data-testid="tf-disable">{{ 'security.turnOff' | translate: 'Turn off' }}</button>
         </div>
       } @else if (!secret()) {
@@ -36,7 +36,7 @@ import { asProblem } from '../core/http/problem-details';
         <p style="word-break:break-all;opacity:.7">{{ 'ui.security.openLink' | translate: 'Or open this link on your phone' }}: {{ uri() }}</p>
         <p>2. Enter the 6-digit code the app shows:</p>
         <div style="display:flex;gap:8px">
-          <input nz-input placeholder="123456" [(ngModel)]="code" style="width:140px" maxlength="7" data-testid="tf-code" />
+          <input aria-label="123456" nz-input placeholder="123456" [(ngModel)]="code" style="width:140px" maxlength="7" data-testid="tf-code" />
           <button nz-button nzType="primary" [nzLoading]="busy()" (click)="enable()" data-testid="tf-enable">{{ 'security.turnOn' | translate: 'Turn on' }}</button>
         </div>
       }

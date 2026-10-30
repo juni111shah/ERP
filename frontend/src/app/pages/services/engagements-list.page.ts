@@ -102,10 +102,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
               <ng-container *ngSwitchCase="'actions'">
                 <div class="table-actions">
-                  <button *erpHasPermission="'services.engagements.manage'" nz-button nzType="text" nzSize="small" (click)="openStatusModal(row)" title="Update Status">
+                  <button aria-label="Update Status" *erpHasPermission="'services.engagements.manage'" nz-button nzType="text" nzSize="small" (click)="openStatusModal(row)" title="Update Status">
                     <span nz-icon nzType="edit"></span>
                   </button>
-                  <button nz-button nzType="text" nzSize="small" (click)="viewDetails(row)" title="View Details">
+                  <button aria-label="View Details" nz-button nzType="text" nzSize="small" (click)="viewDetails(row)" title="View Details">
                     <span nz-icon nzType="eye"></span>
                   </button>
                 </div>
