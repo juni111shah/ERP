@@ -67,4 +67,28 @@ public class ParallelIssuingTests
         Assert.All(results, r => Assert.True(r.StatusCode == HttpStatusCode.OK, $"{r.StatusCode}: {r.Body}"));
         Assert.Equal(10, results.Select(r => (string)ApiFactory.Unwrap(JsonNode.Parse(r.Body)!)["number"]!).Distinct().Count());
     }
+
+    [SqlServerFact]
+    public async Task Ten_parallel_bill_posts_all_succeed_with_distinct_numbers()
+    {
+        using var f = new SqlServerApiFactory();
+        var (c, _) = await f.SignInAsync(ApiFactory.AdminEmail);
+        var tag = Guid.NewGuid().ToString("N")[..6];
+        var entity = (string)(await Ok(await c.PostAsJsonAsync("/api/v1/legal-entities", new { name = "ParBill " + tag, countryCode = "AE", baseCurrency = "AED", isTaxRegistered = false }), HttpStatusCode.Created))["id"]!;
+        var vendor = (string)(await Ok(await c.PostAsJsonAsync("/api/v1/parties", new { name = "Vendor " + tag, kind = "Company", roles = "Vendor" }), HttpStatusCode.Created))["id"]!;
+        var expense = (string)(await ApiFactory.Json(await c.GetAsync($"{Fin}/accounts?pageSize=200"))).AsArray().First(a => (string?)a!["code"] == "6900")!["id"]!;
+
+        var ids = new List<string>();
+        for (var i = 0; i < 10; i++)
+            ids.Add((string)(await Ok(await c.PostAsJsonAsync($"{Fin}/bills", new { legalEntityId = entity, partyId = vendor, vendorReference = "B-" + i, billDate = "2026-06-10", lines = new[] { new { description = "Work", quantity = 1m, price = 100m + i, accountId = expense } } }), HttpStatusCode.Created))["id"]!);
+
+        var results = await Task.WhenAll(ids.Select(async id =>
+        {
+            var res = await c.PostAsync($"{Fin}/bills/{id}/post", null);
+            return (res.StatusCode, Body: await res.Content.ReadAsStringAsync());
+        }));
+
+        Assert.All(results, r => Assert.True(r.StatusCode == HttpStatusCode.OK, $"{r.StatusCode}: {r.Body}"));
+        Assert.Equal(10, results.Select(r => (string)ApiFactory.Unwrap(JsonNode.Parse(r.Body)!)["number"]!).Distinct().Count());
+    }
 }
