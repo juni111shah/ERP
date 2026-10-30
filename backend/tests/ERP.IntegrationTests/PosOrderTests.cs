@@ -524,11 +524,12 @@ public class PosOrderTests(ApiFactory f) : IClassFixture<ApiFactory>
             [new PosOrderLineInput(itemId, Quantity: 1, UnitPrice: 40.00m)],
             [new PosPaymentInput(PosPaymentMethod.Cash, 40.00m, 40.00m, 0m, null)]);
 
-        // Send two concurrent orders simultaneously
-        var task1 = admin.PostAsJsonAsync("/api/v1/m/pos/orders", cmd1);
-        var task2 = admin.PostAsJsonAsync("/api/v1/m/pos/orders", cmd2);
+        // One after the other: the SQLite test host shares a single connection, so truly simultaneous requests fail there at random
+        // (see TASK-022). Concurrent sessions are covered on SQL Server by PosSessionTests (Interleaved_sales_and_drawer_movements...).
+        var response1 = await admin.PostAsJsonAsync("/api/v1/m/pos/orders", cmd1);
+        var response2 = await admin.PostAsJsonAsync("/api/v1/m/pos/orders", cmd2);
 
-        var responses = await Task.WhenAll(task1, task2);
+        var responses = new[] { response1, response2 };
         Assert.Equal(HttpStatusCode.Created, responses[0].StatusCode);
         Assert.Equal(HttpStatusCode.Created, responses[1].StatusCode);
 
