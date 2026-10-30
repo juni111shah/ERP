@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'core/session.dart';
 import 'features/auth/login_page.dart';
 import 'features/auth/workspace_page.dart';
-import 'features/documents/documents_pages.dart';
 import 'features/home/home_page.dart';
 import 'features/settings/settings_page.dart';
 
@@ -36,7 +35,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/workspaces', builder: (_, _) => const WorkspacePage()),
       GoRoute(path: '/home', builder: (_, _) => const HomePage()),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
-      GoRoute(path: '/invoices/:id', builder: (_, state) => InvoiceDetailPage(id: state.pathParameters['id']!)),
     ],
   );
 });

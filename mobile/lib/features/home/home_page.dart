@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/session.dart';
 import '../dashboard/dashboard_page.dart';
 import '../documents/documents_pages.dart';
+import '../receivables/invoice_screens.dart';
+import '../more/more_page.dart';
 
 /// The signed-in shell: bottom navigation over the main areas. The tab contents are rebuilt when the workspace changes.
 class HomePage extends ConsumerStatefulWidget {
@@ -17,7 +19,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   int _index = 0;
 
-  static const _titles = ['Overview', 'Invoices', 'Receipts', 'Customers'];
+  static const _titles = ['Overview', 'Invoices', 'Receipts', 'Customers', 'More'];
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +40,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         key: ValueKey(workspace?.id),
         child: IndexedStack(
           index: _index,
-          children: const [DashboardPage(), InvoicesPage(), ReceiptsPage(), PartiesPage()],
+          children: const [DashboardPage(), InvoicesScreen(showAppBar: false), ReceiptsPage(), PartiesPage(), MorePage()],
         ),
       ),
       bottomNavigationBar: NavigationBar(
@@ -49,6 +51,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Invoices'),
           NavigationDestination(icon: Icon(Icons.payments_outlined), selectedIcon: Icon(Icons.payments), label: 'Receipts'),
           NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'Customers'),
+          NavigationDestination(icon: Icon(Icons.apps_outlined), selectedIcon: Icon(Icons.apps), label: 'More'),
         ],
       ),
     );

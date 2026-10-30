@@ -78,6 +78,10 @@ class ApiClient {
 
   Future<dynamic> post(String path, {Object? body}) => _send('POST', path, body: body);
 
+  Future<dynamic> put(String path, {Object? body}) => _send('PUT', path, body: body);
+
+  Future<dynamic> delete(String path) => _send('DELETE', path);
+
   /// Calls that happen before there is a session (sign-in, workspace selection): no bearer token, no refresh attempt.
   Future<dynamic> postAnonymous(String path, {Object? body}) => _send('POST', path, body: body, auth: false);
 

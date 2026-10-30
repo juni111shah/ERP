@@ -1,22 +1,27 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
+import '../../kit/data_version.dart';
 
 typedef ItemBuilder = Widget Function(BuildContext context, Map<String, dynamic> item);
 
 /// A searchable, pull-to-refresh list that loads the next page of a list endpoint as the user scrolls.
 class PagedListView extends ConsumerStatefulWidget {
-  const PagedListView({super.key, required this.path, required this.itemBuilder, this.searchHint = 'Search', this.emptyText = 'Nothing here yet.'});
+  const PagedListView({super.key, required this.path, required this.itemBuilder, this.searchHint = 'Search', this.emptyText = 'Nothing here yet.', this.query = const {}});
 
   final String path;
   final ItemBuilder itemBuilder;
   final String searchHint;
   final String emptyText;
+
+  /// Extra query parameters sent with every page (for example `{'filter': 'status:eq:issued'}`); the list reloads when they change.
+  final Map<String, dynamic> query;
 
   @override
   ConsumerState<PagedListView> createState() => _PagedListViewState();
@@ -42,6 +47,12 @@ class _PagedListViewState extends ConsumerState<PagedListView> {
       if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 300) _loadMore();
     });
     _loadMore();
+  }
+
+  @override
+  void didUpdateWidget(covariant PagedListView old) {
+    super.didUpdateWidget(old);
+    if (old.path != widget.path || !mapEquals(old.query, widget.query)) _reset();
   }
 
   @override
@@ -74,6 +85,7 @@ class _PagedListViewState extends ConsumerState<PagedListView> {
       final data = await ref.read(apiProvider).get(widget.path, query: {
         'page': _page + 1,
         'pageSize': _pageSize,
+        ...widget.query,
         if (_search.isNotEmpty) 'search': _search,
       });
       if (!mounted || generation != _generation) return;
@@ -102,6 +114,7 @@ class _PagedListViewState extends ConsumerState<PagedListView> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(dataVersionProvider, (_, _) => _reset()); // something was saved elsewhere: reload
     return Column(
       children: [
         Padding(
