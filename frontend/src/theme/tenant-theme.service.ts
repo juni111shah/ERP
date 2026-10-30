@@ -15,7 +15,7 @@
  * Industry-neutral: nothing here knows about modules or business types.
  * Angular 17+ (standalone, signals). No third-party dependencies.
  */
-import { DOCUMENT } from '@angular/common';
+
 import {
   DestroyRef,
   Injectable,
@@ -23,6 +23,7 @@ import {
   effect,
   inject,
   signal,
+  DOCUMENT
 } from '@angular/core';
 
 // ---------------------------------------------------------------------------

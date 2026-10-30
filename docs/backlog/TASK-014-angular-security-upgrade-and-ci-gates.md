@@ -2,7 +2,7 @@
 id: TASK-014
 title: Upgrade Angular to patched 19.x and add security gates to CI
 priority: P0
-status: blocked
+status: done
 schema: no
 depends_on: []
 area: devops
@@ -36,3 +36,6 @@ Application code beyond what the upgrade requires.
 - In accordance with the card instruction ("if only a major upgrade clears them, stop and set status: blocked with the findings"), stopped and marked card as blocked.
 
 ## Review (Claude)
+
+## Resolution (Claude, on user request)
+A major upgrade was authorised. Angular 19.2 -> 20.3.34 (core, cli, cdk 20.2, ng-zorro-antd 20, icons-angular 20, animations, TypeScript 5.9). `npm audit --omit=dev`: 0 vulnerabilities. Code fixes the upgrade required: template method `void()` renamed `voidDocument()` (bills, invoices, payments, receipts; `void` is reserved in v20 templates), `afterRender` -> `afterEveryRender` (paged-table), RTL switch uses `Directionality.valueSignal` (CDK 20 made `value` a getter). `ng build` 0 errors, `ng test` 8/8 pass. CI: added `npm audit --omit=dev --audit-level=high`, `ng test`, backend vulnerable-package check (High/Critical fails), and a migration-script check (migrations from 20261029000000 on must appear in database/scripts; older ones were scripted in grouped files).

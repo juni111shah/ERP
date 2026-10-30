@@ -2,7 +2,7 @@
 
 Last Claude run: 2026-10-30 (tenth run: no cards ready-for-review, no in-progress cards, 0 open so refilled with TASK-028 to 033)
 Rotation position: POS and Retail analysed (orders, sessions, registers, KPIs). Next area = Inventory and Manufacturing
-Needs human: Decide whether to merge antigravity/dashboard-and-modules into main (never pushed). Schema change TASK-010 (script database/scripts/0021_IdempotencyRecords.sql) must be applied by a human. TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-022 lands. TASK-006 commit message lacks the `TASK-006:` prefix. C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997). TASK-014 blocked: Angular 19.x has no patch for the advisories; needs a human decision on a major upgrade to v20+.
+Needs human: Decide whether to merge antigravity/dashboard-and-modules into main (never pushed). Schema change TASK-010 (script database/scripts/0021_IdempotencyRecords.sql) must be applied by a human. TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-022 lands. TASK-006 commit message lacks the `TASK-006:` prefix. C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997). 
 
 | Status | Count |
 |---|---|
@@ -10,7 +10,7 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | in-progress | 0 |
 | ready-for-review | 0 |
 | changes-requested | 0 |
-| blocked | 1 |
+| blocked | 0 |
 | done | 26 |
 
 | Card | Priority | Status | Title |
@@ -28,7 +28,7 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | TASK-011 | P0 | done | Project and service billing create invoices or fail |
 | TASK-012 | P1 | done | Remove hardcoded currency, tax, placeholder GUIDs |
 | TASK-013 | P1 | done | UI permission gating in new modules |
-| TASK-014 | P0 | blocked | Angular security upgrade and CI gates |
+| TASK-014 | P0 | done | Angular security upgrade and CI gates |
 | TASK-015 | P1 | done | Integration tests for Sales and Purchasing |
 | TASK-016 | P0 | done | Invoice from sales order keeps tax, source link, currency |
 | TASK-017 | P0 | done | Sales order edit, fulfilment and due-date guards |

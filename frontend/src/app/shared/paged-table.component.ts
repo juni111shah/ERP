@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, TemplateRef, afterRender, computed, contentChild, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, TemplateRef, afterEveryRender, computed, contentChild, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -538,7 +538,7 @@ export class PagedTableComponent<T> {
   private readonly onBodyScroll = () => this.sync(this.body, this.proxy);
   private readonly onProxyScroll = () => this.sync(this.proxy, this.body);
 
-  private readonly bindScroll = afterRender(() => this.attach());
+  private readonly bindScroll = afterEveryRender(() => this.attach());
   private readonly cleanup = inject(DestroyRef).onDestroy(() => this.detach());
 
   /** Finds nz-table's scrolling element (it is re-created when the scroll config changes) and keeps the proxy bar in step with it. */
