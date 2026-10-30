@@ -42,7 +42,7 @@ public sealed record ClearIssuedCheque(Guid InstrumentId, DateOnly Date) : IComm
 
 public sealed class ClearIssuedChequeValidator : AbstractValidator<ClearIssuedCheque>
 {
-    public ClearIssuedChequeValidator() => RuleFor(x => x.Date).NotEqual(default(DateOnly)).WithMessage("Enter the clearing date.");
+    public ClearIssuedChequeValidator() => RuleFor(x => x.Date).MustBePlausibleDate();
 }
 public sealed class AllocatePaymentValidator : AbstractValidator<AllocatePayment>
 {
@@ -60,6 +60,8 @@ public sealed class PaymentInputValidator : AbstractValidator<PaymentInput>
     {
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.PartyId).NotEmpty();
+        RuleFor(x => x.Date).MustBePlausibleDate();
+        RuleFor(x => x.ChequeDate).MustBePlausibleDate();
         RuleFor(x => x.BankAccountId).NotEmpty();
         RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
         RuleFor(x => x.Method).IsInEnum();

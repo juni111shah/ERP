@@ -32,8 +32,8 @@ public sealed record BillSummaryDto(Guid Id, string Number, Guid PartyId, string
 
 public sealed record GetBill(Guid Id) : IQuery<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsRead; }
 public sealed record CreateBill(BillInput Input) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
-public sealed record UpdateBill(Guid Id, BillInput Input) : ICommand<BillDto>, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
-public sealed record DeleteBill(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
+public sealed record UpdateBill(Guid Id, BillInput Input) : ICommand<BillDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
+public sealed record DeleteBill(Guid Id) : ICommand, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.BillsWrite; }
 /// <summary>Posts the bill (Dr expenses and input tax, Cr payables). When an approval policy covers the amount the bill waits for a decision first.</summary>
 public sealed record PostBill(Guid Id) : ICommand<BillDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.BillsPost; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
@@ -50,6 +50,9 @@ public sealed class BillInputValidator : AbstractValidator<BillInput>
     {
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.PartyId).NotEmpty();
+        RuleFor(x => x.BillDate).MustBePlausibleDate();
+        RuleFor(x => x.DueDate).MustBePlausibleDate();
+        RuleFor(x => x).Must(x => x.DueDate is null || x.DueDate >= x.BillDate).WithName("dueDate").WithMessage("The due date cannot be before the bill date.");
         RuleFor(x => x.VendorReference).MaximumLength(100);
         RuleFor(x => x.Notes).MaximumLength(1000);
         RuleFor(x => x.BusinessUnitId).NotEqual(Guid.Empty).When(x => x.BusinessUnitId is not null).WithMessage("Choose a business unit or leave it empty.");
@@ -57,8 +60,8 @@ public sealed class BillInputValidator : AbstractValidator<BillInput>
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
             l.RuleFor(x => x.Description).NotEmpty().MaximumLength(400);
-            l.RuleFor(x => x.Quantity).GreaterThan(0);
-            l.RuleFor(x => x.Price).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.Quantity).GreaterThan(0).MustHaveAtMostDecimals(4);
+            l.RuleFor(x => x.Price).GreaterThanOrEqualTo(0).MustHaveAtMostDecimals(4);
             l.RuleFor(x => x.AccountId).NotEmpty().WithMessage("Choose the expense account.");
         });
     }
@@ -211,8 +214,8 @@ internal sealed class BillHandlers(
         var found = await accounts.Query(new Specification<Account>(a => accountIds.Contains(a.Id) && a.IsPostable && a.IsActive)).Select(a => a.Id).ToListAsync(ct);
         if (found.Count != accountIds.Count) throw new FieldValidationException("lines", "An account was not found or cannot be posted to.");
         var taxIds = i.Lines.Where(l => l.TaxCodeId is not null).Select(l => l.TaxCodeId!.Value).Distinct().ToList();
-        var taxes = await taxCodes.Query(new Specification<TaxCode>(t => taxIds.Contains(t.Id))).Select(t => new { t.Id, t.Rate, t.IsRecoverable }).ToDictionaryAsync(t => t.Id, ct);
-        if (taxes.Count != taxIds.Count) throw new FieldValidationException("lines", "A tax code was not found.");
+        var taxes = await taxCodes.Query(new Specification<TaxCode>(t => taxIds.Contains(t.Id) && t.IsActive)).Select(t => new { t.Id, t.Rate, t.IsRecoverable }).ToDictionaryAsync(t => t.Id, ct);
+        if (taxes.Count != taxIds.Count) throw new FieldValidationException("lines", "A tax code was not found or is no longer active.");
         var itemIds = i.Lines.Where(l => l.ItemId is not null).Select(l => l.ItemId!.Value).Distinct().ToList();
         if (!await references.AllExistAsync<Item>(itemIds, ct))
             throw new FieldValidationException("lines", "An item was not found.");
