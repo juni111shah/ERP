@@ -30,28 +30,51 @@ public sealed record AdjustStock(AdjustStockInput Input) : ICommand<MovementDto>
 public sealed record TransferStock(TransferStockInput Input) : ICommand<IReadOnlyList<MovementDto>>, IRequirePermission { public string RequiredPermission => InventoryModule.StockWrite; }
 public sealed record SetStockPolicy(StockPolicyInput Input) : ICommand, IRequirePermission { public string RequiredPermission => InventoryModule.StockWrite; }
 
+/// <summary>Shared rules for stock commands: a real date, and at most 4 decimals (what the stock ledger keeps) within a sane range.</summary>
+internal static class StockRules
+{
+    public static IRuleBuilderOptions<T, DateOnly> ValidStockDate<T>(this IRuleBuilder<T, DateOnly> rule)
+        => rule.Must(d => d != default && d >= DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-10) && d <= DateOnly.FromDateTime(DateTime.UtcNow).AddYears(10))
+            .WithMessage("Enter a valid date.");
+
+    public static IRuleBuilderOptions<T, decimal> FourDecimals<T>(this IRuleBuilder<T, decimal> rule)
+        => rule.Must(v => decimal.Round(v, 4) == v && Math.Abs(v) < 1_000_000_000m).WithMessage("Use at most 4 decimals and less than 1,000,000,000.");
+}
+
 public sealed class ReceiveStockValidator : AbstractValidator<ReceiveStock>
 {
     public ReceiveStockValidator()
     {
-        RuleFor(x => x.Input.Quantity).GreaterThan(0); RuleFor(x => x.Input.UnitCost).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.Input.Quantity).GreaterThan(0).FourDecimals(); RuleFor(x => x.Input.UnitCost).GreaterThanOrEqualTo(0).FourDecimals();
         RuleFor(x => x.Input.WarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty(); RuleFor(x => x.Input.OffsetAccountId).NotEmpty();
+        RuleFor(x => x.Input.Date).ValidStockDate();
     }
 }
 public sealed class IssueStockValidator : AbstractValidator<IssueStock>
 {
-    public IssueStockValidator() { RuleFor(x => x.Input.Quantity).GreaterThan(0); RuleFor(x => x.Input.WarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty(); }
+    public IssueStockValidator()
+    {
+        RuleFor(x => x.Input.Quantity).GreaterThan(0).FourDecimals(); RuleFor(x => x.Input.WarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty();
+        RuleFor(x => x.Input.Date).ValidStockDate();
+    }
 }
 public sealed class AdjustStockValidator : AbstractValidator<AdjustStock>
 {
-    public AdjustStockValidator() { RuleFor(x => x.Input.QuantityDelta).NotEqual(0); RuleFor(x => x.Input.UnitCost).GreaterThanOrEqualTo(0); RuleFor(x => x.Input.WarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty(); }
+    public AdjustStockValidator()
+    {
+        RuleFor(x => x.Input.QuantityDelta).NotEqual(0).FourDecimals(); RuleFor(x => x.Input.UnitCost).GreaterThanOrEqualTo(0).FourDecimals();
+        RuleFor(x => x.Input.WarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty();
+        RuleFor(x => x.Input.Date).ValidStockDate();
+    }
 }
 public sealed class TransferStockValidator : AbstractValidator<TransferStock>
 {
     public TransferStockValidator()
     {
-        RuleFor(x => x.Input.Quantity).GreaterThan(0);
+        RuleFor(x => x.Input.Quantity).GreaterThan(0).FourDecimals();
+        RuleFor(x => x.Input.FromWarehouseId).NotEmpty(); RuleFor(x => x.Input.ToWarehouseId).NotEmpty(); RuleFor(x => x.Input.ItemId).NotEmpty();
         RuleFor(x => x.Input.ToWarehouseId).NotEqual(x => x.Input.FromWarehouseId).WithMessage("Choose two different warehouses.");
+        RuleFor(x => x.Input.Date).ValidStockDate();
     }
 }
 public sealed class SetStockPolicyValidator : AbstractValidator<SetStockPolicy>

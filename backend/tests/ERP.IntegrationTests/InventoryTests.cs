@@ -113,4 +113,23 @@ public class InventoryTests(ApiFactory f) : IClassFixture<ApiFactory>
         await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 10, unitCost = 10m, date = "2026-01-03", offsetAccountId = x.Offset }), HttpStatusCode.Created);
         await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/issue", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 5, date = "2026-01-04" }), HttpStatusCode.Created); // still within stock on every later date
     }
+
+    [Fact]
+    public async Task Stock_commands_reject_missing_dates_empty_ids_and_extra_decimals()
+    {
+        var x = await SetupAsync();
+        async Task<HttpStatusCode> Post(string path, object body) => (await x.C.PostAsJsonAsync($"{Inv}/stock/{path}", body)).StatusCode;
+
+        // omitted date deserialises to 0001-01-01
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1, unitCost = 1m, offsetAccountId = x.Offset }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("issue", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1 }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("adjust", new { warehouseId = x.Wh1, itemId = x.Item, quantityDelta = 1 }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("transfer", new { fromWarehouseId = x.Wh1, toWarehouseId = x.Wh2, itemId = x.Item, quantity = 1 }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1.00001m, unitCost = 1m, date = "2026-05-01", offsetAccountId = x.Offset }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1, unitCost = 1.00001m, date = "2026-05-01", offsetAccountId = x.Offset }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("transfer", new { fromWarehouseId = Guid.Empty, toWarehouseId = x.Wh2, itemId = Guid.Empty, quantity = 1, date = "2026-05-01" }));
+
+        await Ok(await x.C.PostAsJsonAsync($"{Inv}/stock/receive", new { warehouseId = x.Wh1, itemId = x.Item, quantity = 1.5m, unitCost = 2.25m, date = "2026-05-01", offsetAccountId = x.Offset }), HttpStatusCode.Created);
+    }
 }
