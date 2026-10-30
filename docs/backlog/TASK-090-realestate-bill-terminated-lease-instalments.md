@@ -7,7 +7,7 @@ schema: no
 depends_on: []
 area: realestate
 audit_ref: Claude analysis, Real estate
-commit: HASH090
+commit: f10ad03
 ---
 
 ## Problem
