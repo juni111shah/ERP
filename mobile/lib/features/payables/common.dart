@@ -32,7 +32,7 @@ Field vendorField({String key = 'partyId'}) =>
     Field.lookup(key, 'Vendor', path: '/api/v1/parties', query: const {'role': 'Vendor'}, subtitleKey: 'code', required: true);
 
 Field accountField(String key, String label, {bool required = true, bool bankOnly = false}) => Field.lookup(key, label,
-    path: '$finPath/accounts', subtitleKey: 'code', required: required, query: bankOnly ? const {'filter': 'isBank:eq:true'} : const {});
+    path: '$finPath/accounts', subtitleKey: 'code', required: required, query: bankOnly ? const {'filter': 'type:eq:asset'} : const {});
 
 Field taxCodeField([String key = 'taxCodeId']) => Field.lookup(key, 'Tax code (optional)', path: '$finPath/tax-codes', subtitleKey: 'code');
 
