@@ -1,6 +1,6 @@
 # Board
 
-Last Claude run: 2026-10-30 (sixth run: no cards ready-for-review, no in-progress cards, 5 open so no refill)
+Last Claude run: 2026-10-30 (seventh run: no cards ready-for-review, no in-progress cards, 5 open so no refill)
 Rotation position: Procure to pay analysed (bills, payments, AP ageing). Next area = POS and Retail
 Needs human: Decide whether to merge antigravity/dashboard-and-modules into main (never pushed). Schema change TASK-010 (script database/scripts/0021_IdempotencyRecords.sql) must be applied by a human. TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-022 lands. TASK-006 commit message lacks the `TASK-006:` prefix. C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997). TASK-014 blocked: Angular 19.x has no patch for the advisories; needs a human decision on a major upgrade to v20+.
 
