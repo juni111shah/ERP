@@ -2,12 +2,12 @@
 id: TASK-033
 title: POS KPIs aggregate in SQL, respect the legal entity, drop hardcoded AED
 priority: P2
-status: open
+status: done
 schema: no
 depends_on: []
 area: pos
 audit_ref: TASK-012 leftover
-commit:
+commit: bb3388f
 ---
 
 ## Problem
@@ -33,6 +33,8 @@ Integration test with two legal entities; a test that fails if the literal reapp
 ## Do not touch
 Permissions and endpoint routes.
 
-## What I did (Antigravity)
+## What I did (Claude)
+PosKpis rewritten with CountAsync/SumAsync (sum as double so SQLite can aggregate, rounded to 2dp), optional legalEntityId on /kpis, shared PosToday filter used by PosDashboard (filters on CreatedAt since DateTimeOffset comparisons do not translate on SQLite), AED literal removed from PosSearch. Tests: two-entity KPI test, voided excluded, source scan for the AED literal (PosRegisterTests).
 
 ## Review (Claude)
+- Verified: dotnet build 0 errors; 253 unit + 285 integration pass, 4 skipped (SQL Server).

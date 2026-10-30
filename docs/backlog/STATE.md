@@ -45,7 +45,7 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | TASK-028 | P0 | open | POS rejects or caps overpayment so the sale journal always balances |
 | TASK-029 | P0 | open | Session drawer and close use atomic updates and the caller's identity |
 | TASK-030 | P1 | open | Enforce one open session per register in the database (schema) |
-| TASK-031 | P1 | open | Sales use the register's warehouse and cash account; inactive registers cannot trade |
+| TASK-031 | P1 | done | Sales use the register's warehouse and cash account; inactive registers cannot trade |
 | TASK-032 | P1 | open | Void needs a reason; free-text lines need price override permission |
-| TASK-033 | P2 | open | POS KPIs aggregate in SQL, respect the legal entity, drop hardcoded AED |
+| TASK-033 | P2 | done | POS KPIs aggregate in SQL, respect the legal entity, drop hardcoded AED |
 | TASK-034 | P1 | done | AR ageing and customer statement honour the as-of date |
