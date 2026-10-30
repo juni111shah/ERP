@@ -118,4 +118,25 @@ public class BankTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(2_000m, (decimal)pos["accounts"]!.AsArray().Single(a => (string?)a!["code"] == "1000")!["balance"]!);
         Assert.Equal(3_000m, (decimal)pos["accounts"]!.AsArray().Single(a => (string?)a!["code"] == "1010")!["balance"]!);
     }
+
+    [Fact]
+    public async Task Statement_lines_and_transfers_need_a_real_date_and_a_booked_line_cannot_be_booked_twice()
+    {
+        var s = await NewAsync();
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/bank/accounts/{s.Bank}/import", new
+        {
+            legalEntityId = s.Entity, lines = new[] { new { date = "0001-01-01", description = "Fee", reference = (string?)null, amount = -5m } },
+        })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.C.PostAsJsonAsync($"{Fin}/bank/transfers", new { legalEntityId = s.Entity, fromAccountId = s.Cash, toAccountId = s.Bank, amount = 5m, date = "0001-01-01" })).StatusCode);
+
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/bank/accounts/{s.Bank}/import", new
+        {
+            legalEntityId = s.Entity, lines = new[] { new { date = "2026-05-20", description = "Fee", reference = (string?)null, amount = -50m } },
+        }));
+        var rec = await Ok(await s.C.GetAsync($"{Fin}/bank/accounts/{s.Bank}/reconciliation?asOf=2026-05-31&legalEntityId={s.Entity}"));
+        var lineId = (string)rec["unmatchedStatement"]![0]!["id"]!;
+        await Ok(await s.C.PostAsJsonAsync($"{Fin}/bank/statement-lines/{lineId}/book", new { counterAccountId = s.Charges }));
+        await Ok(await s.C.PostAsync($"{Fin}/bank/statement-lines/{lineId}/unmatch", null));
+        Assert.Equal(HttpStatusCode.Conflict, (await s.C.PostAsJsonAsync($"{Fin}/bank/statement-lines/{lineId}/book", new { counterAccountId = s.Charges })).StatusCode);
+    }
 }
