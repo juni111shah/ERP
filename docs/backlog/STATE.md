@@ -1,12 +1,12 @@
 # Board
 
-Last Claude run: 2026-10-30 (all areas of the rotation analysed and implemented by parallel agents; every card done)
-Rotation position: all areas analysed once (Order to cash ... Performance). Next pass starts again at Order to cash.
+Last Claude run: 2026-10-30 (no cards to review; second pass started: Order to cash analysed, 5 new cards TASK-126..130)
+Rotation position: second pass, Order to cash done. Next run analyses Procure to pay.
 Needs human: Decide whether to merge antigravity/dashboard-and-modules into main (never pushed). Schema change TASK-010 (script database/scripts/0026_IdempotencyRecords.sql) must be applied by a human. TASK-021 criterion 1 (20 parallel receipts) is unproven until TASK-022 lands. TASK-006 commit message lacks the `TASK-006:` prefix. C: disk is 94% full (21G free). TASK-009 commit message lacked the `TASK-009:` prefix (hash on card was amended away; reviewed 8787997).  Migration scripts 0026 (Idempotency), 0027 (POS one open session per register; fails if a register has two open sessions) and 0065 (finance reporting indexes; locks tables while building) are not applied to any database. Branch antigravity/dashboard-and-modules was pushed; main rejects direct pushes (repository rules), so merge via pull request. Known gaps: CreateStockCount numbering races (CountAsync+1); about 56 selects/date pickers lack aria-labels and many forms lack validation messages; Services module not analysed; SQL Server parallel tests unrun locally.
 
 | Status | Count |
 |---|---|
-| open | 0 |
+| open | 5 |
 | in-progress | 0 |
 | ready-for-review | 0 |
 | changes-requested | 0 |
@@ -92,3 +92,8 @@ Needs human: Decide whether to merge antigravity/dashboard-and-modules into main
 | TASK-123 | P2 | done | Add entity/status/date indexes for journal entries, invoices, bills and settlements |
 | TASK-124 | P2 | done | Stock count save/post and work-order completion stop querying once per line |
 | TASK-125 | P2 | done | Compress JSON and the served SPA with Brotli/gzip |
+| TASK-126 | P1 | open | Invoices and receipts accept only customer parties |
+| TASK-127 | P2 | open | The public invoice API must not accept SourceType and SourceId |
+| TASK-128 | P1 | open | Allocate receipt, void receipt, void invoice and update invoice retry on concurrency conflicts |
+| TASK-129 | P2 | open | Validate dates and quantity/price precision on invoice and receipt inputs |
+| TASK-130 | P2 | open | Cumulative credited quantity per invoice line cannot exceed the invoiced quantity (schema: yes) |
