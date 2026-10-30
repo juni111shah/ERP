@@ -198,6 +198,7 @@ public class PurchasingLedgerTests(ApiFactory f) : IClassFixture<ApiFactory>
         }), HttpStatusCode.Created);
 
         var poId = (string)po["id"]!;
+        await Ok(await x.C.PutAsJsonAsync($"{Pur}/orders/{poId}/status", new { status = "Approved" })); // goods can only be received against an approved order
         var poLineId = (string)po["lines"]!.AsArray()[0]!["id"]!;
 
         // Default tolerance is 0%. Attempting to receive 11 units should fail with 400.
@@ -251,7 +252,7 @@ public class PurchasingLedgerTests(ApiFactory f) : IClassFixture<ApiFactory>
         }), HttpStatusCode.Created);
         Assert.NotNull(grn["id"]);
 
-        // Attempting to receive another 3 units (11 + 3 = 14 > 12 max allowed) returns 400
+        // The order is now fully received, so a further receipt is refused outright (409). The cumulative quantity limit itself is covered by GoodsReceiptRulesTests.
         var secondOverReceipt = await x.C.PostAsJsonAsync($"{Pur}/receipts", new
         {
             legalEntityId = x.Entity,
@@ -271,7 +272,7 @@ public class PurchasingLedgerTests(ApiFactory f) : IClassFixture<ApiFactory>
                 }
             }
         });
-        Assert.Equal(HttpStatusCode.BadRequest, secondOverReceipt.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, secondOverReceipt.StatusCode);
     }
 
     [Fact]
@@ -311,6 +312,7 @@ public class PurchasingLedgerTests(ApiFactory f) : IClassFixture<ApiFactory>
         }), HttpStatusCode.Created);
 
         var poId = (string)po["id"]!;
+        await Ok(await x.C.PutAsJsonAsync($"{Pur}/orders/{poId}/status", new { status = "Approved" })); // goods can only be received against an approved order
         var poLineId = (string)po["lines"]!.AsArray()[0]!["id"]!;
 
         // 2. Create Goods Receipt
@@ -392,6 +394,7 @@ public class PurchasingLedgerTests(ApiFactory f) : IClassFixture<ApiFactory>
         }), HttpStatusCode.Created);
 
         var poId = (string)po["id"]!;
+        await Ok(await x.C.PutAsJsonAsync($"{Pur}/orders/{poId}/status", new { status = "Approved" })); // goods can only be received against an approved order
         var poLineId = (string)po["lines"]!.AsArray()[0]!["id"]!;
 
         var grn = await Ok(await x.C.PostAsJsonAsync($"{Pur}/receipts", new

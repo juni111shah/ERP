@@ -157,6 +157,7 @@ public sealed class UpdatePurchaseOrderValidator : AbstractValidator<UpdatePurch
 internal sealed class PurchaseOrderHandlers(
     IRepository<PurchaseOrder> orders,
     IRepository<GoodsReceipt> goodsReceipts,
+    IRepository<PurchaseOrderLine> lineRows,
     IReadRepository<Account> accounts,
     IReadRepository<Item> items,
     IReadRepository<Party> parties,
@@ -210,7 +211,7 @@ internal sealed class PurchaseOrderHandlers(
         if (await orders.AnyAsync(x => x.Number == order.Number, ct))
             throw new ConflictException($"Purchase order number '{order.Number}' already exists.");
 
-        PopulateLinesAndTotals(order, i.Lines);
+        order.Lines.AddRange(BuildLinesAndTotals(order, i.Lines));
         await fields.ApplyAsync(Docs.PurchaseOrder, order, i.CustomFields, isCreate: true, ct);
 
         orders.Add(order);
@@ -245,10 +246,15 @@ internal sealed class PurchaseOrderHandlers(
         order.DeliveryAddress = i.DeliveryAddress;
         order.Notes = i.Notes;
 
-        PopulateLinesAndTotals(order, i.Lines);
+        // Lines are replaced through the line repository: new lines already carry keys, so adding them to the order's collection
+        // would make EF treat them as existing rows (and the workspace guard then rejects the write).
+        var fresh = BuildLinesAndTotals(order, i.Lines);
+        foreach (var old in order.Lines.ToList()) lineRows.Remove(old);
+        lineRows.AddRange(fresh);
         await fields.ApplyAsync(Docs.PurchaseOrder, order, i.CustomFields, isCreate: false, ct);
 
         await orders.SaveChangesAsync(ct);
+        order.Lines.Clear(); order.Lines.AddRange(fresh);
         return await ToDtoAsync(order, fields, ct);
     }
 
@@ -417,9 +423,10 @@ internal sealed class PurchaseOrderHandlers(
         return bill;
     }
 
-    private static void PopulateLinesAndTotals(PurchaseOrder order, List<PurchaseOrderLineInput> lines)
+    /// <summary>Builds the order's lines from the input and sets its totals; the caller attaches the lines.</summary>
+    private static List<PurchaseOrderLine> BuildLinesAndTotals(PurchaseOrder order, List<PurchaseOrderLineInput> lines)
     {
-        order.Lines.Clear();
+        var built = new List<PurchaseOrderLine>();
         decimal subtotal = 0;
         decimal taxTotal = 0;
         decimal discountTotal = 0;
@@ -436,8 +443,9 @@ internal sealed class PurchaseOrderHandlers(
             discountTotal += disc;
             taxTotal += tax;
 
-            order.Lines.Add(new PurchaseOrderLine
+            built.Add(new PurchaseOrderLine
             {
+                OrderId = order.Id,
                 ItemId = l.ItemId,
                 ItemCode = l.ItemCode.Trim(),
                 Description = l.Description.Trim(),
@@ -454,6 +462,7 @@ internal sealed class PurchaseOrderHandlers(
         order.DiscountTotal = Math.Round(discountTotal, 2);
         order.TaxTotal = Math.Round(taxTotal, 2);
         order.TotalAmount = Math.Round(subtotal + taxTotal, 2);
+        return built;
     }
 
     public static async Task<PurchaseOrderDto> ToDtoAsync(PurchaseOrder o, ICustomFieldService fields, CancellationToken ct)

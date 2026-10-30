@@ -3280,7 +3280,16 @@ public static class ProgramSeeder
             var n = 0;
             foreach (var inv in invoices)
             {
-                inv.JournalEntryId = Journal(inv.InvoiceDate, $"JV-BASE-{++n:D3}-INV", $"Invoice {inv.Number} {inv.PartyName}", "invoice", inv.Id, (arAcc, inv.Total, 0m, inv.PartyId), (incomeAcc, 0m, inv.Net, null)).Id;
+                // Dr receivables for the total; Cr income for the net and Cr output tax for the tax, so the entry balances (a credit note posts the opposite signs).
+                var taxOutAcc = await AccountAsync("tax.output");
+                var sign = inv.IsCreditNote ? -1m : 1m;
+                var invLines = new List<(Account? Acct, decimal Debit, decimal Credit, Guid? Party)>
+                {
+                    sign > 0 ? (arAcc, inv.Total, 0m, inv.PartyId) : (arAcc, 0m, inv.Total, inv.PartyId),
+                    sign > 0 ? (incomeAcc, 0m, inv.Net, null) : (incomeAcc, inv.Net, 0m, null),
+                };
+                if (inv.Tax > 0) invLines.Add(sign > 0 ? (taxOutAcc ?? incomeAcc, 0m, inv.Tax, null) : (taxOutAcc ?? incomeAcc, inv.Tax, 0m, null));
+                inv.JournalEntryId = Journal(inv.InvoiceDate, $"JV-BASE-{++n:D3}-INV", $"Invoice {inv.Number} {inv.PartyName}", "invoice", inv.Id, invLines.ToArray()).Id;
                 var shortfall = inv.Paid - allocations.Where(a => a.InvoiceId == inv.Id).Sum(a => a.Amount);
                 if (shortfall > 0)
                 {

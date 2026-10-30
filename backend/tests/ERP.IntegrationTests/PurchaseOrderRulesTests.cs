@@ -129,7 +129,7 @@ public class PurchaseOrderRulesTests(ApiFactory f) : IClassFixture<ApiFactory>
     // OrderFeatures.cs PopulateLinesAndTotals does order.Lines.Clear() and adds new PurchaseOrderLine objects that already carry a key,
     // so EF tracks them as Modified (not Added) with an empty OrgId and AuditSaveChangesInterceptor rejects the save. The invoice update
     // avoids this by removing/adding lines through the line repository. Remove the Skip once that is fixed.
-    [Theory(Skip = "Blocked by existing bug: updating a Draft/Submitted purchase order returns 500 (see comment above).")]
+    [Theory]
     [InlineData("Draft")]
     [InlineData("Submitted")]
     public async Task A_draft_or_submitted_order_can_still_be_edited(string status)
