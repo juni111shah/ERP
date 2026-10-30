@@ -25,6 +25,7 @@ const _me = Me(
 Widget app(FakeAdapter adapter, Widget home) {
   final store = MemoryKeyValueStore();
   return ProviderScope(
+    key: UniqueKey(),
     overrides: [
       storeProvider.overrideWithValue(store),
       apiProvider.overrideWith((ref) => ApiClient(store: store, baseUrl: 'http://api.test', dio: Dio()..httpClientAdapter = adapter)),
