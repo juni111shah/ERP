@@ -508,6 +508,9 @@ public static class ProgramSeeder
         var apAcc = await db.Accounts.FirstOrDefaultAsync(a => a.SystemRole == "ap.control" || a.Type == AccountType.Liability, ct);
         var incomeAcc = await db.Accounts.FirstOrDefaultAsync(a => a.Type == AccountType.Income, ct);
         var expenseAcc = await db.Accounts.FirstOrDefaultAsync(a => a.Type == AccountType.Expense, ct);
+        var openingEquityAcc = await db.Accounts.FirstOrDefaultAsync(a => a.SystemRole == "equity.opening", ct);
+        var depreciationExpenseAcc = await db.Accounts.FirstOrDefaultAsync(a => a.Code == "6400", ct);
+        var accumulatedDepreciationAcc = await db.Accounts.FirstOrDefaultAsync(a => a.Code == "1590", ct);
 
         // 1. Invoices
         if (!await db.Invoices.AnyAsync(ct))
@@ -735,7 +738,7 @@ public static class ProgramSeeder
                     new()
                     {
                         Seq = 2,
-                        AccountId = arAcc?.Id ?? Guid.NewGuid(),
+                        AccountId = openingEquityAcc?.Id ?? Guid.NewGuid(),
                         Debit = 0m,
                         Credit = 500000m,
                         Description = "Shareholder Capital / Owner's Equity"
@@ -760,7 +763,7 @@ public static class ProgramSeeder
                     new()
                     {
                         Seq = 1,
-                        AccountId = expenseAcc?.Id ?? Guid.NewGuid(),
+                        AccountId = depreciationExpenseAcc?.Id ?? Guid.NewGuid(),
                         Debit = 12500m,
                         Credit = 0m,
                         Description = "Depreciation Expense - POS & Server Hardware"
@@ -768,7 +771,7 @@ public static class ProgramSeeder
                     new()
                     {
                         Seq = 2,
-                        AccountId = apAcc?.Id ?? Guid.NewGuid(),
+                        AccountId = accumulatedDepreciationAcc?.Id ?? Guid.NewGuid(),
                         Debit = 0m,
                         Credit = 12500m,
                         Description = "Accumulated Depreciation - Plant & Equipment"
@@ -865,7 +868,7 @@ public static class ProgramSeeder
                     Amount = 95000m,
                     Unallocated = 0m,
                     Reference = "FT-ENBD-88491",
-                    Status = DocumentStatus.Paid,
+                    Status = DocumentStatus.Issued,
                     Allocations = inv1 != null ? new List<SettlementAllocation>
                     {
                         new() { InvoiceId = inv1.Id, Amount = 95000m }
@@ -885,7 +888,7 @@ public static class ProgramSeeder
                     Amount = 42500m,
                     Unallocated = 0m,
                     Reference = "SWIFT-OUT-49120",
-                    Status = DocumentStatus.Paid,
+                    Status = DocumentStatus.Issued,
                     Allocations = bill1 != null ? new List<SettlementAllocation>
                     {
                         new() { BillId = bill1.Id, Amount = 42500m }
@@ -2581,10 +2584,44 @@ public static class ProgramSeeder
 
         var taxCode = await db.TaxCodes.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.OrgId == orgId && t.IsDefault, ct);
         var bankAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.IsBank, ct);
-        var arAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && (a.SystemRole == "ar.control" || a.Type == AccountType.Asset), ct);
-        var apAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && (a.SystemRole == "ap.control" || a.Type == AccountType.Liability), ct);
-        var incomeAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.Type == AccountType.Income, ct);
-        var expenseAcc = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.Type == AccountType.Expense, ct);
+        Task<Account?> AccountAsync(string? role, string? code = null) => db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && (role != null ? a.SystemRole == role : a.Code == code), ct);
+        var arAcc = await AccountAsync("ar.control");
+        var apAcc = await AccountAsync("ap.control");
+        var incomeAcc = await AccountAsync("income.sales") ?? await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.Type == AccountType.Income, ct);
+        var salaryAcc = await AccountAsync("payroll.expense");
+        var expenseAcc = await AccountAsync(null, "6200") ?? await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.OrgId == orgId && a.Type == AccountType.Expense, ct);
+        var depExpenseAcc = await AccountAsync(null, "6400");
+        var accumDepAcc = await AccountAsync(null, "1590");
+        var capitalAcc = await AccountAsync(null, "3000");
+        bankAcc = await AccountAsync("bank") ?? bankAcc;
+
+        var todayDate = DateOnly.FromDateTime(clock);
+        DateOnly Cap(DateOnly d) => d > todayDate ? todayDate : d;
+        JournalEntry Journal(DateOnly date, string number, string memo, string source, Guid? sourceId, params (Account? Acct, decimal Debit, decimal Credit, Guid? Party)[] lines)
+        {
+            var je = new JournalEntry
+            {
+                LegalEntityId = legalEntityId, Number = number, Date = Cap(date), CurrencyCode = "QAR", ExchangeRate = 1m, Memo = memo, Reference = number,
+                SourceType = source, SourceId = sourceId, Status = JournalStatus.Posted, PostedAt = DateTime.UtcNow,
+            };
+            var seq = 1;
+            foreach (var l in lines) je.Lines.Add(new JournalLine { Seq = seq++, AccountId = l.Acct!.Id, Debit = l.Debit, Credit = l.Credit, PartyId = l.Party, Description = memo });
+            je.Recalculate();
+            db.JournalEntries.Add(je);
+            return je;
+        }
+        var postable = bankAcc != null && arAcc != null && apAcc != null && incomeAcc != null && salaryAcc != null && expenseAcc != null && depExpenseAcc != null && accumDepAcc != null && capitalAcc != null;
+
+        // Monthly economics: payroll is fixed, vendor bills and depreciation are small, and revenue is cost plus a margin that climbs from about 10% to 20%.
+        var payrollGross = employees.Sum(e => e.GrossMonthly);
+        decimal BillNet(int k) => 32000m + (k * 1200m) % 16000m;
+        const decimal Depreciation = 6500m;
+        decimal RevenueNet(int k)
+        {
+            var progress = (decimal)(HistoryMonths - 1 - k) / (HistoryMonths - 1);
+            var margin = 1.10m + 0.10m * progress + ((k * 7) % 5 - 2) * 0.01m;
+            return Math.Round((payrollGross + BillNet(k) + Depreciation) * margin, 2);
+        }
 
         // 1. One annual budget per fiscal year in the history window (budgets grow about 15% a year)
         {
@@ -2631,6 +2668,13 @@ public static class ProgramSeeder
             .Select(a => (a.EmployeeId, a.Year, a.Month))
             .ToHashSet();
 
+        if (postable && !backfillOnly)
+        {
+            var firstDay = new DateOnly(oldest.Year, oldest.Month, 1);
+            Journal(firstDay.AddDays(-1), "JV-OPENING-CAPITAL", "Opening share capital paid into the company bank account", "manual", null,
+                (bankAcc, 2_000_000m, 0m, null), (capitalAcc, 0m, 2_000_000m, null));
+        }
+
         for (int m = HistoryMonths - 1; m >= newestMonthOffset; m--)
         {
             var targetDate = now.AddMonths(-m);
@@ -2639,14 +2683,18 @@ public static class ProgramSeeder
             var daysInMonth = DateTime.DaysInMonth(year, month);
             var isPastMonth = (m > 0);
 
-            // A. Invoices & Customer Settlements
+            decimal receiptAmount = 0m, billPaidAmount = 0m;
+            var receiptDate = Cap(new DateOnly(year, month, Math.Min(20, daysInMonth)));
+
+            // A. Invoices & Customer Settlements (each posts to the ledger: Dr receivables, Cr sales; receipt Dr bank, Cr receivables)
             if (customers.Count > 0 && items.Count > 0)
             {
                 var cust = customers[m % customers.Count];
                 var item = items[m % items.Count];
-                var net = Math.Round((25000m + (m * 850m) % 35000m) * (1m + (HistoryMonths - 1 - m) * 0.01m), 2); // sales trend upward over the years
-                var tax = Math.Round(net * 0m, 2);
+                var net = RevenueNet(m);
+                var tax = 0m; // Qatar: no VAT
                 var total = net + tax;
+                var invDate = Cap(new DateOnly(year, month, Math.Min(5, daysInMonth)));
 
                 var inv = new Invoice
                 {
@@ -2655,7 +2703,7 @@ public static class ProgramSeeder
                     IsCreditNote = false,
                     PartyId = cust.Id,
                     PartyName = cust.Name,
-                    InvoiceDate = new DateOnly(year, month, Math.Min(5, daysInMonth)),
+                    InvoiceDate = invDate,
                     DueDate = new DateOnly(year, month, Math.Min(25, daysInMonth)),
                     CurrencyCode = "QAR",
                     ExchangeRate = 1m,
@@ -2680,40 +2728,45 @@ public static class ProgramSeeder
                     }
                 };
                 db.Invoices.Add(inv);
+                if (postable)
+                    inv.JournalEntryId = Journal(invDate, $"JV-{year}-{month:D2}-INV", $"Invoice {inv.Number} {cust.Name}", "invoice", inv.Id,
+                        (arAcc, total, 0m, cust.Id), (incomeAcc, 0m, net, null)).Id;
 
-                if (isPastMonth)
+                var settlement = new Settlement
                 {
-                    var settlement = new Settlement
+                    LegalEntityId = legalEntityId,
+                    Number = $"RCT-{year}-{month:D2}-{m + 1:D3}",
+                    Direction = InstrumentDirection.Received,
+                    PartyId = cust.Id,
+                    PartyName = cust.Name,
+                    Date = receiptDate,
+                    Method = SettlementMethod.BankTransfer,
+                    BankAccountId = bankAcc?.Id,
+                    CurrencyCode = "QAR",
+                    Amount = inv.Paid,
+                    Unallocated = 0m,
+                    Reference = $"WIRE-IN-{year}{month:D2}{m + 1:D2}",
+                    Status = DocumentStatus.Issued,
+                    Allocations = new List<SettlementAllocation>
                     {
-                        LegalEntityId = legalEntityId,
-                        Number = $"RCT-{year}-{month:D2}-{m + 1:D3}",
-                        Direction = InstrumentDirection.Received,
-                        PartyId = cust.Id,
-                        PartyName = cust.Name,
-                        Date = new DateOnly(year, month, Math.Min(20, daysInMonth)),
-                        Method = SettlementMethod.BankTransfer,
-                        BankAccountId = bankAcc?.Id,
-                        CurrencyCode = "QAR",
-                        Amount = total,
-                        Unallocated = 0m,
-                        Reference = $"WIRE-IN-{year}{month:D2}{m + 1:D2}",
-                        Status = DocumentStatus.Paid,
-                        Allocations = new List<SettlementAllocation>
-                        {
-                            new() { InvoiceId = inv.Id, Amount = total }
-                        }
-                    };
-                    db.Settlements.Add(settlement);
-                }
+                        new() { InvoiceId = inv.Id, Amount = inv.Paid }
+                    }
+                };
+                db.Settlements.Add(settlement);
+                receiptAmount = inv.Paid;
+                if (postable)
+                    settlement.JournalEntryId = Journal(receiptDate, $"JV-{year}-{month:D2}-RCT", $"Receipt from {cust.Name}", "receipt", settlement.Id,
+                        (bankAcc, inv.Paid, 0m, null), (arAcc, 0m, inv.Paid, cust.Id)).Id;
             }
 
-            // B. Vendor Bills
+            // B. Vendor Bills (Dr expense, Cr payables; a paid bill has its payment: Dr payables, Cr bank)
             if (vendors.Count > 0)
             {
                 var vend = vendors[m % vendors.Count];
-                var billNet = 3800m + (m * 120m) % 2400m;
-                var billTax = Math.Round(billNet * 0m, 2);
+                var billNet = BillNet(m);
+                var billTax = 0m;
                 var billTotal = billNet + billTax;
+                var billDate = Cap(new DateOnly(year, month, Math.Min(10, daysInMonth)));
 
                 var bill = new Bill
                 {
@@ -2721,7 +2774,7 @@ public static class ProgramSeeder
                     Number = $"BIL-{year}-{month:D2}-{m + 1:D3}",
                     PartyId = vend.Id,
                     PartyName = vend.Name,
-                    BillDate = new DateOnly(year, month, Math.Min(10, daysInMonth)),
+                    BillDate = billDate,
                     DueDate = new DateOnly(year, month, Math.Min(28, daysInMonth)),
                     CurrencyCode = "QAR",
                     ExchangeRate = 1m,
@@ -2747,59 +2800,71 @@ public static class ProgramSeeder
                     }
                 };
                 db.Bills.Add(bill);
-            }
+                if (postable)
+                    bill.JournalEntryId = Journal(billDate, $"JV-{year}-{month:D2}-BIL", $"Bill {bill.VendorReference} {vend.Name}", "bill", bill.Id,
+                        (expenseAcc, billTotal, 0m, null), (apAcc, 0m, billTotal, vend.Id)).Id;
 
-            // C. General Ledger Journal Entries
-            if (expenseAcc != null && arAcc != null)
-            {
-                var depAmount = 5500m + (m * 50m);
-                var jn = new JournalEntry
+                if (isPastMonth)
                 {
-                    LegalEntityId = legalEntityId,
-                    Number = $"JV-{year}-{month:D2}-DEP",
-                    Date = new DateOnly(year, month, Math.Min(28, daysInMonth)),
-                    CurrencyCode = "QAR",
-                    ExchangeRate = 1m,
-                    Amount = depAmount,
-                    Memo = $"Monthly asset depreciation and hardware amortization allocation for {year}-{month:D2}",
-                    Reference = $"DEP-{year}{month:D2}",
-                    Status = JournalStatus.Posted,
-                    PostedAt = DateTime.UtcNow,
-                    Lines = new List<JournalLine>
+                    var payDate = Cap(new DateOnly(year, month, Math.Min(26, daysInMonth)));
+                    var payment = new Settlement
                     {
-                        new() { Seq = 1, AccountId = expenseAcc.Id, Debit = depAmount, Credit = 0m, Description = "Depreciation & Operating Amortization Expense" },
-                        new() { Seq = 2, AccountId = arAcc.Id, Debit = 0m, Credit = depAmount, Description = "Accumulated Depreciation & Reserves" }
-                    }
-                };
-                jn.Recalculate();
-                db.JournalEntries.Add(jn);
+                        LegalEntityId = legalEntityId,
+                        Number = $"PAY-{year}-{month:D2}-{m + 1:D3}",
+                        Direction = InstrumentDirection.Issued,
+                        PartyId = vend.Id,
+                        PartyName = vend.Name,
+                        Date = payDate,
+                        Method = SettlementMethod.BankTransfer,
+                        BankAccountId = bankAcc?.Id,
+                        CurrencyCode = "QAR",
+                        Amount = billTotal,
+                        Unallocated = 0m,
+                        Reference = $"WIRE-OUT-{year}{month:D2}{m + 1:D2}",
+                        Status = DocumentStatus.Issued,
+                        Allocations = new List<SettlementAllocation>
+                        {
+                            new() { BillId = bill.Id, Amount = billTotal }
+                        }
+                    };
+                    db.Settlements.Add(payment);
+                    billPaidAmount = billTotal;
+                    if (postable)
+                        payment.JournalEntryId = Journal(payDate, $"JV-{year}-{month:D2}-PAY", $"Payment to {vend.Name}", "payment", payment.Id,
+                            (apAcc, billTotal, 0m, vend.Id), (bankAcc, 0m, billTotal, null)).Id;
+                }
             }
 
-            // D. Bank Statement Lines
+            // C. Monthly depreciation: Dr depreciation expense, Cr accumulated depreciation
+            if (postable)
+                Journal(new DateOnly(year, month, Math.Min(28, daysInMonth)), $"JV-{year}-{month:D2}-DEP", $"Monthly depreciation of fixed assets {year}-{month:D2}", "manual", null,
+                    (depExpenseAcc, Depreciation, 0m, null), (accumDepAcc, 0m, Depreciation, null));
+
+            // D. Bank statement lines that mirror the receipt and the vendor payment of the month
             if (bankAcc != null)
             {
-                db.BankStatementLines.AddRange(
-                    new BankStatementLine
+                if (receiptAmount > 0)
+                    db.BankStatementLines.Add(new BankStatementLine
                     {
                         LegalEntityId = legalEntityId,
                         AccountId = bankAcc.Id,
-                        Date = new DateOnly(year, month, Math.Min(8, daysInMonth)),
+                        Date = receiptDate,
                         Description = $"Client wire transfer invoice settlement - {year}-{month:D2}",
                         Reference = $"STMT-{year}{month:D2}-01",
-                        Amount = 28500m + (m * 400m) % 15000m,
+                        Amount = receiptAmount,
                         Status = StatementLineStatus.Matched
-                    },
-                    new BankStatementLine
+                    });
+                if (billPaidAmount > 0)
+                    db.BankStatementLines.Add(new BankStatementLine
                     {
                         LegalEntityId = legalEntityId,
                         AccountId = bankAcc.Id,
-                        Date = new DateOnly(year, month, Math.Min(18, daysInMonth)),
+                        Date = Cap(new DateOnly(year, month, Math.Min(26, daysInMonth))),
                         Description = $"Direct debit statutory utility & operational payment - {year}-{month:D2}",
                         Reference = $"STMT-{year}{month:D2}-02",
-                        Amount = -(3800m + (m * 120m) % 2400m),
+                        Amount = -billPaidAmount,
                         Status = StatementLineStatus.Matched
-                    }
-                );
+                    });
             }
 
             // E. HR Payroll & Attendance
@@ -2838,6 +2903,9 @@ public static class ProgramSeeder
                     }
                     db.Set<PayrollRun>().Add(pr);
                     existingPayrollYearsMonths.Add((year, month));
+                    if (postable && isPastMonth)
+                        Journal(new DateOnly(year, month, Math.Min(28, daysInMonth)), $"JV-{year}-{month:D2}-PRL", $"Payroll {pr.Number} paid by bank transfer (WPS)", "payroll", pr.Id,
+                            (salaryAcc, grossSum, 0m, null), (bankAcc, 0m, grossSum, null));
                 }
 
                 foreach (var emp in employees)
@@ -3199,6 +3267,58 @@ public static class ProgramSeeder
         }
 
         await db.SaveChangesAsync(ct);
+        if (postable) await PostUnpostedDocumentsAsync();
+
+        // The finance seed creates a few documents (and any part payments recorded only on the document) with no ledger entry; post them now so the books match the documents.
+        async Task PostUnpostedDocumentsAsync()
+        {
+            var invoices = await db.Invoices.IgnoreQueryFilters().Where(i => i.OrgId == orgId && i.JournalEntryId == null && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.Voided).ToListAsync(ct);
+            var bills = await db.Bills.IgnoreQueryFilters().Where(b => b.OrgId == orgId && b.JournalEntryId == null && b.Status != DocumentStatus.Draft && b.Status != DocumentStatus.Voided).ToListAsync(ct);
+            var invoiceIds = invoices.Select(i => (Guid?)i.Id).ToList();
+            var billIds = bills.Select(b => (Guid?)b.Id).ToList();
+            var allocations = await db.Set<SettlementAllocation>().Where(a => invoiceIds.Contains(a.InvoiceId) || billIds.Contains(a.BillId)).ToListAsync(ct);
+            var n = 0;
+            foreach (var inv in invoices)
+            {
+                inv.JournalEntryId = Journal(inv.InvoiceDate, $"JV-BASE-{++n:D3}-INV", $"Invoice {inv.Number} {inv.PartyName}", "invoice", inv.Id, (arAcc, inv.Total, 0m, inv.PartyId), (incomeAcc, 0m, inv.Net, null)).Id;
+                var shortfall = inv.Paid - allocations.Where(a => a.InvoiceId == inv.Id).Sum(a => a.Amount);
+                if (shortfall > 0)
+                {
+                    var date = Cap(inv.InvoiceDate.AddDays(10));
+                    var rct = new Settlement { LegalEntityId = legalEntityId, Number = $"RCT-BASE-{n:D3}", Direction = InstrumentDirection.Received, PartyId = inv.PartyId, PartyName = inv.PartyName, Date = date, Method = SettlementMethod.BankTransfer, BankAccountId = bankAcc!.Id, CurrencyCode = "QAR", Amount = shortfall, Unallocated = 0m, Reference = $"PART-{inv.Number}", Status = DocumentStatus.Issued, Allocations = [new() { InvoiceId = inv.Id, Amount = shortfall }] };
+                    rct.JournalEntryId = Journal(date, $"JV-BASE-{n:D3}-RCT", $"Part payment of {inv.Number}", "receipt", rct.Id, (bankAcc, shortfall, 0m, null), (arAcc, 0m, shortfall, inv.PartyId)).Id;
+                    db.Settlements.Add(rct);
+                }
+            }
+            foreach (var bill in bills)
+            {
+                var account = bill.Lines.FirstOrDefault()?.AccountId;
+                var expense = account is { } id ? await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.Id == id, ct) ?? expenseAcc : expenseAcc;
+                bill.JournalEntryId = Journal(bill.BillDate, $"JV-BASE-{++n:D3}-BIL", $"Bill {bill.VendorReference ?? bill.Number} {bill.PartyName}", "bill", bill.Id, (expense, bill.Total, 0m, null), (apAcc, 0m, bill.Total, bill.PartyId)).Id;
+                var shortfall = bill.Paid - allocations.Where(a => a.BillId == bill.Id).Sum(a => a.Amount);
+                if (shortfall > 0)
+                {
+                    var date = Cap(bill.BillDate.AddDays(10));
+                    var pay = new Settlement { LegalEntityId = legalEntityId, Number = $"PAY-BASE-{n:D3}", Direction = InstrumentDirection.Issued, PartyId = bill.PartyId, PartyName = bill.PartyName, Date = date, Method = SettlementMethod.BankTransfer, BankAccountId = bankAcc!.Id, CurrencyCode = "QAR", Amount = shortfall, Unallocated = 0m, Reference = $"PART-{bill.Number}", Status = DocumentStatus.Issued, Allocations = [new() { BillId = bill.Id, Amount = shortfall }] };
+                    pay.JournalEntryId = Journal(date, $"JV-BASE-{n:D3}-PAY", $"Payment of {bill.Number}", "payment", pay.Id, (apAcc, shortfall, 0m, bill.PartyId), (bankAcc, 0m, shortfall, null)).Id;
+                    db.Settlements.Add(pay);
+                }
+            }
+            // Receipts and payments of the finance seed (their documents already show as settled) and paid payroll runs that were never posted.
+            var settlements = await db.Settlements.IgnoreQueryFilters().Where(x => x.OrgId == orgId && x.JournalEntryId == null && x.Status == DocumentStatus.Issued).ToListAsync(ct);
+            foreach (var st in settlements)
+            {
+                var bank = st.BankAccountId is { } bid ? await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.Id == bid, ct) ?? bankAcc : bankAcc;
+                st.JournalEntryId = st.Direction == InstrumentDirection.Received
+                    ? Journal(st.Date, $"JV-BASE-{++n:D3}-RCT", $"Receipt {st.Number} {st.PartyName}", "receipt", st.Id, (bank, st.Amount, 0m, null), (arAcc, 0m, st.Amount, st.PartyId)).Id
+                    : Journal(st.Date, $"JV-BASE-{++n:D3}-PAY", $"Payment {st.Number} {st.PartyName}", "payment", st.Id, (apAcc, st.Amount, 0m, st.PartyId), (bank, 0m, st.Amount, null)).Id;
+            }
+            var postedPayroll = (await db.JournalEntries.IgnoreQueryFilters().Where(j => j.OrgId == orgId && j.SourceType == "payroll" && j.SourceId != null).Select(j => j.SourceId!.Value).ToListAsync(ct)).ToHashSet();
+            foreach (var run in await db.Set<PayrollRun>().IgnoreQueryFilters().Where(r => r.OrgId == orgId && r.Status == PayrollStatus.Paid).ToListAsync(ct))
+                if (!postedPayroll.Contains(run.Id))
+                    Journal(run.PaidOn ?? run.PlannedPayDate ?? todayDate, $"JV-BASE-{++n:D3}-PRL", $"Payroll {run.Number} paid by bank transfer (WPS)", "payroll", run.Id, (salaryAcc, run.GrossEarnings, 0m, null), (bankAcc, 0m, run.GrossEarnings, null));
+            await db.SaveChangesAsync(ct);
+        }
     }
 }
 
