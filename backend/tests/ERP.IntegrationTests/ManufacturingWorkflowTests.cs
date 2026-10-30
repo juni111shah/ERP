@@ -226,12 +226,13 @@ public class ManufacturingWorkflowTests(ApiFactory f) : IClassFixture<ApiFactory
         var x = await SetupAsync();
         var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
-        // Service item (not a product)
+        // A BOM can only be created from products, so the item is turned into a service afterwards
+        var serviceSku = "SRV-" + Guid.NewGuid().ToString("N")[..6];
         var serviceItem = (string)(await Ok(await x.C.PostAsJsonAsync("/api/v1/items", new
         {
-            sku = "SRV-" + Guid.NewGuid().ToString("N")[..6],
+            sku = serviceSku,
             name = "Assembly Consulting",
-            type = "service",
+            type = "product",
             uom = "hr",
             isActive = true
         }), HttpStatusCode.Created))["id"]!;
@@ -264,6 +265,8 @@ public class ManufacturingWorkflowTests(ApiFactory f) : IClassFixture<ApiFactory
             }
         }), HttpStatusCode.Created);
 
+        await Ok(await x.C.PutAsJsonAsync($"/api/v1/items/{serviceItem}", new { sku = serviceSku, name = "Assembly Consulting", type = "service", uom = "hr", isActive = true }));
+
         var wo = await Ok(await x.C.PostAsJsonAsync($"{Mfg}/workorders", new
         {
             legalEntityId = x.Entity,
@@ -289,5 +292,38 @@ public class ManufacturingWorkflowTests(ApiFactory f) : IClassFixture<ApiFactory
         // Any failure rolls back the status change -> still InProgress
         var woFetched = await Ok(await x.C.GetAsync($"{Mfg}/workorders/{woId}"));
         Assert.Equal("InProgress", (string)woFetched["status"]!, ignoreCase: true);
+    }
+
+    private static object BomBody(Ctx x, string code, string produced, object[] components) => new
+    {
+        legalEntityId = x.Entity, code, name = "Test BOM", producedItemId = produced, producedItemCode = "IGNORED", producedItemName = "Ignored",
+        outputQuantity = 1, uom = "pcs", version = "1.0", laborCostPerUnit = 0m, overheadCostPerUnit = 0m, isActive = true, components,
+    };
+
+    private static object Component(string item, decimal qty = 1m, decimal scrap = 0m, decimal cost = 5m)
+        => new { componentItemId = item, componentItemCode = "X", componentItemName = "X", quantityRequired = qty, uom = "pcs", scrapPercentage = scrap, unitCost = cost };
+
+    [Fact]
+    public async Task A_bom_validates_its_components_and_takes_names_from_the_catalog()
+    {
+        var x = await SetupAsync();
+        var code = "V-" + Guid.NewGuid().ToString("N")[..6];
+        async Task<HttpStatusCode> Create(string c, string produced, params object[] comps) => (await x.C.PostAsJsonAsync($"{Mfg}/boms", BomBody(x, c, produced, comps))).StatusCode;
+
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(code, x.ProducedItem, Component(x.ComponentItem, qty: 0m)));
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(code, x.ProducedItem, Component(x.ComponentItem, qty: -5m)));
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(code, x.ProducedItem, Component(x.ComponentItem, scrap: 150m)));
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(code, x.ProducedItem, Component(x.ComponentItem, cost: -1m)));
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(code, x.ProducedItem, Component(x.ComponentItem), Component(x.ComponentItem))); // duplicate component
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(code, x.ProducedItem, Component(x.ProducedItem)));                              // its own component
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(code, x.ProducedItem, Component(Guid.NewGuid().ToString())));                   // unknown item
+        var service = (string)(await Ok(await x.C.PostAsJsonAsync("/api/v1/items", new { sku = "SRV-" + Guid.NewGuid().ToString("N")[..6], name = "Labour", type = "service", uom = "hr", isActive = true }), HttpStatusCode.Created))["id"]!;
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(code, x.ProducedItem, Component(service)));
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(code, service, Component(x.ComponentItem)));
+
+        var bom = await Ok(await x.C.PostAsJsonAsync($"{Mfg}/boms", BomBody(x, code, x.ProducedItem, [Component(x.ComponentItem)])), HttpStatusCode.Created);
+        Assert.NotEqual("IGNORED", (string)bom["producedItemCode"]!);
+        Assert.NotEqual("X", (string)bom["components"]![0]!["componentItemCode"]!);
+        Assert.Equal(HttpStatusCode.Conflict, await Create(code.ToLowerInvariant(), x.ProducedItem, Component(x.ComponentItem))); // same code, any case
     }
 }
