@@ -2,12 +2,12 @@
 id: TASK-133
 title: Purchase orders are editable only while Draft or Submitted and deletable only when nothing depends on them
 priority: P1
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
-commit:
+commit: 61e4493
 owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
@@ -22,9 +22,9 @@ Receipt quantities and order status disagree with stock; receipts point to vanis
 - Delete: only `Draft` or `Cancelled`, and only if no goods receipt references the order (409 otherwise).
 
 ## Acceptance criteria
-- [ ] Editing an Approved/PartiallyReceived/Received/Cancelled/Billed order returns 409 and changes nothing.
-- [ ] Changing the legal entity on update returns 400.
-- [ ] Deleting an Approved order or one with a goods receipt returns 409; deleting a Draft order works.
+- [x] Editing an Approved/PartiallyReceived/Received/Cancelled/Billed order returns 409 and changes nothing.
+- [x] Changing the legal entity on update returns 400.
+- [x] Deleting an Approved order or one with a goods receipt returns 409; deleting a Draft order works.
 
 ## Tests required
 Integration tests for each rule on the purchasing test host.
@@ -32,6 +32,9 @@ Integration tests for each rule on the purchasing test host.
 ## Do not touch
 Status transition table (TASK-009).
 
-## What I did (Antigravity)
+## What I did (Claude, branch claude/p2p)
+- Update only for Draft/Submitted (409), legal entity change is 400. Delete only Draft/Cancelled with no goods receipt (409).
+- Also fixed an older bug found by the tests: updating a Draft purchase order returned 500 (Cross-workspace write blocked) because replaced lines carried keys and were tracked as existing rows. Lines now go through `IRepository<PurchaseOrderLine>` like invoices (commit 61e4493).
+- Tests: `PurchaseOrderRulesTests`, including that a Draft/Submitted order can still be edited.
 
 ## Review (Claude)

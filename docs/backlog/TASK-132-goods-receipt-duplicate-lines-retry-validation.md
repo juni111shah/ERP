@@ -2,12 +2,12 @@
 id: TASK-132
 title: Goods receipt lines are checked together, commands retry on conflicts, dates and precision are validated
 priority: P1
-status: in-progress
+status: ready-for-review
 schema: no
 depends_on: []
 area: purchasing
 audit_ref: Claude analysis, Procure to pay (second pass)
-commit:
+commit: e5cbf2c
 owner: claude (branch claude/p2p; Antigravity skip)
 ---
 
@@ -25,9 +25,9 @@ Over-receipt beyond tolerance, lost updates on `ReceivedQuantity`, stock movemen
 - `ReceiptDate` uses `MustBePlausibleDate()`, `QuantityReceived` uses `MustHaveAtMostDecimals(4)` (ERP.Application/Finance/MoneyValidation.cs).
 
 ## Acceptance criteria
-- [ ] Two lines for the same order line whose sum exceeds remaining plus tolerance return 400 on `lines`.
-- [ ] Both commands are `IRetryOnConcurrency`.
-- [ ] Receipt date 0001-01-01 or more than a year ahead returns 400 on `receiptDate`; quantity 1.00001 returns 400.
+- [x] Two lines for the same order line whose sum exceeds remaining plus tolerance return 400 on `lines`.
+- [x] Both commands are `IRetryOnConcurrency`.
+- [x] Receipt date 0001-01-01 or more than a year ahead returns 400 on `receiptDate`; quantity 1.00001 returns 400.
 
 ## Tests required
 Integration tests for the duplicate-line case and date/precision rules; a unit test that both commands are retryable.
@@ -35,6 +35,8 @@ Integration tests for the duplicate-line case and date/precision rules; a unit t
 ## Do not touch
 Tolerance setting semantics.
 
-## What I did (Antigravity)
+## What I did (Claude, branch claude/p2p)
+- The over-receipt check sums `QuantityReceived` per order line. `CreateGoodsReceipt` and `DeleteGoodsReceipt` implement `IRetryOnConcurrency`. `ReceiptDate` uses `MustBePlausibleDate`, quantity has at most 4 decimals.
+- Tests: `GoodsReceiptRulesTests` (duplicate lines 12 > 10 rejected, 6+4 accepted, dates, 1.00001, retry markers).
 
 ## Review (Claude)
