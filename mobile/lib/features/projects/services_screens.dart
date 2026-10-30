@@ -7,7 +7,7 @@ import '../../core/session.dart';
 import '../../kit/detail_page.dart';
 import '../../kit/field.dart';
 import '../../kit/form_page.dart';
-import '../../kit/list_screen.dart';
+import '../crm/client_filtered_list.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 
@@ -90,9 +90,10 @@ Widget engagementTile(BuildContext context, Json e) => ListTile(
 class EngagementsScreen extends StatelessWidget {
   const EngagementsScreen({super.key});
   @override
-  Widget build(BuildContext context) => ListScreen(
+  Widget build(BuildContext context) => ClientFilteredListScreen(
         title: 'Engagements',
         path: '$sBase/engagements',
+        filterKey: 'status',
         searchHint: 'Search engagements',
         emptyText: 'No engagements found.',
         itemBuilder: engagementTile,
@@ -155,7 +156,8 @@ FormSpec retainerForm(WidgetRef ref) {
     title: 'New retainer',
     fields: [
       Field.select('legalEntityId', 'Legal entity', options: _entities(me), required: true, initial: me.defaultEntity?.id),
-      Field.lookup('engagementId', 'Engagement', path: '$sBase/engagements', labelKey: 'title', subtitleKey: 'engagementCode', required: true, copy: const {'clientId': 'clientId', 'clientName': 'clientName'}),
+      Field.lookup('engagementId', 'Engagement', path: '$sBase/engagements',
+        labelKey: 'title', subtitleKey: 'engagementCode', required: true, copy: const {'clientId': 'clientId', 'clientName': 'clientName'}),
       Field.lookup('clientId', 'Client', path: '/api/v1/parties', query: const {'role': 'Customer'}, subtitleKey: 'code', required: true, copy: const {'clientName': 'name'}),
       Field.text('clientName', 'Client name', required: true, maxLength: 150),
       Field.text('title', 'Title', required: true, maxLength: 200),
@@ -186,9 +188,10 @@ Widget retainerTile(BuildContext context, Json r) => ListTile(
 class RetainersScreen extends StatelessWidget {
   const RetainersScreen({super.key});
   @override
-  Widget build(BuildContext context) => ListScreen(
+  Widget build(BuildContext context) => ClientFilteredListScreen(
         title: 'Retainers',
         path: '$sBase/retainers',
+        filterKey: 'status',
         searchHint: 'Search retainers',
         emptyText: 'No retainers found.',
         itemBuilder: retainerTile,
@@ -247,7 +250,8 @@ FormSpec serviceMilestoneForm(WidgetRef ref) {
     title: 'New billing milestone',
     fields: [
       Field.select('legalEntityId', 'Legal entity', options: _entities(me), required: true, initial: me.defaultEntity?.id),
-      Field.lookup('engagementId', 'Engagement', path: '$sBase/engagements', labelKey: 'title', subtitleKey: 'engagementCode', required: true),
+      Field.lookup('engagementId', 'Engagement', path: '$sBase/engagements',
+        labelKey: 'title', subtitleKey: 'engagementCode', required: true),
       Field.text('title', 'Title', required: true, maxLength: 200),
       Field.money('amount', 'Amount', required: true),
       Field.date('dueDate', 'Due date', required: true),
@@ -271,9 +275,10 @@ Widget serviceMilestoneTile(BuildContext context, Json m) => ListTile(
 class ServiceMilestonesScreen extends StatelessWidget {
   const ServiceMilestonesScreen({super.key});
   @override
-  Widget build(BuildContext context) => ListScreen(
+  Widget build(BuildContext context) => ClientFilteredListScreen(
         title: 'Milestone billing',
         path: '$sBase/milestones',
+        filterKey: 'status',
         searchHint: 'Search milestones',
         emptyText: 'No milestones found.',
         itemBuilder: serviceMilestoneTile,

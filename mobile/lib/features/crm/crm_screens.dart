@@ -9,7 +9,7 @@ import '../../kit/data_version.dart';
 import '../../kit/detail_page.dart';
 import '../../kit/field.dart';
 import '../../kit/form_page.dart';
-import '../../kit/list_screen.dart';
+import 'client_filtered_list.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 
@@ -123,9 +123,10 @@ Widget leadTile(BuildContext context, Json l) {
 class LeadsScreen extends StatelessWidget {
   const LeadsScreen({super.key});
   @override
-  Widget build(BuildContext context) => ListScreen(
+  Widget build(BuildContext context) => ClientFilteredListScreen(
         title: 'Leads',
         path: '$_base/leads',
+        filterKey: 'status',
         searchHint: 'Search leads',
         emptyText: 'No leads found.',
         itemBuilder: leadTile,
@@ -276,7 +277,7 @@ Widget opportunityTile(BuildContext context, Json o) {
 class OpportunitiesScreen extends StatelessWidget {
   const OpportunitiesScreen({super.key});
   @override
-  Widget build(BuildContext context) => ListScreen(
+  Widget build(BuildContext context) => ClientFilteredListScreen(
         title: 'Sales pipeline',
         path: '$_base/opportunities',
         filterKey: 'stage',
@@ -369,7 +370,8 @@ FormSpec interactionForm(WidgetRef ref, {String? kind, String? entityId, String?
     fields: [
       if (!fixed) ...[
         Field.select('relatedEntityKind', 'Related to', options: const [Option('Lead', 'Lead'), Option('Opportunity', 'Opportunity'), Option('Customer', 'Customer')], required: true, initial: 'Lead'),
-        Field.lookup('leadId', 'Lead', path: '$_base/leads', labelKey: 'fullName', subtitleKey: 'leadNumber', visibleWhen: (v) => v['relatedEntityKind'] == 'Lead'),
+        Field.lookup('leadId', 'Lead', path: '$_base/leads',
+        labelKey: 'fullName', subtitleKey: 'leadNumber', visibleWhen: (v) => v['relatedEntityKind'] == 'Lead'),
         Field.lookup('oppId', 'Opportunity', path: '$_base/opportunities', labelKey: 'title', subtitleKey: 'opportunityNumber', visibleWhen: (v) => v['relatedEntityKind'] == 'Opportunity'),
         Field.lookup('partyId', 'Customer', path: '/api/v1/parties', query: const {'role': 'Customer'}, subtitleKey: 'code', visibleWhen: (v) => v['relatedEntityKind'] == 'Customer'),
         if (legalEntityId == null) Field.select('legalEntityId', 'Legal entity', options: [for (final e in me.legalEntities) Option(e.id, e.name)], required: true, initial: me.defaultEntity?.id),
@@ -415,7 +417,7 @@ Widget interactionTile(BuildContext context, Json i) {
 class InteractionsScreen extends StatelessWidget {
   const InteractionsScreen({super.key});
   @override
-  Widget build(BuildContext context) => ListScreen(
+  Widget build(BuildContext context) => ClientFilteredListScreen(
         title: 'Activity logs',
         path: '$_base/interactions',
         filterKey: 'type',
