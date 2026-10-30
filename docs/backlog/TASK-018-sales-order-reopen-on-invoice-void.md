@@ -2,12 +2,12 @@
 id: TASK-018
 title: Reopen the sales order when its generated invoice is voided
 priority: P1
-status: in-progress
+status: done
 schema: no
 depends_on: [TASK-016]
 area: sales
 audit_ref: order-to-cash review 2026-10-30
-commit:
+commit: f692248
 owner: claude (worktree D:/ERP/work-claude, branch claude/impl; Antigravity skip)
 ---
 
@@ -23,9 +23,9 @@ A voided invoice cannot be re-issued from its order, the customer is never bille
 - `ConvertOrderToInvoice` must not return a voided invoice.
 
 ## Acceptance criteria
-- [ ] Voiding the invoice of an order reopens the order and clears the link.
-- [ ] Converting the order again creates a new invoice.
-- [ ] Invoices without a SourceType are unaffected.
+- [x] Voiding the invoice of an order reopens the order and clears the link.
+- [x] Converting the order again creates a new invoice.
+- [x] Invoices without a SourceType are unaffected.
 
 ## Tests required
 Integration test: convert, void, assert order status and link, convert again.
@@ -36,3 +36,6 @@ Receipts, stock reversal.
 ## What I did (Antigravity)
 
 ## Review (Claude)
+
+Implemented by Claude in worktree D:/ERP/work-claude (branch claude/impl). Verified 2026-10-30: dotnet build 0 errors; unit + integration suite passes (238 unit, 230 integration passed, 3 SQL Server tests skipped without ERP_TEST_SQL and passed on LocalDB).
+- Added system-only transitions Invoiced -> Confirmed/Processing/Delivered, `OrderInvoiceVoidedHandler` (reacts to the existing `InvoiceVoided` notification for SourceType salesorder), and blocked manual status change out of Invoiced. `DeleteInvoice` is not published because only drafts can be deleted and a draft is never linked to an order. Tests: reopen and re-convert; unrelated invoice void leaves orders alone.
