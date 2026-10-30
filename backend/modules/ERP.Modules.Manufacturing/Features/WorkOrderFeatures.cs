@@ -128,6 +128,7 @@ public class WorkOrderHandlers :
     private readonly IPostingService _posting;
     private readonly IReadRepository<Item> _items;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ERP.Application.Organizations.ILegalEntityGuard _guard;
 
     public WorkOrderHandlers(
         IRepository<WorkOrder> orders,
@@ -136,8 +137,10 @@ public class WorkOrderHandlers :
         IStockPostingService stockPosting,
         IPostingService posting,
         IReadRepository<Item> items,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ERP.Application.Organizations.ILegalEntityGuard guard)
     {
+        _guard = guard;
         _orders = orders;
         _boms = boms;
         _numbering = numbering;
@@ -153,6 +156,12 @@ public class WorkOrderHandlers :
             .Include(b => b.Components)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"BOM {request.BomId} not found.");
+
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
+        if (bom.LegalEntityId != request.LegalEntityId) throw new FieldValidationException("bomId", "This BOM belongs to another legal entity.");
+        if (!bom.IsActive) throw new ConflictException($"BOM {bom.Code} is inactive.");
+        if (!await _stockPosting.IsWarehouseUsableAsync(request.WarehouseId, request.LegalEntityId, cancellationToken))
+            throw new FieldValidationException("warehouseId", "Choose an active warehouse of this legal entity.");
 
         var number = await _numbering.NextAsync("WorkOrder", request.LegalEntityId, request.StartDate, cancellationToken);
 

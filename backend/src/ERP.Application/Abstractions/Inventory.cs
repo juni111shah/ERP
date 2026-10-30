@@ -30,6 +30,8 @@ public sealed record StockIssueRequest(
 public interface IStockPostingService
 {
     Task<bool> IsInventoryEnabledAsync(CancellationToken ct = default);
+    /// <summary>True when the warehouse exists, is active and belongs to the legal entity. Always true when the Inventory module is off (nothing is stocked then).</summary>
+    Task<bool> IsWarehouseUsableAsync(Guid warehouseId, Guid legalEntityId, CancellationToken ct = default);
     Task<Guid?> ReceiveStockAsync(StockReceiveRequest request, CancellationToken ct = default);
     Task<Guid?> IssueStockAsync(StockIssueRequest request, CancellationToken ct = default);
     Task<decimal> GetAverageCostAsync(Guid itemId, Guid? warehouseId = null, CancellationToken ct = default);

@@ -326,4 +326,36 @@ public class ManufacturingWorkflowTests(ApiFactory f) : IClassFixture<ApiFactory
         Assert.NotEqual("X", (string)bom["components"]![0]!["componentItemCode"]!);
         Assert.Equal(HttpStatusCode.Conflict, await Create(code.ToLowerInvariant(), x.ProducedItem, Component(x.ComponentItem))); // same code, any case
     }
+
+    [Fact]
+    public async Task Work_orders_need_an_active_bom_and_a_usable_warehouse_and_a_used_bom_cannot_be_deleted()
+    {
+        var x = await SetupAsync();
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        object Wo(string bom, string warehouse, string? entity = null) => new { legalEntityId = entity ?? x.Entity, bomId = bom, plannedQuantity = 1, warehouseId = warehouse, startDate = today, dueDate = today };
+        async Task<HttpStatusCode> Create(object body) => (await x.C.PostAsJsonAsync($"{Mfg}/workorders", body)).StatusCode;
+
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(Wo(x.BomId, Guid.NewGuid().ToString())));          // unknown warehouse
+        var otherEntity = (string)(await Ok(await x.C.PostAsJsonAsync("/api/v1/legal-entities", new { name = "Mfg2 " + Guid.NewGuid().ToString("N")[..6], countryCode = "AE", baseCurrency = "AED", isTaxRegistered = false }), HttpStatusCode.Created))["id"]!;
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(Wo(x.BomId, x.Warehouse, otherEntity)));            // BOM belongs to another entity
+        var otherWh = (string)(await Ok(await x.C.PostAsJsonAsync($"{Inv}/warehouses", new { code = "O-" + Guid.NewGuid().ToString("N")[..4], name = "Other", legalEntityId = otherEntity }), HttpStatusCode.Created))["id"]!;
+        Assert.Equal(HttpStatusCode.BadRequest, await Create(Wo(x.BomId, otherWh)));                             // warehouse of another entity
+
+        var wo = await Ok(await x.C.PostAsJsonAsync($"{Mfg}/workorders", Wo(x.BomId, x.Warehouse)), HttpStatusCode.Created);
+        Assert.Equal(HttpStatusCode.Conflict, (await x.C.DeleteAsync($"{Mfg}/boms/{x.BomId}")).StatusCode);     // in use
+
+        var bom = await Ok(await x.C.GetAsync($"{Mfg}/boms/{x.BomId}"));
+        var deactivate = new
+        {
+            name = (string)bom["name"]!, outputQuantity = (decimal)bom["outputQuantity"]!, uom = (string)bom["uom"]!, version = (string)bom["version"]!, laborCostPerUnit = 0m, overheadCostPerUnit = 0m, isActive = false,
+            components = (JsonNode?)null,
+        };
+        var upd = await Ok(await x.C.PutAsJsonAsync($"{Mfg}/boms/{x.BomId}", deactivate));
+        Assert.False((bool)upd["isActive"]!, upd.ToJsonString());
+        Assert.Equal(HttpStatusCode.Conflict, await Create(Wo(x.BomId, x.Warehouse)));                           // inactive BOM
+
+        var spare = await Ok(await x.C.PostAsJsonAsync($"{Mfg}/boms", BomBody(x, "DEL-" + Guid.NewGuid().ToString("N")[..6], x.ProducedItem, [Component(x.ComponentItem)])), HttpStatusCode.Created);
+        Assert.Equal(HttpStatusCode.NoContent, (await x.C.DeleteAsync($"{Mfg}/boms/{(string)spare["id"]!}")).StatusCode); // unused BOM can go
+        Assert.NotNull(wo);
+    }
 }

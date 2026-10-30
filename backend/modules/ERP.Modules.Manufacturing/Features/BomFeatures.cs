@@ -150,9 +150,11 @@ public class BomHandlers :
     private readonly IRepository<BillOfMaterials> _boms;
     private readonly IReadRepository<Item> _items;
     private readonly ILegalEntityGuard _guard;
+    private readonly IReadRepository<WorkOrder> _workOrders;
 
-    public BomHandlers(IRepository<BillOfMaterials> boms, IReadRepository<Item> items, ILegalEntityGuard guard)
+    public BomHandlers(IRepository<BillOfMaterials> boms, IReadRepository<Item> items, ILegalEntityGuard guard, IReadRepository<WorkOrder> workOrders)
     {
+        _workOrders = workOrders;
         _boms = boms;
         _items = items;
         _guard = guard;
@@ -220,8 +222,7 @@ public class BomHandlers :
 
     public async Task<BillOfMaterialsDto> Handle(UpdateBomCommand request, CancellationToken cancellationToken)
     {
-        var bom = await _boms.Query(new Specification<BillOfMaterials>(b => b.Id == request.Id))
-            .Include(b => b.Components)
+        var bom = await _boms.Tracked(new Specification<BillOfMaterials>(b => b.Id == request.Id).Include(b => b.Components))
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"BOM {request.Id} not found.");
 
@@ -266,6 +267,8 @@ public class BomHandlers :
     public async Task<Unit> Handle(DeleteBomCommand request, CancellationToken cancellationToken)
     {
         var bom = await _boms.GetForUpdateAsync(request.Id, cancellationToken);
+        if (await _workOrders.AnyAsync(w => w.BomId == bom.Id, cancellationToken))
+            throw new ConflictException("This BOM is used by work orders and cannot be deleted. Deactivate it instead.");
         _boms.Remove(bom);
         await _boms.SaveChangesAsync(cancellationToken);
         return Unit.Value;
