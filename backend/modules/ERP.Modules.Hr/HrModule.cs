@@ -34,6 +34,9 @@ public sealed class HrModule : ModuleBase
         PermissionDefinition.Of(P.PayrollPay, "Pay payroll and prepare the bank and WPS files"),
         PermissionDefinition.Of(P.ReviewsRead, "View review cycles and performance reviews"),
         PermissionDefinition.Of(P.ReviewsManage, "Manage review cycles; write, submit and acknowledge performance reviews"),
+        PermissionDefinition.Of(P.LeaveRead, "View leave requests, balances and the holiday calendar"),
+        PermissionDefinition.Of(P.LeaveRequest, "Create, submit and cancel leave requests"),
+        PermissionDefinition.Of(P.LeaveApprove, "Approve or reject leave requests; manage leave types and public holidays"),
     ];
 
     public override IEnumerable<MenuItemDefinition> Menu =>
@@ -43,6 +46,10 @@ public sealed class HrModule : ModuleBase
         new("hr.payroll", "Payroll", "/hr/payroll", "wallet", P.PayrollRead, 30, "hr", "HR and payroll", 400),
         new("hr.reviews", "Performance reviews", "/hr/reviews", "fund", P.ReviewsRead, 40, "hr", "HR and payroll", 400),
         new("hr.reviewcycles", "Review cycles", "/hr/review-cycles", "form", P.ReviewsRead, 45, "hr", "HR and payroll", 400),
+        new("hr.leave", "Leave requests", "/hr/leave", "check-square", P.LeaveRead, 50, "hr", "HR and payroll", 400),
+        new("hr.leavebalances", "Leave balances", "/hr/leave-balances", "bar-chart", P.LeaveRead, 55, "hr", "HR and payroll", 400),
+        new("hr.leavetypes", "Leave types", "/hr/leave-types", "form", P.LeaveRead, 60, "hr", "HR and payroll", 400),
+        new("hr.holidays", "Public holidays", "/hr/holidays", "book", P.LeaveRead, 65, "hr", "HR and payroll", 400),
     ];
 
     public override IEnumerable<SettingDefinition> Settings =>
@@ -52,6 +59,7 @@ public sealed class HrModule : ModuleBase
         new("hr.overtimeMultiplier", "Overtime pay multiplier", "1.25"),
         new("hr.hoursPerDay", "Working hours per day", "8"),
         new("hr.employerEstablishmentId", "WPS employer establishment ID (EID)", "\"\"", "text", "Used in the SCR record of the WPS SIF file."),
+        new("hr.weekendDays", "Weekend days (not counted as leave)", "\"Saturday,Sunday\"", "text", "Comma-separated day names, for example Friday,Saturday."),
         new("hr.employerBankRoutingCode", "WPS employer bank routing code", "\"\"", "text", "Routing code of the bank that pays the salaries."),
     ];
 
@@ -64,7 +72,7 @@ public sealed class HrModule : ModuleBase
             Roles:
             [
                 new("Hr manager", "Employees, attendance and payroll",
-                    [P.EmployeesRead, P.EmployeesManage, P.AttendanceRead, P.AttendanceManage, P.PayrollRead, P.PayrollManage, P.PayrollPost, P.PayrollPay, P.ReviewsRead, P.ReviewsManage,
+                    [P.EmployeesRead, P.EmployeesManage, P.AttendanceRead, P.AttendanceManage, P.PayrollRead, P.PayrollManage, P.PayrollPost, P.PayrollPay, P.ReviewsRead, P.ReviewsManage, P.LeaveRead, P.LeaveRequest, P.LeaveApprove,
                      CorePermissions.ReportsRead, CorePermissions.BankRead, CorePermissions.SensitiveRead], Key),
             ],
             Sequences:
@@ -78,9 +86,14 @@ public sealed class HrModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<GratuityCalculator>();
+        services.AddScoped<LeaveCalendarProvider>();
+        services.AddScoped<LeaveFeed>();
         services.AddScoped<IDashboardContributor, HrDashboard>();
         services.AddScoped<ICashForecastSource, PayrollForecastSource>();
         services.AddScoped<ERP.Application.Search.ISearchProvider, HrSearch>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<Employee>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "employee", P.EmployeesRead, P.EmployeesManage));
     }
 
     public override void ConfigureModel(ModelBuilder mb)
@@ -125,6 +138,43 @@ public sealed class HrModule : ModuleBase
             b.ToTable("hr_ReviewCompetencies");
             b.Property(x => x.Name).HasMaxLength(100).IsRequired();
             b.Property(x => x.Notes).HasMaxLength(1000);
+        });
+        mb.Entity<LeaveType>(b =>
+        {
+            b.ToTable("hr_LeaveTypes");
+            b.Property(x => x.Code).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            b.Property(x => x.AnnualDays).HasPrecision(9, 2);
+            b.Property(x => x.CarryForwardCap).HasPrecision(9, 2);
+            b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+        });
+        mb.Entity<LeaveBalance>(b =>
+        {
+            b.ToTable("hr_LeaveBalances");
+            b.Property(x => x.Entitled).HasPrecision(9, 2);
+            b.Property(x => x.Carried).HasPrecision(9, 2);
+            b.Property(x => x.Taken).HasPrecision(9, 2);
+            b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<LeaveType>().WithMany().HasForeignKey(x => x.LeaveTypeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.EmployeeId, x.LeaveTypeId, x.Year }).IsUnique().HasFilter("[IsDeleted] = 0");
+        });
+        mb.Entity<LeaveRequest>(b =>
+        {
+            b.ToTable("hr_LeaveRequests");
+            b.Property(x => x.EmployeeName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Reason).HasMaxLength(500);
+            b.Property(x => x.DecisionComment).HasMaxLength(500);
+            b.Property(x => x.Days).HasPrecision(9, 2);
+            b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<LeaveType>().WithMany().HasForeignKey(x => x.LeaveTypeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.EmployeeId, x.FromDate });
+            b.HasIndex(x => new { x.OrgId, x.Status });
+        });
+        mb.Entity<PublicHoliday>(b =>
+        {
+            b.ToTable("hr_PublicHolidays");
+            b.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            b.HasIndex(x => new { x.OrgId, x.Date }).IsUnique().HasFilter("[IsDeleted] = 0");
         });
         mb.Entity<AttendanceRecord>(b =>
         {

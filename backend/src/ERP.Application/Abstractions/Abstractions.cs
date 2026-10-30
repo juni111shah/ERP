@@ -45,6 +45,13 @@ public interface IOrgContext
 
 public interface IClock { DateTime UtcNow { get; } }
 
+/// <summary>Recognises database errors the application turns into friendly messages (e.g. a unique index hit by a concurrent request).</summary>
+public interface IDbErrors
+{
+    /// <summary>True when the save failed on the named unique index (SQL Server errors 2601/2627).</summary>
+    bool IsUniqueViolation(Exception ex, string indexName);
+}
+
 public interface INumberingService
 {
     Task<string> NextAsync(string documentType, Guid? legalEntityId = null, DateOnly? date = null, CancellationToken ct = default);
@@ -104,6 +111,17 @@ public interface IUserDirectory
     Task<UserProfile?> GetProfileAsync(Guid userId, CancellationToken ct = default);
     /// <summary>Members of the current workspace with their roles.</summary>
     Task<IReadOnlyList<UserSummary>> ListMembersAsync(CancellationToken ct = default);
+    /// <summary>Only the given users (members of the current workspace among them), with their roles.</summary>
+    Task<IReadOnlyList<UserSummary>> ListMembersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default);
     /// <summary>Finds the account by email or creates it with the temporary password (throws FieldValidationException when the password is rejected).</summary>
     Task<UserAccount> EnsureAccountAsync(string email, string fullName, string? temporaryPassword, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Existence check for foreign-key targets: tenant-scoped, but soft-deleted rows still count (the database FK still holds for them),
+/// so documents that already point at a since-deleted item or account can be re-saved or credited.
+/// </summary>
+public interface IReferenceCheck
+{
+    Task<bool> AllExistAsync<T>(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) where T : ERP.Domain.Common.OrgEntity;
 }

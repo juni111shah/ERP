@@ -31,3 +31,6 @@ Industries (real estate, retail, inventory, HR, manufacturing...) plug in as **m
 
 ## Docs
 Specs live in `docs/team/` (BA, DB, full-stack, SQA, UI/UX). Read the relevant spec before building a screen or table.
+
+## Automated work queue
+Work is driven from `docs/backlog/` on the single branch `antigravity/dashboard-and-modules` (no pushes, no merges to `main`). Read `docs/backlog/README.md` before coding. Antigravity implements one `TASK-NNN` card per commit; Claude reviews cards and writes new ones. Do not work outside a card.

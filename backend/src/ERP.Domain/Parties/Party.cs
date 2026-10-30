@@ -33,6 +33,8 @@ public class Party : OrgEntity, IHasCustomFields
     public string? CurrencyCode { get; set; }
     public int? PaymentTermsDays { get; set; }
     public string? Address { get; set; }
+    [Filterable]
+    public Guid? PartyGroupId { get; set; }
     [Filterable, Sortable]
     public bool IsActive { get; set; } = true;
     public string? CustomFields { get; set; }

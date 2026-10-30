@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -9,6 +9,10 @@ import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { OWNERSHIPS, PROPERTY_TYPES, PropertiesApi, PropertyDto, RealEstateLookups, humanize } from './realestate.api';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 /** Field specs for the property form (shared by the list and the detail page). */
 export function propertyFields(lookups: RealEstateLookups): FieldSpec[] {
@@ -30,14 +34,70 @@ export function propertyFields(lookups: RealEstateLookups): FieldSpec[] {
   ];
 }
 
+import { DecimalPipe } from '@angular/common';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { StatCardComponent } from '../../shared/stat-card.component';
+
 @Component({
   selector: 'erp-properties',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [DecimalPipe, NzTagModule, StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Properties</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="property-stats">
+      <erp-stat-card label="Total properties"
+                     [value]="list.total()"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
+                     [tone]="0" />
+      <erp-stat-card label="Total units"
+                     [value]="stats().totalUnits"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="lettable capacity"
+                     [tone]="1" />
+      <erp-stat-card label="Portfolio value"
+                     [value]="stats().totalValue"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="indicative appraisal"
+                     [tone]="2" />
+      <erp-stat-card label="Active properties"
+                     [value]="stats().activeCount"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     caption="operational sites"
+                     [tone]="3" />
+    </div>
+
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code, name, community" emptyText="No properties yet" (rowClick)="open($event)">
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('code') {
+            <span class="code-pill">{{ row.code }}</span>
+          }
+          @case ('name') {
+            <span class="name-cell">{{ row.name }}</span>
+          }
+          @case ('propertyType') {
+            <nz-tag>{{ humanize(row.propertyType) }}</nz-tag>
+          }
+          @case ('indicativeValue') {
+            <b>{{ currency() }} {{ row.indicativeValue | number: '1.2-2' }}</b>
+          }
+          @case ('isActive') {
+            <nz-tag [nzColor]="row.isActive ? 'green' : 'default'">
+              {{ row.isActive ? 'Active' : 'Inactive' }}
+            </nz-tag>
+          }
+          @default {
+            {{ value }}
+          }
+        }
+      </ng-template>
       <button toolbar *erpHasPermission="'realestate.properties.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="property-new"><span nz-icon nzType="plus"></span>New property</button>
     </erp-paged-table>
     <erp-record-drawer title="New property" [open]="state.open()" [fields]="fields" customFieldEntityType="realestate.property"
@@ -46,7 +106,22 @@ export function propertyFields(lookups: RealEstateLookups): FieldSpec[] {
 export class PropertiesPage {
   private readonly api = inject(PropertiesApi);
   private readonly router = inject(Router);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
+  readonly humanize = humanize;
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
+
+  readonly stats = computed(() => {
+    const items = this.list.items();
+    const totalUnits = items.reduce((s, p) => s + (p.totalUnits || 0), 0);
+    const totalValue = items.reduce((s, p) => s + (p.indicativeValue || 0), 0);
+    const activeCount = items.filter((p) => p.isActive).length;
+    return {
+      totalUnits,
+      totalValue,
+      activeCount,
+      count: items.length,
+    };
+  });
   readonly fields = propertyFields(inject(RealEstateLookups));
   readonly state = new MasterDataState<PropertyDto>({
     save: (_, body) => this.api.create(body), reload: () => this.list.reload(), message: inject(NzMessageService), entityName: 'Property',

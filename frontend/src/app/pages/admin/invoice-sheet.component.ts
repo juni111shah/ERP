@@ -5,6 +5,9 @@ import { RouterLink } from '@angular/router';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { Observable, catchError, map, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { displayNote } from '../../core/i18n/translate-now';
 
 /** The invoice fields the sheet renders (a subset of InvoiceDto, so the list drawer and the detail page can share it). */
 export interface InvoiceSheetData {
@@ -32,9 +35,12 @@ export function taxRegLabelFor(country?: string | null): string {
 export const INVOICE_STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'orange', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
 const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pendingApproval: 'Pending approval' };
 export function invoiceStatusLabel(s: string): string { return STATUS_LABELS[s] ?? (s ? s.charAt(0).toUpperCase() + s.slice(1) : ''); }
+/** Friendly names for module source keys ("<module>.<kind>"); anything else is humanized below. */
+const SOURCE_LABELS: Record<string, string> = { 'realestate.instalment': 'Rent instalment' };
 export function humanizeSource(v?: string | null): string {
   if (!v || v.toLowerCase() === 'manual') return '';
-  const s = String(v).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ');
+  if (SOURCE_LABELS[v.toLowerCase()]) return SOURCE_LABELS[v.toLowerCase()];
+  const s = String(v).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[._-]+/g, ' ');
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 export function formatMoney(v: number | null | undefined, currency?: string | null): string {
@@ -65,7 +71,7 @@ export class InvoiceExtrasService {
   selector: 'erp-invoice-sheet',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, NzTagModule],
+  imports: [TranslatePipe, DatePipe, RouterLink, NzTagModule],
   styles: [`
     :host { display:block; --gold:#b89b5e; --muted:#8c8c8c; }
     .sheet { background:#fff; border:1px solid #f0f0f0; border-top:4px solid var(--gold); border-radius:6px; padding:20px 24px; }
@@ -102,7 +108,7 @@ export class InvoiceExtrasService {
             <div class="doc-type">{{ docType() }}</div>
             <div class="doc-no" data-testid="sheet-number">{{ inv.number || 'Draft' }}</div>
             <nz-tag [nzColor]="statusColor()" data-testid="sheet-status">{{ statusLabel() }}</nz-tag>
-            @if (overdueDays() > 0) { <nz-tag nzColor="red">Overdue {{ overdueDays() }}d</nz-tag> }
+            @if (overdueDays() > 0) { <nz-tag nzColor="red">{{ 'ui.inv.overdue' | translate: 'Overdue' }} {{ overdueDays() }}{{ 'ui.common.dayShort' | translate: 'd' }}</nz-tag> }
           </div>
           @if (extras()?.header; as h) {
             <div class="issuer">
@@ -128,7 +134,7 @@ export class InvoiceExtrasService {
             <h5>Details</h5>
             <div class="meta">
               <span>{{ inv.isCreditNote ? 'Credit note date' : 'Invoice date' }}</span><span>{{ inv.invoiceDate | date: 'dd MMM yyyy' }}</span>
-              <span>Due date</span><span [class.overdue]="overdueDays() > 0">{{ inv.dueDate | date: 'dd MMM yyyy' }}@if (overdueDays() > 0) { ({{ overdueDays() }} days overdue) }</span>
+              <span>Due date</span><span [class.overdue]="overdueDays() > 0">{{ inv.dueDate | date: 'dd MMM yyyy' }}@if (overdueDays() > 0) { ({{ overdueDays() }} {{ 'ui.inv.daysOverdue' | translate: 'days overdue' }}) }</span>
               <span>Currency</span><span>{{ inv.currencyCode }}</span>
               @if (source()) { <span>Source</span><span>{{ source() }}</span> }
               @if (originalInvoiceId(); as oid) { <span>Credits</span><span><a [routerLink]="['/finance/invoices', oid]">{{ extras()?.originalInvoiceNumber ? 'Invoice ' + extras()!.originalInvoiceNumber : 'Original invoice' }}</a></span> }
@@ -154,12 +160,12 @@ export class InvoiceExtrasService {
         <div class="totals" data-testid="sheet-totals">
           <div><span>Subtotal (taxable)</span><span>{{ money(inv.net) }}</span></div>
           <div><span>{{ taxName() }}</span><span>{{ money(inv.tax) }}</span></div>
-          <div class="grand"><span>Total {{ inv.currencyCode }}</span><span>{{ money(inv.total) }}</span></div>
+          <div class="grand"><span>{{ 'common.total' | translate: 'Total' }} {{ inv.currencyCode }}</span><span>{{ money(inv.total) }}</span></div>
           <div><span>{{ inv.isCreditNote ? 'Applied' : 'Paid' }}</span><span>{{ money(inv.paid) }}</span></div>
           <div class="due"><span>{{ inv.isCreditNote ? 'Unapplied' : 'Balance due' }}</span><span>{{ money(inv.total - inv.paid) }}</span></div>
         </div>
 
-        @if (inv.notes) { <div class="notes"><h5 style="margin:0 0 4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b89b5e">Notes</h5><div class="muted">{{ inv.notes }}</div></div> }
+        @if (inv.notes) { <div class="notes"><h5 style="margin:0 0 4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b89b5e">Notes</h5><div class="muted">{{ noteText(inv.notes) }}</div></div> }
       </div>
     }
   `,
@@ -172,6 +178,9 @@ export class InvoiceSheetComponent {
   readonly compact = input(false);
   readonly partyLink = input(true);
   readonly truthy = (x: unknown) => !!x;
+  private readonly i18n = inject(I18nService);
+  /** Notes as typed; the default credit-note note (stored in English) is shown in the active language. */
+  noteText(note: string | null | undefined): string { return displayNote(note, this.i18n.lang()); }
 
   readonly country = computed(() => this.extras()?.header.countryCode ?? null);
   readonly taxName = computed(() => taxNameFor(this.country()));

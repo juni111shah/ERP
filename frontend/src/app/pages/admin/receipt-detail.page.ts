@@ -1,15 +1,22 @@
+import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { FormsModule } from '@angular/forms';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { ReceiptsApi } from '../../core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { catchError, of } from 'rxjs';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 interface Allocation {
   id: string;
@@ -39,7 +46,7 @@ interface Receipt {
 @Component({
   selector: 'erp-receipt-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;">Loading...</div>
@@ -49,18 +56,19 @@ interface Receipt {
       <erp-detail-page
         [backLink]="['/finance/receipts']"
         [backLabel]="'Back to Receipts'"
-        [title]="'Receipt #' + receipt()!.number"
+        [title]="('ui.title.receiptNo' | translate: 'Receipt #') + receipt()!.number"
         [status]="receipt()!.status"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
         [createdAt]="receipt()!.date"
-        [entityName]="'Receipt'">
+        [entityName]="'Receipt'"
+        recordType="Settlement" [recordId]="receipt()!.id">
         
         @if (receipt()!.allocations.length > 0) {
           <div content style="margin-top: 16px;">
             <h3>Applied to Invoices</h3>
-            <nz-table #allocTable [nzData]="receipt()!.allocations" [nzFrontPagination]="false" nzSize="small">
+            <nz-table #allocTable [nzData]="receipt()!.allocations" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
               <thead>
                 <tr>
                   <th>Invoice Number</th>
@@ -79,10 +87,12 @@ interface Receipt {
           </div>
         }
       </erp-detail-page>
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/receipts/' + receipt()!.id + '/email'" (closed)="emailOpen.set(false)" />
     }
   `
 })
 export class ReceiptDetailPage implements OnInit {
+  readonly emailOpen = signal(false);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -94,6 +104,7 @@ export class ReceiptDetailPage implements OnInit {
   loading = signal(true);
   error = signal<string | null>(null);
   receipt = signal<Receipt | null>(null);
+
 
   actions = computed((): ActionButton[] => {
     const rec = this.receipt();
@@ -131,7 +142,9 @@ export class ReceiptDetailPage implements OnInit {
       {
         label: 'Email',
         icon: 'mail',
-        handler: () => this.message.info('Email functionality will be implemented')
+        permission: 'core.email.send',
+        visible: rec.status === 'issued',
+        handler: () => this.emailOpen.set(true)
       }
     ];
   });

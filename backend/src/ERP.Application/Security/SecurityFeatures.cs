@@ -83,7 +83,7 @@ public sealed class InviteUserValidator : AbstractValidator<InviteUser>
 internal sealed partial class SecurityHandlers(
     IPermissionCatalog catalog, IRepository<Role> roles, IUserDirectory directory, IRepository<OrganizationMember> members,
     IRepository<RolePermission> rolePermissions, IRepository<UserRole> userRoles, IRepository<UserLegalEntityAccess> legalEntityAccess, IReadRepository<LegalEntity> legalEntities,
-    IUnitOfWork unitOfWork, ICurrentUser currentUser) :
+    IUnitOfWork unitOfWork, ICurrentUser currentUser, ERP.Application.Auth.IAuthService auth) :
     IRequestHandler<ListPermissions, IReadOnlyList<PermissionDefinition>>,
     IRequestHandler<CreateRole, CreatedRoleDto>,
     IRequestHandler<ListUsers, IReadOnlyList<UserSummary>>,
@@ -154,6 +154,7 @@ internal sealed partial class SecurityHandlers(
         }
         member.IsActive = cmd.IsActive;
         await unitOfWork.SaveChangesAsync(ct);
+        if (!cmd.IsActive) await auth.RevokeSessionsAsync(member.UserId, member.OrgId, "member-deactivated", ct);
         return await SummaryAsync(member.UserId, ct);
     }
 
@@ -169,7 +170,7 @@ internal sealed partial class SecurityHandlers(
     }
 
     private async Task<UserSummary> SummaryAsync(Guid userId, CancellationToken ct)
-        => (await directory.ListMembersAsync(ct)).First(u => u.Id == userId);
+        => (await directory.ListMembersAsync([userId], ct)).First(u => u.Id == userId);
 
     public async Task<UserAccount> Handle(InviteUser cmd, CancellationToken ct)
     {

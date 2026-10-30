@@ -159,6 +159,9 @@ public sealed class RealEstateModule : ModuleBase
         services.AddScoped<ERP.Application.Search.ISearchProvider, CrmSearch>();
         services.AddScoped<PmGenerator>();
         services.AddScoped<ERP.Application.Abstractions.IScheduledJob, PmJob>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<Lease>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "lease", P.LeasesRead, P.LeasesEdit));
     }
 
     public override void ConfigureModel(ModelBuilder mb) => RealEstateModel.Configure(mb);

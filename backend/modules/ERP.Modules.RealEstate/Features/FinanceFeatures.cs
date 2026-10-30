@@ -53,7 +53,7 @@ internal sealed class DealFinanceHandlers(
         var payout = Share(deal.AgentSharePercent) + Share(deal.TeamLeadSharePercent);
         if (payout <= 0) throw new ConflictException("This deal has no agent or team lead share to pay.");
         var bank = await accounts.FindAsync(cmd.BankAccountId, token);
-        if (bank is null || bank.Type != AccountType.Asset || !bank.IsPostable || !bank.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
+        if (bank is null || !ERP.Application.Finance.BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
         var expense = await posting.AccountForRoleAsync("realestate.expense.commission", token);
         var memo = $"Commission payout {deal.Number}";
         var journal = await posting.PostAsync(new PostingRequest(deal.LegalEntityId, cmd.Date, SourceType, deal.Id, memo, deal.Number,
@@ -100,17 +100,23 @@ public sealed record TransferSecurityDeposit(Guid FromLeaseId, Guid ToLeaseId) :
 
 public sealed class RecordSecurityDepositValidator : AbstractValidator<RecordSecurityDeposit>
 {
-    public RecordSecurityDepositValidator() { RuleFor(x => x.Amount).GreaterThan(0); RuleFor(x => x.BankAccountId).NotEmpty(); }
+    public RecordSecurityDepositValidator()
+    {
+        RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
+        RuleFor(x => x.BankAccountId).NotEmpty();
+        RuleFor(x => x.Date).NotEqual(default(DateOnly)).WithMessage("Enter the date.");
+    }
 }
 public sealed class SettleSecurityDepositValidator : AbstractValidator<SettleSecurityDeposit>
 {
     public SettleSecurityDepositValidator()
     {
-        RuleFor(x => x.Input.Damages).GreaterThanOrEqualTo(0);
-        RuleFor(x => x.Input.Refund).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.Input.Date).NotEqual(default(DateOnly)).WithMessage("Enter the settlement date.");
+        RuleFor(x => x.Input.Damages).GreaterThanOrEqualTo(0).MustBeMoney();
+        RuleFor(x => x.Input.Refund).GreaterThanOrEqualTo(0).MustBeMoney();
         RuleFor(x => x.Input.DamagesDescription).MaximumLength(300);
         RuleFor(x => x.Input.RefundBankAccountId).NotEmpty().When(x => x.Input.Refund > 0).WithMessage("Choose the bank account the refund is paid from.");
-        RuleForEach(x => x.Input.Arrears).ChildRules(a => a.RuleFor(y => y.Amount).GreaterThan(0));
+        RuleForEach(x => x.Input.Arrears).ChildRules(a => a.RuleFor(y => y.Amount).GreaterThan(0).MustBeMoney());
     }
 }
 
@@ -222,7 +228,7 @@ internal sealed class DepositHandlers(
     private async Task RequireBankAsync(Guid id, string field, CancellationToken ct)
     {
         var a = await accounts.FindAsync(id, ct);
-        if (a is null || a.Type != AccountType.Asset || !a.IsPostable || !a.IsActive) throw new FieldValidationException(field, "Choose an active bank account.");
+        if (a is null || !BankAccountRules.IsCashOrBank(a)) throw new FieldValidationException(field, "Choose an active bank or cash account.");
     }
 }
 
@@ -234,7 +240,8 @@ public sealed record TerminationCreditDto(Guid InstalmentId, Guid CreditNoteId, 
 public sealed record CreateTerminationCredits(Guid LeaseId) : ICommand<IReadOnlyList<TerminationCreditDto>>, IRequirePermission { public string RequiredPermission => P.LeasesTerminate; }
 
 internal sealed class TerminationCreditHandlers(
-    IReadRepository<Lease> leases, IRepository<RentInstalment> instalments, IRepository<Invoice> invoices, IInvoicingService invoicing, IPostingService posting, IUnitOfWork uow) :
+    IReadRepository<Lease> leases, IRepository<RentInstalment> instalments, IRepository<Invoice> invoices, IInvoicingService invoicing, IPostingService posting, IUnitOfWork uow,
+    IRepository<CreditApplication> creditApplications, ICurrentUser user) :
     IRequestHandler<CreateTerminationCredits, IReadOnlyList<TerminationCreditDto>>
 {
     public Task<IReadOnlyList<TerminationCreditDto>> Handle(CreateTerminationCredits cmd, CancellationToken ct) => uow.InTransactionAsync<IReadOnlyList<TerminationCreditDto>>(async token =>
@@ -254,7 +261,7 @@ internal sealed class TerminationCreditHandlers(
             var line = original.Lines.First();
             var description = $"Credit for rent after termination on {end:dd MMM yyyy}: {line.Description}";
             var draft = new InvoiceDraft(original.LegalEntityId, original.PartyId, DateOnly.FromDateTime(DateTime.UtcNow), DateOnly.FromDateTime(DateTime.UtcNow), [new InvoiceLineDraft(description, 1, credit, line.TaxCodeId, line.AccountId)],
-                IsCreditNote: true, SourceType: "realestate.termination", SourceId: i.Id, Notes: lease.Number);
+                IsCreditNote: true, SourceType: "realestate.termination", SourceId: i.Id, Notes: lease.Number, CreditNoteForId: original.Id);
             var note = await invoicing.BuildAsync(draft, token);
             await invoicing.IssueAsync(note, token);
             // An unpaid invoice is reduced straight away; a paid one leaves the credit with the customer.
@@ -262,7 +269,11 @@ internal sealed class TerminationCreditHandlers(
             if (original.Status is DocumentStatus.Issued or DocumentStatus.PartlyPaid)
             {
                 var use = Math.Min(note.Total, original.Total - original.Paid);
-                if (use > 0) { note.Paid += use; original.Paid += use; SettlementStatus.Refresh(note); SettlementStatus.Refresh(original); applied = true; }
+                if (use > 0)
+                {
+                    note.Paid += use; original.Paid += use; SettlementStatus.Refresh(note); SettlementStatus.Refresh(original); applied = true;
+                    CreditApplications.Record(creditApplications, note, original, use, note.InvoiceDate, user.UserId);
+                }
             }
             i.CreditNoteId = note.Id;
             created.Add(new TerminationCreditDto(i.Id, note.Id, note.Number, note.Total, applied));

@@ -61,6 +61,13 @@ public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext o
                 else if (entry.State == EntityState.Modified) { a.UpdatedAt = now; a.UpdatedBy = userId; }
             }
 
+            // Safety net for void paths that do not stamp the void columns themselves (keeps CK_<Table>_Voided satisfied).
+            if (entry.Entity is IVoidable v && entry.State is EntityState.Added or EntityState.Modified && v.VoidedAt is null
+                && entry.Metadata.FindProperty("Status") is { } status && entry.Property(status.Name).CurrentValue?.ToString() == "Voided")
+            {
+                v.VoidedAt = now; v.VoidedBy ??= userId;
+            }
+
             var action = entry.State switch { EntityState.Added => "Created", EntityState.Deleted => "Deleted", _ => "Updated" };
             var before = entry.State == EntityState.Added ? null : Snapshot(entry, original: true);
 

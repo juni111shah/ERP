@@ -19,6 +19,8 @@ public sealed class SettingsService(IRepository<Setting> settings, ISettingsCata
         new("core.invoiceTermsDays", "Default payment terms (days)", "15"),
         new("finance.chequeDueAlertDays", "Cheque due alert (days)", "7"),
         new("core.journalRequiresApproval", "Manual journals need approval", "false", "bool"),
+        // Edited on the chart of accounts screen (mask editor), not as a plain setting; stored in the same key/value table.
+        new("finance.coa.numbering", "Chart of accounts numbering", "{\"mode\":\"free\",\"segments\":[4,2,2],\"separator\":\"-\"}", "json"),
     ];
 
     public async Task<string?> GetRawAsync(string key, Guid? legalEntityId = null, CancellationToken ct = default)
@@ -81,6 +83,8 @@ internal sealed class SettingsHandlers(ISettingsService settings, ISettingsCatal
                 if (!user.HasPermission(CorePermissions.SettingsWrite) && !user.HasPermission($"{module}.settings.write")) throw new ForbiddenException();
             }
             else if (!user.HasPermission(CorePermissions.SettingsWrite)) throw new ForbiddenException();
+            if (key == ERP.Application.Finance.AccountNumbering.SettingKey && !ERP.Application.Finance.AccountNumbering.IsValidJson(value.GetRawText()))
+                throw new FieldValidationException(key, "Invalid numbering mask.");
             await settings.SetRawAsync(key, value.GetRawText(), ct: ct);
         }
         await unitOfWork.SaveChangesAsync(ct);

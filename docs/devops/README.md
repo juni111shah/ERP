@@ -1,0 +1,76 @@
+# DevOps: environments, branches and CI/CD
+
+Everything runs on one Windows PC (the "deploy PC"). Public access goes through Cloudflare **quick tunnels**
+(`*.trycloudflare.com`). Quick tunnels are free and need no account, but their URL is random and changes every time the
+tunnel restarts. Permanent URLs on your own domain come from one Cloudflare **named tunnel**, set up with
+`deploy/cloudflare/setup-named-tunnel.ps1` (see [cloudflare-named-tunnels.md](cloudflare-named-tunnels.md)); until you run
+it, the quick tunnels keep working unchanged.
+
+### Switching to permanent URLs (run order)
+
+1. (you) Add `<domain>` to Cloudflare and point its nameservers there; wait for the zone to be Active.
+2. Normal PowerShell: `powershell -NoProfile -ExecutionPolicy Bypass -File <checkout>\deploy\cloudflare\setup-named-tunnel.ps1 -Domain <domain>`
+   (try `-WhatIf` first). (you) Approve `cloudflared tunnel login` in the browser.
+3. (you) Elevated PowerShell: the same command plus `-InstallService`.
+4. Normal PowerShell: the step-2 command again. Staging/production switch to `https://erp-staging.<domain>` /
+   `https://erp.<domain>` and their quick tunnels stop. The dev quick tunnel keeps running until you add `-StopDevQuickTunnel`.
+
+| Environment | Branch       | Runs as                                   | Local URL               | Database      | ASPNETCORE_ENVIRONMENT | Public URL |
+|-------------|--------------|-------------------------------------------|-------------------------|---------------|------------------------|------------|
+| dev         | `dev`        | VS 2022 (API) + `ng serve` (UI)           | http://localhost:4200 (UI), :5080 (API) | `ERP_Dev`     | Development | quick tunnel → :4200 (started by hand); named: `erp-dev.<domain>` |
+| staging     | `staging`    | `ERP.Api.exe` serving API + Angular build | http://localhost:5180   | `ERP_Staging` | Staging                | quick tunnel → :5180, or named `erp-staging.<domain>`; `erp-env.ps1 url` |
+| production  | `production` | `ERP.Api.exe` serving API + Angular build | http://localhost:5280   | `ERP_Prod`    | Production             | quick tunnel → :5280, or named `erp.<domain>`; `erp-env.ps1 url` |
+
+`main` stays the integration branch: feature work merges into `main`, and `main` is promoted `main → dev → staging → production`.
+
+Docs:
+- [pipeline.md](pipeline.md): what GitHub Actions does on each branch
+- [operations.md](operations.md): deploying, promotion, rollback, tunnels and URLs, status, first admin, logs
+- [cloudflare-named-tunnels.md](cloudflare-named-tunnels.md): permanent hostnames (named tunnel): run order, hostnames, dev API decision, rollback
+- [manual-steps.md](manual-steps.md): one-time steps the owner does (runner registration, GitHub environment protection, optional services, permanent URLs)
+
+## Layout on the deploy PC
+
+```
+D:\ERP\ERP                     developer working copy (dev environment; never touched by the pipeline)
+D:\ERP\deploy\src              separate clone used for manual package builds
+D:\ERP\deploy\packages\...     manually built packages
+D:\ERP\envs\tools              stable copy of deploy/windows/*.ps1 (refreshed on every deploy); deploy/cloudflare in tools\cloudflare
+D:\ERP\envs\public-urls.psd1   permanent URLs per environment (written by setup-named-tunnel.ps1; machine-local, not in git)
+D:\ERP\envs\<env>\releases\    one folder per release: <yyyyMMdd-HHmmss>-<sha7> (last 5 kept)
+D:\ERP\envs\<env>\current      junction -> the live release
+D:\ERP\envs\<env>\storage      uploaded files (Storage__Root), survives releases
+D:\ERP\envs\<env>\logs         app-<date>.log, tunnel-<timestamp>.log
+D:\ERP\envs\<env>\tunnel-url.txt, tunnel.pid
+C:\actions-runner              GitHub Actions self-hosted runner (labels: self-hosted, Windows, erp-deploy)
+```
+
+## Configuration and secrets
+
+- `appsettings.Staging.json` / `appsettings.Production.json` (committed, no secrets): Windows-auth connection string
+  (`Server=.;Database=ERP_Staging|ERP_Prod;Trusted_Connection=True;TrustServerCertificate=True`), `Database:AutoMigrate=true`,
+  `Seed:Enabled=false`, `Onboarding:AllowSelfSignup=false`, `Swagger:Enabled=false`, secure cookies, CORS = own origin.
+- `appsettings.Development.json` is excluded from publish output, so deploy packages never carry dev settings.
+- JWT signing key: 64 random bytes per environment, stored in Windows Credential Manager of the deploy user as
+  `ERP:staging:SigningKey` / `ERP:production:SigningKey` (created by `init-secrets.ps1`, never printed or written to disk).
+  `deploy.ps1` passes it to the API process as `Auth__SigningKey`. No SQL passwords anywhere (Windows authentication).
+- Each API process gets `ASPNETCORE_ENVIRONMENT`, `ASPNETCORE_URLS=http://localhost:<port>`, `Storage__Root`, `Auth__SigningKey`,
+  and `ERP_Hosting__PublicUrl` (the permanent URL or empty). When set, the API adds it to `Cors:Origins` and uses it as
+  `Email:AppBaseUrl`.
+
+## Database migrations and seeding
+
+- Staging/production start with `Database:AutoMigrate=true`: EF Core `MigrateAsync` creates the database if missing and applies
+  every pending migration on startup. A deploy therefore carries all new migrations with it.
+- Production deploys take a `COPY_ONLY` backup first (`ERP_Prod_<timestamp>.bak` in the SQL Server default backup folder).
+- `Seed:Enabled=false`: no demo users, workspaces or data in staging/production. `Onboarding:AllowSelfSignup=false`: nobody can
+  register a workspace from the internet. The first workspace/admin is created once with a temporary switch
+  (see [operations.md](operations.md#first-admin-bootstrap)).
+
+## App changes that support this
+
+- `UseWindowsService` support (optional service hosting), content root = install folder when running as a service.
+- Forwarded headers from loopback (cloudflared) so client IPs and https scheme are correct.
+- When the publish folder contains `wwwroot/index.html`, the API serves the Angular app on the same origin and falls back to
+  `index.html` for client routes; `/api`, `/hubs`, `/swagger` and `/health` are never rewritten. With no `wwwroot` (dev),
+  behaviour is unchanged: `/` redirects to Swagger.

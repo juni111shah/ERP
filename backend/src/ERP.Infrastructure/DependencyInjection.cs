@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ERP.Infrastructure;
 
@@ -32,6 +33,8 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IDbErrors, Persistence.DbErrors>();
+        services.AddScoped<IReferenceCheck, Persistence.ReferenceCheck>();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
         services.AddScoped<IOrgContext, OrgContext>();
         services.AddScoped<AuditSaveChangesInterceptor>();
@@ -85,6 +88,7 @@ public static class DependencyInjection
         services.AddSingleton<ISettingsCatalog, SettingsCatalog>();
         services.AddSingleton<INotificationPusher, NullNotificationPusher>();
         services.AddSingleton<IFileStore, LocalFileStore>();
+        services.TryAddScoped<IStockPostingService, NullStockPostingService>();
         return services;
     }
 }

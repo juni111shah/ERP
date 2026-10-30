@@ -24,15 +24,16 @@ public static class AllocationLabels
 public sealed record ReceiptDto(
     Guid Id, string Number, Guid LegalEntityId, Guid PartyId, string? PartyName, DateOnly Date, SettlementMethod Method, Guid? BankAccountId, string CurrencyCode, decimal Amount,
     decimal Unallocated, string? Reference, DocumentStatus Status, Guid? JournalEntryId, IReadOnlyList<AllocationDto> Allocations,
-    Guid? PaymentInstrumentId = null, string? InstrumentKind = null, string? ChequeNumber = null, DateOnly? ChequeDate = null, string? ChequeStatus = null, string? ChequeBankName = null);
+    Guid? PaymentInstrumentId = null, string? InstrumentKind = null, string? ChequeNumber = null, DateOnly? ChequeDate = null, string? ChequeStatus = null, string? ChequeBankName = null,
+    string? VoidReason = null, DateTime? VoidedAt = null);
 public sealed record ReceiptSummaryDto(Guid Id, string Number, Guid PartyId, string? PartyName, DateOnly Date, SettlementMethod Method, decimal Amount, decimal Unallocated, DocumentStatus Status, string CurrencyCode);
 
 public sealed record GetReceipt(Guid Id) : IQuery<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsRead; }
 /// <summary>Money received from a customer: Dr bank / cash, Cr receivables; optionally settles invoices at the same time. What is not allocated stays as customer credit.</summary>
-public sealed record CreateReceipt(ReceiptInput Input) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
-public sealed record AllocateReceipt(Guid Id, List<AllocationInput> Allocations) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
+public sealed record CreateReceipt(ReceiptInput Input) : ICommand<ReceiptDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
+public sealed record AllocateReceipt(Guid Id, List<AllocationInput> Allocations) : ICommand<ReceiptDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
-public sealed record VoidReceipt(Guid Id, string? Reason) : ICommand<ReceiptDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
+public sealed record VoidReceipt(Guid Id, string? Reason) : ICommand<ReceiptDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.ReceiptsWrite; }
 
 public sealed class VoidReceiptValidator : AbstractValidator<VoidReceipt>
 {
@@ -45,8 +46,9 @@ public sealed class ReceiptInputValidator : AbstractValidator<ReceiptInput>
     {
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.PartyId).NotEmpty();
+        RuleFor(x => x.Date).MustBePlausibleDate();
         RuleFor(x => x.BankAccountId).NotEmpty();
-        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
         RuleFor(x => x.Method).IsInEnum().Must(m => m != SettlementMethod.Instrument).WithMessage("Cheques are recorded in the cheque register.");
         RuleFor(x => x.Reference).MaximumLength(100);
     }
@@ -73,8 +75,9 @@ internal sealed class ReceiptHandlers(
         var i = cmd.Input;
         var entity = await guard.RequireAsync(i.LegalEntityId, ct);
         var party = await parties.FindAsync(i.PartyId, ct) ?? throw new FieldValidationException("partyId", "Customer not found.");
+        ERP.Application.Parties.CustomerRules.RequireCustomer(party);
         var bank = await accounts.FindAsync(i.BankAccountId, ct);
-        if (bank is null || bank.Type != AccountType.Asset || !bank.IsPostable || !bank.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
+        if (bank is null || !BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
 
         var settlement = new Settlement
         {
@@ -111,6 +114,7 @@ internal sealed class ReceiptHandlers(
         if (s.Status != DocumentStatus.Issued) throw new ConflictException("This receipt is already voided.");
         await settlementService.ReverseAsync(s, VoidMemo.For(s.Number, cmd.Reason), ct);
         s.Status = DocumentStatus.Voided; s.Unallocated = 0;
+        VoidMemo.Stamp(s, cmd.Reason, clock, user);
         VoidMemo.Audit(audit, user, clock, nameof(Settlement), s.Id, s.Number, cmd.Reason!);
         await settlements.SaveChangesAsync(ct);
         return await ToDtoAsync(s, ct);
@@ -127,7 +131,7 @@ internal sealed class ReceiptHandlers(
         var ins = await InstrumentInfo.LoadAsync(instruments, s.PaymentInstrumentId, ct);
         return new ReceiptDto(s.Id, s.Number, s.LegalEntityId, s.PartyId, s.PartyName, s.Date, s.Method, s.BankAccountId, s.CurrencyCode, s.Amount, s.Unallocated, s.Reference, s.Status, s.JournalEntryId,
             rows.Select(a => new AllocationDto(a.Id, a.InvoiceId!.Value, numbers.GetValueOrDefault(a.InvoiceId.Value, "?"), a.Amount)).ToList(),
-            s.PaymentInstrumentId, ins?.Kind, ins?.No, ins?.Date, ins?.Status, ins?.BankName);
+            s.PaymentInstrumentId, ins?.Kind, ins?.No, ins?.Date, ins?.Status, ins?.BankName, s.VoidReason, s.VoidedAt);
     }
 }
 

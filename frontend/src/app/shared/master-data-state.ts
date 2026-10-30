@@ -3,6 +3,7 @@ import { Observable } from 'rxjs';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { ProblemDetails } from '../core/api/api.models';
 import { asProblem } from '../core/http/problem-details';
+import { currentLang, phraseNow, tNow } from '../core/i18n/translate-now';
 
 export interface MasterDataDeps {
   /** create (id = null) or update; returns the saved record */
@@ -37,7 +38,7 @@ export class MasterDataState<T extends { id: string }> {
       next: () => {
         this.saving.set(false);
         this.open.set(false);
-        this.deps.message.success(`${this.deps.entityName} saved`);
+        this.deps.message.success(tNow('ui.msg.entitySaved', '{entity} saved', { entity: this.entityLabel(false) }));
         this.deps.reload();
       },
       error: (e) => {
@@ -45,7 +46,7 @@ export class MasterDataState<T extends { id: string }> {
         const problem = asProblem(e);
         this.errors.set(problem);
         const hasFieldErrors = !!problem?.errors && Object.keys(problem.errors).length > 0;
-        if (!hasFieldErrors) this.deps.message.error(problem?.detail ?? problem?.title ?? `Could not save the ${this.deps.entityName.toLowerCase()}`);
+        if (!hasFieldErrors) this.deps.message.error(problem?.detail ?? problem?.title ?? tNow('ui.msg.entitySaveFailed', 'Could not save the {entity}', { entity: this.entityLabel(true) }));
       },
     });
   }
@@ -54,5 +55,13 @@ export class MasterDataState<T extends { id: string }> {
     this.errors.set(null);
     this.editing.set(record);
     this.open.set(true);
+  }
+
+  /** The entity name for a toast: unchanged in English (lower-cased mid-sentence), the Arabic noun (ui.entity.*) otherwise. */
+  private entityLabel(midSentence: boolean): string {
+    const name = this.deps.entityName;
+    if (currentLang() !== 'ar') return midSentence ? name.toLowerCase() : name;
+    const key = 'ui.entity.' + name.toLowerCase().replace(/\s+(\w)/g, (_, c: string) => c.toUpperCase());
+    return tNow(key, phraseNow(name));
   }
 }

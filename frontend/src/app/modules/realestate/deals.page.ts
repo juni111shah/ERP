@@ -16,6 +16,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { DEAL_TYPES, DealDto, DealsApi, RealEstateLookups, humanize } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
 
@@ -23,16 +27,26 @@ const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
   selector: 'erp-deals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <h1 class="erp-page-title">Deals</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search client" emptyText="No deals yet" (rowClick)="state.edit($event)">
       <nz-select toolbar style="width:170px" nzAllowClear nzPlaceHolder="All stages" [ngModel]="null" (ngModelChange)="filterStage($event)" data-testid="deal-stage-filter">
         @for (s of stages; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
-      <button toolbar *erpHasPermission="'realestate.deals.create'" nz-button nzType="primary" (click)="state.create()" data-testid="deal-new"><span nz-icon nzType="plus"></span>New deal</button>
+      <button toolbar *erpHasPermission="'realestate.deals.create'" nz-button nzType="primary" (click)="state.create()" data-testid="deal-new"><span nz-icon nzType="plus"></span> New deal</button>
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'stage') { <erp-status-tag [status]="row.stage" /> } @else { {{ value }} }
+        @if (column.key === 'number') {
+          <span class="code-pill">{{ row.number }}</span>
+        } @else if (column.key === 'clientName') {
+          <span class="name-cell">{{ row.clientName }}</span>
+        } @else if (column.key === 'dealValue' || column.key === 'grossCommission') {
+          <strong>{{ currency() }} {{ (column.key === 'dealValue' ? row.dealValue : row.grossCommission).toLocaleString() }}</strong>
+        } @else if (column.key === 'stage') {
+          <erp-status-tag [status]="row.stage" />
+        } @else {
+          {{ value }}
+        }
       </ng-template>
     </erp-paged-table>
 
@@ -43,13 +57,13 @@ const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
         <div drawerActions style="margin-bottom:16px" data-testid="deal-actions">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <erp-status-tag [status]="d.stage" />
-            @if (next(d); as n) { <button *erpHasPermission="'realestate.deals.edit'" nz-button nzSize="small" nzType="primary" (click)="move(d, n)" data-testid="deal-next">Move to {{ humanize(n) }}</button> }
+            @if (next(d); as n) { <button *erpHasPermission="'realestate.deals.edit'" nz-button nzSize="small" nzType="primary" (click)="move(d, n)" data-testid="deal-next">{{ 'ui.re.moveTo' | translate: 'Move to' }} {{ humanize(n) }}</button> }
             @if (d.stage === 'agreed') { <button *erpHasPermission="'realestate.deals.invoice'" nz-button nzSize="small" nzType="primary" (click)="invoice(d)" data-testid="deal-invoice">Raise commission invoice</button> }
             @if (d.stage === 'collected') { <button *erpHasPermission="'realestate.deals.payagent'" nz-button nzSize="small" nzType="primary" (click)="payOpen.set(d)" data-testid="deal-pay-agent">Pay agent</button> }
             @if (d.stage !== 'lost' && isPipeline(d.stage)) { <button *erpHasPermission="'realestate.deals.lose'" nz-button nzSize="small" nzDanger (click)="losing.set(d)" data-testid="deal-lose">Mark as lost</button> }
           </div>
-          <p style="margin:8px 0 0">Gross commission <strong>{{ d.grossCommission.toLocaleString() }} {{ d.currencyCode }}</strong> · agent {{ d.agentCommission.toLocaleString() }} · team lead {{ d.teamLeadCommission.toLocaleString() }}</p>
-          @if (d.lostReason) { <p>Lost: {{ d.lostReason }}</p> }
+          <p style="margin:8px 0 0">Gross commission <strong>{{ d.grossCommission.toLocaleString() }} {{ d.currencyCode }}</strong> · {{ 'ui.re.agentLc' | translate: 'agent' }} {{ d.agentCommission.toLocaleString() }} · {{ 'ui.re.teamLeadLc' | translate: 'team lead' }} {{ d.teamLeadCommission.toLocaleString() }}</p>
+          @if (d.lostReason) { <p>{{ 'ui.re.lost' | translate: 'Lost' }}: {{ d.lostReason }}</p> }
         </div>
       }
     </erp-record-drawer>
@@ -62,6 +76,7 @@ export class DealsPage {
   private readonly api = inject(DealsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;
   readonly stages = [...PIPELINE, 'lost'];
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-dealDate' });

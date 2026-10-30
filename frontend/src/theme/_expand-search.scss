@@ -1,0 +1,48 @@
+// Expanding search (ExpandSearchComponent, src/app/shared/expand-search.component.ts). Icon button by default; the input grows toward the
+// inline end with the reveal timing. Touch (hover: none) works by tap (no hover hint). prefers-reduced-motion: no width animation.
+
+$xsearch-ease: var(--erp-ease-emphasized, cubic-bezier(.2, .8, .2, 1));
+
+.erp-xsearch {
+  --erp-xsearch-size: 32px;
+  position: relative; display: inline-flex; align-items: center; vertical-align: middle;
+  inline-size: var(--erp-xsearch-size); max-inline-size: 100%; flex: 0 0 auto;
+  transition: inline-size var(--erp-duration-slow, 300ms) $xsearch-ease;
+
+  &.is-small { --erp-xsearch-size: 24px; }
+  &.is-open { inline-size: var(--erp-xsearch-width, 260px); }
+
+  .erp-xsearch-btn {
+    position: absolute; inset-block: 0; inset-inline-start: 0; z-index: 1;
+    display: inline-flex; align-items: center; justify-content: center; inline-size: var(--erp-xsearch-size); padding: 0;
+    border: 1px solid var(--erp-color-border-default, #d9d9d9); border-radius: 6px; background: var(--erp-color-bg-surface, #fff);
+    color: var(--erp-color-text-secondary, rgba(0, 0, 0, .65)); cursor: pointer;
+    transition: background-color var(--erp-duration-fast, 100ms), color var(--erp-duration-fast, 100ms), border-color var(--erp-duration-fast, 100ms);
+    > .anticon { transition: transform var(--erp-duration-slow, 300ms) $xsearch-ease; }
+    &:focus-visible { outline: 2px solid var(--erp-color-focus-ring, #1677ff); outline-offset: 2px; }
+  }
+
+  .erp-xsearch-input.ant-input {
+    inline-size: 100%; min-inline-size: 0; padding-inline-start: calc(var(--erp-xsearch-size) + 2px);
+    opacity: 0; transition: opacity var(--erp-duration-base, 200ms) ease;
+  }
+
+  &.is-open {
+    .erp-xsearch-btn { border-color: transparent; background: transparent; color: var(--erp-color-text-muted, rgba(0, 0, 0, .45)); }
+    .erp-xsearch-input.ant-input { opacity: 1; }
+  }
+  &:not(.is-open) .erp-xsearch-input { pointer-events: none; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .erp-xsearch:not(.is-open) .erp-xsearch-btn:hover {
+    background: var(--erp-color-bg-hover, rgba(0, 0, 0, .04)); color: var(--erp-color-primary, #1677ff); border-color: var(--erp-color-primary-border, #91caff);
+    > .anticon { transform: scale(1.12); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .erp-xsearch, .erp-xsearch .erp-xsearch-btn, .erp-xsearch .erp-xsearch-btn > .anticon, .erp-xsearch .erp-xsearch-input.ant-input { transition: none !important; }
+  .erp-xsearch .erp-xsearch-btn:hover > .anticon { transform: none !important; }
+}
+[data-motion='reduced'] .erp-xsearch, [data-motion='reduced'] .erp-xsearch .erp-xsearch-input.ant-input { transition: none !important; }

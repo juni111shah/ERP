@@ -17,23 +17,44 @@ import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { asProblem } from '../../core/http/problem-details';
 import { SessionStore } from '../../core/session/session.store';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { StatCardComponent } from '../../shared/stat-card.component';
 import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-registry';
 
 /** Reports hub (no slug) and the generic report page (/reports/:slug): filters, table, summary, CSV and Print. */
+import { RevealDirective } from '../../shared/reveal.directive';
 @Component({
   selector: 'erp-report',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule, NzSelectModule],
+  imports: [StatCardComponent, FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule, NzSelectModule, RevealDirective],
   styles: [`
-    .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px } .card { display:block; padding:14px 16px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px; background:var(--erp-color-surface, #fff); color:inherit } .card b { display:block; margin-bottom:4px } .card span { font-size:12px; color: var(--erp-color-text-secondary, #667) }
-    .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:12px 0 } .spacer { flex:1 } .num { text-align:right } .total td { font-weight:600 }
+    .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:16px; }
+    .card {
+      display:block;
+      padding:18px 20px;
+      border:1px solid #e2e8f0;
+      border-radius:12px;
+      background:#ffffff;
+      color:inherit;
+      text-decoration:none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .card:hover {
+      box-shadow: 0 8px 20px -4px rgba(16, 149, 93, 0.12);
+      border-color: #6ee7b7;
+      transform: translateY(-2px);
+    }
+    .card b { display:block; font-size:15px; font-weight:700; color:#0f172a; margin-bottom:6px; }
+    .card span { font-size:13px; color: #64748b; line-height:1.4; }
+    .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:16px 0 } .spacer { flex:1 } .num { text-align:right } .total td { font-weight:600 }
     .kpis { display:flex; gap:24px; flex-wrap:wrap; margin-bottom:12px } .kpi { padding:8px 14px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px } .kpi b { display:block; font-size:18px }
     @media print { .bar button, .bar nz-date-picker, .bar nz-input-number { display:none } }
   `],
   template: `
     @if (!def()) {
       <h1 class="erp-page-title">Reports</h1>
+      <p style="color:#64748b; margin-top:-8px; margin-bottom:16px;">Operational summaries, tax filings, financial statements, and performance analytics.</p>
       <div class="hub" data-testid="reports-hub">
         @for (r of available(); track r.slug) { <a class="card" [routerLink]="['/reports', r.slug]" [attr.data-testid]="'report-' + r.slug"><b>{{ r.title }}</b><span>{{ r.subtitle }}</span></a> }
         @for (l of ledgerLinks; track l.title) { <a class="card" [routerLink]="l.link" [queryParams]="{ tab: l.tab }"><b>{{ l.title }}</b><span>{{ l.note }}</span></a> }
@@ -41,13 +62,14 @@ import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-
     } @else {
       <h1 class="erp-page-title">{{ def()!.title }}</h1>
       <p>{{ def()!.subtitle }}</p>
-      <div class="bar">
+      <div class="bar" erpReveal>
         @if (has('owner')) {
           <nz-select style="width:260px" nzShowSearch nzServerSearch nzPlaceHolder="Property owner" [(ngModel)]="ownerId" (nzOnSearch)="searchOwners($event)" data-testid="report-owner">@for (o of owners(); track o.id) { <nz-option [nzValue]="o.id" [nzLabel]="o.name"></nz-option> }</nz-select>
         }
         @if (has('range')) { <nz-date-picker [(ngModel)]="from" nzPlaceHolder="From"></nz-date-picker><nz-date-picker [(ngModel)]="to" nzPlaceHolder="To"></nz-date-picker> }
         @if (has('asOf')) { <nz-date-picker [(ngModel)]="to" nzPlaceHolder="As of"></nz-date-picker> }
         @if (has('weeks')) { <nz-input-number [(ngModel)]="weeks" [nzMin]="1" [nzMax]="52" [nzPrecision]="0"></nz-input-number> <span>weeks</span> }
+        @if (has('days')) { <nz-input-number [(ngModel)]="days" [nzMin]="1" [nzMax]="3650" [nzPrecision]="0"></nz-input-number> <span>days idle</span> }
         @if (has('months')) { <nz-input-number [(ngModel)]="months" [nzMin]="1" [nzMax]="36" [nzPrecision]="0"></nz-input-number> <span>months</span> }
         <button nz-button nzType="primary" [nzLoading]="loading()" (click)="run()" data-testid="report-run">Run</button>
         <span class="spacer"></span>
@@ -55,8 +77,9 @@ import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-
         <button nz-button (click)="csv()" [disabled]="!data()" data-testid="report-csv"><span nz-icon nzType="download"></span>CSV</button>
         <button nz-button (click)="print()" [disabled]="!data()"><span nz-icon nzType="printer"></span>Print</button>
       </div>
+      @if (loading() && !data()) { <div class="erp-stat-grid erp-stat-grid--auto" data-testid="report-loading">@for (i of [0, 1, 2, 3]; track i) { <erp-stat-card label="" [loading]="true" [tone]="i" /> }</div> }
       @if (data(); as d) {
-        @if (summary().length) { <div class="kpis">@for (s of summary(); track s.label) { <div class="kpi">{{ s.label }}<b>{{ s.value }}</b></div> }</div> }
+        @if (summary().length) { <div class="erp-stat-grid erp-stat-grid--auto" data-testid="report-summary">@for (s of summary(); track s.label; let i = $index) { <erp-stat-card [label]="s.label" [value]="s.value" [tone]="i" /> }</div> }
         <nz-table [nzData]="rows()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="report-table">
           <thead><tr>@for (c of columns(); track c.key) { <th [class.num]="isNum(c)">{{ c.label }}</th> }</tr></thead>
           <tbody>
@@ -64,6 +87,13 @@ import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-
             @if (totals(); as t) { <tr class="total">@for (c of columns(); track c.key) { <td [class.num]="isNum(c)">{{ cell(t, c) }}</td> }</tr> }
           </tbody>
         </nz-table>
+        @for (sec of details(); track sec.title) {
+          <h3 style="margin-top:20px">{{ sec.title }}</h3>
+          <nz-table [nzData]="sec.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="report-detail-table">
+            <thead><tr>@for (c of sec.columns; track c.key) { <th [class.num]="isNum(c)">{{ c.label }}</th> }</tr></thead>
+            <tbody>@for (r of sec.rows; track $index) { <tr>@for (c of sec.columns; track c.key) { <td [class.num]="isNum(c)">{{ cell(r, c) }}</td> }</tr> }</tbody>
+          </nz-table>
+        }
       } @else if (!loading()) { <nz-empty nzNotFoundContent="Choose the filters and run the report."></nz-empty> }
     }`,
 })
@@ -79,6 +109,7 @@ export class ReportPage {
   from: Date | null = new Date(new Date().getFullYear(), 0, 1);
   to: Date | null = new Date();
   weeks = 13;
+  days = 90;
   ownerId: string | null = null;
   readonly owners = signal<{ id: string; name: string }[]>([]);
   searchOwners(term: string): void { this.http.get<{ items: { id: string; name: string }[] }>(`${this.base}/parties`, { params: { search: term, pageSize: 20 } }).subscribe((r) => this.owners.set(r.items)); }
@@ -88,6 +119,7 @@ export class ReportPage {
   readonly columns = computed<ReportColumn[]>(() => this.def()?.columns(this.data()) ?? []);
   readonly rows = computed(() => (this.data() ? this.def()!.rows(this.data()) : []));
   readonly totals = computed(() => (this.data() ? this.def()?.totals?.(this.data()) ?? null : null));
+  readonly details = computed(() => (this.data() ? this.def()?.details?.(this.data()) ?? [] : []));
   readonly summary = computed(() => (this.data() ? this.def()?.summary?.(this.data()) ?? [] : []));
 
   readonly entity = this.session.currentEntityId;
@@ -119,6 +151,7 @@ export class ReportPage {
     if (this.has('asOf')) params['asOf'] = toIsoDate(this.to);
     if (this.has('weeks')) params['weeks'] = String(this.weeks);
     if (this.has('months')) params['months'] = String(this.months);
+    if (this.has('days')) params['days'] = String(this.days);
     this.loading.set(true);
     this.http.get(`${this.base}/${def.endpoint}`, { params }).subscribe({
       next: (d) => { this.data.set(d); this.loading.set(false); },
@@ -131,6 +164,10 @@ export class ReportPage {
     const quote = (s: string) => `"${s.replace(/"/g, '""')}"`;
     const lines = [cols.map((c) => quote(c.label)).join(',')];
     for (const r of [...this.rows(), ...(this.totals() ? [this.totals()!] : [])]) lines.push(cols.map((c) => quote(String(r[c.key] ?? ''))).join(','));
+    for (const sec of this.details()) {
+      lines.push('', quote(sec.title), sec.columns.map((c) => quote(c.label)).join(','));
+      for (const r of sec.rows) lines.push(sec.columns.map((c) => quote(String(r[c.key] ?? ''))).join(','));
+    }
     const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = `${this.slug()}.csv`; a.click(); URL.revokeObjectURL(url);
   }

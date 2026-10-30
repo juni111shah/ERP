@@ -2,6 +2,7 @@ using ERP.Domain.Platform;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Organizations;
+using ERP.Application.Parties;
 using ERP.Application.Security;
 using ERP.Domain.Finance;
 using ERP.Domain.Parties;
@@ -21,22 +22,37 @@ public sealed record BillAllocationDto(Guid Id, Guid BillId, string BillNumber, 
 public sealed record PaymentDto(
     Guid Id, string Number, Guid LegalEntityId, Guid PartyId, string? PartyName, DateOnly Date, SettlementMethod Method, Guid? BankAccountId, string CurrencyCode, decimal Amount, decimal Unallocated,
     string? Reference, DocumentStatus Status, Guid? PaymentInstrumentId, Guid? JournalEntryId, IReadOnlyList<BillAllocationDto> Allocations,
-    string? InstrumentKind = null, string? ChequeNumber = null, DateOnly? ChequeDate = null, string? ChequeStatus = null, string? ChequeBankName = null);
+    string? InstrumentKind = null, string? ChequeNumber = null, DateOnly? ChequeDate = null, string? ChequeStatus = null, string? ChequeBankName = null,
+    string? VoidReason = null, DateTime? VoidedAt = null);
 public sealed record PaymentSummaryDto(Guid Id, string Number, Guid PartyId, string? PartyName, DateOnly Date, SettlementMethod Method, decimal Amount, decimal Unallocated, DocumentStatus Status, string CurrencyCode);
 
 public sealed record GetPayment(Guid Id) : IQuery<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsRead; }
 /// <summary>Pays a vendor: Dr payables, Cr bank / cash (or "cheques issued" for a cheque), settling bills at the same time.</summary>
-public sealed record CreatePayment(PaymentInput Input) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
-public sealed record AllocatePayment(Guid Id, List<BillAllocationInput> Allocations) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
+public sealed record CreatePayment(PaymentInput Input) : ICommand<PaymentDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
+public sealed record AllocatePayment(Guid Id, List<BillAllocationInput> Allocations) : ICommand<PaymentDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
-public sealed record VoidPayment(Guid Id, string? Reason) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
+public sealed record VoidPayment(Guid Id, string? Reason) : ICommand<PaymentDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
 
 public sealed class VoidPaymentValidator : AbstractValidator<VoidPayment>
 {
     public VoidPaymentValidator() => RuleFor(x => x.Reason).ValidVoidReason();
 }
 /// <summary>The vendor banked a cheque we issued: Dr cheques issued, Cr bank.</summary>
-public sealed record ClearIssuedCheque(Guid InstrumentId, DateOnly Date) : ICommand<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ChequesApprove; }
+public sealed record ClearIssuedCheque(Guid InstrumentId, DateOnly Date) : ICommand<PaymentDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.ChequesApprove; }
+
+public sealed class ClearIssuedChequeValidator : AbstractValidator<ClearIssuedCheque>
+{
+    public ClearIssuedChequeValidator() => RuleFor(x => x.Date).MustBePlausibleDate();
+}
+public sealed class AllocatePaymentValidator : AbstractValidator<AllocatePayment>
+{
+    public AllocatePaymentValidator()
+    {
+        RuleFor(x => x.Allocations).NotNull().Must(a => a is { Count: > 0 }).WithMessage("Choose at least one bill to allocate to.");
+        RuleFor(x => x.Allocations).Must(a => a is null || a.Select(x => x.BillId).Distinct().Count() == a.Count).WithMessage("A bill can appear only once.");
+        RuleForEach(x => x.Allocations).ChildRules(l => l.RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney());
+    }
+}
 
 public sealed class PaymentInputValidator : AbstractValidator<PaymentInput>
 {
@@ -44,8 +60,10 @@ public sealed class PaymentInputValidator : AbstractValidator<PaymentInput>
     {
         RuleFor(x => x.LegalEntityId).NotEmpty();
         RuleFor(x => x.PartyId).NotEmpty();
+        RuleFor(x => x.Date).MustBePlausibleDate();
+        RuleFor(x => x.ChequeDate).MustBePlausibleDate();
         RuleFor(x => x.BankAccountId).NotEmpty();
-        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Amount).GreaterThan(0).MustBeMoney();
         RuleFor(x => x.Method).IsInEnum();
         RuleFor(x => x.Reference).MaximumLength(100);
         RuleFor(x => x.ChequeNo).NotEmpty().MaximumLength(50).When(x => x.Method == SettlementMethod.Instrument).WithMessage("Enter the cheque number.");
@@ -71,8 +89,9 @@ internal sealed class PaymentHandlers(
         var i = cmd.Input;
         var entity = await guard.RequireAsync(i.LegalEntityId, token);
         var party = await parties.FindAsync(i.PartyId, token) ?? throw new FieldValidationException("partyId", "Vendor not found.");
+        VendorRules.RequireVendor(party);
         var bank = await accounts.FindAsync(i.BankAccountId, token);
-        if (bank is null || bank.Type != AccountType.Asset || !bank.IsPostable || !bank.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
+        if (bank is null || !BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
 
         var settlement = new Settlement
         {
@@ -106,7 +125,9 @@ internal sealed class PaymentHandlers(
         return await ToDtoAsync(settlement, token, applied);
     }, ct);
 
-    public async Task<PaymentDto> Handle(AllocatePayment cmd, CancellationToken ct)
+    public Task<PaymentDto> Handle(AllocatePayment cmd, CancellationToken ct) => uow.InTransactionAsync(token => AllocatePaymentCoreAsync(cmd, token), ct);
+
+    private async Task<PaymentDto> AllocatePaymentCoreAsync(AllocatePayment cmd, CancellationToken ct)
     {
         var s = await LoadAsync(cmd.Id, ct);
         if (s.Status != DocumentStatus.Issued) throw new ConflictException("Only a posted payment can be allocated.");
@@ -116,7 +137,9 @@ internal sealed class PaymentHandlers(
         return await ToDtoAsync(s, ct, s.Allocations.Concat(applied).ToList());
     }
 
-    public async Task<PaymentDto> Handle(VoidPayment cmd, CancellationToken ct)
+    public Task<PaymentDto> Handle(VoidPayment cmd, CancellationToken ct) => uow.InTransactionAsync(token => VoidPaymentCoreAsync(cmd, token), ct);
+
+    private async Task<PaymentDto> VoidPaymentCoreAsync(VoidPayment cmd, CancellationToken ct)
     {
         var s = await LoadAsync(cmd.Id, ct);
         if (s.Status != DocumentStatus.Issued) throw new ConflictException("This payment is already voided.");
@@ -135,16 +158,21 @@ internal sealed class PaymentHandlers(
             BillStatus.Refresh(bill);
         }
         s.Status = DocumentStatus.Voided; s.Unallocated = 0;
+        VoidMemo.Stamp(s, cmd.Reason, clock, user);
         if (cheque is not null) cheque.Status = InstrumentStatus.Cancelled;
         VoidMemo.Audit(audit, user, clock, nameof(Settlement), s.Id, s.Number, cmd.Reason!);
         await settlements.SaveChangesAsync(ct);
         return await ToDtoAsync(s, ct);
     }
 
-    public async Task<PaymentDto> Handle(ClearIssuedCheque cmd, CancellationToken ct)
+    public Task<PaymentDto> Handle(ClearIssuedCheque cmd, CancellationToken ct) => uow.InTransactionAsync(token => ClearIssuedChequeCoreAsync(cmd, token), ct);
+
+    private async Task<PaymentDto> ClearIssuedChequeCoreAsync(ClearIssuedCheque cmd, CancellationToken ct)
     {
         var c = await instruments.Tracked(new Specification<PaymentInstrument>(x => x.Id == cmd.InstrumentId && x.Direction == InstrumentDirection.Issued)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
         if (c.Status != InstrumentStatus.Issued) throw new ConflictException("Only an issued cheque that has not cleared can be cleared.");
+        if (c.ReceivedOn is { } issueDate && cmd.Date < issueDate) throw new FieldValidationException("date", "The clearing date cannot be before the cheque was issued.");
+        if (cmd.Date > DateOnly.FromDateTime(clock.UtcNow)) throw new FieldValidationException("date", "The clearing date cannot be in the future.");
         var memo = $"Cheque {c.InstrumentNo} cleared";
         var issued = await posting.AccountForRoleAsync("instruments.issued", ct);
         await posting.PostAsync(new PostingRequest(c.LegalEntityId, cmd.Date, "cheque", c.Id, memo, c.Number,
@@ -168,6 +196,7 @@ internal sealed class PaymentHandlers(
             var bill = open.FirstOrDefault(b => b.Id == r.BillId) ?? throw new FieldValidationException("allocations", "A bill was not found.");
             if (bill.PartyId != s.PartyId || bill.LegalEntityId != s.LegalEntityId) throw new FieldValidationException("allocations", $"{bill.Number} is not a bill of this vendor.");
             if (bill.Status is not (DocumentStatus.Issued or DocumentStatus.PartlyPaid)) throw new FieldValidationException("allocations", $"{bill.Number} is not open.");
+            if (bill.BillDate > s.Date) throw new FieldValidationException("allocations", $"{bill.Number} is dated after the payment.");
             if (r.Amount > bill.Total - bill.Paid) throw new FieldValidationException("allocations", $"{bill.Number} has only {bill.Total - bill.Paid:0.00} outstanding.");
             bill.Paid += r.Amount;
             BillStatus.Refresh(bill);
@@ -188,6 +217,6 @@ internal sealed class PaymentHandlers(
         var ins = await InstrumentInfo.LoadAsync(instruments, s.PaymentInstrumentId, ct);
         return new PaymentDto(s.Id, s.Number, s.LegalEntityId, s.PartyId, s.PartyName, s.Date, s.Method, s.BankAccountId, s.CurrencyCode, s.Amount, s.Unallocated, s.Reference, s.Status, s.PaymentInstrumentId, s.JournalEntryId,
             rows.Select(a => new BillAllocationDto(a.Id, a.BillId!.Value, numbers.GetValueOrDefault(a.BillId.Value, "?"), a.Amount)).ToList(),
-            ins?.Kind, ins?.No, ins?.Date, ins?.Status, ins?.BankName);
+            ins?.Kind, ins?.No, ins?.Date, ins?.Status, ins?.BankName, s.VoidReason, s.VoidedAt);
     }
 }

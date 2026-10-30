@@ -176,6 +176,11 @@ public class PaymentInstrument : LegalEntityScopedEntity
     public DateOnly? DepositedOn { get; set; }
     public DateOnly? ClearedOn { get; set; }
     public string? BounceReason { get; set; }
+    /// <summary>The date the bank returned the cheque.</summary>
+    public DateOnly? BouncedOn { get; set; }
+    /// <summary>When someone last chased the customer about a bounced cheque, and what was said.</summary>
+    public DateOnly? FollowUpOn { get; set; }
+    public string? FollowUpNote { get; set; }
     public Guid? ReplacesInstrumentId { get; set; }
     /// <summary>Generic link to the business document it settles (module-defined type + id).</summary>
     public string? SourceType { get; set; }

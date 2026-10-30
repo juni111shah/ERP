@@ -42,6 +42,20 @@ const addMonths = (n) => { const d = new Date(today); d.setMonth(d.getMonth() + 
 await login();
 console.log('Seeding demo data into workspace demo-re ...');
 
+// ---- Property owners (landlords): paid out, so they carry the Vendor role. Own existence check, so a re-run on an already
+// seeded workspace adds only the owners that are missing and touches nothing else.
+const ownerSeeds = [
+  { name: 'Rashid Al Thani', kind: 'Individual', email: 'owner1@example.com', phone: '+97455000201' },
+  { name: 'Pearl Holdings W.L.L.', kind: 'Company', email: 'owner2@example.com', phone: '+97455000202' },
+];
+await step('owners', async () => {
+  for (const o of ownerSeeds) {
+    const found = await call('GET', `/parties?search=${encodeURIComponent(o.name)}&pageSize=5`);
+    if ((found?.items ?? found ?? []).some((p) => p.name === o.name)) continue;
+    await call('POST', '/parties', { ...o, roles: 'Vendor', paymentTermsDays: 30 });
+  }
+});
+
 const existing = await call('GET', '/parties?search=Al%20Noor&pageSize=5');
 if ((existing?.length ?? existing?.items?.length ?? 0) > 0) { console.log('Already seeded - nothing to do.'); process.exit(0); }
 
@@ -53,11 +67,11 @@ const bank = accounts.find((a) => a.systemRole === 'bank')?.id;
 const expenseAcc = acct('6900') ?? accounts.find((a) => a.type === 'expense')?.id;
 
 // ---- Parties and catalogue ----------------------------------------------------------------------------------------------
-const tenantNames = ['Al Noor Trading LLC', 'Sara Ahmed', 'Gulf Tech Solutions', 'Khalid Al Mansoori', 'Bluewave Cafe', 'Priya Nair', 'Omar Hassan', 'Desert Rose Salon'];
+const tenantNames = ['Al Noor Trading W.L.L.', 'Sara Ahmed', 'Gulf Tech Solutions', 'Khalid Al Marri', 'Bluewave Cafe', 'Priya Nair', 'Omar Hassan', 'Desert Rose Salon'];
 const tenants = [];
 await step('customers / tenants', async () => {
   for (const [i, name] of tenantNames.entries()) {
-    const p = await call('POST', '/parties', { name, kind: i % 2 === 0 ? 'Company' : 'Individual', roles: 'Customer', email: `tenant${i + 1}@example.com`, phone: `+97150000${100 + i}`, paymentTermsDays: 15 });
+    const p = await call('POST', '/parties', { name, kind: i % 2 === 0 ? 'Company' : 'Individual', roles: 'Customer', email: `tenant${i + 1}@example.com`, phone: `+9745500${100 + i}`, paymentTermsDays: 15 });
     tenants.push(p);
   }
 });
@@ -82,8 +96,8 @@ await step('unit types', async () => {
 });
 const properties = [];
 await step('properties', async () => {
-  for (const [name, type, community, value] of [['Marina Heights Tower', 'residential', 'Dubai Marina', 42_000_000], ['Palm Business Centre', 'commercial', 'Business Bay', 28_000_000], ['Garden Court Villas', 'villa', 'Arabian Ranches', 18_500_000]])
-    properties.push(await call('POST', '/m/realestate/properties', { legalEntityId: entity, name, propertyType: type, ownershipType: 'owned', region: 'Dubai', community, yearBuilt: 2016, totalUnits: 0, indicativeValue: value }));
+  for (const [name, type, community, value] of [['Pearl Heights Tower', 'residential', 'The Pearl-Qatar', 42_000_000], ['West Bay Business Centre', 'commercial', 'West Bay', 28_000_000], ['Garden Court Villas', 'villa', 'Arabian Ranches', 18_500_000]])
+    properties.push(await call('POST', '/m/realestate/properties', { legalEntityId: entity, name, propertyType: type, ownershipType: 'owned', region: 'Doha', community, yearBuilt: 2016, totalUnits: 0, indicativeValue: value }));
 });
 const units = [];
 await step('units', async () => {
@@ -121,7 +135,7 @@ await step('receipts (some tenants have paid)', async () => {
   }
 });
 await step('post-dated cheques', async () => {
-  for (const [i, d] of [[2, 20], [3, 45], [5, 70]]) await call('POST', '/finance/cheques', { legalEntityId: entity, partyId: tenants[i].id, kind: 'postDatedCheque', instrumentNo: String(700100 + i), bankName: 'Emirates NBD', amount: 25_000 + i * 1000, instrumentDate: addDays(d), receivedOn: addDays(-3) });
+  for (const [i, d] of [[2, 20], [3, 45], [5, 70]]) await call('POST', '/finance/cheques', { legalEntityId: entity, partyId: tenants[i].id, kind: 'postDatedCheque', instrumentNo: String(700100 + i), bankName: 'QNB', amount: 25_000 + i * 1000, instrumentDate: addDays(d), receivedOn: addDays(-3) });
 });
 
 // ---- Operations ---------------------------------------------------------------------------------------------------------
@@ -134,13 +148,13 @@ await step('preventive maintenance schedules', async () => {
     await call('POST', '/m/realestate/pm-schedules', { propertyId: properties[0].id, title: t, category: c, frequencyMonths: m, nextDue: addDays(d), leadDays: 7, estimatedCost: 600 });
 });
 await step('brokerage deals', async () => {
-  const sale = await call('POST', '/m/realestate/deals', { legalEntityId: entity, dealType: 'sale', clientName: 'Rashid Al Falasi', dealDate: addDays(-20), dealValue: 3_200_000, commissionRatePercent: 2, propertyId: properties[0].id, agentPartyId: agents[0].id, agentSharePercent: 40 });
+  const sale = await call('POST', '/m/realestate/deals', { legalEntityId: entity, dealType: 'sale', clientName: 'Rashid Al Thani', dealDate: addDays(-20), dealValue: 3_200_000, commissionRatePercent: 2, propertyId: properties[0].id, agentPartyId: agents[0].id, agentSharePercent: 40 });
   for (const stage of ['viewing', 'negotiation', 'agreed']) await call('POST', `/m/realestate/deals/${sale.id}/stage`, { stage });
   await call('POST', '/m/realestate/deals', { legalEntityId: entity, dealType: 'lease', clientName: 'Nadia Karim', dealDate: addDays(-5), dealValue: 95_000, commissionRatePercent: 5, propertyId: properties[1].id, agentPartyId: agents[1].id, agentSharePercent: 35 });
 });
 await step('acquisition with bank mortgage', async () => {
-  const prop = await call('POST', '/m/realestate/properties', { legalEntityId: entity, name: 'Skyline Plaza (new purchase)', propertyType: 'commercial', ownershipType: 'owned', region: 'Dubai', community: 'DIFC', totalUnits: 0, indicativeValue: 12_000_000 });
-  await call('POST', '/m/realestate/acquisitions', { legalEntityId: entity, propertyId: prop.id, sellerName: 'Emaar Developments', purchaseDate: addDays(-10), contractReference: 'SPA-2026-118', purchasePrice: 12_000_000, downPayment: 2_400_000, transferFees: 480_000, otherCosts: 25_000, payFromAccountId: bank, funding: [{ type: 'bankMortgage', lender: 'Mashreq Bank', principal: 7_200_000, annualRatePercent: 5.4, termMonths: 180, firstDueDate: addDays(30) }] });
+  const prop = await call('POST', '/m/realestate/properties', { legalEntityId: entity, name: 'Skyline Plaza (new purchase)', propertyType: 'commercial', ownershipType: 'owned', region: 'Doha', community: 'QFC', totalUnits: 0, indicativeValue: 12_000_000 });
+  await call('POST', '/m/realestate/acquisitions', { legalEntityId: entity, propertyId: prop.id, sellerName: 'Qatari Diar Developments', purchaseDate: addDays(-10), contractReference: 'SPA-2026-118', purchasePrice: 12_000_000, downPayment: 2_400_000, transferFees: 480_000, otherCosts: 25_000, payFromAccountId: bank, funding: [{ type: 'bankMortgage', lender: 'Doha Bank Bank', principal: 7_200_000, annualRatePercent: 5.4, termMonths: 180, firstDueDate: addDays(30) }] });
 });
 
 // ---- Finance: bills, payments, journal, budget --------------------------------------------------------------------------
@@ -183,7 +197,7 @@ await step('CRM listings and leads', async () => {
     if (i === 0) await call('POST', `/m/realestate/listings/${l.id}/status`, { status: 'published' }).catch(() => {});
   }
   for (const [name, source, days] of [['Hamad Al Suwaidi', 'Website', 2], ['Jessica Moore', 'Walk-in', 5], ['Tariq Mehmood', 'Referral', -1]])
-    await call('POST', '/m/realestate/leads', { legalEntityId: entity, name, phone: '+9715011122' + days, email: name.split(' ')[0].toLowerCase() + '@example.com', source, interest: '1 bedroom near the Marina', followUpOn: addDays(days) });
+    await call('POST', '/m/realestate/leads', { legalEntityId: entity, name, phone: '+9745501' + String(1000 + Number(days)).slice(-4), email: name.split(' ')[0].toLowerCase() + '@example.com', source, interest: '1 bedroom near the Marina', followUpOn: addDays(days) });
 });
 await step('enable Inventory and add stock', async () => {
   await call('POST', '/modules/inventory/enable'); await login();
@@ -195,6 +209,27 @@ await step('enable Inventory and add stock', async () => {
   await call('POST', '/m/inventory/stock/receive', { warehouseId: wh.id, itemId: item.id, quantity: 40, unitCost: 52, date: addDays(-15), offsetAccountId: payable, reference: 'GRN-001' });
   await call('POST', '/m/inventory/stock/issue', { warehouseId: wh.id, itemId: item.id, quantity: 12, date: addDays(-3), memo: 'Used for AC servicing' });
   await call('PUT', '/m/inventory/stock/policy', { itemId: item.id, reorderLevel: 30, reorderQuantity: 50 });
+  // a physical count of the main store: 3 filters were found missing and the difference is posted
+  const count = await call('POST', '/m/inventory/counts', { warehouseId: wh.id, countDate: addDays(-1), memo: 'Monthly count' });
+  const sheet = count.lines.find((l) => l.itemId === item.id);
+  if (sheet) {
+    await call('PUT', `/m/inventory/counts/${count.id}/lines`, { lines: [{ itemId: item.id, countedQuantity: sheet.systemQuantity - 3 }] });
+    await call('POST', `/m/inventory/counts/${count.id}/post`);
+  }
+});
+await step('leave types, holidays and requests', async () => {
+  const annual = await call('POST', '/m/hr/leave-types', { code: 'ANNUAL', name: 'Annual leave', isPaid: true, annualDays: 30, carryForwardCap: 10, requiresApproval: true });
+  const sick = await call('POST', '/m/hr/leave-types', { code: 'SICK', name: 'Sick leave', isPaid: true, annualDays: 15, carryForwardCap: 0, requiresApproval: false });
+  const unpaid = await call('POST', '/m/hr/leave-types', { code: 'UNPAID', name: 'Unpaid leave', isPaid: false, annualDays: 0, carryForwardCap: 0, requiresApproval: true });
+  const y = today.getFullYear();
+  for (const [date, name] of [[`${y}-12-02`, 'National Day'], [`${y}-12-03`, 'National Day holiday'], [`${y + 1}-01-01`, "New Year's Day"]]) await call('POST', '/m/hr/holidays', { date, name }).catch(() => {});
+  const nextWeekday = (offset) => { let d = new Date(today.getTime() + offset * 86400000); while ([0, 6].includes(d.getDay())) d = new Date(d.getTime() + 86400000); return iso(d); };
+  const plan = [[0, annual, 14, 18, true, true], [1, annual, 30, 32, true, false], [2, sick, 3, 4, true, false], [3, unpaid, 21, 22, true, false], [4, annual, 45, 49, false, false]];
+  for (const [e, type, from, to, submit, approve] of plan) {
+    if (!employees[e]) continue;
+    const r = await call('POST', '/m/hr/leave', { employeeId: employees[e].id, leaveTypeId: type.id, fromDate: nextWeekday(from), toDate: nextWeekday(to), reason: 'Demo request', submit });
+    if (approve) await call('POST', `/m/hr/leave/${r.id}/approve`, { comment: 'Approved' });
+  }
 });
 await step('performance review cycle', async () => {
   const cycle = await call('POST', '/m/hr/review-cycles', { name: `H1 ${today.getFullYear()} review`, periodStart: `${today.getFullYear()}-01-01`, periodEnd: `${today.getFullYear()}-06-30`, status: 'open' });

@@ -68,3 +68,90 @@ public sealed class ProblemExceptionHandler(ILogger<ProblemExceptionHandler> log
         return true;
     }
 }
+
+/// <summary>
+/// Honours the <c>Idempotency-Key</c> header on POST requests: the first request with a key runs normally and its 2xx response is
+/// stored; a retry with the same key (same user, route and body) gets that response back with <c>Idempotent-Replay: true</c> and
+/// creates nothing. Failed responses release the key. Requests without the header are untouched.
+/// </summary>
+public sealed class IdempotencyMiddleware(RequestDelegate next)
+{
+    public const string Header = "Idempotency-Key";
+
+    public async Task InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes)
+    {
+        if (!HttpMethods.IsPost(http.Request.Method) || !user.IsAuthenticated || user.UserId is not { } userId || user.OrgId is not { } orgId
+            || !http.Request.Path.StartsWithSegments("/api/v1") || !http.Request.Headers.TryGetValue(Header, out var raw) || string.IsNullOrWhiteSpace(raw))
+        {
+            await next(http);
+            return;
+        }
+        var key = raw.ToString().Trim();
+        if (key.Length > IdempotencyService.MaxKeyLength)
+        {
+            await ApiEnvelope.WriteErrorAsync(http, StatusCodes.Status400BadRequest, "Invalid Idempotency-Key", $"The Idempotency-Key header can be at most {IdempotencyService.MaxKeyLength} characters.");
+            return;
+        }
+
+        http.Request.EnableBuffering();
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        var hash = Convert.ToHexString(await sha.ComputeHashAsync(http.Request.Body, http.RequestAborted));
+        http.Request.Body.Position = 0;
+        var route = http.Request.Path.Value!.ToLowerInvariant();
+
+        IdempotencyBegin begin;
+        await using (var scope = Scoped(scopes, orgId, out var svc))
+            begin = await svc.BeginAsync(userId, key, route, hash, http.RequestAborted);
+
+        switch (begin.Outcome)
+        {
+            case IdempotencyOutcome.Mismatch:
+                await ApiEnvelope.WriteErrorAsync(http, StatusCodes.Status422UnprocessableEntity, "Idempotency-Key reused", "This Idempotency-Key was already used with a different request.");
+                return;
+            case IdempotencyOutcome.InProgress:
+                await ApiEnvelope.WriteErrorAsync(http, StatusCodes.Status409Conflict, "Request in progress", "A request with this Idempotency-Key is still being processed.");
+                return;
+            case IdempotencyOutcome.Replay:
+                http.Response.StatusCode = begin.StatusCode;
+                http.Response.ContentType = begin.ContentType;
+                http.Response.Headers["Idempotent-Replay"] = "true";
+                await http.Response.WriteAsync(begin.Body ?? "", http.RequestAborted);
+                return;
+        }
+
+        var original = http.Response.Body;
+        await using var buffer = new MemoryStream();
+        http.Response.Body = buffer;
+        try
+        {
+            await next(http);
+            var ok = http.Response.StatusCode is >= 200 and < 300;
+            var body = System.Text.Encoding.UTF8.GetString(buffer.ToArray());
+            await using (var scope = Scoped(scopes, orgId, out var svc))
+            {
+                if (ok) await svc.CompleteAsync(begin.RecordId, http.Response.StatusCode, http.Response.ContentType, body, CancellationToken.None);
+                else await svc.AbandonAsync(begin.RecordId, CancellationToken.None);
+            }
+        }
+        catch
+        {
+            await using var scope = Scoped(scopes, orgId, out var svc);
+            await svc.AbandonAsync(begin.RecordId, CancellationToken.None);
+            throw;
+        }
+        finally
+        {
+            http.Response.Body = original;
+        }
+        buffer.Position = 0;
+        await buffer.CopyToAsync(original, http.RequestAborted);
+    }
+
+    private static AsyncServiceScope Scoped(IServiceScopeFactory scopes, Guid orgId, out IdempotencyService svc)
+    {
+        var scope = scopes.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<IOrgContext>().Use(orgId);
+        svc = scope.ServiceProvider.GetRequiredService<IdempotencyService>();
+        return scope;
+    }
+}

@@ -68,6 +68,14 @@ public abstract class LegalEntityScopedEntity : OrgEntity, ILegalEntityScoped
     public Guid LegalEntityId { get; set; }
 }
 
+/// <summary>Documents that can be voided: why, when and by whom (the audit log keeps the full event as well).</summary>
+public interface IVoidable
+{
+    string? VoidReason { get; set; }
+    DateTime? VoidedAt { get; set; }
+    Guid? VoidedBy { get; set; }
+}
+
 public class DomainException(string message) : Exception(message);
 
 /// <summary>

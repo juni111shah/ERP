@@ -56,17 +56,8 @@ public class ApiFactory : WebApplicationFactory<Program>
         foreach (var (k, v) in settings) builder.UseSetting(k, v);
         builder.ConfigureServices(s =>
         {
-            // Swap the app's SQL Server DbContext for the in-memory SQLite connection, and build the schema from the
-            // model (SQLite cannot run the SQL Server migrations).
             s.RemoveAll<DbContextOptions<AppDbContext>>();
-            s.AddDbContext<AppDbContext>((sp, o) =>
-            {
-                o.UseSqlite(_conn);
-                o.ReplaceService<IModelCacheKeyFactory, ModuleAwareModelCacheKeyFactory>();
-                o.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
-            });
-            s.RemoveAll<IDatabaseInitializer>();
-            s.AddScoped<IDatabaseInitializer, EnsureCreatedInitializer>();
+            ConfigureDatabase(s);
             s.RemoveAll<IPasswordResetSender>();
             s.AddSingleton<IPasswordResetSender>(Resets);
             s.RemoveAll<ERP.Application.Reminders.IMessageChannel>();
@@ -74,6 +65,19 @@ public class ApiFactory : WebApplicationFactory<Program>
             s.AddSingleton(Emails);
             s.AddScoped<ERP.Application.Reminders.IMessageChannel>(sp => sp.GetRequiredService<CapturingEmailChannel>());
         });
+    }
+
+    /// <summary>Default test database: one shared in-memory SQLite connection, schema built from the model (SQLite cannot run the SQL Server migrations).</summary>
+    protected virtual void ConfigureDatabase(IServiceCollection s)
+    {
+        s.AddDbContext<AppDbContext>((sp, o) =>
+        {
+            o.UseSqlite(_conn);
+            o.ReplaceService<IModelCacheKeyFactory, ModuleAwareModelCacheKeyFactory>();
+            o.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+        });
+        s.RemoveAll<IDatabaseInitializer>();
+        s.AddScoped<IDatabaseInitializer, EnsureCreatedInitializer>();
     }
 
     protected override void Dispose(bool disposing)

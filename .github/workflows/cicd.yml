@@ -1,0 +1,94 @@
+# Build, test and deploy per environment branch. See docs/devops/pipeline.md.
+#   dev        -> build + test + package (artifact only; the dev workstation on 4200/5080 is not redeployed)
+#   staging    -> build + test + package -> deploy to staging (port 5180, ERP_Staging) on the self-hosted runner
+#   production -> build + test + package -> gate (commit must already be on staging + 'production' environment
+#                 approval) -> DB backup -> deploy to production (port 5280, ERP_Prod)
+name: CI/CD
+on:
+  push:
+    branches: [dev, staging, production]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cicd-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build, test, package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { global-json-file: backend/global.json }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: frontend/package-lock.json }
+
+      - name: Backend build
+        working-directory: backend
+        run: dotnet build ERP.sln -c Release
+      - name: Backend tests
+        working-directory: backend
+        run: dotnet test ERP.sln -c Release --no-build
+      - name: Publish API (win-x64, framework-dependent)
+        working-directory: backend
+        run: dotnet publish src/ERP.Api/ERP.Api.csproj -c Release -r win-x64 --self-contained false -o "$GITHUB_WORKSPACE/package/app"
+
+      - name: Frontend install
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Frontend build
+        working-directory: frontend
+        run: npx ng build --configuration production
+
+      - name: Assemble package
+        run: |
+          mkdir -p package/app/wwwroot
+          cp -r frontend/dist/erp-web/browser/. package/app/wwwroot/
+          test -f package/app/wwwroot/index.html
+          cat > package/release.json <<JSON
+          { "sha": "${GITHUB_SHA}", "branch": "${GITHUB_REF_NAME}", "run": "${GITHUB_RUN_ID}", "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)" }
+          JSON
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-package
+          path: package
+          retention-days: 14
+
+  deploy:
+    name: Deploy ${{ github.ref_name }}
+    needs: build
+    if: github.ref_name == 'staging' || github.ref_name == 'production'
+    runs-on: [self-hosted, Windows, erp-deploy]
+    environment:
+      name: ${{ github.ref_name }}
+    concurrency:
+      group: deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    defaults:
+      run: { shell: powershell }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Promotion gate (production only)
+        if: github.ref_name == 'production'
+        run: |
+          git fetch --no-tags origin staging
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/staging
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Commit $env:GITHUB_SHA is not on the staging branch. Promote through staging first."
+            exit 1
+          }
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-package
+          path: ${{ runner.temp }}/erp-package
+
+      - name: Deploy
+        run: |
+          & "$env:GITHUB_WORKSPACE\deploy\windows\deploy.ps1" -Environment "$env:GITHUB_REF_NAME" -Package "$env:RUNNER_TEMP\erp-package"

@@ -14,19 +14,39 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { MONTHS, PayrollApi, PayrollSummary } from './hr.api';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { RevealDirective } from '../../shared/reveal.directive';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 const COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', posted: 'blue', paid: 'green' };
+
+import { DecimalPipe } from '@angular/common';
 
 @Component({
   selector: 'erp-payroll',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzTagModule],
+  imports: [DecimalPipe, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Payroll</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search run number" emptyText="No payroll runs yet" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> } @else { {{ value }} }
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number }}</span>
+          }
+          @case ('netPay') {
+            <b>{{ currency() }} {{ row.netPay | number: '1.2-2' }}</b>
+          }
+          @case ('status') {
+            <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
+          }
+          @default {
+            {{ value }}
+          }
+        }
       </ng-template>
       <button toolbar *erpHasPermission="'hr.payroll.manage'" nz-button nzType="primary" (click)="drawer.set(true)" data-testid="payroll-new"><span nz-icon nzType="plus"></span>Generate payroll</button>
     </erp-paged-table>
@@ -34,9 +54,11 @@ const COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'pur
                        (submitted)="generate($event)" (closed)="drawer.set(false)" />`,
 })
 export class PayrollPage {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(PayrollApi);
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-year' });
   readonly drawer = signal(false);
@@ -67,7 +89,7 @@ export class PayrollPage {
     const period = String(v['period']).slice(0, 10).split('-').map(Number);
     this.saving.set(true); this.errors.set(null);
     this.api.generate({ legalEntityId: v['legalEntityId'], year: period[0], month: period[1], plannedPayDate: v['plannedPayDate'] ?? null, notes: v['notes'] ?? null }).subscribe({
-      next: (run) => { this.saving.set(false); this.drawer.set(false); this.message.success(`Payroll ${run.number} generated`); void this.router.navigate(['/hr/payroll', run.id]); },
+      next: (run) => { this.saving.set(false); this.drawer.set(false); this.message.success(`${this.i18n.t('ui.msg.payrollGenerated', 'Payroll generated')}: ${run.number}`); void this.router.navigate(['/hr/payroll', run.id]); },
       error: (e) => { this.saving.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not generate the payroll'); },
     });
   }

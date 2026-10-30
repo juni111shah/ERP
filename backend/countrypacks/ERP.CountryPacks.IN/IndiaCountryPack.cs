@@ -15,6 +15,9 @@ public sealed class IndiaCountryPack : ICountryPack
     public string DefaultCurrency => "INR";
     public string DefaultTimeZone => "Asia/Kolkata";
 
+    public TaxReturnDefinition? TaxReturn => IndiaTaxReturn.Definition;
+    public IReadOnlyList<InvoiceField> InvoiceRequiredFields { get; } = [InvoiceField.SellerTaxNumber, InvoiceField.CustomerTaxNumber];
+
     public IReadOnlyList<TaxTemplate> Taxes { get; } =
     [
         new("GST18", "GST 18%", TaxKind.Gst, 18m, true),

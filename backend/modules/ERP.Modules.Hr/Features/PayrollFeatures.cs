@@ -32,9 +32,9 @@ public sealed record RecalculatePayroll(Guid Id) : ICommand<PayrollDto>, IRequir
 public sealed record AdjustPayrollLine(Guid RunId, Guid LineId, decimal Adjustment, string? Note) : ICommand<PayrollDto>, IRequirePermission { public string RequiredPermission => P.PayrollManage; }
 public sealed record DeletePayroll(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => P.PayrollManage; }
 /// <summary>Posts the accrual (Dr salaries, Cr salaries payable and employee advances). When the setting requires approval the run waits for a decision first.</summary>
-public sealed record PostPayroll(Guid Id) : ICommand<PayrollDto>, IRequirePermission { public string RequiredPermission => P.PayrollPost; }
+public sealed record PostPayroll(Guid Id) : ICommand<PayrollDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => P.PayrollPost; }
 /// <summary>Records the salary payment (Dr salaries payable, Cr bank) and marks the run paid.</summary>
-public sealed record PayPayroll(Guid Id, Guid BankAccountId, DateOnly Date) : ICommand<PayrollDto>, IRequirePermission { public string RequiredPermission => P.PayrollPay; }
+public sealed record PayPayroll(Guid Id, Guid BankAccountId, DateOnly Date) : ICommand<PayrollDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => P.PayrollPay; }
 
 public sealed class GeneratePayrollValidator : AbstractValidator<GeneratePayroll>
 {
@@ -46,10 +46,25 @@ public sealed class GeneratePayrollValidator : AbstractValidator<GeneratePayroll
         RuleFor(x => x.Input.Notes).MaximumLength(500);
     }
 }
-public sealed class AdjustPayrollLineValidator : AbstractValidator<AdjustPayrollLine> { public AdjustPayrollLineValidator() => RuleFor(x => x.Note).MaximumLength(300); }
+public sealed class AdjustPayrollLineValidator : AbstractValidator<AdjustPayrollLine>
+{
+    public AdjustPayrollLineValidator()
+    {
+        RuleFor(x => x.Note).MaximumLength(300);
+        RuleFor(x => x.Adjustment).MustBeMoney();
+    }
+}
+public sealed class PayPayrollValidator : AbstractValidator<PayPayroll>
+{
+    public PayPayrollValidator()
+    {
+        RuleFor(x => x.BankAccountId).NotEmpty().WithMessage("Choose the bank account.");
+        RuleFor(x => x.Date).NotEqual(default(DateOnly)).WithMessage("Enter the payment date.");
+    }
+}
 
 internal sealed class PayrollHandlers(
-    IRepository<PayrollRun> runs, IRepository<PayrollLine> lineRows, IReadRepository<Employee> employees, IReadRepository<AttendanceRecord> attendance, IReadRepository<Account> accounts, IClock clock,
+    IRepository<PayrollRun> runs, IRepository<PayrollLine> lineRows, IReadRepository<Employee> employees, IReadRepository<AttendanceRecord> attendance, LeaveFeed leaveFeed, IReadRepository<Account> accounts, IClock clock,
     IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ISettingsService settings, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering,
     IUnitOfWork uow) :
     IRequestHandler<GetPayroll, PayrollDto>,
@@ -144,6 +159,7 @@ internal sealed class PayrollHandlers(
     public Task<PayrollDto> Handle(RecalculatePayroll cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
     {
         var run = await LoadDraftAsync(cmd.Id, token);
+        await WithdrawPendingAsync(run, token);
         var keep = run.Lines.Where(l => l.Adjustment != 0).ToDictionary(l => l.EmployeeId, l => (l.Adjustment, l.AdjustmentNote));
         foreach (var old in run.Lines.ToList()) lineRows.Remove(old);
         var fresh = await BuildLinesAsync(run, keep, token);
@@ -156,9 +172,11 @@ internal sealed class PayrollHandlers(
     public async Task<PayrollDto> Handle(AdjustPayrollLine cmd, CancellationToken ct)
     {
         var run = await LoadDraftAsync(cmd.RunId, ct);
+        await WithdrawPendingAsync(run, ct);
         var line = run.Lines.FirstOrDefault(l => l.Id == cmd.LineId) ?? throw new NotFoundException();
         var s = await ReadSettingsAsync(run.LegalEntityId, ct);
         var a = PayrollMath.Calculate(line.Basic, line.Allowances, line.Deductions, line.AbsentDays, line.OvertimeHours, cmd.Adjustment, s.DaysBasis, s.OvertimeMultiplier, s.HoursPerDay);
+        if (a.GrossEarnings < 0 || a.NetPay < 0) throw new FieldValidationException("adjustment", "The adjustment would make the pay negative.");
         line.Adjustment = cmd.Adjustment; line.AdjustmentNote = cmd.Note?.Trim(); line.Overtime = a.Overtime; line.Absence = a.Absence; line.GrossEarnings = a.GrossEarnings; line.NetPay = a.NetPay;
         Totals(run); run.Status = PayrollStatus.Draft; run.ApprovalRequestId = null;
         await runs.SaveChangesAsync(ct);
@@ -167,12 +185,16 @@ internal sealed class PayrollHandlers(
 
     public async Task<Unit> Handle(DeletePayroll cmd, CancellationToken ct)
     {
-        runs.Remove(await LoadDraftAsync(cmd.Id, ct));
+        var run = await LoadDraftAsync(cmd.Id, ct);
+        await WithdrawPendingAsync(run, ct);
+        runs.Remove(run);
         await runs.SaveChangesAsync(ct);
         return Unit.Value;
     }
 
-    public async Task<PayrollDto> Handle(PostPayroll cmd, CancellationToken ct)
+    public Task<PayrollDto> Handle(PostPayroll cmd, CancellationToken ct) => uow.InTransactionAsync(token => PostPayrollCoreAsync(cmd, token), ct);
+
+    private async Task<PayrollDto> PostPayrollCoreAsync(PostPayroll cmd, CancellationToken ct)
     {
         var run = await LoadAsync(cmd.Id, ct);
         if (run.Status is not (PayrollStatus.Draft or PayrollStatus.PendingApproval)) throw new ConflictException("Only a draft payroll can be posted.");
@@ -203,12 +225,15 @@ internal sealed class PayrollHandlers(
         return ToDto(run);
     }
 
-    public async Task<PayrollDto> Handle(PayPayroll cmd, CancellationToken ct)
+    public Task<PayrollDto> Handle(PayPayroll cmd, CancellationToken ct) => uow.InTransactionAsync(token => PayPayrollCoreAsync(cmd, token), ct);
+
+    private async Task<PayrollDto> PayPayrollCoreAsync(PayPayroll cmd, CancellationToken ct)
     {
         var run = await LoadAsync(cmd.Id, ct);
         if (run.Status != PayrollStatus.Posted) throw new ConflictException(run.Status == PayrollStatus.Paid ? "This payroll is already paid." : "Post the payroll before paying it.");
         var bank = await accounts.FindAsync(cmd.BankAccountId, ct);
-        if (bank is null || bank.Type != AccountType.Asset || !bank.IsPostable || !bank.IsActive) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
+        if (bank is null || !ERP.Application.Finance.BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
+        if (cmd.Date < new DateOnly(run.Year, run.Month, 1)) throw new FieldValidationException("date", "The payment date cannot be before the payroll month.");
         var payable = await posting.AccountForRoleAsync("payroll.accrued", ct);
         var memo = $"Salary payment {run.Year}-{run.Month:00}";
         var journal = await posting.PostAsync(new PostingRequest(run.LegalEntityId, cmd.Date, "payroll", run.Id, memo, run.Number, [new PostingLine(payable, run.NetPay, 0, memo), new PostingLine(bank.Id, 0, run.NetPay, memo)]), ct);
@@ -229,14 +254,16 @@ internal sealed class PayrollHandlers(
         var ids = staff.Select(s => s.Id).ToList();
         var records = (await attendance.Query(new Specification<AttendanceRecord>(r => r.Year == run.Year && r.Month == run.Month && ids.Contains(r.EmployeeId))).ToListAsync(ct)).ToDictionary(r => r.EmployeeId);
         var s = await ReadSettingsAsync(run.LegalEntityId, ct);
+        var leave = await leaveFeed.MonthAsync(run.Year, run.Month, ids, ct);
         return staff.Select(e =>
         {
             records.TryGetValue(e.Id, out var rec);
+            var absent = (rec?.UnpaidAbsentDays ?? 0) + leave.GetValueOrDefault(e.Id).Unpaid; // recorded absences + approved unpaid leave
             var (adj, note) = adjustments.TryGetValue(e.Id, out var a0) ? a0 : (0m, null);
-            var a = PayrollMath.Calculate(e.BasicSalary, e.Allowances, e.RecurringDeductions, rec?.UnpaidAbsentDays ?? 0, rec?.OvertimeHours ?? 0, adj, s.DaysBasis, s.OvertimeMultiplier, s.HoursPerDay);
+            var a = PayrollMath.Calculate(e.BasicSalary, e.Allowances, e.RecurringDeductions, absent, rec?.OvertimeHours ?? 0, adj, s.DaysBasis, s.OvertimeMultiplier, s.HoursPerDay);
             return new PayrollLine
             {
-                PayrollRunId = run.Id, EmployeeId = e.Id, EmployeeName = e.FullName, EmployeeNumber = e.Number, AbsentDays = rec?.UnpaidAbsentDays ?? 0, OvertimeHours = rec?.OvertimeHours ?? 0,
+                PayrollRunId = run.Id, EmployeeId = e.Id, EmployeeName = e.FullName, EmployeeNumber = e.Number, AbsentDays = absent, OvertimeHours = rec?.OvertimeHours ?? 0,
                 Basic = a.Basic, Allowances = a.Allowances, Overtime = a.Overtime, Absence = a.Absence, Adjustment = adj, AdjustmentNote = note, GrossEarnings = a.GrossEarnings, Deductions = a.Deductions, NetPay = a.NetPay,
             };
         }).ToList();
@@ -245,6 +272,14 @@ internal sealed class PayrollHandlers(
     private static void Totals(PayrollRun run)
     {
         run.Employees = run.Lines.Count; run.GrossEarnings = run.Lines.Sum(l => l.GrossEarnings); run.Deductions = run.Lines.Sum(l => l.Deductions); run.NetPay = run.Lines.Sum(l => l.NetPay);
+    }
+
+    /// <summary>A change invalidates a request still waiting for a decision; a decided one only loses its link when the run is recalculated.</summary>
+    private async Task WithdrawPendingAsync(PayrollRun run, CancellationToken ct)
+    {
+        if (run.ApprovalRequestId is not { } rid) return;
+        var request = await approvalRequests.FindAsync(rid, ct);
+        if (request?.Status == ApprovalStatus.Pending) await approvals.WithdrawAsync(rid, ct);
     }
 
     private async Task<PayrollRun> LoadAsync(Guid id, CancellationToken ct)
