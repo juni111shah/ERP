@@ -127,14 +127,17 @@ public class LeadHandlers :
     private readonly IRepository<ERP.Domain.Parties.Party> _partyRepo;
     private readonly INumberingService _numbering;
     private readonly ILegalEntityGuard _guard;
+    private readonly IUnitOfWork _uow;
 
     public LeadHandlers(
         IRepository<CrmLead> leadRepo,
         IRepository<CrmOpportunity> oppRepo,
         IRepository<ERP.Domain.Parties.Party> partyRepo,
         INumberingService numbering,
-        ILegalEntityGuard guard)
+        ILegalEntityGuard guard,
+        IUnitOfWork uow)
     {
+        _uow = uow;
         _guard = guard;
         _leadRepo = leadRepo;
         _oppRepo = oppRepo;
@@ -176,6 +179,9 @@ public class LeadHandlers :
         var lead = await _leadRepo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException($"Lead {request.Id} not found.");
 
+        if (lead.Status == LeadStatus.Converted) throw new ConflictException("A converted lead cannot be edited.");
+        if (request.Status == LeadStatus.Converted) throw new FieldValidationException("status", "A lead becomes Converted only by converting it to an opportunity.");
+
         lead.FullName = request.FullName.Trim();
         lead.CompanyName = request.CompanyName?.Trim();
         lead.JobTitle = request.JobTitle?.Trim();
@@ -193,16 +199,23 @@ public class LeadHandlers :
         return MapToDto(lead);
     }
 
-    public async Task<Guid> Handle(ConvertLeadCommand request, CancellationToken cancellationToken)
+    // The customer, the opportunity and the lead's new status commit together.
+    public Task<Guid> Handle(ConvertLeadCommand request, CancellationToken cancellationToken)
+        => _uow.InTransactionAsync(token => ConvertAsync(request, token), cancellationToken);
+
+    private async Task<Guid> ConvertAsync(ConvertLeadCommand request, CancellationToken cancellationToken)
     {
         var lead = await _leadRepo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException($"Lead {request.Id} not found.");
+
+        if (lead.Status == LeadStatus.Converted || lead.ConvertedOpportunityId.HasValue) throw new ConflictException("This lead is already converted.");
+        if (lead.Status == LeadStatus.Unqualified) throw new ConflictException("An unqualified lead cannot be converted. Requalify it first.");
 
         if (!lead.ConvertedPartyId.HasValue)
         {
             var isCompany = !string.IsNullOrWhiteSpace(lead.CompanyName);
             var customerName = isCompany ? lead.CompanyName!.Trim() : lead.FullName.Trim();
-            var partyCode = await _numbering.NextAsync("CUST", lead.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+            var partyCode = await _numbering.NextAsync("party", ct: cancellationToken); // the core party sequence; there is no "CUST" sequence
 
             var party = new ERP.Domain.Parties.Party
             {

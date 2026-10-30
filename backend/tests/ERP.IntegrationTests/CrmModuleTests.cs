@@ -53,4 +53,40 @@ public class CrmModuleTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.NotEqual("Someone Else", (string?)logged["performedByName"]); // the caller is recorded, not what the request claims
         Assert.Equal((string)me["user"]!["id"]!, (string)logged["performedByUserId"]!);
     }
+
+    private static object LeadUpdate(string id, string entity, int status)
+        => new { id, fullName = "Ada Buyer", email = "ada@example.com", source = 1, status, estimatedValue = 1000m };
+
+    [Fact]
+    public async Task A_lead_converts_once_and_a_converted_lead_is_frozen()
+    {
+        var (c, entity) = await SetupAsync();
+        var lead = await Ok(await c.PostAsJsonAsync($"{Crm}/leads", NewLead(entity, company: "Acme Trading")), HttpStatusCode.Created);
+        var id = (string)lead["id"]!;
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PutAsJsonAsync($"{Crm}/leads/{id}", LeadUpdate(id, entity, 5))).StatusCode); // Converted is set only by converting
+        await Ok(await c.PutAsJsonAsync($"{Crm}/leads/{id}", LeadUpdate(id, entity, 3)));
+
+        var oppId = (string)(await Ok(await c.PostAsJsonAsync($"{Crm}/leads/{id}/convert", new { id, opportunityTitle = "First deal", expectedRevenue = 100m }))).AsValue().GetValue<string>();
+        var converted = await Ok(await c.GetAsync($"{Crm}/leads/{id}"));
+        Assert.Equal(("converted", oppId), (((string)converted["status"]!).ToLowerInvariant(), (string)converted["convertedOpportunityId"]!));
+        var partyId = (string)converted["convertedPartyId"]!;
+
+        Assert.Equal(HttpStatusCode.Conflict, (await c.PostAsJsonAsync($"{Crm}/leads/{id}/convert", new { id, opportunityTitle = "Second deal", expectedRevenue = 100m })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await c.PutAsJsonAsync($"{Crm}/leads/{id}", LeadUpdate(id, entity, 2))).StatusCode);
+        var after = await Ok(await c.GetAsync($"{Crm}/leads/{id}"));
+        Assert.Equal((oppId, partyId), ((string)after["convertedOpportunityId"]!, (string)after["convertedPartyId"]!));
+    }
+
+    [Fact]
+    public async Task An_unqualified_lead_cannot_be_converted_until_it_is_requalified()
+    {
+        var (c, entity) = await SetupAsync();
+        var lead = await Ok(await c.PostAsJsonAsync($"{Crm}/leads", NewLead(entity)), HttpStatusCode.Created);
+        var id = (string)lead["id"]!;
+        await Ok(await c.PutAsJsonAsync($"{Crm}/leads/{id}", LeadUpdate(id, entity, 4)));
+        Assert.Equal(HttpStatusCode.Conflict, (await c.PostAsJsonAsync($"{Crm}/leads/{id}/convert", new { id, opportunityTitle = "Deal", expectedRevenue = 1m })).StatusCode);
+        await Ok(await c.PutAsJsonAsync($"{Crm}/leads/{id}", LeadUpdate(id, entity, 3)));
+        await Ok(await c.PostAsJsonAsync($"{Crm}/leads/{id}/convert", new { id, opportunityTitle = "Deal", expectedRevenue = 1m }));
+    }
 }
