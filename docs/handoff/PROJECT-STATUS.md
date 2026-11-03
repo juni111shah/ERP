@@ -204,6 +204,14 @@ Earlier relevant commits on main: 7fe89dd (#44, manual-only journal reversal), 2
 - v2: existing ERP mark + name in the screen 1 header (small mark after), page dots + Next / Get started bar, outcome headline + one line per screen, screen 5 "Everything in one app" chips listing only features the app has. Card text scales down to one line instead of cutting off. Arabic copy needs a native-speaker review.
 - Tests: `test/intro_tour_test.dart` (7), `test/intro_motion_test.dart` (4), `test/intro_fit_test.dart` (3: no truncated text or overflow at 360x780 and 390x844, EN + AR, real fonts).
 
+## 4.5 Mobile HigherSquare 360 branding and app icon - PR OPEN, not merged (branch `mobile/brand-hs360`)
+
+- Brand reused from the web app (`frontend/public/highersquare-*.png`): name **HigherSquare 360** (one word, as on the web), emblem = green rounded tile, white disc, open 360 ring, four bars and a breakout trend arrow. Web wordmark colours kept: "HigherSquare" #359867 / "360" #215A67 (dark: #4ADE80 / #38BDF8).
+- Single source: `mobile/lib/core/brand.dart` (`Brand.name`, `Brand.launcherLabel` = "HS 360", `BrandColors`). Vector mark: `mobile/lib/kit/brand_mark.dart` (`BrandMark` CustomPainter, `BrandWordmark`, `BrandLockup`, `BrandSplash`). SVG masters: `mobile/assets/brand/hs360-mark.svg`, `hs360-icon-foreground.svg` (not bundled; sources for icons).
+- Used on: splash, intro screen 1 (mark + name; small mark on screens 2-5), sign-in (mark + name above the form), workspace picker (lockup), home header (mark replaces the workspace initials tile), profile About dialog, MaterialApp title.
+- Launcher: Android mipmap mdpi..xxxhdpi `ic_launcher` + `ic_launcher_round`, adaptive `mipmap-anydpi-v26` (foreground PNG in the 66dp safe zone, background `@color/ic_launcher_background` #4FA077), launch_background shows the mark; iOS AppIcon (all slots, opaque) + LaunchImage. Home-screen label "HS 360" (Android `android:label`, iOS `CFBundleDisplayName`) because the full name truncates under launcher icons. Generated on the box from the SVG master with cairosvg; no new packages. Web favicon untouched.
+- Tests: `test/brand_test.dart` (constants, manifest/plist labels, icon files, mark sizes + semantics, wordmark colours light/dark, splash, sign-in, 320dp fit, workspace picker, home header); `test/intro_tour_test.dart` now expects `Brand.name`.
+
 # 5. Pending tasks
 
 Owner and coordinator: unless stated, the specialist agent prepares a patch or branch and Grok Bot builds, opens the PR and squash-merges.

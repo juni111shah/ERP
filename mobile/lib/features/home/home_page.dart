@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/session.dart';
+import '../../kit/brand_mark.dart';
 import '../../kit/bottom_nav.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
@@ -29,7 +30,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final workspace = ref.watch(sessionProvider).workspace;
     final t = ErpTheme.of(context);
-    final initials = (workspace?.code ?? workspace?.name ?? 'E').trim();
     return Scaffold(
       extendBody: true, // the floating notched bar sits over the content
       appBar: AppBar(
@@ -37,14 +37,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         toolbarHeight: 60,
         title: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(gradient: t.heroGradient, borderRadius: BorderRadius.circular(ErpRadius.input)),
-              child: Text(initials.isEmpty ? 'E' : initials.substring(0, initials.length < 2 ? initials.length : 2).toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontSize: ErpType.bodySmall, fontWeight: FontWeight.w700)),
-            ),
+            const BrandMark(size: 36),
             const SizedBox(width: ErpSpace.s25),
             Expanded(
               child: Column(

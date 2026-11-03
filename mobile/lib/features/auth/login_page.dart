@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
 import '../../core/key_value_store.dart';
 import '../../core/session.dart';
+import '../../kit/brand_mark.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import 'two_factor_step.dart';
@@ -101,20 +102,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          gradient: ErpTheme.of(context).heroGradient,
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: const [BoxShadow(color: Color(0x3310955D), blurRadius: 18, offset: Offset(0, 8))],
-                        ),
-                        child: const Icon(Icons.account_balance_outlined, size: 32, color: Colors.white),
-                      ),
-                    ),
+                    const Center(child: BrandMark(size: 72, shadow: true)),
                     const SizedBox(height: ErpSpace.s4),
-                    Text('ERP', textAlign: TextAlign.center, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+                    const BrandWordmark(fontSize: 26, textAlign: TextAlign.center),
                     const SizedBox(height: ErpSpace.s1),
                     Text('Sign in to your workspace', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: ErpTheme.of(context).muted)),
                     const SizedBox(height: 28),

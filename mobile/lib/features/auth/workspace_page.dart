@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../../core/session.dart';
+import '../../kit/brand_mark.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 
@@ -46,6 +47,10 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage> {
           : ListView(
               padding: const EdgeInsets.all(ErpSpace.s4),
               children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: ErpSpace.s1, bottom: ErpSpace.s4),
+                  child: Align(alignment: AlignmentDirectional.centerStart, child: BrandLockup(markSize: 36)),
+                ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: ErpSpace.s3),
                   child: Text('Your account belongs to more than one workspace.', style: TextStyle(fontSize: ErpType.bodySmall, color: ErpTheme.of(context).muted)),

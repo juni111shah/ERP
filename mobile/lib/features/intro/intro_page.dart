@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../kit/brand_mark.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import 'intro_flag.dart';
@@ -152,17 +153,13 @@ class _IntroPageState extends ConsumerState<IntroPage> with SingleTickerProvider
                     child: Row(children: [
                       AnimatedSwitcher(
                         duration: _reduce ? Duration.zero : const Duration(milliseconds: 220),
-                        child: IntroMark(key: ValueKey(_active == 0), size: _active == 0 ? 32 : 24),
+                        child: BrandMark(key: ValueKey(_active == 0), size: _active == 0 ? 32 : 24),
                       ),
                       const SizedBox(width: ErpSpace.s25),
                       Expanded(
                         child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                           if (_active == 0)
-                            const Text(
-                              IntroBrand.name,
-                              maxLines: 1,
-                              style: TextStyle(fontSize: ErpType.title, fontWeight: FontWeight.w700, letterSpacing: -0.2, height: 1.2, color: ErpColors.text),
-                            ),
+                            const BrandWordmark(fontSize: ErpType.title, dark: false),
                           Text(
                             s.step(_active + 1, _count),
                             maxLines: 1,

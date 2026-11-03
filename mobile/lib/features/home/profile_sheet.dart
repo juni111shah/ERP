@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/brand.dart';
 import '../../core/me.dart';
 import '../../core/session.dart';
 import '../../core/theme_mode.dart';
+import '../../kit/brand_mark.dart';
 import '../../kit/motion.dart';
 import '../../kit/segmented.dart';
 import '../../theme/app_theme.dart';
@@ -238,7 +240,7 @@ class ProfileSheet extends ConsumerWidget {
           key: const ValueKey('profile-about'),
           icon: Icons.info_outline_rounded,
           label: 'About',
-          onTap: () => _then(context, () => showAboutDialog(context: hostContext, applicationName: 'ERP')),
+          onTap: () => _then(context, () => showAboutDialog(context: hostContext, applicationName: Brand.name, applicationIcon: const BrandMark(size: 48))),
         ),
         Divider(height: 1, color: t.borderSubtle),
         row(
