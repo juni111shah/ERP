@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/session.dart';
 import '../../kit/bottom_nav.dart';
@@ -11,6 +10,7 @@ import '../receivables/invoice_screens.dart';
 import '../receivables/party_screens.dart';
 import '../receivables/receipt_screens.dart';
 import '../more/more_page.dart';
+import 'profile_sheet.dart';
 
 /// The signed-in shell: bottom navigation over the main areas. The tab contents are rebuilt when the workspace changes.
 class HomePage extends ConsumerStatefulWidget {
@@ -59,21 +59,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: ErpSpace.s3),
-            child: IconButton(
-              tooltip: 'Settings',
-              style: IconButton.styleFrom(
-                fixedSize: const Size(40, 40),
-                backgroundColor: t.surface,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ErpRadius.input), side: BorderSide(color: t.border)),
-              ),
-              icon: const Icon(Icons.settings_outlined, size: 20),
-              onPressed: () => context.push('/settings'),
-            ),
-          ),
-        ],
+        actions: const [HomeHeaderActions()],
       ),
       body: KeyedSubtree(
         key: ValueKey(workspace?.id),

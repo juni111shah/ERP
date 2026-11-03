@@ -278,12 +278,15 @@ class _ErpBilledCollectedChartState extends State<ErpBilledCollectedChart> {
             if (data.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
-                child: Row(children: [
-                  Flexible(child: _LegendChip(color: ErpColors.billed, label: widget.billedLabel, total: erpCompactNumber(billedTotal), textColor: text2)),
-                  const SizedBox(width: 14),
-                  Flexible(child: _LegendChip(color: ErpColors.collected, label: widget.collectedLabel, total: erpCompactNumber(collectedTotal), textColor: text2)),
-                  const Spacer(),
-                  if (pct != null) _PercentBadge(percent: pct, tone: tone, brightness: theme.brightness),
+                // Legends wrap onto a second line on narrow phones instead of truncating.
+                child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                  Expanded(
+                    child: Wrap(spacing: 14, runSpacing: 4, children: [
+                      _LegendChip(color: ErpColors.billed, label: widget.billedLabel, total: erpCompactNumber(billedTotal), textColor: text2),
+                      _LegendChip(color: ErpColors.collected, label: widget.collectedLabel, total: erpCompactNumber(collectedTotal), textColor: text2),
+                    ]),
+                  ),
+                  if (pct != null) ...[const SizedBox(width: ErpSpace.s2), _PercentBadge(percent: pct, tone: tone, brightness: theme.brightness)],
                 ]),
               ),
           ],
@@ -311,8 +314,7 @@ class _LegendChip extends StatelessWidget {
         Flexible(
           child: Text.rich(
             TextSpan(children: [TextSpan(text: '$label '), TextSpan(text: '\u2066$total\u2069')]),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             style: TextStyle(fontSize: 12, color: textColor, fontFeatures: const [FontFeature.tabularFigures()]),
           ),
         ),
