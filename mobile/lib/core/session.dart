@@ -55,8 +55,51 @@ class LoggedIn extends LoginOutcome {
   const LoggedIn();
 }
 
+/// Older API answer: the account uses two-factor and the code goes in with the password (no challenge token).
 class NeedsTwoFactor extends LoginOutcome {
   const NeedsTwoFactor();
+}
+
+/// First sign-in on an account without an authenticator: set one up with [challengeToken] before a session is issued.
+class NeedsTwoFactorSetup extends LoginOutcome {
+  const NeedsTwoFactorSetup(this.challengeToken);
+
+  final String challengeToken;
+}
+
+/// Returning user with two-factor: confirm the sign-in with a code and [challengeToken].
+class NeedsTwoFactorCode extends LoginOutcome {
+  const NeedsTwoFactorCode(this.challengeToken);
+
+  final String challengeToken;
+}
+
+/// A first-sign-in setup was confirmed: show the one-time [recoveryCodes], then call [SessionController.complete] with [session].
+class TwoFactorEnabled extends LoginOutcome {
+  const TwoFactorEnabled(this.recoveryCodes, this.session, {this.workspaceChoice});
+
+  final List<String> recoveryCodes;
+  final SessionInfo? session;
+  final NeedsWorkspace? workspaceChoice;
+}
+
+/// What the authenticator app needs: the otpauth:// link as a QR image (PNG data URI) and the key for typing in by hand.
+class TwoFactorSetupInfo {
+  const TwoFactorSetupInfo({required this.otpAuthUri, required this.secret, required this.qrCodeDataUri, required this.issuer, required this.account});
+
+  factory TwoFactorSetupInfo.fromJson(Map<String, dynamic> json) => TwoFactorSetupInfo(
+        otpAuthUri: json['otpAuthUri']?.toString() ?? '',
+        secret: json['secret']?.toString() ?? '',
+        qrCodeDataUri: json['qrCodeDataUri']?.toString() ?? '',
+        issuer: json['issuer']?.toString() ?? '',
+        account: json['account']?.toString() ?? '',
+      );
+
+  final String otpAuthUri;
+  final String secret;
+  final String qrCodeDataUri;
+  final String issuer;
+  final String account;
 }
 
 class NeedsWorkspace extends LoginOutcome {
@@ -86,16 +129,46 @@ class SessionController extends Notifier<SessionState> {
       if (twoFactorCode != null && twoFactorCode.isNotEmpty) 'twoFactorCode': twoFactorCode.trim(),
     }) as Map<String, dynamic>;
     await ref.read(storeProvider).write(StoreKeys.lastEmail, email.trim());
+    final challenge = data['challengeToken']?.toString();
+    if (data['twoFactorSetupRequired'] == true && challenge != null) return NeedsTwoFactorSetup(challenge);
+    if ((data['twoFactorRequired'] == true || data['requiresTwoFactor'] == true) && challenge != null) return NeedsTwoFactorCode(challenge);
     if (data['requiresTwoFactor'] == true) return const NeedsTwoFactor();
-    if (data['requiresWorkspaceSelection'] == true) {
-      return NeedsWorkspace(
-        data['selectionToken'].toString(),
-        [for (final w in (data['workspaces'] as List<dynamic>? ?? const [])) Workspace.fromJson(w as Map<String, dynamic>)],
-      );
+    return _signedIn(data);
+  }
+
+  /// First sign-in: creates the authenticator key for the challenge and returns the QR code and the key.
+  Future<TwoFactorSetupInfo> beginTwoFactorSetup(String challengeToken) async {
+    final data = await _api.postAnonymous('/api/v1/auth/login/2fa/setup', body: {'challengeToken': challengeToken});
+    return TwoFactorSetupInfo.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Confirms a sign-in challenge with a code. After a first-time setup the session is held back in [TwoFactorEnabled] so the
+  /// recovery codes can be shown first; otherwise the session starts (or a workspace choice comes back).
+  Future<LoginOutcome> verifyTwoFactor(String challengeToken, String code) async {
+    final data = await _api.postAnonymous('/api/v1/auth/login/2fa/verify', body: {'challengeToken': challengeToken, 'code': code.trim()})
+        as Map<String, dynamic>;
+    final codes = [for (final c in (data['recoveryCodes'] as List<dynamic>? ?? const [])) c.toString()];
+    if (codes.isNotEmpty) {
+      return data['requiresWorkspaceSelection'] == true
+          ? TwoFactorEnabled(codes, null, workspaceChoice: _workspaceChoice(data))
+          : TwoFactorEnabled(codes, SessionInfo.fromJson(data));
     }
+    return _signedIn(data);
+  }
+
+  /// Starts the session held back by [TwoFactorEnabled].
+  void complete(SessionInfo session) => _start(session);
+
+  LoginOutcome _signedIn(Map<String, dynamic> data) {
+    if (data['requiresWorkspaceSelection'] == true) return _workspaceChoice(data);
     _start(SessionInfo.fromJson(data));
     return const LoggedIn();
   }
+
+  NeedsWorkspace _workspaceChoice(Map<String, dynamic> data) => NeedsWorkspace(
+        data['selectionToken'].toString(),
+        [for (final w in (data['workspaces'] as List<dynamic>? ?? const [])) Workspace.fromJson(w as Map<String, dynamic>)],
+      );
 
   Future<void> selectWorkspace(String selectionToken, String workspaceId) async {
     final data = await _api.postAnonymous('/api/v1/auth/select-workspace', body: {'selectionToken': selectionToken, 'workspaceId': workspaceId});

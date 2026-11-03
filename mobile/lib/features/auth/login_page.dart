@@ -6,6 +6,7 @@ import '../../core/key_value_store.dart';
 import '../../core/session.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
+import 'two_factor_step.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -25,6 +26,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _busy = false;
   bool _showPassword = false;
   String? _error;
+
+  /// Set after a correct password when the account must set up, or confirm with, two-factor.
+  (TwoFactorMode, String)? _challenge;
 
   @override
   void initState() {
@@ -61,6 +65,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       switch (outcome) {
         case LoggedIn():
           break; // the router moves on once the session exists
+        case NeedsTwoFactorSetup(:final challengeToken):
+          setState(() => _challenge = (TwoFactorMode.setup, challengeToken));
+        case NeedsTwoFactorCode(:final challengeToken):
+          setState(() => _challenge = (TwoFactorMode.verify, challengeToken));
+        case TwoFactorEnabled():
+          break; // only returned by verifyTwoFactor
         case NeedsTwoFactor():
           setState(() {
             _needsCode = true;
@@ -108,6 +118,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: ErpSpace.s1),
                     Text('Sign in to your workspace', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: ErpTheme.of(context).muted)),
                     const SizedBox(height: 28),
+                    if (_challenge case (final mode, final token))
+                      TwoFactorStep(
+                        key: ValueKey(token),
+                        mode: mode,
+                        challengeToken: token,
+                        onCancel: () => setState(() {
+                          _challenge = null;
+                          _password.clear();
+                        }),
+                      )
+                    else ...[
                     TextFormField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
@@ -187,6 +208,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                       ],
                     ),
+                    ],
                   ],
                 ),
               ),

@@ -53,7 +53,8 @@ public class TwoFactorTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.StartsWith("otpauth://totp/", (string)setup["otpAuthUri"]!);
 
         Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync("/api/v1/auth/2fa/enable", new { code = "000000" })).StatusCode);
-        var enabled = await Body(await c.PostAsJsonAsync("/api/v1/auth/2fa/enable", new { code = Totp(secret) }));
+        var first = Totp(secret);
+        var enabled = await Body(await c.PostAsJsonAsync("/api/v1/auth/2fa/enable", new { code = first }));
         var recovery = enabled["recoveryCodes"]!.AsArray().Select(x => (string)x!).ToList();
         Assert.Equal(8, recovery.Count);
 
@@ -62,7 +63,9 @@ public class TwoFactorTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.True((bool)login["requiresTwoFactor"]!);
         Assert.Null((string?)login["accessToken"]);
         Assert.Equal(HttpStatusCode.Unauthorized, (await f.Client().PostAsJsonAsync("/api/v1/auth/login", new { email, password = Pw, twoFactorCode = "111111" })).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await f.Client().PostAsJsonAsync("/api/v1/auth/login", new { email, password = Pw, twoFactorCode = Totp(secret) })).StatusCode);
+        // the code that turned 2FA on cannot be replayed; the next one works
+        Assert.Equal(HttpStatusCode.Unauthorized, (await f.Client().PostAsJsonAsync("/api/v1/auth/login", new { email, password = Pw, twoFactorCode = first })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await f.Client().PostAsJsonAsync("/api/v1/auth/login", new { email, password = Pw, twoFactorCode = Totp(secret, 1) })).StatusCode);
 
         // a recovery code works once
         Assert.Equal(HttpStatusCode.OK, (await f.Client().PostAsJsonAsync("/api/v1/auth/login", new { email, password = Pw, twoFactorCode = recovery[0] })).StatusCode);
@@ -70,7 +73,7 @@ public class TwoFactorTests(ApiFactory f) : IClassFixture<ApiFactory>
 
         // switching off needs the password and a valid code
         Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync("/api/v1/auth/2fa/disable", new { password = "wrong", code = Totp(secret) })).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await c.PostAsJsonAsync("/api/v1/auth/2fa/disable", new { password = Pw, code = Totp(secret) })).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await c.PostAsJsonAsync("/api/v1/auth/2fa/disable", new { password = Pw, code = recovery[1] })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await f.Client().PostAsJsonAsync("/api/v1/auth/login", new { email, password = Pw })).StatusCode);
     }
 

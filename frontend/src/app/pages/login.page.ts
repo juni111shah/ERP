@@ -8,11 +8,12 @@ import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { AuthService } from '../core/auth/auth.service';
+import { AuthService, LoginResponse } from '../core/auth/auth.service';
 import { safeReturnUrl } from '../core/guards/access.guards';
 import { asProblem } from '../core/http/problem-details';
 import { Workspace } from '../core/session/session.store';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
+import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.component';
 
 @Component({
   selector: 'erp-login',
@@ -28,7 +29,8 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
     NzCheckboxModule,
     NzAlertModule,
     NzIconModule,
-    BrandLogoComponent
+    BrandLogoComponent,
+    TwoFactorStepComponent
   ],
   styles: [`
     :host {
@@ -625,7 +627,10 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
         </div>
 
         <div class="login-main-content">
-          @if (!workspaces()) {
+          @if (challenge(); as ch) {
+            <erp-two-factor-step [mode]="ch.mode" [challengeToken]="ch.token" (completed)="afterTwoFactor($event)" (cancel)="restart()"
+              data-testid="login-two-factor"></erp-two-factor-step>
+          } @else if (!workspaces()) {
             <div class="login-heading-group">
               <h1 class="login-title">{{ 'login.title' | translate: 'Login' }}</h1>
               <p class="login-subtitle">Welcome to log in to your background management system.</p>
@@ -791,6 +796,8 @@ export class LoginPage {
   readonly error = signal<string | null>(null);
   readonly retryIn = signal(0);
   readonly workspaces = signal<Workspace[] | null>(null);
+  /** Two-factor step after a correct password: first-sign-in setup, or a code for a returning user. */
+  readonly challenge = signal<{ mode: TwoFactorMode; token: string } | null>(null);
   private selectionToken = '';
 
   submit(): void {
@@ -801,12 +808,31 @@ export class LoginPage {
     this.auth.login(email, password, rememberMe, code || undefined).subscribe({
       next: (r) => {
         this.busy.set(false);
-        if ((r as { requiresTwoFactor?: boolean }).requiresTwoFactor) { this.needsCode.set(true); return; }
-        if (r.requiresWorkspaceSelection) { this.selectionToken = r.selectionToken!; this.workspaces.set(r.workspaces); }
-        else this.done();
+        if (r.twoFactorSetupRequired && r.challengeToken) { this.challenge.set({ mode: 'setup', token: r.challengeToken }); return; }
+        if ((r.twoFactorRequired || r.requiresTwoFactor) && r.challengeToken) { this.challenge.set({ mode: 'verify', token: r.challengeToken }); return; }
+        if (r.requiresTwoFactor) { this.needsCode.set(true); return; } // older API: code typed into the login form
+        this.afterSignIn(r);
       },
       error: (e) => { this.busy.set(false); this.fail(e); },
     });
+  }
+
+  afterTwoFactor(r: LoginResponse): void {
+    this.challenge.set(null);
+    this.form.controls.password.reset('');
+    this.afterSignIn(r);
+  }
+
+  /** "Back to sign in" from the two-factor step (or after it expired): start again from email and password. */
+  restart(): void {
+    this.challenge.set(null);
+    this.error.set(null);
+    this.form.controls.password.reset('');
+  }
+
+  private afterSignIn(r: LoginResponse): void {
+    if (r.requiresWorkspaceSelection) { this.selectionToken = r.selectionToken!; this.workspaces.set(r.workspaces); }
+    else this.done();
   }
 
   pick(w: Workspace): void {
