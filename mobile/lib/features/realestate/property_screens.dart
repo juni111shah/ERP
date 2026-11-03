@@ -12,6 +12,7 @@ import '../../kit/widgets.dart';
 import 'common.dart';
 import 'lease_screens.dart';
 import 'maintenance_screens.dart';
+import 'report_screens.dart';
 
 const _propertiesPath = '$rePath/properties';
 const _unitsPath = '$rePath/units';
@@ -77,16 +78,24 @@ class PropertiesScreen extends StatelessWidget {
   const PropertiesScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => ListScreen(
-        title: 'Properties',
-        path: _propertiesPath,
-        searchHint: 'Search properties',
-        emptyText: 'No properties found.',
-        itemBuilder: propertyTile,
-        filters: propertyTypes,
-        filterKey: 'propertyType',
-        create: (ref) => propertyForm(ref),
-        createPermission: 'realestate.properties.manage',
+  Widget build(BuildContext context) => Consumer(
+        builder: (context, ref, _) => Scaffold(
+          appBar: AppBar(title: const Text('Properties'), actions: [
+            if (reCan(ref, 'finance.reports.read')) IconButton(tooltip: 'Reports', icon: const Icon(Icons.assessment_outlined), onPressed: () => reGo(context, const ReportsScreen())),
+          ]),
+          body: ListScreen(
+            title: 'Properties',
+            showAppBar: false,
+            path: _propertiesPath,
+            searchHint: 'Search properties',
+            emptyText: 'No properties found.',
+            itemBuilder: propertyTile,
+            filters: propertyTypes,
+            filterKey: 'propertyType',
+            create: (ref) => propertyForm(ref),
+            createPermission: 'realestate.properties.manage',
+          ),
+        ),
       );
 }
 
