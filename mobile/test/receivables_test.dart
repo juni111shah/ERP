@@ -122,7 +122,7 @@ void main() {
       expect(find.text('RCT-1'), findsOneWidget);
       expect(find.textContaining('Acme'), findsOneWidget);
       expect(find.textContaining('200.00 unallocated'), findsOneWidget);
-      expect(find.text('Recorded'), findsOneWidget);
+      expect(find.text('Posted'), findsOneWidget);
     });
 
     Map<String, dynamic> receipt(String status, num unallocated) => {

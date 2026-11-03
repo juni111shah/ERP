@@ -231,6 +231,9 @@ void main() {
         await _settle(t);
         await _check(t, '$d | onboarding-tour | dialog', errors);
         expect(find.byType(OnboardingTour), findsOneWidget);
+        // Close the dialog so the tour's static 'showing' guard resets for the next direction.
+        Navigator.of(t.element(find.byType(OnboardingTour))).pop();
+        await t.pumpAndSettle();
         handle.dispose();
       });
 
