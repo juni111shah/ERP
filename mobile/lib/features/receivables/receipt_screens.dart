@@ -10,6 +10,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import '../../kit/list_card.dart';
 
 const receiptsPath = '/api/v1/finance/receipts';
 
@@ -80,21 +81,25 @@ FormSpec allocateForm(Json receipt) => FormSpec(
 Widget receiptTile(BuildContext context, Json r) {
   final status = (r['status'] ?? '').toString();
   final unallocated = (r['unallocated'] as num?) ?? 0;
-  return ListTile(
+  return _CardRow(ErpListCard(
     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReceiptDetailScreen(id: r['id'].toString()))),
-    title: Text('${r['number']}', maxLines: 1, overflow: TextOverflow.ellipsis),
-    subtitle: Text('${r['partyName'] ?? ''}\n${formatDate(r['date'])} · ${humanize(r['method']?.toString())}${unallocated > 0 ? ' · ${formatMoney(unallocated)} unallocated' : ''}'),
-    isThreeLine: true,
-    trailing: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(money(r, 'amount'), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        StatusChip(humanize(status == 'issued' ? 'posted' : status), color: StatusChip.forStatus(status)),
-      ],
-    ),
-  );
+    title: '${r['partyName'] ?? ''}',
+    docNumber: '${r['number']}',
+    meta: '${formatDate(r['date'])} · ${humanize(r['method']?.toString())}${unallocated > 0 ? ' · ${formatMoney(unallocated)} unallocated' : ''}',
+    amount: formatMoney((r['amount'] as num?) ?? 0),
+    currency: r['currencyCode']?.toString(),
+    tag: StatusChip(humanize(status == 'issued' ? 'posted' : status), color: StatusChip.forStatus(status)),
+  ));
+}
+
+/// Hands a kit card to [PagedListView] without the default card wrapper.
+class _CardRow extends StatelessWidget with ListCardRow {
+  const _CardRow(this.child);
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
 }
 
 class ReceiptsScreen extends StatelessWidget {

@@ -10,6 +10,7 @@ import '../../kit/field.dart';
 import '../../kit/form_page.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import '../../kit/list_card.dart';
 import 'receipt_screens.dart';
 import 'report_screens.dart';
 
@@ -79,13 +80,25 @@ FormSpec partyForm(Json? existing, {String? defaultRole}) {
 Widget partyTile(BuildContext context, Json p) {
   final roles = (p['roles'] as List<dynamic>? ?? const []).map((r) => r.toString()).join(' · ');
   final contact = [p['email'], p['phone']].where((x) => x != null && x.toString().isNotEmpty).join(' · ');
-  return ListTile(
+  return _CardRow(ErpListCard(
     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => PartyDetailScreen(id: p['id'].toString()))),
-    title: Text('${p['name']}', maxLines: 1, overflow: TextOverflow.ellipsis),
-    subtitle: Text('${p['code']}${roles.isEmpty ? '' : ' · $roles'}${contact.isEmpty ? '' : '\n$contact'}'),
-    isThreeLine: contact.isNotEmpty,
-    trailing: p['isActive'] == false ? const StatusChip('Inactive', color: Colors.grey) : null,
-  );
+    title: '${p['name']}',
+    docNumber: '${p['code']}${roles.isEmpty ? '' : ' · $roles'}',
+    meta: contact.isEmpty ? null : contact,
+    amount: '',
+    currency: null,
+    tag: p['isActive'] == false ? const StatusChip('Inactive', color: Colors.grey) : null,
+  ));
+}
+
+/// Hands a kit card to [PagedListView] without the default card wrapper.
+class _CardRow extends StatelessWidget with ListCardRow {
+  const _CardRow(this.child);
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
 }
 
 /// Parties filtered by role. [role] null = all parties (with role chips); a fixed role hides the chips.
