@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:erp_mobile/theme/app_theme.dart';
 import 'package:erp_mobile/theme/tokens.dart';
 
 /// One quick-filter chip. [label] is already localized; [count] is optional.
@@ -94,13 +95,14 @@ class FilterChipsRow<T> extends StatelessWidget {
   }
 }
 
-BoxDecoration _chipDecoration(bool on) => BoxDecoration(
-      color: on ? ErpColors.brandSubtle : ErpColors.surface,
-      borderRadius: BorderRadius.circular(ErpRadius.pill),
-      border: Border.all(
-        color: on ? ErpColors.brand.withValues(alpha: 0.35) : ErpColors.border,
-      ),
-    );
+BoxDecoration _chipDecoration(BuildContext context, bool on) {
+  final t = ErpTheme.of(context);
+  return BoxDecoration(
+    color: on ? t.brandSubtle : t.surface,
+    borderRadius: BorderRadius.circular(ErpRadius.pill),
+    border: Border.all(color: on ? t.brand.withValues(alpha: 0.35) : t.border),
+  );
+}
 
 class _Chip<T> extends StatelessWidget {
   const _Chip({
@@ -118,6 +120,8 @@ class _Chip<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final count = item.count;
+    final t = ErpTheme.of(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Semantics(
       button: true,
       selected: selected,
@@ -134,7 +138,7 @@ class _Chip<T> extends StatelessWidget {
             child: Container(
               height: 32,
               padding: const EdgeInsetsDirectional.symmetric(horizontal: ErpSpace.s3),
-              decoration: _chipDecoration(selected),
+              decoration: _chipDecoration(context, selected),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -143,7 +147,7 @@ class _Chip<T> extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                      color: selected ? ErpColors.brand : ErpColors.text2,
+                      color: selected ? t.brand : t.text2,
                     ),
                   ),
                   if (count != null) ...[
@@ -151,7 +155,7 @@ class _Chip<T> extends StatelessWidget {
                     Container(
                       padding: const EdgeInsetsDirectional.symmetric(horizontal: 6),
                       decoration: BoxDecoration(
-                        color: selected ? ErpColors.surface : const Color(0x0F000000),
+                        color: selected ? t.surface : (dark ? const Color(0x1FFFFFFF) : const Color(0x0F000000)),
                         borderRadius: BorderRadius.circular(ErpRadius.pill),
                       ),
                       child: Text(
@@ -160,7 +164,7 @@ class _Chip<T> extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           height: 16 / 11,
-                          color: selected ? ErpColors.brand : ErpColors.text2,
+                          color: selected ? t.brand : t.text2,
                           fontFeatures: ErpFonts.tabular,
                         ),
                       ),
@@ -185,6 +189,7 @@ class _FilterIconChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = ErpTheme.of(context);
     final chip = Semantics(
       button: true,
       label: tooltip,
@@ -198,11 +203,11 @@ class _FilterIconChip extends StatelessWidget {
             child: Container(
               height: 32,
               padding: const EdgeInsetsDirectional.symmetric(horizontal: 10),
-              decoration: _chipDecoration(active),
+              decoration: _chipDecoration(context, active),
               child: Icon(
                 Icons.filter_alt_outlined,
                 size: 16,
-                color: active ? ErpColors.brand : ErpColors.text2,
+                color: active ? t.brand : t.text2,
               ),
             ),
           ),

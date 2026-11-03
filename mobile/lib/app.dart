@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/session.dart';
+import 'core/theme_mode.dart';
 import 'features/auth/login_page.dart';
 import 'features/auth/workspace_page.dart';
 import 'features/home/home_page.dart';
@@ -61,6 +62,7 @@ class _ErpAppState extends ConsumerState<ErpApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: ref.watch(routerProvider),
     );
   }

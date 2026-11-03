@@ -4,32 +4,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
 import '../../core/session.dart';
 
+/// Switches workspace, showing the server's message if it refuses.
+Future<void> switchWorkspaceWithFeedback(BuildContext context, WidgetRef ref, String id) async {
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await ref.read(sessionProvider.notifier).switchWorkspace(id);
+  } on ApiException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+  }
+}
+
+/// Asks before signing out; shared by Settings and the account sheet.
+Future<void> confirmSignOut(BuildContext context, WidgetRef ref) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Sign out?'),
+      content: const Text('You will need to sign in again.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign out')),
+      ],
+    ),
+  );
+  if (ok == true) await ref.read(sessionProvider.notifier).logout();
+}
+
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
-
-  Future<void> _switch(BuildContext context, WidgetRef ref, String id) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ref.read(sessionProvider.notifier).switchWorkspace(id);
-    } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
-    }
-  }
-
-  Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: const Text('You will need to sign in again.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign out')),
-        ],
-      ),
-    );
-    if (ok == true) await ref.read(sessionProvider.notifier).logout();
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -52,7 +54,7 @@ class SettingsPage extends ConsumerWidget {
                 leading: Icon(w.id == current?.id ? Icons.radio_button_checked : Icons.radio_button_unchecked),
                 title: Text(w.name),
                 subtitle: Text(w.code),
-                onTap: w.id == current?.id ? null : () => _switch(context, ref, w.id),
+                onTap: w.id == current?.id ? null : () => switchWorkspaceWithFeedback(context, ref, w.id),
               ),
           ],
           const Divider(),
@@ -60,7 +62,7 @@ class SettingsPage extends ConsumerWidget {
           ListTile(
             leading: Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
             title: const Text('Sign out'),
-            onTap: () => _logout(context, ref),
+            onTap: () => confirmSignOut(context, ref),
           ),
         ],
       ),

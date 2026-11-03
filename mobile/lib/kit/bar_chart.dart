@@ -8,19 +8,22 @@ import 'package:erp_mobile/theme/tokens.dart';
 /// One month of the billed-vs-collected series.
 @immutable
 class ErpMonthValue {
-  const ErpMonthValue({required this.label, required this.billed, required this.collected});
+  const ErpMonthValue({required this.label, required this.billed, required this.collected, this.fullLabel});
 
   /// Short axis label, e.g. "Jan" or "J".
   final String label;
+
+  /// Full period name shown when the month is tapped, e.g. "Nov 26"; falls back to [label].
+  final String? fullLabel;
   final double billed;
   final double collected;
 
   @override
   bool operator ==(Object other) =>
-      other is ErpMonthValue && other.label == label && other.billed == billed && other.collected == collected;
+      other is ErpMonthValue && other.label == label && other.fullLabel == fullLabel && other.billed == billed && other.collected == collected;
 
   @override
-  int get hashCode => Object.hash(label, billed, collected);
+  int get hashCode => Object.hash(label, fullLabel, billed, collected);
 }
 
 /// How [ErpBilledCollectedChart] draws the series.
@@ -262,7 +265,7 @@ class _ErpBilledCollectedChartState extends State<ErpBilledCollectedChart> {
                   liveRegion: true,
                   child: Text.rich(
                     TextSpan(children: [
-                      TextSpan(text: '${data[sel].label}  ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      TextSpan(text: '${data[sel].fullLabel ?? data[sel].label}  ', style: const TextStyle(fontWeight: FontWeight.w700)),
                       TextSpan(text: '${widget.billedLabel} '),
                       _ltrNumber('${erpCompactNumber(data[sel].billed)}$cur'),
                       TextSpan(text: '  ·  ${widget.collectedLabel} '),
@@ -275,12 +278,15 @@ class _ErpBilledCollectedChartState extends State<ErpBilledCollectedChart> {
             if (data.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
-                child: Row(children: [
-                  Flexible(child: _LegendChip(color: ErpColors.billed, label: widget.billedLabel, total: erpCompactNumber(billedTotal), textColor: text2)),
-                  const SizedBox(width: 14),
-                  Flexible(child: _LegendChip(color: ErpColors.collected, label: widget.collectedLabel, total: erpCompactNumber(collectedTotal), textColor: text2)),
-                  const Spacer(),
-                  if (pct != null) _PercentBadge(percent: pct, tone: tone, brightness: theme.brightness),
+                // Legends wrap onto a second line on narrow phones instead of truncating.
+                child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                  Expanded(
+                    child: Wrap(spacing: 14, runSpacing: 4, children: [
+                      _LegendChip(color: ErpColors.billed, label: widget.billedLabel, total: erpCompactNumber(billedTotal), textColor: text2),
+                      _LegendChip(color: ErpColors.collected, label: widget.collectedLabel, total: erpCompactNumber(collectedTotal), textColor: text2),
+                    ]),
+                  ),
+                  if (pct != null) ...[const SizedBox(width: ErpSpace.s2), _PercentBadge(percent: pct, tone: tone, brightness: theme.brightness)],
                 ]),
               ),
           ],
@@ -308,8 +314,7 @@ class _LegendChip extends StatelessWidget {
         Flexible(
           child: Text.rich(
             TextSpan(children: [TextSpan(text: '$label '), TextSpan(text: '\u2066$total\u2069')]),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             style: TextStyle(fontSize: 12, color: textColor, fontFeatures: const [FontFeature.tabularFigures()]),
           ),
         ),

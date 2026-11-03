@@ -55,7 +55,7 @@ class Paged {
 
 /// A headline number on the dashboard. [format] is "money", "percent" or "number".
 class Kpi {
-  const Kpi({required this.key, required this.label, required this.value, required this.format, this.caption});
+  const Kpi({required this.key, required this.label, required this.value, required this.format, this.caption, this.link});
 
   final String key;
   final String label;
@@ -63,12 +63,16 @@ class Kpi {
   final String format;
   final String? caption;
 
+  /// Server route the card points at, e.g. "/finance/invoices" (also gives its category).
+  final String? link;
+
   factory Kpi.fromJson(Map<String, dynamic> json) => Kpi(
         key: json['key'].toString(),
         label: json['label'].toString(),
         value: (json['value'] as num?)?.toDouble() ?? 0,
         format: (json['format'] ?? 'number').toString(),
         caption: json['caption'] as String?,
+        link: json['link'] as String?,
       );
 }
 
@@ -107,16 +111,20 @@ class DashboardChart {
 
 /// [severity] is "critical", "warning" or "info".
 class DashboardAlert {
-  const DashboardAlert({required this.severity, required this.category, required this.message});
+  const DashboardAlert({required this.severity, required this.category, required this.message, this.link});
 
   final String severity;
   final String category;
   final String message;
 
+  /// Server route to act on the alert, when there is one.
+  final String? link;
+
   factory DashboardAlert.fromJson(Map<String, dynamic> json) => DashboardAlert(
         severity: (json['severity'] ?? 'info').toString(),
         category: (json['category'] ?? '').toString(),
         message: (json['message'] ?? '').toString(),
+        link: json['link'] as String?,
       );
 }
 

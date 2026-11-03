@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:erp_mobile/theme/app_theme.dart';
 import 'package:erp_mobile/theme/tokens.dart';
 
 /// One destination of [ErpBottomNav].
@@ -103,6 +104,8 @@ class ErpBottomNav extends StatelessWidget {
                           circleCenterY: circleSize / 2,
                           notchRadius: circleSize / 2 + notchGap,
                           radius: _radius,
+                          color: ErpTheme.of(context).surface,
+                          shadow: Theme.of(context).brightness == Brightness.dark ? const Color(0x66000000) : const Color(0x1A101828),
                         ),
                       ),
                     ),
@@ -131,9 +134,9 @@ class ErpBottomNav extends StatelessWidget {
                       child: IgnorePointer(
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: ErpColors.brandSubtle,
+                            color: ErpTheme.of(context).brandSubtle,
                             shape: BoxShape.circle,
-                            border: Border.all(color: ErpColors.surface, width: 3),
+                            border: Border.all(color: ErpTheme.of(context).surface, width: 3),
                             boxShadow: const [
                               BoxShadow(color: Color(0x1F10955D), blurRadius: 10, offset: Offset(0, 3)),
                             ],
@@ -151,7 +154,7 @@ class ErpBottomNav extends StatelessWidget {
                                 items[selected].activeIcon,
                                 key: ValueKey<int>(selected),
                                 size: 26,
-                                color: ErpColors.brand,
+                                color: ErpTheme.of(context).brand,
                               ),
                             ),
                           ),
@@ -180,12 +183,13 @@ class _Tab extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = Theme.of(context).textTheme.labelSmall ?? const TextStyle(fontSize: 11);
     final count = item.badgeCount ?? 0;
-    Widget icon = Icon(item.icon, size: 22, color: ErpColors.muted);
+    final t = ErpTheme.of(context);
+    Widget icon = Icon(item.icon, size: 22, color: t.muted);
     if (count > 0) {
       icon = Badge(
         label: Text(count > 99 ? '99+' : '$count', textDirection: TextDirection.ltr),
         backgroundColor: ErpColors.danger,
-        textColor: ErpColors.surface,
+        textColor: Colors.white,
         child: icon,
       );
     }
@@ -213,8 +217,8 @@ class _Tab extends StatelessWidget {
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 200),
                 style: selected
-                    ? base.copyWith(color: ErpColors.text, fontWeight: FontWeight.w700, fontSize: 12)
-                    : base.copyWith(color: ErpColors.muted, fontWeight: FontWeight.w500, fontSize: 11),
+                    ? base.copyWith(color: t.text, fontWeight: FontWeight.w700, fontSize: 12)
+                    : base.copyWith(color: t.muted, fontWeight: FontWeight.w500, fontSize: 11),
                 child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
               ),
             ],
@@ -233,8 +237,12 @@ class _NotchedBarPainter extends CustomPainter {
     required this.circleCenterY,
     required this.notchRadius,
     required this.radius,
+    this.color = ErpColors.surface,
+    this.shadow = const Color(0x1A101828),
   });
 
+  final Color color;
+  final Color shadow;
   final double notchX;
   final double top;
   final double circleCenterY;
@@ -268,10 +276,10 @@ class _NotchedBarPainter extends CustomPainter {
     canvas.drawPath(
       shape.shift(const Offset(0, 4)),
       Paint()
-        ..color = const Color(0x1A101828)
+        ..color = shadow
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
     );
-    canvas.drawPath(shape, Paint()..color = ErpColors.surface);
+    canvas.drawPath(shape, Paint()..color = color);
   }
 
   @override
@@ -280,5 +288,7 @@ class _NotchedBarPainter extends CustomPainter {
       old.top != top ||
       old.circleCenterY != circleCenterY ||
       old.notchRadius != notchRadius ||
-      old.radius != radius;
+      old.radius != radius ||
+      old.color != color ||
+      old.shadow != shadow;
 }
