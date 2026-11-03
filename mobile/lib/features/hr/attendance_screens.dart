@@ -10,6 +10,8 @@ import '../../kit/field.dart';
 import '../../kit/form_page.dart';
 import '../common/paged_list_view.dart';
 import 'hr_common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
+import '../../kit/skeleton.dart';
 
 const _attendancePath = '$hrPath/attendance';
 
@@ -102,7 +104,7 @@ class _AttendanceState extends ConsumerState<AttendanceScreen> {
         ]),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const ErpSkeleton.list()
               : _error != null
                   ? ErrorView(message: _error!, onRetry: _load)
                   : _rows.isEmpty
@@ -138,7 +140,7 @@ Widget attendanceTile(BuildContext context, Json r, VoidCallback? onTap) {
     subtitle: Text(extras.isEmpty ? '${r['designation'] ?? ''}' : extras.join(' · ')),
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Text('${days(r['daysPresent'])} / ${days(r['workingDays'])} days', style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       StatusChip(recorded ? 'Recorded' : 'Full attendance', color: recorded ? Colors.blue.shade700 : Colors.grey.shade700),
     ]),
   );

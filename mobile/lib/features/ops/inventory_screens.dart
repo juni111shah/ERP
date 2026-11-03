@@ -12,6 +12,8 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
+import '../../kit/skeleton.dart';
 
 const invPath = '/api/v1/m/inventory';
 
@@ -173,12 +175,12 @@ class _StockScreenState extends ConsumerState<StockScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const ErpSkeleton.detail()
           : _error != null
               ? ErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView(padding: const EdgeInsets.all(12), children: [
+                  child: ListView(padding: const EdgeInsets.all(ErpSpace.s3), children: [
                     InfoCard(rows: [InfoRow('Total stock value', formatMoney(_total), bold: true), InfoRow('Stock lines', '${_rows.length}')]),
                     if (_reorder.isNotEmpty) ...[
                       Text('Reorder alerts', style: Theme.of(context).textTheme.titleMedium),
@@ -193,8 +195,8 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                       const Divider(),
                     ],
                     TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search stock', border: OutlineInputBorder()), onChanged: (v) => setState(() => _search = v)),
-                    const SizedBox(height: 8),
-                    if (rows.isEmpty) const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('No stock found.'))),
+                    const SizedBox(height: ErpSpace.s2),
+                    if (rows.isEmpty) const Padding(padding: EdgeInsets.all(ErpSpace.s6), child: Center(child: Text('No stock found.'))),
                     for (final r in rows) stockTile(r),
                   ]),
                 ),

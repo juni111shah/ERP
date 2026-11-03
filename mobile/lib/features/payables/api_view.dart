@@ -6,6 +6,7 @@ import '../../core/api_client.dart';
 import '../../core/session.dart';
 import '../../kit/data_version.dart';
 import '../common/paged_list_view.dart' show ErrorView;
+import '../../kit/skeleton.dart';
 
 /// Loads [path] (with [query]) and builds [builder] from the answer; reloads when the query changes or after any save.
 class ApiView extends ConsumerStatefulWidget {
@@ -56,7 +57,7 @@ class _ApiViewState extends ConsumerState<ApiView> {
   @override
   Widget build(BuildContext context) {
     ref.listen(dataVersionProvider, (_, _) => _load());
-    if (_loading && _data == null) return const Center(child: CircularProgressIndicator());
+    if (_loading && _data == null) return const ErpSkeleton.list();
     if (_error != null) return ErrorView(message: _error!, onRetry: _load);
     return RefreshIndicator(onRefresh: _load, child: widget.builder(context, _data));
   }

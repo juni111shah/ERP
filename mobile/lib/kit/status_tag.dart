@@ -77,7 +77,7 @@ class StatusTag extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: ErpType.caption,
                   height: 1.2,
                   fontWeight: FontWeight.w600,
                   color: fg,

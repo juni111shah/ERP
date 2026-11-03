@@ -10,6 +10,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const storesPath = '/api/v1/m/retail/stores';
 const priceListsPath = '/api/v1/m/retail/pricelists';
@@ -29,7 +30,7 @@ Widget _tile(BuildContext context, {required String title, required String subti
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: [if (trailing != null) Text(trailing, style: const TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: 4), _activeChip(row)],
+        children: [if (trailing != null) Text(trailing, style: const TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: ErpSpace.s1), _activeChip(row)],
       ),
     );
 
@@ -113,7 +114,7 @@ class StoreDetailScreen extends StatelessWidget {
           body: (context, d) => DetailBody(children: [
             DetailHeader(title: '${d['name']}', subtitle: d['code']?.toString()),
             _activeChip(d),
-            const SizedBox(height: 12),
+            const SizedBox(height: ErpSpace.s3),
             InfoCard(rows: [
               InfoRow('Manager', d['storeManagerName']?.toString()),
               InfoRow('Phone', d['phone']?.toString()),
@@ -243,7 +244,7 @@ class PriceListDetailScreen extends StatelessWidget {
             return DetailBody(children: [
               DetailHeader(title: '${d['name']}', subtitle: '${humanize(d['type']?.toString())} · ${d['currency']}'),
               _activeChip(d),
-              const SizedBox(height: 12),
+              const SizedBox(height: ErpSpace.s3),
               InfoCard(rows: [
                 InfoRow('Valid from', formatDate(d['validFrom'])),
                 InfoRow('Valid to', d['validTo'] == null ? null : formatDate(d['validTo'])),
@@ -376,7 +377,7 @@ class PromotionDetailScreen extends StatelessWidget {
           body: (context, d) => DetailBody(children: [
             DetailHeader(title: '${d['name']}', subtitle: humanize(d['type']?.toString())),
             _activeChip(d),
-            const SizedBox(height: 12),
+            const SizedBox(height: ErpSpace.s3),
             InfoCard(rows: [
               InfoRow('Discount', promotionValue(d), bold: true),
               InfoRow('Minimum order', d['minimumOrderAmount'] == null ? null : formatMoney(d['minimumOrderAmount'] as num)),

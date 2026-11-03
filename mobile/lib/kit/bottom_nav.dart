@@ -181,7 +181,7 @@ class _Tab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = Theme.of(context).textTheme.labelSmall ?? const TextStyle(fontSize: 11);
+    final base = Theme.of(context).textTheme.labelSmall ?? const TextStyle(fontSize: ErpType.label);
     final count = item.badgeCount ?? 0;
     final t = ErpTheme.of(context);
     Widget icon = Icon(item.icon, size: 22, color: t.muted);
@@ -217,8 +217,8 @@ class _Tab extends StatelessWidget {
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 200),
                 style: selected
-                    ? base.copyWith(color: t.text, fontWeight: FontWeight.w700, fontSize: 12)
-                    : base.copyWith(color: t.muted, fontWeight: FontWeight.w500, fontSize: 11),
+                    ? base.copyWith(color: t.text, fontWeight: FontWeight.w700, fontSize: ErpType.caption)
+                    : base.copyWith(color: t.muted, fontWeight: FontWeight.w500, fontSize: ErpType.label),
                 child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
               ),
             ],

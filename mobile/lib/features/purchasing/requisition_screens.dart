@@ -11,6 +11,7 @@ import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'order_screens.dart';
 import 'purchasing_common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const requisitionsPath = '$purchasingPath/requisitions';
 
@@ -61,7 +62,7 @@ FormSpec requisitionForm(WidgetRef ref, {Json? existing}) {
     ],
     summary: (context, raw) {
       final total = [for (final l in (raw['lines'] as List<dynamic>)) (toNum((l as Json)['quantity']) ?? 0) * (toNum(l['estimatedUnitPrice']) ?? 0)].fold<num>(0, (a, b) => a + b);
-      return Padding(padding: const EdgeInsets.only(top: 4), child: InfoRow('Estimated total', formatMoney(total), bold: true));
+      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Estimated total', formatMoney(total), bold: true));
     },
     submit: (ref, body, raw) {
       final api = ref.read(apiProvider);
@@ -95,7 +96,7 @@ Widget requisitionTile(BuildContext context, Json r) {
     subtitle: Text('${r['department'] ?? ''}${(r['department'] ?? '').toString().isEmpty ? '' : ' · '}${formatDate(r['requisitionDate'])}'),
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Text(formatMoney((r['estimatedTotal'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       purchasingStatusChip(status, requisitionStatusLabel(status)),
     ]),
   );
@@ -179,7 +180,7 @@ Widget requisitionBody(BuildContext context, Json d) {
   final status = '${d['status']}';
   return DetailBody(children: [
     DetailHeader(title: d['requesterName']?.toString() ?? '', subtitle: '${d['department'] ?? ''}'.isEmpty ? formatDate(d['requisitionDate']) : '${d['department']} · ${formatDate(d['requisitionDate'])}'),
-    Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: 12), child: purchasingStatusChip(status, requisitionStatusLabel(status)))),
+    Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: purchasingStatusChip(status, requisitionStatusLabel(status)))),
     InfoCard(rows: [
       InfoRow('Estimated total', formatMoney((d['estimatedTotal'] as num?) ?? 0), bold: true),
       InfoRow('Needed by', d['requiredDate'] == null ? null : formatDate(d['requiredDate'])),
@@ -188,7 +189,7 @@ Widget requisitionBody(BuildContext context, Json d) {
     ]),
     if (d['convertedPurchaseOrderId'] != null)
       Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(bottom: ErpSpace.s3),
         child: OutlinedButton.icon(
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(id: '${d['convertedPurchaseOrderId']}'))),
           icon: const Icon(Icons.open_in_new),

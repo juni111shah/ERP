@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/me.dart';
 import '../../core/session.dart';
 import '../../core/theme_mode.dart';
+import '../../kit/motion.dart';
+import '../../kit/segmented.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../notifications/notifications.dart';
@@ -36,13 +38,18 @@ class HomeHeaderActions extends ConsumerWidget {
         key: const ValueKey('header-bell'),
         tooltip: 'Notifications',
         constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-        icon: Badge(
+        // The badge pulses when the count changes.
+        icon: ErpPulse(
+          key: const ValueKey('bell-pulse'),
+          trigger: unread,
+          child: Badge(
           key: const ValueKey('bell-badge'),
           isLabelVisible: unread > 0,
           backgroundColor: ErpColors.danger,
           textColor: Colors.white,
           label: Text(unread > 99 ? '99+' : '$unread', textDirection: TextDirection.ltr),
           child: Icon(Icons.notifications_none_rounded, size: 24, color: t.text2),
+          ),
         ),
         onPressed: () => showNotificationsSheet(context),
       ),
@@ -127,7 +134,10 @@ class ProfileSheet extends ConsumerWidget {
     final mode = ref.watch(themeModeProvider);
     final name = me.fullName.isNotEmpty ? me.fullName : (me.email.isNotEmpty ? me.email : 'Signed in');
 
-    Widget row({Key? key, required IconData icon, required String label, Widget? trailing, Color? color, VoidCallback? onTap}) => InkWell(
+    Widget row({Key? key, required IconData icon, required String label, Widget? trailing, Color? color, VoidCallback? onTap}) => ErpPressable(
+          enabled: onTap != null,
+          scale: 0.98,
+          child: InkWell(
           key: key,
           onTap: onTap,
           child: ConstrainedBox(
@@ -137,18 +147,16 @@ class ProfileSheet extends ConsumerWidget {
               child: Row(children: [
                 Icon(icon, size: 22, color: color ?? t.text2),
                 const SizedBox(width: ErpSpace.s4),
-                Expanded(child: Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: color ?? t.text))),
+                Expanded(child: Text(label, style: TextStyle(fontSize: ErpType.bodyLarge, fontWeight: FontWeight.w500, color: color ?? t.text))),
                 ?trailing,
                 if (onTap != null && trailing == null) Icon(Icons.chevron_right_rounded, size: 20, color: t.muted),
               ]),
             ),
           ),
+          ),
         );
 
-    return ListView(
-      controller: controller,
-      padding: const EdgeInsets.only(bottom: 24),
-      children: [
+    final children = <Widget>[
         // Who is signed in, and where.
         Padding(
           padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, 0, ErpSpace.s4, ErpSpace.s4),
@@ -157,19 +165,19 @@ class ProfileSheet extends ConsumerWidget {
             const SizedBox(width: ErpSpace.s3),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: t.text)),
+                Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: ErpType.titleLarge, fontWeight: FontWeight.w700, color: t.text)),
                 if (me.email.isNotEmpty && me.email != name)
-                  Text(me.email, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: t.text2)),
+                  Text(me.email, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: ErpType.bodySmall, color: t.text2)),
                 if (workspace != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.only(top: ErpSpace.s15),
                     child: Container(
-                      padding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 3),
+                      padding: const EdgeInsetsDirectional.symmetric(horizontal: ErpSpace.s25, vertical: 3),
                       decoration: BoxDecoration(color: t.brandSubtle, borderRadius: BorderRadius.circular(ErpRadius.pill)),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.business_outlined, size: 14, color: t.brand),
-                        const SizedBox(width: 4),
-                        Flexible(child: Text(workspace.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: t.brand))),
+                        const SizedBox(width: ErpSpace.s1),
+                        Flexible(child: Text(workspace.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: ErpType.caption, fontWeight: FontWeight.w600, color: t.brand))),
                       ]),
                     ),
                   ),
@@ -195,22 +203,20 @@ class ProfileSheet extends ConsumerWidget {
             Row(children: [
               Icon(Icons.palette_outlined, size: 22, color: t.text2),
               const SizedBox(width: ErpSpace.s4),
-              Text('Appearance', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: t.text)),
+              Text('Appearance', style: TextStyle(fontSize: ErpType.bodyLarge, fontWeight: FontWeight.w500, color: t.text)),
             ]),
             const SizedBox(height: ErpSpace.s2),
             SizedBox(
               width: double.infinity,
-              child: SegmentedButton<ThemeMode>(
+              child: ErpSegmented<ThemeMode>(
                 key: const ValueKey('appearance'),
-                showSelectedIcon: false,
-                style: const ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(0, 48))),
                 segments: const [
-                  ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined, size: 18), label: Text('Light')),
-                  ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode_outlined, size: 18), label: Text('Dark')),
-                  ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto_outlined, size: 18), label: Text('System')),
+                  ErpSegment(value: ThemeMode.light, icon: Icons.light_mode_outlined, label: 'Light'),
+                  ErpSegment(value: ThemeMode.dark, icon: Icons.dark_mode_outlined, label: 'Dark'),
+                  ErpSegment(value: ThemeMode.system, icon: Icons.brightness_auto_outlined, label: 'System'),
                 ],
-                selected: {mode},
-                onSelectionChanged: (s) => ref.read(themeModeProvider.notifier).set(s.first),
+                selected: mode,
+                onChanged: (m) => ref.read(themeModeProvider.notifier).set(m),
               ),
             ),
           ]),
@@ -243,7 +249,12 @@ class ProfileSheet extends ConsumerWidget {
           trailing: const SizedBox.shrink(),
           onTap: () => _then(context, () => confirmSignOut(hostContext, hostRef)),
         ),
-      ],
+    ];
+    // Rows fade / slide in one after another as the sheet opens.
+    return ListView(
+      controller: controller,
+      padding: const EdgeInsets.only(bottom: ErpSpace.s6),
+      children: [for (var i = 0; i < children.length; i++) ErpFadeSlideIn(index: i, child: children[i])],
     );
   }
 }
@@ -259,7 +270,7 @@ Future<void> _showWorkspaces(BuildContext context, WidgetRef ref) => showErpShee
         return ListView(controller: controller, children: [
           Padding(
             padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, 0, ErpSpace.s4, ErpSpace.s2),
-            child: Text('Switch workspace', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: t.text)),
+            child: Text('Switch workspace', style: TextStyle(fontSize: ErpType.titleLarge, fontWeight: FontWeight.w700, color: t.text)),
           ),
           for (final w in workspaces)
             ListTile(

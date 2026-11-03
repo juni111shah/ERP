@@ -10,6 +10,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'hr_common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const employeesPath = '$hrPath/employees';
 
@@ -53,7 +54,7 @@ FormSpec employeeForm(WidgetRef ref, {Json? existing}) {
     ],
     summary: (context, raw) {
       final gross = ['basicSalary', 'housingAllowance', 'transportAllowance', 'otherAllowances'].fold<num>(0, (a, k) => a + (toNum(raw[k]) ?? 0));
-      return Padding(padding: const EdgeInsets.only(top: 4), child: InfoRow('Gross monthly', formatMoney(gross), bold: true));
+      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Gross monthly', formatMoney(gross), bold: true));
     },
     submit: (ref, body, raw) {
       final api = ref.read(apiProvider);
@@ -127,7 +128,7 @@ Widget employeeBody(BuildContext context, Json d) {
   final status = '${d['status']}';
   return DetailBody(children: [
     DetailHeader(title: '${d['fullName']}', subtitle: '${d['number']} · ${d['designation']}'),
-    Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: 12), child: hrStatusChip(status, humanize(status)))),
+    Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: hrStatusChip(status, humanize(status)))),
     InfoCard(title: 'Details', rows: [
       InfoRow('Department', text(d['department'])),
       InfoRow('Joined', formatDate(d['joinDate'])),

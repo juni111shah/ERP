@@ -11,6 +11,7 @@ import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'purchasing_common.dart';
 import 'receipt_screens.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 
 
@@ -80,7 +81,7 @@ FormSpec orderForm(WidgetRef ref, {Json? existing}) {
     ],
     summary: (context, raw) {
       final total = [for (final l in (raw['lines'] as List<dynamic>)) _lineNet(l as Json)].fold<num>(0, (a, b) => a + b);
-      return Padding(padding: const EdgeInsets.only(top: 4), child: InfoRow('Total incl. tax', formatMoney(total), bold: true));
+      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Total incl. tax', formatMoney(total), bold: true));
     },
     submit: (ref, body, raw) {
       final api = ref.read(apiProvider);
@@ -106,7 +107,7 @@ Widget orderTile(BuildContext context, Json o) {
     isThreeLine: true,
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Text(money(o, 'totalAmount', currencyKey: 'currency'), style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       purchasingStatusChip(status, orderStatusLabel(status)),
     ]),
   );
@@ -201,7 +202,7 @@ Widget orderBody(BuildContext context, Json d) {
   final status = '${d['status']}';
   return DetailBody(children: [
     DetailHeader(title: d['vendorName']?.toString() ?? '', subtitle: 'Ordered ${formatDate(d['orderDate'])}${d['expectedDeliveryDate'] != null ? ' · Delivery ${formatDate(d['expectedDeliveryDate'])}' : ''}'),
-    Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: 12), child: purchasingStatusChip(status, orderStatusLabel(status)))),
+    Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: purchasingStatusChip(status, orderStatusLabel(status)))),
     InfoCard(rows: [
       InfoRow('Sub-total', money(d, 'subTotal', currencyKey: 'currency')),
       InfoRow('Discount', money(d, 'discountTotal', currencyKey: 'currency')),
@@ -221,6 +222,6 @@ Widget orderBody(BuildContext context, Json d) {
         isThreeLine: true,
         trailing: Text(formatMoney((l['lineTotal'] as num?) ?? 0)),
       ),
-    if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: 8), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
+    if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: ErpSpace.s2), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
   ]);
 }

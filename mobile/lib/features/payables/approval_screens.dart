@@ -9,6 +9,7 @@ import '../../kit/data_version.dart';
 import '../../kit/detail_page.dart';
 import '../common/paged_list_view.dart' show StatusChip;
 import 'api_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const approvalsPath = '/api/v1/approvals';
 
@@ -40,10 +41,10 @@ class _ApprovalsScreenState extends ConsumerState<ApprovalsScreen> {
         appBar: AppBar(title: const Text('Approvals')),
         body: Column(children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s3, vertical: ErpSpace.s15),
             child: Row(children: [
               ChoiceChip(label: const Text('To decide'), selected: !_mine, onSelected: (_) => setState(() => _mine = false)),
-              const SizedBox(width: 8),
+              const SizedBox(width: ErpSpace.s2),
               ChoiceChip(label: const Text('My requests'), selected: _mine, onSelected: (_) => setState(() => _mine = true)),
             ]),
           ),
@@ -53,7 +54,7 @@ class _ApprovalsScreenState extends ConsumerState<ApprovalsScreen> {
               query: {if (_mine) 'scope': 'mine'},
               builder: (context, data) {
                 final rows = approvalRows(data);
-                if (rows.isEmpty) return ListView(children: const [Padding(padding: EdgeInsets.all(48), child: Center(child: Text('No approvals found.')))]);
+                if (rows.isEmpty) return ListView(children: const [Padding(padding: EdgeInsets.all(ErpSpace.s12), child: Center(child: Text('No approvals found.')))]);
                 return ListView(children: [for (final r in rows) ApprovalTile(approval: r)]);
               },
             ),
@@ -98,15 +99,15 @@ class ApprovalTile extends ConsumerWidget {
     final canDecide = pending && ref.watch(meOrEmptyProvider).can('core.approvals.decide');
     final amount = approval['amount'] as num?;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: ErpSpace.s3, vertical: ErpSpace.s15),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(ErpSpace.s3),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(child: Text('${approval['subject']}', style: Theme.of(context).textTheme.titleSmall)),
             StatusChip(humanize(status), color: StatusChip.forStatus(status)),
           ]),
-          const SizedBox(height: 4),
+          const SizedBox(height: ErpSpace.s1),
           Text('${documentTypeLabel(approval['documentType'])} · requested ${formatDate((approval['requestedAt'] ?? '').toString().split('T').first)}'),
           if (amount != null) Text('${approval['currencyCode'] ?? ''} ${formatMoney(amount)}'.trim(), style: const TextStyle(fontWeight: FontWeight.w600)),
           if ((approval['justification'] ?? '').toString().isNotEmpty) Text('${approval['justification']}'),
@@ -114,7 +115,7 @@ class ApprovalTile extends ConsumerWidget {
           if (canDecide)
             Align(
               alignment: Alignment.centerRight,
-              child: Wrap(spacing: 8, children: [
+              child: Wrap(spacing: ErpSpace.s2, children: [
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
                   onPressed: () => _decide(context, ref, false),

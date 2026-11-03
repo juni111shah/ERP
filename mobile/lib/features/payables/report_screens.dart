@@ -9,6 +9,7 @@ import '../../kit/field.dart';
 import '../../kit/widgets.dart';
 import 'api_view.dart';
 import 'common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 enum ReportKind { apAgeing, arAgeing, trialBalance, incomeStatement, balanceSheet, cashPosition }
 
@@ -91,8 +92,8 @@ class _ReportPageState extends ConsumerState<ReportPage> {
       appBar: AppBar(title: Text(spec.title)),
       body: Column(children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          padding: const EdgeInsets.fromLTRB(ErpSpace.s3, ErpSpace.s2, ErpSpace.s3, ErpSpace.s1),
+          child: Wrap(spacing: ErpSpace.s2, runSpacing: ErpSpace.s1, crossAxisAlignment: WrapCrossAlignment.center, children: [
             if (spec.range) ActionChip(avatar: const Icon(Icons.event, size: 18), label: Text('From ${formatDate(_from)}'), onPressed: () => _pick(true)),
             ActionChip(avatar: const Icon(Icons.event, size: 18), label: Text('${spec.range ? 'To' : 'As of'} ${formatDate(_to)}'), onPressed: () => _pick(false)),
             if (me.legalEntities.length > 1)
@@ -104,7 +105,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
               ),
           ]),
         ),
-        if (bad) Padding(padding: const EdgeInsets.all(12), child: Text('The start date is after the end date.', style: TextStyle(color: Theme.of(context).colorScheme.error))),
+        if (bad) Padding(padding: const EdgeInsets.all(ErpSpace.s3), child: Text('The start date is after the end date.', style: TextStyle(color: Theme.of(context).colorScheme.error))),
         if (!bad)
           Expanded(
             child: ApiView(
@@ -132,10 +133,10 @@ Widget ageingBody(BuildContext context, Json d) {
   final rows = (d['rows'] as List<dynamic>? ?? const []).cast<Json>();
   Widget card(Json r, {bool total = false}) => Card(
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(ErpSpace.s3),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(total ? 'Total' : (r['partyName'] ?? 'Unknown').toString(), style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 4),
+            const SizedBox(height: ErpSpace.s1),
             InfoRow('Current', _m(r['current'])),
             InfoRow('1-30 days', _m(r['days1To30'])),
             InfoRow('31-60 days', _m(r['days31To60'])),
@@ -147,7 +148,7 @@ Widget ageingBody(BuildContext context, Json d) {
       );
   return DetailBody(children: [
     if (d['totals'] != null) card(d['totals'] as Json, total: true),
-    if (rows.isEmpty) const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('Nothing outstanding.'))),
+    if (rows.isEmpty) const Padding(padding: EdgeInsets.all(ErpSpace.s6), child: Center(child: Text('Nothing outstanding.'))),
     for (final r in rows) card(r),
   ]);
 }
@@ -173,7 +174,7 @@ Widget trialBalanceBody(BuildContext context, Json d) {
 List<Widget> _statementSection(BuildContext context, String title, Object? lines, Object? total) {
   final rows = (lines as List<dynamic>? ?? const []).cast<Json>();
   return [
-    Padding(padding: const EdgeInsets.only(top: 8), child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+    Padding(padding: const EdgeInsets.only(top: ErpSpace.s2), child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
     for (final l in rows)
       ListTile(
         dense: true,

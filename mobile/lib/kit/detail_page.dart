@@ -9,6 +9,7 @@ import 'data_version.dart';
 import 'form_page.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
+import 'skeleton.dart';
 
 typedef Json = Map<String, dynamic>;
 
@@ -189,7 +190,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const ErpSkeleton.detail()
           : _error != null && data == null
               ? ErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(onRefresh: _load, child: widget.body(context, data!)),
@@ -230,7 +231,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, 10, ErpSpace.s4, 10),
+          padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, ErpSpace.s25, ErpSpace.s4, ErpSpace.s25),
           child: ordered.length <= 2
               ? Row(children: [
                   for (var i = 0; i < ordered.length; i++) ...[

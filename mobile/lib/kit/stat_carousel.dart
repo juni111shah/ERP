@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/tokens.dart';
+import 'motion.dart';
 import 'stat_card.dart';
 
 /// Carousel of [ErpStatCard]s: pages of [perPage] cards laid out as an
@@ -83,7 +85,11 @@ class _ErpStatCarouselState extends State<ErpStatCarousel> {
 
   void _go(int page) {
     if (page < 0 || page >= _pageCount) return;
-    _controller.animateToPage(page, duration: _duration, curve: Curves.easeOutCubic);
+    if (ErpMotion.reduced(context)) {
+      _controller.jumpToPage(page);
+    } else {
+      _controller.animateToPage(page, duration: _duration, curve: Curves.easeOutCubic);
+    }
   }
 
   @override
@@ -114,9 +120,11 @@ class _ErpStatCarouselState extends State<ErpStatCarousel> {
     final pages = PageView.builder(
       controller: _controller,
       itemCount: count,
+      physics: const _EasedPagePhysics(),
       // Snapping pages, no scrollbar on any platform.
       scrollBehavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, overscroll: false),
       onPageChanged: (p) {
+        HapticFeedback.selectionClick();
         setState(() => _page = p);
         widget.onPageChanged?.call(p);
       },
@@ -130,13 +138,22 @@ class _ErpStatCarouselState extends State<ErpStatCarousel> {
     final controls = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        IconButton(
-          key: const ValueKey('erp-stat-carousel-prev'),
-          tooltip: widget.previousLabel,
-          onPressed: _page > 0 ? () => _go(_page - 1) : null,
-          icon: const Icon(Icons.chevron_left_rounded),
-          color: brand,
-          disabledColor: idle,
+        // Fades out at the ends; shrinks a little while pressed.
+        AnimatedOpacity(
+          opacity: _page > 0 ? 1 : 0.4,
+          duration: ErpMotion.of(context, ErpMotion.fast),
+          child: ErpPressable(
+            enabled: _page > 0,
+            scale: 0.88,
+            child: IconButton(
+              key: const ValueKey('erp-stat-carousel-prev'),
+              tooltip: widget.previousLabel,
+              onPressed: _page > 0 ? () => _go(_page - 1) : null,
+              icon: const Icon(Icons.chevron_left_rounded),
+              color: brand,
+              disabledColor: idle,
+            ),
+          ),
         ),
         Expanded(
           child: Semantics(
@@ -145,14 +162,14 @@ class _ErpStatCarouselState extends State<ErpStatCarousel> {
             child: ExcludeSemantics(
               child: Wrap(
                 alignment: WrapAlignment.center,
-                spacing: 6,
-                runSpacing: 6,
+                spacing: ErpSpace.s15,
+                runSpacing: ErpSpace.s15,
                 children: [
                   for (var i = 0; i < count; i++)
                     AnimatedContainer(
                       key: ValueKey('erp-stat-carousel-dot-$i'),
-                      duration: _duration,
-                      curve: Curves.easeOutCubic,
+                      duration: ErpMotion.of(context, ErpMotion.medium),
+                      curve: ErpMotion.curve,
                       width: i == _page ? 18 : 6,
                       height: 6,
                       decoration: BoxDecoration(
@@ -165,13 +182,22 @@ class _ErpStatCarouselState extends State<ErpStatCarousel> {
             ),
           ),
         ),
-        IconButton(
-          key: const ValueKey('erp-stat-carousel-next'),
-          tooltip: widget.nextLabel,
-          onPressed: _page < count - 1 ? () => _go(_page + 1) : null,
-          icon: const Icon(Icons.chevron_right_rounded),
-          color: brand,
-          disabledColor: idle,
+        // Fades out at the ends; shrinks a little while pressed.
+        AnimatedOpacity(
+          opacity: _page < count - 1 ? 1 : 0.4,
+          duration: ErpMotion.of(context, ErpMotion.fast),
+          child: ErpPressable(
+            enabled: _page < count - 1,
+            scale: 0.88,
+            child: IconButton(
+              key: const ValueKey('erp-stat-carousel-next'),
+              tooltip: widget.nextLabel,
+              onPressed: _page < count - 1 ? () => _go(_page + 1) : null,
+              icon: const Icon(Icons.chevron_right_rounded),
+              color: brand,
+              disabledColor: idle,
+            ),
+          ),
         ),
       ],
     );
@@ -186,4 +212,15 @@ class _ErpStatCarouselState extends State<ErpStatCarousel> {
       ],
     );
   }
+}
+
+/// Page snapping that settles with a critically damped spring (no wobble), so swipes ease into place.
+class _EasedPagePhysics extends PageScrollPhysics {
+  const _EasedPagePhysics({super.parent});
+
+  @override
+  _EasedPagePhysics applyTo(ScrollPhysics? ancestor) => _EasedPagePhysics(parent: buildParent(ancestor));
+
+  @override
+  SpringDescription get spring => SpringDescription.withDampingRatio(mass: 0.5, stiffness: 140, ratio: 1.0);
 }

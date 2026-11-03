@@ -5,6 +5,7 @@ import '../../core/me.dart';
 import '../../kit/field.dart';
 import '../../kit/form_page.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 /// Like the kit's ListScreen, but the status chips filter on the phone.
 ///
@@ -55,11 +56,11 @@ class _State extends ConsumerState<ClientFilteredListScreen> {
           height: 48,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s3, vertical: ErpSpace.s15),
             children: [
-              Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: const Text('All'), selected: _filter == null, onSelected: (_) => setState(() => _filter = null))),
+              Padding(padding: const EdgeInsets.only(right: ErpSpace.s2), child: ChoiceChip(label: const Text('All'), selected: _filter == null, onSelected: (_) => setState(() => _filter = null))),
               for (final o in widget.filters)
-                Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(o.label), selected: _filter == o.value, onSelected: (_) => setState(() => _filter = o.value))),
+                Padding(padding: const EdgeInsets.only(right: ErpSpace.s2), child: ChoiceChip(label: Text(o.label), selected: _filter == o.value, onSelected: (_) => setState(() => _filter = o.value))),
             ],
           ),
         ),

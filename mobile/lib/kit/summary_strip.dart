@@ -78,7 +78,7 @@ class _Tile extends StatelessWidget {
     final valueColor = item.tone?.fgFor(brightness) ?? ErpColors.text;
     final body = Container(
       constraints: const BoxConstraints(minHeight: 48),
-      padding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: ErpSpace.s2),
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: ErpSpace.s25, vertical: ErpSpace.s2),
       alignment: AlignmentDirectional.centerStart,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -89,7 +89,7 @@ class _Tile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 10.5,
+              fontSize: ErpType.micro,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.4,
               color: ErpColors.muted,
@@ -107,7 +107,7 @@ class _Tile extends StatelessWidget {
                 maxLines: 1,
                 textDirection: TextDirection.ltr,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: ErpType.bodyLarge,
                   fontWeight: FontWeight.w700,
                   color: valueColor,
                   fontFeatures: ErpFonts.tabular,

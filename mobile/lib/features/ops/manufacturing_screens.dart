@@ -11,6 +11,8 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
+import '../../kit/skeleton.dart';
 
 const mfgPath = '/api/v1/m/manufacturing';
 
@@ -71,7 +73,7 @@ FormSpec bomForm(WidgetRef ref, {Json? existing}) {
       final cost = [
         for (final c in (raw['components'] as List<dynamic>? ?? const [])) _n((c as Json)['quantityRequired']) * _n(c['unitCost']) * (1 + _n(c['scrapPercentage']) / 100),
       ].fold<num>(0, (a, b) => a + b);
-      return Padding(padding: const EdgeInsets.only(top: 4), child: InfoRow('Material cost', formatMoney(cost), bold: true));
+      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Material cost', formatMoney(cost), bold: true));
     },
     submit: (ref, body, raw) {
       // The server takes names and codes from the catalog, but the contract has them as required strings.
@@ -94,7 +96,7 @@ Widget bomTile(BuildContext context, Json b) => ListTile(
       isThreeLine: true,
       trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
         Text(_m(b['totalUnitCost']), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         StatusChip(b['isActive'] == true ? 'Active' : 'Inactive', color: b['isActive'] == true ? Colors.green.shade700 : Colors.grey.shade700),
       ]),
     );
@@ -353,7 +355,7 @@ class MfgAnalyticsScreen extends ConsumerWidget {
         builder: (context, snap) => Scaffold(
           appBar: AppBar(title: const Text('Manufacturing analytics')),
           body: snap.connectionState != ConnectionState.done
-              ? const Center(child: CircularProgressIndicator())
+              ? const ErpSkeleton.list()
               : snap.hasError
                   ? ErrorView(message: snap.error is ApiException ? (snap.error! as ApiException).message : '${snap.error}', onRetry: () {})
                   : _kpis(snap.data as Json),

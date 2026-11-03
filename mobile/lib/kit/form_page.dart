@@ -5,6 +5,7 @@ import '../core/api_client.dart';
 import 'data_version.dart';
 import 'field.dart';
 import 'field_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 /// A screen made from a list of [Field]s.
 ///
@@ -115,30 +116,30 @@ class _FormPageState extends ConsumerState<FormPage> {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(ErpSpace.s4),
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 children: [
                   if (_banner != null)
                     Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: ErpSpace.s3),
+                      padding: const EdgeInsets.all(ErpSpace.s3),
                       decoration: BoxDecoration(color: Theme.of(context).colorScheme.errorContainer, borderRadius: BorderRadius.circular(8)),
                       child: Text(_banner!, style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer)),
                     ),
-                  if (spec.intro != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(spec.intro!)),
+                  if (spec.intro != null) Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: Text(spec.intro!)),
                   for (final f in spec.fields) FieldView(key: ValueKey(f.key), field: f, values: _values, errors: _errors, onChanged: () => setState(() {})),
                   if (spec.summary != null) spec.summary!(context, _values),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              padding: const EdgeInsets.fromLTRB(ErpSpace.s4, ErpSpace.s2, ErpSpace.s4, ErpSpace.s3),
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: _busy ? null : _submit,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: ErpSpace.s3),
                     child: _busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : Text(spec.submitLabel),
                   ),
                 ),

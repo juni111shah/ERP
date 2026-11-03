@@ -10,6 +10,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'hr_common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const payrollPath = '$hrPath/payroll';
 
@@ -65,7 +66,7 @@ Widget payrollTile(BuildContext context, Json r) {
     subtitle: Text('${r['number']} · ${r['employees']} employees'),
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Text(formatMoney((r['netPay'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       hrStatusChip(status, payrollStatusLabel(status)),
     ]),
   );
@@ -153,8 +154,8 @@ Widget payrollBody(BuildContext context, WidgetRef ref, Json d) {
   final canAdjust = const {'draft', 'pendingApproval'}.contains(status) && ref.read(meOrEmptyProvider).can('hr.payroll.manage');
   return DetailBody(children: [
     DetailHeader(title: '${monthName((d['month'] as num).toInt())} ${d['year']}', subtitle: '${d['number']} · ${d['employees']} employees'),
-    Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: 12), child: hrStatusChip(status, payrollStatusLabel(status)))),
-    if (status == 'pendingApproval') const Padding(padding: EdgeInsets.only(bottom: 12), child: Text('Waiting for approval. Once approved, tap Post again to post it.')),
+    Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: hrStatusChip(status, payrollStatusLabel(status)))),
+    if (status == 'pendingApproval') const Padding(padding: EdgeInsets.only(bottom: ErpSpace.s3), child: Text('Waiting for approval. Once approved, tap Post again to post it.')),
     InfoCard(rows: [
       InfoRow('Gross earnings', formatMoney((d['grossEarnings'] as num?) ?? 0)),
       InfoRow('Deductions', formatMoney((d['deductions'] as num?) ?? 0)),
@@ -170,7 +171,7 @@ Widget payrollBody(BuildContext context, WidgetRef ref, Json d) {
           title: Text('${l['employeeName']}'),
           subtitle: Text('${l['employeeNumber'] ?? ''}'),
           trailing: Text(formatMoney((l['netPay'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w700)),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          childrenPadding: const EdgeInsets.fromLTRB(ErpSpace.s4, 0, ErpSpace.s4, ErpSpace.s3),
           children: [
             InfoRow('Basic', formatMoney((l['basic'] as num?) ?? 0)),
             InfoRow('Allowances', formatMoney((l['allowances'] as num?) ?? 0)),

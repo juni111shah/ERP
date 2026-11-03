@@ -13,6 +13,7 @@ import 'common.dart';
 import 'lease_screens.dart';
 import 'maintenance_screens.dart';
 import 'report_screens.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const _propertiesPath = '$rePath/properties';
 const _unitsPath = '$rePath/units';
@@ -146,7 +147,7 @@ Widget propertyBody(BuildContext context, Json d) {
       InfoRow('Gross yield', '${formatMoney((d['grossYieldPercent'] as num?) ?? 0)}%'),
     ]),
     if (d['unitsNotFullyRegistered'] == true)
-      const Padding(padding: EdgeInsets.only(bottom: 12), child: Text('Not all units of this property are registered yet.', style: TextStyle(fontStyle: FontStyle.italic))),
+      const Padding(padding: EdgeInsets.only(bottom: ErpSpace.s3), child: Text('Not all units of this property are registered yet.', style: TextStyle(fontStyle: FontStyle.italic))),
     InfoCard(title: 'Details', rows: [
       InfoRow('Ownership', humanize(p['ownershipType']?.toString())),
       InfoRow('Management fee', (p['managementFeePercent'] as num?) == null || p['managementFeePercent'] == 0 ? null : '${p['managementFeePercent']}%'),
@@ -157,7 +158,7 @@ Widget propertyBody(BuildContext context, Json d) {
       InfoRow('Indicative value', formatMoney((p['indicativeValue'] as num?) ?? 0)),
     ]),
     if ((p['notes'] ?? '').toString().isNotEmpty) Text(p['notes'].toString()),
-    const SizedBox(height: 8),
+    const SizedBox(height: ErpSpace.s2),
     Text('Units', style: Theme.of(context).textTheme.titleMedium),
     RelatedList(path: _unitsPath, query: {'filter': 'propertyId:eq:${p['id']}', 'pageSize': 50}, tile: unitTile, empty: 'No units registered.'),
   ]);
@@ -299,10 +300,10 @@ class UnitDetailScreen extends StatelessWidget {
           InfoRow('Unavailable because', text(d['unavailableReason'])),
         ]),
         if ((d['notes'] ?? '').toString().isNotEmpty) Text(d['notes'].toString()),
-        const SizedBox(height: 8),
+        const SizedBox(height: ErpSpace.s2),
         Text('Leases', style: Theme.of(context).textTheme.titleMedium),
         RelatedList(path: '$rePath/leases', query: {'filter': 'unitId:eq:${d['id']}', 'pageSize': 20}, tile: leaseTile, empty: 'No leases for this unit.'),
-        const SizedBox(height: 8),
+        const SizedBox(height: ErpSpace.s2),
         Text('Rent history', style: Theme.of(context).textTheme.titleMedium),
         RelatedList(
           path: '$_unitsPath/${d['id']}/rent-history',

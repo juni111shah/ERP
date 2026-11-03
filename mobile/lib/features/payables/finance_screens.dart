@@ -13,6 +13,7 @@ import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import 'api_view.dart';
 import 'common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 // ---------------------------------------------------------------- cheque register
 
@@ -41,7 +42,7 @@ Widget chequeTile(BuildContext context, Json c) {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(money(c, 'amount'), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         StatusChip(humanize(status), color: StatusChip.forStatus(status)),
       ],
     ),
@@ -154,7 +155,7 @@ class _BankScreenState extends ConsumerState<BankScreen> {
           return DetailBody(children: [
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(ErpSpace.s4),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Total cash and bank', style: Theme.of(context).textTheme.titleSmall),
                   Text('$currency ${formatMoney((d['total'] as num?) ?? 0)}', style: Theme.of(context).textTheme.headlineSmall),
@@ -162,7 +163,7 @@ class _BankScreenState extends ConsumerState<BankScreen> {
                 ]),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: ErpSpace.s2),
             for (final a in accounts)
               ListTile(
                 leading: Icon(a['isBank'] == true ? Icons.account_balance_outlined : Icons.payments_outlined),
@@ -236,13 +237,13 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       _from = v;
                       if (_to < v) _to = v;
                     })),
-                const SizedBox(width: 12),
+                const SizedBox(width: ErpSpace.s3),
                 _month('To', _to, (v) => setState(() {
                       _to = v;
                       if (_from > v) _from = v;
                     })),
               ]),
-              const SizedBox(height: 12),
+              const SizedBox(height: ErpSpace.s3),
               InfoCard(title: 'Fiscal year ${d['fiscalYear']}', rows: [
                 InfoRow('Income: budget', formatMoney((d['budgetIncome'] as num?) ?? 0)),
                 InfoRow('Income: actual', formatMoney((d['actualIncome'] as num?) ?? 0)),

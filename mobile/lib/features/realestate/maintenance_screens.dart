@@ -10,6 +10,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const _woPath = '$rePath/work-orders';
 const _pmPath = '$rePath/pm-schedules';
@@ -175,7 +176,7 @@ class WorkOrderDetailScreen extends StatelessWidget {
         ]),
         if ((d['details'] ?? '').toString().isNotEmpty) ...[Text('Details', style: Theme.of(context).textTheme.titleMedium), Text(d['details'].toString())],
         if ((d['resolutionNotes'] ?? '').toString().isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: ErpSpace.s2),
           Text('Resolution', style: Theme.of(context).textTheme.titleMedium),
           Text(d['resolutionNotes'].toString()),
         ],
@@ -340,7 +341,7 @@ class InspectionDetailScreen extends StatelessWidget {
           return DetailBody(children: [
             DetailHeader(title: '${d['propertyName']}${d['unitNumber'] == null ? '' : ' · Unit ${d['unitNumber']}'}', subtitle: '${formatDate(d['inspectionDate'])}${(d['inspector'] ?? '').toString().isEmpty ? '' : ' · ${d['inspector']}'}', status: d['status']?.toString()),
             InfoCard(rows: [InfoRow('Damage / repair cost', formatMoney((d['damageCost'] as num?) ?? 0), bold: true)]),
-            if ((d['notes'] ?? '').toString().isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(d['notes'].toString())),
+            if ((d['notes'] ?? '').toString().isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: Text(d['notes'].toString())),
             Text('Checklist', style: Theme.of(context).textTheme.titleMedium),
             if (items.isEmpty) const Text('No areas recorded.'),
             for (final i in items)
@@ -351,7 +352,7 @@ class InspectionDetailScreen extends StatelessWidget {
                 trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
                   reChip(i['condition']),
                   if (((i['repairCost'] as num?) ?? 0) > 0) Text(formatMoney(i['repairCost'] as num)),
-                  if (i['workOrderId'] != null) const Text('Work order raised', style: TextStyle(fontSize: 11)),
+                  if (i['workOrderId'] != null) const Text('Work order raised', style: TextStyle(fontSize: ErpType.label)),
                 ]),
               ),
           ]);

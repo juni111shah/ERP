@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:erp_mobile/theme/app_theme.dart';
 import 'package:erp_mobile/theme/tokens.dart';
@@ -85,7 +86,10 @@ class FilterChipsRow<T> extends StatelessWidget {
             _Chip<T>(
               item: items[i],
               selected: items[i].value == selected,
-              onTap: () => onSelected(items[i].value),
+              onTap: () {
+                if (items[i].value != selected) HapticFeedback.selectionClick();
+                onSelected(items[i].value);
+              },
               formatCount: formatCount,
             ),
           ],
@@ -145,15 +149,15 @@ class _Chip<T> extends StatelessWidget {
                   Text(
                     item.label,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: ErpType.bodySmall,
                       fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                       color: selected ? t.brand : t.text2,
                     ),
                   ),
                   if (count != null) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: ErpSpace.s15),
                     Container(
-                      padding: const EdgeInsetsDirectional.symmetric(horizontal: 6),
+                      padding: const EdgeInsetsDirectional.symmetric(horizontal: ErpSpace.s15),
                       decoration: BoxDecoration(
                         color: selected ? t.surface : (dark ? const Color(0x1FFFFFFF) : const Color(0x0F000000)),
                         borderRadius: BorderRadius.circular(ErpRadius.pill),
@@ -162,7 +166,7 @@ class _Chip<T> extends StatelessWidget {
                         formatCount?.call(count) ?? '$count',
                         textDirection: TextDirection.ltr,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: ErpType.label,
                           height: 16 / 11,
                           color: selected ? t.brand : t.text2,
                           fontFeatures: ErpFonts.tabular,
@@ -202,7 +206,7 @@ class _FilterIconChip extends StatelessWidget {
           child: Center(
             child: Container(
               height: 32,
-              padding: const EdgeInsetsDirectional.symmetric(horizontal: 10),
+              padding: const EdgeInsetsDirectional.symmetric(horizontal: ErpSpace.s25),
               decoration: _chipDecoration(context, active),
               child: Icon(
                 Icons.filter_alt_outlined,

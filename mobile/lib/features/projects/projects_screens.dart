@@ -12,6 +12,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const pBase = '/api/v1/m/projects';
 
@@ -115,8 +116,8 @@ Widget projectTile(BuildContext context, Json p) {
     title: Text('${p['name']}', maxLines: 1, overflow: TextOverflow.ellipsis),
     subtitle: Text('${p['number']} · ${p['customerName'] ?? 'No customer'}'),
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-      Text(label(billingTypes, p['billingType']), style: const TextStyle(fontSize: 12)),
-      const SizedBox(height: 4),
+      Text(label(billingTypes, p['billingType']), style: const TextStyle(fontSize: ErpType.caption)),
+      const SizedBox(height: ErpSpace.s1),
       chip(projectStatuses, status),
     ]),
   );
@@ -162,7 +163,7 @@ class ProjectDetailScreen extends StatelessWidget {
           body: (context, d) => DetailBody(children: [
             DetailHeader(title: '${d['name']}', subtitle: d['customerName'] == null ? 'No customer assigned' : '${d['customerName']}', status: null),
             Align(alignment: Alignment.centerLeft, child: chip(projectStatuses, d['status'])),
-            const SizedBox(height: 8),
+            const SizedBox(height: ErpSpace.s2),
             InfoCard(rows: [
               InfoRow('Billing', label(billingTypes, d['billingType'])),
               InfoRow('Manager', text(d['managerName'])),
@@ -175,7 +176,7 @@ class ProjectDetailScreen extends StatelessWidget {
               InfoRow('Tasks', '${d['completedTasks'] ?? 0} / ${d['totalTasks'] ?? 0} done'),
               InfoRow('Milestones', '${d['achievedMilestones'] ?? 0} / ${d['totalMilestones'] ?? 0} achieved'),
             ]),
-            if ((d['description'] ?? '').toString().isNotEmpty) ...[Text(d['description'].toString()), const SizedBox(height: 12)],
+            if ((d['description'] ?? '').toString().isNotEmpty) ...[Text(d['description'].toString()), const SizedBox(height: ErpSpace.s3)],
             _Related(title: 'Tasks', path: '$pBase/tasks', projectId: id, tile: taskTile),
             _Related(title: 'Milestones', path: '$pBase/milestones', projectId: id, tile: milestoneTile),
             _Related(title: 'Time entries', path: '$pBase/timesheets', projectId: id, tile: timesheetTile),
@@ -267,7 +268,7 @@ class _RelatedState extends ConsumerState<_Related> {
       Text(widget.title, style: Theme.of(context).textTheme.titleMedium),
       if (_error != null) Text(_error!) else if (list == null) const LinearProgressIndicator(),
       for (final i in list ?? const <Json>[]) widget.tile(context, i),
-      const SizedBox(height: 8),
+      const SizedBox(height: ErpSpace.s2),
     ]);
   }
 }
@@ -357,7 +358,7 @@ class TaskDetailScreen extends StatelessWidget {
           body: (context, d) => DetailBody(children: [
             DetailHeader(title: '${d['title']}', subtitle: '${d['projectName']}'),
             Align(alignment: Alignment.centerLeft, child: chip(taskStatuses, d['status'])),
-            const SizedBox(height: 8),
+            const SizedBox(height: ErpSpace.s2),
             InfoCard(rows: [
               InfoRow('Priority', label(taskPriorities, d['priority'])),
               InfoRow('Assigned to', text(d['assignedTo'])),
@@ -433,7 +434,7 @@ Widget milestoneTile(BuildContext context, Json m) => ListTile(
       subtitle: Text('Due ${formatDate(m['dueDate'])}'),
       trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
         Text(formatMoney((m['amount'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         chip(milestoneStatuses, m['status']),
       ]),
     );
@@ -452,7 +453,7 @@ class MilestoneDetailScreen extends StatelessWidget {
           body: (context, d) => DetailBody(children: [
             DetailHeader(title: '${d['title']}', subtitle: '${d['projectName']}'),
             Align(alignment: Alignment.centerLeft, child: chip(milestoneStatuses, d['status'])),
-            const SizedBox(height: 8),
+            const SizedBox(height: ErpSpace.s2),
             InfoCard(rows: [
               InfoRow('Amount', formatMoney((d['amount'] as num?) ?? 0), bold: true),
               InfoRow('Due', formatDate(d['dueDate'])),
@@ -538,7 +539,7 @@ Widget timesheetTile(BuildContext context, Json t) => ListTile(
       isThreeLine: (t['description'] ?? '').toString().isNotEmpty,
       trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
         Text(formatMoney((t['totalAmount'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         StatusChip(t['isBilled'] == true ? 'Billed' : (t['isBillable'] == true ? 'Unbilled' : 'Non-billable'), color: t['isBilled'] == true ? Colors.green.shade700 : Colors.blueGrey),
       ]),
     );
@@ -613,7 +614,7 @@ Widget billingTile(BuildContext context, Json b) {
     subtitle: Text('${b['projectNumber']} · ${b['unbilledHours']} h unbilled · ${b['achievedMilestonesCount']} milestones'),
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Text(formatMoney((b['totalUnbilledAmount'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       StatusChip(hasWork ? 'Ready to bill' : 'Nothing to bill', color: hasWork ? Colors.blue.shade700 : Colors.blueGrey),
     ]),
   );
@@ -682,7 +683,7 @@ class _BillingDetailState extends ConsumerState<BillingDetailScreen> {
           InfoRow('Milestone amount', formatMoney((b['achievedMilestonesAmount'] as num?) ?? 0)),
           InfoRow('Total', formatMoney((b['totalUnbilledAmount'] as num?) ?? 0), bold: true),
         ]),
-        if (_error != null) Card(color: Theme.of(context).colorScheme.errorContainer, child: Padding(padding: const EdgeInsets.all(12), child: Text(_error!))),
+        if (_error != null) Card(color: Theme.of(context).colorScheme.errorContainer, child: Padding(padding: const EdgeInsets.all(ErpSpace.s3), child: Text(_error!))),
         if (r != null)
           InfoCard(title: 'Billed', rows: [
             InfoRow('Invoice', text(r['invoiceNumber'])),
@@ -694,7 +695,7 @@ class _BillingDetailState extends ConsumerState<BillingDetailScreen> {
       bottomNavigationBar: r == null && me.can('projects.billing.manage')
           ? SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                padding: const EdgeInsets.fromLTRB(ErpSpace.s3, ErpSpace.s15, ErpSpace.s3, ErpSpace.s25),
                 child: FilledButton.icon(onPressed: _busy ? null : _bill, icon: const Icon(Icons.request_quote_outlined), label: const Text('Create invoice')),
               ),
             )

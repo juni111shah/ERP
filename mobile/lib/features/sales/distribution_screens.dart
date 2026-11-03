@@ -10,6 +10,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const routesPath = '/api/v1/m/distribution/routes';
 const tripsPath = '/api/v1/m/distribution/trips';
@@ -126,7 +127,7 @@ class RouteDetailScreen extends StatelessWidget {
             return DetailBody(children: [
               DetailHeader(title: '${d['name']}', subtitle: d['description']?.toString()),
               _activeChip(d),
-              const SizedBox(height: 12),
+              const SizedBox(height: ErpSpace.s3),
               InfoCard(rows: [
                 InfoRow('Driver', d['driverName']?.toString()),
                 InfoRow('Vehicle', d['vehicleNumber']?.toString()),
@@ -246,7 +247,7 @@ Widget tripTile(BuildContext context, Json t) {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(formatMoney((t['totalSalesAmount'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         StatusChip(humanize(status), color: StatusChip.forStatus(status)),
       ],
     ),
@@ -361,7 +362,7 @@ Widget wholesaleTile(BuildContext context, Json w) => ListTile(
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: [Text(formatMoney((w['wholesaleUnitPrice'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: 4), _activeChip(w)],
+        children: [Text(formatMoney((w['wholesaleUnitPrice'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: ErpSpace.s1), _activeChip(w)],
       ),
     );
 
@@ -395,7 +396,7 @@ class WholesaleDetailScreen extends StatelessWidget {
           body: (context, d) => DetailBody(children: [
             DetailHeader(title: '${d['itemName']}', subtitle: '${d['itemCode']} · ${humanize(d['tier']?.toString())}'),
             _activeChip(d),
-            const SizedBox(height: 12),
+            const SizedBox(height: ErpSpace.s3),
             InfoCard(rows: [
               InfoRow('Unit price', formatMoney((d['wholesaleUnitPrice'] as num?) ?? 0), bold: true),
               InfoRow('Discount', '${_qty(d['discountPercentage'])}%'),

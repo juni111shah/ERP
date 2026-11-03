@@ -8,9 +8,12 @@ import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../kit/bar_chart.dart';
 import '../../kit/filter_chips.dart';
+import '../../kit/motion.dart';
 import '../../kit/registry.dart';
+import '../../kit/skeleton.dart';
 import '../../kit/stat_card.dart';
 import '../../kit/stat_carousel.dart';
+import '../../kit/state_view.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../common/paged_list_view.dart';
@@ -44,7 +47,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final dashboard = ref.watch(dashboardProvider);
     final menu = ref.watch(menuProvider).asData?.value ?? const <MenuGroup>[];
     return dashboard.when(
-      loading: () => const _OverviewSkeleton(),
+      loading: () => const KeyedSubtree(key: ValueKey('overview-skeleton'), child: ErpSkeleton.overview()),
       error: (e, _) => ErrorView(message: e.toString().replaceFirst(RegExp(r'^ApiException\(\d+\): '), ''), onRetry: () => ref.invalidate(dashboardProvider)),
       data: (d) => RefreshIndicator(
         onRefresh: () async => ref.refresh(dashboardProvider.future),
@@ -62,7 +65,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(ErpSpace.s4, ErpSpace.s6, ErpSpace.s4, bottom),
-        children: const [_EmptyOverview()],
+        children: [
+          ErpStateView.empty(
+            key: const ValueKey('overview-empty'),
+            icon: Icons.insights_outlined,
+            title: 'Nothing to show yet',
+            message: 'Figures appear here once this workspace has activity.',
+            actionLabel: 'Refresh',
+            actionIcon: Icons.refresh_rounded,
+            onAction: () => ref.invalidate(dashboardProvider),
+          ),
+        ],
       );
     }
 
@@ -93,13 +106,28 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               trailing: '${kpis.length} ${kpis.length == 1 ? 'metric' : 'metrics'}',
             ),
           ),
-          Padding(
-            padding: side,
-            child: ErpStatCarousel(
-              key: ValueKey('overview-carousel-$selected'),
-              children: [for (final k in kpis) _kpiCard(context, k, menu)],
+          if (kpis.isEmpty)
+            ErpStateView.empty(
+              key: const ValueKey('overview-category-empty'),
+              compact: true,
+              icon: Icons.filter_alt_off_outlined,
+              title: 'No metrics in this category',
+              actionLabel: 'Clear filter',
+              actionIcon: Icons.close_rounded,
+              onAction: () => setState(() => _category = _all),
+            )
+          else
+            Padding(
+              padding: side,
+              // A new key per chip replays the fade / slide-in when the filter changes.
+              child: ErpFadeSlideIn(
+                key: ValueKey('overview-cards-$selected'),
+                child: ErpStatCarousel(
+                  key: ValueKey('overview-carousel-$selected'),
+                  children: [for (final k in kpis) _kpiCard(context, k, menu)],
+                ),
+              ),
             ),
-          ),
         ],
         for (final c in d.charts) Padding(padding: const EdgeInsets.fromLTRB(ErpSpace.s4, ErpSpace.s3, ErpSpace.s4, 0), child: _chart(c)),
         if (d.alerts.isNotEmpty) ...[
@@ -178,84 +206,12 @@ class _SectionHeading extends StatelessWidget {
         Expanded(
           child: Text(
             isArabic ? text : text.toUpperCase(),
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: isArabic ? 0 : 0.55, color: t.muted),
+            style: ErpType.sectionLabel.copyWith(letterSpacing: isArabic ? 0 : null, color: t.muted),
           ),
         ),
         if (trailing != null)
-          Text(trailing!, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: t.muted, fontFeatures: ErpFonts.tabular)),
+          Text(trailing!, style: TextStyle(fontSize: ErpType.caption, fontWeight: FontWeight.w500, color: t.muted, fontFeatures: ErpFonts.tabular)),
       ]),
-    );
-  }
-}
-
-class _EmptyOverview extends StatelessWidget {
-  const _EmptyOverview();
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ErpTheme.of(context);
-    return Container(
-      key: const ValueKey('overview-empty'),
-      padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s5, vertical: ErpSpace.s6 * 2),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(ErpRadius.panel),
-        border: Border.all(color: t.borderSubtle),
-      ),
-      child: Column(children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(color: t.brandSubtle, shape: BoxShape.circle),
-          child: Icon(Icons.insights_outlined, color: t.brand, size: 28),
-        ),
-        const SizedBox(height: ErpSpace.s4),
-        Text('Nothing to show yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: t.text)),
-        const SizedBox(height: ErpSpace.s1),
-        Text('Figures appear here once this workspace has activity. Pull down to refresh.',
-            textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: t.muted)),
-      ]),
-    );
-  }
-}
-
-/// Static placeholder shapes while the overview loads (no animation, so it never keeps the frame busy).
-class _OverviewSkeleton extends StatelessWidget {
-  const _OverviewSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ErpTheme.of(context);
-    Widget block({double? width, required double height, double radius = ErpRadius.card}) => Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(color: t.sunken, borderRadius: BorderRadius.circular(radius)),
-        );
-    Widget card() => Expanded(child: block(height: 100));
-    return Semantics(
-      label: 'Loading overview',
-      child: ListView(
-        key: const ValueKey('overview-skeleton'),
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(ErpSpace.s4),
-        children: [
-          Row(children: [
-            block(width: 64, height: 32, radius: ErpRadius.pill),
-            const SizedBox(width: ErpSpace.s2),
-            block(width: 84, height: 32, radius: ErpRadius.pill),
-            const SizedBox(width: ErpSpace.s2),
-            block(width: 72, height: 32, radius: ErpRadius.pill),
-          ]),
-          const SizedBox(height: ErpSpace.s4),
-          block(width: 120, height: 10, radius: 4),
-          const SizedBox(height: ErpSpace.s3),
-          Row(children: [card(), const SizedBox(width: 10), card()]),
-          const SizedBox(height: 10),
-          Row(children: [card(), const SizedBox(width: 10), card()]),
-          const SizedBox(height: ErpSpace.s4),
-          block(height: 260, radius: ErpRadius.panel),
-        ],
-      ),
     );
   }
 }
@@ -310,15 +266,15 @@ class _AlertsCardState extends State<_AlertsCard> {
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 48),
                       child: Padding(
-                        padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s3, 10, ErpSpace.s2, 10),
+                        padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s3, ErpSpace.s25, ErpSpace.s2, ErpSpace.s25),
                         child: Row(
                           children: [
                             Icon(style.$1, size: 18, color: style.$2.fgFor(b)),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: ErpSpace.s25),
                             Expanded(
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(a.message, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: t.text)),
-                                if (a.category.isNotEmpty) Text(a.category, style: TextStyle(fontSize: 12, color: t.muted)),
+                                Text(a.message, style: TextStyle(fontSize: ErpType.bodySmall, fontWeight: FontWeight.w500, color: t.text)),
+                                if (a.category.isNotEmpty) Text(a.category, style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
                               ]),
                             ),
                             if (screen != null) Icon(Icons.chevron_right_rounded, size: 20, color: t.muted),
@@ -356,7 +312,7 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ErpTheme.of(context);
     return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, 14, ErpSpace.s4, 14),
+      padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, ErpSpace.s35, ErpSpace.s4, ErpSpace.s35),
       decoration: BoxDecoration(
         color: t.surface,
         borderRadius: BorderRadius.circular(ErpRadius.panel),
@@ -366,8 +322,8 @@ class _Panel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (title != null) Text(title!, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: t.text)),
-          if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 12, color: t.muted)),
+          if (title != null) Text(title!, style: TextStyle(fontSize: ErpType.bodyLarge, fontWeight: FontWeight.w700, color: t.text)),
+          if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
           child,
         ],
       ),
@@ -407,11 +363,11 @@ class _ChartCard extends StatelessWidget {
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 12),
+            const SizedBox(height: ErpSpace.s3),
             SizedBox(
               height: rotate ? 200 : 180,
               child: groups.isEmpty
-                  ? Center(child: Text('No data', style: TextStyle(color: t.muted)))
+                  ? const ErpStateView.empty(key: ValueKey('chart-empty'), compact: true, icon: Icons.bar_chart_rounded, title: 'No chart data', message: 'Nothing to plot for this period.')
                   : BarChart(BarChartData(
                       barGroups: groups,
                       gridData: const FlGridData(show: false),
@@ -424,11 +380,11 @@ class _ChartCard extends StatelessWidget {
                           getTooltipColor: (_) => t.text.withValues(alpha: 0.92),
                           getTooltipItem: (group, groupIndex, rod, rodIndex) => BarTooltipItem(
                             '${cats[group.x.clamp(0, cats.length - 1)]}\n',
-                            TextStyle(color: t.surface, fontSize: 12, fontWeight: FontWeight.w700),
+                            TextStyle(color: t.surface, fontSize: ErpType.caption, fontWeight: FontWeight.w700),
                             children: [
                               TextSpan(
                                 text: '${chart.series[rodIndex].name}: ${erpCompactNumber(rod.toY)}',
-                                style: TextStyle(color: t.surface, fontSize: 12, fontWeight: FontWeight.w500, fontFeatures: ErpFonts.tabular),
+                                style: TextStyle(color: t.surface, fontSize: ErpType.caption, fontWeight: FontWeight.w500, fontFeatures: ErpFonts.tabular),
                               ),
                             ],
                           ),
@@ -447,7 +403,7 @@ class _ChartCard extends StatelessWidget {
                               return SideTitleWidget(
                                 meta: meta,
                                 angle: rotate ? -0.6 : 0,
-                                child: Text(axisLabel(label, max: rotate ? 10 : 7), style: TextStyle(fontSize: 10, color: t.muted)),
+                                child: Text(axisLabel(label, max: rotate ? 10 : 7), style: TextStyle(fontSize: ErpType.micro, color: t.muted)),
                               );
                             },
                           ),
@@ -456,11 +412,11 @@ class _ChartCard extends StatelessWidget {
                     )),
             ),
             if (chart.series.length > 1)
-              Wrap(spacing: 12, children: [
+              Wrap(spacing: ErpSpace.s3, children: [
                 for (var s = 0; s < chart.series.length; s++)
                   Row(mainAxisSize: MainAxisSize.min, children: [
                     Container(width: 10, height: 10, decoration: BoxDecoration(color: _palette[s % _palette.length], borderRadius: BorderRadius.circular(3))),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: ErpSpace.s1),
                     Text(chart.series[s].name, style: theme.textTheme.bodySmall),
                   ]),
               ]),

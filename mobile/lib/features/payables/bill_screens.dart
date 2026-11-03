@@ -11,6 +11,7 @@ import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import 'common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const billsPath = '$finPath/bills';
 
@@ -62,7 +63,7 @@ FormSpec billForm(WidgetRef ref, {Json? existing}) {
     fields: fields,
     summary: (context, raw) {
       final net = [for (final l in (raw['lines'] as List<dynamic>)) lineTotal(l as Map)].fold<num>(0, (a, b) => a + b);
-      return Padding(padding: const EdgeInsets.only(top: 4), child: InfoRow('Net before tax', formatMoney(net), bold: true));
+      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Net before tax', formatMoney(net), bold: true));
     },
     submit: (ref, body, raw) async {
       final api = ref.read(apiProvider);
@@ -84,7 +85,7 @@ Widget billTile(BuildContext context, Json b) {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(money(b, 'total'), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         StatusChip(docStatusLabel(status), color: StatusChip.forStatus(status)),
       ],
     ),
@@ -186,6 +187,6 @@ Widget billBody(BuildContext context, Json d) {
         // Quantity x price (+ tax): demo data has lines whose net was never filled in.
         trailing: Text(formatMoney(lineTotal(l) + ((l['taxAmount'] as num?) ?? 0))),
       ),
-    if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: 8), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
+    if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: ErpSpace.s2), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
   ]);
 }

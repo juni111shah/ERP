@@ -12,6 +12,7 @@ import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import 'common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const journalsPath = '$finPath/journals';
 
@@ -104,7 +105,7 @@ Widget journalTile(BuildContext context, Json j) {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(money(j, 'amount'), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         StatusChip(humanize(status), color: StatusChip.forStatus(status)),
       ],
     ),

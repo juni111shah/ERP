@@ -10,6 +10,7 @@ import '../../kit/form_page.dart';
 import '../crm/client_filtered_list.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const sBase = '/api/v1/m/services';
 
@@ -82,7 +83,7 @@ Widget engagementTile(BuildContext context, Json e) => ListTile(
       subtitle: Text('${e['engagementCode']} · ${e['clientName']}'),
       trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
         Text(formatMoney((e['contractValue'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         _chip(engagementStatuses, e['status']),
       ]),
     );
@@ -125,7 +126,7 @@ class EngagementDetailScreen extends StatelessWidget {
         body: (context, d) => DetailBody(children: [
           DetailHeader(title: '${d['title']}', subtitle: '${d['clientName']}'),
           Align(alignment: Alignment.centerLeft, child: _chip(engagementStatuses, d['status'])),
-          const SizedBox(height: 8),
+          const SizedBox(height: ErpSpace.s2),
           InfoCard(rows: [
             InfoRow('Type', _label(engagementTypes, d['type'])),
             InfoRow('Contract value', formatMoney((d['contractValue'] as num?) ?? 0), bold: true),
@@ -180,7 +181,7 @@ Widget retainerTile(BuildContext context, Json r) => ListTile(
       isThreeLine: true,
       trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
         Text(formatMoney((r['recurringFee'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         _chip(retainerStatuses, r['status']),
       ]),
     );
@@ -223,7 +224,7 @@ class RetainerDetailScreen extends StatelessWidget {
         body: (context, d) => DetailBody(children: [
           DetailHeader(title: '${d['title']}', subtitle: '${d['clientName']}'),
           Align(alignment: Alignment.centerLeft, child: _chip(retainerStatuses, d['status'])),
-          const SizedBox(height: 8),
+          const SizedBox(height: ErpSpace.s2),
           InfoCard(rows: [
             InfoRow('Cycle', _label(retainerCycles, d['cycle'])),
             InfoRow('Recurring fee', formatMoney((d['recurringFee'] as num?) ?? 0), bold: true),
@@ -267,7 +268,7 @@ Widget serviceMilestoneTile(BuildContext context, Json m) => ListTile(
       subtitle: Text('${m['milestoneCode']} · due ${formatDate(m['dueDate'])}'),
       trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
         Text(formatMoney((m['amount'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         _chip(serviceMilestoneStatuses, m['status']),
       ]),
     );
@@ -309,7 +310,7 @@ class ServiceMilestoneDetailScreen extends StatelessWidget {
         body: (context, d) => DetailBody(children: [
           DetailHeader(title: '${d['title']}', subtitle: 'Due ${formatDate(d['dueDate'])}'),
           Align(alignment: Alignment.centerLeft, child: _chip(serviceMilestoneStatuses, d['status'])),
-          const SizedBox(height: 8),
+          const SizedBox(height: ErpSpace.s2),
           InfoCard(rows: [
             InfoRow('Amount', formatMoney((d['amount'] as num?) ?? 0), bold: true),
             InfoRow('Completed', d['completionDate'] == null ? null : formatDate(d['completionDate'])),

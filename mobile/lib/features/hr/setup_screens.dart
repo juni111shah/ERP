@@ -13,6 +13,7 @@ import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import 'hr_common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const _typesPath = '$hrPath/leave-types';
 const _holidaysPath = '$hrPath/holidays';
@@ -128,7 +129,7 @@ class HolidayDetailScreen extends ConsumerWidget {
             icon: const Icon(Icons.edit_outlined),
             label: const Text('Edit'),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: ErpSpace.s2),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
             onPressed: () async {

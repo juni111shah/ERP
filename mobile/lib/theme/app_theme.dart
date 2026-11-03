@@ -147,22 +147,23 @@ class AppTheme {
     );
 
     final text = base.textTheme.apply(bodyColor: t.text, displayColor: t.text).copyWith(
-          headlineSmall: base.textTheme.headlineSmall?.copyWith(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.2, color: t.text),
-          titleLarge: base.textTheme.titleLarge?.copyWith(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.1, color: t.text),
-          titleMedium: base.textTheme.titleMedium?.copyWith(fontSize: 16, fontWeight: FontWeight.w700, color: t.text),
-          titleSmall: base.textTheme.titleSmall?.copyWith(fontSize: 14.5, fontWeight: FontWeight.w600, color: t.text),
-          bodyLarge: base.textTheme.bodyLarge?.copyWith(fontSize: 15, color: t.text),
-          bodyMedium: base.textTheme.bodyMedium?.copyWith(fontSize: 14, color: t.text2),
-          bodySmall: base.textTheme.bodySmall?.copyWith(fontSize: 12, color: t.muted),
-          labelLarge: base.textTheme.labelLarge?.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
-          labelMedium: base.textTheme.labelMedium?.copyWith(fontSize: 12, fontWeight: FontWeight.w600, color: t.muted),
-          labelSmall: base.textTheme.labelSmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5, color: t.muted),
+          displaySmall: ErpType.displayStyle.copyWith(color: t.text),
+          headlineSmall: base.textTheme.headlineSmall?.copyWith(fontSize: ErpType.headline, fontWeight: FontWeight.w700, letterSpacing: -0.2, color: t.text),
+          titleLarge: base.textTheme.titleLarge?.copyWith(fontSize: ErpType.heading, fontWeight: FontWeight.w700, letterSpacing: -0.1, color: t.text),
+          titleMedium: base.textTheme.titleMedium?.copyWith(fontSize: ErpType.title, fontWeight: FontWeight.w700, color: t.text),
+          titleSmall: base.textTheme.titleSmall?.copyWith(fontSize: ErpType.body, fontWeight: FontWeight.w600, color: t.text),
+          bodyLarge: base.textTheme.bodyLarge?.copyWith(fontSize: ErpType.bodyLarge, color: t.text),
+          bodyMedium: base.textTheme.bodyMedium?.copyWith(fontSize: ErpType.body, color: t.text2),
+          bodySmall: base.textTheme.bodySmall?.copyWith(fontSize: ErpType.caption, color: t.muted),
+          labelLarge: base.textTheme.labelLarge?.copyWith(fontSize: ErpType.body, fontWeight: FontWeight.w600),
+          labelMedium: base.textTheme.labelMedium?.copyWith(fontSize: ErpType.caption, fontWeight: FontWeight.w600, color: t.muted),
+          labelSmall: base.textTheme.labelSmall?.copyWith(fontSize: ErpType.label, fontWeight: FontWeight.w600, letterSpacing: 0.5, color: t.muted),
         );
 
     OutlineInputBorder border(Color c, [double w = 1]) => OutlineInputBorder(borderRadius: BorderRadius.circular(ErpRadius.input), borderSide: BorderSide(color: c, width: w));
     const buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(ErpRadius.card)));
     const buttonSize = Size(64, 46);
-    const buttonText = TextStyle(fontFamily: ErpFonts.family, fontSize: 14.5, fontWeight: FontWeight.w600);
+    const buttonText = TextStyle(fontFamily: ErpFonts.family, fontSize: ErpType.body, fontWeight: FontWeight.w600);
 
     return base.copyWith(
       textTheme: text,
@@ -185,7 +186,7 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: t.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: ErpSpace.s35, vertical: ErpSpace.s35),
         border: border(t.border),
         enabledBorder: border(t.border),
         focusedBorder: border(t.brand, 1.5),
@@ -206,7 +207,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(minimumSize: buttonSize, shape: buttonShape, textStyle: buttonText, foregroundColor: t.text, side: BorderSide(color: t.border), backgroundColor: t.surface),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: t.brandHover, textStyle: buttonText.copyWith(fontSize: 13.5)),
+        style: TextButton.styleFrom(foregroundColor: t.brandHover, textStyle: buttonText.copyWith(fontSize: ErpType.bodySmall)),
       ),
       iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(foregroundColor: t.text2)),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -215,18 +216,18 @@ class AppTheme {
         elevation: 4,
         highlightElevation: 6,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        extendedTextStyle: buttonText.copyWith(fontSize: 14),
+        extendedTextStyle: buttonText.copyWith(fontSize: ErpType.body),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: t.surface,
         selectedColor: t.brandSubtle,
         side: BorderSide(color: t.border),
         shape: const StadiumBorder(),
-        labelStyle: TextStyle(fontFamily: ErpFonts.family, fontSize: 13, fontWeight: FontWeight.w500, color: t.text2),
-        secondaryLabelStyle: TextStyle(fontFamily: ErpFonts.family, fontSize: 13, fontWeight: FontWeight.w600, color: t.brand),
+        labelStyle: TextStyle(fontFamily: ErpFonts.family, fontSize: ErpType.bodySmall, fontWeight: FontWeight.w500, color: t.text2),
+        secondaryLabelStyle: TextStyle(fontFamily: ErpFonts.family, fontSize: ErpType.bodySmall, fontWeight: FontWeight.w600, color: t.brand),
         checkmarkColor: t.brand,
         showCheckmark: false,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s1),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: t.surface.withValues(alpha: 0.96),
@@ -237,7 +238,7 @@ class AppTheme {
         elevation: 0,
         labelTextStyle: WidgetStateProperty.resolveWith((s) => TextStyle(
               fontFamily: ErpFonts.family,
-              fontSize: 11,
+              fontSize: ErpType.label,
               fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
               color: s.contains(WidgetState.selected) ? t.brandHover : t.muted,
             )),
@@ -248,13 +249,13 @@ class AppTheme {
         unselectedLabelColor: t.muted,
         indicatorColor: t.brand,
         dividerColor: t.border,
-        labelStyle: const TextStyle(fontFamily: ErpFonts.family, fontSize: 13.5, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: const TextStyle(fontFamily: ErpFonts.family, fontSize: 13.5, fontWeight: FontWeight.w500),
+        labelStyle: const TextStyle(fontFamily: ErpFonts.family, fontSize: ErpType.bodySmall, fontWeight: FontWeight.w700),
+        unselectedLabelStyle: const TextStyle(fontFamily: ErpFonts.family, fontSize: ErpType.bodySmall, fontWeight: FontWeight.w500),
       ),
       listTileTheme: ListTileThemeData(
         iconColor: t.text2,
-        titleTextStyle: TextStyle(fontFamily: ErpFonts.family, fontSize: 14.5, fontWeight: FontWeight.w600, color: t.text),
-        subtitleTextStyle: TextStyle(fontFamily: ErpFonts.family, fontSize: 12.5, color: t.muted),
+        titleTextStyle: TextStyle(fontFamily: ErpFonts.family, fontSize: ErpType.body, fontWeight: FontWeight.w600, color: t.text),
+        subtitleTextStyle: TextStyle(fontFamily: ErpFonts.family, fontSize: ErpType.caption, color: t.muted),
       ),
       dividerTheme: DividerThemeData(color: t.borderSubtle, thickness: 1, space: 1),
       switchTheme: SwitchThemeData(

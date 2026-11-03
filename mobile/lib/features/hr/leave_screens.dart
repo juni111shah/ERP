@@ -10,6 +10,8 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'hr_common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
+import '../../kit/skeleton.dart';
 
 const _leavePath = '$hrPath/leave';
 
@@ -64,7 +66,7 @@ Widget leaveTile(BuildContext context, Json r) {
     isThreeLine: true,
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Text('${days(r['days'])} d', style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       hrStatusChip(status, leaveStatusLabel(status)),
     ]),
   );
@@ -148,7 +150,7 @@ List<ActionSpec> leaveActions(String path) => [
 
 Widget leaveBody(BuildContext context, Json d) => DetailBody(children: [
       DetailHeader(title: d['employeeName']?.toString() ?? '', subtitle: d['leaveTypeName']?.toString()),
-      Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: 12), child: hrStatusChip('${d['status']}', leaveStatusLabel('${d['status']}')))),
+      Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: hrStatusChip('${d['status']}', leaveStatusLabel('${d['status']}')))),
       InfoCard(rows: [
         InfoRow('From', formatDate(d['fromDate'])),
         InfoRow('To', formatDate(d['toDate'])),
@@ -195,19 +197,19 @@ class _LeaveBalancesState extends ConsumerState<LeaveBalancesScreen> {
           child: FutureBuilder<List<Json>>(
             future: _future,
             builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-              if (snap.hasError) return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('${snap.error}')));
+              if (snap.connectionState != ConnectionState.done) return const ErpSkeleton.list();
+              if (snap.hasError) return Center(child: Padding(padding: const EdgeInsets.all(ErpSpace.s6), child: Text('${snap.error}')));
               final rows = snap.data!;
               if (rows.isEmpty) return const Center(child: Text('No balances for this year.'));
               final byEmployee = <String, List<Json>>{};
               for (final r in rows) {
                 byEmployee.putIfAbsent('${r['employeeName']} (${r['employeeNumber']})', () => []).add(r);
               }
-              return ListView(padding: const EdgeInsets.all(12), children: [
+              return ListView(padding: const EdgeInsets.all(ErpSpace.s3), children: [
                 for (final e in byEmployee.entries)
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(ErpSpace.s3),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(e.key, style: Theme.of(context).textTheme.titleSmall),
                         for (final b in e.value) balanceRow(b),
@@ -227,15 +229,15 @@ Widget balanceRow(Json b) {
   final entitled = ((b['entitled'] as num?) ?? 0) + ((b['carried'] as num?) ?? 0);
   final taken = (b['taken'] as num?) ?? 0;
   return Padding(
-    padding: const EdgeInsets.only(top: 8),
+    padding: const EdgeInsets.only(top: ErpSpace.s2),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(child: Text('${b['leaveTypeName']}')),
         Text('${days(b['remaining'])} left', style: const TextStyle(fontWeight: FontWeight.w700)),
       ]),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       LinearProgressIndicator(value: entitled <= 0 ? 0 : (taken / entitled).clamp(0, 1).toDouble()),
-      Text('Taken ${days(taken)} of ${days(entitled)} · pending ${days(b['pending'])}', style: const TextStyle(fontSize: 12)),
+      Text('Taken ${days(taken)} of ${days(entitled)} · pending ${days(b['pending'])}', style: const TextStyle(fontSize: ErpType.caption)),
     ]),
   );
 }

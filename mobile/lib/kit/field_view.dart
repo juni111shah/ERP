@@ -8,6 +8,9 @@ import '../core/format.dart';
 import '../core/models.dart';
 import '../core/session.dart';
 import 'field.dart';
+import 'package:erp_mobile/theme/tokens.dart';
+import 'skeleton.dart';
+import 'state_view.dart';
 
 /// Renders one [Field] against the map [values] it reads and writes. [errors] holds messages keyed like [FormEngine.validate]
 /// (line fields use "lines[0].price"); [path] is the prefix of this field's container ("" at the top, "lines[0]." inside a line).
@@ -56,7 +59,7 @@ class _FieldViewState extends ConsumerState<FieldView> {
   Widget build(BuildContext context) {
     if (f.visibleWhen != null && !f.visibleWhen!(widget.values)) return const SizedBox.shrink();
     _sync();
-    return Padding(padding: const EdgeInsets.only(bottom: 12), child: _input(context));
+    return Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: _input(context));
   }
 
   void _set(Object? value) {
@@ -211,9 +214,9 @@ class _LookupSheetState extends ConsumerState<_LookupSheet> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Align(alignment: Alignment.centerLeft, child: Text(widget.title, style: Theme.of(context).textTheme.titleMedium))),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s4), child: Align(alignment: Alignment.centerLeft, child: Text(widget.title, style: Theme.of(context).textTheme.titleMedium))),
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(ErpSpace.s3),
           child: SearchBar(
             hintText: 'Search',
             leading: const Icon(Icons.search),
@@ -228,9 +231,9 @@ class _LookupSheetState extends ConsumerState<_LookupSheet> {
           child: _error != null
               ? Center(child: Text(_error!))
               : (_loading && _items.isEmpty)
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const ErpSkeleton.list(count: 5)
                   : _items.isEmpty
-                      ? const Center(child: Text('No matches'))
+                      ? const ErpStateView.empty(icon: Icons.search_off_rounded, title: 'No matches', message: 'Try a different search.', compact: true)
                       : ListView.builder(
                           itemCount: _items.length,
                           itemBuilder: (context, i) {
@@ -279,13 +282,13 @@ class LinesEditor extends StatelessWidget {
             label: Text(field.addLabel),
           ),
         ]),
-        if (error != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+        if (error != null) Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s2), child: Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error))),
         for (var i = 0; i < lines.length; i++)
           Card(
             key: ObjectKey(lines[i]),
-            margin: const EdgeInsets.only(bottom: 10),
+            margin: const EdgeInsets.only(bottom: ErpSpace.s25),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
+              padding: const EdgeInsets.fromLTRB(ErpSpace.s3, ErpSpace.s2, ErpSpace.s1, 0),
               child: Column(
                 children: [
                   Row(children: [
@@ -301,7 +304,7 @@ class LinesEditor extends StatelessWidget {
                       ),
                   ]),
                   Padding(
-                    padding: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.only(right: ErpSpace.s2),
                     child: Column(children: [
                       for (final sub in field.lineFields)
                         FieldView(key: ValueKey('${field.key}$i${sub.key}${lines[i].hashCode}'), field: sub, values: lines[i], onChanged: onChanged, errors: errors, path: '$path${field.key}[$i].'),

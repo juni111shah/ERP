@@ -73,7 +73,7 @@ FormSpec invoiceForm(WidgetRef ref, {Json? existing}) {
     fields: fields,
     summary: (context, raw) {
       final net = [for (final l in (raw['lines'] as List<dynamic>)) (toNum((l as Json)['quantity']) ?? 0) * (toNum(l['price']) ?? 0)].fold<num>(0, (a, b) => a + b);
-      return Padding(padding: const EdgeInsets.only(top: 4), child: InfoRow('Net before tax', formatMoney(net), bold: true));
+      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Net before tax', formatMoney(net), bold: true));
     },
     submit: (ref, body, raw) async {
       final api = ref.read(apiProvider);
@@ -246,7 +246,7 @@ class InvoiceDetailScreen extends StatelessWidget {
           trailing: Text(formatMoney(((l['quantity'] as num?) ?? 0) * ((l['price'] as num?) ?? 0) + ((l['taxAmount'] as num?) ?? 0))),
         ),
       InvoiceAllocations(invoiceId: d['id'].toString()),
-      if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: 8), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
+      if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: ErpSpace.s2), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
     ]);
   }
 }
@@ -301,7 +301,7 @@ class _InvoiceAllocationsState extends ConsumerState<InvoiceAllocations> {
     final rows = _rows;
     if (rows == null || rows.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SizedBox(height: 8),
+      const SizedBox(height: ErpSpace.s2),
       Text('Receipts and payments', style: Theme.of(context).textTheme.titleMedium),
       for (final a in rows)
         ListTile(

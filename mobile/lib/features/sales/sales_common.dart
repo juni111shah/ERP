@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../kit/detail_page.dart';
 import '../../kit/field.dart';
 import '../../kit/widgets.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 /// Line inputs shared by quotes and sales orders (same shape in the API).
 List<Field> documentLineFields() => [
@@ -55,7 +56,7 @@ num lineTotal(Json l) {
 
 Widget formTotal(BuildContext context, Map<String, dynamic> raw) {
   final total = [for (final l in (raw['lines'] as List<dynamic>)) lineTotal(l as Json)].fold<num>(0, (a, b) => a + b);
-  return Padding(padding: const EdgeInsets.only(top: 4), child: InfoRow('Total incl. tax', formatMoney(total), bold: true));
+  return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Total incl. tax', formatMoney(total), bold: true));
 }
 
 Widget documentLines(BuildContext context, List<dynamic> lines, {bool delivered = false}) {

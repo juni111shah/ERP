@@ -12,6 +12,7 @@ import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import 'order_screens.dart';
 import 'sales_common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const _path = '/api/v1/m/sales/quotes';
 
@@ -82,7 +83,7 @@ Widget quoteTile(BuildContext context, Json q) {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(money(q, 'totalAmount', currencyKey: 'currency'), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         StatusChip(humanize(status), color: StatusChip.forStatus(status)),
       ],
     ),
@@ -184,8 +185,8 @@ class QuoteDetailScreen extends StatelessWidget {
           onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(id: d['convertedSalesOrderId'].toString()))),
         ),
       documentLines(context, d['lines'] as List<dynamic>? ?? const []),
-      if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: 8), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
-      if ((d['terms'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: 8), Text('Terms', style: Theme.of(context).textTheme.titleMedium), Text(d['terms'].toString())],
+      if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: ErpSpace.s2), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
+      if ((d['terms'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: ErpSpace.s2), Text('Terms', style: Theme.of(context).textTheme.titleMedium), Text(d['terms'].toString())],
     ]);
   }
 }

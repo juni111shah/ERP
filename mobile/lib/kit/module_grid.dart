@@ -164,7 +164,7 @@ class ModuleTileCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ErpColors.text, fontWeight: FontWeight.w500),
               ),
               if (tile.note != null)
-                Text(tile.note!, style: const TextStyle(fontSize: 10.5, color: ErpColors.muted, fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+                Text(tile.note!, style: const TextStyle(fontSize: ErpType.micro, color: ErpColors.muted, fontWeight: FontWeight.w600, letterSpacing: 0.3)),
             ],
           ),
         ),
@@ -192,7 +192,7 @@ class _CountBadge extends StatelessWidget {
         child: Text(
           count > 99 ? '99+' : '$count',
           textDirection: TextDirection.ltr,
-          style: const TextStyle(color: ErpColors.surface, fontSize: 10, fontWeight: FontWeight.w700, height: 1.2),
+          style: const TextStyle(color: ErpColors.surface, fontSize: ErpType.micro, fontWeight: FontWeight.w700, height: 1.2),
         ),
       );
 }
