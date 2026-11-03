@@ -15,8 +15,23 @@ public sealed class AuthOptions
     public int MaxFailedAttempts { get; set; } = 5;
     public int LockoutMinutes { get; set; } = 15;
     public int ResetTokenMinutes { get; set; } = 30;
+    public TwoFactorOptions TwoFactor { get; set; } = new();
     public const string RefreshCookie = "erp_rt";
     public const string RefreshCookiePath = "/api/v1/auth";
+}
+
+/// <summary>
+/// Two-factor sign-in ("Auth:TwoFactor"). With <see cref="Enforce"/> on (the default), a user without a confirmed authenticator
+/// gets no session from email and password alone: login answers with a short-lived setup challenge, and the session is issued only
+/// once the first code from the app is confirmed. Development turns it off in appsettings.Development.json.
+/// </summary>
+public sealed class TwoFactorOptions
+{
+    public bool Enforce { get; set; } = true;
+    /// <summary>The name the authenticator app shows next to the account. Generic; set per deployment.</summary>
+    public string Issuer { get; set; } = "ERP";
+    /// <summary>How long a setup / verify challenge from login stays valid.</summary>
+    public int ChallengeMinutes { get; set; } = 10;
 }
 
 public sealed record WorkspaceOption(Guid Id, string Code, string Name, string Industry);
@@ -26,9 +41,23 @@ public sealed record SessionResult(
     WorkspaceOption Workspace, IReadOnlyList<WorkspaceOption> Workspaces);
 
 public sealed record LoginResult(
-    bool RequiresWorkspaceSelection, string? SelectionToken, IReadOnlyList<WorkspaceOption> Workspaces, SessionResult? Session, bool RequiresTwoFactor = false);
+    bool RequiresWorkspaceSelection, string? SelectionToken, IReadOnlyList<WorkspaceOption> Workspaces, SessionResult? Session, bool RequiresTwoFactor = false,
+    bool TwoFactorSetupRequired = false, string? ChallengeToken = null, int ChallengeExpiresIn = 0);
 
-public sealed record TwoFactorSetup(string Secret, string OtpAuthUri);
+public sealed record TwoFactorSetup(string Secret, string OtpAuthUri, string? QrCodeDataUri = null);
+
+/// <summary>What the first-sign-in setup step shows: the QR image of the otpauth:// link, and the key for typing in by hand.</summary>
+public sealed record TwoFactorChallengeSetup(string OtpAuthUri, string Secret, string QrCodeDataUri, string Issuer, string Account, int Digits, int Period);
+
+/// <summary>A confirmed challenge: the normal sign-in outcome, plus the one-time recovery codes when this confirmed a new setup.</summary>
+public sealed record TwoFactorChallengeResult(LoginResult Login, IReadOnlyList<string>? RecoveryCodes);
+
+/// <summary>Renders the authenticator QR code (implemented in Infrastructure).</summary>
+public interface IQrCodeRenderer
+{
+    /// <summary>A data:image/png;base64 URI of <paramref name="text"/> as a QR code.</summary>
+    string PngDataUri(string text);
+}
 public sealed record TwoFactorEnabled(IReadOnlyList<string> RecoveryCodes);
 public sealed record TwoFactorStatus(bool Enabled);
 
@@ -49,6 +78,10 @@ public interface IAuthService
     Task<TwoFactorSetup> BeginTwoFactorSetupAsync(Guid userId, CancellationToken ct);
     Task<IReadOnlyList<string>> EnableTwoFactorAsync(Guid userId, string code, CancellationToken ct);
     Task DisableTwoFactorAsync(Guid userId, string password, string code, CancellationToken ct);
+    /// <summary>Setup step of a login challenge: creates the authenticator key and returns the QR / manual-entry details.</summary>
+    Task<TwoFactorChallengeSetup> BeginChallengeSetupAsync(string challengeToken, CancellationToken ct);
+    /// <summary>Confirms a login challenge with a code (a first code for a new setup, or a code / recovery code for a returning user) and signs in.</summary>
+    Task<TwoFactorChallengeResult> VerifyChallengeAsync(string challengeToken, string code, string? ip, CancellationToken ct);
     Task<SessionResult> SelectWorkspaceAsync(string selectionToken, Guid orgId, string? ip, CancellationToken ct);
     Task<SessionResult> SwitchWorkspaceAsync(Guid userId, Guid currentOrgId, Guid orgId, string? currentJti, DateTime? currentExp, bool persistent, string? ip, CancellationToken ct);
     Task<SessionResult> RefreshAsync(string? rawRefreshToken, string? ip, CancellationToken ct);

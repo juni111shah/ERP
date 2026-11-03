@@ -20,6 +20,24 @@ public sealed record BeginTwoFactorSetup : ICommand<TwoFactorSetup>;
 /// <summary>Confirms the first code from the app, turns two-factor on and returns the one-time recovery codes (shown once).</summary>
 public sealed record EnableTwoFactor(string Code) : ICommand<TwoFactorEnabled>;
 public sealed record DisableTwoFactor(string Password, string Code) : ICommand;
+/// <summary>First sign-in without an authenticator: creates the key for the challenge from login and returns the QR / manual key.</summary>
+public sealed record BeginTwoFactorChallengeSetup(string ChallengeToken) : ICommand<TwoFactorChallengeSetup>;
+/// <summary>Confirms a login challenge (setup or returning user) with a code and issues the session.</summary>
+public sealed record VerifyTwoFactorChallenge(string ChallengeToken, string Code, string? Ip) : ICommand<TwoFactorChallengeResult>;
+
+public sealed class BeginTwoFactorChallengeSetupValidator : AbstractValidator<BeginTwoFactorChallengeSetup>
+{
+    public BeginTwoFactorChallengeSetupValidator() => RuleFor(x => x.ChallengeToken).NotEmpty().MaximumLength(4000);
+}
+
+public sealed class VerifyTwoFactorChallengeValidator : AbstractValidator<VerifyTwoFactorChallenge>
+{
+    public VerifyTwoFactorChallengeValidator()
+    {
+        RuleFor(x => x.ChallengeToken).NotEmpty().MaximumLength(4000);
+        RuleFor(x => x.Code).NotEmpty().MaximumLength(32);
+    }
+}
 
 public sealed class LoginValidator : AbstractValidator<Login>
 {
@@ -42,7 +60,9 @@ internal sealed class AuthHandlers(IAuthService auth, ICurrentUser user) :
     IRequestHandler<GetTwoFactorStatus, TwoFactorStatus>,
     IRequestHandler<BeginTwoFactorSetup, TwoFactorSetup>,
     IRequestHandler<EnableTwoFactor, TwoFactorEnabled>,
-    IRequestHandler<DisableTwoFactor, Unit>
+    IRequestHandler<DisableTwoFactor, Unit>,
+    IRequestHandler<BeginTwoFactorChallengeSetup, TwoFactorChallengeSetup>,
+    IRequestHandler<VerifyTwoFactorChallenge, TwoFactorChallengeResult>
 {
     public Task<LoginResult> Handle(Login c, CancellationToken ct) => auth.LoginAsync(c.Email, c.Password, c.RememberMe, c.Ip, c.TwoFactorCode, ct);
 
@@ -81,6 +101,9 @@ internal sealed class AuthHandlers(IAuthService auth, ICurrentUser user) :
     public Task<TwoFactorSetup> Handle(BeginTwoFactorSetup c, CancellationToken ct) => auth.BeginTwoFactorSetupAsync(CurrentUserId(), ct);
     public async Task<TwoFactorEnabled> Handle(EnableTwoFactor c, CancellationToken ct) => new(await auth.EnableTwoFactorAsync(CurrentUserId(), c.Code, ct));
     public async Task<Unit> Handle(DisableTwoFactor c, CancellationToken ct) { await auth.DisableTwoFactorAsync(CurrentUserId(), c.Password, c.Code, ct); return Unit.Value; }
+
+    public Task<TwoFactorChallengeSetup> Handle(BeginTwoFactorChallengeSetup c, CancellationToken ct) => auth.BeginChallengeSetupAsync(c.ChallengeToken, ct);
+    public Task<TwoFactorChallengeResult> Handle(VerifyTwoFactorChallenge c, CancellationToken ct) => auth.VerifyChallengeAsync(c.ChallengeToken, c.Code, c.Ip, ct);
 
     private Guid CurrentUserId() => user.UserId ?? throw new ForbiddenException();
 }

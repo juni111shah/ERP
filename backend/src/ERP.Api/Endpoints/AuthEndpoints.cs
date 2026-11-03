@@ -11,6 +11,8 @@ public static class AuthEndpoints
     public sealed record LoginRequest(string Email, string Password, bool RememberMe = false, string? TwoFactorCode = null);
     public sealed record TwoFactorCodeRequest(string Code);
     public sealed record DisableTwoFactorRequest(string Password, string Code);
+    public sealed record ChallengeRequest(string ChallengeToken);
+    public sealed record ChallengeCodeRequest(string ChallengeToken, string Code);
     public sealed record SelectWorkspaceRequest(string SelectionToken, Guid WorkspaceId);
     public sealed record SwitchWorkspaceRequest(Guid WorkspaceId);
     public sealed record ForgotRequest(string Email);
@@ -25,9 +27,22 @@ public static class AuthEndpoints
         g.MapPost("/login", async (LoginRequest r, ISender sender, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
         {
             var result = await sender.Send(new Login(r.Email, r.Password, r.RememberMe, Ip(http), r.TwoFactorCode), ct);
-            if (result.RequiresTwoFactor) return Results.Ok(new { requiresTwoFactor = true });
-            if (result.Session is { } s) { SetCookie(http, s, o.Value); return Results.Ok(SessionBody(s)); }
-            return Results.Ok(new { requiresWorkspaceSelection = true, result.SelectionToken, workspaces = result.Workspaces });
+            // Two-factor still to do: no session, only a short-lived challenge for the setup / enter-code step.
+            // requiresTwoFactor stays for clients that send the code inline with the password (older app builds).
+            if (result.RequiresTwoFactor)
+                return Results.Ok(new { requiresTwoFactor = true, twoFactorRequired = true, challengeToken = result.ChallengeToken, challengeExpiresIn = result.ChallengeExpiresIn });
+            if (result.TwoFactorSetupRequired)
+                return Results.Ok(new { twoFactorSetupRequired = true, challengeToken = result.ChallengeToken, challengeExpiresIn = result.ChallengeExpiresIn });
+            return SignedIn(http, result, o.Value);
+        }).AllowAnonymous().RequireRateLimiting("login");
+
+        // First sign-in two-factor setup and returning-user code entry, authorised by the challenge token from /login (not a session).
+        g.MapPost("/login/2fa/setup", (ChallengeRequest r, ISender sender, CancellationToken ct) => sender.Send(new BeginTwoFactorChallengeSetup(r.ChallengeToken), ct))
+            .AllowAnonymous().RequireRateLimiting("login");
+        g.MapPost("/login/2fa/verify", async (ChallengeCodeRequest r, ISender sender, HttpContext http, IOptions<AuthOptions> o, CancellationToken ct) =>
+        {
+            var result = await sender.Send(new VerifyTwoFactorChallenge(r.ChallengeToken, r.Code, Ip(http)), ct);
+            return SignedIn(http, result.Login, o.Value, result.RecoveryCodes);
         }).AllowAnonymous().RequireRateLimiting("login");
 
         g.MapGet("/2fa", (ISender sender, CancellationToken ct) => sender.Send(new GetTwoFactorStatus(), ct)).RequireAuthorization();
@@ -93,6 +108,23 @@ public static class AuthEndpoints
             await sender.Send(new ChangePassword(r.CurrentPassword, r.NewPassword), ct);
             return Results.NoContent();
         }).RequireAuthorization().RequireRateLimiting("login");
+    }
+
+    /// <summary>The answer once every factor has passed: the session (refresh cookie set), or the workspace choice.</summary>
+    private static IResult SignedIn(HttpContext http, LoginResult result, AuthOptions o, IReadOnlyList<string>? recoveryCodes = null)
+    {
+        if (result.Session is { } s)
+        {
+            SetCookie(http, s, o);
+            return Results.Ok(recoveryCodes is null ? SessionBody(s) : new
+            {
+                accessToken = s.AccessToken, tokenType = "Bearer", expiresIn = s.ExpiresIn, workspace = s.Workspace, workspaces = s.Workspaces, persistent = s.Persistent,
+                recoveryCodes,
+            });
+        }
+        return recoveryCodes is null
+            ? Results.Ok(new { requiresWorkspaceSelection = true, result.SelectionToken, workspaces = result.Workspaces })
+            : Results.Ok(new { requiresWorkspaceSelection = true, result.SelectionToken, workspaces = result.Workspaces, recoveryCodes });
     }
 
     private static object SessionBody(SessionResult s) => new

@@ -52,7 +52,9 @@ public sealed class AuthService(
     IDataProtectionProvider dataProtection,
     IPasswordResetSender resetSender,
     IClock clock,
-    IOptions<AuthOptions> options) : IAuthService
+    IOptions<AuthOptions> options,
+    TwoFactorChallenges challenges,
+    IQrCodeRenderer qr) : IAuthService
 {
     private readonly AuthOptions _o = options.Value;
     private static string? _dummyHash;
@@ -81,7 +83,10 @@ public sealed class AuthService(
         if (!user.IsActive) throw new AuthException(401, GenericFailure);
         if (user.TwoFactorEnabled)
         {
-            if (string.IsNullOrWhiteSpace(twoFactorCode)) return new(false, null, [], null, RequiresTwoFactor: true);
+            // No code yet: no session, only a short-lived challenge for the "enter code" step. (The failed-attempt counter is not
+            // reset here, so a known password cannot be used to keep guessing codes.)
+            if (string.IsNullOrWhiteSpace(twoFactorCode))
+                return Challenge(user, rememberMe, TwoFactorChallengePurpose.Verify);
             if (!await VerifyTwoFactorAsync(user, twoFactorCode))
             {
                 await users.AccessFailedAsync(user);
@@ -89,6 +94,24 @@ public sealed class AuthService(
                 throw new AuthException(401, "The verification code is incorrect.");
             }
         }
+        else if (_o.TwoFactor.Enforce)
+        {
+            // First sign-in (or 2FA never confirmed) while two-factor is enforced: set up an authenticator before any session.
+            return Challenge(user, rememberMe, TwoFactorChallengePurpose.Setup);
+        }
+        return await CompleteSignInAsync(user, rememberMe, ip, ct);
+    }
+
+    private LoginResult Challenge(AppUser user, bool rememberMe, TwoFactorChallengePurpose purpose)
+        => new(false, null, [], null,
+            RequiresTwoFactor: purpose == TwoFactorChallengePurpose.Verify,
+            TwoFactorSetupRequired: purpose == TwoFactorChallengePurpose.Setup,
+            ChallengeToken: challenges.Issue(user.Id, user.PasswordHash, rememberMe, purpose),
+            ChallengeExpiresIn: challenges.LifetimeSeconds);
+
+    /// <summary>Every factor has passed: reset the failure counter and issue the session (or the workspace choice).</summary>
+    private async Task<LoginResult> CompleteSignInAsync(AppUser user, bool rememberMe, string? ip, CancellationToken ct)
+    {
         await users.ResetAccessFailedCountAsync(user);
 
         var workspaces = await WorkspacesForAsync(user.Id, ct);
@@ -104,10 +127,81 @@ public sealed class AuthService(
         return new(true, selection, workspaces, null);
     }
 
+    public async Task<TwoFactorChallengeSetup> BeginChallengeSetupAsync(string challengeToken, CancellationToken ct)
+    {
+        var (user, _) = await ReadChallengeAsync(challengeToken, TwoFactorChallengePurpose.Setup);
+        // Once an authenticator is confirmed, a setup challenge can never replace it (that needs a signed-in user and a code).
+        if (user.TwoFactorEnabled) throw new AuthException(401, "This sign-in has expired. Sign in again.");
+        await EnsureNotLockedAsync(user);
+        // Calling setup again (page reload) issues a fresh key; the old one was never confirmed, so nothing is lost.
+        await users.ResetAuthenticatorKeyAsync(user);
+        await users.RemoveAuthenticationTokenAsync(user, TotpTokenProvider, TotpLastStepToken);
+        var key = await users.GetAuthenticatorKeyAsync(user) ?? throw new InvalidOperationException("Could not create an authenticator key.");
+        var account = user.Email ?? user.UserName ?? "user";
+        var uri = Totp.OtpAuthUri(_o.TwoFactor.Issuer, account, key);
+        return new(uri, Totp.FormatSecret(key), qr.PngDataUri(uri), _o.TwoFactor.Issuer, account, Totp.Digits, Totp.PeriodSeconds);
+    }
+
+    public async Task<TwoFactorChallengeResult> VerifyChallengeAsync(string challengeToken, string code, string? ip, CancellationToken ct)
+    {
+        var (user, challenge) = await ReadChallengeAsync(challengeToken, null);
+        await EnsureNotLockedAsync(user);
+        IReadOnlyList<string>? recovery = null;
+        if (challenge.Purpose == TwoFactorChallengePurpose.Setup)
+        {
+            if (user.TwoFactorEnabled) throw new AuthException(401, "This sign-in has expired. Sign in again.");
+            if (await users.GetAuthenticatorKeyAsync(user) is null) throw new ConflictException("Start the setup first.");
+            if (!await VerifyTotpAsync(user, code)) await WrongCodeAsync(user);
+            await users.SetTwoFactorEnabledAsync(user, true);
+            recovery = (await users.GenerateNewTwoFactorRecoveryCodesAsync(user, 8))!.ToList();
+        }
+        else
+        {
+            if (!user.TwoFactorEnabled) throw new AuthException(401, "This sign-in has expired. Sign in again.");
+            if (!await VerifyTwoFactorAsync(user, code)) await WrongCodeAsync(user);
+        }
+        return new(await CompleteSignInAsync(user, challenge.RememberMe, ip, ct), recovery);
+    }
+
+    private async Task<(AppUser User, TwoFactorChallenge Challenge)> ReadChallengeAsync(string token, TwoFactorChallengePurpose? purpose)
+    {
+        var expired = new AuthException(401, "This sign-in has expired. Sign in again.");
+        var c = challenges.Read(token) ?? throw expired;
+        if (purpose is { } p && c.Purpose != p) throw expired;
+        var user = await users.FindByIdAsync(c.UserId.ToString());
+        if (user is null || !user.IsActive || TwoFactorChallenges.Fingerprint(user.PasswordHash) != c.PasswordFingerprint) throw expired;
+        return (user, c);
+    }
+
+    private async Task WrongCodeAsync(AppUser user)
+    {
+        await users.AccessFailedAsync(user);
+        if (await users.IsLockedOutAsync(user)) throw Locked(user);
+        throw new AuthException(401, "The verification code is incorrect.");
+    }
+
+    /// <summary>Where the last accepted TOTP step is kept (AspNetUserTokens), so a code cannot be used twice.</summary>
+    private const string TotpTokenProvider = "[ErpTotp]";
+    private const string TotpLastStepToken = "LastStep";
+
+    /// <summary>
+    /// Checks an authenticator code against the stored key with the server clock: ±1 step (30 s) of drift, and never a step at or
+    /// before the last accepted one (replay). Identity's built-in check allows ±2 steps and has no replay protection.
+    /// </summary>
+    private async Task<bool> VerifyTotpAsync(AppUser user, string code)
+    {
+        var key = await users.GetAuthenticatorKeyAsync(user);
+        if (string.IsNullOrEmpty(key)) return false;
+        var last = long.TryParse(await users.GetAuthenticationTokenAsync(user, TotpTokenProvider, TotpLastStepToken), out var l) ? l : (long?)null;
+        var step = Totp.Validate(Totp.DecodeBase32(key), code, clock.UtcNow, last, drift: 1);
+        if (step is null) return false;
+        await users.SetAuthenticationTokenAsync(user, TotpTokenProvider, TotpLastStepToken, step.Value.ToString());
+        return true;
+    }
+
     private async Task<bool> VerifyTwoFactorAsync(AppUser user, string code)
     {
-        var clean = code.Replace(" ", "").Replace("-", "");
-        if (await users.VerifyTwoFactorTokenAsync(user, users.Options.Tokens.AuthenticatorTokenProvider, clean)) return true;
+        if (Totp.Normalise(code) is not null) return await VerifyTotpAsync(user, code);
         return (await users.RedeemTwoFactorRecoveryCodeAsync(user, code.Trim())).Succeeded; // recovery codes keep their dash
     }
 
@@ -119,9 +213,10 @@ public sealed class AuthService(
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthException(401, "Not signed in.");
         if (user.TwoFactorEnabled) throw new ConflictException("Two-factor authentication is already on. Turn it off first to set it up again.");
         await users.ResetAuthenticatorKeyAsync(user);
+        await users.RemoveAuthenticationTokenAsync(user, TotpTokenProvider, TotpLastStepToken);
         var key = await users.GetAuthenticatorKeyAsync(user) ?? throw new InvalidOperationException("Could not create an authenticator key.");
-        var uri = $"otpauth://totp/{Uri.EscapeDataString("ERP")}:{Uri.EscapeDataString(user.Email ?? user.UserName ?? "user")}?secret={key}&issuer={Uri.EscapeDataString("ERP")}&digits=6";
-        return new(string.Join(' ', Enumerable.Range(0, (key.Length + 3) / 4).Select(i => key.Substring(i * 4, Math.Min(4, key.Length - i * 4)))), uri);
+        var uri = Totp.OtpAuthUri(_o.TwoFactor.Issuer, user.Email ?? user.UserName ?? "user", key);
+        return new(Totp.FormatSecret(key), uri, qr.PngDataUri(uri));
     }
 
     public async Task<IReadOnlyList<string>> EnableTwoFactorAsync(Guid userId, string code, CancellationToken ct)
@@ -130,7 +225,7 @@ public sealed class AuthService(
         if (user.TwoFactorEnabled) throw new ConflictException("Two-factor authentication is already on.");
         if (await users.GetAuthenticatorKeyAsync(user) is null) throw new ConflictException("Start the setup first.");
         await EnsureNotLockedAsync(user);
-        if (!await users.VerifyTwoFactorTokenAsync(user, users.Options.Tokens.AuthenticatorTokenProvider, code.Replace(" ", "").Replace("-", "")))
+        if (!await VerifyTotpAsync(user, code))
         {
             await CountFailureAsync(user);
             throw new FieldValidationException("code", "The code is incorrect. Check the time on your phone and try the next code.");

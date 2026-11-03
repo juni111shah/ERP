@@ -153,6 +153,25 @@ export const EN: Dictionary = {
   'ui.entity.unit': 'Unit',
   'ui.entity.warehouse': 'Warehouse',
   'ui.entity.workOrder': 'Work order',
+  // two-factor sign-in step (login)
+  'twofa.setup.title': 'Set up two-factor sign-in',
+  'twofa.setup.sub': 'Your account needs an authenticator app (such as Google Authenticator or Microsoft Authenticator) to sign in.',
+  'twofa.setup.step1': 'Open your authenticator app and add an account.', 'twofa.setup.step2': 'Scan this QR code with the app.',
+  'twofa.setup.step3': 'Enter the 6-digit code the app shows.', 'twofa.setup.qrAlt': 'QR code for your authenticator app',
+  'twofa.setup.showKey': "Can't scan? Show key", 'twofa.setup.hideKey': 'Hide key', 'twofa.setup.keyLabel': 'Setup key',
+  'twofa.setup.submit': 'Verify and turn on',
+  'twofa.verify.title': 'Enter your verification code', 'twofa.verify.sub': 'Open your authenticator app and enter the 6-digit code for this account.',
+  'twofa.verify.submit': 'Verify and sign in',
+  'twofa.code': '6-digit code', 'twofa.recoveryCode': 'Recovery code', 'twofa.useRecovery': 'Use a recovery code',
+  'twofa.useApp': 'Use the authenticator app instead', 'twofa.backToLogin': 'Back to sign in',
+  'twofa.copy': 'Copy', 'twofa.copyKey': 'Copy key', 'twofa.copied': 'Copied', 'twofa.copyCodes': 'Copy codes', 'twofa.continue': 'Continue',
+  'twofa.recovery.title': 'Save your recovery codes',
+  'twofa.recovery.sub': 'Two-factor is on. If you lose your phone, each of these codes signs you in once. They are shown only now.',
+  'twofa.expired.title': 'Sign in again', 'twofa.expired.sub': 'This sign-in step has expired. Enter your email and password again to continue.',
+  'twofa.error.wrong': "That code didn't work. Check the time on your phone and enter the newest code.",
+  'twofa.error.locked': 'Too many wrong codes. Your account is locked for a few minutes.',
+  'twofa.error.tooMany': 'Too many attempts. Please wait a minute and try again.',
+  'twofa.error.offline': 'Cannot reach the server. Check your connection.', 'twofa.error.generic': 'Something went wrong. Please try again.',
 };
 
 export const AR: Dictionary = {
@@ -355,6 +374,25 @@ export const AR: Dictionary = {
   'ui.entity.unit': 'الوحدة',
   'ui.entity.warehouse': 'المستودع',
   'ui.entity.workOrder': 'أمر العمل',
+  // خطوة التحقق بخطوتين (تسجيل الدخول)
+  'twofa.setup.title': 'إعداد التحقق بخطوتين',
+  'twofa.setup.sub': 'يحتاج حسابك إلى تطبيق مصادقة (مثل Google Authenticator أو Microsoft Authenticator) لتسجيل الدخول.',
+  'twofa.setup.step1': 'افتح تطبيق المصادقة وأضف حساباً.', 'twofa.setup.step2': 'امسح رمز QR هذا بالتطبيق.',
+  'twofa.setup.step3': 'أدخل الرمز المكوّن من 6 أرقام الذي يظهره التطبيق.', 'twofa.setup.qrAlt': 'رمز QR لتطبيق المصادقة',
+  'twofa.setup.showKey': 'لا يمكنك المسح؟ اعرض المفتاح', 'twofa.setup.hideKey': 'إخفاء المفتاح', 'twofa.setup.keyLabel': 'مفتاح الإعداد',
+  'twofa.setup.submit': 'تحقق وفعّل',
+  'twofa.verify.title': 'أدخل رمز التحقق', 'twofa.verify.sub': 'افتح تطبيق المصادقة وأدخل الرمز المكوّن من 6 أرقام لهذا الحساب.',
+  'twofa.verify.submit': 'تحقق وسجّل الدخول',
+  'twofa.code': 'رمز من 6 أرقام', 'twofa.recoveryCode': 'رمز الاسترداد', 'twofa.useRecovery': 'استخدم رمز استرداد',
+  'twofa.useApp': 'استخدم تطبيق المصادقة بدلاً من ذلك', 'twofa.backToLogin': 'العودة إلى تسجيل الدخول',
+  'twofa.copy': 'نسخ', 'twofa.copyKey': 'نسخ المفتاح', 'twofa.copied': 'تم النسخ', 'twofa.copyCodes': 'نسخ الرموز', 'twofa.continue': 'متابعة',
+  'twofa.recovery.title': 'احفظ رموز الاسترداد',
+  'twofa.recovery.sub': 'تم تفعيل التحقق بخطوتين. إذا فقدت هاتفك، يتيح لك كل رمز من هذه الرموز تسجيل الدخول مرة واحدة. تظهر الآن فقط.',
+  'twofa.expired.title': 'سجّل الدخول مجدداً', 'twofa.expired.sub': 'انتهت صلاحية خطوة تسجيل الدخول هذه. أدخل بريدك الإلكتروني وكلمة المرور مجدداً للمتابعة.',
+  'twofa.error.wrong': 'الرمز غير صحيح. تحقق من الوقت في هاتفك وأدخل أحدث رمز.',
+  'twofa.error.locked': 'رموز خاطئة كثيرة. تم قفل حسابك لبضع دقائق.',
+  'twofa.error.tooMany': 'محاولات كثيرة جداً. يرجى الانتظار دقيقة ثم المحاولة مجدداً.',
+  'twofa.error.offline': 'تعذّر الوصول إلى الخادم. تحقق من اتصالك.', 'twofa.error.generic': 'حدث خطأ ما. يرجى المحاولة مجدداً.',
 };
 
 export const DICTIONARIES: Record<Lang, Dictionary> = { en: EN, ar: AR };

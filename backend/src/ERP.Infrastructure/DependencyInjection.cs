@@ -72,6 +72,8 @@ public static class DependencyInjection
         services.Configure<AuthOptions>(config.GetSection(AuthOptions.Section));
         services.AddDataProtection();
         services.AddScoped<AuthService>();
+        services.AddSingleton<TwoFactorChallenges>();
+        services.AddSingleton<IQrCodeRenderer, QrCodeRenderer>();
         services.AddScoped<ERP.Application.Portal.IPortalAuth, PortalAuth>();
         services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
         services.AddScoped<OnboardingService>();
