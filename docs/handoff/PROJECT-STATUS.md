@@ -188,6 +188,14 @@ Earlier relevant commits on main: 7fe89dd (#44, manual-only journal reversal), 2
 | CoA numbering investigation | `/workspace/erp-team/merge/coa-numbering-findings.md`: codes are free text (max 20), unique per workspace, not tied to `ParentId`; Option A recommended |
 | Cheque print | Already in main as 66385aa (cheque instrument details + PDC badge on receipt and payment prints); verified at 9c93a63, no patch needed |
 
+## 4.3 Server-side PDF for print documents (branch `feature/server-pdf`, open PR, 2026-11-03)
+
+- **Backend:** `GET /api/v1/print/{invoice|receipt|bill|payment|journal}/{id}/pdf` returns `application/pdf` with a `Content-Disposition` file name (for example `Invoice-INV-0007.pdf`). Same permissions and 404 rules as the JSON print routes (it reuses the `GetPrint*` queries via `GetPrintPdf`).
+- **Design:** `IPrintPdfRenderer` in `ERP.Application/Printing/PrintPdf.cs`; `QuestPdfPrintRenderer` in `ERP.Infrastructure/Printing` (QuestPDF 2026.9.1, **Community licence**: free for organisations under USD 1M annual gross revenue; a larger company needs a QuestPDF Professional/Enterprise licence). Arabic/RTL text uses embedded Noto Sans Arabic (SIL OFL 1.1, licence file next to the fonts). No schema or data changes.
+- **Web:** icon-only "Download PDF" button (tooltip) on the print page for those five documents; browser print is unchanged.
+- **Mobile:** "Print / Share PDF" app-bar button on invoice and receipt details: downloads the server PDF (`ApiClient.getBytes`) and hands it to the OS print dialog or share sheet through the `printing` package (behind the injectable `PdfOutput`). No PDF is built on the phone (`pdf` is only a transitive dependency of `printing`).
+- **Tests:** `PrintPdfRendererTests` (unit), `PrintPdfTests` (integration: content type, file name, 404, 401, same policies), `mobile/test/pdf_share_test.dart`.
+
 # 5. Pending tasks
 
 Owner and coordinator: unless stated, the specialist agent prepares a patch or branch and Grok Bot builds, opens the PR and squash-merges.

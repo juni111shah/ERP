@@ -23,5 +23,21 @@ public static class PrintEndpoints
         
         api.MapGet("/print/journal/{id:guid}", (Guid id, ISender sender, CancellationToken ct) => sender.Send(new GetPrintJournal(id), ct))
             .RequirePermission(CorePermissions.JournalsRead).WithTags("Print");
+
+        // The same documents as real PDF files (rendered on the server, same permission and 404 rules as the print data above).
+        MapPdf(api, "invoice", PrintDocKind.Invoice, CorePermissions.InvoicesRead);
+        MapPdf(api, "receipt", PrintDocKind.Receipt, CorePermissions.ReceiptsRead);
+        MapPdf(api, "bill", PrintDocKind.Bill, CorePermissions.BillsRead);
+        MapPdf(api, "payment", PrintDocKind.Payment, CorePermissions.PaymentsRead);
+        MapPdf(api, "journal", PrintDocKind.Journal, CorePermissions.JournalsRead);
     }
+
+    private static void MapPdf(RouteGroupBuilder api, string kind, PrintDocKind docKind, string permission) =>
+        api.MapGet($"/print/{kind}/{{id:guid}}/pdf", async (Guid id, ISender sender, CancellationToken ct) =>
+            {
+                var file = await sender.Send(new GetPrintPdf(docKind, id), ct);
+                return Results.File(file.Content, PrintPdfFile.ContentType, file.FileName);
+            })
+            .RequirePermission(permission).WithTags("Print")
+            .Produces(StatusCodes.Status200OK, contentType: PrintPdfFile.ContentType);
 }

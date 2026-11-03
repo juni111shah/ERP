@@ -7,6 +7,7 @@ import '../../core/session.dart';
 import '../../kit/detail_page.dart';
 import '../../kit/field.dart';
 import '../../kit/form_page.dart';
+import '../../kit/pdf_share.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
@@ -131,6 +132,9 @@ class ReceiptDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) => DetailPage(
         path: '$receiptsPath/$id',
         titleOf: (d) => '${d['number']}',
+        headerActions: (context, d) => [
+          PrintShareButton(path: '/api/v1/print/receipt/$id/pdf', fallbackFileName: 'Receipt-${d['number'] ?? id}.pdf'),
+        ],
         body: _body,
         actions: [
           ActionSpec(
