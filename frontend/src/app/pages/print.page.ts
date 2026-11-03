@@ -6,6 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { forkJoin, map, of, catchError } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { API_BASE_URL } from '../core/api/api-config';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { I18nService } from '../core/i18n/i18n.service';
@@ -226,7 +227,7 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 @Component({
   selector: 'erp-print',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, DatePipe, DecimalPipe, NzButtonModule, NzIconModule, ThermalReceiptComponent],
+  imports: [TranslatePipe, CommonModule, DatePipe, DecimalPipe, NzButtonModule, NzIconModule, NzToolTipModule, ThermalReceiptComponent],
   styles: [`
     :host {
       --ink: #0f172a;
@@ -241,6 +242,7 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
       font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif; color: var(--ink);
     }
     .toolbar { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; }
+    .toolbar .pdf-err { align-self: center; color: #cf1322; font-size: 13px; }
     .sheet {
       position: relative; width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff;
       box-shadow: 0 4px 20px rgba(0,0,0,.08); padding: 14mm 14mm 16mm; box-sizing: border-box; font-size: 12px; line-height: 1.5;
@@ -331,6 +333,10 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
       @if (data(); as d) {
       <div class="toolbar">
         <button nz-button nzType="primary" (click)="print()" data-testid="print-btn"><span nz-icon nzType="printer"></span>Print / Save as PDF</button>
+        @if (pdfKinds.includes(docType())) {
+          <button nz-button nz-tooltip nzTooltipTitle="Download PDF" aria-label="Download PDF" [nzLoading]="pdfBusy()" (click)="downloadPdf()" data-testid="download-pdf-btn"><span nz-icon nzType="download"></span></button>
+          @if (pdfError(); as pe) { <span class="pdf-err" role="alert">{{ pe }}</span> }
+        }
         @if (docType() === 'receipt') {
           <button nz-button (click)="toggleSlipMode()">
             <span nz-icon nzType="file-text"></span> {{ receiptSlipMode() ? 'Switch to Full A4' : 'Switch to Thermal Slip' }}
@@ -1597,6 +1603,36 @@ export class PrintPage implements OnInit {
   }
 
   print(): void { window.print(); }
+
+  /** Documents the server can render as a real PDF file (GET /print/{kind}/{id}/pdf). */
+  readonly pdfKinds = ['invoice', 'bill', 'receipt', 'payment', 'journal'];
+  readonly pdfBusy = signal(false);
+  readonly pdfError = signal<string | null>(null);
+
+  downloadPdf(): void {
+    const type = this.docType();
+    const id = this.route.snapshot.paramMap.get('id');
+    if (!id || !this.pdfKinds.includes(type)) return;
+    this.pdfBusy.set(true);
+    this.pdfError.set(null);
+    this.http.get(`${this.apiBase}/print/${type}/${id}/pdf`, { responseType: 'blob', observe: 'response' }).subscribe({
+      next: (res) => {
+        const header = res.headers.get('content-disposition') ?? '';
+        const name = /filename="?([^";]+)"?/i.exec(header)?.[1] ?? `${type}-${id}.pdf`;
+        const url = URL.createObjectURL(res.body as Blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.pdfBusy.set(false);
+      },
+      error: () => {
+        this.pdfBusy.set(false);
+        this.pdfError.set('Could not download the PDF. Try again.');
+      },
+    });
+  }
   close(): void { window.close(); }
 
   taxRate(l: DocLine): string {
