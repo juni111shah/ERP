@@ -187,12 +187,21 @@ Earlier relevant commits on main: 7fe89dd (#44, manual-only journal reversal), 2
 | CoA numbering investigation | `/workspace/erp-team/merge/coa-numbering-findings.md`: codes are free text (max 20), unique per workspace, not tied to `ParentId`; Option A recommended |
 | Cheque print | Already in main as 66385aa (cheque instrument details + PDC badge on receipt and payment prints); verified at 9c93a63, no patch needed |
 
-## 4.3 Mobile first-open intro tour (3D depth, light) - PR OPEN, not merged (branch `mobile/intro-tour-3d`)
+## 4.3 Server-side PDF for print documents (branch `feature/server-pdf`, open PR, 2026-11-03)
 
-- Five-screen tour shown once on first app open, before sign-in: key numbers, money in/out, invoices and receipts, make the app yours, quick search. Light ErpTheme forced; EN + AR; 48dp targets; system back = Skip. Code in `mobile/lib/features/intro/`.
+- **Backend:** `GET /api/v1/print/{invoice|receipt|bill|payment|journal}/{id}/pdf` returns `application/pdf` with a `Content-Disposition` file name (for example `Invoice-INV-0007.pdf`). Same permissions and 404 rules as the JSON print routes (it reuses the `GetPrint*` queries via `GetPrintPdf`).
+- **Design:** `IPrintPdfRenderer` in `ERP.Application/Printing/PrintPdf.cs`; `QuestPdfPrintRenderer` in `ERP.Infrastructure/Printing` (QuestPDF 2026.9.1, **Community licence**: free for organisations under USD 1M annual gross revenue; a larger company needs a QuestPDF Professional/Enterprise licence). Arabic/RTL text uses embedded Noto Sans Arabic (SIL OFL 1.1, licence file next to the fonts). No schema or data changes.
+- **Web:** icon-only "Download PDF" button (tooltip) on the print page for those five documents; browser print is unchanged.
+- **Mobile:** "Print / Share PDF" app-bar button on invoice and receipt details: downloads the server PDF (`ApiClient.getBytes`) and hands it to the OS print dialog or share sheet through the `printing` package (behind the injectable `PdfOutput`). No PDF is built on the phone (`pdf` is only a transitive dependency of `printing`).
+- **Tests:** `PrintPdfRendererTests` (unit), `PrintPdfTests` (integration: content type, file name, 404, 401, same policies), `mobile/test/pdf_share_test.dart`.
+
+## 4.4 Mobile first-open intro tour (3D depth, light) - PR #93 OPEN, not merged (branch `mobile/intro-tour-3d`)
+
+- Five-screen tour shown once on first app open, before sign-in: overview, cash flow (billed vs collected), invoicing, alerts and settings, everything in one app. Light ErpTheme forced; EN + AR; 48dp targets; system back = Skip. Code in `mobile/lib/features/intro/`.
 - Flag `intro_tour_v1_seen` = `1` in the KeyValueStore (`storeProvider`), set by Skip / Get started / back. `introProvider` (unknown -> splash, show -> `/intro`, seen -> normal session routing) is wired into the go_router redirect in `lib/app.dart`. Kept separate from the later coach-mark tour (`onboarding_tour_v1_seen`).
-- Motion values come from the Advanced UI UX spec (`intro_motion.dart`): one ticker, per-layer Matrix4 transforms (perspective 1/1100), staggered rise, perspective floor + glow, page parallax, 6s drift eased out after 12s; reduced motion = flat + 200ms crossfade. No new packages, no goldens.
-- Tests: `test/intro_tour_test.dart` (7) + `test/intro_motion_test.dart` (4).
+- Motion values come from the Advanced UI UX spec (`intro_motion.dart`): one ticker, per-layer Matrix4 transforms (perspective 1/1100), staggered rise, perspective floor + brand-tinted glow, page parallax, 6s drift eased out after 12s; captions fade and slide with the parallax; reduced motion = flat + 200ms crossfade. No new packages, no goldens.
+- v2: existing ERP mark + name in the screen 1 header (small mark after), page dots + Next / Get started bar, outcome headline + one line per screen, screen 5 "Everything in one app" chips listing only features the app has. Card text scales down to one line instead of cutting off. Arabic copy needs a native-speaker review.
+- Tests: `test/intro_tour_test.dart` (7), `test/intro_motion_test.dart` (4), `test/intro_fit_test.dart` (3: no truncated text or overflow at 360x780 and 390x844, EN + AR, real fonts).
 
 # 5. Pending tasks
 
