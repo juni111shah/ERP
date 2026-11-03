@@ -185,7 +185,7 @@ const budgetsPath = '$finPath/budgets';
 Widget budgetTile(BuildContext context, Json b) => ListTile(
       onTap: () => pushPage(context, BudgetScreen(id: b['id'].toString(), title: b['name'].toString())),
       title: Text('${b['name']}'),
-      subtitle: Text('Fiscal year ${b['fiscalYear']}'),
+      subtitle: Text('Financial year ${b['fiscalYear']}'),
       trailing: StatusChip(b['isActive'] == true ? 'Active' : 'Inactive', color: StatusChip.forStatus(b['isActive'] == true ? 'active' : 'draft')),
     );
 
@@ -244,13 +244,13 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     })),
               ]),
               const SizedBox(height: ErpSpace.s3),
-              InfoCard(title: 'Fiscal year ${d['fiscalYear']}', rows: [
+              InfoCard(title: 'Financial year ${d['fiscalYear']}', rows: [
                 InfoRow('Income: budget', formatMoney((d['budgetIncome'] as num?) ?? 0)),
                 InfoRow('Income: actual', formatMoney((d['actualIncome'] as num?) ?? 0)),
                 InfoRow('Expense: budget', formatMoney((d['budgetExpense'] as num?) ?? 0)),
                 InfoRow('Expense: actual', formatMoney((d['actualExpense'] as num?) ?? 0)),
-                InfoRow('Net: budget', formatMoney((d['budgetNet'] as num?) ?? 0), bold: true),
-                InfoRow('Net: actual', formatMoney((d['actualNet'] as num?) ?? 0), bold: true),
+                InfoRow('Result: budget', formatMoney((d['budgetNet'] as num?) ?? 0), bold: true),
+                InfoRow('Result: actual', formatMoney((d['actualNet'] as num?) ?? 0), bold: true),
               ]),
               for (final r in rows)
                 Card(
@@ -272,7 +272,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
 // ---------------------------------------------------------------- chart of accounts
 
 const accountsPath = '$finPath/accounts';
-const accountTypes = [Option('asset', 'Asset'), Option('liability', 'Liability'), Option('equity', 'Equity'), Option('income', 'Income'), Option('expense', 'Expense')];
+const accountTypes = [Option('asset', 'Asset'), Option('liability', 'Something you owe (liability)'), Option('equity', "Owner's share"), Option('income', 'Income'), Option('expense', 'Expense')];
 
 FormSpec accountForm(WidgetRef ref, {Json? existing}) {
   final editing = existing != null;
@@ -298,7 +298,7 @@ FormSpec accountForm(WidgetRef ref, {Json? existing}) {
       Field.select('type', 'Type', options: accountTypes, required: true),
       Field.text('reportingGroup', 'Reporting group', maxLength: 100),
       Field.lookup('parentId', 'Parent account (optional)', path: accountsPath, subtitleKey: 'code'),
-      Field.toggle('isPostable', 'Can be posted to', initial: true),
+      Field.toggle('isPostable', 'Can record entries', initial: true),
       Field.toggle('isBank', 'Bank or cash account'),
       Field.toggle('isActive', 'Active', initial: true),
     ],
@@ -322,7 +322,7 @@ class AccountsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListScreen(
-        title: 'Chart of accounts',
+        title: 'Account list',
         path: accountsPath,
         searchHint: 'Search accounts',
         emptyText: 'No accounts found.',
@@ -350,7 +350,7 @@ class AccountDetailScreen extends StatelessWidget {
             DetailHeader(title: d['name'].toString(), subtitle: '${d['code']} · ${humanize(d['type']?.toString())}', status: d['isActive'] == true ? 'active' : 'inactive'),
             InfoCard(rows: [
               InfoRow('Reporting group', d['reportingGroup']?.toString()),
-              InfoRow('Posting', d['isPostable'] == true ? 'Postable' : 'Group (no postings)'),
+              InfoRow('Recording', d['isPostable'] == true ? 'Postable' : 'Group (no postings)'),
               InfoRow('Bank or cash', d['isBank'] == true ? 'Yes' : 'No'),
               InfoRow('System account', d['isSystem'] == true ? 'Yes' : null),
               InfoRow('Currency', d['currencyCode']?.toString()),

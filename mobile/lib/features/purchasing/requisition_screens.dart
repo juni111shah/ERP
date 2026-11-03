@@ -78,10 +78,10 @@ FormSpec requisitionForm(WidgetRef ref, {Json? existing}) {
 
 /// Choose the vendor for the order a requisition becomes.
 FormSpec convertForm(Json requisition) => FormSpec(
-      title: 'Convert ${requisition['number']}',
-      intro: 'A draft purchase order is created from the lines of this requisition.',
+      title: 'Convert ${requisition['number']} to an order',
+      intro: 'A draft purchase order is created from the lines of this purchase request.',
       submitLabel: 'Create order',
-      fields: [Field.lookup('vendorPartyId', 'Vendor', path: '/api/v1/parties', query: const {'role': 'Vendor'}, subtitleKey: 'code', required: true)],
+      fields: [Field.lookup('vendorPartyId', 'Supplier', path: '/api/v1/parties', query: const {'role': 'Vendor'}, subtitleKey: 'code', required: true)],
       submit: (ref, body, raw) => ref.read(apiProvider).post('$requisitionsPath/${requisition['id']}/convert-to-order', body: {
             'vendorPartyId': body['vendorPartyId'],
             'vendorName': raw['__label_vendorPartyId'] ?? '',
@@ -107,10 +107,10 @@ class RequisitionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListScreen(
-        title: 'Requisitions',
+        title: 'Purchase requests',
         path: requisitionsPath,
-        searchHint: 'Search requisitions',
-        emptyText: 'No requisitions found.',
+        searchHint: 'Search purchase requests',
+        emptyText: 'No purchase requests found.',
         itemBuilder: requisitionTile,
         filters: requisitionStatuses,
         create: (ref) => requisitionForm(ref),
@@ -144,9 +144,9 @@ class RequisitionDetailScreen extends StatelessWidget {
           edit: (d) => requisitionForm(ref, existing: d),
           body: (context, d) => requisitionBody(context, d),
           actions: [
-            requisitionStatusAction(path, 'Submit', Icons.send_outlined, 'pendingApproval', {'draft'}, confirm: 'Send this requisition for approval?'),
-            requisitionStatusAction(path, 'Approve', Icons.check_circle_outline, 'approved', {'draft', 'pendingApproval'}, confirm: 'Approve this requisition?'),
-            requisitionStatusAction(path, 'Reject', Icons.cancel_outlined, 'rejected', {'draft', 'pendingApproval'}, destructive: true, confirm: 'Reject this requisition?'),
+            requisitionStatusAction(path, 'Submit', Icons.send_outlined, 'pendingApproval', {'draft'}, confirm: 'Send this purchase request for approval?'),
+            requisitionStatusAction(path, 'Approve', Icons.check_circle_outline, 'approved', {'draft', 'pendingApproval'}, confirm: 'Approve this purchase request?'),
+            requisitionStatusAction(path, 'Reject', Icons.cancel_outlined, 'rejected', {'draft', 'pendingApproval'}, destructive: true, confirm: 'Reject this purchase request?'),
             requisitionStatusAction(path, 'Back to draft', Icons.undo, 'draft', {'rejected'}),
             ActionSpec(
               label: 'Convert to order',
@@ -162,7 +162,7 @@ class RequisitionDetailScreen extends StatelessWidget {
               permission: 'purchasing.requisitions.manage',
               destructive: true,
               visible: (d) => d['status'] != 'ordered',
-              confirm: 'Delete this requisition?',
+              confirm: 'Delete this purchase request?',
               successMessage: 'Deleted',
               run: (ref, d, _) async {
                 await ref.read(apiProvider).delete(path);

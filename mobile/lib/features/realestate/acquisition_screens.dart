@@ -104,7 +104,7 @@ class AcquisitionDetailScreen extends StatelessWidget {
             icon: Icons.check_circle_outline,
             permission: 'realestate.acquisitions.complete',
             visible: (d) => d['status'] == 'draft',
-            confirm: 'Complete this acquisition? The property is capitalised, the payment is posted and the financing is fixed.',
+            confirm: 'Complete this acquisition? The property is added to your assets, the payment is recorded and the financing is fixed.',
             successMessage: 'Acquisition completed',
             run: (ref, d, _) => ref.read(apiProvider).post('$_acqPath/$id/complete'),
           ),

@@ -61,7 +61,7 @@ void main() {
     final spec = orderForm(ref);
     final values = FormEngine.start(spec.fields, spec.initial);
     final errors = FormEngine.validate(spec.fields, values);
-    expect(errors['vendorPartyId'], 'Vendor is required');
+    expect(errors['vendorPartyId'], 'Supplier is required');
     expect(errors['lines[0].description'], 'Description is required');
     expect(errors['lines[0].unitPrice'], 'Unit price is required');
 

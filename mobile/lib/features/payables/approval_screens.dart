@@ -20,7 +20,7 @@ List<Json> approvalRows(dynamic data) {
 }
 
 String documentTypeLabel(Object? t) => switch (t?.toString()) {
-      'bill' => 'Vendor bill',
+      'bill' => 'Supplier bill',
       'payment' => 'Payment',
       'invoice' => 'Invoice',
       final other => humanize(other),

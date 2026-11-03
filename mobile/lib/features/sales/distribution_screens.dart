@@ -221,7 +221,7 @@ FormSpec completeTripForm(Json trip) {
               return sum > loaded ? 'Sold, returned and damaged exceed the ${_qty(loaded)} loaded' : null;
             }),
       ],
-      Field.multiline('notes', 'Reconciliation notes', maxLength: 1000),
+      Field.multiline('notes', 'Matching notes', maxLength: 1000),
     ],
     submit: (ref, body, raw) => ref.read(apiProvider).post('$tripsPath/${trip['id']}/complete', body: {
           'totalSalesAmount': body['totalSalesAmount'],

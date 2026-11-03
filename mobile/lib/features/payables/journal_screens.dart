@@ -16,7 +16,7 @@ import 'package:erp_mobile/theme/tokens.dart';
 
 const journalsPath = '$finPath/journals';
 
-const journalStatuses = [Option('draft', 'Draft'), Option('posted', 'Posted'), Option('reversed', 'Reversed')];
+const journalStatuses = [Option('draft', 'Draft'), Option('posted', 'Recorded'), Option('reversed', 'Reversed')];
 
 num _sum(Object? lines, String key) => [for (final l in (lines as List<dynamic>? ?? const [])) toNum((l as Map)[key]) ?? 0].fold<num>(0, (a, b) => a + b);
 
@@ -117,10 +117,10 @@ class JournalsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListScreen(
-        title: 'Journals',
+        title: 'Manual entries',
         path: journalsPath,
-        searchHint: 'Search journals',
-        emptyText: 'No journals found.',
+        searchHint: 'Search manual entries',
+        emptyText: 'No manual entries found.',
         itemBuilder: journalTile,
         filters: journalStatuses,
         create: (ref) => journalForm(ref),
@@ -146,12 +146,12 @@ class JournalDetailScreen extends StatelessWidget {
         body: journalBody,
         actions: [
           ActionSpec(
-            label: 'Post',
+            label: 'Record',
             icon: Icons.check_circle_outline,
             permission: 'finance.journals.post',
             visible: (d) => d['status'] == 'draft',
-            confirm: 'Post this journal to the ledger?',
-            successMessage: 'Journal posted',
+            confirm: 'Record this manual entry in the accounts?',
+            successMessage: 'Manual entry recorded',
             run: (ref, d, _) => ref.read(apiProvider).post('$journalsPath/$id/post'),
           ),
           ActionSpec(
@@ -160,8 +160,8 @@ class JournalDetailScreen extends StatelessWidget {
             permission: 'finance.journals.reverse',
             destructive: true,
             visible: (d) => d['status'] == 'posted' && d['sourceType'] == 'manual' && d['reversalOfId'] == null,
-            reasonLabel: 'Why is this journal being reversed?',
-            successMessage: 'Reversal posted',
+            reasonLabel: 'Why are you undoing this entry?',
+            successMessage: 'Entry undone',
             run: (ref, d, reason) => ref.read(apiProvider).post('$journalsPath/$id/reverse', body: {'memo': reason}),
           ),
           ActionSpec(
@@ -170,7 +170,7 @@ class JournalDetailScreen extends StatelessWidget {
             permission: 'finance.journals.write',
             destructive: true,
             visible: _isManualDraft,
-            confirm: 'Delete this draft journal?',
+            confirm: 'Delete this draft manual entry?',
             successMessage: 'Deleted',
             run: (ref, d, _) async {
               await ref.read(apiProvider).delete('$journalsPath/$id');

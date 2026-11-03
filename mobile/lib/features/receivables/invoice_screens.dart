@@ -73,7 +73,7 @@ FormSpec invoiceForm(WidgetRef ref, {Json? existing}) {
     fields: fields,
     summary: (context, raw) {
       final net = [for (final l in (raw['lines'] as List<dynamic>)) (toNum((l as Json)['quantity']) ?? 0) * (toNum(l['price']) ?? 0)].fold<num>(0, (a, b) => a + b);
-      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Net before tax', formatMoney(net), bold: true));
+      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Amount before tax', formatMoney(net), bold: true));
     },
     submit: (ref, body, raw) async {
       final api = ref.read(apiProvider);
@@ -153,7 +153,7 @@ class InvoiceDetailScreen extends StatelessWidget {
             icon: Icons.check_circle_outline,
             permission: 'finance.invoices.issue',
             visible: (d) => d['status'] == 'draft',
-            confirm: 'Issue this document? It gets its number and is posted to the ledger.',
+            confirm: 'Issue this document? It gets its number and is recorded in the accounts.',
             successMessage: 'Issued',
             run: (ref, d, _) => ref.read(apiProvider).post('$_invoicesPath/$id/issue'),
           ),
@@ -166,7 +166,7 @@ class InvoiceDetailScreen extends StatelessWidget {
             run: (ref, d, _) async => null,
           ),
           ActionSpec(
-            label: 'Apply credit',
+            label: 'Use credit balance',
             icon: Icons.swap_horiz,
             permission: 'finance.invoices.credit',
             visible: (d) => d['isCreditNote'] == true && const {'issued', 'partlyPaid'}.contains(d['status']),
@@ -228,7 +228,7 @@ class InvoiceDetailScreen extends StatelessWidget {
           total: formatMoney((d['total'] as num?) ?? 0),
           progress: ((d['total'] as num?) ?? 0) > 0 ? (((d['paid'] as num?) ?? 0) / (d['total'] as num)).toDouble() : null,
           facts: [
-            HeroFact('Net', money(d, 'net')),
+            HeroFact('Total after deductions', money(d, 'net')),
             HeroFact('Tax', money(d, 'tax')),
             HeroFact('Paid', money(d, 'paid')),
             HeroFact('Due', formatDate(d['dueDate'])),

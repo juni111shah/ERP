@@ -39,7 +39,7 @@ void main() {
     testWidgets('requires vendor, a description, an expense account and a quantity', (tester) async {
       final spec = await build(tester, (ref) => billForm(ref));
       final errors = FormEngine.validate(spec.fields, fill(spec));
-      expect(errors['partyId'], 'Vendor is required');
+      expect(errors['partyId'], 'Supplier is required');
       expect(errors['lines[0].description'], 'Description is required');
       expect(errors['lines[0].accountId'], 'Expense account is required');
       expect(errors['lines[0].price'], 'Unit price is required');

@@ -9,7 +9,7 @@ const finPath = '/api/v1/finance';
 const docStatuses = [
   Option('draft', 'Draft'),
   Option('pendingApproval', 'Pending approval'),
-  Option('issued', 'Posted'),
+  Option('issued', 'Recorded'),
   Option('partlyPaid', 'Partly paid'),
   Option('paid', 'Paid'),
   Option('voided', 'Voided'),
@@ -18,7 +18,7 @@ const docStatuses = [
 /// Document status shown to the user (payables call an issued document "posted").
 String docStatusLabel(String? s) {
   if (s == null || s.isEmpty) return '';
-  if (s == 'issued') return 'Posted';
+  if (s == 'issued') return 'Recorded';
   final spaced = s.replaceAllMapped(RegExp(r'(?<=[a-z])(?=[A-Z])'), (_) => ' ').toLowerCase();
   return spaced[0].toUpperCase() + spaced.substring(1);
 }
@@ -29,7 +29,7 @@ Field entityField(WidgetRef ref) {
 }
 
 Field vendorField({String key = 'partyId'}) =>
-    Field.lookup(key, 'Vendor', path: '/api/v1/parties', query: const {'role': 'Vendor'}, subtitleKey: 'code', required: true);
+    Field.lookup(key, 'Supplier', path: '/api/v1/parties', query: const {'role': 'Vendor'}, subtitleKey: 'code', required: true);
 
 Field accountField(String key, String label, {bool required = true, bool bankOnly = false}) => Field.lookup(key, label,
     path: '$finPath/accounts', subtitleKey: 'code', required: required, query: bankOnly ? const {'filter': 'type:eq:asset'} : const {});

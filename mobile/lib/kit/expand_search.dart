@@ -119,14 +119,18 @@ class _ExpandSearchState extends State<ExpandSearch> {
     final field = AnimatedContainer(
       duration: widget.duration,
       curve: Curves.easeInOut,
-      height: 40,
-      decoration: BoxDecoration(
-        color: ErpColors.surface,
+      height: 48,
+      // Border is painted on top so it doesn't eat into the 48dp hit area.
+      foregroundDecoration: BoxDecoration(
         borderRadius: BorderRadius.circular(ErpRadius.input),
         border: Border.all(
           color: focused ? ErpColors.brand : ErpColors.border,
           width: focused ? 1.5 : 1,
         ),
+      ),
+      decoration: BoxDecoration(
+        color: ErpColors.surface,
+        borderRadius: BorderRadius.circular(ErpRadius.input),
         boxShadow: [
           BoxShadow(
             color: ErpColors.brand.withValues(alpha: focused ? 0.12 : 0),
@@ -162,7 +166,7 @@ class _ExpandSearchState extends State<ExpandSearch> {
             iconSize: 18,
             color: ErpColors.muted,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             icon: const Icon(Icons.close),
           ),
         ],

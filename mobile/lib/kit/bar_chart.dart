@@ -189,8 +189,7 @@ class _ErpBilledCollectedChartState extends State<ErpBilledCollectedChart> {
             selected: {_mode},
             showSelectedIcon: false,
             style: const ButtonStyle(
-              visualDensity: VisualDensity(horizontal: -3, vertical: -3),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              tapTargetSize: MaterialTapTargetSize.padded,
               textStyle: WidgetStatePropertyAll(TextStyle(fontSize: ErpType.caption, fontWeight: FontWeight.w600)),
             ),
             onSelectionChanged: (s) {

@@ -10,6 +10,7 @@ import '../../kit/segmented.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../notifications/notifications.dart';
+import '../onboarding/onboarding_tour.dart';
 import '../settings/settings_page.dart';
 
 /// Up to two initials from a name, else the first letter of the email.
@@ -240,6 +241,7 @@ class ProfileSheet extends ConsumerWidget {
           label: 'About',
           onTap: () => _then(context, () => showAboutDialog(context: hostContext, applicationName: 'ERP')),
         ),
+        ShowTourAgainTile(store: hostRef.read(storeProvider), hostContext: hostContext),
         Divider(height: 1, color: t.borderSubtle),
         row(
           key: const ValueKey('profile-signout'),

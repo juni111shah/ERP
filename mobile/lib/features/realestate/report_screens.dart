@@ -26,7 +26,7 @@ class ReportsScreen extends StatelessWidget {
           ListTile(leading: const Icon(Icons.list_alt), title: const Text('Rent roll'), subtitle: const Text('Active leases, rent and amounts outstanding'), onTap: () => reGo(context, const RentRollScreen())),
           ListTile(leading: const Icon(Icons.pie_chart_outline), title: const Text('Occupancy'), subtitle: const Text('Units occupied and vacant per property'), onTap: () => reGo(context, const OccupancyScreen())),
           ListTile(leading: const Icon(Icons.event_busy_outlined), title: const Text('Lease expiries'), subtitle: const Text('Rent at risk by month'), onTap: () => reGo(context, const ExpiriesScreen())),
-          ListTile(leading: const Icon(Icons.receipt_long_outlined), title: const Text('Owner statement'), subtitle: const Text('Rent, fees and maintenance for an owner'), onTap: () => reGo(context, const OwnerStatementScreen())),
+          ListTile(leading: const Icon(Icons.receipt_long_outlined), title: const Text('Owner account summary'), subtitle: const Text('Rent, fees and maintenance for an owner'), onTap: () => reGo(context, const OwnerStatementScreen())),
         ]),
       );
 }
@@ -158,8 +158,8 @@ class _OwnerStatementState extends ConsumerState<OwnerStatementScreen> {
   Json? _data;
 
   FormSpec _spec() => FormSpec(
-        title: 'Owner statement',
-        submitLabel: 'Show statement',
+        title: 'Owner account summary',
+        submitLabel: 'Show account summary',
         fields: [
           Field.lookup('ownerPartyId', 'Owner', path: '/api/v1/parties', subtitleKey: 'code', required: true),
           Field.date('from', 'From', required: true, initial: '${DateTime.now().year}-01-01'),
@@ -172,7 +172,7 @@ class _OwnerStatementState extends ConsumerState<OwnerStatementScreen> {
   Widget build(BuildContext context) {
     final d = _data;
     return Scaffold(
-      appBar: AppBar(title: const Text('Owner statement')),
+      appBar: AppBar(title: const Text('Owner account summary')),
       body: ListView(padding: const EdgeInsets.all(ErpSpace.s4), children: [
         FilledButton.icon(
           icon: const Icon(Icons.search),
@@ -189,14 +189,14 @@ class _OwnerStatementState extends ConsumerState<OwnerStatementScreen> {
             InfoRow('Rent collected', _m(d['rentCollected'])),
             InfoRow('Management fee', _m(d['managementFee'])),
             InfoRow('Maintenance costs', _m(d['maintenanceCosts'])),
-            InfoRow('Net to owner', _m(d['netToOwner']), bold: true),
+            InfoRow('Owner receives', _m(d['netToOwner']), bold: true),
           ]),
           for (final r in _rows(d))
             InfoCard(title: '${r['property']}', rows: [
               InfoRow('Rent collected', _m(r['rentCollected'])),
               InfoRow('Fee (${r['feePercent']}%)', _m(r['managementFee'])),
               InfoRow('Maintenance', _m(r['maintenanceCosts'])),
-              InfoRow('Net', _m(r['netToOwner']), bold: true),
+              InfoRow('Total after deductions', _m(r['netToOwner']), bold: true),
             ]),
         ],
       ]),
