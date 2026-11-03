@@ -24,7 +24,7 @@ const paymentMethods = [
   Option('other', 'Other'),
 ];
 
-const _paymentStatuses = [Option('issued', 'Posted'), Option('voided', 'Voided')];
+const _paymentStatuses = [Option('issued', 'Recorded'), Option('voided', 'Voided')];
 
 String methodLabel(Object? m) {
   for (final o in paymentMethods) {
@@ -52,7 +52,7 @@ FormSpec paymentForm(WidgetRef ref) {
     Field.text('reference', 'Reference', maxLength: 100),
     Field.lines(
       'allocations',
-      'Allocate to bills (optional)',
+      'Match to bills (optional)',
       minLines: 0,
       addLabel: 'Add bill',
       fields: [_billLookup(), Field.money('amount', 'Amount', required: true, min: 0.01)],
@@ -66,14 +66,14 @@ FormSpec paymentForm(WidgetRef ref) {
       final alloc = allocationTotal(raw['allocations']);
       final amount = toNum(raw['amount']) ?? 0;
       return Column(children: [
-        InfoRow('Allocated to bills', formatMoney(alloc)),
+        InfoRow('Matched bills', formatMoney(alloc)),
         InfoRow('Left on account', formatMoney(amount - alloc), bold: true),
-        if (alloc > amount) Text('Allocations exceed the payment amount.', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        if (alloc > amount) Text('Matched amounts are more than the payment.', style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ]);
     },
     submit: (ref, body, raw) async {
       if (allocationTotal(raw['allocations']) > (toNum(raw['amount']) ?? 0)) {
-        throw ApiException(422, 'Allocations exceed the payment amount.');
+        throw ApiException(422, 'Matched amounts are more than the payment.');
       }
       if ((body['allocations'] as List).isEmpty) body.remove('allocations');
       return ref.read(apiProvider).post(paymentsPath, body: body);
@@ -83,14 +83,14 @@ FormSpec paymentForm(WidgetRef ref) {
 
 /// Allocate (more of) an existing payment to bills.
 FormSpec allocateForm(Json payment) => FormSpec(
-      title: 'Allocate ${payment['number']}',
+      title: 'Match ${payment['number']} to bills',
       intro: 'Unallocated: ${formatMoney((payment['unallocated'] as num?) ?? 0)}',
       fields: [
         Field.lines('allocations', 'Bills', addLabel: 'Add bill', fields: [_billLookup(), Field.money('amount', 'Amount', required: true, min: 0.01)]),
       ],
       submit: (ref, body, raw) async {
         if (allocationTotal(raw['allocations']) > ((payment['unallocated'] as num?) ?? 0)) {
-          throw ApiException(422, 'Allocations exceed the unallocated amount.');
+          throw ApiException(422, 'Matched amounts are more than what is left to match.');
         }
         return ref.read(apiProvider).post('$paymentsPath/${payment['id']}/allocate', body: body);
       },
@@ -152,7 +152,7 @@ class PaymentDetailScreen extends StatelessWidget {
       body: paymentBody,
       actions: [
         ActionSpec(
-          label: 'Allocate',
+          label: 'Match',
           icon: Icons.link,
           permission: 'finance.payments.write',
           visible: (d) => d['status'] != 'voided' && ((d['unallocated'] as num?) ?? 0) > 0,
@@ -196,8 +196,8 @@ Widget paymentBody(BuildContext context, Json d) {
       InfoRow('Cheque status', d['chequeStatus'] == null ? null : humanize(d['chequeStatus'].toString())),
       InfoRow('Void reason', d['voidReason']?.toString()),
     ]),
-    Text('Allocated to bills', style: Theme.of(context).textTheme.titleMedium),
-    if (allocs.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: ErpSpace.s2), child: Text('Not allocated to any bill.')),
+    Text('Matched bills', style: Theme.of(context).textTheme.titleMedium),
+    if (allocs.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: ErpSpace.s2), child: Text('Not matched to any bill.')),
     for (final a in allocs)
       ListTile(
         contentPadding: EdgeInsets.zero,

@@ -16,7 +16,7 @@ import 'package:erp_mobile/theme/tokens.dart';
 
 const receiptsPath = '/api/v1/finance/receipts';
 
-const receiptStatuses = [Option('issued', 'Posted'), Option('voided', 'Voided')];
+const receiptStatuses = [Option('issued', 'Recorded'), Option('voided', 'Voided')];
 
 /// Methods a receipt can use; cheques ("instrument") are recorded in the cheque register, not here.
 const receiptMethods = [Option('cash', 'Cash'), Option('bankTransfer', 'Bank transfer'), Option('card', 'Card'), Option('other', 'Other')];
@@ -31,7 +31,7 @@ String? _dateCheck(Object? v, Values all) {
 num _allocated(Values all) => [for (final l in (all['allocations'] as List<dynamic>? ?? const [])) toNum((l as Map)['amount']) ?? 0].fold<num>(0, (a, b) => a + b);
 
 /// Allocation lines (invoice + amount) used by the receipt form and the "allocate" action.
-Field allocationLines({int minLines = 0}) => Field.lines('allocations', 'Allocate to invoices', minLines: minLines, addLabel: 'Add invoice', fields: [
+Field allocationLines({int minLines = 0}) => Field.lines('allocations', 'Match to invoices', minLines: minLines, addLabel: 'Add invoice', fields: [
       Field.lookup('invoiceId', 'Invoice', path: '/api/v1/finance/invoices', labelKey: 'number', subtitleKey: 'partyName', required: true),
       Field.money('amount', 'Amount', required: true, min: 0.01),
     ]);
@@ -47,9 +47,9 @@ FormSpec receiptForm(WidgetRef ref, {String? partyId, String? partyName, Json? i
     Field.date('date', 'Date', required: true, initial: 'today', validator: _dateCheck),
     Field.select('method', 'Method', options: receiptMethods, required: true, initial: 'bankTransfer'),
     Field.lookup('bankAccountId', 'Bank or cash account', path: '/api/v1/finance/accounts', query: const {'filter': 'isBank:eq:true'}, subtitleKey: 'code', required: true),
-    Field.money('amount', 'Amount', required: true, min: 0.01, validator: (v, all) => _allocated(all) > (toNum(v) ?? 0) ? 'Allocations exceed the receipt amount' : null),
+    Field.money('amount', 'Amount', required: true, min: 0.01, validator: (v, all) => _allocated(all) > (toNum(v) ?? 0) ? 'Matched amounts are more than the receipt' : null),
     Field.text('reference', 'Reference', maxLength: 100),
-    Field.toggle('autoAllocate', 'Allocate to oldest invoices automatically'),
+    Field.toggle('autoAllocate', 'Match to the oldest invoices automatically'),
     allocationLines(),
   ];
   return FormSpec(
@@ -74,7 +74,7 @@ FormSpec receiptForm(WidgetRef ref, {String? partyId, String? partyName, Json? i
 }
 
 FormSpec allocateForm(Json receipt) => FormSpec(
-      title: 'Allocate ${receipt['number']}',
+      title: 'Match ${receipt['number']} to invoices',
       intro: 'Unallocated: ${money(receipt, 'unallocated')}',
       fields: [allocationLines(minLines: 1)],
       submit: (ref, body, raw) => ref.read(apiProvider).post('$receiptsPath/${receipt['id']}/allocate', body: {'allocations': body['allocations']}),
@@ -138,7 +138,7 @@ class ReceiptDetailScreen extends StatelessWidget {
         body: _body,
         actions: [
           ActionSpec(
-            label: 'Allocate',
+            label: 'Match',
             icon: Icons.link,
             permission: 'finance.receipts.write',
             visible: (d) => d['status'] == 'issued' && ((d['unallocated'] as num?) ?? 0) > 0,
@@ -169,8 +169,8 @@ class ReceiptDetailScreen extends StatelessWidget {
         InfoRow('Cheque', text(d['chequeNumber'])),
         InfoRow('Void reason', text(d['voidReason'])),
       ]),
-      Text('Allocations', style: Theme.of(context).textTheme.titleMedium),
-      if (allocations.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: ErpSpace.s2), child: Text('Not allocated to any invoice.')),
+      Text('Matched invoices', style: Theme.of(context).textTheme.titleMedium),
+      if (allocations.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: ErpSpace.s2), child: Text('Not matched to any invoice.')),
       for (final a in allocations)
         ListTile(
           contentPadding: EdgeInsets.zero,

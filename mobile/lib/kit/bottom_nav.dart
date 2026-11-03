@@ -47,6 +47,7 @@ class ErpBottomNav extends StatelessWidget {
     required this.items,
     required this.currentIndex,
     required this.onTap,
+    this.onLongPress,
     this.duration = const Duration(milliseconds: 300),
     this.curve = Curves.easeOutCubic,
   }) : assert(items.length >= 2, 'ErpBottomNav needs at least two items');
@@ -54,6 +55,9 @@ class ErpBottomNav extends StatelessWidget {
   final List<ErpNavItem> items;
   final int currentIndex;
   final ValueChanged<int> onTap;
+
+  /// Optional long-press per tab (e.g. long-press Overview opens the command palette).
+  final ValueChanged<int>? onLongPress;
   final Duration duration;
   final Curve curve;
 
@@ -120,6 +124,7 @@ class ErpBottomNav extends StatelessWidget {
                                 item: items[i],
                                 selected: i == selected,
                                 onTap: () => onTap(i),
+                                onLongPress: onLongPress == null ? null : () => onLongPress!(i),
                               ),
                             ),
                         ],
@@ -173,11 +178,12 @@ class ErpBottomNav extends StatelessWidget {
 }
 
 class _Tab extends StatelessWidget {
-  const _Tab({required this.item, required this.selected, required this.onTap});
+  const _Tab({required this.item, required this.selected, required this.onTap, this.onLongPress});
 
   final ErpNavItem item;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -198,8 +204,10 @@ class _Tab extends StatelessWidget {
       selected: selected,
       label: item.label,
       excludeSemantics: true,
+      onLongPress: onLongPress,
       child: InkResponse(
         onTap: onTap,
+        onLongPress: onLongPress,
         radius: 32,
         highlightShape: BoxShape.circle,
         child: Padding(

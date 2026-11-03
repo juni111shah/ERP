@@ -114,7 +114,7 @@ class _FieldViewState extends ConsumerState<FieldView> {
               errorText: _error,
               border: const OutlineInputBorder(),
               suffixIcon: widget.values[f.key] != null && !f.required
-                  ? IconButton(icon: const Icon(Icons.clear), onPressed: () {
+                  ? IconButton(tooltip: 'Clear', icon: const Icon(Icons.clear), onPressed: () {
                       widget.values.remove(f.key);
                       widget.values.remove('__label_${f.key}');
                       widget.onChanged();
@@ -217,14 +217,16 @@ class _LookupSheetState extends ConsumerState<_LookupSheet> {
         Padding(padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s4), child: Align(alignment: Alignment.centerLeft, child: Text(widget.title, style: Theme.of(context).textTheme.titleMedium))),
         Padding(
           padding: const EdgeInsets.all(ErpSpace.s3),
-          child: SearchBar(
-            hintText: 'Search',
-            leading: const Icon(Icons.search),
-            elevation: const WidgetStatePropertyAll(0),
-            onChanged: (t) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 350), () => _load(t.trim()));
-            },
+          child: MergeSemantics(
+            child: SearchBar(
+              hintText: 'Search',
+              leading: const Icon(Icons.search),
+              elevation: const WidgetStatePropertyAll(0),
+              onChanged: (t) {
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 350), () => _load(t.trim()));
+              },
+            ),
           ),
         ),
         Expanded(

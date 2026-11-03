@@ -22,7 +22,7 @@ String _q(Object? v) => formatKpi(_n(v).toDouble(), 'number');
 String _m(Object? v) => formatMoney(_n(v));
 
 const movementKinds = [Option('receipt', 'Receipt'), Option('issue', 'Issue'), Option('adjustment', 'Adjustment'), Option('transferIn', 'Transfer in'), Option('transferOut', 'Transfer out')];
-const countStatuses = [Option('draft', 'Draft'), Option('counting', 'Counting'), Option('posted', 'Posted'), Option('cancelled', 'Cancelled')];
+const countStatuses = [Option('draft', 'Draft'), Option('counting', 'Counting'), Option('posted', 'Recorded'), Option('cancelled', 'Cancelled')];
 
 Field _warehouse(String key, String label) => Field.lookup(key, label, path: '$invPath/warehouses', subtitleKey: 'code', required: true);
 Field _product(String key, String label, {Map<String, String> copy = const {}}) =>
@@ -319,7 +319,7 @@ class CountDetailScreen extends StatelessWidget {
           final lines = (d['lines'] as List<dynamic>? ?? const []).cast<Json>();
           return DetailBody(children: [
             DetailHeader(title: '${d['warehouse']}', subtitle: 'Count date ${formatDate(d['countDate'])}', status: d['status']?.toString()),
-            InfoCard(rows: [InfoRow('Memo', text(d['memo'])), InfoRow('Posted', d['postedAt'] == null ? null : formatDate(d['postedAt'])), InfoRow('Lines', '${lines.length}')]),
+            InfoCard(rows: [InfoRow('Memo', text(d['memo'])), InfoRow('Recorded', d['postedAt'] == null ? null : formatDate(d['postedAt'])), InfoRow('Lines', '${lines.length}')]),
             Text('Items', style: Theme.of(context).textTheme.titleMedium),
             for (final l in lines)
               ListTile(
@@ -333,12 +333,12 @@ class CountDetailScreen extends StatelessWidget {
         actions: [
           ActionSpec(label: 'Enter counts', icon: Icons.edit_note, permission: 'inventory.counts.manage', visible: _open, form: countedQuantitiesForm, run: (ref, d, _) async => null),
           ActionSpec(
-            label: 'Post',
+            label: 'Record',
             icon: Icons.check_circle_outline,
             permission: 'inventory.counts.manage',
             visible: _open,
-            confirm: 'Post this count? One stock adjustment is booked for every difference.',
-            successMessage: 'Count posted',
+            confirm: 'Record this count? One stock adjustment is booked for every difference.',
+            successMessage: 'Count recorded',
             run: (ref, d, _) => ref.read(apiProvider).post('$invPath/counts/$id/post'),
           ),
           ActionSpec(
