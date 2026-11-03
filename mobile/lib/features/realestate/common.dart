@@ -96,7 +96,7 @@ class _RelatedListState extends ConsumerState<RelatedList> {
       var data = await ref.read(apiProvider).get(widget.path, query: widget.query);
       if (data is Map && widget.pick != null) data = data[widget.pick];
       if (data is Map && data['items'] is List) data = data['items'];
-      if (mounted) setState(() => _items = [for (final e in (data as List<dynamic>? ?? const [])) (e as Map).cast<String, dynamic>()]);
+      if (mounted) setState(() => _items = [for (final e in (data is List ? data : const [])) (e as Map).cast<String, dynamic>()]);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     }
