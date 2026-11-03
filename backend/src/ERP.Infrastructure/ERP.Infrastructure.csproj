@@ -11,5 +11,11 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
+    <PackageReference Include="QuestPDF" /> <!-- server-side PDF for print documents; Community licence (see Printing/QuestPdfPrintRenderer.cs) -->
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Noto Sans Arabic, SIL Open Font License 1.1 (Printing/Fonts/NotoSansArabic-OFL.txt): Arabic fallback for PDFs. -->
+    <EmbeddedResource Include="Printing\Fonts\NotoSansArabic-Regular.ttf" LogicalName="ERP.Infrastructure.Printing.Fonts.NotoSansArabic-Regular.ttf" />
+    <EmbeddedResource Include="Printing\Fonts\NotoSansArabic-Bold.ttf" LogicalName="ERP.Infrastructure.Printing.Fonts.NotoSansArabic-Bold.ttf" />
   </ItemGroup>
 </Project>
