@@ -8,19 +8,22 @@ import 'package:erp_mobile/theme/tokens.dart';
 /// One month of the billed-vs-collected series.
 @immutable
 class ErpMonthValue {
-  const ErpMonthValue({required this.label, required this.billed, required this.collected});
+  const ErpMonthValue({required this.label, required this.billed, required this.collected, this.fullLabel});
 
   /// Short axis label, e.g. "Jan" or "J".
   final String label;
+
+  /// Full period name shown when the month is tapped, e.g. "Nov 26"; falls back to [label].
+  final String? fullLabel;
   final double billed;
   final double collected;
 
   @override
   bool operator ==(Object other) =>
-      other is ErpMonthValue && other.label == label && other.billed == billed && other.collected == collected;
+      other is ErpMonthValue && other.label == label && other.fullLabel == fullLabel && other.billed == billed && other.collected == collected;
 
   @override
-  int get hashCode => Object.hash(label, billed, collected);
+  int get hashCode => Object.hash(label, fullLabel, billed, collected);
 }
 
 /// How [ErpBilledCollectedChart] draws the series.
@@ -262,7 +265,7 @@ class _ErpBilledCollectedChartState extends State<ErpBilledCollectedChart> {
                   liveRegion: true,
                   child: Text.rich(
                     TextSpan(children: [
-                      TextSpan(text: '${data[sel].label}  ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      TextSpan(text: '${data[sel].fullLabel ?? data[sel].label}  ', style: const TextStyle(fontWeight: FontWeight.w700)),
                       TextSpan(text: '${widget.billedLabel} '),
                       _ltrNumber('${erpCompactNumber(data[sel].billed)}$cur'),
                       TextSpan(text: '  ·  ${widget.collectedLabel} '),
