@@ -12,6 +12,8 @@ class IntroStrings {
     required this.skip,
     required this.next,
     required this.getStarted,
+    required this.back,
+    required this.previousScreen,
     required String Function(int n, int total) step,
     required this.illustrationLabel,
   }) : _step = step; // ignore: prefer_initializing_formals (a named parameter can't be a private initialising formal)
@@ -28,6 +30,10 @@ class IntroStrings {
   final String skip;
   final String next;
   final String getStarted;
+
+  /// Back control on screens 2-5: visible label for semantics, plus a hint read after it.
+  final String back;
+  final String previousScreen;
   final String Function(int n, int total) _step;
   final String illustrationLabel;
 
@@ -68,6 +74,8 @@ class IntroStrings {
     skip: 'Skip',
     next: 'Next',
     getStarted: 'Get started',
+    back: 'Back',
+    previousScreen: 'Previous screen',
     step: _enStep,
     illustrationLabel: 'Illustration of the app',
   );
@@ -107,6 +115,8 @@ class IntroStrings {
     skip: 'تخطي',
     next: 'التالي',
     getStarted: 'ابدأ الآن',
+    back: 'رجوع',
+    previousScreen: 'الشاشة السابقة',
     step: _arStep,
     illustrationLabel: 'رسم توضيحي للتطبيق',
   );

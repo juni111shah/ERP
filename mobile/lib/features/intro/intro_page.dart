@@ -12,8 +12,9 @@ import 'intro_motion.dart';
 import 'intro_scene.dart';
 import 'intro_strings.dart';
 
-/// First-open intro tour (5 swipeable screens, light theme only). Skip, Get started and system back all mark it seen;
-/// the router then moves on to sign-in (or home).
+/// First-open intro tour (5 swipeable screens, light theme only). Skip and Get started mark it seen and the router
+/// moves on to sign-in (or home). On screens 2-5 the Back control, a swipe to the right (left in RTL) and the system /
+/// predictive back gesture all go to the previous screen without marking it seen; system back on screen 1 still skips.
 class IntroPage extends ConsumerStatefulWidget {
   const IntroPage({super.key});
 
@@ -101,6 +102,16 @@ class _IntroPageState extends ConsumerState<IntroPage> with SingleTickerProvider
     }
   }
 
+  /// Back control and system back on screens 2-5. Never marks the tour seen.
+  void _previous() {
+    if (_done || _active <= 0) return;
+    if (_reduce) {
+      _pages.jumpToPage(_active - 1);
+    } else {
+      _pages.animateToPage(_active - 1, duration: IntroMotion.pageTurn, curve: IntroMotion.pageCurve);
+    }
+  }
+
   Future<void> _finish() async {
     if (_done) return;
     _done = true;
@@ -132,6 +143,12 @@ class _IntroPageState extends ConsumerState<IntroPage> with SingleTickerProvider
         const Icon(Icons.arrow_forward_rounded, size: 18),
       ]),
     );
+    final Widget back = _active > 0
+        ? Padding(
+            padding: const EdgeInsetsDirectional.only(end: ErpSpace.s2),
+            child: _BackButton(label: s.back, hint: s.previousScreen, onPressed: _previous),
+          )
+        : const SizedBox.shrink();
     return Theme(
       data: AppTheme.light(),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -139,7 +156,13 @@ class _IntroPageState extends ConsumerState<IntroPage> with SingleTickerProvider
         child: PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _finish();
+            if (didPop) return;
+            // Screens 2-5: system / predictive back goes to the previous screen. Screen 1: unchanged, counts as Skip.
+            if (_active > 0) {
+              _previous();
+            } else {
+              _finish();
+            }
           },
           child: Scaffold(
             backgroundColor: ErpColors.canvas,
@@ -199,6 +222,16 @@ class _IntroPageState extends ConsumerState<IntroPage> with SingleTickerProvider
                 Padding(
                   padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s6, ErpSpace.s4, ErpSpace.s5, ErpSpace.s5),
                   child: Row(children: [
+                    // Back (screens 2-5 only). Sits with the dots, away from the "n of 5" header, and grows in without a jump.
+                    if (_reduce)
+                      back
+                    else
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 200),
+                        curve: IntroMotion.settle,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: back,
+                      ),
                     _PageDots(count: _count, pages: _pages, active: _active),
                     const SizedBox(width: ErpSpace.s4),
                     Expanded(
@@ -367,6 +400,42 @@ class _IntroScreen extends StatelessWidget {
     }
     return content;
   }
+}
+
+/// 48dp round Back control in the Concept B light style: surface fill, hairline border, direction-aware arrow
+/// (`arrow_back_rounded` mirrors in RTL). Announced as "Back" with the hint "Previous screen".
+class _BackButton extends StatelessWidget {
+  const _BackButton({required this.label, required this.hint, required this.onPressed});
+
+  final String label;
+  final String hint;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        key: const ValueKey('intro-back'),
+        button: true,
+        label: label,
+        hint: hint,
+        excludeSemantics: true,
+        onTap: onPressed,
+        child: SizedBox(
+          width: ErpSpace.s12,
+          height: ErpSpace.s12,
+          child: IconButton(
+            onPressed: onPressed,
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              minimumSize: const Size(ErpSpace.s12, ErpSpace.s12),
+              foregroundColor: ErpColors.text2,
+              backgroundColor: ErpColors.surface,
+              side: const BorderSide(color: ErpColors.border),
+              shape: const CircleBorder(),
+            ),
+            icon: const Icon(Icons.arrow_back_rounded, size: 20),
+          ),
+        ),
+      );
 }
 
 /// Dots that follow the swipe continuously (width and colour interpolate with the page position).

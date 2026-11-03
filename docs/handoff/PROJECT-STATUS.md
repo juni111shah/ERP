@@ -199,19 +199,26 @@ Earlier relevant commits on main: 7fe89dd (#44, manual-only journal reversal), 2
 
 ## 4.4 Mobile first-open intro tour (3D depth, light) - PR #93 OPEN, not merged (branch `mobile/intro-tour-3d`)
 
-- Five-screen tour shown once on first app open, before sign-in: overview, cash flow (billed vs collected), invoicing, alerts and settings, everything in one app. Light ErpTheme forced; EN + AR; 48dp targets; system back = Skip. Code in `mobile/lib/features/intro/`.
+- Five-screen tour shown once on first app open, before sign-in: overview, cash flow (billed vs collected), invoicing, alerts and settings, everything in one app. Light ErpTheme forced; EN + AR; 48dp targets; system back = Skip (screen 1 only since 4.6). Code in `mobile/lib/features/intro/`.
 - Flag `intro_tour_v1_seen` = `1` in the KeyValueStore (`storeProvider`), set by Skip / Get started / back. `introProvider` (unknown -> splash, show -> `/intro`, seen -> normal session routing) is wired into the go_router redirect in `lib/app.dart`. Kept separate from the later coach-mark tour (`onboarding_tour_v1_seen`).
 - Motion values come from the Advanced UI UX spec (`intro_motion.dart`): one ticker, per-layer Matrix4 transforms (perspective 1/1100), staggered rise, perspective floor + brand-tinted glow, page parallax, 6s drift eased out after 12s; captions fade and slide with the parallax; reduced motion = flat + 200ms crossfade. No new packages, no goldens.
 - v2: existing ERP mark + name in the screen 1 header (small mark after), page dots + Next / Get started bar, outcome headline + one line per screen, screen 5 "Everything in one app" chips listing only features the app has. Card text scales down to one line instead of cutting off. Arabic copy needs a native-speaker review.
 - Tests: `test/intro_tour_test.dart` (7), `test/intro_motion_test.dart` (4), `test/intro_fit_test.dart` (3: no truncated text or overflow at 360x780 and 390x844, EN + AR, real fonts).
 
-## 4.5 Mobile HigherSquare 360 branding and app icon - PR OPEN, not merged (branch `mobile/brand-hs360`)
+## 4.5 Mobile HigherSquare 360 branding and app icon - MERGED (PR #96, branch `mobile/brand-hs360`)
 
 - Brand reused from the web app (`frontend/public/highersquare-*.png`): name **HigherSquare 360** (one word, as on the web), emblem = green rounded tile, white disc, open 360 ring, four bars and a breakout trend arrow. Web wordmark colours kept: "HigherSquare" #359867 / "360" #215A67 (dark: #4ADE80 / #38BDF8).
 - Single source: `mobile/lib/core/brand.dart` (`Brand.name`, `Brand.launcherLabel` = "HS 360", `BrandColors`). Vector mark: `mobile/lib/kit/brand_mark.dart` (`BrandMark` CustomPainter, `BrandWordmark`, `BrandLockup`, `BrandSplash`). SVG masters: `mobile/assets/brand/hs360-mark.svg`, `hs360-icon-foreground.svg` (not bundled; sources for icons).
 - Used on: splash, intro screen 1 (mark + name; small mark on screens 2-5), sign-in (mark + name above the form), workspace picker (lockup), home header (mark replaces the workspace initials tile), profile About dialog, MaterialApp title.
 - Launcher: Android mipmap mdpi..xxxhdpi `ic_launcher` + `ic_launcher_round`, adaptive `mipmap-anydpi-v26` (foreground PNG in the 66dp safe zone, background `@color/ic_launcher_background` #4FA077), launch_background shows the mark; iOS AppIcon (all slots, opaque) + LaunchImage. Home-screen label "HS 360" (Android `android:label`, iOS `CFBundleDisplayName`) because the full name truncates under launcher icons. Generated on the box from the SVG master with cairosvg; no new packages. Web favicon untouched.
 - Tests: `test/brand_test.dart` (constants, manifest/plist labels, icon files, mark sizes + semantics, wordmark colours light/dark, splash, sign-in, 320dp fit, workspace picker, home header); `test/intro_tour_test.dart` now expects `Brand.name`.
+
+## 4.6 Mobile intro tour back navigation - PR #97 OPEN, not merged (branch `mobile/intro-back-nav`, 2026-11-03)
+
+- Screens 2-5 of the intro tour now have a round 48dp **Back** control at the start of the dots / Next bar (semantics "Back", hint "Previous screen"; Arabic "رجوع" / "الشاشة السابقة"; arrow mirrors in RTL). Not shown on screen 1.
+- Swipe to the previous screen works (right swipe in LTR, left in RTL); swiping past screen 5 does not finish the tour.
+- Android system / predictive back on screens 2-5 goes to the previous screen and does **not** set `intro_tour_v1_seen`; on screen 1 it still counts as Skip. Skip and Get started unchanged. Returning to a screen replays its entrance, then the ticker stops again.
+- Navigation code only (`intro_page.dart`, two strings in `intro_strings.dart`); header and HigherSquare 360 brand mark + name (PR #96) untouched. Tests: `test/intro_tour_test.dart` now 14 (8 new/changed).
 
 # 5. Pending tasks
 
