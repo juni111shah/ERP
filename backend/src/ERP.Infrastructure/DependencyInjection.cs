@@ -3,11 +3,13 @@ using ERP.Application;
 using ERP.Application.Abstractions;
 using ERP.Application.Auth;
 using ERP.Application.Platform;
+using ERP.Application.Printing;
 using ERP.Application.Customization;
 using ERP.Application.Security;
 using ERP.Infrastructure.Auth;
 using ERP.Infrastructure.Identity;
 using ERP.Infrastructure.Persistence;
+using ERP.Infrastructure.Printing;
 using ERP.Infrastructure.Services;
 using ERP.Modularity;
 using Microsoft.AspNetCore.Identity;
@@ -79,6 +81,7 @@ public static class DependencyInjection
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.Configure<EmailOptions>(config.GetSection(EmailOptions.Section));
         services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        services.AddSingleton<IPrintPdfRenderer, QuestPdfPrintRenderer>();
         services.AddSingleton<IPasswordResetSender, LoggingPasswordResetSender>();
 
         services.AddSingleton<IPermissionCatalog, PermissionCatalog>();
