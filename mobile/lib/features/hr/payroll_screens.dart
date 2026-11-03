@@ -14,7 +14,7 @@ import 'package:erp_mobile/theme/tokens.dart';
 
 const payrollPath = '$hrPath/payroll';
 
-const payrollStatuses = [Option('draft', 'Draft'), Option('pendingApproval', 'Pending approval'), Option('posted', 'Posted'), Option('paid', 'Paid')];
+const payrollStatuses = [Option('draft', 'Draft'), Option('pendingApproval', 'Pending approval'), Option('posted', 'Recorded'), Option('paid', 'Paid')];
 
 String payrollStatusLabel(String s) => humanize(s);
 
@@ -112,11 +112,11 @@ class PayrollDetailScreen extends StatelessWidget {
               run: (ref, d, _) => ref.read(apiProvider).post('$path/recalculate'),
             ),
             ActionSpec(
-              label: 'Post',
+              label: 'Record',
               icon: Icons.fact_check_outlined,
               permission: 'hr.payroll.post',
               visible: open,
-              confirm: 'Post this payroll to the ledger? When approval is required it is sent for approval first.',
+              confirm: 'Record this payroll in the accounts? When approval is required it is sent for approval first.',
               successMessage: 'Done',
               run: (ref, d, _) => ref.read(apiProvider).post('$path/post'),
             ),
@@ -155,11 +155,11 @@ Widget payrollBody(BuildContext context, WidgetRef ref, Json d) {
   return DetailBody(children: [
     DetailHeader(title: '${monthName((d['month'] as num).toInt())} ${d['year']}', subtitle: '${d['number']} · ${d['employees']} employees'),
     Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: hrStatusChip(status, payrollStatusLabel(status)))),
-    if (status == 'pendingApproval') const Padding(padding: EdgeInsets.only(bottom: ErpSpace.s3), child: Text('Waiting for approval. Once approved, tap Post again to post it.')),
+    if (status == 'pendingApproval') const Padding(padding: EdgeInsets.only(bottom: ErpSpace.s3), child: Text('Waiting for approval. Once approved, tap Record again to record it.')),
     InfoCard(rows: [
       InfoRow('Gross earnings', formatMoney((d['grossEarnings'] as num?) ?? 0)),
       InfoRow('Deductions', formatMoney((d['deductions'] as num?) ?? 0)),
-      InfoRow('Net pay', formatMoney((d['netPay'] as num?) ?? 0), bold: true),
+      InfoRow('Take-home pay', formatMoney((d['netPay'] as num?) ?? 0), bold: true),
       InfoRow('Planned pay date', d['plannedPayDate'] == null ? null : formatDate(d['plannedPayDate'])),
       InfoRow('Paid on', d['paidOn'] == null ? null : formatDate(d['paidOn'])),
       InfoRow('Notes', text(d['notes'])),
@@ -179,7 +179,7 @@ Widget payrollBody(BuildContext context, WidgetRef ref, Json d) {
             InfoRow('Absence (${days(l['absentDays'])} d)', formatMoney(-((l['absence'] as num?) ?? 0).abs())),
             if (((l['adjustment'] as num?) ?? 0) != 0) InfoRow('Adjustment${(l['adjustmentNote'] ?? '').toString().isEmpty ? '' : ' (${l['adjustmentNote']})'}', formatMoney((l['adjustment'] as num))),
             InfoRow('Deductions', formatMoney((l['deductions'] as num?) ?? 0)),
-            InfoRow('Net pay', formatMoney((l['netPay'] as num?) ?? 0), bold: true),
+            InfoRow('Take-home pay', formatMoney((l['netPay'] as num?) ?? 0), bold: true),
             if (canAdjust)
               Align(
                 alignment: Alignment.centerRight,

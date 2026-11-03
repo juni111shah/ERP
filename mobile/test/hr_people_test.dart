@@ -98,7 +98,7 @@ void main() {
   testWidgets('a draft payroll can be recalculated, posted and deleted, not paid', (tester) async {
     await tester.pumpWidget(host(FakeAdapter((_) => envelope(run('draft'))), const PayrollDetailScreen(id: 'p1')));
     await tester.pumpAndSettle();
-    for (final t in ['Recalculate', 'Post', 'Delete']) {
+    for (final t in ['Recalculate', 'Record', 'Delete']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }
     expect(find.text('Pay'), findsNothing);
@@ -110,7 +110,7 @@ void main() {
     await tester.pumpWidget(host(FakeAdapter((_) => envelope(run('posted'))), const PayrollDetailScreen(id: 'p1')));
     await tester.pumpAndSettle();
     expect(find.text('Pay'), findsOneWidget);
-    expect(find.text('Post'), findsNothing);
+    expect(find.text('Record'), findsNothing);
     expect(find.text('Delete'), findsNothing);
   });
 

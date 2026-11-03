@@ -19,7 +19,7 @@ const partiesPath = '/api/v1/parties';
 const partyGroupsPath = '/api/v1/party-groups';
 const itemsPath = '/api/v1/items';
 
-const partyRoles = [Option('Customer', 'Customer'), Option('Vendor', 'Vendor'), Option('Employee', 'Employee'), Option('Other', 'Other')];
+const partyRoles = [Option('Customer', 'Customer'), Option('Vendor', 'Supplier'), Option('Employee', 'Employee'), Option('Other', 'Other')];
 const _roleKeys = {'Customer': 'roleCustomer', 'Vendor': 'roleVendor', 'Employee': 'roleEmployee', 'Other': 'roleOther'};
 
 /// Create (existing == null) or edit a party. Roles are toggles; the API takes them as one comma separated string.
@@ -69,7 +69,7 @@ FormSpec partyForm(Json? existing, {String? defaultRole}) {
     ],
     submit: (ref, body, raw) {
       final chosen = [for (final e in _roleKeys.entries) if (body[e.value] == true) e.key];
-      if (chosen.isEmpty) throw ApiException(400, 'Choose at least one role (customer, vendor...).');
+      if (chosen.isEmpty) throw ApiException(400, 'Choose at least one role (customer, supplier...).');
       final out = {...body}..removeWhere((k, _) => _roleKeys.containsValue(k));
       out['roles'] = chosen.join(', ');
       final api = ref.read(apiProvider);
@@ -130,7 +130,7 @@ class _PartiesScreenState extends ConsumerState<PartiesScreen> {
       appBar: widget.showAppBar
           ? AppBar(title: Text(widget.title), actions: [
               if (widget.role != 'Vendor' && ref.watch(meOrEmptyProvider).can('finance.reports.read'))
-                IconButton(tooltip: 'Receivables ageing', icon: const Icon(Icons.hourglass_bottom), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ArAgeingScreen()))),
+                IconButton(tooltip: 'Overdue by age', icon: const Icon(Icons.hourglass_bottom), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ArAgeingScreen()))),
             ])
           : null,
       floatingActionButton: canCreate ? FloatingActionButton.extended(onPressed: () => openForm<Object?>(context, partyForm(null, defaultRole: _role)), icon: const Icon(Icons.add), label: const Text('New')) : null,
@@ -138,7 +138,7 @@ class _PartiesScreenState extends ConsumerState<PartiesScreen> {
         if (widget.role == null)
           SizedBox(
             height: 48,
-            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s3, vertical: ErpSpace.s15), children: [
+            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s3), children: [
               Padding(padding: const EdgeInsets.only(right: ErpSpace.s2), child: ChoiceChip(label: const Text('All'), selected: _role == null, onSelected: (_) => setState(() => _role = null))),
               for (final o in partyRoles) Padding(padding: const EdgeInsets.only(right: ErpSpace.s2), child: ChoiceChip(label: Text(o.label), selected: _role == o.value, onSelected: (_) => setState(() => _role = o.value))),
             ]),
@@ -223,7 +223,7 @@ class _PartyBalanceState extends ConsumerState<PartyBalance> {
   Widget build(BuildContext context) {
     final d = _data;
     if (d == null) return const SizedBox.shrink();
-    return InfoCard(title: 'Receivable balance', rows: [
+    return InfoCard(title: 'Amount owed to you', rows: [
       InfoRow('Open balance', formatMoney((d['balance'] as num?) ?? 0), bold: true),
       InfoRow('Unallocated receipts', formatMoney((d['unallocatedReceipts'] as num?) ?? 0)),
       InfoRow('Open items', '${(d['items'] as List<dynamic>? ?? const []).length}'),
@@ -240,7 +240,7 @@ extension on Widget {
           child: TextButton.icon(
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CustomerStatementScreen(partyId: id, partyName: name))),
             icon: const Icon(Icons.description_outlined),
-            label: const Text('Customer statement'),
+            label: const Text('Customer account summary'),
           ),
         ),
       ]);

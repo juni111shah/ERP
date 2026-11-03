@@ -210,12 +210,12 @@ class LeaseDetailScreen extends StatelessWidget {
             run: (ref, d, _) async => null,
           ),
           ActionSpec(
-            label: 'Settle deposit',
+            label: 'Return or keep deposit',
             icon: Icons.account_balance_wallet_outlined,
             permission: 'realestate.deposits.manage',
             visible: _closed,
             form: (d) => _post(
-              'Settle security deposit',
+              'Return or keep the security deposit',
               '$_leasesPath/$id/deposit/settle',
               [
                 Field.date('date', 'Date', required: true, initial: 'today'),
@@ -224,7 +224,7 @@ class LeaseDetailScreen extends StatelessWidget {
                 Field.money('refund', 'Refund to tenant', initial: '0'),
                 Field.lookup('refundBankAccountId', 'Refund from account', path: '/api/v1/finance/accounts', subtitleKey: 'code', visibleWhen: (v) => (toNum(v['refund']) ?? 0) > 0),
               ],
-              submit: 'Settle',
+              submit: 'Close out',
             ),
             run: (ref, d, _) async => null,
           ),

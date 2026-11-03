@@ -39,7 +39,7 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Choose a workspace'),
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => ref.read(pendingWorkspaceProvider.notifier).set(null)),
+        leading: IconButton(tooltip: 'Back', icon: const Icon(Icons.arrow_back), onPressed: () => ref.read(pendingWorkspaceProvider.notifier).set(null)),
       ),
       body: pending == null
           ? const SizedBox.shrink()

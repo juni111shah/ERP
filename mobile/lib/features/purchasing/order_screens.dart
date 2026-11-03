@@ -59,8 +59,8 @@ FormSpec orderForm(WidgetRef ref, {Json? existing}) {
     },
     fields: [
       Field.select('legalEntityId', 'Legal entity', options: [for (final e in me.legalEntities) Option(e.id, e.name)], required: true, initial: entityId, visibleWhen: (_) => !editing),
-      Field.lookup('vendorPartyId', 'Vendor', path: '/api/v1/parties', query: const {'role': 'Vendor'}, subtitleKey: 'code', required: true),
-      Field.text('vendorReference', 'Vendor reference', maxLength: 100),
+      Field.lookup('vendorPartyId', 'Supplier', path: '/api/v1/parties', query: const {'role': 'Vendor'}, subtitleKey: 'code', required: true),
+      Field.text('vendorReference', 'Supplier reference', maxLength: 100),
       Field.date('orderDate', 'Order date', required: true, initial: 'today'),
       Field.date('expectedDeliveryDate', 'Expected delivery', validator: (v, all) {
         final order = all['orderDate']?.toString() ?? '';
@@ -173,8 +173,8 @@ class OrderDetailScreen extends StatelessWidget {
               icon: Icons.receipt_long_outlined,
               permission: 'purchasing.orders.manage',
               visible: (d) => const {'approved', 'partiallyReceived', 'received'}.contains(d['status']),
-              confirm: 'Create a vendor bill from this order? Quantities received are billed at the order price.',
-              successMessage: 'Vendor bill created',
+              confirm: 'Create a supplier bill from this order? Quantities received are billed at the order price.',
+              successMessage: 'Supplier bill created',
               run: (ref, d, _) => ref.read(apiProvider).post('$path/convert-to-bill'),
             ),
             orderStatusAction(path, 'Cancel order', Icons.block, 'cancelled', {'draft', 'submitted', 'approved'}, destructive: true, confirm: 'Cancel this purchase order?'),
@@ -208,10 +208,10 @@ Widget orderBody(BuildContext context, Json d) {
       InfoRow('Discount', money(d, 'discountTotal', currencyKey: 'currency')),
       InfoRow('Tax', money(d, 'taxTotal', currencyKey: 'currency')),
       InfoRow('Total', money(d, 'totalAmount', currencyKey: 'currency'), bold: true),
-      InfoRow('Vendor reference', text(d['vendorReference'])),
+      InfoRow('Supplier reference', text(d['vendorReference'])),
       InfoRow('Payment terms', text(d['paymentTerms'])),
       InfoRow('Delivery address', text(d['deliveryAddress'])),
-      InfoRow('Vendor bill', d['invoicedBillId'] != null ? 'Created' : null),
+      InfoRow('Supplier bill', d['invoicedBillId'] != null ? 'Created' : null),
     ]),
     Text('Lines', style: Theme.of(context).textTheme.titleMedium),
     for (final l in lines)

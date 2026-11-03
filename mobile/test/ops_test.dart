@@ -170,11 +170,11 @@ void main() {
       FakeAdapter count(String status) => FakeAdapter((o) => envelope({'id': 'c', 'number': 'CNT-1', 'warehouse': 'W', 'status': status, 'lines': []}));
       await t.pumpWidget(host(count('counting'), const CountDetailScreen(id: 'c')));
       await t.pumpAndSettle();
-      expect(find.text('Post'), findsOneWidget);
+      expect(find.text('Record'), findsOneWidget);
       expect(find.text('Enter counts'), findsOneWidget);
       await t.pumpWidget(host(count('posted'), const CountDetailScreen(id: 'c2')));
       await t.pumpAndSettle();
-      expect(find.text('Post'), findsNothing);
+      expect(find.text('Record'), findsNothing);
     });
   });
 }

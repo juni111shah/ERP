@@ -162,7 +162,7 @@ class AppTheme {
 
     OutlineInputBorder border(Color c, [double w = 1]) => OutlineInputBorder(borderRadius: BorderRadius.circular(ErpRadius.input), borderSide: BorderSide(color: c, width: w));
     const buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(ErpRadius.card)));
-    const buttonSize = Size(64, 46);
+    const buttonSize = Size(64, 48);
     const buttonText = TextStyle(fontFamily: ErpFonts.family, fontSize: ErpType.body, fontWeight: FontWeight.w600);
 
     return base.copyWith(
@@ -275,7 +275,7 @@ class AppTheme {
         backgroundColor: WidgetStatePropertyAll(t.surface),
         side: WidgetStatePropertyAll(BorderSide(color: t.border)),
         shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(ErpRadius.input))),
-        constraints: const BoxConstraints(minHeight: 44),
+        constraints: const BoxConstraints(minHeight: 48),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: t.brand, linearTrackColor: t.sunken),
     );

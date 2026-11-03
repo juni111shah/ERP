@@ -44,9 +44,9 @@ FormSpec billForm(WidgetRef ref, {Json? existing}) {
   final fields = <Field>[
     entityField(ref),
     vendorField(),
-    Field.text('vendorReference', "Vendor's invoice number", maxLength: 100),
+    Field.text('vendorReference', "Supplier's invoice number", maxLength: 100),
     Field.date('billDate', 'Bill date', required: true, initial: 'today', validator: plausibleDate),
-    Field.date('dueDate', 'Due date (empty = vendor terms)', validator: notBefore('billDate', 'The due date cannot be before the bill date')),
+    Field.date('dueDate', 'Due date (empty = supplier terms)', validator: notBefore('billDate', 'The due date cannot be before the bill date')),
     Field.lines('lines', 'Lines', fields: [
       Field.lookup('itemId', 'Item (optional)', path: '/api/v1/items', subtitleKey: 'sku', copy: const {'description': 'name', 'price': 'purchasePrice'}),
       Field.text('description', 'Description', required: true, maxLength: 400),
@@ -63,7 +63,7 @@ FormSpec billForm(WidgetRef ref, {Json? existing}) {
     fields: fields,
     summary: (context, raw) {
       final net = [for (final l in (raw['lines'] as List<dynamic>)) lineTotal(l as Map)].fold<num>(0, (a, b) => a + b);
-      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Net before tax', formatMoney(net), bold: true));
+      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Amount before tax', formatMoney(net), bold: true));
     },
     submit: (ref, body, raw) async {
       final api = ref.read(apiProvider);
@@ -126,12 +126,12 @@ class BillDetailScreen extends StatelessWidget {
         body: billBody,
         actions: [
           ActionSpec(
-            label: 'Post',
+            label: 'Record',
             icon: Icons.check_circle_outline,
             permission: 'finance.bills.post',
             visible: _editable,
-            confirm: 'Post this bill to the ledger? If an approval rule applies it is sent for approval first.',
-            successMessage: 'Bill posted',
+            confirm: 'Record this bill in the accounts? If an approval rule applies it is sent for approval first.',
+            successMessage: 'Bill recorded',
             run: (ref, d, _) => ref.read(apiProvider).post('$billsPath/$id/post'),
           ),
           ActionSpec(
@@ -170,8 +170,8 @@ Widget billBody(BuildContext context, Json d) {
   return DetailBody(children: [
     DetailHeader(title: d['partyName']?.toString() ?? '', subtitle: 'Bill date ${formatDate(d['billDate'])} · Due ${formatDate(d['dueDate'])}', status: d['status']?.toString()),
     InfoCard(rows: [
-      InfoRow('Vendor reference', d['vendorReference']?.toString()),
-      InfoRow('Net', money(d, 'net')),
+      InfoRow('Supplier reference', d['vendorReference']?.toString()),
+      InfoRow('Total after deductions', money(d, 'net')),
       InfoRow('Tax', money(d, 'tax')),
       InfoRow('Total', money(d, 'total'), bold: true),
       InfoRow('Paid', money(d, 'paid')),

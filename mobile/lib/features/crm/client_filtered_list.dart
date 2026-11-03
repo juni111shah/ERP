@@ -56,7 +56,7 @@ class _State extends ConsumerState<ClientFilteredListScreen> {
           height: 48,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s3, vertical: ErpSpace.s15),
+            padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s3),
             children: [
               Padding(padding: const EdgeInsets.only(right: ErpSpace.s2), child: ChoiceChip(label: const Text('All'), selected: _filter == null, onSelected: (_) => setState(() => _filter = null))),
               for (final o in widget.filters)

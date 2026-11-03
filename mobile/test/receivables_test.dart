@@ -65,7 +65,7 @@ void main() {
       v['allocations'] = [
         {'invoiceId': 'i1', 'amount': '150'}
       ];
-      expect(FormEngine.validate(spec.fields, v)['amount'], 'Allocations exceed the receipt amount');
+      expect(FormEngine.validate(spec.fields, v)['amount'], 'Matched amounts are more than the receipt');
     });
 
     testWidgets('prefilled from an invoice: customer, outstanding amount and one allocation', (t) async {
@@ -145,7 +145,7 @@ void main() {
       await t.pumpWidget(host(adapter, (c, ref) => const ReceiptDetailScreen(id: 'r1')));
       await t.pumpAndSettle();
       expect(find.text('INV-9'), findsOneWidget);
-      expect(find.text('Allocate'), findsOneWidget);
+      expect(find.text('Match'), findsOneWidget);
       await t.tap(find.text('Void'));
       await t.pumpAndSettle();
       await t.enterText(find.byType(TextField), 'entered twice');
@@ -160,7 +160,7 @@ void main() {
       await t.pumpWidget(host(FakeAdapter((o) => envelope(receipt('voided', 0))), (c, ref) => const ReceiptDetailScreen(id: 'r1')));
       await t.pumpAndSettle();
       expect(find.text('Void'), findsNothing);
-      expect(find.text('Allocate'), findsNothing);
+      expect(find.text('Match'), findsNothing);
     });
 
     testWidgets('party tile shows roles', (t) async {
