@@ -123,7 +123,7 @@ class ErpListCard extends StatelessWidget {
                     ),
                     if (meta != null && meta!.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsetsDirectional.only(top: 2),
+                        padding: const EdgeInsetsDirectional.only(top: ErpSpace.s05),
                         child: Text(
                           meta!,
                           maxLines: 1,

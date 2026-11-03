@@ -72,6 +72,7 @@ class _ListScreenState extends ConsumerState<ListScreen> {
         searchHint: widget.searchHint,
         emptyText: widget.emptyText,
         query: query,
+        onClearFilter: _filter == null ? null : () => setState(() => _filter = null),
         header: widget.filters.isEmpty
             ? null
             : FilterChipsRow<String>(

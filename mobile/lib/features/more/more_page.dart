@@ -7,6 +7,8 @@ import '../../kit/registry.dart';
 import '../../screens/all_screens.dart';
 import '../../theme/app_theme.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
+import '../../kit/skeleton.dart';
 
 MobileScreen? screenForMenuId(String menuId) {
   for (final s in allScreens) {
@@ -24,7 +26,7 @@ class MorePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final menu = ref.watch(menuProvider);
     return menu.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ErpSkeleton.list(),
       error: (e, _) => ErrorView(message: e.toString(), onRetry: () => ref.invalidate(menuProvider)),
       data: (groups) {
         final items = [for (final g in groups) ...g.items];
@@ -35,7 +37,7 @@ class MorePage extends ConsumerWidget {
             padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 24),
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                padding: const EdgeInsets.fromLTRB(ErpSpace.s4, ErpSpace.s2, ErpSpace.s4, 0),
                 child: Text('$available of ${items.length} areas are on the phone. The rest are marked "web".',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ErpTheme.of(context).muted)),
               ),

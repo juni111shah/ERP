@@ -83,7 +83,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(ErpSpace.s6),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Form(
@@ -116,7 +116,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
                       validator: (v) => (v == null || !v.contains('@')) ? 'Enter your email address' : null,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: ErpSpace.s35),
                     TextFormField(
                       controller: _password,
                       obscureText: !_showPassword,
@@ -135,7 +135,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       validator: (v) => (v == null || v.isEmpty) ? 'Enter your password' : null,
                     ),
                     if (_needsCode) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: ErpSpace.s35),
                       TextFormField(
                         controller: _code,
                         keyboardType: TextInputType.number,
@@ -157,19 +157,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     if (_error != null)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.only(bottom: ErpSpace.s3),
                         child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
                       ),
                     FilledButton(
                       onPressed: _busy ? null : _submit,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: ErpSpace.s3),
                         child: _busy
                             ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                             : Text(_needsCode ? 'Verify and sign in' : 'Sign in'),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: ErpSpace.s2),
                     ExpansionTile(
                       title: const Text('Server'),
                       leading: const Icon(Icons.dns_outlined),
@@ -177,7 +177,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       collapsedShape: const Border(),
                       children: [
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.only(bottom: ErpSpace.s2),
                           child: TextFormField(
                             controller: _server,
                             keyboardType: TextInputType.url,

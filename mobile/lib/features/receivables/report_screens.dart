@@ -6,6 +6,8 @@ import '../../core/format.dart';
 import '../../core/session.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
+import '../../kit/skeleton.dart';
 
 typedef _Json = Map<String, dynamic>;
 
@@ -68,7 +70,7 @@ class _AsOfReportState extends ConsumerState<_AsOfReport> {
           ),
         ]),
         body: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const ErpSkeleton.detail()
             : _error != null
                 ? ErrorView(message: _error!, onRetry: _load)
                 : RefreshIndicator(onRefresh: _load, child: widget.builder(context, _data!)),
@@ -89,18 +91,18 @@ class ArAgeingScreen extends StatelessWidget {
         builder: (context, d) {
           final rows = (d['rows'] as List<dynamic>? ?? const []).cast<_Json>();
           final totals = (d['totals'] as _Json?) ?? const {};
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(16), children: [
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(ErpSpace.s4), children: [
             InfoCard(title: 'Total receivable', rows: [
               for (final b in _buckets) InfoRow(b.$2, formatMoney((totals[b.$1] as num?) ?? 0)),
               InfoRow('Total', formatMoney((totals['total'] as num?) ?? 0), bold: true),
             ]),
-            if (rows.isEmpty) const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('Nothing is owed.'))),
+            if (rows.isEmpty) const Padding(padding: EdgeInsets.all(ErpSpace.s6), child: Center(child: Text('Nothing is owed.'))),
             for (final r in rows)
               Card(
                 child: ExpansionTile(
                   title: Text(r['partyName']?.toString() ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
                   trailing: Text(formatMoney((r['total'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-                  childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  childrenPadding: const EdgeInsets.fromLTRB(ErpSpace.s4, 0, ErpSpace.s4, ErpSpace.s3),
                   children: [
                     for (final b in _buckets) InfoRow(b.$2, formatMoney((r[b.$1] as num?) ?? 0)),
                     Align(
@@ -131,15 +133,15 @@ class CustomerStatementScreen extends StatelessWidget {
         query: {'partyId': partyId},
         builder: (context, d) {
           final items = (d['items'] as List<dynamic>? ?? const []).cast<_Json>();
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(16), children: [
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(ErpSpace.s4), children: [
             Text(d['partyName']?.toString() ?? partyName, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
+            const SizedBox(height: ErpSpace.s2),
             InfoCard(rows: [
               InfoRow('Unallocated receipts', formatMoney((d['unallocatedReceipts'] as num?) ?? 0)),
               InfoRow('Balance', formatMoney((d['balance'] as num?) ?? 0), bold: true),
             ]),
             Text('Open items', style: Theme.of(context).textTheme.titleMedium),
-            if (items.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No open items.')),
+            if (items.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: ErpSpace.s2), child: Text('No open items.')),
             for (final i in items)
               ListTile(
                 contentPadding: EdgeInsets.zero,

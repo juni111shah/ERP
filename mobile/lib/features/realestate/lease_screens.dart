@@ -12,6 +12,9 @@ import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'common.dart';
 import 'maintenance_screens.dart';
+import 'package:erp_mobile/theme/tokens.dart';
+import '../../kit/skeleton.dart';
+import '../../kit/state_view.dart';
 
 const _leasesPath = '$rePath/leases';
 
@@ -247,7 +250,7 @@ class LeaseDetailScreen extends StatelessWidget {
         InfoRow('Reason', text(d['terminationReason'])),
         InfoRow('Holding over', d['holdingOverFlag'] == true ? 'Yes' : null),
       ]),
-      if ((d['notes'] ?? '').toString().isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(d['notes'].toString())),
+      if ((d['notes'] ?? '').toString().isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: Text(d['notes'].toString())),
       Text('Rent schedule', style: Theme.of(context).textTheme.titleMedium),
       for (final i in schedule)
         ListTile(
@@ -257,14 +260,14 @@ class LeaseDetailScreen extends StatelessWidget {
           subtitle: Text('${formatDate(i['periodFrom'])} to ${formatDate(i['periodTo'])}'),
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
             Text(formatMoney((i['amount'] as num?) ?? 0)),
-            const SizedBox(width: 8),
+            const SizedBox(width: ErpSpace.s2),
             if (canBill && i['status'] == 'scheduled')
               TextButton(onPressed: () => invoiceInstalment(context, ref, i), child: const Text('Invoice'))
             else
               reChip(i['status']),
           ]),
         ),
-      const SizedBox(height: 8),
+      const SizedBox(height: ErpSpace.s2),
       Text('Security deposit', style: Theme.of(context).textTheme.titleMedium),
       RelatedList(
         path: '$_leasesPath/${d['id']}/deposit',
@@ -278,7 +281,7 @@ class LeaseDetailScreen extends StatelessWidget {
           trailing: Text(formatMoney((t['amount'] as num?) ?? 0)),
         ),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: ErpSpace.s2),
       Text('Work orders', style: Theme.of(context).textTheme.titleMedium),
       RelatedList(path: '$rePath/work-orders', query: {'filter': 'leaseId:eq:${d['id']}', 'pageSize': 10}, tile: workOrderTile, empty: 'No work orders for this lease.'),
     ]);
@@ -329,9 +332,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     final r = _result;
     return Scaffold(
       appBar: AppBar(title: const Text('Rent billing')),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
+      body: ListView(padding: const EdgeInsets.all(ErpSpace.s4), children: [
         const Text('Raise rent invoices for all instalments that are due. Single instalments can also be invoiced from the lease.'),
-        const SizedBox(height: 16),
+        const SizedBox(height: ErpSpace.s4),
         if (r != null)
           InfoCard(title: 'Last run', rows: [InfoRow('Invoices raised', '${r['invoiced']}', bold: true), InfoRow('Total billed', formatMoney((r['totalBilled'] as num?) ?? 0))]),
         if (reCan(ref, 'realestate.billing.run'))
@@ -397,15 +400,15 @@ class _RenewalsScreenState extends ConsumerState<RenewalsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Lease renewals')),
       body: d == null
-          ? Center(child: _error == null ? const CircularProgressIndicator() : Padding(padding: const EdgeInsets.all(16), child: Text(_error!)))
+          ? (_error == null ? const ErpSkeleton.list() : ErpStateView.error(message: _error!, onRetry: _load))
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(children: [
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(ErpSpace.s4),
                   child: Text('Leases ending within ${d['withinDays']} days: ${d['due']} due, ${d['draft']} draft renewals, ${d['renewed']} renewed.'),
                 ),
-                if (rows.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No leases are due for renewal.')),
+                if (rows.isEmpty) const Padding(padding: EdgeInsets.all(ErpSpace.s4), child: Text('No leases are due for renewal.')),
                 for (final r in rows)
                   ListTile(
                     onTap: () => reGo(context, LeaseDetailScreen(id: r['leaseId'].toString())),

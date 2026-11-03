@@ -10,6 +10,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const _listingsPath = '$rePath/listings';
 const _leadsPath = '$rePath/leads';
@@ -189,7 +190,7 @@ class LeadDetailScreen extends StatelessWidget {
           ]),
           if ((d['notes'] ?? '').toString().isNotEmpty) Text(d['notes'].toString()),
           if (d['dealId'] != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: ErpSpace.s3),
             OutlinedButton.icon(onPressed: () => reGo(context, DealDetailScreen(id: d['dealId'].toString())), icon: const Icon(Icons.handshake_outlined), label: const Text('Open the deal')),
           ],
         ]),

@@ -12,6 +12,7 @@ import '../../kit/form_page.dart';
 import 'client_filtered_list.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const _base = '/api/v1/m/crm';
 
@@ -114,7 +115,7 @@ Widget leadTile(BuildContext context, Json l) {
     subtitle: Text('${l['leadNumber']} · ${l['companyName'] ?? optionLabel(leadSources, l['source'])}'),
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Text(formatMoney((l['estimatedValue'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       statusChip(status, leadStatuses),
     ]),
   );
@@ -166,7 +167,7 @@ class LeadDetailScreen extends StatelessWidget {
           body: (context, d) => DetailBody(children: [
             DetailHeader(title: '${d['fullName']}', subtitle: [d['jobTitle'], d['companyName']].where((e) => e != null && '$e'.isNotEmpty).join(' · ')),
             Align(alignment: Alignment.centerLeft, child: statusChip('${d['status']}', leadStatuses)),
-            const SizedBox(height: 8),
+            const SizedBox(height: ErpSpace.s2),
             InfoCard(rows: [
               InfoRow('Phone', text(d['phone'])),
               InfoRow('Email', text(d['email'])),
@@ -175,7 +176,7 @@ class LeadDetailScreen extends StatelessWidget {
               InfoRow('Assigned to', text(d['assignedUserName'])),
               InfoRow('Converted', d['convertedAt'] == null ? null : formatDate(d['convertedAt'])),
             ]),
-            if ((d['notes'] ?? '').toString().isNotEmpty) ...[Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString()), const SizedBox(height: 12)],
+            if ((d['notes'] ?? '').toString().isNotEmpty) ...[Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString()), const SizedBox(height: ErpSpace.s3)],
             ActivityList(kind: 'Lead', entityId: id),
           ]),
           actions: [
@@ -268,7 +269,7 @@ Widget opportunityTile(BuildContext context, Json o) {
     isThreeLine: true,
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Text(formatMoney((o['expectedRevenue'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       statusChip(stage, opportunityStages),
     ]),
   );
@@ -311,7 +312,7 @@ class OpportunityDetailScreen extends StatelessWidget {
           body: (context, d) => DetailBody(children: [
             DetailHeader(title: '${d['title']}', subtitle: '${d['customerName']}'),
             Align(alignment: Alignment.centerLeft, child: statusChip('${d['stage']}', opportunityStages)),
-            const SizedBox(height: 8),
+            const SizedBox(height: ErpSpace.s2),
             InfoCard(rows: [
               InfoRow('Probability', '${d['probabilityPercent']}%'),
               InfoRow('Expected revenue', formatMoney((d['expectedRevenue'] as num?) ?? 0), bold: true),
@@ -321,7 +322,7 @@ class OpportunityDetailScreen extends StatelessWidget {
               InfoRow('Close reason', text(d['closeReason'])),
               InfoRow('Assigned to', text(d['assignedUserName'])),
             ]),
-            if ((d['notes'] ?? '').toString().isNotEmpty) ...[Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString()), const SizedBox(height: 12)],
+            if ((d['notes'] ?? '').toString().isNotEmpty) ...[Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString()), const SizedBox(height: ErpSpace.s3)],
             ActivityList(kind: 'Opportunity', entityId: id),
           ]),
           actions: [
@@ -478,7 +479,7 @@ class _InteractionDetailState extends ConsumerState<InteractionDetailScreen> {
       bottomNavigationBar: !_resolved && me.can('crm.interactions.manage')
           ? SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                padding: const EdgeInsets.fromLTRB(ErpSpace.s3, ErpSpace.s15, ErpSpace.s3, ErpSpace.s25),
                 child: FilledButton.icon(onPressed: _busy ? null : _resolve, icon: const Icon(Icons.check), label: const Text('Mark done')),
               ),
             )
@@ -525,7 +526,7 @@ class _ActivityListState extends ConsumerState<ActivityList> {
       if (_error != null)
         Text(_error!)
       else if (items == null)
-        const Padding(padding: EdgeInsets.all(8), child: LinearProgressIndicator())
+        const Padding(padding: EdgeInsets.all(ErpSpace.s2), child: LinearProgressIndicator())
       else if (items.isEmpty)
         const Text('No activity logged yet.'),
       for (final i in items ?? const <Json>[])

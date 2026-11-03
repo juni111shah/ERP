@@ -12,6 +12,7 @@ import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import '../receivables/invoice_screens.dart';
 import 'sales_common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const _path = '/api/v1/m/sales/orders';
 
@@ -111,7 +112,7 @@ Widget orderTile(BuildContext context, Json o) {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(money(o, 'totalAmount', currencyKey: 'currency'), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         StatusChip(humanize(status), color: StatusChip.forStatus(status)),
       ],
     ),
@@ -222,7 +223,7 @@ class OrderDetailScreen extends StatelessWidget {
           onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => InvoiceDetailScreen(id: d['invoicedInvoiceId'].toString()))),
         ),
       documentLines(context, d['lines'] as List<dynamic>? ?? const [], delivered: true),
-      if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: 8), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
+      if ((d['notes'] ?? '').toString().isNotEmpty) ...[const SizedBox(height: ErpSpace.s2), Text('Notes', style: Theme.of(context).textTheme.titleMedium), Text(d['notes'].toString())],
     ]);
   }
 }

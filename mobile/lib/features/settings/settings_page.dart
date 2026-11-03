@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../../core/session.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 /// Switches workspace, showing the server's message if it refuses.
 Future<void> switchWorkspaceWithFeedback(BuildContext context, WidgetRef ref, String id) async {
@@ -48,7 +49,7 @@ class SettingsPage extends ConsumerWidget {
             subtitle: Text(current == null ? '' : [current.code, current.industry].where((s) => s.isNotEmpty).join(' · ')),
           ),
           if (workspaces.length > 1) ...[
-            const Padding(padding: EdgeInsets.fromLTRB(16, 8, 16, 4), child: Text('Switch workspace')),
+            const Padding(padding: EdgeInsets.fromLTRB(ErpSpace.s4, ErpSpace.s2, ErpSpace.s4, ErpSpace.s1), child: Text('Switch workspace')),
             for (final w in workspaces)
               ListTile(
                 leading: Icon(w.id == current?.id ? Icons.radio_button_checked : Icons.radio_button_unchecked),

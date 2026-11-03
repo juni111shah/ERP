@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:erp_mobile/theme/tokens.dart';
+import 'state_view.dart';
 
 /// One month of the billed-vs-collected series.
 @immutable
@@ -165,18 +166,18 @@ class _ErpBilledCollectedChartState extends State<ErpBilledCollectedChart> {
                     Localizations.localeOf(context).languageCode == 'ar' ? widget.eyebrow! : widget.eyebrow!.toUpperCase(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.55, color: ErpColors.brand),
+                    style: const TextStyle(fontSize: ErpType.label, fontWeight: FontWeight.w600, letterSpacing: 0.55, color: ErpColors.brand),
                   ),
                 ),
               ]),
             if (widget.title != null)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.only(top: ErpSpace.s05),
                 child: Text(widget.title!, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    style: const TextStyle(fontSize: ErpType.title, fontWeight: FontWeight.w700)),
               ),
             if (widget.subtitle != null)
-              Text(widget.subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: muted)),
+              Text(widget.subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: ErpType.caption, color: muted)),
           ]),
         ),
         if (widget.showToggle && data.isNotEmpty)
@@ -190,7 +191,7 @@ class _ErpBilledCollectedChartState extends State<ErpBilledCollectedChart> {
             style: const ButtonStyle(
               visualDensity: VisualDensity(horizontal: -3, vertical: -3),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              textStyle: WidgetStatePropertyAll(TextStyle(fontSize: ErpType.caption, fontWeight: FontWeight.w600)),
             ),
             onSelectionChanged: (s) {
               setState(() => _mode = s.first);
@@ -204,13 +205,7 @@ class _ErpBilledCollectedChartState extends State<ErpBilledCollectedChart> {
     if (data.isEmpty) {
       plot = SizedBox(
         height: widget.height,
-        child: Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.bar_chart_rounded, size: 32, color: muted.withValues(alpha: 0.6)),
-            const SizedBox(height: ErpSpace.s2),
-            Text(widget.emptyLabel, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: muted)),
-          ]),
-        ),
+        child: ErpStateView.empty(key: const ValueKey('chart-empty'), compact: true, icon: Icons.bar_chart_rounded, title: widget.emptyLabel),
       );
     } else {
       plot = SizedBox(
@@ -244,7 +239,7 @@ class _ErpBilledCollectedChartState extends State<ErpBilledCollectedChart> {
       container: true,
       label: summary,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(ErpSpace.s4, 14, ErpSpace.s4, 14),
+        padding: const EdgeInsets.fromLTRB(ErpSpace.s4, ErpSpace.s35, ErpSpace.s4, ErpSpace.s35),
         decoration: BoxDecoration(
           color: dark ? ErpDark.surface : ErpColors.surface,
           borderRadius: BorderRadius.circular(ErpRadius.panel),
@@ -271,17 +266,17 @@ class _ErpBilledCollectedChartState extends State<ErpBilledCollectedChart> {
                       TextSpan(text: '  ·  ${widget.collectedLabel} '),
                       _ltrNumber('${erpCompactNumber(data[sel].collected)}$cur'),
                     ]),
-                    style: TextStyle(fontSize: 12, color: text2, fontFeatures: const [FontFeature.tabularFigures()]),
+                    style: TextStyle(fontSize: ErpType.caption, color: text2, fontFeatures: const [FontFeature.tabularFigures()]),
                   ),
                 ),
               ),
             if (data.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.only(top: ErpSpace.s25),
                 // Legends wrap onto a second line on narrow phones instead of truncating.
                 child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                   Expanded(
-                    child: Wrap(spacing: 14, runSpacing: 4, children: [
+                    child: Wrap(spacing: ErpSpace.s35, runSpacing: ErpSpace.s1, children: [
                       _LegendChip(color: ErpColors.billed, label: widget.billedLabel, total: erpCompactNumber(billedTotal), textColor: text2),
                       _LegendChip(color: ErpColors.collected, label: widget.collectedLabel, total: erpCompactNumber(collectedTotal), textColor: text2),
                     ]),
@@ -310,12 +305,12 @@ class _LegendChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
         Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
-        const SizedBox(width: 6),
+        const SizedBox(width: ErpSpace.s15),
         Flexible(
           child: Text.rich(
             TextSpan(children: [TextSpan(text: '$label '), TextSpan(text: '\u2066$total\u2069')]),
             softWrap: true,
-            style: TextStyle(fontSize: 12, color: textColor, fontFeatures: const [FontFeature.tabularFigures()]),
+            style: TextStyle(fontSize: ErpType.caption, color: textColor, fontFeatures: const [FontFeature.tabularFigures()]),
           ),
         ),
       ]);
@@ -330,7 +325,7 @@ class _PercentBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s2, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s2, vertical: ErpSpace.s05),
         decoration: BoxDecoration(
           color: tone.bgFor(brightness),
           borderRadius: BorderRadius.circular(ErpRadius.pill),
@@ -341,7 +336,7 @@ class _PercentBadge extends StatelessWidget {
           child: Text(
             '${percent.round()}%',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: ErpType.caption,
               fontWeight: FontWeight.w600,
               color: tone.fgFor(brightness),
               fontFeatures: const [FontFeature.tabularFigures()],

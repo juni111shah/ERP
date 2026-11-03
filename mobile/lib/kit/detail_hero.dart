@@ -281,7 +281,7 @@ class _Fact extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(fact.label.toUpperCase(), style: labelStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 2),
+          const SizedBox(height: ErpSpace.s05),
           Text(
             fact.value,
             maxLines: 2,

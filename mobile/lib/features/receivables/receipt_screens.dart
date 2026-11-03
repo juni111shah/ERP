@@ -11,6 +11,7 @@ import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import '../../kit/list_card.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const receiptsPath = '/api/v1/finance/receipts';
 
@@ -65,7 +66,7 @@ FormSpec receiptForm(WidgetRef ref, {String? partyId, String? partyName, Json? i
     fields: fields,
     summary: (context, raw) {
       final left = (toNum(raw['amount']) ?? 0) - _allocated(raw);
-      return Padding(padding: const EdgeInsets.only(top: 4), child: InfoRow('Left on account', formatMoney(left < 0 ? 0 : left), bold: true));
+      return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Left on account', formatMoney(left < 0 ? 0 : left), bold: true));
     },
     submit: (ref, body, raw) => ref.read(apiProvider).post(receiptsPath, body: body),
   );
@@ -165,7 +166,7 @@ class ReceiptDetailScreen extends StatelessWidget {
         InfoRow('Void reason', text(d['voidReason'])),
       ]),
       Text('Allocations', style: Theme.of(context).textTheme.titleMedium),
-      if (allocations.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Not allocated to any invoice.')),
+      if (allocations.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: ErpSpace.s2), child: Text('Not allocated to any invoice.')),
       for (final a in allocations)
         ListTile(
           contentPadding: EdgeInsets.zero,

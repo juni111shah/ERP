@@ -10,6 +10,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'hr_common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const reviewsPath = '$hrPath/reviews';
 const cyclesPath = '$hrPath/review-cycles';
@@ -67,11 +68,11 @@ Widget reviewTile(BuildContext context, Json r) {
   final status = (r['status'] ?? '').toString();
   return ListTile(
     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReviewDetailScreen(id: r['id'].toString()))),
-    title: NameText(employeeNames, r['employeeId'], style: const TextStyle(fontSize: 16)),
+    title: NameText(employeeNames, r['employeeId'], style: const TextStyle(fontSize: ErpType.title)),
     subtitle: NameText(cycleNames, r['cycleId']),
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       if (r['overallRating'] != null) Text('${r['overallRating']} / 5', style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       hrStatusChip(status, humanize(status)),
     ]),
   );
@@ -149,7 +150,7 @@ Widget reviewBody(BuildContext context, Json d) {
   final comps = (d['competencies'] as List<dynamic>? ?? const []).cast<Json>();
   return DetailBody(children: [
     DetailHeader(title: '${d['employeeName']}', subtitle: '${d['cycleName']}'),
-    Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: 12), child: hrStatusChip(status, humanize(status)))),
+    Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: hrStatusChip(status, humanize(status)))),
     InfoCard(rows: [
       InfoRow('Reviewer', text(d['reviewerName'])),
       InfoRow('Overall rating', d['overallRating'] == null ? null : '${d['overallRating']} / 5'),

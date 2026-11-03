@@ -43,17 +43,17 @@ class _HomePageState extends ConsumerState<HomePage> {
               alignment: Alignment.center,
               decoration: BoxDecoration(gradient: t.heroGradient, borderRadius: BorderRadius.circular(ErpRadius.input)),
               child: Text(initials.isEmpty ? 'E' : initials.substring(0, initials.length < 2 ? initials.length : 2).toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                  style: const TextStyle(color: Colors.white, fontSize: ErpType.bodySmall, fontWeight: FontWeight.w700)),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: ErpSpace.s25),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(_titles[_index], style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 17)),
+                  Text(_titles[_index], style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: ErpType.titleLarge)),
                   if (workspace != null)
-                    Text(workspace.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: t.muted, fontWeight: FontWeight.w500)),
+                    Text(workspace.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: ErpType.caption, color: t.muted, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),

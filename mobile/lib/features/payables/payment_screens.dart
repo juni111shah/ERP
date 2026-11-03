@@ -12,6 +12,7 @@ import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import 'bill_screens.dart' show billsPath;
 import 'common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const paymentsPath = '$finPath/payments';
 
@@ -107,7 +108,7 @@ Widget paymentTile(BuildContext context, Json p) {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(money(p, 'amount'), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+        const SizedBox(height: ErpSpace.s1),
         StatusChip(docStatusLabel(status), color: StatusChip.forStatus(status)),
       ],
     ),
@@ -196,7 +197,7 @@ Widget paymentBody(BuildContext context, Json d) {
       InfoRow('Void reason', d['voidReason']?.toString()),
     ]),
     Text('Allocated to bills', style: Theme.of(context).textTheme.titleMedium),
-    if (allocs.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Not allocated to any bill.')),
+    if (allocs.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: ErpSpace.s2), child: Text('Not allocated to any bill.')),
     for (final a in allocs)
       ListTile(
         contentPadding: EdgeInsets.zero,

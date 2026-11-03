@@ -13,6 +13,7 @@ import '../common/paged_list_view.dart';
 import '../../kit/list_card.dart';
 import 'receipt_screens.dart';
 import 'report_screens.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const partiesPath = '/api/v1/parties';
 const partyGroupsPath = '/api/v1/party-groups';
@@ -137,9 +138,9 @@ class _PartiesScreenState extends ConsumerState<PartiesScreen> {
         if (widget.role == null)
           SizedBox(
             height: 48,
-            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), children: [
-              Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: const Text('All'), selected: _role == null, onSelected: (_) => setState(() => _role = null))),
-              for (final o in partyRoles) Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(o.label), selected: _role == o.value, onSelected: (_) => setState(() => _role = o.value))),
+            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s3, vertical: ErpSpace.s15), children: [
+              Padding(padding: const EdgeInsets.only(right: ErpSpace.s2), child: ChoiceChip(label: const Text('All'), selected: _role == null, onSelected: (_) => setState(() => _role = null))),
+              for (final o in partyRoles) Padding(padding: const EdgeInsets.only(right: ErpSpace.s2), child: ChoiceChip(label: Text(o.label), selected: _role == o.value, onSelected: (_) => setState(() => _role = o.value))),
             ]),
           ),
         Expanded(child: PagedListView(path: partiesPath, itemBuilder: partyTile, searchHint: 'Search ${widget.title.toLowerCase()}', emptyText: 'Nothing found.', query: {if (_role != null) 'role': _role})),

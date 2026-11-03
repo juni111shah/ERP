@@ -19,7 +19,7 @@ class InfoCard extends StatelessWidget {
     final t = ErpTheme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: ErpSpace.s3),
-      padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, 14, ErpSpace.s4, 10),
+      padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, ErpSpace.s35, ErpSpace.s4, ErpSpace.s25),
       decoration: BoxDecoration(
         color: t.surface,
         borderRadius: BorderRadius.circular(ErpRadius.panel),
@@ -59,7 +59,7 @@ class InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(flex: 4, child: Text(label, style: TextStyle(fontSize: 13, color: t.muted))),
+          Expanded(flex: 4, child: Text(label, style: TextStyle(fontSize: ErpType.bodySmall, color: t.muted))),
           Expanded(
             flex: 5,
             child: Text(value ?? '',
@@ -96,7 +96,7 @@ class DetailHeader extends StatelessWidget {
               Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
               if (subtitle != null && subtitle!.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.only(top: ErpSpace.s05),
                   child: Text(subtitle!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.82))),
                 ),
             ]),
@@ -118,7 +118,7 @@ class DetailBody extends StatelessWidget {
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(16), children: children);
+  Widget build(BuildContext context) => ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(ErpSpace.s4), children: children);
 }
 
 String money(Map<String, dynamic> m, String key, {String currencyKey = 'currencyCode'}) =>

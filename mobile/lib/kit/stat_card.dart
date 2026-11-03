@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:erp_mobile/theme/tokens.dart';
 
+import 'motion.dart';
+
 /// Highlights stat card: a 4px start stripe, an uppercase label, a tinted
 /// tabular value with a currency suffix and an optional delta / subtitle line.
 ///
@@ -93,7 +95,7 @@ class ErpStatCard extends StatelessWidget {
         ].join(', ');
 
     final body = Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, ErpSpace.s3, 14, ErpSpace.s3),
+      padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, ErpSpace.s3, ErpSpace.s35, ErpSpace.s3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -103,7 +105,7 @@ class ErpStatCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: ErpType.label,
               fontWeight: FontWeight.w600,
               color: muted,
               letterSpacing: isArabic ? 0 : 0.44,
@@ -126,7 +128,7 @@ class ErpStatCard extends StatelessWidget {
                         TextSpan(
                           text: ' $currency',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: ErpType.caption,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0,
                             color: valueColor.withValues(alpha: 0.8),
@@ -136,7 +138,7 @@ class ErpStatCard extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: ErpType.display,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.48,
                       height: 1.2,
@@ -165,7 +167,9 @@ class ErpStatCard extends StatelessWidget {
       button: onTap != null,
       label: semantic,
       excludeSemantics: true,
-      child: Container(
+      child: ErpPressable(
+        enabled: onTap != null,
+        child: Container(
         constraints: const BoxConstraints(minHeight: 100),
         decoration: BoxDecoration(
           color: dark ? ErpDark.surface : ErpColors.surface,
@@ -197,6 +201,7 @@ class ErpStatCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -240,7 +245,7 @@ class _DeltaLine extends StatelessWidget {
               delta!,
               maxLines: 1,
               style: TextStyle(
-                fontSize: 11.5,
+                fontSize: ErpType.caption,
                 fontWeight: FontWeight.w600,
                 color: fg,
                 fontFeatures: const [FontFeature.tabularFigures()],
@@ -255,7 +260,7 @@ class _DeltaLine extends StatelessWidget {
               subtitle!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11.5, color: muted),
+              style: TextStyle(fontSize: ErpType.caption, color: muted),
             ),
           ),
       ],

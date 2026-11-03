@@ -14,6 +14,8 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
+import '../../kit/skeleton.dart';
 
 const posPath = '/api/v1/m/pos';
 
@@ -163,7 +165,7 @@ Widget sessionTile(BuildContext context, Json s) {
     isThreeLine: true,
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Text(_m(s['totalSales']), style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       StatusChip(humanize(status), color: status == 'open' ? Colors.green.shade700 : Colors.blueGrey),
     ]),
   );
@@ -248,7 +250,7 @@ Widget orderTile(BuildContext context, Json o) {
     isThreeLine: true,
     trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Text(_m(o['totalAmount']), style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
+      const SizedBox(height: ErpSpace.s1),
       StatusChip(humanize(status), color: StatusChip.forStatus(status == 'completed' ? 'paid' : status)),
     ]),
   );
@@ -315,7 +317,7 @@ Widget orderBody(BuildContext context, Json d) {
         trailing: Text(_m(l['lineTotal'])),
       ),
     if (payments.isNotEmpty) ...[
-      const SizedBox(height: 8),
+      const SizedBox(height: ErpSpace.s2),
       Text('Payments', style: Theme.of(context).textTheme.titleMedium),
       for (final p in payments)
         ListTile(
@@ -391,7 +393,7 @@ FormSpec saleForm(Json session) => FormSpec(
       ],
       summary: (context, raw) {
         final est = [for (final l in (raw['lines'] as List<dynamic>)) _n((l as Json)['quantity']) * _n(l['price']) * (1 - _n(l['discountPercent']) / 100)].fold<num>(0, (a, b) => a + b);
-        return Padding(padding: const EdgeInsets.only(top: 4), child: InfoRow('Subtotal before tax', formatMoney(est), bold: true));
+        return Padding(padding: const EdgeInsets.only(top: ErpSpace.s1), child: InfoRow('Subtotal before tax', formatMoney(est), bold: true));
       },
       submit: (ref, body, raw) async {
         final api = ref.read(apiProvider);
@@ -488,12 +490,12 @@ class _PosTerminalState extends ConsumerState<PosTerminalScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('POS terminal')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const ErpSkeleton.list()
           : _error != null && _register == null
               ? ErrorView(message: _error!, onRetry: _loadRegisters)
               : _registers.isEmpty
                   ? const Center(child: Text('No active register. Create one under Registers.'))
-                  : ListView(padding: const EdgeInsets.all(16), children: [
+                  : ListView(padding: const EdgeInsets.all(ErpSpace.s4), children: [
                       DropdownButtonFormField<String>(
                         initialValue: _register!['id'].toString(),
                         decoration: const InputDecoration(labelText: 'Register', border: OutlineInputBorder()),
@@ -506,10 +508,10 @@ class _PosTerminalState extends ConsumerState<PosTerminalScreen> {
                           _loadSession();
                         },
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: ErpSpace.s4),
                       if (s == null) ...[
                         const Text('No open shift on this register.'),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: ErpSpace.s3),
                         if (me.can('pos.sessions.manage'))
                           FilledButton.icon(onPressed: () async => openForm<Object?>(context, openShiftForm(_register!)).then((_) => _loadSession()), icon: const Icon(Icons.lock_open), label: const Text('Open shift')),
                       ] else ...[
@@ -520,7 +522,7 @@ class _PosTerminalState extends ConsumerState<PosTerminalScreen> {
                           InfoRow('Expected cash', _m(s['expectedCash']), bold: true),
                         ]),
                         if (me.can('pos.orders.create')) FilledButton.icon(onPressed: _sell, icon: const Icon(Icons.shopping_cart_checkout), label: const Text('New sale')),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: ErpSpace.s2),
                         OutlinedButton.icon(
                           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SessionDetailScreen(row: s))).then((_) => _loadSession()),
                           icon: const Icon(Icons.receipt_long),
@@ -543,7 +545,7 @@ class PosAnalyticsScreen extends ConsumerWidget {
         builder: (context, snap) => Scaffold(
           appBar: AppBar(title: const Text('POS analytics')),
           body: snap.connectionState != ConnectionState.done
-              ? const Center(child: CircularProgressIndicator())
+              ? const ErpSkeleton.list()
               : snap.hasError
                   ? ErrorView(message: snap.error is ApiException ? (snap.error! as ApiException).message : '${snap.error}', onRetry: () {})
                   : _kpis(snap.data as Json),

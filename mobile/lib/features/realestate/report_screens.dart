@@ -9,6 +9,9 @@ import '../../kit/field.dart';
 import '../../kit/form_page.dart';
 import '../../kit/widgets.dart';
 import 'common.dart';
+import 'package:erp_mobile/theme/tokens.dart';
+import '../../kit/skeleton.dart';
+import '../../kit/state_view.dart';
 
 const _reportsPath = '$rePath/reports';
 
@@ -64,8 +67,8 @@ class _ReportState extends ConsumerState<_Report> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: Text(widget.title)),
         body: _data == null
-            ? Center(child: _error == null ? const CircularProgressIndicator() : Padding(padding: const EdgeInsets.all(16), child: Text(_error!)))
-            : RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.all(16), children: widget.builder(context, _data!))),
+            ? (_error == null ? const ErpSkeleton.list() : ErpStateView.error(message: _error!, onRetry: _load))
+            : RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.all(ErpSpace.s4), children: widget.builder(context, _data!))),
       );
 }
 
@@ -170,7 +173,7 @@ class _OwnerStatementState extends ConsumerState<OwnerStatementScreen> {
     final d = _data;
     return Scaffold(
       appBar: AppBar(title: const Text('Owner statement')),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
+      body: ListView(padding: const EdgeInsets.all(ErpSpace.s4), children: [
         FilledButton.icon(
           icon: const Icon(Icons.search),
           label: Text(d == null ? 'Choose owner and period' : 'Change owner or period'),
@@ -180,7 +183,7 @@ class _OwnerStatementState extends ConsumerState<OwnerStatementScreen> {
           },
         ),
         if (d != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: ErpSpace.s3),
           DetailHeader(title: '${d['owner']}', subtitle: '${formatDate(d['from'])} to ${formatDate(d['to'])}'),
           InfoCard(rows: [
             InfoRow('Rent collected', _m(d['rentCollected'])),

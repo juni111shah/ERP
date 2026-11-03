@@ -44,18 +44,18 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage> {
       body: pending == null
           ? const SizedBox.shrink()
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(ErpSpace.s4),
               children: [
                 Padding(
                   padding: const EdgeInsets.only(bottom: ErpSpace.s3),
-                  child: Text('Your account belongs to more than one workspace.', style: TextStyle(fontSize: 13, color: ErpTheme.of(context).muted)),
+                  child: Text('Your account belongs to more than one workspace.', style: TextStyle(fontSize: ErpType.bodySmall, color: ErpTheme.of(context).muted)),
                 ),
-                if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+                if (_error != null) Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
                 for (final w in pending.workspaces)
                   Card(
                     margin: const EdgeInsets.only(bottom: ErpSpace.s2),
                     child: ListTile(
-                      contentPadding: const EdgeInsetsDirectional.fromSTEB(14, 6, 10, 6),
+                      contentPadding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s35, ErpSpace.s15, ErpSpace.s25, ErpSpace.s15),
                       leading: Container(
                         width: 40,
                         height: 40,

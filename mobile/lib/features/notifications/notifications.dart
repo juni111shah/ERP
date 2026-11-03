@@ -9,6 +9,9 @@ import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../dashboard/dashboard_page.dart';
 import '../dashboard/overview_logic.dart';
+import '../../kit/motion.dart';
+import '../../kit/skeleton.dart';
+import '../../kit/state_view.dart';
 
 /// One row in the notifications list: a server notification, or a dashboard alert when the server list is unavailable.
 class AppNotification {
@@ -91,6 +94,10 @@ Future<T?> showErpSheet<T>(BuildContext context, {required Widget Function(Build
     showDragHandle: true,
     backgroundColor: t.surface,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    // Quick start, soft landing; none at all under reduced motion.
+    sheetAnimationStyle: ErpMotion.reduced(context)
+        ? AnimationStyle.noAnimation
+        : const AnimationStyle(duration: ErpMotion.slow, reverseDuration: ErpMotion.medium, curve: ErpMotion.spring, reverseCurve: Curves.easeInCubic),
     builder: (ctx) => DraggableScrollableSheet(
       expand: false,
       initialChildSize: initial,
@@ -126,31 +133,29 @@ class NotificationsSheet extends ConsumerWidget {
     final header = Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, 0, ErpSpace.s4, ErpSpace.s2),
       child: Row(children: [
-        Expanded(child: Text('Notifications', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18, fontWeight: FontWeight.w700, color: t.text))),
+        Expanded(child: Text('Notifications', style: ErpType.titleStyle.copyWith(fontSize: ErpType.titleLarge, color: t.text))),
         if (data != null && data.unread > 0)
-          Text('${data.unread} unread', style: TextStyle(fontSize: 13, color: t.muted, fontWeight: FontWeight.w500)),
+          Text('${data.unread} unread', style: TextStyle(fontSize: ErpType.bodySmall, color: t.muted, fontWeight: FontWeight.w500)),
       ]),
     );
     final List<Widget> body;
-    if (data == null) {
-      body = [const Padding(padding: EdgeInsets.all(ErpSpace.s6), child: Center(child: CircularProgressIndicator()))];
+    if (data == null && feed.hasError) {
+      body = [
+        ErpStateView.error(
+          key: const ValueKey('notifications-error'),
+          compact: true,
+          onRetry: () => ref.invalidate(notificationsProvider),
+        ),
+      ];
+    } else if (data == null) {
+      body = [const ErpSkeleton.notifications()];
     } else if (data.items.isEmpty) {
       body = [
-        Padding(
-          key: const ValueKey('notifications-empty'),
-          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: ErpSpace.s6),
-          child: Column(children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(color: t.brandSubtle, shape: BoxShape.circle),
-              child: Icon(Icons.notifications_none_rounded, size: 30, color: t.brand),
-            ),
-            const SizedBox(height: ErpSpace.s3),
-            Text("You're all caught up", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: t.text)),
-            const SizedBox(height: ErpSpace.s1),
-            Text('No notifications right now.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: t.muted)),
-          ]),
+        const ErpStateView.empty(
+          key: ValueKey('notifications-empty'),
+          icon: Icons.notifications_none_rounded,
+          title: "You're all caught up",
+          message: 'No notifications right now.',
         ),
       ];
     } else {
@@ -158,7 +163,7 @@ class NotificationsSheet extends ConsumerWidget {
         if (data.fromAlerts)
           Padding(
             padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, 0, ErpSpace.s4, ErpSpace.s2),
-            child: Text('Showing Overview alerts', style: TextStyle(fontSize: 12, color: t.muted)),
+            child: Text('Showing Overview alerts', style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
           ),
         for (var i = 0; i < data.items.length; i++)
           Builder(builder: (context) {
@@ -177,7 +182,7 @@ class NotificationsSheet extends ConsumerWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 56),
                 child: Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, 10, ErpSpace.s3, 10),
+                  padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, ErpSpace.s25, ErpSpace.s3, ErpSpace.s25),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Container(
                       width: 36,
@@ -188,19 +193,19 @@ class NotificationsSheet extends ConsumerWidget {
                     const SizedBox(width: ErpSpace.s3),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(n.title, style: TextStyle(fontSize: 14, fontWeight: n.unread ? FontWeight.w600 : FontWeight.w500, color: t.text)),
+                        Text(n.title, style: TextStyle(fontSize: ErpType.body, fontWeight: n.unread ? FontWeight.w600 : FontWeight.w500, color: t.text)),
                         if (n.body != null && n.body!.isNotEmpty)
-                          Padding(padding: const EdgeInsets.only(top: 2), child: Text(n.body!, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: t.text2))),
+                          Padding(padding: const EdgeInsets.only(top: ErpSpace.s05), child: Text(n.body!, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: ErpType.caption, color: t.text2))),
                         if (n.createdAt != null)
                           Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(DateFormat('d MMM, HH:mm').format(n.createdAt!), style: TextStyle(fontSize: 11.5, color: t.muted)),
+                            padding: const EdgeInsets.only(top: ErpSpace.s1),
+                            child: Text(DateFormat('d MMM, HH:mm').format(n.createdAt!), style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
                           ),
                       ]),
                     ),
                     if (n.unread && !data.fromAlerts)
                       Padding(
-                        padding: const EdgeInsetsDirectional.only(start: ErpSpace.s2, top: 6),
+                        padding: const EdgeInsetsDirectional.only(start: ErpSpace.s2, top: ErpSpace.s15),
                         child: Container(width: 8, height: 8, decoration: BoxDecoration(color: t.brand, shape: BoxShape.circle)),
                       ),
                     if (screen != null) Icon(Icons.chevron_right_rounded, size: 20, color: t.muted),

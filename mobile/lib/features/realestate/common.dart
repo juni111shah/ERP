@@ -9,6 +9,7 @@ import '../../kit/data_version.dart';
 import '../../kit/detail_page.dart' show Json;
 import '../../kit/field.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/tokens.dart';
 
 const rePath = '/api/v1/m/realestate';
 
@@ -60,7 +61,7 @@ Widget reTile(BuildContext context, {required String title, String? subtitle, St
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (trailing != null) Text(trailing, style: const TextStyle(fontWeight: FontWeight.w600)),
-          if (status != null) ...[const SizedBox(height: 4), reChip(status)],
+          if (status != null) ...[const SizedBox(height: ErpSpace.s1), reChip(status)],
         ],
       ),
     );
@@ -105,10 +106,10 @@ class _RelatedListState extends ConsumerState<RelatedList> {
   @override
   Widget build(BuildContext context) {
     ref.listen(dataVersionProvider, (_, _) => _load());
-    if (_error != null) return Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(_error!));
+    if (_error != null) return Padding(padding: const EdgeInsets.symmetric(vertical: ErpSpace.s2), child: Text(_error!));
     final items = _items;
-    if (items == null) return const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
-    if (items.isEmpty) return Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(widget.empty));
+    if (items == null) return const Padding(padding: EdgeInsets.all(ErpSpace.s3), child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+    if (items.isEmpty) return Padding(padding: const EdgeInsets.symmetric(vertical: ErpSpace.s2), child: Text(widget.empty));
     return Column(children: [for (final i in items) widget.tile(context, i)]);
   }
 }

@@ -127,6 +127,62 @@ class ErpSpace {
   static const double s4 = 16;
   static const double s5 = 20;
   static const double s6 = 24;
+  static const double s8 = 32;
+  static const double s10 = 40;
+  static const double s12 = 48;
+
+  // Half steps, for hairline gaps and compact pills (2, 6, 10, 14).
+  static const double s05 = 2;
+  static const double s15 = 6;
+  static const double s25 = 10;
+  static const double s35 = 14;
+}
+
+/// The one type scale. Sizes are named by role; [ThemeData.textTheme] is built from them (see `AppTheme`), and
+/// widgets that need a raw size use these constants instead of literals.
+///
+/// | role          | size | textTheme slot              |
+/// |---------------|------|-----------------------------|
+/// | display       | 24   | displaySmall (KPI values)   |
+/// | headline      | 22   | headlineSmall               |
+/// | heading       | 20   | titleLarge (app bar)        |
+/// | titleLarge    | 18   | sheet / section titles      |
+/// | title         | 16   | titleMedium                 |
+/// | bodyLarge     | 15   | bodyLarge                   |
+/// | body          | 14   | bodyMedium                  |
+/// | bodySmall     | 13   | secondary lines             |
+/// | caption       | 12   | bodySmall                   |
+/// | label         | 11   | labelSmall (caps sections)  |
+/// | micro         | 10   | badges, axis ticks          |
+class ErpType {
+  ErpType._();
+
+  static const double micro = 10;
+  static const double label = 11;
+  static const double caption = 12;
+  static const double bodySmall = 13;
+  static const double body = 14;
+  static const double bodyLarge = 15;
+  static const double title = 16;
+  static const double titleLarge = 18;
+  static const double heading = 20;
+  static const double headline = 22;
+  static const double display = 24;
+
+  /// Big tabular figure (KPI values, hero amounts).
+  static const displayStyle = TextStyle(fontSize: display, fontWeight: FontWeight.w700, letterSpacing: -0.48, height: 1.2, fontFeatures: ErpFonts.tabular);
+
+  /// Card / sheet / state titles.
+  static const titleStyle = TextStyle(fontSize: title, fontWeight: FontWeight.w700);
+
+  /// Small caps section label ("HIGHLIGHTS"); upper-case the text yourself (not in Arabic).
+  static const sectionLabel = TextStyle(fontSize: label, fontWeight: FontWeight.w600, letterSpacing: 0.55);
+
+  static const bodyStyle = TextStyle(fontSize: body);
+  static const captionStyle = TextStyle(fontSize: caption);
+
+  /// Tabular figures so amounts line up.
+  static const numbers = TextStyle(fontFeatures: ErpFonts.tabular);
 }
 
 /// Soft card shadow (web `--shc`) and raised panel shadow (`--sh3`).
