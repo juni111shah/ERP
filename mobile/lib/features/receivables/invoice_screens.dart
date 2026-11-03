@@ -7,6 +7,7 @@ import '../../core/session.dart';
 import '../../kit/detail_page.dart';
 import '../../kit/field.dart';
 import '../../kit/form_page.dart';
+import '../../kit/pdf_share.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../../kit/data_version.dart';
@@ -146,6 +147,12 @@ class InvoiceDetailScreen extends StatelessWidget {
         titleOf: (d) => '${d['isCreditNote'] == true ? 'Credit note ' : ''}${d['number']}',
         canEdit: (d) => d['status'] == 'draft' && ref.read(meOrEmptyProvider).can('finance.invoices.write'),
         edit: (d) => invoiceForm(ref, existing: d),
+        headerActions: (context, d) => [
+          PrintShareButton(
+            path: '/api/v1/print/invoice/$id/pdf',
+            fallbackFileName: '${d['isCreditNote'] == true ? 'Credit-note' : 'Invoice'}-${d['number'] ?? id}.pdf',
+          ),
+        ],
         body: (context, d) => _body(context, d),
         actions: [
           ActionSpec(

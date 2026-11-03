@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import 'key_value_store.dart';
@@ -35,6 +38,14 @@ class ApiException implements Exception {
     }
     return ApiException(status, message, errors);
   }
+}
+
+/// A file downloaded from the API (for example a PDF), with the name the server gave it in Content-Disposition.
+class ApiFile {
+  const ApiFile(this.bytes, this.fileName);
+
+  final Uint8List bytes;
+  final String? fileName;
 }
 
 /// Talks to the ERP API: bearer token on every call, one automatic refresh when a call comes back 401, and the
@@ -82,17 +93,21 @@ class ApiClient {
 
   Future<dynamic> delete(String path) => _send('DELETE', path);
 
+  /// Downloads a binary answer (PDF and the like) with the same token, refresh and error handling as [get].
+  Future<ApiFile> getBytes(String path, {Map<String, dynamic>? query}) async =>
+      await _send('GET', path, query: query, bytes: true) as ApiFile;
+
   /// Calls that happen before there is a session (sign-in, workspace selection): no bearer token, no refresh attempt.
   Future<dynamic> postAnonymous(String path, {Object? body}) => _send('POST', path, body: body, auth: false);
 
-  Future<dynamic> _send(String method, String path, {Map<String, dynamic>? query, Object? body, bool auth = true, bool retry = true}) async {
+  Future<dynamic> _send(String method, String path, {Map<String, dynamic>? query, Object? body, bool auth = true, bool retry = true, bool bytes = false}) async {
     final Response<dynamic> res;
     try {
       res = await _dio.request<dynamic>(
         path,
         data: body,
         queryParameters: query,
-        options: Options(method: method, headers: {
+        options: Options(method: method, responseType: bytes ? ResponseType.bytes : null, headers: {
           clientHeader: clientName,
           if (auth && accessToken != null) 'Authorization': 'Bearer $accessToken',
         }),
@@ -102,10 +117,41 @@ class ApiClient {
     }
     await _captureCookie(res);
     if (res.statusCode == 401 && auth && retry) {
-      if (await refresh() != null) return _send(method, path, query: query, body: body, auth: auth, retry: false);
+      if (await refresh() != null) return _send(method, path, query: query, body: body, auth: auth, retry: false, bytes: bytes);
       onSessionExpired?.call();
     }
+    if (bytes) return _file(res);
     return unwrap(res.statusCode ?? 0, res.data);
+  }
+
+  static ApiFile _file(Response<dynamic> res) {
+    final status = res.statusCode ?? 0;
+    final data = res.data is List<int> ? Uint8List.fromList(res.data as List<int>) : Uint8List(0);
+    if (status >= 200 && status < 300) return ApiFile(data, parseFileName(res.headers.value('content-disposition')));
+    dynamic body;
+    try {
+      body = jsonDecode(utf8.decode(data, allowMalformed: true));
+    } on FormatException {
+      body = null;
+    }
+    throw ApiException.fromBody(status, body);
+  }
+
+  /// The file name in a Content-Disposition header, preferring the RFC 5987 `filename*` form.
+  static String? parseFileName(String? header) {
+    if (header == null) return null;
+    final star = RegExp(r"filename\*\s*=\s*([^']*)'[^']*'([^;]+)", caseSensitive: false).firstMatch(header);
+    if (star != null) {
+      try {
+        return Uri.decodeComponent(star.group(2)!.trim());
+      } on ArgumentError {
+        // fall through to the plain name
+      }
+    }
+    final plain = RegExp(r'filename\s*=\s*("([^"]*)"|[^;]+)', caseSensitive: false).firstMatch(header);
+    if (plain == null) return null;
+    final name = (plain.group(2) ?? plain.group(1)!).trim();
+    return name.isEmpty ? null : name;
   }
 
   /// Exchanges the stored refresh cookie for a new access token. Calls made at the same time share one refresh.

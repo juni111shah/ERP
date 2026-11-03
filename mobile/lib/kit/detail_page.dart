@@ -53,7 +53,7 @@ class ActionSpec {
 
 /// Loads one record and shows it with an app-bar edit button and a bar of actions. [body] draws the content.
 class DetailPage extends ConsumerStatefulWidget {
-  const DetailPage({super.key, required this.path, required this.titleOf, required this.body, this.actions = const [], this.edit, this.canEdit});
+  const DetailPage({super.key, required this.path, required this.titleOf, required this.body, this.actions = const [], this.edit, this.canEdit, this.headerActions});
 
   final String path;
   final String Function(Json data) titleOf;
@@ -63,6 +63,9 @@ class DetailPage extends ConsumerStatefulWidget {
   /// Builds the edit form for the loaded record; popped value is ignored, the page reloads.
   final FormSpec Function(Json data)? edit;
   final bool Function(Json data)? canEdit;
+
+  /// Extra app-bar buttons for the loaded record (for example Print / Share PDF), shown before Edit.
+  final List<Widget> Function(BuildContext context, Json data)? headerActions;
 
   @override
   ConsumerState<DetailPage> createState() => _DetailPageState();
@@ -178,6 +181,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       appBar: AppBar(
         title: Text(data == null ? 'Loading' : widget.titleOf(data)),
         actions: [
+          if (data != null && widget.headerActions != null) ...widget.headerActions!(context, data),
           if (data != null && widget.edit != null && (widget.canEdit?.call(data) ?? true))
             IconButton(
               tooltip: 'Edit',
