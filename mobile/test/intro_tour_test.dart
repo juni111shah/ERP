@@ -6,6 +6,7 @@ import 'package:erp_mobile/core/session.dart';
 import 'package:erp_mobile/features/auth/login_page.dart';
 import 'package:erp_mobile/features/intro/intro_flag.dart';
 import 'package:erp_mobile/features/intro/intro_page.dart';
+import 'package:erp_mobile/features/intro/intro_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,6 +45,8 @@ void main() {
     expect(find.byType(IntroPage), findsOneWidget);
     expect(find.text('1 of 5'), findsOneWidget);
     expect(find.text('Skip'), findsOneWidget);
+    expect(find.text('ERP'), findsOneWidget);
+    expect(find.text('Know where your business stands in seconds'), findsOneWidget);
     expect(find.byType(LoginPage), findsNothing);
   });
 
@@ -70,11 +73,17 @@ void main() {
       expect(tester.binding.hasScheduledFrame, isFalse);
       if (n < 5) {
         expect(find.text('Get started'), findsNothing);
+        expect(find.text(IntroStrings.en.titles[n - 1]), findsOneWidget);
         await tester.tap(find.text('Next'));
         await tester.pumpAndSettle();
       }
     }
 
+    expect(find.text('Run your whole business from one app'), findsOneWidget);
+    expect(find.text('Everything in one app'), findsOneWidget);
+    for (final f in IntroStrings.en.features) {
+      expect(find.text(f), findsOneWidget);
+    }
     await tester.tap(find.text('Get started'));
     await tester.pumpAndSettle();
     expect(store.values[IntroKeys.seen], '1');

@@ -111,8 +111,9 @@ class IntroScene extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
-                colors: [Color(0x4D10955D), Color(0x0010955D)],
-                stops: [0, IntroMotion.glowStop],
+                // Brand-tinted: brand green core, a soft brand-300 halo, then transparent.
+                colors: [Color(0x5210955D), Color(0x2666CBA2), Color(0x0010955D)],
+                stops: [0, IntroMotion.glowStop * 0.6, IntroMotion.glowStop],
               ),
             ),
           ),
@@ -202,7 +203,8 @@ class IntroFloorPainter extends CustomPainter {
         center: const Alignment(0, -0.6), // (0.5, 0.2) of the rect
         radius: 0.75,
         colors: [
-          ErpColors.border.withValues(alpha: IntroMotion.gridOpacity),
+          // Brand-tinted near the horizon glow, neutral further out, then faded.
+          ErpColors.brand100.withValues(alpha: IntroMotion.gridOpacity),
           ErpColors.border.withValues(alpha: IntroMotion.gridOpacity),
           ErpColors.border.withValues(alpha: 0),
         ],

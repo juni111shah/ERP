@@ -1,12 +1,30 @@
 import 'package:flutter/widgets.dart';
 
 /// Copy for the first-open intro tour, in English and Arabic. Arabic is picked by an `ar` locale or a right-to-left
-/// direction (the app declares no supported locales yet).
+/// direction (the app declares no supported locales yet). Value-led copy: outcomes, no figures or claims we can't back.
 class IntroStrings {
-  const IntroStrings._(this.titles, this.bodies, this.skip, this.next, this.getStarted, this._step, this.illustrationLabel);
+  const IntroStrings._({
+    required this.eyebrows,
+    required this.titles,
+    required this.bodies,
+    required this.featuresTitle,
+    required this.features,
+    required this.skip,
+    required this.next,
+    required this.getStarted,
+    required String Function(int n, int total) step,
+    required this.illustrationLabel,
+  }) : _step = step; // ignore: prefer_initializing_formals (a named parameter can't be a private initialising formal)
 
+  /// Small brand-coloured label above each title.
+  final List<String> eyebrows;
   final List<String> titles;
   final List<String> bodies;
+
+  /// "Everything in one app" chip panel on the last screen; every chip is a feature that ships today.
+  final String featuresTitle;
+  final List<String> features;
+
   final String skip;
   final String next;
   final String getStarted;
@@ -17,47 +35,80 @@ class IntroStrings {
   String step(int n, int total) => _step(n, total);
 
   static const en = IntroStrings._(
-    [
-      'Your key numbers at a glance',
-      'See money in and money out',
-      'Invoices and receipts on the go',
-      'Make the app yours',
-      'Jump anywhere in one tap',
+    eyebrows: ['Overview', 'Cash flow', 'Invoicing', 'Alerts and settings', 'All in one'],
+    titles: [
+      'Know where your business stands in seconds',
+      'See billing turn into cash',
+      'Get paid faster',
+      'Stay on top of what needs you',
+      'Run your whole business from one app',
     ],
-    [
-      'Four highlight cards sit at the top. Tap a category to switch them, or swipe to see more.',
-      'Compare what you billed with what you collected, month by month.',
-      'See who has paid and who is late, and record a payment wherever you are.',
-      'Tap your picture for settings and light or dark mode. The bell shows what needs you.',
-      'Search for a customer, an invoice or a screen and go straight there.',
+    bodies: [
+      'Sales, cash and money owed to you, ready on one screen when you open the app.',
+      'Compare what you billed with what you collected, month by month, and act before gaps grow.',
+      'Send invoices and record receipts from your phone, wherever you are.',
+      'The bell shows what needs your attention. Pick light or dark to suit you.',
+      'Finance, sales, stock, people and property together. Search any list to find a record fast.',
     ],
-    'Skip',
-    'Next',
-    'Get started',
-    _enStep,
-    'Illustration of the app',
+    featuresTitle: 'Everything in one app',
+    features: [
+      'Invoices & receipts',
+      'Bills & payments',
+      'Journals',
+      'Chart of accounts',
+      'Approvals',
+      'Inventory',
+      'HR & payroll',
+      'Property',
+      'Sales & CRM',
+      'Print & share',
+      'Country tax packs',
+      'Light & dark',
+    ],
+    skip: 'Skip',
+    next: 'Next',
+    getStarted: 'Get started',
+    step: _enStep,
+    illustrationLabel: 'Illustration of the app',
   );
 
+  // Arabic: flagged for native review in the PR.
   static const ar = IntroStrings._(
-    [
-      'أهم أرقامك في لمحة',
-      'تابع الأموال الواردة والصادرة',
-      'الفواتير والإيصالات أينما كنت',
-      'اجعل التطبيق على ذوقك',
-      'انتقل إلى أي مكان بلمسة',
+    eyebrows: ['نظرة عامة', 'التدفق النقدي', 'الفوترة', 'التنبيهات والإعدادات', 'كل شيء في مكان واحد'],
+    titles: [
+      'اعرف وضع أعمالك في ثوانٍ',
+      'شاهد فواتيرك تتحوّل إلى نقد',
+      'احصل على مستحقاتك أسرع',
+      'ابقَ على اطلاع بما يحتاجك',
+      'أدِر أعمالك كلها من تطبيق واحد',
     ],
-    [
-      'تظهر أربع بطاقات رئيسية في الأعلى. اضغط على فئة للتبديل بينها، أو اسحب لرؤية المزيد.',
-      'قارن ما أصدرت به الفواتير بما حصّلته، شهرًا بشهر.',
-      'اعرف من دفع ومن تأخر، وسجّل دفعة أينما كنت.',
-      'اضغط على صورتك للإعدادات والوضع الفاتح أو الداكن. يُظهر الجرس ما يحتاج إلى انتباهك.',
-      'ابحث عن عميل أو فاتورة أو شاشة وانتقل إليها مباشرة.',
+    bodies: [
+      'المبيعات والنقد والمبالغ المستحقة لك، جاهزة في شاشة واحدة فور فتح التطبيق.',
+      'قارن ما فوترته بما حصّلته شهرًا بشهر، وتصرّف قبل أن تتّسع الفجوة.',
+      'أرسل الفواتير وسجّل الإيصالات من هاتفك أينما كنت.',
+      'يعرض الجرس ما يحتاج إلى انتباهك. واختر الوضع الفاتح أو الداكن كما يناسبك.',
+      'المالية والمبيعات والمخزون والموظفون والعقارات معًا. ابحث في أي قائمة لتصل إلى السجل بسرعة.',
     ],
-    'تخطي',
-    'التالي',
-    'ابدأ الآن',
-    _arStep,
-    'رسم توضيحي للتطبيق',
+    featuresTitle: 'كل شيء في تطبيق واحد',
+    features: [
+      'الفواتير والإيصالات',
+      'فواتير الموردين والمدفوعات',
+      'القيود اليومية',
+      'دليل الحسابات',
+      'الموافقات',
+      'المخزون',
+      'الموارد البشرية والرواتب',
+      'العقارات',
+      'المبيعات وإدارة العملاء',
+      'الطباعة والمشاركة',
+      'حزم ضريبية حسب الدولة',
+      'الوضع الفاتح والداكن',
+    ],
+    skip: 'تخطي',
+    next: 'التالي',
+    getStarted: 'ابدأ الآن',
+    step: _arStep,
+    illustrationLabel: 'رسم توضيحي للتطبيق',
   );
 
   static String _enStep(int n, int total) => '$n of $total';
@@ -68,4 +119,12 @@ class IntroStrings {
     final rtl = Directionality.maybeOf(context) == TextDirection.rtl;
     return lang == 'ar' || rtl ? ar : en;
   }
+}
+
+/// The app's existing identity (same name as `MaterialApp.title`, the Android label and the sign-in page; same mark as
+/// the sign-in page: hero gradient tile with the account-balance glyph). No new brand is introduced here.
+class IntroBrand {
+  IntroBrand._();
+
+  static const name = 'ERP';
 }

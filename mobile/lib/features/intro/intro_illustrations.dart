@@ -5,7 +5,8 @@ import 'intro_motion.dart';
 import 'intro_scene.dart';
 
 /// The five tour scenes (mockup Concept B). Everything here is sample content for an illustration, not live data.
-List<IntroSceneSpec> introScenes() => [
+/// [featuresTitle] / [features] are the localised "Everything in one app" chips on the last screen.
+List<IntroSceneSpec> introScenes({required String featuresTitle, required List<String> features}) => [
       IntroSceneSpec(screen: 0, pieces: [
         ..._slab(300, 330, -150, -170),
         const IntroPiece(layer: IntroLayer.hero, x: -134, y: -150, z: 22, lifted: false, child: _Chips()),
@@ -68,7 +69,15 @@ List<IntroSceneSpec> introScenes() => [
       ]),
       IntroSceneSpec(screen: 4, pieces: [
         ..._slab(300, 330, -150, -170, inner: const _FadedInvoices()),
-        const IntroPiece(layer: IntroLayer.hero, x: -168, y: -190, z: 120, child: _Palette(width: 336)),
+        const IntroPiece(layer: IntroLayer.hero, x: -168, y: -206, z: 80, child: _Palette(width: 336)),
+        IntroPiece(
+          layer: IntroLayer.foreground,
+          x: -168,
+          y: 6,
+          z: 120,
+          extraDelayMs: 120,
+          child: _Features(width: 336, title: featuresTitle, features: features),
+        ),
       ]),
     ];
 
@@ -144,11 +153,18 @@ List<IntroPiece> _slab(double w, double h, double x, double y, {Widget? inner}) 
 typedef _KpiData = (String label, String value, String sub, Color? accent);
 
 const List<_KpiData> _kpis = [
-  ('Portfolio value', '100.5M', '4 properties', ErpColors.billed),
-  ('Occupancy', '38.1%', '8 of 21 units let', ErpColors.billed),
-  ('Receivables', '597K', 'QAR · overdue 548K', null),
-  ('Collected', '316K', 'QAR · this period', null),
+  ('Sales', '1.24M', 'QAR · this month', ErpColors.billed),
+  ('Cash and bank', '2.07M', 'QAR · 4 accounts', ErpColors.billed),
+  ('Receivables', '597K', '548K overdue', null),
+  ('Collected', '316K', 'QAR · this month', null),
 ];
+
+/// One line of sample text that always shows in full: scales down instead of ellipsising when space is tight.
+Widget _fit(String text, TextStyle style, {AlignmentGeometry align = AlignmentDirectional.centerStart}) => FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: align,
+      child: Text(text, maxLines: 1, softWrap: false, style: style),
+    );
 
 typedef _InvData = (String name, String amount, String number, ErpTone tone, String status, bool partly);
 
@@ -201,9 +217,9 @@ class _Chips extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             chip('All', '37', on: true),
             const SizedBox(width: 7),
-            chip('Real estate', '5'),
-            const SizedBox(width: 7),
             chip('Finance', '6'),
+            const SizedBox(width: 7),
+            chip('Sales', '5'),
             const SizedBox(width: 7),
             chip('Approvals', '4'),
           ]),
@@ -240,11 +256,11 @@ class _Kpi extends StatelessWidget {
         Padding(
           padding: const EdgeInsetsDirectional.fromSTEB(15, ErpSpace.s3, ErpSpace.s3, ErpSpace.s3),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text(data.$1.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted.copyWith(fontSize: 9.5, fontWeight: FontWeight.w600, letterSpacing: 0.57)),
+            _fit(data.$1.toUpperCase(), _muted.copyWith(fontSize: 9.5, fontWeight: FontWeight.w600, letterSpacing: 0.57)),
             const SizedBox(height: ErpSpace.s1),
             Text(data.$2, style: _t1.copyWith(fontSize: ErpType.headline, fontWeight: FontWeight.w700, letterSpacing: -0.44, color: value, fontFeatures: ErpFonts.tabular)),
             const SizedBox(height: ErpSpace.s05),
-            Text(data.$3, maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted.copyWith(fontSize: 11)),
+            _fit(data.$3, _muted.copyWith(fontSize: 11)),
           ]),
         ),
       ]),
@@ -305,9 +321,9 @@ class _ChartHead extends StatelessWidget {
   Widget build(BuildContext context) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Billed vs collected', maxLines: 1, overflow: TextOverflow.ellipsis, style: _t1.copyWith(fontSize: 14.5, fontWeight: FontWeight.w700)),
+            _fit('Billed vs collected', _t1.copyWith(fontSize: 14.5, fontWeight: FontWeight.w700)),
             const SizedBox(height: ErpSpace.s05),
-            Text('QAR · last 12 months', maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted.copyWith(fontSize: 11.5)),
+            _fit('QAR · last 12 months', _muted.copyWith(fontSize: 11.5)),
           ]),
         ),
         Container(
@@ -348,7 +364,7 @@ class _Bars extends StatelessWidget {
           SizedBox(height: 150, width: width, child: const CustomPaint(painter: _BarsPainter())),
           const SizedBox(height: ErpSpace.s15),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            for (final m in months) SizedBox(width: 16, child: Text(m, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.clip, style: _muted.copyWith(fontSize: ErpType.micro))),
+            for (final m in months) SizedBox(width: 16, child: _fit(m, _muted.copyWith(fontSize: ErpType.micro), align: Alignment.center)),
           ]),
         ]),
       );
@@ -399,7 +415,7 @@ class _Legend extends StatelessWidget {
     Widget key(Color c, String text) => Row(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 10, height: 10, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3))),
           const SizedBox(width: ErpSpace.s15),
-          Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t1.copyWith(fontSize: 11.5, color: ErpColors.text2))),
+          Flexible(child: _fit(text, _t1.copyWith(fontSize: 11.5, color: ErpColors.text2))),
         ]);
     return Row(children: [
       Flexible(child: key(ErpColors.billed, 'Billed 1.40M')),
@@ -437,14 +453,14 @@ class _Invoice extends StatelessWidget {
         decoration: overdue ? BoxDecoration(border: BorderDirectional(start: BorderSide(color: ErpTone.error.fg, width: 3))) : null,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
-            Expanded(child: Text(data.$1, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t1.copyWith(fontSize: 12.5, fontWeight: FontWeight.w600))),
+            Expanded(child: _fit(data.$1, _t1.copyWith(fontSize: 12.5, fontWeight: FontWeight.w600))),
             const SizedBox(width: ErpSpace.s2),
             Text('QAR ', style: _muted.copyWith(fontSize: ErpType.micro, fontWeight: FontWeight.w600)),
             Text(data.$2, style: _t1.copyWith(fontSize: 12.5, fontWeight: FontWeight.w700, fontFeatures: ErpFonts.tabular)),
           ]),
           const SizedBox(height: 5),
           Row(children: [
-            Expanded(child: Text(data.$3, maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted.copyWith(fontSize: 10.5, fontFamily: 'monospace'))),
+            Expanded(child: _fit(data.$3, _muted.copyWith(fontSize: 10.5, fontFamily: 'monospace'))),
             _Tag(data.$4, data.$5),
           ]),
           if (data.$6) ...[
@@ -521,8 +537,8 @@ class _Header extends StatelessWidget {
           const SizedBox(width: ErpSpace.s25),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Overview', maxLines: 1, overflow: TextOverflow.ellipsis, style: _t1.copyWith(fontSize: ErpType.body, fontWeight: FontWeight.w700)),
-              Text('Al Bidda Holding · Doha', maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted.copyWith(fontSize: 11)),
+              _fit('Overview', _t1.copyWith(fontSize: ErpType.body, fontWeight: FontWeight.w700)),
+              _fit('Al Bidda Holding · Doha', _muted.copyWith(fontSize: 11)),
             ]),
           ),
           SizedBox(
@@ -569,7 +585,7 @@ class _ProfileSheet extends StatelessWidget {
           child: Row(children: [
             Icon(icon, size: 18, color: ErpColors.text2),
             const SizedBox(width: ErpSpace.s3),
-            Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t1.copyWith(fontSize: 13.5, fontWeight: FontWeight.w500))),
+            Expanded(child: _fit(label, _t1.copyWith(fontSize: 13.5, fontWeight: FontWeight.w500))),
             ?trailing,
             if (chevron) const Icon(Icons.chevron_right_rounded, size: 18, color: ErpColors.muted),
           ]),
@@ -583,7 +599,7 @@ class _ProfileSheet extends StatelessWidget {
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(icon, size: 15, color: on ? ErpColors.brand : ErpColors.text2),
               const SizedBox(width: ErpSpace.s15),
-              Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.clip, style: _t1.copyWith(fontSize: 12.5, fontWeight: FontWeight.w600, color: on ? ErpColors.brand : ErpColors.text2))),
+              Flexible(child: _fit(label, _t1.copyWith(fontSize: 12.5, fontWeight: FontWeight.w600, color: on ? ErpColors.brand : ErpColors.text2))),
             ]),
           ),
         );
@@ -609,8 +625,8 @@ class _ProfileSheet extends StatelessWidget {
           const SizedBox(width: 11),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Mariam Hassan', maxLines: 1, overflow: TextOverflow.ellipsis, style: _t1.copyWith(fontSize: 14.5, fontWeight: FontWeight.w700)),
-              Text('Workspace owner · Al Bidda Holding', maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted.copyWith(fontSize: 11.5)),
+              _fit('Mariam Hassan', _t1.copyWith(fontSize: 14.5, fontWeight: FontWeight.w700)),
+              _fit('Workspace owner · Al Bidda Holding', _muted.copyWith(fontSize: 11.5)),
             ]),
           ),
         ]),
@@ -659,8 +675,8 @@ class _Palette extends StatelessWidget {
             const SizedBox(width: 11),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t1.copyWith(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted.copyWith(fontSize: 11.5)),
+                _fit(title, _t1.copyWith(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                _fit(line, _muted.copyWith(fontSize: 11.5)),
               ]),
             ),
             if (hi) const _Kbd('↵'),
@@ -683,7 +699,7 @@ class _Palette extends StatelessWidget {
           child: Row(children: [
             const Icon(Icons.search_rounded, size: 18, color: ErpColors.brand),
             const SizedBox(width: 10),
-            Flexible(child: Text('al sadd', maxLines: 1, overflow: TextOverflow.clip, style: _t1.copyWith(fontSize: ErpType.bodyLarge))),
+            Flexible(child: _fit('al sadd', _t1.copyWith(fontSize: ErpType.bodyLarge))),
             Container(width: 2, height: 18, margin: const EdgeInsetsDirectional.only(start: 1), color: ErpColors.brand),
             const Spacer(),
             const _Kbd('Esc'),
@@ -692,9 +708,6 @@ class _Palette extends StatelessWidget {
         group('Best match'),
         result(Icons.person_outline_rounded, 'Al Sadd Hospitality Group', 'Customer · balance QAR 50,720', hi: true),
         result(Icons.description_outlined, 'INV-2026-0411', 'Invoice · Partly paid'),
-        group('Go to'),
-        result(Icons.receipt_long_outlined, 'Receipts', 'Screen'),
-        result(Icons.add_rounded, 'New invoice', 'Action'),
       ]),
     );
   }
@@ -710,6 +723,81 @@ class _Kbd extends StatelessWidget {
         padding: const EdgeInsetsDirectional.symmetric(horizontal: ErpSpace.s15, vertical: ErpSpace.s05),
         decoration: BoxDecoration(color: ErpColors.subtle, borderRadius: BorderRadius.circular(6), border: Border.all(color: ErpColors.border)),
         child: Text(text, style: _muted.copyWith(fontSize: 10.5, fontWeight: FontWeight.w600)),
+      );
+}
+
+/// "Everything in one app": a compact grid of real feature chips (labels come from [IntroStrings.features]).
+class _Features extends StatelessWidget {
+  const _Features({required this.width, required this.title, required this.features});
+
+  final double width;
+  final String title;
+  final List<String> features;
+
+  static const _icons = [
+    Icons.receipt_long_outlined,
+    Icons.payments_outlined,
+    Icons.menu_book_outlined,
+    Icons.account_tree_outlined,
+    Icons.task_alt_rounded,
+    Icons.inventory_2_outlined,
+    Icons.badge_outlined,
+    Icons.apartment_rounded,
+    Icons.handshake_outlined,
+    Icons.print_outlined,
+    Icons.public_rounded,
+    Icons.contrast_rounded,
+  ];
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: width,
+        padding: const EdgeInsets.all(ErpSpace.s3),
+        decoration: BoxDecoration(color: ErpColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: ErpColors.borderSubtle)),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            const IntroMark(size: 20),
+            const SizedBox(width: ErpSpace.s2),
+            Expanded(child: _fit(title, _t1.copyWith(fontSize: ErpType.bodySmall, fontWeight: FontWeight.w700))),
+          ]),
+          const SizedBox(height: ErpSpace.s25),
+          Wrap(spacing: ErpSpace.s15, runSpacing: ErpSpace.s15, children: [
+            for (var i = 0; i < features.length; i++)
+              Container(
+                height: 26,
+                constraints: BoxConstraints(maxWidth: width - ErpSpace.s6),
+                padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s2, 0, ErpSpace.s25, 0),
+                decoration: BoxDecoration(
+                  color: ErpColors.brandSubtle,
+                  borderRadius: BorderRadius.circular(ErpRadius.pill),
+                  border: Border.all(color: ErpColors.brand100),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(_icons[i % _icons.length], size: 13, color: ErpColors.brandHover),
+                  const SizedBox(width: ErpSpace.s1),
+                  Flexible(child: _fit(features[i], _t1.copyWith(fontSize: ErpType.label, fontWeight: FontWeight.w600, color: ErpColors.brandInk))),
+                ]),
+              ),
+          ]),
+        ]),
+      );
+}
+
+/// The app mark (same as the sign-in page: hero gradient tile + account-balance glyph).
+class IntroMark extends StatelessWidget {
+  const IntroMark({super.key, required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(size * 0.28),
+          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [ErpColors.brandInk, ErpColors.brandHover]),
+        ),
+        child: Icon(Icons.account_balance_outlined, size: size * 0.55, color: Colors.white),
       );
 }
 
