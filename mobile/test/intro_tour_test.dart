@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:erp_mobile/app.dart';
 import 'package:erp_mobile/core/api_client.dart';
+import 'package:erp_mobile/core/brand.dart';
 import 'package:erp_mobile/core/key_value_store.dart';
 import 'package:erp_mobile/core/session.dart';
 import 'package:erp_mobile/features/auth/login_page.dart';
@@ -8,6 +9,7 @@ import 'package:erp_mobile/features/intro/intro_flag.dart';
 import 'package:erp_mobile/features/intro/intro_motion.dart';
 import 'package:erp_mobile/features/intro/intro_page.dart';
 import 'package:erp_mobile/features/intro/intro_strings.dart';
+import 'package:erp_mobile/kit/brand_mark.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -55,7 +57,8 @@ void main() {
     expect(find.byType(IntroPage), findsOneWidget);
     expect(find.text('1 of 5'), findsOneWidget);
     expect(find.text('Skip'), findsOneWidget);
-    expect(find.text('ERP'), findsOneWidget);
+    expect(find.text(Brand.name), findsOneWidget);
+    expect(find.byType(BrandMark), findsWidgets);
     expect(find.text('Know where your business stands in seconds'), findsOneWidget);
     expect(find.byType(LoginPage), findsNothing);
   });

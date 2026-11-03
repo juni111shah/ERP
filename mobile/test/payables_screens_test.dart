@@ -71,7 +71,7 @@ void main() {
       expect(find.text('BIL-1 · AC-77'), findsOneWidget);
       expect(find.textContaining('Acme Supplies'), findsOneWidget);
       expect(find.text('QAR 1,000.00'), findsOneWidget);
-      expect(find.text('Posted'), findsOneWidget);
+      expect(find.text('Recorded'), findsOneWidget);
     });
 
     testWidgets('payment tile shows the method', (tester) async {
@@ -96,7 +96,7 @@ void main() {
     testWidgets('a draft can be posted or deleted but not voided', (tester) async {
       await tester.pumpWidget(host(serve(bill('draft')), const BillDetailScreen(id: 'b1')));
       await tester.pumpAndSettle();
-      expect(find.text('Post'), findsOneWidget);
+      expect(find.text('Record'), findsOneWidget);
       expect(find.text('Delete'), findsOneWidget);
       expect(find.text('Void'), findsNothing);
       expect(find.byTooltip('Edit'), findsOneWidget);
@@ -109,7 +109,7 @@ void main() {
       final log = <String>[];
       await tester.pumpWidget(host(serve(bill('draft'), log: log), const BillDetailScreen(id: 'b1')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Post'));
+      await tester.tap(find.text('Record'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
@@ -120,7 +120,7 @@ void main() {
       final log = <String>[];
       await tester.pumpWidget(host(serve(bill('issued'), log: log), const BillDetailScreen(id: 'b1')));
       await tester.pumpAndSettle();
-      expect(find.text('Post'), findsNothing);
+      expect(find.text('Record'), findsNothing);
       expect(find.byTooltip('Edit'), findsNothing);
       await tester.tap(find.text('Void'));
       await tester.pumpAndSettle();
@@ -134,7 +134,7 @@ void main() {
       const reader = Me(fullName: '', email: '', baseCurrency: 'QAR', countryCode: '', permissions: {'finance.bills.read'}, legalEntities: [], modules: {});
       await tester.pumpWidget(host(serve(bill('draft')), const BillDetailScreen(id: 'b1'), me: reader));
       await tester.pumpAndSettle();
-      expect(find.text('Post'), findsNothing);
+      expect(find.text('Record'), findsNothing);
       expect(find.text('Delete'), findsNothing);
     });
   });
@@ -159,7 +159,7 @@ void main() {
     testWidgets('allocate shows only with an unallocated amount; clear only for an issued cheque', (tester) async {
       await tester.pumpWidget(host(serve(payment(unallocated: 40, chequeStatus: 'Issued')), const PaymentDetailScreen(id: 'pay1')));
       await tester.pumpAndSettle();
-      expect(find.text('Allocate'), findsOneWidget);
+      expect(find.text('Match'), findsOneWidget);
       expect(find.text('Clear cheque'), findsOneWidget);
       expect(find.text('Void'), findsOneWidget);
     });
@@ -167,14 +167,14 @@ void main() {
     testWidgets('a fully allocated bank transfer can only be voided; a voided payment has no actions', (tester) async {
       await tester.pumpWidget(host(serve(payment()), const PaymentDetailScreen(id: 'pay1')));
       await tester.pumpAndSettle();
-      expect(find.text('Allocate'), findsNothing);
+      expect(find.text('Match'), findsNothing);
       expect(find.text('Clear cheque'), findsNothing);
       expect(find.text('Void'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpWidget(host(serve(payment(status: 'voided', unallocated: 40)), const PaymentDetailScreen(id: 'pay1')));
       await tester.pumpAndSettle();
       expect(find.text('Void'), findsNothing);
-      expect(find.text('Allocate'), findsNothing);
+      expect(find.text('Match'), findsNothing);
     });
 
     testWidgets('voiding sends the reason', (tester) async {
@@ -209,7 +209,7 @@ void main() {
     testWidgets('draft: post and delete, with the debit and credit lines shown', (tester) async {
       await tester.pumpWidget(host(serve(journal('draft')), const JournalDetailScreen(id: 'j1')));
       await tester.pumpAndSettle();
-      expect(find.text('Post'), findsOneWidget);
+      expect(find.text('Record'), findsOneWidget);
       expect(find.text('Delete'), findsOneWidget);
       expect(find.text('Reverse'), findsNothing);
       expect(find.text('Dr 5.00'), findsOneWidget);
@@ -269,7 +269,7 @@ void main() {
       await tester.pumpWidget(host(serve([pending], log: log), const ApprovalsScreen()));
       await tester.pumpAndSettle();
       expect(find.text('Bill AC-77 from Acme'), findsOneWidget);
-      expect(find.textContaining('Vendor bill'), findsOneWidget);
+      expect(find.textContaining('Supplier bill'), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Looks right');
@@ -323,7 +323,7 @@ void main() {
         'netProfit': 900,
       }));
       expect(find.text('4000 Sales'), findsOneWidget);
-      expect(find.text('Net profit'), findsOneWidget);
+      expect(find.text('Profit after costs'), findsOneWidget);
       await tester.pumpWidget(body(ReportKind.balanceSheet, {'assets': [], 'liabilities': [], 'equity': [], 'totalAssets': 5, 'totalLiabilities': 2, 'totalEquity': 3, 'currentEarnings': 0, 'balanced': true}));
       expect(find.text('Total assets'), findsWidgets);
       await tester.pumpWidget(body(ReportKind.cashPosition, {

@@ -86,13 +86,13 @@ class ArAgeingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _AsOfReport(
-        title: 'Receivables ageing',
+        title: 'Overdue by age',
         path: '/api/v1/finance/reports/ar-ageing',
         builder: (context, d) {
           final rows = (d['rows'] as List<dynamic>? ?? const []).cast<_Json>();
           final totals = (d['totals'] as _Json?) ?? const {};
           return ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(ErpSpace.s4), children: [
-            InfoCard(title: 'Total receivable', rows: [
+            InfoCard(title: 'Total owed to you', rows: [
               for (final b in _buckets) InfoRow(b.$2, formatMoney((totals[b.$1] as num?) ?? 0)),
               InfoRow('Total', formatMoney((totals['total'] as num?) ?? 0), bold: true),
             ]),
@@ -109,7 +109,7 @@ class ArAgeingScreen extends StatelessWidget {
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CustomerStatementScreen(partyId: r['partyId'].toString(), partyName: r['partyName']?.toString() ?? ''))),
-                        child: const Text('Statement'),
+                        child: const Text('Account summary'),
                       ),
                     ),
                   ],
@@ -128,7 +128,7 @@ class CustomerStatementScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _AsOfReport(
-        title: 'Statement',
+        title: 'Account summary',
         path: '/api/v1/finance/reports/customer-statement',
         query: {'partyId': partyId},
         builder: (context, d) {

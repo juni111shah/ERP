@@ -50,7 +50,7 @@ FormSpec workOrderForm(WidgetRef ref, {Json? existing, String? propertyId, Strin
         Field.text('category', 'Category (plumbing, electrical...)', maxLength: 100),
         Field.text('reportedBy', 'Reported by', maxLength: 150),
       ],
-      Field.lookup('vendorPartyId', 'Vendor', path: '/api/v1/parties', query: const {'role': 'Vendor'}, subtitleKey: 'code'),
+      Field.lookup('vendorPartyId', 'Supplier', path: '/api/v1/parties', query: const {'role': 'Vendor'}, subtitleKey: 'code'),
       Field.text('technician', 'Technician', maxLength: 150),
       Field.date('scheduledFor', 'Scheduled for'),
       if (!assign) ...[
@@ -64,7 +64,7 @@ FormSpec workOrderForm(WidgetRef ref, {Json? existing, String? propertyId, Strin
         // The API takes the whole input on update; fields that are not on the form keep their value.
         final full = {for (final k in _woKeys) if (existing[k] != null) k: existing[k], ...body};
         if (assign && body['vendorPartyId'] == null && (body['technician'] ?? '').toString().isEmpty && existing['vendorPartyId'] == null && (existing['technician'] ?? '').toString().isEmpty) {
-          throw ApiException(409, 'Choose a vendor or enter a technician.');
+          throw ApiException(409, 'Choose a supplier or enter a technician.');
         }
         final saved = await api.put('$_woPath/${existing['id']}', body: full);
         return assign ? api.post('$_woPath/${existing['id']}/status', body: {'status': 'assigned'}) : saved;

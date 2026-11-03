@@ -130,11 +130,3 @@ class IntroStrings {
     return lang == 'ar' || rtl ? ar : en;
   }
 }
-
-/// The app's existing identity (same name as `MaterialApp.title`, the Android label and the sign-in page; same mark as
-/// the sign-in page: hero gradient tile with the account-balance glyph). No new brand is introduced here.
-class IntroBrand {
-  IntroBrand._();
-
-  static const name = 'ERP';
-}

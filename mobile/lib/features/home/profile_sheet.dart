@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/brand.dart';
 import '../../core/me.dart';
 import '../../core/session.dart';
 import '../../core/theme_mode.dart';
+import '../../kit/brand_mark.dart';
 import '../../kit/motion.dart';
 import '../../kit/segmented.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../notifications/notifications.dart';
+import '../onboarding/onboarding_tour.dart';
 import '../settings/settings_page.dart';
 
 /// Up to two initials from a name, else the first letter of the email.
@@ -238,8 +241,9 @@ class ProfileSheet extends ConsumerWidget {
           key: const ValueKey('profile-about'),
           icon: Icons.info_outline_rounded,
           label: 'About',
-          onTap: () => _then(context, () => showAboutDialog(context: hostContext, applicationName: 'ERP')),
+          onTap: () => _then(context, () => showAboutDialog(context: hostContext, applicationName: Brand.name, applicationIcon: const BrandMark(size: 48))),
         ),
+        ShowTourAgainTile(store: hostRef.read(storeProvider), hostContext: hostContext),
         Divider(height: 1, color: t.borderSubtle),
         row(
           key: const ValueKey('profile-signout'),

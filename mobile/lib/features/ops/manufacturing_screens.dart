@@ -57,7 +57,7 @@ FormSpec bomForm(WidgetRef ref, {Json? existing}) {
       Field.text('uom', 'Unit of measure', maxLength: 20, initial: 'PCS'),
       Field.text('version', 'Version', maxLength: 20, initial: '1.0'),
       Field.money('laborCostPerUnit', 'Labor cost per unit', initial: '0'),
-      Field.money('overheadCostPerUnit', 'Overhead cost per unit', initial: '0'),
+      Field.money('overheadCostPerUnit', 'Indirect cost per unit', initial: '0'),
       Field.toggle('isActive', 'Active', initial: true),
       Field.multiline('description', 'Description', maxLength: 500),
       // Editing the components of an existing BOM answers 500 ("Cross-workspace write blocked") on the current backend, so the edit form covers the header only.
@@ -108,7 +108,7 @@ class BomsScreen extends StatelessWidget {
   Widget build(BuildContext context) => ListScreen(
         title: 'Bills of materials',
         path: '$mfgPath/boms',
-        searchHint: 'Search BOMs',
+        searchHint: 'Search bills of materials',
         emptyText: 'No bills of materials found.',
         itemBuilder: bomTile,
         create: (ref) => bomForm(ref),
@@ -136,7 +136,7 @@ class BomDetailScreen extends StatelessWidget {
                 InfoRow('Output', '${_q(d['outputQuantity'])} ${d['uom']}'),
                 InfoRow('Material cost', _m(d['totalMaterialCost'])),
                 InfoRow('Labor per unit', _m(d['laborCostPerUnit'])),
-                InfoRow('Overhead per unit', _m(d['overheadCostPerUnit'])),
+                InfoRow('Indirect cost per unit', _m(d['overheadCostPerUnit'])),
                 InfoRow('Total unit cost', _m(d['totalUnitCost']), bold: true),
                 InfoRow('Description', text(d['description'])),
               ]),
@@ -156,7 +156,7 @@ class BomDetailScreen extends StatelessWidget {
               icon: Icons.delete_outline,
               permission: 'manufacturing.boms.manage',
               destructive: true,
-              confirm: 'Delete this BOM? A BOM used by work orders cannot be deleted; deactivate it instead.',
+              confirm: 'Delete this bill of materials? One used by work orders cannot be deleted; deactivate it instead.',
               successMessage: 'Deleted',
               run: (ref, d, _) async {
                 await ref.read(apiProvider).delete('$mfgPath/boms/$id');
@@ -178,7 +178,7 @@ FormSpec workOrderForm(WidgetRef ref) {
     initial: {'legalEntityId': me.defaultEntity?.id},
     fields: [
       Field.select('legalEntityId', 'Legal entity', options: [for (final e in me.legalEntities) Option(e.id, e.name)], required: true, initial: me.defaultEntity?.id),
-      Field.lookup('bomId', 'Bill of materials', path: '$mfgPath/boms', subtitleKey: 'code', required: true),
+      Field.lookup('bomId', 'Bill of materials (recipe)', path: '$mfgPath/boms', subtitleKey: 'code', required: true),
       Field.decimal('plannedQuantity', 'Planned quantity', required: true, min: 0.0001),
       Field.lookup('warehouseId', 'Warehouse', path: '/api/v1/m/inventory/warehouses', subtitleKey: 'code', required: true),
       Field.date('startDate', 'Start date', required: true, initial: 'today'),
@@ -303,7 +303,7 @@ class CostingScreen extends StatelessWidget {
   Widget build(BuildContext context) => ListScreen(
         title: 'Product costing',
         path: '$mfgPath/boms',
-        searchHint: 'Search BOMs',
+        searchHint: 'Search bills of materials',
         emptyText: 'No bills of materials found.',
         itemBuilder: (context, b) => ListTile(
           onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CostRollupScreen(bomId: b['id'].toString()))),
@@ -330,7 +330,7 @@ class CostRollupScreen extends StatelessWidget {
             InfoCard(rows: [
               InfoRow('Material', _m(d['materialCost'])),
               InfoRow('Labor', _m(d['laborCost'])),
-              InfoRow('Overhead', _m(d['overheadCost'])),
+              InfoRow('Indirect costs', _m(d['overheadCost'])),
               InfoRow('Standard unit cost', _m(d['totalStandardUnitCost']), bold: true),
             ]),
             Text('Components', style: Theme.of(context).textTheme.titleMedium),
@@ -364,7 +364,7 @@ class MfgAnalyticsScreen extends ConsumerWidget {
 
   Widget _kpis(Json k) => DetailBody(children: [
         InfoCard(title: 'Production', rows: [
-          InfoRow('Active BOMs', '${k['activeBomsCount']}'),
+          InfoRow('Active bills of materials', '${k['activeBomsCount']}'),
           InfoRow('Open work orders', '${k['openWorkOrdersCount']}'),
           InfoRow('Completed this month', '${k['completedWorkOrdersMonth']}'),
           InfoRow('Produced this month', _q(k['totalProducedQuantityMonth'])),

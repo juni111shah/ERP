@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- HigherSquare 360 emblem green (lib/core/brand.dart BrandColors.tile). -->
+    <color name="ic_launcher_background">#4FA077</color>
+</resources>

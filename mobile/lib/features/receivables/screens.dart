@@ -11,9 +11,9 @@ final List<MobileScreen> receivablesScreens = <MobileScreen>[
   MobileScreen(id: 'invoices', title: 'Invoices', menuIds: const ['finance.invoices'], icon: Icons.receipt_long_outlined, builder: (_) => const InvoicesScreen()),
   MobileScreen(id: 'receipts', title: 'Receipts', menuIds: const ['finance.receipts'], icon: Icons.payments_outlined, builder: (_) => const ReceiptsScreen()),
   MobileScreen(id: 'customers', title: 'Customers', menuIds: const ['sales.customers'], icon: Icons.people_outline, builder: (_) => const PartiesScreen(title: 'Customers', role: 'Customer')),
-  MobileScreen(id: 'vendors', title: 'Vendors', menuIds: const ['purchases.vendors'], icon: Icons.local_shipping_outlined, builder: (_) => const PartiesScreen(title: 'Vendors', role: 'Vendor')),
+  MobileScreen(id: 'vendors', title: 'Suppliers', menuIds: const ['purchases.vendors'], icon: Icons.local_shipping_outlined, builder: (_) => const PartiesScreen(title: 'Suppliers', role: 'Vendor')),
   MobileScreen(id: 'parties', title: 'All parties', menuIds: const ['core.parties'], icon: Icons.groups_outlined, builder: (_) => const PartiesScreen(title: 'All parties')),
   MobileScreen(id: 'partygroups', title: 'Party groups', menuIds: const ['core.partygroups'], icon: Icons.workspaces_outline, builder: (_) => const PartyGroupsScreen()),
   MobileScreen(id: 'items', title: 'Items', menuIds: const ['core.items'], icon: Icons.inventory_2_outlined, builder: (_) => const ItemsScreen()),
-  MobileScreen(id: 'ar-ageing', title: 'Receivables ageing', menuIds: const ['finance.ar-ageing'], icon: Icons.hourglass_bottom, builder: (_) => const ArAgeingScreen()),
+  MobileScreen(id: 'ar-ageing', title: 'Overdue by age', menuIds: const ['finance.ar-ageing'], icon: Icons.hourglass_bottom, builder: (_) => const ArAgeingScreen()),
 ];

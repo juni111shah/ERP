@@ -146,6 +146,6 @@ Widget employeeBody(BuildContext context, Json d) {
       InfoRow('Recurring deductions', formatMoney((d['recurringDeductions'] as num?) ?? 0)),
       InfoRow('Gross monthly', formatMoney((d['grossMonthly'] as num?) ?? 0), bold: true),
     ]),
-    InfoCard(title: 'End of service', rows: [InfoRow('Gratuity accrued', d['gratuityAccrued'] == null ? null : formatMoney((d['gratuityAccrued'] as num))), InfoRow('IBAN', text(d['iban'])), InfoRow('Labour card', text(d['labourCardNumber']))]),
+    InfoCard(title: 'End of service', rows: [InfoRow('End-of-service benefit so far', d['gratuityAccrued'] == null ? null : formatMoney((d['gratuityAccrued'] as num))), InfoRow('IBAN', text(d['iban'])), InfoRow('Labour card', text(d['labourCardNumber']))]),
   ]);
 }

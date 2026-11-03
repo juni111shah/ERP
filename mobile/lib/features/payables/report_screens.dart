@@ -27,11 +27,11 @@ class ReportSpec {
 }
 
 const reportSpecs = [
-  ReportSpec(ReportKind.apAgeing, 'Payables ageing', 'What we owe vendors, by days overdue', Icons.call_made, '$finPath/reports/ap-ageing', range: false),
-  ReportSpec(ReportKind.arAgeing, 'Receivables ageing', 'What customers owe us, by days overdue', Icons.call_received, '$finPath/reports/ar-ageing', range: false),
-  ReportSpec(ReportKind.trialBalance, 'Trial balance', 'Opening, movement and closing per account', Icons.balance, '$finPath/reports/trial-balance', range: true),
-  ReportSpec(ReportKind.incomeStatement, 'Profit and loss', 'Income and expenses for a period', Icons.trending_up, '$finPath/reports/income-statement', range: true),
-  ReportSpec(ReportKind.balanceSheet, 'Balance sheet', 'Assets, liabilities and equity', Icons.account_balance_wallet_outlined, '$finPath/reports/balance-sheet', range: false),
+  ReportSpec(ReportKind.apAgeing, 'Bills overdue by age', 'What you owe suppliers, by days overdue', Icons.call_made, '$finPath/reports/ap-ageing', range: false),
+  ReportSpec(ReportKind.arAgeing, 'Overdue by age', 'What customers owe us, by days overdue', Icons.call_received, '$finPath/reports/ar-ageing', range: false),
+  ReportSpec(ReportKind.trialBalance, 'Totals per account', 'Start, change and end balance per account', Icons.balance, '$finPath/reports/trial-balance', range: true),
+  ReportSpec(ReportKind.incomeStatement, 'Income vs expenses', 'Income and expenses for a period', Icons.trending_up, '$finPath/reports/income-statement', range: true),
+  ReportSpec(ReportKind.balanceSheet, 'What you own and owe', "What you own, what you owe, and the owner's share", Icons.account_balance_wallet_outlined, '$finPath/reports/balance-sheet', range: false),
   ReportSpec(ReportKind.cashPosition, 'Cash position', 'Balances of bank and cash accounts', Icons.savings_outlined, '$finPath/bank/position', range: false),
 ];
 
@@ -165,7 +165,7 @@ Widget trialBalanceBody(BuildContext context, Json d) {
       ListTile(
         contentPadding: EdgeInsets.zero,
         title: Text('${r['code']} ${r['name']}'),
-        subtitle: Text('Opening ${_m(r['opening'])} · Dr ${_m(r['debit'])} · Cr ${_m(r['credit'])}'),
+        subtitle: Text('Start ${_m(r['opening'])} · In ${_m(r['debit'])} · Out ${_m(r['credit'])}'),
         trailing: Text(_m(r['closing']), style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
   ]);
@@ -188,7 +188,7 @@ List<Widget> _statementSection(BuildContext context, String title, Object? lines
 }
 
 Widget incomeBody(BuildContext context, Json d) => DetailBody(children: [
-      InfoCard(rows: [InfoRow('Net profit', _m(d['netProfit']), bold: true)]),
+      InfoCard(rows: [InfoRow('Profit after costs', _m(d['netProfit']), bold: true)]),
       ..._statementSection(context, 'Income', d['income'], d['totalIncome']),
       ..._statementSection(context, 'Expenses', d['expenses'], d['totalExpenses']),
     ]);
@@ -196,14 +196,14 @@ Widget incomeBody(BuildContext context, Json d) => DetailBody(children: [
 Widget balanceSheetBody(BuildContext context, Json d) => DetailBody(children: [
       InfoCard(rows: [
         InfoRow('Total assets', _m(d['totalAssets']), bold: true),
-        InfoRow('Total liabilities', _m(d['totalLiabilities'])),
-        InfoRow('Total equity', _m(d['totalEquity'])),
+        InfoRow('Total you owe', _m(d['totalLiabilities'])),
+        InfoRow("Total owner's share", _m(d['totalEquity'])),
         InfoRow('Current earnings', _m(d['currentEarnings'])),
         InfoRow('Balanced', d['balanced'] == true ? 'Yes' : 'No'),
       ]),
       ..._statementSection(context, 'Assets', d['assets'], d['totalAssets']),
-      ..._statementSection(context, 'Liabilities', d['liabilities'], d['totalLiabilities']),
-      ..._statementSection(context, 'Equity', d['equity'], d['totalEquity']),
+      ..._statementSection(context, 'What you owe', d['liabilities'], d['totalLiabilities']),
+      ..._statementSection(context, "Owner's share", d['equity'], d['totalEquity']),
     ]);
 
 Widget cashBody(BuildContext context, Json d, String currency) {
