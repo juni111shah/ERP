@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/brand.dart';
 import 'core/session.dart';
 import 'core/theme_mode.dart';
 import 'features/auth/login_page.dart';
@@ -10,6 +11,7 @@ import 'features/home/home_page.dart';
 import 'features/intro/intro_flag.dart';
 import 'features/intro/intro_page.dart';
 import 'features/settings/settings_page.dart';
+import 'kit/brand_mark.dart';
 import 'theme/app_theme.dart';
 
 /// Routes follow the session: signed out goes to sign-in (or workspace choice), signed in goes to the home shell.
@@ -39,7 +41,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       return const {'/splash', '/login', '/workspaces', IntroKeys.route}.contains(at) ? '/home' : null;
     },
     routes: [
-      GoRoute(path: '/splash', builder: (_, _) => const Scaffold(body: Center(child: CircularProgressIndicator()))),
+      GoRoute(path: '/splash', builder: (_, _) => const BrandSplash()),
       GoRoute(path: IntroKeys.route, builder: (_, _) => const IntroPage()),
       GoRoute(path: '/login', builder: (_, _) => const LoginPage()),
       GoRoute(path: '/workspaces', builder: (_, _) => const WorkspacePage()),
@@ -69,7 +71,7 @@ class _ErpAppState extends ConsumerState<ErpApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'ERP',
+      title: Brand.name,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),

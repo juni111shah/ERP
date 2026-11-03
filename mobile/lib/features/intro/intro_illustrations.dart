@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../kit/brand_mark.dart';
 import '../../theme/tokens.dart';
 import 'intro_motion.dart';
 import 'intro_scene.dart';
@@ -756,7 +757,7 @@ class _Features extends StatelessWidget {
         decoration: BoxDecoration(color: ErpColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: ErpColors.borderSubtle)),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            const IntroMark(size: 20),
+            const BrandMark(size: 20, semanticLabel: null),
             const SizedBox(width: ErpSpace.s2),
             Expanded(child: _fit(title, _t1.copyWith(fontSize: ErpType.bodySmall, fontWeight: FontWeight.w700))),
           ]),
@@ -780,24 +781,6 @@ class _Features extends StatelessWidget {
               ),
           ]),
         ]),
-      );
-}
-
-/// The app mark (same as the sign-in page: hero gradient tile + account-balance glyph).
-class IntroMark extends StatelessWidget {
-  const IntroMark({super.key, required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(size * 0.28),
-          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [ErpColors.brandInk, ErpColors.brandHover]),
-        ),
-        child: Icon(Icons.account_balance_outlined, size: size * 0.55, color: Colors.white),
       );
 }
 
