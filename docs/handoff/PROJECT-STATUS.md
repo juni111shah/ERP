@@ -195,6 +195,14 @@ Earlier relevant commits on main: 7fe89dd (#44, manual-only journal reversal), 2
 - **Mobile:** "Print / Share PDF" app-bar button on invoice and receipt details: downloads the server PDF (`ApiClient.getBytes`) and hands it to the OS print dialog or share sheet through the `printing` package (behind the injectable `PdfOutput`). No PDF is built on the phone (`pdf` is only a transitive dependency of `printing`).
 - **Tests:** `PrintPdfRendererTests` (unit), `PrintPdfTests` (integration: content type, file name, 404, 401, same policies), `mobile/test/pdf_share_test.dart`.
 
+## 4.4 Mobile first-open intro tour (3D depth, light) - PR #93 OPEN, not merged (branch `mobile/intro-tour-3d`)
+
+- Five-screen tour shown once on first app open, before sign-in: overview, cash flow (billed vs collected), invoicing, alerts and settings, everything in one app. Light ErpTheme forced; EN + AR; 48dp targets; system back = Skip. Code in `mobile/lib/features/intro/`.
+- Flag `intro_tour_v1_seen` = `1` in the KeyValueStore (`storeProvider`), set by Skip / Get started / back. `introProvider` (unknown -> splash, show -> `/intro`, seen -> normal session routing) is wired into the go_router redirect in `lib/app.dart`. Kept separate from the later coach-mark tour (`onboarding_tour_v1_seen`).
+- Motion values come from the Advanced UI UX spec (`intro_motion.dart`): one ticker, per-layer Matrix4 transforms (perspective 1/1100), staggered rise, perspective floor + brand-tinted glow, page parallax, 6s drift eased out after 12s; captions fade and slide with the parallax; reduced motion = flat + 200ms crossfade. No new packages, no goldens.
+- v2: existing ERP mark + name in the screen 1 header (small mark after), page dots + Next / Get started bar, outcome headline + one line per screen, screen 5 "Everything in one app" chips listing only features the app has. Card text scales down to one line instead of cutting off. Arabic copy needs a native-speaker review.
+- Tests: `test/intro_tour_test.dart` (7), `test/intro_motion_test.dart` (4), `test/intro_fit_test.dart` (3: no truncated text or overflow at 360x780 and 390x844, EN + AR, real fonts).
+
 # 5. Pending tasks
 
 Owner and coordinator: unless stated, the specialist agent prepares a patch or branch and Grok Bot builds, opens the PR and squash-merges.
