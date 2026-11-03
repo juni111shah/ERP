@@ -6,7 +6,16 @@ import { API_BASE_URL } from '../api/api-config';
 import { MeResponse, SessionStore, Workspace } from '../session/session.store';
 
 export interface SessionResponse { accessToken: string; expiresIn: number; workspace: Workspace; workspaces: Workspace[]; persistent: boolean; }
-export interface LoginResponse extends Partial<SessionResponse> { requiresWorkspaceSelection?: boolean; selectionToken?: string; workspaces: Workspace[]; }
+export interface LoginResponse extends Partial<SessionResponse> {
+  requiresWorkspaceSelection?: boolean; selectionToken?: string; workspaces: Workspace[];
+  /** Two-factor still to do: no session yet, only a short-lived challenge for the next step. */
+  requiresTwoFactor?: boolean; twoFactorRequired?: boolean; twoFactorSetupRequired?: boolean; challengeToken?: string; challengeExpiresIn?: number;
+  /** One-time recovery codes, returned once when a first-sign-in authenticator setup is confirmed. */
+  recoveryCodes?: string[];
+}
+
+/** First-sign-in authenticator setup: the QR image of the otpauth:// link and the key for typing in by hand. */
+export interface TwoFactorChallengeSetup { otpAuthUri: string; secret: string; qrCodeDataUri: string; issuer: string; account: string; digits: number; period: number; }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -18,6 +27,18 @@ export class AuthService {
 
   login(email: string, password: string, rememberMe: boolean, twoFactorCode?: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.base}/auth/login`, { email, password, rememberMe, twoFactorCode }).pipe(
+      switchMap((r) => (r.accessToken ? this.startSession(r as SessionResponse).pipe(map(() => r)) : of(r))),
+    );
+  }
+
+  /** Setup step of a login challenge: creates the authenticator key and returns the QR / manual key. */
+  beginTwoFactorSetup(challengeToken: string): Observable<TwoFactorChallengeSetup> {
+    return this.http.post<TwoFactorChallengeSetup>(`${this.base}/auth/login/2fa/setup`, { challengeToken });
+  }
+
+  /** Confirms a login challenge with a code (first code of a new setup, or a code / recovery code) and starts the session. */
+  verifyTwoFactor(challengeToken: string, code: string): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.base}/auth/login/2fa/verify`, { challengeToken, code }).pipe(
       switchMap((r) => (r.accessToken ? this.startSession(r as SessionResponse).pipe(map(() => r)) : of(r))),
     );
   }

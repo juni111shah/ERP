@@ -10,6 +10,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="QRCoder" /> <!-- authenticator QR code for two-factor setup; MIT, no native dependencies -->
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
     <PackageReference Include="QuestPDF" /> <!-- server-side PDF for print documents; Community licence (see Printing/QuestPdfPrintRenderer.cs) -->
   </ItemGroup>

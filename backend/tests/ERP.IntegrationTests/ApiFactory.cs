@@ -50,6 +50,7 @@ public class ApiFactory : WebApplicationFactory<Program>
             ["Seed:MultiWorkspaceEmail"] = OwnerEmail,
             ["Seed:AdminPassword"] = Password,
             ["RateLimiting:LoginPerMinute"] = "10000",
+            ["Auth:TwoFactor:Enforce"] = "false", // most tests sign in with a password only; TwoFactorChallengeTests turns it on
             ["Storage:Root"] = Path.Combine(Path.GetTempPath(), "erp-tests-" + Guid.NewGuid().ToString("N")),
         };
         // UseSetting is visible to Program's top-level code before Build() (minimal hosting).
