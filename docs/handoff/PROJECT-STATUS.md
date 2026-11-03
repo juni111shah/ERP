@@ -187,6 +187,13 @@ Earlier relevant commits on main: 7fe89dd (#44, manual-only journal reversal), 2
 | CoA numbering investigation | `/workspace/erp-team/merge/coa-numbering-findings.md`: codes are free text (max 20), unique per workspace, not tied to `ParentId`; Option A recommended |
 | Cheque print | Already in main as 66385aa (cheque instrument details + PDC badge on receipt and payment prints); verified at 9c93a63, no patch needed |
 
+## 4.3 Mobile first-open intro tour (3D depth, light) - PR OPEN, not merged (branch `mobile/intro-tour-3d`)
+
+- Five-screen tour shown once on first app open, before sign-in: key numbers, money in/out, invoices and receipts, make the app yours, quick search. Light ErpTheme forced; EN + AR; 48dp targets; system back = Skip. Code in `mobile/lib/features/intro/`.
+- Flag `intro_tour_v1_seen` = `1` in the KeyValueStore (`storeProvider`), set by Skip / Get started / back. `introProvider` (unknown -> splash, show -> `/intro`, seen -> normal session routing) is wired into the go_router redirect in `lib/app.dart`. Kept separate from the later coach-mark tour (`onboarding_tour_v1_seen`).
+- Motion values come from the Advanced UI UX spec (`intro_motion.dart`): one ticker, per-layer Matrix4 transforms (perspective 1/1100), staggered rise, perspective floor + glow, page parallax, 6s drift eased out after 12s; reduced motion = flat + 200ms crossfade. No new packages, no goldens.
+- Tests: `test/intro_tour_test.dart` (7) + `test/intro_motion_test.dart` (4).
+
 # 5. Pending tasks
 
 Owner and coordinator: unless stated, the specialist agent prepares a patch or branch and Grok Bot builds, opens the PR and squash-merges.
