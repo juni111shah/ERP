@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/me.dart';
 import '../features/common/paged_list_view.dart';
 import 'field.dart';
+import 'filter_chips.dart';
 import 'form_page.dart';
 
 /// A list endpoint as a screen: search, paging, optional status chips, and a "+" button that opens a create form when the user may create.
@@ -54,29 +55,30 @@ class _ListScreenState extends ConsumerState<ListScreen> {
     return Scaffold(
       appBar: widget.showAppBar ? AppBar(title: Text(widget.title)) : null,
       floatingActionButton: canCreate
-          ? FloatingActionButton.extended(
-              onPressed: () => openForm<Object?>(context, widget.create!(ref)),
-              icon: const Icon(Icons.add),
-              label: const Text('New'),
+          ? Padding(
+              // Inside the home shell the floating bottom bar overlaps the body (extendBody), which raises the bottom
+              // padding above the system inset; lift the button by that difference so it clears the bar.
+              padding: EdgeInsets.only(bottom: (MediaQuery.paddingOf(context).bottom - MediaQuery.viewPaddingOf(context).bottom).clamp(0.0, double.infinity)),
+              child: FloatingActionButton.extended(
+                onPressed: () => openForm<Object?>(context, widget.create!(ref)),
+                icon: const Icon(Icons.add),
+                label: const Text('New'),
+              ),
             )
           : null,
-      body: Column(
-        children: [
-          if (widget.filters.isNotEmpty)
-            SizedBox(
-              height: 48,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                children: [
-                  Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: const Text('All'), selected: _filter == null, onSelected: (_) => setState(() => _filter = null))),
-                  for (final o in widget.filters)
-                    Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(o.label), selected: _filter == o.value, onSelected: (_) => setState(() => _filter = o.value))),
-                ],
+      body: PagedListView(
+        path: widget.path,
+        itemBuilder: widget.itemBuilder,
+        searchHint: widget.searchHint,
+        emptyText: widget.emptyText,
+        query: query,
+        header: widget.filters.isEmpty
+            ? null
+            : FilterChipsRow<String>(
+                items: [const FilterChipItem(value: '', label: 'All'), for (final o in widget.filters) FilterChipItem(value: o.value, label: o.label)],
+                selected: _filter ?? '',
+                onSelected: (v) => setState(() => _filter = v.isEmpty ? null : v),
               ),
-            ),
-          Expanded(child: PagedListView(path: widget.path, itemBuilder: widget.itemBuilder, searchHint: widget.searchHint, emptyText: widget.emptyText, query: query)),
-        ],
       ),
     );
   }

@@ -7,6 +7,8 @@ import '../core/session.dart';
 import '../features/common/paged_list_view.dart';
 import 'data_version.dart';
 import 'form_page.dart';
+import '../theme/app_theme.dart';
+import '../theme/tokens.dart';
 
 typedef Json = Map<String, dynamic>;
 
@@ -191,28 +193,54 @@ class _DetailPageState extends ConsumerState<DetailPage> {
           : _error != null && data == null
               ? ErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(onRefresh: _load, child: widget.body(context, data!)),
-      bottomNavigationBar: actions.isEmpty
-          ? null
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    for (final a in actions)
-                      a.destructive
-                          ? OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-                              onPressed: _acting ? null : () => _runAction(a, data!),
-                              icon: Icon(a.icon),
-                              label: Text(a.label))
-                          : FilledButton.icon(onPressed: _acting ? null : () => _runAction(a, data!), icon: Icon(a.icon), label: Text(a.label)),
+      bottomNavigationBar: actions.isEmpty ? null : _actionBar(context, actions, data!),
+    );
+  }
+
+  /// Sticky action bar: destructive actions as outlined error buttons, the rest as filled brand buttons (the first one
+  /// solid, others tonal). One or two actions share a row (primary wider, as in the mockup); more wrap onto rows.
+  Widget _actionBar(BuildContext context, List<ActionSpec> actions, Json data) {
+    final t = ErpTheme.of(context);
+    final error = Theme.of(context).colorScheme.error;
+    final ordered = [...actions.where((a) => a.destructive), ...actions.where((a) => !a.destructive)];
+    final primary = actions.where((a) => !a.destructive).firstOrNull;
+    Widget button(ActionSpec a) {
+      final onPressed = _acting ? null : () => _runAction(a, data);
+      final label = Text(a.label, maxLines: 1, overflow: TextOverflow.ellipsis);
+      final icon = Icon(a.icon, size: 18);
+      if (a.destructive) {
+        return OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: error, side: BorderSide(color: error.withValues(alpha: 0.45))),
+          onPressed: onPressed,
+          icon: icon,
+          label: label,
+        );
+      }
+      return identical(a, primary)
+          ? FilledButton.icon(onPressed: onPressed, icon: icon, label: label)
+          : FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(backgroundColor: t.brandSubtle, foregroundColor: t.brandHover),
+              onPressed: onPressed,
+              icon: icon,
+              label: label);
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(color: t.surface, border: Border(top: BorderSide(color: t.borderSubtle))),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, 10, ErpSpace.s4, 10),
+          child: ordered.length <= 2
+              ? Row(children: [
+                  for (var i = 0; i < ordered.length; i++) ...[
+                    if (i > 0) const SizedBox(width: ErpSpace.s2),
+                    Expanded(flex: identical(ordered[i], primary) && ordered.length > 1 ? 16 : 10, child: button(ordered[i])),
                   ],
-                ),
-              ),
-            ),
+                ])
+              : Wrap(spacing: ErpSpace.s2, runSpacing: ErpSpace.s2, alignment: WrapAlignment.end, children: [for (final a in ordered) button(a)]),
+        ),
+      ),
     );
   }
 }

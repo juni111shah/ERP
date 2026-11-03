@@ -11,6 +11,9 @@ import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../../kit/data_version.dart';
 import '../common/paged_list_view.dart';
+import '../../kit/list_card.dart';
+import '../../kit/detail_hero.dart';
+import '../../theme/tokens.dart';
 import 'receipt_screens.dart';
 
 // REFERENCE IMPLEMENTATION. Every other area follows this shape:
@@ -82,21 +85,33 @@ FormSpec invoiceForm(WidgetRef ref, {Json? existing}) {
 Widget invoiceTile(BuildContext context, Json i) {
   final status = (i['status'] ?? '').toString();
   final credit = i['isCreditNote'] == true;
-  return ListTile(
+  final total = (i['total'] as num?) ?? 0;
+  final paid = i['paid'] as num?;
+  final due = DateTime.tryParse((i['dueDate'] ?? '').toString());
+  final open = status == 'issued' || status == 'partlyPaid';
+  final today = DateUtils.dateOnly(DateTime.now());
+  return _CardRow(ErpListCard(
     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => InvoiceDetailScreen(id: i['id'].toString()))),
-    title: Text('${credit ? 'Credit note ' : ''}${i['number']}', maxLines: 1, overflow: TextOverflow.ellipsis),
-    subtitle: Text('${i['partyName'] ?? ''}\nDue ${formatDate(i['dueDate'])}'),
-    isThreeLine: true,
-    trailing: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(money(i, 'total'), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        StatusChip(humanize(status), color: StatusChip.forStatus(status)),
-      ],
-    ),
-  );
+    title: '${i['partyName'] ?? ''}',
+    docNumber: '${credit ? 'Credit note ' : ''}${i['number']}',
+    meta: 'Due ${formatDate(i['dueDate'])}',
+    amount: formatMoney(total),
+    currency: i['currencyCode']?.toString(),
+    overdue: open && due != null && due.isBefore(today),
+    progress: open && paid != null && paid > 0 && total > 0 ? paid / total : null,
+    progressLabel: open && paid != null && paid > 0 && total > 0 ? 'Paid ${formatMoney(paid)}' : null,
+    tag: StatusChip(humanize(status), color: StatusChip.forStatus(status)),
+  ));
+}
+
+/// Hands a kit card to [PagedListView] without the default card wrapper.
+class _CardRow extends StatelessWidget with ListCardRow {
+  const _CardRow(this.child);
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
 }
 
 class InvoicesScreen extends StatelessWidget {
@@ -200,14 +215,27 @@ class InvoiceDetailScreen extends StatelessWidget {
     final lines = (d['lines'] as List<dynamic>? ?? const []).cast<Json>();
     final outstanding = ((d['total'] as num?) ?? 0) - ((d['paid'] as num?) ?? 0);
     return DetailBody(children: [
-      DetailHeader(title: d['partyName']?.toString() ?? '', subtitle: 'Invoice date ${formatDate(d['invoiceDate'])} · Due ${formatDate(d['dueDate'])}', status: d['status']?.toString()),
-      InfoCard(rows: [
-        InfoRow('Net', money(d, 'net')),
-        InfoRow('Tax', money(d, 'tax')),
-        InfoRow('Total', money(d, 'total'), bold: true),
-        InfoRow('Paid', money(d, 'paid')),
-        InfoRow('Outstanding', '${d['currencyCode'] ?? ''} ${formatMoney(outstanding)}'.trim(), bold: true),
-      ]),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(ErpRadius.panel),
+        child: DetailHero(
+          title: d['partyName']?.toString() ?? '',
+          subtitle: 'Invoice date ${formatDate(d['invoiceDate'])} · Due ${formatDate(d['dueDate'])}',
+          statusTag: d['status'] == null ? null : StatusChip(humanize(d['status'].toString()), color: StatusChip.forStatus(d['status'].toString())),
+          balanceLabel: 'OUTSTANDING',
+          balance: formatMoney(outstanding),
+          currency: d['currencyCode']?.toString(),
+          totalLabel: 'TOTAL',
+          total: formatMoney((d['total'] as num?) ?? 0),
+          progress: ((d['total'] as num?) ?? 0) > 0 ? (((d['paid'] as num?) ?? 0) / (d['total'] as num)).toDouble() : null,
+          facts: [
+            HeroFact('Net', money(d, 'net')),
+            HeroFact('Tax', money(d, 'tax')),
+            HeroFact('Paid', money(d, 'paid')),
+            HeroFact('Due', formatDate(d['dueDate'])),
+          ],
+        ),
+      ),
+      const SizedBox(height: ErpSpace.s3),
       Text('Lines', style: Theme.of(context).textTheme.titleMedium),
       for (final l in lines)
         ListTile(

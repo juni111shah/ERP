@@ -7,6 +7,7 @@ import 'features/auth/login_page.dart';
 import 'features/auth/workspace_page.dart';
 import 'features/home/home_page.dart';
 import 'features/settings/settings_page.dart';
+import 'theme/app_theme.dart';
 
 /// Routes follow the session: signed out goes to sign-in (or workspace choice), signed in goes to the home shell.
 final routerProvider = Provider<GoRouter>((ref) {
@@ -58,8 +59,8 @@ class _ErpAppState extends ConsumerState<ErpApp> {
     return MaterialApp.router(
       title: 'ERP',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: const Color(0xFF1565C0), useMaterial3: true),
-      darkTheme: ThemeData(colorSchemeSeed: const Color(0xFF1565C0), brightness: Brightness.dark, useMaterial3: true),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
       routerConfig: ref.watch(routerProvider),
     );
   }

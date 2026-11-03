@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/format.dart';
 import '../features/common/paged_list_view.dart';
+import '../theme/app_theme.dart';
+import '../theme/tokens.dart';
 
 /// A titled card of label/value rows, the usual body of a detail screen.
 class InfoCard extends StatelessWidget {
@@ -14,17 +16,29 @@ class InfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final shown = rows.where((r) => r.value != null && r.value!.isNotEmpty).toList();
     if (shown.isEmpty) return const SizedBox.shrink();
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (title != null) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(title!, style: Theme.of(context).textTheme.titleSmall)),
-            ...shown,
+    final t = ErpTheme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: ErpSpace.s3),
+      padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, 14, ErpSpace.s4, 10),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(ErpRadius.panel),
+        border: Border.all(color: t.borderSubtle),
+        boxShadow: Theme.of(context).brightness == Brightness.dark ? null : ErpShadow.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: ErpSpace.s2),
+              child: Text(title!, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: t.text)),
+            ),
+          for (var i = 0; i < shown.length; i++) ...[
+            if (i > 0) Divider(height: 1, color: t.borderSubtle),
+            shown[i],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -38,16 +52,24 @@ class InfoRow extends StatelessWidget {
   final bool bold;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 4, child: Text(label)),
-            Expanded(flex: 5, child: Text(value ?? '', textAlign: TextAlign.end, style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w400))),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) {
+    final t = ErpTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 4, child: Text(label, style: TextStyle(fontSize: 13, color: t.muted))),
+          Expanded(
+            flex: 5,
+            child: Text(value ?? '',
+                textAlign: TextAlign.end,
+                style: TextStyle(fontSize: bold ? 14.5 : 13.5, color: t.text, fontWeight: bold ? FontWeight.w700 : FontWeight.w500, fontFeatures: ErpFonts.tabular)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Title row with a status pill: the top of most detail screens.
@@ -58,22 +80,35 @@ class DetailHeader extends StatelessWidget {
   final String? subtitle;
   final String? status;
 
+  /// Brand-gradient header card: title, subtitle and status tag on the brand hero colours.
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: Theme.of(context).textTheme.titleLarge),
-                if (subtitle != null && subtitle!.isNotEmpty) Text(subtitle!, style: Theme.of(context).textTheme.bodyMedium),
-              ]),
-            ),
-            if (status != null && status!.isNotEmpty) StatusChip(humanize(status), color: StatusChip.forStatus(status!)),
+  Widget build(BuildContext context) {
+    final t = ErpTheme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: ErpSpace.s3),
+      padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, ErpSpace.s4, ErpSpace.s4, 18),
+      decoration: BoxDecoration(gradient: t.heroGradient, borderRadius: BorderRadius.circular(ErpRadius.panel)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+              if (subtitle != null && subtitle!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(subtitle!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.82))),
+                ),
+            ]),
+          ),
+          if (status != null && status!.isNotEmpty) ...[
+            const SizedBox(width: ErpSpace.s2),
+            StatusChip(humanize(status), color: StatusChip.forStatus(status!)),
           ],
-        ),
-      );
+        ],
+      ),
+    );
+  }
 }
 
 /// A scrolling detail body: children in a padded list that can be pulled to refresh.

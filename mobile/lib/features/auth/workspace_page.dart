@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../../core/session.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/tokens.dart';
 
 /// Shown after sign-in when the account belongs to more than one workspace.
 class WorkspacePage extends ConsumerStatefulWidget {
@@ -44,11 +46,22 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: ErpSpace.s3),
+                  child: Text('Your account belongs to more than one workspace.', style: TextStyle(fontSize: 13, color: ErpTheme.of(context).muted)),
+                ),
                 if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
                 for (final w in pending.workspaces)
                   Card(
+                    margin: const EdgeInsets.only(bottom: ErpSpace.s2),
                     child: ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.business_outlined)),
+                      contentPadding: const EdgeInsetsDirectional.fromSTEB(14, 6, 10, 6),
+                      leading: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(color: ErpTheme.of(context).brandSubtle, borderRadius: BorderRadius.circular(ErpRadius.input)),
+                        child: Icon(Icons.business_outlined, color: ErpTheme.of(context).brand),
+                      ),
                       title: Text(w.name),
                       subtitle: Text([w.code, w.industry].where((s) => s.isNotEmpty).join(' · ')),
                       trailing: _busyId == w.id ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.chevron_right),

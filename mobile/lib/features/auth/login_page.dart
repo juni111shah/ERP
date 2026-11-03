@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
 import '../../core/key_value_store.dart';
 import '../../core/session.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/tokens.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -89,17 +91,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(Icons.account_balance_outlined, size: 56, color: theme.colorScheme.primary),
-                    const SizedBox(height: 12),
-                    Text('ERP', textAlign: TextAlign.center, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Sign in to your workspace', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
+                    Center(
+                      child: Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          gradient: ErpTheme.of(context).heroGradient,
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: const [BoxShadow(color: Color(0x3310955D), blurRadius: 18, offset: Offset(0, 8))],
+                        ),
+                        child: const Icon(Icons.account_balance_outlined, size: 32, color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: ErpSpace.s4),
+                    Text('ERP', textAlign: TextAlign.center, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+                    const SizedBox(height: ErpSpace.s1),
+                    Text('Sign in to your workspace', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: ErpTheme.of(context).muted)),
                     const SizedBox(height: 28),
                     TextFormField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.username, AutofillHints.email],
                       textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder(), prefixIcon: Icon(Icons.mail_outline)),
+                      decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
                       validator: (v) => (v == null || !v.contains('@')) ? 'Enter your email address' : null,
                     ),
                     const SizedBox(height: 14),
@@ -111,7 +125,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       onFieldSubmitted: (_) => _needsCode ? null : _submit(),
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           tooltip: _showPassword ? 'Hide password' : 'Show password',
@@ -130,7 +143,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onFieldSubmitted: (_) => _submit(),
                         decoration: const InputDecoration(
                           labelText: 'Authenticator or recovery code',
-                          border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.shield_outlined),
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter the code from your authenticator app' : null,
@@ -169,7 +181,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           child: TextFormField(
                             controller: _server,
                             keyboardType: TextInputType.url,
-                            decoration: const InputDecoration(labelText: 'Server address', hintText: 'https://erp.example.com', border: OutlineInputBorder()),
+                            decoration: const InputDecoration(labelText: 'Server address', hintText: 'https://erp.example.com'),
                             validator: (v) => (v == null || !(Uri.tryParse(v.trim())?.hasScheme ?? false)) ? 'Start with http:// or https://' : null,
                           ),
                         ),
