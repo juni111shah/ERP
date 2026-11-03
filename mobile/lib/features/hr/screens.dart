@@ -2,11 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../kit/registry.dart';
 import 'attendance_screens.dart';
+import 'employee_screens.dart';
 import 'leave_screens.dart';
+import 'payroll_screens.dart';
+import 'review_screens.dart';
 import 'setup_screens.dart';
 
 /// Screens of this area for the More menu. Add a MobileScreen per server menu entry you build.
 final List<MobileScreen> hrScreens = <MobileScreen>[
+  MobileScreen(id: 'hr-employees', title: 'Employees', menuIds: const ['hr.employees'], icon: Icons.groups_outlined, builder: (_) => const EmployeesScreen()),
+  MobileScreen(id: 'hr-payroll', title: 'Payroll', menuIds: const ['hr.payroll'], icon: Icons.account_balance_wallet_outlined, builder: (_) => const PayrollScreen()),
+  MobileScreen(id: 'hr-reviews', title: 'Performance reviews', menuIds: const ['hr.reviews'], icon: Icons.insights_outlined, builder: (_) => const ReviewsScreen()),
+  MobileScreen(id: 'hr-review-cycles', title: 'Review cycles', menuIds: const ['hr.reviewcycles'], icon: Icons.event_repeat_outlined, builder: (_) => const ReviewCyclesScreen()),
   MobileScreen(id: 'hr-leave', title: 'Leave requests', menuIds: const ['hr.leave'], icon: Icons.beach_access_outlined, builder: (_) => const LeaveScreen()),
   MobileScreen(id: 'hr-leave-balances', title: 'Leave balances', menuIds: const ['hr.leavebalances'], icon: Icons.bar_chart, builder: (_) => const LeaveBalancesScreen()),
   MobileScreen(id: 'hr-attendance', title: 'Attendance', menuIds: const ['hr.attendance'], icon: Icons.fact_check_outlined, builder: (_) => const AttendanceScreen()),
