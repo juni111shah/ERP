@@ -32,6 +32,18 @@ internal static class HrEndpoints
         employees.MapPut("/{id:guid}", (Guid id, EmployeeInput input, ISender s, CancellationToken ct) => s.Send(new UpdateEmployee(id, input), ct)).RequirePermission(P.EmployeesManage);
         employees.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteEmployee(id), ct); return Results.NoContent(); }).RequirePermission(P.EmployeesManage);
 
+        var documents = group.MapGroup("/documents");
+        documents.MapPagedList<EmployeeDocument, EmployeeDocumentRow>("", P.EmployeesRead, d => new EmployeeDocumentRow(d.Id, d.EmployeeId, d.Type, d.Number, d.IssueDate, d.ExpiryDate, d.IssuedBy));
+        documents.MapGet("/expiring", (int? days, ISender s, CancellationToken ct) => s.Send(new ListExpiringDocuments(days ?? 60), ct)).RequirePermission(P.EmployeesRead);
+        documents.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetEmployeeDocument(id), ct)).RequirePermission(P.EmployeesRead);
+        documents.MapPost("", async (EmployeeDocumentInput input, ISender s, CancellationToken ct) =>
+        {
+            var created = await s.Send(new CreateEmployeeDocument(input), ct);
+            return Results.Created($"{Base}/documents/{created.Id}", created);
+        }).RequirePermission(P.EmployeesManage);
+        documents.MapPut("/{id:guid}", (Guid id, EmployeeDocumentInput input, ISender s, CancellationToken ct) => s.Send(new UpdateEmployeeDocument(id, input), ct)).RequirePermission(P.EmployeesManage);
+        documents.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteEmployeeDocument(id), ct); return Results.NoContent(); }).RequirePermission(P.EmployeesManage);
+
         var attendance = group.MapGroup("/attendance");
         attendance.MapGet("", (int year, int month, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new ListAttendance(year, month, legalEntityId), ct)).RequirePermission(P.AttendanceRead);
         attendance.MapPut("", (AttendanceInput input, ISender s, CancellationToken ct) => s.Send(new SaveAttendance(input), ct)).RequirePermission(P.AttendanceManage);

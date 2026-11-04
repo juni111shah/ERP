@@ -93,6 +93,10 @@ public sealed class HrModule : ModuleBase
         services.AddScoped<LeaveCalendarProvider>();
         services.AddScoped<LeaveFeed>();
         services.AddScoped<IDashboardContributor, HrDashboard>();
+        services.AddScoped<ERP.Application.Reminders.IReminderSource, EmployeeDocumentReminders>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<EmployeeDocument>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "hr.employeedocument", P.EmployeesRead, P.EmployeesManage));
         services.AddScoped<ICashForecastSource, PayrollForecastSource>();
         services.AddScoped<ERP.Application.Search.ISearchProvider, HrSearch>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
@@ -119,6 +123,16 @@ public sealed class HrModule : ModuleBase
             b.Ignore(x => x.GrossMonthly); b.Ignore(x => x.Allowances);
             b.HasIndex(x => new { x.OrgId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status });
+        });
+        mb.Entity<EmployeeDocument>(b =>
+        {
+            b.ToTable("hr_EmployeeDocuments");
+            b.Property(x => x.Number).HasMaxLength(100);
+            b.Property(x => x.IssuedBy).HasMaxLength(150);
+            b.Property(x => x.Notes).HasMaxLength(1000);
+            b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.EmployeeId });
+            b.HasIndex(x => new { x.OrgId, x.ExpiryDate });
         });
         mb.Entity<ReviewCycle>(b =>
         {
