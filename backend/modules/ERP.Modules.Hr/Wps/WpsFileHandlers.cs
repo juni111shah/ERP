@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Modules.Hr.Wps;
 
 /// <summary>Picks the salary-file builder by the employing legal entity's country (or the configurable CSV when none exists) and builds the file for a posted or paid run.</summary>
-internal sealed class WpsFileHandler(
+internal sealed class WpsFileHandlers(
     IReadRepository<PayrollRun> runs, IReadRepository<Employee> employees, ISettingsService settings, ILegalEntityGuard guard, IClock clock,
     IEnumerable<IWpsFileBuilder> builders) : IRequestHandler<Features.GetPayrollWpsFile, string>
 {

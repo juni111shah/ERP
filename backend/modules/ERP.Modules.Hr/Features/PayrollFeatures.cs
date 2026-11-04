@@ -25,7 +25,7 @@ public sealed record PayrollSummaryDto(Guid Id, string Number, Guid LegalEntityI
 public sealed record GetPayroll(Guid Id) : IQuery<PayrollDto>, IRequirePermission { public string RequiredPermission => P.PayrollRead; }
 /// <summary>One CSV line per employee: number, name, IBAN and net pay, for the bank upload.</summary>
 public sealed record GetPayrollBankFile(Guid Id) : IQuery<string>, IRequirePermission { public string RequiredPermission => P.PayrollPay; }
-/// <summary>Salary file (WPS) for a posted or paid run, in the format of the employing entity's country; see Wps/WpsFileHandler.cs.</summary>
+/// <summary>Salary file (WPS) for a posted or paid run, in the format of the employing entity's country; see Wps/WpsFileHandlers.cs.</summary>
 public sealed record GetPayrollWpsFile(Guid Id) : IQuery<string>, IRequirePermission { public string RequiredPermission => P.PayrollPay; }
 public sealed record GeneratePayroll(GeneratePayrollInput Input) : ICommand<PayrollDto>, IRequirePermission { public string RequiredPermission => P.PayrollManage; }
 public sealed record RecalculatePayroll(Guid Id) : ICommand<PayrollDto>, IRequirePermission { public string RequiredPermission => P.PayrollManage; }

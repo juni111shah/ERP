@@ -2,12 +2,12 @@
 id: TASK-143
 title: HR documents with expiry alerts, payslip PDF and email, pluggable WPS builder, HR reports
 priority: P1
-status: in-progress
+status: ready-for-review
 schema: yes
 depends_on: []
 area: hr
 audit_ref: HR audit 2026-11-04 (items 7 and missing features)
-commit:
+commit: see the last "TASK-143:" commit on branch claude/hr-docs
 owner: claude (branch claude/hr-complete)
 ---
 
@@ -33,6 +33,12 @@ Integration tests in new `HrDocumentsTests`, `PayslipTests`, `WpsBuilderTests`, 
 ## Do not touch
 Payroll calculation, posting and statuses (TASK-140), employee master fields and permissions (TASK-141), leave (TASK-142), web and mobile screens.
 
-## What I did (Antigravity)
+## What I did (Claude, branch claude/hr-docs)
+- **WPS builder.** `Wps/IWpsFileBuilder.cs` (`CountryCode`, `Build(WpsInput)` with run, lines, employees and settings), `UaeWpsFileBuilder` (logic moved unchanged; currency now the entity's base currency), `QatarWpsFileBuilder` (stub, 409 "The Qatar salary file layout has not been configured. Provide the bank template."), `ConfigurableCsvWpsBuilder` (settings `hr.wps.columns`, `hr.wps.header`, used when no country builder exists). `GetPayrollWpsFile` now has its own handler `WpsFileHandlers` (the old method was deleted from `PayrollFeatures.cs`, nothing else touched there): builder by `LegalEntity.CountryCode`, else CSV when columns are set, else 409 "No salary-file format is set up for <country>.". The existing UAE test passes untouched.
+- **Documents.** `Domain/EmployeeDocument.cs`, `Features/EmployeeDocumentFeatures.cs`, endpoints under `/hr/documents` (list, get, create, update, delete, `/expiring?days=60`), attachments owner type `hr.employeedocument`, reminder source `EmployeeDocumentReminders` (the engine has `IReminderSource`; sends once per stage 60/30/7, stage = smallest threshold that covers the days left), dashboard KPI plus alerts (critical when any expired, warning for the next 30 days). Staff with status Terminated are left out of the expiring list, the alerts and the reminders.
+- **Payslip.** `Features/PayslipFeatures.cs`: JSON, PDF (`payslip.pdf`), single email and bulk email (`{sent, skipped, skippedEmployees}`); 409 unless the run is Posted or Paid. To reuse the existing PDF and email service without putting payroll words in the core I added a generic, neutral `PrintGenericDto` (`ERP.Application/Printing/GenericDocument.cs`), `IPrintPdfRenderer.Render(PrintGenericDto)` (QuestPDF implementation reuses the existing layout) and `EmailGenericDocument` (handled in `DocumentEmailHandlers`, same message log). The email goes out as the document body (the existing service has no attachment support), the PDF is the download. The HR manager role template also gets `core.email.send`.
+- **Reports.** `Features/HrReports.cs`: `/hr/reports/summary` and `/hr/reports/birthdays-anniversaries`; payroll cost is `null` without `hr.payroll.read`.
+- **Tests.** `HrDocumentsTests` (6), `PayslipTests` (6), `WpsBuilderTests` (3), `HrReportsTests` (4) integration; `HrDocumentExpiryTests` (9 cases), `HrWpsBuilderTests` (5) unit.
+- **Not done / caveats.** (1) The employee has no contract-type or date-of-birth field yet (that is TASK-141). The reports read the custom fields `cf_contract_type` and `cf_date_of_birth` (yyyy-MM-dd) for contract-type headcount and birthdays; when TASK-141 adds real fields swap `EmployeeReportFields` in `HrReports.cs`. Without them contract type shows "Unspecified" and there are no birthdays (work anniversaries come from the join date). (2) Leave days in the summary count approved requests that start inside the period. (3) No migration was created (entity `EmployeeDocument`, table `hr_EmployeeDocuments`, plus two settings are new). (4) No web or mobile screens.
 
 ## Review (Claude)
