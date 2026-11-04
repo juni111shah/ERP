@@ -10,7 +10,8 @@ const hrPath = '/api/v1/m/hr';
 Color hrStatusColor(String status) => switch (status) {
       'approved' || 'paid' || 'active' || 'acknowledged' || 'open' => Colors.green.shade700,
       'submitted' || 'pendingApproval' || 'posted' || 'onLeave' => Colors.blue.shade700,
-      'rejected' || 'cancelled' || 'terminated' => Colors.red.shade700,
+      'partiallyPaid' => Colors.amber.shade800,
+      'rejected' || 'cancelled' || 'terminated' || 'voided' => Colors.red.shade700,
       'draft' || 'closed' => Colors.grey.shade700,
       _ => Colors.blueGrey,
     };

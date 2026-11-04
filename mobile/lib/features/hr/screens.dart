@@ -5,11 +5,20 @@ import 'attendance_screens.dart';
 import 'employee_screens.dart';
 import 'leave_screens.dart';
 import 'payroll_screens.dart';
+import 'people_screens.dart';
+import 'self_service_screens.dart';
 import 'review_screens.dart';
 import 'setup_screens.dart';
 
 /// Screens of this area for the More menu. Add a MobileScreen per server menu entry you build.
 final List<MobileScreen> hrScreens = <MobileScreen>[
+  MobileScreen(id: 'hr-my', title: 'My HR', menuIds: const ['hr.my'], icon: Icons.person_outline, builder: (_) => const MyHrScreen()),
+  MobileScreen(id: 'hr-departments', title: 'Departments', menuIds: const ['hr.departments'], icon: Icons.apartment_outlined, builder: (_) => const DepartmentsScreen()),
+  MobileScreen(id: 'hr-positions', title: 'Positions', menuIds: const ['hr.positions'], icon: Icons.badge_outlined, builder: (_) => const PositionsScreen()),
+  MobileScreen(id: 'hr-orgchart', title: 'Organisation', menuIds: const ['hr.orgchart'], icon: Icons.account_tree_outlined, builder: (_) => const OrgChartScreen()),
+  MobileScreen(id: 'hr-document-expiry', title: 'Document expiry', menuIds: const ['hr.documentexpiry'], icon: Icons.warning_amber_outlined, builder: (_) => const DocumentExpiryScreen()),
+  MobileScreen(id: 'hr-loans', title: 'Loans and advances', menuIds: const ['hr.loans'], icon: Icons.request_quote_outlined, builder: (_) => const LoansScreen()),
+  MobileScreen(id: 'hr-reports', title: 'HR reports', menuIds: const ['hr.reports'], icon: Icons.bar_chart, builder: (_) => const HrReportsScreen()),
   MobileScreen(id: 'hr-employees', title: 'Employees', menuIds: const ['hr.employees'], icon: Icons.groups_outlined, builder: (_) => const EmployeesScreen()),
   MobileScreen(id: 'hr-payroll', title: 'Payroll', menuIds: const ['hr.payroll'], icon: Icons.account_balance_wallet_outlined, builder: (_) => const PayrollScreen()),
   MobileScreen(id: 'hr-reviews', title: 'Performance reviews', menuIds: const ['hr.reviews'], icon: Icons.insights_outlined, builder: (_) => const ReviewsScreen()),

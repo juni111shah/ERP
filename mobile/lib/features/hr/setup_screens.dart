@@ -30,6 +30,12 @@ FormSpec leaveTypeForm(WidgetRef ref, {Json? existing}) {
         'annualDays': existing['annualDays'],
         'carryForwardCap': existing['carryForwardCap'],
         'requiresApproval': existing['requiresApproval'],
+        'proRataFirstYear': existing['proRataFirstYear'],
+        'accrualMode': existing['accrualMode'],
+        'requiresAttachmentAfterDays': existing['requiresAttachmentAfterDays'],
+        'encashable': existing['encashable'],
+        'tiersText': [for (final t in (existing['tiers'] as List<dynamic>? ?? const []).cast<Json>()) '${t['fromServiceYears']}:${t['days']}'].join(', '),
+        'bandsText': [for (final b in (existing['payBands'] as List<dynamic>? ?? const []).cast<Json>()) '${b['fromDay']}:${b['payPercent']}'].join(', '),
         'isActive': existing['isActive'],
       },
     },
@@ -40,11 +46,18 @@ FormSpec leaveTypeForm(WidgetRef ref, {Json? existing}) {
       Field.decimal('annualDays', 'Days per year', required: true, min: 0, decimals: 2, initial: '0'),
       Field.decimal('carryForwardCap', 'Carry-forward limit (days)', required: true, min: 0, decimals: 2, initial: '0'),
       Field.toggle('requiresApproval', 'Needs approval', initial: true),
+      Field.toggle('proRataFirstYear', 'Pro-rata in the first year'),
+      Field.select('accrualMode', 'Entitlement builds up', options: const [Option('upfront', 'All at the start of the year'), Option('monthly', 'Month by month')], initial: 'upfront'),
+      Field.integer('requiresAttachmentAfterDays', 'Document needed after (days)', min: 0, max: 366),
+      Field.toggle('encashable', 'Paid out when the employee leaves'),
+      Field.text('tiersText', 'Service-based days (years:days)', maxLength: 200, hint: 'For example 0:21, 5:30'),
+      Field.text('bandsText', 'Pay bands (day:percent)', maxLength: 200, hint: 'For example 1:100, 16:50, 31:0 (sick leave)'),
       Field.toggle('isActive', 'Active', initial: true),
     ],
     submit: (ref, body, raw) {
       final api = ref.read(apiProvider);
-      return editing ? api.put('$_typesPath/${existing['id']}', body: body) : api.post(_typesPath, body: body);
+      final full = leaveTypeBody(body);
+      return editing ? api.put('$_typesPath/${existing['id']}', body: full) : api.post(_typesPath, body: full);
     },
   );
 }
@@ -150,4 +163,20 @@ class HolidayDetailScreen extends ConsumerWidget {
       ]),
     );
   }
+}
+
+/// "5:30, 10:35" -> [[5, 30], [10, 35]]; blank -> [] (clears them).
+List<List<num>> pairsOf(Object? text) => [
+      for (final part in '${text ?? ''}'.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty))
+        if (part.split(':').length == 2 && part.split(':').every((n) => num.tryParse(n.trim()) != null)) [for (final n in part.split(':')) num.parse(n.trim())],
+    ];
+
+/// The form body with the two text fields turned into the lists the server expects.
+Map<String, dynamic> leaveTypeBody(Map<String, dynamic> body) {
+  final rest = {...body}..remove('tiersText')..remove('bandsText');
+  return {
+    ...rest,
+    'tiers': [for (final p in pairsOf(body['tiersText'])) {'fromServiceYears': p[0], 'days': p[1]}],
+    'payBands': [for (final p in pairsOf(body['bandsText'])) {'fromDay': p[0].toInt(), 'payPercent': p[1]}],
+  };
 }

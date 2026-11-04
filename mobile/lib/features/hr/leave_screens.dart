@@ -33,6 +33,8 @@ FormSpec leaveForm(WidgetRef ref, {Json? existing}) {
         'fromDate': existing['fromDate'],
         'toDate': existing['toDate'],
         'reason': existing['reason'],
+        'startHalfDay': existing['startHalfDay'],
+        'endHalfDay': existing['endHalfDay'],
       },
     },
     fields: [
@@ -43,6 +45,8 @@ FormSpec leaveForm(WidgetRef ref, {Json? existing}) {
         final from = all['fromDate']?.toString() ?? '';
         return v != null && from.isNotEmpty && v.toString().compareTo(from) < 0 ? 'The end date is before the start date' : null;
       }),
+      Field.toggle('startHalfDay', 'First day is a half day'),
+      Field.toggle('endHalfDay', 'Last day is a half day'),
       Field.multiline('reason', 'Reason', maxLength: 500),
       if (!editing) Field.toggle('submit', 'Send for approval now', initial: true),
     ],
@@ -155,6 +159,7 @@ Widget leaveBody(BuildContext context, Json d) => DetailBody(children: [
         InfoRow('From', formatDate(d['fromDate'])),
         InfoRow('To', formatDate(d['toDate'])),
         InfoRow('Working days', days(d['days']), bold: true),
+        if (d['startHalfDay'] == true || d['endHalfDay'] == true) InfoRow('Half days', [if (d['startHalfDay'] == true) 'first day', if (d['endHalfDay'] == true) 'last day'].join(' and ')),
         InfoRow('Paid leave', d['isPaid'] == true ? 'Yes' : 'No'),
         InfoRow('Reason', text(d['reason'])),
         InfoRow('Decision note', text(d['decisionComment'])),

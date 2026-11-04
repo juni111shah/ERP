@@ -59,7 +59,7 @@ void main() {
     expect(FormEngine.validate(spec.fields, values)['toDate'], isNotNull);
     values['toDate'] = '2026-11-04';
     body = FormEngine.collect(spec.fields, values);
-    expect(body, {'employeeId': 'e1', 'leaveTypeId': 't1', 'fromDate': '2026-11-02', 'toDate': '2026-11-04', 'submit': true});
+    expect(body, {'employeeId': 'e1', 'leaveTypeId': 't1', 'fromDate': '2026-11-02', 'toDate': '2026-11-04', 'submit': true, 'startHalfDay': false, 'endHalfDay': false});
   });
 
   testWidgets('leave tile shows the employee, days and a readable status', (tester) async {

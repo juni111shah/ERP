@@ -10,11 +10,12 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'hr_common.dart';
+import 'self_service_screens.dart' show payslipPdfButton;
 import 'package:erp_mobile/theme/tokens.dart';
 
 const payrollPath = '$hrPath/payroll';
 
-const payrollStatuses = [Option('draft', 'Draft'), Option('pendingApproval', 'Pending approval'), Option('posted', 'Recorded'), Option('paid', 'Paid')];
+const payrollStatuses = [Option('draft', 'Draft'), Option('pendingApproval', 'Pending approval'), Option('posted', 'Recorded'), Option('partiallyPaid', 'Partly paid'), Option('paid', 'Paid'), Option('voided', 'Voided')];
 
 String payrollStatusLabel(String s) => humanize(s);
 
@@ -30,21 +31,23 @@ FormSpec payrollForm(WidgetRef ref) {
       Field.integer('year', 'Year', required: true, min: 2000, max: 2100, initial: '${now.year}'),
       Field.integer('month', 'Month (1-12)', required: true, min: 1, max: 12, initial: '${now.month}'),
       Field.date('plannedPayDate', 'Planned pay date'),
-      Field.text('notes', 'Notes', maxLength: 500),
+      Field.select('kind', 'Type', options: const [Option('regular', 'Regular monthly run'), Option('offCycle', 'Off-cycle (bonus, correction)')], initial: 'regular'),
+      Field.toggle('includeSalary', 'Include salary and deductions', visibleWhen: (v) => v['kind'] == 'offCycle'),
+      Field.text('notes', 'Notes (required for off-cycle)', maxLength: 500),
     ],
     submit: (ref, body, raw) => ref.read(apiProvider).post(payrollPath, body: body),
   );
 }
 
 /// Pay a posted run from a bank account.
-FormSpec payForm(Json run) => FormSpec(
-      title: 'Pay ${run['number']}',
+FormSpec payForm(Json run, {String? employeeId, String? employeeName}) => FormSpec(
+      title: employeeName == null ? 'Pay ${run['number']}' : 'Pay $employeeName',
       submitLabel: 'Pay',
       fields: [
         Field.lookup('bankAccountId', 'Bank account', path: '/api/v1/finance/accounts', query: const {'filter': 'isBank:eq:true'}, subtitleKey: 'code', required: true),
         Field.date('date', 'Payment date', required: true, initial: 'today'),
       ],
-      submit: (ref, body, raw) => ref.read(apiProvider).post('$payrollPath/${run['id']}/pay', body: body),
+      submit: (ref, body, raw) => ref.read(apiProvider).post('$payrollPath/${run['id']}/pay', body: {...body, if (employeeId != null) 'employeeIds': [employeeId]}),
     );
 
 /// Change one employee's pay for a draft run (positive adds, negative deducts).
@@ -124,9 +127,28 @@ class PayrollDetailScreen extends StatelessWidget {
               label: 'Pay',
               icon: Icons.payments_outlined,
               permission: 'hr.payroll.pay',
-              visible: (d) => d['status'] == 'posted',
+              visible: (d) => const {'posted', 'partiallyPaid'}.contains(d['status']),
               form: payForm,
               run: (ref, d, _) async => null,
+            ),
+            ActionSpec(
+              label: 'Email payslips',
+              icon: Icons.mail_outline,
+              permission: 'hr.payroll.read',
+              visible: (d) => const {'posted', 'partiallyPaid', 'paid'}.contains(d['status']),
+              confirm: 'Email every employee their payslip?',
+              run: (ref, d, _) => ref.read(apiProvider).post('$path/email-payslips'),
+              successMessage: 'Payslips sent',
+            ),
+            ActionSpec(
+              label: 'Void',
+              icon: Icons.undo,
+              permission: 'hr.payroll.post',
+              destructive: true,
+              visible: (d) => const {'posted', 'partiallyPaid', 'paid'}.contains(d['status']),
+              reasonLabel: 'Why is this payroll voided?',
+              successMessage: 'Payroll voided',
+              run: (ref, d, reason) => ref.read(apiProvider).post('$path/void', body: {'reason': reason}),
             ),
             ActionSpec(
               label: 'Delete',
@@ -155,6 +177,8 @@ Widget payrollBody(BuildContext context, WidgetRef ref, Json d) {
   return DetailBody(children: [
     DetailHeader(title: '${monthName((d['month'] as num).toInt())} ${d['year']}', subtitle: '${d['number']} · ${d['employees']} employees'),
     Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: hrStatusChip(status, payrollStatusLabel(status)))),
+    if (status == 'voided') Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: Text('Voided: ${d['voidReason'] ?? ''}', style: TextStyle(color: Colors.red.shade700))),
+    if (d['kind'] == 'offCycle' || d['kind'] == 'finalSettlement') Padding(padding: const EdgeInsets.only(bottom: ErpSpace.s3), child: Text(d['kind'] == 'offCycle' ? 'Off-cycle run' : 'Final settlement')),
     if (status == 'pendingApproval') const Padding(padding: EdgeInsets.only(bottom: ErpSpace.s3), child: Text('Waiting for approval. Once approved, tap Record again to record it.')),
     InfoCard(rows: [
       InfoRow('Gross earnings', formatMoney((d['grossEarnings'] as num?) ?? 0)),
@@ -179,7 +203,16 @@ Widget payrollBody(BuildContext context, WidgetRef ref, Json d) {
             InfoRow('Absence (${days(l['absentDays'])} d)', formatMoney(-((l['absence'] as num?) ?? 0).abs())),
             if (((l['adjustment'] as num?) ?? 0) != 0) InfoRow('Adjustment${(l['adjustmentNote'] ?? '').toString().isEmpty ? '' : ' (${l['adjustmentNote']})'}', formatMoney((l['adjustment'] as num))),
             InfoRow('Deductions', formatMoney((l['deductions'] as num?) ?? 0)),
+            if (((l['loanRecovery'] as num?) ?? 0) != 0) InfoRow('  of which loan instalments', formatMoney((l['loanRecovery'] as num))),
+            if (((l['leaveEncashment'] as num?) ?? 0) != 0) InfoRow('Unused leave paid out', formatMoney((l['leaveEncashment'] as num))),
+            if (((l['endOfService'] as num?) ?? 0) != 0) InfoRow('End of service', formatMoney((l['endOfService'] as num))),
+            if (l['paidOn'] != null) InfoRow('Paid on', formatDate(l['paidOn'])),
             InfoRow('Take-home pay', formatMoney((l['netPay'] as num?) ?? 0), bold: true),
+            Wrap(alignment: WrapAlignment.end, spacing: ErpSpace.s2, children: [
+              payslipPdfButton(d, l),
+              if (const {'posted', 'partiallyPaid'}.contains(status) && l['paidOn'] == null && ref.read(meOrEmptyProvider).can('hr.payroll.pay'))
+                TextButton.icon(onPressed: () => openForm<Object?>(context, payForm(d, employeeId: '${l['employeeId']}', employeeName: '${l['employeeName']}')), icon: const Icon(Icons.payments_outlined), label: const Text('Pay')),
+            ]),
             if (canAdjust)
               Align(
                 alignment: Alignment.centerRight,
