@@ -11,7 +11,8 @@ using Microsoft.AspNetCore.Routing;
 namespace ERP.Modules.Hr;
 
 public sealed record AdjustLineBody(decimal Adjustment, string? Note);
-public sealed record PayrollPayBody(Guid BankAccountId, DateOnly Date);
+public sealed record PayrollPayBody(Guid BankAccountId, DateOnly Date, IReadOnlyList<Guid>? EmployeeIds = null);
+public sealed record PayrollVoidBody(string? Reason);
 public sealed record ProvisionBody(Guid LegalEntityId, DateOnly AsOf);
 
 /// <summary>Thin controllers: every endpoint sends one MediatR request.</summary>
@@ -38,10 +39,10 @@ internal static class HrEndpoints
         attendance.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteAttendance(id), ct); return Results.NoContent(); }).RequirePermission(P.AttendanceManage);
 
         var payroll = group.MapGroup("/payroll");
-        payroll.MapPagedList<PayrollRun, PayrollSummaryDto>("", P.PayrollRead, r => new PayrollSummaryDto(r.Id, r.Number, r.LegalEntityId, r.Year, r.Month, r.Status, r.Employees, r.GrossEarnings, r.Deductions, r.NetPay, r.PaidOn));
+        payroll.MapPagedList<PayrollRun, PayrollSummaryDto>("", P.PayrollRead, r => new PayrollSummaryDto(r.Id, r.Number, r.LegalEntityId, r.Year, r.Month, r.Status, r.Employees, r.GrossEarnings, r.Deductions, r.NetPay, r.PaidOn, r.Kind));
         payroll.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetPayroll(id), ct)).RequirePermission(P.PayrollRead);
-        payroll.MapGet("/{id:guid}/bank-file", async (Guid id, ISender s, CancellationToken ct) => Results.Text(await s.Send(new GetPayrollBankFile(id), ct), "text/csv")).RequirePermission(P.PayrollPay);
-        payroll.MapGet("/{id:guid}/wps-sif", async (Guid id, ISender s, CancellationToken ct) => Results.Text(await s.Send(new GetPayrollWpsFile(id), ct), "text/csv")).RequirePermission(P.PayrollPay);
+        payroll.MapGet("/{id:guid}/bank-file", async (Guid id, bool? unpaidOnly, ISender s, CancellationToken ct) => Results.Text(await s.Send(new GetPayrollBankFile(id, unpaidOnly == true), ct), "text/csv")).RequirePermission(P.PayrollPay);
+        payroll.MapGet("/{id:guid}/wps-sif", async (Guid id, bool? unpaidOnly, ISender s, CancellationToken ct) => Results.Text(await s.Send(new GetPayrollWpsFile(id, unpaidOnly == true), ct), "text/csv")).RequirePermission(P.PayrollPay);
         payroll.MapPost("", async (GeneratePayrollInput input, ISender s, CancellationToken ct) =>
         {
             var created = await s.Send(new GeneratePayroll(input), ct);
@@ -51,7 +52,8 @@ internal static class HrEndpoints
         payroll.MapPut("/{id:guid}/lines/{lineId:guid}", (Guid id, Guid lineId, AdjustLineBody b, ISender s, CancellationToken ct) => s.Send(new AdjustPayrollLine(id, lineId, b.Adjustment, b.Note), ct)).RequirePermission(P.PayrollManage);
         payroll.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeletePayroll(id), ct); return Results.NoContent(); }).RequirePermission(P.PayrollManage);
         payroll.MapPost("/{id:guid}/post", (Guid id, ISender s, CancellationToken ct) => s.Send(new PostPayroll(id), ct)).RequirePermission(P.PayrollPost);
-        payroll.MapPost("/{id:guid}/pay", (Guid id, PayrollPayBody b, ISender s, CancellationToken ct) => s.Send(new PayPayroll(id, b.BankAccountId, b.Date), ct)).RequirePermission(P.PayrollPay);
+        payroll.MapPost("/{id:guid}/pay", (Guid id, PayrollPayBody b, ISender s, CancellationToken ct) => s.Send(new PayPayroll(id, b.BankAccountId, b.Date, b.EmployeeIds), ct)).RequirePermission(P.PayrollPay);
+        payroll.MapPost("/{id:guid}/void", (Guid id, PayrollVoidBody b, ISender s, CancellationToken ct) => s.Send(new VoidPayroll(id, b.Reason), ct)).RequirePermission(P.PayrollPost);
 
         var cycles = group.MapGroup("/review-cycles");
         cycles.MapPagedList<ReviewCycle, ReviewCycleDto>("", P.ReviewsRead, c => new ReviewCycleDto(c.Id, c.Name, c.PeriodStart, c.PeriodEnd, c.Status));

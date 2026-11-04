@@ -190,7 +190,8 @@ public sealed class HrModule : ModuleBase
             b.Property(x => x.Notes).HasMaxLength(500);
             foreach (var m in new[] { nameof(PayrollRun.GrossEarnings), nameof(PayrollRun.Deductions), nameof(PayrollRun.NetPay) }) b.Property(m).HasPrecision(19, 4);
             b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.PayrollRunId).OnDelete(DeleteBehavior.Cascade);
-            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Year, x.Month }).IsUnique().HasFilter("[IsDeleted] = 0");
+            b.Property(x => x.VoidReason).HasMaxLength(500);
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Year, x.Month }).IsUnique().HasFilter("[IsDeleted] = 0 AND [Kind] = 'Regular' AND [Status] <> 'Voided'"); // one live Regular run per month
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
         });
         mb.Entity<PayrollLine>(b =>

@@ -47,6 +47,7 @@ public static class CoreTemplates
         new("2100", "Output tax payable", AccountType.Liability, "tax.output", ReportingGroup: "Current liabilities"),
         new("2150", "Cheques issued", AccountType.Liability, "instruments.issued", ReportingGroup: "Current liabilities"),
         new("2300", "Accrued salaries", AccountType.Liability, "payroll.accrued", ReportingGroup: "Current liabilities"),
+        new("2310", "Other payroll deductions payable", AccountType.Liability, "payroll.deductions", ReportingGroup: "Current liabilities"),
         new("2500", "Provision for end-of-service benefits", AccountType.Liability, "payroll.gratuity.provision", ReportingGroup: "Non-current liabilities"),
         new("2400", "Customer advances", AccountType.Liability, ReportingGroup: "Current liabilities"),
         new("2900", "Loans", AccountType.Liability, ReportingGroup: "Non-current liabilities"),
