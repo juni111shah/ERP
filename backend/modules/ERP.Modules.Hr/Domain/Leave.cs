@@ -4,6 +4,9 @@ namespace ERP.Modules.Hr.Domain;
 
 public enum LeaveStatus { Draft = 0, Submitted = 1, Approved = 2, Rejected = 3, Cancelled = 4 }
 
+/// <summary>Upfront = the whole year's entitlement can be booked from 1 January; Monthly = one twelfth becomes available each month.</summary>
+public enum LeaveAccrualMode { Upfront = 0, Monthly = 1 }
+
 /// <summary>A kind of leave (annual, sick, unpaid ...). Annual days and the carry-forward cap seed each employee's yearly balance.</summary>
 [DefaultSort("code")]
 public class LeaveType : OrgEntity
@@ -17,6 +20,13 @@ public class LeaveType : OrgEntity
     /// <summary>Most days that roll into next year; 0 = nothing carries over.</summary>
     public decimal CarryForwardCap { get; set; }
     public bool RequiresApproval { get; set; } = true;
+    /// <summary>In the year an employee joins, the entitlement is annual x remaining months / 12, rounded to the nearest half day.</summary>
+    public bool ProRataFirstYear { get; set; }
+    public LeaveAccrualMode AccrualMode { get; set; } = LeaveAccrualMode.Upfront;
+    /// <summary>A request longer than this many days needs a supporting document before it can be submitted; null = never.</summary>
+    public int? RequiresAttachmentAfterDays { get; set; }
+    /// <summary>Service-based entitlement tiers (empty = AnnualDays for everybody).</summary>
+    public List<LeaveEntitlementTier> Tiers { get; set; } = [];
     [Filterable] public bool IsActive { get; set; } = true;
 }
 
@@ -41,6 +51,10 @@ public class LeaveRequest : LegalEntityScopedEntity
     [Sortable, Filterable] public DateOnly FromDate { get; set; }
     [Sortable, Filterable] public DateOnly ToDate { get; set; }
     public decimal Days { get; set; }
+    /// <summary>The first day counts 0.5 (a one-day request with either flag is 0.5).</summary>
+    public bool StartHalfDay { get; set; }
+    /// <summary>The last day counts 0.5.</summary>
+    public bool EndHalfDay { get; set; }
     [Filterable] public LeaveStatus Status { get; set; } = LeaveStatus.Draft;
     [Searchable] public string? Reason { get; set; }
     public Guid? RequestedByUserId { get; set; }

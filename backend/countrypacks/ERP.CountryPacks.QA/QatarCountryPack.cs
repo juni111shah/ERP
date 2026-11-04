@@ -27,6 +27,28 @@ public sealed class QatarCountryPack : ICountryPack
     public EndOfServiceRule? EndOfService { get; } = new(
         "3 weeks' (21 days') basic per year of service (Qatar Labour Law)", years => 21m * years);
 
+    /// <summary>Qatar Labour Law leave entitlements: annual leave 3 weeks, 4 weeks after 5 years; sick leave needs a certificate after 2 days.</summary>
+    public IReadOnlyList<LeaveTypeTemplate> LeaveDefaults { get; } =
+    [
+        new("ANNUAL", "Annual leave", true, 21m, Tiers: [new(5m, 28m)], CarryForwardCap: 7m),
+        new("SICK", "Sick leave", true, 84m, RequiresAttachmentAfterDays: 2),
+        new("MATERNITY", "Maternity leave", true, 50m),
+        new("BEREAVEMENT", "Bereavement leave", true, 3m),
+        new("HAJJ", "Hajj leave (once in service)", false, 0m),
+    ];
+
+    /// <summary>Fixed-date holidays; the Eid dates move every year and are entered by the administrator.</summary>
+    public IReadOnlyList<PublicHolidayTemplate> PublicHolidayTemplates { get; } =
+    [
+        PublicHolidayTemplate.Fixed("National Day", 12, 18),
+        PublicHolidayTemplate.Computed("National Sports Day", year =>
+        {
+            var d = new DateOnly(year, 2, 1);
+            while (d.DayOfWeek != DayOfWeek.Tuesday) d = d.AddDays(1);
+            return d.AddDays(7);
+        }),
+    ];
+
     public IReadOnlyList<CustomFieldSeed> CustomFields { get; } =
     [
         new("hr.employee", "cf_qa_qid", "Qatar ID (QID)", CustomFieldDataType.Text,

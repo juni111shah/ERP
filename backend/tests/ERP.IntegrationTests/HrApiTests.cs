@@ -94,7 +94,8 @@ public class HrApiTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal("posted", (string)posted["status"]!);
         Assert.Equal(gross, await ClosingAsync(x, "6000"));
         Assert.Equal(-net, await ClosingAsync(x, "2300"));
-        Assert.Equal(-deductions, await ClosingAsync(x, "1250"));
+        Assert.Equal(-deductions, await ClosingAsync(x, "2310")); // recurring deductions now credit the payroll.deductions account of the template (TASK-140)
+        Assert.Equal(0m, await ClosingAsync(x, "1250"));
         Assert.Equal(HttpStatusCode.Conflict, (await x.C.PutAsJsonAsync($"{Hr}/payroll/{id}/lines/{(string)amirLine["id"]!}", new { adjustment = 1m })).StatusCode); // posted runs are fixed
 
         var file = await x.C.GetAsync($"{Hr}/payroll/{id}/bank-file");

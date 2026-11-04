@@ -25,6 +25,7 @@ public interface IPrintPdfRenderer
     byte[] Render(PrintBillDto doc);
     byte[] Render(PrintPaymentDto doc);
     byte[] Render(PrintJournalDto doc);
+    byte[] Render(PrintGenericDto doc);
 }
 
 /// <summary>A print document as a PDF. Same permission as the print data it is built from; an unknown id is a 404.</summary>

@@ -3,11 +3,13 @@ using ERP.Domain.Common;
 namespace ERP.Modules.Hr.Domain;
 
 public enum EmployeeStatus { Active = 1, OnLeave = 2, Terminated = 3 }
-public enum PayrollStatus { Draft = 0, PendingApproval = 1, Posted = 2, Paid = 3 }
+public enum PayrollStatus { Draft = 0, PendingApproval = 1, Posted = 2, Paid = 3, Voided = 4, PartiallyPaid = 5 }
+/// <summary>Regular = the monthly run (one per entity and month); OffCycle = bonus or correction run; 2 is reserved for the final settlement run.</summary>
+public enum PayrollKind { Regular = 0, OffCycle = 1 }
 
 /// <summary>A member of staff of one employing legal entity, with the salary structure payroll uses. Country-specific identifiers (national id, WPS numbers) are custom fields from the country pack.</summary>
 [DefaultSort("number")]
-public class Employee : LegalEntityScopedEntity, IHasCustomFields
+public partial class Employee : LegalEntityScopedEntity, IHasCustomFields
 {
     [Listable] public string Number { get; set; } = default!;
     [Searchable, Sortable] public string FullName { get; set; } = default!;
@@ -57,7 +59,7 @@ public class AttendanceRecord : LegalEntityScopedEntity
 
 /// <summary>One month of payroll for one employing entity. Draft -> (PendingApproval) -> Posted (accrued) -> Paid.</summary>
 [DefaultSort("-year")]
-public class PayrollRun : LegalEntityScopedEntity
+public partial class PayrollRun : LegalEntityScopedEntity, IVoidable
 {
     [Listable] public string Number { get; set; } = default!;
     [Filterable, Sortable] public int Year { get; set; }
@@ -73,6 +75,12 @@ public class PayrollRun : LegalEntityScopedEntity
     public Guid? AccrualJournalId { get; set; }
     public Guid? PaymentJournalId { get; set; }
     public DateOnly? PaidOn { get; set; }
+    [Filterable] public PayrollKind Kind { get; set; } = PayrollKind.Regular;
+    /// <summary>Off-cycle runs only: true when the lines carry salary (basic, allowances, deductions) as well as typed adjustments.</summary>
+    public bool IncludeSalary { get; set; }
+    public string? VoidReason { get; set; }
+    public DateTime? VoidedAt { get; set; }
+    public Guid? VoidedBy { get; set; }
     public List<PayrollLine> Lines { get; set; } = new();
 }
 
@@ -94,6 +102,10 @@ public class PayrollLine : Entity
     public decimal GrossEarnings { get; set; }
     public decimal Deductions { get; set; }
     public decimal NetPay { get; set; }
+    /// <summary>Calendar days paid in the month (joiners and leavers are prorated).</summary>
+    public int ProratedDays { get; set; }
+    public DateOnly? PaidOn { get; set; }
+    public Guid? PaymentJournalId { get; set; }
 }
 
 public enum ReviewCycleStatus { Open = 1, Closed = 2 }
