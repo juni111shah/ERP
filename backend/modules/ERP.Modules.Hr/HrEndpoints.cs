@@ -72,7 +72,8 @@ internal static class HrEndpoints
         reviews.MapPost("/{id:guid}/acknowledge", (Guid id, ISender s, CancellationToken ct) => s.Send(new AcknowledgeReview(id), ct)).RequirePermission(P.ReviewsManage);
 
         var leaveTypes = group.MapGroup("/leave-types");
-        leaveTypes.MapPagedList<LeaveType, LeaveTypeDto>("", P.LeaveRead, t => new LeaveTypeDto(t.Id, t.Code, t.Name, t.IsPaid, t.AnnualDays, t.CarryForwardCap, t.RequiresApproval, t.IsActive));
+        leaveTypes.MapPagedList<LeaveType, LeaveTypeDto>("", P.LeaveRead, t => new LeaveTypeDto(t.Id, t.Code, t.Name, t.IsPaid, t.AnnualDays, t.CarryForwardCap, t.RequiresApproval, t.IsActive, t.ProRataFirstYear, t.AccrualMode, t.RequiresAttachmentAfterDays,
+            t.Tiers.OrderBy(x => x.FromServiceYears).Select(x => new LeaveTierDto(x.FromServiceYears, x.Days)).ToList()));
         leaveTypes.MapPost("", async (LeaveTypeInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/leave-types", await s.Send(new CreateLeaveType(input), ct))).RequirePermission(P.LeaveApprove);
         leaveTypes.MapPut("/{id:guid}", (Guid id, LeaveTypeInput input, ISender s, CancellationToken ct) => s.Send(new UpdateLeaveType(id, input), ct)).RequirePermission(P.LeaveApprove);
 
@@ -84,6 +85,7 @@ internal static class HrEndpoints
 
         var leave = group.MapGroup("/leave");
         leave.MapPagedList<LeaveRequest, LeaveRequestRow>("", P.LeaveRead, r => new LeaveRequestRow(r.Id, r.EmployeeId, r.EmployeeName, r.LeaveTypeId, r.FromDate, r.ToDate, r.Days, r.Status, r.Reason));
+        leave.MapPost("/apply-country-defaults", (int? year, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new ApplyLeaveCountryDefaults(year ?? DateTime.UtcNow.Year, legalEntityId), ct)).RequirePermission(P.LeaveApprove);
         leave.MapGet("/days", (DateOnly from, DateOnly to, ISender s, CancellationToken ct) => s.Send(new GetLeaveDays(from, to), ct)).RequirePermission(P.LeaveRead);
         leave.MapGet("/balances", (int? year, Guid? employeeId, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetLeaveBalances(year ?? DateTime.UtcNow.Year, employeeId, legalEntityId), ct)).RequirePermission(P.LeaveRead);
         leave.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetLeaveRequest(id), ct)).RequirePermission(P.LeaveRead);

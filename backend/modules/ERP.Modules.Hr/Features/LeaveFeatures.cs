@@ -9,14 +9,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Modules.Hr.Features;
 
-public sealed record LeaveTypeInput(string Code, string Name, bool IsPaid, decimal AnnualDays, decimal CarryForwardCap, bool RequiresApproval = true, bool IsActive = true);
-public sealed record LeaveTypeDto(Guid Id, string Code, string Name, bool IsPaid, decimal AnnualDays, decimal CarryForwardCap, bool RequiresApproval, bool IsActive);
+public sealed record LeaveTypeInput(string Code, string Name, bool IsPaid, decimal AnnualDays, decimal CarryForwardCap, bool RequiresApproval = true, bool IsActive = true,
+    bool ProRataFirstYear = false, LeaveAccrualMode AccrualMode = LeaveAccrualMode.Upfront, int? RequiresAttachmentAfterDays = null, IReadOnlyList<LeaveTierInput>? Tiers = null);
+public sealed record LeaveTypeDto(Guid Id, string Code, string Name, bool IsPaid, decimal AnnualDays, decimal CarryForwardCap, bool RequiresApproval, bool IsActive,
+    bool ProRataFirstYear = false, LeaveAccrualMode AccrualMode = LeaveAccrualMode.Upfront, int? RequiresAttachmentAfterDays = null, IReadOnlyList<LeaveTierDto>? Tiers = null);
 public sealed record HolidayInput(DateOnly Date, string Name);
 public sealed record HolidayDto(Guid Id, DateOnly Date, string Name);
-public sealed record LeaveRequestInput(Guid EmployeeId, Guid LeaveTypeId, DateOnly FromDate, DateOnly ToDate, string? Reason = null, bool Submit = false);
+public sealed record LeaveRequestInput(Guid EmployeeId, Guid LeaveTypeId, DateOnly FromDate, DateOnly ToDate, string? Reason = null, bool Submit = false, bool StartHalfDay = false, bool EndHalfDay = false);
 public sealed record LeaveDecisionInput(string? Comment);
 public sealed record LeaveRequestDto(Guid Id, Guid EmployeeId, string EmployeeName, Guid LeaveTypeId, string LeaveTypeName, bool IsPaid, DateOnly FromDate, DateOnly ToDate, decimal Days, LeaveStatus Status,
-    string? Reason, DateTime? SubmittedAt, DateTime? DecidedAt, string? DecisionComment);
+    string? Reason, DateTime? SubmittedAt, DateTime? DecidedAt, string? DecisionComment, bool StartHalfDay = false, bool EndHalfDay = false);
 public sealed record LeaveRequestRow(Guid Id, Guid EmployeeId, string EmployeeName, Guid LeaveTypeId, DateOnly FromDate, DateOnly ToDate, decimal Days, LeaveStatus Status, string? Reason);
 public sealed record LeaveDaysDto(DateOnly From, DateOnly To, int WorkingDays);
 public sealed record LeaveBalanceRow(Guid EmployeeId, string EmployeeNumber, string EmployeeName, Guid LeaveTypeId, string LeaveTypeCode, string LeaveTypeName, int Year,
@@ -46,6 +48,8 @@ public sealed class LeaveTypeInputValidator : AbstractValidator<LeaveTypeInput>
         RuleFor(x => x.Name).NotEmpty().MaximumLength(100);
         RuleFor(x => x.AnnualDays).InclusiveBetween(0, 366);
         RuleFor(x => x.CarryForwardCap).InclusiveBetween(0, 366);
+        RuleFor(x => x.RequiresAttachmentAfterDays).InclusiveBetween(0, 366).When(x => x.RequiresAttachmentAfterDays is not null);
+        RuleForEach(x => x.Tiers).ChildRules(t => { t.RuleFor(y => y.FromServiceYears).InclusiveBetween(0, 60); t.RuleFor(y => y.Days).InclusiveBetween(0, 366); });
     }
 }
 public sealed class CreateLeaveTypeValidator : AbstractValidator<CreateLeaveType> { public CreateLeaveTypeValidator() => RuleFor(x => x.Input).SetValidator(new LeaveTypeInputValidator()); }
@@ -104,7 +108,7 @@ public sealed class LeaveFeed(IReadRepository<LeaveRequest> requests, IReadRepos
 
 internal sealed class LeaveHandlers(
     IRepository<LeaveType> types, IRepository<LeaveBalance> balances, IRepository<LeaveRequest> requests, IRepository<PublicHoliday> holidays, IReadRepository<Employee> employees,
-    IReadRepository<UserRole> userRoles, LeaveCalendarProvider calendars, INotifier notifier, ICurrentUser user, IClock clock, IUnitOfWork uow) :
+    IReadRepository<UserRole> userRoles, LeaveCalendarProvider calendars, LeavePolicyService policy, INotifier notifier, ICurrentUser user, IClock clock, IUnitOfWork uow) :
     IRequestHandler<CreateLeaveType, LeaveTypeDto>,
     IRequestHandler<UpdateLeaveType, LeaveTypeDto>,
     IRequestHandler<CreateHoliday, HolidayDto>,
@@ -129,8 +133,9 @@ internal sealed class LeaveHandlers(
         var t = new LeaveType();
         MapType(cmd.Input, t, code);
         types.Add(t);
+        await policy.SaveTiersAsync(t.Id, cmd.Input.Tiers, ct);
         await types.SaveChangesAsync(ct);
-        return TypeDto(t);
+        return TypeDto(t, cmd.Input.Tiers);
     }
 
     public async Task<LeaveTypeDto> Handle(UpdateLeaveType cmd, CancellationToken ct)
@@ -139,8 +144,9 @@ internal sealed class LeaveHandlers(
         var code = cmd.Input.Code.Trim().ToUpperInvariant();
         if (code != t.Code && await types.AnyAsync(x => x.Code == code, ct)) throw new ConflictException($"A leave type with code '{code}' already exists.");
         MapType(cmd.Input, t, code);
+        await policy.SaveTiersAsync(t.Id, cmd.Input.Tiers, ct);
         await types.SaveChangesAsync(ct);
-        return TypeDto(t);
+        return TypeDto(t, cmd.Input.Tiers ?? (await policy.TiersAsync(t.Id, ct)).Select(x => new LeaveTierInput(x.FromServiceYears, x.Days)).ToList());
     }
 
     public async Task<HolidayDto> Handle(CreateHoliday cmd, CancellationToken ct)
@@ -193,13 +199,14 @@ internal sealed class LeaveHandlers(
         var pending = (await requests.Query(new Specification<LeaveRequest>(r => r.Status == LeaveStatus.Submitted && r.FromDate >= start && r.FromDate <= end && ids.Contains(r.EmployeeId))).ToListAsync(ct))
             .GroupBy(r => (r.EmployeeId, r.LeaveTypeId)).ToDictionary(g => g.Key, g => g.Sum(r => r.Days));
         var result = new List<LeaveBalanceRow>();
+        var allTiers = await policy.TiersByTypeAsync(ct);
         foreach (var e in staff)
             foreach (var t in kinds)
             {
                 rows.TryGetValue((e.Id, t.Id), out var b);
-                var entitled = b?.Entitled ?? t.AnnualDays; var carried = b?.Carried ?? 0m; var taken = b?.Taken ?? 0m;
+                var entitled = b?.Entitled ?? LeaveEntitlement.Entitlement(t.AnnualDays, allTiers.GetValueOrDefault(t.Id) ?? [], t.ProRataFirstYear, e.JoinDate, q.Year); var carried = b?.Carried ?? 0m; var taken = b?.Taken ?? 0m;
                 var wait = pending.GetValueOrDefault((e.Id, t.Id));
-                if (b is null && t.AnnualDays == 0 && wait == 0) continue; // nothing tracked for this type
+                if (b is null && entitled == 0 && t.AnnualDays == 0 && wait == 0) continue; // nothing tracked for this type
                 result.Add(new(e.Id, e.Number, e.FullName, t.Id, t.Code, t.Name, q.Year, entitled, carried, taken, wait, entitled + carried - taken));
             }
         return result;
@@ -249,8 +256,12 @@ internal sealed class LeaveHandlers(
         if (r.Status is LeaveStatus.Rejected or LeaveStatus.Cancelled) throw new ConflictException($"This request is already {r.Status.ToString().ToLowerInvariant()}.");
         if (r.Status == LeaveStatus.Approved)
         {
-            var b = await balances.Tracked(new Specification<LeaveBalance>(x => x.EmployeeId == r.EmployeeId && x.LeaveTypeId == r.LeaveTypeId && x.Year == r.FromDate.Year)).FirstOrDefaultAsync(token);
-            if (b is not null) b.Taken = Math.Max(0, b.Taken - r.Days);
+            var (employeeId, typeId) = (r.EmployeeId, r.LeaveTypeId);
+            foreach (var (year, days) in await policy.StoredYearDaysAsync(r, token))
+            {
+                var b = await balances.Tracked(new Specification<LeaveBalance>(x => x.EmployeeId == employeeId && x.LeaveTypeId == typeId && x.Year == year)).FirstOrDefaultAsync(token);
+                if (b is not null) b.Taken = Math.Max(0, b.Taken - days);
+            }
         }
         r.Status = LeaveStatus.Cancelled;
         await requests.SaveChangesAsync(token);
@@ -292,14 +303,15 @@ internal sealed class LeaveHandlers(
 
     private async Task FillAsync(LeaveRequest r, LeaveRequestInput i, CancellationToken ct)
     {
-        r.FromDate = i.FromDate; r.ToDate = i.ToDate; r.Reason = i.Reason;
+        r.FromDate = i.FromDate; r.ToDate = i.ToDate; r.Reason = i.Reason; r.StartHalfDay = i.StartHalfDay; r.EndHalfDay = i.EndHalfDay;
         await RecountAsync(r, ct);
     }
 
     private async Task RecountAsync(LeaveRequest r, CancellationToken ct)
     {
         var calendar = await calendars.LoadAsync(r.FromDate, r.ToDate, ct);
-        var days = calendar.Count(r.FromDate, r.ToDate);
+        var (_, days, error) = LeaveEntitlement.Split(r.FromDate, r.ToDate, r.StartHalfDay, r.EndHalfDay, calendar.IsWorkingDay);
+        if (error is not null) throw new FieldValidationException(r.StartHalfDay && !calendar.IsWorkingDay(r.FromDate) ? "startHalfDay" : "endHalfDay", error);
         if (days == 0) throw new FieldValidationException("toDate", "The period has no working days (weekends and public holidays do not count).");
         r.Days = days;
     }
@@ -308,6 +320,7 @@ internal sealed class LeaveHandlers(
     {
         await RecountAsync(r, ct); // holidays or the weekend setting may have changed since the draft was made
         await ValidateAsync(r, type, ignorePending: false, ct);
+        await policy.RequireAttachmentAsync(r, type, ct);
         r.Status = LeaveStatus.Submitted; r.SubmittedAt = clock.UtcNow;
         if (!type.RequiresApproval) { await ApproveCoreAsync(r, type, "Approved automatically (no approval needed for this leave type).", ct); return; }
         foreach (var approver in await UsersWithAsync(P.LeaveApprove, ct))
@@ -318,32 +331,49 @@ internal sealed class LeaveHandlers(
     {
         if (type.AnnualDays > 0)
         {
-            var b = await BalanceAsync(r.EmployeeId, type, r.FromDate.Year, ct);
-            b.Taken += r.Days;
+            var employee = await employees.GetAsync(r.EmployeeId, ct);
+            var split = await SplitAsync(r, ct);
+            foreach (var (year, days) in split) (await BalanceAsync(employee, type, year, ct)).Taken += days;
+            policy.StoreYearDays(r, split);
         }
         r.Status = LeaveStatus.Approved; r.DecidedByUserId = user.UserId; r.DecidedAt = clock.UtcNow; r.DecisionComment = comment;
     }
 
-    private async Task ValidateAsync(LeaveRequest r, LeaveType type, bool ignorePending, CancellationToken ct)
+    private async Task<Dictionary<int, decimal>> SplitAsync(LeaveRequest r, CancellationToken ct)
     {
-        var id = r.Id; var employee = r.EmployeeId; var from = r.FromDate; var to = r.ToDate;
-        if (await requests.AnyAsync(x => x.EmployeeId == employee && x.Id != id && (x.Status == LeaveStatus.Submitted || x.Status == LeaveStatus.Approved) && x.FromDate <= to && x.ToDate >= from, ct))
-            throw new ConflictException("This employee already has leave requested or approved on some of these days.");
-        if (type.AnnualDays <= 0) return; // no balance to enforce
-        var b = await BalanceAsync(r.EmployeeId, type, r.FromDate.Year, ct);
-        var remaining = b.Entitled + b.Carried - b.Taken;
-        var year = r.FromDate.Year; var typeId = type.Id;
-        var pending = ignorePending ? 0m : (await requests.Query(new Specification<LeaveRequest>(x => x.EmployeeId == employee && x.LeaveTypeId == typeId && x.Id != id && x.Status == LeaveStatus.Submitted && x.FromDate.Year == year)).Select(x => x.Days).ToListAsync(ct)).Sum();
-        if (remaining - pending < r.Days)
-            throw new ConflictException($"Not enough {type.Name} balance: {remaining - pending:0.##} day(s) left in {year}, {r.Days:0.##} requested.");
+        var calendar = await calendars.LoadAsync(r.FromDate, r.ToDate, ct);
+        return LeaveEntitlement.Split(r.FromDate, r.ToDate, r.StartHalfDay, r.EndHalfDay, calendar.IsWorkingDay).ByYear;
     }
 
-    /// <summary>The balance row of an employee, type and year; created from the type's annual days (plus carry-forward from last year) the first time it is needed.</summary>
+    private async Task ValidateAsync(LeaveRequest r, LeaveType type, bool ignorePending, CancellationToken ct)
+    {
+        var id = r.Id; var employeeId = r.EmployeeId; var from = r.FromDate; var to = r.ToDate;
+        if (await requests.AnyAsync(x => x.EmployeeId == employeeId && x.Id != id && (x.Status == LeaveStatus.Submitted || x.Status == LeaveStatus.Approved) && x.FromDate <= to && x.ToDate >= from, ct))
+            throw new ConflictException("This employee already has leave requested or approved on some of these days.");
+        if (type.AnnualDays <= 0) return; // no balance to enforce
+        var employee = await employees.GetAsync(employeeId, ct);
+        var typeId = type.Id;
+        foreach (var (year, days) in await SplitAsync(r, ct)) // the balance check applies per calendar year
+        {
+            var b = await BalanceAsync(employee, type, year, ct);
+            var available = b.Entitled + b.Carried - b.Taken;
+            if (type.AccrualMode == LeaveAccrualMode.Monthly)
+            {
+                var months = LeaveEntitlement.AccruedMonths(year, policy.Today, r.ToDate);
+                available = LeaveEntitlement.Accrued(b.Entitled, months) + b.Carried - b.Taken;
+            }
+            var pending = ignorePending ? 0m : (await requests.Query(new Specification<LeaveRequest>(x => x.EmployeeId == employeeId && x.LeaveTypeId == typeId && x.Id != id && x.Status == LeaveStatus.Submitted && x.FromDate.Year == year)).Select(x => x.Days).ToListAsync(ct)).Sum();
+            if (available - pending < days)
+                throw new ConflictException($"Not enough {type.Name} balance: {available - pending:0.##} day(s) available in {year}, {days:0.##} requested.");
+        }
+    }
+
+    /// <summary>The balance row of an employee, type and year; created from the type's entitlement for the employee's service (plus carry-forward from last year) the first time it is needed.</summary>
     private readonly Dictionary<(Guid, Guid, int), LeaveBalance> createdBalances = new(); // rows added in this unit of work are not visible to queries until saved
 
-    private async Task<LeaveBalance> BalanceAsync(Guid employeeId, LeaveType type, int year, CancellationToken ct)
+    private async Task<LeaveBalance> BalanceAsync(Employee employee, LeaveType type, int year, CancellationToken ct)
     {
-        var typeId = type.Id;
+        var employeeId = employee.Id; var typeId = type.Id;
         if (createdBalances.TryGetValue((employeeId, typeId, year), out var made)) return made;
         var b = await balances.Tracked(new Specification<LeaveBalance>(x => x.EmployeeId == employeeId && x.LeaveTypeId == typeId && x.Year == year)).FirstOrDefaultAsync(ct);
         if (b is not null) return b;
@@ -353,7 +383,7 @@ internal sealed class LeaveHandlers(
             var prev = await balances.Query(new Specification<LeaveBalance>(x => x.EmployeeId == employeeId && x.LeaveTypeId == typeId && x.Year == year - 1)).FirstOrDefaultAsync(ct);
             if (prev is not null) carried = Math.Min(type.CarryForwardCap, Math.Max(0, prev.Entitled + prev.Carried - prev.Taken));
         }
-        b = new LeaveBalance { EmployeeId = employeeId, LeaveTypeId = typeId, Year = year, Entitled = type.AnnualDays, Carried = carried };
+        b = new LeaveBalance { EmployeeId = employeeId, LeaveTypeId = typeId, Year = year, Entitled = await policy.EntitlementAsync(employee, type, year, ct), Carried = carried };
         balances.Add(b);
         createdBalances[(employeeId, typeId, year)] = b;
         return b;
@@ -371,13 +401,15 @@ internal sealed class LeaveHandlers(
     private static void MapType(LeaveTypeInput i, LeaveType t, string code)
     {
         t.Code = code; t.Name = i.Name.Trim(); t.IsPaid = i.IsPaid; t.AnnualDays = i.AnnualDays; t.CarryForwardCap = i.CarryForwardCap; t.RequiresApproval = i.RequiresApproval; t.IsActive = i.IsActive;
+        t.ProRataFirstYear = i.ProRataFirstYear; t.AccrualMode = i.AccrualMode; t.RequiresAttachmentAfterDays = i.RequiresAttachmentAfterDays;
     }
 
-    private static LeaveTypeDto TypeDto(LeaveType t) => new(t.Id, t.Code, t.Name, t.IsPaid, t.AnnualDays, t.CarryForwardCap, t.RequiresApproval, t.IsActive);
+    private static LeaveTypeDto TypeDto(LeaveType t, IReadOnlyList<LeaveTierInput>? tiers) => new(t.Id, t.Code, t.Name, t.IsPaid, t.AnnualDays, t.CarryForwardCap, t.RequiresApproval, t.IsActive,
+        t.ProRataFirstYear, t.AccrualMode, t.RequiresAttachmentAfterDays, tiers?.OrderBy(x => x.FromServiceYears).Select(x => new LeaveTierDto(x.FromServiceYears, x.Days)).ToList() ?? []);
 
     private async Task<LeaveRequestDto> ToDtoAsync(LeaveRequest r, CancellationToken ct)
     {
         var t = await types.GetAsync(r.LeaveTypeId, ct);
-        return new(r.Id, r.EmployeeId, r.EmployeeName, r.LeaveTypeId, t.Name, t.IsPaid, r.FromDate, r.ToDate, r.Days, r.Status, r.Reason, r.SubmittedAt, r.DecidedAt, r.DecisionComment);
+        return new(r.Id, r.EmployeeId, r.EmployeeName, r.LeaveTypeId, t.Name, t.IsPaid, r.FromDate, r.ToDate, r.Days, r.Status, r.Reason, r.SubmittedAt, r.DecidedAt, r.DecisionComment, r.StartHalfDay, r.EndHalfDay);
     }
 }
