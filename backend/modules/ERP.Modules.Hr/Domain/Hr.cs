@@ -9,7 +9,7 @@ public enum PayrollKind { Regular = 0, OffCycle = 1 }
 
 /// <summary>A member of staff of one employing legal entity, with the salary structure payroll uses. Country-specific identifiers (national id, WPS numbers) are custom fields from the country pack.</summary>
 [DefaultSort("number")]
-public class Employee : LegalEntityScopedEntity, IHasCustomFields
+public partial class Employee : LegalEntityScopedEntity, IHasCustomFields
 {
     [Listable] public string Number { get; set; } = default!;
     [Searchable, Sortable] public string FullName { get; set; } = default!;
@@ -59,7 +59,7 @@ public class AttendanceRecord : LegalEntityScopedEntity
 
 /// <summary>One month of payroll for one employing entity. Draft -> (PendingApproval) -> Posted (accrued) -> Paid.</summary>
 [DefaultSort("-year")]
-public class PayrollRun : LegalEntityScopedEntity, IVoidable
+public partial class PayrollRun : LegalEntityScopedEntity, IVoidable
 {
     [Listable] public string Number { get; set; } = default!;
     [Filterable, Sortable] public int Year { get; set; }

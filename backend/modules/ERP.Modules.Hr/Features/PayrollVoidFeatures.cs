@@ -34,7 +34,7 @@ public sealed class VoidPayrollValidator : AbstractValidator<VoidPayroll>
 
 internal sealed class PayrollSettlementHandlers(
     IRepository<PayrollRun> runs, IRepository<JournalEntry> journals, IReadRepository<Account> accounts, IRepository<AuditEvent> audit, ICurrentUser user, IClock clock,
-    IPostingService posting, IUnitOfWork uow) :
+    IPostingService posting, IUnitOfWork uow, PayrollSeparation separation) :
     IRequestHandler<PayPayroll, PayrollDto>,
     IRequestHandler<VoidPayroll, PayrollDto>
 {
@@ -44,6 +44,7 @@ internal sealed class PayrollSettlementHandlers(
         if (run.Status is PayrollStatus.Paid) throw new ConflictException("This payroll is already paid.");
         if (run.Status == PayrollStatus.Voided) throw new ConflictException("This payroll was voided.");
         if (run.Status is not (PayrollStatus.Posted or PayrollStatus.PartiallyPaid)) throw new ConflictException("Post the payroll before paying it.");
+        await separation.RequireCanPayAsync(run, token);
         var bank = await accounts.FindAsync(cmd.BankAccountId, token);
         if (bank is null || !BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
         if (cmd.Date < new DateOnly(run.Year, run.Month, 1)) throw new FieldValidationException("date", "The payment date cannot be before the payroll month.");

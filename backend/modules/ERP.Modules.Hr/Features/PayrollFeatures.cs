@@ -58,7 +58,7 @@ public sealed class AdjustPayrollLineValidator : AbstractValidator<AdjustPayroll
 internal sealed class PayrollHandlers(
     IRepository<PayrollRun> runs, IRepository<PayrollLine> lineRows, IReadRepository<Employee> employees, IReadRepository<AttendanceRecord> attendance, LeaveFeed leaveFeed, IReadRepository<Account> accounts, IClock clock,
     IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ISettingsService settings, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering,
-    IUnitOfWork uow) :
+    IUnitOfWork uow, PayrollSeparation separation) :
     IRequestHandler<GetPayroll, PayrollDto>,
     IRequestHandler<GetPayrollBankFile, string>,
     IRequestHandler<GetPayrollWpsFile, string>,
@@ -160,7 +160,7 @@ internal sealed class PayrollHandlers(
         foreach (var old in run.Lines.ToList()) lineRows.Remove(old);
         var fresh = await BuildLinesAsync(run, keep, run.Kind == PayrollKind.OffCycle ? run.Lines.Select(l => l.EmployeeId).ToHashSet() : null, token);
         lineRows.AddRange(fresh);
-        run.Lines.Clear(); run.Lines.AddRange(fresh); Totals(run); run.Status = PayrollStatus.Draft; run.ApprovalRequestId = null;
+        run.Lines.Clear(); run.Lines.AddRange(fresh); Totals(run); run.Status = PayrollStatus.Draft; run.ApprovalRequestId = null; separation.StampAdjusted(run);
         await runs.SaveChangesAsync(token);
         return ToDto(run);
     }, ct);
@@ -194,6 +194,7 @@ internal sealed class PayrollHandlers(
         var run = await LoadAsync(cmd.Id, ct);
         if (run.Status is not (PayrollStatus.Draft or PayrollStatus.PendingApproval)) throw new ConflictException("Only a draft payroll can be posted.");
         if (run.NetPay <= 0) throw new ConflictException("A payroll with no net pay cannot be posted.");
+        await separation.RequireCanPostAsync(run, ct);
 
         if (await settings.GetAsync<bool?>("hr.payrollRequiresApproval", run.LegalEntityId, ct) == true)
         {
@@ -215,7 +216,7 @@ internal sealed class PayrollHandlers(
         if (run.Deductions > 0) lines.Add(new PostingLine(await DeductionsAccountAsync(ct), 0, run.Deductions, memo));
         var date = new DateOnly(run.Year, run.Month, DateTime.DaysInMonth(run.Year, run.Month));
         var journal = await posting.PostAsync(new PostingRequest(run.LegalEntityId, date, "payroll", run.Id, memo, run.Number, lines), ct);
-        run.AccrualJournalId = journal.Id; run.Status = PayrollStatus.Posted;
+        run.AccrualJournalId = journal.Id; run.Status = PayrollStatus.Posted; separation.StampPosted(run);
         await runs.SaveChangesAsync(ct);
         return ToDto(run);
     }

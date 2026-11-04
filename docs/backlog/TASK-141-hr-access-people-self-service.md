@@ -2,13 +2,13 @@
 id: TASK-141
 title: HR access and people: salary permission, segregation of duties, employee-user link, manager, self-service, structure, safe delete
 priority: P0
-status: in-progress
+status: ready-for-review
 schema: yes
 depends_on: []
 area: hr
 audit_ref: HR audit 2026-11-04 (items 2, 3, 5, 6, 11)
 commit:
-owner: claude (branch claude/hr-complete)
+owner: claude (branch claude/hr-people)
 ---
 
 ## Problem
@@ -44,6 +44,25 @@ Integration tests in new `HrAccessTests` and `HrSelfServiceTests` (use the sign-
 ## Do not touch
 Payroll calculation and posting (TASK-140), leave balance logic (TASK-142), documents/WPS (TASK-143), web and mobile screens.
 
-## What I did (Antigravity)
+## What I did (Claude, branch claude/hr-people)
+All acceptance criteria are covered by integration tests (`HrAccessTests`, `HrSelfServiceTests`) and unit tests (`HrOrgTreeTests`). No migration was created (the lead generates one): new columns on `Employee` and `PayrollRun` (`GeneratedByUserId`, `LastAdjustedByUserId`, `PostedByUserId`), new tables `hr_Departments` and `hr_Positions`, a unique filtered index on `Employee (OrgId, UserId)`.
+
+Decisions
+- Salary: `hr.salary.read` and `hr.leave.manage` added (HR manager role has both). Pay fields of `EmployeeDto`/`EmployeeSummaryDto` are nullable and null without the permission (incl. IBAN, gross, gratuity accrued). The list is now a custom `ListEmployees` request (the pay columns are not even projected without the permission); sort/filter by pay columns was already refused (not whitelisted, 400). `EmployeeInput` pay fields are nullable: callers without `hr.salary.read` cannot change pay on update (ignored), a missing pay value on update keeps the stored one; create still needs a basic salary.
+- Self-approval: setting `hr.blockSelfApproval` (default on) blocks approve/reject when the request was raised by the caller or belongs to the caller's linked employee (409 "You cannot decide your own leave request."). `ApproveLeaveRequest`/`RejectLeaveRequest` no longer implement `IRequirePermission`; the endpoint needs sign-in and the handler requires `hr.leave.approve` or being the manager of the request's employee (403 otherwise).
+- Payroll separation of duties: setting `hr.payrollSeparationOfDuties` (default off). Explicit stamps on `PayrollRun` (generator, last adjuster, poster) through a small `PayrollSeparation` service; the check sits in post and pay only. A preparer cannot even start the approval submission of a run, a second user must post.
+- Manager: `Employee.ManagerEmployeeId` (not itself, no cycles, 409), `UserId` (workspace member, one employee per account, 409). Submitting leave notifies the manager's user first, then the other approvers. Extra endpoint `GET /me/team/leave?status=` so a manager without `hr.leave.read` can find the requests to decide.
+- Self-service under `/api/v1/m/hr/me` (`me`, `me/leave`, `me/leave/{id}/submit|cancel`, `me/balances`, `me/payslips`, `me/payslips/{lineId}`): authenticated only, no permission; the leave logic reuses `LeaveHandlers`. Another person's request/line is 404.
+- Filing for others: `CreateLeaveRequest`/`UpdateLeaveRequest` for an employee not linked to the caller need `hr.leave.manage` (403). Submit/cancel on the general endpoints are unchanged (not in the card).
+- Structure: `Department`, `Position` CRUD with `hr.employees.read`/`manage`, delete blocked while used (departments also while they have sub-departments), parent cycles 409. Choosing a department/position fills the free-text `Department`/`Designation`. New personal and contract fields on the employee; validators for contract and probation end. `GET /hr/org-chart` returns the department tree with members, unassigned people and a manager reporting tree.
+- Delete employee: 409 when payroll lines, leave, attendance or reviews exist. `OnLeaveToday` on list and detail from approved leave covering today (status untouched).
+
+Existing tests changed: `HrLeaveTests.SetupAsync` now sets `hr.blockSelfApproval` to false because those tests create and approve with one account. No other existing test needed a change (the owner holds every permission).
+
+Not done / notes
+- Department `BusinessUnitId` is a plain optional id checked on save (no database foreign key).
+- Submit/cancel of other people's requests on the general `/leave` endpoints are not restricted (card only asked for create/update).
+- The manager notification is covered indirectly; no test asserts the notification row.
+- Test run: whole solution passes except 5 `PosSessionTests` that need SQL Server (not available here, unrelated).
 
 ## Review (Claude)
