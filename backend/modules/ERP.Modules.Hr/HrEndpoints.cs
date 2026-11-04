@@ -116,6 +116,8 @@ internal static class HrEndpoints
         leave.MapPost("/{id:guid}/reject", (Guid id, LeaveDecisionInput? body, ISender s, CancellationToken ct) => s.Send(new RejectLeaveRequest(id, body?.Comment), ct)).RequirePermission(P.LeaveApprove);
 
         var reports = group.MapGroup("/reports");
+        reports.MapGet("/summary", (DateOnly? from, DateOnly? to, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetHrSummaryReport(from, to, legalEntityId), ct)).RequirePermission(P.EmployeesRead);
+        reports.MapGet("/birthdays-anniversaries", (int? days, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetBirthdaysAnniversaries(days ?? 30, legalEntityId), ct)).RequirePermission(P.EmployeesRead);
         reports.MapGet("/gratuity", (DateOnly asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetGratuityReport(asOf, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapPost("/gratuity/provision", (ProvisionBody b, ISender s, CancellationToken ct) => s.Send(new PostGratuityProvision(b.LegalEntityId, b.AsOf), ct)).RequirePermission(P.PayrollPost);
     }
