@@ -61,6 +61,8 @@ public sealed class HrModule : ModuleBase
         new("hr.employerEstablishmentId", "WPS employer establishment ID (EID)", "\"\"", "text", "Used in the SCR record of the WPS SIF file."),
         new("hr.weekendDays", "Weekend days (not counted as leave)", "\"Saturday,Sunday\"", "text", "Comma-separated day names, for example Friday,Saturday."),
         new("hr.employerBankRoutingCode", "WPS employer bank routing code", "\"\"", "text", "Routing code of the bank that pays the salaries."),
+        new("hr.wps.columns", "Salary file columns (generic CSV)", "\"\"", "text", "Used when no country format exists. Comma-separated fields, for example employeeNumber,name,iban,bankRoutingCode,labourCard,netPay."),
+        new("hr.wps.header", "Salary file header line (generic CSV)", "\"\"", "text", "Optional first line of the generic salary file."),
     ];
 
     public override IEnumerable<CustomizableEntityDefinition> CustomizableEntities =>
@@ -85,6 +87,8 @@ public sealed class HrModule : ModuleBase
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<ERP.Modules.Hr.Wps.IWpsFileBuilder, ERP.Modules.Hr.Wps.UaeWpsFileBuilder>();
+        services.AddScoped<ERP.Modules.Hr.Wps.IWpsFileBuilder, ERP.Modules.Hr.Wps.QatarWpsFileBuilder>();
         services.AddScoped<GratuityCalculator>();
         services.AddScoped<LeaveCalendarProvider>();
         services.AddScoped<LeaveFeed>();
