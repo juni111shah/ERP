@@ -112,20 +112,20 @@ public class HrAccessTests(ApiFactory f) : IClassFixture<ApiFactory>
         await k.SetAsync("hr.payrollSeparationOfDuties", true);
         try
         {
-            var run = (string)(await Ok(await k.Owner.PostAsJsonAsync($"{Hr}/payroll", new { legalEntityId = k.Entity, year = 2032, month = 1 }), HttpStatusCode.Created))["id"]!;
+            var run = (string)(await Ok(await k.Owner.PostAsJsonAsync($"{Hr}/payroll", new { legalEntityId = k.Entity, year = 2027, month = 1 }), HttpStatusCode.Created))["id"]!;
             // the owner generated the run, so the owner cannot post it
             var refused = await ErrorOf(await k.Owner.PostAsync($"{Hr}/payroll/{run}/post", null), HttpStatusCode.Conflict);
             Assert.Contains("another user must post", refused.ToJsonString());
 
             Assert.Equal("posted", (string)(await Ok(await poster.PostAsync($"{Hr}/payroll/{run}/post", null)))["status"]!);
             // the poster cannot pay what they posted; somebody else can
-            var payBody = new { bankAccountId = bank, date = "2032-01-31" };
+            var payBody = new { bankAccountId = bank, date = "2027-01-31" };
             Assert.Contains("another user must pay", (await ErrorOf(await poster.PostAsJsonAsync($"{Hr}/payroll/{run}/pay", payBody), HttpStatusCode.Conflict)).ToJsonString());
             Assert.Equal("paid", (string)(await Ok(await payer.PostAsJsonAsync($"{Hr}/payroll/{run}/pay", payBody)))["status"]!);
 
             // with the rule off one person may do everything
             await k.SetAsync("hr.payrollSeparationOfDuties", false);
-            var run2 = (string)(await Ok(await k.Owner.PostAsJsonAsync($"{Hr}/payroll", new { legalEntityId = k.Entity, year = 2032, month = 2 }), HttpStatusCode.Created))["id"]!;
+            var run2 = (string)(await Ok(await k.Owner.PostAsJsonAsync($"{Hr}/payroll", new { legalEntityId = k.Entity, year = 2027, month = 2 }), HttpStatusCode.Created))["id"]!;
             Assert.Equal("posted", (string)(await Ok(await k.Owner.PostAsync($"{Hr}/payroll/{run2}/post", null)))["status"]!);
         }
         finally { await k.SetAsync("hr.payrollSeparationOfDuties", false); }

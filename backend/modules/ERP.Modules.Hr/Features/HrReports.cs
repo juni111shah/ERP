@@ -51,6 +51,10 @@ internal static class EmployeeReportFields
     public const string ContractType = "cf_contract_type";
     public const string DateOfBirth = "cf_date_of_birth";
 
+    /// <summary>The real date-of-birth field, or the custom field some workspaces used before it existed.</summary>
+    public static DateOnly? BirthDate(DateOnly? real, string? customFields)
+        => real ?? (DateOnly.TryParse(Text(customFields, DateOfBirth), out var parsed) ? parsed : null);
+
     public static string? Text(string? customFields, string key)
     {
         if (customFields is not { Length: > 0 } json) return null;
@@ -77,7 +81,7 @@ internal sealed class HrReportHandlers(
         var from = q.From ?? new DateOnly(to.Year, 1, 1);
         var entity = q.LegalEntityId;
         var everyone = await employees.Query(new Specification<Employee>(e => entity == null || e.LegalEntityId == entity))
-            .Select(e => new { e.Id, e.Department, e.Nationality, e.JoinDate, e.TerminationDate, e.Status, e.CustomFields }).ToListAsync(ct);
+            .Select(e => new { e.Id, e.Department, e.Nationality, e.JoinDate, e.TerminationDate, e.Status, e.ContractType, e.CustomFields }).ToListAsync(ct);
 
         var current = everyone.Where(e => e.JoinDate <= to && (e.TerminationDate is null || e.TerminationDate > to) && !(e.Status == EmployeeStatus.Terminated && e.TerminationDate is null)).ToList();
         static string Label(string? v) => string.IsNullOrWhiteSpace(v) ? "Unspecified" : v.Trim();
@@ -114,7 +118,7 @@ internal sealed class HrReportHandlers(
 
         return new HrSummaryReportDto(from, to, entity, current.Count, avg,
             Count(current.Select(e => Label(e.Department))), Count(current.Select(e => Label(e.Nationality))),
-            Count(current.Select(e => Label(EmployeeReportFields.Text(e.CustomFields, EmployeeReportFields.ContractType)))),
+            Count(current.Select(e => Label(e.ContractType?.ToString() ?? EmployeeReportFields.Text(e.CustomFields, EmployeeReportFields.ContractType)))),
             movements, cost, leaveByType, absence.Sum(a => a.Days), absence);
     }
 
@@ -123,11 +127,11 @@ internal sealed class HrReportHandlers(
         var today = Today;
         var entity = q.LegalEntityId;
         var staff = await employees.Query(new Specification<Employee>(e => (entity == null || e.LegalEntityId == entity) && e.Status != EmployeeStatus.Terminated))
-            .Select(e => new { e.Id, e.Number, e.FullName, e.JoinDate, e.CustomFields }).ToListAsync(ct);
+            .Select(e => new { e.Id, e.Number, e.FullName, e.JoinDate, e.DateOfBirth, e.CustomFields }).ToListAsync(ct);
         var birthdays = new List<HrOccasion>(); var anniversaries = new List<HrOccasion>();
         foreach (var e in staff.OrderBy(e => e.Number))
         {
-            if (DateOnly.TryParse(EmployeeReportFields.Text(e.CustomFields, EmployeeReportFields.DateOfBirth), out var born) && Next(born, today) is var b && b.DayNumber - today.DayNumber <= q.Days)
+            if (EmployeeReportFields.BirthDate(e.DateOfBirth, e.CustomFields) is { } born && Next(born, today) is var b && b.DayNumber - today.DayNumber <= q.Days)
                 birthdays.Add(new HrOccasion(e.Id, e.Number, e.FullName, b, b.DayNumber - today.DayNumber, b.Year - born.Year));
             var a = Next(e.JoinDate, today);
             if (a.Year - e.JoinDate.Year >= 1 && a.DayNumber - today.DayNumber <= q.Days)

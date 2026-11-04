@@ -91,6 +91,7 @@ internal sealed class PayrollHandlers(
         if (i.Kind == PayrollKind.Regular && await runs.AnyAsync(r => r.LegalEntityId == entity.Id && r.Year == i.Year && r.Month == i.Month && r.Kind == PayrollKind.Regular && r.Status != PayrollStatus.Voided, token))
             throw new ConflictException("There is already a payroll run for this entity and month. Void it first, or create an off-cycle run.");
         var run = new PayrollRun { LegalEntityId = entity.Id, Year = i.Year, Month = i.Month, PlannedPayDate = i.PlannedPayDate, Notes = i.Notes?.Trim(), Status = PayrollStatus.Draft, Kind = i.Kind, IncludeSalary = i.Kind == PayrollKind.Regular || i.IncludeSalary };
+        separation.StampGenerated(run);
         run.Number = await numbering.NextAsync(Docs.Payroll, entity.Id, new DateOnly(i.Year, i.Month, 1), token);
         var lines = await BuildLinesAsync(run, new Dictionary<Guid, (decimal, string?)>(), i.Kind == PayrollKind.OffCycle && i.EmployeeIds is { Count: > 0 } only ? only.ToHashSet() : null, token);
         if (lines.Count == 0) throw new ConflictException("No active employees are on the payroll for this month.");
@@ -121,7 +122,7 @@ internal sealed class PayrollHandlers(
         var (gross, net) = PayrollMath.WithAdjustment(line.Basic, line.Allowances, line.Overtime, line.Absence, cmd.Adjustment, line.Deductions);
         if (gross < 0 || net < 0) throw new FieldValidationException("adjustment", "The adjustment would make the pay negative.");
         line.Adjustment = cmd.Adjustment; line.AdjustmentNote = cmd.Note?.Trim(); line.GrossEarnings = gross; line.NetPay = net;
-        Totals(run); run.Status = PayrollStatus.Draft; run.ApprovalRequestId = null;
+        Totals(run); run.Status = PayrollStatus.Draft; run.ApprovalRequestId = null; separation.StampAdjusted(run);
         await runs.SaveChangesAsync(ct);
         return ToDto(run);
     }

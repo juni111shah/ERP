@@ -23,6 +23,8 @@ public class HrReportsTests(ApiFactory f) : IClassFixture<ApiFactory>
         var (first, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re");
         await first.PostAsync("/api/v1/modules/hr/enable", null);
         var (c, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re");
+        // these tests drive the whole flow with one account; the self-approval block has its own tests in HrAccessTests
+        Assert.Equal(HttpStatusCode.NoContent, (await c.PutAsJsonAsync("/api/v1/settings", new Dictionary<string, object> { ["hr.blockSelfApproval"] = false })).StatusCode);
         foreach (var key in new[] { "cf_contract_type", "cf_date_of_birth" })
             await c.PostAsJsonAsync("/api/v1/custom-fields", new { entityType = "hr.employee", key, label = key, dataType = "Text" }); // already there on later calls
         var entity = (string)(await Ok(await c.PostAsJsonAsync("/api/v1/legal-entities", new { name = "Rep " + Tag(), countryCode = "AE", baseCurrency = "AED", isTaxRegistered = false }), HttpStatusCode.Created))["id"]!;
