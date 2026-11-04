@@ -2,7 +2,7 @@
 id: TASK-145
 title: Web and mobile screens for the completed HR module
 priority: P1
-status: open
+status: ready-for-review
 schema: no
 depends_on: [TASK-140, TASK-141, TASK-142, TASK-143, TASK-144]
 area: hr
@@ -32,3 +32,7 @@ Backend code except for a real bug found (report it).
 ## What I did (Antigravity)
 
 ## Review (Claude)
+
+### Claude, branch claude/hr-wave1 (web and mobile done, with gaps)
+Web: employees (new fields, documents drawer, end-employment dialog with settlement preview and final settlement), departments, positions, org chart, loans, document expiry, HR reports, My HR (self-service and team approvals), payroll detail (void, pay selected, email payslips, loan and settlement columns), off-cycle runs, leave half days, leave type tiers, pay bands, encashment and country defaults. Mobile: My HR (balances, leave, payslips, team approvals), employee form fields, documents, end employment and settlement, loans, departments, positions, org chart, document expiry, HR reports, payroll void, per-employee pay, payslip PDF share, half days, leave type extras.
+Not done: frontend spec tests for the new pages, Arabic phrases, a table editor for tiers and bands (text pairs for now), HR settings screen (the new `hr.*` options are in Settings already).

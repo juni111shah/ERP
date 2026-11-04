@@ -2,7 +2,7 @@
 id: TASK-144
 title: Staff loans and advances, termination with final settlement, sick-leave pay bands, department cost split in payroll
 priority: P1
-status: open
+status: ready-for-review
 schema: yes
 depends_on: [TASK-140, TASK-141, TASK-142]
 area: hr
@@ -35,3 +35,6 @@ Web and mobile screens (TASK-145); accounting rules outside payroll.
 ## What I did (Antigravity)
 
 ## Review (Claude)
+
+### Claude, branch claude/hr-wave1
+Built: `EmployeeLoan` + `PayrollLoanRecovery` (recovery applied at post, restored at void, never below zero net, rest carries over); `/hr/loans` (list, get, create, cancel, disburse); terminate, settlement preview and final settlement (`PayrollKind.FinalSettlement`, new line fields `LoanRecovery`, `LeaveEncashment`, `EndOfService`; end of service debits the provision first, the rest the expense account; the leaver is left off the regular run of the settled month); `LeaveType.Encashable` and `LeavePayBand` (banded sick pay counts fractional unpaid days in payroll); payroll expense split by the business unit of the employee's department. Setting `hr.noticeShortfallDeduction`. Migration `HrWave1`, script `0068_HrWave1.sql`. Tests: `HrWave1Tests` (unit and integration), full backend suite green.
