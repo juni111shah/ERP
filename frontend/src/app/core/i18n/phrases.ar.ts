@@ -1021,6 +1021,27 @@ const PAIRS: [string, string][] = [
   ['Cost basis saved', 'تم حفظ أساس التكلفة'], ['Could not save the cost basis', 'تعذّر حفظ أساس التكلفة'],
   ['Maintenance jobs in the period', 'أعمال الصيانة خلال الفترة'], ['Completed on', 'تاريخ الإنجاز'], ['Cost from', 'مصدر التكلفة'], ['Borne by', 'يتحملها'],
   ['Owner pays', 'يدفع المالك'], ['Charged to tenant', 'محمّل على المستأجر'], ['Charged to tenants (memo, not deducted)', 'محمّل على المستأجرين (للعلم، غير مخصوم)'],
+
+  // HR completion: self-service, people, loans, settlement, statutory rules, attendance, hiring
+  ['My HR', 'مواردي البشرية'], ['Departments', 'الأقسام'], ['Positions', 'المناصب'], ['Organisation', 'الهيكل التنظيمي'], ['Document expiry', 'انتهاء المستندات'],
+  ['Loans and advances', 'القروض والسلف'], ['HR reports', 'تقارير الموارد البشرية'], ['Daily attendance', 'الحضور اليومي'], ['Statutory rules', 'القواعد النظامية'],
+  ['Recruitment', 'التوظيف'], ['Checklists', 'قوائم المهام'], ['HR tasks', 'مهام الموارد البشرية'], ['New department', 'قسم جديد'], ['New position', 'منصب جديد'],
+  ['New loan', 'قرض جديد'], ['New rule', 'قاعدة جديدة'], ['New vacancy', 'وظيفة شاغرة جديدة'], ['New candidate', 'مرشح جديد'], ['New checklist', 'قائمة مهام جديدة'],
+  ['Vacancies', 'الوظائف الشاغرة'], ['Candidates', 'المرشحون'], ['Hire', 'تعيين'], ['Reject', 'رفض'], ['Pay out', 'صرف'], ['Cancel loan', 'إلغاء القرض'],
+  ['Documents', 'المستندات'], ['History and tasks', 'السجل والمهام'], ['End employment', 'إنهاء الخدمة'], ['Final settlement', 'التسوية النهائية'],
+  ['Preview settlement', 'معاينة التسوية'], ['Prepare final settlement', 'إعداد التسوية النهائية'], ['Termination date', 'تاريخ انتهاء الخدمة'], ['Last working day', 'آخر يوم عمل'],
+  ['Notice given on', 'تاريخ تقديم الإشعار'], ['Reason', 'السبب'], ['Net to pay', 'صافي المستحق'], ['Gross', 'الإجمالي'], ['End of service', 'نهاية الخدمة'],
+  ['Balances', 'الأرصدة'], ['My leave', 'إجازاتي'], ['Payslips', 'قسائم الرواتب'], ['Team approvals', 'موافقات الفريق'], ['Request leave', 'طلب إجازة'], ['Send request', 'إرسال الطلب'],
+  ['Approve', 'موافقة'], ['Mark done', 'تم'], ['Add a day', 'إضافة يوم'], ['Import', 'استيراد'], ['Roll up to the month', 'تجميع الشهر'], ['Check-in', 'وقت الدخول'], ['Check-out', 'وقت الخروج'],
+  ['Present', 'حاضر'], ['Absent', 'غائب'], ['On leave', 'في إجازة'], ['Weekly off', 'إجازة أسبوعية'], ['Public holiday', 'عطلة رسمية'], ['Worked', 'ساعات العمل'],
+  ['Employee deduction', 'استقطاع من الموظف'], ['Employer cost', 'تكلفة صاحب العمل'], ['Flat percent', 'نسبة ثابتة'], ['Rate (%)', 'النسبة (%)'], ['Nationalities', 'الجنسيات'],
+  ['Effective from', 'ساري من'], ['Effective to', 'ساري حتى'], ['Applied to', 'يطبق على'], ['Basic salary', 'الراتب الأساسي'], ['Gross pay', 'إجمالي الراتب'],
+  ['Statutory deductions and contributions', 'الاستقطاعات والمساهمات النظامية'], ['of which statutory', 'منها نظامية'], ['of which loans', 'منها قروض'],
+  ['Void', 'إلغاء'], ['Email payslips', 'إرسال القسائم بالبريد'], ['Pay salaries', 'دفع الرواتب'], ['Off-cycle', 'خارج الدورة'], ['Partly paid', 'مدفوع جزئياً'], ['Voided', 'ملغى'],
+  ['Onboarding', 'تهيئة الموظف الجديد'], ['Offboarding', 'إنهاء خدمة الموظف'], ['Steps', 'الخطوات'], ['Applied', 'تقدّم'], ['Screening', 'فرز'], ['Interview', 'مقابلة'], ['Offer', 'عرض'], ['Hired', 'تم التعيين'],
+  ['First day is a half day', 'اليوم الأول نصف يوم'], ['Last day is a half day', 'اليوم الأخير نصف يوم'], ['Apply country defaults', 'تطبيق إعدادات الدولة'],
+  ['Paid out when the employee leaves', 'تُصرف عند مغادرة الموظف'], ['Pro-rata in the first year', 'بالتناسب في السنة الأولى'], ['Line manager', 'المدير المباشر'], ['Contract type', 'نوع العقد'],
+  ['Probation ends', 'نهاية فترة التجربة'], ['Contract ends', 'نهاية العقد'], ['Notice period (days)', 'مدة الإشعار (أيام)'], ['Date of birth', 'تاريخ الميلاد'], ['Emergency contact', 'جهة اتصال للطوارئ'],
 ];
 
 export const PHRASES_AR: Record<string, string> = Object.fromEntries(PAIRS);

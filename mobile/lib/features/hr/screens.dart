@@ -4,6 +4,7 @@ import '../../kit/registry.dart';
 import 'attendance_screens.dart';
 import 'employee_screens.dart';
 import 'leave_screens.dart';
+import 'life_screens.dart';
 import 'payroll_screens.dart';
 import 'people_screens.dart';
 import 'self_service_screens.dart';
@@ -12,6 +13,11 @@ import 'setup_screens.dart';
 
 /// Screens of this area for the More menu. Add a MobileScreen per server menu entry you build.
 final List<MobileScreen> hrScreens = <MobileScreen>[
+  MobileScreen(id: 'hr-daily-attendance', title: 'Daily attendance', menuIds: const ['hr.dailyattendance'], icon: Icons.event_available_outlined, builder: (_) => const DailyAttendanceScreen()),
+  MobileScreen(id: 'hr-statutory', title: 'Statutory rules', menuIds: const ['hr.statutory'], icon: Icons.gavel_outlined, builder: (_) => const StatutoryRulesScreen()),
+  MobileScreen(id: 'hr-recruitment', title: 'Recruitment', menuIds: const ['hr.recruitment'], icon: Icons.person_search_outlined, builder: (_) => const RecruitmentScreen()),
+  MobileScreen(id: 'hr-checklists', title: 'Checklists', menuIds: const ['hr.checklists'], icon: Icons.checklist, builder: (_) => const ChecklistsScreen()),
+  MobileScreen(id: 'hr-tasks', title: 'HR tasks', menuIds: const ['hr.tasks'], icon: Icons.task_alt, builder: (_) => const OpenTasksScreen()),
   MobileScreen(id: 'hr-my', title: 'My HR', menuIds: const ['hr.my'], icon: Icons.person_outline, builder: (_) => const MyHrScreen()),
   MobileScreen(id: 'hr-departments', title: 'Departments', menuIds: const ['hr.departments'], icon: Icons.apartment_outlined, builder: (_) => const DepartmentsScreen()),
   MobileScreen(id: 'hr-positions', title: 'Positions', menuIds: const ['hr.positions'], icon: Icons.badge_outlined, builder: (_) => const PositionsScreen()),

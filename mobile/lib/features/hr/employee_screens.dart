@@ -10,6 +10,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import 'hr_common.dart';
+import 'life_screens.dart';
 import 'people_screens.dart';
 import 'settlement_screen.dart';
 import 'package:erp_mobile/theme/tokens.dart';
@@ -194,6 +195,16 @@ class _EmployeeActions extends ConsumerWidget {
           icon: const Icon(Icons.folder_open),
           label: const Text('Documents'),
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EmployeeDocumentsScreen(employeeId: '${d['id']}', name: '${d['fullName']}'))),
+        ),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.history),
+          label: const Text('History'),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EmployeeHistoryScreen(employeeId: '${d['id']}', name: '${d['fullName']}'))),
+        ),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.checklist),
+          label: const Text('Tasks'),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EmployeeTasksScreen(employeeId: '${d['id']}', name: '${d['fullName']}'))),
         ),
         if (!left && me.can('hr.employees.manage'))
           OutlinedButton.icon(

@@ -22,9 +22,9 @@ export interface AttendanceRow {
 export interface PayrollSummary { id: string; number: string; legalEntityId: string; year: number; month: number; status: string; employees: number; grossEarnings: number; deductions: number; netPay: number; paidOn?: string; kind?: string; }
 export interface PayrollLine {
   id: string; employeeId: string; employeeNumber?: string; employeeName: string; absentDays: number; overtimeHours: number; basic: number; allowances: number; overtime: number; absence: number;
-  adjustment: number; adjustmentNote?: string; grossEarnings: number; deductions: number; netPay: number; proratedDays?: number; paidOn?: string; loanRecovery?: number; leaveEncashment?: number; endOfService?: number;
+  adjustment: number; adjustmentNote?: string; grossEarnings: number; deductions: number; netPay: number; proratedDays?: number; paidOn?: string; loanRecovery?: number; leaveEncashment?: number; endOfService?: number; statutoryDeduction?: number; employerCost?: number;
 }
-export interface PayrollDto extends PayrollSummary { kind?: string; voidReason?: string; voidedAt?: string; plannedPayDate?: string; notes?: string; approvalRequestId?: string; accrualJournalId?: string; paymentJournalId?: string; lines: PayrollLine[]; }
+export interface PayrollDto extends PayrollSummary { employerCost?: number; kind?: string; voidReason?: string; voidedAt?: string; plannedPayDate?: string; notes?: string; approvalRequestId?: string; accrualJournalId?: string; paymentJournalId?: string; lines: PayrollLine[]; }
 
 export const EMPLOYEE_STATUSES = [{ value: 'active', label: 'Active' }, { value: 'onLeave', label: 'On leave' }, { value: 'terminated', label: 'Terminated' }];
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
