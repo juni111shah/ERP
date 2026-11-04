@@ -37,6 +37,8 @@ public sealed class HrModule : ModuleBase
         PermissionDefinition.Of(P.LeaveRead, "View leave requests, balances and the holiday calendar"),
         PermissionDefinition.Of(P.LeaveRequest, "Create, submit and cancel leave requests"),
         PermissionDefinition.Of(P.LeaveApprove, "Approve or reject leave requests; manage leave types and public holidays"),
+        PermissionDefinition.Of(P.LeaveManage, "File leave for any employee"),
+        PermissionDefinition.Of(P.SalaryRead, "See salary and pay details"),
     ];
 
     public override IEnumerable<MenuItemDefinition> Menu =>
@@ -61,6 +63,8 @@ public sealed class HrModule : ModuleBase
         new("hr.employerEstablishmentId", "WPS employer establishment ID (EID)", "\"\"", "text", "Used in the SCR record of the WPS SIF file."),
         new("hr.weekendDays", "Weekend days (not counted as leave)", "\"Saturday,Sunday\"", "text", "Comma-separated day names, for example Friday,Saturday."),
         new("hr.employerBankRoutingCode", "WPS employer bank routing code", "\"\"", "text", "Routing code of the bank that pays the salaries."),
+        new("hr.blockSelfApproval", "Block approving your own leave request", "true", "bool", "When on, nobody can approve or reject a leave request they raised or that is their own."),
+        new("hr.payrollSeparationOfDuties", "Payroll separation of duties", "false", "bool", "When on, whoever generated or adjusted a payroll run cannot post it, and whoever posted it cannot pay it."),
     ];
 
     public override IEnumerable<CustomizableEntityDefinition> CustomizableEntities =>
@@ -72,7 +76,7 @@ public sealed class HrModule : ModuleBase
             Roles:
             [
                 new("Hr manager", "Employees, attendance and payroll",
-                    [P.EmployeesRead, P.EmployeesManage, P.AttendanceRead, P.AttendanceManage, P.PayrollRead, P.PayrollManage, P.PayrollPost, P.PayrollPay, P.ReviewsRead, P.ReviewsManage, P.LeaveRead, P.LeaveRequest, P.LeaveApprove,
+                    [P.EmployeesRead, P.EmployeesManage, P.AttendanceRead, P.AttendanceManage, P.PayrollRead, P.PayrollManage, P.PayrollPost, P.PayrollPay, P.ReviewsRead, P.ReviewsManage, P.LeaveRead, P.LeaveRequest, P.LeaveApprove, P.LeaveManage, P.SalaryRead,
                      CorePermissions.ReportsRead, CorePermissions.BankRead, CorePermissions.SensitiveRead], Key),
             ],
             Sequences:
@@ -85,6 +89,7 @@ public sealed class HrModule : ModuleBase
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddHrPeople();
         services.AddScoped<GratuityCalculator>();
         services.AddScoped<LeaveCalendarProvider>();
         services.AddScoped<LeaveFeed>();
@@ -193,6 +198,7 @@ public sealed class HrModule : ModuleBase
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Year, x.Month }).IsUnique().HasFilter("[IsDeleted] = 0");
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
         });
+        StructureModel.Configure(mb);
         mb.Entity<PayrollLine>(b =>
         {
             b.ToTable("hr_PayrollLines");

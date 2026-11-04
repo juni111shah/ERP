@@ -35,8 +35,9 @@ public sealed record CreateLeaveRequest(LeaveRequestInput Input) : ICommand<Leav
 public sealed record UpdateLeaveRequest(Guid Id, LeaveRequestInput Input) : ICommand<LeaveRequestDto>, IRequirePermission { public string RequiredPermission => P.LeaveRequest; }
 public sealed record SubmitLeaveRequest(Guid Id) : ICommand<LeaveRequestDto>, IRequirePermission { public string RequiredPermission => P.LeaveRequest; }
 public sealed record CancelLeaveRequest(Guid Id) : ICommand<LeaveRequestDto>, IRequirePermission { public string RequiredPermission => P.LeaveRequest; }
-public sealed record ApproveLeaveRequest(Guid Id, string? Comment) : ICommand<LeaveRequestDto>, IRequirePermission { public string RequiredPermission => P.LeaveApprove; }
-public sealed record RejectLeaveRequest(Guid Id, string? Comment) : ICommand<LeaveRequestDto>, IRequirePermission { public string RequiredPermission => P.LeaveApprove; }
+/// <summary>Needs <c>hr.leave.approve</c>, or being the line manager of the request's employee; checked in the handler (a manager need not hold the permission).</summary>
+public sealed record ApproveLeaveRequest(Guid Id, string? Comment) : ICommand<LeaveRequestDto>;
+public sealed record RejectLeaveRequest(Guid Id, string? Comment) : ICommand<LeaveRequestDto>;
 
 public sealed class LeaveTypeInputValidator : AbstractValidator<LeaveTypeInput>
 {
@@ -104,7 +105,7 @@ public sealed class LeaveFeed(IReadRepository<LeaveRequest> requests, IReadRepos
 
 internal sealed class LeaveHandlers(
     IRepository<LeaveType> types, IRepository<LeaveBalance> balances, IRepository<LeaveRequest> requests, IRepository<PublicHoliday> holidays, IReadRepository<Employee> employees,
-    IReadRepository<UserRole> userRoles, LeaveCalendarProvider calendars, INotifier notifier, ICurrentUser user, IClock clock, IUnitOfWork uow) :
+    IReadRepository<UserRole> userRoles, LeaveCalendarProvider calendars, INotifier notifier, ICurrentUser user, IClock clock, IUnitOfWork uow, ISettingsService settings) :
     IRequestHandler<CreateLeaveType, LeaveTypeDto>,
     IRequestHandler<UpdateLeaveType, LeaveTypeDto>,
     IRequestHandler<CreateHoliday, HolidayDto>,
@@ -211,6 +212,7 @@ internal sealed class LeaveHandlers(
     {
         var i = cmd.Input;
         var (employee, type) = await ResolveAsync(i, token);
+        RequireCanFileFor(employee);
         var r = new LeaveRequest { LegalEntityId = employee.LegalEntityId, EmployeeId = employee.Id, EmployeeName = employee.FullName, LeaveTypeId = type.Id, RequestedByUserId = user.UserId };
         await FillAsync(r, i, token);
         requests.Add(r);
@@ -225,7 +227,8 @@ internal sealed class LeaveHandlers(
         if (r.Status != LeaveStatus.Draft) throw new ConflictException("Only a draft request can be edited. Cancel it and make a new one.");
         var i = cmd.Input;
         if (i.EmployeeId != r.EmployeeId) throw new FieldValidationException("employeeId", "A request cannot move to another employee.");
-        var (_, type) = await ResolveAsync(i, token);
+        var (owner, type) = await ResolveAsync(i, token);
+        RequireCanFileFor(owner);
         r.LeaveTypeId = type.Id;
         await FillAsync(r, i, token);
         if (i.Submit) await SubmitCoreAsync(r, type, token);
@@ -260,6 +263,7 @@ internal sealed class LeaveHandlers(
     public Task<LeaveRequestDto> Handle(ApproveLeaveRequest cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
     {
         var r = await requests.GetForUpdateAsync(cmd.Id, token);
+        await RequireCanDecideAsync(r, token);
         if (r.Status != LeaveStatus.Submitted) throw new ConflictException($"Only a submitted request can be approved (this one is {r.Status.ToString().ToLowerInvariant()}).");
         var type = await types.GetAsync(r.LeaveTypeId, token);
         await ValidateAsync(r, type, ignorePending: true, token);
@@ -272,6 +276,7 @@ internal sealed class LeaveHandlers(
     public Task<LeaveRequestDto> Handle(RejectLeaveRequest cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
     {
         var r = await requests.GetForUpdateAsync(cmd.Id, token);
+        await RequireCanDecideAsync(r, token);
         if (r.Status != LeaveStatus.Submitted) throw new ConflictException($"Only a submitted request can be rejected (this one is {r.Status.ToString().ToLowerInvariant()}).");
         r.Status = LeaveStatus.Rejected; r.DecidedByUserId = user.UserId; r.DecidedAt = clock.UtcNow; r.DecisionComment = cmd.Comment;
         await requests.SaveChangesAsync(token);
@@ -310,7 +315,11 @@ internal sealed class LeaveHandlers(
         await ValidateAsync(r, type, ignorePending: false, ct);
         r.Status = LeaveStatus.Submitted; r.SubmittedAt = clock.UtcNow;
         if (!type.RequiresApproval) { await ApproveCoreAsync(r, type, "Approved automatically (no approval needed for this leave type).", ct); return; }
-        foreach (var approver in await UsersWithAsync(P.LeaveApprove, ct))
+        // the line manager (if linked to a user) is told first, then everyone who may approve
+        var managerUser = await ManagerUserAsync(r.EmployeeId, ct);
+        if (managerUser is { } mu)
+            await notifier.NotifyUserAsync(mu, "Leave request to approve", $"{r.EmployeeName}: {r.FromDate:yyyy-MM-dd} to {r.ToDate:yyyy-MM-dd} ({r.Days:0.##} days)", "/hr/leave", "info", ct);
+        foreach (var approver in (await UsersWithAsync(P.LeaveApprove, ct)).Where(a => a != managerUser))
             await notifier.NotifyUserAsync(approver, "Leave request to approve", $"{r.EmployeeName}: {r.FromDate:yyyy-MM-dd} to {r.ToDate:yyyy-MM-dd} ({r.Days:0.##} days)", "/hr/leave", "info", ct);
     }
 
@@ -357,6 +366,34 @@ internal sealed class LeaveHandlers(
         balances.Add(b);
         createdBalances[(employeeId, typeId, year)] = b;
         return b;
+    }
+
+    /// <summary>Staff without hr.leave.manage can only file leave for the employee linked to their own account.</summary>
+    private void RequireCanFileFor(Employee employee)
+    {
+        if (user.HasPermission(P.LeaveManage)) return;
+        if (user.UserId is { } me && employee.UserId == me) return;
+        throw new ForbiddenException("You can only file leave for your own employee record.");
+    }
+
+    /// <summary>Decisions need hr.leave.approve, or being the line manager of the employee; with hr.blockSelfApproval (default on) nobody decides their own request.</summary>
+    private async Task RequireCanDecideAsync(LeaveRequest r, CancellationToken ct)
+    {
+        var owner = await employees.FindAsync(r.EmployeeId, ct);
+        if (!user.HasPermission(P.LeaveApprove))
+        {
+            var me = user.UserId;
+            var manager = owner?.ManagerEmployeeId is { } mid ? await employees.FindAsync(mid, ct) : null;
+            if (me is null || manager?.UserId != me) throw new ForbiddenException();
+        }
+        if (await settings.GetAsync<bool?>("hr.blockSelfApproval", r.LegalEntityId, ct) ?? true)
+            if (user.UserId is { } uid && (r.RequestedByUserId == uid || owner?.UserId == uid)) throw new ConflictException("You cannot decide your own leave request.");
+    }
+
+    private async Task<Guid?> ManagerUserAsync(Guid employeeId, CancellationToken ct)
+    {
+        var owner = await employees.FindAsync(employeeId, ct);
+        return owner?.ManagerEmployeeId is { } mid ? (await employees.FindAsync(mid, ct))?.UserId : null;
     }
 
     private async Task<List<Guid>> UsersWithAsync(string permission, CancellationToken ct)

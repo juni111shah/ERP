@@ -66,7 +66,7 @@ public sealed class PayPayrollValidator : AbstractValidator<PayPayroll>
 internal sealed class PayrollHandlers(
     IRepository<PayrollRun> runs, IRepository<PayrollLine> lineRows, IReadRepository<Employee> employees, IReadRepository<AttendanceRecord> attendance, LeaveFeed leaveFeed, IReadRepository<Account> accounts, IClock clock,
     IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ISettingsService settings, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering,
-    IUnitOfWork uow) :
+    IUnitOfWork uow, PayrollSeparation separation) :
     IRequestHandler<GetPayroll, PayrollDto>,
     IRequestHandler<GetPayrollBankFile, string>,
     IRequestHandler<GetPayrollWpsFile, string>,
@@ -147,6 +147,7 @@ internal sealed class PayrollHandlers(
         var entity = await guard.RequireAsync(i.LegalEntityId, token);
         if (await runs.AnyAsync(r => r.LegalEntityId == entity.Id && r.Year == i.Year && r.Month == i.Month, token)) throw new ConflictException("There is already a payroll run for this entity and month.");
         var run = new PayrollRun { LegalEntityId = entity.Id, Year = i.Year, Month = i.Month, PlannedPayDate = i.PlannedPayDate, Notes = i.Notes, Status = PayrollStatus.Draft };
+        separation.StampGenerated(run);
         run.Number = await numbering.NextAsync(Docs.Payroll, entity.Id, new DateOnly(i.Year, i.Month, 1), token);
         var lines = await BuildLinesAsync(run, new Dictionary<Guid, (decimal, string?)>(), token);
         if (lines.Count == 0) throw new ConflictException("No active employees are on the payroll for this month.");
@@ -164,7 +165,7 @@ internal sealed class PayrollHandlers(
         foreach (var old in run.Lines.ToList()) lineRows.Remove(old);
         var fresh = await BuildLinesAsync(run, keep, token);
         lineRows.AddRange(fresh);
-        run.Lines.Clear(); run.Lines.AddRange(fresh); Totals(run); run.Status = PayrollStatus.Draft; run.ApprovalRequestId = null;
+        run.Lines.Clear(); run.Lines.AddRange(fresh); Totals(run); run.Status = PayrollStatus.Draft; run.ApprovalRequestId = null; separation.StampAdjusted(run);
         await runs.SaveChangesAsync(token);
         return ToDto(run);
     }, ct);
@@ -178,7 +179,7 @@ internal sealed class PayrollHandlers(
         var a = PayrollMath.Calculate(line.Basic, line.Allowances, line.Deductions, line.AbsentDays, line.OvertimeHours, cmd.Adjustment, s.DaysBasis, s.OvertimeMultiplier, s.HoursPerDay);
         if (a.GrossEarnings < 0 || a.NetPay < 0) throw new FieldValidationException("adjustment", "The adjustment would make the pay negative.");
         line.Adjustment = cmd.Adjustment; line.AdjustmentNote = cmd.Note?.Trim(); line.Overtime = a.Overtime; line.Absence = a.Absence; line.GrossEarnings = a.GrossEarnings; line.NetPay = a.NetPay;
-        Totals(run); run.Status = PayrollStatus.Draft; run.ApprovalRequestId = null;
+        Totals(run); run.Status = PayrollStatus.Draft; run.ApprovalRequestId = null; separation.StampAdjusted(run);
         await runs.SaveChangesAsync(ct);
         return ToDto(run);
     }
@@ -199,6 +200,7 @@ internal sealed class PayrollHandlers(
         var run = await LoadAsync(cmd.Id, ct);
         if (run.Status is not (PayrollStatus.Draft or PayrollStatus.PendingApproval)) throw new ConflictException("Only a draft payroll can be posted.");
         if (run.NetPay <= 0) throw new ConflictException("A payroll with no net pay cannot be posted.");
+        await separation.RequireCanPostAsync(run, ct);
 
         if (await settings.GetAsync<bool?>("hr.payrollRequiresApproval", run.LegalEntityId, ct) == true)
         {
@@ -220,7 +222,7 @@ internal sealed class PayrollHandlers(
         if (run.Deductions > 0) lines.Add(new PostingLine(await posting.AccountForRoleAsync("payroll.advances", ct), 0, run.Deductions, memo));
         var date = new DateOnly(run.Year, run.Month, DateTime.DaysInMonth(run.Year, run.Month));
         var journal = await posting.PostAsync(new PostingRequest(run.LegalEntityId, date, "payroll", run.Id, memo, run.Number, lines), ct);
-        run.AccrualJournalId = journal.Id; run.Status = PayrollStatus.Posted;
+        run.AccrualJournalId = journal.Id; run.Status = PayrollStatus.Posted; separation.StampPosted(run);
         await runs.SaveChangesAsync(ct);
         return ToDto(run);
     }
@@ -231,6 +233,7 @@ internal sealed class PayrollHandlers(
     {
         var run = await LoadAsync(cmd.Id, ct);
         if (run.Status != PayrollStatus.Posted) throw new ConflictException(run.Status == PayrollStatus.Paid ? "This payroll is already paid." : "Post the payroll before paying it.");
+        await separation.RequireCanPayAsync(run, ct);
         var bank = await accounts.FindAsync(cmd.BankAccountId, ct);
         if (bank is null || !ERP.Application.Finance.BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank account.");
         if (cmd.Date < new DateOnly(run.Year, run.Month, 1)) throw new FieldValidationException("date", "The payment date cannot be before the payroll month.");
