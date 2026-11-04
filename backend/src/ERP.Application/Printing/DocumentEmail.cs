@@ -88,7 +88,8 @@ internal static class DocumentEmailRenderer
 
 internal sealed class DocumentEmailHandlers(ISender sender, IEmailSender email, IRepository<MessageLog> log, IReadRepository<Domain.Parties.Party> parties, IReadRepository<Domain.Organizations.Organization> orgs, ICurrentUser user, IClock clock) :
     IRequestHandler<EmailDocument, EmailSentDto>,
-    IRequestHandler<EmailPartyStatement, EmailSentDto>
+    IRequestHandler<EmailPartyStatement, EmailSentDto>,
+    IRequestHandler<EmailGenericDocument, EmailSentDto>
 {
     private static readonly DocumentStatus[] Sendable = [DocumentStatus.Issued, DocumentStatus.PartlyPaid, DocumentStatus.Paid];
 
@@ -104,6 +105,18 @@ internal sealed class DocumentEmailHandlers(ISender sender, IEmailSender email, 
             _ => throw new FieldValidationException("kind", "Unsupported document."),
         };
         return await SendAsync(cmd.Kind.ToString().ToLowerInvariant(), cmd.Id.ToString(), doc, ResolveRecipient(cmd.Input.To, partyEmail), ct);
+    }
+
+    public async Task<EmailSentDto> Handle(EmailGenericDocument cmd, CancellationToken ct)
+    {
+        EnsureConfigured();
+        var d = cmd.Doc;
+        var facts = new List<(string, string)>();
+        if (d.PartyName is not null) facts.Add((d.PartyLabel ?? "To", d.PartyName));
+        facts.AddRange(d.Meta);
+        var lines = d.Rows.Select(r => (r.Length > 0 ? r[0] : "", "", "", r.Length > 1 ? r[^1] : "")).ToList();
+        var doc = new EmailDoc($"{d.Title} {d.Number}", d.Header.LegalEntityName, d.Header.BaseCurrency, facts, lines, d.Totals.Select(t => (t.Label, t.Value)).ToList(), cmd.Message);
+        return await SendAsync(cmd.Kind, cmd.Id, doc, ResolveRecipient(cmd.To, null), ct);
     }
 
     public async Task<EmailSentDto> Handle(EmailPartyStatement cmd, CancellationToken ct)

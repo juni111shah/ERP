@@ -1,4 +1,5 @@
 using ERP.Application.Common;
+using ERP.Application.Printing;
 using ERP.Application.Security;
 using ERP.Modularity;
 using ERP.Modules.Hr.Domain;
@@ -54,6 +55,10 @@ internal static class HrEndpoints
         payroll.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetPayroll(id), ct)).RequirePermission(P.PayrollRead);
         payroll.MapGet("/{id:guid}/bank-file", async (Guid id, ISender s, CancellationToken ct) => Results.Text(await s.Send(new GetPayrollBankFile(id), ct), "text/csv")).RequirePermission(P.PayrollPay);
         payroll.MapGet("/{id:guid}/wps-sif", async (Guid id, ISender s, CancellationToken ct) => Results.Text(await s.Send(new GetPayrollWpsFile(id), ct), "text/csv")).RequirePermission(P.PayrollPay);
+        payroll.MapGet("/{id:guid}/payslips/{lineId:guid}", (Guid id, Guid lineId, ISender s, CancellationToken ct) => s.Send(new GetPayslip(id, lineId), ct)).RequirePermission(P.PayrollRead);
+        payroll.MapGet("/{id:guid}/payslips/{lineId:guid}/payslip.pdf", async (Guid id, Guid lineId, ISender s, CancellationToken ct) => { var f = await s.Send(new GetPayslipPdf(id, lineId), ct); return Results.File(f.Content, PrintPdfFile.ContentType, f.FileName); }).RequirePermission(P.PayrollRead);
+        payroll.MapPost("/{id:guid}/payslips/{lineId:guid}/email", (Guid id, Guid lineId, PayslipEmailInput? body, ISender s, CancellationToken ct) => s.Send(new EmailPayslip(id, lineId, body ?? new(null, null)), ct)).RequirePermission(P.PayrollRead);
+        payroll.MapPost("/{id:guid}/email-payslips", (Guid id, ISender s, CancellationToken ct) => s.Send(new EmailPayslips(id), ct)).RequirePermission(P.PayrollRead);
         payroll.MapPost("", async (GeneratePayrollInput input, ISender s, CancellationToken ct) =>
         {
             var created = await s.Send(new GeneratePayroll(input), ct);

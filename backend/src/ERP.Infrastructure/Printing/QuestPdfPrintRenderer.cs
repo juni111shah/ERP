@@ -130,6 +130,10 @@ public sealed class QuestPdfPrintRenderer : IPrintPdfRenderer
             j.Memo, []));
     }
 
+    public byte[] Render(PrintGenericDto d)
+        => Compose(new Doc(d.Header, d.Title, d.Number, d.Stamp, d.PartyLabel, d.PartyName, d.PartyLines, d.Meta,
+            [.. d.Columns.Select(c => new Column(c.Title, c.Relative, c.Numeric))], d.Rows, [.. d.Totals.Select(t => new TotalLine(t.Label, t.Value, t.Strong))], d.Notes, []));
+
     // ----- shared model -----
 
     private sealed record Column(string Title, float Relative, bool Numeric = false);

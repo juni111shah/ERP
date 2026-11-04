@@ -75,7 +75,7 @@ public sealed class HrModule : ModuleBase
             [
                 new("Hr manager", "Employees, attendance and payroll",
                     [P.EmployeesRead, P.EmployeesManage, P.AttendanceRead, P.AttendanceManage, P.PayrollRead, P.PayrollManage, P.PayrollPost, P.PayrollPay, P.ReviewsRead, P.ReviewsManage, P.LeaveRead, P.LeaveRequest, P.LeaveApprove,
-                     CorePermissions.ReportsRead, CorePermissions.BankRead, CorePermissions.SensitiveRead], Key),
+                     CorePermissions.ReportsRead, CorePermissions.EmailSend, CorePermissions.BankRead, CorePermissions.SensitiveRead], Key),
             ],
             Sequences:
             [
