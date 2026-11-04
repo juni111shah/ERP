@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Modules.Hr.Features;
 
 /// <summary>Headcount and monthly payroll cost on the overview.</summary>
-public sealed class HrDashboard(IReadRepository<Employee> employees, IReadRepository<PayrollRun> runs, IReadRepository<PerformanceReview> reviews, IReadRepository<LeaveRequest> leaveRequests, ICurrentUser user) : IDashboardContributor
+public sealed class HrDashboard(IReadRepository<Employee> employees, IReadRepository<PayrollRun> runs, IReadRepository<PerformanceReview> reviews, IReadRepository<LeaveRequest> leaveRequests, IReadRepository<EmployeeDocument> documents, ICurrentUser user) : IDashboardContributor
 {
     public string ModuleKey => HrModule.Key;
 
@@ -17,6 +17,7 @@ public sealed class HrDashboard(IReadRepository<Employee> employees, IReadReposi
         var entity = scope.LegalEntityId;
         var kpis = new List<KpiCard>();
         var charts = new List<DashboardChart>();
+        var alerts = new List<DashboardAlert>();
         if (user.HasPermission(P.EmployeesRead))
         {
             var staff = await employees.Query(new Specification<Employee>(e => e.Status != EmployeeStatus.Terminated && (entity == null || e.LegalEntityId == entity)))
@@ -26,6 +27,10 @@ public sealed class HrDashboard(IReadRepository<Employee> employees, IReadReposi
             var statuses = new[] { EmployeeStatus.Active, EmployeeStatus.OnLeave, EmployeeStatus.Terminated };
             var grouped = await employees.Query().Where(e => entity == null || e.LegalEntityId == entity).CountByAsync(e => e.Status, ct);
             var counts = statuses.Select(k => (decimal)grouped.GetValueOrDefault(k)).ToList();
+            var expiry = await DocumentAlertsAsync(entity, scope.Today, ct);
+            if (expiry.Soon > 0) kpis.Add(new("docs-expiring", "Documents expiring", expiry.Soon, "number", "within 30 days", 112, "/hr/employees"));
+            if (expiry.Expired > 0) alerts.Add(new("critical", "HR", "action", $"{expiry.Expired} employee document(s) have expired.", "/hr/employees", 15));
+            if (expiry.Soon > 0) alerts.Add(new("warning", "HR", "upcoming", $"{expiry.Soon} document(s) expire within 30 days.", "/hr/employees", 35));
             charts.Add(new("hr-headcount", "Workforce status", "bar",
                 ["Active", "On Leave", "Terminated"],
                 [new("Headcount", counts)], "Employee employment status", 70));
@@ -45,7 +50,20 @@ public sealed class HrDashboard(IReadRepository<Employee> employees, IReadReposi
             var waiting = await leaveRequests.CountAsync(r => r.Status == LeaveStatus.Submitted && (entity == null || r.LegalEntityId == entity), ct);
             kpis.Add(new("leave-pending", "Leave requests pending", waiting, "number", "waiting for a decision", 119, "/hr/leave"));
         }
-        return new DashboardContribution(kpis, charts, []);
+        return new DashboardContribution(kpis, charts, alerts);
+    }
+
+    /// <summary>Expired documents and those that expire within 30 days, for staff still employed.</summary>
+    private async Task<(int Expired, int Soon)> DocumentAlertsAsync(Guid? entity, DateOnly today, CancellationToken ct)
+    {
+        var limit = today.AddDays(30);
+        var due = await documents.Query(new Specification<EmployeeDocument>(d => d.ExpiryDate != null && d.ExpiryDate <= limit && (entity == null || d.LegalEntityId == entity)))
+            .Select(d => new { d.EmployeeId, d.ExpiryDate }).ToListAsync(ct);
+        if (due.Count == 0) return (0, 0);
+        var ids = due.Select(d => d.EmployeeId).Distinct().ToList();
+        var active = (await employees.Query(new Specification<Employee>(e => ids.Contains(e.Id) && e.Status != EmployeeStatus.Terminated)).Select(e => e.Id).ToListAsync(ct)).ToHashSet();
+        var live = due.Where(d => active.Contains(d.EmployeeId)).ToList();
+        return (live.Count(d => d.ExpiryDate < today), live.Count(d => d.ExpiryDate >= today));
     }
 }
 

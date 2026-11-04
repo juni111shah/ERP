@@ -12,7 +12,7 @@ namespace ERP.Modules.Hr.Features;
 // None of these requests carries a permission: the link is the authorisation, and every query is narrowed to that one employee.
 
 public sealed record MyLeaveInput(Guid LeaveTypeId, DateOnly FromDate, DateOnly ToDate, string? Reason = null, bool Submit = false);
-public sealed record PayslipDto(Guid LineId, Guid RunId, string RunNumber, int Year, int Month, PayrollStatus Status, DateOnly? PaidOn, string EmployeeName, string? EmployeeNumber,
+public sealed record MyPayslipDto(Guid LineId, Guid RunId, string RunNumber, int Year, int Month, PayrollStatus Status, DateOnly? PaidOn, string EmployeeName, string? EmployeeNumber,
     decimal Basic, decimal Allowances, decimal Overtime, decimal Absence, decimal Adjustment, string? AdjustmentNote, int AbsentDays, decimal OvertimeHours,
     decimal GrossEarnings, decimal Deductions, decimal NetPay);
 
@@ -22,8 +22,8 @@ public sealed record CreateMyLeave(MyLeaveInput Input) : ICommand<LeaveRequestDt
 public sealed record SubmitMyLeave(Guid Id) : ICommand<LeaveRequestDto>;
 public sealed record CancelMyLeave(Guid Id) : ICommand<LeaveRequestDto>;
 public sealed record GetMyBalances(int? Year) : IQuery<IReadOnlyList<LeaveBalanceRow>>;
-public sealed record ListMyPayslips() : IQuery<IReadOnlyList<PayslipDto>>;
-public sealed record GetMyPayslip(Guid LineId) : IQuery<PayslipDto>;
+public sealed record ListMyPayslips() : IQuery<IReadOnlyList<MyPayslipDto>>;
+public sealed record GetMyPayslip(Guid LineId) : IQuery<MyPayslipDto>;
 /// <summary>Leave requests of the people who report to me (so a manager can find what to decide without hr.leave.read).</summary>
 public sealed record ListTeamLeave(PagedQuery Paging, string? Status) : IQuery<PagedResult<LeaveRequestRow>>;
 
@@ -46,8 +46,8 @@ internal sealed class SelfServiceHandlers(
     IRequestHandler<SubmitMyLeave, LeaveRequestDto>,
     IRequestHandler<CancelMyLeave, LeaveRequestDto>,
     IRequestHandler<GetMyBalances, IReadOnlyList<LeaveBalanceRow>>,
-    IRequestHandler<ListMyPayslips, IReadOnlyList<PayslipDto>>,
-    IRequestHandler<GetMyPayslip, PayslipDto>,
+    IRequestHandler<ListMyPayslips, IReadOnlyList<MyPayslipDto>>,
+    IRequestHandler<GetMyPayslip, MyPayslipDto>,
     IRequestHandler<ListTeamLeave, PagedResult<LeaveRequestRow>>
 {
     private LeaveHandlers Leave() => ActivatorUtilities.CreateInstance<LeaveHandlers>(services);
@@ -94,10 +94,10 @@ internal sealed class SelfServiceHandlers(
         return await Leave().Handle(new GetLeaveBalances(q.Year ?? clock.UtcNow.Year, me.Id, null), ct);
     }
 
-    public async Task<IReadOnlyList<PayslipDto>> Handle(ListMyPayslips q, CancellationToken ct)
+    public async Task<IReadOnlyList<MyPayslipDto>> Handle(ListMyPayslips q, CancellationToken ct)
         => (await PayslipsAsync(null, ct)).OrderByDescending(p => p.Year).ThenByDescending(p => p.Month).ToList();
 
-    public async Task<PayslipDto> Handle(GetMyPayslip q, CancellationToken ct)
+    public async Task<MyPayslipDto> Handle(GetMyPayslip q, CancellationToken ct)
         => (await PayslipsAsync(q.LineId, ct)).FirstOrDefault() ?? throw new NotFoundException("Payslip not found.");
 
     public async Task<PagedResult<LeaveRequestRow>> Handle(ListTeamLeave q, CancellationToken ct)
@@ -117,11 +117,11 @@ internal sealed class SelfServiceHandlers(
         if (!await requests.AnyAsync(r => r.Id == requestId && r.EmployeeId == me, ct)) throw new NotFoundException("Leave request not found.");
     }
 
-    private async Task<List<PayslipDto>> PayslipsAsync(Guid? lineId, CancellationToken ct)
+    private async Task<List<MyPayslipDto>> PayslipsAsync(Guid? lineId, CancellationToken ct)
     {
         var me = (await MeAsync(ct)).Id;
         return await runs.Query(new Specification<PayrollRun>(r => r.Status == PayrollStatus.Posted || r.Status == PayrollStatus.Paid))
-            .SelectMany(r => r.Lines.Where(l => l.EmployeeId == me && (lineId == null || l.Id == lineId)), (r, l) => new PayslipDto(l.Id, r.Id, r.Number, r.Year, r.Month, r.Status, r.PaidOn, l.EmployeeName, l.EmployeeNumber,
+            .SelectMany(r => r.Lines.Where(l => l.EmployeeId == me && (lineId == null || l.Id == lineId)), (r, l) => new MyPayslipDto(l.Id, r.Id, r.Number, r.Year, r.Month, r.Status, r.PaidOn, l.EmployeeName, l.EmployeeNumber,
                 l.Basic, l.Allowances, l.Overtime, l.Absence, l.Adjustment, l.AdjustmentNote, l.AbsentDays, l.OvertimeHours, l.GrossEarnings, l.Deductions, l.NetPay))
             .ToListAsync(ct);
     }

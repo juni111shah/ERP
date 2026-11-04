@@ -65,6 +65,8 @@ public sealed class HrModule : ModuleBase
         new("hr.employerBankRoutingCode", "WPS employer bank routing code", "\"\"", "text", "Routing code of the bank that pays the salaries."),
         new("hr.blockSelfApproval", "Block approving your own leave request", "true", "bool", "When on, nobody can approve or reject a leave request they raised or that is their own."),
         new("hr.payrollSeparationOfDuties", "Payroll separation of duties", "false", "bool", "When on, whoever generated or adjusted a payroll run cannot post it, and whoever posted it cannot pay it."),
+        new("hr.wps.columns", "Salary file columns (generic CSV)", "\"\"", "text", "Used when no country format exists. Comma-separated fields, for example employeeNumber,name,iban,bankRoutingCode,labourCard,netPay."),
+        new("hr.wps.header", "Salary file header line (generic CSV)", "\"\"", "text", "Optional first line of the generic salary file."),
     ];
 
     public override IEnumerable<CustomizableEntityDefinition> CustomizableEntities =>
@@ -77,7 +79,7 @@ public sealed class HrModule : ModuleBase
             [
                 new("Hr manager", "Employees, attendance and payroll",
                     [P.EmployeesRead, P.EmployeesManage, P.AttendanceRead, P.AttendanceManage, P.PayrollRead, P.PayrollManage, P.PayrollPost, P.PayrollPay, P.ReviewsRead, P.ReviewsManage, P.LeaveRead, P.LeaveRequest, P.LeaveApprove, P.LeaveManage, P.SalaryRead,
-                     CorePermissions.ReportsRead, CorePermissions.BankRead, CorePermissions.SensitiveRead], Key),
+                     CorePermissions.ReportsRead, CorePermissions.EmailSend, CorePermissions.BankRead, CorePermissions.SensitiveRead], Key),
             ],
             Sequences:
             [
@@ -90,6 +92,8 @@ public sealed class HrModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddHrPeople();
+        services.AddScoped<ERP.Modules.Hr.Wps.IWpsFileBuilder, ERP.Modules.Hr.Wps.UaeWpsFileBuilder>();
+        services.AddScoped<ERP.Modules.Hr.Wps.IWpsFileBuilder, ERP.Modules.Hr.Wps.QatarWpsFileBuilder>();
         services.AddScoped<GratuityCalculator>();
         services.AddScoped<LeaveCalendarProvider>();
         services.AddScoped<LeaveFeed>();
@@ -98,6 +102,10 @@ public sealed class HrModule : ModuleBase
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<LeaveRequest>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), LeavePolicyService.AttachmentOwnerType, P.LeaveRead, P.LeaveRequest));
         services.AddScoped<IDashboardContributor, HrDashboard>();
+        services.AddScoped<ERP.Application.Reminders.IReminderSource, EmployeeDocumentReminders>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<EmployeeDocument>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "hr.employeedocument", P.EmployeesRead, P.EmployeesManage));
         services.AddScoped<ICashForecastSource, PayrollForecastSource>();
         services.AddScoped<ERP.Application.Search.ISearchProvider, HrSearch>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
@@ -124,6 +132,16 @@ public sealed class HrModule : ModuleBase
             b.Ignore(x => x.GrossMonthly); b.Ignore(x => x.Allowances);
             b.HasIndex(x => new { x.OrgId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status });
+        });
+        mb.Entity<EmployeeDocument>(b =>
+        {
+            b.ToTable("hr_EmployeeDocuments");
+            b.Property(x => x.Number).HasMaxLength(100);
+            b.Property(x => x.IssuedBy).HasMaxLength(150);
+            b.Property(x => x.Notes).HasMaxLength(1000);
+            b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.EmployeeId });
+            b.HasIndex(x => new { x.OrgId, x.ExpiryDate });
         });
         mb.Entity<ReviewCycle>(b =>
         {

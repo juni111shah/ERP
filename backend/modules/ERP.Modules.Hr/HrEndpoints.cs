@@ -1,4 +1,5 @@
 using ERP.Application.Common;
+using ERP.Application.Printing;
 using ERP.Application.Security;
 using ERP.Modularity;
 using ERP.Modules.Hr.Domain;
@@ -68,6 +69,17 @@ internal static class HrEndpoints
         employees.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteEmployee(id), ct); return Results.NoContent(); }).RequirePermission(P.EmployeesManage);
 
         MapPeople(group);
+        var documents = group.MapGroup("/documents");
+        documents.MapPagedList<EmployeeDocument, EmployeeDocumentRow>("", P.EmployeesRead, d => new EmployeeDocumentRow(d.Id, d.EmployeeId, d.Type, d.Number, d.IssueDate, d.ExpiryDate, d.IssuedBy));
+        documents.MapGet("/expiring", (int? days, ISender s, CancellationToken ct) => s.Send(new ListExpiringDocuments(days ?? 60), ct)).RequirePermission(P.EmployeesRead);
+        documents.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetEmployeeDocument(id), ct)).RequirePermission(P.EmployeesRead);
+        documents.MapPost("", async (EmployeeDocumentInput input, ISender s, CancellationToken ct) =>
+        {
+            var created = await s.Send(new CreateEmployeeDocument(input), ct);
+            return Results.Created($"{Base}/documents/{created.Id}", created);
+        }).RequirePermission(P.EmployeesManage);
+        documents.MapPut("/{id:guid}", (Guid id, EmployeeDocumentInput input, ISender s, CancellationToken ct) => s.Send(new UpdateEmployeeDocument(id, input), ct)).RequirePermission(P.EmployeesManage);
+        documents.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteEmployeeDocument(id), ct); return Results.NoContent(); }).RequirePermission(P.EmployeesManage);
 
         var attendance = group.MapGroup("/attendance");
         attendance.MapGet("", (int year, int month, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new ListAttendance(year, month, legalEntityId), ct)).RequirePermission(P.AttendanceRead);
@@ -79,6 +91,10 @@ internal static class HrEndpoints
         payroll.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetPayroll(id), ct)).RequirePermission(P.PayrollRead);
         payroll.MapGet("/{id:guid}/bank-file", async (Guid id, bool? unpaidOnly, ISender s, CancellationToken ct) => Results.Text(await s.Send(new GetPayrollBankFile(id, unpaidOnly == true), ct), "text/csv")).RequirePermission(P.PayrollPay);
         payroll.MapGet("/{id:guid}/wps-sif", async (Guid id, bool? unpaidOnly, ISender s, CancellationToken ct) => Results.Text(await s.Send(new GetPayrollWpsFile(id, unpaidOnly == true), ct), "text/csv")).RequirePermission(P.PayrollPay);
+        payroll.MapGet("/{id:guid}/payslips/{lineId:guid}", (Guid id, Guid lineId, ISender s, CancellationToken ct) => s.Send(new GetPayslip(id, lineId), ct)).RequirePermission(P.PayrollRead);
+        payroll.MapGet("/{id:guid}/payslips/{lineId:guid}/payslip.pdf", async (Guid id, Guid lineId, ISender s, CancellationToken ct) => { var f = await s.Send(new GetPayslipPdf(id, lineId), ct); return Results.File(f.Content, PrintPdfFile.ContentType, f.FileName); }).RequirePermission(P.PayrollRead);
+        payroll.MapPost("/{id:guid}/payslips/{lineId:guid}/email", (Guid id, Guid lineId, PayslipEmailInput? body, ISender s, CancellationToken ct) => s.Send(new EmailPayslip(id, lineId, body ?? new(null, null)), ct)).RequirePermission(P.PayrollRead);
+        payroll.MapPost("/{id:guid}/email-payslips", (Guid id, ISender s, CancellationToken ct) => s.Send(new EmailPayslips(id), ct)).RequirePermission(P.PayrollRead);
         payroll.MapPost("", async (GeneratePayrollInput input, ISender s, CancellationToken ct) =>
         {
             var created = await s.Send(new GeneratePayroll(input), ct);
@@ -139,6 +155,8 @@ internal static class HrEndpoints
         leave.MapPost("/{id:guid}/reject", (Guid id, LeaveDecisionInput? body, ISender s, CancellationToken ct) => s.Send(new RejectLeaveRequest(id, body?.Comment), ct)).RequireAuthorization();
 
         var reports = group.MapGroup("/reports");
+        reports.MapGet("/summary", (DateOnly? from, DateOnly? to, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetHrSummaryReport(from, to, legalEntityId), ct)).RequirePermission(P.EmployeesRead);
+        reports.MapGet("/birthdays-anniversaries", (int? days, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetBirthdaysAnniversaries(days ?? 30, legalEntityId), ct)).RequirePermission(P.EmployeesRead);
         reports.MapGet("/gratuity", (DateOnly asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetGratuityReport(asOf, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapPost("/gratuity/provision", (ProvisionBody b, ISender s, CancellationToken ct) => s.Send(new PostGratuityProvision(b.LegalEntityId, b.AsOf), ct)).RequirePermission(P.PayrollPost);
     }
