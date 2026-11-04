@@ -73,7 +73,7 @@ internal static class HrEndpoints
 
         var leaveTypes = group.MapGroup("/leave-types");
         leaveTypes.MapPagedList<LeaveType, LeaveTypeDto>("", P.LeaveRead, t => new LeaveTypeDto(t.Id, t.Code, t.Name, t.IsPaid, t.AnnualDays, t.CarryForwardCap, t.RequiresApproval, t.IsActive, t.ProRataFirstYear, t.AccrualMode, t.RequiresAttachmentAfterDays,
-            t.Tiers.OrderBy(x => x.FromServiceYears).Select(x => new LeaveTierDto(x.FromServiceYears, x.Days)).ToList()));
+            t.Tiers.OrderBy(x => (double)x.FromServiceYears).Select(x => new LeaveTierDto(x.FromServiceYears, x.Days)).ToList()));
         leaveTypes.MapPost("", async (LeaveTypeInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/leave-types", await s.Send(new CreateLeaveType(input), ct))).RequirePermission(P.LeaveApprove);
         leaveTypes.MapPut("/{id:guid}", (Guid id, LeaveTypeInput input, ISender s, CancellationToken ct) => s.Send(new UpdateLeaveType(id, input), ct)).RequirePermission(P.LeaveApprove);
 
