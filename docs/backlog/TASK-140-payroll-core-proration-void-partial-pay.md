@@ -2,12 +2,12 @@
 id: TASK-140
 title: Payroll core: proration for joiners and leavers, void a posted run, pay in parts, off-cycle runs, deductions to the right account
 priority: P0
-status: in-progress
+status: ready-for-review
 schema: yes
 depends_on: []
 area: hr
 audit_ref: HR audit 2026-11-04 (items 1, 4, 8)
-commit:
+commit: branch claude/hr-payroll, commits starting TASK-140 (final hash in the report)
 owner: claude (branch claude/hr-complete)
 ---
 
@@ -40,6 +40,16 @@ Unit tests for `PayrollMath` proration (31-, 30- and 28-day months, join and lea
 ## Do not touch
 Attendance and leave logic, employee master data, web and mobile screens (a later wave).
 
-## What I did (Antigravity)
+## What I did (Claude, branch claude/hr-payroll)
+- Proration: `PayrollMath.EmployedDays` + `Calculate(..., employedDays, monthDays)`; `PayrollLine.ProratedDays` (in the DTO). Basic and allowances are prorated and rounded; overtime and absence (full monthly gross) unchanged. `AdjustPayrollLine` now only re-adds the adjustment to the stored parts (`PayrollMath.WithAdjustment`), so prorated lines stay prorated. Someone whose termination is before the join date in the month has 0 days and gets no line.
+- Void: `POST /hr/payroll/{id}/void` (`VoidPayroll`, permission `hr.payroll.post`); `PayrollRun` is `IVoidable` (+ `VoidReason`, max 500); audit event via `VoidMemo.Audit`. Reverses payment journals (distinct line `PaymentJournalId`s plus the run's) then the accrual. A draft returns 409 (delete it instead). The month index is now filtered to live Regular runs.
+- Pay in parts: `PayPayroll` takes optional `EmployeeIds`; `PayrollLine.PaidOn` / `PaymentJournalId`; statuses `Voided = 4`, `PartiallyPaid = 5`. Bank/WPS files take `?unpaidOnly=true` and refuse Voided runs.
+- Off-cycle: `PayrollKind` (Regular 0, OffCycle 1), `PayrollRun.Kind` and `IncludeSalary`; generate input has `Kind`, `EmployeeIds`, `IncludeSalary`; an off-cycle run needs a note. Zero-salary lines may name any employee of the entity; recalculate keeps the same employees.
+- Deductions: `payroll.deductions` account if present, else `payroll.advances`. Template gets `2310 Other payroll deductions payable`. **Existing workspaces must add that account (role `payroll.deductions`) to switch.**
+- New files: `Features/PayrollVoidFeatures.cs` (void and pay), `PayrollCoreTests` (6 integration), `PayrollProrationTests` (unit). Shared files edited: `Domain/Hr.cs`, `HrModule.cs` (index + VoidReason length), `HrEndpoints.cs` (body records, void route, unpaidOnly, Kind in summary), `PayrollFeatures.cs`, `Templates.cs`.
+- Old test updated: `HrApiTests.Attendance_exceptions_flow...` now expects the deduction on account 2310 (the template has it) and 0 on 1250.
+- Schema for the combined migration: `hr_PayrollRuns` + `Kind`, `IncludeSalary`, `VoidReason`, `VoidedAt`, `VoidedBy`, month index replaced by a filtered one (`[IsDeleted] = 0 AND [Kind] = 'Regular' AND [Status] <> 'Voided'`); `hr_PayrollLines` + `ProratedDays`, `PaidOn`, `PaymentJournalId`. Backfill advice: existing lines `ProratedDays` = days in month; lines of runs already Paid get `PaidOn`/`PaymentJournalId` from the run.
+- Not done: no migration or SQL; no CHECK constraint for voided columns.
+- Tests: full `dotnet test` passed (unit 392, integration 439 + 8 skipped).
 
 ## Review (Claude)
