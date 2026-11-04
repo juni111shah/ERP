@@ -25,7 +25,7 @@ public sealed record GetMyBalances(int? Year) : IQuery<IReadOnlyList<LeaveBalanc
 public sealed record ListMyPayslips() : IQuery<IReadOnlyList<PayslipDto>>;
 public sealed record GetMyPayslip(Guid LineId) : IQuery<PayslipDto>;
 /// <summary>Leave requests of the people who report to me (so a manager can find what to decide without hr.leave.read).</summary>
-public sealed record ListTeamLeave(PagedQuery Paging, LeaveStatus? Status) : IQuery<PagedResult<LeaveRequestRow>>;
+public sealed record ListTeamLeave(PagedQuery Paging, string? Status) : IQuery<PagedResult<LeaveRequestRow>>;
 
 public sealed class CreateMyLeaveValidator : AbstractValidator<CreateMyLeave>
 {
@@ -104,7 +104,8 @@ internal sealed class SelfServiceHandlers(
     {
         var me = (await MeAsync(ct)).Id;
         var reports = await employees.Query(new Specification<Employee>(e => e.ManagerEmployeeId == me)).Select(e => e.Id).ToListAsync(ct);
-        var status = q.Status;
+        LeaveStatus? status = null;
+        if (!string.IsNullOrWhiteSpace(q.Status)) status = Enum.TryParse<LeaveStatus>(q.Status, true, out var parsed) ? parsed : throw new FieldValidationException("status", "Unknown leave status.");
         return await requests.PageAsync(q.Paging, r => new LeaveRequestRow(r.Id, r.EmployeeId, r.EmployeeName, r.LeaveTypeId, r.FromDate, r.ToDate, r.Days, r.Status, r.Reason),
             new Specification<LeaveRequest>(r => reports.Contains(r.EmployeeId) && (status == null || r.Status == status)), ct);
     }

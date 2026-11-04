@@ -25,7 +25,9 @@ public class HrLeaveTests(ApiFactory f) : IClassFixture<ApiFactory>
         var (first, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re");
         await first.PostAsync("/api/v1/modules/hr/enable", null);
         var (c, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re");
-        var entity = (string)(await Ok(await c.PostAsJsonAsync("/api/v1/legal-entities", new { name = "Leave " + Guid.NewGuid().ToString("N")[..6], countryCode = "AE", baseCurrency = "AED", isTaxRegistered = false }), HttpStatusCode.Created))["id"]!;
+        // these tests drive the whole flow with one account; the self-approval block has its own tests in HrAccessTests
+        Assert.Equal(HttpStatusCode.NoContent, (await c.PutAsJsonAsync("/api/v1/settings", new Dictionary<string, object> { ["hr.blockSelfApproval"] = false })).StatusCode);
+        var entity =(string)(await Ok(await c.PostAsJsonAsync("/api/v1/legal-entities", new { name = "Leave " + Guid.NewGuid().ToString("N")[..6], countryCode = "AE", baseCurrency = "AED", isTaxRegistered = false }), HttpStatusCode.Created))["id"]!;
         var employee = (string)(await Ok(await c.PostAsJsonAsync($"{Hr}/employees", new { legalEntityId = entity, fullName = "Leave Tester", designation = "Agent", joinDate = "2020-01-01", status = "active", basicSalary = basic, housingAllowance = 0m, transportAllowance = 0m, otherAllowances = 0m, recurringDeductions = 0m }), HttpStatusCode.Created))["id"]!;
         var annual = (string)(await Ok(await c.PostAsJsonAsync($"{Hr}/leave-types", new { code = Code("AN"), name = "Annual", isPaid = true, annualDays = 10m, carryForwardCap = 5m, requiresApproval = true }), HttpStatusCode.Created))["id"]!;
         var unpaid = (string)(await Ok(await c.PostAsJsonAsync($"{Hr}/leave-types", new { code = Code("UP"), name = "Unpaid", isPaid = false, annualDays = 0m, carryForwardCap = 0m, requiresApproval = true }), HttpStatusCode.Created))["id"]!;

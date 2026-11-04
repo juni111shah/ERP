@@ -50,7 +50,7 @@ internal static class HrEndpoints
         me.MapGet("/balances", (int? year, ISender s, CancellationToken ct) => s.Send(new GetMyBalances(year), ct)).RequireAuthorization();
         me.MapGet("/payslips", (ISender s, CancellationToken ct) => s.Send(new ListMyPayslips(), ct)).RequireAuthorization();
         me.MapGet("/payslips/{lineId:guid}", (Guid lineId, ISender s, CancellationToken ct) => s.Send(new GetMyPayslip(lineId), ct)).RequireAuthorization();
-        me.MapGet("/team/leave", ([AsParameters] PagedQuery q, LeaveStatus? status, ISender s, CancellationToken ct) => s.Send(new ListTeamLeave(q, status), ct)).RequireAuthorization();
+        me.MapGet("/team/leave", ([AsParameters] PagedQuery q, string? status, ISender s, CancellationToken ct) => s.Send(new ListTeamLeave(q, status), ct)).RequireAuthorization();
     }
 
     public static void Map(RouteGroupBuilder group)
