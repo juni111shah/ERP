@@ -25,6 +25,10 @@ public class LeaveType : OrgEntity
     public LeaveAccrualMode AccrualMode { get; set; } = LeaveAccrualMode.Upfront;
     /// <summary>A request longer than this many days needs a supporting document before it can be submitted; null = never.</summary>
     public int? RequiresAttachmentAfterDays { get; set; }
+    /// <summary>The unused balance of this type is paid out when the employee leaves.</summary>
+    public bool Encashable { get; set; }
+    /// <summary>Pay bands for sick-type leave (from day N of the year, X% pay). Empty = the IsPaid flag decides.</summary>
+    public List<LeavePayBand> PayBands { get; set; } = [];
     /// <summary>Service-based entitlement tiers (empty = AnnualDays for everybody).</summary>
     public List<LeaveEntitlementTier> Tiers { get; set; } = [];
     [Filterable] public bool IsActive { get; set; } = true;
@@ -70,4 +74,12 @@ public class PublicHoliday : OrgEntity
 {
     [Sortable, Filterable] public DateOnly Date { get; set; }
     [Searchable] public string Name { get; set; } = default!;
+}
+
+/// <summary>From day <see cref="FromDay"/> (counted per employee per year of the leave type) the leave pays <see cref="PayPercent"/> of the daily rate.</summary>
+public class LeavePayBand : OrgEntity
+{
+    public Guid LeaveTypeId { get; set; }
+    public int FromDay { get; set; }
+    public decimal PayPercent { get; set; }
 }

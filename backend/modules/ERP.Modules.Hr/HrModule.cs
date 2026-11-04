@@ -39,10 +39,19 @@ public sealed class HrModule : ModuleBase
         PermissionDefinition.Of(P.LeaveApprove, "Approve or reject leave requests; manage leave types and public holidays"),
         PermissionDefinition.Of(P.LeaveManage, "File leave for any employee"),
         PermissionDefinition.Of(P.SalaryRead, "See salary and pay details"),
+        PermissionDefinition.Of(P.RecruitmentRead, "View vacancies and candidates"),
+        PermissionDefinition.Of(P.RecruitmentManage, "Manage vacancies and candidates, and hire"),
     ];
 
     public override IEnumerable<MenuItemDefinition> Menu =>
     [
+        new("hr.my", "My HR", "/hr/my", "user", null, 5, "hr", "HR and payroll", 400),
+        new("hr.departments", "Departments", "/hr/departments", "apartment", P.EmployeesRead, 12, "hr", "HR and payroll", 400),
+        new("hr.positions", "Positions", "/hr/positions", "audit", P.EmployeesRead, 14, "hr", "HR and payroll", 400),
+        new("hr.orgchart", "Organisation", "/hr/org-chart", "cluster", P.EmployeesRead, 16, "hr", "HR and payroll", 400),
+        new("hr.documentexpiry", "Document expiry", "/hr/documents-expiry", "warning", P.EmployeesRead, 18, "hr", "HR and payroll", 400),
+        new("hr.loans", "Loans and advances", "/hr/loans", "dollar", P.PayrollRead, 35, "hr", "HR and payroll", 400),
+        new("hr.reports", "HR reports", "/hr/reports", "bar-chart", P.EmployeesRead, 70, "hr", "HR and payroll", 400),
         new("hr.employees", "Employees", "/hr/employees", "team", P.EmployeesRead, 10, "hr", "HR and payroll", 400),
         new("hr.attendance", "Attendance", "/hr/attendance", "check-square", P.AttendanceRead, 20, "hr", "HR and payroll", 400),
         new("hr.payroll", "Payroll", "/hr/payroll", "wallet", P.PayrollRead, 30, "hr", "HR and payroll", 400),
@@ -64,7 +73,10 @@ public sealed class HrModule : ModuleBase
         new("hr.weekendDays", "Weekend days (not counted as leave)", "\"Saturday,Sunday\"", "text", "Comma-separated day names, for example Friday,Saturday."),
         new("hr.employerBankRoutingCode", "WPS employer bank routing code", "\"\"", "text", "Routing code of the bank that pays the salaries."),
         new("hr.blockSelfApproval", "Block approving your own leave request", "true", "bool", "When on, nobody can approve or reject a leave request they raised or that is their own."),
+        new("hr.noticeShortfallDeduction", "Deduct unserved notice at termination", "false", "bool", "When on, the final settlement deducts the daily rate for each day of the notice period that was not served."),
         new("hr.payrollSeparationOfDuties", "Payroll separation of duties", "false", "bool", "When on, whoever generated or adjusted a payroll run cannot post it, and whoever posted it cannot pay it."),
+        new("hr.shiftStart", "Shift start time (late arrivals count after it)", "\"08:00\"", "text", "24-hour time, for example 08:00."),
+        new("hr.lateGraceMinutes", "Late arrival grace (minutes)", "10", "int", "Arriving within this many minutes of the shift start is not late."),
         new("hr.wps.columns", "Salary file columns (generic CSV)", "\"\"", "text", "Used when no country format exists. Comma-separated fields, for example employeeNumber,name,iban,bankRoutingCode,labourCard,netPay."),
         new("hr.wps.header", "Salary file header line (generic CSV)", "\"\"", "text", "Optional first line of the generic salary file."),
     ];
@@ -78,7 +90,7 @@ public sealed class HrModule : ModuleBase
             Roles:
             [
                 new("Hr manager", "Employees, attendance and payroll",
-                    [P.EmployeesRead, P.EmployeesManage, P.AttendanceRead, P.AttendanceManage, P.PayrollRead, P.PayrollManage, P.PayrollPost, P.PayrollPay, P.ReviewsRead, P.ReviewsManage, P.LeaveRead, P.LeaveRequest, P.LeaveApprove, P.LeaveManage, P.SalaryRead,
+                    [P.EmployeesRead, P.EmployeesManage, P.AttendanceRead, P.AttendanceManage, P.PayrollRead, P.PayrollManage, P.PayrollPost, P.PayrollPay, P.ReviewsRead, P.ReviewsManage, P.LeaveRead, P.LeaveRequest, P.LeaveApprove, P.LeaveManage, P.SalaryRead, P.RecruitmentRead, P.RecruitmentManage,
                      CorePermissions.ReportsRead, CorePermissions.EmailSend, CorePermissions.BankRead, CorePermissions.SensitiveRead], Key),
             ],
             Sequences:
@@ -95,6 +107,10 @@ public sealed class HrModule : ModuleBase
         services.AddScoped<ERP.Modules.Hr.Wps.IWpsFileBuilder, ERP.Modules.Hr.Wps.UaeWpsFileBuilder>();
         services.AddScoped<ERP.Modules.Hr.Wps.IWpsFileBuilder, ERP.Modules.Hr.Wps.QatarWpsFileBuilder>();
         services.AddScoped<GratuityCalculator>();
+        services.AddScoped<GratuityProvision>();
+        services.AddScoped<StatutoryEngine>();
+        services.AddScoped<EmployeeHistoryRecorder>();
+        services.AddScoped<ERP.Application.Reminders.IReminderSource, EmployeeContractReminders>();
         services.AddScoped<LeaveCalendarProvider>();
         services.AddScoped<LeaveFeed>();
         services.AddScoped<LeavePolicyService>();
@@ -174,6 +190,7 @@ public sealed class HrModule : ModuleBase
             b.Property(x => x.AnnualDays).HasPrecision(9, 2);
             b.Property(x => x.CarryForwardCap).HasPrecision(9, 2);
             b.HasMany(x => x.Tiers).WithOne().HasForeignKey(x => x.LeaveTypeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.PayBands).WithOne().HasForeignKey(x => x.LeaveTypeId).OnDelete(DeleteBehavior.Restrict);
             b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
         });
         mb.Entity<LeaveEntitlementTier>(b =>
@@ -181,6 +198,12 @@ public sealed class HrModule : ModuleBase
             b.ToTable("hr_LeaveEntitlementTiers");
             b.Property(x => x.FromServiceYears).HasPrecision(9, 2);
             b.Property(x => x.Days).HasPrecision(9, 2);
+            b.HasIndex(x => new { x.OrgId, x.LeaveTypeId });
+        });
+        mb.Entity<LeavePayBand>(b =>
+        {
+            b.ToTable("hr_LeavePayBands");
+            b.Property(x => x.PayPercent).HasPrecision(5, 2);
             b.HasIndex(x => new { x.OrgId, x.LeaveTypeId });
         });
         mb.Entity<LeaveRequestYearDays>(b =>
@@ -229,20 +252,122 @@ public sealed class HrModule : ModuleBase
             b.ToTable("hr_PayrollRuns");
             b.Property(x => x.Number).HasMaxLength(30).IsRequired();
             b.Property(x => x.Notes).HasMaxLength(500);
-            foreach (var m in new[] { nameof(PayrollRun.GrossEarnings), nameof(PayrollRun.Deductions), nameof(PayrollRun.NetPay) }) b.Property(m).HasPrecision(19, 4);
+            foreach (var m in new[] { nameof(PayrollRun.GrossEarnings), nameof(PayrollRun.Deductions), nameof(PayrollRun.NetPay), nameof(PayrollRun.EmployerCost) }) b.Property(m).HasPrecision(19, 4);
             b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.PayrollRunId).OnDelete(DeleteBehavior.Cascade);
             b.Property(x => x.VoidReason).HasMaxLength(500);
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Year, x.Month }).IsUnique().HasFilter("[IsDeleted] = 0 AND [Kind] = 0 AND [Status] <> 4"); // one live Regular run per month
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
         });
         StructureModel.Configure(mb);
+        mb.Entity<AttendanceLog>(b =>
+        {
+            b.ToTable("hr_AttendanceLogs");
+            b.Property(x => x.Notes).HasMaxLength(300);
+            b.Property(x => x.Source).HasMaxLength(50);
+            b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.EmployeeId, x.Date }).IsUnique().HasFilter("[IsDeleted] = 0");
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Date });
+        });
+        mb.Entity<EmployeeHistoryEntry>(b =>
+        {
+            b.ToTable("hr_EmployeeHistory");
+            b.Property(x => x.Summary).HasMaxLength(500).IsRequired();
+            b.Property(x => x.OldValue).HasMaxLength(300);
+            b.Property(x => x.NewValue).HasMaxLength(300);
+            b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.EmployeeId, x.EffectiveDate });
+        });
+        mb.Entity<ChecklistTemplate>(b =>
+        {
+            b.ToTable("hr_ChecklistTemplates");
+            b.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.TemplateId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.Name }).IsUnique().HasFilter("[IsDeleted] = 0");
+        });
+        mb.Entity<ChecklistTemplateItem>(b =>
+        {
+            b.ToTable("hr_ChecklistTemplateItems");
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.HasIndex(x => new { x.OrgId, x.TemplateId });
+        });
+        mb.Entity<EmployeeTask>(b =>
+        {
+            b.ToTable("hr_EmployeeTasks");
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.EmployeeId });
+            b.HasIndex(x => new { x.OrgId, x.IsDone, x.DueDate });
+        });
+        mb.Entity<JobOpening>(b =>
+        {
+            b.ToTable("hr_JobOpenings");
+            b.Property(x => x.Title).HasMaxLength(150).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(4000);
+            b.HasIndex(x => new { x.OrgId, x.Status });
+        });
+        mb.Entity<Candidate>(b =>
+        {
+            b.ToTable("hr_Candidates");
+            b.Property(x => x.FullName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Email).HasMaxLength(200);
+            b.Property(x => x.Phone).HasMaxLength(50);
+            b.Property(x => x.Source).HasMaxLength(100);
+            b.Property(x => x.Notes).HasMaxLength(2000);
+            b.Property(x => x.ExpectedSalary).HasPrecision(19, 4);
+            b.HasOne<JobOpening>().WithMany().HasForeignKey(x => x.OpeningId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.OpeningId, x.Stage });
+        });
+        mb.Entity<StatutoryRule>(b =>
+        {
+            b.ToTable("hr_StatutoryRules");
+            b.Property(x => x.Code).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            b.Property(x => x.Nationalities).HasMaxLength(300);
+            foreach (var m in new[] { nameof(StatutoryRule.Rate), nameof(StatutoryRule.Threshold), nameof(StatutoryRule.Cap) }) b.Property(m).HasPrecision(19, 4);
+            b.HasMany(x => x.Slabs).WithOne().HasForeignKey(x => x.RuleId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+        });
+        mb.Entity<StatutorySlab>(b =>
+        {
+            b.ToTable("hr_StatutorySlabs");
+            b.Property(x => x.FromAmount).HasPrecision(19, 4);
+            b.Property(x => x.Rate).HasPrecision(9, 4);
+            b.HasIndex(x => new { x.OrgId, x.RuleId });
+        });
+        mb.Entity<PayrollLineStatutory>(b =>
+        {
+            b.ToTable("hr_PayrollLineStatutory");
+            b.Property(x => x.Code).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            b.Property(x => x.BaseAmount).HasPrecision(19, 4);
+            b.Property(x => x.Amount).HasPrecision(19, 4);
+            b.HasIndex(x => new { x.OrgId, x.PayrollRunId });
+            b.HasIndex(x => new { x.OrgId, x.RuleId });
+        });
+        mb.Entity<EmployeeLoan>(b =>
+        {
+            b.ToTable("hr_EmployeeLoans");
+            b.Property(x => x.Reason).HasMaxLength(300);
+            foreach (var m in new[] { nameof(EmployeeLoan.Principal), nameof(EmployeeLoan.InstalmentAmount), nameof(EmployeeLoan.Remaining) }) b.Property(m).HasPrecision(19, 4);
+            b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.EmployeeId, x.Status });
+        });
+        mb.Entity<PayrollLoanRecovery>(b =>
+        {
+            b.ToTable("hr_PayrollLoanRecoveries");
+            b.Property(x => x.Amount).HasPrecision(19, 4);
+            b.HasOne<EmployeeLoan>().WithMany().HasForeignKey(x => x.LoanId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.OrgId, x.PayrollRunId });
+            b.HasIndex(x => new { x.OrgId, x.LoanId });
+        });
         mb.Entity<PayrollLine>(b =>
         {
             b.ToTable("hr_PayrollLines");
             b.Property(x => x.EmployeeName).HasMaxLength(200).IsRequired();
             b.Property(x => x.EmployeeNumber).HasMaxLength(30);
             b.Property(x => x.AdjustmentNote).HasMaxLength(300);
-            foreach (var m in new[] { nameof(PayrollLine.Basic), nameof(PayrollLine.Allowances), nameof(PayrollLine.Overtime), nameof(PayrollLine.Absence), nameof(PayrollLine.Adjustment), nameof(PayrollLine.GrossEarnings), nameof(PayrollLine.Deductions), nameof(PayrollLine.NetPay) }) b.Property(m).HasPrecision(19, 4);
+            foreach (var m in new[] { nameof(PayrollLine.Basic), nameof(PayrollLine.Allowances), nameof(PayrollLine.Overtime), nameof(PayrollLine.Absence), nameof(PayrollLine.Adjustment), nameof(PayrollLine.StatutoryDeduction), nameof(PayrollLine.EmployerCost), nameof(PayrollLine.LoanRecovery), nameof(PayrollLine.LeaveEncashment), nameof(PayrollLine.EndOfService), nameof(PayrollLine.GrossEarnings), nameof(PayrollLine.Deductions), nameof(PayrollLine.NetPay) }) b.Property(m).HasPrecision(19, 4);
             b.Property(x => x.OvertimeHours).HasPrecision(9, 2);
         });
     }

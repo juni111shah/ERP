@@ -15,6 +15,10 @@ public sealed record AdjustLineBody(decimal Adjustment, string? Note);
 public sealed record PayrollPayBody(Guid BankAccountId, DateOnly Date, IReadOnlyList<Guid>? EmployeeIds = null);
 public sealed record PayrollVoidBody(string? Reason);
 public sealed record ProvisionBody(Guid LegalEntityId, DateOnly AsOf);
+public sealed record LoanDisburseBody(Guid BankAccountId, DateOnly Date);
+public sealed record BulkDailyBody(IReadOnlyList<DailyAttendanceInput> Items);
+public sealed record RollUpBody(int Year, int Month, Guid? LegalEntityId);
+public sealed record TaskDoneBody(bool Done);
 
 /// <summary>Thin controllers: every endpoint sends one MediatR request.</summary>
 internal static class HrEndpoints
@@ -67,6 +71,9 @@ internal static class HrEndpoints
         }).RequirePermission(P.EmployeesManage);
         employees.MapPut("/{id:guid}", (Guid id, EmployeeInput input, ISender s, CancellationToken ct) => s.Send(new UpdateEmployee(id, input), ct)).RequirePermission(P.EmployeesManage);
         employees.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteEmployee(id), ct); return Results.NoContent(); }).RequirePermission(P.EmployeesManage);
+        employees.MapGet("/{id:guid}/settlement-preview", (Guid id, DateOnly terminationDate, DateOnly? noticeGivenOn, ISender s, CancellationToken ct) => s.Send(new GetSettlementPreview(id, terminationDate, noticeGivenOn), ct)).RequirePermission(P.PayrollRead);
+        employees.MapPost("/{id:guid}/terminate", (Guid id, TerminateInput input, ISender s, CancellationToken ct) => s.Send(new TerminateEmployee(id, input), ct)).RequirePermission(P.EmployeesManage);
+        employees.MapPost("/{id:guid}/final-settlement", async (Guid id, ISender s, CancellationToken ct) => { var run = await s.Send(new CreateFinalSettlement(id), ct); return Results.Created($"{Base}/payroll/{run.Id}", run); }).RequirePermission(P.PayrollManage);
 
         MapPeople(group);
         var documents = group.MapGroup("/documents");
@@ -107,6 +114,21 @@ internal static class HrEndpoints
         payroll.MapPost("/{id:guid}/pay", (Guid id, PayrollPayBody b, ISender s, CancellationToken ct) => s.Send(new PayPayroll(id, b.BankAccountId, b.Date, b.EmployeeIds), ct)).RequirePermission(P.PayrollPay);
         payroll.MapPost("/{id:guid}/void", (Guid id, PayrollVoidBody b, ISender s, CancellationToken ct) => s.Send(new VoidPayroll(id, b.Reason), ct)).RequirePermission(P.PayrollPost);
 
+        var loans = group.MapGroup("/loans");
+        loans.MapPagedList<EmployeeLoan, LoanRow>("", P.PayrollRead, l => new LoanRow(l.Id, l.EmployeeId, l.Kind, l.Principal, l.Remaining, l.StartYear, l.StartMonth, l.Instalments, l.Status, l.DisbursedOn));
+        loans.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetLoan(id), ct)).RequirePermission(P.PayrollRead);
+        loans.MapPost("", async (LoanInput input, ISender s, CancellationToken ct) => { var l = await s.Send(new CreateLoan(input), ct); return Results.Created($"{Base}/loans/{l.Id}", l); }).RequirePermission(P.PayrollManage);
+        loans.MapPost("/{id:guid}/cancel", (Guid id, ISender s, CancellationToken ct) => s.Send(new CancelLoan(id), ct)).RequirePermission(P.PayrollManage);
+        loans.MapPost("/{id:guid}/disburse", (Guid id, LoanDisburseBody b, ISender s, CancellationToken ct) => s.Send(new DisburseLoan(id, b.BankAccountId, b.Date), ct)).RequirePermission(P.PayrollPay);
+
+        var statutory = group.MapGroup("/statutory-rules");
+        statutory.MapPagedList<StatutoryRule, StatutoryRuleRow>("", P.PayrollRead, r => new StatutoryRuleRow(r.Id, r.LegalEntityId, r.Code, r.Name, r.Kind, r.Method, r.Base, r.Rate, r.IsActive));
+        statutory.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetStatutoryRule(id), ct)).RequirePermission(P.PayrollRead);
+        statutory.MapPost("", async (StatutoryRuleInput input, ISender s, CancellationToken ct) => { var r = await s.Send(new CreateStatutoryRule(input), ct); return Results.Created($"{Base}/statutory-rules/{r.Id}", r); }).RequirePermission(P.PayrollManage);
+        statutory.MapPut("/{id:guid}", (Guid id, StatutoryRuleInput input, ISender s, CancellationToken ct) => s.Send(new UpdateStatutoryRule(id, input), ct)).RequirePermission(P.PayrollManage);
+        statutory.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteStatutoryRule(id), ct); return Results.NoContent(); }).RequirePermission(P.PayrollManage);
+        payroll.MapGet("/{id:guid}/statutory", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetPayrollStatutory(id), ct)).RequirePermission(P.PayrollRead);
+
         var cycles = group.MapGroup("/review-cycles");
         cycles.MapPagedList<ReviewCycle, ReviewCycleDto>("", P.ReviewsRead, c => new ReviewCycleDto(c.Id, c.Name, c.PeriodStart, c.PeriodEnd, c.Status));
         cycles.MapPost("", async (ReviewCycleInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/review-cycles", await s.Send(new CreateReviewCycle(input), ct))).RequirePermission(P.ReviewsManage);
@@ -127,7 +149,7 @@ internal static class HrEndpoints
 
         var leaveTypes = group.MapGroup("/leave-types");
         leaveTypes.MapPagedList<LeaveType, LeaveTypeDto>("", P.LeaveRead, t => new LeaveTypeDto(t.Id, t.Code, t.Name, t.IsPaid, t.AnnualDays, t.CarryForwardCap, t.RequiresApproval, t.IsActive, t.ProRataFirstYear, t.AccrualMode, t.RequiresAttachmentAfterDays,
-            t.Tiers.OrderBy(x => (double)x.FromServiceYears).Select(x => new LeaveTierDto(x.FromServiceYears, x.Days)).ToList()));
+            t.Tiers.OrderBy(x => (double)x.FromServiceYears).Select(x => new LeaveTierDto(x.FromServiceYears, x.Days)).ToList(), t.Encashable, t.PayBands.OrderBy(x => x.FromDay).Select(x => new LeavePayBandDto(x.FromDay, x.PayPercent)).ToList()));
         leaveTypes.MapPost("", async (LeaveTypeInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/leave-types", await s.Send(new CreateLeaveType(input), ct))).RequirePermission(P.LeaveApprove);
         leaveTypes.MapPut("/{id:guid}", (Guid id, LeaveTypeInput input, ISender s, CancellationToken ct) => s.Send(new UpdateLeaveType(id, input), ct)).RequirePermission(P.LeaveApprove);
 
@@ -159,5 +181,45 @@ internal static class HrEndpoints
         reports.MapGet("/birthdays-anniversaries", (int? days, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetBirthdaysAnniversaries(days ?? 30, legalEntityId), ct)).RequirePermission(P.EmployeesRead);
         reports.MapGet("/gratuity", (DateOnly asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetGratuityReport(asOf, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapPost("/gratuity/provision", (ProvisionBody b, ISender s, CancellationToken ct) => s.Send(new PostGratuityProvision(b.LegalEntityId, b.AsOf), ct)).RequirePermission(P.PayrollPost);
+
+        // daily attendance
+        attendance.MapGet("/daily", (int year, int month, Guid? employeeId, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new ListDailyAttendance(year, month, employeeId, legalEntityId), ct)).RequirePermission(P.AttendanceRead);
+        attendance.MapPut("/daily", (DailyAttendanceInput input, ISender s, CancellationToken ct) => s.Send(new SaveDailyAttendance(input), ct)).RequirePermission(P.AttendanceManage);
+        attendance.MapPost("/daily/bulk", (BulkDailyBody body, ISender s, CancellationToken ct) => s.Send(new BulkSaveDailyAttendance(body.Items), ct)).RequirePermission(P.AttendanceManage);
+        attendance.MapPost("/daily/roll-up", (RollUpBody body, ISender s, CancellationToken ct) => s.Send(new RollUpAttendance(body.Year, body.Month, body.LegalEntityId), ct)).RequirePermission(P.AttendanceManage);
+        attendance.MapDelete("/daily/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteDailyAttendance(id), ct); return Results.NoContent(); }).RequirePermission(P.AttendanceManage);
+
+        // history, onboarding tasks
+        employees.MapGet("/{id:guid}/history", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetEmployeeHistory(id), ct)).RequirePermission(P.EmployeesRead);
+        employees.MapPost("/{id:guid}/history", (Guid id, HistoryNoteInput input, ISender s, CancellationToken ct) => s.Send(new AddEmployeeNote(id, input), ct)).RequirePermission(P.EmployeesManage);
+        employees.MapGet("/{id:guid}/tasks", (Guid id, ISender s, CancellationToken ct) => s.Send(new ListEmployeeTasks(id), ct)).RequirePermission(P.EmployeesRead);
+        employees.MapPost("/{id:guid}/tasks", (Guid id, EmployeeTaskInput input, ISender s, CancellationToken ct) => s.Send(new AddEmployeeTask(id, input), ct)).RequirePermission(P.EmployeesManage);
+        employees.MapPost("/{id:guid}/checklists/{templateId:guid}", (Guid id, Guid templateId, ISender s, CancellationToken ct) => s.Send(new ApplyChecklist(id, templateId), ct)).RequirePermission(P.EmployeesManage);
+        var tasks = group.MapGroup("/tasks");
+        tasks.MapGet("/open", (ISender s, CancellationToken ct) => s.Send(new ListOpenTasks(), ct)).RequirePermission(P.EmployeesRead);
+        tasks.MapPost("/{id:guid}/done", (Guid id, TaskDoneBody body, ISender s, CancellationToken ct) => s.Send(new SetEmployeeTaskDone(id, body.Done), ct)).RequirePermission(P.EmployeesManage);
+        tasks.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteEmployeeTask(id), ct); return Results.NoContent(); }).RequirePermission(P.EmployeesManage);
+
+        var checklists = group.MapGroup("/checklists");
+        checklists.MapPagedList<ChecklistTemplate, ChecklistTemplateRow>("", P.EmployeesRead, t => new ChecklistTemplateRow(t.Id, t.Name, t.Kind, t.IsActive));
+        checklists.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetChecklistTemplate(id), ct)).RequirePermission(P.EmployeesRead);
+        checklists.MapPost("", async (ChecklistTemplateInput input, ISender s, CancellationToken ct) => { var t = await s.Send(new CreateChecklistTemplate(input), ct); return Results.Created($"{Base}/checklists/{t.Id}", t); }).RequirePermission(P.EmployeesManage);
+        checklists.MapPut("/{id:guid}", (Guid id, ChecklistTemplateInput input, ISender s, CancellationToken ct) => s.Send(new UpdateChecklistTemplate(id, input), ct)).RequirePermission(P.EmployeesManage);
+        checklists.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteChecklistTemplate(id), ct); return Results.NoContent(); }).RequirePermission(P.EmployeesManage);
+
+        // recruitment
+        var openings = group.MapGroup("/openings");
+        openings.MapPagedList<JobOpening, JobOpeningRow>("", P.RecruitmentRead, o => new JobOpeningRow(o.Id, o.Title, o.DepartmentId, o.Headcount, o.Status, o.ClosingDate));
+        openings.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetJobOpening(id), ct)).RequirePermission(P.RecruitmentRead);
+        openings.MapPost("", async (JobOpeningInput input, ISender s, CancellationToken ct) => { var o = await s.Send(new CreateJobOpening(input), ct); return Results.Created($"{Base}/openings/{o.Id}", o); }).RequirePermission(P.RecruitmentManage);
+        openings.MapPut("/{id:guid}", (Guid id, JobOpeningInput input, ISender s, CancellationToken ct) => s.Send(new UpdateJobOpening(id, input), ct)).RequirePermission(P.RecruitmentManage);
+        openings.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteJobOpening(id), ct); return Results.NoContent(); }).RequirePermission(P.RecruitmentManage);
+        var candidates = group.MapGroup("/candidates");
+        candidates.MapPagedList<Candidate, CandidateRow>("", P.RecruitmentRead, c => new CandidateRow(c.Id, c.OpeningId, c.FullName, c.Email, c.Stage, c.StageChangedAt));
+        candidates.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetCandidate(id), ct)).RequirePermission(P.RecruitmentRead);
+        candidates.MapPost("", async (CandidateInput input, ISender s, CancellationToken ct) => { var c = await s.Send(new CreateCandidate(input), ct); return Results.Created($"{Base}/candidates/{c.Id}", c); }).RequirePermission(P.RecruitmentManage);
+        candidates.MapPut("/{id:guid}", (Guid id, CandidateInput input, ISender s, CancellationToken ct) => s.Send(new UpdateCandidate(id, input), ct)).RequirePermission(P.RecruitmentManage);
+        candidates.MapPost("/{id:guid}/move", (Guid id, MoveCandidateInput input, ISender s, CancellationToken ct) => s.Send(new MoveCandidate(id, input), ct)).RequirePermission(P.RecruitmentManage);
+        candidates.MapPost("/{id:guid}/hire", async (Guid id, HireInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/employees", await s.Send(new HireCandidate(id, input), ct))).RequirePermission(P.RecruitmentManage);
     }
 }

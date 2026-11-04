@@ -5,7 +5,7 @@ namespace ERP.Modules.Hr.Domain;
 public enum EmployeeStatus { Active = 1, OnLeave = 2, Terminated = 3 }
 public enum PayrollStatus { Draft = 0, PendingApproval = 1, Posted = 2, Paid = 3, Voided = 4, PartiallyPaid = 5 }
 /// <summary>Regular = the monthly run (one per entity and month); OffCycle = bonus or correction run; 2 is reserved for the final settlement run.</summary>
-public enum PayrollKind { Regular = 0, OffCycle = 1 }
+public enum PayrollKind { Regular = 0, OffCycle = 1, FinalSettlement = 2 }
 
 /// <summary>A member of staff of one employing legal entity, with the salary structure payroll uses. Country-specific identifiers (national id, WPS numbers) are custom fields from the country pack.</summary>
 [DefaultSort("number")]
@@ -71,6 +71,8 @@ public partial class PayrollRun : LegalEntityScopedEntity, IVoidable
     public decimal GrossEarnings { get; set; }
     public decimal Deductions { get; set; }
     [Sortable] public decimal NetPay { get; set; }
+    /// <summary>Statutory cost the employer carries on top of the pay (total of the lines); not part of the net pay.</summary>
+    public decimal EmployerCost { get; set; }
     public Guid? ApprovalRequestId { get; set; }
     public Guid? AccrualJournalId { get; set; }
     public Guid? PaymentJournalId { get; set; }
@@ -106,6 +108,15 @@ public class PayrollLine : Entity
     public int ProratedDays { get; set; }
     public DateOnly? PaidOn { get; set; }
     public Guid? PaymentJournalId { get; set; }
+    /// <summary>Part of Deductions: instalments of staff loans and advances recovered on this line.</summary>
+    public decimal LoanRecovery { get; set; }
+    /// <summary>Final-settlement lines: unused leave paid out, and the end-of-service amount (both part of GrossEarnings).</summary>
+    public decimal LeaveEncashment { get; set; }
+    public decimal EndOfService { get; set; }
+    /// <summary>Part of Deductions: statutory deductions of the employee (social security, tax ...) from the entity's statutory rules.</summary>
+    public decimal StatutoryDeduction { get; set; }
+    /// <summary>Statutory cost the employer carries on top of the pay; not part of the net pay.</summary>
+    public decimal EmployerCost { get; set; }
 }
 
 public enum ReviewCycleStatus { Open = 1, Closed = 2 }

@@ -111,7 +111,7 @@ public sealed class GratuityCalculator(CountryPackRegistry packs)
 }
 
 internal sealed class EmployeeHandlers(
-    IRepository<Employee> employees, ILegalEntityGuard guard, INumberingService numbers, ICustomFieldService fields,
+    IRepository<Employee> employees, ILegalEntityGuard guard, INumberingService numbers, ICustomFieldService fields, EmployeeHistoryRecorder history,
     ICurrentUser user, EmployeeDtoFactory dtos, EmployeePeople people) :
     IRequestHandler<GetEmployee, EmployeeDto>,
     IRequestHandler<CreateEmployee, EmployeeDto>,
@@ -131,6 +131,7 @@ internal sealed class EmployeeHandlers(
         if (await employees.AnyAsync(x => x.Number == e.Number, ct)) throw new ConflictException($"Employee number '{e.Number}' is already used.");
         await fields.ApplyAsync(Docs.Employee, e, i.CustomFields, isCreate: true, ct);
         employees.Add(e);
+        history.Joined(e);
         await employees.SaveChangesAsync(ct);
         return await ToDtoAsync(e, ct);
     }
@@ -142,9 +143,11 @@ internal sealed class EmployeeHandlers(
         if (i.LegalEntityId != e.LegalEntityId) throw new FieldValidationException("legalEntityId", "An employee cannot move to another employing entity here.");
         var number = string.IsNullOrWhiteSpace(i.Number) ? e.Number : i.Number.Trim();
         if (number != e.Number && await employees.AnyAsync(x => x.Number == number && x.Id != e.Id, ct)) throw new ConflictException($"Employee number '{number}' is already used.");
+        var before = EmployeeSnapshot.Of(e);
         Map(i, e, canWritePay: user.HasPermission(P.SalaryRead)); e.Number = number;
         await people.ApplyAsync(i, e, ct);
         await fields.ApplyAsync(Docs.Employee, e, i.CustomFields, isCreate: false, ct);
+        history.Changed(e, before);
         await employees.SaveChangesAsync(ct);
         return await ToDtoAsync(e, ct);
     }
