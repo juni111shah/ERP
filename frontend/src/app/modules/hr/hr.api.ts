@@ -12,17 +12,19 @@ export interface EmployeeDto {
   id: string; number: string; legalEntityId: string; fullName: string; designation: string; department?: string; joinDate: string; terminationDate?: string; email?: string; phone?: string; nationality?: string;
   status: string; basicSalary: number; housingAllowance: number; transportAllowance: number; otherAllowances: number; recurringDeductions: number; iban?: string; labourCardNumber?: string; bankRoutingCode?: string; grossMonthly: number;
   serviceYears: number; gratuityAccrued: number; customFields: CustomFields;
+  userId?: string; userName?: string; managerEmployeeId?: string; managerName?: string; departmentId?: string; positionId?: string; dateOfBirth?: string; gender?: string; maritalStatus?: string;
+  emergencyContactName?: string; emergencyContactPhone?: string; address?: string; contractType?: string; probationEndDate?: string; contractEndDate?: string; noticePeriodDays?: number; bankName?: string; onLeaveToday?: boolean;
 }
 export interface AttendanceRow {
   employeeId: string; employeeNumber: string; employeeName: string; designation: string; legalEntityId: string; recordId?: string; recorded: boolean; workingDays: number; daysPresent: number;
   unpaidAbsentDays: number; paidLeaveDays: number; overtimeHours: number; leavePaidDays?: number; leaveUnpaidDays?: number;
 }
-export interface PayrollSummary { id: string; number: string; legalEntityId: string; year: number; month: number; status: string; employees: number; grossEarnings: number; deductions: number; netPay: number; paidOn?: string; }
+export interface PayrollSummary { id: string; number: string; legalEntityId: string; year: number; month: number; status: string; employees: number; grossEarnings: number; deductions: number; netPay: number; paidOn?: string; kind?: string; }
 export interface PayrollLine {
   id: string; employeeId: string; employeeNumber?: string; employeeName: string; absentDays: number; overtimeHours: number; basic: number; allowances: number; overtime: number; absence: number;
-  adjustment: number; adjustmentNote?: string; grossEarnings: number; deductions: number; netPay: number;
+  adjustment: number; adjustmentNote?: string; grossEarnings: number; deductions: number; netPay: number; proratedDays?: number; paidOn?: string; loanRecovery?: number; leaveEncashment?: number; endOfService?: number;
 }
-export interface PayrollDto extends PayrollSummary { plannedPayDate?: string; notes?: string; approvalRequestId?: string; accrualJournalId?: string; paymentJournalId?: string; lines: PayrollLine[]; }
+export interface PayrollDto extends PayrollSummary { kind?: string; voidReason?: string; voidedAt?: string; plannedPayDate?: string; notes?: string; approvalRequestId?: string; accrualJournalId?: string; paymentJournalId?: string; lines: PayrollLine[]; }
 
 export const EMPLOYEE_STATUSES = [{ value: 'active', label: 'Active' }, { value: 'onLeave', label: 'On leave' }, { value: 'terminated', label: 'Terminated' }];
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -51,10 +53,13 @@ export class PayrollApi extends CrudApiService<PayrollSummary, unknown> {
   recalculate(id: string): Observable<PayrollDto> { return this.http.post<PayrollDto>(`${this.url}/${id}/recalculate`, {}); }
   adjust(id: string, lineId: string, adjustment: number, note: string | null): Observable<PayrollDto> { return this.http.put<PayrollDto>(`${this.url}/${id}/lines/${lineId}`, { adjustment, note }); }
   post(id: string): Observable<PayrollDto> { return this.http.post<PayrollDto>(`${this.url}/${id}/post`, {}); }
-  pay(id: string, bankAccountId: string, date: string): Observable<PayrollDto> { return this.http.post<PayrollDto>(`${this.url}/${id}/pay`, { bankAccountId, date }); }
+  pay(id: string, bankAccountId: string, date: string, employeeIds?: string[]): Observable<PayrollDto> { return this.http.post<PayrollDto>(`${this.url}/${id}/pay`, { bankAccountId, date, employeeIds: employeeIds?.length ? employeeIds : null }); }
+  void(id: string, reason: string): Observable<PayrollDto> { return this.http.post<PayrollDto>(`${this.url}/${id}/void`, { reason }); }
+  emailPayslip(id: string, lineId: string): Observable<{ to: string; subject: string }> { return this.http.post<{ to: string; subject: string }>(`${this.url}/${id}/payslips/${lineId}/email`, {}); }
+  emailAll(id: string): Observable<{ sent: number; skipped: number; skippedEmployees: string[] }> { return this.http.post<{ sent: number; skipped: number; skippedEmployees: string[] }>(`${this.url}/${id}/email-payslips`, {}); }
   remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
-  bankFile(id: string): Observable<string> { return this.http.get(`${this.url}/${id}/bank-file`, { responseType: 'text' }); }
-  wpsFile(id: string): Observable<string> { return this.http.get(`${this.url}/${id}/wps-sif`, { responseType: 'text' }); }
+  bankFile(id: string, unpaidOnly = false): Observable<string> { return this.http.get(`${this.url}/${id}/bank-file`, { responseType: 'text', params: unpaidOnly ? { unpaidOnly: true } : {} }); }
+  wpsFile(id: string, unpaidOnly = false): Observable<string> { return this.http.get(`${this.url}/${id}/wps-sif`, { responseType: 'text', params: unpaidOnly ? { unpaidOnly: true } : {} }); }
 }
 
 // ---- Performance reviews -------------------------------------------------------------------------------------------------
@@ -84,10 +89,14 @@ export class ReviewsApi extends CrudApiService<ReviewRow, unknown> {
 // ---- Leave ---------------------------------------------------------------------------------------------------------------
 
 export const LEAVE_STATUS_LABELS: Record<string, string> = { draft: 'Draft', submitted: 'Submitted', approved: 'Approved', rejected: 'Rejected', cancelled: 'Cancelled' };
-export interface LeaveTypeDto { id: string; code: string; name: string; isPaid: boolean; annualDays: number; carryForwardCap: number; requiresApproval: boolean; isActive: boolean; }
+export interface LeaveTypeDto {
+  id: string; code: string; name: string; isPaid: boolean; annualDays: number; carryForwardCap: number; requiresApproval: boolean; isActive: boolean;
+  proRataFirstYear?: boolean; accrualMode?: string; requiresAttachmentAfterDays?: number; encashable?: boolean;
+  tiers?: { fromServiceYears: number; days: number }[]; payBands?: { fromDay: number; payPercent: number }[];
+}
 export interface HolidayDto { id: string; date: string; name: string; }
 export interface LeaveRequestRow { id: string; employeeId: string; employeeName: string; leaveTypeId: string; fromDate: string; toDate: string; days: number; status: string; reason?: string; }
-export interface LeaveRequestDto extends LeaveRequestRow { leaveTypeName: string; isPaid: boolean; submittedAt?: string; decidedAt?: string; decisionComment?: string; }
+export interface LeaveRequestDto extends LeaveRequestRow { leaveTypeName: string; isPaid: boolean; startHalfDay?: boolean; endHalfDay?: boolean; submittedAt?: string; decidedAt?: string; decisionComment?: string; }
 export interface LeaveBalanceRow { employeeId: string; employeeNumber: string; employeeName: string; leaveTypeId: string; leaveTypeCode: string; leaveTypeName: string; year: number; entitled: number; carried: number; taken: number; pending: number; remaining: number; }
 
 @Injectable({ providedIn: 'root' })
@@ -102,6 +111,7 @@ export class LeaveApi extends CrudApiService<LeaveRequestRow, unknown> {
   detail(id: string): Observable<LeaveRequestDto> { return this.http.get<LeaveRequestDto>(`${this.url}/${id}`); }
   save(id: string | null, body: unknown): Observable<LeaveRequestDto> { return id ? this.http.put<LeaveRequestDto>(`${this.url}/${id}`, body) : this.http.post<LeaveRequestDto>(this.url, body); }
   action(id: string, name: 'submit' | 'cancel' | 'approve' | 'reject', comment?: string): Observable<LeaveRequestDto> { return this.http.post<LeaveRequestDto>(`${this.url}/${id}/${name}`, { comment }); }
+  applyCountryDefaults(year?: number): Observable<unknown> { return this.http.post(`${this.url}/apply-country-defaults`, {}, { params: year ? { year } : {} }); }
   days(from: string, to: string): Observable<{ workingDays: number }> { return this.http.get<{ workingDays: number }>(`${this.url}/days`, { params: { from, to } }); }
   balances(year: number): Observable<LeaveBalanceRow[]> { return this.http.get<LeaveBalanceRow[]>(`${this.url}/balances`, { params: { year } }); }
 }

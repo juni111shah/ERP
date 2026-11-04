@@ -20,7 +20,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
-const COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', posted: 'blue', paid: 'green' };
+const COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', posted: 'blue', partiallyPaid: 'gold', paid: 'green', voided: 'red' };
 
 import { DecimalPipe } from '@angular/common';
 
@@ -67,6 +67,7 @@ export class PayrollPage {
   readonly columns: TableColumn<PayrollSummary>[] = [
     { key: 'number', label: 'Run', width: '140px' },
     { key: 'period', label: 'Period', value: (r) => `${MONTHS[r.month - 1]} ${r.year}` },
+    { key: 'kind', label: 'Type', value: (r) => (r.kind === 'offCycle' ? 'Off-cycle' : r.kind === 'finalSettlement' ? 'Final settlement' : 'Regular'), width: '130px', filterField: 'kind', filterOptions: [{ value: 'regular', label: 'Regular' }, { value: 'offCycle', label: 'Off-cycle' }, { value: 'finalSettlement', label: 'Final settlement' }] },
     { key: 'employees', label: 'Employees', width: '100px' },
     { key: 'grossEarnings', label: 'Gross', value: (r) => r.grossEarnings.toLocaleString() },
     { key: 'deductions', label: 'Deductions', value: (r) => r.deductions.toLocaleString() },
@@ -77,18 +78,20 @@ export class PayrollPage {
   readonly fields = computed<FieldSpec[]>(() => [
     { key: 'legalEntityId', label: 'Employer (legal entity)', type: 'select', required: true, options: this.entityPage().items.map((e) => ({ value: e.id, label: e.name })) },
     { key: 'period', label: 'Payroll month', type: 'date', required: true, default: new Date(), hint: 'Any day of the month; one run per entity per month.' },
+    { key: 'kind', label: 'Type', type: 'select', options: [{ value: 'regular', label: 'Regular monthly run' }, { value: 'offCycle', label: 'Off-cycle (bonus, correction)' }], default: 'regular', hint: 'An off-cycle run needs a note saying why. Final settlements are prepared from the employee record.' },
+    { key: 'includeSalary', label: 'Include salary and deductions', type: 'switch', default: false, hidden: (v) => v['kind'] !== 'offCycle', hint: 'Off.: lines start at zero and you add one-off amounts.' },
     { key: 'plannedPayDate', label: 'Planned pay date', type: 'date' },
     { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 500, hint: 'Every active employee of the entity is included. Record attendance exceptions first; you can recalculate a draft at any time.' },
   ]);
 
   color(s: string): string { return COLORS[s] ?? 'default'; }
-  label(s: string): string { return s === 'pendingApproval' ? 'Needs approval' : s.charAt(0).toUpperCase() + s.slice(1); }
+  label(s: string): string { return s === 'pendingApproval' ? 'Needs approval' : s === 'partiallyPaid' ? 'Partly paid' : s.charAt(0).toUpperCase() + s.slice(1); }
   open(r: PayrollSummary): void { void this.router.navigate(['/hr/payroll', r.id]); }
 
   generate(v: Record<string, unknown>): void {
     const period = String(v['period']).slice(0, 10).split('-').map(Number);
     this.saving.set(true); this.errors.set(null);
-    this.api.generate({ legalEntityId: v['legalEntityId'], year: period[0], month: period[1], plannedPayDate: v['plannedPayDate'] ?? null, notes: v['notes'] ?? null }).subscribe({
+    this.api.generate({ legalEntityId: v['legalEntityId'], year: period[0], month: period[1], plannedPayDate: v['plannedPayDate'] ?? null, notes: v['notes'] ?? null, kind: v['kind'] ?? 'regular', includeSalary: v['includeSalary'] === true }).subscribe({
       next: (run) => { this.saving.set(false); this.drawer.set(false); this.message.success(`${this.i18n.t('ui.msg.payrollGenerated', 'Payroll generated')}: ${run.number}`); void this.router.navigate(['/hr/payroll', run.id]); },
       error: (e) => { this.saving.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not generate the payroll'); },
     });

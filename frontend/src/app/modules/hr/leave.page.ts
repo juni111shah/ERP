@@ -44,6 +44,7 @@ const TONE: Record<string, string> = { draft: 'default', submitted: 'blue', appr
             <nz-date-picker [(ngModel)]="from" (ngModelChange)="preview()" [nzDisabled]="!editable()" nzPlaceHolder="From" data-testid="leave-from"></nz-date-picker>
             <nz-date-picker [(ngModel)]="to" (ngModelChange)="preview()" [nzDisabled]="!editable()" nzPlaceHolder="To" data-testid="leave-to"></nz-date-picker>
           </div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap"><label><input type="checkbox" [(ngModel)]="startHalf" [disabled]="!editable()" data-testid="leave-start-half" /> First day is a half day</label><label><input type="checkbox" [(ngModel)]="endHalf" [disabled]="!editable()" data-testid="leave-end-half" /> Last day is a half day</label></div>
           @if (days() !== null) { <div data-testid="leave-days"><b>{{ days() }}</b> working day(s) (weekends and public holidays are not counted)</div> }
           <textarea aria-label="Reason" nz-input rows="3" placeholder="Reason" [(ngModel)]="reason" [disabled]="!editable()" maxlength="500" data-testid="leave-reason"></textarea>
           @if (detail(); as d) {
@@ -98,6 +99,8 @@ export class LeavePage {
   readonly canCancel = computed(() => ['draft', 'submitted', 'approved'].includes(this.detail()?.status ?? ''));
   employeeId: string | null = null;
   typeId: string | null = null;
+  startHalf = false;
+  endHalf = false;
   from: Date | null = null;
   to: Date | null = null;
   reason = '';
@@ -113,13 +116,13 @@ export class LeavePage {
   filterStatus(status: string | null): void { this.list.setFilters(status ? [{ field: 'status', op: 'eq', value: status }] : []); }
 
   create(): void {
-    this.id.set(null); this.detail.set(null); this.employeeId = null; this.typeId = this.types()[0]?.id ?? null; this.from = null; this.to = null; this.reason = ''; this.comment = ''; this.days.set(null);
+    this.id.set(null); this.detail.set(null); this.employeeId = null; this.typeId = this.types()[0]?.id ?? null; this.startHalf = false; this.endHalf = false; this.from = null; this.to = null; this.reason = ''; this.comment = ''; this.days.set(null);
     this.drawer.set(true);
   }
 
   open(id: string): void {
     this.api.detail(id).subscribe((d) => {
-      this.id.set(d.id); this.detail.set(d); this.employeeId = d.employeeId; this.typeId = d.leaveTypeId; this.reason = d.reason ?? ''; this.comment = ''; this.days.set(d.days);
+      this.id.set(d.id); this.detail.set(d); this.employeeId = d.employeeId; this.typeId = d.leaveTypeId; this.startHalf = !!d.startHalfDay; this.endHalf = !!d.endHalfDay; this.reason = d.reason ?? ''; this.comment = ''; this.days.set(d.days);
       this.from = this.parse(d.fromDate); this.to = this.parse(d.toDate);
       this.drawer.set(true);
     });
@@ -136,7 +139,7 @@ export class LeavePage {
 
   save(submit: boolean): void {
     if (!this.employeeId || !this.typeId || !this.from || !this.to) { this.message.warning('Choose the employee, leave type and dates'); return; }
-    const body = { employeeId: this.employeeId, leaveTypeId: this.typeId, fromDate: toIsoDate(this.from), toDate: toIsoDate(this.to), reason: this.reason || null, submit };
+    const body = { employeeId: this.employeeId, leaveTypeId: this.typeId, fromDate: toIsoDate(this.from), toDate: toIsoDate(this.to), reason: this.reason || null, submit, startHalfDay: this.startHalf, endHalfDay: this.endHalf };
     this.saving.set(true);
     this.api.save(this.id(), body).subscribe({
       next: (d) => { this.saving.set(false); this.message.success(submit ? 'Request submitted' : 'Draft saved'); this.list.reload(); if (submit) this.drawer.set(false); else { this.id.set(d.id); this.detail.set(d); } },
