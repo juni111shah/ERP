@@ -32,6 +32,7 @@ internal static class StructureModel
             b.Property(x => x.EmergencyContactPhone).HasMaxLength(50);
             b.Property(x => x.Address).HasMaxLength(500);
             b.Property(x => x.BankName).HasMaxLength(150);
+            b.Property(x => x.TerminationReason).HasMaxLength(300);
             b.HasIndex(x => new { x.OrgId, x.UserId }).IsUnique().HasFilter("[UserId] IS NOT NULL AND [IsDeleted] = 0");
             b.HasIndex(x => new { x.OrgId, x.ManagerEmployeeId });
             b.HasIndex(x => new { x.OrgId, x.DepartmentId });

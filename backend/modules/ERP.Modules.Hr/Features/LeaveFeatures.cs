@@ -10,9 +10,9 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Modules.Hr.Features;
 
 public sealed record LeaveTypeInput(string Code, string Name, bool IsPaid, decimal AnnualDays, decimal CarryForwardCap, bool RequiresApproval = true, bool IsActive = true,
-    bool ProRataFirstYear = false, LeaveAccrualMode AccrualMode = LeaveAccrualMode.Upfront, int? RequiresAttachmentAfterDays = null, IReadOnlyList<LeaveTierInput>? Tiers = null);
+    bool ProRataFirstYear = false, LeaveAccrualMode AccrualMode = LeaveAccrualMode.Upfront, int? RequiresAttachmentAfterDays = null, IReadOnlyList<LeaveTierInput>? Tiers = null, bool Encashable = false, IReadOnlyList<LeavePayBandInput>? PayBands = null);
 public sealed record LeaveTypeDto(Guid Id, string Code, string Name, bool IsPaid, decimal AnnualDays, decimal CarryForwardCap, bool RequiresApproval, bool IsActive,
-    bool ProRataFirstYear = false, LeaveAccrualMode AccrualMode = LeaveAccrualMode.Upfront, int? RequiresAttachmentAfterDays = null, IReadOnlyList<LeaveTierDto>? Tiers = null);
+    bool ProRataFirstYear = false, LeaveAccrualMode AccrualMode = LeaveAccrualMode.Upfront, int? RequiresAttachmentAfterDays = null, IReadOnlyList<LeaveTierDto>? Tiers = null, bool Encashable = false, IReadOnlyList<LeavePayBandDto>? PayBands = null);
 public sealed record HolidayInput(DateOnly Date, string Name);
 public sealed record HolidayDto(Guid Id, DateOnly Date, string Name);
 public sealed record LeaveRequestInput(Guid EmployeeId, Guid LeaveTypeId, DateOnly FromDate, DateOnly ToDate, string? Reason = null, bool Submit = false, bool StartHalfDay = false, bool EndHalfDay = false);
@@ -50,6 +50,8 @@ public sealed class LeaveTypeInputValidator : AbstractValidator<LeaveTypeInput>
         RuleFor(x => x.AnnualDays).InclusiveBetween(0, 366);
         RuleFor(x => x.CarryForwardCap).InclusiveBetween(0, 366);
         RuleFor(x => x.RequiresAttachmentAfterDays).InclusiveBetween(0, 366).When(x => x.RequiresAttachmentAfterDays is not null);
+        RuleForEach(x => x.PayBands).ChildRules(b => { b.RuleFor(y => y.FromDay).InclusiveBetween(1, 366); b.RuleFor(y => y.PayPercent).InclusiveBetween(0, 100); });
+        RuleFor(x => x.PayBands).Must(b => b is null || b.Select(y => y.FromDay).Distinct().Count() == b.Count).WithMessage("Two pay bands cannot start on the same day.");
         RuleForEach(x => x.Tiers).ChildRules(t => { t.RuleFor(y => y.FromServiceYears).InclusiveBetween(0, 60); t.RuleFor(y => y.Days).InclusiveBetween(0, 366); });
     }
 }
@@ -86,22 +88,58 @@ public sealed class LeaveCalendarProvider(IReadRepository<PublicHoliday> holiday
 }
 
 /// <summary>Approved leave turned into attendance days for a month: paid leave and unpaid leave, in working days. Payroll adds the unpaid days to the recorded absences.</summary>
-public sealed class LeaveFeed(IReadRepository<LeaveRequest> requests, IReadRepository<LeaveType> types, LeaveCalendarProvider calendars)
+/// <summary>Pay bands of a sick-type leave: from day N of the year (counted per employee) the day pays X% of the daily rate. No band for a day = full pay.</summary>
+public static class LeavePayBands
 {
-    public async Task<Dictionary<Guid, (int Paid, int Unpaid)>> MonthAsync(int year, int month, IReadOnlyCollection<Guid> employeeIds, CancellationToken ct)
+    /// <summary>Share of the daily rate paid for day number <paramref name="dayOfYear"/> (1 = the first leave day of the year) of the type.</summary>
+    public static decimal PaidFraction(IReadOnlyCollection<(int FromDay, decimal PayPercent)> bands, int dayOfYear)
     {
-        var result = new Dictionary<Guid, (int Paid, int Unpaid)>();
+        var hit = bands.Where(b => b.FromDay <= dayOfYear).OrderByDescending(b => b.FromDay).Select(b => (decimal?)b.PayPercent).FirstOrDefault();
+        return Math.Clamp((hit ?? 100m) / 100m, 0m, 1m);
+    }
+}
+
+public sealed class LeaveFeed(IReadRepository<LeaveRequest> requests, IReadRepository<LeaveType> types, LeaveCalendarProvider calendars, LeavePolicyService policy)
+{
+    /// <summary>Per employee: paid days and "unpaid-equivalent" days of approved leave in the month. Unpaid types count whole days as unpaid; banded types count each leave day by its band (50% pay = half an unpaid day).</summary>
+    public async Task<Dictionary<Guid, (decimal Paid, decimal Unpaid)>> MonthAsync(int year, int month, IReadOnlyCollection<Guid> employeeIds, CancellationToken ct)
+    {
+        var result = new Dictionary<Guid, (decimal Paid, decimal Unpaid)>();
         if (employeeIds.Count == 0) return result;
         var start = new DateOnly(year, month, 1); var end = start.AddMonths(1).AddDays(-1);
         var approved = await requests.Query(new Specification<LeaveRequest>(r => r.Status == LeaveStatus.Approved && r.FromDate <= end && r.ToDate >= start && employeeIds.Contains(r.EmployeeId))).ToListAsync(ct);
         if (approved.Count == 0) return result;
-        var paid = await types.Query().ToDictionaryAsync(t => t.Id, t => t.IsPaid, ct);
+        var typeRows = await types.Query().ToDictionaryAsync(t => t.Id, t => t.IsPaid, ct);
+        var bandsByType = await policy.BandsByTypeAsync(ct);
         var calendar = await calendars.LoadAsync(start, end, ct);
-        foreach (var r in approved)
+        foreach (var r in approved.Where(r => !bandsByType.ContainsKey(r.LeaveTypeId)))
         {
             var days = calendar.Count(r.FromDate > start ? r.FromDate : start, r.ToDate < end ? r.ToDate : end);
             var (p, u) = result.GetValueOrDefault(r.EmployeeId);
-            result[r.EmployeeId] = paid.GetValueOrDefault(r.LeaveTypeId, true) ? (p + days, u) : (p, u + days);
+            result[r.EmployeeId] = typeRows.GetValueOrDefault(r.LeaveTypeId, true) ? (p + days, u) : (p, u + days);
+        }
+
+        // banded types: walk the year's approved days of the type in order, so day 1 .. N of the year fall into the right band
+        var yearStart = new DateOnly(year, 1, 1);
+        foreach (var banded in approved.Where(r => bandsByType.ContainsKey(r.LeaveTypeId)).Select(r => (r.EmployeeId, r.LeaveTypeId)).Distinct())
+        {
+            var (empId, typeId) = banded;
+            var yearRequests = await requests.Query(new Specification<LeaveRequest>(r => r.Status == LeaveStatus.Approved && r.EmployeeId == empId && r.LeaveTypeId == typeId && r.FromDate <= end && r.ToDate >= yearStart))
+                .OrderBy(r => r.FromDate).ToListAsync(ct);
+            var yearCalendar = await calendars.LoadAsync(yearStart, end, ct);
+            var bands = bandsByType[typeId];
+            var counted = 0;
+            var (p, u) = result.GetValueOrDefault(empId);
+            foreach (var r in yearRequests)
+                for (var d = r.FromDate < yearStart ? yearStart : r.FromDate; d <= r.ToDate && d <= end; d = d.AddDays(1))
+                {
+                    if (!yearCalendar.IsWorkingDay(d)) continue;
+                    counted++;
+                    if (d < start) continue;
+                    var paidShare = LeavePayBands.PaidFraction(bands, counted);
+                    p += paidShare; u += 1m - paidShare;
+                }
+            result[empId] = (p, u);
         }
         return result;
     }
@@ -135,8 +173,9 @@ internal sealed class LeaveHandlers(
         MapType(cmd.Input, t, code);
         types.Add(t);
         await policy.SaveTiersAsync(t.Id, cmd.Input.Tiers, ct);
+        await policy.SaveBandsAsync(t.Id, cmd.Input.PayBands, ct);
         await types.SaveChangesAsync(ct);
-        return TypeDto(t, cmd.Input.Tiers);
+        return TypeDto(t, cmd.Input.Tiers, cmd.Input.PayBands);
     }
 
     public async Task<LeaveTypeDto> Handle(UpdateLeaveType cmd, CancellationToken ct)
@@ -146,8 +185,9 @@ internal sealed class LeaveHandlers(
         if (code != t.Code && await types.AnyAsync(x => x.Code == code, ct)) throw new ConflictException($"A leave type with code '{code}' already exists.");
         MapType(cmd.Input, t, code);
         await policy.SaveTiersAsync(t.Id, cmd.Input.Tiers, ct);
+        await policy.SaveBandsAsync(t.Id, cmd.Input.PayBands, ct);
         await types.SaveChangesAsync(ct);
-        return TypeDto(t, cmd.Input.Tiers ?? (await policy.TiersAsync(t.Id, ct)).Select(x => new LeaveTierInput(x.FromServiceYears, x.Days)).ToList());
+        return TypeDto(t, cmd.Input.Tiers ?? (await policy.TiersAsync(t.Id, ct)).Select(x => new LeaveTierInput(x.FromServiceYears, x.Days)).ToList(), cmd.Input.PayBands ?? (await policy.BandsAsync(t.Id, ct)).Select(x => new LeavePayBandInput(x.FromDay, x.PayPercent)).ToList());
     }
 
     public async Task<HolidayDto> Handle(CreateHoliday cmd, CancellationToken ct)
@@ -438,11 +478,11 @@ internal sealed class LeaveHandlers(
     private static void MapType(LeaveTypeInput i, LeaveType t, string code)
     {
         t.Code = code; t.Name = i.Name.Trim(); t.IsPaid = i.IsPaid; t.AnnualDays = i.AnnualDays; t.CarryForwardCap = i.CarryForwardCap; t.RequiresApproval = i.RequiresApproval; t.IsActive = i.IsActive;
-        t.ProRataFirstYear = i.ProRataFirstYear; t.AccrualMode = i.AccrualMode; t.RequiresAttachmentAfterDays = i.RequiresAttachmentAfterDays;
+        t.ProRataFirstYear = i.ProRataFirstYear; t.AccrualMode = i.AccrualMode; t.RequiresAttachmentAfterDays = i.RequiresAttachmentAfterDays; t.Encashable = i.Encashable;
     }
 
-    private static LeaveTypeDto TypeDto(LeaveType t, IReadOnlyList<LeaveTierInput>? tiers) => new(t.Id, t.Code, t.Name, t.IsPaid, t.AnnualDays, t.CarryForwardCap, t.RequiresApproval, t.IsActive,
-        t.ProRataFirstYear, t.AccrualMode, t.RequiresAttachmentAfterDays, tiers?.OrderBy(x => x.FromServiceYears).Select(x => new LeaveTierDto(x.FromServiceYears, x.Days)).ToList() ?? []);
+    private static LeaveTypeDto TypeDto(LeaveType t, IReadOnlyList<LeaveTierInput>? tiers, IReadOnlyList<LeavePayBandInput>? bands = null) => new(t.Id, t.Code, t.Name, t.IsPaid, t.AnnualDays, t.CarryForwardCap, t.RequiresApproval, t.IsActive,
+        t.ProRataFirstYear, t.AccrualMode, t.RequiresAttachmentAfterDays, tiers?.OrderBy(x => x.FromServiceYears).Select(x => new LeaveTierDto(x.FromServiceYears, x.Days)).ToList() ?? [], t.Encashable, bands?.OrderBy(x => x.FromDay).Select(x => new LeavePayBandDto(x.FromDay, x.PayPercent)).ToList() ?? []);
 
     private async Task<LeaveRequestDto> ToDtoAsync(LeaveRequest r, CancellationToken ct)
     {

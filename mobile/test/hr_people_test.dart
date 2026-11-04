@@ -114,11 +114,14 @@ void main() {
     expect(find.text('Delete'), findsNothing);
   });
 
-  testWidgets('a paid payroll has no actions', (tester) async {
+  testWidgets('a paid payroll can only be emailed or voided', (tester) async {
     await tester.pumpWidget(host(FakeAdapter((_) => envelope(run('paid'))), const PayrollDetailScreen(id: 'p1')));
     await tester.pumpAndSettle();
-    expect(find.byType(FilledButton), findsNothing);
-    expect(find.byType(OutlinedButton), findsNothing);
+    expect(find.text('Email payslips'), findsOneWidget);
+    expect(find.text('Void'), findsOneWidget);
+    expect(find.text('Pay'), findsNothing);
+    expect(find.text('Record'), findsNothing);
+    expect(find.text('Delete'), findsNothing);
   });
 
   testWidgets('payroll and pay forms validate and shape the body', (tester) async {

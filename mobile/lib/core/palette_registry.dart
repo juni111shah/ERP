@@ -101,6 +101,13 @@ const Map<String, _Meta> _screenMeta = {
   'purchasing-receipts': (section: 'Purchasing', subtitle: 'Goods received from suppliers', keywords: ['grn', 'goods received', 'receiving', 'delivery']),
   // HR
   'hr-employees': (section: 'HR', subtitle: 'Staff records and contracts', keywords: ['staff', 'people', 'employee']),
+  'hr-my': (section: 'HR', subtitle: 'My leave, balances and payslips', keywords: ['self service', 'my leave', 'payslip', 'balance']),
+  'hr-departments': (section: 'HR', subtitle: 'Departments, heads and structure', keywords: ['department', 'team', 'structure']),
+  'hr-positions': (section: 'HR', subtitle: 'Job titles and grades', keywords: ['position', 'job', 'grade', 'title']),
+  'hr-orgchart': (section: 'HR', subtitle: 'Who works where and reports to whom', keywords: ['organisation', 'org chart', 'reporting', 'hierarchy']),
+  'hr-document-expiry': (section: 'HR', subtitle: 'Passports, visas and cards about to expire', keywords: ['expiry', 'passport', 'visa', 'renewal']),
+  'hr-loans': (section: 'HR', subtitle: 'Staff loans and salary advances', keywords: ['loan', 'advance', 'instalment', 'recovery']),
+  'hr-reports': (section: 'HR', subtitle: 'Headcount, cost, leave and birthdays', keywords: ['headcount', 'turnover', 'birthday', 'anniversary', 'gratuity']),
   'hr-payroll': (section: 'HR', subtitle: 'Monthly salary runs and payslips', keywords: ['salary', 'wages', 'payslip', 'wps']),
   'hr-reviews': (section: 'HR', subtitle: 'Employee performance reviews', keywords: ['appraisal', 'performance', 'review']),
   'hr-review-cycles': (section: 'HR', subtitle: 'Review periods and their deadlines', keywords: ['appraisal cycle', 'review period']),

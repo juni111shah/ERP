@@ -17,6 +17,8 @@ public static class P
     public const string LeaveApprove = "hr.leave.approve";
     public const string LeaveManage = "hr.leave.manage";
     public const string SalaryRead = "hr.salary.read";
+    public const string RecruitmentRead = "hr.recruitment.read";
+    public const string RecruitmentManage = "hr.recruitment.manage";
 }
 
 public static class Docs

@@ -50,7 +50,7 @@ internal sealed class AttendanceHandlers(IRepository<AttendanceRecord> records, 
         var leave = await leaveFeed.MonthAsync(q.Year, q.Month, ids, ct);
         return staff.Select(s =>
         {
-            var (paid, unpaid) = leave.GetValueOrDefault(s.Id);
+            var (paidD, unpaidD) = leave.GetValueOrDefault(s.Id); int paid = (int)Math.Round(paidD), unpaid = (int)Math.Round(unpaidD);
             return recorded.TryGetValue(s.Id, out var r)
                 ? new AttendanceRowDto(s.Id, s.Number, s.FullName, s.Designation, s.LegalEntityId, r.Id, true, r.WorkingDays, r.DaysPresent, r.UnpaidAbsentDays, r.PaidLeaveDays, r.OvertimeHours, paid, unpaid)
                 : new AttendanceRowDto(s.Id, s.Number, s.FullName, s.Designation, s.LegalEntityId, null, false, 26, 26, 0, 0, 0, paid, unpaid);

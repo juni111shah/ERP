@@ -24,6 +24,9 @@ public partial class Employee
     public DateOnly? ContractEndDate { get; set; }
     public int? NoticePeriodDays { get; set; }
     public string? BankName { get; set; }
+    public string? TerminationReason { get; set; }
+    public DateOnly? LastWorkingDay { get; set; }
+    public DateOnly? NoticeGivenOn { get; set; }
 }
 
 /// <summary>Who prepared, adjusted and posted a payroll run; used by the optional separation-of-duties rule.</summary>

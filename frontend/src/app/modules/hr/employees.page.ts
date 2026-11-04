@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -8,7 +8,12 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { DecimalPipe } from '@angular/common';
 import { catchError, of } from 'rxjs';
-import { LegalEntitiesApi, LegalEntityDto } from '../../core/api/admin.api';
+import { AdminApi, LegalEntitiesApi, LegalEntityDto } from '../../core/api/admin.api';
+import { SessionStore } from '../../core/session/session.store';
+import { DepartmentDto, DepartmentsApi, PositionDto, PositionsApi } from './hr-people.api';
+import { EmployeeDocumentsComponent } from './employee-documents.component';
+import { TerminateDialogComponent } from './terminate-dialog.component';
+import { RouterLink } from '@angular/router';
 import { createPagedList } from '../../core/api/paged-list';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
@@ -21,12 +26,14 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { StatCardComponent } from '../../shared/stat-card.component';
 
+const CONTRACT_TYPES = [{ value: 'permanent', label: 'Permanent' }, { value: 'fixedTerm', label: 'Fixed term' }, { value: 'probation', label: 'Probation' }, { value: 'partTime', label: 'Part time' }, { value: 'contractor', label: 'Contractor' }];
+
 /** Employees: salary structure, join date and status; end-of-service accrual under the employing entity's country rule is shown on the record. */
 @Component({
   selector: 'erp-employees',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, DecimalPipe, StatCardComponent],
+  imports: [RouterLink, EmployeeDocumentsComponent, TerminateDialogComponent, NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, DecimalPipe, StatCardComponent],
   styles: [`
     .emp-cell { display: flex; align-items: center; gap: 10px; }
     .emp-avatar {
@@ -118,9 +125,19 @@ import { StatCardComponent } from '../../shared/stat-card.component';
     <erp-record-drawer [title]="state.editing() ? state.editing()!.fullName : 'New employee'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="hr.employee"
                        [saving]="state.saving()" [errors]="state.errors()" testId="emp-form" (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as e) {
-        <p drawerActions data-testid="emp-summary">Gross <b>{{ e.grossMonthly.toLocaleString() }}</b> {{ 'ui.hr.aMonth' | translate: 'a month' }} · {{ 'ui.hr.service' | translate: 'service' }} {{ e.serviceYears.toFixed(1) }} {{ 'ui.hr.years' | translate: 'years' }} · {{ 'ui.hr.eosAccrued' | translate: 'end-of-service accrued' }} <b>{{ e.gratuityAccrued.toLocaleString() }}</b></p>
+        <div drawerActions style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
+        <p data-testid="emp-summary" style="flex-basis:100%;margin:0">Gross <b>{{ e.grossMonthly?.toLocaleString() ?? '—' }}</b> {{ 'ui.hr.aMonth' | translate: 'a month' }} · {{ 'ui.hr.service' | translate: 'service' }} {{ e.serviceYears.toFixed(1) }} {{ 'ui.hr.years' | translate: 'years' }} · {{ 'ui.hr.eosAccrued' | translate: 'end-of-service accrued' }} <b>{{ e.gratuityAccrued.toLocaleString() }}</b></p>
+          <button nz-button (click)="docsFor.set(e)" data-testid="emp-docs"><span nz-icon nzType="file-text"></span>Documents</button>
+          @if (e.status !== 'terminated') {
+            <button *erpHasPermission="'hr.employees.manage'" nz-button nzDanger (click)="terminateFor.set(e)" data-testid="emp-terminate">End employment</button>
+          } @else {
+            <button *erpHasPermission="'hr.payroll.manage'" nz-button (click)="terminateFor.set(e)" data-testid="emp-settlement">Final settlement</button>
+          }
+        </div>
       }
-    </erp-record-drawer>`,
+    </erp-record-drawer>
+    @if (docsFor(); as d) { <erp-employee-documents [employeeId]="d.id" [employeeName]="d.fullName" [open]="true" (closed)="docsFor.set(null)" /> }
+    @if (terminateFor(); as t) { <erp-terminate-dialog [employeeId]="t.id" [employeeName]="t.fullName" [open]="true" (closed)="terminateFor.set(null)" (changed)="onTerminated()" /> }`,
 })
 export class EmployeesPage {
   private readonly api = inject(EmployeesApi);
@@ -154,30 +171,60 @@ export class EmployeesPage {
     { key: 'designation', label: 'Designation' },
     { key: 'department', label: 'Department' },
     { key: 'joinDate', label: 'Joined', sortField: 'joinDate', width: '120px' },
-    { key: 'grossMonthly', label: 'Gross / month', value: (e) => e.grossMonthly.toLocaleString() },
+    { key: 'grossMonthly', label: 'Gross / month', value: (e) => e.grossMonthly?.toLocaleString() ?? '' },
     { key: 'status', label: 'Status', sortField: 'status', width: '110px', filterField: 'status', filterOptions: EMPLOYEE_STATUSES },
   ];
-  readonly fields = computed<FieldSpec[]>(() => [
-    { key: 'legalEntityId', label: 'Employer (legal entity)', type: 'select', required: true, readonlyOnEdit: true, options: this.entityPage().items.map((e) => ({ value: e.id, label: e.name })) },
-    { key: 'number', label: 'Employee no.', type: 'text', maxLength: 30, hint: 'Leave blank to auto-number.' },
-    { key: 'fullName', label: 'Full name', type: 'text', required: true, maxLength: 200 },
-    { key: 'designation', label: 'Designation', type: 'text', required: true, maxLength: 150 },
-    { key: 'department', label: 'Department', type: 'text', maxLength: 100 },
-    { key: 'joinDate', label: 'Join date', type: 'date', required: true },
-    { key: 'status', label: 'Status', type: 'select', options: EMPLOYEE_STATUSES, default: 'active' },
-    { key: 'terminationDate', label: 'Termination date', type: 'date', hidden: (v) => v['status'] !== 'terminated' },
-    { key: 'email', label: 'Email', type: 'text', maxLength: 200 },
-    { key: 'phone', label: 'Phone', type: 'text', maxLength: 50 },
-    { key: 'nationality', label: 'Nationality', type: 'text', maxLength: 100 },
-    { key: 'basicSalary', label: 'Basic salary (monthly)', type: 'number', required: true, min: 0, hint: 'Also the end-of-service base.' },
-    { key: 'housingAllowance', label: 'Housing allowance', type: 'number', min: 0, default: 0 },
-    { key: 'transportAllowance', label: 'Transport allowance', type: 'number', min: 0, default: 0 },
-    { key: 'otherAllowances', label: 'Other allowances', type: 'number', min: 0, default: 0 },
-    { key: 'recurringDeductions', label: 'Recurring deductions', type: 'number', min: 0, default: 0, hint: 'Loan or advance recovery per month.' },
-    { key: 'iban', label: 'IBAN', type: 'text', maxLength: 50 },
-    { key: 'labourCardNumber', label: 'Labour card / MOHRE personal no.', type: 'text', maxLength: 30, hint: 'UAE WPS: the 14-digit number used in the salary file.' },
-    { key: 'bankRoutingCode', label: 'Bank routing code', type: 'text', maxLength: 20, hint: 'UAE WPS: routing code of the employee\'s bank.' },
-  ]);
+  private readonly session = inject(SessionStore);
+  private readonly canSeePay = this.session.hasPermission('hr.salary.read');
+  private readonly departmentPage = toSignal(inject(DepartmentsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as DepartmentDto[] }))), { initialValue: { items: [] as DepartmentDto[] } });
+  private readonly positionPage = toSignal(inject(PositionsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as PositionDto[] }))), { initialValue: { items: [] as PositionDto[] } });
+  private readonly userList = toSignal(inject(AdminApi).users().pipe(catchError(() => of([]))), { initialValue: [] });
+  readonly docsFor = signal<EmployeeDto | null>(null);
+  readonly terminateFor = signal<EmployeeDto | null>(null);
+  onTerminated(): void { this.list.reload(); this.state.close(); }
+
+  readonly fields = computed<FieldSpec[]>(() => {
+    const pay: FieldSpec[] = !this.canSeePay ? [] : [
+      { key: 'basicSalary', label: 'Basic salary (monthly)', type: 'number', required: true, min: 0, hint: 'Also the end-of-service base.' },
+      { key: 'housingAllowance', label: 'Housing allowance', type: 'number', min: 0, default: 0 },
+      { key: 'transportAllowance', label: 'Transport allowance', type: 'number', min: 0, default: 0 },
+      { key: 'otherAllowances', label: 'Other allowances', type: 'number', min: 0, default: 0 },
+      { key: 'recurringDeductions', label: 'Recurring deductions', type: 'number', min: 0, default: 0, hint: 'A fixed monthly deduction. Staff loans have their own screen.' },
+      { key: 'iban', label: 'IBAN', type: 'text', maxLength: 50 },
+      { key: 'bankName', label: 'Bank name', type: 'text', maxLength: 150 },
+      { key: 'labourCardNumber', label: 'Labour card / MOHRE personal no.', type: 'text', maxLength: 30, hint: 'UAE WPS: the 14-digit number used in the salary file.' },
+      { key: 'bankRoutingCode', label: 'Bank routing code', type: 'text', maxLength: 20, hint: 'UAE WPS: routing code of the employee\'s bank.' },
+    ];
+    const self = this.state.editing()?.id;
+    return [
+      { key: 'legalEntityId', label: 'Employer (legal entity)', type: 'select', required: true, readonlyOnEdit: true, options: this.entityPage().items.map((e) => ({ value: e.id, label: e.name })) },
+      { key: 'number', label: 'Employee no.', type: 'text', maxLength: 30, hint: 'Leave blank to auto-number.' },
+      { key: 'fullName', label: 'Full name', type: 'text', required: true, maxLength: 200 },
+      { key: 'designation', label: 'Designation', type: 'text', required: true, maxLength: 150 },
+      { key: 'departmentId', label: 'Department', type: 'select', options: this.departmentPage().items.filter((d) => d.isActive).map((d) => ({ value: d.id, label: `${d.code} · ${d.name}` })) },
+      { key: 'department', label: 'Department (free text)', type: 'text', maxLength: 100, hint: 'Used when no department is chosen above.' },
+      { key: 'positionId', label: 'Position', type: 'select', options: this.positionPage().items.filter((p) => p.isActive).map((p) => ({ value: p.id, label: `${p.code} · ${p.title}` })) },
+      { key: 'managerEmployeeId', label: 'Line manager', type: 'select', options: this.list.items().filter((e) => e.id !== self && e.status !== 'terminated').map((e) => ({ value: e.id, label: `${e.number} · ${e.fullName}` })) },
+      { key: 'userId', label: 'Sign-in account', type: 'select', hint: 'Links this person to a user so they can use self-service.', options: this.userList().map((u) => ({ value: u.id, label: `${u.fullName} (${u.email})` })) },
+      { key: 'joinDate', label: 'Join date', type: 'date', required: true },
+      { key: 'status', label: 'Status', type: 'select', options: EMPLOYEE_STATUSES, default: 'active' },
+      { key: 'terminationDate', label: 'Termination date', type: 'date', hidden: (v) => v['status'] !== 'terminated' },
+      { key: 'contractType', label: 'Contract type', type: 'select', options: CONTRACT_TYPES },
+      { key: 'probationEndDate', label: 'Probation ends', type: 'date' },
+      { key: 'contractEndDate', label: 'Contract ends', type: 'date' },
+      { key: 'noticePeriodDays', label: 'Notice period (days)', type: 'number', min: 0, max: 365 },
+      { key: 'email', label: 'Email', type: 'text', maxLength: 200 },
+      { key: 'phone', label: 'Phone', type: 'text', maxLength: 50 },
+      { key: 'nationality', label: 'Nationality', type: 'text', maxLength: 100 },
+      { key: 'dateOfBirth', label: 'Date of birth', type: 'date' },
+      { key: 'gender', label: 'Gender', type: 'select', options: [{ value: 'Female', label: 'Female' }, { value: 'Male', label: 'Male' }] },
+      { key: 'maritalStatus', label: 'Marital status', type: 'select', options: [{ value: 'Single', label: 'Single' }, { value: 'Married', label: 'Married' }, { value: 'Divorced', label: 'Divorced' }, { value: 'Widowed', label: 'Widowed' }] },
+      { key: 'address', label: 'Address', type: 'text', maxLength: 500 },
+      { key: 'emergencyContactName', label: 'Emergency contact', type: 'text', maxLength: 150 },
+      { key: 'emergencyContactPhone', label: 'Emergency phone', type: 'text', maxLength: 50 },
+      ...pay,
+    ];
+  });
 
   filterStatus(s: string | null): void { this.list.setFilters(s ? [{ field: 'status', op: 'eq', value: s }] : []); }
   open(row: EmployeeSummary): void { this.api.detail(row.id).subscribe((e) => this.state.edit(e)); }

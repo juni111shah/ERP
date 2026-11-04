@@ -33,7 +33,7 @@ public sealed class VoidPayrollValidator : AbstractValidator<VoidPayroll>
 }
 
 internal sealed class PayrollSettlementHandlers(
-    IRepository<PayrollRun> runs, IRepository<JournalEntry> journals, IReadRepository<Account> accounts, IRepository<AuditEvent> audit, ICurrentUser user, IClock clock,
+    IRepository<PayrollRun> runs, IRepository<JournalEntry> journals, IReadRepository<Account> accounts, IRepository<PayrollLoanRecovery> recoveries, IRepository<EmployeeLoan> loanRows, IRepository<AuditEvent> audit, ICurrentUser user, IClock clock,
     IPostingService posting, IUnitOfWork uow, PayrollSeparation separation) :
     IRequestHandler<PayPayroll, PayrollDto>,
     IRequestHandler<VoidPayroll, PayrollDto>
@@ -91,6 +91,14 @@ internal sealed class PayrollSettlementHandlers(
             await posting.ReverseTodayAsync(await JournalAsync(id, token), memo, token);
         await posting.ReverseTodayAsync(await JournalAsync(accrualId, token), memo, token);
 
+        // loan instalments this run recovered go back on the loans
+        foreach (var rec in await recoveries.Tracked(new Specification<PayrollLoanRecovery>(x => x.PayrollRunId == run.Id && x.Applied)).ToListAsync(token))
+        {
+            var loan = await loanRows.GetForUpdateAsync(rec.LoanId, token);
+            loan.Remaining += rec.Amount;
+            if (loan.Status == LoanStatus.Settled) loan.Status = LoanStatus.Active;
+            rec.Applied = false;
+        }
         run.Status = PayrollStatus.Voided;
         VoidMemo.Stamp(run, cmd.Reason, clock, user);
         VoidMemo.Audit(audit, user, clock, nameof(PayrollRun), run.Id, run.Number, cmd.Reason!);

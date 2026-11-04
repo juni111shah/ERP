@@ -8,7 +8,7 @@ public sealed record PayrollAmounts(decimal Basic, decimal Allowances, decimal O
 /// </summary>
 public static class PayrollMath
 {
-    public static PayrollAmounts Calculate(decimal basic, decimal allowances, decimal recurringDeductions, int unpaidDays, decimal overtimeHours, decimal adjustment = 0m,
+    public static PayrollAmounts Calculate(decimal basic, decimal allowances, decimal recurringDeductions, decimal unpaidDays, decimal overtimeHours, decimal adjustment = 0m,
         int daysBasis = 30, decimal overtimeMultiplier = 1.25m, int hoursPerDay = 8, int employedDays = 0, int monthDays = 0)
     {
         var gross = basic + allowances;

@@ -8,9 +8,11 @@ namespace ERP.Modules.Hr.Features;
 
 public sealed record LeaveTierInput(decimal FromServiceYears, decimal Days);
 public sealed record LeaveTierDto(decimal FromServiceYears, decimal Days);
+public sealed record LeavePayBandInput(int FromDay, decimal PayPercent);
+public sealed record LeavePayBandDto(int FromDay, decimal PayPercent);
 
 /// <summary>Database-backed parts of the leave policy: tiers, per-year deduction rows and the supporting-document rule. The arithmetic itself is in <see cref="LeaveEntitlement"/>.</summary>
-public sealed class LeavePolicyService(IRepository<LeaveEntitlementTier> tiers, IRepository<LeaveRequestYearDays> yearDays, IReadRepository<Attachment> attachments, IClock clock)
+public sealed class LeavePolicyService(IRepository<LeaveEntitlementTier> tiers, IRepository<LeavePayBand> bands, IRepository<LeaveRequestYearDays> yearDays, IReadRepository<Attachment> attachments, IClock clock)
 {
     public const string AttachmentOwnerType = "hr.leaverequest";
 
@@ -21,6 +23,20 @@ public sealed class LeavePolicyService(IRepository<LeaveEntitlementTier> tiers, 
 
     public async Task<Dictionary<Guid, List<(decimal FromServiceYears, decimal Days)>>> TiersByTypeAsync(CancellationToken ct)
         => (await tiers.Query().ToListAsync(ct)).GroupBy(t => t.LeaveTypeId).ToDictionary(g => g.Key, g => g.Select(t => (t.FromServiceYears, t.Days)).ToList());
+
+    public async Task<List<(int FromDay, decimal PayPercent)>> BandsAsync(Guid leaveTypeId, CancellationToken ct)
+        => (await bands.Query(new Specification<LeavePayBand>(b => b.LeaveTypeId == leaveTypeId)).ToListAsync(ct)).Select(b => (b.FromDay, b.PayPercent)).ToList();
+
+    public async Task<Dictionary<Guid, List<(int FromDay, decimal PayPercent)>>> BandsByTypeAsync(CancellationToken ct)
+        => (await bands.Query().ToListAsync(ct)).GroupBy(b => b.LeaveTypeId).ToDictionary(g => g.Key, g => g.Select(b => (b.FromDay, b.PayPercent)).ToList());
+
+    /// <summary>Replaces the type's pay bands with the given list (null = leave them alone).</summary>
+    public async Task SaveBandsAsync(Guid leaveTypeId, IReadOnlyList<LeavePayBandInput>? input, CancellationToken ct)
+    {
+        if (input is null) return;
+        foreach (var old in await bands.Tracked(new Specification<LeavePayBand>(b => b.LeaveTypeId == leaveTypeId)).ToListAsync(ct)) bands.Remove(old);
+        foreach (var b in input) bands.Add(new LeavePayBand { LeaveTypeId = leaveTypeId, FromDay = b.FromDay, PayPercent = b.PayPercent });
+    }
 
     public async Task<decimal> EntitlementAsync(Employee e, LeaveType type, int year, CancellationToken ct)
         => LeaveEntitlement.Entitlement(type.AnnualDays, await TiersAsync(type.Id, ct), type.ProRataFirstYear, e.JoinDate, year);
