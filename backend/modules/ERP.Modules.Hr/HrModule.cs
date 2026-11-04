@@ -88,6 +88,10 @@ public sealed class HrModule : ModuleBase
         services.AddScoped<GratuityCalculator>();
         services.AddScoped<LeaveCalendarProvider>();
         services.AddScoped<LeaveFeed>();
+        services.AddScoped<LeavePolicyService>();
+        services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
+            new ERP.Application.Workflow.EntityAttachmentOwnerResolver<LeaveRequest>(
+                sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), LeavePolicyService.AttachmentOwnerType, P.LeaveRead, P.LeaveRequest));
         services.AddScoped<IDashboardContributor, HrDashboard>();
         services.AddScoped<ICashForecastSource, PayrollForecastSource>();
         services.AddScoped<ERP.Application.Search.ISearchProvider, HrSearch>();
@@ -146,7 +150,21 @@ public sealed class HrModule : ModuleBase
             b.Property(x => x.Name).HasMaxLength(100).IsRequired();
             b.Property(x => x.AnnualDays).HasPrecision(9, 2);
             b.Property(x => x.CarryForwardCap).HasPrecision(9, 2);
+            b.HasMany(x => x.Tiers).WithOne().HasForeignKey(x => x.LeaveTypeId).OnDelete(DeleteBehavior.Restrict);
             b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+        });
+        mb.Entity<LeaveEntitlementTier>(b =>
+        {
+            b.ToTable("hr_LeaveEntitlementTiers");
+            b.Property(x => x.FromServiceYears).HasPrecision(9, 2);
+            b.Property(x => x.Days).HasPrecision(9, 2);
+            b.HasIndex(x => new { x.OrgId, x.LeaveTypeId });
+        });
+        mb.Entity<LeaveRequestYearDays>(b =>
+        {
+            b.ToTable("hr_LeaveRequestYearDays");
+            b.Property(x => x.Days).HasPrecision(9, 2);
+            b.HasIndex(x => new { x.OrgId, x.RequestId });
         });
         mb.Entity<LeaveBalance>(b =>
         {

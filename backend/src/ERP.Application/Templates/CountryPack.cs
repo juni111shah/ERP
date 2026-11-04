@@ -16,6 +16,22 @@ public sealed record CustomFieldSeed(
 /// <summary>How a country computes end-of-service benefit: entitlement days for a number of service years (the amount is basic ÷ 30 × days).</summary>
 public sealed record EndOfServiceRule(string Description, Func<decimal, decimal> EntitlementDays, decimal MinimumYears = 1m);
 
+/// <summary>From this many completed years of service the leave type grants this many days a year.</summary>
+public sealed record LeaveTierTemplate(decimal FromServiceYears, decimal Days);
+
+/// <summary>A leave type a pack proposes for a workspace of its country (an ordinary, editable leave type afterwards).</summary>
+public sealed record LeaveTypeTemplate(
+    string Code, string Name, bool IsPaid, decimal AnnualDays,
+    IReadOnlyList<LeaveTierTemplate>? Tiers = null, decimal CarryForwardCap = 0m, int? RequiresAttachmentAfterDays = null, bool RequiresApproval = true);
+
+/// <summary>A public holiday a pack proposes: a fixed month and day, or a function from the year to the date. Holidays that move by decision (set each year) are not templated.</summary>
+public sealed record PublicHolidayTemplate(string Name, int Month = 0, int Day = 0, Func<int, DateOnly>? DateForYear = null)
+{
+    public DateOnly ForYear(int year) => DateForYear is not null ? DateForYear(year) : new DateOnly(year, Month, Day);
+    public static PublicHolidayTemplate Fixed(string name, int month, int day) => new(name, month, day);
+    public static PublicHolidayTemplate Computed(string name, Func<int, DateOnly> dateForYear) => new(name, DateForYear: dateForYear);
+}
+
 public interface ICountryPack
 {
     /// <summary>ISO 3166-1 alpha-2, upper case.</summary>
@@ -30,6 +46,10 @@ public interface ICountryPack
     EndOfServiceRule? EndOfService => null;
     /// <summary>The country's periodic tax return (VAT return and the like), when the pack describes one; null = none.</summary>
     TaxReturnDefinition? TaxReturn => null;
+    /// <summary>Leave types the country's labour rules suggest (used by HR); empty = none.</summary>
+    IReadOnlyList<LeaveTypeTemplate> LeaveDefaults => [];
+    /// <summary>Fixed-date public holidays of the country (used by HR); empty = none.</summary>
+    IReadOnlyList<PublicHolidayTemplate> PublicHolidayTemplates => [];
     /// <summary>Items the country expects on a tax invoice; checked (as warnings only) when an invoice with tax is issued.</summary>
     IReadOnlyList<InvoiceField> InvoiceRequiredFields => [];
 }

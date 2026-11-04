@@ -18,6 +18,24 @@ public sealed class UaeCountryPack : ICountryPack
     public TaxReturnDefinition? TaxReturn => UaeTaxReturn.Definition;
     public IReadOnlyList<InvoiceField> InvoiceRequiredFields { get; } = [InvoiceField.SellerTaxNumber, InvoiceField.CustomerTaxNumber];
 
+    /// <summary>UAE Labour Law leave entitlements.</summary>
+    public IReadOnlyList<LeaveTypeTemplate> LeaveDefaults { get; } =
+    [
+        new("ANNUAL", "Annual leave", true, 30m, CarryForwardCap: 15m),
+        new("SICK", "Sick leave", true, 90m, RequiresAttachmentAfterDays: 2),
+        new("MATERNITY", "Maternity leave", true, 60m),
+        new("BEREAVEMENT", "Bereavement leave", true, 3m),
+        new("HAJJ", "Hajj leave (once in service)", false, 0m),
+    ];
+
+    /// <summary>Fixed-date holidays; the Eid and Islamic New Year dates move every year and are entered by the administrator.</summary>
+    public IReadOnlyList<PublicHolidayTemplate> PublicHolidayTemplates { get; } =
+    [
+        PublicHolidayTemplate.Fixed("New Year's Day", 1, 1),
+        PublicHolidayTemplate.Fixed("National Day", 12, 2),
+        PublicHolidayTemplate.Fixed("National Day (second day)", 12, 3),
+    ];
+
     public IReadOnlyList<TaxTemplate> Taxes { get; } =
     [
         new("VAT5", "VAT 5%", TaxKind.Vat, 5m, true),
