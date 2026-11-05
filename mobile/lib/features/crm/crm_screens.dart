@@ -327,10 +327,8 @@ class OpportunityDetailScreen extends StatelessWidget {
             ActivityList(kind: 'Opportunity', entityId: id),
           ]),
           actions: [
-            createProjectFrom(sourceType: 'crm.opportunity', nameOf: (d) => '${d['title']}', amountKey: 'expectedRevenue'),
             _stageAction('proposal'),
             _stageAction('negotiation'),
-            _stageAction('qualification'),
             ActionSpec(
               label: 'Close won',
               icon: Icons.emoji_events_outlined,
@@ -340,6 +338,15 @@ class OpportunityDetailScreen extends StatelessWidget {
               form: (d) => closeOpportunityForm(d, won: true),
             ),
             ActionSpec(
+              label: 'Log activity',
+              icon: Icons.add_call,
+              permission: 'crm.interactions.manage',
+              run: (ref, d, _) async => null,
+              form: (d) => interactionForm(ref, kind: 'Opportunity', entityId: id, entityLabel: '${d['title']}', legalEntityId: d['legalEntityId']?.toString()),
+            ),
+            _stageAction('qualification'),
+            createProjectFrom(sourceType: 'crm.opportunity', nameOf: (d) => '${d['title']}', amountKey: 'expectedRevenue'),
+            ActionSpec(
               label: 'Close lost',
               icon: Icons.cancel_outlined,
               permission: 'crm.opportunities.manage',
@@ -347,13 +354,6 @@ class OpportunityDetailScreen extends StatelessWidget {
               visible: (d) => const {'qualification', 'proposal', 'negotiation'}.contains(d['stage']),
               run: (ref, d, _) async => null,
               form: (d) => closeOpportunityForm(d, won: false),
-            ),
-            ActionSpec(
-              label: 'Log activity',
-              icon: Icons.add_call,
-              permission: 'crm.interactions.manage',
-              run: (ref, d, _) async => null,
-              form: (d) => interactionForm(ref, kind: 'Opportunity', entityId: id, entityLabel: '${d['title']}', legalEntityId: d['legalEntityId']?.toString()),
             ),
           ],
         );

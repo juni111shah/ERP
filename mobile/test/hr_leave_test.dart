@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_adapter.dart';
+import 'support/more_actions.dart';
 
 Widget host(FakeAdapter adapter, Widget child, {Set<String> permissions = const {'*'}}) {
   final store = MemoryKeyValueStore();
@@ -73,6 +74,7 @@ void main() {
   testWidgets('a submitted request offers approve and reject, not submit', (tester) async {
     await tester.pumpWidget(host(FakeAdapter((_) => envelope(leave('submitted'))), const LeaveDetailScreen(id: 'l1')));
     await tester.pumpAndSettle();
+    await openMoreActions(tester);
     expect(find.text('Approve'), findsOneWidget);
     expect(find.text('Reject'), findsOneWidget);
     expect(find.text('Cancel request'), findsOneWidget);

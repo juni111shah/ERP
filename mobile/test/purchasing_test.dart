@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_adapter.dart';
+import 'support/more_actions.dart';
 
 const entity = LegalEntity(id: 'le1', code: 'MAIN', name: 'Main', baseCurrency: 'QAR');
 
@@ -94,6 +95,7 @@ void main() {
   testWidgets('a draft order can be submitted, approved, cancelled and deleted but not received or billed', (tester) async {
     await tester.pumpWidget(host(FakeAdapter((_) => envelope(order('draft'))), const OrderDetailScreen(id: 'o1')));
     await tester.pumpAndSettle();
+    await openMoreActions(tester);
     for (final t in ['Submit', 'Approve', 'Cancel order', 'Delete']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }
@@ -106,6 +108,7 @@ void main() {
   testWidgets('a partly received order offers receiving and billing, and cannot be edited', (tester) async {
     await tester.pumpWidget(host(FakeAdapter((_) => envelope(order('partiallyReceived'))), const OrderDetailScreen(id: 'o1')));
     await tester.pumpAndSettle();
+    await openMoreActions(tester);
     for (final t in ['Receive goods', 'Mark received', 'Convert to bill']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }
@@ -154,6 +157,7 @@ void main() {
     Map<String, dynamic> req(String s) => {'id': 'r1', 'number': 'PR-1', 'requesterName': 'Dana', 'status': s, 'estimatedTotal': 10, 'requisitionDate': '2026-10-01', 'lines': []};
     await tester.pumpWidget(host(FakeAdapter((_) => envelope(req('draft'))), const RequisitionDetailScreen(id: 'r1')));
     await tester.pumpAndSettle();
+    await openMoreActions(tester);
     for (final t in ['Submit', 'Approve', 'Reject', 'Delete']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }

@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_adapter.dart';
+import 'support/more_actions.dart';
 
 const _me = Me(
   fullName: 'Admin',
@@ -159,6 +160,7 @@ void main() {
     testWidgets('allocate shows only with an unallocated amount; clear only for an issued cheque', (tester) async {
       await tester.pumpWidget(host(serve(payment(unallocated: 40, chequeStatus: 'Issued')), const PaymentDetailScreen(id: 'pay1')));
       await tester.pumpAndSettle();
+      await openMoreActions(tester);
       expect(find.text('Match'), findsOneWidget);
       expect(find.text('Clear cheque'), findsOneWidget);
       expect(find.text('Void'), findsOneWidget);

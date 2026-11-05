@@ -120,11 +120,77 @@ void main() {
     testWidgets('an active project can be held, completed or cancelled but not activated', (tester) async {
       await tester.pumpWidget(app(serverWith({'id': 'p1', 'number': 'PRJ-1', 'name': 'Web', 'legalEntityId': 'le1', 'status': 'active', 'billingType': 'fixedFee', 'budgetAmount': 10}), const ProjectDetailScreen(id: 'p1')));
       await tester.pumpAndSettle();
-      expect(find.text('Put on hold'), findsOneWidget);
-      expect(find.text('Complete'), findsOneWidget);
-      expect(find.text('Cancel'), findsOneWidget);
-      expect(find.text('Activate'), findsNothing);
+      // the everyday actions stay in the bar, so the others no longer cover the record
       expect(find.text('Log time'), findsOneWidget);
+      expect(find.text('Add task'), findsOneWidget);
+      expect(find.text('Put on hold'), findsNothing);
+      expect(find.text('Delete project'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('detail-more')));
+      await tester.pumpAndSettle();
+      expect(find.text('Put on hold'), findsOneWidget);
+      expect(find.text('Complete project'), findsOneWidget);
+      expect(find.text('Cancel project'), findsOneWidget);
+      expect(find.text('Delete project'), findsOneWidget);
+      expect(find.text('Activate'), findsNothing);
+      // the destructive actions come last
+      expect(tester.getTopLeft(find.text('Cancel project')).dy, greaterThan(tester.getTopLeft(find.text('Clone project')).dy));
+      expect(tester.getTopLeft(find.text('Delete project')).dy, greaterThan(tester.getTopLeft(find.text('Cancel project')).dy));
+    });
+
+    testWidgets('a planned project is activated from the bar', (tester) async {
+      await tester.pumpWidget(app(serverWith({'id': 'p1', 'number': 'PRJ-1', 'name': 'Web', 'legalEntityId': 'le1', 'status': 'planning', 'billingType': 'fixedFee', 'budgetAmount': 10}), const ProjectDetailScreen(id: 'p1')));
+      await tester.pumpAndSettle();
+      expect(find.text('Activate'), findsOneWidget);
+      expect(find.text('Log time'), findsOneWidget);
+      expect(find.text('Add task'), findsNothing);
+    });
+
+    testWidgets('status, health, billing and progress are shown together', (tester) async {
+      await tester.pumpWidget(app(serverWith({'id': 'p1', 'number': 'PRJ-1', 'name': 'Web', 'legalEntityId': 'le1', 'status': 'active', 'health': 'atRisk', 'billingType': 'fixedFee', 'budgetAmount': 100, 'effectiveBudget': 200, 'totalTimesheetCost': 300, 'percentComplete': 53.3, 'completedTasks': 1, 'totalTasks': 2, 'overdueTasks': 1, 'totalLoggedHours': 51.0, 'unbilledAmount': 7}), const ProjectDetailScreen(id: 'p1')));
+      await tester.pumpAndSettle();
+      expect(find.text('Active'), findsOneWidget);
+      expect(find.text('At risk'), findsOneWidget);
+      expect(find.text('Fixed fee'), findsOneWidget);
+      expect(find.text('53%'), findsOneWidget);
+      expect(find.text('150%'), findsOneWidget);
+      expect(find.text('51 h'), findsOneWidget);
+      expect(find.text('1 of 2 tasks done, 1 overdue'), findsOneWidget);
+      expect(find.text('Ready to bill'), findsOneWidget);
+    });
+
+    testWidgets('time entry rows fit their chips and leave out the project name', (tester) async {
+      tester.view.physicalSize = const Size(1080, 7200);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final adapter = FakeAdapter((o) {
+        if (o.path.endsWith('/timesheets')) {
+          return envelope({'items': [{'id': 't1', 'hours': 7.0, 'workerName': 'Sarah', 'date': '2026-11-02', 'projectName': 'Big Project', 'description': 'Project work', 'totalAmount': 1050, 'isBillable': true, 'isBilled': false, 'approvalStatus': 'draft'}], 'total': 1});
+        }
+        if (o.path.endsWith('/tasks') || o.path.endsWith('/milestones') || o.path.endsWith('/expenses')) return envelope([]);
+        return envelope({'id': 'p1', 'number': 'PRJ-1', 'name': 'Web', 'legalEntityId': 'le1', 'status': 'active', 'billingType': 'fixedFee', 'budgetAmount': 10});
+      });
+      await tester.pumpWidget(app(adapter, const ProjectDetailScreen(id: 'p1')));
+      await tester.pumpAndSettle();
+      expect(find.text('7 h · Sarah'), findsOneWidget);
+      expect(find.text('Unbilled'), findsOneWidget);
+      expect(find.text('Draft'), findsOneWidget);
+      expect(find.textContaining('Big Project'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a task in progress keeps its next step and logging time in the bar', (tester) async {
+      await tester.pumpWidget(app(serverWith({'id': 't1', 'number': 'TSK-1', 'title': 'Design', 'projectId': 'p1', 'projectName': 'Web', 'status': 'inProgress', 'priority': 'medium'}), const TaskDetailScreen(id: 't1')));
+      await tester.pumpAndSettle();
+      expect(find.text('Send to review'), findsOneWidget);
+      expect(find.text('Log time'), findsOneWidget);
+      expect(find.text('Cancel task'), findsNothing);
+      expect(find.text('Delete'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('detail-more')));
+      await tester.pumpAndSettle();
+      for (final t in ['Back to to do', 'Mark blocked', 'Cancel task', 'Delete']) {
+        expect(find.text(t), findsOneWidget, reason: t);
+      }
     });
 
     testWidgets('a completed project offers nothing to change and cannot be edited', (tester) async {

@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_adapter.dart';
+import 'support/more_actions.dart';
 
 const entity = LegalEntity(id: 'le1', code: 'MAIN', name: 'Main', baseCurrency: 'QAR');
 
@@ -98,6 +99,7 @@ void main() {
   testWidgets('a draft payroll can be recalculated, posted and deleted, not paid', (tester) async {
     await tester.pumpWidget(host(FakeAdapter((_) => envelope(run('draft'))), const PayrollDetailScreen(id: 'p1')));
     await tester.pumpAndSettle();
+    await openMoreActions(tester);
     for (final t in ['Recalculate', 'Record', 'Delete']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }

@@ -51,6 +51,9 @@ class ActionSpec {
   final Future<Object?> Function(WidgetRef ref, Json data, String? reason) run;
 }
 
+/// How many actions the bar shows before the rest move under "More".
+const _maxBarActions = 2;
+
 /// Loads one record and shows it with an app-bar edit button and a bar of actions. [body] draws the content.
 class DetailPage extends ConsumerStatefulWidget {
   const DetailPage({super.key, required this.path, required this.titleOf, required this.body, this.actions = const [], this.edit, this.canEdit, this.headerActions});
@@ -202,16 +205,45 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     );
   }
 
+  /// The actions that do not fit in the bar, with the destructive ones apart at the bottom.
+  Future<void> _showMore(List<ActionSpec> rest, Json data) async {
+    final plain = rest.where((a) => !a.destructive).toList();
+    final danger = rest.where((a) => a.destructive).toList();
+    final chosen = await showModalBottomSheet<ActionSpec>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final error = Theme.of(ctx).colorScheme.error;
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              for (final a in plain) ListTile(leading: Icon(a.icon), title: Text(a.label), onTap: () => Navigator.pop(ctx, a)),
+              if (plain.isNotEmpty && danger.isNotEmpty) const Divider(height: ErpSpace.s3),
+              for (final a in danger) ListTile(leading: Icon(a.icon, color: error), title: Text(a.label, style: TextStyle(color: error)), onTap: () => Navigator.pop(ctx, a)),
+            ]),
+          ),
+        );
+      },
+    );
+    if (chosen != null && mounted) await _runAction(chosen, data);
+  }
+
   /// Sticky action bar: destructive actions as outlined error buttons, the rest as filled brand buttons (the first one
-  /// solid, others tonal). One or two actions share a row (primary wider, as in the mockup); more wrap onto rows.
+  /// solid, others tonal). One or two actions share a row (primary wider, as in the mockup). With more, so the bar never
+  /// covers the record, the first [_maxBarActions] that are not destructive stay and the rest are under More: order a
+  /// screen's actions with the everyday ones first.
   Widget _actionBar(BuildContext context, List<ActionSpec> actions, Json data) {
     final t = ErpTheme.of(context);
     final error = Theme.of(context).colorScheme.error;
     final ordered = [...actions.where((a) => a.destructive), ...actions.where((a) => !a.destructive)];
     final primary = actions.where((a) => !a.destructive).firstOrNull;
+    final collapsed = actions.length > _maxBarActions;
+    final inBar = actions.where((a) => !a.destructive).take(_maxBarActions).toList();
     Widget button(ActionSpec a) {
       final onPressed = _acting ? null : () => _runAction(a, data);
-      final label = Text(a.label, maxLines: 1, overflow: TextOverflow.ellipsis);
+      // A long label shrinks a little rather than being cut off.
+      final label = FittedBox(fit: BoxFit.scaleDown, child: Text(a.label, maxLines: 1));
       final icon = Icon(a.icon, size: 18);
       if (a.destructive) {
         return OutlinedButton.icon(
@@ -230,20 +262,41 @@ class _DetailPageState extends ConsumerState<DetailPage> {
               label: label);
     }
 
+    // Three buttons share the collapsed bar, so they use less side padding to keep their labels whole on a phone.
+    final base = Theme.of(context);
+    const compact = ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: ErpSpace.s3)));
+
     return DecoratedBox(
       decoration: BoxDecoration(color: t.surface, border: Border(top: BorderSide(color: t.borderSubtle))),
       child: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, ErpSpace.s25, ErpSpace.s4, ErpSpace.s25),
-          child: ordered.length <= 2
-              ? Row(children: [
+          child: collapsed
+              ? Theme(
+                  data: base.copyWith(
+                    filledButtonTheme: FilledButtonThemeData(style: compact.merge(base.filledButtonTheme.style)),
+                    outlinedButtonTheme: OutlinedButtonThemeData(style: compact.merge(base.outlinedButtonTheme.style)),
+                  ),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                    for (final a in inBar) ...[
+                      Expanded(child: button(a)),
+                      const SizedBox(width: ErpSpace.s2),
+                    ],
+                    OutlinedButton.icon(
+                      key: const ValueKey('detail-more'),
+                      onPressed: _acting ? null : () => _showMore(actions.where((a) => !inBar.contains(a)).toList(), data),
+                      icon: const Icon(Icons.more_horiz, size: 18),
+                      label: const Text('More'),
+                    ),
+                  ]),
+                )
+              : Row(children: [
                   for (var i = 0; i < ordered.length; i++) ...[
                     if (i > 0) const SizedBox(width: ErpSpace.s2),
                     Expanded(flex: identical(ordered[i], primary) && ordered.length > 1 ? 16 : 10, child: button(ordered[i])),
                   ],
-                ])
-              : Wrap(spacing: ErpSpace.s2, runSpacing: ErpSpace.s2, alignment: WrapAlignment.end, children: [for (final a in ordered) button(a)]),
+                ]),
         ),
       ),
     );
