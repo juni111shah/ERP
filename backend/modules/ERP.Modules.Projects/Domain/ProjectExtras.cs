@@ -101,7 +101,12 @@ public class ProjectAcceptance : OrgEntity
     public string? RequestedByName { get; set; }
     public string? SignedByName { get; set; }
     public string? Signature { get; set; }
+    /// <summary>The drawn signature as a PNG data URL (kept as evidence; the typed name is stored too).</summary>
+    public string? SignatureImage { get; set; }
     public DateTime? SignedAt { get; set; }
+    public string? SignedIp { get; set; }
+    /// <summary>SHA-256 over the request, the signer, the time and the drawn signature: any later change to those values no longer matches it.</summary>
+    public string? EvidenceHash { get; set; }
     public string? Comment { get; set; }
 }
 

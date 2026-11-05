@@ -12,6 +12,7 @@ import '../../kit/form_page.dart';
 import 'client_filtered_list.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import '../projects/projects_extra_screens.dart' show createProjectFrom;
 import 'package:erp_mobile/theme/tokens.dart';
 
 const _base = '/api/v1/m/crm';
@@ -326,6 +327,7 @@ class OpportunityDetailScreen extends StatelessWidget {
             ActivityList(kind: 'Opportunity', entityId: id),
           ]),
           actions: [
+            createProjectFrom(sourceType: 'crm.opportunity', nameOf: (d) => '${d['title']}', amountKey: 'expectedRevenue'),
             _stageAction('proposal'),
             _stageAction('negotiation'),
             _stageAction('qualification'),

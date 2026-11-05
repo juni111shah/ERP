@@ -22,7 +22,7 @@ describe('customer portal projects', () => {
     c.answer({ id: 'a1', projectId: 'p1', projectName: 'Fit-out', title: 'x', status: 'Pending', requestedAt: '' }, true);
     const sign = http.expectOne((r) => r.url.endsWith('/m/projects/portal/acceptances/a1/sign'));
     expect(sign.request.method).toBe('POST');
-    expect(sign.request.body).toEqual({ accept: true, signedByName: 'Dana Customer', signature: 'Dana Customer', comment: null });
+    expect(sign.request.body).toEqual({ accept: true, signedByName: 'Dana Customer', signature: 'Dana Customer', comment: null, signatureImage: null });
     sign.flush({ id: 'a1', status: 'Signed' });
     http.match(() => true).forEach((r) => r.flush([]));
   });

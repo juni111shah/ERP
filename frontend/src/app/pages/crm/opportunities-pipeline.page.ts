@@ -1,3 +1,4 @@
+import { CreateProjectButtonComponent } from '../../shared/create-project-button.component';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -36,6 +37,7 @@ import { StatCardComponent, StatTone } from '../../shared/stat-card.component';
   standalone: true,
   imports: [
     CommonModule,
+    CreateProjectButtonComponent,
     ReactiveFormsModule,
     NzCardModule,
     NzGridModule,
@@ -101,6 +103,9 @@ import { StatCardComponent, StatTone } from '../../shared/stat-card.component';
               </span>
               <span *ngSwitchCase="'actions'">
                 <div class="table-actions">
+                  @if (row.stage === 'ClosedWon') {
+                    <erp-create-project-button sourceType="crm.opportunity" [sourceId]="row.id" [sourceLabel]="'opportunity ' + row.opportunityNumber" [defaultName]="row.title" [legalEntityId]="row.legalEntityId" [customerId]="row.customerPartyId" [amount]="row.expectedRevenue" />
+                  }
                   @if (row.stage !== 'ClosedWon' && row.stage !== 'ClosedLost') {
                     <button
                       *erpHasPermission="'crm.opportunities.manage'"

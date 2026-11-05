@@ -247,6 +247,8 @@ public sealed class ProjectsModule : ModuleBase
             b.Property(x => x.RequestedByName).HasMaxLength(150);
             b.Property(x => x.SignedByName).HasMaxLength(150);
             b.Property(x => x.Signature).HasMaxLength(150);
+            b.Property(x => x.SignedIp).HasMaxLength(64);
+            b.Property(x => x.EvidenceHash).HasMaxLength(64);
             b.Property(x => x.Comment).HasMaxLength(1000);
             b.HasIndex(x => new { x.OrgId, x.ProjectId, x.Status });
         });

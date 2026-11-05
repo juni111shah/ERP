@@ -144,3 +144,7 @@ the customer signs with a typed name (or declines with a reason) in the portal's
 
 **Still not built:** a drawn or certified e-signature (the sign-off is a typed name with time and user, not a legally certified signature), a button that creates a project from a sales order
 or opportunity (the source fields are accepted when creating a project), hiding other people's projects from the project list when members-only is on (the list itself is not filtered).
+
+**Completed last:** the members-only setting now filters the project, task, time and expense lists too (not only opening a project); "Create project" on a sales order and on an opportunity (web and mobile) fills in the customer, budget and
+source link; the customer's sign-off can be drawn on a pad as well as typed, and every answer keeps the time, the IP address and a SHA-256 evidence hash of what was signed (migration `ProjectsSignature`, script `0076`).
+This is an audit trail, not a legally certified signature from a trust provider; for contracts that need one, connect a provider.

@@ -10,6 +10,7 @@ public class ProjectsWave2Tests(ApiFactory f) : IClassFixture<ApiFactory>
     private const string Prj = ProjectsTestKit.Prj;
     private static Task<JsonNode> Ok(HttpResponseMessage r, HttpStatusCode e = HttpStatusCode.OK) => ProjectsTestKit.Ok(r, e);
     private static string S(JsonNode n, string key) => (string)n[key]!;
+    private static JsonArray Rows(JsonNode n) => n is JsonArray a ? a : n["items"]!.AsArray();
 
     /// <summary>A kit whose workspace also has a default tax code, so invoices can be issued.</summary>
     private async Task<ProjectsTestKit> KitAsync()
@@ -252,6 +253,44 @@ public class ProjectsWave2Tests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(500m, (decimal)bill["totalAmountBilled"]!);
         var after = await Ok(await k.C.PostAsJsonAsync($"{Prj}/billing/post-costs", new { projectId = p }));
         Assert.Equal(0, (int)after["entries"]!);
+    }
+
+    [Fact]
+    public async Task With_members_only_on_a_person_without_manage_rights_sees_only_their_projects()
+    {
+        var k = await KitAsync();
+        var a = await k.ProjectAsync(); var b = await k.ProjectAsync();
+        var role = await Ok(await k.C.PostAsJsonAsync("/api/v1/roles", new { name = "Reader " + Guid.NewGuid().ToString("N")[..6], description = "reads projects", permissions = new[] { "projects.projects.read", "projects.tasks.read" } }), HttpStatusCode.Created);
+        var email = $"member{Guid.NewGuid().ToString("N")[..6]}@demo.local";
+        await Ok(await k.C.PostAsJsonAsync("/api/v1/users", new { email, fullName = "Team Member", temporaryPassword = "Temp#Passw0rd", roleIds = new[] { (string)role["id"]! } }), HttpStatusCode.Created);
+        var usersNode = await ApiFactory.Json(await k.C.GetAsync("/api/v1/users"));
+        var userId = (string)(usersNode is JsonArray list ? list : usersNode["items"]!.AsArray()).First(u => (string?)u!["email"] == email)!["id"]!;
+        await Ok(await k.C.PostAsJsonAsync($"{Prj}/projects/{a}/members", new { userId, role = "Analyst" }), HttpStatusCode.Created);
+
+        await Ok(await k.C.PutAsJsonAsync("/api/v1/settings", new Dictionary<string, object> { ["projects.restrictToMembers"] = true }), HttpStatusCode.NoContent);
+        try
+        {
+            var (viewer, _) = await f.SignInAsync(email, "Temp#Passw0rd");
+            var ids = Rows(await Ok(await viewer.GetAsync($"{Prj}/projects?pageSize=200"))).Select(x => (string)x!["id"]!).ToList();
+            Assert.Contains(a, ids);
+            Assert.DoesNotContain(b, ids);
+            Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync($"{Prj}/projects/{a}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await viewer.GetAsync($"{Prj}/projects/{b}")).StatusCode);
+            var admin = Rows(await Ok(await k.C.GetAsync($"{Prj}/projects?pageSize=200"))).Select(x => (string)x!["id"]!).ToList();
+            Assert.Contains(b, admin);   // a project manager still sees everything
+        }
+        finally { await k.C.PutAsJsonAsync("/api/v1/settings", new Dictionary<string, object> { ["projects.restrictToMembers"] = false }); }
+    }
+
+    [Fact]
+    public void The_evidence_hash_changes_when_any_signed_value_changes()
+    {
+        var a = new ERP.Modules.Projects.Domain.ProjectAcceptance { SignedByName = "Dana", Signature = "Dana", SignedAt = new DateTime(2026, 6, 1, 10, 0, 0, DateTimeKind.Utc), SignedIp = "10.0.0.1", Title = "Phase 1" };
+        var hash = ERP.Modules.Projects.Features.Evidence.Hash(a);
+        Assert.Equal(64, hash.Length);
+        Assert.Equal(hash, ERP.Modules.Projects.Features.Evidence.Hash(a));
+        a.Signature = "Someone else";
+        Assert.NotEqual(hash, ERP.Modules.Projects.Features.Evidence.Hash(a));
     }
 
     [Fact]

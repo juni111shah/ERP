@@ -60,7 +60,7 @@ export class PortalService {
   leases(): Observable<PortalLease[]> { return this.get('/m/realestate/portal/leases'); }
   projects(): Observable<PortalProject[]> { return this.get('/m/projects/portal/projects'); }
   acceptances(): Observable<PortalAcceptance[]> { return this.get('/m/projects/portal/acceptances'); }
-  sign(id: string, body: { accept: boolean; signedByName: string; signature?: string | null; comment?: string | null }): Observable<PortalAcceptance> {
+  sign(id: string, body: { accept: boolean; signedByName: string; signature?: string | null; comment?: string | null; signatureImage?: string | null }): Observable<PortalAcceptance> {
     return this.http.post<PortalAcceptance>(`${this.base}/m/projects/portal/acceptances/${id}/sign`, body, { headers: this.headers() });
   }
   requests(): Observable<PortalRequest[]> { return this.get('/m/realestate/portal/requests'); }

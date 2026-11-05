@@ -14,7 +14,7 @@ import '../../kit/skeleton.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import 'package:erp_mobile/theme/tokens.dart';
-import 'projects_screens.dart' show pBase, items, statusColor, timesheetForm;
+import 'projects_screens.dart' show billingTypes, pBase, items, statusColor, timesheetForm;
 
 Route<T> _route<T>(Widget w) => MaterialPageRoute<T>(builder: (_) => w);
 
@@ -735,3 +735,31 @@ class _ProjectPicker extends ConsumerWidget {
         ),
       );
 }
+
+// ---------------------------------------------------------------- create a project from another record
+
+/// "Create project" for a record of another module (a sales order, an opportunity): the customer, the budget and the link back are filled in.
+ActionSpec createProjectFrom({required String sourceType, required String Function(Json) nameOf, String customerKey = 'customerPartyId', String amountKey = 'totalAmount'}) => ActionSpec(
+      label: 'Create project',
+      icon: Icons.work_outline,
+      permission: 'projects.projects.manage',
+      run: (ref, d, _) async => null,
+      form: (d) => FormSpec(
+        title: 'Create a project',
+        initial: {'name': nameOf(d)},
+        intro: 'The customer, the budget and the link back to this record are filled in for you.',
+        fields: [
+          Field.text('name', 'Project name', required: true, maxLength: 200),
+          Field.select('billingType', 'How is it billed', options: billingTypes, required: true, initial: 'timeAndMaterials'),
+        ],
+        submit: (ref, body, raw) => ref.read(apiProvider).post('$pBase/projects', body: {
+          ...body,
+          'legalEntityId': d['legalEntityId'],
+          'customerId': d[customerKey],
+          'budgetAmount': d[amountKey] ?? 0,
+          'status': 'planning',
+          'sourceType': sourceType,
+          'sourceId': d['id'],
+        }),
+      ),
+    );

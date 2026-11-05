@@ -10,7 +10,8 @@ namespace ERP.Modules.Projects.Features;
 
 // ---- staff side: ask the customer to sign off ---------------------------------------------------------------------------------
 public sealed record RequestAcceptanceInput(Guid ProjectId, Guid? MilestoneId, string Title);
-public sealed record AcceptanceDto(Guid Id, Guid ProjectId, string ProjectName, Guid? MilestoneId, string Title, AcceptanceStatus Status, DateTime RequestedAt, string? SignedByName, DateTime? SignedAt, string? Comment);
+public sealed record AcceptanceDto(Guid Id, Guid ProjectId, string ProjectName, Guid? MilestoneId, string Title, AcceptanceStatus Status, DateTime RequestedAt, string? SignedByName, DateTime? SignedAt, string? Comment,
+    bool DrawnSignature = false, string? SignedIp = null, string? EvidenceHash = null);
 
 public sealed record RequestAcceptance(RequestAcceptanceInput Input) : ICommand<AcceptanceDto>, IRequirePermission { public string RequiredPermission => P.MilestonesManage; }
 public sealed record ListAcceptances(Guid? ProjectId) : IQuery<IReadOnlyList<AcceptanceDto>>, IRequirePermission { public string RequiredPermission => P.MilestonesRead; }
@@ -24,7 +25,7 @@ public sealed class RequestAcceptanceValidator : AbstractValidator<RequestAccept
 public sealed record PortalMilestoneDto(Guid Id, string Title, DateOnly DueDate, MilestoneStatus Status, DateOnly? AchievedDate);
 public sealed record PortalProjectDto(Guid Id, string Number, string Name, ProjectStatus Status, DateOnly? StartDate, DateOnly? EndDate, decimal PercentComplete, string? ManagerName, IReadOnlyList<PortalMilestoneDto> Milestones);
 public sealed record PortalAcceptanceDto(Guid Id, Guid ProjectId, string ProjectName, string Title, AcceptanceStatus Status, DateTime RequestedAt, string? SignedByName, DateTime? SignedAt);
-public sealed record SignAcceptanceInput(bool Accept, string SignedByName, string? Signature, string? Comment);
+public sealed record SignAcceptanceInput(bool Accept, string SignedByName, string? Signature, string? Comment, string? SignatureImage = null);
 
 public sealed record GetPortalProjects : IQuery<IReadOnlyList<PortalProjectDto>>;
 public sealed record ListPortalAcceptances : IQuery<IReadOnlyList<PortalAcceptanceDto>>;
@@ -39,7 +40,8 @@ public sealed class SignAcceptanceValidator : AbstractValidator<SignAcceptance>
         RuleFor(x => x.Input.Signature).MaximumLength(150);
         RuleFor(x => x.Input.Comment).MaximumLength(1000);
         RuleFor(x => x.Input.Comment).NotEmpty().When(x => !x.Input.Accept).WithMessage("Say why you decline.");
-        RuleFor(x => x.Input.Signature).NotEmpty().When(x => x.Input.Accept).WithMessage("Type your name as the signature.");
+        RuleFor(x => x.Input).Must(i => !i.Accept || !string.IsNullOrWhiteSpace(i.Signature) || !string.IsNullOrWhiteSpace(i.SignatureImage)).WithName("signature").WithMessage("Type your name or draw your signature.");
+        RuleFor(x => x.Input.SignatureImage).Must(s => s is null || (s.StartsWith("data:image/png;base64,", StringComparison.Ordinal) && s.Length <= 300_000)).WithMessage("The drawn signature must be a PNG of at most 200 KB.");
     }
 }
 
@@ -49,6 +51,7 @@ internal sealed class AcceptanceHandlers(
     IReadRepository<Project> projects,
     IReadRepository<ProjectTask> tasks,
     ICurrentUser user,
+    Microsoft.AspNetCore.Http.IHttpContextAccessor http,
     ProjectPeople people) :
     IRequestHandler<RequestAcceptance, AcceptanceDto>,
     IRequestHandler<ListAcceptances, IReadOnlyList<AcceptanceDto>>,
@@ -77,7 +80,7 @@ internal sealed class AcceptanceHandlers(
         var rows = await acceptances.Query(new Specification<ProjectAcceptance>(a => q.ProjectId == null || a.ProjectId == q.ProjectId)).ToListAsync(ct);
         var ids = rows.Select(a => a.ProjectId).Distinct().ToList();
         var names = await projects.Query(new Specification<Project>(p => ids.Contains(p.Id))).ToDictionaryAsync(p => p.Id, p => p.Name, ct);
-        return rows.OrderByDescending(a => a.RequestedAt).Select(a => new AcceptanceDto(a.Id, a.ProjectId, names.GetValueOrDefault(a.ProjectId, ""), a.MilestoneId, a.Title, a.Status, a.RequestedAt, a.SignedByName, a.SignedAt, a.Comment)).ToList();
+        return rows.OrderByDescending(a => a.RequestedAt).Select(a => new AcceptanceDto(a.Id, a.ProjectId, names.GetValueOrDefault(a.ProjectId, ""), a.MilestoneId, a.Title, a.Status, a.RequestedAt, a.SignedByName, a.SignedAt, a.Comment, a.SignatureImage != null, a.SignedIp, a.EvidenceHash)).ToList();
     }
 
     public async Task<IReadOnlyList<PortalProjectDto>> Handle(GetPortalProjects q, CancellationToken ct)
@@ -116,6 +119,9 @@ internal sealed class AcceptanceHandlers(
         var i = cmd.Input;
         a.Status = i.Accept ? AcceptanceStatus.Signed : AcceptanceStatus.Declined;
         a.SignedByName = i.SignedByName.Trim(); a.Signature = i.Accept ? i.Signature?.Trim() : null; a.Comment = i.Comment?.Trim(); a.SignedAt = DateTime.UtcNow;
+        a.SignatureImage = i.Accept ? i.SignatureImage : null;
+        a.SignedIp = http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+        a.EvidenceHash = Evidence.Hash(a);
         if (i.Accept && a.MilestoneId is { } mid)
         {
             var m = await milestones.GetForUpdateAsync(mid, ct);
@@ -126,4 +132,16 @@ internal sealed class AcceptanceHandlers(
     }
 
     private static PortalAcceptanceDto Portal(ProjectAcceptance a, string project) => new(a.Id, a.ProjectId, project, a.Title, a.Status, a.RequestedAt, a.SignedByName, a.SignedAt);
+}
+
+
+/// <summary>The evidence hash of a sign-off; no I/O. Anyone can recompute it from the stored values to check nothing was changed afterwards.</summary>
+public static class Evidence
+{
+    public static string Hash(ProjectAcceptance a)
+    {
+        var image = a.SignatureImage is null ? "" : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(a.SignatureImage)));
+        var text = string.Join("|", a.Id, a.ProjectId, a.MilestoneId, a.Title, a.Status, a.SignedByName, a.Signature, a.Comment, a.SignedAt?.ToString("O"), a.SignedIp, image);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)));
+    }
 }

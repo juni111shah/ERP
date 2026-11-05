@@ -2,6 +2,7 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
+import { CreateProjectButtonComponent } from '../../shared/create-project-button.component';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDescriptionsModule } from 'ng-zorro-antd/descriptions';
@@ -26,6 +27,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
     DecimalPipe,
     FormsModule,
     RouterModule,
+    CreateProjectButtonComponent,
     NzGridModule,
     NzCardModule,
     NzTagModule,
@@ -61,6 +63,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
           </div>
 
           <div class="header-actions">
+            <erp-create-project-button sourceType="sales.order" [sourceId]="o.id" [sourceLabel]="'order ' + o.number" [defaultName]="'Delivery of ' + o.number" [legalEntityId]="o.legalEntityId" [customerId]="o.customerPartyId" [amount]="o.totalAmount" />
             @if (o.status === 'Draft') {
               <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="primary" (click)="changeStatus('Confirmed')">
                 <span nz-icon nzType="check"></span>Confirm Order
