@@ -65,7 +65,7 @@ export class StatutoryRulesPage {
     { key: 'method', label: 'Method', type: 'select', required: true, options: STATUTORY_METHODS, default: 'flat' },
     { key: 'base', label: 'Applied to', type: 'select', required: true, options: STATUTORY_BASES, default: 'basic' },
     { key: 'rate', label: 'Rate (%)', type: 'number', min: 0, max: 100, default: 0, hidden: (v) => v['method'] === 'slab' },
-    { key: 'slabsText', label: 'Slabs (from:percent)', type: 'text', maxLength: 300, hidden: (v) => v['method'] !== 'slab', hint: 'Monthly amounts, for example 0:0, 1000:10, 3000:20. Each percent applies to the part above its amount.' },
+    { key: 'slabs', label: 'Slabs', type: 'rows', columns: [{ key: 'fromAmount', label: 'From (monthly)', type: 'number' }, { key: 'rate', label: 'Percent', type: 'number' }], hidden: (v) => v['method'] !== 'slab', hint: 'Each percent applies to the part of the base above its amount, for example from 0 at 0%, from 1000 at 10%.' },
     { key: 'threshold', label: 'Nothing below (monthly)', type: 'number', min: 0, default: 0 },
     { key: 'cap', label: 'Cap on the base (monthly)', type: 'number', min: 0, default: 0, hint: '0 = no cap.' },
     { key: 'nationalities', label: 'Nationalities', type: 'text', maxLength: 300, hint: 'Blank = everyone. "Qatari, Omani" = only them. "!Qatari" = everyone except Qataris.' },
@@ -75,11 +75,10 @@ export class StatutoryRulesPage {
   ]);
 
   open(row: StatutoryRuleRow): void {
-    this.api.detail(row.id).subscribe((r) => this.state.edit({ ...r, slabsText: slabsText(r.slabs) } as StatutoryRuleDto));
+    this.api.detail(row.id).subscribe((r) => this.state.edit(r as StatutoryRuleDto));
   }
 
   private toBody(v: Record<string, unknown>): Record<string, unknown> {
-    const { slabsText: text, ...rest } = v;
-    return { ...rest, slabs: v['method'] === 'slab' ? parseSlabs(text) : [] };
+    return { ...v, slabs: v['method'] === 'slab' ? (v['slabs'] ?? []) : [] };
   }
 }

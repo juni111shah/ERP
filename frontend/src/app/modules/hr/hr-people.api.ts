@@ -214,6 +214,22 @@ export class ChecklistsApi extends CrudApiService<ChecklistRow, unknown> {
   detail(id: string): Observable<ChecklistDto> { return this.http.get<ChecklistDto>(`${this.url}/${id}`); }
 }
 
+// ---- Shifts ----------------------------------------------------------------------------------------------------------------
+
+export interface ShiftDto { id: string; code: string; name: string; startTime: string; graceMinutes: number; hoursPerDay: number; isActive: boolean; employees: number; }
+
+@Injectable({ providedIn: 'root' })
+export class ShiftsApi {
+  private readonly http = inject(HttpClient);
+  private readonly url = `${inject(API_BASE_URL)}/${BASE}/shifts`;
+  list(): Observable<ShiftDto[]> { return this.http.get<ShiftDto[]>(this.url); }
+  create(body: unknown): Observable<ShiftDto> { return this.http.post<ShiftDto>(this.url, body); }
+  update(id: string, body: unknown): Observable<ShiftDto> { return this.http.put<ShiftDto>(`${this.url}/${id}`, body); }
+  remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
+  assign(id: string, employeeIds: string[]): Observable<{ assigned: number }> { return this.http.post<{ assigned: number }>(`${this.url}/${id}/assign`, { employeeIds }); }
+  unassign(employeeIds: string[]): Observable<{ cleared: number }> { return this.http.post<{ cleared: number }>(`${this.url}/unassign`, { employeeIds }); }
+}
+
 // ---- Recruitment -----------------------------------------------------------------------------------------------------------
 
 export const OPENING_STATUSES = [{ value: 'open', label: 'Open' }, { value: 'onHold', label: 'On hold' }, { value: 'closed', label: 'Closed' }];

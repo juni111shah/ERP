@@ -57,6 +57,21 @@ public class HrWave4Tests
     }
 
     [Fact]
+    public void Punches_fold_into_a_check_in_and_the_latest_check_out()
+    {
+        var first = PunchMath.Apply(null, null, new TimeOnly(8, 2));
+        Assert.Equal((new TimeOnly(8, 2), (TimeOnly?)null), first);
+        var second = PunchMath.Apply(first.CheckIn, first.CheckOut, new TimeOnly(17, 10));
+        Assert.Equal(new TimeOnly(17, 10), second.CheckOut);
+        var third = PunchMath.Apply(second.CheckIn, second.CheckOut, new TimeOnly(12, 0));   // a punch in the middle changes nothing
+        Assert.Equal(new TimeOnly(17, 10), third.CheckOut);
+        var same = PunchMath.Apply(new TimeOnly(8, 2), null, new TimeOnly(8, 2));            // a double tap
+        Assert.Null(same.CheckOut);
+        var early = PunchMath.Apply(new TimeOnly(9, 0), null, new TimeOnly(8, 0));           // an older punch arrives late
+        Assert.Equal((new TimeOnly(8, 0), (TimeOnly?)new TimeOnly(9, 0)), early);
+    }
+
+    [Fact]
     public void A_day_counts_minutes_worked_late_arrival_and_overtime()
     {
         var shift = new TimeOnly(8, 0);

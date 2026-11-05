@@ -109,6 +109,56 @@ public class HrWave4Tests(ApiFactory f) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task An_employee_on_a_shift_is_measured_against_it_and_a_shift_in_use_cannot_be_deleted()
+    {
+        var kit = await HrKit.StartAsync(f);
+        var emp = await kit.EmployeeAsync(HrKit.Unique("Shifty"), 3_000m, PlainPay);
+        var code = ("S" + Guid.NewGuid().ToString("N"))[..8];
+        var shift = await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/shifts", new { code, name = "Late shift", startTime = "14:00:00", graceMinutes = 5, hoursPerDay = 9 }), HttpStatusCode.Created);
+        var id = (string)shift["id"]!;
+        Assert.Equal(HttpStatusCode.Conflict, (await kit.Owner.PostAsJsonAsync($"{Hr}/shifts", new { code, name = "Dup", startTime = "08:00:00" })).StatusCode);
+        var assigned = await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/shifts/{id}/assign", new { employeeIds = new[] { emp } }));
+        Assert.Equal(1, (int)assigned["assigned"]!);
+
+        var day = await HrKit.Ok(await kit.Owner.PutAsJsonAsync($"{Hr}/attendance/daily", new { employeeId = emp, date = "2026-10-05", checkIn = "14:20:00", checkOut = "23:20:00" }));
+        Assert.Equal(20, (int)day["lateMinutes"]!);          // 20 minutes after 14:00 with 5 minutes' grace: the whole delay counts
+        Assert.Equal(0, (int)day["overtimeMinutes"]!);        // nine hours is a normal day on this shift
+
+        var list = (await HrKit.Ok(await kit.Owner.GetAsync($"{Hr}/shifts"))).AsArray();
+        Assert.Equal(1, (int)list.Single(s => (string)s!["id"]! == id)!["employees"]!);
+        Assert.Equal(HttpStatusCode.Conflict, (await kit.Owner.DeleteAsync($"{Hr}/shifts/{id}")).StatusCode);
+        await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/shifts/unassign", new { employeeIds = new[] { emp } }));
+        Assert.Equal(HttpStatusCode.NoContent, (await kit.Owner.DeleteAsync($"{Hr}/shifts/{id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Device_punches_become_check_in_and_check_out_and_unknown_numbers_are_reported()
+    {
+        var kit = await HrKit.StartAsync(f);
+        var name = HrKit.Unique("Punch");
+        var emp = await kit.EmployeeAsync(name, 3_000m, PlainPay);
+        var number = (string)(await HrKit.Ok(await kit.Owner.GetAsync($"{Hr}/employees/{emp}")))["number"]!;
+        var res = await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/attendance/punch", new
+        {
+            source = "gate-1",
+            punches = new object[]
+            {
+                new { employeeNumber = number, at = "2026-10-05T17:30:00" },
+                new { employeeNumber = number, at = "2026-10-05T08:00:00" },
+                new { employeeNumber = number, at = "2026-10-05T12:00:00" },
+                new { employeeNumber = "NOPE-1", at = "2026-10-05T08:00:00" },
+            },
+        }));
+        Assert.Equal(3, (int)res["saved"]!);
+        Assert.Single(res["rejected"]!.AsArray());
+        var day = (await HrKit.Ok(await kit.Owner.GetAsync($"{Hr}/attendance/daily?year=2026&month=10&employeeId={emp}"))).AsArray().Single()!;
+        Assert.Equal("08:00:00", (string)day["checkIn"]!);
+        Assert.Equal("17:30:00", (string)day["checkOut"]!);
+        Assert.Equal("gate-1", (string)day["source"]!);
+        Assert.Equal(90, (int)day["overtimeMinutes"]!);
+    }
+
+    [Fact]
     public async Task A_half_day_counts_as_attended_with_half_a_day_unpaid_and_payroll_deducts_half_a_day()
     {
         var kit = await HrKit.StartAsync(f);

@@ -121,8 +121,8 @@ export class DailyAttendancePage {
     { key: 'employeeId', label: 'Employee', type: 'select', required: true, readonlyOnEdit: true, options: this.employees().items.filter((e) => e.status !== 'terminated').map((e) => ({ value: e.id, label: `${e.number} · ${e.fullName}` })) },
     { key: 'date', label: 'Date', type: 'date', required: true, readonlyOnEdit: true, default: new Date() },
     { key: 'status', label: 'Status', type: 'select', options: DAILY_STATUSES, hint: 'Leave blank: present when there is a check-in, otherwise absent.' },
-    { key: 'checkIn', label: 'Check-in (hh:mm)', type: 'text', maxLength: 8, hidden: (v) => !!v['status'] && v['status'] !== 'present' },
-    { key: 'checkOut', label: 'Check-out (hh:mm)', type: 'text', maxLength: 8, hidden: (v) => !!v['status'] && v['status'] !== 'present' },
+    { key: 'checkIn', label: 'Check-in (hh:mm)', type: 'text', maxLength: 8, hidden: (v) => !!v['status'] && v['status'] !== 'present' && v['status'] !== 'halfDay' },
+    { key: 'checkOut', label: 'Check-out (hh:mm)', type: 'text', maxLength: 8, hidden: (v) => !!v['status'] && v['status'] !== 'present' && v['status'] !== 'halfDay' },
     { key: 'notes', label: 'Notes', type: 'text', maxLength: 300 },
   ]);
 

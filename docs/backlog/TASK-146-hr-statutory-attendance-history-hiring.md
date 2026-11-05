@@ -25,8 +25,14 @@ Web: statutory rules, daily attendance (add a day, import, roll-up), history and
 ## Half-day attendance (added later)
 Status `halfDay` on a daily log: counts as attended, half a day unpaid in the roll-up. `UnpaidAbsentDays` is now decimal (migration `HrHalfDay`, script `0070_HrHalfDay.sql`).
 
+## Shifts and device punches (added later)
+- **Shifts** (`/hr/shifts`): code, name, start time, late grace, hours in a normal day; employees are assigned in bulk (`/shifts/{id}/assign`, `/shifts/unassign`) and are measured against their shift, everyone else against the settings. Migration `HrShifts`, script `0071_HrShifts.sql`. Web page `/hr/shifts`, mobile screen, menu entry.
+- **Device punches** (`POST /hr/attendance/punch`): raw events `{employeeNumber, at}` from a gate device or phone, sent by a service account holding `hr.attendance.manage`. The earliest punch of a day is the check-in, the latest the check-out; a double tap changes nothing; unknown numbers come back in `rejected`.
+- **Table editors**: slabs, checklist steps, leave-type tiers and pay bands are edited as lines (a new `rows` field in the web record drawer; `Field.lines` on mobile) instead of typed text.
+- **HR settings**: already editable in the generic settings page (web and mobile) under "hr".
+
 ## Not done
-Shift rosters; photo or device integration; applying a country's actual tax tables (the rules are set up per entity by the user).
+Rosters that change by date (an employee has one shift at a time); photo or face capture at the device; the device vendor connectors themselves (they call the punch endpoint).
 
 ## Tests
 `HrWave4Tests` (unit, 28 cases) and `HrWave4Tests` (integration, 6 scenarios); full backend suite green.

@@ -28,7 +28,7 @@ const KIND_LABELS: Record<string, string> = {
         <nz-tabs>
           <nz-tab nzTitle="History">
             <div *erpHasPermission="'hr.employees.manage'" style="display:flex;gap:8px;margin-bottom:12px">
-              <input nz-input placeholder="Add a note (course completed, warning given ...)" [(ngModel)]="note" maxlength="500" data-testid="history-note" />
+              <input nz-input aria-label="Add a note" placeholder="Add a note (course completed, warning given ...)" [(ngModel)]="note" maxlength="500" data-testid="history-note" />
               <button nz-button nzType="primary" [disabled]="!note.trim()" (click)="addNote()" data-testid="history-add">Add</button>
             </div>
             @for (h of history(); track h.id) {
@@ -50,7 +50,7 @@ const KIND_LABELS: Record<string, string> = {
               <button nz-button [disabled]="!templateId" (click)="apply()" data-testid="task-apply">Apply</button>
             </div>
             <div *erpHasPermission="'hr.employees.manage'" style="display:flex;gap:8px;margin-bottom:12px">
-              <input nz-input placeholder="Add a task" [(ngModel)]="taskTitle" maxlength="200" data-testid="task-title" />
+              <input nz-input aria-label="Task title" placeholder="Add a task" [(ngModel)]="taskTitle" maxlength="200" data-testid="task-title" />
               <nz-date-picker [(ngModel)]="taskDue" style="width:150px"></nz-date-picker>
               <button nz-button [disabled]="!taskTitle.trim()" (click)="addTask()" data-testid="task-add">Add</button>
             </div>

@@ -1033,7 +1033,7 @@ const PAIRS: [string, string][] = [
   ['Notice given on', 'تاريخ تقديم الإشعار'], ['Reason', 'السبب'], ['Net to pay', 'صافي المستحق'], ['Gross', 'الإجمالي'], ['End of service', 'نهاية الخدمة'],
   ['Balances', 'الأرصدة'], ['My leave', 'إجازاتي'], ['Payslips', 'قسائم الرواتب'], ['Team approvals', 'موافقات الفريق'], ['Request leave', 'طلب إجازة'], ['Send request', 'إرسال الطلب'],
   ['Approve', 'موافقة'], ['Mark done', 'تم'], ['Add a day', 'إضافة يوم'], ['Import', 'استيراد'], ['Roll up to the month', 'تجميع الشهر'], ['Check-in', 'وقت الدخول'], ['Check-out', 'وقت الخروج'],
-  ['Present', 'حاضر'], ['Absent', 'غائب'], ['On leave', 'في إجازة'], ['Weekly off', 'إجازة أسبوعية'], ['Half day', 'نصف يوم'], ['Public holiday', 'عطلة رسمية'], ['Worked', 'ساعات العمل'],
+  ['Present', 'حاضر'], ['Absent', 'غائب'], ['On leave', 'في إجازة'], ['Weekly off', 'إجازة أسبوعية'], ['Half day', 'نصف يوم'], ['Shifts', 'الورديات'], ['New shift', 'وردية جديدة'], ['Assign employees', 'تعيين الموظفين'], ['Public holiday', 'عطلة رسمية'], ['Worked', 'ساعات العمل'],
   ['Employee deduction', 'استقطاع من الموظف'], ['Employer cost', 'تكلفة صاحب العمل'], ['Flat percent', 'نسبة ثابتة'], ['Rate (%)', 'النسبة (%)'], ['Nationalities', 'الجنسيات'],
   ['Effective from', 'ساري من'], ['Effective to', 'ساري حتى'], ['Applied to', 'يطبق على'], ['Basic salary', 'الراتب الأساسي'], ['Gross pay', 'إجمالي الراتب'],
   ['Statutory deductions and contributions', 'الاستقطاعات والمساهمات النظامية'], ['of which statutory', 'منها نظامية'], ['of which loans', 'منها قروض'],

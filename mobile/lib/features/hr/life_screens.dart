@@ -45,7 +45,7 @@ FormSpec statutoryForm({Json? existing}) {
     initial: {
       if (editing) ...{
         for (final k in ['code', 'name', 'kind', 'method', 'base', 'rate', 'threshold', 'cap', 'nationalities', 'effectiveFrom', 'effectiveTo', 'isActive']) k: existing[k],
-        'slabsText': [for (final s in (existing['slabs'] as List<dynamic>? ?? const []).cast<Json>()) '${s['fromAmount']}:${s['rate']}'].join(', '),
+        'slabs': [for (final s in (existing['slabs'] as List<dynamic>? ?? const []).cast<Json>()) {'fromAmount': '${s['fromAmount']}', 'rate': '${s['rate']}'}],
       },
     },
     intro: 'Applied to every regular payroll run of the entity. An employer cost is added on top of the pay.',
@@ -57,7 +57,10 @@ FormSpec statutoryForm({Json? existing}) {
       Field.select('method', 'Method', options: const [Option('flat', 'Flat percent'), Option('slab', 'Slabs (progressive)')], required: true, initial: 'flat'),
       Field.select('base', 'Applied to', options: const [Option('basic', 'Basic salary'), Option('gross', 'Gross pay')], required: true, initial: 'basic'),
       Field.decimal('rate', 'Rate (%)', min: 0, max: 100, decimals: 2, initial: '0', visibleWhen: (v) => v['method'] != 'slab'),
-      Field.text('slabsText', 'Slabs (from:percent)', maxLength: 300, hint: 'For example 0:0, 1000:10, 3000:20', visibleWhen: (v) => v['method'] == 'slab'),
+      Field.lines('slabs', 'Slabs', minLines: 1, addLabel: 'Add slab', visibleWhen: (v) => v['method'] == 'slab', fields: [
+        Field.decimal('fromAmount', 'From (monthly)', required: true, min: 0, decimals: 2),
+        Field.decimal('rate', 'Percent', required: true, min: 0, max: 100, decimals: 2),
+      ]),
       Field.money('threshold', 'Nothing below (monthly)', initial: '0'),
       Field.money('cap', 'Cap on the base (monthly, 0 = none)', initial: '0'),
       Field.text('nationalities', 'Nationalities', maxLength: 300, hint: 'Blank = everyone; "!Qatari" = everyone except Qataris'),
@@ -67,8 +70,7 @@ FormSpec statutoryForm({Json? existing}) {
     ],
     submit: (ref, body, raw) {
       final api = ref.read(apiProvider);
-      final rest = {...body}..remove('slabsText');
-      final full = {...rest, 'slabs': body['method'] == 'slab' ? slabsOf(body['slabsText']) : <Object>[], if (!editing && body['legalEntityId'] == null) 'legalEntityId': ref.read(meOrEmptyProvider).defaultEntity?.id};
+      final full = {...body, 'slabs': body['method'] == 'slab' ? (body['slabs'] ?? const <Object>[]) : <Object>[], if (!editing && body['legalEntityId'] == null) 'legalEntityId': ref.read(meOrEmptyProvider).defaultEntity?.id};
       if (editing) full['legalEntityId'] = existing['legalEntityId'];
       return editing ? api.put('$_rulesPath/${existing['id']}', body: full) : api.post(_rulesPath, body: full);
     },
@@ -135,8 +137,8 @@ FormSpec dailyForm({Json? existing}) => FormSpec(
         if (existing == null) Field.lookup('employeeId', 'Employee', path: '$hrPath/employees', labelKey: 'fullName', subtitleKey: 'number', required: true),
         if (existing == null) Field.date('date', 'Date', required: true, initial: 'today'),
         Field.select('status', 'Status', options: dailyStatuses),
-        Field.text('checkIn', 'Check-in (hh:mm)', maxLength: 8, validator: _timeError, visibleWhen: (v) => v['status'] == null || v['status'] == 'present'),
-        Field.text('checkOut', 'Check-out (hh:mm)', maxLength: 8, validator: _timeError, visibleWhen: (v) => v['status'] == null || v['status'] == 'present'),
+        Field.text('checkIn', 'Check-in (hh:mm)', maxLength: 8, validator: _timeError, visibleWhen: (v) => v['status'] == null || v['status'] == 'present' || v['status'] == 'halfDay'),
+        Field.text('checkOut', 'Check-out (hh:mm)', maxLength: 8, validator: _timeError, visibleWhen: (v) => v['status'] == null || v['status'] == 'present' || v['status'] == 'halfDay'),
         Field.text('notes', 'Notes', maxLength: 300),
       ],
       submit: (ref, body, raw) => ref.read(apiProvider).put(_dailyPath, body: {
@@ -433,20 +435,23 @@ FormSpec checklistForm({Json? existing}) => FormSpec(
           'name': existing['name'],
           'kind': existing['kind'],
           'isActive': existing['isActive'],
-          'itemsText': [for (final i in (existing['items'] as List<dynamic>? ?? const []).cast<Json>()) '${i['title']} | ${i['dueOffsetDays']}'].join('\n'),
+          'items': [for (final i in (existing['items'] as List<dynamic>? ?? const []).cast<Json>()) {'title': i['title'], 'dueOffsetDays': '${i['dueOffsetDays']}'}],
         },
       },
-      intro: 'One step per line: title | days. Days count from the join date (onboarding) or back from the last day (offboarding, negative).',
+      intro: 'Days count from the join date (onboarding) or back from the last day (offboarding, use a negative number).',
       fields: [
         Field.text('name', 'Name', required: true, maxLength: 150),
         Field.select('kind', 'Kind', options: const [Option('onboarding', 'Onboarding'), Option('offboarding', 'Offboarding')], required: true, initial: 'onboarding'),
-        Field.multiline('itemsText', 'Steps', maxLength: 4000),
+        Field.lines('items', 'Steps', minLines: 0, addLabel: 'Add step', fields: [
+          Field.text('title', 'Step', required: true, maxLength: 200),
+          Field.integer('dueOffsetDays', 'Days', initial: '0'),
+        ]),
         Field.toggle('isActive', 'Active', initial: true),
       ],
       submit: (ref, body, raw) {
         final api = ref.read(apiProvider);
-        final full = {...body}..remove('itemsText');
-        full['items'] = checklistItemsOf(body['itemsText']);
+        final full = {...body};
+        full['items'] = [for (final i in (body['items'] as List<dynamic>? ?? const [])) {'title': (i as Map)['title'], 'dueOffsetDays': i['dueOffsetDays'] ?? 0}];
         return existing == null ? api.post(_checklistsPath, body: full) : api.put('$_checklistsPath/${existing['id']}', body: full);
       },
     );
@@ -651,4 +656,102 @@ class RecruitmentScreen extends StatelessWidget {
           ]),
         ),
       );
+}
+
+// ---- Shifts ----------------------------------------------------------------------------------------------------------------
+
+const _shiftsPath = '$hrPath/shifts';
+
+FormSpec shiftForm({Json? existing}) => FormSpec(
+      title: existing == null ? 'New shift' : 'Edit shift',
+      initial: {
+        if (existing != null) ...{
+          'code': existing['code'],
+          'name': existing['name'],
+          'startTime': '${existing['startTime'] ?? ''}'.length >= 5 ? '${existing['startTime']}'.substring(0, 5) : '08:00',
+          'graceMinutes': existing['graceMinutes'],
+          'hoursPerDay': existing['hoursPerDay'],
+          'isActive': existing['isActive'],
+        },
+      },
+      fields: [
+        Field.text('code', 'Code', required: true, maxLength: 20),
+        Field.text('name', 'Name', required: true, maxLength: 100),
+        Field.text('startTime', 'Start time (hh:mm)', required: true, maxLength: 8, initial: '08:00', validator: _timeError),
+        Field.integer('graceMinutes', 'Late grace (minutes)', min: 0, max: 240, initial: 10),
+        Field.integer('hoursPerDay', 'Hours in a normal day', min: 1, max: 24, initial: 8),
+        Field.toggle('isActive', 'Active', initial: true),
+      ],
+      submit: (ref, body, raw) {
+        final api = ref.read(apiProvider);
+        final payload = {...body, 'startTime': timeOf(body['startTime']) ?? '08:00:00'};
+        return existing == null ? api.post(_shiftsPath, body: payload) : api.put('$_shiftsPath/${existing['id']}', body: payload);
+      },
+    );
+
+FormSpec assignShiftForm(Json shift) => FormSpec(
+      title: 'Assign to ${shift['name']}',
+      intro: 'The employee leaves any shift they are on now.',
+      fields: [Field.lookup('employeeId', 'Employee', path: '$hrPath/employees', labelKey: 'fullName', subtitleKey: 'number', required: true)],
+      submit: (ref, body, raw) => ref.read(apiProvider).post('$_shiftsPath/${shift['id']}/assign', body: {'employeeIds': [body['employeeId']]}),
+    );
+
+/// Work shifts: late arrival and overtime are measured against the employee's shift.
+class ShiftsScreen extends ConsumerWidget {
+  const ShiftsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(dataVersionProvider);
+    final canManage = ref.watch(meOrEmptyProvider).can('hr.attendance.manage');
+    return Scaffold(
+      appBar: AppBar(title: const Text('Shifts')),
+      floatingActionButton: canManage ? FloatingActionButton(tooltip: 'New shift', onPressed: () => openForm<Object?>(context, shiftForm()), child: const Icon(Icons.add)) : null,
+      body: FutureBuilder<dynamic>(
+        future: ref.read(apiProvider).get(_shiftsPath),
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) return const ErpSkeleton.list();
+          if (snap.hasError) return Center(child: Text('${snap.error}'));
+          final rows = _items(snap.data);
+          if (rows.isEmpty) return const Center(child: Text('No shifts yet. Everyone uses the shift times in the HR settings.'));
+          return ListView.separated(
+            itemCount: rows.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final s = rows[i];
+              return ListTile(
+                title: Text('${s['name']}'),
+                subtitle: Text('${s['code']} · from ${'${s['startTime']}'.substring(0, 5)} · grace ${s['graceMinutes']} min · ${s['hoursPerDay']} h · ${s['employees']} employee(s)'),
+                trailing: s['isActive'] == false ? StatusChip('Inactive', color: Colors.grey.shade700) : null,
+                onTap: canManage
+                    ? () => showModalBottomSheet<void>(
+                          context: context,
+                          builder: (sheet) => SafeArea(
+                            child: Column(mainAxisSize: MainAxisSize.min, children: [
+                              ListTile(leading: const Icon(Icons.edit_outlined), title: const Text('Edit'), onTap: () { Navigator.pop(sheet); openForm<Object?>(context, shiftForm(existing: s)); }),
+                              ListTile(leading: const Icon(Icons.person_add_alt), title: const Text('Assign an employee'), onTap: () { Navigator.pop(sheet); openForm<Object?>(context, assignShiftForm(s)); }),
+                              ListTile(
+                                leading: const Icon(Icons.delete_outline),
+                                title: const Text('Delete'),
+                                onTap: () async {
+                                  Navigator.pop(sheet);
+                                  try {
+                                    await ref.read(apiProvider).delete('$_shiftsPath/${s['id']}');
+                                    ref.read(dataVersionProvider.notifier).bump();
+                                  } catch (e) {
+                                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                                  }
+                                },
+                              ),
+                            ]),
+                          ),
+                        )
+                    : null,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
 }

@@ -26,6 +26,7 @@ Widget host(FakeAdapter adapter, Widget child, {Set<String> permissions = const 
 Map<String, dynamic> candidate(String stage) => {'id': 'c1', 'openingId': 'o1', 'fullName': 'Noor Hassan', 'email': 'noor@x.com', 'stage': stage, 'expectedSalary': 4000};
 
 void main() {
+  shiftTests();
   test('times are read as hh:mm and bad ones are flagged', () {
     expect(timeOf('8:05'), '08:05:00');
     expect(timeOf('17:30'), '17:30:00');
@@ -68,8 +69,8 @@ void main() {
   test('a statutory rule needs a code, a name and an entity, and slabs only show for the slab method', () {
     final spec = statutoryForm();
     final flat = FormEngine.start(spec.fields, spec.initial);
-    expect(spec.fields.firstWhere((f) => f.key == 'slabsText').visibleWhen?.call({...flat, 'method': 'flat'}), isFalse);
-    expect(spec.fields.firstWhere((f) => f.key == 'slabsText').visibleWhen?.call({...flat, 'method': 'slab'}), isTrue);
+    expect(spec.fields.firstWhere((f) => f.key == 'slabs').visibleWhen?.call({...flat, 'method': 'flat'}), isFalse);
+    expect(spec.fields.firstWhere((f) => f.key == 'slabs').visibleWhen?.call({...flat, 'method': 'slab'}), isTrue);
     expect(spec.fields.firstWhere((f) => f.key == 'rate').visibleWhen?.call({...flat, 'method': 'slab'}), isFalse);
     final errors = FormEngine.validate(spec.fields, flat);
     expect(errors['code'], isNotNull);
@@ -111,5 +112,30 @@ void main() {
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     expect(adapter.requests.any((r) => r.method == 'POST' && r.path.endsWith('/hr/tasks/t1/done')), isTrue);
+  });
+}
+
+void shiftTests() {
+  test('a shift needs a code, a name and a valid start time', () {
+    final spec = shiftForm();
+    final values = FormEngine.start(spec.fields, spec.initial);
+    expect(FormEngine.validate(spec.fields, values)['code'], isNotNull);
+    values
+      ..['code'] = 'N1'
+      ..['name'] = 'Night'
+      ..['startTime'] = '25:00';
+    expect(FormEngine.validate(spec.fields, values)['startTime'], isNotNull);
+    values['startTime'] = '22:00';
+    expect(FormEngine.validate(spec.fields, values), isEmpty);
+  });
+
+  testWidgets('the shifts list shows start time and head count', (tester) async {
+    await tester.pumpWidget(host(
+        FakeAdapter((_) => envelope([{'id': 's1', 'code': 'N1', 'name': 'Night', 'startTime': '22:00:00', 'graceMinutes': 5, 'hoursPerDay': 9, 'isActive': true, 'employees': 3}])),
+        const ShiftsScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text('Night'), findsOneWidget);
+    expect(find.textContaining('from 22:00'), findsOneWidget);
+    expect(find.textContaining('3 employee'), findsOneWidget);
   });
 }

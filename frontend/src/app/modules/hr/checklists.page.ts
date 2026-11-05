@@ -51,14 +51,14 @@ export class ChecklistsPage {
   readonly fields: FieldSpec[] = [
     { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 150 },
     { key: 'kind', label: 'Kind', type: 'select', required: true, options: CHECKLIST_KINDS, default: 'onboarding' },
-    { key: 'itemsText', label: 'Steps', type: 'textarea', maxLength: 4000, hint: 'One step per line: title | days. Days count from the join date (onboarding) or back from the last day (offboarding, use a negative number).' },
+    { key: 'items', label: 'Steps', type: 'rows', columns: [{ key: 'title', label: 'Step', type: 'text' }, { key: 'dueOffsetDays', label: 'Days', type: 'number' }], hint: 'Days count from the join date (onboarding) or back from the last day (offboarding, use a negative number).' },
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ];
 
-  open(row: ChecklistRow): void { this.api.detail(row.id).subscribe((c) => this.state.edit({ ...c, itemsText: itemsText(c.items) } as ChecklistDto)); }
+  open(row: ChecklistRow): void { this.api.detail(row.id).subscribe((c) => this.state.edit(c)); }
 
   private toBody(v: Record<string, unknown>): Record<string, unknown> {
-    const { itemsText: text, ...rest } = v;
-    return { ...rest, items: parseItems(text) };
+    const items = (Array.isArray(v['items']) ? v['items'] : []) as { title?: string; dueOffsetDays?: number }[];
+    return { ...v, items: items.filter((i) => i.title).map((i) => ({ title: i.title, dueOffsetDays: Math.trunc(i.dueOffsetDays ?? 0) })) };
   }
 }

@@ -14,6 +14,7 @@ import 'setup_screens.dart';
 /// Screens of this area for the More menu. Add a MobileScreen per server menu entry you build.
 final List<MobileScreen> hrScreens = <MobileScreen>[
   MobileScreen(id: 'hr-daily-attendance', title: 'Daily attendance', menuIds: const ['hr.dailyattendance'], icon: Icons.event_available_outlined, builder: (_) => const DailyAttendanceScreen()),
+  MobileScreen(id: 'hr-shifts', title: 'Shifts', menuIds: const ['hr.shifts'], icon: Icons.schedule_outlined, builder: (_) => const ShiftsScreen()),
   MobileScreen(id: 'hr-statutory', title: 'Statutory rules', menuIds: const ['hr.statutory'], icon: Icons.gavel_outlined, builder: (_) => const StatutoryRulesScreen()),
   MobileScreen(id: 'hr-recruitment', title: 'Recruitment', menuIds: const ['hr.recruitment'], icon: Icons.person_search_outlined, builder: (_) => const RecruitmentScreen()),
   MobileScreen(id: 'hr-checklists', title: 'Checklists', menuIds: const ['hr.checklists'], icon: Icons.checklist, builder: (_) => const ChecklistsScreen()),

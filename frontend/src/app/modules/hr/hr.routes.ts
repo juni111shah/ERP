@@ -12,6 +12,7 @@ export const HR_ROUTES: Routes = [
   { path: 'documents-expiry', canMatch: [permissionGuard('hr.employees.read')], loadComponent: () => import('./expiring-documents.page').then((m) => m.ExpiringDocumentsPage) },
   { path: 'statutory-rules', canMatch: [permissionGuard('hr.payroll.read')], loadComponent: () => import('./statutory-rules.page').then((m) => m.StatutoryRulesPage) },
   { path: 'daily-attendance', canMatch: [permissionGuard('hr.attendance.read')], loadComponent: () => import('./daily-attendance.page').then((m) => m.DailyAttendancePage) },
+  { path: 'shifts', canMatch: [permissionGuard('hr.attendance.read')], loadComponent: () => import('./shifts.page').then((m) => m.ShiftsPage) },
   { path: 'checklists', canMatch: [permissionGuard('hr.employees.read')], loadComponent: () => import('./checklists.page').then((m) => m.ChecklistsPage) },
   { path: 'tasks', canMatch: [permissionGuard('hr.employees.read')], loadComponent: () => import('./open-tasks.page').then((m) => m.OpenTasksPage) },
   { path: 'recruitment', canMatch: [permissionGuard('hr.recruitment.read')], loadComponent: () => import('./recruitment.page').then((m) => m.RecruitmentPage) },
