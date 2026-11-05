@@ -3,7 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Title } from '@angular/platform-browser';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, map, of, catchError } from 'rxjs';
+import { forkJoin, map, of, catchError, switchMap } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
@@ -193,6 +193,7 @@ export interface PrintInspectionData {
 
 export interface PrintPosReceiptData {
   header: PrintHeader;
+  register?: { receiptHeader?: string | null; receiptFooter?: string | null } | null;
   posOrder: {
     id: string; number: string; customerName: string; cashierName: string; orderDate: string; subTotal: number;
     taxTotal: number; totalAmount: number; status: string; notes?: string | null;
@@ -1232,6 +1233,8 @@ export class PrintPage implements OnInit {
       organizationName: d.header.organizationName || 'HigherSquare 360 ERP',
       organizationNameAr: 'هاير سكوير 360',
       branchAddress: d.header.legalEntityAddress || undefined,
+      headerNote: pr.register?.receiptHeader,
+      footerNote: pr.register?.receiptFooter,
       title: 'Tax Invoice / Cash Receipt',
       titleAr: 'فاتورة ضريبية / إيصال مبيعات',
       receiptNumber: pr.posOrder.number,
@@ -1279,7 +1282,7 @@ export class PrintPage implements OnInit {
       subTotal: r.receipt.amount,
       totalAmount: r.receipt.amount,
       payments: [{
-        method: r.receipt.method || 'Cash',
+        method: r.receipt.method || 'cash',
         amount: r.receipt.amount,
       }],
       notes: r.receipt.reference,
@@ -1347,45 +1350,45 @@ export class PrintPage implements OnInit {
     if (!d) return '';
     if ('journal' in d) {
       const j = String(d.journal.status ?? '').toLowerCase();
-      return j === 'draft' ? 'Draft' : j === 'reversed' ? 'Reversed' : '';
+      return j === 'draft' ? 'draft' : j === 'reversed' ? 'Reversed' : '';
     }
     if ('lease' in d) {
       const s = String(d.lease.status ?? '').toLowerCase();
-      return s === 'active' ? 'Active' : s === 'draft' ? 'Draft' : s === 'terminated' ? 'Terminated' : '';
+      return s === 'active' ? 'active' : s === 'draft' ? 'draft' : s === 'terminated' ? 'terminated' : '';
     }
     if ('quote' in d) {
       const s = String(d.quote.status ?? '').toLowerCase();
-      return s === 'accepted' ? 'Accepted' : s === 'declined' ? 'Declined' : s === 'sent' ? 'Sent' : s === 'draft' ? 'Draft' : '';
+      return s === 'accepted' ? 'accepted' : s === 'declined' ? 'declined' : s === 'sent' ? 'sent' : s === 'draft' ? 'draft' : '';
     }
     if ('po' in d) {
       const s = String(d.po.status ?? '').toLowerCase();
-      return s === 'approved' ? 'Approved' : s === 'received' ? 'Received' : s === 'draft' ? 'Draft' : '';
+      return s === 'approved' ? 'approved' : s === 'received' ? 'received' : s === 'draft' ? 'draft' : '';
     }
     if ('order' in d) {
       const s = String(d.order.status ?? '').toLowerCase();
-      return s === 'confirmed' ? 'Confirmed' : s === 'delivered' ? 'Delivered' : s === 'draft' ? 'Draft' : '';
+      return s === 'confirmed' ? 'confirmed' : s === 'delivered' ? 'delivered' : s === 'draft' ? 'draft' : '';
     }
     if ('payroll' in d) {
       const s = String(d.payroll.status ?? '').toLowerCase();
-      return s === 'paid' ? 'Paid' : s === 'posted' ? 'Posted' : 'Draft';
+      return s === 'paid' ? 'paid' : s === 'posted' ? 'Posted' : 'Draft';
     }
     if ('payrollRun' in d) {
       const s = String(d.payrollRun.status ?? '').toLowerCase();
-      return s === 'paid' ? 'Paid' : '';
+      return s === 'paid' ? 'paid' : '';
     }
     if ('grn' in d) return 'Received';
     if ('job' in d) return d.job.status;
     if ('manifest' in d) return d.manifest.status;
     if ('inspection' in d) return d.inspection.status;
-    if ('posOrder' in d) return d.posOrder.status === 'Completed' ? 'Paid' : d.posOrder.status;
+    if ('posOrder' in d) return d.posOrder.status === 'completed' ? 'paid' : d.posOrder.status;
 
     if ('wo' in d) {
       const s = String(d.wo.status ?? '').toLowerCase();
-      return s === 'completed' ? 'Completed' : s === 'cancelled' ? 'Cancelled' : '';
+      return s === 'completed' ? 'completed' : s === 'cancelled' ? 'cancelled' : '';
     }
     const s = ('invoice' in d ? d.invoice.status : 'bill' in d ? d.bill.status : 'receipt' in d ? d.receipt.status : 'payment' in d ? d.payment.status : '') ?? '';
     const k = String(s).toLowerCase();
-    return k === 'paid' ? 'Paid' : k === 'draft' ? 'Draft' : k === 'voided' ? 'Void' : k === 'pendingapproval' ? 'Pending' : '';
+    return k === 'paid' ? 'paid' : k === 'draft' ? 'draft' : k === 'voided' ? 'Void' : k === 'pendingapproval' ? 'pending' : '';
   });
 
   readonly stampClass = computed(() => {
@@ -1539,11 +1542,15 @@ export class PrintPage implements OnInit {
         error: (err) => this.setError(err),
       });
     } else if (type === 'pos-receipt') {
-      forkJoin({
-        order: this.http.get<any>(`${this.apiBase}/m/pos/orders/${id}`),
-        header: this.loadHeader(),
-      }).subscribe({
-        next: ({ order, header }) => this.setLoaded({ header, posOrder: order.data || order } as PrintPosReceiptData),
+      this.http.get<any>(`${this.apiBase}/m/pos/orders/${id}`).pipe(
+        switchMap((order) => forkJoin({
+          order: of(order),
+          header: this.loadHeader(),
+          // a register that cannot be read must not stop the receipt from printing
+          register: this.http.get<any>(`${this.apiBase}/m/pos/registers/${order.registerId}`).pipe(catchError(() => of(null))),
+        })),
+      ).subscribe({
+        next: ({ order, header, register }) => this.setLoaded({ header, posOrder: order, register } as PrintPosReceiptData),
         error: (err) => this.setError(err),
       });
     } else {
@@ -1553,7 +1560,7 @@ export class PrintPage implements OnInit {
   }
 
   private loadHeader() {
-    return this.http.get<any>(`${this.apiBase}/admin/legal-entities?pageSize=10`).pipe(
+    return this.http.get<any>(`${this.apiBase}/legal-entities?pageSize=10`).pipe(
       map((res) => {
         const items = res?.data || res?.items || [];
         const entity = items[0] || {};

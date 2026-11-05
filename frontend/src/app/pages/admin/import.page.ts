@@ -6,9 +6,11 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { StatePanelComponent } from '../../shared/state-panel.component';
 import { API_BASE_URL } from '../../core/api/api-config';
-import { asProblem } from '../../core/http/problem-details';
-import { I18nService } from '../../core/i18n/i18n.service';
+import { problemMessage } from '../../core/http/problem-details';
+import { countOf } from './finance-kpis';
 
 interface ImportDef { key: string; label: string; columns: { name: string; required: boolean; example: string; hint?: string }[]; }
 interface ImportResult { total: number; created: number; errors: { row: number; message: string }[]; dryRun: boolean; }
@@ -20,32 +22,43 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
   selector: 'erp-import',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzAlertModule, NzButtonModule, NzSelectModule, NzTableModule, PaginationBarComponent],
+  imports: [StatePanelComponent, NzIconModule, FormsModule, NzAlertModule, NzButtonModule, NzSelectModule, NzTableModule, PaginationBarComponent],
+  styles: [`
+    .card { background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-radius:12px; overflow:hidden; max-width:800px; margin-bottom:16px; }
+    .run { display:flex; gap:12px; align-items:center; flex-wrap:wrap; background: var(--erp-color-bg-surface); padding:16px; border-radius:12px; border:1px solid var(--erp-color-border-subtle); max-width:800px; }
+    .req { color: var(--erp-color-error-text); font-weight:600; } .muted { color: var(--erp-color-text-muted); font-size:12.5px; }
+  `],
   template: `
     <h1 class="erp-page-title">Data import</h1>
+    @if (loadFailed()) {
+      <erp-state-panel kind="error" title="Could not load the import types" hint="The server did not return what can be imported." actionLabel="Try again" (action)="load()" />
+    } @else {
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
-      <nz-select style="width:280px" nzPlaceHolder="What do you want to import?" [ngModel]="key()" (ngModelChange)="choose($event)" data-testid="import-type">
+      <nz-select style="width:280px" nzPlaceHolder="What do you want to import?" [ngModel]="key()" (ngModelChange)="choose($event)" aria-label="What do you want to import?" data-testid="import-type">
         @for (d of defs(); track d.key) { <nz-option [nzValue]="d.key" [nzLabel]="d.label"></nz-option> }
       </nz-select>
-      @if (current(); as d) { <button nz-button (click)="template()" data-testid="import-template">Download CSV template</button> }
+      @if (current(); as d) { <button nz-button (click)="template()" data-testid="import-template"><span nz-icon nzType="download"></span>Download CSV template</button> }
     </div>
+    @if (!current()) {
+      <erp-state-panel icon="upload" title="Bring your data in from a CSV file" hint="Choose what to import above. Then download the template, fill it in, check the file, and start the import. Checking the file changes nothing." data-testid="import-intro" />
+    }
     @if (current(); as d) {
-      <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); max-width:800px; margin-bottom:16px;">
+      <div class="card">
         <nz-table [nzData]="d.columns" nzSize="middle" [nzShowPagination]="false">
           <thead><tr><th>Column</th><th>Required</th><th>Example</th><th>Notes</th></tr></thead>
           <tbody>
             @for (c of d.columns; track c.name) {
               <tr>
                 <td><span class="code-pill">{{ c.name }}</span></td>
-                <td>@if (c.required) { <span style="color:#ef4444; font-weight:600;">Yes</span> } @else { <span style="color:#94a3b8;">Optional</span> }</td>
-                <td style="color:#334155;">{{ c.example }}</td>
-                <td style="color:#64748b; font-size:12.5px;">{{ c.hint }}</td>
+                <td>@if (c.required) { <span class="req">Yes</span> } @else { <span class="muted">Optional</span> }</td>
+                <td>{{ c.example }}</td>
+                <td class="muted">{{ c.hint }}</td>
               </tr>
             }
           </tbody>
         </nz-table>
       </div>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#f8fafc;padding:16px;border-radius:12px;border:1px solid #e2e8f0;max-width:800px;">
+      <div class="run">
         <input type="file" accept=".csv,text/csv" #file (change)="result.set(null)" data-testid="import-file" style="font-size:13px;" />
         <button nz-button [nzLoading]="busy()" (click)="run(file, true)" data-testid="import-check">Check file (dry run)</button>
         <button nz-button nzType="primary" [nzLoading]="busy()" [disabled]="!canImport()" (click)="run(file, false)" data-testid="import-run">Start import</button>
@@ -53,7 +66,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
     }
     @if (result(); as r) {
       <nz-alert style="margin-top:16px;max-width:760px" [nzType]="r.errors.length ? 'warning' : 'success'" nzShowIcon data-testid="import-result"
-                [nzMessage]="r.dryRun ? (r.created + ' of ' + r.total + ' rows are ready to import' + (r.errors.length ? ', ' + r.errors.length + ' have problems' : '')) : (r.created + ' of ' + r.total + ' rows imported' + (r.errors.length ? ', ' + r.errors.length + ' skipped' : ''))"></nz-alert>
+                [nzMessage]="summary(r)"></nz-alert>
       @if (r.errors.length) {
         <nz-table #te [nzData]="r.errors" nzSize="small" style="max-width:760px;margin-top:8px" [nzShowPagination]="false" [nzPageIndex]="errPg.page()" [nzPageSize]="errPg.size()" data-testid="import-errors">
           <thead><tr><th style="width:80px">Row</th><th>Problem</th></tr></thead>
@@ -61,10 +74,10 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
         </nz-table>
         <div style="max-width:760px"><erp-pagination-bar [total]="r.errors.length" [page]="errPg.page()" [pageSize]="errPg.size()" [hideOnSinglePage]="true" (pageChange)="errPg.change($event)" /></div>
       }
+    }
     }`,
 })
 export class ImportPage {
-  private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
   private readonly message = inject(NzMessageService);
@@ -73,11 +86,22 @@ export class ImportPage {
   readonly result = signal<ImportResult | null>(null);
   readonly busy = signal(false);
   readonly errPg = new ClientPager(10);
+  readonly loadFailed = signal(false);
 
-  constructor() { this.http.get<ImportDef[]>(`${this.base}/imports`).subscribe((d) => this.defs.set(d)); }
+  constructor() { this.load(); }
+
+  load(): void {
+    this.loadFailed.set(false);
+    this.http.get<ImportDef[]>(`${this.base}/imports`).subscribe({ next: (d) => this.defs.set(d), error: () => this.loadFailed.set(true) });
+  }
 
   current(): ImportDef | undefined { return this.defs().find((d) => d.key === this.key()); }
   choose(key: string): void { this.key.set(key); this.result.set(null); }
+  summary(r: ImportResult): string {
+    const of = `${r.created} of ${countOf(r.total, 'row')}`;
+    if (r.dryRun) return `${of} ${r.created === 1 ? 'is' : 'are'} ready to import${r.errors.length ? `, ${r.errors.length} ${r.errors.length === 1 ? 'has a problem' : 'have problems'}` : ''}`;
+    return `${of} imported${r.errors.length ? `, ${r.errors.length} skipped` : ''}`;
+  }
   canImport(): boolean { const r = this.result(); return !!r && r.dryRun && r.created > 0; }
 
   template(): void {
@@ -93,8 +117,8 @@ export class ImportPage {
     const form = new FormData(); form.append('file', file);
     this.busy.set(true);
     this.http.post<ImportResult>(`${this.base}/imports/${this.key()}`, form, { params: { dryRun } }).subscribe({
-      next: (r) => { this.busy.set(false); this.result.set(r); if (!dryRun) { this.message.success(`${r.created} ${this.i18n.t('ui.msg.rowsImported', 'row(s) imported')}`); input.value = ''; } },
-      error: (e) => { this.busy.set(false); this.message.error(asProblem(e)?.detail ?? 'The import failed'); },
+      next: (r) => { this.busy.set(false); this.result.set(r); if (!dryRun) { this.message.success(`${countOf(r.created, 'row')} imported`); input.value = ''; } },
+      error: (e) => { this.busy.set(false); this.message.error(problemMessage(e, 'The import failed')); },
     });
   }
 }

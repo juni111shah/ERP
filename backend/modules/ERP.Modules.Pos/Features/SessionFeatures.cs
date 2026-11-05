@@ -128,6 +128,7 @@ public class SessionHandlers :
     private readonly IRepository<PosRegister> _registers;
     private readonly IRepository<CashDrawerTransaction> _drawerTransactions;
     private readonly ICurrentUser _user;
+    private readonly IUserDirectory _users;
     private readonly IUnitOfWork _uow;
     private readonly IDbErrors _dbErrors;
 
@@ -136,6 +137,7 @@ public class SessionHandlers :
         IRepository<PosRegister> registers,
         IRepository<CashDrawerTransaction> drawerTransactions,
         ICurrentUser user,
+        IUserDirectory users,
         IUnitOfWork uow,
         IDbErrors dbErrors)
     {
@@ -143,17 +145,24 @@ public class SessionHandlers :
         _registers = registers;
         _drawerTransactions = drawerTransactions;
         _user = user;
+        _users = users;
         _uow = uow;
         _dbErrors = dbErrors;
     }
 
     private Guid CallerId => _user.UserId is { } id && id != Guid.Empty ? id : throw new ForbiddenException();
 
-    private string CallerName => !string.IsNullOrWhiteSpace(_user.Email) ? _user.Email! : CallerId.ToString();
+    private async Task<string> CallerNameAsync(CancellationToken ct)
+    {
+        var profile = await _users.GetProfileAsync(CallerId, ct);
+        return !string.IsNullOrWhiteSpace(profile?.FullName) ? profile!.FullName
+            : !string.IsNullOrWhiteSpace(_user.Email) ? _user.Email! : CallerId.ToString();
+    }
 
     public async Task<PosSessionDto> Handle(OpenSessionCommand request, CancellationToken cancellationToken)
     {
         var caller = CallerId;
+        var callerName = await CallerNameAsync(cancellationToken);
         var register = await _registers.GetAsync(request.RegisterId, cancellationToken);
         if (!register.IsActive) throw new ConflictException($"Register '{register.Name}' is inactive.");
         if (register.LegalEntityId != request.LegalEntityId) throw new FieldValidationException("legalEntityId", "The register belongs to another legal entity.");
@@ -174,7 +183,7 @@ public class SessionHandlers :
                     RegisterId = request.RegisterId,
                     RegisterName = register.Name,
                     OpenedByUserId = caller,
-                    CashierName = CallerName,
+                    CashierName = callerName,
                     OpenedAt = DateTimeOffset.UtcNow,
                     OpeningCash = request.OpeningCash,
                     ExpectedCash = request.OpeningCash,

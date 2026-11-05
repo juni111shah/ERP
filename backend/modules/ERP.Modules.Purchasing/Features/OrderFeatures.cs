@@ -158,6 +158,7 @@ internal sealed class PurchaseOrderHandlers(
     IRepository<PurchaseOrder> orders,
     IRepository<GoodsReceipt> goodsReceipts,
     IRepository<PurchaseOrderLine> lineRows,
+    IRepository<PurchaseRequisition> requisitions,
     IReadRepository<Account> accounts,
     IReadRepository<Item> items,
     IReadRepository<Party> parties,
@@ -268,6 +269,7 @@ internal sealed class PurchaseOrderHandlers(
         if (await goodsReceipts.AnyAsync(x => x.PurchaseOrderId == order.Id, ct))
             throw new ConflictException("This purchase order has goods receipts and cannot be deleted.");
 
+        await ReleaseRequisitionAsync(order, ct);
         orders.Remove(order);
         await orders.SaveChangesAsync(ct);
         return Unit.Value;
@@ -282,8 +284,19 @@ internal sealed class PurchaseOrderHandlers(
         PurchasingTransitions.Order.Ensure(order.Status, cmd.Status, isSystem: false);
 
         order.Status = cmd.Status;
+        if (cmd.Status == PurchaseOrderStatus.Cancelled) await ReleaseRequisitionAsync(order, ct);
         await orders.SaveChangesAsync(ct);
         return await ToDtoAsync(order, fields, ct);
+    }
+
+    /// <summary>The requisition behind a cancelled or deleted order still needs buying, so it goes back to approved and can be ordered again.</summary>
+    private async Task ReleaseRequisitionAsync(PurchaseOrder order, CancellationToken ct)
+    {
+        if (order.RequisitionId is not { } id) return;
+        var requisition = await requisitions.Tracked(new Specification<PurchaseRequisition>(r => r.Id == id && r.ConvertedPurchaseOrderId == order.Id)).FirstOrDefaultAsync(ct);
+        if (requisition is null) return;
+        requisition.Status = PurchaseRequisitionStatus.Approved;
+        requisition.ConvertedPurchaseOrderId = null;
     }
 
     /// <summary>Vendor, currency and name checks shared by create and update; returns the vendor name to store (the party's own name when a party is chosen).</summary>

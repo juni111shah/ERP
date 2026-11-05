@@ -1,6 +1,6 @@
 import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
@@ -10,8 +10,12 @@ import { API_BASE_URL } from '../../core/api/api-config';
 import { BillsApi } from '../../core/api/admin.api';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
+import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { displayDate } from '../../core/format/display';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { daysOverdue, formatMoney, invoiceStatusLabel } from './invoice-sheet.component';
 import { I18nService } from '../../core/i18n/i18n.service';
 
 interface BillLine {
@@ -51,7 +55,7 @@ interface Bill {
 @Component({
   selector: 'erp-bill-detail',
   standalone: true,
-  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [NzSpinModule, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
   styles: [`
     .line-items-table { margin-top: 16px; }
     .totals-section {
@@ -66,7 +70,7 @@ interface Bill {
       font-size: 14px;
     }
     .total-row.grand {
-      border-top: 2px solid #1890ff;
+      border-top: 2px solid var(--erp-color-border-subtle);
       padding-top: 12px;
       margin-top: 8px;
       font-size: 16px;
@@ -75,20 +79,21 @@ interface Bill {
   `],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;">Loading...</div>
+      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
     } @else if (error()) {
-      <div style="text-align: center; padding: 48px; color: #ff4d4f;">{{ error() }}</div>
+      <erp-state-panel kind="error" title="Could not load this bill" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (bill()) {
       <erp-detail-page
         [backLink]="['/finance/bills']"
         [backLabel]="'Back to Bills'"
         [title]="('ui.title.billNo' | translate: 'Bill #') + bill()!.number"
-        [status]="bill()!.status"
+        [status]="bill()!.status === 'issued' ? 'posted' : statusLabel(bill()!.status)"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
         [createdAt]="bill()!.billDate"
         [entityName]="'Bill'"
+        [showDocuments]="false"
         recordType="Bill" [recordId]="bill()!.id">
         
         <div content class="line-items-table">
@@ -109,9 +114,9 @@ interface Bill {
                   <td>{{ line.seq }}</td>
                   <td>{{ line.description }}</td>
                   <td style="text-align: right;">{{ line.quantity }}</td>
-                  <td style="text-align: right;">{{ line.price | currency:bill()!.currencyCode }}</td>
-                  <td style="text-align: right;">{{ line.taxAmount | currency:bill()!.currencyCode }}</td>
-                  <td style="text-align: right;">{{ line.net | currency:bill()!.currencyCode }}</td>
+                  <td style="text-align: right;">{{ money(line.price) }}</td>
+                  <td style="text-align: right;">{{ money(line.taxAmount) }}</td>
+                  <td style="text-align: right;">{{ money(line.net) }}</td>
                 </tr>
               }
             </tbody>
@@ -120,15 +125,15 @@ interface Bill {
           <div class="totals-section">
             <div class="total-row">
               <span>Subtotal:</span>
-              <span>{{ bill()!.net | currency:bill()!.currencyCode }}</span>
+              <span>{{ money(bill()!.net) }}</span>
             </div>
             <div class="total-row">
               <span>Tax:</span>
-              <span>{{ bill()!.tax | currency:bill()!.currencyCode }}</span>
+              <span>{{ money(bill()!.tax) }}</span>
             </div>
             <div class="total-row grand">
               <span>Total:</span>
-              <span>{{ bill()!.total | currency:bill()!.currencyCode }}</span>
+              <span>{{ money(bill()!.total) }}</span>
             </div>
           </div>
         </div>
@@ -148,22 +153,20 @@ export class BillDetailPage implements OnInit {
   private readonly apiBase = inject(API_BASE_URL);
   private readonly api = inject(BillsApi);
 
+  readonly statusLabel = invoiceStatusLabel;
+  money(v: number): string { return formatMoney(v, this.bill()?.currencyCode); }
   loading = signal(true);
   error = signal<string | null>(null);
   bill = signal<Bill | null>(null);
 
   balance = computed(() => {
     const bil = this.bill();
-    return bil ? bil.total - bil.paid : 0;
+    return bil && bil.status !== 'voided' ? bil.total - bil.paid : 0;
   });
 
   daysOverdue = computed(() => {
     const bil = this.bill();
-    if (!bil || bil.status === 'paid' || bil.status === 'voided') return 0;
-    const due = new Date(bil.dueDate);
-    const today = new Date();
-    const diff = Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff : 0;
+    return bil ? daysOverdue(bil) : 0;
   });
 
   actions = computed((): ActionButton[] => {
@@ -239,17 +242,17 @@ export class BillDetailPage implements OnInit {
     return [
       {
         title: 'Total Amount',
-        value: bil.total,
+        value: formatMoney(bil.total),
         suffix: bil.currencyCode
       },
       {
         title: 'Amount Paid',
-        value: bil.paid,
+        value: formatMoney(bil.paid),
         suffix: bil.currencyCode
       },
       {
         title: 'Balance Due',
-        value: this.balance(),
+        value: formatMoney(this.balance()),
         suffix: bil.currencyCode,
         valueStyle: { color: this.balance() > 0 ? '#ff4d4f' : '#52c41a' }
       },
@@ -267,8 +270,8 @@ export class BillDetailPage implements OnInit {
     
     const items: DescriptionItem[] = [
       { label: 'Vendor', value: bil.partyName, routerLink: ['/parties', bil.partyId] },
-      { label: 'Bill Date', value: new Date(bil.billDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) },
-      { label: 'Due Date', value: new Date(bil.dueDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) },
+      { label: 'Bill Date', value: displayDate(bil.billDate) },
+      { label: 'Due Date', value: displayDate(bil.dueDate) },
       { label: 'Currency', value: bil.currencyCode }
     ];
 
@@ -286,6 +289,8 @@ export class BillDetailPage implements OnInit {
 
     return items;
   });
+
+  retry(): void { this.loading.set(true); this.error.set(null); this.ngOnInit(); }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

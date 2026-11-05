@@ -4,11 +4,11 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api-config';
 import { CrudApiService } from './crud-api.service';
 
-export type EngagementType = 'FixedPrice' | 'TimeAndMaterials' | 'Retainer';
-export type EngagementStatus = 'Draft' | 'Active' | 'OnHold' | 'Completed' | 'Cancelled';
-export type RetainerCycle = 'Monthly' | 'Quarterly' | 'Annual';
-export type RetainerStatus = 'Active' | 'Paused' | 'Terminated';
-export type MilestoneStatus = 'Planned' | 'ReadyToInvoice' | 'Invoiced' | 'Paid';
+export type EngagementType = 'fixedPrice' | 'timeAndMaterials' | 'retainer';
+export type EngagementStatus = 'draft' | 'active' | 'onHold' | 'completed' | 'cancelled';
+export type RetainerCycle = 'monthly' | 'quarterly' | 'annual';
+export type RetainerStatus = 'active' | 'paused' | 'terminated';
+export type MilestoneStatus = 'planned' | 'readyToInvoice' | 'invoiced' | 'paid';
 
 export interface EngagementDto {
   id: string;

@@ -13,6 +13,7 @@ import { ExpenseDto, ProjectExpensesApi, ProjectsExtraApi } from '../../core/api
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { SessionStore } from '../../core/session/session.store';
 import { errorText, PRJ_STYLES } from './projects-ui';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 interface Line { id: string; person: string; date: string; project: string; projectId: string; what: string; hours: number | null; amount: number; }
 interface Group { person: string; lines: Line[]; hours: number; amount: number; }
@@ -22,7 +23,7 @@ interface Group { person: string; lines: Line[]; hours: number; amount: number; 
   selector: 'erp-project-approvals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputModule, NzModalModule],
+  imports: [ErpDatePipe, DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputModule, NzModalModule],
   template: `
     <div class="prj-toolbar">
       <div class="prj-chips" role="tablist" aria-label="What to approve">
@@ -49,7 +50,7 @@ interface Group { person: string; lines: Line[]; hours: number; amount: number; 
                 @for (l of g.lines; track l.id) {
                   <tr>
                     <td class="tick"><input type="checkbox" [attr.aria-label]="'Select ' + l.what + ' ' + l.date" [checked]="picked().has(l.id)" (change)="pick(l.id, $any($event.target).checked)" /></td>
-                    <td class="date">{{ l.date }}</td>
+                    <td class="date">{{ l.date | erpDate }}</td>
                     <td><a [routerLink]="['/projects', l.projectId]" class="prj-link">{{ l.project }}</a></td>
                     <td class="what">{{ l.what }}</td>
                     @if (active() === 'time') { <td class="prj-num">{{ l.hours | number: '1.2-2' }} h</td> }

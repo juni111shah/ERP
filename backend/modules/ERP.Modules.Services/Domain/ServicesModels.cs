@@ -40,14 +40,21 @@ public enum MilestoneStatus
     Paid = 4
 }
 
+[DefaultSort("-engagementCode")]
 public class ServiceEngagement : LegalEntityScopedEntity
 {
+    [Searchable, Sortable]
     public string EngagementCode { get; set; } = string.Empty;
+    [Searchable, Sortable]
     public string Title { get; set; } = string.Empty;
     public Guid ClientId { get; set; }
+    [Searchable, Sortable]
     public string ClientName { get; set; } = string.Empty;
+    [Sortable, Filterable]
     public EngagementType Type { get; set; } = EngagementType.FixedPrice;
+    [Sortable, Filterable]
     public EngagementStatus Status { get; set; } = EngagementStatus.Draft;
+    [Sortable]
     public decimal ContractValue { get; set; }
     public decimal BudgetedHours { get; set; }
     public decimal ConsumedHours { get; set; }
@@ -61,15 +68,22 @@ public class ServiceEngagement : LegalEntityScopedEntity
     public string? CustomFields { get; set; }
 }
 
+[DefaultSort("-retainerNumber")]
 public class RetainerContract : LegalEntityScopedEntity
 {
+    [Searchable, Sortable]
     public string RetainerNumber { get; set; } = string.Empty;
     public Guid EngagementId { get; set; }
     public Guid ClientId { get; set; }
+    [Searchable, Sortable]
     public string ClientName { get; set; } = string.Empty;
+    [Searchable, Sortable]
     public string Title { get; set; } = string.Empty;
+    [Sortable, Filterable]
     public RetainerCycle Cycle { get; set; } = RetainerCycle.Monthly;
+    [Sortable, Filterable]
     public RetainerStatus Status { get; set; } = RetainerStatus.Active;
+    [Sortable]
     public decimal RecurringFee { get; set; }
     public decimal IncludedHours { get; set; }
     public decimal OverageHourlyRate { get; set; }
@@ -79,14 +93,21 @@ public class RetainerContract : LegalEntityScopedEntity
     public string? CustomFields { get; set; }
 }
 
+[DefaultSort("dueDate")]
 public class BillingMilestone : LegalEntityScopedEntity
 {
+    [Searchable, Sortable]
     public string MilestoneCode { get; set; } = string.Empty;
+    [Filterable]
     public Guid EngagementId { get; set; }
+    [Searchable, Sortable]
     public string Title { get; set; } = string.Empty;
+    [Sortable]
     public decimal Amount { get; set; }
+    [Sortable]
     public DateOnly DueDate { get; set; }
     public DateOnly? CompletionDate { get; set; }
+    [Sortable, Filterable]
     public MilestoneStatus Status { get; set; } = MilestoneStatus.Planned;
     public Guid? InvoiceId { get; set; }
     public string? Notes { get; set; }

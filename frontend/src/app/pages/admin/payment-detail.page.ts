@@ -1,7 +1,7 @@
 import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { CommonModule, DatePipe } from '@angular/common';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -10,8 +10,12 @@ import { PaymentsApi } from '../../core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
+import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { displayDate, displayLabel } from '../../core/format/display';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { formatMoney } from './invoice-sheet.component';
 
 interface BillAllocation {
   id: string;
@@ -42,18 +46,19 @@ interface Payment {
 @Component({
   selector: 'erp-payment-detail',
   standalone: true,
-  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [RouterLink, NzSpinModule, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;">Loading...</div>
+      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
     } @else if (error()) {
-      <div style="text-align: center; padding: 48px; color: #ff4d4f;">{{ error() }}</div>
+      <erp-state-panel kind="error" title="Could not load this payment" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (payment()) {
       <erp-detail-page
         [backLink]="['/finance/payments']"
         [backLabel]="'Back to Payments'"
         [title]="('ui.title.paymentNo' | translate: 'Payment #') + payment()!.number"
-        [status]="payment()!.status"
+        [status]="payment()!.status === 'issued' ? 'posted' : payment()!.status"
+        [showDocuments]="false"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
@@ -74,8 +79,8 @@ interface Payment {
               <tbody>
                 @for (alloc of allocTable.data; track alloc.id) {
                   <tr>
-                    <td>{{ alloc.billNumber }}</td>
-                    <td style="text-align: right;">{{ alloc.amount | currency:payment()!.currencyCode }}</td>
+                    <td><a [routerLink]="['/finance/bills', alloc.billId]">{{ alloc.billNumber }}</a></td>
+                    <td style="text-align: right;">{{ money(alloc.amount) }}</td>
                   </tr>
                 }
               </tbody>
@@ -97,6 +102,7 @@ export class PaymentDetailPage implements OnInit {
   private readonly api = inject(PaymentsApi);
   private readonly modal = inject(NzModalService);
 
+  money(v: number): string { return formatMoney(v, this.payment()?.currencyCode); }
   loading = signal(true);
   error = signal<string | null>(null);
   payment = signal<Payment | null>(null);
@@ -138,6 +144,7 @@ export class PaymentDetailPage implements OnInit {
         label: 'Email',
         icon: 'mail',
         permission: 'core.email.send',
+        visible: pay.status === 'issued',
         handler: () => this.emailOpen.set(true)
       }
     ];
@@ -150,17 +157,17 @@ export class PaymentDetailPage implements OnInit {
     return [
       {
         title: 'Total Amount',
-        value: pay.amount,
+        value: formatMoney(pay.amount),
         suffix: pay.currencyCode
       },
       {
         title: 'Allocated',
-        value: pay.amount - pay.unallocated,
+        value: formatMoney(pay.allocations.reduce((s, a) => s + a.amount, 0)),
         suffix: pay.currencyCode
       },
       {
         title: 'Unallocated',
-        value: pay.unallocated,
+        value: formatMoney(pay.unallocated),
         suffix: pay.currencyCode,
         valueStyle: { color: pay.unallocated > 0 ? '#fa8c16' : '#52c41a' }
       },
@@ -177,12 +184,14 @@ export class PaymentDetailPage implements OnInit {
     
     return [
       { label: 'Vendor', value: pay.partyName, routerLink: ['/parties', pay.partyId] },
-      { label: 'Date', value: new Date(pay.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) },
-      { label: 'Payment Method', value: pay.method },
+      { label: 'Date', value: displayDate(pay.date) },
+      { label: 'Payment Method', value: displayLabel(pay.method) },
       { label: 'Currency', value: pay.currencyCode },
       { label: 'Reference', value: pay.reference, span: 2 }
     ];
   });
+
+  retry(): void { this.loading.set(true); this.error.set(null); this.ngOnInit(); }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

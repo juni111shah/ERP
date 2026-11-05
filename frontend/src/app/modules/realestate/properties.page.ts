@@ -37,12 +37,13 @@ export function propertyFields(lookups: RealEstateLookups): FieldSpec[] {
 import { DecimalPipe } from '@angular/common';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 
 @Component({
   selector: 'erp-properties',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, NzTagModule, StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [DecimalPipe, NzTagModule, StatusTagComponent, StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Properties</h1>
 
@@ -57,19 +58,19 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                      [value]="stats().totalUnits"
                      format="number"
                      [loading]="list.loading() && list.items().length === 0"
-                     caption="lettable capacity"
+                     [caption]="stats().partial ? 'lettable, on this page' : 'lettable capacity'"
                      [tone]="1" />
       <erp-stat-card label="Portfolio value"
                      [value]="stats().totalValue"
                      format="money"
                      [loading]="list.loading() && list.items().length === 0"
-                     caption="indicative appraisal"
+                     [caption]="stats().partial ? 'indicative, on this page' : 'indicative appraisal'"
                      [tone]="2" />
       <erp-stat-card label="Active properties"
                      [value]="stats().activeCount"
                      format="number"
                      [loading]="list.loading() && list.items().length === 0"
-                     caption="operational sites"
+                     [caption]="stats().partial ? 'on this page' : 'operational sites'"
                      [tone]="3" />
     </div>
 
@@ -89,9 +90,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             <b>{{ currency() }} {{ row.indicativeValue | number: '1.2-2' }}</b>
           }
           @case ('isActive') {
-            <nz-tag [nzColor]="row.isActive ? 'green' : 'default'">
-              {{ row.isActive ? 'Active' : 'Inactive' }}
-            </nz-tag>
+            <erp-status [value]="row.isActive ? 'active' : 'inactive'" />
           }
           @default {
             {{ value }}
@@ -120,6 +119,7 @@ export class PropertiesPage {
       totalValue,
       activeCount,
       count: items.length,
+      partial: this.list.total() > items.length,
     };
   });
   readonly fields = propertyFields(inject(RealEstateLookups));
@@ -132,9 +132,9 @@ export class PropertiesPage {
     { key: 'propertyType', label: 'Type', sortField: 'propertyType', value: (p) => humanize(p.propertyType) },
     { key: 'region', label: 'Region', sortField: 'region' },
     { key: 'community', label: 'Community', sortField: 'community' },
-    { key: 'totalUnits', label: 'Units' },
-    { key: 'indicativeValue', label: 'Indicative value', sortField: 'indicativeValue', value: (p) => p.indicativeValue.toLocaleString() },
-    { key: 'isActive', label: 'Active', width: '90px' },
+    { key: 'totalUnits', label: 'Units', align: 'right' },
+    { key: 'indicativeValue', label: 'Indicative value', sortField: 'indicativeValue', align: 'right', value: (p) => p.indicativeValue.toLocaleString() },
+    { key: 'isActive', label: 'Status', width: '100px' },
   ];
 
   open(p: PropertyDto): void { void this.router.navigate(['/real-estate/properties', p.id]); }

@@ -12,14 +12,14 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
-import { NzTagModule } from 'ng-zorro-antd/tag';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 
 /** Review rounds (for example "Annual review 2026"); close a cycle to stop new reviews in it. */
 @Component({
   selector: 'erp-review-cycles',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzTagModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, StatusTagComponent],
   template: `
     <h1 class="erp-page-title">Review cycles</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search cycles" emptyText="No review cycles yet" (rowClick)="state.edit($event)">
@@ -28,7 +28,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
         @if (column.key === 'name') {
           <span class="name-cell">{{ row.name }}</span>
         } @else if (column.key === 'status') {
-          <nz-tag [nzColor]="row.status === 'open' ? 'green' : 'default'">{{ row.status === 'open' ? 'Open' : 'Closed' }}</nz-tag>
+          <erp-status [value]="row.status" />
         } @else {
           {{ value }}
         }

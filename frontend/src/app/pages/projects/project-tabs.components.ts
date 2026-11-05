@@ -29,6 +29,7 @@ import { ProjectTasksPage } from './project-tasks.page';
 import { ProjectTimesheetsPage } from './project-timesheets.page';
 import { errorText, PRJ_STYLES, ProjectTagComponent } from './projects-ui';
 import { TaskDrawerComponent } from './task-drawer.component';
+import { ErpLabelPipe, ErpDatePipe } from '../../shared/display.pipes';
 
 const today = (): string => toIsoDate(new Date());
 const SUBTABS = `
@@ -42,7 +43,7 @@ const SUBTABS = `
   selector: 'erp-project-overview',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, DatePipe, RouterModule, NzIconModule, ProjectTagComponent, TaskDrawerComponent],
+  imports: [ErpDatePipe, DecimalPipe, DatePipe, RouterModule, NzIconModule, ProjectTagComponent, TaskDrawerComponent],
   template: `
     <div class="columns">
       <div class="col-main">
@@ -57,7 +58,7 @@ const SUBTABS = `
           @for (t of nextTasks(); track t.id) {
             <div class="line" role="button" tabindex="0" (click)="drawer()?.open(t.id)" (keydown.enter)="drawer()?.open(t.id)">
               <span class="grow"><span class="prj-muted">{{ t.number }}</span> {{ t.title }}</span>
-              <span class="prj-muted">{{ t.assignedTo }}</span><span [class.prj-danger]="late(t)" class="when">{{ t.dueDate }}</span><erp-prj-tag kind="task" [value]="t.status" />
+              <span class="prj-muted">{{ t.assignedTo }}</span><span [class.prj-danger]="late(t)" class="when">{{ t.dueDate | erpDate }}</span><erp-prj-tag kind="task" [value]="t.status" />
             </div>
           } @empty { <p class="prj-empty">No open tasks with a due date.</p> }
         </section>
@@ -68,8 +69,8 @@ const SUBTABS = `
             <div><dt>Customer</dt><dd>{{ project().customerName || 'Internal' }}</dd></div>
             <div><dt>Manager</dt><dd>{{ project().managerName || 'Not set' }}</dd></div>
             <div><dt>Billing</dt><dd><erp-prj-tag kind="billing" [value]="project().billingType" /></dd></div>
-            <div><dt>Start</dt><dd>{{ project().startDate || 'Not set' }}</dd></div>
-            <div><dt>Target end</dt><dd>{{ project().endDate || 'Not set' }}</dd></div>
+            <div><dt>Start</dt><dd>{{ (project().startDate | erpDate) || 'Not set' }}</dd></div>
+            <div><dt>Target end</dt><dd>{{ (project().endDate | erpDate) || 'Not set' }}</dd></div>
             <div><dt>Budget</dt><dd>{{ currency() }} {{ project().budgetAmount | number: '1.0-0' }}@if (project().approvedChanges) { <span class="prj-muted"> + {{ project().approvedChanges | number: '1.0-0' }} from change orders</span> }</dd></div>
             @if (project().budgetHours) { <div><dt>Budgeted hours</dt><dd>{{ project().effectiveBudgetHours | number: '1.0-0' }}</dd></div> }
             @if (sourceLabel()) { <div><dt>Started from</dt><dd>{{ sourceLabel() }}</dd></div> }
@@ -80,7 +81,7 @@ const SUBTABS = `
         <section class="prj-card">
           <h3>Milestones</h3>
           @for (m of milestones(); track m.id) {
-            <div class="line"><span class="grow">{{ m.title }}</span><span class="prj-muted when" [class.prj-danger]="m.status === 'pending' && m.dueDate < todayIso">{{ m.dueDate }}</span><erp-prj-tag kind="milestone" [value]="m.status" /></div>
+            <div class="line"><span class="grow">{{ m.title }}</span><span class="prj-muted when" [class.prj-danger]="m.status === 'pending' && m.dueDate < todayIso">{{ m.dueDate | erpDate }}</span><erp-prj-tag kind="milestone" [value]="m.status" /></div>
           } @empty { <p class="prj-empty">No milestones yet.</p> }
         </section>
         <section class="prj-card">
@@ -195,7 +196,7 @@ export class ProjectWorkComponent {
   selector: 'erp-project-milestones',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, NzButtonModule, NzIconModule, RecordDrawerComponent, HasPermissionDirective, ProjectTagComponent],
+  imports: [ErpDatePipe, DatePipe, DecimalPipe, NzButtonModule, NzIconModule, RecordDrawerComponent, HasPermissionDirective, ProjectTagComponent],
   template: `
     <div class="prj-toolbar">
       <span class="prj-muted" data-testid="milestones-summary">{{ summary() }}</span>
@@ -208,8 +209,8 @@ export class ProjectWorkComponent {
         <tbody>
           @for (m of rows(); track m.id) {
             <tr>
-              <td class="prj-strong">{{ m.title }}</td><td [class.prj-danger]="m.status === 'pending' && m.dueDate < todayIso">{{ m.dueDate }}</td><td class="prj-num">{{ currency() }} {{ m.amount | number: '1.2-2' }}</td>
-              <td><erp-prj-tag kind="milestone" [value]="m.status" /></td><td>{{ m.achievedDate || '' }}</td>
+              <td class="prj-strong">{{ m.title }}</td><td [class.prj-danger]="m.status === 'pending' && m.dueDate < todayIso">{{ m.dueDate | erpDate }}</td><td class="prj-num">{{ currency() }} {{ m.amount | number: '1.2-2' }}</td>
+              <td><erp-prj-tag kind="milestone" [value]="m.status" /></td><td>{{ (m.achievedDate | erpDate) || '' }}</td>
               <td>@if (signOf(m.id); as a) { <erp-prj-tag kind="acceptance" [value]="a.status" /> }</td>
               <td class="prj-num acts">
                 <ng-container *erpHasPermission="'projects.milestones.manage'">
@@ -332,7 +333,7 @@ export class ProjectTimeComponent {
   selector: 'erp-project-money',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputNumberModule, NzSelectModule, HasPermissionDirective, BillModalComponent],
+  imports: [ErpLabelPipe, ErpDatePipe, DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputNumberModule, NzSelectModule, HasPermissionDirective, BillModalComponent],
   template: `
     <div class="tiles">
       <div class="prj-card tile"><span class="prj-muted">Billed so far</span><b>{{ currency() }} {{ project().billedAmount | number: '1.0-0' }}</b></div>
@@ -351,7 +352,7 @@ export class ProjectTimeComponent {
           <tbody>
             @for (l of lines(); track l.category) {
               <tr>
-                <td class="prj-strong">{{ l.category }}@if (!l.id) { <span class="prj-muted"> · no budget line</span> }@if (l.hours) { <div class="prj-muted">{{ l.actualHours | number: '1.0-1' }} of {{ l.hours | number: '1.0-0' }} h</div> }</td>
+                <td class="prj-strong">{{ l.category | erpLabel }}@if (!l.id) { <span class="prj-muted"> · no budget line</span> }@if (l.hours) { <div class="prj-muted">{{ l.actualHours | number: '1.0-1' }} of {{ l.hours | number: '1.0-0' }} h</div> }</td>
                 <td class="prj-num">{{ l.amount | number: '1.0-0' }}</td><td class="prj-num">{{ l.actual | number: '1.0-0' }}</td>
                 <td><div class="prj-bar" [class.warn]="share(l) > 85" [class.over]="share(l) > 100 || !l.id"><i [style.width.%]="min100(share(l))"></i></div></td>
                 <td class="prj-num" [class.prj-danger]="l.amount - l.actual < 0">{{ l.amount - l.actual | number: '1.0-0' }}</td>
@@ -378,7 +379,7 @@ export class ProjectTimeComponent {
           <thead><tr><th>Number</th><th>Date</th><th>Due</th><th>Status</th><th class="prj-num">Total</th><th class="prj-num">Paid</th></tr></thead>
           <tbody>
             @for (i of invoices(); track i.id) {
-              <tr><td><a class="prj-link" [routerLink]="['/finance/invoices', i.id]">{{ i.number }}</a></td><td>{{ i.date }}</td><td>{{ i.dueDate }}</td><td>{{ label(i.status) }}</td><td class="prj-num">{{ i.total | number: '1.2-2' }}</td><td class="prj-num">{{ i.paid | number: '1.2-2' }}</td></tr>
+              <tr><td><a class="prj-link" [routerLink]="['/finance/invoices', i.id]">{{ i.number }}</a></td><td>{{ i.date | erpDate }}</td><td>{{ i.dueDate | erpDate }}</td><td>{{ label(i.status) }}</td><td class="prj-num">{{ i.total | number: '1.2-2' }}</td><td class="prj-num">{{ i.paid | number: '1.2-2' }}</td></tr>
             } @empty { <tr><td colspan="6" class="prj-empty">Nothing invoiced yet.</td></tr> }
           </tbody>
         </table>
@@ -492,7 +493,7 @@ export class ProjectTeamComponent {
   selector: 'erp-project-notes',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, FormsModule, NzButtonModule, NzIconModule, NzInputModule, AttachmentsComponent],
+  imports: [ErpLabelPipe, DatePipe, FormsModule, NzButtonModule, NzIconModule, NzInputModule, AttachmentsComponent],
   template: `
     <div class="seg" role="group" aria-label="View">
       @for (v of views; track v.key) { <button type="button" [class.on]="view() === v.key" (click)="view.set(v.key)" [attr.data-testid]="'notes-' + v.key">{{ v.label }}</button> }
@@ -515,7 +516,7 @@ export class ProjectTeamComponent {
         <div class="prj-card" data-testid="activity">
           @for (a of activity(); track $index) {
             <div class="event"><span class="dot" [class.created]="a.action === 'Created'" [class.deleted]="a.action === 'Deleted'"></span>
-              <div><span class="prj-strong">{{ a.who || 'System' }}</span> {{ verb(a) }} {{ a.kind }} <b>{{ a.title }}</b>@if (a.fields.length) { <span class="prj-muted"> ({{ fieldList(a) }})</span> }<div class="prj-muted">{{ a.at | date: 'medium' }}</div></div></div>
+              <div><span class="prj-strong">{{ a.who || 'System' }}</span> {{ verb(a) }} {{ a.kind | erpLabel }} <b>{{ a.title }}</b>@if (a.fields.length) { <span class="prj-muted"> ({{ fieldList(a) }})</span> }<div class="prj-muted">{{ a.at | date: 'medium' }}</div></div></div>
           } @empty { <p class="prj-empty">Nothing recorded yet.</p> }
         </div>
       }

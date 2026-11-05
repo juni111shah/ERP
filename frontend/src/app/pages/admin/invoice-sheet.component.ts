@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, Injectable, computed, inject, input } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { ErpDatePipe } from '../../shared/display.pipes';
 import { Observable, catchError, map, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -32,7 +33,6 @@ export function taxRegLabelFor(country?: string | null): string {
   return c === 'AE' || c === 'SA' ? 'TRN' : c === 'IN' ? 'GSTIN' : c === 'PK' ? 'NTN' : c === 'GB' ? 'VAT no.' : 'Tax reg. no.';
 }
 
-export const INVOICE_STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'orange', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
 const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pendingApproval: 'Pending approval' };
 export function invoiceStatusLabel(s: string): string { return STATUS_LABELS[s] ?? (s ? s.charAt(0).toUpperCase() + s.slice(1) : ''); }
 /** Friendly names for module source keys ("<module>.<kind>"); anything else is humanized below. */
@@ -47,9 +47,9 @@ export function formatMoney(v: number | null | undefined, currency?: string | nu
   const n = (v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return currency ? `${currency} ${n}` : n;
 }
-/** Whole days past the due date for an open invoice; 0 when not overdue. */
-export function daysOverdue(inv: { dueDate: string; status: string; total: number; paid: number }): number {
-  if (!(inv.status === 'issued' || inv.status === 'partlyPaid') || inv.total - inv.paid <= 0) return 0;
+/** Whole days past the due date for an open invoice or bill; 0 when not overdue. A credit note is never overdue: it is money owed to the customer. */
+export function daysOverdue(inv: { dueDate: string; status: string; total: number; paid: number; isCreditNote?: boolean }): number {
+  if (inv.isCreditNote || !(inv.status === 'issued' || inv.status === 'partlyPaid') || inv.total - inv.paid <= 0) return 0;
   const due = new Date(inv.dueDate + 'T00:00:00');
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const diff = Math.floor((today.getTime() - due.getTime()) / 86400000);
@@ -71,33 +71,33 @@ export class InvoiceExtrasService {
   selector: 'erp-invoice-sheet',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, DatePipe, RouterLink, NzTagModule],
+  imports: [TranslatePipe, ErpDatePipe, StatusTagComponent, RouterLink, NzTagModule],
   styles: [`
-    :host { display:block; --gold:#b89b5e; --muted:#8c8c8c; }
-    .sheet { background:#fff; border:1px solid #f0f0f0; border-top:4px solid var(--gold); border-radius:6px; padding:20px 24px; }
+    :host { display:block; --gold:#b89b5e; --muted: var(--erp-color-text-muted); }
+    .sheet { background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-top:4px solid var(--gold); border-radius:6px; padding:20px 24px; }
     .head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
     .doc-type { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); font-weight:600; }
     .doc-no { font-size:22px; font-weight:600; margin:2px 0 4px; }
     .issuer { text-align:right; font-size:12px; color:var(--muted); white-space:pre-line; max-width:320px; }
-    .issuer b { color:#262626; font-size:14px; }
+    .issuer b { color: var(--erp-color-text-primary); font-size:14px; }
     .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:16px; }
     .compact .grid2 { grid-template-columns: 1fr; }
-    .block { border:1px solid #f0f0f0; border-radius:6px; padding:12px 14px; }
+    .block { border:1px solid var(--erp-color-border-subtle); border-radius:6px; padding:12px 14px; }
     .block h5 { margin:0 0 6px; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); font-weight:600; }
     .party-name { font-weight:600; font-size:15px; }
     .muted { color:var(--muted); white-space:pre-line; }
     .meta { display:grid; grid-template-columns: max-content 1fr; gap:4px 16px; font-size:13px; }
     .meta span:nth-child(odd) { color:var(--muted); }
-    .overdue { color:#cf1322; font-weight:600; }
+    .overdue { color: var(--erp-color-error-text); font-weight:600; }
     .lines-wrap { width:100%; overflow-x:auto; } table.lines td.r, table.lines th.r { white-space:nowrap; } table.lines td { word-break:break-word; }
     table.lines { width:100%; min-width:640px; border-collapse:collapse; margin-top:16px; font-size:13px; }
-    table.lines th { background:#faf7f0; color:#595959; font-weight:600; text-align:left; padding:8px; border-bottom:2px solid var(--gold); white-space:nowrap; }
-    table.lines td { padding:8px; border-bottom:1px solid #f0f0f0; vertical-align:top; }
+    table.lines th { background: var(--erp-color-bg-subtle); color: var(--erp-color-text-muted); font-weight:600; text-align:left; padding:8px; border-bottom:2px solid var(--gold); white-space:nowrap; }
+    table.lines td { padding:8px; border-bottom:1px solid var(--erp-color-border-subtle); vertical-align:top; }
     .r { text-align:right !important; white-space:nowrap; }
     .totals { margin-left:auto; margin-top:12px; width:320px; max-width:100%; font-size:13px; }
     .totals div { display:flex; justify-content:space-between; padding:4px 0; }
     .totals .grand { border-top:2px solid var(--gold); margin-top:4px; padding-top:8px; font-size:15px; font-weight:600; }
-    .totals .due { background:#faf7f0; padding:6px 8px; margin-top:4px; border-radius:4px; font-weight:600; }
+    .totals .due { background: var(--erp-color-bg-subtle); padding:6px 8px; margin-top:4px; border-radius:4px; font-weight:600; }
     .notes { margin-top:16px; font-size:13px; }
   `],
   template: `
@@ -107,7 +107,7 @@ export class InvoiceExtrasService {
           <div>
             <div class="doc-type">{{ docType() }}</div>
             <div class="doc-no" data-testid="sheet-number">{{ inv.number || 'Draft' }}</div>
-            <nz-tag [nzColor]="statusColor()" data-testid="sheet-status">{{ statusLabel() }}</nz-tag>
+            <erp-status [value]="invoice()?.status" [label]="statusLabel()" data-testid="sheet-status" />
             @if (overdueDays() > 0) { <nz-tag nzColor="red">{{ 'ui.inv.overdue' | translate: 'Overdue' }} {{ overdueDays() }}{{ 'ui.common.dayShort' | translate: 'd' }}</nz-tag> }
           </div>
           @if (extras()?.header; as h) {
@@ -133,8 +133,8 @@ export class InvoiceExtrasService {
           <div class="block" data-testid="sheet-meta">
             <h5>Details</h5>
             <div class="meta">
-              <span>{{ inv.isCreditNote ? 'Credit note date' : 'Invoice date' }}</span><span>{{ inv.invoiceDate | date: 'dd MMM yyyy' }}</span>
-              <span>Due date</span><span [class.overdue]="overdueDays() > 0">{{ inv.dueDate | date: 'dd MMM yyyy' }}@if (overdueDays() > 0) { ({{ overdueDays() }} {{ 'ui.inv.daysOverdue' | translate: 'days overdue' }}) }</span>
+              <span>{{ inv.isCreditNote ? 'Credit note date' : 'Invoice date' }}</span><span>{{ inv.invoiceDate | erpDate }}</span>
+              <span>Due date</span><span [class.overdue]="overdueDays() > 0">{{ inv.dueDate | erpDate }}@if (overdueDays() > 0) { ({{ overdueDays() }} {{ 'ui.inv.daysOverdue' | translate: 'days overdue' }}) }</span>
               <span>Currency</span><span>{{ inv.currencyCode }}</span>
               @if (source()) { <span>Source</span><span>{{ source() }}</span> }
               @if (originalInvoiceId(); as oid) { <span>Credits</span><span><a [routerLink]="['/finance/invoices', oid]">{{ extras()?.originalInvoiceNumber ? 'Invoice ' + extras()!.originalInvoiceNumber : 'Original invoice' }}</a></span> }
@@ -162,7 +162,7 @@ export class InvoiceExtrasService {
           <div><span>{{ taxName() }}</span><span>{{ money(inv.tax) }}</span></div>
           <div class="grand"><span>{{ 'common.total' | translate: 'Total' }} {{ inv.currencyCode }}</span><span>{{ money(inv.total) }}</span></div>
           <div><span>{{ inv.isCreditNote ? 'Applied' : 'Paid' }}</span><span>{{ money(inv.paid) }}</span></div>
-          <div class="due"><span>{{ inv.isCreditNote ? 'Unapplied' : 'Balance due' }}</span><span>{{ money(inv.total - inv.paid) }}</span></div>
+          <div class="due"><span>{{ inv.isCreditNote ? 'Unapplied' : 'Balance due' }}</span><span>{{ money(inv.status === 'voided' ? 0 : inv.total - inv.paid) }}</span></div>
         </div>
 
         @if (inv.notes) { <div class="notes"><h5 style="margin:0 0 4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b89b5e">Notes</h5><div class="muted">{{ noteText(inv.notes) }}</div></div> }
@@ -190,7 +190,6 @@ export class InvoiceSheetComponent {
     if (!inv) return '';
     return inv.isCreditNote ? 'Credit note' : this.extras()?.header.taxRegistrationNo ? 'Tax invoice' : 'Invoice';
   });
-  readonly statusColor = computed(() => INVOICE_STATUS_COLORS[this.invoice()?.status ?? ''] ?? 'default');
   readonly statusLabel = computed(() => invoiceStatusLabel(this.invoice()?.status ?? ''));
   readonly overdueDays = computed(() => { const inv = this.invoice(); return inv ? daysOverdue(inv) : 0; });
   readonly source = computed(() => humanizeSource(this.invoice()?.sourceType));
@@ -203,7 +202,8 @@ export class InvoiceSheetComponent {
   // B-4: fall back when the stored party name is empty.
   readonly partyName = computed(() => this.invoice()?.partyName || 'Customer');
   readonly rows = computed(() => (this.invoice()?.lines ?? []).map((l, i) => {
-    const net = l.net ?? Math.round(l.quantity * l.price * 100) / 100;
+    // `||`: a stored line net of 0 on a priced line would print an amount that contradicts the document's own subtotal.
+    const net = l.net || Math.round(l.quantity * l.price * 100) / 100;
     const tax = l.taxAmount ?? 0;
     const known = l.taxCodeId ? this.taxRates()[l.taxCodeId] : undefined;
     const rate = known !== undefined ? known : !l.taxCodeId && !tax ? 0 : net ? Math.round((tax / net) * 10000) / 100 : null;

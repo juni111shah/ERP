@@ -1,7 +1,7 @@
 import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { CommonModule, DatePipe } from '@angular/common';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -15,8 +15,12 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { catchError, of } from 'rxjs';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
+import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { displayDate, displayLabel } from '../../core/format/display';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { formatMoney } from './invoice-sheet.component';
 
 interface Allocation {
   id: string;
@@ -46,18 +50,19 @@ interface Receipt {
 @Component({
   selector: 'erp-receipt-detail',
   standalone: true,
-  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [RouterLink, NzSpinModule, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;">Loading...</div>
+      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
     } @else if (error()) {
-      <div style="text-align: center; padding: 48px; color: #ff4d4f;">{{ error() }}</div>
+      <erp-state-panel kind="error" title="Could not load this receipt" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (receipt()) {
       <erp-detail-page
         [backLink]="['/finance/receipts']"
         [backLabel]="'Back to Receipts'"
         [title]="('ui.title.receiptNo' | translate: 'Receipt #') + receipt()!.number"
-        [status]="receipt()!.status"
+        [status]="receipt()!.status === 'issued' ? 'posted' : receipt()!.status"
+        [showDocuments]="false"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
@@ -78,8 +83,8 @@ interface Receipt {
               <tbody>
                 @for (alloc of allocTable.data; track alloc.id) {
                   <tr>
-                    <td>{{ alloc.invoiceNumber }}</td>
-                    <td style="text-align: right;">{{ alloc.amount | currency:receipt()!.currencyCode }}</td>
+                    <td><a [routerLink]="['/finance/invoices', alloc.invoiceId]">{{ alloc.invoiceNumber }}</a></td>
+                    <td style="text-align: right;">{{ money(alloc.amount) }}</td>
                   </tr>
                 }
               </tbody>
@@ -101,6 +106,7 @@ export class ReceiptDetailPage implements OnInit {
   private readonly api = inject(ReceiptsApi);
   private readonly modal = inject(NzModalService);
 
+  money(v: number): string { return formatMoney(v, this.receipt()?.currencyCode); }
   loading = signal(true);
   error = signal<string | null>(null);
   receipt = signal<Receipt | null>(null);
@@ -156,17 +162,17 @@ export class ReceiptDetailPage implements OnInit {
     return [
       {
         title: 'Total Amount',
-        value: rec.amount,
+        value: formatMoney(rec.amount),
         suffix: rec.currencyCode
       },
       {
         title: 'Allocated',
-        value: rec.amount - rec.unallocated,
+        value: formatMoney(rec.allocations.reduce((s, a) => s + a.amount, 0)),
         suffix: rec.currencyCode
       },
       {
         title: 'Unallocated',
-        value: rec.unallocated,
+        value: formatMoney(rec.unallocated),
         suffix: rec.currencyCode,
         valueStyle: { color: rec.unallocated > 0 ? '#fa8c16' : '#52c41a' }
       },
@@ -183,12 +189,14 @@ export class ReceiptDetailPage implements OnInit {
     
     return [
       { label: 'Customer', value: rec.partyName, routerLink: ['/parties', rec.partyId] },
-      { label: 'Date', value: new Date(rec.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) },
-      { label: 'Payment Method', value: rec.method },
+      { label: 'Date', value: displayDate(rec.date) },
+      { label: 'Payment Method', value: displayLabel(rec.method) },
       { label: 'Currency', value: rec.currencyCode },
       { label: 'Reference', value: rec.reference, span: 2 }
     ];
   });
+
+  retry(): void { this.loading.set(true); this.error.set(null); this.ngOnInit(); }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

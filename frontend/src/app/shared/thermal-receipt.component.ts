@@ -18,6 +18,9 @@ export interface ThermalReceiptPayment {
 }
 
 export interface ThermalReceiptData {
+  /** the register's receipt header and footer text */
+  headerNote?: string | null;
+  footerNote?: string | null;
   organizationName?: string;
   organizationNameAr?: string;
   branchName?: string;
@@ -67,6 +70,7 @@ export interface ThermalReceiptData {
               </div>
             </div>
           </div>
+          @if (receipt().headerNote) { <div class="thankyou-text" data-testid="receipt-header-note">{{ receipt().headerNote }}</div> }
 
           <div class="receipt-doc-title">
             {{ isAr() ? (receipt().titleAr || 'فاتورة ضريبية / إيصال مبيعات') : (receipt().title || 'TAX INVOICE / CASH RECEIPT') }}
@@ -194,6 +198,7 @@ export interface ThermalReceiptData {
             </div>
           }
 
+          @if (receipt().footerNote) { <div class="thankyou-text" data-testid="receipt-footer-note">{{ receipt().footerNote }}</div> }
           <div class="thankyou-text">
             {{ isAr() ? 'شكراً لتعاملكم معنا' : 'Thank you for your business' }}
           </div>

@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { problemMessage } from '../../core/http/problem-details';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -13,30 +14,32 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTagModule } from 'ng-zorro-antd/tag';
 import { LegalEntitiesApi } from '../../core/api/admin.api';
 import {
   CrmLeadsApi,
-  LeadDto,
-  LeadSource,
   LeadStatus,
   LeadSummaryDto
 } from '../../core/api/crm.api';
 import { createPagedList } from '../../core/api/paged-list';
-import { SessionStore } from '../../core/session/session.store';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { displayLabel } from '../../core/format/display';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
+
+/** A lead becomes Converted only through the convert action. */
+const STATUSES: LeadStatus[] = ['new', 'contacted', 'qualified', 'unqualified'];
 
 @Component({
   selector: 'erp-leads-list-page',
   standalone: true,
-  imports: [
+  imports: [StatusTagComponent, NzDropDownModule,
     CommonModule,
     ReactiveFormsModule,
     NzCardModule,
     NzButtonModule,
     NzIconModule,
-    NzTagModule,
     NzBadgeModule,
     NzModalModule,
     NzDrawerModule,
@@ -52,53 +55,64 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     <erp-paged-table
       #table
       [list]="list"
-      [columns]="columns">
+      [columns]="columns"
+      searchPlaceholder="Search name, company, email or phone"
+      [clickable]="false"
+      emptyText="No leads yet. Add one to start your pipeline."
+      exportFilename="leads">
         <button toolbar *erpHasPermission="'crm.leads.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="lead-new">
           <span nz-icon nzType="user-add"></span> Add New Lead
         </button>
-          <ng-template #cell let-row let-column="column">
-            <ng-container [ngSwitch]="column.key">
-              <span *ngSwitchCase="'leadNumber'" class="mono-code font-bold">{{ row.leadNumber }}</span>
-              <span *ngSwitchCase="'fullName'">
-                <a (click)="viewDetail(row)">{{ row.fullName }}</a>
-              </span>
-              <span *ngSwitchCase="'companyName'">
-                <span>{{ row.companyName || 'Individual' }}</span>
-              </span>
-              <span *ngSwitchCase="'email'">
-                <small>{{ row.email || '-' }}</small>
-              </span>
-              <span *ngSwitchCase="'phone'">
-                <small>{{ row.phone || '-' }}</small>
-              </span>
-              <span *ngSwitchCase="'source'">
-                <nz-tag>{{ row.source }}</nz-tag>
-              </span>
-              <span *ngSwitchCase="'status'">
-                <nz-tag [nzColor]="getStatusColor(row.status)">{{ row.status }}</nz-tag>
-              </span>
-              <span *ngSwitchCase="'estimatedValue'">
-                <strong>{{ currency() }} {{ row.estimatedValue | number:'1.0-0' }}</strong>
-              </span>
-              <span *ngSwitchCase="'assignedUserName'">
-                <span>{{ row.assignedUserName || 'Unassigned' }}</span>
-              </span>
-              <span *ngSwitchCase="'actions'">
+          <ng-template #cell let-row let-column="column" let-value="value">
+            @switch (column.key) {
+              @case ('leadNumber') { <span class="num-cell">{{ row.leadNumber }}</span> }
+              @case ('fullName') {
+                <div class="stack">
+                  <a (click)="viewDetail(row)">{{ row.fullName }}</a>
+                  @if (row.companyName) { <small class="text-secondary">{{ row.companyName }}</small> }
+                </div>
+              }
+              @case ('email') {
+                <div class="stack">
+                  <small>{{ row.email || '-' }}</small>
+                  @if (row.phone) { <small class="text-secondary nowrap">{{ row.phone }}</small> }
+                </div>
+              }
+              @case ('source') { {{ value }} }
+              @case ('status') { <erp-status [value]="row.status" /> }
+              @case ('estimatedValue') { <strong class="amount">{{ currency() }} {{ row.estimatedValue | number:'1.0-0' }}</strong> }
+              @case ('assignedUserName') { {{ row.assignedUserName || 'Unassigned' }} }
+              @case ('actions') {
                 <div class="table-actions">
-                  @if (row.status !== 'Converted') {
+                  @if (canConvert(row)) {
                     <button
                       *erpHasPermission="'crm.leads.manage'"
-                      nz-button nzType="link" nzSize="small" class="text-primary"
-                      (click)="openConvertModal(row)">
-                      <span nz-icon nzType="arrow-right"></span> Convert to Deal
+                      nz-button nzType="link" nzSize="small"
+                      (click)="openConvertModal(row)" data-testid="lead-convert">
+                      <span nz-icon nzType="arrow-right"></span> Convert
                     </button>
+                  }
+                  @if (row.status !== 'converted') {
+                    <button
+                      *erpHasPermission="'crm.leads.manage'"
+                      nz-button nzType="link" nzSize="small" nz-dropdown nzTrigger="click" [nzDropdownMenu]="statusMenu" data-testid="lead-status">
+                      Status <span nz-icon nzType="down"></span>
+                    </button>
+                    <nz-dropdown-menu #statusMenu="nzDropdownMenu">
+                      <ul nz-menu>
+                        @for (s of statusMoves(row); track s) {
+                          <li nz-menu-item (click)="setStatus(row, s)">{{ label(s) }}</li>
+                        }
+                      </ul>
+                    </nz-dropdown-menu>
                   }
                   <button nz-button nzType="link" nzSize="small" (click)="viewDetail(row)">
                     <span nz-icon nzType="eye"></span> Details
                   </button>
                 </div>
-              </span>
-            </ng-container>
+              }
+              @default { {{ value }} }
+            }
           </ng-template>
         </erp-paged-table>
 
@@ -106,12 +120,12 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       <nz-drawer
         [nzVisible]="createVisible()"
         [nzWidth]="620"
-        nzTitle="Acquire New Lead / Prospect"
+        nzTitle="New Lead"
         (nzOnClose)="createVisible.set(false)">
         <ng-container *nzDrawerContent>
           <form [formGroup]="leadForm" nz-form nzLayout="vertical" (ngSubmit)="saveLead()">
             <nz-form-item>
-              <nz-form-label nzRequired>Workspace Legal Entity</nz-form-label>
+              <nz-form-label nzRequired>Legal Entity</nz-form-label>
               <nz-form-control nzErrorTip="Please select an entity">
                 <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Legal Entity">
                   <nz-option *ngFor="let ent of entities()" [nzValue]="ent.id" [nzLabel]="ent.name"></nz-option>
@@ -123,14 +137,14 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <nz-form-item>
                 <nz-form-label nzRequired>Contact Full Name</nz-form-label>
                 <nz-form-control nzErrorTip="Name is required">
-                  <input nz-input formControlName="fullName" placeholder="e.g. Michael Scott" />
+                  <input nz-input formControlName="fullName" placeholder="Full name" />
                 </nz-form-control>
               </nz-form-item>
 
               <nz-form-item>
                 <nz-form-label>Company / Organization</nz-form-label>
                 <nz-form-control>
-                  <input nz-input formControlName="companyName" placeholder="e.g. Dunder Mifflin" />
+                  <input nz-input formControlName="companyName" placeholder="Company name" />
                 </nz-form-control>
               </nz-form-item>
             </div>
@@ -138,15 +152,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div class="grid grid-cols-2 gap-4">
               <nz-form-item>
                 <nz-form-label>Email Address</nz-form-label>
-                <nz-form-control>
-                  <input nz-input formControlName="email" type="email" placeholder="e.g. michael@dunder.com" />
+                <nz-form-control nzErrorTip="Enter a valid email address.">
+                  <input nz-input formControlName="email" type="email" placeholder="name@company.com" />
                 </nz-form-control>
               </nz-form-item>
 
               <nz-form-item>
                 <nz-form-label>Phone / WhatsApp</nz-form-label>
                 <nz-form-control>
-                  <input nz-input formControlName="phone" placeholder="+971 50 123 4567" />
+                  <input nz-input formControlName="phone" placeholder="Phone number" />
                 </nz-form-control>
               </nz-form-item>
             </div>
@@ -156,18 +170,18 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-form-label>Lead Source</nz-form-label>
                 <nz-form-control>
                   <nz-select formControlName="source">
-                    <nz-option nzValue="Website" nzLabel="Website Inbound"></nz-option>
-                    <nz-option nzValue="Referral" nzLabel="Client Referral"></nz-option>
-                    <nz-option nzValue="TradeShow" nzLabel="Trade Show / Exhibition"></nz-option>
-                    <nz-option nzValue="ColdCall" nzLabel="Outbound Outreach"></nz-option>
-                    <nz-option nzValue="Campaign" nzLabel="Marketing Campaign"></nz-option>
-                    <nz-option nzValue="Other" nzLabel="Other Channel"></nz-option>
+                    <nz-option nzValue="website" nzLabel="Website Inbound"></nz-option>
+                    <nz-option nzValue="referral" nzLabel="Client Referral"></nz-option>
+                    <nz-option nzValue="tradeShow" nzLabel="Trade Show / Exhibition"></nz-option>
+                    <nz-option nzValue="coldCall" nzLabel="Outbound Outreach"></nz-option>
+                    <nz-option nzValue="campaign" nzLabel="Marketing Campaign"></nz-option>
+                    <nz-option nzValue="other" nzLabel="Other Channel"></nz-option>
                   </nz-select>
                 </nz-form-control>
               </nz-form-item>
 
               <nz-form-item>
-                <nz-form-label>Estimated Deal Value (\$)</nz-form-label>
+                <nz-form-label>Estimated Value ({{ currency() }})</nz-form-label>
                 <nz-form-control>
                   <nz-input-number formControlName="estimatedValue" [nzMin]="0" class="w-full"></nz-input-number>
                 </nz-form-control>
@@ -175,15 +189,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </div>
 
             <nz-form-item>
-              <nz-form-label>Discovery Notes & Requirements</nz-form-label>
+              <nz-form-label>Notes</nz-form-label>
               <nz-form-control>
-                <textarea nz-input formControlName="notes" rows="3" placeholder="Client business scale, pain points, timeline expectations..."></textarea>
+                <textarea nz-input formControlName="notes" rows="3" placeholder="What they need, budget, timing..."></textarea>
               </nz-form-control>
             </nz-form-item>
 
             <div class="drawer-footer">
               <button nz-button type="button" (click)="createVisible.set(false)">Cancel</button>
-              <button nz-button nzType="primary" type="submit" [nzLoading]="isSubmitting()">Save Prospect</button>
+              <button nz-button nzType="primary" type="submit" [nzLoading]="isSubmitting()">Save Lead</button>
             </div>
           </form>
         </ng-container>
@@ -192,27 +206,27 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       <!-- Convert to Deal Modal -->
       <nz-modal
         [nzVisible]="convertModalVisible()"
-        nzTitle="Convert Lead to Pipeline Deal"
+        nzTitle="Convert Lead to Deal"
         [nzOkLoading]="isConverting()"
         (nzOnCancel)="convertModalVisible.set(false)"
         (nzOnOk)="submitConvertLead()">
         <ng-container *nzModalContent>
           <form [formGroup]="convertForm" nz-form nzLayout="vertical">
             <div *ngIf="selectedLead() as lead" class="mb-4 convert-summary-card">
-              <p><strong>Prospect:</strong> {{ lead.fullName }} ({{ lead.companyName || 'Individual' }})</p>
-              <p><strong>Estimated:</strong> \${{ lead.estimatedValue | number:'1.0-0' }}</p>
+              <p><strong>Lead:</strong> {{ lead.fullName }}@if (lead.companyName) { ({{ lead.companyName }}) }</p>
+              <p><strong>Estimated:</strong> {{ currency() }} {{ lead.estimatedValue | number:'1.0-0' }}</p>
             </div>
 
             <nz-form-item>
-              <nz-form-label nzRequired>Opportunity / Deal Title</nz-form-label>
+              <nz-form-label nzRequired>Deal Title</nz-form-label>
               <nz-form-control nzErrorTip="Deal title is required">
-                <input nz-input formControlName="opportunityTitle" placeholder="e.g. Enterprise Cloud ERP Implementation" />
+                <input nz-input formControlName="opportunityTitle" placeholder="e.g. Annual supply contract" />
               </nz-form-control>
             </nz-form-item>
 
             <div class="grid grid-cols-2 gap-4">
               <nz-form-item>
-                <nz-form-label nzRequired>Expected Deal Value (\$)</nz-form-label>
+                <nz-form-label nzRequired>Expected Value ({{ currency() }})</nz-form-label>
                 <nz-form-control>
                   <nz-input-number formControlName="expectedRevenue" [nzMin]="0" class="w-full"></nz-input-number>
                 </nz-form-control>
@@ -233,13 +247,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       <nz-drawer
         [nzVisible]="detailVisible()"
         [nzWidth]="550"
-        nzTitle="Prospect Profile"
+        nzTitle="Lead Details"
         (nzOnClose)="detailVisible.set(false)">
         <ng-container *nzDrawerContent>
           <div *ngIf="selectedLead() as lead" class="lead-detail-box">
             <div class="detail-header">
               <h3>{{ lead.fullName }}</h3>
-              <p class="text-secondary">{{ lead.companyName || 'Individual Prospect' }} · {{ lead.jobTitle || 'Decision Maker' }}</p>
+              <p class="text-secondary">{{ leadSubtitle(lead) }}</p>
             </div>
 
             <div class="grid grid-cols-2 gap-4 mt-4">
@@ -249,7 +263,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               </div>
               <div>
                 <span class="label">Current Status:</span>
-                <p><nz-tag [nzColor]="getStatusColor(lead.status)">{{ lead.status }}</nz-tag></p>
+                <p><erp-status [value]="lead.status" /></p>
               </div>
               <div>
                 <span class="label">Email:</span>
@@ -261,7 +275,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               </div>
               <div>
                 <span class="label">Source:</span>
-                <p><nz-tag>{{ lead.source }}</nz-tag></p>
+                <p>{{ label(lead.source) }}</p>
               </div>
               <div>
                 <span class="label">Estimated Deal:</span>
@@ -270,24 +284,29 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </div>
 
             <div class="mt-4 notes-card">
-              <span class="label">Discovery & Background Notes:</span>
-              <p class="mt-1">{{ lead.notes || 'No discovery notes recorded.' }}</p>
+              <span class="label">Notes:</span>
+              <p class="mt-1">{{ lead.notes || 'No notes yet.' }}</p>
             </div>
           </div>
         </ng-container>
       </nz-drawer>
   `,
   styles: [`
-    .text-secondary { color: var(--erp-text-secondary, #64748b); }
-    .text-primary { color: var(--erp-primary, #0ea5e9); }
-    .mono-code { font-family: monospace; color: #1890ff; }
+    .text-secondary { color: var(--erp-color-text-secondary); }
+    .text-primary { color: var(--erp-color-primary-text); }
+    .num-cell { white-space: nowrap; font-weight: 600; color: var(--erp-color-primary-text); }
+    .stack { display: flex; flex-direction: column; min-width: 0; }
+    .nowrap { white-space: nowrap; }
+    .amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .table-actions { display: flex; justify-content: flex-end; align-items: center; gap: 4px; white-space: nowrap; }
+    .mono-code { font-family: monospace; color: var(--erp-color-primary-text); }
     .font-bold { font-weight: 600; }
-    .convert-summary-card { background: var(--erp-bg-secondary, #f8fafc); padding: 0.75rem; border-radius: 6px; }
+    .convert-summary-card { background: var(--erp-color-bg-subtle); padding: 0.75rem; border-radius: 6px; }
     .convert-summary-card p { margin: 0 0 0.25rem 0; font-size: 0.9rem; }
     .drawer-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 2rem; }
     .lead-detail-box .detail-header h3 { margin: 0; }
-    .label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; }
-    .notes-card { background: var(--erp-bg-secondary, #f8fafc); padding: 0.75rem; border-radius: 6px; }
+    .label { font-size: 0.75rem; color: var(--erp-color-text-muted); text-transform: uppercase; }
+    .notes-card { background: var(--erp-color-bg-subtle); padding: 0.75rem; border-radius: 6px; }
     .grid { display: grid; }
     .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .gap-4 { gap: 1rem; }
@@ -300,11 +319,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 export class LeadsListPageComponent implements OnInit {
   private readonly api = inject(CrmLeadsApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
-  private readonly sessionStore = inject(SessionStore);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
 
-  readonly currency = computed(() => this.sessionStore.me()?.workspace?.baseCurrency || '$');
+  readonly currency = this.currencyService.currency;
   readonly list = createPagedList<LeadSummaryDto>((q: any) => this.api.list(q));
   readonly entities = signal<{ id: string; name: string }[]>([]);
 
@@ -318,17 +337,18 @@ export class LeadsListPageComponent implements OnInit {
   leadForm!: FormGroup;
   convertForm!: FormGroup;
 
+  // The CRM list endpoints accept no sort, filter or search fields yet, so the table offers none of those from the server (the header filters work on the loaded page).
   readonly columns: TableColumn<LeadSummaryDto>[] = [
-    { key: 'leadNumber', label: 'Lead #', sortField: 'leadNumber' },
-    { key: 'fullName', label: 'Contact Name', sortField: 'fullName' },
-    { key: 'companyName', label: 'Company / Org', sortField: 'companyName' },
-    { key: 'email', label: 'Email' },
-    { key: 'phone', label: 'Phone' },
-    { key: 'source', label: 'Source' },
-    { key: 'status', label: 'Status', sortField: 'status' },
-    { key: 'estimatedValue', label: 'Est. Value', sortField: 'estimatedValue' },
-    { key: 'assignedUserName', label: 'Owner' },
-    { key: 'actions', label: 'Actions', align: 'right' }
+    { key: 'leadNumber', label: 'Lead #', sortField: 'leadNumber', width: '140px' },
+    { key: 'fullName', label: 'Lead / Company', sortField: 'fullName', filterValue: (r) => `${r.fullName} ${r.companyName ?? ''}` },
+    { key: 'companyName', label: 'Company', hidden: true },
+    { key: 'email', label: 'Contact', filterValue: (r) => `${r.email ?? ''} ${r.phone ?? ''}` },
+    { key: 'phone', label: 'Phone', hidden: true },
+    { key: 'source', label: 'Source', sortField: 'source', width: '100px' },
+    { key: 'status', label: 'Status', sortField: 'status', filterField: 'status', filterOptions: ['new', 'contacted', 'qualified', 'unqualified', 'converted'], width: '110px' },
+    { key: 'estimatedValue', label: 'Est. Value', sortField: 'estimatedValue', width: '130px', align: 'right', filter: false },
+    { key: 'assignedUserName', label: 'Owner', hidden: true },
+    { key: 'actions', label: 'Actions', align: 'right', width: '250px' }
   ];
 
   ngOnInit(): void {
@@ -342,16 +362,16 @@ export class LeadsListPageComponent implements OnInit {
       fullName: ['', [Validators.required]],
       companyName: [''],
       jobTitle: [''],
-      email: [''],
+      email: ['', [Validators.email]],
       phone: [''],
-      source: ['Website'],
-      estimatedValue: [10000, [Validators.required, Validators.min(0)]],
+      source: ['website'],
+      estimatedValue: [0, [Validators.required, Validators.min(0)]],
       notes: ['']
     });
 
     this.convertForm = this.fb.group({
       opportunityTitle: ['', [Validators.required]],
-      expectedRevenue: [10000, [Validators.required, Validators.min(0)]],
+      expectedRevenue: [0, [Validators.required, Validators.min(0)]],
       expectedCloseDate: [new Date(Date.now() + 30 * 86400000)]
     });
   }
@@ -369,22 +389,27 @@ export class LeadsListPageComponent implements OnInit {
     });
   }
 
-  getStatusColor(status: LeadStatus): string {
-    switch (status) {
-      case 'New': return 'blue';
-      case 'Contacted': return 'cyan';
-      case 'Qualified': return 'purple';
-      case 'Converted': return 'success';
-      case 'Unqualified': return 'default';
-      default: return 'default';
-    }
+  label(value: string): string { return displayLabel(value); }
+  /** The server refuses to convert an unqualified lead or one already converted. */
+  canConvert(row: LeadSummaryDto): boolean { return row.status !== 'converted' && row.status !== 'unqualified'; }
+  statusMoves(row: LeadSummaryDto): LeadStatus[] { return STATUSES.filter((s) => s !== row.status); }
+  leadSubtitle(lead: LeadSummaryDto): string { return [lead.companyName, lead.jobTitle].filter(Boolean).join(' · '); }
+
+  setStatus(row: LeadSummaryDto, status: LeadStatus): void {
+    this.api.setStatus(row.id, status).subscribe({
+      next: () => {
+        this.message.success(`${row.leadNumber} is now ${displayLabel(status).toLowerCase()}.`);
+        this.list.reload();
+      },
+      error: (err) => this.message.error(problemMessage(err, 'Could not change the status.')),
+    });
   }
 
   openCreateDrawer(): void {
     this.leadForm.reset({
       legalEntityId: this.entities()[0]?.id || '',
-      source: 'Website',
-      estimatedValue: 10000
+      source: 'website',
+      estimatedValue: 0
     });
     this.createVisible.set(true);
   }
@@ -398,7 +423,7 @@ export class LeadsListPageComponent implements OnInit {
     this.selectedLead.set(row);
     this.convertForm.patchValue({
       opportunityTitle: `${row.companyName || row.fullName} - Deal`,
-      expectedRevenue: row.estimatedValue || 15000,
+      expectedRevenue: row.estimatedValue,
       expectedCloseDate: new Date(Date.now() + 30 * 86400000)
     });
     this.convertModalVisible.set(true);
@@ -406,7 +431,7 @@ export class LeadsListPageComponent implements OnInit {
 
   saveLead(): void {
     if (this.leadForm.invalid) {
-      Object.values(this.leadForm.controls).forEach(c => c.markAsDirty());
+      Object.values(this.leadForm.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
       return;
     }
     this.isSubmitting.set(true);
@@ -414,13 +439,13 @@ export class LeadsListPageComponent implements OnInit {
 
     this.api.create(v).subscribe({
       next: () => {
-        this.message.success('Prospect lead acquired');
+        this.message.success('Lead added.');
         this.createVisible.set(false);
         this.isSubmitting.set(false);
         this.list.reload();
       },
-      error: () => {
-        this.message.error('Failed to create lead');
+      error: (err) => {
+        this.message.error(problemMessage(err, 'Failed to create lead'));
         this.isSubmitting.set(false);
       }
     });
@@ -441,13 +466,13 @@ export class LeadsListPageComponent implements OnInit {
       expectedCloseDate: closeDate
     }).subscribe({
       next: () => {
-        this.message.success('Lead converted to sales pipeline opportunity!');
+        this.message.success('Lead converted. The deal is in the pipeline.');
         this.convertModalVisible.set(false);
         this.isConverting.set(false);
         this.list.reload();
       },
-      error: () => {
-        this.message.error('Failed to convert lead');
+      error: (err) => {
+        this.message.error(problemMessage(err, 'Failed to convert lead'));
         this.isConverting.set(false);
       }
     });

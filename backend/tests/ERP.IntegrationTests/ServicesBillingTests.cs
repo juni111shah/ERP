@@ -111,6 +111,56 @@ public class ServicesBillingTests(ApiFactory f) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Logged_time_adds_to_the_engagement_and_approval_is_saved()
+    {
+        var s = await NewAsync();
+        var entry = await Ok(await s.C.PostAsJsonAsync($"{Svc}/time-entries", new
+        {
+            legalEntityId = s.Entity,
+            engagementId = s.EngagementId,
+            consultantUserId = Guid.NewGuid(),
+            consultantName = "Consultant",
+            activityDate = "2026-06-01",
+            hours = 3m,
+            hourlyRate = 100m,
+            taskDescription = "Design",
+            isBillable = true
+        }), HttpStatusCode.Created);
+
+        var engagement = await Ok(await s.C.GetAsync($"{Svc}/engagements/{s.EngagementId}"));
+        Assert.Equal(3m, (decimal)engagement["consumedHours"]!);
+        Assert.Equal(300m, (decimal)engagement["consumedCost"]!);
+
+        var id = (string)entry["id"]!;
+        await Ok(await s.C.PostAsJsonAsync($"{Svc}/time-entries/{id}/approve", new { id, approvedByUserId = Guid.NewGuid() }));
+        var list = await Ok(await s.C.GetAsync($"{Svc}/time-entries?pageSize=100"));
+        Assert.True((bool)list.AsArray().Single(x => (string)x!["id"]! == id)!["isApproved"]!);
+    }
+
+    [Fact]
+    public async Task Deleting_a_draft_invoice_lets_the_milestone_be_invoiced_again()
+    {
+        var s = await NewAsync();
+        var ms = await Ok(await s.C.PostAsJsonAsync($"{Svc}/milestones", new
+        {
+            legalEntityId = s.Entity,
+            engagementId = s.EngagementId,
+            title = "Handover",
+            amount = 500m,
+            dueDate = "2026-09-01"
+        }), HttpStatusCode.Created);
+        var milestoneId = (string)ms["id"]!;
+        await Ok(await s.C.PostAsJsonAsync($"{Svc}/milestones/{milestoneId}/status", new { id = milestoneId, status = "ReadyToInvoice" }));
+        var invoice = await Ok(await s.C.PostAsync($"{Svc}/milestones/{milestoneId}/invoice", null));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await s.C.DeleteAsync($"{Fin}/invoices/{(string)invoice["id"]!}")).StatusCode);
+
+        var after = await Ok(await s.C.GetAsync($"{Svc}/milestones/{milestoneId}"));
+        Assert.Equal("readyToInvoice", (string)after["status"]!, ignoreCase: true);
+        await Ok(await s.C.PostAsync($"{Svc}/milestones/{milestoneId}/invoice", null));
+    }
+
+    [Fact]
     public async Task Milestone_shows_paid_only_after_invoice_is_fully_settled()
     {
         var s = await NewAsync();

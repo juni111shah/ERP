@@ -46,8 +46,9 @@ public class PurchasingModuleTests
 
         foreach (var m in menu)
         {
-            Assert.Equal("purchasing", m.GroupId);
-            Assert.Equal("Purchasing", m.GroupLabel);
+            // joins the core Purchases group, beside vendors, bills and payments
+            Assert.Equal("purchases", m.GroupId);
+            Assert.Equal("Purchases", m.GroupLabel);
         }
     }
 

@@ -1,251 +1,218 @@
-import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { NzBadgeModule } from 'ng-zorro-antd/badge';
-import { NzButtonModule } from 'ng-zorro-antd/button';
+import { Router } from '@angular/router';
+import { of, switchMap } from 'rxjs';
 import { NzCardModule } from 'ng-zorro-antd/card';
-import { NzDividerModule } from 'ng-zorro-antd/divider';
-import { NzGridModule } from 'ng-zorro-antd/grid';
-import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzStatisticModule } from 'ng-zorro-antd/statistic';
+import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { NzTabsModule } from 'ng-zorro-antd/tabs';
-import { NzTagModule } from 'ng-zorro-antd/tag';
-import { SessionStore } from '../../core/session/session.store';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import {
   BomSummaryDto,
   CostRollupDto,
+  CostVarianceDto,
   ManufacturingBomsApi,
   ManufacturingCostingApi,
-  VarianceAnalysisDto
 } from '../../core/api/manufacturing.api';
+import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 
 @Component({
   selector: 'erp-manufacturing-costing-page',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    NzCardModule,
-    NzTabsModule,
-    NzButtonModule,
-    NzIconModule,
-    NzSelectModule,
-    NzTableModule,
-    NzTagModule,
-    NzBadgeModule,
-    NzDividerModule,
-    NzGridModule,
-    NzStatisticModule
-  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [DecimalPipe, FormsModule, NzCardModule, NzFormModule, NzSelectModule, NzSkeletonModule, NzTableModule, StatCardComponent, StatePanelComponent, StatusTagComponent],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h2>Product Costing & Variance Analysis</h2>
-          <p class="text-secondary">Perform standard BOM cost rollups, inspect raw material breakdowns, and analyze shop-floor production variances</p>
-        </div>
+    @if (bomsFailed()) {
+      <erp-state-panel kind="error" title="The bills of materials could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="loadBoms()" />
+    } @else if (bomsLoading()) {
+      <nz-skeleton [nzActive]="true"></nz-skeleton>
+    } @else if (boms().length === 0) {
+      <erp-state-panel title="No bills of materials yet" hint="Add a bill of materials to see what a product should cost and what it really costs." icon="calculator" actionLabel="Go to bills of materials" (action)="goToBoms()" />
+    } @else {
+      <div class="picker">
+        <label for="costing-bom">Bill of materials</label>
+        <nz-select nzId="costing-bom" nzShowSearch [ngModel]="selectedBomId()" (ngModelChange)="selectBom($event)" class="picker-select" data-testid="costing-bom">
+          @for (b of boms(); track b.id) {
+            <nz-option [nzValue]="b.id" [nzLabel]="b.code + ' - ' + b.name + (b.isActive ? '' : ' (inactive)')"></nz-option>
+          }
+        </nz-select>
       </div>
 
-      <nz-tabset>
-        <!-- Standard Cost Rollup Tab -->
-        <nz-tab nzTitle="Standard BOM Cost Rollup">
-          <nz-card [nzBordered]="false" class="mb-4">
-            <div class="rollup-selector">
-              <label class="font-medium mr-3">Select BOM Recipe:</label>
-              <nz-select
-                [(ngModel)]="selectedBomId"
-                (ngModelChange)="onSelectBom($event)"
-                nzPlaceHolder="Choose BOM recipe..."
-                class="bom-dropdown">
-                <nz-option *ngFor="let b of availableBoms()" [nzValue]="b.id" [nzLabel]="b.code + ' - ' + b.name"></nz-option>
-              </nz-select>
-              <button nz-button nzType="primary" (click)="calculateRollup()" [nzLoading]="isCalculating()">
-                <span nz-icon nzType="calculator"></span> Rollup Cost
-              </button>
-            </div>
-          </nz-card>
+      @if (costFailed()) {
+        <erp-state-panel kind="error" title="The cost of this product could not be worked out" hint="Check your connection and try again." actionLabel="Try again" (action)="loadCost()" />
+      } @else if (costLoading() && !rollup()) {
+        <nz-skeleton [nzActive]="true"></nz-skeleton>
+      } @else if (rollup(); as r) {
+        <h3 class="section-title">Standard cost of a batch of {{ r.outputQuantity | number:'1.0-4' }} {{ batchUom() }}</h3>
+        <div class="erp-stat-grid erp-stat-grid--auto" data-testid="costing-rollup">
+          <erp-stat-card label="Materials" [value]="money(r.materialCost)" [tone]="1" />
+          <erp-stat-card label="Labor" [value]="money(r.laborCost)" [tone]="2" />
+          <erp-stat-card label="Overhead" [value]="money(r.overheadCost)" [tone]="3" />
+          <erp-stat-card label="Standard cost per unit" [value]="money(r.totalStandardUnitCost)" [caption]="r.producedItemName" [tone]="0" />
+        </div>
 
-          <div *ngIf="rollupData() as rollup" class="rollup-results">
-            <div nz-row [nzGutter]="16" class="mb-4">
-              <div nz-col [nzSpan]="6">
-                <nz-card [nzBordered]="false" class="stat-card">
-                  <nz-statistic [nzTitle]="'Raw Material Cost'" [nzValue]="(rollup.componentCost | number:'1.2-2') || '0.00'" [nzPrefix]="currency()"></nz-statistic>
-                </nz-card>
-              </div>
-              <div nz-col [nzSpan]="6">
-                <nz-card [nzBordered]="false" class="stat-card">
-                  <nz-statistic [nzTitle]="'Labor & Overhead'" [nzValue]="(rollup.laborAndOverheadCost | number:'1.2-2') || '0.00'" [nzPrefix]="currency()"></nz-statistic>
-                </nz-card>
-              </div>
-              <div nz-col [nzSpan]="6">
-                <nz-card [nzBordered]="false" class="stat-card">
-                  <nz-statistic [nzTitle]="'Total Batch Standard Cost'" [nzValue]="(rollup.totalStandardCost | number:'1.2-2') || '0.00'" [nzPrefix]="currency()"></nz-statistic>
-                </nz-card>
-              </div>
-              <div nz-col [nzSpan]="6">
-                <nz-card [nzBordered]="false" class="stat-card highlight">
-                  <nz-statistic [nzTitle]="'Calculated Cost / Unit'" [nzValue]="(rollup.calculatedStandardUnitCost | number:'1.2-2') || '0.00'" [nzPrefix]="currency()"></nz-statistic>
-                </nz-card>
-              </div>
-            </div>
+        <nz-card nzTitle="Actual against standard, per unit" class="section" data-testid="costing-variance">
+          @if (variance(); as v) {
+            @if (v.completedWorkOrdersCount > 0 && v.actualAverageUnitCost > 0) {
+              <dl class="facts">
+                <div><dt>Standard</dt><dd>{{ money(v.standardUnitCost) }}</dd></div>
+                <div><dt>Actual average</dt><dd>{{ money(v.actualAverageUnitCost) }}</dd></div>
+                <div>
+                  <dt>Difference</dt>
+                  <dd>{{ v.varianceAmount > 0 ? '+' : '' }}{{ money(v.varianceAmount) }} ({{ v.variancePercentage > 0 ? '+' : '' }}{{ v.variancePercentage | number:'1.1-1' }}%)</dd>
+                </div>
+                <div><dt>Result</dt><dd><erp-status [value]="varianceTone()" [label]="varianceLabel()" /></dd></div>
+              </dl>
+              <p class="note">From {{ v.completedWorkOrdersCount }} completed work {{ v.completedWorkOrdersCount === 1 ? 'order' : 'orders' }} for {{ v.itemName }}. The standard comes from the active bill of materials of this product.</p>
+            } @else if (v.completedWorkOrdersCount > 0) {
+              <p class="note">{{ v.completedWorkOrdersCount }} completed work {{ v.completedWorkOrdersCount === 1 ? 'order' : 'orders' }} for {{ v.itemName }} have no actual cost recorded, so there is nothing to compare.</p>
+            } @else {
+              <p class="note">No completed work orders for {{ v.itemName }} yet, so there is no actual cost to compare.</p>
+            }
+          } @else {
+            <p class="note">No completed work orders for this product yet, so there is no actual cost to compare.</p>
+          }
+        </nz-card>
 
-            <nz-card [nzBordered]="false" nzTitle="Cost Rollup Component Breakdown">
-              <nz-table #breakTable [nzData]="rollup.breakdown" [nzShowPagination]="false" nzSize="middle">
-                <thead>
-                  <tr>
-                    <th>Component Item</th>
-                    <th>Qty Required</th>
-                    <th>Unit Cost</th>
-                    <th>Line Standard Cost</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let item of breakTable.data">
-                    <td>
-                      <div><strong>{{ item.componentItemName }}</strong></div>
-                      <small class="text-secondary">{{ item.componentItemCode }}</small>
-                    </td>
-                    <td>{{ item.quantityPerUnit }} {{ item.unitOfMeasure }}</td>
-                    <td>{{ currency() }} {{ item.unitCost | number:'1.2-2' }}</td>
-                    <td><strong>{{ currency() }} {{ item.extendedCost | number:'1.2-2' }}</strong></td>
-                  </tr>
-                </tbody>
-              </nz-table>
-            </nz-card>
-          </div>
-        </nz-tab>
-
-        <!-- Variance Analysis Tab -->
-        <nz-tab nzTitle="Production Cost Variances">
-          <nz-card [nzBordered]="false">
-            <nz-table #varTable [nzData]="variances()" [nzShowPagination]="false" nzSize="middle">
+        <nz-card nzTitle="Components" class="section">
+          @if (r.componentBreakdown.length > 0) {
+            <nz-table #t [nzData]="r.componentBreakdown" [nzShowPagination]="false" [nzFrontPagination]="false" nzSize="middle">
               <thead>
                 <tr>
-                  <th>Work Order #</th>
-                  <th>Produced Item</th>
-                  <th>Completed Qty</th>
-                  <th>Scrap Qty</th>
-                  <th>Planned Cost</th>
-                  <th>Actual Cost</th>
-                  <th>Variance ({{ currency() }})</th>
-                  <th>Variance (%)</th>
-                  <th>Evaluation</th>
+                  <th>Component</th>
+                  <th nzAlign="right">Quantity</th>
+                  <th nzAlign="right">Unit cost</th>
+                  <th nzAlign="right">Cost with scrap</th>
+                  <th nzAlign="right">Share of materials</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of varTable.data">
-                  <td><strong>{{ row.orderNumber }}</strong></td>
-                  <td>{{ row.outputItemName }} ({{ row.outputItemCode }})</td>
-                  <td>{{ row.completedQuantity }}</td>
-                  <td>
-                    <span [class.text-danger]="row.scrappedQuantity > 0">{{ row.scrappedQuantity }}</span>
-                  </td>
-                  <td>{{ currency() }} {{ row.totalPlannedCost | number:'1.2-2' }}</td>
-                  <td>{{ currency() }} {{ row.actualTotalCost | number:'1.2-2' }}</td>
-                  <td>
-                    <span [class.text-success]="row.isFavorable" [class.text-danger]="!row.isFavorable">
-                      {{ row.isFavorable ? '-' : '+' }}{{ currency() }} {{ (row.varianceAmount < 0 ? -row.varianceAmount : row.varianceAmount) | number:'1.2-2' }}
-                    </span>
-                  </td>
-                  <td>{{ row.variancePercent | number:'1.1-1' }}%</td>
-                  <td>
-                    <nz-tag [nzColor]="row.isFavorable ? 'success' : 'error'">
-                      {{ row.isFavorable ? 'Favorable' : 'Unfavorable' }}
-                    </nz-tag>
-                  </td>
-                </tr>
-                <tr *ngIf="variances().length === 0">
-                  <td colspan="9" class="text-center py-4 text-secondary">No closed production work orders found for variance analysis.</td>
-                </tr>
+                @for (c of t.data; track c.componentItemId) {
+                  <tr>
+                    <td><strong>{{ c.componentItemName }}</strong><div class="code">{{ c.componentItemCode }}</div></td>
+                    <td nzAlign="right" class="num">{{ c.quantityRequired | number:'1.0-4' }}</td>
+                    <td nzAlign="right" class="num">{{ money(c.unitCost) }}</td>
+                    <td nzAlign="right" class="num">{{ money(c.totalCost) }}</td>
+                    <td nzAlign="right" class="num">{{ c.costSharePercentage | number:'1.1-1' }}%</td>
+                  </tr>
+                }
               </tbody>
             </nz-table>
-          </nz-card>
-        </nz-tab>
-      </nz-tabset>
-    </div>
+          } @else {
+            <p class="note">This bill of materials has no components yet.</p>
+          }
+        </nz-card>
+      } @else {
+        <erp-state-panel title="This bill of materials was not found" hint="It may have been deleted. Choose another one." />
+      }
+    }
   `,
   styles: [`
-    .page-container { padding: 1.5rem; }
-    .page-header { margin-bottom: 1.5rem; }
-    .page-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
-    .text-secondary { color: var(--erp-text-secondary, #64748b); }
-    .text-success { color: #10b981; }
-    .text-danger { color: #ef4444; }
-    .rollup-selector { display: flex; align-items: center; gap: 0.75rem; }
-    .bom-dropdown { width: 340px; }
-    .stat-card { background: var(--erp-bg-secondary, #f8fafc); border-radius: 8px; }
-    .stat-card.highlight { border: 1px solid var(--erp-primary, #0ea5e9); background: rgba(14, 165, 233, 0.05); }
-    .mr-3 { margin-right: 0.75rem; }
-    .mb-4 { margin-bottom: 1rem; }
-    .text-center { text-align: center; }
-    .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
-  `]
+    .picker { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-block-end: 16px; }
+    .picker label { font-weight: 500; }
+    .picker-select { width: 420px; max-width: 100%; }
+    .section-title { margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--erp-color-text-muted); }
+    .section { margin-block-start: 16px; }
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin: 0; }
+    .facts dt { color: var(--erp-color-text-muted); font-size: 13px; }
+    .facts dd { margin: 2px 0 0; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .note { margin: 12px 0 0; color: var(--erp-color-text-muted); }
+    nz-card .note:first-child { margin-block-start: 0; }
+    .code { font-family: var(--erp-font-family-mono); font-size: 12px; color: var(--erp-color-text-muted); }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  `],
 })
 export class ManufacturingCostingPageComponent implements OnInit {
   private readonly bomsApi = inject(ManufacturingBomsApi);
   private readonly costingApi = inject(ManufacturingCostingApi);
-  private readonly sessionStore = inject(SessionStore);
-  private readonly message = inject(NzMessageService);
-  private readonly currencyService = inject(WorkspaceCurrencyService);
+  private readonly router = inject(Router);
+  private readonly decimal = new DecimalPipe('en-US');
+  readonly currency = inject(WorkspaceCurrencyService).currency;
 
-  readonly currency = this.currencyService.currency;
-  readonly availableBoms = signal<BomSummaryDto[]>([]);
-  readonly rollupData = signal<CostRollupDto | null>(null);
-  readonly variances = signal<VarianceAnalysisDto[]>([]);
-  readonly isCalculating = signal(false);
+  readonly boms = signal<BomSummaryDto[]>([]);
+  readonly bomsLoading = signal(true);
+  readonly bomsFailed = signal(false);
+  readonly selectedBomId = signal<string | null>(null);
 
-  selectedBomId = '';
+  readonly rollup = signal<CostRollupDto | null>(null);
+  readonly variance = signal<CostVarianceDto | null>(null);
+  readonly costLoading = signal(false);
+  readonly costFailed = signal(false);
+
+  private readonly selectedBom = computed(() => this.boms().find((b) => b.id === this.selectedBomId()) ?? null);
+  readonly batchUom = computed(() => this.selectedBom()?.uom ?? '');
+
+  /** A dearer actual cost is unfavourable, a cheaper one favourable. */
+  readonly varianceLabel = computed(() => {
+    const amount = this.variance()?.varianceAmount ?? 0;
+    return amount === 0 ? 'On standard' : amount > 0 ? 'Over standard' : 'Under standard';
+  });
+  readonly varianceTone = computed(() => {
+    const amount = this.variance()?.varianceAmount ?? 0;
+    return amount === 0 ? 'normal' : amount > 0 ? 'overbudget' : 'ontrack';
+  });
 
   ngOnInit(): void {
     this.loadBoms();
-    this.loadVariances();
   }
 
-  private loadBoms(): void {
-    this.bomsApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => {
-        if (res.items) {
-          this.availableBoms.set(res.items);
-          if (res.items.length > 0) {
-            this.selectedBomId = res.items[0].id;
-            this.calculateRollup();
-          }
-        }
-      }
-    });
+  money(value: number): string {
+    return `${this.currency()} ${this.decimal.transform(value, '1.2-2')}`;
   }
 
-  private loadVariances(): void {
-    this.costingApi.variances().subscribe({
-      next: res => {
-        if (res.data) {
-          this.variances.set(res.data);
-        }
-      }
-    });
-  }
-
-  onSelectBom(id: string): void {
-    this.selectedBomId = id;
-    this.calculateRollup();
-  }
-
-  calculateRollup(): void {
-    if (!this.selectedBomId) return;
-    this.isCalculating.set(true);
-    this.costingApi.rollup(this.selectedBomId).subscribe({
-      next: res => {
-        this.rollupData.set(res.data);
-        this.isCalculating.set(false);
+  loadBoms(): void {
+    this.bomsLoading.set(true);
+    this.bomsFailed.set(false);
+    this.bomsApi.list({ page: 1, pageSize: 200, sort: 'code' }).subscribe({
+      next: (res) => {
+        this.boms.set(res.items);
+        this.bomsLoading.set(false);
+        const first = res.items.find((b) => b.isActive) ?? res.items[0];
+        if (first) this.selectBom(first.id);
       },
       error: () => {
-        this.message.error('Failed to calculate BOM cost rollup');
-        this.isCalculating.set(false);
-      }
+        this.bomsFailed.set(true);
+        this.bomsLoading.set(false);
+      },
     });
+  }
+
+  selectBom(id: string): void {
+    this.selectedBomId.set(id);
+    this.rollup.set(null);
+    this.variance.set(null);
+    this.loadCost();
+  }
+
+  loadCost(): void {
+    const bom = this.selectedBom();
+    if (!bom) return;
+    this.costLoading.set(true);
+    this.costFailed.set(false);
+    this.costingApi.rollup(bom.id).pipe(
+      switchMap((rollup) => {
+        if (this.selectedBomId() === bom.id) this.rollup.set(rollup);
+        return rollup ? this.costingApi.variance(bom.legalEntityId, rollup.producedItemId) : of(null);
+      }),
+    ).subscribe({
+      next: (variance) => {
+        if (this.selectedBomId() !== bom.id) return;
+        this.variance.set(variance);
+        this.costLoading.set(false);
+      },
+      error: () => {
+        if (this.selectedBomId() !== bom.id) return;
+        this.costFailed.set(true);
+        this.costLoading.set(false);
+      },
+    });
+  }
+
+  goToBoms(): void {
+    void this.router.navigateByUrl('/manufacturing/boms');
   }
 }

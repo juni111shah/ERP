@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { map, Observable, switchMap } from 'rxjs';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
@@ -11,15 +12,18 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
+import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { LegalEntitiesApi } from '../../core/api/admin.api';
 import { PartiesApi, PartyDto } from '../parties.page';
 import { createPagedList } from '../../core/api/paged-list';
 import {
   CreateRouteInput,
+  DeliveryStopDto,
   DeliveryStopInput,
   DistributionRouteDto,
   DistributionRoutesApi,
@@ -28,6 +32,9 @@ import {
 import { WarehousesApi } from '../../modules/inventory/inventory.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { problemMessage } from '../../core/http/problem-details';
+import { SessionStore } from '../../core/session/session.store';
 
 @Component({
   selector: 'erp-routes-list-page',
@@ -48,74 +55,69 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzInputNumberModule,
     NzSelectModule,
     NzTableModule,
+    NzPopconfirmModule,
+    NzToolTipModule,
+    StatusTagComponent,
     PagedTableComponent,
     HasPermissionDirective,
   ],
   template: `
-    <erp-paged-table
-      #table
-      [list]="list"
-      [columns]="columns">
-      <button toolbar *erpHasPermission="'distribution.routes.manage'" nz-button nzType="primary" (click)="openCreateModal()">
+    <erp-paged-table [list]="list" [columns]="columns" (rowClick)="viewDetail($event)" searchPlaceholder="Search by code or name" emptyText="No routes yet. Add one, then add its customer stops.">
+      <button toolbar *erpHasPermission="'distribution.routes.manage'" nz-button nzType="primary" (click)="openCreateModal()" data-testid="route-new">
         <span nz-icon nzType="plus"></span> Add Route
       </button>
-          <ng-template #cell let-row let-column="column">
-            <ng-container [ngSwitch]="column.key">
-              <span *ngSwitchCase="'code'" class="mono-code font-bold">{{ row.code }}</span>
-              <span *ngSwitchCase="'name'">
-                <a (click)="viewDetail(row)">{{ row.name }}</a>
-              </span>
-              <span *ngSwitchCase="'driverName'">
-                <span>{{ row.driverName || 'Unassigned' }}</span>
-              </span>
-              <span *ngSwitchCase="'vehicleNumber'">
-                <nz-tag nzColor="blue">{{ row.vehicleNumber || '-' }}</nz-tag>
-              </span>
-              <span *ngSwitchCase="'stopCount'">
-                <nz-badge [nzCount]="row.stopCount" [nzStyle]="{ backgroundColor: '#1890ff' }"></nz-badge> stops
-              </span>
-              <span *ngSwitchCase="'isActive'">
-                <nz-tag [nzColor]="row.isActive ? 'success' : 'default'">
-                  {{ row.isActive ? 'Active' : 'Inactive' }}
-                </nz-tag>
-              </span>
-              <span *ngSwitchCase="'actions'">
-                <button nz-button nzType="link" nzSize="small" (click)="viewDetail(row)">
-                  <span nz-icon nzType="environment"></span> View Stops
-                </button>
-              </span>
-            </ng-container>
-          </ng-template>
-        </erp-paged-table>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('code') { <span class="mono-code font-bold">{{ row.code }}</span> }
+          @case ('driverName') { {{ row.driverName || 'Not assigned' }} }
+          @case ('vehicleNumber') { <span class="mono-code">{{ row.vehicleNumber || '-' }}</span> }
+          @case ('stopCount') { <span class="num">{{ row.stopCount }}</span> }
+          @case ('isActive') { <erp-status [value]="row.isActive ? 'active' : 'inactive'" /> }
+          @case ('actions') {
+            <div class="table-actions" (click)="$event.stopPropagation()">
+              <button *erpHasPermission="'distribution.routes.manage'" nz-button nzType="link" nzSize="small" (click)="openEditModal(row)">
+                <span nz-icon nzType="edit"></span> Edit
+              </button>
+              <button *erpHasPermission="'distribution.routes.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                      nz-popconfirm [nzPopconfirmTitle]="'Delete route ' + row.code + '?'" (nzOnConfirm)="deleteRoute(row)">
+                <span nz-icon nzType="delete"></span> Delete
+              </button>
+            </div>
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
 
       <!-- Add Route Modal -->
       <nz-modal
         [(nzVisible)]="isModalVisible"
-        nzTitle="New Distribution Route"
+        [nzTitle]="editing() ? 'Edit route' : 'New route'"
+        nzOkText="Save"
         [nzOkLoading]="isSaving()"
-        (nzOnCancel)="isModalVisible = false"
+        (nzOnCancel)="isModalVisible.set(false)"
         (nzOnOk)="saveRoute()"
         nzWidth="680px">
         <ng-container *nzModalContent>
           <form nz-form [formGroup]="form" nzLayout="vertical">
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label nzRequired>Route Code</nz-form-label>
+                <nz-form-label nzRequired>Code</nz-form-label>
                 <nz-form-control nzErrorTip="Code is required">
-                  <input nz-input formControlName="code" placeholder="e.g. RT-DXB-CENTRAL" />
+                  <input nz-input formControlName="code" placeholder="e.g. RT-CENTRAL" [readonly]="!!editing()" />
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label nzRequired>Route Name</nz-form-label>
+                <nz-form-label nzRequired>Name</nz-form-label>
                 <nz-form-control nzErrorTip="Name is required">
-                  <input nz-input formControlName="name" placeholder="e.g. Dubai Central Supermarkets" />
+                  <input nz-input formControlName="name" placeholder="e.g. Central supermarkets" />
                 </nz-form-control>
               </nz-form-item>
             </div>
 
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label nzRequired>Workspace Entity</nz-form-label>
+                <nz-form-label nzRequired>Legal entity</nz-form-label>
                 <nz-form-control nzErrorTip="Entity is required">
                   <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Entity">
                     <nz-option *ngFor="let ent of entities()" [nzValue]="ent.id" [nzLabel]="ent.name"></nz-option>
@@ -123,7 +125,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label>Dispatch Warehouse</nz-form-label>
+                <nz-form-label>Warehouse</nz-form-label>
                 <nz-form-control>
                   <nz-select formControlName="warehouseId" nzAllowClear nzPlaceHolder="Select Warehouse">
                     <nz-option *ngFor="let wh of warehouses()" [nzValue]="wh.id" [nzLabel]="wh.name"></nz-option>
@@ -134,29 +136,29 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="row-3">
               <nz-form-item>
-                <nz-form-label>Assigned Driver</nz-form-label>
+                <nz-form-label>Driver</nz-form-label>
                 <nz-form-control>
-                  <input nz-input formControlName="driverName" placeholder="e.g. Khalid Al-Zubair" />
+                  <input nz-input formControlName="driverName" />
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label>Vehicle Plate No.</nz-form-label>
+                <nz-form-label>Vehicle plate</nz-form-label>
                 <nz-form-control>
-                  <input nz-input formControlName="vehicleNumber" placeholder="DXB-33921" />
+                  <input nz-input formControlName="vehicleNumber" />
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label>Max Capacity (Kg)</nz-form-label>
+                <nz-form-label>Capacity (kg)</nz-form-label>
                 <nz-form-control>
-                  <nz-input-number formControlName="vehicleCapacityKg" [nzMin]="100" style="width: 100%"></nz-input-number>
+                  <nz-input-number formControlName="vehicleCapacityKg" [nzMin]="0" style="width: 100%"></nz-input-number>
                 </nz-form-control>
               </nz-form-item>
             </div>
 
             <nz-form-item>
-              <nz-form-label>Description & Route Notes</nz-form-label>
+              <nz-form-label>Description</nz-form-label>
               <nz-form-control>
-                <textarea nz-input rows="2" formControlName="description" placeholder="Covers Deira, Bur Dubai and surrounding areas..."></textarea>
+                <textarea nz-input rows="2" formControlName="description" placeholder="Areas this route covers"></textarea>
               </nz-form-control>
             </nz-form-item>
 
@@ -164,7 +166,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <nz-form-control>
                 <label>
                   <nz-switch formControlName="isActive"></nz-switch>
-                  <span style="margin-left: 8px;">Active Delivery Route</span>
+                  <span style="margin-inline-start: 8px;">Active</span>
                 </label>
               </nz-form-control>
             </nz-form-item>
@@ -174,10 +176,10 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
       <!-- Route Stops Detail Drawer -->
       <nz-drawer
-        [nzVisible]="isDrawerVisible"
-        nzTitle="Route Delivery Stops & Customer Sequence"
+        [nzVisible]="isDrawerVisible()"
+        [nzTitle]="selectedRoute() ? selectedRoute()!.code + ' stops' : 'Route stops'"
         [nzWidth]="680"
-        (nzOnClose)="isDrawerVisible = false">
+        (nzOnClose)="isDrawerVisible.set(false)">
         <ng-container *nzDrawerContent>
           <div *ngIf="selectedRoute() as r" class="drawer-content">
             <div class="route-banner">
@@ -186,26 +188,27 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <span class="mono-code">{{ r.code }}</span>
               </div>
               <div>
-                <nz-tag nzColor="blue">Driver: {{ r.driverName || 'None' }}</nz-tag>
-                <nz-tag nzColor="geekblue">Van: {{ r.vehicleNumber || '-' }}</nz-tag>
+                <div class="text-secondary">Driver: {{ r.driverName || 'Not assigned' }}</div>
+                <div class="text-secondary">Vehicle: {{ r.vehicleNumber || '-' }}</div>
               </div>
             </div>
 
             <div class="stops-section">
               <div class="section-header">
-                <h4>Customer Drop Stops ({{ r.stops.length }})</h4>
+                <h4>Customer stops ({{ r.stops.length }})</h4>
                 <button *erpHasPermission="'distribution.routes.manage'" nz-button nzType="dashed" nzSize="small" (click)="openAddStopModal()">
-                  <span nz-icon nzType="plus"></span> Add Customer Drop
+                  <span nz-icon nzType="plus"></span> Add Stop
                 </button>
               </div>
 
-              <nz-table #stopsTable [nzData]="r.stops" nzSize="small" [nzBordered]="true">
+              <nz-table #stopsTable [nzData]="r.stops" nzSize="small" [nzBordered]="true" [nzShowPagination]="false" [nzFrontPagination]="false">
                 <thead>
                   <tr>
-                    <th nzWidth="60px">Seq</th>
-                    <th>Customer Drop / Store</th>
-                    <th>Time Window</th>
+                    <th nzWidth="60px">Order</th>
+                    <th>Customer</th>
+                    <th>Time window</th>
                     <th>Contact</th>
+                    <th *erpHasPermission="'distribution.routes.manage'" nzWidth="52px"><span class="sr-only">Remove</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -215,11 +218,17 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                       <div><strong>{{ s.customerName }}</strong></div>
                       <small *ngIf="s.address" class="text-secondary">{{ s.address }}</small>
                     </td>
-                    <td><nz-tag nzColor="orange">{{ s.preferredTimeWindow || 'Anytime' }}</nz-tag></td>
-                    <td><small>{{ s.contactPhone || '-' }}</small></td>
+                    <td class="nowrap">{{ s.preferredTimeWindow || 'Any time' }}</td>
+                    <td class="nowrap">{{ s.contactPhone || '-' }}</td>
+                    <td *erpHasPermission="'distribution.routes.manage'">
+                      <button nz-button nzType="text" nzDanger nzSize="small" nz-tooltip nzTooltipTitle="Remove stop" aria-label="Remove stop"
+                              nz-popconfirm [nzPopconfirmTitle]="'Remove ' + s.customerName + ' from this route?'" (nzOnConfirm)="removeStop(s)">
+                        <span nz-icon nzType="delete"></span>
+                      </button>
+                    </td>
                   </tr>
                   <tr *ngIf="r.stops.length === 0">
-                    <td colspan="4" class="text-center text-secondary py-4">No customer delivery stops configured for this route yet.</td>
+                    <td colspan="5" class="text-center text-secondary py-4">No customer stops on this route yet.</td>
                   </tr>
                 </tbody>
               </nz-table>
@@ -231,16 +240,17 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       <!-- Add Customer Stop Modal -->
       <nz-modal
         [(nzVisible)]="isStopModalVisible"
-        nzTitle="Add Customer Drop Stop"
+        nzTitle="Add stop"
+        nzOkText="Add stop"
         [nzOkLoading]="isSavingStop()"
-        (nzOnCancel)="isStopModalVisible = false"
+        (nzOnCancel)="isStopModalVisible.set(false)"
         (nzOnOk)="saveStop()">
         <ng-container *nzModalContent>
           <form nz-form [formGroup]="stopForm" nzLayout="vertical">
             <nz-form-item>
-              <nz-form-label nzRequired>Select Customer</nz-form-label>
+              <nz-form-label nzRequired>Customer</nz-form-label>
               <nz-form-control nzErrorTip="Customer is required">
-                <nz-select formControlName="customerPartyId" (ngModelChange)="onCustomerSelected($event)" nzPlaceHolder="Choose Customer">
+                <nz-select formControlName="customerPartyId" (ngModelChange)="onCustomerSelected($event)" nzShowSearch nzPlaceHolder="Choose a customer">
                   <nz-option *ngFor="let cust of customers()" [nzValue]="cust.id" [nzLabel]="cust.name"></nz-option>
                 </nz-select>
               </nz-form-control>
@@ -248,13 +258,13 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label nzRequired>Drop Sequence</nz-form-label>
+                <nz-form-label nzRequired>Order on the route</nz-form-label>
                 <nz-form-control>
                   <nz-input-number formControlName="sequenceOrder" [nzMin]="1" style="width: 100%"></nz-input-number>
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label>Preferred Window</nz-form-label>
+                <nz-form-label>Time window</nz-form-label>
                 <nz-form-control>
                   <input nz-input formControlName="preferredTimeWindow" placeholder="e.g. 09:00 - 11:30" />
                 </nz-form-control>
@@ -262,16 +272,16 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </div>
 
             <nz-form-item>
-              <nz-form-label>Contact Phone</nz-form-label>
+              <nz-form-label>Contact phone</nz-form-label>
               <nz-form-control>
-                <input nz-input formControlName="contactPhone" placeholder="+971 50 123 4567" />
+                <input nz-input formControlName="contactPhone" />
               </nz-form-control>
             </nz-form-item>
 
             <nz-form-item>
-              <nz-form-label>Drop-off Address</nz-form-label>
+              <nz-form-label>Address</nz-form-label>
               <nz-form-control>
-                <textarea nz-input rows="2" formControlName="address" placeholder="Store loading dock, gate 2..."></textarea>
+                <textarea nz-input rows="2" formControlName="address" placeholder="Loading dock, gate number"></textarea>
               </nz-form-control>
             </nz-form-item>
           </form>
@@ -280,16 +290,20 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
   `,
   styles: [`
     .text-secondary {
-      color: #8c8c8c;
+      color: var(--erp-color-text-muted);
       margin: 4px 0 0;
     }
     .mono-code {
-      font-family: monospace;
-      color: #1890ff;
+      font-family: var(--erp-font-family-mono);
+      white-space: nowrap;
     }
     .font-bold {
       font-weight: 600;
     }
+    .nowrap { white-space: nowrap; }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .table-actions { display: flex; justify-content: flex-end; gap: 4px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .row-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -310,7 +324,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       justify-content: space-between;
       align-items: center;
       padding-bottom: 12px;
-      border-bottom: 1px solid #f0f0f0;
+      border-block-end: 1px solid var(--erp-color-border-subtle);
     }
     .route-banner h3 {
       margin: 0;
@@ -335,6 +349,7 @@ export class RoutesListPageComponent implements OnInit {
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly warehousesApi = inject(WarehousesApi);
   private readonly partiesApi = inject(PartiesApi);
+  private readonly session = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
 
@@ -343,22 +358,23 @@ export class RoutesListPageComponent implements OnInit {
   readonly customers = signal<{ id: string; name: string }[]>([]);
   readonly selectedRoute = signal<DistributionRouteDto | null>(null);
   readonly isSaving = signal(false);
+  readonly editing = signal<DistributionRouteDto | null>(null);
   readonly isSavingStop = signal(false);
 
-  isModalVisible = false;
-  isDrawerVisible = false;
-  isStopModalVisible = false;
+  readonly isModalVisible = signal(false);
+  readonly isDrawerVisible = signal(false);
+  readonly isStopModalVisible = signal(false);
 
-  readonly list = createPagedList<DistributionRouteSummaryDto>((q: any) => this.routesApi.list(q));
+  readonly list = createPagedList<DistributionRouteSummaryDto>((q) => this.routesApi.list(q), { sort: '-createdAt' });
 
   readonly columns: TableColumn<DistributionRouteSummaryDto>[] = [
-    { key: 'code', label: 'Route Code', sortField: 'code' },
-    { key: 'name', label: 'Route Name', sortField: 'name' },
+    { key: 'code', label: 'Code', sortField: 'code' },
+    { key: 'name', label: 'Name', sortField: 'name' },
     { key: 'driverName', label: 'Driver' },
-    { key: 'vehicleNumber', label: 'Vehicle Plate' },
-    { key: 'stopCount', label: 'Stops' },
-    { key: 'isActive', label: 'Status' },
-    { key: 'actions', label: 'Actions', align: 'right' }
+    { key: 'vehicleNumber', label: 'Vehicle plate' },
+    { key: 'stopCount', label: 'Stops', align: 'right' },
+    { key: 'isActive', label: 'Status', value: (r) => (r.isActive ? 'Active' : 'Inactive') },
+    { key: 'actions', label: 'Actions', align: 'right', filter: false, value: () => '' }
   ];
 
   form: FormGroup = this.fb.group({
@@ -369,7 +385,7 @@ export class RoutesListPageComponent implements OnInit {
     assignedDriverUserId: [null],
     driverName: [''],
     vehicleNumber: [''],
-    vehicleCapacityKg: [2500],
+    vehicleCapacityKg: [null],
     warehouseId: [null],
     isActive: [true]
   });
@@ -380,7 +396,7 @@ export class RoutesListPageComponent implements OnInit {
     sequenceOrder: [1, [Validators.required]],
     address: [''],
     contactPhone: [''],
-    preferredTimeWindow: ['09:00 - 12:00']
+    preferredTimeWindow: ['']
   });
 
   ngOnInit(): void {
@@ -391,33 +407,77 @@ export class RoutesListPageComponent implements OnInit {
       next: res => this.warehouses.set(res.items)
     });
     this.partiesApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: res => this.customers.set(res.items.map(p => ({ id: p.id, name: p.name })))
+      next: res => {
+        const customers = res.items.filter(p => !p.roles?.length || p.roles.some(r => /customer/i.test(r)));
+        this.customers.set((customers.length > 0 ? customers : res.items).map(p => ({ id: p.id, name: p.name })));
+      }
+    });
+  }
+
+  private setEntityEnabled(enabled: boolean): void {
+    const control = this.form.get('legalEntityId')!;
+    if (enabled) control.enable({ emitEvent: false });
+    else control.disable({ emitEvent: false });
+  }
+
+  openEditModal(row: DistributionRouteSummaryDto): void {
+    this.routesApi.getDetail(row.id).subscribe({
+      next: detail => {
+        this.editing.set(detail);
+        this.form.reset({
+          legalEntityId: detail.legalEntityId,
+          code: detail.code,
+          name: detail.name,
+          description: detail.description ?? '',
+          assignedDriverUserId: detail.assignedDriverUserId ?? null,
+          driverName: detail.driverName ?? '',
+          vehicleNumber: detail.vehicleNumber ?? '',
+          vehicleCapacityKg: detail.vehicleCapacityKg ?? null,
+          warehouseId: detail.warehouseId ?? null,
+          isActive: detail.isActive
+        });
+        this.setEntityEnabled(false);
+        this.isModalVisible.set(true);
+      },
+      error: (err) => this.msg.error(problemMessage(err, 'The route could not be loaded'))
+    });
+  }
+
+  deleteRoute(row: DistributionRouteSummaryDto): void {
+    this.routesApi.delete(row.id).subscribe({
+      next: () => {
+        this.msg.success('Route deleted');
+        this.list.reload();
+      },
+      error: (err) => this.msg.error(problemMessage(err, 'The route could not be deleted'))
     });
   }
 
   openCreateModal(): void {
+    this.editing.set(null);
+    this.setEntityEnabled(true);
     this.form.reset({
-      legalEntityId: this.entities()[0]?.id || '',
+      legalEntityId: this.entities().find(e => e.id === this.session.currentEntityId())?.id || this.entities()[0]?.id || '',
       code: '',
       name: '',
       description: '',
       assignedDriverUserId: null,
       driverName: '',
       vehicleNumber: '',
-      vehicleCapacityKg: 2500,
+      vehicleCapacityKg: null,
       warehouseId: null,
       isActive: true
     });
-    this.isModalVisible = true;
+    this.isModalVisible.set(true);
   }
 
   viewDetail(row: DistributionRouteSummaryDto): void {
     this.routesApi.getDetail(row.id).subscribe({
       next: detail => {
         this.selectedRoute.set(detail);
-        this.isDrawerVisible = true;
+        this.isDrawerVisible.set(true);
       },
-      error: () => this.msg.error('Failed to load route details')
+      error: (err) => this.msg.error(problemMessage(err, 'The route could not be loaded'))
     });
   }
 
@@ -433,7 +493,8 @@ export class RoutesListPageComponent implements OnInit {
     }
 
     this.isSaving.set(true);
-    const val = this.form.value;
+    const val = this.form.getRawValue();
+    const editing = this.editing();
     const input: CreateRouteInput = {
       legalEntityId: val.legalEntityId,
       code: val.code,
@@ -445,17 +506,22 @@ export class RoutesListPageComponent implements OnInit {
       vehicleCapacityKg: val.vehicleCapacityKg,
       warehouseId: val.warehouseId,
       isActive: val.isActive,
-      stops: []
+      // Editing without stops leaves the stops as they are.
+      stops: editing ? undefined : [],
+      customFields: editing?.customFields ?? null
     };
 
-    this.routesApi.create(input).subscribe({
+    (editing ? this.updateAndVerify(editing.id, input) : this.routesApi.create(input)).subscribe({
       next: () => {
-        this.msg.success('Route created successfully');
+        this.msg.success('Route saved');
         this.isSaving.set(false);
-        this.isModalVisible = false;
-        window.location.reload();
+        this.isModalVisible.set(false);
+        this.list.reload();
       },
-      error: () => this.isSaving.set(false)
+      error: (err) => {
+        this.msg.error(problemMessage(err, 'The route could not be saved'));
+        this.isSaving.set(false);
+      }
     });
   }
 
@@ -468,9 +534,9 @@ export class RoutesListPageComponent implements OnInit {
       sequenceOrder: nextSeq,
       address: '',
       contactPhone: '',
-      preferredTimeWindow: '09:00 - 12:00'
+      preferredTimeWindow: ''
     });
-    this.isStopModalVisible = true;
+    this.isStopModalVisible.set(true);
   }
 
   onCustomerSelected(customerId: string): void {
@@ -487,15 +553,7 @@ export class RoutesListPageComponent implements OnInit {
 
     this.isSavingStop.set(true);
     const stopVal = this.stopForm.value;
-    const existingStops: DeliveryStopInput[] = route.stops.map(s => ({
-      customerPartyId: s.customerPartyId,
-      customerName: s.customerName,
-      sequenceOrder: s.sequenceOrder,
-      address: s.address,
-      contactPhone: s.contactPhone,
-      preferredTimeWindow: s.preferredTimeWindow,
-      specialInstructions: s.specialInstructions
-    }));
+    const existingStops = this.stopInputs(route.stops);
 
     existingStops.push({
       customerPartyId: stopVal.customerPartyId,
@@ -507,17 +565,80 @@ export class RoutesListPageComponent implements OnInit {
       specialInstructions: ''
     });
 
-    this.routesApi.update(route.id, {
-      name: route.name,
-      stops: existingStops
-    }).subscribe({
+    this.saveStops(route, existingStops).subscribe({
       next: () => {
-        this.msg.success('Customer stop added');
+        this.msg.success('Stop added');
         this.isSavingStop.set(false);
-        this.isStopModalVisible = false;
-        this.viewDetail({ ...route, stopCount: existingStops.length } as any);
+        this.isStopModalVisible.set(false);
+        this.viewDetail(route);
+        this.list.reload();
       },
-      error: () => this.isSavingStop.set(false)
+      error: (err) => {
+        this.msg.error(problemMessage(err, 'The stop could not be added'));
+        this.isSavingStop.set(false);
+      }
+    });
+  }
+
+  removeStop(stop: DeliveryStopDto): void {
+    const route = this.selectedRoute();
+    if (!route) return;
+    this.saveStops(route, this.stopInputs(route.stops.filter(s => s.id !== stop.id))).subscribe({
+      next: () => {
+        this.msg.success('Stop removed');
+        this.viewDetail(route);
+        this.list.reload();
+      },
+      error: (err) => this.msg.error(problemMessage(err, 'The stop could not be removed'))
+    });
+  }
+
+  /**
+   * Saves, then reads the route back and fails if the change is not there, so a change the server did not keep is never
+   * reported as saved.
+   */
+  private updateAndVerify(id: string, input: Partial<CreateRouteInput>): Observable<DistributionRouteDto> {
+    const stopKey = (stops: { customerPartyId: string; sequenceOrder: number }[]) =>
+      stops.map(s => `${s.sequenceOrder}:${s.customerPartyId}`).sort().join();
+    return this.routesApi.update(id, input).pipe(
+      switchMap(() => this.routesApi.getDetail(id)),
+      map(saved => {
+        const kept = saved.name === input.name?.trim()
+          && (saved.driverName ?? '') === (input.driverName ?? '').trim()
+          && (saved.vehicleNumber ?? '') === (input.vehicleNumber ?? '').trim()
+          && saved.isActive === input.isActive
+          && (!input.stops || stopKey(saved.stops) === stopKey(input.stops));
+        if (!kept) throw new Error('The server did not keep the change.');
+        return saved;
+      })
+    );
+  }
+
+  private stopInputs(stops: DeliveryStopDto[]): DeliveryStopInput[] {
+    return stops.map(s => ({
+      customerPartyId: s.customerPartyId,
+      customerName: s.customerName,
+      sequenceOrder: s.sequenceOrder,
+      address: s.address,
+      contactPhone: s.contactPhone,
+      preferredTimeWindow: s.preferredTimeWindow,
+      specialInstructions: s.specialInstructions
+    }));
+  }
+
+  /** An update replaces the whole route, so every field goes back with the changed stops. */
+  private saveStops(route: DistributionRouteDto, stops: DeliveryStopInput[]) {
+    return this.updateAndVerify(route.id, {
+      name: route.name,
+      description: route.description,
+      assignedDriverUserId: route.assignedDriverUserId,
+      driverName: route.driverName,
+      vehicleNumber: route.vehicleNumber,
+      vehicleCapacityKg: route.vehicleCapacityKg,
+      warehouseId: route.warehouseId,
+      isActive: route.isActive,
+      stops,
+      customFields: route.customFields
     });
   }
 }

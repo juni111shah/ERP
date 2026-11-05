@@ -186,6 +186,7 @@ public class OrderHandlers :
     private readonly IReadRepository<TaxCode> _taxCodes;
     private readonly ISettingsService _settings;
     private readonly ICurrentUser _currentUser;
+    private readonly IUserDirectory _users;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IRepository<JournalEntry> _journals;
     private const string PosJournalSource = "pos";
@@ -201,6 +202,7 @@ public class OrderHandlers :
         IReadRepository<TaxCode> taxCodes,
         ISettingsService settings,
         ICurrentUser currentUser,
+        IUserDirectory users,
         IUnitOfWork unitOfWork,
         IRepository<JournalEntry> journals)
     {
@@ -215,6 +217,7 @@ public class OrderHandlers :
         _taxCodes = taxCodes;
         _settings = settings;
         _currentUser = currentUser;
+        _users = users;
         _unitOfWork = unitOfWork;
     }
 
@@ -240,7 +243,10 @@ public class OrderHandlers :
         var cashierId = (_currentUser.UserId.HasValue && _currentUser.UserId.Value != Guid.Empty)
             ? _currentUser.UserId.Value
             : (request.CashierUserId ?? Guid.Empty);
-        var cashierName = !string.IsNullOrWhiteSpace(_currentUser.Email)
+        var cashierProfile = cashierId != Guid.Empty ? await _users.GetProfileAsync(cashierId, cancellationToken) : null;
+        var cashierName = !string.IsNullOrWhiteSpace(cashierProfile?.FullName)
+            ? cashierProfile!.FullName
+            : !string.IsNullOrWhiteSpace(_currentUser.Email)
             ? _currentUser.Email
             : (_currentUser.UserId.HasValue ? _currentUser.UserId.Value.ToString() : (!string.IsNullOrWhiteSpace(request.CashierName) ? request.CashierName.Trim() : "POS Cashier"));
 

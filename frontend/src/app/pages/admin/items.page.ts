@@ -68,7 +68,7 @@ export class ItemsPage {
     { key: 'name', label: 'Name', sortField: 'name' },
     { key: 'type', label: 'Type', value: (i) => (i.type === 'product' ? 'Product' : 'Service') },
     { key: 'uom', label: 'UoM', width: '80px' },
-    { key: 'salesPrice', label: 'Sales price' },
+    { key: 'salesPrice', label: 'Sales price', width: '140px', align: 'right' },
     { key: 'isActive', label: 'Active', width: '90px', value: (i) => yesNo(i.isActive) },
   ];
   readonly fields = computed<FieldSpec[]>(() => [

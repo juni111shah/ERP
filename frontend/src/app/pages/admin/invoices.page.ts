@@ -16,9 +16,10 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { API_BASE_URL } from '../../core/api/api-config';
-import { INVOICE_STATUS_COLORS, InvoiceExtras, InvoiceExtrasService, InvoiceSheetComponent, daysOverdue, formatMoney, humanizeSource, invoiceStatusLabel, taxNameFor } from './invoice-sheet.component';
-import { catchError, map, of } from 'rxjs';
+import { InvoiceExtras, InvoiceExtrasService, InvoiceSheetComponent, daysOverdue, formatMoney, humanizeSource, invoiceStatusLabel, taxNameFor } from './invoice-sheet.component';
+import { catchError, forkJoin, of } from 'rxjs';
 import { InvoiceDto, InvoiceSummary, InvoicesApi, LegalEntitiesApi, LegalEntityDto, TaxCodeDto, TaxCodesApi } from '../../core/api/admin.api';
+import { ListQuery } from '../../core/api/api.models';
 import { createPagedList } from '../../core/api/paged-list';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { LookupOption } from '../../core/custom-fields/lookup-registry';
@@ -32,6 +33,10 @@ import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { ErpDatePipe } from '../../shared/display.pipes';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { AllRows, countOf, countRows, fetchAllRows, moneyByCurrency, startOfYear } from './finance-kpis';
 
 const STATUS_OPTIONS = ['draft', 'pendingApproval', 'issued', 'partlyPaid', 'paid', 'voided'];
 /** Lease / property behind an invoice, supplied by the real-estate module only when it is installed (the core invoice knows nothing about leases). */
@@ -42,24 +47,27 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
   selector: 'erp-invoices',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [ErpDatePipe, StatusTagComponent, StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule, InvoiceSheetComponent],
-  styles: [`.num { font-variant-numeric: tabular-nums } .sub { color:#8c8c8c; font-size:12px }
-    .line { display:grid; grid-template-columns: 2.4fr .8fr 1fr 1.2fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 }`],
+  styles: [`.num { font-variant-numeric: tabular-nums } .sub { color: var(--erp-color-text-muted); font-size:12px }
+    .doc-no { display:inline-flex; align-items:center; gap:4px; white-space:nowrap }
+    .line { display:grid; grid-template-columns: 2.4fr .8fr 1fr 1.2fr 32px; gap:8px; margin-bottom:8px; align-items:center } .line nz-input-number { width:100% }
+    .line-head { margin-bottom:4px; font-size:12px; font-weight:600; color: var(--erp-color-text-muted) }
+    .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0; font-variant-numeric: tabular-nums }`],
   template: `
     <h1 class="erp-page-title">Invoices</h1>
     <div class="erp-stat-grid erp-stat-grid--auto" data-testid="invoice-stats">
-      <erp-stat-card label="Total invoiced" [value]="stats().invoiced" [loading]="list.loading() && list.items().length === 0" [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')" [tone]="0" />
-      <erp-stat-card label="Outstanding" [value]="stats().outstanding" [loading]="list.loading() && list.items().length === 0" [tone]="2" />
-      <erp-stat-card label="Overdue" [value]="stats().overdue" [loading]="list.loading() && list.items().length === 0" [caption]="stats().overdueCount + ' ' + ('ui.inv.invoicesLc' | translate: 'invoices')" tone="danger" />
-      <erp-stat-card label="Drafts" [value]="stats().drafts" [loading]="list.loading() && list.items().length === 0" [tone]="3" />
+      <erp-stat-card label="Invoiced this year" [value]="stats()?.invoiced" [loading]="statsLoading()" [caption]="stats()?.invoicedCaption ?? statsError()" [tone]="0" />
+      <erp-stat-card label="Outstanding" [value]="stats()?.outstanding" [loading]="statsLoading()" [caption]="stats()?.outstandingCaption ?? statsError()" [tone]="2" />
+      <erp-stat-card label="Overdue" [value]="stats()?.overdue" [loading]="statsLoading()" [caption]="stats()?.overdueCaption ?? statsError()" [tone]="stats()?.overdueCount ? 'danger' : 'neutral'" />
+      <erp-stat-card label="Drafts" [value]="stats()?.drafts" format="number" [loading]="statsLoading()" [caption]="stats() ? 'Not issued yet' : statsError()" [tone]="3" />
     </div>
-    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search number or customer" emptyText="No invoices yet" exportFilename="invoices" [refreshable]="false" [scrollX]="links() && objectKeys(links()).length ? '1650px' : '1400px'" (rowClick)="open($event)">
+    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search number or customer" emptyText="No invoices yet" exportFilename="invoices" [refreshable]="false" [scrollX]="objectKeys(links()).length ? '1500px' : null" (rowClick)="open($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
         @switch (column.key) {
-          @case ('status') { <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag> }
-          @case ('number') { <span class="code-pill">{{ row.number || 'Draft' }}</span> @if (row.isCreditNote) { <nz-tag nzColor="purple" style="margin-inline-start:4px">Credit</nz-tag> } @if (source(row)) { <div class="sub">{{ source(row) }}</div> } }
-          @case ('dueDate') { {{ row.dueDate }} @if (overdue(row) > 0) { <nz-tag nzColor="red" style="margin-inline-start:4px">{{ overdue(row) }}{{ 'ui.common.dayShort' | translate: 'd' }} {{ 'ui.inv.overdueLc' | translate: 'overdue' }}</nz-tag> } }
+          @case ('status') { <erp-status [value]="row.status" [label]="label(row.status)" /> }
+          @case ('number') { <span class="doc-no"><span class="code-pill">{{ row.number || 'Draft' }}</span> @if (row.isCreditNote) { <nz-tag nzColor="purple">Credit</nz-tag> }</span> @if (!row.isCreditNote && source(row)) { <div class="sub">{{ source(row) }}</div> } }
+          @case ('dueDate') { {{ row.dueDate | erpDate }} @if (overdue(row) > 0) { <nz-tag nzColor="red" style="margin-inline-start:4px">{{ overdue(row) }}{{ 'ui.common.dayShort' | translate: 'd' }} {{ 'ui.inv.overdueLc' | translate: 'overdue' }}</nz-tag> } }
           @case ('lease') { {{ link(row)?.leaseNumber ?? '' }} }
           @case ('property') { {{ link(row)?.propertyName ?? '' }} @if (link(row)?.unitNumber) { <div class="sub">{{ 'ui.re.unit' | translate: 'Unit' }} {{ link(row)!.unitNumber }}</div> } }
           @default { <span class="num">{{ value }}</span> }
@@ -68,7 +76,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
       <nz-select toolbar [ngModel]="statusFilter()" (ngModelChange)="filterStatus($event)" nzAllowClear nzPlaceHolder="All statuses" style="width:160px" data-testid="invoice-status-filter">
         @for (s of statusOptions; track s) { <nz-option [nzValue]="s" [nzLabel]="label(s)"></nz-option> }
       </nz-select>
-      <button toolbar nz-button (click)="list.reload()" data-testid="invoice-refresh"><span nz-icon nzType="reload"></span>Refresh</button>
+      <button toolbar nz-button (click)="reload()" data-testid="invoice-refresh"><span nz-icon nzType="reload"></span>Refresh</button>
       <button toolbar *erpHasPermission="'realestate.billing.run'" nz-button (click)="runBilling()" [nzLoading]="billing()" data-testid="invoice-run-billing"><span nz-icon nzType="thunderbolt"></span>Run billing</button>
       <button toolbar *erpHasPermission="'finance.invoices.write'" nz-button nzType="primary" (click)="open(null)" data-testid="invoice-new"><span nz-icon nzType="plus"></span>Add invoice</button>
     </erp-paged-table>
@@ -81,16 +89,17 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
           <nz-form-item><nz-form-label nzRequired>Legal entity</nz-form-label><nz-form-control [nzErrorTip]="err('legalEntityId')">
             <nz-select formControlName="legalEntityId" data-testid="inv-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Customer</nz-form-label><nz-form-control [nzErrorTip]="err('partyId')">
-            <nz-select formControlName="partyId" nzShowSearch nzServerSearch (nzOnSearch)="searchParties($event)" data-testid="inv-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Invoice date</nz-form-label><nz-form-control [nzErrorTip]="err('invoiceDate')"><nz-date-picker formControlName="invoiceDate" style="width:100%" data-testid="inv-date"></nz-date-picker></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Due date</nz-form-label><nz-form-control [nzErrorTip]="err('dueDate')" nzExtra="Follows the invoice date + the customer's payment terms until you change it. Leave empty to use the terms."><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
+            <nz-select formControlName="partyId" nzShowSearch nzServerSearch nzPlaceHolder="Search customers" (nzOnSearch)="searchParties($event)" data-testid="inv-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Invoice date</nz-form-label><nz-form-control [nzErrorTip]="err('invoiceDate')"><nz-date-picker nzFormat="dd MMM yyyy" formControlName="invoiceDate" style="width:100%" data-testid="inv-date"></nz-date-picker></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Due date</nz-form-label><nz-form-control [nzErrorTip]="err('dueDate')" nzExtra="Follows the invoice date + the customer's payment terms until you change it. Leave empty to use the terms."><nz-date-picker nzFormat="dd MMM yyyy" formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Credit note</nz-form-label><nz-form-control><label><input type="checkbox" formControlName="isCreditNote" data-testid="inv-credit" /> This document credits the customer</label></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Notes</nz-form-label><nz-form-control><input nz-input formControlName="notes" /></nz-form-control></nz-form-item>
           <h4>Lines</h4>
           <div formArrayName="lines">
+            <div class="line line-head" aria-hidden="true" data-testid="inv-line-head"><span>Description</span><span>Quantity</span><span>Unit price</span><span>Tax</span><span></span></div>
             @for (l of lines.controls; track $index) {
               <div class="line" [formGroupName]="$index">
-                <input aria-label="Description" nz-input formControlName="description" placeholder="Description" [attr.data-testid]="'inv-desc-' + $index" />
+                <input aria-label="Description" nz-input [nzStatus]="lineStatus(l, 'description')" formControlName="description" placeholder="What is being sold" [attr.data-testid]="'inv-desc-' + $index" />
                 <nz-input-number formControlName="quantity" [nzMin]="0.0001" [nzPrecision]="2" [attr.data-testid]="'inv-qty-' + $index"></nz-input-number>
                 <nz-input-number formControlName="price" [nzMin]="0" [nzPrecision]="2" [attr.data-testid]="'inv-price-' + $index"></nz-input-number>
                 <nz-select formControlName="taxCodeId" nzAllowClear nzPlaceHolder="No tax">@for (t of taxes(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.code + ' ' + t.rate + '%'"></nz-option> }</nz-select>
@@ -100,7 +109,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
           </div>
           @if (editable()) { <button nz-button nzType="dashed" type="button" (click)="addLine()" data-testid="inv-add-line"><span nz-icon nzType="plus"></span> Add line</button> }
           <div class="totals" data-testid="inv-totals">
-            <span>Net <b>{{ totals().net.toFixed(2) }}</b></span><span>Tax <b>{{ totals().tax.toFixed(2) }}</b></span><span>Total <b>{{ (totals().net + totals().tax).toFixed(2) }}</b></span>
+            <span>Net <b>{{ lineMoney(totals().net) }}</b></span><span>Tax <b>{{ lineMoney(totals().tax) }}</b></span><span>Total <b>{{ lineMoney(totals().net + totals().tax) }}</b></span>
           </div>
         </form>
       </ng-container>
@@ -110,7 +119,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
       @if (invoice(); as inv) {
         @if (inv.id) { <button nz-button (click)="openDetails(inv.id)" style="margin-inline-start:8px" data-testid="inv-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printInvoice(inv.id)" style="margin-inline-start:8px" data-testid="inv-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
         @if (inv.status === 'issued' && inv.paid === 0) { <button *erpHasPermission="'finance.invoices.void'" nz-button nzDanger (click)="voidDocument()" style="margin-inline-start:8px" data-testid="inv-void">Void</button> }
-        @if (inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid')) { <button *erpHasPermission="'finance.invoices.credit'" nz-button (click)="applyOpen.set(true)" style="margin-inline-start:8px" data-testid="inv-apply">Apply to invoice</button> }
+        @if (inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid')) { <button *erpHasPermission="'finance.invoices.credit'" nz-button (click)="openApply()" style="margin-inline-start:8px" data-testid="inv-apply">Apply to invoice</button> }
       }
       @if (editable()) {
         <button *erpHasPermission="'finance.invoices.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="inv-save">Save draft</button>
@@ -120,9 +129,11 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
 
     <nz-modal [nzVisible]="applyOpen()" nzTitle="Apply credit note" (nzOnCancel)="applyOpen.set(false)" (nzOnOk)="apply()" nzOkText="Apply">
       <ng-container *nzModalContent>
-        <nz-select [(ngModel)]="applyInvoice" nzShowSearch nzServerSearch (nzOnSearch)="searchOpenInvoices($event)" style="width:100%;margin-bottom:12px" nzPlaceHolder="Invoice to settle" data-testid="apply-invoice">
+        <label class="sub">Invoice to settle</label>
+        <nz-select [(ngModel)]="applyInvoice" nzShowSearch nzServerSearch (nzOnSearch)="searchOpenInvoices($event)" style="width:100%;margin-bottom:12px" nzPlaceHolder="Search by number" [nzDisabled]="applyLocked()" data-testid="apply-invoice">
           @for (o of openInvoices(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }
         </nz-select>
+        <label class="sub">Amount to apply</label>
         <nz-input-number [(ngModel)]="applyAmount" [nzMin]="0.01" [nzPrecision]="2" style="width:100%" data-testid="apply-amount"></nz-input-number>
       </ng-container>
     </nz-modal>`,
@@ -158,40 +169,56 @@ export class InvoicesPage {
   readonly objectKeys = Object.keys;
   readonly columns = computed((): TableColumn<InvoiceSummary>[] => {
     const hasLinks = Object.keys(this.links()).length > 0;
-    const money = (f: (r: InvoiceSummary) => number | undefined) => (r: InvoiceSummary) => formatMoney(f(r) ?? 0, r.currencyCode);
+    // A credit note takes money off the customer's account, so its figures read as negative.
+    const money = (f: (r: InvoiceSummary) => number | undefined) => (r: InvoiceSummary) => formatMoney((r.isCreditNote ? -1 : 1) * (f(r) ?? 0), r.currencyCode);
     return [
-      { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
+      { key: 'number', label: 'Number', sortField: 'number', width: '210px' },
       { key: 'invoiceDate', label: 'Date', sortField: 'invoiceDate', width: '110px', filterField: 'invoiceDate' },
-      { key: 'partyName', label: 'Customer', width: '220px', value: (r) => r.partyName || '—' },
+      { key: 'partyName', label: 'Customer', value: (r) => r.partyName || '—' },
       ...(hasLinks ? [
         { key: 'lease', label: 'Lease', width: '120px', value: (r: InvoiceSummary) => this.links()[r.id]?.leaseNumber ?? (this.linksLoading() ? '…' : '') },
         { key: 'property', label: 'Property', width: '200px', value: (r: InvoiceSummary) => this.links()[r.id]?.propertyName ?? (this.linksLoading() ? '…' : '') },
       ] : []),
       { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '150px', filterField: 'dueDate' },
-      { key: 'net', label: 'Net', width: '130px', align: 'right', value: money((r) => r.net) },
-      { key: 'tax', label: this.taxLabel(), width: '120px', align: 'right', value: money((r) => r.tax) },
-      { key: 'total', label: 'Total', sortField: 'total', width: '130px', align: 'right', value: money((r) => r.total) },
-      { key: 'outstanding', label: 'Balance', width: '130px', align: 'right', value: money((r) => r.outstanding) },
+      { key: 'net', label: 'Net', width: '140px', align: 'right', hidden: true, value: money((r) => r.net) },
+      { key: 'tax', label: this.taxLabel(), width: '130px', align: 'right', hidden: true, value: money((r) => r.tax) },
+      { key: 'total', label: 'Total', sortField: 'total', width: '150px', align: 'right', value: money((r) => r.total) },
+      { key: 'outstanding', label: 'Balance', width: '150px', align: 'right', value: (r) => (r.status === 'voided' ? '—' : money((x) => x.outstanding)(r)) },
       { key: 'status', label: 'Status', width: '120px', value: (r) => invoiceStatusLabel(r.status), filterField: 'status', filterOptions: STATUS_OPTIONS.map((s) => ({ value: s, label: invoiceStatusLabel(s) })) },
     ];
   });
-  /** Figures for the cards above the table, from the rows on the current page, grouped by currency. */
+  private readonly workspaceCurrency = inject(WorkspaceCurrencyService).currency;
+  private readonly statsData = signal<{ open: AllRows<InvoiceSummary>; year: AllRows<InvoiceSummary>; drafts: number } | null>(null);
+  readonly statsLoading = signal(true);
+  /** Caption of the cards when their figures could not be read. */
+  readonly statsError = computed(() => (this.statsLoading() ? null : 'Could not load this figure'));
+  /** The figures for the whole workspace, not the page on screen: open invoices and this year's invoices are read in full, drafts are counted by the server. */
   readonly stats = computed(() => {
-    const rows = this.list.items();
-    const sum = (pick: (r: InvoiceSummary) => number, keep: (r: InvoiceSummary) => boolean) => {
-      const by = new Map<string, number>();
-      for (const r of rows) if (keep(r)) by.set(r.currencyCode, (by.get(r.currencyCode) ?? 0) + (r.isCreditNote ? -1 : 1) * pick(r));
-      return by.size ? [...by].map(([c, v]) => formatMoney(v, c)).join(' · ') : '0.00';
-    };
-    const live = (r: InvoiceSummary) => r.status !== 'draft' && r.status !== 'voided';
+    const d = this.statsData();
+    if (!d) return null;
+    const cur = this.workspaceCurrency();
+    const open = d.open.items.filter((r) => !r.isCreditNote);
+    const credits = d.open.items.filter((r) => r.isCreditNote);
+    const late = open.filter((r) => daysOverdue(r) > 0);
+    const yearInvoices = d.year.items.filter((r) => !r.isCreditNote).length;
+    const partial = d.open.capped || d.year.capped ? ' (latest rows only)' : '';
     return {
-      count: rows.length,
-      invoiced: sum((r) => r.total, live),
-      outstanding: sum((r) => r.outstanding, (r) => live(r) && r.outstanding !== 0),
-      overdue: sum((r) => r.outstanding, (r) => daysOverdue(r) > 0),
-      overdueCount: rows.filter((r) => daysOverdue(r) > 0).length,
-      drafts: rows.filter((r) => r.status === 'draft').length,
+      invoiced: moneyByCurrency(d.year.items, (r) => (r.isCreditNote ? -r.total : r.total), cur),
+      invoicedCaption: `${countOf(yearInvoices, 'invoice')}, less credit notes${partial}`,
+      outstanding: moneyByCurrency(open, (r) => r.outstanding, cur),
+      outstandingCaption: credits.length
+        ? `${open.length} open · ${moneyByCurrency(credits, (r) => r.outstanding, cur)} in credits`
+        : countOf(open.length, 'open invoice'),
+      overdue: moneyByCurrency(late, (r) => r.outstanding, cur),
+      overdueCount: late.length,
+      overdueCaption: late.length ? countOf(late.length, 'invoice') : 'Nothing overdue',
+      drafts: d.drafts,
     };
+  });
+  /** A new document opened from a link can beat the legal entity list; fill the only choice once it arrives. */
+  private readonly defaultEntity = effect(() => {
+    const entities = this.entities();
+    if (entities.length === 1 && this.drawerOpen() && !this.invoice() && !this.form.controls.legalEntityId.value) this.form.controls.legalEntityId.setValue(entities[0].id);
   });
   private readonly loadLinks = effect(() => {
     const ids = this.list.items().filter((r) => (r.sourceType ?? '').toLowerCase().startsWith('realestate.')).map((r) => r.id);
@@ -205,6 +232,7 @@ export class InvoicesPage {
   readonly invoice = signal<InvoiceDto | null>(null);
   readonly partyOptions = signal<LookupOption[]>([]);
   readonly applyOpen = signal(false);
+  readonly applyLocked = signal(false);
   readonly openInvoices = signal<LookupOption[]>([]);
   applyInvoice: string | null = null;
   applyAmount = 0;
@@ -220,6 +248,7 @@ export class InvoicesPage {
   private syncingDueDate = false;
 
   constructor() {
+    this.loadStats();
     const c = this.form.controls;
     c.partyId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => { if (!this.syncingDueDate && id) this.withTerms(id, () => this.recalcDueDate()); });
     c.invoiceDate.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => { if (!this.syncingDueDate) this.recalcDueDate(); });
@@ -268,7 +297,10 @@ export class InvoicesPage {
   readonly title = computed(() => this.invoice() ? `${this.invoice()!.isCreditNote ? 'Credit note' : 'Invoice'} ${this.invoice()!.number}` : 'New invoice');
 
   get lines(): FormArray { return this.form.controls.lines as FormArray; }
-  color(s: string): string { return INVOICE_STATUS_COLORS[s] ?? 'default'; }
+  /** A line field the user has tried to save empty; these sit outside nz-form-control, so they need their own red state. */
+  lineStatus(line: unknown, name: string): 'error' | '' { const c = (line as { get(n: string): { invalid: boolean; touched: boolean } | null }).get(name); return c?.invalid && c.touched ? 'error' : ''; }
+  /** Line totals in the currency of the chosen legal entity. */
+  lineMoney(v: number): string { return formatMoney(v, this.entities().find((e) => e.id === this.value().legalEntityId)?.baseCurrency ?? this.workspaceCurrency()); }
   label(s: string): string { return invoiceStatusLabel(s); }
   overdue(r: InvoiceSummary): number { return daysOverdue(r); }
   source(r: InvoiceSummary): string { return humanizeSource(r.sourceType); }
@@ -286,7 +318,7 @@ export class InvoicesPage {
       nzOnOk: () => {
         this.billing.set(true);
         this.http.post<{ invoiced: number }>(`${this.apiBase}/m/realestate/billing/run`, { asOf: toIsoDate(new Date()) }).subscribe({
-          next: (r) => { this.billing.set(false); this.message.success(`${this.i18n.t('ui.msg.billingRunCreated', 'Billing run created')} ${r?.invoiced ?? 0} ${this.i18n.t('ui.msg.invoicesParen', 'invoice(s)')}`); this.list.reload(); },
+          next: (r) => { this.billing.set(false); this.message.success(`${this.i18n.t('ui.msg.billingRunCreated', 'Billing run created')} ${r?.invoiced ?? 0} ${this.i18n.t('ui.msg.invoicesParen', 'invoice(s)')}`); this.reload(); },
           error: (e) => { this.billing.set(false); this.fail(e); },
         });
       },
@@ -308,12 +340,19 @@ export class InvoicesPage {
     return [...keep, ...fresh];
   }
 
-  /** `?open=<id>` opens a drawer; `?duplicate=<id>` / `?creditFor=<id>` start a new draft prefilled from that invoice (detail page actions). */
+  /** `?open=<id>` opens a drawer; `?duplicate=<id>` / `?creditFor=<id>` start a new draft prefilled from that invoice (detail page actions); `?partyId=<id>` starts one for that customer. */
   ngOnInit(): void {
     const q = this.route.snapshot.queryParamMap;
-    const open = q.get('open'), dup = q.get('duplicate'), credit = q.get('creditFor');
+    const open = q.get('open'), dup = q.get('duplicate'), credit = q.get('creditFor'), party = q.get('partyId');
     if (open) this.open({ id: open } as never);
     else if (dup || credit) this.api.detail((dup ?? credit)!).subscribe((src) => this.prefill(src, !!credit && !dup));
+    else if (party) this.parties.get(party).subscribe((p) => {
+      this.extras.set(null);
+      this.show(null);
+      this.partyTerms.set(p.id, p.paymentTermsDays ?? null);
+      this.partyOptions.set([{ value: p.id, label: `${p.code} · ${p.name}` }]);
+      this.form.controls.partyId.setValue(p.id);
+    });
   }
 
   private prefill(src: InvoiceDto, asCredit: boolean): void {
@@ -366,7 +405,7 @@ export class InvoicesPage {
   }
 
   save(issue: boolean): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); this.message.warning('Fill in the fields marked in red'); return; }
     const v = this.form.getRawValue();
     const body = {
       legalEntityId: v.legalEntityId, partyId: v.partyId, invoiceDate: toIsoDate(v.invoiceDate!), dueDate: v.dueDate ? toIsoDate(v.dueDate) : null, isCreditNote: v.isCreditNote, notes: v.notes || null,
@@ -376,7 +415,7 @@ export class InvoicesPage {
     this.api.save(this.invoice()?.id ?? null, body).subscribe({
       next: (saved) => {
         if (!issue) { this.done('Draft saved'); return; }
-        this.api.issue(saved.id).subscribe({ next: (i) => { this.done(`${this.i18n.t('ui.msg.issuedAs', 'Issued as')} ${i.number}`); for (const w of i.warnings ?? []) this.message.warning(w, { nzDuration: 8000 }); }, error: (e) => { this.saving.set(false); this.invoice.set(saved); this.list.reload(); this.fail(e); } });
+        this.api.issue(saved.id).subscribe({ next: (i) => { this.done(`${this.i18n.t('ui.msg.issuedAs', 'Issued as')} ${i.number}`); for (const w of i.warnings ?? []) this.message.warning(w, { nzDuration: 8000 }); }, error: (e) => { this.saving.set(false); this.invoice.set(saved); this.reload(); this.fail(e); } });
       },
       error: (e) => { this.saving.set(false); this.fail(e); },
     });
@@ -390,23 +429,62 @@ export class InvoicesPage {
     });
   }
 
+  /** A credit note raised from an invoice can settle only that invoice (API rule), so it is chosen and locked; any other credit note lists the customer's open invoices. */
+  openApply(): void {
+    const credit = this.invoice();
+    if (!credit) return;
+    const left = credit.total - credit.paid;
+    this.applyInvoice = null;
+    this.applyAmount = left;
+    const sourceId = credit.sourceType === 'invoice' ? credit.sourceId ?? null : null;
+    this.applyLocked.set(!!sourceId);
+    if (sourceId) {
+      this.api.detail(sourceId).subscribe((src) => {
+        this.openInvoices.set([{ value: src.id, label: this.applyLabel(src) }]);
+        this.applyInvoice = src.id;
+        this.applyAmount = Math.min(left, src.total - src.paid);
+        this.applyOpen.set(true);
+      });
+    } else {
+      this.searchOpenInvoices('');
+      this.applyOpen.set(true);
+    }
+  }
+
+  private applyLabel(i: { number: string; total: number; paid: number; currencyCode: string }): string {
+    return `${i.number} · ${this.i18n.t('ui.common.outstandingLc', 'outstanding')} ${formatMoney(i.total - i.paid, i.currencyCode)}`;
+  }
+
   searchOpenInvoices(term: string): void {
     const inv = this.invoice();
-    if (!inv) return;
-    this.api.list({ page: 1, pageSize: 20, search: term, filters: [{ field: 'partyId', op: 'eq', value: inv.partyId }, { field: 'isCreditNote', op: 'eq', value: false }] })
-      .pipe(map((r) => r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid')))
-      .subscribe((items) => this.openInvoices.set(items.map((i) => ({ value: i.id, label: `${i.number} · ${this.i18n.t('ui.common.outstandingLc', 'outstanding')} ${i.outstanding.toFixed(2)}` }))));
+    if (!inv || this.applyLocked()) return;
+    this.api.list({ page: 1, pageSize: 20, search: term, filters: [{ field: 'partyId', op: 'eq', value: inv.partyId }, { field: 'isCreditNote', op: 'eq', value: false }, { field: 'status', op: 'in', value: ['issued', 'partlyPaid'] }] })
+      .subscribe((r) => this.openInvoices.set(r.items.map((i) => ({ value: i.id, label: this.applyLabel(i) }))));
   }
 
   apply(): void {
     const credit = this.invoice();
-    if (!credit || !this.applyInvoice || !this.applyAmount) return;
+    if (!credit) return;
+    if (!this.applyInvoice || !this.applyAmount) { this.message.warning('Choose an invoice and an amount'); return; }
     this.api.applyCredit(credit.id, this.applyInvoice, this.applyAmount).subscribe({
       next: () => { this.applyOpen.set(false); this.done('Credit applied'); },
       error: (e) => this.fail(e),
     });
   }
 
-  private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.list.reload(); }
+  private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.reload(); }
+  reload(): void { this.list.reload(); this.loadStats(); }
+
+  private loadStats(): void {
+    const source = (q: ListQuery) => this.api.list(q);
+    forkJoin({
+      open: fetchAllRows(source, [{ field: 'status', op: 'in', value: ['issued', 'partlyPaid'] }], 'dueDate'),
+      year: fetchAllRows(source, [{ field: 'status', op: 'in', value: ['issued', 'partlyPaid', 'paid'] }, { field: 'invoiceDate', op: 'gte', value: startOfYear() }], '-invoiceDate'),
+      drafts: countRows(source, [{ field: 'status', op: 'eq', value: 'draft' }]),
+    }).subscribe({
+      next: (d) => { this.statsData.set(d); this.statsLoading.set(false); },
+      error: () => { this.statsData.set(null); this.statsLoading.set(false); },
+    });
+  }
   private fail(e: unknown): void { this.message.error(problemMessage(e, 'Could not save the invoice', 'reason')); }
 }

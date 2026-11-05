@@ -2,6 +2,7 @@ import { inject, Injectable, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { I18nService } from '../i18n/i18n.service';
+import { displayLabel } from '../format/display';
 
 export interface PageBadge {
   text: string;
@@ -82,7 +83,7 @@ export class PageTitleService {
 
   private matchRouteTitle(path: string): { title: string; subtitle?: string; module?: string } | null {
     if (path === '' || path === '/' || path === '/dashboard') {
-      return { title: this.i18n.t('menu.dashboard', 'Dashboard'), module: 'Workspace' };
+      return { title: this.i18n.t('menu.overview', 'Overview'), module: 'Workspace' };
     }
 
     const ROUTE_MAP: Record<string, { title: string; module?: string }> = {
@@ -124,6 +125,7 @@ export class PageTitleService {
 
       // HR
       '/hr/employees': { title: 'Employees', module: 'HR' },
+      '/hr/my': { title: 'My HR', module: 'HR' },
       '/hr/attendance': { title: 'Attendance', module: 'HR' },
       '/hr/payroll': { title: 'Payroll', module: 'HR' },
       '/hr/reviews': { title: 'Performance Reviews', module: 'HR' },
@@ -216,7 +218,7 @@ export class PageTitleService {
     if (path.startsWith('/finance/bills/')) return { title: 'Bill Details', module: 'Finance' };
     if (path.startsWith('/finance/payments/')) return { title: 'Payment Details', module: 'Finance' };
     if (path.startsWith('/parties/')) return { title: 'Party Details', module: 'Core' };
-    if (path.startsWith('/reports/')) return { title: 'Financial Report', module: 'Reports' };
+    if (path.startsWith('/reports/')) return { title: displayLabel(path.split('/')[2]) || 'Report', module: 'Reports' };
     if (path.startsWith('/sales/quotes/')) return { title: 'Quote Details', module: 'Sales' };
     if (path.startsWith('/sales/orders/')) return { title: 'Order Details', module: 'Sales' };
     if (path.startsWith('/purchasing/orders/')) return { title: 'Purchase Order Details', module: 'Purchasing' };
@@ -228,6 +230,10 @@ export class PageTitleService {
     const segs = path.split('/').filter(Boolean);
     if (segs.length > 0) {
       const last = segs[segs.length - 1];
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(last) && segs.length > 1) {
+        const parent = segs[segs.length - 2].replace(/-/g, ' ').replace(/ies$/, 'y').replace(/s$/, '');
+        return { title: `${parent.charAt(0).toUpperCase()}${parent.slice(1)} details` };
+      }
       const humanized = last.charAt(0).toUpperCase() + last.slice(1).replace(/-/g, ' ');
       return { title: humanized };
     }

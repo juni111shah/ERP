@@ -46,6 +46,10 @@ public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext o
 
             if (entry.Entity is IOrgScoped scoped)
             {
+                // A child added to a tracked parent's collection already has its client-side GUID, so EF takes it for an existing row.
+                // Every saved row has its workspace, so a row without one has never been saved and is new.
+                if (entry.State == EntityState.Modified && scoped.OrgId == Guid.Empty) entry.State = EntityState.Added;
+
                 if (entry.State == EntityState.Added && scoped.OrgId == Guid.Empty)
                     scoped.OrgId = org.OrgId ?? throw new InvalidOperationException("No workspace context: refusing to write an org-scoped row.");
                 if (entry.State == EntityState.Modified && entry.Property(nameof(IOrgScoped.OrgId)).IsModified

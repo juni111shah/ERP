@@ -1,4 +1,5 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
+import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -13,7 +14,6 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSpaceModule } from 'ng-zorro-antd/space';
-import { NzTagModule } from 'ng-zorro-antd/tag';
 import {
   CashMovementType,
   PosSessionSummaryDto,
@@ -24,12 +24,14 @@ import { SessionStore } from '../../core/session/session.store';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { ErpDatePipe } from '../../shared/display.pipes';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 
 @Component({
   selector: 'erp-pos-sessions',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [ErpDatePipe, StatusTagComponent,
     CommonModule,
     DecimalPipe,
     FormsModule,
@@ -38,7 +40,6 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzCardModule,
     NzButtonModule,
     NzIconModule,
-    NzTagModule,
     NzModalModule,
     NzInputModule,
     NzInputNumberModule,
@@ -49,7 +50,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     HasPermissionDirective,
   ],
   template: `
-    <erp-paged-table [list]="list" [columns]="columns">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search register or cashier..." emptyText="No shifts yet. Open one from the terminal." exportFilename="pos-shifts" [clickable]="false">
       <div toolbar style="display:flex;align-items:center;gap:8px">
         <button *erpHasPermission="'pos.sessions.manage'" nz-button nzType="default" (click)="openDrawerTxModal()" data-testid="pos-drawer-tx">
           <span nz-icon nzType="swap"></span>Record Drawer Float / Drop
@@ -58,35 +59,35 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           <span nz-icon nzType="shop"></span>Open Terminal
         </a>
       </div>
-          <ng-template #cell let-session let-column="column">
+          <ng-template #cell let-session let-column="column" let-value="value">
             @if (column.key === 'registerName') {
               <strong>{{ session.registerName }}</strong>
             } @else if (column.key === 'cashierName') {
               {{ session.cashierName }}
             } @else if (column.key === 'openedAt') {
-              {{ session.openedAt | date:'medium' }}
+              <span class="nowrap">{{ session.openedAt | erpDate }}</span>
             } @else if (column.key === 'closedAt') {
-              {{ session.closedAt ? (session.closedAt | date:'medium') : '—' }}
+              <span class="nowrap">{{ (session.closedAt | erpDate) || '-' }}</span>
             } @else if (column.key === 'openingCash') {
-              {{ currency() }} {{ session.openingCash | number:'1.2-2' }}
+              <span class="amount">{{ currency() }} {{ session.openingCash | number:'1.2-2' }}</span>
             } @else if (column.key === 'totalSales') {
-              <strong>{{ currency() }} {{ session.totalSales | number:'1.2-2' }}</strong>
+              <strong class="amount">{{ currency() }} {{ session.totalSales | number:'1.2-2' }}</strong>
             } @else if (column.key === 'expectedCash') {
-              {{ currency() }} {{ session.expectedCash | number:'1.2-2' }}
+              <span class="amount">{{ currency() }} {{ session.expectedCash | number:'1.2-2' }}</span>
             } @else if (column.key === 'actualCash') {
-              {{ session.status === 'Closed' ? (currency() + ' ' + (session.actualCash | number:'1.2-2')) : '—' }}
+              <span class="amount">{{ session.status === 'closed' ? (currency() + ' ' + (session.actualCash | number:'1.2-2')) : '-' }}</span>
             } @else if (column.key === 'cashDifference') {
-              @if (session.status === 'Closed') {
-                <span [style.color]="session.cashDifference < 0 ? '#dc2626' : (session.cashDifference > 0 ? '#16a34a' : '#64748b')" style="font-weight: 600;">
+              @if (session.status === 'closed') {
+                <span class="amount variance" [class.short]="session.cashDifference < 0" [class.over]="session.cashDifference > 0">
                   {{ currency() }} {{ session.cashDifference | number:'1.2-2' }}
                 </span>
               } @else {
-                <span style="color: #94a3b8;">Pending Close</span>
+                <span class="muted">Shift open</span>
               }
             } @else if (column.key === 'status') {
-              <nz-tag [nzColor]="session.status === 'Open' ? 'green' : 'default'">
-                {{ session.status }}
-              </nz-tag>
+              <erp-status [value]="session.status" />
+            } @else {
+              {{ value }}
             }
           </ng-template>
         </erp-paged-table>
@@ -101,8 +102,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
         <ng-container *nzModalContent>
           <div style="display: flex; flex-direction: column; gap: 14px;">
             <div>
-              <label style="font-weight: 600; display: block; margin-bottom: 4px;">Target Open Shift Session</label>
-              <nz-select [(ngModel)]="selectedSessionId" style="width: 100%;">
+              <label style="font-weight: 600; display: block; margin-bottom: 4px;">Open Shift</label>
+              @if (!openSessions().length) {
+                <nz-alert nzType="warning" nzShowIcon nzMessage="No shift is open. Open one from the terminal first." style="margin-bottom: 8px;"></nz-alert>
+              }
+              <nz-select [(ngModel)]="selectedSessionId" style="width: 100%;" aria-label="Open shift" nzPlaceHolder="Choose a shift">
                 @for (s of openSessions(); track s.id) {
                   <nz-option [nzValue]="s.id" [nzLabel]="s.registerName + ' (' + s.cashierName + ')'"></nz-option>
                 }
@@ -111,28 +115,35 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div>
               <label style="font-weight: 600; display: block; margin-bottom: 4px;">Transaction Type</label>
-              <nz-select [(ngModel)]="txType" style="width: 100%;">
-                <nz-option nzValue="FloatIn" nzLabel="Float In (Add change to drawer)"></nz-option>
-                <nz-option nzValue="DropOut" nzLabel="Safe Drop (Transfer cash to safe)"></nz-option>
-                <nz-option nzValue="PayIn" nzLabel="Cash Pay-In (Miscellaneous inflow)"></nz-option>
-                <nz-option nzValue="PayOut" nzLabel="Cash Pay-Out (Expense from drawer)"></nz-option>
+              <nz-select [(ngModel)]="txType" style="width: 100%;" aria-label="Transaction type">
+                <nz-option nzValue="floatIn" nzLabel="Float In (Add change to drawer)"></nz-option>
+                <nz-option nzValue="dropOut" nzLabel="Safe Drop (Transfer cash to safe)"></nz-option>
+                <nz-option nzValue="payIn" nzLabel="Cash Pay-In (Miscellaneous inflow)"></nz-option>
+                <nz-option nzValue="payOut" nzLabel="Cash Pay-Out (Expense from drawer)"></nz-option>
               </nz-select>
             </div>
 
             <div>
               <label style="font-weight: 600; display: block; margin-bottom: 4px;">Amount ({{ currency() }})</label>
-              <nz-input-number [(ngModel)]="txAmount" [nzMin]="1" style="width: 100%; font-size: 16px;"></nz-input-number>
+              <nz-input-number [(ngModel)]="txAmount" [nzMin]="1" aria-label="Amount" style="width: 100%; font-size: 16px;"></nz-input-number>
             </div>
 
             <div>
               <label style="font-weight: 600; display: block; margin-bottom: 4px;">Reason / Memo</label>
-              <input aria-label="e.g. Midday safe drop to main vault" nz-input [(ngModel)]="txReason" placeholder="e.g. Midday safe drop to main vault" />
+              <input aria-label="Reason" nz-input [(ngModel)]="txReason" placeholder="e.g. Midday safe drop to main vault" />
             </div>
           </div>
         </ng-container>
       </nz-modal>
   `,
-  styles: [``],
+  styles: [`
+    .nowrap { white-space: nowrap; }
+    .amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .muted { color: var(--erp-color-text-muted); }
+    .variance { font-weight: 600; color: var(--erp-color-text-muted); }
+    .variance.short { color: var(--erp-color-error-text); }
+    .variance.over { color: var(--erp-color-success-text); }
+  `],
 })
 export class PosSessionsPage {
   private readonly api = inject(PosSessionsApi);
@@ -141,26 +152,26 @@ export class PosSessionsPage {
   private readonly message = inject(NzMessageService);
 
   readonly currency = this.currencyService.currency;
-  readonly list = createPagedList<PosSessionSummaryDto>((q: any) => this.api.list(q));
+  readonly list = createPagedList<PosSessionSummaryDto>((q: any) => this.api.list(q), { sort: '-openedAt' });
   readonly openSessions = signal<PosSessionSummaryDto[]>([]);
 
   drawerTxModalVisible = false;
   selectedSessionId = '';
-  txType: CashMovementType = 'DropOut';
+  txType: CashMovementType = 'dropOut';
   txAmount = 100;
   txReason = '';
 
   readonly columns: TableColumn<PosSessionSummaryDto>[] = [
     { key: 'registerName', label: 'Register', sortField: 'registerName' },
     { key: 'cashierName', label: 'Cashier', sortField: 'cashierName' },
-    { key: 'openedAt', label: 'Opened At', sortField: 'openedAt' },
+    { key: 'openedAt', label: 'Opened At', sortField: 'openedAt', filterField: 'openedAt' },
     { key: 'closedAt', label: 'Closed At', sortField: 'closedAt' },
-    { key: 'openingCash', label: 'Opening Float', align: 'right' },
-    { key: 'totalSales', label: 'Total Sales', align: 'right' },
-    { key: 'expectedCash', label: 'Expected Cash', align: 'right' },
-    { key: 'actualCash', label: 'Actual Cash', align: 'right' },
-    { key: 'cashDifference', label: 'Variance', align: 'right' },
-    { key: 'status', label: 'Status', sortField: 'status' },
+    { key: 'openingCash', label: 'Opening Float', align: 'right', filter: false },
+    { key: 'totalSales', label: 'Total Sales', align: 'right', filter: false },
+    { key: 'expectedCash', label: 'Expected Cash', align: 'right', filter: false },
+    { key: 'actualCash', label: 'Actual Cash', align: 'right', filter: false },
+    { key: 'cashDifference', label: 'Variance', align: 'right', filter: false },
+    { key: 'status', label: 'Status', filterField: 'status', filterOptions: ['open', 'closed'] },
   ];
 
   constructor() {
@@ -168,9 +179,9 @@ export class PosSessionsPage {
   }
 
   refreshOpenSessions(): void {
-    this.api.list({ page: 1, pageSize: 20 }).subscribe({
-      next: (res: any) => {
-        const opens = (res.items || []).filter((s: any) => s.status === 'Open');
+    this.api.list({ page: 1, pageSize: 50, filters: [{ field: 'status', op: 'eq', value: 'open' }] }).subscribe({
+      next: (res) => {
+        const opens = res.items;
         this.openSessions.set(opens);
         if (opens.length > 0 && !this.selectedSessionId) {
           this.selectedSessionId = opens[0].id;
@@ -186,11 +197,11 @@ export class PosSessionsPage {
 
   submitDrawerTx(): void {
     if (!this.selectedSessionId) {
-      this.message.warning('Please select an active open shift session.');
+      this.message.warning('Choose an open shift.');
       return;
     }
     if (!this.txReason.trim()) {
-      this.message.warning('Please provide a reason for the drawer movement.');
+      this.message.warning('Enter a reason for this cash movement.');
       return;
     }
 
@@ -208,10 +219,11 @@ export class PosSessionsPage {
       .subscribe({
         next: () => {
           this.drawerTxModalVisible = false;
+          this.txReason = '';
           this.list.reload();
           this.message.success('Cash drawer transaction recorded.');
         },
-        error: (err) => this.message.error(err?.error?.message || 'Transaction recording failed.'),
+        error: (err) => this.message.error(problemMessage(err, 'Transaction recording failed.')),
       });
   }
 }

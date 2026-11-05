@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { problemMessage } from '../../core/http/problem-details';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -14,16 +16,20 @@ import { PositionDto, PositionsApi } from './hr-people.api';
   selector: 'erp-positions',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [NzModalModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Positions</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search positions" emptyText="No positions yet" (rowClick)="state.edit($event)">
       <button toolbar *erpHasPermission="'hr.employees.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="position-new"><span nz-icon nzType="plus"></span>New position</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit position' : 'New position'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="position-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
+                       [saving]="state.saving()" [errors]="state.errors()" testId="position-form" (submitted)="state.submit($event)" (closed)="state.close()">
+      @if (state.editing(); as e) { <div drawerActions style="margin-bottom:12px"><button *erpHasPermission="'hr.employees.manage'" nz-button nzDanger type="button" (click)="remove(e.id)" data-testid="position-delete">Delete</button></div> }
+    </erp-record-drawer>`,
 })
 export class PositionsPage {
+  private readonly confirm = inject(NzModalService);
+  private readonly toast = inject(NzMessageService);
   private readonly api = inject(PositionsApi);
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
   readonly state = new MasterDataState<PositionDto>({
@@ -41,4 +47,14 @@ export class PositionsPage {
     { key: 'grade', label: 'Grade', type: 'text', maxLength: 30 },
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ];
+
+  remove(id: string): void {
+    this.confirm.confirm({
+      nzTitle: 'Delete this position?', nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => new Promise<void>((resolve) => this.api.delete(id).subscribe({
+        next: () => { this.toast.success('Deleted'); this.state.close(); this.list.reload(); resolve(); },
+        error: (e) => { this.toast.error(problemMessage(e, 'Could not delete the position')); resolve(); },
+      })),
+    });
+  }
 }

@@ -2,6 +2,7 @@ import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, Subscription } from 'rxjs';
+import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -64,16 +65,19 @@ export interface FieldSpec {
   selector: 'erp-record-drawer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, ReactiveFormsModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzDatePickerModule, NzSelectModule, NzSwitchModule, NzButtonModule, DynamicFieldsComponent],
+  imports: [TranslatePipe, ReactiveFormsModule, NzAlertModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzDatePickerModule, NzSelectModule, NzSwitchModule, NzButtonModule, DynamicFieldsComponent],
   template: `
     <nz-drawer [nzVisible]="open()" [nzWidth]="width()" [nzTitle]="title()" (nzOnClose)="closed.emit()" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
         <ng-content select="[drawerActions]" />
+        @if (formErrors().length) {
+          <nz-alert nzType="error" nzShowIcon style="margin-bottom:16px" [nzMessage]="formErrors().join(' ')" data-testid="record-form-error"></nz-alert>
+        }
         <form nz-form nzLayout="vertical" [formGroup]="form()" (ngSubmit)="submit()" [attr.data-testid]="testId()">
           @for (f of visibleFields(); track f.key) {
             <nz-form-item>
               <nz-form-label [nzRequired]="!!f.required" [nzFor]="f.key">{{ f.label }}</nz-form-label>
-              <nz-form-control [nzErrorTip]="err(f.key)" [nzExtra]="f.hint ?? ''">
+              <nz-form-control [nzErrorTip]="err(f.key)" [nzValidateStatus]="$any(form().get(f.key))" [nzExtra]="f.hint ?? ''">
                 @switch (f.type) {
                   @case ('text') { <input nz-input [id]="f.key" [formControlName]="f.key" [attr.maxlength]="f.maxLength ?? null" [attr.data-testid]="'f-' + f.key" /> }
                   @case ('textarea') { <textarea nz-input rows="3" [id]="f.key" [formControlName]="f.key" [attr.maxlength]="f.maxLength ?? null" [attr.data-testid]="'f-' + f.key"></textarea> }
@@ -87,6 +91,12 @@ export interface FieldSpec {
                   }
                   @case ('rows') {
                     <div [attr.data-testid]="'f-' + f.key">
+                      @if (rowsOf(f.key).length) {
+                        <div style="display:flex;gap:8px;margin-bottom:4px;font-size:12px;color:var(--erp-color-text-muted)" aria-hidden="true">
+                          @for (c of f.columns ?? []; track c.key) { <span style="flex:1 1 0;min-width:0">{{ c.label }}</span> }
+                          <span style="visibility:hidden">Remove</span>
+                        </div>
+                      }
                       @for (r of rowsOf(f.key); track $index; let i = $index) {
                         <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
                           @for (c of f.columns ?? []; track c.key) {
@@ -141,6 +151,8 @@ export class RecordDrawerComponent {
   readonly sections = signal<FormSectionMeta[]>([]);
   readonly customGroup = signal<FormGroup>(new FormGroup({}));
   readonly lookupOptions = signal<Record<string, LookupOption[]>>({});
+  /** Server messages that belong to no field of this form. */
+  readonly formErrors = signal<string[]>([]);
   private readonly changes = signal(0);
   readonly visibleFields = computed(() => {
     this.changes(); // re-evaluate when any value changes (fields can hide depending on other values)
@@ -160,7 +172,7 @@ export class RecordDrawerComponent {
     });
     effect(() => {
       const problem = this.errors();
-      if (problem) untracked(() => applyProblemDetailsToForm(this.form(), problem));
+      this.formErrors.set(problem ? untracked(() => applyProblemDetailsToForm(this.form(), problem)) : []);
     });
   }
 

@@ -98,13 +98,13 @@ export class WorkOrdersPage {
   readonly columns: TableColumn<WorkOrderDto>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
     { key: 'issue', label: 'Issue' },
-    { key: 'category', label: 'Category', sortField: 'category' },
+    { key: 'category', label: 'Category' },
     { key: 'priority', label: 'Priority', sortField: 'priority', value: (w) => humanize(w.priority) },
     { key: 'status', label: 'Status', sortField: 'status', filterField: 'status', filterOptions: Object.keys(NEXT) },
     { key: 'reportedOn', label: 'Reported', sortField: 'reportedOn' },
     { key: 'technician', label: 'Technician' },
-    { key: 'estimatedCost', label: 'Estimated', value: (w) => w.estimatedCost.toLocaleString() },
-    { key: 'actualCost', label: 'Actual', value: (w) => w.actualCost?.toLocaleString() },
+    { key: 'estimatedCost', label: 'Estimated', align: 'right', value: (w) => w.estimatedCost.toLocaleString() },
+    { key: 'actualCost', label: 'Actual', align: 'right', value: (w) => w.actualCost?.toLocaleString() },
   ];
   readonly fields: FieldSpec[] = [
     { key: 'propertyId', label: 'Property', type: 'lookup', lookup: this.lookups.property, required: true, readonlyOnEdit: true },

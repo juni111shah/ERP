@@ -6,7 +6,6 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
-import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
 import { LegalEntitiesApi, LegalEntityDto } from '../../core/api/admin.api';
 import { ProblemDetails } from '../../core/api/api.models';
@@ -16,9 +15,9 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 import { CANDIDATE_STAGES, CandidateDto, CandidateRow, CandidatesApi, ChecklistRow, ChecklistsApi, OPENING_STATUSES, OpeningDto, OpeningRow, OpeningsApi } from './hr-people.api';
 
-const STAGE_COLORS: Record<string, string> = { applied: 'default', screening: 'blue', interview: 'geekblue', offer: 'orange', hired: 'green', rejected: 'red' };
 const NEXT: Record<string, string> = { applied: 'screening', screening: 'interview', interview: 'offer' };
 
 /** Vacancies and the candidates for them: move people along the pipeline, then hire (which creates the employee and starts their onboarding). */
@@ -26,26 +25,29 @@ const NEXT: Record<string, string> = { applied: 'screening', screening: 'intervi
   selector: 'erp-recruitment',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzModalModule, NzTabsModule, NzTagModule],
+  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzModalModule, NzTabsModule],
   template: `
     <h1 class="erp-page-title">Recruitment</h1>
     <nz-tabs>
       <nz-tab nzTitle="Vacancies">
         <erp-paged-table [list]="openings" [columns]="openingColumns" searchPlaceholder="Search vacancies" emptyText="No vacancies yet" (rowClick)="openOpening($event)">
           <button toolbar *erpHasPermission="'hr.recruitment.manage'" nz-button nzType="primary" (click)="openingState.create()" data-testid="opening-new"><span nz-icon nzType="plus"></span>New vacancy</button>
+          <ng-template #cell let-row let-column="column" let-value="value">
+            @if (column.key === 'status') { <erp-status [value]="row.status" [label]="value" /> } @else { {{ value }} }
+          </ng-template>
         </erp-paged-table>
       </nz-tab>
       <nz-tab nzTitle="Candidates">
-        <erp-paged-table [list]="candidates" [columns]="candidateColumns" searchPlaceholder="Search candidates" emptyText="No candidates yet" [clickable]="false">
+        <erp-paged-table [list]="candidates" [columns]="candidateColumns" searchPlaceholder="Search candidates" emptyText="No candidates yet" (rowClick)="openCandidate($event)">
           <button toolbar *erpHasPermission="'hr.recruitment.manage'" nz-button nzType="primary" (click)="candidateState.create()" data-testid="candidate-new"><span nz-icon nzType="plus"></span>New candidate</button>
           <ng-template #cell let-row let-column="column" let-value="value">
             @switch (column.key) {
-              @case ('stage') { <nz-tag [nzColor]="stageColor(row.stage)">{{ stageLabel(row.stage) }}</nz-tag> }
+              @case ('stage') { <erp-status [value]="row.stage" [label]="stageLabel(row.stage)" /> }
               @case ('actions') {
                 <ng-container *erpHasPermission="'hr.recruitment.manage'">
-                  @if (next(row.stage); as n) { <a (click)="move(row, n)" style="margin-inline-end:10px" data-testid="candidate-next">Move to {{ stageLabel(n) }}</a> }
-                  @if (row.stage === 'offer') { <a (click)="startHire(row)" style="margin-inline-end:10px" data-testid="candidate-hire">Hire</a> }
-                  @if (row.stage !== 'hired' && row.stage !== 'rejected') { <a (click)="move(row, 'rejected')" data-testid="candidate-reject">Reject</a> }
+                  @if (next(row.stage); as n) { <a (click)="$event.stopPropagation(); move(row, n)" style="margin-inline-end:10px" data-testid="candidate-next">Move to {{ stageLabel(n) }}</a> }
+                  @if (row.stage === 'offer') { <a (click)="$event.stopPropagation(); startHire(row)" style="margin-inline-end:10px" data-testid="candidate-hire">Hire</a> }
+                  @if (row.stage !== 'hired' && row.stage !== 'rejected') { <a (click)="$event.stopPropagation(); move(row, 'rejected')" data-testid="candidate-reject">Reject</a> }
                 </ng-container>
               }
               @default { {{ value }} }
@@ -55,7 +57,9 @@ const NEXT: Record<string, string> = { applied: 'screening', screening: 'intervi
       </nz-tab>
     </nz-tabs>
     <erp-record-drawer [title]="openingState.editing() ? 'Edit vacancy' : 'New vacancy'" [open]="openingState.open()" [fields]="openingFields" [value]="$any(openingState.editing())"
-                       [saving]="openingState.saving()" [errors]="openingState.errors()" testId="opening-form" (submitted)="openingState.submit($event)" (closed)="openingState.close()" />
+                       [saving]="openingState.saving()" [errors]="openingState.errors()" testId="opening-form" (submitted)="openingState.submit($event)" (closed)="openingState.close()">
+      @if (openingState.editing(); as o) { <div drawerActions style="margin-bottom:12px"><button *erpHasPermission="'hr.recruitment.manage'" nz-button nzDanger type="button" (click)="removeOpening(o.id)" data-testid="opening-delete">Delete</button></div> }
+    </erp-record-drawer>
     <erp-record-drawer [title]="candidateState.editing() ? 'Edit candidate' : 'New candidate'" [open]="candidateState.open()" [fields]="candidateFields()" [value]="$any(candidateState.editing())"
                        [saving]="candidateState.saving()" [errors]="candidateState.errors()" testId="candidate-form" (submitted)="candidateState.submit($event)" (closed)="candidateState.close()" />
     <erp-record-drawer title="Hire" [open]="hiring() !== null" [fields]="hireFields()" [saving]="busy()" [errors]="errors()" [width]="460" testId="hire-form" submitLabel="Hire"
@@ -124,11 +128,21 @@ export class RecruitmentPage {
     { key: 'onboardingTemplateId', label: 'Start the onboarding checklist', type: 'select', options: this.templatePage().items.filter((t) => t.isActive).map((t) => ({ value: t.id, label: t.name })) },
   ]);
 
-  stageColor(s: string): string { return STAGE_COLORS[s] ?? 'default'; }
   stageLabel(s: string): string { return CANDIDATE_STAGES.find((x) => x.value === s)?.label ?? s; }
   next(stage: string): string | undefined { return NEXT[stage]; }
 
   openOpening(row: OpeningRow): void { this.openingsApi.detail(row.id).subscribe((o) => this.openingState.edit(o)); }
+  removeOpening(id: string): void {
+    this.modal.confirm({
+      nzTitle: 'Delete this vacancy?', nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => new Promise<void>((resolve) => this.openingsApi.delete(id).subscribe({
+        next: () => { this.message.success('Vacancy deleted'); this.openingState.close(); this.openings.reload(); resolve(); },
+        error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not delete the vacancy'); resolve(); },
+      })),
+    });
+  }
+
+  openCandidate(row: CandidateRow): void { this.candidatesApi.detail(row.id).subscribe((c) => this.candidateState.edit(c)); }
 
   move(c: CandidateRow, stage: string): void {
     const run = () => new Promise<void>((resolve) => this.candidatesApi.move(c.id, stage).subscribe({

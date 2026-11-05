@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { DecimalPipe } from '@angular/common';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 import { catchError, of } from 'rxjs';
 import { AdminApi, LegalEntitiesApi, LegalEntityDto } from '../../core/api/admin.api';
 import { SessionStore } from '../../core/session/session.store';
@@ -34,7 +35,7 @@ const CONTRACT_TYPES = [{ value: 'permanent', label: 'Permanent' }, { value: 'fi
   selector: 'erp-employees',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, EmployeeLifeComponent, EmployeeDocumentsComponent, TerminateDialogComponent, NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, DecimalPipe, StatCardComponent],
+  imports: [StatusTagComponent, EmployeeLifeComponent, EmployeeDocumentsComponent, TerminateDialogComponent, NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, DecimalPipe, StatCardComponent],
   styles: [`
     .emp-cell { display: flex; align-items: center; gap: 10px; }
     .emp-avatar {
@@ -51,35 +52,37 @@ const CONTRACT_TYPES = [{ value: 'permanent', label: 'Permanent' }, { value: 'fi
       flex-shrink: 0;
     }
     .emp-info { display: flex; flex-direction: column; }
-    .emp-name { font-weight: 600; color: var(--erp-color-text-title, #0f172a); font-size: 13px; }
+    .emp-name { font-weight: 600; color: var(--erp-color-text-primary); font-size: 13px; }
   `],
   template: `
     <h1 class="erp-page-title">Employees</h1>
 
     <div class="erp-stat-grid erp-stat-grid--auto" data-testid="employee-stats">
       <erp-stat-card label="Total employees"
-                     [value]="list.total()"
+                     [value]="staff().total"
                      format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().countOnPage + ' ' + ('table.onThisPage' | translate: 'on this page')"
+                     [loading]="staffLoading()"
+                     [caption]="stats().capped ? 'figures below cover the first ' + staff().items.length : 'everyone in this workspace'"
                      [tone]="0" />
       <erp-stat-card label="Active staff"
                      [value]="stats().active"
                      format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="on payroll"
+                     [loading]="staffLoading()"
+                     [caption]="stats().onLeave ? stats().onLeave + ' more on leave' : 'at work, not on leave'"
                      [tone]="1" />
-      <erp-stat-card label="Monthly payroll"
-                     [value]="stats().totalGross"
-                     format="money"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="total gross on page"
-                     [tone]="2" />
+      @if (canSeePay) {
+        <erp-stat-card label="Monthly gross pay"
+                       [value]="stats().totalGross"
+                       format="money"
+                       [loading]="staffLoading()"
+                       caption="current salaries, excluding leavers"
+                       [tone]="2" />
+      }
       <erp-stat-card label="Departments"
                      [value]="stats().departmentsCount"
                      format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="active teams"
+                     [loading]="staffLoading()"
+                     caption="with staff assigned"
                      [tone]="3" />
     </div>
 
@@ -113,9 +116,7 @@ const CONTRACT_TYPES = [{ value: 'permanent', label: 'Permanent' }, { value: 'fi
             <b>{{ currency() }} {{ row.grossMonthly | number: '1.2-2' }}</b>
           }
           @case ('status') {
-            <nz-tag [nzColor]="row.status === 'active' ? 'green' : row.status === 'terminated' ? 'red' : 'blue'">
-              {{ row.status }}
-            </nz-tag>
+            <erp-status [value]="row.status" />
           }
           @default {
             {{ value }}
@@ -127,7 +128,7 @@ const CONTRACT_TYPES = [{ value: 'permanent', label: 'Permanent' }, { value: 'fi
                        [saving]="state.saving()" [errors]="state.errors()" testId="emp-form" (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as e) {
         <div drawerActions style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
-        <p data-testid="emp-summary" style="flex-basis:100%;margin:0">Gross <b>{{ e.grossMonthly?.toLocaleString() ?? '—' }}</b> {{ 'ui.hr.aMonth' | translate: 'a month' }} · {{ 'ui.hr.service' | translate: 'service' }} {{ e.serviceYears.toFixed(1) }} {{ 'ui.hr.years' | translate: 'years' }} · {{ 'ui.hr.eosAccrued' | translate: 'end-of-service accrued' }} <b>{{ e.gratuityAccrued.toLocaleString() }}</b></p>
+        <p data-testid="emp-summary" style="flex-basis:100%;margin:0">@if (canSeePay) { Gross <b>{{ currency() }} {{ e.grossMonthly | number: '1.2-2' }}</b> {{ 'ui.hr.aMonth' | translate: 'a month' }} · }{{ 'ui.hr.service' | translate: 'service' }} {{ e.serviceYears.toFixed(1) }} {{ 'ui.hr.years' | translate: 'years' }}@if (canSeePay) { · {{ 'ui.hr.eosAccrued' | translate: 'end-of-service accrued' }} <b>{{ currency() }} {{ e.gratuityAccrued | number: '1.2-2' }}</b> }</p>
           <button nz-button (click)="lifeFor.set(e)" data-testid="emp-life"><span nz-icon nzType="audit"></span>History and tasks</button>
           <button nz-button (click)="docsFor.set(e)" data-testid="emp-docs"><span nz-icon nzType="file-text"></span>Documents</button>
           @if (e.status !== 'terminated') {
@@ -140,7 +141,7 @@ const CONTRACT_TYPES = [{ value: 'permanent', label: 'Permanent' }, { value: 'fi
     </erp-record-drawer>
     @if (lifeFor(); as l) { <erp-employee-life [employeeId]="l.id" [employeeName]="l.fullName" [open]="true" (closed)="lifeFor.set(null)" /> }
     @if (docsFor(); as d) { <erp-employee-documents [employeeId]="d.id" [employeeName]="d.fullName" [open]="true" (closed)="docsFor.set(null)" /> }
-    @if (terminateFor(); as t) { <erp-terminate-dialog [employeeId]="t.id" [employeeName]="t.fullName" [open]="true" (closed)="terminateFor.set(null)" (changed)="onTerminated()" /> }`,
+    @if (terminateFor(); as t) { <erp-terminate-dialog [employeeId]="t.id" [employeeName]="t.fullName" [open]="true" [endedOn]="t.status === 'terminated' ? (t.terminationDate ?? null) : null" (closed)="terminateFor.set(null)" (changed)="onTerminated()" /> }`,
 })
 export class EmployeesPage {
   private readonly api = inject(EmployeesApi);
@@ -149,43 +150,54 @@ export class EmployeesPage {
   readonly statuses = EMPLOYEE_STATUSES;
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'number' });
   readonly state = new MasterDataState<EmployeeDto>({
-    save: (id, body) => this.api.save(id, body), reload: () => this.list.reload(), message: inject(NzMessageService), entityName: 'Employee',
+    save: (id, body) => this.api.save(id, body), reload: () => this.reloadAll(), message: inject(NzMessageService), entityName: 'Employee',
   });
 
+  /** The figures on the cards come from this list, not from the page below, so paging, search and filters do not change them. The API returns at most 200 rows. */
+  readonly staff = signal<{ items: EmployeeSummary[]; total: number }>({ items: [], total: 0 });
+  readonly staffLoading = signal(true);
+
   readonly stats = computed(() => {
-    const items = this.list.items();
-    const active = items.filter((e) => e.status === 'active').length;
-    const totalGross = items.reduce((sum, e) => sum + (e.grossMonthly || 0), 0);
-    const depts = new Set(items.map((e) => e.department).filter(Boolean));
+    const { items, total } = this.staff();
+    const employed = items.filter((e) => e.status !== 'terminated');
     return {
-      active,
-      totalGross,
-      departmentsCount: depts.size,
-      countOnPage: items.length,
+      active: items.filter((e) => e.status === 'active').length,
+      onLeave: items.filter((e) => e.status === 'onLeave').length,
+      totalGross: employed.reduce((sum, e) => sum + (e.grossMonthly || 0), 0),
+      departmentsCount: new Set(employed.map((e) => e.department).filter(Boolean)).size,
+      capped: total > items.length,
     };
   });
+
+  constructor() { this.loadStaff(); }
+
+  private loadStaff(): void {
+    this.api.list({ page: 1, pageSize: 200, sort: 'number' }).pipe(catchError(() => of({ items: [] as EmployeeSummary[], total: 0 }))).subscribe((p) => { this.staff.set({ items: p.items, total: p.total ?? p.items.length }); this.staffLoading.set(false); });
+  }
+  private reloadAll(): void { this.list.reload(); this.loadStaff(); }
 
   initials(name: string): string {
     return (name || '').split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase() || 'E';
   }
+  private readonly session = inject(SessionStore);
+  /** Without hr.salary.read the API sends no pay figures, so the page shows none instead of zeros. */
+  readonly canSeePay = this.session.hasPermission('hr.salary.read');
   readonly columns: TableColumn<EmployeeSummary>[] = [
     { key: 'number', label: 'No.', sortField: 'number', width: '110px' },
     { key: 'fullName', label: 'Name', sortField: 'fullName' },
     { key: 'designation', label: 'Designation' },
     { key: 'department', label: 'Department' },
     { key: 'joinDate', label: 'Joined', sortField: 'joinDate', width: '120px' },
-    { key: 'grossMonthly', label: 'Gross / month', value: (e) => e.grossMonthly?.toLocaleString() ?? '' },
+    ...(this.canSeePay ? [{ key: 'grossMonthly', label: 'Gross / month', align: 'right', value: (e) => e.grossMonthly?.toLocaleString() ?? '' } as TableColumn<EmployeeSummary>] : []),
     { key: 'status', label: 'Status', sortField: 'status', width: '110px', filterField: 'status', filterOptions: EMPLOYEE_STATUSES },
   ];
-  private readonly session = inject(SessionStore);
-  private readonly canSeePay = this.session.hasPermission('hr.salary.read');
   private readonly departmentPage = toSignal(inject(DepartmentsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as DepartmentDto[] }))), { initialValue: { items: [] as DepartmentDto[] } });
   private readonly positionPage = toSignal(inject(PositionsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as PositionDto[] }))), { initialValue: { items: [] as PositionDto[] } });
   private readonly userList = toSignal(inject(AdminApi).users().pipe(catchError(() => of([]))), { initialValue: [] });
   readonly docsFor = signal<EmployeeDto | null>(null);
   readonly lifeFor = signal<EmployeeDto | null>(null);
   readonly terminateFor = signal<EmployeeDto | null>(null);
-  onTerminated(): void { this.list.reload(); this.state.close(); }
+  onTerminated(): void { this.reloadAll(); this.state.close(); }
 
   readonly fields = computed<FieldSpec[]>(() => {
     const pay: FieldSpec[] = !this.canSeePay ? [] : [
@@ -208,7 +220,7 @@ export class EmployeesPage {
       { key: 'departmentId', label: 'Department', type: 'select', options: this.departmentPage().items.filter((d) => d.isActive).map((d) => ({ value: d.id, label: `${d.code} · ${d.name}` })) },
       { key: 'department', label: 'Department (free text)', type: 'text', maxLength: 100, hint: 'Used when no department is chosen above.' },
       { key: 'positionId', label: 'Position', type: 'select', options: this.positionPage().items.filter((p) => p.isActive).map((p) => ({ value: p.id, label: `${p.code} · ${p.title}` })) },
-      { key: 'managerEmployeeId', label: 'Line manager', type: 'select', options: this.list.items().filter((e) => e.id !== self && e.status !== 'terminated').map((e) => ({ value: e.id, label: `${e.number} · ${e.fullName}` })) },
+      { key: 'managerEmployeeId', label: 'Line manager', type: 'select', options: this.staff().items.filter((e) => e.id !== self && e.status !== 'terminated').map((e) => ({ value: e.id, label: `${e.number} · ${e.fullName}` })) },
       { key: 'userId', label: 'Sign-in account', type: 'select', hint: 'Links this person to a user so they can use self-service.', options: this.userList().map((u) => ({ value: u.id, label: `${u.fullName} (${u.email})` })) },
       { key: 'joinDate', label: 'Join date', type: 'date', required: true },
       { key: 'status', label: 'Status', type: 'select', options: EMPLOYEE_STATUSES, default: 'active' },

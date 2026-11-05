@@ -16,6 +16,13 @@ export interface VendorWorkOrder { id: string; number?: string; issue: string; c
 
 const KEY = 'erp.portal.session';
 
+/** "QAR 1,500.00", "-QAR 1,500.00", or just the number when no currency is known. */
+export function portalMoney(value: number | null | undefined, code: string): string {
+  const n = value ?? 0;
+  const text = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${n < 0 ? '-' : ''}${code ? code + ' ' : ''}${text}`;
+}
+
 /** Tenant-portal session and API client. The portal token lives in sessionStorage only and is sent explicitly (it never touches the staff session). */
 @Injectable({ providedIn: 'root' })
 export class PortalService {

@@ -4,7 +4,6 @@ import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
 import { LegalEntitiesApi, LegalEntityDto } from '../../core/api/admin.api';
 import { ProblemDetails } from '../../core/api/api.models';
@@ -20,15 +19,14 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
-const COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', posted: 'blue', partiallyPaid: 'gold', paid: 'green', voided: 'red' };
-
 import { DecimalPipe } from '@angular/common';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 
 @Component({
   selector: 'erp-payroll',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzTagModule],
+  imports: [DecimalPipe, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Payroll</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search run number" emptyText="No payroll runs yet" (rowClick)="open($event)">
@@ -37,11 +35,17 @@ import { DecimalPipe } from '@angular/common';
           @case ('number') {
             <span class="code-pill">{{ row.number }}</span>
           }
+          @case ('grossEarnings') {
+            {{ currency() }} {{ row.grossEarnings | number: '1.2-2' }}
+          }
+          @case ('deductions') {
+            {{ currency() }} {{ row.deductions | number: '1.2-2' }}
+          }
           @case ('netPay') {
             <b>{{ currency() }} {{ row.netPay | number: '1.2-2' }}</b>
           }
           @case ('status') {
-            <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
+            <erp-status [value]="row.status" [label]="label(row.status)" />
           }
           @default {
             {{ value }}
@@ -60,7 +64,7 @@ export class PayrollPage {
   private readonly message = inject(NzMessageService);
   readonly currency = inject(WorkspaceCurrencyService).currency;
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-year' });
+  readonly list = createPagedList((q) => this.api.list(q), { sort: '-year,-month' });
   readonly drawer = signal(false);
   readonly saving = signal(false);
   readonly errors = signal<ProblemDetails | null>(null);
@@ -69,9 +73,9 @@ export class PayrollPage {
     { key: 'period', label: 'Period', value: (r) => `${MONTHS[r.month - 1]} ${r.year}` },
     { key: 'kind', label: 'Type', value: (r) => (r.kind === 'offCycle' ? 'Off-cycle' : r.kind === 'finalSettlement' ? 'Final settlement' : 'Regular'), width: '130px', filterField: 'kind', filterOptions: [{ value: 'regular', label: 'Regular' }, { value: 'offCycle', label: 'Off-cycle' }, { value: 'finalSettlement', label: 'Final settlement' }] },
     { key: 'employees', label: 'Employees', width: '100px' },
-    { key: 'grossEarnings', label: 'Gross', value: (r) => r.grossEarnings.toLocaleString() },
-    { key: 'deductions', label: 'Deductions', value: (r) => r.deductions.toLocaleString() },
-    { key: 'netPay', label: 'Net pay', sortField: 'netPay', value: (r) => r.netPay.toLocaleString() },
+    { key: 'grossEarnings', label: 'Gross', align: 'right', value: (r) => r.grossEarnings.toLocaleString() },
+    { key: 'deductions', label: 'Deductions', align: 'right', value: (r) => r.deductions.toLocaleString() },
+    { key: 'netPay', label: 'Net pay', sortField: 'netPay', align: 'right', value: (r) => r.netPay.toLocaleString() },
     { key: 'paidOn', label: 'Paid on' },
     { key: 'status', label: 'Status', sortField: 'status', width: '130px' },
   ];
@@ -84,8 +88,7 @@ export class PayrollPage {
     { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 500, hint: 'Every active employee of the entity is included. Record attendance exceptions first; you can recalculate a draft at any time.' },
   ]);
 
-  color(s: string): string { return COLORS[s] ?? 'default'; }
-  label(s: string): string { return s === 'pendingApproval' ? 'Needs approval' : s === 'partiallyPaid' ? 'Partly paid' : s.charAt(0).toUpperCase() + s.slice(1); }
+  label(s: string): string | null { return s === 'pendingApproval' ? 'Needs approval' : s === 'partiallyPaid' ? 'Partly paid' : null; }
   open(r: PayrollSummary): void { void this.router.navigate(['/hr/payroll', r.id]); }
 
   generate(v: Record<string, unknown>): void {

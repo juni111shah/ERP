@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
@@ -9,8 +9,12 @@ import { JournalsApi } from '../../core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
+import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { displayDate } from '../../core/format/display';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { formatMoney } from './invoice-sheet.component';
 import { I18nService } from '../../core/i18n/i18n.service';
 
 interface JournalLine {
@@ -45,18 +49,19 @@ interface Journal {
 @Component({
   selector: 'erp-journal-detail',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [NzSpinModule, StatePanelComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;">Loading...</div>
+      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
     } @else if (error()) {
-      <div style="text-align: center; padding: 48px; color: #ff4d4f;">{{ error() }}</div>
+      <erp-state-panel kind="error" title="Could not load this journal" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (journal()) {
       <erp-detail-page
         [backLink]="['/finance/journals']"
         [backLabel]="'Back to Journal Entries'"
         [title]="('ui.title.journalNo' | translate: 'Journal Entry #') + journal()!.number"
         [status]="journal()!.status"
+        [showDocuments]="false"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
@@ -85,17 +90,17 @@ interface Journal {
                   <td>{{ line.accountName }}</td>
                   <td>{{ line.description || '—' }}</td>
                   <td style="text-align: right;">
-                    {{ line.debit > 0 ? (line.debit | currency:journal()!.currencyCode) : '' }}
+                    {{ line.debit > 0 ? money(line.debit) : '' }}
                   </td>
                   <td style="text-align: right;">
-                    {{ line.credit > 0 ? (line.credit | currency:journal()!.currencyCode) : '' }}
+                    {{ line.credit > 0 ? money(line.credit) : '' }}
                   </td>
                 </tr>
               }
-              <tr style="font-weight: 600; border-top: 2px solid #1890ff;">
+              <tr style="font-weight: 600; border-top: 2px solid var(--erp-color-border-subtle);">
                 <td colspan="4" style="text-align: right;">Total:</td>
-                <td style="text-align: right;">{{ totalDebit() | currency:journal()!.currencyCode }}</td>
-                <td style="text-align: right;">{{ totalCredit() | currency:journal()!.currencyCode }}</td>
+                <td style="text-align: right;">{{ money(totalDebit()) }}</td>
+                <td style="text-align: right;">{{ money(totalCredit()) }}</td>
               </tr>
             </tbody>
           </nz-table>
@@ -114,6 +119,7 @@ export class JournalDetailPage implements OnInit {
   private readonly api = inject(JournalsApi);
   private readonly modal = inject(NzModalService);
 
+  money(v: number): string { return formatMoney(v, this.journal()?.currencyCode); }
   loading = signal(true);
   error = signal<string | null>(null);
   journal = signal<Journal | null>(null);
@@ -212,9 +218,9 @@ export class JournalDetailPage implements OnInit {
     if (!jrn) return [];
     
     const items: DescriptionItem[] = [
-      { label: 'Date', value: new Date(jrn.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) },
+      { label: 'Date', value: displayDate(jrn.date) },
       { label: 'Currency', value: jrn.currencyCode },
-      { label: 'Posted', value: jrn.postedAt ? new Date(jrn.postedAt).toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not posted' }
+      { label: 'Posted', value: jrn.postedAt ? displayDate(jrn.postedAt) : 'Not posted' }
     ];
 
     if (jrn.reference) {
@@ -227,6 +233,8 @@ export class JournalDetailPage implements OnInit {
 
     return items;
   });
+
+  retry(): void { this.loading.set(true); this.error.set(null); this.ngOnInit(); }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

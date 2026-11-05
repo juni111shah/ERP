@@ -165,7 +165,7 @@ public class RouteHandlers :
 
     public async Task<DistributionRouteDto> Handle(UpdateRouteCommand request, CancellationToken cancellationToken)
     {
-        var route = await _routes.Query(new Specification<DistributionRoute>(r => r.Id == request.Id))
+        var route = await _routes.Tracked(new Specification<DistributionRoute>(r => r.Id == request.Id))
             .Include(r => r.Stops)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Route {request.Id} not found.");

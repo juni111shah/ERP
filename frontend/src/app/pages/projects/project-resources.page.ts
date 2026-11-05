@@ -17,6 +17,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { errorText, PRJ_STYLES } from './projects-ui';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 type Tab = 'capacity' | 'allocations' | 'rates';
 const WEEKS = 12;
@@ -26,7 +27,7 @@ const WEEKS = 12;
   selector: 'erp-project-resources',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterModule, NzButtonModule, NzIconModule, NzModalModule, NzTableModule, RecordDrawerComponent, HasPermissionDirective],
+  imports: [ErpDatePipe, DecimalPipe, RouterModule, NzButtonModule, NzIconModule, NzModalModule, NzTableModule, RecordDrawerComponent, HasPermissionDirective],
   template: `
     <nav class="tabs" role="tablist" aria-label="Resources">
       @for (t of tabs(); track t.key) { <button type="button" role="tab" [class.on]="tab() === t.key" [attr.aria-selected]="tab() === t.key" (click)="tab.set(t.key)" [attr.data-testid]="'res-tab-' + t.key">{{ t.label }}</button> }
@@ -67,7 +68,7 @@ const WEEKS = 12;
             <thead><tr><th>Person</th><th>Project</th><th>From</th><th>To</th><th class="prj-num">Hours / week</th><th></th></tr></thead>
             <tbody>
               @for (a of allocations(); track a.id) {
-                <tr><td>{{ a.userName }}</td><td><a class="prj-link" [routerLink]="['/projects', a.projectId]" [queryParams]="{ tab: 'team' }">{{ projectName(a.projectId) }}</a></td><td>{{ a.fromDate }}</td><td>{{ a.toDate }}</td><td class="prj-num">{{ a.hoursPerWeek | number: '1.0-1' }}</td>
+                <tr><td>{{ a.userName }}</td><td><a class="prj-link" [routerLink]="['/projects', a.projectId]" [queryParams]="{ tab: 'team' }">{{ projectName(a.projectId) }}</a></td><td>{{ a.fromDate | erpDate }}</td><td>{{ a.toDate | erpDate }}</td><td class="prj-num">{{ a.hoursPerWeek | number: '1.0-1' }}</td>
                   <td class="prj-num"><ng-container *erpHasPermission="'projects.team.manage'"><button nz-button nzSize="small" (click)="allocState.edit(a)">Edit</button> <button nz-button nzSize="small" nzDanger (click)="removeAlloc(a)">Delete</button></ng-container></td></tr>
               } @empty { <tr><td colspan="6" class="prj-empty">Nobody is allocated yet.</td></tr> }
             </tbody>

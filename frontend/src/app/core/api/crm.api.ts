@@ -1,13 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, switchMap } from 'rxjs';
 import { API_BASE_URL } from './api-config';
 import { CrudApiService } from './crud-api.service';
 
-export type LeadSource = 'Website' | 'Referral' | 'TradeShow' | 'ColdCall' | 'Campaign' | 'Other';
-export type LeadStatus = 'New' | 'Contacted' | 'Qualified' | 'Unqualified' | 'Converted';
-export type OpportunityStage = 'Qualification' | 'Proposal' | 'Negotiation' | 'ClosedWon' | 'ClosedLost';
-export type InteractionType = 'Call' | 'Meeting' | 'Email' | 'Note' | 'Task';
+export type LeadSource = 'website' | 'referral' | 'tradeShow' | 'coldCall' | 'campaign' | 'other';
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted';
+export type OpportunityStage = 'qualification' | 'proposal' | 'negotiation' | 'closedWon' | 'closedLost';
+export type InteractionType = 'call' | 'meeting' | 'email' | 'note' | 'task';
 
 export interface LeadDto {
   id: string;
@@ -174,12 +174,18 @@ export interface CrmKpisDto {
 export class CrmLeadsApi extends CrudApiService<LeadSummaryDto, Partial<LeadInput>> {
   protected readonly resource = 'm/crm/leads';
 
-  getDetail(id: string): Observable<{ data: LeadDto }> {
-    return this.http.get<{ data: LeadDto }>(`${this.url}/${id}`);
+  getDetail(id: string): Observable<LeadDto> {
+    return this.http.get<LeadDto>(`${this.url}/${id}`);
   }
 
-  convert(id: string, payload: ConvertLeadInput): Observable<{ data: string }> {
-    return this.http.post<{ data: string }>(`${this.url}/${id}/convert`, payload);
+  /** The API has no status endpoint: it updates the whole lead, so this sends the current record with the new status. */
+  setStatus(id: string, status: LeadStatus): Observable<LeadDto> {
+    return this.getDetail(id).pipe(switchMap((lead) => this.http.put<LeadDto>(`${this.url}/${id}`, { ...lead, id, status })));
+  }
+
+  /** Returns the id of the new opportunity. */
+  convert(id: string, payload: ConvertLeadInput): Observable<string> {
+    return this.http.post<string>(`${this.url}/${id}/convert`, { id, ...payload });
   }
 }
 
@@ -187,16 +193,16 @@ export class CrmLeadsApi extends CrudApiService<LeadSummaryDto, Partial<LeadInpu
 export class CrmOpportunitiesApi extends CrudApiService<OpportunitySummaryDto, Partial<OpportunityInput>> {
   protected readonly resource = 'm/crm/opportunities';
 
-  getDetail(id: string): Observable<{ data: OpportunityDto }> {
-    return this.http.get<{ data: OpportunityDto }>(`${this.url}/${id}`);
+  getDetail(id: string): Observable<OpportunityDto> {
+    return this.http.get<OpportunityDto>(`${this.url}/${id}`);
   }
 
-  updateStage(id: string, stage: OpportunityStage, probabilityPercent: number): Observable<{ data: OpportunityDto }> {
-    return this.http.post<{ data: OpportunityDto }>(`${this.url}/${id}/stage`, { id, stage, probabilityPercent });
+  updateStage(id: string, stage: OpportunityStage, probabilityPercent: number): Observable<OpportunityDto> {
+    return this.http.post<OpportunityDto>(`${this.url}/${id}/stage`, { id, stage, probabilityPercent });
   }
 
-  closeDeal(id: string, isWon: boolean, actualRevenue: number, closeReason?: string): Observable<{ data: OpportunityDto }> {
-    return this.http.post<{ data: OpportunityDto }>(`${this.url}/${id}/close`, { id, isWon, actualRevenue, closeReason });
+  closeDeal(id: string, isWon: boolean, actualRevenue: number, closeReason?: string): Observable<OpportunityDto> {
+    return this.http.post<OpportunityDto>(`${this.url}/${id}/close`, { id, isWon, actualRevenue, closeReason });
   }
 
   getPipelineSummary(legalEntityId?: string): Observable<PipelineStageSummaryDto[]> {
@@ -209,8 +215,8 @@ export class CrmOpportunitiesApi extends CrudApiService<OpportunitySummaryDto, P
 export class CrmInteractionsApi extends CrudApiService<CustomerInteractionDto, Partial<CustomerInteractionInput>> {
   protected readonly resource = 'm/crm/interactions';
 
-  resolve(id: string): Observable<{ data: boolean }> {
-    return this.http.post<{ data: boolean }>(`${this.url}/${id}/resolve`, {});
+  resolve(id: string): Observable<boolean> {
+    return this.http.post<boolean>(`${this.url}/${id}/resolve`, {});
   }
 
   getByEntity(kind: string, id: string): Observable<CustomerInteractionDto[]> {

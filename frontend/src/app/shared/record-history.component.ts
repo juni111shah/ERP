@@ -38,7 +38,7 @@ interface HistoryEntry { id: string; occurredAt: string; userId?: string; userNa
         <div class="head">
           <nz-tag [nzColor]="e.action === 'Created' ? 'green' : e.action === 'Deleted' ? 'red' : 'blue'">{{ label(e.action) }}</nz-tag>
           <b>{{ e.userName || ('history.system' | translate: 'System') }}</b>
-          <span class="when"><bdi dir="ltr">{{ e.occurredAt | date: 'yyyy-MM-dd HH:mm' }}</bdi></span>
+          <span class="when"><bdi dir="ltr">{{ e.occurredAt | date: 'dd MMM yyyy, HH:mm' }}</bdi></span>
         </div>
         @if (e.changes.length) {
           <table>

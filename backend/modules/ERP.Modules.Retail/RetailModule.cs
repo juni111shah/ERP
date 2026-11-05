@@ -43,7 +43,7 @@ public sealed class RetailModule : ModuleBase
     public override IEnumerable<SettingDefinition> Settings =>
     [
         new("retail.stackPromotions", "Allow stacking multiple promotional coupons", "false", "bool"),
-        new("retail.defaultPriceListType", "Default price list pricing mechanism", "Standard", "string"),
+        new("retail.defaultPriceListType", "Default price list pricing mechanism", "\"Standard\"", "string"),
     ];
 
     public override IEnumerable<CustomizableEntityDefinition> CustomizableEntities =>

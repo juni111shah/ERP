@@ -8,9 +8,10 @@ import {
   HolderOutline, UndoOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline,
   FallOutline, FolderOpenOutline, PartitionOutline, RiseOutline, UnorderedListOutline,
   ProjectOutline, ClockCircleOutline, DollarCircleOutline,
-  ShoppingCartOutline, LineChartOutline,
+  ShoppingCartOutline, LineChartOutline, ArrowDownOutline, ArrowUpOutline, MinusOutline,
   ArrowLeftOutline, BarcodeOutline, CalculatorOutline, CalendarOutline, CommentOutline, EyeOutline, FieldTimeOutline, FileDoneOutline, FlagOutline, HistoryOutline, InboxOutline, MoreOutline,
   PaperClipOutline, PauseCircleOutline, PlayCircleOutline, SaveOutline, ScheduleOutline, SendOutline, TableOutline, TagOutline, TransactionOutline, UserAddOutline, ZoomInOutline, ZoomOutOutline,
+  AlertOutline, ArrowRightOutline, CarOutline, CheckCircleFill, CloseCircleFill, CloseCircleOutline, CloseOutline, CompassOutline, DesktopOutline, DownOutline, EnvironmentOutline, ExperimentOutline, EyeInvisibleOutline, FileSearchOutline, FilterFill, FrownOutline, GiftOutline, InfoCircleOutline, MinusCircleOutline, PhoneOutline, PoweroffOutline, ProfileOutline, SafetyCertificateFill, SafetyCertificateOutline, SolutionOutline, StepForwardOutline, SyncOutline, ThunderboltFill, TrophyOutline, UploadOutline,
 } from '@ant-design/icons-angular/icons';
 
 /** Icons used by the shell and the server-driven menu (MenuItemDefinition.Icon). Unknown names fall back to "appstore". */
@@ -21,6 +22,8 @@ export const APP_ICONS = [
   SafetyOutline, SearchOutline, SettingOutline, ShoppingOutline, ShopOutline, SwapOutline, TeamOutline, ToolOutline, UserOutline, MailOutline, WarningOutline, CheckCircleOutline,
   ProjectOutline, ClockCircleOutline, DollarCircleOutline,
   ShoppingCartOutline, LineChartOutline,
+  // Stock movements: in, out, no change.
+  ArrowDownOutline, ArrowUpOutline, MinusOutline,
   // Toolbar and detail-page action icons (detail-page actions pass icon names through ActionDef.icon).
   CheckOutline, CopyOutline, EditOutline, FileAddOutline, LinkOutline, ReloadOutline, RollbackOutline, StopOutline, ThunderboltOutline,
   // Pagination bar and collapsed filter controls.
@@ -32,5 +35,6 @@ export const APP_ICONS = [
   // Projects screens, and module menu icons that were fetched from /assets and failed.
   ArrowLeftOutline, BarcodeOutline, CalculatorOutline, CalendarOutline, CommentOutline, EyeOutline, FieldTimeOutline, FileDoneOutline, FlagOutline, HistoryOutline, InboxOutline, MoreOutline,
   PaperClipOutline, PauseCircleOutline, PlayCircleOutline, SaveOutline, ScheduleOutline, SendOutline, TableOutline, TagOutline, TransactionOutline, UserAddOutline, ZoomInOutline, ZoomOutOutline,
+  AlertOutline, ArrowRightOutline, CarOutline, CheckCircleFill, CloseCircleFill, CloseCircleOutline, CloseOutline, CompassOutline, DesktopOutline, DownOutline, EnvironmentOutline, ExperimentOutline, EyeInvisibleOutline, FileSearchOutline, FilterFill, FrownOutline, GiftOutline, InfoCircleOutline, MinusCircleOutline, PhoneOutline, PoweroffOutline, ProfileOutline, SafetyCertificateFill, SafetyCertificateOutline, SolutionOutline, StepForwardOutline, SyncOutline, ThunderboltFill, TrophyOutline, UploadOutline,
 ];
 export const KNOWN_ICONS = new Set(APP_ICONS.map((i) => i.name));

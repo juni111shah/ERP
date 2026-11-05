@@ -1,5 +1,6 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { problemMessage } from '../../core/http/problem-details';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -26,12 +27,13 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 
 @Component({
   selector: 'erp-purchase-orders-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [StatusTagComponent,
     CommonModule,
     DecimalPipe,
     ReactiveFormsModule,
@@ -63,25 +65,25 @@ import { StatCardComponent } from '../../shared/stat-card.component';
         label="Open POs"
         [value]="kpis()?.openOrdersCount ?? 0"
         format="number"
-        caption="orders in procurement"
+        caption="draft to partly received"
         [tone]="1" />
       <erp-stat-card
-        label="Procurement Backlog"
+        label="Open Order Value"
         [value]="kpis()?.openOrdersAmount ?? 0"
         format="money"
-        caption="unreceived commitment"
+        caption="open orders, including drafts"
         [tone]="3" />
       <erp-stat-card
         label="Pending Receiving"
         [value]="kpis()?.pendingReceiptsCount ?? 0"
         format="number"
-        caption="orders awaiting GRN"
+        caption="approved, not fully received"
         [tone]="4" />
       <erp-stat-card
-        label="Total Spend"
+        label="Total Ordered"
         [value]="kpis()?.totalSpend ?? 0"
         format="money"
-        caption="lifetime procurement"
+        caption="all orders except cancelled"
         [tone]="0" />
     </div>
 
@@ -89,15 +91,17 @@ import { StatCardComponent } from '../../shared/stat-card.component';
     <erp-paged-table
       [list]="list"
       [columns]="columns"
-      searchPlaceholder="Search PO number, vendor, quote ref...">
+      searchPlaceholder="Search PO number, vendor, quote ref..."
+      exportFilename="purchase-orders"
+      (rowClick)="openOrder($event)">
 
       <button toolbar *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="po-new">
         <span nz-icon nzType="plus"></span>New Purchase Order
       </button>
           
-          <ng-template #cell let-row let-column="column">
+          <ng-template #cell let-row let-column="column" let-value="value">
             @if (column.key === 'number') {
-              <a [routerLink]="['/purchasing/orders', row.id]" class="po-link">
+              <a [routerLink]="['/purchasing/orders', row.id]" class="po-link" (click)="$event.stopPropagation()">
                 <strong>{{ row.number }}</strong>
               </a>
             } @else if (column.key === 'vendorName') {
@@ -108,9 +112,9 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                 }
               </div>
             } @else if (column.key === 'totalAmount') {
-              <strong>{{ row.currency }} {{ row.totalAmount | number:'1.2-2' }}</strong>
+              <strong class="amount">{{ row.currency }} {{ row.totalAmount | number:'1.2-2' }}</strong>
             } @else if (column.key === 'status') {
-              <nz-tag [nzColor]="statusColor(row.status)">{{ row.status }}</nz-tag>
+              <erp-status [value]="row.status" />
             } @else if (column.key === 'invoiced') {
               @if (row.invoicedBillId) {
                 <nz-tag nzColor="green"><span nz-icon nzType="check"></span> Billed</nz-tag>
@@ -118,20 +122,19 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                 <nz-tag nzColor="default">Pending</nz-tag>
               }
             } @else if (column.key === 'actions') {
-              <div class="action-buttons">
-                <a [routerLink]="['/purchasing/orders', row.id]" nz-button nzType="link" nzSize="small">
-                  Manage
-                </a>
-                <a [href]="'/print/purchase-order/' + row.id" target="_blank" nz-button nzType="link" nzSize="small" (click)="$event.stopPropagation()">
+              <div class="action-buttons" (click)="$event.stopPropagation()">
+                <a [href]="'/print/purchase-order/' + row.id" target="_blank" nz-button nzType="link" nzSize="small">
                   <span nz-icon nzType="printer"></span>Print
                 </a>
-                @if (row.status === 'Draft') {
+                @if (row.status === 'draft' || row.status === 'cancelled') {
                   <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="link" nzDanger nzSize="small"
                           nz-popconfirm nzPopconfirmTitle="Delete this purchase order?" (nzOnConfirm)="deleteOrder(row.id)">
                     Delete
                   </button>
                 }
               </div>
+            } @else {
+              {{ value }}
             }
           </ng-template>
         </erp-paged-table>
@@ -267,7 +270,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                       <td class="line-calc">{{ calculateLineTotal(ctrl.value) | number:'1.2-2' }}</td>
                       <td>
                         @if (linesArray.length > 1) {
-                          <a (click)="removeLine($index)" style="color: #ef4444;"><span nz-icon nzType="delete"></span></a>
+                          <button nz-button nzType="text" nzDanger nzSize="small" type="button" aria-label="Remove line" nz-tooltip nzTooltipTitle="Remove line" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button>
                         }
                       </td>
                     </tr>
@@ -319,22 +322,23 @@ import { StatCardComponent } from '../../shared/stat-card.component';
       </nz-drawer>
   `,
   styles: [`
-    .po-link { color: #10955d; font-weight: 600; }
-    .po-link:hover { text-decoration: underline; color: #0c7347; }
+    .po-link { color: var(--erp-color-primary); font-weight: 600; white-space: nowrap; }
+    .amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .po-link:hover { text-decoration: underline; color: var(--erp-color-primary-hover); }
     .vendor-cell { display: flex; flex-direction: column; }
-    .vendor-name { font-weight: 600; color: #1e293b; }
-    .vendor-ref { font-size: 12px; color: #64748b; }
+    .vendor-name { font-weight: 600; color: var(--erp-color-text-primary); }
+    .vendor-ref { font-size: 12px; color: var(--erp-color-text-muted); }
     .action-buttons { display: flex; gap: 4px; align-items: center; }
-    .lines-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 8px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
-    .lines-header h3 { margin: 0; font-size: 15px; font-weight: 600; color: #1e293b; }
+    .lines-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 8px; border-top: 1px solid var(--erp-color-border-subtle); padding-top: 16px; }
+    .lines-header h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--erp-color-text-primary); }
     .lines-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .lines-table th { background: #f8fafc; padding: 8px; text-align: left; font-weight: 600; color: #475569; border: 1px solid #e2e8f0; }
-    .lines-table td { padding: 4px; border: 1px solid #e2e8f0; vertical-align: middle; }
-    .line-calc { text-align: right; padding-right: 8px; font-weight: 600; color: #0f172a; }
-    .po-summary-panel { margin-top: 16px; margin-left: auto; width: 280px; background: #f8fafc; border-radius: 8px; padding: 12px; border: 1px solid #e2e8f0; }
-    .summary-line { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: #475569; }
-    .total-highlight { border-top: 1px solid #cbd5e1; padding-top: 6px; margin-top: 6px; font-weight: 700; font-size: 15px; color: #0f172a; }
-    .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 16px; }
+    .lines-table th { background: var(--erp-color-bg-subtle); padding: 8px; text-align: left; font-weight: 600; color: var(--erp-color-text-secondary); border: 1px solid var(--erp-color-border-subtle); }
+    .lines-table td { padding: 4px; border: 1px solid var(--erp-color-border-subtle); vertical-align: middle; }
+    .line-calc { text-align: right; padding-inline-end: 8px; font-weight: 600; color: var(--erp-color-text-primary); }
+    .po-summary-panel { margin-top: 16px; margin-inline-start: auto; width: 280px; background: var(--erp-color-bg-subtle); border-radius: 8px; padding: 12px; border: 1px solid var(--erp-color-border-subtle); }
+    .summary-line { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: var(--erp-color-text-secondary); }
+    .total-highlight { border-top: 1px solid var(--erp-color-border-default); padding-top: 6px; margin-top: 6px; font-weight: 700; font-size: 15px; color: var(--erp-color-text-primary); }
+    .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; border-top: 1px solid var(--erp-color-border-subtle); padding-top: 16px; }
   `],
 })
 export class PurchaseOrdersListPage {
@@ -380,17 +384,18 @@ export class PurchaseOrdersListPage {
   }
 
   readonly columns: TableColumn<PurchaseOrderSummaryDto>[] = [
-    { key: 'number', label: 'PO #', sortField: 'number', width: '130px' },
+    { key: 'number', label: 'PO #', sortField: 'number', width: '140px' },
     { key: 'vendorName', label: 'Vendor / Supplier', sortField: 'vendorName' },
-    { key: 'orderDate', label: 'Order Date', sortField: 'orderDate', width: '120px' },
-    { key: 'expectedDeliveryDate', label: 'Expected Due', sortField: 'expectedDeliveryDate', width: '120px' },
-    { key: 'totalAmount', label: 'Total Amount', sortField: 'totalAmount', width: '150px' },
-    { key: 'status', label: 'Status', sortField: 'status', width: '140px' },
-    { key: 'invoiced', label: 'Bill', width: '110px' },
-    { key: 'actions', label: 'Actions', width: '130px' },
+    { key: 'orderDate', label: 'Order Date', sortField: 'orderDate', width: '120px', filterField: 'orderDate' },
+    { key: 'expectedDeliveryDate', label: 'Expected Due', sortField: 'expectedDeliveryDate', width: '120px', filterField: 'expectedDeliveryDate' },
+    { key: 'totalAmount', label: 'Total Amount', sortField: 'totalAmount', width: '160px', align: 'right', filter: false },
+    { key: 'status', label: 'Status', width: '140px', filterField: 'status', filterOptions: ['draft', 'submitted', 'approved', 'partiallyReceived', 'received', 'billed', 'cancelled'] },
+    { key: 'invoiced', label: 'Bill', width: '110px', filter: false, value: (r) => (r.invoicedBillId ? 'Billed' : 'Pending') },
+    { key: 'actions', label: 'Actions', width: '140px' },
   ];
 
-  readonly calculatedTotals = computed(() => {
+  /** A plain function: the form array is not a signal, so a computed would keep its first result. */
+  readonly calculatedTotals = () => {
     let sub = 0;
     let tax = 0;
     const lines = this.linesArray.value as { quantity: number; unitPrice: number; discountPercent: number; taxRate: number }[];
@@ -403,7 +408,7 @@ export class PurchaseOrdersListPage {
       tax += taxAmt;
     }
     return { subTotal: sub, taxTotal: tax, total: sub + tax };
-  });
+  };
 
   constructor() {
     this.loadKpis();
@@ -439,6 +444,10 @@ export class PurchaseOrdersListPage {
       next: (res) => this.entities.set(res.items.map((x) => ({ id: x.id, name: x.name }))),
       error: () => {},
     });
+  }
+
+  openOrder(row: PurchaseOrderSummaryDto): void {
+    this.router.navigate(['/purchasing/orders', row.id]);
   }
 
   loadVendors(): void {
@@ -502,7 +511,7 @@ export class PurchaseOrdersListPage {
       expectedDeliveryDate: null,
       currency: this.currencyService.code(),
       paymentTerms: 'Net 30',
-      deliveryAddress: 'Central Warehouse',
+      deliveryAddress: '',
       notes: '',
     });
     this.linesArray.clear();
@@ -535,17 +544,6 @@ export class PurchaseOrdersListPage {
     const afterDisc = base - disc;
     const tax = afterDisc * ((val.taxRate || 0) / 100);
     return afterDisc + tax;
-  }
-
-  statusColor(status: string): string {
-    switch (status) {
-      case 'Approved': return 'blue';
-      case 'PartiallyReceived': return 'orange';
-      case 'Received': return 'cyan';
-      case 'Billed': return 'green';
-      case 'Cancelled': return 'red';
-      default: return 'default';
-    }
   }
 
   submitForm(): void {
@@ -585,7 +583,7 @@ export class PurchaseOrdersListPage {
       },
       error: (err) => {
         this.isSubmitting.set(false);
-        this.message.error(err?.error?.message ?? 'Failed to create purchase order');
+        this.message.error(problemMessage(err, 'Failed to create purchase order'));
       },
     });
   }
@@ -597,7 +595,7 @@ export class PurchaseOrdersListPage {
         this.list.reload();
         this.loadKpis();
       },
-      error: (err) => this.message.error(err?.error?.message ?? 'Failed to delete order'),
+      error: (err) => this.message.error(problemMessage(err, 'Failed to delete order')),
     });
   }
 

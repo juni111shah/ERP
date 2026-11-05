@@ -13,6 +13,7 @@ import { BillableWork, BillInput, BillPreviewDto, ProjectsExtraApi } from '../..
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { errorText, PRJ_STYLES } from './projects-ui';
+import { ErpLabelPipe, ErpDatePipe } from '../../shared/display.pipes';
 
 /**
  * Raising an invoice for a project: pick the lines, choose how they are grouped, see exactly what the invoice will say, then create it.
@@ -22,7 +23,7 @@ import { errorText, PRJ_STYLES } from './projects-ui';
   selector: 'erp-bill-modal',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, NzButtonModule, NzDatePickerModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule],
+  imports: [ErpLabelPipe, ErpDatePipe, DecimalPipe, FormsModule, NzButtonModule, NzDatePickerModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule],
   template: `
     <nz-modal [nzVisible]="projectId() !== null" [nzTitle]="'Bill ' + projectName()" [nzWidth]="880" (nzOnCancel)="close()" [nzFooter]="footer">
       <ng-container *nzModalContent>
@@ -32,21 +33,21 @@ import { errorText, PRJ_STYLES } from './projects-ui';
               <h4>Milestones ready to bill</h4>
               @for (m of w.milestones; track m.id) {
                 <label class="line"><input type="checkbox" [checked]="pickedMilestones().has(m.id)" (change)="toggle(pickedMilestones, m.id, $any($event.target).checked)" [attr.aria-label]="'Bill ' + m.title" />
-                  <span class="what">{{ m.title }}</span><span class="prj-muted">{{ m.achievedDate }}</span><span class="prj-num">{{ m.amount | number: '1.2-2' }}</span></label>
+                  <span class="what">{{ m.title }}</span><span class="prj-muted">{{ m.achievedDate | erpDate }}</span><span class="prj-num">{{ m.amount | number: '1.2-2' }}</span></label>
               }
             }
             @if (w.time.length) {
               <h4>Time <button nz-button nzType="link" nzSize="small" type="button" (click)="all(pickedTime, w.time, true)">All</button><button nz-button nzType="link" nzSize="small" type="button" (click)="all(pickedTime, w.time, false)">None</button></h4>
               @for (t of w.time; track t.id) {
                 <label class="line"><input type="checkbox" [checked]="pickedTime().has(t.id)" (change)="toggle(pickedTime, t.id, $any($event.target).checked)" [attr.aria-label]="'Bill time of ' + t.worker + ' on ' + t.date" />
-                  <span class="what">{{ t.worker }}{{ t.task ? ' · ' + t.task : '' }}{{ t.description ? ' · ' + t.description : '' }}</span><span class="prj-muted">{{ t.date }} · {{ t.hours | number: '1.0-2' }} h</span><span class="prj-num">{{ t.amount | number: '1.2-2' }}</span></label>
+                  <span class="what">{{ t.worker }}{{ t.task ? ' · ' + t.task : '' }}{{ t.description ? ' · ' + t.description : '' }}</span><span class="prj-muted">{{ t.date | erpDate }} · {{ t.hours | number: '1.0-2' }} h</span><span class="prj-num">{{ t.amount | number: '1.2-2' }}</span></label>
               }
             }
             @if (w.expenses.length) {
               <h4>Expenses</h4>
               @for (e of w.expenses; track e.id) {
                 <label class="line"><input type="checkbox" [checked]="pickedExpenses().has(e.id)" (change)="toggle(pickedExpenses, e.id, $any($event.target).checked)" [attr.aria-label]="'Bill ' + e.description" />
-                  <span class="what">{{ e.category }} · {{ e.description }}</span><span class="prj-muted">{{ e.date }}</span><span class="prj-num">{{ e.amount | number: '1.2-2' }}</span></label>
+                  <span class="what">{{ e.category | erpLabel }} · {{ e.description }}</span><span class="prj-muted">{{ e.date | erpDate }}</span><span class="prj-num">{{ e.amount | number: '1.2-2' }}</span></label>
               }
             }
             @if (!w.time.length && !w.expenses.length && !w.milestones.length && w.billingType !== 'fixedFee') { <p class="prj-empty">Nothing is ready to bill on this project.</p> }

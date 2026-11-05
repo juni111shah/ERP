@@ -1,4 +1,5 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
+import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -10,11 +11,13 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
-import { NzTagModule } from 'ng-zorro-antd/tag';
+import { catchError, forkJoin, of } from 'rxjs';
 import {
   PosOrderDto,
   PosOrdersApi,
   PosOrderSummaryDto,
+  PosRegisterDto,
+  PosRegistersApi,
 } from '../../core/api/pos.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { SessionStore } from '../../core/session/session.store';
@@ -22,12 +25,15 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
+import { ErpDatePipe } from '../../shared/display.pipes';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { displayLabel } from '../../core/format/display';
 
 @Component({
   selector: 'erp-pos-orders-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [ErpDatePipe, StatusTagComponent,
     CommonModule,
     DecimalPipe,
     FormsModule,
@@ -36,7 +42,6 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
     NzCardModule,
     NzButtonModule,
     NzIconModule,
-    NzTagModule,
     NzModalModule,
     NzInputModule,
     NzDividerModule,
@@ -45,41 +50,41 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
     ThermalReceiptComponent,
   ],
   template: `
-    <erp-paged-table [list]="list" [columns]="columns">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search order number, customer, cashier..." emptyText="No counter sales yet. Open the terminal to make one." exportFilename="pos-orders" [clickable]="false">
       <a toolbar *erpHasPermission="'pos.orders.create'" routerLink="/pos/terminal" nz-button nzType="primary" data-testid="pos-open-terminal">
         <span nz-icon nzType="shop"></span>Open Terminal
       </a>
-          <ng-template #cell let-ord let-column="column">
+          <ng-template #cell let-ord let-column="column" let-value="value">
             @if (column.key === 'number') {
-              <a (click)="viewOrder(ord.id)" style="font-weight: 700; color: #2563eb;">
+              <a (click)="viewOrder(ord)" class="num-cell">
                 {{ ord.number }}
               </a>
             } @else if (column.key === 'customerName') {
               {{ ord.customerName }}
             } @else if (column.key === 'cashierName') {
-              {{ ord.cashierName }}
+              {{ ord.cashierName || '-' }}
             } @else if (column.key === 'orderDate') {
-              {{ ord.orderDate | date:'medium' }}
+              <span class="nowrap">{{ ord.orderDate | erpDate }}</span>
             } @else if (column.key === 'lineCount') {
-              {{ ord.lineCount }} items
+              {{ ord.lineCount }} {{ ord.lineCount === 1 ? 'item' : 'items' }}
             } @else if (column.key === 'totalAmount') {
-              <strong>{{ currency() }} {{ ord.totalAmount | number:'1.2-2' }}</strong>
+              <strong class="amount">{{ currency() }} {{ ord.totalAmount | number:'1.2-2' }}</strong>
             } @else if (column.key === 'status') {
-              <nz-tag [nzColor]="ord.status === 'Completed' ? 'green' : 'error'">
-                {{ ord.status }}
-              </nz-tag>
+              <erp-status [value]="ord.status" />
             } @else if (column.key === 'actions') {
-              <button nz-button nzType="link" nzSize="small" (click)="viewOrder(ord.id)">
+              <button nz-button nzType="link" nzSize="small" (click)="viewOrder(ord)">
                 Details
               </button>
               <a [href]="'/print/pos-receipt/' + ord.id" target="_blank" nz-button nzType="link" nzSize="small">
                 Receipt
               </a>
-              @if (ord.status === 'Completed') {
+              @if (ord.status === 'completed') {
                 <button *erpHasPermission="'pos.orders.void'" nz-button nzType="link" nzDanger nzSize="small" (click)="openVoidModal(ord)">
                   Void
                 </button>
               }
+            } @else {
+              {{ value }}
             }
           </ng-template>
         </erp-paged-table>
@@ -110,7 +115,9 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
       <!-- Void Order Modal -->
       <nz-modal
         [(nzVisible)]="voidModalVisible"
-        nzTitle="Void POS Sales Order"
+        nzTitle="Void Order"
+        nzOkText="Void Order"
+        nzOkDanger
         (nzOnCancel)="voidModalVisible = false"
         (nzOnOk)="submitVoid()"
       >
@@ -119,45 +126,52 @@ import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/therma
             <p>Are you sure you want to void order <strong>{{ orderToVoid?.number }}</strong> for {{ currency() }} {{ orderToVoid?.totalAmount | number:'1.2-2' }}?</p>
             <div>
               <label style="font-weight: 600; display: block; margin-bottom: 4px;">Reason for Void</label>
-              <input aria-label="e.g. Accidental ring-up / customer return" nz-input [(ngModel)]="voidReason" placeholder="e.g. Accidental ring-up / customer return" />
+              <input aria-label="Reason for void" nz-input [(ngModel)]="voidReason" placeholder="e.g. Rung up by mistake" />
             </div>
           </div>
         </ng-container>
       </nz-modal>
   `,
   styles: [`
-    .line-items-box { max-height: 200px; overflow-y: auto; }
+    .num-cell { font-weight: 600; white-space: nowrap; }
+    .nowrap { white-space: nowrap; }
+    .amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
   `],
 })
 export class PosOrdersListPage {
   private readonly api = inject(PosOrdersApi);
+  private readonly registersApi = inject(PosRegistersApi);
   private readonly sessionStore = inject(SessionStore);
   private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
 
   readonly currency = this.currencyService.currency;
-  readonly list = createPagedList<PosOrderSummaryDto>((q: any) => this.api.list(q));
+  readonly list = createPagedList<PosOrderSummaryDto>((q: any) => this.api.list(q), { sort: '-orderDate' });
 
   readonly columns: TableColumn<PosOrderSummaryDto>[] = [
     { key: 'number', label: 'Order #', sortField: 'number' },
     { key: 'customerName', label: 'Customer', sortField: 'customerName' },
-    { key: 'cashierName', label: 'Cashier', sortField: 'cashierName' },
-    { key: 'orderDate', label: 'Date', sortField: 'orderDate' },
-    { key: 'lineCount', label: 'Lines', align: 'right' },
-    { key: 'totalAmount', label: 'Total Amount', sortField: 'totalAmount', align: 'right' },
-    { key: 'status', label: 'Status', sortField: 'status' },
+    { key: 'cashierName', label: 'Cashier' },
+    { key: 'orderDate', label: 'Date', sortField: 'orderDate', filterField: 'orderDate' },
+    { key: 'lineCount', label: 'Lines', align: 'right', filter: false },
+    { key: 'totalAmount', label: 'Total Amount', sortField: 'totalAmount', align: 'right', filter: false },
+    { key: 'status', label: 'Status', filterField: 'status', filterOptions: ['completed', 'parked', 'voided'] },
     { key: 'actions', label: 'Actions' },
   ];
 
   viewModalVisible = false;
   readonly selectedOrder = signal<PosOrderDto | null>(null);
+  private readonly selectedRegister = signal<PosRegisterDto | null>(null);
 
   readonly thermalReceiptData = computed<ThermalReceiptData | null>(() => {
     const o = this.selectedOrder();
     if (!o) return null;
     return {
-      organizationName: 'HigherSquare 360 ERP',
-      organizationNameAr: 'هاير سكوير 360',
+      organizationName: this.sessionStore.me()?.workspace?.name,
+      organizationNameAr: this.sessionStore.me()?.workspace?.name,
+      branchName: this.selectedRegister()?.name,
+      headerNote: this.selectedRegister()?.receiptHeader,
+      footerNote: this.selectedRegister()?.receiptFooter,
       title: 'Tax Invoice / Cash Receipt',
       titleAr: 'فاتورة ضريبية / إيصال مبيعات',
       receiptNumber: o.number,
@@ -189,12 +203,18 @@ export class PosOrdersListPage {
   orderToVoid: PosOrderSummaryDto | null = null;
   voidReason = '';
 
-  viewOrder(id: string): void {
-    this.api.get(id).subscribe({
-      next: (ord) => {
-        this.selectedOrder.set(ord);
+  viewOrder(summary: PosOrderSummaryDto): void {
+    // The receipt still shows if the register's wording cannot be loaded.
+    forkJoin({
+      order: this.api.get(summary.id),
+      register: this.registersApi.get(summary.registerId).pipe(catchError(() => of(null))),
+    }).subscribe({
+      next: ({ order, register }) => {
         this.viewModalVisible = true;
+        this.selectedRegister.set(register);
+        this.selectedOrder.set(order);
       },
+      error: () => this.message.error('Could not load this order.'),
     });
   }
 
@@ -207,7 +227,7 @@ export class PosOrdersListPage {
   submitVoid(): void {
     if (!this.orderToVoid) return;
     if (!this.voidReason.trim()) {
-      this.message.warning('Please provide a reason to void the transaction.');
+      this.message.warning('Enter a reason to void this order.');
       return;
     }
 
@@ -217,7 +237,7 @@ export class PosOrdersListPage {
         this.list.reload();
         this.message.success(`Order ${this.orderToVoid?.number} voided.`);
       },
-      error: (err) => this.message.error(err?.error?.message || 'Failed to void order.'),
+      error: (err) => this.message.error(problemMessage(err, 'Failed to void order.')),
     });
   }
 }

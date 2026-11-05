@@ -1,9 +1,7 @@
-import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { NzBadgeModule } from 'ng-zorro-antd/badge';
+import { DecimalPipe } from '@angular/common';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -11,376 +9,300 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTagModule } from 'ng-zorro-antd/tag';
-import { LegalEntitiesApi } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
-import { PartiesApi, PartyDto } from '../parties.page';
 import {
   EngagementSummaryDto,
   RetainerCycle,
-  RetainerInput,
   RetainerStatus,
   RetainerSummaryDto,
   ServicesEngagementsApi,
-  ServicesRetainersApi
+  ServicesRetainersApi,
 } from '../../core/api/services.api';
+import { toIsoDate } from '../../core/custom-fields/custom-field-form';
+import { problemMessage } from '../../core/http/problem-details';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { ErpLabelPipe } from '../../shared/display.pipes';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+
+/** The end date field must not fall before the start date field of the same form. */
+const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErrors | null => {
+  const start = c.parent?.get(startKey)?.value;
+  return start && c.value && toIsoDate(new Date(c.value)) < toIsoDate(new Date(start)) ? { beforeStart: true } : null;
+};
+
+const CYCLE_PERIOD: Record<RetainerCycle, string> = { monthly: 'month', quarterly: 'quarter', annual: 'year' };
 
 @Component({
   selector: 'erp-retainers-page',
   standalone: true,
   imports: [
-    CommonModule,
+    DecimalPipe,
+    ErpLabelPipe,
     ReactiveFormsModule,
-    NzCardModule,
     NzButtonModule,
     NzIconModule,
-    NzTagModule,
-    NzBadgeModule,
     NzDrawerModule,
     NzFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
+    NzPopconfirmModule,
     NzSelectModule,
     HasPermissionDirective,
-    PagedTableComponent
+    PagedTableComponent,
+    StatusTagComponent,
   ],
   template: `
-    <erp-paged-table
-      [list]="list"
-      [columns]="columns">
+    <!-- The server allows no search or sorting on retainers yet, so neither is offered. -->
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, title or client" [clickable]="false" emptyText="No retainers yet. Add one to bill a client on a regular cycle.">
       <button toolbar nz-button nzType="primary" *erpHasPermission="'services.retainers.manage'" (click)="openCreateDrawer()" data-testid="retainer-new">
-        <span nz-icon nzType="plus"></span> New Retainer Contract
+        <span nz-icon nzType="plus"></span> New Retainer
       </button>
-          <ng-template #cell let-row let-column="column">
-            <ng-container [ngSwitch]="column.key">
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('retainerNumber') { <span class="code strong">{{ row.retainerNumber }}</span> }
+          @case ('title') {
+            <div>{{ row.title }}</div>
+            <div class="sub">{{ row.clientName }}</div>
+          }
+          @case ('cycle') { {{ row.cycle | erpLabel }} }
+          @case ('recurringFee') {
+            <span class="num strong">{{ currency() }} {{ row.recurringFee | number:'1.2-2' }}</span>
+            <span class="sub nowrap"> / {{ period(row.cycle) }}</span>
+          }
+          @case ('includedHours') { <span class="num">{{ row.includedHours | number:'1.0-2' }} h</span> }
+          @case ('status') { <erp-status [value]="row.status" /> }
+          @case ('actions') {
+            <div class="table-actions" *erpHasPermission="'services.retainers.manage'">
+              @if (row.status === 'active') {
+                <button nz-button nzType="link" nzSize="small" (click)="setStatus(row, 'paused')">
+                  <span nz-icon nzType="pause-circle"></span> Pause
+                </button>
+              }
+              @if (row.status === 'paused') {
+                <button nz-button nzType="link" nzSize="small" (click)="setStatus(row, 'active')">
+                  <span nz-icon nzType="play-circle"></span> Resume
+                </button>
+              }
+              @if (row.status !== 'terminated') {
+                <button nz-button nzType="link" nzDanger nzSize="small"
+                        nz-popconfirm [nzPopconfirmTitle]="'Terminate ' + row.retainerNumber + '? This cannot be undone.'" (nzOnConfirm)="setStatus(row, 'terminated')">
+                  <span nz-icon nzType="stop"></span> Terminate
+                </button>
+              }
+            </div>
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
 
-              <ng-container *ngSwitchCase="'number'">
-                <span class="font-mono font-semibold text-primary">{{ row.retainerNumber }}</span>
-              </ng-container>
+    <!-- Create Retainer Drawer -->
+    <nz-drawer [nzVisible]="drawerVisible()" nzTitle="New retainer" [nzWidth]="500" (nzOnClose)="drawerVisible.set(false)">
+      <ng-container *nzDrawerContent>
+        <form nz-form [formGroup]="form" (ngSubmit)="submitRetainer()" nzLayout="vertical">
+          <nz-form-item>
+            <nz-form-label nzRequired>Engagement</nz-form-label>
+            <nz-form-control nzErrorTip="Choose an engagement" [nzExtra]="selectedEngagement() ? 'Client: ' + selectedEngagement()!.clientName : undefined">
+              <nz-select formControlName="engagementId" nzShowSearch nzPlaceHolder="Choose an engagement" nzNotFoundContent="No open engagements. Create one first.">
+                @for (eng of openEngagements(); track eng.id) {
+                  <nz-option [nzValue]="eng.id" [nzLabel]="eng.engagementCode + ' - ' + eng.title"></nz-option>
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
 
-              <ng-container *ngSwitchCase="'title'">
-                <div>
-                  <div class="font-medium text-slate-800 dark:text-slate-100">{{ row.title }}</div>
-                  <div class="text-xs text-secondary">{{ row.clientName }}</div>
-                </div>
-              </ng-container>
+          <nz-form-item>
+            <nz-form-label nzRequired>Title</nz-form-label>
+            <nz-form-control nzErrorTip="Enter a title">
+              <input nz-input formControlName="title" placeholder="e.g. Monthly advisory retainer" />
+            </nz-form-control>
+          </nz-form-item>
 
-              <ng-container *ngSwitchCase="'cycle'">
-                <nz-tag [nzColor]="getCycleColor(row.cycle)">{{ row.cycle }}</nz-tag>
-              </ng-container>
+          <nz-form-item>
+            <nz-form-label nzRequired>Billing cycle</nz-form-label>
+            <nz-form-control>
+              <nz-select formControlName="cycle">
+                <nz-option nzValue="monthly" nzLabel="Monthly"></nz-option>
+                <nz-option nzValue="quarterly" nzLabel="Quarterly"></nz-option>
+                <nz-option nzValue="annual" nzLabel="Annual"></nz-option>
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
 
-              <ng-container *ngSwitchCase="'fee'">
-                <span class="font-mono font-semibold">{{ row.recurringFee | number:'1.2-2' }}</span>
-                <span class="text-xs text-secondary ml-1">/ {{ row.cycle }}</span>
-              </ng-container>
-
-              <ng-container *ngSwitchCase="'hours'">
-                <span class="font-medium">{{ row.includedHours }} hrs</span>
-                <span class="text-xs text-secondary ml-1">included</span>
-              </ng-container>
-
-              <ng-container *ngSwitchCase="'status'">
-                <nz-badge [nzStatus]="getStatusBadge(row.status)" [nzText]="row.status"></nz-badge>
-              </ng-container>
-
-              <ng-container *ngSwitchCase="'actions'">
-                <div class="table-actions" *erpHasPermission="'services.retainers.manage'">
-                  @if (row.status === 'Active') {
-                    <button aria-label="Pause Retainer" nz-button nzType="text" nzSize="small" (click)="toggleStatus(row, 'Paused')" title="Pause Retainer">
-                      <span nz-icon nzType="pause-circle"></span>
-                    </button>
-                  } @else {
-                    <button aria-label="Activate Retainer" nz-button nzType="text" nzSize="small" (click)="toggleStatus(row, 'Active')" title="Activate Retainer">
-                      <span nz-icon nzType="play-circle"></span>
-                    </button>
-                  }
-                </div>
-              </ng-container>
-
-            </ng-container>
-          </ng-template>
-        </erp-paged-table>
-
-      <!-- Create Retainer Drawer -->
-      <nz-drawer
-        [nzVisible]="drawerVisible()"
-        nzTitle="New Client Retainer Contract"
-        [nzWidth]="500"
-        (nzOnClose)="drawerVisible.set(false)">
-        <ng-container *nzDrawerContent>
-          <form nz-form [formGroup]="form" (ngSubmit)="submitRetainer()" nzLayout="vertical">
+          <div class="row-3">
             <nz-form-item>
-              <nz-form-label nzRequired>Operating Entity</nz-form-label>
-              <nz-form-control nzErrorTip="Select legal entity">
-                <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Legal Entity">
-                  @for (entity of legalEntities(); track entity.id) {
-                    <nz-option [nzValue]="entity.id" [nzLabel]="entity.name"></nz-option>
-                  }
-                </nz-select>
+              <nz-form-label nzRequired>Fee ({{ currency() }})</nz-form-label>
+              <nz-form-control nzErrorTip="Enter a fee">
+                <nz-input-number formControlName="recurringFee" [nzMin]="0" [nzStep]="500" class="full"></nz-input-number>
               </nz-form-control>
             </nz-form-item>
-
             <nz-form-item>
-              <nz-form-label nzRequired>Retainer Agreement Title</nz-form-label>
-              <nz-form-control nzErrorTip="Enter title">
-                <input nz-input formControlName="title" placeholder="e.g. Executive Architecture Retainer" />
+              <nz-form-label nzRequired>Hours included</nz-form-label>
+              <nz-form-control nzErrorTip="Enter the hours">
+                <nz-input-number formControlName="includedHours" [nzMin]="0" [nzStep]="5" class="full"></nz-input-number>
               </nz-form-control>
             </nz-form-item>
-
-            <div class="grid grid-cols-2 gap-4">
-              <nz-form-item>
-                <nz-form-label nzRequired>Client / Customer</nz-form-label>
-                <nz-form-control nzErrorTip="Select client">
-                  <nz-select formControlName="clientId" nzShowSearch nzPlaceHolder="Select Client" (ngModelChange)="onClientSelected($event)">
-                    @for (c of clients(); track c.id) {
-                      <nz-option [nzValue]="c.id" [nzLabel]="c.name + ' (' + c.code + ')'"></nz-option>
-                    }
-                  </nz-select>
-                </nz-form-control>
-              </nz-form-item>
-
-              <nz-form-item>
-                <nz-form-label>Service Engagement</nz-form-label>
-                <nz-form-control>
-                  <nz-select formControlName="engagementId" nzShowSearch nzAllowClear nzPlaceHolder="Optional linked engagement">
-                    @for (eng of engagements(); track eng.id) {
-                      <nz-option [nzValue]="eng.id" [nzLabel]="eng.engagementCode + ' - ' + eng.title"></nz-option>
-                    }
-                  </nz-select>
-                </nz-form-control>
-              </nz-form-item>
-            </div>
-
             <nz-form-item>
-              <nz-form-label nzRequired>Billing Cycle</nz-form-label>
-              <nz-form-control>
-                <nz-select formControlName="cycle">
-                  <nz-option nzValue="Monthly" nzLabel="Monthly"></nz-option>
-                  <nz-option nzValue="Quarterly" nzLabel="Quarterly"></nz-option>
-                  <nz-option nzValue="Annual" nzLabel="Annual"></nz-option>
-                </nz-select>
+              <nz-form-label nzRequired>Extra hour rate</nz-form-label>
+              <nz-form-control nzErrorTip="Enter a rate">
+                <nz-input-number formControlName="overageHourlyRate" [nzMin]="0" [nzStep]="25" class="full"></nz-input-number>
               </nz-form-control>
             </nz-form-item>
+          </div>
 
-            <div class="grid grid-cols-3 gap-3">
-              <nz-form-item>
-                <nz-form-label nzRequired>Recurring Fee</nz-form-label>
-                <nz-form-control>
-                  <nz-input-number formControlName="recurringFee" [nzMin]="0" [nzStep]="500" class="w-full"></nz-input-number>
-                </nz-form-control>
-              </nz-form-item>
-
-              <nz-form-item>
-                <nz-form-label nzRequired>Hours Included</nz-form-label>
-                <nz-form-control>
-                  <nz-input-number formControlName="includedHours" [nzMin]="0" [nzStep]="5" class="w-full"></nz-input-number>
-                </nz-form-control>
-              </nz-form-item>
-
-              <nz-form-item>
-                <nz-form-label nzRequired>Overage / Hr</nz-form-label>
-                <nz-form-control>
-                  <nz-input-number formControlName="overageHourlyRate" [nzMin]="0" [nzStep]="25" class="w-full"></nz-input-number>
-                </nz-form-control>
-              </nz-form-item>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <nz-form-item>
-                <nz-form-label nzRequired>Start Date</nz-form-label>
-                <nz-form-control>
-                  <nz-date-picker formControlName="startDate" class="w-full"></nz-date-picker>
-                </nz-form-control>
-              </nz-form-item>
-
-              <nz-form-item>
-                <nz-form-label>Expiration / Renewal Date</nz-form-label>
-                <nz-form-control>
-                  <nz-date-picker formControlName="endDate" class="w-full"></nz-date-picker>
-                </nz-form-control>
-              </nz-form-item>
-            </div>
-
+          <div class="row-2">
             <nz-form-item>
-              <nz-form-label>Service Level Agreement / Terms</nz-form-label>
-              <nz-form-control>
-                <textarea nz-input formControlName="terms" rows="3" placeholder="Guaranteed turnaround, unused hours carry-over policy..."></textarea>
+              <nz-form-label nzRequired>Start date</nz-form-label>
+              <nz-form-control nzErrorTip="Choose a start date">
+                <nz-date-picker formControlName="startDate" class="full"></nz-date-picker>
               </nz-form-control>
             </nz-form-item>
+            <nz-form-item>
+              <nz-form-label>End date</nz-form-label>
+              <nz-form-control nzErrorTip="The end date cannot be before the start date">
+                <nz-date-picker formControlName="endDate" class="full"></nz-date-picker>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
 
-            <div class="drawer-footer">
-              <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
-              <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit" [disabled]="form.invalid">
-                Create Retainer
-              </button>
-            </div>
-          </form>
-        </ng-container>
-      </nz-drawer>
+          <nz-form-item>
+            <nz-form-label>Terms</nz-form-label>
+            <nz-form-control>
+              <textarea nz-input formControlName="terms" rows="3" placeholder="Turnaround, what happens to unused hours"></textarea>
+            </nz-form-control>
+          </nz-form-item>
+
+          <div class="drawer-footer">
+            <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
+            <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit" [disabled]="form.invalid">Save</button>
+          </div>
+        </form>
+      </ng-container>
+    </nz-drawer>
   `,
   styles: [`
-    .text-secondary { color: rgba(0, 0, 0, 0.45); }
-    .table-actions { display: flex; gap: 4px; }
-    .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
-  `]
+    .code { font-family: var(--erp-font-family-mono); white-space: nowrap; }
+    .strong { font-weight: 600; }
+    .sub { font-size: 12px; color: var(--erp-color-text-muted); }
+    .nowrap { white-space: nowrap; }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .table-actions { display: flex; justify-content: flex-end; gap: 4px; }
+    .row-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .full { width: 100%; }
+    .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-block-start: 24px; }
+  `],
 })
 export class RetainersPage implements OnInit {
   private readonly api = inject(ServicesRetainersApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
-  private readonly partiesApi = inject(PartiesApi);
   private readonly engagementsApi = inject(ServicesEngagementsApi);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
 
-  readonly list = createPagedList<RetainerSummaryDto>((q) => this.api.list(q), {
-    pageSize: 15,
-    sort: 'createdAt:desc'
-  });
-
-  readonly columns: TableColumn<RetainerSummaryDto>[] = [
-    { key: 'number', label: 'Retainer #', sortField: 'retainerNumber', width: '130px' },
-    { key: 'title', label: 'Agreement & Client', sortField: 'title' },
-    { key: 'cycle', label: 'Cycle', sortField: 'cycle', width: '110px' },
-    { key: 'fee', label: 'Recurring Fee', sortField: 'recurringFee', align: 'right', width: '150px' },
-    { key: 'hours', label: 'Included Quota', width: '140px' },
-    { key: 'status', label: 'Status', sortField: 'status', width: '120px' },
-    { key: 'actions', label: 'Actions', width: '80px' }
-  ];
-
-  readonly legalEntities = signal<{ id: string; name: string }[]>([]);
-  readonly clients = signal<PartyDto[]>([]);
-  readonly engagements = signal<EngagementSummaryDto[]>([]);
+  readonly list = createPagedList<RetainerSummaryDto>((q) => this.api.list(q));
+  private readonly engagements = signal<EngagementSummaryDto[]>([]);
+  readonly openEngagements = computed(() => this.engagements().filter((e) => e.status === 'draft' || e.status === 'active' || e.status === 'onHold'));
+  private readonly engagementId = signal<string | null>(null);
+  readonly selectedEngagement = computed(() => this.engagements().find((e) => e.id === this.engagementId()) ?? null);
   readonly drawerVisible = signal(false);
   readonly isSubmitting = signal(false);
 
-  form: FormGroup = this.fb.group({
-    legalEntityId: ['', [Validators.required]],
-    engagementId: [null],
-    clientId: [null, [Validators.required]],
-    clientName: ['', [Validators.required]],
+  readonly columns: TableColumn<RetainerSummaryDto>[] = [
+    { key: 'retainerNumber', label: 'Number', sortField: 'retainerNumber' },
+    { key: 'title', label: 'Retainer and client', sortField: 'title' },
+    { key: 'cycle', label: 'Cycle', sortField: 'cycle' },
+    { key: 'recurringFee', label: 'Fee', sortField: 'recurringFee', align: 'right' },
+    { key: 'includedHours', label: 'Hours included', align: 'right' },
+    { key: 'status', label: 'Status', sortField: 'status', filterField: 'status', filterOptions: ['active', 'paused', 'terminated'] },
+    { key: 'actions', label: 'Actions', align: 'right', filter: false, value: () => '' },
+  ];
+
+  readonly form: FormGroup = this.fb.group({
+    engagementId: [null, [Validators.required]],
     title: ['', [Validators.required, Validators.maxLength(200)]],
-    cycle: ['Monthly' as RetainerCycle, [Validators.required]],
-    recurringFee: [5000, [Validators.required, Validators.min(0)]],
-    includedHours: [20, [Validators.required, Validators.min(0)]],
-    overageHourlyRate: [250, [Validators.required, Validators.min(0)]],
+    cycle: ['monthly' as RetainerCycle, [Validators.required]],
+    recurringFee: [null, [Validators.required, Validators.min(0)]],
+    includedHours: [null, [Validators.required, Validators.min(0)]],
+    overageHourlyRate: [null, [Validators.required, Validators.min(0)]],
     startDate: [new Date(), [Validators.required]],
-    endDate: [null],
-    terms: ['']
+    endDate: [null, [notBeforeStart('startDate')]],
+    terms: [''],
   });
 
   ngOnInit(): void {
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => {
-        const items = res.items || [];
-        this.legalEntities.set(items.map(e => ({ id: e.id, name: e.name })));
-        if (items.length > 0) {
-          this.form.patchValue({ legalEntityId: items[0].id });
-        }
-      }
+    this.form.get('startDate')!.valueChanges.subscribe(() => this.form.get('endDate')!.updateValueAndValidity());
+    this.engagementsApi.list({ page: 1, pageSize: 200 }).subscribe({
+      next: (res) => this.engagements.set(res.items),
     });
-
-    this.partiesApi.list({ page: 1, pageSize: 200 }).subscribe({
-      next: res => {
-        const custs = res.items.filter(p => !p.roles || p.roles.length === 0 || p.roles.includes('Customer') || p.roles.some(r => r.toLowerCase().includes('client')));
-        this.clients.set(custs.length > 0 ? custs : res.items);
-      },
-      error: () => {}
-    });
-
-    this.engagementsApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: res => this.engagements.set(res.items || []),
-      error: () => {}
-    });
+    this.form.get('engagementId')!.valueChanges.subscribe((id) => this.engagementId.set(id));
   }
 
-  onClientSelected(id: string): void {
-    const c = this.clients().find(x => x.id === id);
-    if (c) {
-      this.form.patchValue({ clientId: c.id, clientName: c.name });
-    }
+  period(cycle: RetainerCycle): string {
+    return CYCLE_PERIOD[cycle];
   }
 
   openCreateDrawer(): void {
     this.form.reset({
-      legalEntityId: this.legalEntities()[0]?.id || '',
       engagementId: null,
-      clientId: null,
-      clientName: '',
       title: '',
-      cycle: 'Monthly',
-      recurringFee: 5000,
-      includedHours: 20,
-      overageHourlyRate: 250,
+      cycle: 'monthly',
+      recurringFee: null,
+      includedHours: null,
+      overageHourlyRate: null,
       startDate: new Date(),
       endDate: null,
-      terms: ''
+      terms: '',
     });
     this.drawerVisible.set(true);
   }
 
-  getCycleColor(cycle: RetainerCycle): string {
-    switch (cycle) {
-      case 'Monthly': return 'blue';
-      case 'Quarterly': return 'purple';
-      case 'Annual': return 'gold';
-      default: return 'default';
-    }
-  }
-
-  getStatusBadge(status: RetainerStatus): 'success' | 'warning' | 'error' | 'default' {
-    switch (status) {
-      case 'Active': return 'success';
-      case 'Paused': return 'warning';
-      case 'Terminated': return 'error';
-      default: return 'default';
-    }
-  }
-
-  toggleStatus(row: RetainerSummaryDto, newStatus: RetainerStatus): void {
-    this.api.updateStatus(row.id, newStatus).subscribe({
+  setStatus(row: RetainerSummaryDto, status: RetainerStatus): void {
+    this.api.updateStatus(row.id, status).subscribe({
       next: () => {
-        this.msg.success(`Retainer status set to ${newStatus}`);
+        const done = status === 'paused' ? 'paused' : status === 'active' ? 'resumed' : 'terminated';
+        this.msg.success(`${row.retainerNumber} ${done}`);
         this.list.reload();
       },
-      error: () => this.msg.error('Failed to change retainer status')
+      error: (err) => this.msg.error(problemMessage(err, 'The retainer could not be updated')),
     });
   }
 
   submitRetainer(): void {
-    if (this.form.invalid) return;
+    const engagement = this.selectedEngagement();
+    if (this.form.invalid || !engagement) return;
 
     this.isSubmitting.set(true);
     const val = this.form.value;
-    const input: RetainerInput = {
-      legalEntityId: val.legalEntityId,
-      engagementId: val.engagementId,
-      clientId: val.clientId,
-      clientName: val.clientName,
+    this.api.create({
+      legalEntityId: engagement.legalEntityId,
+      engagementId: engagement.id,
+      clientId: engagement.clientId,
+      clientName: engagement.clientName,
       title: val.title,
       cycle: val.cycle,
       recurringFee: val.recurringFee,
       includedHours: val.includedHours,
       overageHourlyRate: val.overageHourlyRate,
-      startDate: val.startDate instanceof Date ? val.startDate.toISOString().substring(0, 10) : val.startDate,
-      endDate: val.endDate instanceof Date ? val.endDate.toISOString().substring(0, 10) : null,
-      terms: val.terms || null
-    };
-
-    this.api.create(input).subscribe({
+      startDate: toIsoDate(new Date(val.startDate)),
+      endDate: val.endDate ? toIsoDate(new Date(val.endDate)) : null,
+      terms: val.terms || null,
+    }).subscribe({
       next: () => {
-        this.msg.success('Retainer contract created successfully');
+        this.msg.success('Retainer saved');
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
         this.list.reload();
       },
-      error: () => {
-        this.msg.error('Failed to create retainer');
+      error: (err) => {
+        this.msg.error(problemMessage(err, 'The retainer could not be saved'));
         this.isSubmitting.set(false);
-      }
+      },
     });
   }
 }

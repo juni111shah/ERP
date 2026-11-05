@@ -6,13 +6,13 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzModalModule } from 'ng-zorro-antd/modal';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { AccountDto, AccountsApi, BudgetDetail, BudgetSummary, BudgetVsActual, BudgetsApi, LegalEntitiesApi, LegalEntityDto } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
-import { asProblem } from '../../core/http/problem-details';
+import { asProblem, problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
@@ -82,12 +82,12 @@ interface Row { accountId: string; label: string; type: string; months: number[]
             </div>
             @if (actual(); as a) {
               <div class="erp-stat-grid erp-stat-grid--auto" data-testid="budget-net">
-                <erp-stat-card label="Budgeted income" [value]="a.budgetIncome" format="number" [tone]="2" />
-                <erp-stat-card label="Actual income" [value]="a.actualIncome" format="number" [tone]="4" />
-                <erp-stat-card label="Budgeted expense" [value]="a.budgetExpense" format="number" [tone]="3" />
-                <erp-stat-card label="Actual expense" [value]="a.actualExpense" format="number" [tone]="a.actualExpense > a.budgetExpense ? 'danger' : 0" />
-                <erp-stat-card label="Net budget" [value]="a.budgetNet" format="number" [tone]="5" />
-                <erp-stat-card label="Net actual" [value]="a.actualNet" format="number" [tone]="a.actualNet >= a.budgetNet ? 'success' : 'danger'" />
+                <erp-stat-card label="Budgeted income" [value]="a.budgetIncome" format="money" [tone]="2" />
+                <erp-stat-card label="Actual income" [value]="a.actualIncome" format="money" [tone]="4" />
+                <erp-stat-card label="Budgeted expense" [value]="a.budgetExpense" format="money" [tone]="3" />
+                <erp-stat-card label="Actual expense" [value]="a.actualExpense" format="money" [tone]="a.actualExpense > a.budgetExpense ? 'danger' : 0" />
+                <erp-stat-card label="Net budget" [value]="a.budgetNet" format="money" [tone]="5" />
+                <erp-stat-card label="Net actual" [value]="a.actualNet" format="money" [tone]="a.actualNet >= a.budgetNet ? 'success' : 'danger'" />
               </div>
               <nz-table [nzData]="a.rows" nzSize="small" [nzShowPagination]="false" data-testid="budget-actual-table">
                 <thead><tr><th>Account</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">%</th></tr></thead>
@@ -109,6 +109,7 @@ export class BudgetsPage {
   private readonly accountsApi = inject(AccountsApi);
   private readonly entitiesApi = inject(LegalEntitiesApi);
   private readonly message = inject(NzMessageService);
+  private readonly modal = inject(NzModalService);
   readonly months = MONTHS;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-fiscalYear' });
   readonly columns: TableColumn<BudgetSummary>[] = [
@@ -179,13 +180,17 @@ export class BudgetsPage {
     const id = this.id();
     (id ? this.api.update(id, body) : this.api.create(body)).subscribe({
       next: (b) => { this.saving.set(false); this.message.success('Budget saved'); this.id.set((b as unknown as BudgetDetail).id); },
-      error: (e) => { this.saving.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not save the budget'); },
+      error: (e) => { this.saving.set(false); this.message.error(problemMessage(e, 'Could not save the budget')); },
     });
   }
 
   remove(): void {
     const id = this.id();
-    if (id) this.api.delete(id).subscribe(() => { this.message.success('Budget deleted'); this.close(); });
+    if (!id) return;
+    this.modal.confirm({
+      nzTitle: 'Delete this budget?', nzContent: 'All its monthly figures are removed.', nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => this.api.delete(id).subscribe({ next: () => { this.message.success('Budget deleted'); this.close(); }, error: (e) => this.message.error(problemMessage(e, 'Could not delete the budget')) }),
+    });
   }
 
   loadActual(): void {

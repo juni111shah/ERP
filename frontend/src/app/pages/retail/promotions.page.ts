@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
@@ -12,11 +12,13 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
+import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { LegalEntitiesApi } from '../../core/api/admin.api';
+import { displayLabel } from '../../core/format/display';
 import {
   CreatePromotionInput,
   PromotionType,
@@ -29,11 +31,21 @@ import { SessionStore } from '../../core/session/session.store';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { ErpDatePipe, ErpLabelPipe } from '../../shared/display.pipes';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { toIsoDate } from '../../core/custom-fields/custom-field-form';
+import { problemMessage } from '../../core/http/problem-details';
+
+/** The end date field must not fall before the start date field of the same form. */
+const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErrors | null => {
+  const start = c.parent?.get(startKey)?.value;
+  return start && c.value && toIsoDate(new Date(c.value)) < toIsoDate(new Date(start)) ? { beforeStart: true } : null;
+};
 
 @Component({
   selector: 'erp-promotions-page',
   standalone: true,
-  imports: [
+  imports: [ErpDatePipe, ErpLabelPipe, NzPopconfirmModule, StatusTagComponent, 
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -55,65 +67,60 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     HasPermissionDirective,
   ],
   template: `
-    <erp-paged-table
-      #table
-      [list]="list"
-      [columns]="columns">
+    <erp-paged-table [list]="list" [columns]="columns" [clickable]="false" searchPlaceholder="Search by code or name" emptyText="No promotions yet. Create one to offer a discount code.">
       <div toolbar style="display: flex; align-items: center; gap: 8px;">
         <button nz-button nzType="default" (click)="openSimulatorModal()">
           <span nz-icon nzType="thunderbolt"></span> Test Promo Code
         </button>
-        <button *erpHasPermission="'retail.promotions.manage'" nz-button nzType="primary" (click)="openCreateModal()">
+        <button *erpHasPermission="'retail.promotions.manage'" nz-button nzType="primary" (click)="openCreateModal()" data-testid="promotion-new">
           <span nz-icon nzType="plus"></span> Create Promotion
         </button>
       </div>
-          <ng-template #cell let-row let-column="column">
-            <ng-container [ngSwitch]="column.key">
-              <span *ngSwitchCase="'code'" class="mono-code promo-badge">{{ row.code }}</span>
-              <span *ngSwitchCase="'name'">
-                <div><strong>{{ row.name }}</strong></div>
-                <small *ngIf="row.description" class="text-secondary">{{ row.description }}</small>
-              </span>
-              <span *ngSwitchCase="'type'">
-                <nz-tag [nzColor]="row.type === 'PercentageDiscount' ? 'geekblue' : 'cyan'">
-                  {{ row.type === 'PercentageDiscount' ? 'Percent %' : 'Flat Amount' }}
-                </nz-tag>
-              </span>
-              <span *ngSwitchCase="'discountValue'" class="font-bold">
-                {{ row.type === 'PercentageDiscount' ? (row.discountValue + '%') : (currency() + ' ' + (row.discountValue | number:'1.2-2')) }}
-              </span>
-              <span *ngSwitchCase="'validity'">
-                <small class="text-secondary">{{ row.startDate }} &rarr; {{ row.endDate }}</small>
-              </span>
-              <span *ngSwitchCase="'usage'">
-                <div class="usage-cell">
-                  <span class="text-secondary">{{ row.timesUsed }} / {{ row.usageLimit || '&infin;' }}</span>
-                  <nz-progress
-                    *ngIf="row.usageLimit"
-                    [nzPercent]="getUsagePercent(row.timesUsed, row.usageLimit)"
-                    nzSize="small"
-                    [nzShowInfo]="false">
-                  </nz-progress>
-                </div>
-              </span>
-              <span *ngSwitchCase="'isActive'">
-                <nz-tag [nzColor]="row.isActive ? 'success' : 'default'">
-                  {{ row.isActive ? 'Active' : 'Expired' }}
-                </nz-tag>
-              </span>
-              <span *ngSwitchCase="'actions'">
-                <button nz-button nzType="link" nzSize="small" (click)="testCode(row.code)">
-                  <span nz-icon nzType="experiment"></span> Test
-                </button>
-              </span>
-            </ng-container>
-          </ng-template>
-        </erp-paged-table>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('code') { <span class="mono-code font-bold">{{ row.code }}</span> }
+          @case ('name') {
+            <div>{{ row.name }}</div>
+            @if (row.description) { <div class="sub">{{ row.description }}</div> }
+          }
+          @case ('type') { {{ row.type | erpLabel }} }
+          @case ('discountValue') {
+            <span class="num font-bold">{{ row.type === 'percentageDiscount' ? ((row.discountValue | number:'1.0-2') + '%') : (currency() + ' ' + (row.discountValue | number:'1.2-2')) }}</span>
+          }
+          @case ('validity') { <span class="nowrap">{{ row.startDate | erpDate }} to {{ row.endDate | erpDate }}</span> }
+          @case ('usage') {
+            <div class="usage-cell">
+              <span class="num">{{ row.timesUsed }}{{ row.usageLimit ? ' of ' + row.usageLimit : '' }}</span>
+              @if (row.usageLimit) {
+                <nz-progress [nzPercent]="getUsagePercent(row.timesUsed, row.usageLimit)" nzSize="small" [nzShowInfo]="false"></nz-progress>
+              }
+            </div>
+          }
+          @case ('status') { <erp-status [value]="promoStatus(row)" /> }
+          @case ('actions') {
+            <div class="table-actions">
+              <button nz-button nzType="link" nzSize="small" (click)="testCode(row.code)">
+                <span nz-icon nzType="experiment"></span> Test
+              </button>
+              <button *erpHasPermission="'retail.promotions.manage'" nz-button nzType="link" nzSize="small" (click)="openEditModal(row)">
+                <span nz-icon nzType="edit"></span> Edit
+              </button>
+              <button *erpHasPermission="'retail.promotions.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                      nz-popconfirm [nzPopconfirmTitle]="'Delete promotion ' + row.code + '?'" (nzOnConfirm)="deletePromotion(row)">
+                <span nz-icon nzType="delete"></span> Delete
+              </button>
+            </div>
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
 
       <!-- Create Promotion Modal -->
       <nz-modal
         [(nzVisible)]="isModalVisible"
-        nzTitle="Create Retail Promotion"
+        [nzTitle]="editingId() ? 'Edit promotion' : 'Create promotion'"
+        nzOkText="Save"
         [nzOkLoading]="isSaving()"
         (nzOnCancel)="closeModal()"
         (nzOnOk)="savePromotion()"
@@ -122,22 +129,22 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           <form nz-form [formGroup]="form" nzLayout="vertical">
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label nzRequired>Promo Code / Coupon</nz-form-label>
+                <nz-form-label nzRequired>Promo code</nz-form-label>
                 <nz-form-control nzErrorTip="Code is required">
-                  <input nz-input formControlName="code" placeholder="e.g. FLASH20" style="text-transform: uppercase;" />
+                  <input nz-input formControlName="code" placeholder="e.g. FLASH20" style="text-transform: uppercase;" [readonly]="!!editingId()" />
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label nzRequired>Campaign Name</nz-form-label>
+                <nz-form-label nzRequired>Name</nz-form-label>
                 <nz-form-control nzErrorTip="Name is required">
-                  <input nz-input formControlName="name" placeholder="e.g. Ramadan Super Saver" />
+                  <input nz-input formControlName="name" placeholder="e.g. Summer sale" />
                 </nz-form-control>
               </nz-form-item>
             </div>
 
             <div class="row-3">
               <nz-form-item>
-                <nz-form-label nzRequired>Workspace Entity</nz-form-label>
+                <nz-form-label nzRequired>Legal entity</nz-form-label>
                 <nz-form-control nzErrorTip="Entity is required">
                   <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Entity">
                     <nz-option *ngFor="let ent of entities()" [nzValue]="ent.id" [nzLabel]="ent.name"></nz-option>
@@ -145,16 +152,17 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label nzRequired>Discount Type</nz-form-label>
+                <nz-form-label nzRequired>Discount type</nz-form-label>
                 <nz-form-control>
                   <nz-select formControlName="type">
-                    <nz-option nzValue="PercentageDiscount" nzLabel="Percentage (%)"></nz-option>
-                    <nz-option nzValue="FixedAmountDiscount" [nzLabel]="'Fixed Amount (' + currency() + ')'"></nz-option>
+                    <nz-option nzValue="percentageDiscount" nzLabel="Percentage (%)"></nz-option>
+                    <nz-option nzValue="fixedAmountDiscount" [nzLabel]="'Fixed amount (' + currency() + ')'"></nz-option>
+                    @if (otherType(); as other) { <nz-option [nzValue]="other" [nzLabel]="other | erpLabel"></nz-option> }
                   </nz-select>
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label nzRequired>Discount Value</nz-form-label>
+                <nz-form-label nzRequired>Discount value</nz-form-label>
                 <nz-form-control nzErrorTip="Value must be greater than 0">
                   <nz-input-number formControlName="discountValue" [nzMin]="0.01" style="width: 100%"></nz-input-number>
                 </nz-form-control>
@@ -163,20 +171,20 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="row-3">
               <nz-form-item>
-                <nz-form-label>Min Order ({{ currency() }})</nz-form-label>
+                <nz-form-label>Minimum order ({{ currency() }})</nz-form-label>
                 <nz-form-control>
-                  <nz-input-number formControlName="minimumOrderAmount" [nzMin]="0" style="width: 100%" placeholder="No min"></nz-input-number>
+                  <nz-input-number formControlName="minimumOrderAmount" [nzMin]="0" style="width: 100%" nzPlaceHolder="No minimum"></nz-input-number>
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label nzRequired>Start Date</nz-form-label>
+                <nz-form-label nzRequired>Start date</nz-form-label>
                 <nz-form-control nzErrorTip="Start date is required">
                   <nz-date-picker formControlName="startDate" style="width: 100%"></nz-date-picker>
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label nzRequired>End Date</nz-form-label>
-                <nz-form-control nzErrorTip="End date is required">
+                <nz-form-label nzRequired>End date</nz-form-label>
+                <nz-form-control [nzErrorTip]="form.get('endDate')?.hasError('beforeStart') ? 'The end date cannot be before the start date' : 'End date is required'">
                   <nz-date-picker formControlName="endDate" style="width: 100%"></nz-date-picker>
                 </nz-form-control>
               </nz-form-item>
@@ -184,9 +192,9 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label>Usage Limit (Redemptions)</nz-form-label>
+                <nz-form-label>Usage limit</nz-form-label>
                 <nz-form-control>
-                  <nz-input-number formControlName="usageLimit" [nzMin]="1" style="width: 100%" placeholder="Unlimited"></nz-input-number>
+                  <nz-input-number formControlName="usageLimit" [nzMin]="1" style="width: 100%" nzPlaceHolder="No limit"></nz-input-number>
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
@@ -194,16 +202,16 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-form-control>
                   <label>
                     <nz-switch formControlName="isActive"></nz-switch>
-                    <span style="margin-left: 8px;">Active Campaign</span>
+                    <span style="margin-inline-start: 8px;">Active</span>
                   </label>
                 </nz-form-control>
               </nz-form-item>
             </div>
 
             <nz-form-item>
-              <nz-form-label>Description & Customer Notes</nz-form-label>
+              <nz-form-label>Description</nz-form-label>
               <nz-form-control>
-                <textarea nz-input rows="2" formControlName="description" placeholder="Terms and conditions..."></textarea>
+                <textarea nz-input rows="2" formControlName="description" placeholder="Terms and conditions"></textarea>
               </nz-form-control>
             </nz-form-item>
           </form>
@@ -213,24 +221,24 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       <!-- Promo Code Simulator Modal -->
       <nz-modal
         [(nzVisible)]="isSimulatorVisible"
-        nzTitle="Promotion Code Simulator"
+        nzTitle="Test promo code"
         [nzFooter]="null"
-        (nzOnCancel)="isSimulatorVisible = false">
+        (nzOnCancel)="isSimulatorVisible.set(false)">
         <ng-container *nzModalContent>
           <div class="sim-container">
-            <p class="text-secondary">Simulate how a promotional code evaluates against basket total at checkout</p>
+            <p class="text-secondary">See how a code applies to a basket. Nothing is saved or used up.</p>
 
             <div class="sim-inputs">
               <div class="form-row">
-                <label>Promo Code:</label>
-                <input aria-label="Enter coupon code" nz-input [(ngModel)]="simCode" placeholder="Enter coupon code" style="text-transform: uppercase;" />
+                <label for="sim-code">Promo code</label>
+                <input id="sim-code" nz-input [(ngModel)]="simCode" style="text-transform: uppercase;" />
               </div>
               <div class="form-row">
-                <label>Basket Total ({{ currency() }}):</label>
-                <nz-input-number [(ngModel)]="simTotal" [nzMin]="1" style="width: 100%"></nz-input-number>
+                <label for="sim-total">Basket total ({{ currency() }})</label>
+                <nz-input-number nzId="sim-total" [(ngModel)]="simTotal" [nzMin]="1" style="width: 100%"></nz-input-number>
               </div>
               <button nz-button nzType="primary" [nzLoading]="isSimulating()" (click)="runSimulation()" [disabled]="!simCode">
-                <span nz-icon nzType="check"></span> Evaluate Code
+                <span nz-icon nzType="check"></span> Test
               </button>
             </div>
 
@@ -239,23 +247,23 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div *ngIf="simResult() as res" class="sim-result">
               <nz-alert
                 [nzType]="res.isValid ? 'success' : 'error'"
-                [nzMessage]="res.isValid ? 'Coupon Valid' : 'Coupon Rejected'"
+                [nzMessage]="res.isValid ? 'Code is valid' : 'Code is not valid'"
                 [nzDescription]="res.message || ''"
                 nzShowIcon>
               </nz-alert>
 
               <div *ngIf="res.isValid" class="discount-breakdown">
                 <div class="breakdown-row">
-                  <span>Gross Basket Amount:</span>
+                  <span>Basket total</span>
                   <span>{{ currency() }} {{ simTotal | number:'1.2-2' }}</span>
                 </div>
                 <div class="breakdown-row discount-row">
-                  <span>Promotion Discount:</span>
+                  <span>Discount</span>
                   <span>- {{ currency() }} {{ res.calculatedDiscount | number:'1.2-2' }}</span>
                 </div>
                 <nz-divider style="margin: 8px 0;"></nz-divider>
                 <div class="breakdown-row total-row font-bold">
-                  <span>Payable Total:</span>
+                  <span>To pay</span>
                   <span>{{ currency() }} {{ (simTotal - res.calculatedDiscount) | number:'1.2-2' }}</span>
                 </div>
               </div>
@@ -266,20 +274,17 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
   `,
   styles: [`
     .text-secondary {
-      color: #8c8c8c;
+      color: var(--erp-color-text-muted);
       margin: 4px 0 0;
     }
     .mono-code {
-      font-family: monospace;
+      font-family: var(--erp-font-family-mono);
+      white-space: nowrap;
     }
-    .promo-badge {
-      background: #f0f5ff;
-      color: #2f54eb;
-      border: 1px dashed #adc6ff;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-weight: bold;
-    }
+    .sub { font-size: 12px; color: var(--erp-color-text-muted); }
+    .nowrap { white-space: nowrap; }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .table-actions { display: flex; justify-content: flex-end; gap: 4px; }
     .font-bold {
       font-weight: 600;
     }
@@ -321,7 +326,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     .discount-breakdown {
       margin-top: 16px;
       padding: 12px 16px;
-      background: #fafafa;
+      background: var(--erp-color-bg-subtle);
       border-radius: 6px;
     }
     .breakdown-row {
@@ -331,7 +336,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       font-size: 14px;
     }
     .discount-row {
-      color: #52c41a;
+      color: var(--erp-color-success-text);
       font-weight: 500;
     }
     .total-row {
@@ -350,11 +355,15 @@ export class PromotionsPageComponent implements OnInit {
   readonly currency = this.currencyService.currency;
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly isSaving = signal(false);
+  readonly editingId = signal<string | null>(null);
+  /** A type this form cannot create, kept selectable when editing a promotion that has it. */
+  readonly otherType = signal<PromotionType | null>(null);
+  private editingCustomFields: string | null = null;
   readonly isSimulating = signal(false);
   readonly simResult = signal<PromoValidationResultDto | null>(null);
 
-  isModalVisible = false;
-  isSimulatorVisible = false;
+  readonly isModalVisible = signal(false);
+  readonly isSimulatorVisible = signal(false);
   simCode = '';
   simTotal = 250;
 
@@ -362,33 +371,44 @@ export class PromotionsPageComponent implements OnInit {
     legalEntityId: ['', [Validators.required]],
     code: ['', [Validators.required]],
     name: ['', [Validators.required]],
-    type: ['PercentageDiscount', [Validators.required]],
+    type: ['percentageDiscount', [Validators.required]],
     discountValue: [10, [Validators.required, Validators.min(0.01)]],
     minimumOrderAmount: [null],
     startDate: [new Date(), [Validators.required]],
-    endDate: [new Date(Date.now() + 30 * 86400000), [Validators.required]],
+    endDate: [new Date(Date.now() + 30 * 86400000), [Validators.required, notBeforeStart('startDate')]],
     usageLimit: [null],
     isActive: [true],
     description: ['']
   });
 
   readonly columns: TableColumn<RetailPromotionDto>[] = [
-    { key: 'code', label: 'Promo Code', sortField: 'code' },
-    { key: 'name', label: 'Campaign' },
-    { key: 'type', label: 'Type' },
+    { key: 'code', label: 'Promo code', sortField: 'code' },
+    { key: 'name', label: 'Name', sortField: 'name' },
+    { key: 'type', label: 'Type', hidden: true },
     { key: 'discountValue', label: 'Discount', align: 'right' },
-    { key: 'validity', label: 'Validity Period' },
-    { key: 'usage', label: 'Redemptions' },
-    { key: 'isActive', label: 'Status' },
-    { key: 'actions', label: 'Actions', align: 'right' }
+    { key: 'validity', label: 'Valid', sortField: 'startDate', filter: false, value: (r) => `${r.startDate} to ${r.endDate}` },
+    { key: 'usage', label: 'Times used', filter: false, value: (r) => (r.usageLimit ? `${r.timesUsed} of ${r.usageLimit}` : r.timesUsed) },
+    { key: 'status', label: 'Status', value: (r) => displayLabel(this.promoStatus(r)) },
+    { key: 'actions', label: 'Actions', align: 'right', filter: false, value: () => '' }
   ];
 
-  readonly list = createPagedList<RetailPromotionDto>((q: any) => this.promotionsApi.list(q));
+  readonly list = createPagedList<RetailPromotionDto>((q) => this.promotionsApi.list(q), { sort: '-createdAt' });
 
   ngOnInit(): void {
+    this.form.get('startDate')!.valueChanges.subscribe(() => this.form.get('endDate')!.updateValueAndValidity());
     this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
       next: res => this.entities.set(res.items)
     });
+  }
+
+  /** What the promotion is doing today: the switch alone does not say whether it has ended or used up its limit. */
+  promoStatus(row: RetailPromotionDto): string {
+    if (!row.isActive) return 'inactive';
+    const today = toIsoDate(new Date());
+    if (row.startDate > today) return 'scheduled';
+    if (row.endDate < today) return 'expired';
+    if (row.usageLimit && row.timesUsed >= row.usageLimit) return 'limitReached';
+    return 'active';
   }
 
   getUsagePercent(used: number, limit: number): number {
@@ -396,12 +416,47 @@ export class PromotionsPageComponent implements OnInit {
     return Math.min(100, Math.round((used / limit) * 100));
   }
 
-  openCreateModal(): void {
+  openEditModal(row: RetailPromotionDto): void {
+    this.editingId.set(row.id);
+    this.editingCustomFields = row.customFields ?? null;
+    this.otherType.set(row.type === 'percentageDiscount' || row.type === 'fixedAmountDiscount' ? null : row.type);
     this.form.reset({
-      legalEntityId: this.entities()[0]?.id || '',
+      legalEntityId: row.legalEntityId,
+      code: row.code,
+      name: row.name,
+      type: row.type,
+      discountValue: row.discountValue,
+      minimumOrderAmount: row.minimumOrderAmount ?? null,
+      startDate: new Date(`${row.startDate}T00:00:00`),
+      endDate: new Date(`${row.endDate}T00:00:00`),
+      usageLimit: row.usageLimit ?? null,
+      isActive: row.isActive,
+      description: row.description ?? ''
+    });
+    this.form.get('legalEntityId')!.disable({ emitEvent: false });
+    this.isModalVisible.set(true);
+  }
+
+  deletePromotion(row: RetailPromotionDto): void {
+    this.promotionsApi.delete(row.id).subscribe({
+      next: () => {
+        this.msg.success('Promotion deleted');
+        this.list.reload();
+      },
+      error: (err) => this.msg.error(problemMessage(err, 'The promotion could not be deleted'))
+    });
+  }
+
+  openCreateModal(): void {
+    this.editingId.set(null);
+    this.editingCustomFields = null;
+    this.otherType.set(null);
+    this.form.get('legalEntityId')!.enable({ emitEvent: false });
+    this.form.reset({
+      legalEntityId: this.entities().find(e => e.id === this.sessionStore.currentEntityId())?.id || this.entities()[0]?.id || '',
       code: '',
       name: '',
-      type: 'PercentageDiscount',
+      type: 'percentageDiscount',
       discountValue: 10,
       minimumOrderAmount: null,
       startDate: new Date(),
@@ -410,16 +465,16 @@ export class PromotionsPageComponent implements OnInit {
       isActive: true,
       description: ''
     });
-    this.isModalVisible = true;
+    this.isModalVisible.set(true);
   }
 
   closeModal(): void {
-    this.isModalVisible = false;
+    this.isModalVisible.set(false);
   }
 
   openSimulatorModal(): void {
     this.simResult.set(null);
-    this.isSimulatorVisible = true;
+    this.isSimulatorVisible.set(true);
   }
 
   testCode(code: string): void {
@@ -442,8 +497,8 @@ export class PromotionsPageComponent implements OnInit {
         this.simResult.set(res);
         this.isSimulating.set(false);
       },
-      error: () => {
-        this.msg.error('Error testing promotion code');
+      error: (err) => {
+        this.msg.error(problemMessage(err, 'The code could not be tested'));
         this.isSimulating.set(false);
       }
     });
@@ -461,7 +516,7 @@ export class PromotionsPageComponent implements OnInit {
     }
 
     this.isSaving.set(true);
-    const val = this.form.value;
+    const val = this.form.getRawValue();
     const input: CreatePromotionInput = {
       legalEntityId: val.legalEntityId,
       code: val.code.toUpperCase(),
@@ -469,21 +524,26 @@ export class PromotionsPageComponent implements OnInit {
       type: val.type,
       discountValue: val.discountValue,
       minimumOrderAmount: val.minimumOrderAmount,
-      startDate: new Date(val.startDate).toISOString().split('T')[0],
-      endDate: new Date(val.endDate).toISOString().split('T')[0],
+      startDate: toIsoDate(new Date(val.startDate)),
+      endDate: toIsoDate(new Date(val.endDate)),
       usageLimit: val.usageLimit,
       isActive: val.isActive,
-      description: val.description
+      description: val.description,
+      customFields: this.editingCustomFields
     };
 
-    this.promotionsApi.create(input).subscribe({
+    const id = this.editingId();
+    (id ? this.promotionsApi.update(id, input) : this.promotionsApi.create(input)).subscribe({
       next: () => {
-        this.msg.success('Promotion created successfully');
+        this.msg.success('Promotion saved');
         this.isSaving.set(false);
         this.closeModal();
-        window.location.reload();
+        this.list.reload();
       },
-      error: () => this.isSaving.set(false)
+      error: (err) => {
+        this.msg.error(problemMessage(err, 'The promotion could not be saved'));
+        this.isSaving.set(false);
+      }
     });
   }
 }

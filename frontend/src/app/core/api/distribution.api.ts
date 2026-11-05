@@ -4,8 +4,8 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api-config';
 import { CrudApiService } from './crud-api.service';
 
-export type TripStatus = 'Scheduled' | 'InProgress' | 'Completed' | 'Cancelled';
-export type WholesaleTier = 'Standard' | 'Bronze' | 'Silver' | 'Gold' | 'Platinum';
+export type TripStatus = 'scheduled' | 'inProgress' | 'completed' | 'cancelled';
+export type WholesaleTier = 'standard' | 'bronze' | 'silver' | 'gold' | 'platinum';
 
 export interface DeliveryStopDto {
   id: string;

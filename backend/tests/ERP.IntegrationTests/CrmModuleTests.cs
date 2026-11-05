@@ -52,6 +52,12 @@ public class CrmModuleTests(ApiFactory f) : IClassFixture<ApiFactory>
         var me = await ApiFactory.Json(await c.GetAsync("/api/v1/me"));
         Assert.NotEqual("Someone Else", (string?)logged["performedByName"]); // the caller is recorded, not what the request claims
         Assert.Equal((string)me["user"]!["id"]!, (string)logged["performedByUserId"]!);
+
+        // Marking it done is saved, not only reported as done.
+        await Ok(await c.PostAsync($"{Crm}/interactions/{(string)logged["id"]!}/resolve", null));
+        var list = await Ok(await c.GetAsync($"{Crm}/interactions?pageSize=100"));
+        var saved = list.AsArray().Single(x => (string)x!["id"]! == (string)logged["id"]!)!;
+        Assert.True((bool)saved["isResolved"]!);
     }
 
     private static object LeadUpdate(string id, string entity, int status)

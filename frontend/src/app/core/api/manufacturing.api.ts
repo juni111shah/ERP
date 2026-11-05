@@ -1,23 +1,23 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api-config';
 import { CrudApiService } from './crud-api.service';
 
-export type WorkOrderStatus = 'Planned' | 'Released' | 'InProgress' | 'Completed' | 'Cancelled';
-export type OperationStatus = 'Pending' | 'InProgress' | 'Completed' | 'Skipped';
+export type WorkOrderStatus = 'draft' | 'planned' | 'inProgress' | 'completed' | 'cancelled';
+export type OperationStatus = 'pending' | 'inProgress' | 'completed';
 
 export interface BomComponentDto {
-  id?: string;
+  id: string;
+  bomId: string;
   componentItemId: string;
   componentItemCode: string;
   componentItemName: string;
-  quantityPerUnit: number;
-  unitOfMeasure: string;
+  quantityRequired: number;
+  uom: string;
+  scrapPercentage: number;
   unitCost: number;
   extendedCost: number;
-  sequenceOrder: number;
-  scrapPercentage?: number | null;
   notes?: string | null;
 }
 
@@ -25,11 +25,10 @@ export interface BomComponentInput {
   componentItemId: string;
   componentItemCode: string;
   componentItemName: string;
-  quantityPerUnit: number;
-  unitOfMeasure: string;
+  quantityRequired: number;
+  uom: string;
+  scrapPercentage: number;
   unitCost: number;
-  sequenceOrder: number;
-  scrapPercentage?: number | null;
   notes?: string | null;
 }
 
@@ -37,16 +36,20 @@ export interface BomDto {
   id: string;
   legalEntityId: string;
   code: string;
-  outputItemId: string;
-  outputItemCode: string;
-  outputItemName: string;
-  baseQuantity: number;
-  unitOfMeasure: string;
-  standardCostPerUnit: number;
-  totalStandardCost: number;
-  version: number;
-  routingNotes?: string | null;
+  name: string;
+  producedItemId: string;
+  producedItemCode: string;
+  producedItemName: string;
+  outputQuantity: number;
+  uom: string;
+  version: string;
+  laborCostPerUnit: number;
+  overheadCostPerUnit: number;
+  totalMaterialCost: number;
+  totalUnitCost: number;
   isActive: boolean;
+  description?: string | null;
+  componentCount: number;
   components: BomComponentDto[];
   customFields?: string | null;
   createdAt: string;
@@ -57,30 +60,32 @@ export interface BomSummaryDto {
   legalEntityId: string;
   code: string;
   name: string;
-  outputItemId: string;
-  outputItemCode: string;
-  outputItemName: string;
-  baseQuantity: number;
-  unitOfMeasure: string;
-  standardCostPerUnit: number;
-  version: number;
+  producedItemCode: string;
+  producedItemName: string;
+  outputQuantity: number;
+  uom: string;
+  version: string;
+  totalUnitCost: number;
   isActive: boolean;
   componentCount: number;
   createdAt: string;
 }
 
+/** Create body. Update takes the same fields; the server ignores the legal entity, code and produced item on update. */
 export interface BomInput {
-  legalEntityId?: string;
+  legalEntityId: string;
   code: string;
   name: string;
-  outputItemId: string;
-  outputItemCode: string;
-  outputItemName: string;
-  baseQuantity: number;
-  unitOfMeasure: string;
-  version?: number;
-  routingNotes?: string | null;
-  isActive?: boolean;
+  producedItemId: string;
+  producedItemCode: string;
+  producedItemName: string;
+  outputQuantity: number;
+  uom: string;
+  version: string;
+  laborCostPerUnit: number;
+  overheadCostPerUnit: number;
+  isActive: boolean;
+  description?: string | null;
   components: BomComponentInput[];
   customFields?: string | null;
 }
@@ -88,136 +93,115 @@ export interface BomInput {
 export interface WorkOrderOperationDto {
   id: string;
   workOrderId: string;
-  sequenceNumber: number;
+  sequenceOrder: number;
   operationName: string;
-  workCenter?: string | null;
-  plannedMinutes: number;
-  actualMinutes: number;
+  workCenterName: string;
+  plannedHours: number;
+  actualHours: number;
+  hourlyRate: number;
   status: OperationStatus;
-  notes?: string | null;
 }
 
-export interface WorkOrderOperationInput {
-  sequenceNumber: number;
-  operationName: string;
-  workCenter?: string | null;
-  plannedMinutes: number;
-  notes?: string | null;
-}
-
-export interface WorkOrderDto {
+export interface WorkOrderSummaryDto {
   id: string;
   legalEntityId: string;
-  orderNumber: string;
   workOrderNumber: string;
-  bomId: string;
   bomCode: string;
-  outputItemId: string;
-  outputItemCode: string;
-  outputItemName: string;
+  producedItemCode: string;
+  producedItemName: string;
   plannedQuantity: number;
   completedQuantity: number;
-  scrappedQuantity: number;
   uom: string;
+  dueDate: string;
   status: WorkOrderStatus;
-  plannedStartDate?: string | null;
-  plannedCompletionDate?: string | null;
-  dueDate?: string | null;
-  actualStartDate?: string | null;
-  actualCompletionDate?: string | null;
-  standardUnitCost: number;
-  totalPlannedCost: number;
+  estimatedTotalCost: number;
   actualTotalCost: number;
-  productionCostVariance: number;
-  warehouseId?: string | null;
-  assignedSupervisor?: string | null;
-  notes?: string | null;
-  operations: WorkOrderOperationDto[];
   createdAt: string;
 }
 
 export interface WorkOrderInput {
-  legalEntityId?: string;
+  legalEntityId: string;
   bomId: string;
-  outputItemId: string;
   plannedQuantity: number;
-  plannedStartDate?: string | null;
-  plannedCompletionDate?: string | null;
-  warehouseId?: string | null;
-  assignedSupervisor?: string | null;
+  warehouseId: string;
+  startDate: string;
+  dueDate: string;
   notes?: string | null;
-  operations?: WorkOrderOperationInput[];
 }
 
 export interface CompleteWorkOrderInput {
   completedQuantity: number;
-  scrappedQuantity?: number;
+  scrappedQuantity: number;
+  /** Required by the request, but the server works out the actual cost itself from the stock issued and the BOM. */
   actualTotalCost: number;
+  notes?: string | null;
+}
+
+export interface CostComponentBreakdownDto {
+  componentItemId: string;
+  componentItemCode: string;
+  componentItemName: string;
+  quantityRequired: number;
+  unitCost: number;
+  totalCost: number;
+  costSharePercentage: number;
 }
 
 export interface CostRollupDto {
-  bomId: string;
-  bomCode: string;
-  outputItemCode: string;
-  outputItemName: string;
-  baseQuantity: number;
-  unitOfMeasure: string;
-  componentCost: number;
-  laborAndOverheadCost: number;
-  totalStandardCost: number;
-  calculatedStandardUnitCost: number;
-  breakdown: BomComponentDto[];
+  producedItemId: string;
+  producedItemCode: string;
+  producedItemName: string;
+  outputQuantity: number;
+  materialCost: number;
+  laborCost: number;
+  overheadCost: number;
+  totalStandardUnitCost: number;
+  componentBreakdown: CostComponentBreakdownDto[];
 }
 
-export interface VarianceAnalysisDto {
-  workOrderId: string;
-  orderNumber: string;
-  outputItemCode: string;
-  outputItemName: string;
-  completedQuantity: number;
-  scrappedQuantity: number;
-  totalPlannedCost: number;
-  actualTotalCost: number;
+export interface CostVarianceDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  standardUnitCost: number;
+  actualAverageUnitCost: number;
   varianceAmount: number;
-  variancePercent: number;
-  isFavorable: boolean;
+  variancePercentage: number;
+  completedWorkOrdersCount: number;
 }
 
 export interface ManufacturingKpisDto {
-  activeBoms: number;
-  plannedWorkOrders: number;
-  inProgressWorkOrders: number;
-  completedWorkOrders: number;
-  totalPlannedUnits: number;
-  totalCompletedUnits: number;
-  totalScrappedUnits: number;
-  yieldRatePercentage: number;
-  monthProductionCost: number;
+  activeBomsCount: number;
+  openWorkOrdersCount: number;
+  completedWorkOrdersMonth: number;
+  totalProducedQuantityMonth: number;
+  averageYieldRatePercentage: number;
+  totalManufacturingCostMonth: number;
 }
 
 @Injectable({ providedIn: 'root' })
-export class ManufacturingBomsApi extends CrudApiService<BomSummaryDto, Partial<BomInput>> {
+export class ManufacturingBomsApi extends CrudApiService<BomSummaryDto, BomInput> {
   protected readonly resource = 'm/manufacturing/boms';
 
-  getDetail(id: string): Observable<{ data: BomDto }> {
-    return this.http.get<{ data: BomDto }>(`${this.url}/${id}`);
+  getDetail(id: string): Observable<BomDto> {
+    return this.http.get<BomDto>(`${this.url}/${id}`);
   }
 }
 
 @Injectable({ providedIn: 'root' })
-export class ManufacturingWorkOrdersApi extends CrudApiService<WorkOrderDto, Partial<WorkOrderInput>> {
+export class ManufacturingWorkOrdersApi extends CrudApiService<WorkOrderSummaryDto, WorkOrderInput> {
   protected readonly resource = 'm/manufacturing/workorders';
 
-  release(id: string): Observable<{ data: boolean }> {
-    return this.http.post<{ data: boolean }>(`${this.url}/${id}/release`, {});
+  release(id: string): Observable<unknown> {
+    return this.http.post<unknown>(`${this.url}/${id}/release`, {});
   }
 
-  complete(id: string, payload: CompleteWorkOrderInput): Observable<{ data: boolean }> {
-    return this.http.post<{ data: boolean }>(`${this.url}/${id}/complete`, payload);
+  complete(id: string, payload: CompleteWorkOrderInput): Observable<unknown> {
+    return this.http.post<unknown>(`${this.url}/${id}/complete`, payload);
   }
 
-  cancel(id: string): Observable<{ data: boolean }> {
-    return this.http.post<{ data: boolean }>(`${this.url}/${id}/cancel`, {});
+  cancel(id: string, reason?: string | null): Observable<unknown> {
+    return this.http.post<unknown>(`${this.url}/${id}/cancel`, { reason: reason || null });
   }
 }
 
@@ -226,13 +210,14 @@ export class ManufacturingCostingApi {
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
 
-  rollup(bomId: string): Observable<{ data: CostRollupDto }> {
-    return this.http.get<{ data: CostRollupDto }>(`${this.base}/m/manufacturing/costing/rollup/${bomId}`);
+  rollup(bomId: string): Observable<CostRollupDto | null> {
+    return this.http.get<CostRollupDto | null>(`${this.base}/m/manufacturing/costing/rollup/${bomId}`);
   }
 
-  variances(legalEntityId?: string): Observable<{ data: VarianceAnalysisDto[] }> {
-    const params = legalEntityId ? `?legalEntityId=${legalEntityId}` : '';
-    return this.http.get<{ data: VarianceAnalysisDto[] }>(`${this.base}/m/manufacturing/costing/variances${params}`);
+  /** Standard against actual unit cost of one produced item, across its completed work orders. */
+  variance(legalEntityId: string, itemId: string): Observable<CostVarianceDto | null> {
+    const params = new HttpParams().set('legalEntityId', legalEntityId).set('itemId', itemId);
+    return this.http.get<CostVarianceDto | null>(`${this.base}/m/manufacturing/costing/variance`, { params });
   }
 }
 
@@ -241,8 +226,7 @@ export class ManufacturingKpiApi {
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
 
-  getKpis(legalEntityId?: string): Observable<{ data: ManufacturingKpisDto }> {
-    const params = legalEntityId ? `?legalEntityId=${legalEntityId}` : '';
-    return this.http.get<{ data: ManufacturingKpisDto }>(`${this.base}/m/manufacturing/analytics/kpis${params}`);
+  getKpis(): Observable<ManufacturingKpisDto> {
+    return this.http.get<ManufacturingKpisDto>(`${this.base}/m/manufacturing/kpis`);
   }
 }

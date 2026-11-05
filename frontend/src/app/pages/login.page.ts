@@ -632,8 +632,8 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
               data-testid="login-two-factor"></erp-two-factor-step>
           } @else if (!workspaces()) {
             <div class="login-heading-group">
-              <h1 class="login-title">{{ 'login.title' | translate: 'Login' }}</h1>
-              <p class="login-subtitle">Welcome to log in to your background management system.</p>
+              <h1 class="login-title">{{ 'login.title' | translate: 'Sign in' }}</h1>
+              <p class="login-subtitle">Sign in to your workspace.</p>
             </div>
 
             @if (error()) {
@@ -692,7 +692,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
                   @if (retryIn() > 0) {
                     <span>Wait {{ retryIn() }}s</span>
                   } @else {
-                    <span>LOGIN</span>
+                    <span>Sign in</span>
                   }
                 </button>
               </div>

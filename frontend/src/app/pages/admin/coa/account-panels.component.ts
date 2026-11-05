@@ -5,7 +5,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { AccountCategoryDto, AccountNodeDto, AccountSubcategoryDto } from '../../../core/api/admin.api';
-import { asProblem } from '../../../core/http/problem-details';
+import { asProblem, problemMessage } from '../../../core/http/problem-details';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HasPermissionDirective } from '../../../shared/has-permission.directive';
@@ -373,7 +373,7 @@ export class AccountPanelsComponent {
   toggleActive(a: AccountNodeDto): void {
     this.store.setActive(a.id, !a.isActive).subscribe({
       next: () => this.message.success(a.isActive ? this.i18n.t('coa.deactivated', 'Account deactivated') : this.i18n.t('coa.activated', 'Account activated')),
-      error: (e) => { const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? this.i18n.t('coa.saveFailed', 'Could not update the account')); },
+      error: (e) => { this.message.error(problemMessage(e, this.i18n.t('coa.saveFailed', 'Could not update the account'))); },
     });
   }
 

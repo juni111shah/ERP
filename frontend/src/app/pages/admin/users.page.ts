@@ -10,7 +10,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { AdminApi, RoleDto, RolesApi, UserSummary } from '../../core/api/admin.api';
-import { applyProblemDetailsToForm, asProblem, controlError } from '../../core/http/problem-details';
+import { applyProblemDetailsToForm, asProblem, problemMessage, controlError } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
@@ -18,13 +18,15 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 /** Users: invite, change roles, deactivate / reactivate. The server refuses to deactivate yourself or the last administrator. */
 @Component({
   selector: 'erp-users',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, TranslatePipe, ReactiveFormsModule, FormsModule, HasPermissionDirective, RevealDirective, TableToolsComponent, NzToolTipModule, NzTableModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzSelectModule, NzTagModule, NzIconModule],
+  imports: [ErpDatePipe, StatePanelComponent, StatCardComponent, TranslatePipe, ReactiveFormsModule, FormsModule, HasPermissionDirective, RevealDirective, TableToolsComponent, NzToolTipModule, NzTableModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzSelectModule, NzTagModule, NzIconModule],
   styles: [`
     .user-table-card {
       background: var(--erp-color-bg-surface, #ffffff);
@@ -57,25 +59,25 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                      [value]="stats().total"
                      format="number"
                      [loading]="loading() && users().length === 0"
-                     caption="registered accounts"
+                     caption="in this workspace"
                      [tone]="0" />
       <erp-stat-card label="Active users"
                      [value]="stats().active"
                      format="number"
                      [loading]="loading() && users().length === 0"
-                     caption="active credentials"
+                     caption="can sign in"
                      [tone]="1" />
       <erp-stat-card label="Administrators"
                      [value]="stats().admins"
                      format="number"
                      [loading]="loading() && users().length === 0"
-                     caption="elevated access"
+                     caption="with an admin role"
                      [tone]="2" />
-      <erp-stat-card label="Active sessions"
+      <erp-stat-card label="Have signed in"
                      [value]="stats().recent"
                      format="number"
                      [loading]="loading() && users().length === 0"
-                     caption="signed in users"
+                     caption="at least once"
                      [tone]="3" />
     </div>
 
@@ -90,6 +92,9 @@ import { StatCardComponent } from '../../shared/stat-card.component';
       </nz-select>
     </erp-table-tools>
 
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load the users" hint="The server did not return the list." actionLabel="Try again" (action)="load()" style="margin-top:16px" />
+    } @else {
     <div class="user-table-card">
       <nz-table [nzData]="shown()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="users-table">
         <thead>
@@ -116,22 +121,23 @@ import { StatCardComponent } from '../../shared/stat-card.component';
               </td>
               <td>
                 @for (r of u.roles; track r) {
-                  <nz-tag nzColor="default" style="margin-right:4px">{{ r }}</nz-tag>
+                  <nz-tag nzColor="default" style="margin-inline-end:4px">{{ r }}</nz-tag>
                 }
               </td>
               <td>
                 <nz-tag [nzColor]="u.isActive ? 'green' : 'default'">{{ u.isActive ? 'Active' : 'Inactive' }}</nz-tag>
               </td>
-              <td>{{ u.lastSignInAt ? (u.lastSignInAt.slice(0, 16).replace('T', ' ')) : '—' }}</td>
-              <td *erpHasPermission="'core.users.write'">
-                <a (click)="open(u)" data-testid="user-edit">Roles</a> ·
-                <a (click)="toggleActive(u)" data-testid="user-toggle">{{ u.isActive ? 'Deactivate' : 'Reactivate' }}</a>
+              <td style="white-space:nowrap">{{ u.lastSignInAt ? (u.lastSignInAt | erpDate) : 'Never' }}</td>
+              <td *erpHasPermission="'core.users.write'" style="white-space:nowrap">
+                <button nz-button nzSize="small" type="button" (click)="open(u)" data-testid="user-edit">Roles</button>
+                <button nz-button nzSize="small" type="button" [nzDanger]="u.isActive" style="margin-inline-start:8px" (click)="toggleActive(u)" data-testid="user-toggle">{{ u.isActive ? 'Deactivate' : 'Reactivate' }}</button>
               </td>
             </tr>
           }
         </tbody>
       </nz-table>
     </div>
+    }
     <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="480" [nzTitle]="editing() ? editing()!.fullName : 'Invite user'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
         <form nz-form nzLayout="vertical" [formGroup]="form" data-testid="user-form">
@@ -176,6 +182,7 @@ export class UsersPage {
   }
 
   readonly loading = signal(false);
+  readonly failed = signal(false);
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);
   readonly editing = signal<UserSummary | null>(null);
@@ -192,7 +199,8 @@ export class UsersPage {
 
   load(): void {
     this.loading.set(true);
-    this.api.users().subscribe({ next: (u) => { this.users.set(u); this.loading.set(false); }, error: () => this.loading.set(false) });
+    this.failed.set(false);
+    this.api.users().subscribe({ next: (u) => { this.users.set(u); this.loading.set(false); }, error: () => { this.failed.set(true); this.loading.set(false); } });
   }
 
   open(user: UserSummary | null): void {
@@ -208,7 +216,7 @@ export class UsersPage {
   toggleActive(user: UserSummary): void {
     this.api.setUserActive(user.id, !user.isActive).subscribe({
       next: () => { this.message.success(user.isActive ? 'User deactivated' : 'User reactivated'); this.load(); },
-      error: (e) => { const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not change the user'); },
+      error: (e) => { this.message.error(problemMessage(e, 'Could not change the user')); },
     });
   }
 

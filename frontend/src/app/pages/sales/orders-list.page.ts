@@ -1,5 +1,6 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { problemMessage } from '../../core/http/problem-details';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -26,12 +27,13 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 
 import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 
 @Component({
   selector: 'erp-orders-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [StatusTagComponent,
     CommonModule,
     DecimalPipe,
     ReactiveFormsModule,
@@ -69,19 +71,19 @@ import { StatCardComponent } from '../../shared/stat-card.component';
         label="Order Backlog"
         [value]="kpis()?.openOrdersAmount ?? 0"
         format="money"
-        caption="unfulfilled delivery value"
+        caption="confirmed and processing orders"
         [tone]="3" />
       <erp-stat-card
         label="Total Orders"
         [value]="kpis()?.totalOrdersCount ?? 0"
         format="number"
-        caption="all time orders"
+        caption="all time, every status"
         [tone]="4" />
       <erp-stat-card
-        label="Gross Revenue"
+        label="Total Booked"
         [value]="kpis()?.totalSales ?? 0"
         format="money"
-        caption="total volume booked"
+        caption="all orders except cancelled"
         [tone]="0" />
     </div>
 
@@ -89,15 +91,17 @@ import { StatCardComponent } from '../../shared/stat-card.component';
     <erp-paged-table
       [list]="list"
       [columns]="columns"
-      searchPlaceholder="Search order number, customer, PO...">
+      searchPlaceholder="Search order number, customer, PO..."
+      exportFilename="sales-orders"
+      (rowClick)="openOrder($event)">
 
       <button toolbar *erpHasPermission="'sales.orders.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="order-new">
         <span nz-icon nzType="plus"></span>New Sales Order
       </button>
       
-      <ng-template #cell let-row let-column="column">
+      <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'number') {
-          <a [routerLink]="['/sales/orders', row.id]" class="order-link">
+          <a [routerLink]="['/sales/orders', row.id]" class="order-link" (click)="$event.stopPropagation()">
             <strong>{{ row.number }}</strong>
           </a>
         } @else if (column.key === 'customerName') {
@@ -108,9 +112,9 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             }
           </div>
         } @else if (column.key === 'totalAmount') {
-          <strong>{{ row.currency }} {{ row.totalAmount | number:'1.2-2' }}</strong>
+          <strong class="amount">{{ row.currency }} {{ row.totalAmount | number:'1.2-2' }}</strong>
         } @else if (column.key === 'status') {
-          <nz-tag [nzColor]="statusColor(row.status)">{{ row.status }}</nz-tag>
+          <erp-status [value]="row.status" />
         } @else if (column.key === 'invoiced') {
           @if (row.invoicedInvoiceId) {
             <nz-tag nzColor="green"><span nz-icon nzType="check"></span> Invoiced</nz-tag>
@@ -118,20 +122,19 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             <nz-tag nzColor="default">Pending</nz-tag>
           }
         } @else if (column.key === 'actions') {
-              <div class="action-buttons">
-                <a [routerLink]="['/sales/orders', row.id]" nz-button nzType="link" nzSize="small">
-                  Manage
-                </a>
-                <a [href]="'/print/order/' + row.id" target="_blank" nz-button nzType="link" nzSize="small" (click)="$event.stopPropagation()">
+              <div class="action-buttons" (click)="$event.stopPropagation()">
+                <a [href]="'/print/order/' + row.id" target="_blank" nz-button nzType="link" nzSize="small">
                   <span nz-icon nzType="printer"></span>Print
                 </a>
-                @if (row.status === 'Draft') {
+                @if (row.status === 'draft' || row.status === 'cancelled') {
                   <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="link" nzDanger nzSize="small"
                           nz-popconfirm nzPopconfirmTitle="Delete this order?" (nzOnConfirm)="deleteOrder(row.id)">
                     Delete
                   </button>
                 }
               </div>
+            } @else {
+              {{ value }}
             }
           </ng-template>
         </erp-paged-table>
@@ -267,7 +270,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                       <td class="line-calc">{{ calculateLineTotal(ctrl.value) | number:'1.2-2' }}</td>
                       <td>
                         @if (linesArray.length > 1) {
-                          <a (click)="removeLine($index)" style="color: #ef4444;"><span nz-icon nzType="delete"></span></a>
+                          <button nz-button nzType="text" nzDanger nzSize="small" type="button" aria-label="Remove line" nz-tooltip nzTooltipTitle="Remove line" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button>
                         }
                       </td>
                     </tr>
@@ -319,22 +322,23 @@ import { StatCardComponent } from '../../shared/stat-card.component';
       </nz-drawer>
   `,
   styles: [`
-    .order-link { color: #10955d; font-weight: 600; }
-    .order-link:hover { text-decoration: underline; color: #0c7347; }
+    .order-link { color: var(--erp-color-primary); font-weight: 600; white-space: nowrap; }
+    .amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .order-link:hover { text-decoration: underline; color: var(--erp-color-primary-hover); }
     .customer-cell { display: flex; flex-direction: column; }
-    .customer-name { font-weight: 600; color: #1e293b; }
-    .customer-ref { font-size: 12px; color: #64748b; }
+    .customer-name { font-weight: 600; color: var(--erp-color-text-primary); }
+    .customer-ref { font-size: 12px; color: var(--erp-color-text-muted); }
     .action-buttons { display: flex; gap: 4px; align-items: center; }
-    .lines-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 8px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
-    .lines-header h3 { margin: 0; font-size: 15px; font-weight: 600; color: #1e293b; }
+    .lines-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 8px; border-top: 1px solid var(--erp-color-border-subtle); padding-top: 16px; }
+    .lines-header h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--erp-color-text-primary); }
     .lines-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .lines-table th { background: #f8fafc; padding: 8px; text-align: left; font-weight: 600; color: #475569; border: 1px solid #e2e8f0; }
-    .lines-table td { padding: 4px; border: 1px solid #e2e8f0; vertical-align: middle; }
-    .line-calc { text-align: right; padding-right: 8px; font-weight: 600; color: #0f172a; }
-    .quote-summary-panel { margin-top: 16px; margin-left: auto; width: 280px; background: #f8fafc; border-radius: 8px; padding: 12px; border: 1px solid #e2e8f0; }
-    .summary-line { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: #475569; }
-    .total-highlight { border-top: 1px solid #cbd5e1; padding-top: 6px; margin-top: 6px; font-weight: 700; font-size: 15px; color: #0f172a; }
-    .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 16px; }
+    .lines-table th { background: var(--erp-color-bg-subtle); padding: 8px; text-align: left; font-weight: 600; color: var(--erp-color-text-secondary); border: 1px solid var(--erp-color-border-subtle); }
+    .lines-table td { padding: 4px; border: 1px solid var(--erp-color-border-subtle); vertical-align: middle; }
+    .line-calc { text-align: right; padding-inline-end: 8px; font-weight: 600; color: var(--erp-color-text-primary); }
+    .quote-summary-panel { margin-top: 16px; margin-inline-start: auto; width: 280px; background: var(--erp-color-bg-subtle); border-radius: 8px; padding: 12px; border: 1px solid var(--erp-color-border-subtle); }
+    .summary-line { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: var(--erp-color-text-secondary); }
+    .total-highlight { border-top: 1px solid var(--erp-color-border-default); padding-top: 6px; margin-top: 6px; font-weight: 700; font-size: 15px; color: var(--erp-color-text-primary); }
+    .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; border-top: 1px solid var(--erp-color-border-subtle); padding-top: 16px; }
   `],
 })
 export class OrdersListPage {
@@ -380,17 +384,18 @@ export class OrdersListPage {
   }
 
   readonly columns: TableColumn<OrderSummaryDto>[] = [
-    { key: 'number', label: 'Order #', sortField: 'number', width: '130px' },
+    { key: 'number', label: 'Order #', sortField: 'number', width: '140px' },
     { key: 'customerName', label: 'Customer', sortField: 'customerName' },
-    { key: 'orderDate', label: 'Order Date', sortField: 'orderDate', width: '120px' },
-    { key: 'expectedDeliveryDate', label: 'Delivery Due', sortField: 'expectedDeliveryDate', width: '120px' },
-    { key: 'totalAmount', label: 'Total Amount', sortField: 'totalAmount', width: '150px' },
-    { key: 'status', label: 'Status', sortField: 'status', width: '120px' },
-    { key: 'invoiced', label: 'Invoice', width: '110px' },
-    { key: 'actions', label: 'Actions', width: '130px' },
+    { key: 'orderDate', label: 'Order Date', sortField: 'orderDate', width: '120px', filterField: 'orderDate' },
+    { key: 'expectedDeliveryDate', label: 'Delivery Due', sortField: 'expectedDeliveryDate', width: '120px', filterField: 'expectedDeliveryDate' },
+    { key: 'totalAmount', label: 'Total Amount', sortField: 'totalAmount', width: '160px', align: 'right', filter: false },
+    { key: 'status', label: 'Status', width: '120px', filterField: 'status', filterOptions: ['draft', 'confirmed', 'processing', 'delivered', 'invoiced', 'cancelled'] },
+    { key: 'invoiced', label: 'Invoice', width: '110px', filter: false, value: (r) => (r.invoicedInvoiceId ? 'Invoiced' : 'Pending') },
+    { key: 'actions', label: 'Actions', width: '140px' },
   ];
 
-  readonly calculatedTotals = computed(() => {
+  /** A plain function: the form array is not a signal, so a computed would keep its first result. */
+  readonly calculatedTotals = () => {
     let sub = 0;
     let tax = 0;
     const lines = this.linesArray.value as { quantity: number; unitPrice: number; discountPercent: number; taxRate: number }[];
@@ -403,7 +408,7 @@ export class OrdersListPage {
       tax += taxAmt;
     }
     return { subTotal: sub, taxTotal: tax, total: sub + tax };
-  });
+  };
 
   constructor() {
     this.loadKpis();
@@ -411,6 +416,10 @@ export class OrdersListPage {
     this.loadCustomers();
     this.loadItems();
     this.loadTaxCodes();
+  }
+
+  openOrder(row: OrderSummaryDto): void {
+    this.router.navigate(['/sales/orders', row.id]);
   }
 
   loadTaxCodes(): void {
@@ -443,7 +452,7 @@ export class OrdersListPage {
 
   loadCustomers(): void {
     this.partiesApi.list({ page: 1, pageSize: 200 }).subscribe({
-      next: (res) => this.customers.set(res.items.filter((p) => !p.roles || p.roles.length === 0 || p.roles.includes('Customer'))),
+      next: (res) => this.customers.set(res.items.filter((p) => !p.roles || p.roles.length === 0 || p.roles.some((r) => r.toLowerCase() === 'customer'))),
       error: () => {},
     });
   }
@@ -459,7 +468,6 @@ export class OrdersListPage {
     const p = this.customers().find((x) => x.id === partyId);
     if (p) {
       this.form.patchValue({
-        customerPartyId: p.id,
         customerName: p.name,
         currency: p.currencyCode || this.form.value.currency || this.currencyService.code(),
       });
@@ -478,7 +486,6 @@ export class OrdersListPage {
       }
       const row = this.linesArray.at(index);
       row.patchValue({
-        itemId: it.id,
         itemCode: it.sku,
         description: it.name,
         unitOfMeasure: it.uom || 'EA',
@@ -534,17 +541,6 @@ export class OrdersListPage {
     return afterDisc + tax;
   }
 
-  statusColor(status: string): string {
-    switch (status) {
-      case 'Confirmed': return 'blue';
-      case 'Processing': return 'orange';
-      case 'Delivered': return 'cyan';
-      case 'Invoiced': return 'green';
-      case 'Cancelled': return 'red';
-      default: return 'default';
-    }
-  }
-
   submitForm(): void {
     if (this.form.invalid) {
       Object.values(this.form.controls).forEach((c) => {
@@ -591,7 +587,7 @@ export class OrdersListPage {
       },
       error: (err) => {
         this.isSubmitting.set(false);
-        this.message.error(err?.error?.message ?? 'Failed to create sales order');
+        this.message.error(problemMessage(err, 'Failed to create sales order'));
       },
     });
   }
@@ -603,7 +599,7 @@ export class OrdersListPage {
         this.list.reload();
         this.loadKpis();
       },
-      error: (err) => this.message.error(err?.error?.message ?? 'Failed to delete order'),
+      error: (err) => this.message.error(problemMessage(err, 'Failed to delete order')),
     });
   }
 

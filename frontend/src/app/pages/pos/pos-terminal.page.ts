@@ -1,14 +1,10 @@
-import { CommonModule, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { problemMessage } from '../../core/http/problem-details';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, inject, OnDestroy, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
-import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDividerModule } from 'ng-zorro-antd/divider';
-import { NzEmptyModule } from 'ng-zorro-antd/empty';
-import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -16,12 +12,14 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzSpaceModule } from 'ng-zorro-antd/space';
+import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { ItemsApi, LegalEntitiesApi, TaxCodesApi } from '../../core/api/admin.api';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { ItemDto, ItemsApi, TaxCodesApi } from '../../core/api/admin.api';
 import { SessionStore } from '../../core/session/session.store';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { StatePanelComponent } from '../../shared/state-panel.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
 import {
   CreatePosOrderCommand,
@@ -35,120 +33,151 @@ import {
   PosSessionsApi,
 } from '../../core/api/pos.api';
 
+interface CatalogItem {
+  id: string;
+  code: string;
+  name: string;
+  /** Null when the item has no sales price: it cannot be sold from the till until it has one. */
+  price: number | null;
+  taxCodeId?: string | null;
+}
+
 interface CartItem extends PosOrderLineInput {
+  itemCode: string;
   unitPrice: number;
   taxRate: number;
   discountPercent: number;
+  lineNet: number;
+  lineTax: number;
   lineTotal: number;
 }
 
+const REGISTER_KEY = 'erp.pos.register';
+const CATALOG_PAGE = 200;
+const ACTIVE_ONLY = [{ field: 'isActive', op: 'eq' as const, value: true }];
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+/** The till: scan or tap products onto the ticket, take payment, print the receipt. */
 @Component({
   selector: 'erp-pos-terminal',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KeyboardClickDirective, 
-    CommonModule,
+  imports: [
     DecimalPipe,
     FormsModule,
-    RouterModule,
-    NzGridModule,
-    NzCardModule,
     NzButtonModule,
     NzIconModule,
     NzInputModule,
     NzInputNumberModule,
     NzSelectModule,
+    NzSkeletonModule,
     NzTagModule,
+    NzToolTipModule,
     NzModalModule,
     NzRadioModule,
     NzDividerModule,
-    NzSpaceModule,
     NzAlertModule,
-    NzEmptyModule,
     HasPermissionDirective,
+    StatePanelComponent,
     ThermalReceiptComponent,
   ],
   template: `
     <div class="pos-terminal-layout">
-      <!-- Top Status Bar -->
-      <header class="terminal-header">
-        <div class="terminal-brand">
-          <span nz-icon nzType="shop" class="terminal-logo"></span>
-          <div>
-            <h2 class="terminal-title">POS Counter Terminal</h2>
-            <span class="terminal-sub">Express Retail & Counter Sales</span>
-          </div>
-        </div>
+      <header class="terminal-header" data-testid="pos-header">
+        <label class="register-select-box">
+          <span>Register</span>
+          <nz-select [ngModel]="selectedRegisterId()" (ngModelChange)="onRegisterChange($event)" nzPlaceHolder="Choose a register" style="width: 200px;" aria-label="Register" data-testid="pos-register">
+            @for (r of registers(); track r.id) {
+              <nz-option [nzValue]="r.id" [nzLabel]="r.name"></nz-option>
+            }
+          </nz-select>
+        </label>
 
-        <div class="terminal-status-controls">
-          <div class="register-select-box">
-            <span class="label">Register:</span>
-            <nz-select [ngModel]="selectedRegisterId()" (ngModelChange)="onRegisterChange($event)" nzSize="small" style="width: 180px;">
-              @for (r of registers(); track r.id) {
-                <nz-option [nzValue]="r.id" [nzLabel]="r.name"></nz-option>
-              }
-            </nz-select>
+        @if (activeSession(); as session) {
+          <nz-tag nzColor="success" data-testid="pos-shift-open">
+            <span nz-icon nzType="check-circle"></span> Shift open · {{ session.cashierName }}
+          </nz-tag>
+          <span class="header-spacer"></span>
+          <div class="drawer-cash-badge">
+            <span>Expected cash</span>
+            <strong>{{ currency() }} {{ session.expectedCash | number:'1.2-2' }}</strong>
           </div>
-
-          @if (activeSession(); as session) {
-            <nz-tag nzColor="success">
-              <span nz-icon nzType="check-circle"></span> Shift Open · {{ session.cashierName }}
-            </nz-tag>
-            <div class="drawer-cash-badge">
-              <span class="label">Expected Cash:</span>
-              <strong>{{ currency() }} {{ session.expectedCash | number:'1.2-2' }}</strong>
-            </div>
-            <button *erpHasPermission="'pos.sessions.manage'" nz-button nzDanger nzSize="small" (click)="openCloseShiftModal()">
-              <span nz-icon nzType="poweroff"></span>Close Shift
-            </button>
-          } @else {
-            <nz-tag nzColor="error">
-              <span nz-icon nzType="close-circle"></span> No Open Shift
-            </nz-tag>
-            <button *erpHasPermission="'pos.sessions.manage'" nz-button nzType="primary" nzSize="small" (click)="openOpenShiftModal()">
-              <span nz-icon nzType="play-circle"></span>Open Shift
-            </button>
-          }
-        </div>
+          <button *erpHasPermission="'pos.sessions.manage'" nz-button nzDanger (click)="openCloseShiftModal()" data-testid="pos-close-shift">
+            <span nz-icon nzType="poweroff"></span>Close Shift
+          </button>
+        } @else if (shiftFailed()) {
+          <nz-tag nzColor="warning"><span nz-icon nzType="warning"></span> Shift status unknown</nz-tag>
+          <span class="header-spacer"></span>
+          <button nz-button (click)="onRegisterChange(selectedRegisterId())"><span nz-icon nzType="reload"></span>Try again</button>
+        } @else if (selectedRegisterId() && !shiftLoading()) {
+          <nz-tag nzColor="error" data-testid="pos-shift-none">
+            <span nz-icon nzType="close-circle"></span> No open shift
+          </nz-tag>
+          <span class="header-spacer"></span>
+          <button *erpHasPermission="'pos.sessions.manage'" nz-button nzType="primary" (click)="openShiftModalVisible.set(true)" data-testid="pos-open-shift">
+            <span nz-icon nzType="play-circle"></span>Open Shift
+          </button>
+        }
       </header>
 
-      <!-- Terminal Body: Catalog (Left) + Cart & Payment (Right) -->
       <div class="terminal-main">
-        <!-- Item Catalog Panel -->
         <section class="catalog-section">
           <div class="catalog-search-bar">
-            <nz-input-group [nzPrefix]="searchPrefix">
-              <input aria-label="Scan barcode, SKU or search item title..."
+            <nz-input-group [nzPrefix]="searchPrefix" nzSize="large">
+              <input #searchInput
                 nz-input
-                placeholder="Scan barcode, SKU or search item title..."
+                nzSize="large"
+                aria-label="Scan or search products"
+                placeholder="Scan or type a SKU or product name, then press Enter"
+                autocomplete="off"
+                data-testid="pos-search"
                 [ngModel]="searchQuery()"
-                (ngModelChange)="searchQuery.set($event)"
+                (ngModelChange)="onSearch($event)"
+                (keydown.enter)="onSearchEnter($event)"
               />
             </nz-input-group>
-            <ng-template #searchPrefix><span nz-icon nzType="search"></span></ng-template>
+            <ng-template #searchPrefix><span nz-icon nzType="barcode"></span></ng-template>
           </div>
 
-          <div class="catalog-grid">
-            @for (item of filteredCatalog(); track item.id) {
-              <div erpKeyboardClick class="item-tile" (click)="addToCart(item)">
-                <div class="item-tile-code">{{ item.code }}</div>
-                <div class="item-tile-title">{{ item.name }}</div>
-                <div class="item-tile-price">{{ currency() }} {{ item.price | number:'1.2-2' }}</div>
+          <div class="catalog-scroll">
+            @if (catalogFailed()) {
+              <erp-state-panel kind="error" title="The products could not be loaded." hint="Check your connection and try again." actionLabel="Try again" (action)="loadItemsCatalog()" />
+            } @else if (catalogLoading() && !catalog().length) {
+              <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 8 }" />
+            } @else if (!catalog().length) {
+              <erp-state-panel title="No products to sell" hint="Add active items with a sales price under Master Data, then come back." icon="shop" />
+            } @else {
+              <div class="catalog-grid" data-testid="pos-catalog">
+                @for (item of filteredCatalog(); track item.id) {
+                  <button type="button" class="item-tile" [disabled]="item.price === null" [attr.title]="item.name" (click)="addToCart(item)" [attr.data-testid]="'pos-item-' + item.code">
+                    <span class="item-tile-title">{{ item.name }}</span>
+                    <span class="item-tile-code">{{ item.code }}</span>
+                    @if (item.price !== null) {
+                      <span class="item-tile-price"><small>{{ currency() }}</small> {{ item.price | number:'1.2-2' }}</span>
+                    } @else {
+                      <span class="item-tile-noprice">No price set</span>
+                    }
+                  </button>
+                } @empty {
+                  <div class="empty-catalog">
+                    <span nz-icon nzType="search"></span>
+                    <p>No product matches "{{ searchQuery() }}".</p>
+                    <button nz-button type="button" (click)="clearSearch()">Clear search</button>
+                  </div>
+                }
               </div>
-            } @empty {
-              <div class="empty-catalog">
-                <nz-empty nzNotFoundImage="simple" nzNotFoundContent="No products match search criteria."></nz-empty>
-              </div>
+              @if (catalogTotal() > catalog().length && !searchQuery().trim()) {
+                <p class="catalog-note" data-testid="pos-catalog-note">Showing {{ catalog().length }} of {{ catalogTotal() }} products. Search to find the rest.</p>
+              }
             }
           </div>
         </section>
 
-        <!-- Current Ticket / Cart Panel -->
         <section class="ticket-section">
           <div class="ticket-header">
             <div class="ticket-title">
               <span nz-icon nzType="shopping-cart"></span> Current Ticket
-              <nz-tag nzColor="blue">{{ cart().length }} items</nz-tag>
+              <span class="ticket-count" data-testid="pos-ticket-count">{{ itemCount() }} {{ itemCount() === 1 ? 'item' : 'items' }}</span>
             </div>
             <button nz-button nzType="link" nzDanger (click)="clearCart()" [disabled]="cart().length === 0">
               Clear
@@ -156,52 +185,52 @@ interface CartItem extends PosOrderLineInput {
           </div>
 
           <div class="customer-bar">
-            <span nz-icon nzType="user" style="color: #64748b;"></span>
-            <input aria-label="Walk-in Customer" nz-input nzSize="small" placeholder="Walk-in Customer" [ngModel]="customerName()" (ngModelChange)="customerName.set($event)" />
+            <span nz-icon nzType="user" class="muted"></span>
+            <input aria-label="Customer name" nz-input nzSize="small" placeholder="Walk-in Customer" [ngModel]="customerName()" (ngModelChange)="customerName.set($event)" />
           </div>
 
-          <!-- Cart Line Items -->
           <div class="cart-lines-container">
             @for (line of cart(); track line.itemCode; let i = $index) {
               <div class="cart-line-card">
                 <div class="line-info">
-                  <span class="line-name">{{ line.description }}</span>
+                  <span class="line-name" [attr.title]="line.description">{{ line.description }}</span>
                   <span class="line-meta">{{ currency() }} {{ line.unitPrice | number:'1.2-2' }} · Tax {{ line.taxRate }}%</span>
                 </div>
 
                 <div class="line-qty-controls">
-                  <button class="qty-btn" (click)="updateQuantity(i, line.quantity - 1)">-</button>
+                  <button type="button" class="qty-btn" [attr.aria-label]="'One less ' + line.description" (click)="updateQuantity(i, line.quantity - 1)">-</button>
                   <span class="qty-val">{{ line.quantity }}</span>
-                  <button class="qty-btn" (click)="updateQuantity(i, line.quantity + 1)">+</button>
+                  <button type="button" class="qty-btn" [attr.aria-label]="'One more ' + line.description" (click)="updateQuantity(i, line.quantity + 1)">+</button>
                 </div>
 
                 <div class="line-total-col">
-                  <strong>{{ currency() }} {{ line.lineTotal | number:'1.2-2' }}</strong>
-                  <span erpKeyboardClick nz-icon nzType="delete" class="line-delete-btn" (click)="removeLine(i)"></span>
+                  <strong>{{ line.lineTotal | number:'1.2-2' }}</strong>
+                  <button type="button" class="line-delete-btn" [attr.aria-label]="'Remove ' + line.description" nz-tooltip nzTooltipTitle="Remove" (click)="removeLine(i)">
+                    <span nz-icon nzType="delete"></span>
+                  </button>
                 </div>
               </div>
             } @empty {
               <div class="empty-cart-state">
                 <span nz-icon nzType="barcode" class="empty-icon"></span>
-                <p>Ticket is empty. Scan an item or tap a product on the left to start sale.</p>
+                <p>The ticket is empty. Scan an item or tap a product to start the sale.</p>
               </div>
             }
           </div>
 
-          <!-- Cart Totals & Checkout Actions -->
           <div class="ticket-footer">
             <div class="totals-breakdown">
               <div class="summary-row">
-                <span>Subtotal:</span>
+                <span>Subtotal</span>
                 <span>{{ currency() }} {{ cartSubTotal() | number:'1.2-2' }}</span>
               </div>
               <div class="summary-row">
-                <span>VAT / Sales Tax ({{ defaultTaxRate() }}%):</span>
+                <span>Tax</span>
                 <span>{{ currency() }} {{ cartTaxTotal() | number:'1.2-2' }}</span>
               </div>
-              <nz-divider style="margin: 8px 0;"></nz-divider>
+              <nz-divider style="margin: 6px 0;"></nz-divider>
               <div class="summary-row grand-total">
-                <span>Grand Total:</span>
+                <span>Total</span>
                 <span>{{ currency() }} {{ cartTotal() | number:'1.2-2' }}</span>
               </div>
             </div>
@@ -213,86 +242,99 @@ interface CartItem extends PosOrderLineInput {
               nzBlock
               nzSize="large"
               class="checkout-btn"
+              data-testid="pos-pay"
               [disabled]="cart().length === 0 || !activeSession()"
               (click)="openPaymentModal()"
             >
               <span nz-icon nzType="credit-card"></span> Pay {{ currency() }} {{ cartTotal() | number:'1.2-2' }}
             </button>
+            @if (!activeSession() && cart().length > 0) {
+              <p class="pay-hint" data-testid="pos-pay-hint">Open a shift to take payment.</p>
+            }
           </div>
         </section>
       </div>
 
-      <!-- Payment / Tender Modal -->
+      <!-- Payment -->
       <nz-modal
         [(nzVisible)]="paymentModalVisible"
-        nzTitle="Complete POS Payment Tender"
+        nzTitle="Take Payment"
         [nzFooter]="paymentModalFooter"
-        (nzOnCancel)="paymentModalVisible = false"
+        (nzAfterOpen)="focusTender()"
+        (nzOnCancel)="paymentModalVisible.set(false)"
       >
         <ng-container *nzModalContent>
           <div class="payment-modal-body">
             <div class="payment-due-banner">
-              <span class="due-label">Total Amount Due</span>
+              <span class="due-label">Amount due</span>
               <span class="due-amount">{{ currency() }} {{ cartTotal() | number:'1.2-2' }}</span>
             </div>
 
-            <div class="tender-options" style="margin-bottom: 16px;">
-              <nz-radio-group [(ngModel)]="paymentMethod" nzButtonStyle="solid">
-                <label nz-radio-button nzValue="Cash"><span nz-icon nzType="dollar"></span> Cash</label>
-                <label nz-radio-button nzValue="Card"><span nz-icon nzType="credit-card"></span> Credit / Debit Card</label>
+            <div class="tender-options">
+              <nz-radio-group [(ngModel)]="paymentMethod" nzButtonStyle="solid" aria-label="Payment method">
+                <label nz-radio-button nzValue="cash"><span nz-icon nzType="dollar"></span> Cash</label>
+                <label nz-radio-button nzValue="card"><span nz-icon nzType="credit-card"></span> Card</label>
               </nz-radio-group>
             </div>
 
-            @if (paymentMethod === 'Cash') {
-              <div class="cash-tender-section">
-                <label style="font-weight: 600; display: block; margin-bottom: 6px;">Cash Tendered by Customer</label>
+            @if (paymentMethod() === 'cash') {
+              <div>
+                <label class="field-label">Cash received</label>
                 <nz-input-number
+                  #tender
                   [(ngModel)]="tenderedCash"
-                  [nzMin]="cartTotal()"
+                  [nzMin]="0"
                   [nzStep]="10"
+                  aria-label="Cash received"
                   style="width: 100%; font-size: 18px;"
+                  (keydown.enter)="onTenderEnter($event)"
+                  data-testid="pos-tendered"
                 ></nz-input-number>
 
                 <div class="quick-cash-row">
-                  <button nz-button nzSize="small" (click)="tenderedCash = cartTotal()">Exact ({{ currency() }} {{ cartTotal() | number:'1.0-0' }})</button>
-                  <button nz-button nzSize="small" (click)="quickCash(50)">50</button>
-                  <button nz-button nzSize="small" (click)="quickCash(100)">100</button>
-                  <button nz-button nzSize="small" (click)="quickCash(200)">200</button>
-                  <button nz-button nzSize="small" (click)="quickCash(500)">500</button>
+                  <button nz-button nzSize="small" type="button" (click)="tenderedCash.set(cartTotal())">Exact</button>
+                  @for (amount of quickCashOptions(); track amount) {
+                    <button nz-button nzSize="small" type="button" (click)="tenderedCash.set(amount)">{{ amount | number:'1.0-2' }}</button>
+                  }
                 </div>
 
-                <div class="change-display">
-                  <span>Change Due to Customer:</span>
-                  <strong class="change-amount">{{ currency() }} {{ cashChange() | number:'1.2-2' }}</strong>
-                </div>
+                @if (tenderedCash() < cartTotal()) {
+                  <div class="change-display short">
+                    <span>Still to pay</span>
+                    <strong class="change-amount">{{ currency() }} {{ cartTotal() - tenderedCash() | number:'1.2-2' }}</strong>
+                  </div>
+                } @else {
+                  <div class="change-display" data-testid="pos-change">
+                    <span>Change to give</span>
+                    <strong class="change-amount">{{ currency() }} {{ cashChange() | number:'1.2-2' }}</strong>
+                  </div>
+                }
               </div>
             } @else {
-              <div class="card-tender-section">
-                <label style="font-weight: 600; display: block; margin-bottom: 6px;">Card Transaction Authorization / Ref</label>
-                <input aria-label="e.g. AUTH-88492" nz-input placeholder="e.g. AUTH-88492" [(ngModel)]="cardReference" />
-                <p style="margin-top: 6px; font-size: 12px; color: #64748b;">
-                  Swipe / tap on payment terminal, then confirm receipt approval.
-                </p>
+              <div>
+                <label class="field-label">Card approval reference</label>
+                <input aria-label="Card approval reference" nz-input placeholder="Optional" [(ngModel)]="cardReference" />
+                <p class="pay-note">Take the payment on the card machine, then confirm here.</p>
               </div>
             }
           </div>
         </ng-container>
 
         <ng-template #paymentModalFooter>
-          <button nz-button (click)="paymentModalVisible = false">Cancel</button>
-          <button nz-button nzType="primary" (click)="processPayment()" [nzLoading]="isProcessingPayment">
-            <span nz-icon nzType="check"></span> Confirm & Print Receipt
+          <button nz-button (click)="paymentModalVisible.set(false)">Cancel</button>
+          <button nz-button nzType="primary" (click)="processPayment()" [nzLoading]="isProcessingPayment()" [disabled]="!canConfirmPayment()" data-testid="pos-confirm-payment">
+            <span nz-icon nzType="check"></span> Confirm Payment
           </button>
         </ng-template>
       </nz-modal>
 
-      <!-- Completed Receipt Modal -->
+      <!-- Receipt -->
       <nz-modal
         [(nzVisible)]="receiptModalVisible"
-        nzTitle="Sale Completed · Official Thermal Receipt"
+        nzTitle="Sale Completed"
         [nzFooter]="receiptFooterTpl"
         [nzWidth]="420"
-        (nzOnCancel)="receiptModalVisible = false"
+        (nzOnCancel)="finishSale()"
       >
         <ng-container *nzModalContent>
           @if (thermalReceiptData(); as rc) {
@@ -301,65 +343,69 @@ interface CartItem extends PosOrderLineInput {
         </ng-container>
         <ng-template #receiptFooterTpl>
           @if (completedOrder(); as ord) {
-            <a [href]="'/print/pos-receipt/' + ord.id" target="_blank" nz-button nzType="primary">
-              <span nz-icon nzType="printer"></span> Print Official Receipt
+            <a [href]="'/print/pos-receipt/' + ord.id" target="_blank" nz-button>
+              <span nz-icon nzType="printer"></span> Print Receipt
             </a>
           }
-          <button nz-button (click)="receiptModalVisible = false">
-            Done
+          <button nz-button nzType="primary" (click)="finishSale()" data-testid="pos-new-sale">
+            New Sale
           </button>
         </ng-template>
       </nz-modal>
 
-      <!-- Open Shift Modal -->
+      <!-- Open shift -->
       <nz-modal
         [(nzVisible)]="openShiftModalVisible"
-        nzTitle="Open POS Register Shift"
-        (nzOnCancel)="openShiftModalVisible = false"
+        nzTitle="Open Shift"
+        nzOkText="Open Shift"
+        [nzOkLoading]="shiftBusy()"
+        (nzOnCancel)="openShiftModalVisible.set(false)"
         (nzOnOk)="submitOpenShift()"
       >
         <ng-container *nzModalContent>
-          <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="modal-stack">
             <div>
-              <label style="font-weight: 600;">Opening Float Cash ({{ currency() }})</label>
-              <nz-input-number [(ngModel)]="openFloatCash" [nzMin]="0" style="width: 100%;"></nz-input-number>
+              <label class="field-label">Opening cash in the drawer ({{ currency() }})</label>
+              <nz-input-number [(ngModel)]="openFloatCash" [nzMin]="0" aria-label="Opening cash in the drawer" style="width: 100%;" data-testid="pos-open-float"></nz-input-number>
             </div>
             <div>
-              <label style="font-weight: 600;">Shift Opening Notes</label>
-              <input aria-label="Morning / afternoon shift notes..." nz-input [(ngModel)]="shiftNotes" placeholder="Morning / afternoon shift notes..." />
+              <label class="field-label">Notes</label>
+              <input aria-label="Notes" nz-input [(ngModel)]="shiftNotes" placeholder="Optional" />
             </div>
           </div>
         </ng-container>
       </nz-modal>
 
-      <!-- Close Shift Modal -->
+      <!-- Close shift -->
       <nz-modal
         [(nzVisible)]="closeShiftModalVisible"
-        nzTitle="Close & Reconcile POS Shift"
-        (nzOnCancel)="closeShiftModalVisible = false"
+        nzTitle="Close Shift"
+        nzOkText="Close Shift"
+        [nzOkLoading]="shiftBusy()"
+        (nzOnCancel)="closeShiftModalVisible.set(false)"
         (nzOnOk)="submitCloseShift()"
       >
         <ng-container *nzModalContent>
           @if (activeSession(); as s) {
-            <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="modal-stack">
               <nz-alert
                 nzType="info"
-                [nzMessage]="'Expected Drawer Cash: ' + currency() + ' ' + (s.expectedCash | number:'1.2-2')"
+                [nzMessage]="'Expected cash in the drawer: ' + currency() + ' ' + (s.expectedCash | number:'1.2-2')"
                 nzShowIcon
               ></nz-alert>
               <div>
-                <label style="font-weight: 600;">Actual Physical Cash Counted ({{ currency() }})</label>
-                <nz-input-number [(ngModel)]="actualCloseCash" [nzMin]="0" style="width: 100%; font-size: 16px;"></nz-input-number>
+                <label class="field-label">Cash counted ({{ currency() }})</label>
+                <nz-input-number [(ngModel)]="actualCloseCash" [nzMin]="0" aria-label="Cash counted" style="width: 100%; font-size: 16px;" data-testid="pos-close-cash"></nz-input-number>
               </div>
               <div class="variance-box">
-                <span>Variance (Difference):</span>
-                <strong [style.color]="(actualCloseCash - s.expectedCash) < 0 ? '#dc2626' : '#16a34a'">
-                  {{ currency() }} {{ (actualCloseCash - s.expectedCash) | number:'1.2-2' }}
+                <span>Difference</span>
+                <strong [class.short]="actualCloseCash() < s.expectedCash" [class.over]="actualCloseCash() > s.expectedCash">
+                  {{ currency() }} {{ actualCloseCash() - s.expectedCash | number:'1.2-2' }}
                 </strong>
               </div>
               <div>
-                <label style="font-weight: 600;">Closing Notes</label>
-                <input aria-label="Shift handover / cash drop comments..." nz-input [(ngModel)]="closeNotes" placeholder="Shift handover / cash drop comments..." />
+                <label class="field-label">Notes</label>
+                <input aria-label="Notes" nz-input [(ngModel)]="closeNotes" placeholder="Optional" />
               </div>
             </div>
           }
@@ -368,224 +414,177 @@ interface CartItem extends PosOrderLineInput {
     </div>
   `,
   styles: [`
+    /* Fills the space the shell leaves (its top bar and page padding), so the Pay button is always on screen. */
     .pos-terminal-layout {
       display: flex;
       flex-direction: column;
-      height: calc(100vh - 64px);
-      background: #f8fafc;
+      height: calc(100vh - 106px);
+      min-height: 480px;
+      background: var(--erp-color-bg-surface);
+      border: 1px solid var(--erp-color-border-subtle);
+      border-radius: var(--erp-radius-card, 8px);
       overflow: hidden;
     }
     .terminal-header {
-      background: #ffffff;
-      border-bottom: 1px solid #e2e8f0;
-      padding: 12px 20px;
+      padding: 8px 16px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 12px;
       flex-shrink: 0;
+      border-bottom: 1px solid var(--erp-color-border-subtle);
     }
-    .terminal-brand { display: flex; align-items: center; gap: 12px; }
-    .terminal-logo { font-size: 26px; color: #2563eb; background: #eff6ff; padding: 8px; border-radius: 8px; }
-    .terminal-title { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
-    .terminal-sub { font-size: 12px; color: #64748b; }
-    .terminal-status-controls { display: flex; align-items: center; gap: 14px; }
-    .register-select-box { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
-    .drawer-cash-badge { background: #f1f5f9; padding: 4px 10px; border-radius: 6px; font-size: 13px; }
+    .header-spacer { flex: 1; }
+    .register-select-box { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--erp-color-text-primary); }
+    .drawer-cash-badge { display: inline-flex; align-items: baseline; gap: 8px; padding: 4px 10px; border-radius: 6px; background: var(--erp-color-bg-subtle); color: var(--erp-color-text-secondary); white-space: nowrap; }
+    .drawer-cash-badge strong { color: var(--erp-color-text-primary); font-variant-numeric: tabular-nums; }
 
-    .terminal-main {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-    .catalog-section {
-      flex: 3;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid #e2e8f0;
-      background: #f8fafc;
-      overflow: hidden;
-    }
-    .catalog-search-bar { padding: 14px 18px; background: white; border-bottom: 1px solid #e2e8f0; }
-    .catalog-grid {
-      padding: 16px;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 12px;
-      overflow-y: auto;
-      flex: 1;
-    }
+    .terminal-main { display: flex; flex: 1; min-height: 0; }
+    .catalog-section { flex: 1; min-width: 0; display: flex; flex-direction: column; border-inline-end: 1px solid var(--erp-color-border-subtle); background: var(--erp-color-bg-subtle); }
+    .catalog-search-bar { padding: 10px 12px; background: var(--erp-color-bg-surface); border-bottom: 1px solid var(--erp-color-border-subtle); }
+    .catalog-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; }
+    .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; align-content: start; }
+    .catalog-note { margin: 10px 0 0; text-align: center; color: var(--erp-color-text-muted); }
     .item-tile {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 12px;
-      cursor: pointer;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      min-height: 105px;
-      transition: all 0.15s ease-in-out;
+      gap: 2px;
+      min-width: 0;
+      padding: 7px 9px;
+      text-align: start;
+      font: inherit;
+      color: inherit;
+      background: var(--erp-color-bg-surface);
+      border: 1px solid var(--erp-color-border-subtle);
+      border-radius: 8px;
+      cursor: pointer;
       user-select: none;
     }
-    .item-tile:hover {
-      border-color: #3b82f6;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(59,130,246,0.1);
-    }
-    .item-tile-code { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
-    .item-tile-title { font-size: 13px; font-weight: 600; color: #1e293b; margin: 4px 0; line-height: 1.3; }
-    .item-tile-price { font-size: 14px; font-weight: 700; color: #2563eb; }
+    .item-tile:hover:not(:disabled) { border-color: var(--erp-color-primary); background: var(--erp-color-bg-hover); }
+    .item-tile:active:not(:disabled) { background: var(--erp-color-primary-subtle); }
+    .item-tile:focus-visible { outline: 2px solid var(--erp-color-primary); outline-offset: 1px; }
+    .item-tile:disabled { cursor: not-allowed; opacity: .65; }
+    .item-tile-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.5em; font-size: 12.5px; font-weight: 600; line-height: 1.25; color: var(--erp-color-text-primary); }
+    .item-tile-code { font-size: 10.5px; color: var(--erp-color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-tile-price { font-size: 15px; font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--erp-color-primary-text); }
+    .item-tile-price small { font-size: 10.5px; font-weight: 600; }
+    .item-tile-noprice { font-size: 12px; line-height: 1.6; color: var(--erp-color-error-text); }
+    .empty-catalog { grid-column: 1 / -1; padding: 40px 16px; text-align: center; color: var(--erp-color-text-muted); }
+    .empty-catalog p { margin: 8px 0 12px; }
 
-    .ticket-section {
-      flex: 2;
-      min-width: 380px;
-      max-width: 460px;
-      background: white;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .ticket-header {
-      padding: 14px 18px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .ticket-title { font-size: 15px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; }
-    .customer-bar { padding: 8px 18px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; }
+    .ticket-section { flex: 0 0 400px; min-width: 0; display: flex; flex-direction: column; background: var(--erp-color-bg-surface); }
+    .ticket-header { padding: 6px 12px 6px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--erp-color-border-subtle); }
+    .ticket-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--erp-color-text-primary); }
+    .ticket-count { font-size: 12.5px; font-weight: 400; color: var(--erp-color-text-muted); }
+    .customer-bar { padding: 6px 16px; display: flex; align-items: center; gap: 8px; background: var(--erp-color-bg-subtle); border-bottom: 1px solid var(--erp-color-border-subtle); }
+    .muted { color: var(--erp-color-text-muted); }
 
-    .cart-lines-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .cart-line-card {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 12px;
-      background: #ffffff;
-      border: 1px solid #f1f5f9;
-      border-radius: 8px;
-    }
-    .line-info { flex: 1; min-width: 0; padding-right: 8px; }
-    .line-name { font-size: 13px; font-weight: 600; color: #0f172a; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .line-meta { font-size: 11px; color: #64748b; }
-    .line-qty-controls { display: flex; align-items: center; gap: 6px; margin: 0 10px; }
-    .qty-btn {
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .qty-val { font-size: 13px; font-weight: 700; min-width: 20px; text-align: center; }
-    .line-total-col { text-align: right; display: flex; align-items: center; gap: 8px; font-size: 13px; }
-    .line-delete-btn { color: #ef4444; cursor: pointer; font-size: 14px; }
+    .cart-lines-container { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+    .cart-line-card { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--erp-color-border-subtle); border-radius: 8px; }
+    .line-info { flex: 1; min-width: 0; }
+    .line-name { display: block; font-size: 13px; font-weight: 600; color: var(--erp-color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .line-meta { font-size: 11px; color: var(--erp-color-text-muted); white-space: nowrap; }
+    .line-qty-controls { display: flex; align-items: center; gap: 4px; }
+    .qty-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--erp-color-text-primary); background: var(--erp-color-bg-subtle); border: 1px solid var(--erp-color-border-default); border-radius: 4px; cursor: pointer; }
+    .qty-val { min-width: 22px; text-align: center; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .line-total-col { display: flex; align-items: center; gap: 4px; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .line-delete-btn { padding: 4px; line-height: 1; background: none; border: 0; border-radius: 4px; color: var(--erp-color-error-text); cursor: pointer; }
 
-    .empty-cart-state { text-align: center; color: #94a3b8; padding: 48px 16px; }
-    .empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.6; }
+    .empty-cart-state { padding: 40px 16px; text-align: center; color: var(--erp-color-text-muted); }
+    .empty-icon { font-size: 32px; margin-bottom: 10px; opacity: .6; }
 
-    .ticket-footer {
-      padding: 16px 18px;
-      background: #f8fafc;
-      border-top: 1px solid #e2e8f0;
+    .ticket-footer { padding: 10px 16px 12px; background: var(--erp-color-bg-subtle); border-top: 1px solid var(--erp-color-border-subtle); }
+    .totals-breakdown { margin-bottom: 8px; }
+    .summary-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--erp-color-text-secondary); }
+    .grand-total { font-size: 18px; font-weight: 800; color: var(--erp-color-text-primary); }
+    .checkout-btn { height: 46px; font-size: 16px; font-weight: 700; border-radius: 8px; }
+    .pay-hint { margin: 6px 0 0; text-align: center; color: var(--erp-color-error-text); }
+
+    .payment-due-banner { margin-bottom: 16px; padding: 14px; text-align: center; border-radius: 8px; background: var(--erp-color-primary-subtle); }
+    .due-label { display: block; font-size: 12px; font-weight: 600; color: var(--erp-color-text-secondary); }
+    .due-amount { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--erp-color-text-primary); }
+    .tender-options { margin-bottom: 16px; }
+    .field-label { display: block; margin-bottom: 6px; font-weight: 600; }
+    .pay-note { margin: 6px 0 0; font-size: 12px; color: var(--erp-color-text-muted); }
+    .quick-cash-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .change-display { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 12px; border-radius: 6px; background: var(--erp-color-success-bg); color: var(--erp-color-success-text); }
+    .change-display.short { background: var(--erp-color-error-bg); color: var(--erp-color-error-text); }
+    .change-amount { font-size: 18px; font-variant-numeric: tabular-nums; }
+    .modal-stack { display: flex; flex-direction: column; gap: 14px; }
+    .variance-box { display: flex; justify-content: space-between; padding: 8px 12px; font-size: 14px; border-radius: 6px; background: var(--erp-color-bg-subtle); }
+    .variance-box strong { font-variant-numeric: tabular-nums; }
+    .variance-box .short { color: var(--erp-color-error-text); }
+    .variance-box .over { color: var(--erp-color-success-text); }
+
+    @media (max-width: 1000px) {
+      .pos-terminal-layout { height: auto; overflow: visible; }
+      .terminal-main { flex-direction: column; }
+      .catalog-section { border-inline-end: 0; border-bottom: 1px solid var(--erp-color-border-subtle); }
+      .catalog-scroll { max-height: 50vh; }
+      .ticket-section { flex: none; }
+      .cart-lines-container { max-height: 40vh; }
     }
-    .totals-breakdown { margin-bottom: 14px; }
-    .summary-row { display: flex; justify-content: space-between; font-size: 13px; color: #475569; margin-bottom: 4px; }
-    .grand-total { font-size: 18px; font-weight: 800; color: #0f172a; }
-    .checkout-btn { font-size: 16px; font-weight: 700; height: 48px; border-radius: 8px; }
-
-    .payment-due-banner { text-align: center; background: #eff6ff; padding: 14px; border-radius: 8px; margin-bottom: 16px; }
-    .due-label { font-size: 12px; font-weight: 600; text-transform: uppercase; color: #3b82f6; display: block; }
-    .due-amount { font-size: 28px; font-weight: 800; color: #1e3a8a; }
-    .quick-cash-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-    .change-display { margin-top: 14px; padding: 12px; background: #ecfdf5; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
-    .change-amount { font-size: 18px; color: #065f46; }
-
-    .thermal-receipt {
-      font-family: 'Courier New', Courier, monospace;
-      padding: 12px;
-      background: #fafafa;
-      border: 1px dashed #ccc;
-      color: #111;
-    }
-    .receipt-header-center { text-align: center; }
-    .receipt-header-center h3 { margin: 0; font-size: 16px; font-weight: bold; }
-    .receipt-header-center p { margin: 2px 0; font-size: 12px; }
-    .receipt-line { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
-    .receipt-total-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
-    .receipt-grand { font-size: 14px; font-weight: bold; }
-    .receipt-tender-row { display: flex; justify-content: space-between; font-size: 11px; color: #555; }
-    .receipt-footer-center { text-align: center; margin-top: 14px; font-size: 11px; }
-    .variance-box { display: flex; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border-radius: 6px; font-size: 14px; }
   `],
 })
-export class PosTerminalPage {
+export class PosTerminalPage implements OnDestroy {
   private readonly registersApi = inject(PosRegistersApi);
   private readonly sessionsApi = inject(PosSessionsApi);
   private readonly ordersApi = inject(PosOrdersApi);
   private readonly itemsApi = inject(ItemsApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly taxCodesApi = inject(TaxCodesApi);
   private readonly sessionStore = inject(SessionStore);
   private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
+  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
+  private readonly tender = viewChild('tender', { read: ElementRef<HTMLElement> });
+  private searchTimer?: ReturnType<typeof setTimeout>;
+  private readonly taxRates = new Map<string, number>();
 
   readonly registers = signal<PosRegisterDto[]>([]);
   readonly selectedRegisterId = signal<string>('');
   readonly activeSession = signal<PosSessionDto | null>(null);
+  readonly shiftLoading = signal(false);
+  readonly shiftFailed = signal(false);
   readonly currency = this.currencyService.currency;
-  readonly defaultTaxRate = signal<number>(0);
 
-  readonly catalog = signal<{ id: string; code: string; name: string; price: number; barcode?: string }[]>([
-    { id: '1', code: 'BEV-01', name: 'Espresso Roast Coffee', price: 18.00 },
-    { id: '2', code: 'BEV-02', name: 'Matcha Green Latte', price: 24.00 },
-    { id: '3', code: 'BAK-01', name: 'Fresh Butter Croissant', price: 14.50 },
-    { id: '4', code: 'BAK-02', name: 'Artisan Sourdough Loaf', price: 22.00 },
-    { id: '5', code: 'SNK-01', name: 'Roasted Almond Bar', price: 9.50 },
-    { id: '6', code: 'SNK-02', name: 'Organic Mineral Water 500ml', price: 6.00 },
-    { id: '7', code: 'MER-01', name: 'Ceramic Reusable Tumbler', price: 65.00 },
-    { id: '8', code: 'MER-02', name: 'Specialty Whole Beans 250g', price: 55.00 },
-  ]);
+  readonly catalog = signal<CatalogItem[]>([]);
+  readonly catalogTotal = signal(0);
+  readonly catalogLoading = signal(false);
+  readonly catalogFailed = signal(false);
 
   readonly searchQuery = signal<string>('');
   readonly cart = signal<CartItem[]>([]);
   readonly customerName = signal<string>('Walk-in Customer');
 
-  // Modals & Payment State
-  paymentModalVisible = false;
-  receiptModalVisible = false;
-  openShiftModalVisible = false;
-  closeShiftModalVisible = false;
+  readonly paymentModalVisible = signal(false);
+  readonly receiptModalVisible = signal(false);
+  readonly openShiftModalVisible = signal(false);
+  readonly closeShiftModalVisible = signal(false);
 
-  paymentMethod: PosPaymentMethod = 'Cash';
-  tenderedCash = 0;
-  cardReference = '';
-  isProcessingPayment = false;
+  readonly paymentMethod = signal<PosPaymentMethod>('cash');
+  readonly tenderedCash = signal(0);
+  readonly cardReference = signal('');
+  readonly isProcessingPayment = signal(false);
 
-  openFloatCash = 200;
-  shiftNotes = '';
-  actualCloseCash = 0;
-  closeNotes = '';
+  readonly openFloatCash = signal(0);
+  readonly shiftNotes = signal('');
+  readonly actualCloseCash = signal(0);
+  readonly closeNotes = signal('');
+  readonly shiftBusy = signal(false);
 
   readonly completedOrder = signal<PosOrderDto | null>(null);
 
   readonly thermalReceiptData = computed<ThermalReceiptData | null>(() => {
     const ord = this.completedOrder();
     if (!ord) return null;
+    const business = this.sessionStore.me()?.workspace?.name;
+    const register = this.registers().find((r) => r.id === ord.registerId);
     return {
-      organizationName: 'HigherSquare 360 ERP',
-      organizationNameAr: 'هاير سكوير 360',
+      organizationName: business,
+      organizationNameAr: business,
+      branchName: register?.name,
+      headerNote: register?.receiptHeader,
+      footerNote: register?.receiptFooter,
       title: 'Tax Invoice / Cash Receipt',
       titleAr: 'فاتورة ضريبية / إيصال مبيعات',
       receiptNumber: ord.number,
@@ -615,128 +614,187 @@ export class PosTerminalPage {
   readonly filteredCatalog = computed(() => {
     const q = this.searchQuery().toLowerCase().trim();
     if (!q) return this.catalog();
-    return this.catalog().filter(
-      (i) =>
-        i.name.toLowerCase().includes(q) ||
-        i.code.toLowerCase().includes(q) ||
-        (i.barcode && i.barcode.toLowerCase().includes(q))
-    );
+    return this.catalog().filter((i) => i.name.toLowerCase().includes(q) || i.code.toLowerCase().includes(q));
   });
 
-  readonly cartSubTotal = computed(() => {
-    return this.cart().reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+  readonly itemCount = computed(() => this.cart().reduce((sum, l) => sum + l.quantity, 0));
+  // Worked out line by line and rounded the way the server does, so the amount sent always equals the order total.
+  readonly cartSubTotal = computed(() => round2(this.cart().reduce((sum, l) => sum + l.lineNet, 0)));
+  readonly cartTaxTotal = computed(() => round2(this.cart().reduce((sum, l) => sum + l.lineTax, 0)));
+  readonly cartTotal = computed(() => round2(this.cartSubTotal() + this.cartTaxTotal()));
+  readonly cashChange = computed(() => Math.max(0, round2(this.tenderedCash() - this.cartTotal())));
+
+  /** The next round amounts a customer is likely to hand over. */
+  readonly quickCashOptions = computed(() => {
+    const total = this.cartTotal();
+    const rounded = [10, 50, 100, 500, 1000].map((step) => Math.ceil(total / step) * step).filter((n) => n > total);
+    return [...new Set(rounded)].sort((a, b) => a - b).slice(0, 4);
   });
 
-  readonly cartTaxTotal = computed(() => {
-    const totalTax = this.cart().reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice * (item.taxRate / 100),
-      0
-    );
-    return Math.round(totalTax * 100) / 100;
-  });
-
-  readonly cartTotal = computed(() => {
-    return this.cartSubTotal() + this.cartTaxTotal();
-  });
-
-  readonly cashChange = computed(() => {
-    const diff = this.tenderedCash - this.cartTotal();
-    return diff > 0 ? diff : 0;
-  });
+  readonly canConfirmPayment = computed(() =>
+    !this.isProcessingPayment() && (this.paymentMethod() !== 'cash' || this.tenderedCash() >= this.cartTotal()));
 
   constructor() {
     this.loadRegisters();
+    this.loadTaxCodes();
     this.loadItemsCatalog();
+    afterNextRender(() => this.focusSearch());
+  }
+
+  ngOnDestroy(): void {
+    clearTimeout(this.searchTimer);
+  }
+
+  private focusSearch(): void {
+    this.searchInput()?.nativeElement.focus();
   }
 
   loadRegisters(): void {
     this.registersApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: (res: any) => {
-        const items = res.items || [];
-        this.registers.set(items);
-        if (items.length > 0 && !this.selectedRegisterId()) {
-          this.onRegisterChange(items[0].id);
+      next: (res) => {
+        const active = res.items.filter((r) => r.isActive);
+        this.registers.set(active);
+        if (!this.selectedRegisterId() && active.length > 0) {
+          const remembered = localStorage.getItem(REGISTER_KEY);
+          this.onRegisterChange(active.find((r) => r.id === remembered)?.id ?? active[0].id);
         }
       },
+      error: () => this.message.error('The registers could not be loaded.'),
+    });
+  }
+
+  private loadTaxCodes(): void {
+    this.taxCodesApi.list({ page: 1, pageSize: 200 }).subscribe({
+      next: (res) => res.items.forEach((t) => this.taxRates.set(t.id, t.rate)),
+      error: () => this.message.error('The tax rates could not be loaded. Totals may change at payment.'),
     });
   }
 
   loadItemsCatalog(): void {
-    this.taxCodesApi.list({ page: 1, pageSize: 20 }).subscribe({
-      next: (res: any) => {
-        const items = res.items || [];
-        const std = items.find((t: any) => t.isStandard) || items[0];
-        if (std && typeof std.rate === 'number') {
-          this.defaultTaxRate.set(std.rate);
-        }
+    this.catalogLoading.set(true);
+    this.catalogFailed.set(false);
+    this.itemsApi.list({ page: 1, pageSize: CATALOG_PAGE, filters: ACTIVE_ONLY }).subscribe({
+      next: (res) => {
+        this.catalog.set(res.items.map(toCatalogItem));
+        this.catalogTotal.set(res.total);
+        this.catalogLoading.set(false);
+      },
+      error: () => {
+        this.catalogLoading.set(false);
+        this.catalogFailed.set(true);
       },
     });
+  }
 
-    this.itemsApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: (res: any) => {
-        if (res.items && res.items.length > 0) {
-          const mapped = res.items.map((i: any) => ({
-            id: i.id,
-            code: i.sku || i.code || i.name.substring(0, 4).toUpperCase(),
-            name: i.name,
-            barcode: i.barcode || '',
-            price: i.salesPrice || i.sellingPrice || 25.0,
-          }));
-          this.catalog.set(mapped);
-        }
+  onSearch(value: string): void {
+    this.searchQuery.set(value);
+    clearTimeout(this.searchTimer);
+    if (value.trim() && this.catalogTotal() > this.catalog().length) {
+      this.searchTimer = setTimeout(() => this.searchServer(value.trim()), 250);
+    }
+  }
+
+  /** The till holds the first page of products, so a big catalogue is also searched on the server. */
+  private searchServer(term: string, then?: () => void): void {
+    this.itemsApi.list({ page: 1, pageSize: 50, search: term, filters: ACTIVE_ONLY }).subscribe({
+      next: (res) => {
+        const known = new Set(this.catalog().map((i) => i.id));
+        const found = res.items.filter((i) => !known.has(i.id)).map(toCatalogItem);
+        if (found.length) this.catalog.update((all) => [...all, ...found]);
+        then?.();
       },
+      error: () => then?.(),
     });
+  }
+
+  /** Enter from the keyboard or a scanner: an exact code, or the only match, goes straight onto the ticket. */
+  onSearchEnter(event: Event): void {
+    event.preventDefault();
+    const term = this.searchQuery().trim();
+    if (!term) return;
+    if (this.addExactMatch(term)) return;
+    if (this.catalogTotal() > this.catalog().length) {
+      clearTimeout(this.searchTimer);
+      this.searchServer(term, () => {
+        if (!this.addExactMatch(term)) this.warnIfNoMatch(term);
+      });
+      return;
+    }
+    this.warnIfNoMatch(term);
+  }
+
+  private addExactMatch(term: string): boolean {
+    const code = term.toLowerCase();
+    const matches = this.filteredCatalog();
+    const hit = matches.find((i) => i.code.toLowerCase() === code) ?? (matches.length === 1 ? matches[0] : null);
+    if (!hit) return false;
+    if (hit.price === null) {
+      this.message.warning(`${hit.name} has no sales price.`);
+      return true;
+    }
+    this.addToCart(hit);
+    return true;
+  }
+
+  private warnIfNoMatch(term: string): void {
+    if (!this.filteredCatalog().length) this.message.warning(`No product matches "${term}".`);
+    this.searchInput()?.nativeElement.select();
+  }
+
+  clearSearch(): void {
+    this.searchQuery.set('');
+    this.focusSearch();
   }
 
   onRegisterChange(regId: string): void {
     this.selectedRegisterId.set(regId);
+    try { localStorage.setItem(REGISTER_KEY, regId); } catch { /* storage unavailable */ }
+    this.shiftLoading.set(true);
+    this.shiftFailed.set(false);
     this.sessionsApi.getCurrent(regId).subscribe({
-      next: (sess) => this.activeSession.set(sess),
-      error: () => this.activeSession.set(null),
+      next: (sess) => {
+        this.activeSession.set(sess);
+        this.shiftLoading.set(false);
+      },
+      error: () => {
+        this.activeSession.set(null);
+        this.shiftLoading.set(false);
+        this.shiftFailed.set(true);
+      },
     });
   }
 
-  addToCart(item: { id: string; code: string; name: string; price: number }): void {
+  addToCart(item: CatalogItem): void {
+    if (item.price === null) return;
     const current = [...this.cart()];
-    const existingIndex = current.findIndex((c) => c.itemCode === item.code);
-    const taxRate = this.defaultTaxRate();
-
+    const existingIndex = current.findIndex((c) => c.itemId === item.id);
     if (existingIndex >= 0) {
-      const existing = current[existingIndex];
-      const newQty = existing.quantity + 1;
-      current[existingIndex] = {
-        ...existing,
-        quantity: newQty,
-        lineTotal: Math.round(newQty * existing.unitPrice * (1 + (existing.taxRate / 100)) * 100) / 100,
-      };
+      current[existingIndex] = withQuantity(current[existingIndex], current[existingIndex].quantity + 1);
     } else {
-      current.push({
+      const line: CartItem = {
         itemId: item.id,
         itemCode: item.code,
         description: item.name,
         quantity: 1,
         unitPrice: item.price,
         discountPercent: 0,
-        taxRate,
-        lineTotal: Math.round(item.price * (1 + (taxRate / 100)) * 100) / 100,
-      });
+        // The server charges the rate of the item's own tax code, and nothing when it has none.
+        taxRate: (item.taxCodeId && this.taxRates.get(item.taxCodeId)) || 0,
+        lineNet: 0,
+        lineTax: 0,
+        lineTotal: 0,
+      };
+      current.push(withQuantity(line, 1));
     }
-
     this.cart.set(current);
+    // Ready for the next scan.
+    this.clearSearch();
   }
 
   updateQuantity(index: number, newQty: number): void {
     const current = [...this.cart()];
-    if (newQty <= 0) {
-      current.splice(index, 1);
-    } else {
-      const line = current[index];
-      current[index] = {
-        ...line,
-        quantity: newQty,
-        lineTotal: Math.round(newQty * line.unitPrice * (1 + (line.taxRate / 100)) * 100) / 100,
-      };
-    }
+    if (newQty <= 0) current.splice(index, 1);
+    else current[index] = withQuantity(current[index], newQty);
     this.cart.set(current);
   }
 
@@ -744,32 +802,32 @@ export class PosTerminalPage {
     const current = [...this.cart()];
     current.splice(index, 1);
     this.cart.set(current);
+    this.focusSearch();
   }
 
   clearCart(): void {
     this.cart.set([]);
+    this.focusSearch();
   }
 
   openPaymentModal(): void {
     if (!this.activeSession()) {
-      this.message.warning('Please open a shift before processing payments.');
+      this.message.warning('Open a shift before taking payment.');
       return;
     }
-    this.tenderedCash = this.cartTotal();
-    this.paymentMethod = 'Cash';
-    this.paymentModalVisible = true;
-  }
-
-  quickCash(amount: number): void {
-    this.tenderedCash = amount;
+    this.tenderedCash.set(this.cartTotal());
+    this.paymentMethod.set('cash');
+    this.cardReference.set('');
+    this.paymentModalVisible.set(true);
   }
 
   processPayment(): void {
     const session = this.activeSession();
-    if (!session) return;
+    if (!session || !this.canConfirmPayment()) return;
 
-    this.isProcessingPayment = true;
+    this.isProcessingPayment.set(true);
     const total = this.cartTotal();
+    const cash = this.paymentMethod() === 'cash';
 
     const cmd: CreatePosOrderCommand = {
       legalEntityId: session.legalEntityId,
@@ -783,93 +841,114 @@ export class PosTerminalPage {
       })),
       payments: [
         {
-          method: this.paymentMethod,
+          method: this.paymentMethod(),
           amount: total,
-          tenderedAmount: this.paymentMethod === 'Cash' ? this.tenderedCash : total,
-          changeAmount: this.paymentMethod === 'Cash' ? this.cashChange() : 0,
-          reference: this.cardReference || null,
+          tenderedAmount: cash ? this.tenderedCash() : total,
+          changeAmount: cash ? this.cashChange() : 0,
+          reference: cash ? null : this.cardReference() || null,
         },
       ],
     };
 
     this.ordersApi.create(cmd).subscribe({
       next: (order) => {
-        this.isProcessingPayment = false;
-        this.paymentModalVisible = false;
+        this.isProcessingPayment.set(false);
+        this.paymentModalVisible.set(false);
         this.completedOrder.set(order as unknown as PosOrderDto);
-        this.receiptModalVisible = true;
-        this.clearCart();
-        this.message.success(`Order ${order.number} placed successfully!`);
-        // Refresh active session cash
+        this.receiptModalVisible.set(true);
+        this.cart.set([]);
+        this.customerName.set('Walk-in Customer');
+        // The drawer now holds more cash.
         this.onRegisterChange(session.registerId);
       },
       error: (err) => {
-        this.isProcessingPayment = false;
-        this.message.error(err?.error?.message || 'Payment processing failed.');
+        this.isProcessingPayment.set(false);
+        this.message.error(problemMessage(err, 'The payment could not be saved.'));
       },
     });
   }
 
-  openOpenShiftModal(): void {
-    this.openShiftModalVisible = true;
+  /** The dialog otherwise focuses its close button, and Enter would close it instead of taking the payment. */
+  focusTender(): void {
+    const field = this.tender()?.nativeElement.querySelector('input');
+    field?.focus();
+    field?.select();
+  }
+
+  onTenderEnter(event: Event): void {
+    event.preventDefault();
+    if (!(event as KeyboardEvent).repeat) this.processPayment();
+  }
+
+  finishSale(): void {
+    this.receiptModalVisible.set(false);
+    this.focusSearch();
   }
 
   submitOpenShift(): void {
-    const regId = this.selectedRegisterId();
-    const reg = this.registers().find((r) => r.id === regId);
+    const reg = this.registers().find((r) => r.id === this.selectedRegisterId());
     if (!reg) return;
-
-    const user = this.sessionStore.me()?.user;
-    if (!user?.id) {
-      this.message.error('User authentication is missing.');
-      return;
-    }
+    this.shiftBusy.set(true);
     this.sessionsApi
       .openSession({
         legalEntityId: reg.legalEntityId,
         registerId: reg.id,
-        openingCash: this.openFloatCash,
-        notes: this.shiftNotes,
+        openingCash: this.openFloatCash(),
+        notes: this.shiftNotes(),
       })
       .subscribe({
         next: (s) => {
+          this.shiftBusy.set(false);
           this.activeSession.set(s);
-          this.openShiftModalVisible = false;
-          this.message.success('Shift opened successfully.');
+          this.openShiftModalVisible.set(false);
+          this.shiftNotes.set('');
+          this.message.success('Shift opened.');
+          this.focusSearch();
         },
-        error: (err) => this.message.error(err?.error?.message || 'Failed to open shift.'),
+        error: (err) => {
+          this.shiftBusy.set(false);
+          this.message.error(problemMessage(err, 'The shift could not be opened.'));
+        },
       });
   }
 
   openCloseShiftModal(): void {
     const s = this.activeSession();
-    if (s) {
-      this.actualCloseCash = s.expectedCash;
-    }
-    this.closeShiftModalVisible = true;
+    if (s) this.actualCloseCash.set(s.expectedCash);
+    this.closeNotes.set('');
+    this.closeShiftModalVisible.set(true);
   }
 
   submitCloseShift(): void {
     const s = this.activeSession();
     if (!s) return;
-
-    const user = this.sessionStore.me()?.user;
-    if (!user?.id) {
-      this.message.error('User authentication is missing.');
-      return;
-    }
+    this.shiftBusy.set(true);
     this.sessionsApi
       .closeSession(s.id, {
-        actualCash: this.actualCloseCash,
-        notes: this.closeNotes,
+        actualCash: this.actualCloseCash(),
+        notes: this.closeNotes(),
       })
       .subscribe({
         next: () => {
+          this.shiftBusy.set(false);
           this.activeSession.set(null);
-          this.closeShiftModalVisible = false;
-          this.message.success('Shift closed and cash reconciled.');
+          this.closeShiftModalVisible.set(false);
+          this.message.success('Shift closed.');
         },
-        error: (err) => this.message.error(err?.error?.message || 'Failed to close shift.'),
+        error: (err) => {
+          this.shiftBusy.set(false);
+          this.message.error(problemMessage(err, 'The shift could not be closed.'));
+        },
       });
   }
+}
+
+function toCatalogItem(i: ItemDto): CatalogItem {
+  return { id: i.id, code: i.sku, name: i.name, price: i.salesPrice ?? null, taxCodeId: i.taxCodeId };
+}
+
+function withQuantity(line: CartItem, quantity: number): CartItem {
+  const lineNet = round2(quantity * line.unitPrice);
+  const lineTax = round2(lineNet * (line.taxRate / 100));
+  return { ...line, quantity, lineNet, lineTax, lineTotal: round2(lineNet + lineTax) };
 }

@@ -34,10 +34,10 @@ public sealed class PurchasingModule : ModuleBase
 
     public override IEnumerable<MenuItemDefinition> Menu =>
     [
-        new("purchasing.orders", "Purchase orders", "/purchasing/orders", "shopping", P.OrdersRead, 10, "purchasing", "Purchasing", 320),
-        new("purchasing.requisitions", "Requisitions", "/purchasing/requisitions", "file-add", P.RequisitionsRead, 20, "purchasing", "Purchasing", 320),
-        new("purchasing.receipts", "Goods receipts", "/purchasing/receipts", "download", P.ReceiptsRead, 30, "purchasing", "Purchasing", 320),
-        new("purchasing.analytics", "Purchasing analytics", "/purchasing/analytics", "bar-chart", P.AnalyticsRead, 40, "purchasing", "Purchasing", 320),
+        new("purchasing.orders", "Purchase orders", "/purchasing/orders", "shopping", P.OrdersRead, 14, "purchases", "Purchases", 40),
+        new("purchasing.requisitions", "Requisitions", "/purchasing/requisitions", "file-add", P.RequisitionsRead, 12, "purchases", "Purchases", 40),
+        new("purchasing.receipts", "Goods receipts", "/purchasing/receipts", "download", P.ReceiptsRead, 16, "purchases", "Purchases", 40),
+        new("purchasing.analytics", "Purchasing analytics", "/purchasing/analytics", "bar-chart", P.AnalyticsRead, 40, "purchases", "Purchases", 40),
     ];
 
     public override IEnumerable<SettingDefinition> Settings =>

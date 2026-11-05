@@ -4,11 +4,11 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api-config';
 import { CrudApiService } from './crud-api.service';
 
-export type PosSessionStatus = 'Open' | 'Closed';
-export type CashMovementType = 'FloatIn' | 'PayIn' | 'PayOut' | 'DropOut';
-export type PosOrderStatus = 'Completed' | 'Voided' | 'Parked';
-export type PosPaymentStatus = 'Paid' | 'PartiallyPaid' | 'Refunded';
-export type PosPaymentMethod = 'Cash' | 'Card' | 'GiftCard' | 'Account' | 'Other';
+export type PosSessionStatus = 'open' | 'closed';
+export type CashMovementType = 'floatIn' | 'payIn' | 'payOut' | 'dropOut';
+export type PosOrderStatus = 'completed' | 'voided' | 'parked';
+export type PosPaymentStatus = 'paid' | 'partiallyPaid' | 'refunded';
+export type PosPaymentMethod = 'cash' | 'card' | 'giftCard' | 'account' | 'other';
 
 export interface PosRegisterDto {
   id: string;

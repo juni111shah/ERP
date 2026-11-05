@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using Microsoft.EntityFrameworkCore;
 using ERP.Modules.Services.Domain;
 using FluentValidation;
 using MediatR;
@@ -112,7 +113,7 @@ public class TimeEntryHandlers :
 
         _timeRepo.Add(entry);
 
-        var engagement = await _engagementRepo.FindAsync(request.EngagementId, cancellationToken);
+        var engagement = await _engagementRepo.Tracked().FirstOrDefaultAsync(x => x.Id == request.EngagementId, cancellationToken);
         if (engagement is not null)
         {
             engagement.ConsumedHours += request.Hours;
@@ -125,7 +126,7 @@ public class TimeEntryHandlers :
 
     public async Task<TimeEntryDto> Handle(ApproveTimeEntryCommand request, CancellationToken cancellationToken)
     {
-        var entry = await _timeRepo.FindAsync(request.Id, cancellationToken);
+        var entry = await _timeRepo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
         if (entry is null)
             throw new NotFoundException($"Time entry {request.Id} not found.");
 

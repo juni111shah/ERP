@@ -9,6 +9,7 @@ import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzSelectModule } from 'ng-zorro-antd/select';
+import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { catchError, of } from 'rxjs';
@@ -16,126 +17,160 @@ import {
   AccountDto, AccountsApi, ArAgeing, BusinessUnitDto, BusinessUnitsApi, BalanceSheet, GeneralLedger, IncomeStatement, LedgerReportsApi, LegalEntitiesApi, PartyGroupDto, PartyGroupsApi, LegalEntityDto, TrialBalance,
 } from '../../core/api/admin.api';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
-import { asProblem } from '../../core/http/problem-details';
+import { problemMessage } from '../../core/http/problem-details';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { ErpDatePipe } from '../../shared/display.pipes';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 
 /** Ledger reports on posted entries: trial balance, general ledger, income statement and balance sheet. */
 @Component({
   selector: 'erp-ledger-reports',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, FormsModule, DecimalPipe, NgTemplateOutlet, NzTabsModule, NzTableModule, NzInputModule, NzSelectModule, NzDatePickerModule, NzButtonModule, NzAlertModule],
-  styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center } .num { text-align:right } .total td { font-weight:600 } h4 { margin: 16px 0 4px }`],
+  imports: [ErpDatePipe, StatePanelComponent, NzSpinModule, TranslatePipe, FormsModule, DecimalPipe, NgTemplateOutlet, NzTabsModule, NzTableModule, NzInputModule, NzSelectModule, NzDatePickerModule, NzButtonModule, NzAlertModule],
+  styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end }
+    .field { display:flex; flex-direction:column; gap:4px; font-size:12px; color: var(--erp-color-text-muted) }
+    .num { text-align:end; font-variant-numeric: tabular-nums; white-space:nowrap }
+    .total td { font-weight:700; background: var(--erp-color-bg-subtle) } h4 { margin: 16px 0 8px; font-size:15px; font-weight:700; color: var(--erp-color-text-primary) }
+    .name { font-weight:600; color: var(--erp-color-text-primary) }
+    .card { background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-radius:12px; overflow:hidden; margin-top:12px }
+    .check { margin-top:12px } .loading { text-align:center; padding:48px }
+    .result { display:flex; justify-content:space-between; gap:16px; margin-top:16px; padding:14px 16px; border-radius:12px; font-size:16px; font-weight:700; background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); color: var(--erp-color-text-primary) }`],
   template: `
     <h1 class="erp-page-title">Financial reports</h1>
     <div class="bar">
-      <nz-select [(ngModel)]="entityId" nzAllowClear nzPlaceHolder="All legal entities" style="width:240px" data-testid="rep-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
-      <nz-date-picker [(ngModel)]="from" nzPlaceHolder="From" data-testid="rep-from"></nz-date-picker>
-      <nz-date-picker [(ngModel)]="to" nzPlaceHolder="To / as of" data-testid="rep-to"></nz-date-picker>
+      <div class="field">Legal entity
+        <nz-select [(ngModel)]="entityId" nzAllowClear nzPlaceHolder="All legal entities" style="width:240px" data-testid="rep-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
+      </div>
+      @if (usesFrom()) { <div class="field">From <nz-date-picker [(ngModel)]="from" nzFormat="dd MMM yyyy" data-testid="rep-from"></nz-date-picker></div> }
+      <div class="field">{{ usesFrom() ? 'To' : 'As of' }} <nz-date-picker [(ngModel)]="to" nzFormat="dd MMM yyyy" data-testid="rep-to"></nz-date-picker></div>
       @if (tab() === 4) {
-        <nz-select [(ngModel)]="groupBy" style="width:200px" data-testid="rep-groupby">
-          <nz-option nzValue="customer" nzLabel="Group by customer"></nz-option>
-          <nz-option nzValue="businessUnit" nzLabel="Group by business unit"></nz-option>
-          <nz-option nzValue="sourceType" nzLabel="Group by source"></nz-option>
-          <nz-option nzValue="partyGroup" nzLabel="Group by party group"></nz-option>
-        </nz-select>
-        <nz-select [(ngModel)]="businessUnitId" nzAllowClear nzPlaceHolder="All business units" style="width:220px" data-testid="rep-bu">@for (b of units(); track b.id) { <nz-option [nzValue]="b.id" [nzLabel]="b.name"></nz-option> }</nz-select>
-        <nz-select [(ngModel)]="partyGroupId" nzAllowClear nzPlaceHolder="All party groups" style="width:200px" data-testid="rep-party-group">@for (g of partyGroups(); track g.id) { <nz-option [nzValue]="g.id" [nzLabel]="g.name"></nz-option> }</nz-select>
-        <input aria-label="Source type (optional)" nz-input [(ngModel)]="sourceType" placeholder="Source type (optional)" style="width:200px" data-testid="rep-source" />
+        <div class="field">Group by
+          <nz-select [(ngModel)]="groupBy" style="width:170px" data-testid="rep-groupby">
+            <nz-option nzValue="customer" nzLabel="Customer"></nz-option>
+            <nz-option nzValue="businessUnit" nzLabel="Business unit"></nz-option>
+            <nz-option nzValue="sourceType" nzLabel="Source"></nz-option>
+            <nz-option nzValue="partyGroup" nzLabel="Party group"></nz-option>
+          </nz-select>
+        </div>
+        <div class="field">Business unit <nz-select [(ngModel)]="businessUnitId" nzAllowClear nzPlaceHolder="All business units" style="width:200px" data-testid="rep-bu">@for (b of units(); track b.id) { <nz-option [nzValue]="b.id" [nzLabel]="b.name"></nz-option> }</nz-select></div>
+        <div class="field">Party group <nz-select [(ngModel)]="partyGroupId" nzAllowClear nzPlaceHolder="All party groups" style="width:180px" data-testid="rep-party-group">@for (g of partyGroups(); track g.id) { <nz-option [nzValue]="g.id" [nzLabel]="g.name"></nz-option> }</nz-select></div>
+        <div class="field">Source type <input nz-input [(ngModel)]="sourceType" placeholder="Optional" style="width:150px" data-testid="rep-source" /></div>
       }
       @if (tab() === 1) {
-        <nz-select [(ngModel)]="accountId" nzShowSearch nzPlaceHolder="Account" style="width:280px" data-testid="rep-account">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
+        <div class="field">Account
+          <nz-select [(ngModel)]="accountId" (ngModelChange)="accountId = $event; run()" nzShowSearch nzPlaceHolder="Choose an account" style="width:280px" data-testid="rep-account">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
+        </div>
       }
-      <button nz-button nzType="primary" [nzLoading]="loading()" (click)="run()" data-testid="rep-run">Run</button>
+      <button nz-button nzType="primary" [nzLoading]="loading()" (click)="run()" data-testid="rep-run">Run report</button>
     </div>
-    <nz-tabset [nzSelectedIndex]="tab()" (nzSelectedIndexChange)="tab.set($event)">
+    <nz-tabset [nzSelectedIndex]="tab()" (nzSelectedIndexChange)="selectTab($event)">
       <nz-tab nzTitle="Trial balance"></nz-tab><nz-tab nzTitle="General ledger"></nz-tab><nz-tab nzTitle="Income statement"></nz-tab><nz-tab nzTitle="Balance sheet"></nz-tab><nz-tab nzTitle="Receivables ageing"></nz-tab><nz-tab nzTitle="Payables ageing"></nz-tab>
     </nz-tabset>
 
-    @switch (tab()) {
-      @case (0) {
-        @if (tb(); as t) {
-          @if (!t.balanced) { <nz-alert nzType="error" nzShowIcon nzMessage="The trial balance does not balance."></nz-alert> }
-          <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-top:12px;">
-            <nz-table [nzData]="t.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="tb-table">
-              <thead><tr><th>Code</th><th>Account</th><th class="num">Opening</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Closing</th></tr></thead>
-              <tbody>
-                @for (r of t.rows; track r.accountId) { <tr><td><span class="code-pill">{{ r.code }}</span></td><td style="font-weight:600; color:#1e293b;">{{ r.name }}</td><td class="num">{{ r.opening | number: '1.2-2' }}</td><td class="num">{{ r.debit | number: '1.2-2' }}</td><td class="num">{{ r.credit | number: '1.2-2' }}</td><td class="num" style="font-weight:600;">{{ r.closing | number: '1.2-2' }}</td></tr> }
-                <tr class="total" style="background:#f8fafc;"><td colspan="3" style="font-weight:700;">Total</td><td class="num" style="font-weight:700;">{{ t.totalDebit | number: '1.2-2' }}</td><td class="num" style="font-weight:700;">{{ t.totalCredit | number: '1.2-2' }}</td><td></td></tr>
-              </tbody>
-            </nz-table>
-          </div>
+    @if (failed(); as msg) {
+      <erp-state-panel kind="error" title="Could not run this report" [hint]="msg" actionLabel="Try again" (action)="run()" />
+    } @else if (needsAccount()) {
+      <erp-state-panel title="Choose an account" hint="The general ledger shows the entries of one account. Pick it above and the report runs." icon="book" />
+    } @else if (!hasResult() && loading()) {
+      <div class="loading"><nz-spin nzSimple></nz-spin></div>
+    } @else {
+      @switch (tab()) {
+        @case (0) {
+          @if (tb(); as t) {
+            @if (t.rows.length) {
+              @if (t.balanced) { <nz-alert class="check" nzType="success" nzShowIcon data-testid="tb-balanced" [nzMessage]="'Balanced. Debits and credits both come to ' + money(t.totalDebit) + '.'"></nz-alert> }
+              @else { <nz-alert class="check" nzType="error" nzShowIcon data-testid="tb-unbalanced" [nzMessage]="'Does not balance. Debits and credits differ by ' + money(t.totalDebit - t.totalCredit) + '.'"></nz-alert> }
+              <div class="card">
+                <nz-table [nzData]="t.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="tb-table">
+                  <thead><tr><th>Code</th><th>Account</th><th class="num">Opening</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Closing</th></tr></thead>
+                  <tbody>
+                    @for (r of t.rows; track r.accountId) { <tr><td><span class="code-pill">{{ r.code }}</span></td><td class="name">{{ r.name }}</td><td class="num">{{ drCr(r.opening) }}</td><td class="num">{{ r.debit | number: '1.2-2' }}</td><td class="num">{{ r.credit | number: '1.2-2' }}</td><td class="num">{{ drCr(r.closing) }}</td></tr> }
+                    <tr class="total"><td colspan="3">Total</td><td class="num">{{ t.totalDebit | number: '1.2-2' }}</td><td class="num">{{ t.totalCredit | number: '1.2-2' }}</td><td></td></tr>
+                  </tbody>
+                </nz-table>
+              </div>
+            } @else { <erp-state-panel title="Nothing posted in this period" hint="Change the dates, or post a journal or document first." icon="calculator" /> }
+          }
         }
-      }
-      @case (1) {
-        @if (gl(); as g) {
-          <h4 style="font-size:16px; font-weight:700; color:#1e293b; margin:16px 0 8px;"><span class="code-pill">{{ g.code }}</span> {{ g.name }} — {{ 'ui.ledger.openingLc' | translate: 'opening' }} <strong>{{ g.opening | number: '1.2-2' }}</strong></h4>
-          <div class="erp-page-card" style="background:#fff; border:1px solid #eef2f6; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-            <nz-table [nzData]="g.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="gl-table">
-              <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
-              <tbody>
-                @for (l of g.lines; track $index) { <tr><td>{{ l.date }}</td><td><span class="code-pill">{{ l.number }}</span></td><td>{{ l.description || l.memo }}</td><td class="num">{{ l.debit | number: '1.2-2' }}</td><td class="num">{{ l.credit | number: '1.2-2' }}</td><td class="num" style="font-weight:600;">{{ l.balance | number: '1.2-2' }}</td></tr> }
-                <tr class="total" style="background:#f8fafc;"><td colspan="5" style="font-weight:700;">Closing balance</td><td class="num" style="font-weight:700;">{{ g.closing | number: '1.2-2' }}</td></tr>
-              </tbody>
-            </nz-table>
-          </div>
+        @case (1) {
+          @if (gl(); as g) {
+            <h4><span class="code-pill">{{ g.code }}</span> {{ g.name }}: {{ 'ui.ledger.openingLc' | translate: 'opening' }} {{ drCr(g.opening) }}</h4>
+            @if (g.lines.length) {
+              <div class="card">
+                <nz-table [nzData]="g.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="gl-table">
+                  <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
+                  <tbody>
+                    @for (l of g.lines; track $index) { <tr><td style="white-space:nowrap">{{ l.date | erpDate }}</td><td><span class="code-pill">{{ l.number }}</span></td><td>{{ l.description || l.memo }}</td><td class="num">{{ l.debit | number: '1.2-2' }}</td><td class="num">{{ l.credit | number: '1.2-2' }}</td><td class="num">{{ drCr(l.balance) }}</td></tr> }
+                    <tr class="total"><td colspan="5">Closing balance</td><td class="num">{{ drCr(g.closing) }}</td></tr>
+                  </tbody>
+                </nz-table>
+              </div>
+            } @else { <erp-state-panel title="No entries in this period" hint="This account has no posted entries between these dates." icon="book" /> }
+          }
         }
-      }
-      @case (2) {
-        @if (pl(); as p) {
-          <h4>Income</h4>
-          <ng-container *ngTemplateOutlet="lines; context: { $implicit: p.income, total: p.totalIncome, label: 'Total income' }" />
-          <h4>Expenses</h4>
-          <ng-container *ngTemplateOutlet="lines; context: { $implicit: p.expenses, total: p.totalExpenses, label: 'Total expenses' }" />
-          <h4 data-testid="net-profit">{{ 'ui.ledger.netProfit' | translate: 'Net profit' }}: {{ p.netProfit | number: '1.2-2' }}</h4>
+        @case (2) {
+          @if (pl(); as p) {
+            <h4>Income</h4>
+            <ng-container *ngTemplateOutlet="lines; context: { $implicit: p.income, total: p.totalIncome, label: 'Total income' }" />
+            <h4>Expenses</h4>
+            <ng-container *ngTemplateOutlet="lines; context: { $implicit: p.expenses, total: p.totalExpenses, label: 'Total expenses' }" />
+            <div class="result" data-testid="net-profit"><span>{{ p.netProfit < 0 ? 'Net loss' : ('ui.ledger.netProfit' | translate: 'Net profit') }}</span><span class="num">{{ money(p.netProfit) }}</span></div>
+          }
         }
-      }
-      @case (3) {
-        @if (bs(); as b) {
-          @if (!b.balanced) { <nz-alert nzType="error" nzShowIcon nzMessage="The balance sheet does not balance."></nz-alert> }
-          <h4>Assets</h4>
-          <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.assets, total: b.totalAssets, label: 'Total assets' }" />
-          <h4>Liabilities</h4>
-          <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.liabilities, total: b.totalLiabilities, label: 'Total liabilities' }" />
-          <h4>Equity</h4>
-          <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.equity, total: b.totalEquity + b.currentEarnings, label: 'Total equity (including current earnings ' + (b.currentEarnings | number: '1.2-2') + ')' }" />
+        @case (3) {
+          @if (bs(); as b) {
+            @if (b.balanced) { <nz-alert class="check" nzType="success" nzShowIcon data-testid="bs-balanced" [nzMessage]="'Balanced. Assets equal liabilities plus equity: ' + money(b.totalAssets) + '.'"></nz-alert> }
+            @else { <nz-alert class="check" nzType="error" nzShowIcon [nzMessage]="'Does not balance. Assets ' + money(b.totalAssets) + ', liabilities plus equity ' + money(b.totalLiabilities + b.totalEquity + b.currentEarnings) + '.'"></nz-alert> }
+            <h4>Assets</h4>
+            <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.assets, total: b.totalAssets, label: 'Total assets' }" />
+            <h4>Liabilities</h4>
+            <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.liabilities, total: b.totalLiabilities, label: 'Total liabilities' }" />
+            <h4>Equity</h4>
+            <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.equity, total: b.totalEquity + b.currentEarnings, label: 'Total equity, including current earnings of ' + (b.currentEarnings | number: '1.2-2') }" />
+          }
         }
-      }
-      @case (4) {
-        @if (ar(); as a) {
-          <nz-table [nzData]="a.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="ar-table">
-            <thead><tr><th>{{ groupBy === 'businessUnit' ? 'Business unit' : groupBy === 'sourceType' ? 'Source' : groupBy === 'partyGroup' ? 'Party group' : 'Customer' }}</th><th class="num">Current</th><th class="num">1-30</th><th class="num">31-60</th><th class="num">61-90</th><th class="num">Over 90</th><th class="num">Total</th></tr></thead>
-            <tbody>
-              @for (r of a.rows; track r.partyId) { <tr><td>{{ r.partyName }}</td><td class="num">{{ r.current | number: '1.2-2' }}</td><td class="num">{{ r.days1To30 | number: '1.2-2' }}</td><td class="num">{{ r.days31To60 | number: '1.2-2' }}</td><td class="num">{{ r.days61To90 | number: '1.2-2' }}</td><td class="num">{{ r.over90 | number: '1.2-2' }}</td><td class="num">{{ r.total | number: '1.2-2' }}</td></tr> }
-              <tr class="total"><td>Total</td><td class="num">{{ a.totals.current | number: '1.2-2' }}</td><td class="num">{{ a.totals.days1To30 | number: '1.2-2' }}</td><td class="num">{{ a.totals.days31To60 | number: '1.2-2' }}</td><td class="num">{{ a.totals.days61To90 | number: '1.2-2' }}</td><td class="num">{{ a.totals.over90 | number: '1.2-2' }}</td><td class="num">{{ a.totals.total | number: '1.2-2' }}</td></tr>
-            </tbody>
-          </nz-table>
+        @case (4) {
+          @if (ar(); as a) {
+            @if (a.rows.length) { <ng-container *ngTemplateOutlet="ageing; context: { $implicit: a, name: groupBy === 'businessUnit' ? 'Business unit' : groupBy === 'sourceType' ? 'Source' : groupBy === 'partyGroup' ? 'Party group' : 'Customer', id: 'ar-table' }" /> }
+            @else { <erp-state-panel title="Nothing to collect" hint="No customer owes money at this date." icon="check-circle" /> }
+          }
         }
-      }
-      @case (5) {
-        @if (ap(); as a) {
-          <nz-table [nzData]="a.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="ap-table">
-            <thead><tr><th>Vendor</th><th class="num">Current</th><th class="num">1-30</th><th class="num">31-60</th><th class="num">61-90</th><th class="num">Over 90</th><th class="num">Total</th></tr></thead>
-            <tbody>
-              @for (r of a.rows; track r.partyId) { <tr><td>{{ r.partyName }}</td><td class="num">{{ r.current | number: '1.2-2' }}</td><td class="num">{{ r.days1To30 | number: '1.2-2' }}</td><td class="num">{{ r.days31To60 | number: '1.2-2' }}</td><td class="num">{{ r.days61To90 | number: '1.2-2' }}</td><td class="num">{{ r.over90 | number: '1.2-2' }}</td><td class="num">{{ r.total | number: '1.2-2' }}</td></tr> }
-              <tr class="total"><td>Total</td><td class="num">{{ a.totals.current | number: '1.2-2' }}</td><td class="num">{{ a.totals.days1To30 | number: '1.2-2' }}</td><td class="num">{{ a.totals.days31To60 | number: '1.2-2' }}</td><td class="num">{{ a.totals.days61To90 | number: '1.2-2' }}</td><td class="num">{{ a.totals.over90 | number: '1.2-2' }}</td><td class="num">{{ a.totals.total | number: '1.2-2' }}</td></tr>
-            </tbody>
-          </nz-table>
+        @case (5) {
+          @if (ap(); as a) {
+            @if (a.rows.length) { <ng-container *ngTemplateOutlet="ageing; context: { $implicit: a, name: 'Vendor', id: 'ap-table' }" /> }
+            @else { <erp-state-panel title="Nothing to pay" hint="No vendor is owed money at this date." icon="check-circle" /> }
+          }
         }
       }
     }
+    <ng-template #ageing let-a let-name="name" let-id="id">
+      <div class="card">
+        <nz-table [nzData]="a.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" [attr.data-testid]="id">
+          <thead><tr><th>{{ name }}</th><th class="num">Current</th><th class="num">1-30 days</th><th class="num">31-60 days</th><th class="num">61-90 days</th><th class="num">Over 90 days</th><th class="num">Total</th></tr></thead>
+          <tbody>
+            @for (r of a.rows; track r.partyId) { <tr><td class="name">{{ r.partyName }}</td><td class="num">{{ r.current | number: '1.2-2' }}</td><td class="num">{{ r.days1To30 | number: '1.2-2' }}</td><td class="num">{{ r.days31To60 | number: '1.2-2' }}</td><td class="num">{{ r.days61To90 | number: '1.2-2' }}</td><td class="num">{{ r.over90 | number: '1.2-2' }}</td><td class="num">{{ r.total | number: '1.2-2' }}</td></tr> }
+            <tr class="total"><td>Total</td><td class="num">{{ a.totals.current | number: '1.2-2' }}</td><td class="num">{{ a.totals.days1To30 | number: '1.2-2' }}</td><td class="num">{{ a.totals.days31To60 | number: '1.2-2' }}</td><td class="num">{{ a.totals.days61To90 | number: '1.2-2' }}</td><td class="num">{{ a.totals.over90 | number: '1.2-2' }}</td><td class="num">{{ a.totals.total | number: '1.2-2' }}</td></tr>
+          </tbody>
+        </nz-table>
+      </div>
+    </ng-template>
     <ng-template #lines let-rows let-total="total" let-label="label">
-      <nz-table [nzData]="rows" [nzFrontPagination]="false" nzSize="small" [nzShowPagination]="false">
-        <tbody>
-          @for (l of rows; track l.code) { <tr><td>{{ l.code }}</td><td>{{ l.name }}</td><td class="num">{{ l.amount | number: '1.2-2' }}</td></tr> }
-          <tr class="total"><td colspan="2">{{ label }}</td><td class="num">{{ total | number: '1.2-2' }}</td></tr>
-        </tbody>
-      </nz-table>
+      <div class="card">
+        <nz-table [nzData]="rows" [nzFrontPagination]="false" nzSize="small" [nzShowPagination]="false">
+          <tbody>
+            @for (l of rows; track l.code) { <tr><td style="width:120px"><span class="code-pill">{{ l.code }}</span></td><td>{{ l.name }}</td><td class="num">{{ l.amount | number: '1.2-2' }}</td></tr> }
+            <tr class="total"><td colspan="2">{{ label }}</td><td class="num">{{ total | number: '1.2-2' }}</td></tr>
+          </tbody>
+        </nz-table>
+      </div>
     </ng-template>`,
 })
 export class LedgerReportsPage {
   private readonly api = inject(LedgerReportsApi);
   private readonly message = inject(NzMessageService);
+  private readonly currency = inject(WorkspaceCurrencyService);
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
   private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
   readonly entities = computed(() => this.entityPage().items);
@@ -145,6 +180,12 @@ export class LedgerReportsPage {
   readonly accounts = computed(() => this.accountPage().items);
   readonly tab = signal(Number(inject(ActivatedRoute).snapshot.queryParamMap.get('tab') ?? 0) || 0);
   readonly loading = signal(false);
+  readonly failed = signal<string | null>(null);
+  /** Balance sheet and ageing are a position at one date; the rest cover a period. */
+  readonly usesFrom = computed(() => this.tab() < 3);
+  readonly chosenAccount = signal<string | null>(null);
+  readonly needsAccount = computed(() => this.tab() === 1 && !this.chosenAccount());
+  readonly hasResult = computed(() => !![this.tb(), this.gl(), this.pl(), this.bs(), this.ar(), this.ap()][this.tab()]);
   entityId: string | null = null;
   accountId: string | null = null;
   from: Date | null = new Date(new Date().getFullYear(), 0, 1);
@@ -161,20 +202,37 @@ export class LedgerReportsPage {
   readonly ar = signal<ArAgeing | null>(null);
   readonly ap = signal<ArAgeing | null>(null);
 
+  constructor() { this.run(); }
+
+  selectTab(index: number): void {
+    if (index === this.tab()) return;
+    this.tab.set(index);
+    this.run();
+  }
+
+  money(v: number): string { return `${this.currency.currency()} ${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+  /** A ledger balance: debit is positive and credit is negative in the API, which reads better with the side written out. */
+  drCr(v: number): string {
+    if (!v) return '0.00';
+    return `${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${v > 0 ? 'Dr' : 'Cr'}`;
+  }
+
   run(): void {
-    if (!this.to) { this.message.warning('Choose the "to" date'); return; }
+    this.failed.set(null);
+    this.chosenAccount.set(this.accountId);
+    if (!this.to) { this.message.warning('Choose the date to report to'); return; }
     const to = toIsoDate(this.to);
     const from = this.from ? toIsoDate(this.from) : undefined;
     const legalEntityId = this.entityId ?? undefined;
-    const done = <T>(set: (v: T) => void) => ({ next: (v: T) => { this.loading.set(false); set(v); }, error: (e: unknown) => { this.loading.set(false); this.message.error(asProblem(e)?.detail ?? 'Could not run the report'); } });
+    const done = <T>(set: (v: T) => void) => ({ next: (v: T) => { this.loading.set(false); set(v); }, error: (e: unknown) => { this.loading.set(false); this.failed.set(problemMessage(e, 'The server did not return the report.')); } });
     this.loading.set(true);
     switch (this.tab()) {
       case 0: this.api.trialBalance({ from, to, legalEntityId }).subscribe(done((v) => this.tb.set(v))); break;
       case 1:
-        if (!this.accountId) { this.loading.set(false); this.message.warning('Choose an account'); return; }
+        if (!this.accountId) { this.loading.set(false); return; }
         this.api.generalLedger({ accountId: this.accountId, from, to, legalEntityId }).subscribe(done((v) => this.gl.set(v))); break;
       case 2:
-        if (!from) { this.loading.set(false); this.message.warning('Choose the "from" date'); return; }
+        if (!from) { this.loading.set(false); this.message.warning('Choose the date to report from'); return; }
         this.api.incomeStatement({ from, to, legalEntityId }).subscribe(done((v) => this.pl.set(v))); break;
       case 3: this.api.balanceSheet({ asOf: to, legalEntityId }).subscribe(done((v) => this.bs.set(v))); break;
       case 4: this.api.arAgeing({ asOf: to, legalEntityId, businessUnitId: this.businessUnitId ?? undefined, partyGroupId: this.partyGroupId ?? undefined, sourceType: this.sourceType.trim() || undefined, groupBy: this.groupBy === 'customer' ? undefined : this.groupBy }).subscribe(done((v) => this.ar.set(v))); break;

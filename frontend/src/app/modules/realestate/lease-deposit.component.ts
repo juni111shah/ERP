@@ -12,6 +12,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { DepositDto, LeaseDto, LeasesApi, humanize } from './realestate.api';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 type Mode = 'record' | 'settle' | null;
 
@@ -20,7 +21,7 @@ type Mode = 'record' | 'settle' | null;
   selector: 'erp-lease-deposit',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzCardModule, NzTableModule],
+  imports: [ErpDatePipe, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzCardModule, NzTableModule],
   template: `
     <nz-card style="margin-top:16px" nzTitle="Security deposit" data-testid="deposit-card">
       @if (deposit(); as d) {
@@ -33,7 +34,7 @@ type Mode = 'record' | 'settle' | null;
         @if (d.transactions.length) {
           <nz-table [nzData]="d.transactions" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
             <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th></tr></thead>
-            <tbody>@for (t of d.transactions; track t.id) { <tr><td>{{ t.date }}</td><td>{{ humanize(t.kind) }}</td><td>{{ t.amount.toLocaleString() }}</td><td>{{ t.description }}</td></tr> }</tbody>
+            <tbody>@for (t of d.transactions; track t.id) { <tr><td>{{ t.date | erpDate }}</td><td>{{ humanize(t.kind) }}</td><td>{{ t.amount.toLocaleString() }}</td><td>{{ t.description }}</td></tr> }</tbody>
           </nz-table>
         }
       }
@@ -110,5 +111,5 @@ export class LeaseDepositComponent {
   }
 
   private done(text: string): void { this.saving.set(false); this.mode.set(null); this.message.success(text); this.load(); this.changed.emit(); }
-  private fail(e: unknown): void { this.saving.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not complete the action'); }
+  private fail(e: unknown): void { this.saving.set(false); const p = asProblem(e); this.errors.set(p); if (!p?.errors) this.message.error(p?.detail ?? p?.title ?? 'Could not complete the action'); }
 }

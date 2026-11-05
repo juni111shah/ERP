@@ -1,9 +1,7 @@
-import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -11,280 +9,241 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { LegalEntitiesApi } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import {
   EngagementSummaryDto,
-  MilestoneInput,
   MilestoneStatus,
   MilestoneSummaryDto,
   ServicesEngagementsApi,
-  ServicesMilestonesApi
+  ServicesMilestonesApi,
 } from '../../core/api/services.api';
+import { toIsoDate } from '../../core/custom-fields/custom-field-form';
+import { problemMessage } from '../../core/http/problem-details';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { ErpDatePipe } from '../../shared/display.pipes';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 
 @Component({
   selector: 'erp-milestone-billing-page',
   standalone: true,
   imports: [
-    CommonModule,
+    DecimalPipe,
+    ErpDatePipe,
     ReactiveFormsModule,
-    NzCardModule,
     NzButtonModule,
     NzIconModule,
-    NzBadgeModule,
     NzDrawerModule,
     NzFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
+    NzPopconfirmModule,
     NzSelectModule,
     PagedTableComponent,
     HasPermissionDirective,
+    StatusTagComponent,
   ],
   template: `
-    <erp-paged-table
-      [list]="list"
-      [columns]="columns">
+    <!-- The server allows no search or sorting on milestones yet, so neither is offered. -->
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number or title" [clickable]="false" emptyText="No milestones yet. Add one to bill an engagement in stages.">
       <button toolbar *erpHasPermission="'services.milestones.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="milestone-new">
         <span nz-icon nzType="plus"></span> Add Milestone
       </button>
-          <ng-template #cell let-row let-column="column">
-            <ng-container [ngSwitch]="column.key">
-
-              <ng-container *ngSwitchCase="'code'">
-                <span class="font-mono font-semibold text-primary">{{ row.milestoneCode }}</span>
-              </ng-container>
-
-              <ng-container *ngSwitchCase="'title'">
-                <div class="font-medium text-slate-800 dark:text-slate-100">{{ row.title }}</div>
-              </ng-container>
-
-              <ng-container *ngSwitchCase="'dueDate'">
-                <span>{{ row.dueDate }}</span>
-              </ng-container>
-
-              <ng-container *ngSwitchCase="'amount'">
-                <span class="font-mono font-semibold">{{ row.amount | number:'1.2-2' }}</span>
-              </ng-container>
-
-              <ng-container *ngSwitchCase="'status'">
-                <nz-badge [nzStatus]="getStatusBadge(row.status)" [nzText]="row.status"></nz-badge>
-              </ng-container>
-
-              <ng-container *ngSwitchCase="'actions'">
-                <div class="table-actions">
-                  @if (row.status === 'Planned') {
-                    <button aria-label="Deliverable Approved (Ready to Invoice)" *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="updateStatus(row, 'ReadyToInvoice')" title="Deliverable Approved (Ready to Invoice)">
-                      <span nz-icon nzType="check-circle" class="text-green-600"></span>
-                    </button>
-                  }
-                  @if (row.status === 'ReadyToInvoice') {
-                    <button aria-label="Generate Invoice" *erpHasPermission="'services.milestones.manage'" nz-button nzType="text" nzSize="small" (click)="invoiceMilestone(row)" title="Generate Invoice">
-                      <span nz-icon nzType="file-text" class="text-blue-600"></span>
-                    </button>
-                  }
-                </div>
-              </ng-container>
-
-            </ng-container>
-          </ng-template>
-        </erp-paged-table>
-
-      <!-- Create Milestone Drawer -->
-      <nz-drawer
-        [nzVisible]="drawerVisible()"
-        nzTitle="Add Billing Milestone Deliverable"
-        [nzWidth]="480"
-        (nzOnClose)="drawerVisible.set(false)">
-        <ng-container *nzDrawerContent>
-          <form nz-form [formGroup]="form" (ngSubmit)="submitMilestone()" nzLayout="vertical">
-            <nz-form-item>
-              <nz-form-label nzRequired>Operating Entity</nz-form-label>
-              <nz-form-control nzErrorTip="Select legal entity">
-                <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Legal Entity">
-                  @for (entity of legalEntities(); track entity.id) {
-                    <nz-option [nzValue]="entity.id" [nzLabel]="entity.name"></nz-option>
-                  }
-                </nz-select>
-              </nz-form-control>
-            </nz-form-item>
-
-            <nz-form-item>
-              <nz-form-label nzRequired>Service Engagement</nz-form-label>
-              <nz-form-control nzErrorTip="Select engagement">
-                <nz-select formControlName="engagementId" nzShowSearch nzPlaceHolder="Select Engagement">
-                  @for (eng of engagements(); track eng.id) {
-                    <nz-option [nzValue]="eng.id" [nzLabel]="eng.engagementCode + ' - ' + eng.title + ' (' + eng.clientName + ')'"></nz-option>
-                  }
-                </nz-select>
-              </nz-form-control>
-            </nz-form-item>
-
-            <nz-form-item>
-              <nz-form-label nzRequired>Deliverable / Milestone Title</nz-form-label>
-              <nz-form-control nzErrorTip="Enter title">
-                <input nz-input formControlName="title" placeholder="e.g. Phase 1 Architecture Blueprint Sign-Off" />
-              </nz-form-control>
-            </nz-form-item>
-
-            <div class="grid grid-cols-2 gap-4">
-              <nz-form-item>
-                <nz-form-label nzRequired>Milestone Amount</nz-form-label>
-                <nz-form-control>
-                  <nz-input-number formControlName="amount" [nzMin]="1" [nzStep]="1000" class="w-full"></nz-input-number>
-                </nz-form-control>
-              </nz-form-item>
-
-              <nz-form-item>
-                <nz-form-label nzRequired>Target Due Date</nz-form-label>
-                <nz-form-control>
-                  <nz-date-picker formControlName="dueDate" class="w-full"></nz-date-picker>
-                </nz-form-control>
-              </nz-form-item>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('milestoneCode') { <span class="code strong">{{ row.milestoneCode }}</span> }
+          @case ('title') {
+            <div>{{ row.title }}</div>
+            @if (engagementOf(row); as eng) {
+              <div class="sub"><span class="code">{{ eng.engagementCode }}</span> &middot; {{ eng.title }} &middot; {{ eng.clientName }}</div>
+            }
+          }
+          @case ('dueDate') { <span class="nowrap">{{ row.dueDate | erpDate }}</span> }
+          @case ('amount') { <span class="num strong">{{ currency() }} {{ row.amount | number:'1.2-2' }}</span> }
+          @case ('status') { <erp-status [value]="row.status" /> }
+          @case ('actions') {
+            <div class="table-actions">
+              @if (row.status === 'planned') {
+                <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="link" nzSize="small" (click)="updateStatus(row, 'readyToInvoice')">
+                  <span nz-icon nzType="check-circle"></span> Ready to invoice
+                </button>
+              }
+              @if (row.status === 'readyToInvoice') {
+                <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="link" nzSize="small"
+                        nz-popconfirm [nzPopconfirmTitle]="'Create an invoice for ' + row.milestoneCode + '?'" (nzOnConfirm)="invoiceMilestone(row)">
+                  <span nz-icon nzType="file-text"></span> Create invoice
+                </button>
+                <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="link" nzSize="small" (click)="updateStatus(row, 'planned')">
+                  <span nz-icon nzType="rollback"></span> Back to planned
+                </button>
+              }
             </div>
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
 
+    <!-- Create Milestone Drawer -->
+    <nz-drawer [nzVisible]="drawerVisible()" nzTitle="Add milestone" [nzWidth]="480" (nzOnClose)="drawerVisible.set(false)">
+      <ng-container *nzDrawerContent>
+        <form nz-form [formGroup]="form" (ngSubmit)="submitMilestone()" nzLayout="vertical">
+          <nz-form-item>
+            <nz-form-label nzRequired>Engagement</nz-form-label>
+            <nz-form-control nzErrorTip="Choose an engagement">
+              <nz-select formControlName="engagementId" nzShowSearch nzPlaceHolder="Choose an engagement" nzNotFoundContent="No open engagements. Create one first.">
+                @for (eng of openEngagements(); track eng.id) {
+                  <nz-option [nzValue]="eng.id" [nzLabel]="eng.engagementCode + ' - ' + eng.title + ' (' + eng.clientName + ')'"></nz-option>
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+
+          <nz-form-item>
+            <nz-form-label nzRequired>Title</nz-form-label>
+            <nz-form-control nzErrorTip="Enter a title">
+              <input nz-input formControlName="title" placeholder="e.g. Phase 1 sign-off" />
+            </nz-form-control>
+          </nz-form-item>
+
+          <div class="row-2">
             <nz-form-item>
-              <nz-form-label>Acceptance Criteria & Notes</nz-form-label>
-              <nz-form-control>
-                <textarea nz-input formControlName="notes" rows="3" placeholder="Acceptance sign-off criteria, customer contacts..."></textarea>
+              <nz-form-label nzRequired>Amount ({{ currency() }})</nz-form-label>
+              <nz-form-control nzErrorTip="Enter an amount above zero">
+                <nz-input-number formControlName="amount" [nzMin]="0.01" [nzStep]="1000" class="full"></nz-input-number>
               </nz-form-control>
             </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Due date</nz-form-label>
+              <nz-form-control nzErrorTip="Choose a due date">
+                <nz-date-picker formControlName="dueDate" class="full"></nz-date-picker>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
 
-            <div class="drawer-footer">
-              <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
-              <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit" [disabled]="form.invalid">
-                Save Milestone
-              </button>
-            </div>
-          </form>
-        </ng-container>
-      </nz-drawer>
+          <nz-form-item>
+            <nz-form-label>Notes</nz-form-label>
+            <nz-form-control>
+              <textarea nz-input formControlName="notes" rows="3" placeholder="Acceptance criteria, customer contacts"></textarea>
+            </nz-form-control>
+          </nz-form-item>
+
+          <div class="drawer-footer">
+            <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
+            <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit" [disabled]="form.invalid">Save</button>
+          </div>
+        </form>
+      </ng-container>
+    </nz-drawer>
   `,
   styles: [`
-    .text-secondary { color: rgba(0, 0, 0, 0.45); }
-    .table-actions { display: flex; gap: 4px; }
-    .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
-  `]
+    .code { font-family: var(--erp-font-family-mono); white-space: nowrap; }
+    .strong { font-weight: 600; }
+    .sub { font-size: 12px; color: var(--erp-color-text-muted); }
+    .nowrap { white-space: nowrap; }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .table-actions { display: flex; justify-content: flex-end; gap: 4px; }
+    .row-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .full { width: 100%; }
+    .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-block-start: 24px; }
+  `],
 })
 export class MilestoneBillingPage implements OnInit {
   private readonly api = inject(ServicesMilestonesApi);
   private readonly engagementsApi = inject(ServicesEngagementsApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
 
-  readonly list = createPagedList<MilestoneSummaryDto>((q) => this.api.list(q), {
-    pageSize: 15,
-    sort: 'createdAt:desc'
-  });
-
-  readonly columns: TableColumn<MilestoneSummaryDto>[] = [
-    { key: 'code', label: 'Milestone #', sortField: 'milestoneCode', width: '130px' },
-    { key: 'title', label: 'Deliverable Title', sortField: 'title' },
-    { key: 'dueDate', label: 'Due Date', sortField: 'dueDate', width: '130px' },
-    { key: 'amount', label: 'Amount', sortField: 'amount', align: 'right', width: '140px' },
-    { key: 'status', label: 'Billing Status', sortField: 'status', width: '150px' },
-    { key: 'actions', label: 'Actions', width: '90px' }
-  ];
-
-  readonly legalEntities = signal<{ id: string; name: string }[]>([]);
-  readonly engagements = signal<EngagementSummaryDto[]>([]);
+  readonly list = createPagedList<MilestoneSummaryDto>((q) => this.api.list(q));
+  private readonly engagements = signal<EngagementSummaryDto[]>([]);
+  private readonly engagementsById = computed(() => new Map(this.engagements().map((e) => [e.id, e])));
+  readonly openEngagements = computed(() => this.engagements().filter((e) => e.status === 'draft' || e.status === 'active' || e.status === 'onHold'));
   readonly drawerVisible = signal(false);
   readonly isSubmitting = signal(false);
 
-  form: FormGroup = this.fb.group({
-    legalEntityId: ['', [Validators.required]],
+  readonly columns: TableColumn<MilestoneSummaryDto>[] = [
+    { key: 'milestoneCode', label: 'Number', sortField: 'milestoneCode' },
+    { key: 'title', label: 'Milestone and engagement', sortField: 'title' },
+    { key: 'engagement', label: 'Engagement', hidden: true, value: (r) => this.engagementOf(r)?.title ?? '' },
+    { key: 'dueDate', label: 'Due date', sortField: 'dueDate' },
+    { key: 'amount', label: 'Amount', sortField: 'amount', align: 'right' },
+    { key: 'status', label: 'Status', sortField: 'status', filterField: 'status', filterOptions: ['planned', 'readyToInvoice', 'invoiced', 'paid'] },
+    { key: 'actions', label: 'Actions', align: 'right', filter: false, value: () => '' },
+  ];
+
+  readonly form: FormGroup = this.fb.group({
     engagementId: [null, [Validators.required]],
     title: ['', [Validators.required, Validators.maxLength(200)]],
-    amount: [15000, [Validators.required, Validators.min(1)]],
+    amount: [null, [Validators.required, Validators.min(0.01)]],
     dueDate: [new Date(), [Validators.required]],
-    notes: ['']
+    notes: [''],
   });
 
   ngOnInit(): void {
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => {
-        const items = res.items || [];
-        this.legalEntities.set(items.map(e => ({ id: e.id, name: e.name })));
-        if (items.length > 0) {
-          this.form.patchValue({ legalEntityId: items[0].id });
-        }
-      }
+    this.engagementsApi.list({ page: 1, pageSize: 200 }).subscribe({
+      next: (res) => this.engagements.set(res.items),
     });
+  }
 
-    this.engagementsApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: res => {
-        const items = res.items || [];
-        this.engagements.set(items);
-        if (items.length > 0 && !this.form.value.engagementId) {
-          this.form.patchValue({ engagementId: items[0].id });
-        }
-      }
-    });
+  engagementOf(row: MilestoneSummaryDto): EngagementSummaryDto | undefined {
+    return this.engagementsById().get(row.engagementId);
   }
 
   openCreateDrawer(): void {
+    this.form.reset({ engagementId: null, title: '', amount: null, dueDate: new Date(), notes: '' });
     this.drawerVisible.set(true);
-  }
-
-  getStatusBadge(status: MilestoneStatus): 'default' | 'warning' | 'processing' | 'success' {
-    switch (status) {
-      case 'Planned': return 'default';
-      case 'ReadyToInvoice': return 'warning';
-      case 'Invoiced': return 'processing';
-      case 'Paid': return 'success';
-      default: return 'default';
-    }
   }
 
   updateStatus(row: MilestoneSummaryDto, newStatus: MilestoneStatus): void {
     this.api.updateStatus(row.id, newStatus).subscribe({
       next: () => {
-        this.msg.success(`Milestone transitioned to ${newStatus}`);
+        this.msg.success(newStatus === 'planned' ? `${row.milestoneCode} moved back to planned` : `${row.milestoneCode} is ready to invoice`);
         this.list.reload();
       },
-      error: () => this.msg.error('Failed to update milestone status')
+      error: (err) => this.msg.error(problemMessage(err, 'The milestone could not be updated')),
     });
   }
 
   invoiceMilestone(row: MilestoneSummaryDto): void {
     this.api.invoice(row.id).subscribe({
       next: () => {
-        this.msg.success(`Invoice generated for milestone ${row.milestoneCode}`);
+        this.msg.success(`Invoice created for ${row.milestoneCode}`);
         this.list.reload();
       },
-      error: (err) => this.msg.error(err?.error?.message ?? 'Failed to generate invoice for milestone')
+      error: (err) => this.msg.error(problemMessage(err, 'The invoice could not be created')),
     });
   }
 
   submitMilestone(): void {
     if (this.form.invalid) return;
+    const val = this.form.value;
+    const engagement = this.engagementsById().get(val.engagementId);
+    if (!engagement) return;
 
     this.isSubmitting.set(true);
-    const val = this.form.value;
-    const input: MilestoneInput = {
-      legalEntityId: val.legalEntityId,
-      engagementId: val.engagementId,
+    this.api.create({
+      legalEntityId: engagement.legalEntityId,
+      engagementId: engagement.id,
       title: val.title,
       amount: val.amount,
-      dueDate: val.dueDate instanceof Date ? val.dueDate.toISOString().substring(0, 10) : val.dueDate,
-      notes: val.notes || null
-    };
-
-    this.api.create(input).subscribe({
+      dueDate: toIsoDate(new Date(val.dueDate)),
+      notes: val.notes || null,
+    }).subscribe({
       next: () => {
-        this.msg.success('Billing milestone saved');
+        this.msg.success('Milestone saved');
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
         this.list.reload();
       },
-      error: () => {
-        this.msg.error('Failed to save milestone');
+      error: (err) => {
+        this.msg.error(problemMessage(err, 'The milestone could not be saved'));
         this.isSubmitting.set(false);
-      }
+      },
     });
   }
 }

@@ -1,7 +1,7 @@
 import { ActivatedRoute, Router } from '@angular/router';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -15,6 +15,10 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
+import { ListQuery } from '../../core/api/api.models';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { AllRows, countOf, fetchAllRows, moneyByCurrency, startOfMonth, startOfYear } from './finance-kpis';
 import { AccountDto, AccountsApi, BillSummary, BillsApi, LegalEntitiesApi, LegalEntityDto, PaymentDto, PaymentSummary, PaymentsApi, PAYMENT_METHODS } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
@@ -30,43 +34,24 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 import { StatCardComponent } from '../../shared/stat-card.component';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 /** Vendor payments: pay vendors by bank, cash or cheque, settle open bills at the same time (or later), clear issued cheques, and void. */
 @Component({
   selector: 'erp-payments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [ErpDatePipe, StatCardComponent, StatusTagComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
     <h1 class="erp-page-title">Payments</h1>
 
     <div class="erp-stat-grid erp-stat-grid--auto" data-testid="payment-stats">
-      <erp-stat-card label="Total paid"
-                     [value]="stats().paid"
-                     format="money"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
-                     [tone]="0" />
-      <erp-stat-card label="Settled to bills"
-                     [value]="stats().allocated"
-                     format="money"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="applied to vendor invoices"
-                     [tone]="1" />
-      <erp-stat-card label="Unallocated advance"
-                     [value]="stats().unallocated"
-                     format="money"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().unallocated > 0 ? 'open vendor credit' : 'fully applied'"
-                     [tone]="stats().unallocated > 0 ? 2 : 'neutral'" />
-      <erp-stat-card label="Payments count"
-                     [value]="list.total()"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="total records"
-                     [tone]="3" />
+      <erp-stat-card label="Paid this month" [value]="stats()?.month" [loading]="statsLoading()" [caption]="stats()?.monthCaption ?? statsError()" [tone]="0" />
+      <erp-stat-card label="Paid this year" [value]="stats()?.year" [loading]="statsLoading()" [caption]="stats()?.yearCaption ?? statsError()" [tone]="1" />
+      <erp-stat-card label="Not yet allocated" [value]="stats()?.unallocated" [loading]="statsLoading()" [caption]="stats()?.unallocatedCaption ?? statsError()" [tone]="stats()?.unallocatedCount ? 2 : 'neutral'" />
+      <erp-stat-card label="Payments" [value]="stats()?.count" format="number" [loading]="statsLoading()" [caption]="stats() ? 'Posted, all time' : statsError()" [tone]="3" />
     </div>
 
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, vendor or reference" emptyText="No payments yet" (rowClick)="open($event)">
@@ -89,9 +74,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             }
           }
           @case ('status') {
-            <nz-tag [nzColor]="row.status === 'voided' ? 'red' : 'green'">
-              {{ row.status === 'voided' ? 'Voided' : 'Posted' }}
-            </nz-tag>
+            <erp-status [value]="row.status === 'issued' ? 'posted' : row.status" />
           }
           @default {
             {{ value }}
@@ -107,29 +90,29 @@ import { StatCardComponent } from '../../shared/stat-card.component';
           <nz-form-item><nz-form-label nzRequired>Legal entity</nz-form-label><nz-form-control [nzErrorTip]="err('legalEntityId')">
             <nz-select formControlName="legalEntityId" data-testid="pm-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Vendor</nz-form-label><nz-form-control [nzErrorTip]="err('partyId')">
-            <nz-select formControlName="partyId" nzShowSearch nzServerSearch (nzOnSearch)="searchParties($event)" (ngModelChange)="partyChanged($event)" data-testid="pm-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Date</nz-form-label><nz-form-control [nzErrorTip]="err('date')"><nz-date-picker formControlName="date" style="width:100%" data-testid="pm-date"></nz-date-picker></nz-form-control></nz-form-item>
+            <nz-select formControlName="partyId" nzShowSearch nzServerSearch nzPlaceHolder="Search vendors" (nzOnSearch)="searchParties($event)" (ngModelChange)="partyChanged($event)" data-testid="pm-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Date</nz-form-label><nz-form-control [nzErrorTip]="err('date')"><nz-date-picker nzFormat="dd MMM yyyy" formControlName="date" style="width:100%" data-testid="pm-date"></nz-date-picker></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Method</nz-form-label><nz-form-control><nz-select formControlName="method">@for (m of methods; track m.value) { <nz-option [nzValue]="m.value" [nzLabel]="m.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Pay from</nz-form-label><nz-form-control [nzErrorTip]="err('bankAccountId')">
             <nz-select formControlName="bankAccountId" data-testid="pm-bank">@for (a of banks(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Amount</nz-form-label><nz-form-control [nzErrorTip]="err('amount')"><nz-input-number formControlName="amount" [nzMin]="0.01" [nzPrecision]="2" style="width:100%" data-testid="pm-amount"></nz-input-number></nz-form-control></nz-form-item>
           @if (isCheque()) {
             <nz-form-item><nz-form-label nzRequired>Cheque number</nz-form-label><nz-form-control><input nz-input formControlName="chequeNo" data-testid="pm-chequeno" /></nz-form-control></nz-form-item>
-            <nz-form-item><nz-form-label>Cheque date</nz-form-label><nz-form-control nzExtra="A later date makes it post-dated."><nz-date-picker formControlName="chequeDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
+            <nz-form-item><nz-form-label>Cheque date</nz-form-label><nz-form-control nzExtra="A later date makes it post-dated."><nz-date-picker nzFormat="dd MMM yyyy" formControlName="chequeDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
             <nz-form-item><nz-form-label>Bank</nz-form-label><nz-form-control><input nz-input formControlName="bankName" /></nz-form-control></nz-form-item>
           }
           <nz-form-item><nz-form-label>Reference</nz-form-label><nz-form-control><input nz-input formControlName="reference" /></nz-form-control></nz-form-item>
         </form>
         @if (receipt(); as r) {
           <h4>Settled bills</h4>
-          @for (a of r.allocations; track a.id) { <div>{{ a.billNumber }} — {{ a.amount.toFixed(2) }}</div> } @empty { <div>None yet.</div> }
-          <div style="margin-top:8px">Unallocated: <b>{{ r.unallocated.toFixed(2) }}</b></div>
+          @for (a of r.allocations; track a.id) { <div>{{ a.billNumber }}: {{ money(a.amount, r.currencyCode) }}</div> } @empty { <div>None yet.</div> }
+          <div style="margin-top:8px">Unallocated: <b>{{ money(r.unallocated, r.currencyCode) }}</b></div>
         }
         @if (editableAllocation()) {
           <h4 style="margin-top:16px">Settle bills</h4>
           @for (o of openInvoices(); track o.id) {
             <div class="alloc">
-              <span>{{ o.number }} · {{ 'ui.re.dueLc' | translate: 'due' }} {{ o.dueDate }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ o.outstanding.toFixed(2) }}</span>
+              <span>{{ o.number }} · {{ 'ui.re.dueLc' | translate: 'due' }} {{ o.dueDate | erpDate }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ money(o.outstanding, o.currencyCode) }}</span>
               <nz-input-number [ngModel]="amounts()[o.id] ?? 0" (ngModelChange)="setAmount(o.id, $event)" [nzMin]="0" [nzMax]="o.outstanding" [nzPrecision]="2" [ngModelOptions]="{standalone: true}" [attr.data-testid]="'alloc-' + o.number"></nz-input-number>
             </div>
           } @empty { <div>No open bills for this vendor.</div> }
@@ -162,20 +145,40 @@ export class PaymentsPage {
   readonly entities = computed(() => this.entityPage().items);
   readonly banks = computed(() => this.accountPage().items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'cash' || a.systemRole === 'bank')));
   readonly methods = PAYMENT_METHODS;
+  readonly money = formatMoney;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
 
+  private readonly workspaceCurrency = inject(WorkspaceCurrencyService).currency;
+  private readonly statsData = signal<AllRows<PaymentSummary> | null>(null);
+  readonly statsLoading = signal(true);
+  /** Caption of the cards when their figures could not be read. */
+  readonly statsError = computed(() => (this.statsLoading() ? null : 'Could not load this figure'));
+  /** The figures for the whole workspace, not the page on screen: every posted payment is read, newest first. */
   readonly stats = computed(() => {
-    const items = this.list.items();
-    const paid = items.reduce((s, p) => s + (p.amount || 0), 0);
-    const unallocated = items.reduce((s, p) => s + (p.unallocated || 0), 0);
-    const allocated = paid - unallocated;
+    const d = this.statsData();
+    if (!d) return null;
+    const cur = this.workspaceCurrency();
+    const month = d.items.filter((p) => p.date >= startOfMonth());
+    const year = d.items.filter((p) => p.date >= startOfYear());
+    const open = d.items.filter((p) => p.unallocated > 0);
     return {
-      paid,
-      allocated,
-      unallocated,
-      count: items.length,
+      count: d.total,
+      month: moneyByCurrency(month, (p) => p.amount, cur),
+      monthCaption: countOf(month.length, 'payment'),
+      year: moneyByCurrency(year, (p) => p.amount, cur),
+      yearCaption: countOf(year.length, 'payment'),
+      unallocated: moneyByCurrency(open, (p) => p.unallocated, cur),
+      unallocatedCount: open.length,
+      unallocatedCaption: (open.length ? `Advances, ${countOf(open.length, 'payment')}` : 'All allocated') + (d.capped ? ' (latest rows only)' : ''),
     };
   });
+  reload(): void { this.list.reload(); this.loadStats(); }
+  private loadStats(): void {
+    fetchAllRows((q: ListQuery) => this.api.list(q), [{ field: 'status', op: 'eq', value: 'issued' }], '-date').subscribe({
+      next: (d) => { this.statsData.set(d); this.statsLoading.set(false); },
+      error: () => { this.statsData.set(null); this.statsLoading.set(false); },
+    });
+  }
 
   readonly columns: TableColumn<PaymentSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
@@ -186,6 +189,15 @@ export class PaymentsPage {
     { key: 'status', label: 'Status', width: '100px', filterField: 'status', filterOptions: [{ value: 'issued', label: 'Posted' }, { value: 'voided', label: 'Voided' }] },
   ];
   readonly drawerOpen = signal(false);
+  /** Arriving from an invoice or bill opens the form before the legal entities and bank accounts have loaded; fill the defaults once they arrive. */
+  private readonly lateDefaults = effect(() => {
+    const entities = this.entities(), banks = this.banks();
+    if (!this.drawerOpen() || this.receipt()) return;
+    const c = this.form.controls;
+    if (entities.length === 1 && !c.legalEntityId.value) c.legalEntityId.setValue(entities[0].id);
+    const bank = banks.find((b) => b.systemRole === 'bank') ?? banks[0];
+    if (bank && !c.bankAccountId.value) c.bankAccountId.setValue(bank.id);
+  });
   readonly saving = signal(false);
   readonly receipt = signal<PaymentDto | null>(null);
   readonly partyOptions = signal<LookupOption[]>([]);
@@ -214,7 +226,7 @@ export class PaymentsPage {
   }
 
   private loadOpen(partyId: string, prefillBillId?: string | null): void {
-    this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: partyId }] })
+    this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: partyId }, { field: 'status', op: 'in', value: ['issued', 'partlyPaid'] }] })
       .subscribe((r) => {
         this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid'));
         const bill = prefillBillId ? this.openInvoices().find((i) => i.id === prefillBillId) : undefined;
@@ -224,6 +236,7 @@ export class PaymentsPage {
 
   /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
   ngOnInit(): void {
+    this.loadStats();
     const id = this.route.snapshot.queryParamMap.get('open');
     if (id) this.open({ id } as never);
     const partyId = this.route.snapshot.queryParamMap.get('partyId');
@@ -264,7 +277,7 @@ export class PaymentsPage {
   }
 
   create(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); this.message.warning('Fill in the fields marked in red'); return; }
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.create({ ...v, date: toIsoDate(v.date!), reference: v.reference || null, chequeNo: v.method === 'instrument' ? v.chequeNo : null, chequeDate: v.method === 'instrument' && v.chequeDate ? toIsoDate(v.chequeDate) : null, bankName: v.bankName || null, allocations: this.allocations() }).subscribe({
@@ -295,6 +308,6 @@ export class PaymentsPage {
     });
   }
 
-  private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.list.reload(); }
+  private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.reload(); }
   private fail(e: unknown): void { this.saving.set(false); this.message.error(problemMessage(e, 'Could not save the payment', 'reason')); }
 }
