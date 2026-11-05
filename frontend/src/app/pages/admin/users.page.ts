@@ -144,7 +144,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
           @if (!editing()) {
             <nz-form-item><nz-form-label nzRequired>Full name</nz-form-label><nz-form-control [nzErrorTip]="err('fullName')"><input nz-input formControlName="fullName" data-testid="user-name" /></nz-form-control></nz-form-item>
             <nz-form-item><nz-form-label nzRequired>Email</nz-form-label><nz-form-control [nzErrorTip]="err('email')"><input nz-input formControlName="email" data-testid="user-email" /></nz-form-control></nz-form-item>
-            <nz-form-item><nz-form-label>Temporary password</nz-form-label><nz-form-control [nzErrorTip]="err('temporaryPassword')" nzExtra="Leave empty to generate one."><input nz-input type="password" formControlName="temporaryPassword" autocomplete="new-password" /></nz-form-control></nz-form-item>
+            <nz-form-item><nz-form-label>Temporary password</nz-form-label><nz-form-control [nzErrorTip]="err('temporaryPassword')" nzExtra="Needed for someone new. They set their own at first sign-in. Share it privately."><input nz-input type="password" formControlName="temporaryPassword" autocomplete="new-password" /></nz-form-control></nz-form-item>
           }
           <nz-form-item><nz-form-label nzRequired>Roles</nz-form-label><nz-form-control [nzErrorTip]="err('roleIds') || 'Choose at least one role'">
             <nz-select formControlName="roleIds" nzMode="multiple" data-testid="user-roles">@for (r of roles(); track r.id) { <nz-option [nzValue]="r.id" [nzLabel]="r.name"></nz-option> }</nz-select>
