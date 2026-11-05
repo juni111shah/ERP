@@ -13,14 +13,15 @@ import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import 'package:erp_mobile/theme/tokens.dart';
+import 'projects_extra_screens.dart';
 
 const pBase = '/api/v1/m/projects';
 
 const projectStatuses = [Option('planning', 'Planning'), Option('active', 'Active'), Option('onHold', 'On hold'), Option('completed', 'Completed'), Option('cancelled', 'Cancelled')];
 const billingTypes = [Option('timeAndMaterials', 'Time & materials'), Option('fixedFee', 'Fixed fee'), Option('nonBillable', 'Non-billable')];
-const taskStatuses = [Option('todo', 'To do'), Option('inProgress', 'In progress'), Option('review', 'Review'), Option('done', 'Done')];
+const taskStatuses = [Option('todo', 'To do'), Option('inProgress', 'In progress'), Option('review', 'Review'), Option('blocked', 'Blocked'), Option('done', 'Done'), Option('cancelled', 'Cancelled')];
 const taskPriorities = [Option('low', 'Low'), Option('medium', 'Medium'), Option('high', 'High'), Option('urgent', 'Urgent')];
-const milestoneStatuses = [Option('pending', 'Pending'), Option('achieved', 'Achieved'), Option('invoiced', 'Invoiced')];
+const milestoneStatuses = [Option('pending', 'Pending'), Option('achieved', 'Achieved'), Option('invoiced', 'Invoiced'), Option('cancelled', 'Cancelled')];
 
 /// Allowed next statuses, mirroring ProjectsTransitions on the backend.
 const projectMoves = <String, List<String>>{
@@ -31,10 +32,12 @@ const projectMoves = <String, List<String>>{
   'cancelled': <String>[],
 };
 const taskMoves = <String, List<String>>{
-  'todo': ['inProgress'],
-  'inProgress': ['review', 'todo'],
-  'review': ['done', 'inProgress'],
+  'todo': ['inProgress', 'blocked', 'cancelled'],
+  'inProgress': ['review', 'todo', 'blocked', 'cancelled'],
+  'review': ['done', 'inProgress', 'blocked', 'cancelled'],
   'done': ['inProgress'],
+  'blocked': ['todo', 'inProgress', 'cancelled'],
+  'cancelled': ['todo'],
 };
 
 String label(List<Option> options, Object? value) {
@@ -48,7 +51,7 @@ Color statusColor(String s) => switch (s) {
       'active' || 'inProgress' || 'achieved' => Colors.blue.shade700,
       'completed' || 'done' || 'invoiced' => Colors.green.shade700,
       'cancelled' || 'urgent' => Colors.red.shade700,
-      'onHold' || 'review' || 'high' => Colors.orange.shade800,
+      'onHold' || 'review' || 'high' || 'blocked' => Colors.orange.shade800,
       _ => Colors.blueGrey,
     };
 
@@ -167,12 +170,16 @@ class ProjectDetailScreen extends StatelessWidget {
             InfoCard(rows: [
               InfoRow('Billing', label(billingTypes, d['billingType'])),
               InfoRow('Manager', text(d['managerName'])),
-              InfoRow('Budget', formatMoney((d['budgetAmount'] as num?) ?? 0), bold: true),
+              InfoRow('Budget', formatMoney((d['effectiveBudget'] as num?) ?? (d['budgetAmount'] as num?) ?? 0), bold: true),
+              InfoRow('Health', humanize('${d['health'] ?? ''}')),
+              InfoRow('Progress', '${d['percentComplete'] ?? 0}% of planned work done'),
+              InfoRow('Billed so far', formatMoney((d['billedAmount'] as num?) ?? 0)),
+              InfoRow('Unbilled', formatMoney((d['unbilledAmount'] as num?) ?? 0)),
               InfoRow('Start', d['startDate'] == null ? null : formatDate(d['startDate'])),
               InfoRow('End', d['endDate'] == null ? null : formatDate(d['endDate'])),
               InfoRow('Hours logged', '${d['totalLoggedHours'] ?? 0}'),
               InfoRow('Hours billed', '${d['totalBilledHours'] ?? 0}'),
-              InfoRow('Timesheet cost', formatMoney((d['totalTimesheetCost'] as num?) ?? 0)),
+              InfoRow('Cost (labour and expenses)', formatMoney((d['totalTimesheetCost'] as num?) ?? 0)),
               InfoRow('Tasks', '${d['completedTasks'] ?? 0} / ${d['totalTasks'] ?? 0} done'),
               InfoRow('Milestones', '${d['achievedMilestones'] ?? 0} / ${d['totalMilestones'] ?? 0} achieved'),
             ]),
@@ -180,6 +187,7 @@ class ProjectDetailScreen extends StatelessWidget {
             _Related(title: 'Tasks', path: '$pBase/tasks', projectId: id, tile: taskTile),
             _Related(title: 'Milestones', path: '$pBase/milestones', projectId: id, tile: milestoneTile),
             _Related(title: 'Time entries', path: '$pBase/timesheets', projectId: id, tile: timesheetTile),
+            _Related(title: 'Expenses', path: '$pBase/expenses', projectId: id, tile: expenseTile),
           ]),
           actions: [
             _projectMove('active', 'Activate', Icons.play_arrow),
@@ -201,6 +209,28 @@ class ProjectDetailScreen extends StatelessWidget {
               visible: (d) => !const {'completed', 'cancelled'}.contains(d['status']),
               run: (ref, d, _) async => null,
               form: (d) => taskForm(ref, projectId: id, projectName: '${d['name']}'),
+            ),
+            ActionSpec(
+              label: 'Add expense',
+              icon: Icons.receipt_long_outlined,
+              permission: 'projects.expenses.manage',
+              visible: (d) => !const {'completed', 'cancelled'}.contains(d['status']) && d['isTemplate'] != true,
+              run: (ref, d, _) async => null,
+              form: (d) => expenseForm(ref, projectId: id, projectName: '${d['name']}'),
+            ),
+            ActionSpec(
+              label: 'Log a risk or issue',
+              icon: Icons.warning_amber_outlined,
+              permission: 'projects.risks.manage',
+              run: (ref, d, _) async => null,
+              form: (d) => riskForm(ref, projectId: id, projectName: '${d['name']}'),
+            ),
+            ActionSpec(
+              label: 'Clone project',
+              icon: Icons.copy_outlined,
+              permission: 'projects.projects.manage',
+              run: (ref, d, _) async => null,
+              form: (d) => cloneForm(ref, id, '${d['name']}'),
             ),
             ActionSpec(
               label: 'Add milestone',
@@ -288,9 +318,11 @@ FormSpec taskForm(WidgetRef ref, {Json? existing, String? projectId, String? pro
         'title': existing['title'],
         'description': existing['description'],
         'priority': existing['priority'],
-        'assignedTo': existing['assignedTo'],
+        'assignedUserId': existing['assignedUserId'],
+        '__label_assignedUserId': existing['assignedTo'],
         'estimatedHours': existing['estimatedHours']?.toString(),
-        'actualHours': existing['actualHours']?.toString(),
+        'startDate': existing['startDate'],
+        'labels': existing['labels'],
         'dueDate': existing['dueDate'],
       } else if (projectId != null) ...{'projectId': projectId, '__label_projectId': projectName},
     },
@@ -298,10 +330,11 @@ FormSpec taskForm(WidgetRef ref, {Json? existing, String? projectId, String? pro
       Field.lookup('projectId', 'Project', path: '$pBase/projects', subtitleKey: 'number', required: true),
       Field.text('title', 'Title', required: true, maxLength: 200),
       Field.select('priority', 'Priority', options: taskPriorities, required: true, initial: 'medium'),
-      Field.text('assignedTo', 'Assigned to', maxLength: 100),
-      Field.date('dueDate', 'Due date'),
+      Field.lookup('assignedUserId', 'Assigned to', path: '/api/v1/users', labelKey: 'fullName', subtitleKey: 'email'),
+      Field.date('startDate', 'Start date'),
+      Field.date('dueDate', 'Due date', validator: (v, all) => v != null && all['startDate'] != null && '$v'.compareTo('${all['startDate']}') < 0 ? 'Not before the start date' : null),
       Field.decimal('estimatedHours', 'Estimated hours', min: 0, initial: '0'),
-      if (editing) Field.decimal('actualHours', 'Actual hours', min: 0, initial: '0'),
+      Field.text('labels', 'Labels (comma separated)', maxLength: 300),
       Field.multiline('description', 'Description', maxLength: 2000),
     ],
     submit: (ref, body, raw) {
@@ -363,6 +396,9 @@ class TaskDetailScreen extends StatelessWidget {
               InfoRow('Priority', label(taskPriorities, d['priority'])),
               InfoRow('Assigned to', text(d['assignedTo'])),
               InfoRow('Milestone', text(d['milestoneTitle'])),
+              InfoRow('Start', d['startDate'] == null ? null : formatDate(d['startDate'])),
+              InfoRow('Waits for', ((d['dependsOn'] as List?)?.length ?? 0) == 0 ? null : '${(d['dependsOn'] as List).length} task(s)'),
+              InfoRow('Labels', text(d['labels'])),
               InfoRow('Due', d['dueDate'] == null ? null : formatDate(d['dueDate'])),
               InfoRow('Estimated hours', '${d['estimatedHours'] ?? 0}'),
               InfoRow('Actual hours', '${d['actualHours'] ?? 0}'),
@@ -374,6 +410,8 @@ class TaskDetailScreen extends StatelessWidget {
             _taskMove('review', 'Send to review', Icons.rate_review_outlined),
             _taskMove('done', 'Done', Icons.check_circle_outline),
             _taskMove('todo', 'Back to to do', Icons.undo),
+            _taskMove('blocked', 'Mark blocked', Icons.block),
+            _taskMove('cancelled', 'Cancel task', Icons.cancel_outlined),
             ActionSpec(
               label: 'Log time',
               icon: Icons.timer_outlined,
@@ -492,7 +530,7 @@ class MilestoneDetailScreen extends StatelessWidget {
 // ---------------------------------------------------------------- timesheets
 
 /// Quick time entry: today, the signed-in user, the project; hours and a note are all that is left to type.
-FormSpec timesheetForm(WidgetRef ref, {Json? existing, String? projectId, String? projectName, String? taskId, String? taskTitle}) {
+FormSpec timesheetForm(WidgetRef ref, {Json? existing, String? projectId, String? projectName, String? taskId, String? taskTitle, String? hours}) {
   final me = ref.read(meOrEmptyProvider);
   final editing = existing != null;
   return FormSpec(
@@ -505,6 +543,8 @@ FormSpec timesheetForm(WidgetRef ref, {Json? existing, String? projectId, String
         '__label_taskId': existing['taskTitle'],
         'date': existing['date'],
         'workerName': existing['workerName'],
+        'workerUserId': existing['workerUserId'],
+        '__label_workerUserId': existing['workerName'],
         'hours': existing['hours']?.toString(),
         'hourlyRate': existing['hourlyRate']?.toString(),
         'description': existing['description'],
@@ -513,6 +553,7 @@ FormSpec timesheetForm(WidgetRef ref, {Json? existing, String? projectId, String
         if (projectId != null) ...{'projectId': projectId, '__label_projectId': projectName},
         if (taskId != null) ...{'taskId': taskId, '__label_taskId': taskTitle},
         'workerName': me.fullName,
+        'hours': ?hours,
       },
     },
     fields: [
@@ -521,8 +562,9 @@ FormSpec timesheetForm(WidgetRef ref, {Json? existing, String? projectId, String
       Field.date('date', 'Date', required: true, initial: 'today'),
       Field.decimal('hours', 'Hours', required: true, min: 0.1, max: 24, decimals: 2, hint: 'for example 1.5'),
       Field.text('description', 'What was done', maxLength: 500),
-      Field.text('workerName', 'Worker', required: true, maxLength: 100),
-      Field.money('hourlyRate', 'Hourly rate', required: true, initial: '0'),
+      Field.lookup('workerUserId', 'Person (optional)', path: '/api/v1/users', labelKey: 'fullName', subtitleKey: 'email'),
+      Field.text('workerName', 'or a name', maxLength: 100, visibleWhen: (v) => v['workerUserId'] == null),
+      Field.money('hourlyRate', 'Hourly rate (blank = rate card)', hint: 'Leave empty to use the rate cards'),
       Field.toggle('isBillable', 'Billable', initial: true),
     ],
     submit: (ref, body, raw) {
@@ -540,7 +582,8 @@ Widget timesheetTile(BuildContext context, Json t) => ListTile(
       trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
         Text(formatMoney((t['totalAmount'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: ErpSpace.s1),
-        StatusChip(t['isBilled'] == true ? 'Billed' : (t['isBillable'] == true ? 'Unbilled' : 'Non-billable'), color: t['isBilled'] == true ? Colors.green.shade700 : Colors.blueGrey),
+        StatusChip(t['writtenOff'] == true ? 'Written off' : t['isBilled'] == true ? 'Billed' : (t['isBillable'] == true ? 'Unbilled' : 'Non-billable'), color: t['isBilled'] == true ? Colors.green.shade700 : Colors.blueGrey),
+        if ('${t['approvalStatus']}' != 'approved') StatusChip(humanize('${t['approvalStatus']}'), color: statusColor('${t['approvalStatus']}' == 'rejected' ? 'cancelled' : 'review')),
       ]),
     );
 
@@ -642,6 +685,22 @@ class _BillingDetailState extends ConsumerState<BillingDetailScreen> {
   bool _busy = false;
   String? _error;
   Json? _result;
+  Json? _preview;
+  String _grouping = 'detailed';
+  double _discount = 0;
+  double? _progress;
+
+  Map<String, dynamic> _input() => {'projectId': widget.data['projectId'], 'grouping': _grouping, 'discountPercent': _discount, if (_progress != null && _progress! > 0) 'progressPercent': _progress};
+
+  Future<void> _previewNow() async {
+    setState(() => _error = null);
+    try {
+      final r = await ref.read(apiProvider).post('$pBase/billing/preview', body: _input());
+      if (mounted) setState(() => _preview = r as Json);
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _preview = null; _error = e.message; });
+    }
+  }
 
   Future<void> _bill() async {
     final ok = await showDialog<bool>(
@@ -657,7 +716,7 @@ class _BillingDetailState extends ConsumerState<BillingDetailScreen> {
       _error = null;
     });
     try {
-      final r = await ref.read(apiProvider).post('$pBase/billing/bill', body: {'projectId': widget.data['projectId']});
+      final r = await ref.read(apiProvider).post('$pBase/billing/bill', body: _input());
       ref.read(dataVersionProvider.notifier).bump();
       if (mounted) setState(() => _result = r as Json);
     } on ApiException catch (e) {
@@ -681,15 +740,46 @@ class _BillingDetailState extends ConsumerState<BillingDetailScreen> {
           InfoRow('Time amount', formatMoney((b['unbilledHoursAmount'] as num?) ?? 0)),
           InfoRow('Achieved milestones', '${b['achievedMilestonesCount']}'),
           InfoRow('Milestone amount', formatMoney((b['achievedMilestonesAmount'] as num?) ?? 0)),
+          InfoRow('Expenses to charge', formatMoney((b['unbilledExpensesAmount'] as num?) ?? 0)),
+          if (((b['awaitingApprovalAmount'] as num?) ?? 0) > 0) InfoRow('Time waiting for approval', formatMoney((b['awaitingApprovalAmount'] as num?) ?? 0)),
+          if (b['billingType'] == 'fixedFee') InfoRow('Fixed fee still to bill', formatMoney((b['fixedFeeRemaining'] as num?) ?? 0)),
           InfoRow('Total', formatMoney((b['totalUnbilledAmount'] as num?) ?? 0), bold: true),
         ]),
         if (_error != null) Card(color: Theme.of(context).colorScheme.errorContainer, child: Padding(padding: const EdgeInsets.all(ErpSpace.s3), child: Text(_error!))),
+        if (r == null && me.can('projects.billing.manage'))
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(ErpSpace.s3),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Invoice options', style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: ErpSpace.s2),
+                DropdownButtonFormField<String>(
+                  initialValue: _grouping,
+                  decoration: const InputDecoration(labelText: 'Group the invoice by'),
+                  items: const [DropdownMenuItem(value: 'detailed', child: Text('Each entry')), DropdownMenuItem(value: 'person', child: Text('Person')), DropdownMenuItem(value: 'task', child: Text('Task')), DropdownMenuItem(value: 'project', child: Text('One line'))],
+                  onChanged: (v) => setState(() => _grouping = v ?? 'detailed'),
+                ),
+                TextField(decoration: const InputDecoration(labelText: 'Discount %'), keyboardType: TextInputType.number, onChanged: (v) => _discount = double.tryParse(v) ?? 0),
+                if (b['billingType'] == 'fixedFee') TextField(decoration: const InputDecoration(labelText: 'Bill a share of the fixed fee (%)'), keyboardType: TextInputType.number, onChanged: (v) => _progress = double.tryParse(v)),
+                const SizedBox(height: ErpSpace.s2),
+                OutlinedButton.icon(onPressed: _previewNow, icon: const Icon(Icons.visibility_outlined), label: const Text('Preview the invoice')),
+              ]),
+            ),
+          ),
+        if (_preview != null && r == null)
+          InfoCard(title: 'Invoice preview', rows: [
+            for (final l in (_preview!['lines'] as List).cast<Json>()) InfoRow('${l['description']}', formatMoney((l['amount'] as num?) ?? 0)),
+            InfoRow('Subtotal', formatMoney((_preview!['subtotal'] as num?) ?? 0)),
+            if (((_preview!['discount'] as num?) ?? 0) > 0) InfoRow('Discount', formatMoney((_preview!['discount'] as num?) ?? 0)),
+            InfoRow('Total before tax', formatMoney((_preview!['total'] as num?) ?? 0), bold: true),
+          ]),
         if (r != null)
           InfoCard(title: 'Billed', rows: [
             InfoRow('Invoice', text(r['invoiceNumber'])),
             InfoRow('Amount', formatMoney((r['totalAmountBilled'] as num?) ?? 0), bold: true),
             InfoRow('Timesheets', '${r['billedTimesheetsCount']}'),
             InfoRow('Milestones', '${r['billedMilestonesCount']}'),
+            InfoRow('Expenses', '${r['billedExpensesCount'] ?? 0}'),
           ]),
       ]),
       bottomNavigationBar: r == null && me.can('projects.billing.manage')

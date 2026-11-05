@@ -118,3 +118,20 @@ Not exercised in a browser; the findings come from the code and its tests.
 9. Gantt and dependencies, resource planning and utilisation, expenses billed to clients, revenue recognition and WIP, client portal,
    templates, integration with CRM, Sales, Real Estate and HR.
 10. Web specs and a Playwright smoke run for every Projects screen; mobile timer and offline entry.
+
+---
+
+## 6. What was built after this review (same day)
+
+**Fixed:** voiding a project invoice releases its time, expenses, milestones and fixed-fee percentage; closed projects refuse edits; a task with time cannot be deleted;
+customer name comes from the customer record; daily hour limit per person and no future dates; "cost" is now labour cost plus expenses, with `billableValue` separate;
+actual hours follow the time logged; completing a project needs every task finished and nothing unbilled; milestones cannot pass the fixed fee; dashboard totals added up
+in the database; web timesheet and task forms saved the previous day for users east of UTC and the timesheet form had a duplicated field and a fixed QAR label.
+
+**Added:** people linked to accounts (assignee, worker, manager, owner); rate cards with bill and cost rates; timesheet approval and expense approval (settings); weekly grid and
+timer (web and mobile); expenses with mark-up; write-off; invoice preview, grouping, discount and fixed-fee percentage billing; subtasks, dependencies, critical-path schedule and
+Gantt; task board; blocked and cancelled statuses; comments; change orders; risks and issues; project team and allocations; templates, clone and archive; reports (profitability,
+utilisation, budget and work in progress, unbilled ageing, hours); task import; reminders for due tasks and risks; health indicator.
+
+**Not built:** posting project cost and work in progress to the ledger, client portal for projects, e-signature, expense receipts as a dedicated screen (the generic attachment
+store accepts them), links that create a project from a sales order or opportunity (only the source fields exist), per-project member visibility rules.

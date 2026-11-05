@@ -161,7 +161,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('has no customer assigned'), findsOneWidget);
       expect(adapter.requests.single.path, '/api/v1/m/projects/billing/bill');
-      expect(adapter.requests.single.data, {'projectId': 'p1'});
+      expect(adapter.requests.single.data, {'projectId': 'p1', 'grouping': 'detailed', 'discountPercent': 0});
     });
   });
 
