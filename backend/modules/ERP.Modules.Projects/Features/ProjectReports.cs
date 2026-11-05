@@ -12,7 +12,8 @@ public sealed record ProfitabilityRow(Guid ProjectId, string Number, string Name
     decimal Hours, decimal BillableHours, decimal Billed, decimal Unbilled, decimal LabourCost, decimal ExpenseCost, decimal Cost, decimal Margin, decimal MarginPercent);
 public sealed record UtilisationRow(string Person, Guid? UserId, decimal LoggedHours, decimal BillableHours, decimal CapacityHours, decimal AllocatedHours, decimal UtilisationPercent, decimal BillablePercent);
 public sealed record BudgetRow(Guid ProjectId, string Number, string Name, ProjectStatus Status, ProjectBillingType BillingType, decimal Budget, decimal ApprovedChanges, decimal Cost, decimal UsedPercent,
-    decimal BudgetHours, decimal LoggedHours, decimal PercentComplete, decimal ForecastCost, decimal ForecastVariance, decimal EarnedRevenue, decimal Billed, decimal WorkInProgress, string Health);
+    decimal BudgetHours, decimal LoggedHours, decimal PercentComplete, decimal ForecastCost, decimal ForecastVariance, decimal EarnedRevenue, decimal Billed, decimal WorkInProgress, string Health,
+    decimal PlannedValue = 0m, decimal EarnedValue = 0m, decimal? CostIndex = null, decimal? ScheduleIndex = null);
 public sealed record AgeingRow(Guid ProjectId, string Number, string Name, decimal Current, decimal Days31To60, decimal Days61To90, decimal Over90, decimal Total);
 public sealed record HoursRow(string Group, decimal Hours, decimal BillableHours, decimal Amount, decimal Cost);
 
@@ -43,6 +44,33 @@ public sealed class GetHoursReportValidator : AbstractValidator<GetHoursReport>
 public static class ReportMath
 {
     public static decimal Percent(decimal part, decimal whole) => whole == 0 ? 0m : Math.Round(part / whole * 100m, 1);
+
+    private static readonly DayOfWeek[] MondayToFriday = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday];
+
+    /// <summary>The working days from the setting "Sun,Mon,Tue"; Monday to Friday when it is empty or unreadable.</summary>
+    public static IReadOnlyCollection<DayOfWeek> ParseWorkWeek(string? text)
+    {
+        var days = (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(t => Enum.GetValues<DayOfWeek>().Where(d => d.ToString().StartsWith(t.Length >= 3 ? t[..3] : "?", StringComparison.OrdinalIgnoreCase)).Cast<DayOfWeek?>().FirstOrDefault())
+            .Where(d => d != null).Select(d => d!.Value).Distinct().ToList();
+        return days.Count == 0 ? MondayToFriday : days;
+    }
+
+    public static int WorkdaysBetween(DateOnly from, DateOnly to, IReadOnlyCollection<DayOfWeek> week)
+    {
+        var n = 0;
+        for (var d = from; d <= to; d = d.AddDays(1)) if (week.Contains(d.DayOfWeek)) n++;
+        return n;
+    }
+
+    /// <summary>Share of the planned time that has passed, 0 to 1; a project without both dates has no plan to compare with.</summary>
+    public static decimal? PlannedShare(DateOnly? start, DateOnly? end, DateOnly today)
+    {
+        if (start is not { } s || end is not { } e || e < s) return null;
+        if (today <= s) return 0m;
+        if (today >= e) return 1m;
+        return (decimal)(today.DayNumber - s.DayNumber) / (e.DayNumber - s.DayNumber);
+    }
 
     /// <summary>Working days (Monday to Friday) between two dates, inclusive; the unit of "capacity".</summary>
     public static int WeekdaysBetween(DateOnly from, DateOnly to)
@@ -79,6 +107,7 @@ internal sealed class ReportHandlers(
     IReadRepository<ProjectChangeOrder> changeOrders,
     IReadRepository<ProjectProgressBilling> progress,
     IReadRepository<ProjectAllocation> allocations,
+    ProjectAccess access,
     ISettingsService settings) :
     IRequestHandler<GetProfitabilityReport, IReadOnlyList<ProfitabilityRow>>,
     IRequestHandler<GetUtilisationReport, IReadOnlyList<UtilisationRow>>,
@@ -88,11 +117,14 @@ internal sealed class ReportHandlers(
 {
     public async Task<IReadOnlyList<ProfitabilityRow>> Handle(GetProfitabilityReport q, CancellationToken ct)
     {
-        var list = await projects.Query(new Specification<Project>(p => !p.IsTemplate && (q.ProjectId == null || p.Id == q.ProjectId))).ToListAsync(ct);
+        var visible = await access.VisibleIdsAsync(ct);
+        var list = (await projects.Query(new Specification<Project>(p => !p.IsTemplate && (q.ProjectId == null || p.Id == q.ProjectId))).ToListAsync(ct)).Where(p => visible == null || visible.Contains(p.Id)).ToList();
         var ids = list.Select(p => p.Id).ToList();
-        var ts = (await timesheets.Query(new Specification<ProjectTimesheet>(t => ids.Contains(t.ProjectId) && (q.From == null || t.Date >= q.From) && (q.To == null || t.Date <= q.To))).ToListAsync(ct)).ToLookup(t => t.ProjectId);
+        var ts = (await timesheets.Query(new Specification<ProjectTimesheet>(t => ids.Contains(t.ProjectId) && t.ApprovalStatus != TimesheetStatus.Rejected && (q.From == null || t.Date >= q.From) && (q.To == null || t.Date <= q.To))).ToListAsync(ct)).ToLookup(t => t.ProjectId);
         var ex = (await expenses.Query(new Specification<ProjectExpense>(e => ids.Contains(e.ProjectId) && e.Status == ExpenseStatus.Approved && (q.From == null || e.Date >= q.From) && (q.To == null || e.Date <= q.To))).ToListAsync(ct)).ToLookup(e => e.ProjectId);
-        var ms = (await milestones.Query(new Specification<ProjectMilestone>(m => ids.Contains(m.ProjectId) && (m.Status == MilestoneStatus.Achieved || m.Status == MilestoneStatus.Invoiced))).ToListAsync(ct)).ToLookup(m => m.ProjectId);
+        // a milestone counts in the period it was reached, like time and expenses count on their own dates
+        var ms = (await milestones.Query(new Specification<ProjectMilestone>(m => ids.Contains(m.ProjectId) && (m.Status == MilestoneStatus.Achieved || m.Status == MilestoneStatus.Invoiced))).ToListAsync(ct))
+            .Where(m => (m.AchievedDate ?? m.DueDate) is var d && (q.From == null || d >= q.From) && (q.To == null || d <= q.To)).ToLookup(m => m.ProjectId);
         var pr = (await progress.Query(new Specification<ProjectProgressBilling>(x => ids.Contains(x.ProjectId) && !x.Released && (q.From == null || x.Date >= q.From) && (q.To == null || x.Date <= q.To))).ToListAsync(ct)).ToLookup(x => x.ProjectId);
         var rows = new List<ProfitabilityRow>();
         foreach (var p in list.OrderBy(p => p.Number))
@@ -113,10 +145,12 @@ internal sealed class ReportHandlers(
     public async Task<IReadOnlyList<UtilisationRow>> Handle(GetUtilisationReport q, CancellationToken ct)
     {
         var capacityPerWeek = await settings.GetAsync<decimal?>("projects.weeklyCapacityHours", null, ct) ?? 40m;
-        var days = ReportMath.WeekdaysBetween(q.From, q.To);
-        var capacity = Math.Round(days * capacityPerWeek / 5m, 2);
-        var time = await timesheets.Query(new Specification<ProjectTimesheet>(t => t.Date >= q.From && t.Date <= q.To)).ToListAsync(ct);
-        var plan = await allocations.Query(new Specification<ProjectAllocation>(a => a.FromDate <= q.To && a.ToDate >= q.From)).ToListAsync(ct);
+        var week = ReportMath.ParseWorkWeek(await settings.GetAsync<string?>("projects.workWeekDays", null, ct));
+        var days = ReportMath.WorkdaysBetween(q.From, q.To, week);
+        var capacity = Math.Round(days * capacityPerWeek / week.Count, 2);
+        var visible = await access.VisibleIdsAsync(ct);
+        var time = (await timesheets.Query(new Specification<ProjectTimesheet>(t => t.Date >= q.From && t.Date <= q.To && t.ApprovalStatus != TimesheetStatus.Rejected)).ToListAsync(ct)).Where(t => visible == null || visible.Contains(t.ProjectId)).ToList();
+        var plan = (await allocations.Query(new Specification<ProjectAllocation>(a => a.FromDate <= q.To && a.ToDate >= q.From)).ToListAsync(ct)).Where(a => visible == null || visible.Contains(a.ProjectId)).ToList();
         var people = time.Select(t => (Key: t.WorkerUserId?.ToString() ?? "n:" + t.WorkerName.ToLowerInvariant(), Name: t.WorkerName, UserId: t.WorkerUserId))
             .Concat(plan.Select(a => (Key: a.UserId.ToString(), Name: a.UserName, UserId: (Guid?)a.UserId))).GroupBy(x => x.Key).Select(g => g.First()).OrderBy(x => x.Name).ToList();
         var rows = new List<UtilisationRow>();
@@ -132,9 +166,10 @@ internal sealed class ReportHandlers(
 
     public async Task<IReadOnlyList<BudgetRow>> Handle(GetBudgetReport q, CancellationToken ct)
     {
-        var list = await projects.Query(new Specification<Project>(p => !p.IsTemplate && !p.IsArchived && p.Status != ProjectStatus.Cancelled)).ToListAsync(ct);
+        var visible = await access.VisibleIdsAsync(ct);
+        var list = (await projects.Query(new Specification<Project>(p => !p.IsTemplate && !p.IsArchived && p.Status != ProjectStatus.Cancelled)).ToListAsync(ct)).Where(p => visible == null || visible.Contains(p.Id)).ToList();
         var ids = list.Select(p => p.Id).ToList();
-        var ts = (await timesheets.Query(new Specification<ProjectTimesheet>(t => ids.Contains(t.ProjectId))).ToListAsync(ct)).ToLookup(t => t.ProjectId);
+        var ts = (await timesheets.Query(new Specification<ProjectTimesheet>(t => ids.Contains(t.ProjectId) && t.ApprovalStatus != TimesheetStatus.Rejected)).ToListAsync(ct)).ToLookup(t => t.ProjectId);
         var ex = (await expenses.Query(new Specification<ProjectExpense>(e => ids.Contains(e.ProjectId) && e.Status == ExpenseStatus.Approved)).ToListAsync(ct)).ToLookup(e => e.ProjectId);
         var tk = (await tasks.Query(new Specification<ProjectTask>(t => ids.Contains(t.ProjectId))).ToListAsync(ct)).ToLookup(t => t.ProjectId);
         var co = (await changeOrders.Query(new Specification<ProjectChangeOrder>(c => ids.Contains(c.ProjectId))).ToListAsync(ct)).ToLookup(c => c.ProjectId);
@@ -155,8 +190,13 @@ internal sealed class ReportHandlers(
             var wip = p.BillingType == ProjectBillingType.FixedFee ? earned - billed : 0m;
             var tasksOpen = tk[p.Id].Where(t => t.Status is not (ProjectTaskStatus.Done or ProjectTaskStatus.Cancelled)).ToList();
             var overdue = tasksOpen.Count(t => t.DueDate is { } d && d < today);
+            // earned value: what the finished share of the work was budgeted to cost, against the spend and against the plan
+            var ev = Math.Round(budget * pct / 100m, 2);
+            var share = ReportMath.PlannedShare(p.StartDate, p.EndDate, today);
+            var pv = share is { } planned ? Math.Round(budget * planned, 2) : 0m;
             rows.Add(new BudgetRow(p.Id, p.Number, p.Name, p.Status, p.BillingType, budget, budget - p.BudgetAmount, cost, ReportMath.Percent(cost, budget), hoursBudget, logged, pct, forecast,
-                budget > 0 ? budget - forecast : 0m, earned, billed, wip, ProjectMath.Health(p, budget, cost, overdue, tasksOpen.Count, today)));
+                budget > 0 ? budget - forecast : 0m, earned, billed, wip, ProjectMath.Health(p, budget, cost, overdue, tasksOpen.Count, today),
+                pv, ev, cost > 0 && budget > 0 ? Math.Round(ev / cost, 2) : null, pv > 0 ? Math.Round(ev / pv, 2) : null));
         }
         return rows;
     }
@@ -164,7 +204,8 @@ internal sealed class ReportHandlers(
     public async Task<IReadOnlyList<AgeingRow>> Handle(GetUnbilledAgeing q, CancellationToken ct)
     {
         var asOf = q.AsOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
-        var list = await projects.Query(new Specification<Project>(p => !p.IsTemplate && p.BillingType != ProjectBillingType.NonBillable)).ToListAsync(ct);
+        var visible = await access.VisibleIdsAsync(ct);
+        var list = (await projects.Query(new Specification<Project>(p => !p.IsTemplate && p.BillingType != ProjectBillingType.NonBillable)).ToListAsync(ct)).Where(p => visible == null || visible.Contains(p.Id)).ToList();
         var ids = list.Select(p => p.Id).ToList();
         var ts = (await timesheets.Query(new Specification<ProjectTimesheet>(t => ids.Contains(t.ProjectId) && t.IsBillable && !t.IsBilled && !t.WrittenOff && t.ApprovalStatus == TimesheetStatus.Approved)).ToListAsync(ct)).ToLookup(t => t.ProjectId);
         var ex = (await expenses.Query(new Specification<ProjectExpense>(e => ids.Contains(e.ProjectId) && e.IsBillable && !e.IsBilled && !e.WrittenOff && e.Status == ExpenseStatus.Approved)).ToListAsync(ct)).ToLookup(e => e.ProjectId);
@@ -184,7 +225,8 @@ internal sealed class ReportHandlers(
 
     public async Task<IReadOnlyList<HoursRow>> Handle(GetHoursReport q, CancellationToken ct)
     {
-        var time = await timesheets.Query(new Specification<ProjectTimesheet>(t => t.Date >= q.From && t.Date <= q.To && (q.ProjectId == null || t.ProjectId == q.ProjectId))).ToListAsync(ct);
+        var visible = await access.VisibleIdsAsync(ct);
+        var time = (await timesheets.Query(new Specification<ProjectTimesheet>(t => t.Date >= q.From && t.Date <= q.To && t.ApprovalStatus != TimesheetStatus.Rejected && (q.ProjectId == null || t.ProjectId == q.ProjectId))).ToListAsync(ct)).Where(t => visible == null || visible.Contains(t.ProjectId)).ToList();
         Dictionary<Guid, string> names = new();
         if (q.GroupBy == "project") { var pids = time.Select(t => t.ProjectId).Distinct().ToList(); names = await projects.Query(new Specification<Project>(p => pids.Contains(p.Id))).ToDictionaryAsync(p => p.Id, p => p.Number + " " + p.Name, ct); }
         if (q.GroupBy == "task") { var tids = time.Where(t => t.TaskId != null).Select(t => t.TaskId!.Value).Distinct().ToList(); names = await tasks.Query(new Specification<ProjectTask>(t => tids.Contains(t.Id))).ToDictionaryAsync(t => t.Id, t => t.Number + " " + t.Title, ct); }

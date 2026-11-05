@@ -51,16 +51,17 @@ public sealed class ProjectsModule : ModuleBase
     [
         new("projects.projects", "Projects", "/projects/list", "project", P.ProjectsRead, 10, "projects", "Projects", 350),
         new("projects.tasks", "Tasks", "/projects/tasks", "check-square", P.TasksRead, 20, "projects", "Projects", 350),
-        new("projects.timesheets", "Timesheets", "/projects/timesheets", "clock-circle", P.TimesheetsRead, 30, "projects", "Projects", 350),
-        new("projects.billing", "Project billing", "/projects/billing", "dollar-circle", P.BillingRead, 40, "projects", "Projects", 350),
-        new("projects.board", "Task board", "/projects/board", "project", P.TasksRead, 25, "projects", "Projects", 350),
-        new("projects.week", "My week", "/projects/week", "calendar", P.TimesheetsManage, 31, "projects", "Projects", 350),
-        new("projects.expenses", "Expenses", "/projects/expenses", "wallet", P.ExpensesRead, 35, "projects", "Projects", 350),
-        new("projects.approvals", "Timesheet approvals", "/projects/approvals", "audit", P.TimesheetsApprove, 36, "projects", "Projects", 350),
-        new("projects.reports", "Project reports", "/projects/reports", "bar-chart", P.ReportsRead, 50, "projects", "Projects", 350),
-        new("projects.resources", "Resources", "/projects/resources", "team", P.TeamManage, 55, "projects", "Projects", 350),
-        new("projects.changeorders", "Change orders", "/projects/change-orders", "swap", P.ChangeOrdersRead, 60, "projects", "Projects", 350),
-        new("projects.risks", "Risks and issues", "/projects/risks", "warning", P.RisksRead, 65, "projects", "Projects", 350),
+        new("projects.board", "Task board", "/projects/board", "table", P.TasksRead, 25, "projects", "Projects", 350),
+        new("projects.risks", "Risks and issues", "/projects/risks", "warning", P.RisksRead, 30, "projects", "Projects", 350),
+        new("projects.changeorders", "Change orders", "/projects/change-orders", "swap", P.ChangeOrdersRead, 35, "projects", "Projects", 350),
+        new("projects.resources", "Resources", "/projects/resources", "team", P.TeamManage, 40, "projects", "Projects", 350),
+        new("projects.week", "My week", "/projects/week", "calendar", P.TimesheetsManage, 10, "projects.money", "Project time and money", 351),
+        new("projects.timesheets", "Timesheets", "/projects/timesheets", "clock-circle", P.TimesheetsRead, 15, "projects.money", "Project time and money", 351),
+        new("projects.expenses", "Expenses", "/projects/expenses", "wallet", P.ExpensesRead, 20, "projects.money", "Project time and money", 351),
+        new("projects.approvals", "Time approvals", "/projects/approvals?tab=time", "audit", P.TimesheetsApprove, 25, "projects.money", "Project time and money", 351),
+        new("projects.approvals.expenses", "Expense approvals", "/projects/approvals?tab=expenses", "file-done", P.ExpensesApprove, 26, "projects.money", "Project time and money", 351),
+        new("projects.billing", "Project billing", "/projects/billing", "dollar-circle", P.BillingRead, 30, "projects.money", "Project time and money", 351),
+        new("projects.reports", "Project reports", "/projects/reports", "bar-chart", P.ReportsRead, 35, "projects.money", "Project time and money", 351),
     ];
 
     public override IEnumerable<SettingDefinition> Settings =>
@@ -73,6 +74,8 @@ public sealed class ProjectsModule : ModuleBase
         new("projects.weeklyCapacityHours", "Working hours in a week (capacity for utilisation)", "40", "number"),
         new("projects.restrictToMembers", "People without manage rights only reach projects they manage or belong to", "false", "bool", "Applies to opening a project and adding tasks, time and expenses to it."),
         new("projects.allowFutureTime", "Allow time to be logged for future dates", "false", "bool"),
+        new("projects.allowSelfApproval", "People may approve their own time and expenses", "false", "bool", "Leave off so a second person checks the work. Turn on for very small teams."),
+        new("projects.workWeekDays", "Working days of the week", "\"Mon,Tue,Wed,Thu,Fri\"", "text", "Comma-separated, for capacity and scheduling: for example Sun,Mon,Tue,Wed,Thu."),
     ];
 
     public override IEnumerable<CustomizableEntityDefinition> CustomizableEntities =>
@@ -101,6 +104,7 @@ public sealed class ProjectsModule : ModuleBase
         services.AddScoped<ProjectPeople>();
         services.AddScoped<RateResolver>();
         services.AddScoped<ProjectAccess>();
+        services.AddScoped<ProjectFigures>();
         services.AddScoped<IDashboardContributor, ProjectsDashboard>();
         services.AddScoped<ISearchProvider, ProjectsSearch>();
         services.AddScoped<ERP.Application.Reminders.IReminderSource, ProjectsReminders>();
@@ -249,8 +253,17 @@ public sealed class ProjectsModule : ModuleBase
             b.Property(x => x.Signature).HasMaxLength(150);
             b.Property(x => x.SignedIp).HasMaxLength(64);
             b.Property(x => x.EvidenceHash).HasMaxLength(64);
+            b.Property(x => x.SignatureImage).HasMaxLength(300_000);   // a drawn signature is a PNG data URL; over 4000 becomes nvarchar(max)
             b.Property(x => x.Comment).HasMaxLength(1000);
             b.HasIndex(x => new { x.OrgId, x.ProjectId, x.Status });
+        });
+        mb.Entity<ProjectBudgetLine>(b =>
+        {
+            b.ToTable("prj_BudgetLines");
+            b.Property(x => x.Category).HasMaxLength(60).IsRequired();
+            b.Property(x => x.Amount).HasPrecision(19, 4);
+            b.Property(x => x.Hours).HasPrecision(9, 2);
+            b.HasIndex(x => new { x.OrgId, x.ProjectId, x.Category }).IsUnique().HasFilter("[IsDeleted] = 0");
         });
         mb.Entity<ProjectProgressBilling>(b =>
         {

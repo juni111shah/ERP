@@ -20,20 +20,21 @@ public sealed record DecideChangeBody(bool Approve, string? Note);
 public sealed record MemberBody(Guid UserId, string? Role);
 public sealed record ArchiveBody(bool Archive);
 public sealed record PostCostsBody(Guid ProjectId);
+public sealed record BaselineBody(bool Clear);
 
 internal static class ProjectsEndpoints
 {
     private const string Base = "/api/v1/m/projects";
 
-    /// <summary>A paged list that honours the members-only setting.</summary>
-    private static void Scoped<T, TDto>(RouteGroupBuilder g, string permission, Func<IReadOnlyCollection<Guid>, System.Linq.Expressions.Expression<Func<T, bool>>> scope, System.Linq.Expressions.Expression<Func<T, TDto>> projection) where T : ERP.Domain.Common.Entity =>
-        g.MapGet("", ([Microsoft.AspNetCore.Http.AsParameters] PagedQuery q, ISender s, CancellationToken ct) => s.Send(new ScopedProjectList<T, TDto>(q, projection, permission, scope), ct)).RequirePermission(permission);
+    /// <summary>A paged list that honours the members-only setting. <c>?live=true</c> leaves out templates and archived projects.</summary>
+    private static void Scoped<T, TDto>(RouteGroupBuilder g, string permission, Func<IReadOnlyCollection<Guid>, System.Linq.Expressions.Expression<Func<T, bool>>> scope, System.Linq.Expressions.Expression<Func<T, TDto>> projection, Func<IServiceProvider, IReadOnlyList<TDto>, CancellationToken, Task<IReadOnlyList<TDto>>> enrich) where T : ERP.Domain.Common.Entity =>
+        g.MapGet("", ([Microsoft.AspNetCore.Http.AsParameters] PagedQuery q, bool? live, ISender s, CancellationToken ct) => s.Send(new ScopedProjectList<T, TDto>(q, projection, permission, scope, enrich, live == true), ct)).RequirePermission(permission);
 
     public static void Map(RouteGroupBuilder group)
     {
         var projects = group.MapGroup("/projects");
         Scoped<Project, ProjectSummaryDto>(projects, P.ProjectsRead, ids => p => ids.Contains(p.Id),
-            p => new ProjectSummaryDto(p.Id, p.Number, p.Name, p.LegalEntityId, p.CustomerId, p.CustomerName, p.ManagerName, p.Status, p.BillingType, p.BudgetAmount, p.StartDate, p.EndDate, p.CreatedAt, p.ManagerUserId, p.IsTemplate, p.IsArchived));
+            p => new ProjectSummaryDto(p.Id, p.Number, p.Name, p.LegalEntityId, p.CustomerId, p.CustomerName, p.ManagerName, p.Status, p.BillingType, p.BudgetAmount, p.StartDate, p.EndDate, p.CreatedAt, p.ManagerUserId, p.IsTemplate, p.IsArchived, 0m, null, 0m, 0m, 0, 0, 0m), ProjectListEnrich.Projects);
         projects.MapGet("/kpis", (ISender s, CancellationToken ct) => s.Send(new GetProjectKpiSummary(), ct)).RequirePermission(P.ProjectsRead);
         projects.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetProject(id), ct)).RequirePermission(P.ProjectsRead);
         projects.MapPost("", async (ProjectInput input, ISender s, CancellationToken ct) =>
@@ -51,13 +52,21 @@ internal static class ProjectsEndpoints
         }).RequirePermission(P.ProjectsManage);
         projects.MapPost("/{id:guid}/archive", (Guid id, ArchiveBody b, ISender s, CancellationToken ct) => s.Send(new ArchiveProject(id, b.Archive), ct)).RequirePermission(P.ProjectsManage);
         projects.MapGet("/{id:guid}/schedule", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetProjectSchedule(id), ct)).RequirePermission(P.TasksRead);
+        projects.MapPost("/{id:guid}/baseline", (Guid id, BaselineBody b, ISender s, CancellationToken ct) => s.Send(new SetProjectBaseline(id, b.Clear), ct)).RequirePermission(P.TasksManage);
+        projects.MapGet("/{id:guid}/activity", (Guid id, int? take, ISender s, CancellationToken ct) => s.Send(new GetProjectActivity(id, take ?? 100), ct)).RequirePermission(P.ProjectsRead);
+        projects.MapGet("/{id:guid}/budget-lines", (Guid id, ISender s, CancellationToken ct) => s.Send(new ListBudgetLines(id), ct)).RequirePermission(P.ProjectsRead);
+        group.MapGet("/config", (ISender s, CancellationToken ct) => s.Send(new GetProjectsConfig(), ct)).RequireAuthorization();
+        var budgetLines = group.MapGroup("/budget-lines");
+        budgetLines.MapPost("", async (BudgetLineInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/budget-lines", await s.Send(new SaveBudgetLine(null, input), ct))).RequirePermission(P.ProjectsManage);
+        budgetLines.MapPut("/{id:guid}", (Guid id, BudgetLineInput input, ISender s, CancellationToken ct) => s.Send(new SaveBudgetLine(id, input), ct)).RequirePermission(P.ProjectsManage);
+        budgetLines.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteBudgetLine(id), ct); return Results.NoContent(); }).RequirePermission(P.ProjectsManage);
         projects.MapGet("/{id:guid}/members", (Guid id, ISender s, CancellationToken ct) => s.Send(new ListMembers(id), ct)).RequirePermission(P.ProjectsRead);
         projects.MapPost("/{id:guid}/members", async (Guid id, MemberBody b, ISender s, CancellationToken ct) => Results.Created($"{Base}/projects/{id}/members", await s.Send(new AddMember(id, b.UserId, b.Role), ct))).RequirePermission(P.TeamManage);
         projects.MapDelete("/members/{memberId:guid}", async (Guid memberId, ISender s, CancellationToken ct) => { await s.Send(new RemoveMember(memberId), ct); return Results.NoContent(); }).RequirePermission(P.TeamManage);
 
         var tasks = group.MapGroup("/tasks");
         Scoped<ProjectTask, TaskDto>(tasks, P.TasksRead, ids => t => ids.Contains(t.ProjectId),
-            t => new TaskDto(t.Id, t.ProjectId, "", t.MilestoneId, null, t.Number, t.Title, t.Description, t.Status, t.Priority, t.AssignedTo, t.EstimatedHours, t.ActualHours, t.DueDate, t.CreatedAt, t.AssignedUserId, t.ParentTaskId, t.StartDate, t.Labels, null));
+            t => new TaskDto(t.Id, t.ProjectId, "", t.MilestoneId, null, t.Number, t.Title, t.Description, t.Status, t.Priority, t.AssignedTo, t.EstimatedHours, t.ActualHours, t.DueDate, t.CreatedAt, t.AssignedUserId, t.ParentTaskId, t.StartDate, t.Labels, null), ProjectListEnrich.Tasks);
         tasks.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetTask(id), ct)).RequirePermission(P.TasksRead);
         tasks.MapPost("", async (TaskInput input, ISender s, CancellationToken ct) =>
         {
@@ -70,8 +79,8 @@ internal static class ProjectsEndpoints
         tasks.MapPut("/{id:guid}/dependencies", (Guid id, DependenciesBody b, ISender s, CancellationToken ct) => s.Send(new SetTaskDependencies(id, b.DependsOn), ct)).RequirePermission(P.TasksManage);
 
         var milestones = group.MapGroup("/milestones");
-        milestones.MapPagedList<ProjectMilestone, MilestoneDto>("", P.MilestonesRead,
-            m => new MilestoneDto(m.Id, m.ProjectId, "", m.Title, m.DueDate, m.Amount, m.Status, m.AchievedDate, m.CreatedAt));
+        Scoped<ProjectMilestone, MilestoneDto>(milestones, P.MilestonesRead, ids => m => ids.Contains(m.ProjectId),
+            m => new MilestoneDto(m.Id, m.ProjectId, "", m.Title, m.DueDate, m.Amount, m.Status, m.AchievedDate, m.CreatedAt), ProjectListEnrich.Milestones);
         milestones.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetMilestone(id), ct)).RequirePermission(P.MilestonesRead);
         milestones.MapPost("", async (MilestoneInput input, ISender s, CancellationToken ct) =>
         {
@@ -85,7 +94,7 @@ internal static class ProjectsEndpoints
         var timesheets = group.MapGroup("/timesheets");
         Scoped<ProjectTimesheet, TimesheetDto>(timesheets, P.TimesheetsRead, ids => ts => ids.Contains(ts.ProjectId),
             ts => new TimesheetDto(ts.Id, ts.ProjectId, "", ts.TaskId, null, ts.Date, ts.WorkerName, ts.Hours, ts.HourlyRate, ts.TotalAmount, ts.Description, ts.IsBillable, ts.IsBilled, ts.InvoiceId, ts.CreatedAt,
-                ts.WorkerUserId, ts.CostRate, ts.CostAmount, ts.ApprovalStatus, ts.RejectReason, ts.WrittenOff));
+                ts.WorkerUserId, ts.CostRate, ts.CostAmount, ts.ApprovalStatus, ts.RejectReason, ts.WrittenOff), ProjectListEnrich.Timesheets);
         timesheets.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetTimesheet(id), ct)).RequirePermission(P.TimesheetsRead);
         timesheets.MapPost("", async (TimesheetInput input, ISender s, CancellationToken ct) =>
         {
@@ -101,7 +110,7 @@ internal static class ProjectsEndpoints
 
         var expenses = group.MapGroup("/expenses");
         Scoped<ProjectExpense, ExpenseDto>(expenses, P.ExpensesRead, ids => e => ids.Contains(e.ProjectId),
-            e => new ExpenseDto(e.Id, e.ProjectId, "", e.Date, e.Category, e.Description, e.Amount, e.IsBillable, e.MarkupPercent, e.Amount * (1 + e.MarkupPercent / 100m), e.WorkerUserId, e.WorkerName, e.Status, e.RejectReason, e.IsBilled, e.InvoiceId, e.WrittenOff, e.CreatedAt));
+            e => new ExpenseDto(e.Id, e.ProjectId, "", e.Date, e.Category, e.Description, e.Amount, e.IsBillable, e.MarkupPercent, e.Amount * (1 + e.MarkupPercent / 100m), e.WorkerUserId, e.WorkerName, e.Status, e.RejectReason, e.IsBilled, e.InvoiceId, e.WrittenOff, e.CreatedAt), ProjectListEnrich.Expenses);
         expenses.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetExpense(id), ct)).RequirePermission(P.ExpensesRead);
         expenses.MapPost("", async (ExpenseInput input, ISender s, CancellationToken ct) =>
         {
@@ -116,6 +125,9 @@ internal static class ProjectsEndpoints
 
         var billing = group.MapGroup("/billing");
         billing.MapGet("/overview", (ISender s, CancellationToken ct) => s.Send(new GetBillingOverview(), ct)).RequirePermission(P.BillingRead);
+        billing.MapGet("/{projectId:guid}/billable", (Guid projectId, ISender s, CancellationToken ct) => s.Send(new GetBillableWork(projectId), ct)).RequirePermission(P.BillingRead);
+        billing.MapGet("/{projectId:guid}/invoices", (Guid projectId, ISender s, CancellationToken ct) => s.Send(new GetProjectInvoices(projectId), ct)).RequirePermission(P.BillingRead);
+        billing.MapPost("/write-off", async (PostCostsBody b, ISender s, CancellationToken ct) => new { writtenOff = await s.Send(new WriteOffProject(b.ProjectId), ct) }).RequirePermission(P.BillingManage);
         billing.MapPost("/bill", (BillProjectInput input, ISender s, CancellationToken ct) => s.Send(new BillProject(input), ct)).RequirePermission(P.BillingManage);
         billing.MapPost("/post-costs", (PostCostsBody b, ISender s, CancellationToken ct) => s.Send(new PostProjectCosts(b.ProjectId), ct)).RequirePermission(P.BillingManage);
         billing.MapPost("/preview", (BillProjectInput input, ISender s, CancellationToken ct) => s.Send(new PreviewProjectBill(input), ct)).RequirePermission(P.BillingRead);

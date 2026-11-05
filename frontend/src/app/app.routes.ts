@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, moduleEnabledGuard, permissionGuard } from './core/guards/access.guards';
+import { authGuard, moduleEnabledGuard, permissionGuard, anyPermissionGuard } from './core/guards/access.guards';
 
 const placeholder = (title: string) => ({ loadComponent: () => import('./pages/placeholder.page').then((m) => m.PlaceholderPage), data: { title } });
 
@@ -141,12 +141,12 @@ export const routes: Routes = [
           { path: 'board', canMatch: [permissionGuard('projects.tasks.read')], loadComponent: () => import('./pages/projects/project-board.page').then((m) => m.ProjectBoardPage) },
           { path: 'week', canMatch: [permissionGuard('projects.timesheets.manage')], loadComponent: () => import('./pages/projects/project-week.page').then((m) => m.ProjectWeekPage) },
           { path: 'expenses', canMatch: [permissionGuard('projects.expenses.read')], loadComponent: () => import('./pages/projects/project-expenses.page').then((m) => m.ProjectExpensesPage) },
-          { path: 'approvals', canMatch: [permissionGuard('projects.timesheets.approve')], loadComponent: () => import('./pages/projects/project-approvals.page').then((m) => m.ProjectApprovalsPage) },
+          { path: 'approvals', canMatch: [anyPermissionGuard('projects.timesheets.approve', 'projects.expenses.approve')], loadComponent: () => import('./pages/projects/project-approvals.page').then((m) => m.ProjectApprovalsPage) },
           { path: 'reports', canMatch: [permissionGuard('projects.reports.read')], loadComponent: () => import('./pages/projects/project-reports.page').then((m) => m.ProjectReportsPage) },
-          { path: 'resources', canMatch: [permissionGuard('projects.team.manage')], loadComponent: () => import('./pages/projects/project-resources.page').then((m) => m.ProjectResourcesPage) },
+          { path: 'resources', canMatch: [anyPermissionGuard('projects.team.manage', 'projects.rates.read')], loadComponent: () => import('./pages/projects/project-resources.page').then((m) => m.ProjectResourcesPage) },
           { path: 'change-orders', canMatch: [permissionGuard('projects.changeorders.read')], loadComponent: () => import('./pages/projects/project-change-orders.page').then((m) => m.ProjectChangeOrdersPage) },
           { path: 'risks', canMatch: [permissionGuard('projects.risks.read')], loadComponent: () => import('./pages/projects/project-risks.page').then((m) => m.ProjectRisksPage) },
-          { path: ':id/plan', canMatch: [permissionGuard('projects.projects.read')], loadComponent: () => import('./pages/projects/project-plan.page').then((m) => m.ProjectPlanPage) },
+          { path: ':id/plan', pathMatch: 'full', redirectTo: ({ params }) => '/projects/' + params['id'] + '?tab=tasks' },
           { path: ':id', canMatch: [permissionGuard('projects.projects.read')], loadComponent: () => import('./pages/projects/project-detail.page').then((m) => m.ProjectDetailPage) },
         ],
       },

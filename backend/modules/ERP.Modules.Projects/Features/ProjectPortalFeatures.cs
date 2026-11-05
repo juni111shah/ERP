@@ -52,7 +52,8 @@ internal sealed class AcceptanceHandlers(
     IReadRepository<ProjectTask> tasks,
     ICurrentUser user,
     Microsoft.AspNetCore.Http.IHttpContextAccessor http,
-    ProjectPeople people) :
+    ProjectPeople people,
+    ProjectAccess access) :
     IRequestHandler<RequestAcceptance, AcceptanceDto>,
     IRequestHandler<ListAcceptances, IReadOnlyList<AcceptanceDto>>,
     IRequestHandler<GetPortalProjects, IReadOnlyList<PortalProjectDto>>,
@@ -66,6 +67,7 @@ internal sealed class AcceptanceHandlers(
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
         ProjectRules.EnsureOpen(p);
+        await access.EnsureAsync(p, ct);
         if (p.CustomerId is null) throw new ConflictException("The project has no customer to sign it off.");
         if (i.MilestoneId is { } mid && !await milestones.AnyAsync(m => m.Id == mid && m.ProjectId == p.Id, ct)) throw new FieldValidationException("milestoneId", "Milestone not found in this project.");
         if (await acceptances.AnyAsync(a => a.ProjectId == p.Id && a.MilestoneId == i.MilestoneId && a.Status == AcceptanceStatus.Pending, ct)) throw new ConflictException("A sign-off is already waiting for the customer.");
@@ -77,7 +79,8 @@ internal sealed class AcceptanceHandlers(
 
     public async Task<IReadOnlyList<AcceptanceDto>> Handle(ListAcceptances q, CancellationToken ct)
     {
-        var rows = await acceptances.Query(new Specification<ProjectAcceptance>(a => q.ProjectId == null || a.ProjectId == q.ProjectId)).ToListAsync(ct);
+        var visible = await access.VisibleIdsAsync(ct);
+        var rows = (await acceptances.Query(new Specification<ProjectAcceptance>(a => q.ProjectId == null || a.ProjectId == q.ProjectId)).ToListAsync(ct)).Where(a => visible == null || visible.Contains(a.ProjectId)).ToList();
         var ids = rows.Select(a => a.ProjectId).Distinct().ToList();
         var names = await projects.Query(new Specification<Project>(p => ids.Contains(p.Id))).ToDictionaryAsync(p => p.Id, p => p.Name, ct);
         return rows.OrderByDescending(a => a.RequestedAt).Select(a => new AcceptanceDto(a.Id, a.ProjectId, names.GetValueOrDefault(a.ProjectId, ""), a.MilestoneId, a.Title, a.Status, a.RequestedAt, a.SignedByName, a.SignedAt, a.Comment, a.SignatureImage != null, a.SignedIp, a.EvidenceHash)).ToList();

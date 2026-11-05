@@ -21,14 +21,17 @@ internal sealed class ProjectLedgerHandlers(
     IRepository<ProjectTimesheet> timesheets,
     IRepository<ProjectExpense> expenses,
     IPostingService posting,
+    ProjectAccess access,
     IUnitOfWork uow) : IRequestHandler<PostProjectCosts, PostCostsResult>
 {
     public Task<PostCostsResult> Handle(PostProjectCosts cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
     {
         var p = await projects.GetAsync(cmd.ProjectId, token);
+        await access.EnsureAsync(p, token);
         if (p.IsTemplate) throw new ConflictException("A template has no costs.");
-        var time = await timesheets.Tracked(new Specification<ProjectTimesheet>(t => t.ProjectId == p.Id && t.CostJournalId == null && t.CostAmount > 0 && t.ApprovalStatus == TimesheetStatus.Approved)).ToListAsync(token);
-        var costs = await expenses.Tracked(new Specification<ProjectExpense>(e => e.ProjectId == p.Id && e.CostJournalId == null && e.Amount > 0 && e.Status == ExpenseStatus.Approved)).ToListAsync(token);
+        // written-off work is not moved in: it has nothing left to be billed against
+        var time = await timesheets.Tracked(new Specification<ProjectTimesheet>(t => t.ProjectId == p.Id && t.CostJournalId == null && t.CostAmount > 0 && t.ApprovalStatus == TimesheetStatus.Approved && !t.WrittenOff)).ToListAsync(token);
+        var costs = await expenses.Tracked(new Specification<ProjectExpense>(e => e.ProjectId == p.Id && e.CostJournalId == null && e.Amount > 0 && e.Status == ExpenseStatus.Approved && !e.WrittenOff)).ToListAsync(token);
         var amount = ProjectMath.Round(time.Sum(t => t.CostAmount) + costs.Sum(e => e.Amount));
         if (time.Count + costs.Count == 0 || amount <= 0) return new PostCostsResult(p.Id, 0, 0m, null, null);
 

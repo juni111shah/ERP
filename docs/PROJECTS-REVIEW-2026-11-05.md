@@ -148,3 +148,35 @@ or opportunity (the source fields are accepted when creating a project), hiding 
 **Completed last:** the members-only setting now filters the project, task, time and expense lists too (not only opening a project); "Create project" on a sales order and on an opportunity (web and mobile) fills in the customer, budget and
 source link; the customer's sign-off can be drawn on a pad as well as typed, and every answer keeps the time, the IP address and a SHA-256 evidence hash of what was signed (migration `ProjectsSignature`, script `0076`).
 This is an audit trail, not a legally certified signature from a trust provider; for contracts that need one, connect a provider.
+
+---
+
+## 7. Checked in the running app, then rebuilt (same day)
+
+Sections 1 to 6 came from reading the code. Opening the web screens showed that much of it did not work:
+
+- **The screens compared statuses in the wrong letter case.** The API sends `active`, `todo`, `achieved`; the screens checked `Active`, `Todo`, `Achieved`. The board was empty, every milestone said "Billed", change orders had no buttons, Submit never appeared, and fixed-fee options were hidden. The specs used the same wrong values, so they passed.
+- **The Risks page crashed** on load (`NzModalModule` was not imported).
+- **Billing from the project page** created an invoice with no confirmation, for a different amount than the button showed.
+- **Saving a project from the list or mobile wiped** the description, manager account, budget hours, tax code, source link and template flag.
+- **Auto-numbering produced the text `{PREFIX}-{YYYY}-{SEQ:4}`** where the seeded pattern is in capitals, because the formatter only knew lowercase tokens.
+- **A drawn signature could not be saved on SQL Server:** the column held 400 characters.
+
+**Fixed and added:**
+
+| Area | What changed |
+|---|---|
+| Web | One project page with tabs in the address, replacing Detail and Plan. Portfolio list with health, progress, budget used, views, cards and starting from a template. Task panel (edit, delete, subtasks, start date, labels, milestone, dependencies, discussion, files). Milestone actions and customer sign-off status. Invoice builder that picks lines and previews. Real timeline: date axis, today line, milestones, dependency arrows, drag to reschedule, baseline. Board with rows, search, quick add and only the moves the server allows. My Week that keeps entries intact, copies last week and sends the week for approval. Approvals inbox by person. Capacity heatmap. Reports with charts, totals, links and CSV. Filters that search the server, theme colours, Arabic text. |
+| Rules | One calculation for cost and unbilled (`ProjectFigures`). Nobody approves their own time or expenses unless `projects.allowSelfApproval` is on. People change only their own time and expenses unless they can approve or manage. Approved entries cannot be deleted while approval is on. The members-only setting now covers milestones, risks, change orders, schedule, comments, allocations, billing, reports and direct links. Cost rates are hidden from people without rates, reports or billing rights. |
+| Accounting | Voiding a project invoice reverses the release to cost of sales. Writing off work moves its posted cost out of work in progress. Entries already posted to the ledger cannot be edited or deleted, and a project with posted cost cannot be deleted. |
+| New API | `GET /config`, `GET /projects/{id}/activity`, `POST /projects/{id}/baseline`, budget lines, `GET /billing/{id}/billable`, `GET /billing/{id}/invoices`, `POST /billing/write-off`, and `?live=true` on the work lists. A list of ids on billing now means exactly those lines; an empty list means none of that kind. |
+| Settings | `projects.allowSelfApproval`, `projects.workWeekDays` (capacity and the My Week start day; no longer fixed to Monday to Friday). |
+| Database | Migration `ProjectsWorkspace`, script `0077`: task baseline dates, table `prj_BudgetLines`, and `prj_Acceptances.SignatureImage` widened to `nvarchar(max)`. |
+
+**Not done:**
+
+- **Mobile:** no new screens. Flutter is not installed where this was built, so Dart could not be compiled or tested. Mobile gets the backend fixes only, and still lacks comments, files, schedule, team and sign-off status.
+- **Billing that needs an accounting decision:** retention, advance and recurring invoices, multi-currency, per-line tax.
+- **Links to other modules:** purchase orders and supplier bills charged to a project, payroll cost, HR leave and public holidays in capacity.
+- **Also still missing:** skills, dated rate history, recurring tasks, a calendar view, mentions and alerts when a task is assigned, overtime rules, mileage, and comments or files for customers in the portal.
+- **Scheduling** still counts calendar days. The work-week setting affects capacity, shading on the timeline and My Week, not task durations.

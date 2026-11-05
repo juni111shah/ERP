@@ -61,6 +61,7 @@ internal sealed class ExpenseHandlers(
     IReadRepository<Project> projects,
     ProjectPeople people,
     ProjectAccess access,
+    ICurrentUser user,
     ISettingsService settings) :
     IRequestHandler<GetExpense, ExpenseDto>,
     IRequestHandler<CreateExpense, ExpenseDto>,
@@ -69,7 +70,20 @@ internal sealed class ExpenseHandlers(
     IRequestHandler<SubmitExpenses, int>,
     IRequestHandler<DecideExpenses, int>
 {
-    public async Task<ExpenseDto> Handle(GetExpense q, CancellationToken ct) => await BuildAsync(await expenses.GetAsync(q.Id, ct), ct);
+    public async Task<ExpenseDto> Handle(GetExpense q, CancellationToken ct)
+    {
+        var e = await expenses.GetAsync(q.Id, ct);
+        await access.EnsureProjectAsync(e.ProjectId, ct);
+        return await BuildAsync(e, ct);
+    }
+
+    /// <summary>People change their own expenses; changing someone else's takes approval or project-manager rights.</summary>
+    private void EnsureMayChange(ProjectExpense e)
+    {
+        if (e.WorkerUserId is null || e.WorkerUserId == user.UserId) return;
+        if (access.Has(P.ExpensesApprove) || access.Has(P.ProjectsManage)) return;
+        throw new ForbiddenException("Only the person who paid or a manager can change this expense.");
+    }
 
     public async Task<ExpenseDto> Handle(CreateExpense cmd, CancellationToken ct)
     {
@@ -90,10 +104,13 @@ internal sealed class ExpenseHandlers(
         var e = await expenses.GetForUpdateAsync(cmd.Id, ct);
         if (e.IsBilled) throw new ConflictException("A billed expense cannot be edited.");
         if (e.WrittenOff) throw new ConflictException("An expense that was written off cannot be edited.");
+        if (e.CostJournalId != null) throw new ConflictException("This expense is already in the ledger, so it cannot be changed. Write it off or record a correcting expense.");
         var p = await projects.GetAsync(e.ProjectId, ct);
         ProjectRules.EnsureTrackable(p);
-        if (e.Status is ExpenseStatus.Submitted && await settings.GetAsync<bool?>("projects.expenseApproval", p.LegalEntityId, ct) == true)
-            throw new ConflictException("A submitted expense cannot be edited. Ask for it to be rejected first.");
+        await access.EnsureAsync(p, ct);
+        EnsureMayChange(e);
+        if (e.Status is ExpenseStatus.Submitted or ExpenseStatus.Approved && await settings.GetAsync<bool?>("projects.expenseApproval", p.LegalEntityId, ct) == true)
+            throw new ConflictException("A submitted or approved expense cannot be edited. Ask for it to be rejected first.");
         await FillAsync(e, p, cmd.Input, ct);
         if (e.Status == ExpenseStatus.Rejected) { e.Status = ExpenseStatus.Draft; e.RejectReason = null; }
         await expenses.SaveChangesAsync(ct);
@@ -104,8 +121,14 @@ internal sealed class ExpenseHandlers(
     {
         var e = await expenses.GetForUpdateAsync(cmd.Id, ct);
         if (e.IsBilled) throw new ConflictException("A billed expense cannot be deleted.");
-        ProjectRules.EnsureTrackable(await projects.GetAsync(e.ProjectId, ct));
+        if (e.CostJournalId != null) throw new ConflictException("This expense is already in the ledger, so it cannot be deleted. Write it off instead.");
+        var p = await projects.GetAsync(e.ProjectId, ct);
+        ProjectRules.EnsureTrackable(p);
+        await access.EnsureAsync(p, ct);
+        EnsureMayChange(e);
         if (e.Status == ExpenseStatus.Submitted) throw new ConflictException("A submitted expense cannot be deleted. Ask for it to be rejected first.");
+        if (e.Status == ExpenseStatus.Approved && await settings.GetAsync<bool?>("projects.expenseApproval", p.LegalEntityId, ct) == true)
+            throw new ConflictException("An approved expense cannot be deleted. Ask for it to be rejected first.");
         expenses.Remove(e);
         await expenses.SaveChangesAsync(ct);
         return Unit.Value;
@@ -115,6 +138,8 @@ internal sealed class ExpenseHandlers(
     {
         var rows = await expenses.Tracked(new Specification<ProjectExpense>(e => cmd.Ids.Contains(e.Id))).ToListAsync(ct);
         if (rows.Count != cmd.Ids.Distinct().Count()) throw new NotFoundException("One of the expenses was not found.");
+        await access.EnsureProjectsAsync(rows.Select(e => e.ProjectId), ct);
+        foreach (var e in rows) EnsureMayChange(e);
         var n = 0;
         foreach (var e in rows.Where(e => e.Status is ExpenseStatus.Draft or ExpenseStatus.Rejected)) { e.Status = ExpenseStatus.Submitted; e.RejectReason = null; n++; }
         await expenses.SaveChangesAsync(ct);
@@ -125,6 +150,10 @@ internal sealed class ExpenseHandlers(
     {
         var rows = await expenses.Tracked(new Specification<ProjectExpense>(e => cmd.Ids.Contains(e.Id))).ToListAsync(ct);
         if (rows.Count != cmd.Ids.Distinct().Count()) throw new NotFoundException("One of the expenses was not found.");
+        await access.EnsureProjectsAsync(rows.Select(e => e.ProjectId), ct);
+        if (cmd.Approve && user.UserId is { } me && rows.Any(e => e.WorkerUserId == me && e.Status == ExpenseStatus.Submitted)
+            && await settings.GetAsync<bool?>("projects.allowSelfApproval", null, ct) != true)
+            throw new ConflictException("You cannot approve your own expense. Ask another approver.");
         var n = 0;
         foreach (var e in rows.Where(e => e.Status == ExpenseStatus.Submitted))
         {

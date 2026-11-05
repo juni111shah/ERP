@@ -2,11 +2,14 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { CrudApiService } from './crud-api.service';
 
-export type ProjectStatus = 'Planning' | 'Active' | 'OnHold' | 'Completed' | 'Cancelled';
-export type ProjectBillingType = 'TimeAndMaterials' | 'FixedFee' | 'NonBillable';
-export type ProjectTaskStatus = 'Todo' | 'InProgress' | 'Review' | 'Done' | 'Blocked' | 'Cancelled';
-export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
-export type MilestoneStatus = 'Pending' | 'Achieved' | 'Invoiced' | 'Cancelled';
+// The API sends enum values in camelCase (see Program.cs), so that is what these types and every comparison use.
+export type ProjectStatus = 'planning' | 'active' | 'onHold' | 'completed' | 'cancelled';
+export type ProjectBillingType = 'timeAndMaterials' | 'fixedFee' | 'nonBillable';
+export type ProjectTaskStatus = 'todo' | 'inProgress' | 'review' | 'done' | 'blocked' | 'cancelled';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type MilestoneStatus = 'pending' | 'achieved' | 'invoiced' | 'cancelled';
+export type ApprovalStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+export type ProjectHealth = 'onTrack' | 'atRisk' | 'offTrack' | 'closed';
 
 export interface ProjectSummaryDto {
   id: string;
@@ -25,6 +28,13 @@ export interface ProjectSummaryDto {
   managerUserId?: string | null;
   isTemplate?: boolean;
   isArchived?: boolean;
+  percentComplete?: number;
+  health?: ProjectHealth | null;
+  cost?: number;
+  effectiveBudget?: number;
+  openTasks?: number;
+  overdueTasks?: number;
+  unbilledAmount?: number;
 }
 
 export interface ProjectDto extends ProjectSummaryDto {
@@ -48,8 +58,12 @@ export interface ProjectDto extends ProjectSummaryDto {
   billedAmount: number;
   unbilledAmount: number;
   percentComplete: number;
-  health: 'onTrack' | 'atRisk' | 'offTrack' | 'closed';
+  health: ProjectHealth;
   overdueTasks: number;
+  openTasks: number;
+  effectiveBudgetHours: number;
+  labourCost: number;
+  nextStatuses?: ProjectStatus[] | null;
 }
 
 export interface ProjectInput {
@@ -68,7 +82,7 @@ export interface ProjectInput {
   customFields?: Record<string, unknown> | null;
   managerUserId?: string | null;
   taxCodeId?: string | null;
-  budgetHours?: number;
+  budgetHours?: number | null;
   sourceType?: string | null;
   sourceId?: string | null;
   isTemplate?: boolean;
@@ -81,6 +95,13 @@ export interface ProjectKpiDto {
   totalBudget: number;
   totalLoggedHours: number;
   unbilledAmount: number;
+  onHoldProjects: number;
+  atRiskProjects: number;
+  offTrackProjects: number;
+  overdueTasks: number;
+  totalCost: number;
+  templateCount: number;
+  archivedCount: number;
 }
 
 export interface TaskDto {
@@ -123,6 +144,14 @@ export interface TaskInput {
   labels?: string | null;
 }
 
+/** The body that saves a task exactly as it is, for changes that touch one or two fields. */
+export function taskToInput(t: TaskDto): TaskInput {
+  return {
+    projectId: t.projectId, milestoneId: t.milestoneId ?? null, title: t.title, description: t.description ?? null, status: t.status, priority: t.priority, assignedTo: t.assignedTo ?? null,
+    estimatedHours: t.estimatedHours, actualHours: t.actualHours, dueDate: t.dueDate ?? null, assignedUserId: t.assignedUserId ?? null, parentTaskId: t.parentTaskId ?? null, startDate: t.startDate ?? null, labels: t.labels ?? null,
+  };
+}
+
 export interface MilestoneDto {
   id: string;
   projectId: string;
@@ -163,7 +192,7 @@ export interface TimesheetDto {
   workerUserId?: string | null;
   costRate: number;
   costAmount: number;
-  approvalStatus: 'Draft' | 'Submitted' | 'Approved' | 'Rejected';
+  approvalStatus: ApprovalStatus;
   rejectReason?: string | null;
   writtenOff: boolean;
 }
@@ -196,27 +225,6 @@ export interface ProjectBillingSummaryDto {
   fixedFeeRemaining: number;
 }
 
-export interface BillProjectInput {
-  projectId: string;
-  timesheetIds?: string[];
-  milestoneIds?: string[];
-  expenseIds?: string[];
-  grouping?: string;
-  discountPercent?: number;
-  progressPercent?: number | null;
-  notes?: string | null;
-}
-
-export interface BillProjectResultDto {
-  projectId: string;
-  billedTimesheetsCount: number;
-  billedMilestonesCount: number;
-  totalAmountBilled: number;
-  invoiceId?: string;
-  invoiceNumber?: string;
-  billedExpensesCount?: number;
-}
-
 @Injectable({ providedIn: 'root' })
 export class ProjectsApi extends CrudApiService<ProjectSummaryDto, ProjectInput> {
   protected readonly resource = 'm/projects/projects';
@@ -231,6 +239,14 @@ export class ProjectsApi extends CrudApiService<ProjectSummaryDto, ProjectInput>
 
   setStatus(id: string, status: ProjectStatus): Observable<ProjectDto> {
     return this.http.put<ProjectDto>(`${this.url}/${id}/status`, { status });
+  }
+
+  /** Projects that can still take work, for pickers: no templates, nothing archived or closed. */
+  open(): Observable<{ items: ProjectSummaryDto[] }> {
+    return this.list({
+      page: 1, pageSize: 200, sort: 'name',
+      filters: [{ field: 'isTemplate', op: 'eq', value: false }, { field: 'isArchived', op: 'eq', value: false }, { field: 'status', op: 'in', value: ['planning', 'active', 'onHold'] }],
+    });
   }
 }
 
@@ -263,9 +279,5 @@ export class ProjectBillingApi {
 
   getOverview(): Observable<ProjectBillingSummaryDto[]> {
     return this.api['http'].get<ProjectBillingSummaryDto[]>(`${this.api['baseUrl']}/m/projects/billing/overview`);
-  }
-
-  bill(body: BillProjectInput): Observable<BillProjectResultDto> {
-    return this.api['http'].post<BillProjectResultDto>(`${this.api['baseUrl']}/m/projects/billing/bill`, body);
   }
 }

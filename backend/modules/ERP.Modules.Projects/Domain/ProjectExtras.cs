@@ -110,6 +110,15 @@ public class ProjectAcceptance : OrgEntity
     public string? Comment { get; set; }
 }
 
+/// <summary>Part of the project budget: a cost category ("Labour" or an expense category) and what is planned for it.</summary>
+public class ProjectBudgetLine : OrgEntity
+{
+    [Filterable] public Guid ProjectId { get; set; }
+    public string Category { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public decimal Hours { get; set; }
+}
+
 /// <summary>A person on the project team.</summary>
 public class ProjectMember : OrgEntity
 {

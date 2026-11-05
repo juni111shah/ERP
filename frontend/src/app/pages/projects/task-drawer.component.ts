@@ -1,0 +1,325 @@
+import { DatePipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
+import { NzDrawerModule } from 'ng-zorro-antd/drawer';
+import { NzFormModule } from 'ng-zorro-antd/form';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
+import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { NzSelectModule } from 'ng-zorro-antd/select';
+import { catchError, of } from 'rxjs';
+import { CommentDto, ProjectsExtraApi, UserOption } from '../../core/api/projects-extra.api';
+import { MilestoneDto, ProjectMilestonesApi, ProjectsApi, ProjectSummaryDto, ProjectTaskStatus, ProjectTasksApi, TaskDto, TaskInput, TaskPriority } from '../../core/api/projects.api';
+import { toIsoDate } from '../../core/custom-fields/custom-field-form';
+import { SessionStore } from '../../core/session/session.store';
+import { AttachmentsComponent } from '../../shared/attachments.component';
+import { errorText, PRJ_STYLES, ProjectTagComponent, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from './projects-ui';
+
+const iso = (d: unknown): string | null => (d ? toIsoDate(d instanceof Date ? d : new Date(String(d))) : null);
+const toDate = (s?: string | null): Date | null => { if (!s) return null; const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
+
+/** One task from start to finish: details, subtasks, what it waits for, discussion and files. Open it with open(id) or create(defaults). */
+@Component({
+  selector: 'erp-task-drawer',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [DatePipe, FormsModule, ReactiveFormsModule, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, ProjectTagComponent, AttachmentsComponent],
+  template: `
+    <nz-drawer [nzVisible]="visible()" [nzWidth]="width" [nzTitle]="task()?.number ? task()!.number + ' · ' + task()!.title : 'New task'" (nzOnClose)="close()" [nzFooter]="footer">
+      <ng-container *nzDrawerContent>
+        <form [formGroup]="form" nz-form nzLayout="vertical" data-testid="task-form">
+          @if (!fixedProject()) {
+            <nz-form-item>
+              <nz-form-label nzRequired nzFor="task-project">Project</nz-form-label>
+              <nz-form-control nzErrorTip="Choose a project">
+                <nz-select nzId="task-project" formControlName="projectId" nzShowSearch nzPlaceHolder="Select project" (ngModelChange)="projectChanged($event)" data-testid="task-project">
+                  @for (p of projects(); track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="p.number + ' · ' + p.name"></nz-option> }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          }
+          <nz-form-item>
+            <nz-form-label nzRequired nzFor="task-title">Title</nz-form-label>
+            <nz-form-control nzErrorTip="Give the task a title"><input nz-input id="task-title" formControlName="title" maxlength="200" data-testid="task-title" /></nz-form-control>
+          </nz-form-item>
+          <div class="grid2">
+            <nz-form-item>
+              <nz-form-label nzFor="task-status">Status</nz-form-label>
+              <nz-form-control>
+                <nz-select nzId="task-status" formControlName="status" data-testid="task-status">
+                  @for (s of statusChoices(); track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.label"></nz-option> }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzFor="task-priority">Priority</nz-form-label>
+              <nz-form-control>
+                <nz-select nzId="task-priority" formControlName="priority">
+                  @for (s of priorities; track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.label"></nz-option> }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzFor="task-assignee">Assigned to</nz-form-label>
+              <nz-form-control [nzExtra]="typedAssignee() ? 'Typed name: ' + typedAssignee() + '. Choose a person to link an account.' : ''">
+                <nz-select nzId="task-assignee" formControlName="assignedUserId" nzAllowClear nzShowSearch nzPlaceHolder="Nobody yet" data-testid="task-assignee">
+                  @for (u of users(); track u.id) { <nz-option [nzValue]="u.id" [nzLabel]="u.fullName"></nz-option> }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzFor="task-estimate">Estimated hours</nz-form-label>
+              <nz-form-control><nz-input-number nzId="task-estimate" formControlName="estimatedHours" [nzMin]="0" [nzStep]="1" style="width:100%"></nz-input-number></nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzFor="task-start">Start date</nz-form-label>
+              <nz-form-control><nz-date-picker nzId="task-start" formControlName="startDate" style="width:100%" data-testid="task-start"></nz-date-picker></nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzFor="task-due">Due date</nz-form-label>
+              <nz-form-control><nz-date-picker nzId="task-due" formControlName="dueDate" style="width:100%" data-testid="task-due"></nz-date-picker></nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzFor="task-milestone">Milestone</nz-form-label>
+              <nz-form-control>
+                <nz-select nzId="task-milestone" formControlName="milestoneId" nzAllowClear nzPlaceHolder="None">
+                  @for (m of milestones(); track m.id) { <nz-option [nzValue]="m.id" [nzLabel]="m.title"></nz-option> }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzFor="task-parent">Subtask of</nz-form-label>
+              <nz-form-control>
+                <nz-select nzId="task-parent" formControlName="parentTaskId" nzAllowClear nzShowSearch nzPlaceHolder="Not a subtask">
+                  @for (t of parentChoices(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.number + ' ' + t.title"></nz-option> }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <nz-form-item>
+            <nz-form-label nzFor="task-labels">Labels</nz-form-label>
+            <nz-form-control><nz-select nzId="task-labels" nzMode="tags" formControlName="labels" nzPlaceHolder="Type a label and press Enter"></nz-select></nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label nzFor="task-description">Description</nz-form-label>
+            <nz-form-control><textarea nz-input id="task-description" rows="3" formControlName="description" maxlength="2000"></textarea></nz-form-control>
+          </nz-form-item>
+        </form>
+
+        @if (task(); as t) {
+          <div class="hours prj-muted">{{ t.actualHours }} of {{ t.estimatedHours }} estimated hours logged</div>
+
+          <section data-testid="task-subtasks">
+            <h4>Subtasks</h4>
+            @for (s of subtasks(); track s.id) {
+              <div class="sub"><a (click)="open(s.id)" (keydown.enter)="open(s.id)" tabindex="0" class="prj-link">{{ s.number }}</a> <span class="sub-title">{{ s.title }}</span> <erp-prj-tag kind="task" [value]="s.status" /></div>
+            } @empty { <p class="prj-muted">No subtasks.</p> }
+            @if (canManage() && !t.parentTaskId) {
+              <div class="row"><input nz-input [(ngModel)]="newSubtask" [ngModelOptions]="{ standalone: true }" placeholder="Add a subtask" aria-label="New subtask" maxlength="200" (keyup.enter)="addSubtask()" data-testid="subtask-title" />
+                <button nz-button type="button" [disabled]="!newSubtask.trim()" (click)="addSubtask()" data-testid="subtask-add">Add</button></div>
+            }
+          </section>
+
+          <section data-testid="task-deps">
+            <h4>Waits for</h4>
+            <nz-select nzMode="multiple" style="width:100%" [ngModel]="t.dependsOn ?? []" [ngModelOptions]="{ standalone: true }" (ngModelChange)="setDeps($event)" [nzDisabled]="!canManage()" nzPlaceHolder="Nothing, it can start any time" aria-label="Tasks this one waits for">
+              @for (o of siblings(); track o.id) { <nz-option [nzValue]="o.id" [nzLabel]="o.number + ' ' + o.title"></nz-option> }
+            </nz-select>
+          </section>
+
+          <section data-testid="task-comments">
+            <h4>Discussion</h4>
+            @for (c of comments(); track c.id) {
+              <div class="comment"><b>{{ c.authorName }}</b> <span class="prj-muted">{{ c.createdAt | date: 'medium' }}</span><p>{{ c.text }}</p></div>
+            } @empty { <p class="prj-muted">No comments yet.</p> }
+            <div class="row"><textarea nz-input rows="2" [(ngModel)]="newComment" [ngModelOptions]="{ standalone: true }" maxlength="2000" placeholder="Write a comment" aria-label="Comment" data-testid="task-comment"></textarea>
+              <button nz-button type="button" [disabled]="!newComment.trim()" (click)="addComment()" data-testid="task-comment-add">Post</button></div>
+          </section>
+
+          <section><h4>Files</h4><erp-attachments ownerType="projecttask" [ownerId]="t.id" /></section>
+        }
+      </ng-container>
+    </nz-drawer>
+    <ng-template #footer>
+      <div class="foot">
+        @if (task() && canManage()) { <button nz-button nzDanger type="button" (click)="remove()" data-testid="task-delete"><span nz-icon nzType="delete"></span> Delete</button> }
+        <span class="prj-spacer"></span>
+        <button nz-button type="button" (click)="close()">Cancel</button>
+        @if (canManage()) { <button nz-button nzType="primary" type="button" [nzLoading]="saving()" (click)="save()" data-testid="task-save">Save</button> }
+      </div>
+    </ng-template>
+  `,
+  styles: [PRJ_STYLES + `
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; column-gap:12px; } @media (max-width:560px) { .grid2 { grid-template-columns:1fr; } }
+    section { border-top:1px solid var(--erp-color-border-subtle,#e2e8f0); margin-top:14px; padding-top:12px; }
+    h4 { font-size:13px; font-weight:600; margin:0 0 8px; color:var(--erp-color-text-primary,#0f172a); }
+    .row { display:flex; gap:8px; margin-top:8px; align-items:flex-start; } .sub { display:flex; gap:8px; align-items:center; padding:3px 0; } .sub a { cursor:pointer; } .sub-title { flex:1; min-width:0; }
+    .comment { padding:6px 0; border-bottom:1px solid var(--erp-color-border-subtle,#f1f5f9); } .comment p { margin:3px 0 0; white-space:pre-wrap; }
+    .hours { margin-top:4px; } .foot { display:flex; gap:8px; align-items:center; }
+  `],
+})
+export class TaskDrawerComponent {
+  private readonly fb = inject(FormBuilder);
+  private readonly tasksApi = inject(ProjectTasksApi);
+  private readonly milestonesApi = inject(ProjectMilestonesApi);
+  private readonly projectsApi = inject(ProjectsApi);
+  private readonly extra = inject(ProjectsExtraApi);
+  private readonly msg = inject(NzMessageService);
+  private readonly modal = inject(NzModalService);
+  private readonly session = inject(SessionStore);
+
+  /** Fires after any save or delete, so the screen behind can refresh. */
+  readonly changed = output<void>();
+  readonly priorities = TASK_PRIORITIES;
+  readonly width = typeof window !== 'undefined' && window.innerWidth < 680 ? '100%' : 620;
+
+  readonly visible = signal(false);
+  readonly saving = signal(false);
+  readonly task = signal<TaskDto | null>(null);
+  readonly fixedProject = signal(false);
+  readonly users = signal<UserOption[]>([]);
+  readonly projects = signal<ProjectSummaryDto[]>([]);
+  readonly milestones = signal<MilestoneDto[]>([]);
+  readonly siblingTasks = signal<TaskDto[]>([]);
+  readonly comments = signal<CommentDto[]>([]);
+  readonly status = signal<ProjectTaskStatus>('todo');
+  newSubtask = ''; newComment = '';
+
+  /** An older task can name someone without an account; the name is kept until a person is chosen. */
+  readonly typedAssignee = computed(() => { const t = this.task(); return t && !t.assignedUserId ? t.assignedTo ?? '' : ''; });
+  readonly statusChoices = computed(() => (this.task() ? taskOptions(this.task()!.status) : TASK_STATUSES.filter((s) => s.value === 'todo' || s.value === 'inProgress')));
+  readonly subtasks = computed(() => this.siblingTasks().filter((t) => t.parentTaskId === this.task()?.id));
+  readonly siblings = computed(() => this.siblingTasks().filter((t) => t.id !== this.task()?.id));
+  /** Only one level of subtasks: a parent cannot itself be a subtask. */
+  readonly parentChoices = computed(() => this.siblings().filter((t) => !t.parentTaskId));
+
+  readonly form = this.fb.group({
+    projectId: ['', Validators.required],
+    title: ['', [Validators.required, Validators.maxLength(200)]],
+    status: ['todo' as ProjectTaskStatus],
+    priority: ['medium' as TaskPriority],
+    assignedUserId: [null as string | null],
+    estimatedHours: [0],
+    startDate: [null as Date | null],
+    dueDate: [null as Date | null],
+    milestoneId: [null as string | null],
+    parentTaskId: [null as string | null],
+    labels: [[] as string[]],
+    description: [''],
+  });
+
+  canManage(): boolean { return this.session.hasPermission('projects.tasks.manage'); }
+
+  /** A new task, optionally already in a project and with a parent or a status. */
+  create(defaults: { projectId?: string | null; parentTaskId?: string | null; status?: ProjectTaskStatus; assignedUserId?: string | null } = {}): void {
+    this.prepare();
+    this.task.set(null);
+    this.comments.set([]);
+    this.fixedProject.set(!!defaults.projectId);
+    this.form.reset({ projectId: defaults.projectId ?? '', title: '', status: defaults.status ?? 'todo', priority: 'medium', assignedUserId: defaults.assignedUserId ?? null, estimatedHours: 0, startDate: null, dueDate: null, milestoneId: null, parentTaskId: defaults.parentTaskId ?? null, labels: [], description: '' });
+    this.form.enable();
+    this.loadProjectLists(defaults.projectId ?? null);
+    if (!defaults.projectId) this.projectsApi.open().pipe(catchError(() => of({ items: [] as ProjectSummaryDto[] }))).subscribe((r) => this.projects.set(r.items));
+    this.visible.set(true);
+  }
+
+  open(id: string): void {
+    this.prepare();
+    this.extra.task(id).subscribe({
+      next: (t) => {
+        this.show(t);
+        this.visible.set(true);
+      },
+      error: (e) => this.msg.error(errorText(e, 'Could not open the task.')),
+    });
+  }
+
+  close(): void { this.visible.set(false); }
+
+  private prepare(): void {
+    this.newSubtask = ''; this.newComment = '';
+    if (!this.users().length) this.extra.users().pipe(catchError(() => of([] as UserOption[]))).subscribe((u) => this.users.set(u));
+  }
+
+  private show(t: TaskDto): void {
+    this.task.set(t);
+    this.fixedProject.set(true);
+    this.form.reset({ projectId: t.projectId, title: t.title, status: t.status, priority: t.priority, assignedUserId: t.assignedUserId ?? null, estimatedHours: t.estimatedHours, startDate: toDate(t.startDate), dueDate: toDate(t.dueDate), milestoneId: t.milestoneId ?? null, parentTaskId: t.parentTaskId ?? null, labels: (t.labels ?? '').split(',').map((x) => x.trim()).filter(Boolean), description: t.description ?? '' });
+    if (this.canManage()) this.form.enable(); else this.form.disable();
+    this.loadProjectLists(t.projectId);
+    this.loadComments(t.id);
+  }
+
+  projectChanged(id: string | null): void { this.loadProjectLists(id); }
+
+  private loadProjectLists(projectId: string | null): void {
+    if (!projectId) { this.milestones.set([]); this.siblingTasks.set([]); return; }
+    const filters = [{ field: 'projectId', op: 'eq' as const, value: projectId }];
+    this.milestonesApi.list({ page: 1, pageSize: 100, filters }).pipe(catchError(() => of({ items: [] as MilestoneDto[] }))).subscribe((r) => this.milestones.set(r.items.filter((m) => m.status !== 'cancelled')));
+    this.tasksApi.list({ page: 1, pageSize: 200, filters }).pipe(catchError(() => of({ items: [] as TaskDto[] }))).subscribe((r) => this.siblingTasks.set(r.items));
+  }
+
+  private loadComments(id: string): void {
+    this.extra.comments('task', id).pipe(catchError(() => of([] as CommentDto[]))).subscribe((c) => this.comments.set(c));
+  }
+
+  private body(): TaskInput {
+    const v = this.form.getRawValue();
+    return {
+      projectId: v.projectId!, title: (v.title ?? '').trim(), status: v.status!, priority: v.priority!, assignedUserId: v.assignedUserId || null, assignedTo: null, estimatedHours: v.estimatedHours ?? 0, actualHours: this.task()?.actualHours ?? 0,
+      startDate: iso(v.startDate), dueDate: iso(v.dueDate), milestoneId: v.milestoneId || null, parentTaskId: v.parentTaskId || null, labels: (v.labels ?? []).join(',') || null, description: v.description?.trim() || null,
+    };
+  }
+
+  save(): void {
+    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    const current = this.task();
+    const body = this.body();
+    // keep the typed name of an assignee who has no account, unless someone was chosen
+    if (current && !body.assignedUserId && !current.assignedUserId) body.assignedTo = current.assignedTo ?? null;
+    this.saving.set(true);
+    (current ? this.tasksApi.update(current.id, body) : this.tasksApi.create(body)).subscribe({
+      next: () => { this.saving.set(false); this.msg.success('Task saved'); this.visible.set(false); this.changed.emit(); },
+      error: (e) => { this.saving.set(false); this.msg.error(errorText(e, 'Could not save the task.')); },
+    });
+  }
+
+  remove(): void {
+    const t = this.task(); if (!t) return;
+    this.modal.confirm({
+      nzTitle: `Delete ${t.number}?`, nzContent: t.title, nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => this.tasksApi.delete(t.id).subscribe({
+        next: () => { this.msg.success('Task deleted'); this.visible.set(false); this.changed.emit(); },
+        error: (e) => this.msg.error(errorText(e, 'Could not delete the task.')),
+      }),
+    });
+  }
+
+  addSubtask(): void {
+    const t = this.task(); const title = this.newSubtask.trim(); if (!t || !title) return;
+    this.tasksApi.create({ projectId: t.projectId, parentTaskId: t.id, title, status: 'todo', priority: t.priority, estimatedHours: 0, actualHours: 0 }).subscribe({
+      next: () => { this.newSubtask = ''; this.loadProjectLists(t.projectId); this.changed.emit(); },
+      error: (e) => this.msg.error(errorText(e, 'Could not add the subtask.')),
+    });
+  }
+
+  setDeps(ids: string[]): void {
+    const t = this.task(); if (!t) return;
+    this.extra.setDependencies(t.id, ids).subscribe({
+      next: (saved) => { this.task.set({ ...t, dependsOn: saved.dependsOn }); this.changed.emit(); },
+      error: (e) => { this.msg.error(errorText(e, 'Those dependencies are not allowed.')); this.task.set({ ...t }); },
+    });
+  }
+
+  addComment(): void {
+    const t = this.task(); const text = this.newComment.trim(); if (!t || !text) return;
+    this.extra.addComment('task', t.id, text).subscribe({
+      next: () => { this.newComment = ''; this.loadComments(t.id); },
+      error: (e) => this.msg.error(errorText(e, 'Could not post the comment.')),
+    });
+  }
+}

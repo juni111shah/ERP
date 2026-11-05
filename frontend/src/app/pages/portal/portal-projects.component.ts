@@ -7,6 +7,7 @@ import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
+import { statusLabel } from '../projects/projects-ui';
 import { PortalAcceptance, PortalProject, PortalService } from './portal.service';
 
 /** The customer's projects in the portal: progress and milestones, and the sign-offs waiting for them (a typed-name signature, or a reason to decline). */
@@ -41,13 +42,13 @@ import { PortalAcceptance, PortalProject, PortalService } from './portal.service
     <h3>Your projects</h3>
     @for (p of projects(); track p.id) {
       <div class="card" [attr.data-testid]="'project-' + p.number">
-        <div class="head"><b>{{ p.number }} · {{ p.name }}</b> <nz-tag>{{ p.status }}</nz-tag></div>
+        <div class="head"><b>{{ p.number }} · {{ p.name }}</b> <nz-tag>{{ label('project', p.status) }}</nz-tag></div>
         <div class="muted">{{ p.startDate || '' }} {{ p.endDate ? ' to ' + p.endDate : '' }} {{ p.managerName ? ' · ' + p.managerName : '' }}</div>
         <nz-progress [nzPercent]="p.percentComplete" nzSize="small"></nz-progress>
         @if (p.milestones.length) {
           <nz-table [nzData]="p.milestones" nzSize="small" [nzShowPagination]="false" [nzFrontPagination]="false">
             <thead><tr><th>Milestone</th><th>Due</th><th>Status</th></tr></thead>
-            <tbody>@for (m of p.milestones; track m.id) { <tr><td>{{ m.title }}</td><td>{{ m.dueDate }}</td><td>{{ m.status }}</td></tr> }</tbody>
+            <tbody>@for (m of p.milestones; track m.id) { <tr><td>{{ m.title }}</td><td>{{ m.dueDate }}</td><td>{{ label('milestone', m.status) }}</td></tr> }</tbody>
           </nz-table>
         }
       </div>
@@ -56,7 +57,7 @@ import { PortalAcceptance, PortalProject, PortalService } from './portal.service
       <h3>Answered sign-offs</h3>
       <nz-table [nzData]="answered()" nzSize="small" [nzShowPagination]="false" [nzFrontPagination]="false">
         <thead><tr><th>Sign-off</th><th>Project</th><th>Result</th><th>By</th><th>On</th></tr></thead>
-        <tbody>@for (a of answered(); track a.id) { <tr><td>{{ a.title }}</td><td>{{ a.projectName }}</td><td>{{ a.status }}</td><td>{{ a.signedByName }}</td><td>{{ a.signedAt }}</td></tr> }</tbody>
+        <tbody>@for (a of answered(); track a.id) { <tr><td>{{ a.title }}</td><td>{{ a.projectName }}</td><td>{{ label('acceptance', a.status) }}</td><td>{{ a.signedByName }}</td><td>{{ a.signedAt }}</td></tr> }</tbody>
       </nz-table>
     }
   `,
@@ -89,8 +90,9 @@ export class PortalProjectsComponent implements OnInit {
   /** The drawn signature as a PNG data URL, or null when nothing was drawn. */
   drawn(): string | null { return this.inked ? this.pad()?.nativeElement.toDataURL('image/png') ?? null : null; }
 
-  waiting(): PortalAcceptance[] { return this.acceptances().filter((a) => a.status === 'Pending'); }
-  answered(): PortalAcceptance[] { return this.acceptances().filter((a) => a.status !== 'Pending'); }
+  waiting(): PortalAcceptance[] { return this.acceptances().filter((a) => a.status.toLowerCase() === 'pending'); }
+  answered(): PortalAcceptance[] { return this.acceptances().filter((a) => a.status.toLowerCase() !== 'pending'); }
+  label = statusLabel;
 
   ngOnInit(): void { this.load(); }
 
