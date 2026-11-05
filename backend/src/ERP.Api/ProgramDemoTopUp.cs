@@ -17,13 +17,15 @@ using Microsoft.EntityFrameworkCore;
 /// Fills the demo tables the main seeder leaves empty so every screen has something to show. Each block is guarded by an
 /// "any rows yet" check, so running it again (every start-up) adds nothing.
 /// </summary>
-public static class DemoTopUp
+public static class ProgramDemoTopUp
 {
     public static async Task RunAsync(AppDbContext db, Guid orgId, Guid legalEntityId, CancellationToken ct)
     {
         await SeedHrAsync(db, legalEntityId, ct);
         await db.SaveChangesAsync(ct);
         await SeedOthersAsync(db, legalEntityId, ct);
+        await db.SaveChangesAsync(ct);
+        await SeedProjectsExtrasAsync(db, legalEntityId, ct);
         await db.SaveChangesAsync(ct);
     }
 
@@ -364,6 +366,91 @@ public static class DemoTopUp
                 foreach (var l in lines)
                     db.Set<GoodsReceiptLine>().Add(new GoodsReceiptLine { GoodsReceiptId = r.Id, PurchaseOrderLineId = l.Id, ItemId = l.ItemId, ItemCode = l.ItemCode, Description = l.Description, QuantityReceived = l.ReceivedQuantity > 0 ? l.ReceivedQuantity : l.Quantity, UnitOfMeasure = l.UnitOfMeasure });
             }
+        }
+    }
+
+    private static async Task SeedProjectsExtrasAsync(AppDbContext db, Guid legalEntityId, CancellationToken ct)
+    {
+        var today = Today;
+        var projects = await db.Set<Project>().OrderBy(p => p.Number).Take(3).ToListAsync(ct);
+        if (projects.Count == 0) return;
+        var member = await db.Set<ERP.Domain.Identity.OrganizationMember>().OrderBy(m => m.JoinedAt).FirstOrDefaultAsync(ct);
+        var user = member is null ? null : await db.Users.FirstOrDefaultAsync(u => u.Id == member.UserId, ct);
+
+        // rate cards: a workspace default, a role rate and a project rate
+        if (!await db.Set<ProjectRate>().AnyAsync(ct))
+        {
+            db.Set<ProjectRate>().AddRange(
+                new ProjectRate { BillRate = 150m, CostRate = 80m },
+                new ProjectRate { Role = "Senior consultant", BillRate = 220m, CostRate = 120m },
+                new ProjectRate { Role = "Analyst", BillRate = 110m, CostRate = 60m },
+                new ProjectRate { ProjectId = projects[0].Id, BillRate = 175m, CostRate = 85m });
+            if (user is not null) db.Set<ProjectRate>().Add(new ProjectRate { UserId = user.Id, BillRate = 240m, CostRate = 130m });
+        }
+
+        // the time that was logged before cost rates existed gets a cost at 55 percent of the billing rate
+        foreach (var t in await db.Set<ProjectTimesheet>().Where(t => t.CostAmount == 0m && t.TotalAmount > 0m).ToListAsync(ct))
+        {
+            t.CostRate = Math.Round(t.HourlyRate * 0.55m, 2); t.CostAmount = Math.Round(t.Hours * t.CostRate, 2);
+        }
+
+        // task dates, a sub-task and dependencies so the board, the Gantt chart and the critical path have something to show
+        var tasks = await db.Set<ProjectTask>().Where(t => t.ProjectId == projects[0].Id).OrderBy(t => t.Number).ToListAsync(ct);
+        if (tasks.Count >= 3 && !await db.Set<ProjectTaskDependency>().AnyAsync(ct))
+        {
+            var start = projects[0].StartDate ?? today.AddDays(-30);
+            for (var i = 0; i < tasks.Count; i++) { tasks[i].StartDate ??= start.AddDays(i * 6); tasks[i].DueDate ??= start.AddDays(i * 6 + 8); if (tasks[i].EstimatedHours == 0) tasks[i].EstimatedHours = 16; }
+            db.Set<ProjectTaskDependency>().AddRange(new ProjectTaskDependency { TaskId = tasks[1].Id, DependsOnTaskId = tasks[0].Id }, new ProjectTaskDependency { TaskId = tasks[2].Id, DependsOnTaskId = tasks[1].Id });
+            tasks[0].Labels ??= "planning,client"; tasks[1].Labels ??= "build";
+            if (user is not null) { tasks[0].AssignedUserId ??= user.Id; tasks[0].AssignedTo ??= user.FullName; }
+        }
+        if (tasks.Count >= 4 && !tasks.Any(t => t.ParentTaskId != null) && !await db.Set<ProjectTask>().AnyAsync(t => t.ParentTaskId != null, ct))
+            tasks[3].ParentTaskId = tasks[0].Id;
+        foreach (var t in await db.Set<ProjectTask>().ToListAsync(ct))
+            t.ActualHours = await db.Set<ProjectTimesheet>().Where(x => x.TaskId == t.Id).Select(x => x.Hours).ToListAsync(ct) is { Count: > 0 } hours ? hours.Sum() : t.ActualHours;
+
+        // expenses
+        if (!await db.Set<ProjectExpense>().AnyAsync(ct))
+            foreach (var (p, i) in projects.Select((p, i) => (p, i)))
+            {
+                db.Set<ProjectExpense>().Add(new ProjectExpense { ProjectId = p.Id, Date = today.AddDays(-12 - i), Category = "Travel", Description = "Site visit transport", Amount = 320m + i * 40, IsBillable = p.BillingType != ProjectBillingType.NonBillable, MarkupPercent = 10m, WorkerName = "Project team", Status = ExpenseStatus.Approved });
+                db.Set<ProjectExpense>().Add(new ProjectExpense { ProjectId = p.Id, Date = today.AddDays(-5), Category = "Materials", Description = "Printing and survey kits", Amount = 780m, IsBillable = false, Status = ExpenseStatus.Approved, WorkerName = "Project team" });
+                db.Set<ProjectExpense>().Add(new ProjectExpense { ProjectId = p.Id, Date = today.AddDays(-2), Category = "Subcontractor", Description = "Specialist day rate", Amount = 1500m, IsBillable = p.BillingType != ProjectBillingType.NonBillable, MarkupPercent = 15m, Status = i == 0 ? ExpenseStatus.Submitted : ExpenseStatus.Approved, WorkerName = "External" });
+            }
+
+        // comments, change order, risks, team and allocation
+        if (!await db.Set<ProjectComment>().AnyAsync(ct))
+        {
+            db.Set<ProjectComment>().Add(new ProjectComment { OwnerType = "project", OwnerId = projects[0].Id, ProjectId = projects[0].Id, UserId = user?.Id, AuthorName = user?.FullName ?? "Project manager", Text = "Kick-off meeting held. Scope and milestones agreed with the client." });
+            if (tasks.Count > 0) db.Set<ProjectComment>().Add(new ProjectComment { OwnerType = "task", OwnerId = tasks[0].Id, ProjectId = projects[0].Id, UserId = user?.Id, AuthorName = user?.FullName ?? "Project manager", Text = "Waiting for the client's floor plans before we can finish this." });
+        }
+        if (!await db.Set<ProjectChangeOrder>().AnyAsync(ct))
+        {
+            db.Set<ProjectChangeOrder>().Add(new ProjectChangeOrder { ProjectId = projects[0].Id, Number = $"CO-{projects[0].Number}-01", Title = "Extra reporting module", Description = "Client asked for a monthly management report.", AmountChange = 4500m, HoursChange = 30m, Status = ChangeOrderStatus.Approved, DecidedAt = DateTime.UtcNow.AddDays(-9), DecisionNote = "Approved by the client by email" });
+            db.Set<ProjectChangeOrder>().Add(new ProjectChangeOrder { ProjectId = projects[0].Id, Number = $"CO-{projects[0].Number}-02", Title = "Second site", Description = "Roll out to the second branch.", AmountChange = 12000m, HoursChange = 80m, Status = ChangeOrderStatus.Draft });
+        }
+        if (!await db.Set<ProjectRisk>().AnyAsync(ct))
+            db.Set<ProjectRisk>().AddRange(
+                new ProjectRisk { ProjectId = projects[0].Id, Kind = RiskKind.Risk, Title = "Client sign-off may be late", Notes = "Approver is travelling in the second half of the month.", Severity = RiskSeverity.High, Status = RiskStatus.Open, OwnerName = "Project manager", DueDate = today.AddDays(10) },
+                new ProjectRisk { ProjectId = projects[0].Id, Kind = RiskKind.Issue, Title = "Test environment unavailable", Severity = RiskSeverity.Medium, Status = RiskStatus.Mitigated, OwnerName = "IT" },
+                new ProjectRisk { ProjectId = projects[Math.Min(1, projects.Count - 1)].Id, Kind = RiskKind.Risk, Title = "Key person leaves", Severity = RiskSeverity.Low, Status = RiskStatus.Open, DueDate = today.AddDays(-3) });
+        if (user is not null && !await db.Set<ProjectMember>().AnyAsync(ct))
+        {
+            foreach (var p in projects) db.Set<ProjectMember>().Add(new ProjectMember { ProjectId = p.Id, UserId = user.Id, Name = user.FullName, Role = "Project manager" });
+            db.Set<ProjectAllocation>().Add(new ProjectAllocation { ProjectId = projects[0].Id, UserId = user.Id, UserName = user.FullName, FromDate = today.AddDays(-30), ToDate = today.AddDays(60), HoursPerWeek = 24m });
+            db.Set<ProjectAllocation>().Add(new ProjectAllocation { ProjectId = projects[Math.Min(1, projects.Count - 1)].Id, UserId = user.Id, UserName = user.FullName, FromDate = today.AddDays(-10), ToDate = today.AddDays(40), HoursPerWeek = 12m });
+        }
+
+        // one template to clone from
+        if (!await db.Set<Project>().AnyAsync(p => p.IsTemplate, ct))
+        {
+            var template = new Project { LegalEntityId = legalEntityId, Number = "TPL-001", Name = "Standard implementation (template)", Description = "Discovery, build, test and hand-over.", Status = ProjectStatus.Planning, BillingType = ProjectBillingType.TimeAndMaterials, BudgetAmount = 60000m, BudgetHours = 400m, IsTemplate = true };
+            db.Set<Project>().Add(template);
+            await db.SaveChangesAsync(ct);
+            string[] steps = ["Discovery workshop", "Solution design", "Build", "Testing", "Training and hand-over"];
+            decimal[] hours = [24, 40, 120, 60, 24];
+            for (var i = 0; i < steps.Length; i++)
+                db.Set<ProjectTask>().Add(new ProjectTask { ProjectId = template.Id, Number = $"TPL-T{i + 1:00}", Title = steps[i], Status = ProjectTaskStatus.Todo, Priority = TaskPriority.Medium, EstimatedHours = hours[i] });
         }
     }
 }

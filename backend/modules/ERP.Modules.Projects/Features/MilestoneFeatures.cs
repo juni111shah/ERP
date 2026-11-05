@@ -56,7 +56,8 @@ public sealed class UpdateMilestoneValidator : AbstractValidator<UpdateMilestone
 
 internal sealed class MilestoneHandlers(
     IRepository<ProjectMilestone> milestones,
-    IReadRepository<Project> projects) :
+    IReadRepository<Project> projects,
+    IReadRepository<ProjectChangeOrder> changeOrders) :
     IRequestHandler<GetMilestone, MilestoneDto>,
     IRequestHandler<CreateMilestone, MilestoneDto>,
     IRequestHandler<UpdateMilestone, MilestoneDto>,
@@ -75,6 +76,7 @@ internal sealed class MilestoneHandlers(
         var p = await projects.GetAsync(i.ProjectId, ct);
         ProjectRules.EnsureOpen(p);
         if (i.Status == MilestoneStatus.Invoiced) throw new FieldValidationException("status", "A milestone becomes Invoiced only when its project is billed.");
+        await EnsureWithinFeeAsync(p, null, i, ct);
         var m = new ProjectMilestone
         {
             ProjectId = p.Id,
@@ -94,6 +96,9 @@ internal sealed class MilestoneHandlers(
         var m = await milestones.GetForUpdateAsync(cmd.Id, ct);
         var i = cmd.Input;
         if (m.Status == MilestoneStatus.Invoiced) throw new ConflictException("An invoiced milestone cannot be edited.");
+        var project = await projects.GetAsync(m.ProjectId, ct);
+        ProjectRules.EnsureOpen(project);
+        await EnsureWithinFeeAsync(project, m.Id, i, ct);
         if (i.Status != m.Status) ProjectsTransitions.Milestone.Ensure(m.Status, i.Status, isSystem: false);
         var achieved = AchievedDateFor(i);
         m.Title = i.Title.Trim();
@@ -110,6 +115,7 @@ internal sealed class MilestoneHandlers(
     {
         var m = await milestones.GetForUpdateAsync(cmd.Id, ct);
         if (m.Status == MilestoneStatus.Invoiced) throw new ConflictException("An invoiced milestone cannot be deleted.");
+        ProjectRules.EnsureOpen(await projects.GetAsync(m.ProjectId, ct));
         milestones.Remove(m);
         await milestones.SaveChangesAsync(ct);
         return Unit.Value;
@@ -118,6 +124,7 @@ internal sealed class MilestoneHandlers(
     public async Task<MilestoneDto> Handle(AchieveMilestone cmd, CancellationToken ct)
     {
         var m = await milestones.GetForUpdateAsync(cmd.Id, ct);
+        ProjectRules.EnsureOpen(await projects.GetAsync(m.ProjectId, ct));
         ProjectsTransitions.Milestone.Ensure(m.Status, MilestoneStatus.Achieved, isSystem: false);
         var achieved = cmd.AchievedDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
         if (achieved > DateOnly.FromDateTime(DateTime.UtcNow)) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");
@@ -130,11 +137,20 @@ internal sealed class MilestoneHandlers(
     /// <summary>Pending milestones carry no achieved date; achieved ones default to today and cannot be dated in the future.</summary>
     private static DateOnly? AchievedDateFor(MilestoneInput i)
     {
-        if (i.Status == MilestoneStatus.Pending) return null;
+        if (i.Status is MilestoneStatus.Pending or MilestoneStatus.Cancelled) return null;
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var date = i.AchievedDate ?? today;
         if (date > today) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");
         return date;
+    }
+
+    /// <summary>On a fixed-fee project the milestones together cannot ask for more than the fee (budget plus approved change orders).</summary>
+    private async Task EnsureWithinFeeAsync(Project p, Guid? exceptId, MilestoneInput i, CancellationToken ct)
+    {
+        if (p.BillingType != ProjectBillingType.FixedFee || p.BudgetAmount <= 0 || i.Status == MilestoneStatus.Cancelled) return;
+        var fee = ProjectMath.EffectiveBudget(p.BudgetAmount, await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == p.Id)).ToListAsync(ct));
+        var others = await milestones.Query(new Specification<ProjectMilestone>(x => x.ProjectId == p.Id && x.Status != MilestoneStatus.Cancelled && (exceptId == null || x.Id != exceptId))).SumDecimalAsync(x => x.Amount, ct);
+        if (others + i.Amount > fee) throw new FieldValidationException("amount", $"The milestones would add up to {others + i.Amount:N2}, more than the fixed fee of {fee:N2}.");
     }
 
     private async Task<MilestoneDto> BuildDtoAsync(ProjectMilestone m, CancellationToken ct)

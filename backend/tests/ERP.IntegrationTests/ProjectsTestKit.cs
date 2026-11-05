@@ -11,6 +11,8 @@ internal sealed class ProjectsTestKit(HttpClient c, string entity, string custom
     public HttpClient C => c;
     public string Entity => entity;
     public string Customer => customer;
+    /// <summary>A worker name unique to this kit, so tests sharing one database do not add up to each other's daily hours.</summary>
+    public string Worker { get; } = "Ann" + Guid.NewGuid().ToString("N")[..6];
 
     public static async Task<JsonNode> Ok(HttpResponseMessage res, HttpStatusCode expected = HttpStatusCode.OK)
     {
@@ -45,5 +47,5 @@ internal sealed class ProjectsTestKit(HttpClient c, string entity, string custom
         => (string)(await Ok(await PostTask(projectId), HttpStatusCode.Created))["id"]!;
 
     public Task<HttpResponseMessage> PostTimesheet(string projectId, string? taskId = null, decimal hours = 2m, decimal rate = 50m, bool billable = true)
-        => c.PostAsJsonAsync($"{Prj}/timesheets", new { projectId, taskId, date = "2026-06-01", workerName = "Ann", hours, hourlyRate = rate, description = "Work", isBillable = billable });
+        => c.PostAsJsonAsync($"{Prj}/timesheets", new { projectId, taskId, date = "2026-06-01", workerName = Worker, hours, hourlyRate = rate, description = "Work", isBillable = billable });
 }

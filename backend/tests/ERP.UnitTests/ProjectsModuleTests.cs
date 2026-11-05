@@ -30,7 +30,7 @@ public class ProjectsModuleTests
         foreach (var p in perms)
         {
             Assert.StartsWith("projects.", p);
-            Assert.True(p.EndsWith(".read") || p.EndsWith(".manage"));
+            Assert.True(p.EndsWith(".read") || p.EndsWith(".manage") || p.EndsWith(".approve"));
         }
     }
 
@@ -39,7 +39,7 @@ public class ProjectsModuleTests
     {
         var module = new ProjectsModule();
         var menu = module.Menu.ToList();
-        Assert.Equal(4, menu.Count);
+        Assert.Equal(11, menu.Count);
 
         var routes = menu.Select(m => m.Route).ToList();
         Assert.Contains("/projects/list", routes);

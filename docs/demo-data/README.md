@@ -1,6 +1,6 @@
 # Demo data that needs the running API
 
-`DemoTopUp.cs` (backend/src/ERP.Api) fills most tables when the API starts. These scripts fill the rest by calling the
+`ProgramDemoTopUp.cs` (backend/src/ERP.Api) fills most tables when the API starts. These scripts fill the rest by calling the
 real workflows, so the data is genuine (journals balance, balances move). Run them once, in order, against a dev API
 (`http://localhost:5080`, seeded admin `admin@demo.local`) with Node 18 or later:
 

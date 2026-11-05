@@ -115,7 +115,7 @@ public static class ProgramSeeder
                 await SeedTwoYearHistoryAsync(db, org.Id, legalEntity.Id, ct);
 
                 // 14. Fill the demo tables the seeders above leave empty (HR structure, leave, loans, hiring ...)
-                await DemoTopUp.RunAsync(db, org.Id, legalEntity.Id, ct);
+                await ProgramDemoTopUp.RunAsync(db, org.Id, legalEntity.Id, ct);
 
                 await db.SaveChangesAsync(ct);
                 log.LogInformation("Successfully verified and seeded demo data for workspace '{OrgName}' ({OrgCode}).", org.Name, org.Code);
