@@ -110,7 +110,12 @@ internal sealed class TaskHandlers(
     IRequestHandler<ChangeTaskStatus, TaskDto>,
     IRequestHandler<SetTaskDependencies, TaskDto>
 {
-    public async Task<TaskDto> Handle(GetTask q, CancellationToken ct) => await BuildDtoAsync(await tasks.GetAsync(q.Id, ct), ct);
+    public async Task<TaskDto> Handle(GetTask q, CancellationToken ct)
+    {
+        var t = await tasks.GetAsync(q.Id, ct);
+        await access.EnsureProjectAsync(t.ProjectId, ct);
+        return await BuildDtoAsync(t, ct);
+    }
 
     public async Task<TaskDto> Handle(CreateTask cmd, CancellationToken ct)
     {
@@ -131,6 +136,7 @@ internal sealed class TaskHandlers(
     {
         var t = await tasks.GetForUpdateAsync(cmd.Id, ct);
         var i = cmd.Input;
+        await access.EnsureProjectAsync(t.ProjectId, ct);
         ProjectRules.EnsureOpen(await projects.GetAsync(t.ProjectId, ct));
         await EnsureMilestoneInProjectAsync(i.MilestoneId, t.ProjectId, ct);
         await EnsureParentAsync(i.ParentTaskId, t.ProjectId, t.Id, ct);
@@ -143,6 +149,7 @@ internal sealed class TaskHandlers(
     public async Task<Unit> Handle(DeleteTask cmd, CancellationToken ct)
     {
         var t = await tasks.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureProjectAsync(t.ProjectId, ct);
         ProjectRules.EnsureOpen(await projects.GetAsync(t.ProjectId, ct));
         var id = t.Id;
         if (await timesheets.AnyAsync(x => x.TaskId == id, ct)) throw new ConflictException("Time has been logged against this task. Cancel the task instead of deleting it.");
@@ -156,6 +163,7 @@ internal sealed class TaskHandlers(
     public async Task<TaskDto> Handle(ChangeTaskStatus cmd, CancellationToken ct)
     {
         var t = await tasks.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureProjectAsync(t.ProjectId, ct);
         ProjectRules.EnsureOpen(await projects.GetAsync(t.ProjectId, ct));
         await CheckStatusAsync(t, cmd.Status, ct);
         t.Status = cmd.Status;
@@ -166,6 +174,7 @@ internal sealed class TaskHandlers(
     public async Task<TaskDto> Handle(SetTaskDependencies cmd, CancellationToken ct)
     {
         var t = await tasks.GetAsync(cmd.Id, ct);
+        await access.EnsureProjectAsync(t.ProjectId, ct);
         ProjectRules.EnsureOpen(await projects.GetAsync(t.ProjectId, ct));
         var wanted = cmd.DependsOn.Distinct().ToList();
         if (wanted.Contains(t.Id)) throw new FieldValidationException("dependsOn", "A task cannot depend on itself.");

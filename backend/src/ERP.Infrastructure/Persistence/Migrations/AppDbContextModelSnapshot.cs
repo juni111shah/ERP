@@ -7630,8 +7630,8 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("SignatureImage")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(300000)
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("SignedAt")
                         .HasColumnType("datetime2");
@@ -7726,6 +7726,66 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.HasIndex("OrgId", "UserId", "FromDate");
 
                     b.ToTable("prj_Allocations", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Modules.Projects.Domain.ProjectBudgetLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Hours")
+                        .HasPrecision(9, 2)
+                        .HasColumnType("decimal(9,2)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrgId", "ProjectId", "Category")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("prj_BudgetLines", (string)null);
                 });
 
             modelBuilder.Entity("ERP.Modules.Projects.Domain.ProjectChangeOrder", b =>
@@ -8307,6 +8367,12 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("AssignedUserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("BaselineEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("BaselineStart")
+                        .HasColumnType("date");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");

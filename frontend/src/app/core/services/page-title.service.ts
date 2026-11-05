@@ -146,7 +146,15 @@ export class PageTitleService {
       '/projects/list': { title: 'Projects', module: 'Projects' },
       '/projects/tasks': { title: 'Tasks', module: 'Projects' },
       '/projects/timesheets': { title: 'Timesheets', module: 'Projects' },
-      '/projects/billing': { title: 'Project Billing', module: 'Projects' },
+      '/projects/billing': { title: 'Project billing', module: 'Projects' },
+      '/projects/board': { title: 'Task board', module: 'Projects' },
+      '/projects/week': { title: 'My week', module: 'Projects' },
+      '/projects/expenses': { title: 'Expenses', module: 'Projects' },
+      '/projects/approvals': { title: 'Approvals', module: 'Projects' },
+      '/projects/reports': { title: 'Project reports', module: 'Projects' },
+      '/projects/resources': { title: 'Resources', module: 'Projects' },
+      '/projects/change-orders': { title: 'Change orders', module: 'Projects' },
+      '/projects/risks': { title: 'Risks and issues', module: 'Projects' },
 
       // Sales
       '/sales/quotes': { title: 'Sales Quotes', module: 'Sales' },

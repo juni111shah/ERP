@@ -142,3 +142,75 @@ public class ProjectsWave2Tests
         Assert.Equal(25m, BillingLines.Discount(250m, 10m));
     }
 }
+
+public class ProjectsWorkspaceMathTests
+{
+    private static readonly DateOnly Start = new(2026, 6, 1);
+
+    [Fact]
+    public void A_task_with_only_a_due_date_ends_on_that_date()
+    {
+        var a = Guid.NewGuid();
+        var slots = ScheduleMath.Compute([new(a, null, Start.AddDays(20), 16m, [])], Start);
+        Assert.Equal(Start.AddDays(20), slots[a].End);
+        Assert.Equal(Start.AddDays(19), slots[a].Start);
+    }
+
+    [Fact]
+    public void The_working_week_comes_from_the_setting_and_falls_back_to_monday_to_friday()
+    {
+        Assert.Equal(5, ReportMath.ParseWorkWeek("Sun,Mon,Tue,Wed,Thu").Count);
+        Assert.Contains(DayOfWeek.Sunday, ReportMath.ParseWorkWeek("sunday, Mon"));
+        Assert.DoesNotContain(DayOfWeek.Sunday, ReportMath.ParseWorkWeek(null));
+        Assert.DoesNotContain(DayOfWeek.Friday, ReportMath.ParseWorkWeek("Sun,Mon,Tue,Wed,Thu"));
+        Assert.Equal(5, ReportMath.WorkdaysBetween(new(2026, 6, 1), new(2026, 6, 7), ReportMath.ParseWorkWeek("Sun,Mon,Tue,Wed,Thu")));
+    }
+
+    [Fact]
+    public void Planned_share_runs_from_nothing_at_the_start_to_all_at_the_end()
+    {
+        Assert.Null(ReportMath.PlannedShare(null, Start, Start));
+        Assert.Equal(0m, ReportMath.PlannedShare(Start, Start.AddDays(10), Start));
+        Assert.Equal(0.5m, ReportMath.PlannedShare(Start, Start.AddDays(10), Start.AddDays(5)));
+        Assert.Equal(1m, ReportMath.PlannedShare(Start, Start.AddDays(10), Start.AddDays(50)));
+    }
+
+    [Fact]
+    public void Rejected_time_is_not_a_cost_and_a_fixed_fee_project_does_not_bill_hours()
+    {
+        var today = new DateOnly(2026, 6, 15);
+        var time = new List<ProjectTimesheet>
+        {
+            new() { Hours = 2, CostAmount = 100, TotalAmount = 200, IsBillable = true, ApprovalStatus = TimesheetStatus.Approved },
+            new() { Hours = 9, CostAmount = 900, TotalAmount = 900, IsBillable = true, ApprovalStatus = TimesheetStatus.Rejected },
+        };
+        var milestones = new List<ProjectMilestone> { new() { Amount = 50, Status = MilestoneStatus.Achieved } };
+        var fixedFee = ProjectFigures.Compute(new Project { Status = ProjectStatus.Active, BillingType = ProjectBillingType.FixedFee, BudgetAmount = 1000 }, time, [], milestones, [], [], [], today);
+        Assert.Equal(100m, fixedFee.LabourCost);
+        Assert.Equal(50m, fixedFee.Unbilled);
+        var hourly = ProjectFigures.Compute(new Project { Status = ProjectStatus.Active, BillingType = ProjectBillingType.TimeAndMaterials }, time, [], [], [], [], [], today);
+        Assert.Equal(200m, hourly.Unbilled);
+    }
+
+    [Fact]
+    public void Budget_lines_show_spending_against_each_category()
+    {
+        var rows = BudgetLines.Build(
+            [new ProjectBudgetLine { Category = "Labour", Amount = 500, Hours = 10 }, new ProjectBudgetLine { Category = "Travel", Amount = 50 }],
+            [new ProjectTimesheet { Hours = 2, CostAmount = 120 }],
+            [new ProjectExpense { Category = "travel", Amount = 30 }, new ProjectExpense { Category = "Materials", Amount = 70 }]);
+        Assert.Equal("Labour", rows[0].Category);
+        Assert.Equal(120m, rows[0].Actual);
+        Assert.Equal(30m, rows.Single(r => r.Category == "Travel").Actual);
+        Assert.Null(rows.Single(r => r.Category == "Materials").Id);
+    }
+}
+
+public class NumberFormatterCaseTests
+{
+    [Theory]
+    [InlineData("{prefix}-{yyyy}-{seq:4}")]
+    [InlineData("{PREFIX}-{YYYY}-{SEQ:4}")]
+    public void Number_patterns_work_in_any_letter_case(string pattern) =>
+        Assert.Equal("PRJ-2026-0007", ERP.Application.Common.NumberFormatter.Format(pattern, "PRJ", new DateOnly(2026, 6, 1), 7));
+}

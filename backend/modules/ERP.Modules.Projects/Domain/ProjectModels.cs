@@ -181,6 +181,10 @@ public class ProjectTask : OrgEntity
 
     [Sortable]
     public DateOnly? DueDate { get; set; }
+
+    /// <summary>The planned dates saved when the baseline was set, to compare the current plan against.</summary>
+    public DateOnly? BaselineStart { get; set; }
+    public DateOnly? BaselineEnd { get; set; }
 }
 
 public class ProjectTimesheet : OrgEntity

@@ -4,6 +4,11 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { SessionStore } from '../session/session.store';
 import { I18nService } from '../i18n/i18n.service';
 
+/** Lets the route match when the user has any one of these permissions. */
+export function anyPermissionGuard(...permissions: string[]): CanMatchFn {
+  return () => { const session = inject(SessionStore); return permissions.some((p) => session.hasPermission(p)) || inject(Router).createUrlTree(['/']); };
+}
+
 /** canMatch guard: route only matches when the user holds the permission (<module>.<resource>.<action>). */
 export function permissionGuard(permission: string): CanMatchFn {
   return () => inject(SessionStore).hasPermission(permission) || inject(Router).createUrlTree(['/']);

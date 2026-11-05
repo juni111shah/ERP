@@ -6,13 +6,37 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Modules.Projects.Features;
 
 /// <summary>With the setting "projects.restrictToMembers" on, people without the manage permission only reach projects they manage or belong to.</summary>
-public sealed class ProjectAccess(ICurrentUser user, ISettingsService settings, IReadRepository<ProjectMember> members)
+public sealed class ProjectAccess(ICurrentUser user, ISettingsService settings, IReadRepository<ProjectMember> members, IReadRepository<Project> projects)
 {
+    public bool Has(string permission) => user.Permissions.Contains(permission) || user.Permissions.Contains("*");
+
+    /// <summary>Cost rates are for people who work with money: billing, rates or reports.</summary>
+    public bool CanSeeCost => Has(P.RatesRead) || Has(P.ReportsRead) || Has(P.BillingManage);
+
+    public Task EnsureProjectAsync(Guid projectId, CancellationToken ct) => EnsureProjectsAsync([projectId], ct);
+
+    public async Task EnsureProjectsAsync(IEnumerable<Guid> projectIds, CancellationToken ct)
+    {
+        foreach (var id in projectIds.Distinct()) await EnsureAsync(await projects.GetAsync(id, ct), ct);
+    }
+
+    /// <summary>The projects this person may reach under the members-only setting; null = all of them.</summary>
+    public async Task<IReadOnlyCollection<Guid>?> VisibleIdsAsync(CancellationToken ct)
+    {
+        if (user.PortalKind != null) return null;
+        if (await settings.GetAsync<bool?>("projects.restrictToMembers", null, ct) != true) return null;
+        if (Has(P.ProjectsManage)) return null;
+        var me = user.UserId ?? Guid.Empty;
+        var viaTeam = await members.Query(new Specification<ProjectMember>(m => m.UserId == me)).Select(m => m.ProjectId).ToListAsync(ct);
+        var managed = await projects.Query(new Specification<Project>(p => p.ManagerUserId == me)).Select(p => p.Id).ToListAsync(ct);
+        return viaTeam.Concat(managed).Distinct().ToList();
+    }
+
     public async Task EnsureAsync(Project p, CancellationToken ct)
     {
         if (user.PortalKind != null) return; // the customer portal has its own endpoints and checks
         if (await settings.GetAsync<bool?>("projects.restrictToMembers", p.LegalEntityId, ct) != true) return;
-        if (user.Permissions.Contains(P.ProjectsManage) || user.Permissions.Contains("*")) return;
+        if (Has(P.ProjectsManage)) return;
         if (user.UserId is not { } me) throw new ForbiddenException();
         if (p.ManagerUserId == me) return;
         if (await members.AnyAsync(m => m.ProjectId == p.Id && m.UserId == me, ct)) return;
@@ -111,6 +135,20 @@ public static class TaskHours
         var task = await tasks.Tracked(new Specification<ProjectTask>(t => t.Id == id)).FirstOrDefaultAsync(ct);
         if (task is null) return;
         task.ActualHours = await timesheets.Query(new Specification<ProjectTimesheet>(t => t.TaskId == id)).SumDecimalAsync(t => t.Hours, ct);
+    }
+}
+
+/// <summary>Moves cost out of work in progress when the work is billed or written off. The caller saves.</summary>
+internal static class ProjectWip
+{
+    public static async Task<ERP.Domain.Finance.JournalEntry?> ReleaseAsync(ERP.Application.Finance.IPostingService posting, Project p, decimal amount, string reference, string memo, CancellationToken ct)
+    {
+        var value = ProjectMath.Round(amount);
+        if (value <= 0) return null;
+        var cogs = await posting.AccountForRoleAsync("cogs", ct);
+        var wip = await posting.AccountForRoleAsync(ERP.Application.Finance.SystemRoles.Wip, ct);
+        return await posting.PostAsync(new ERP.Application.Finance.PostingRequest(p.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), "projects.cost.release", p.Id, memo, reference,
+            [new ERP.Application.Finance.PostingLine(cogs, value, 0, memo), new ERP.Application.Finance.PostingLine(wip, 0, value, memo)]), ct);
     }
 }
 

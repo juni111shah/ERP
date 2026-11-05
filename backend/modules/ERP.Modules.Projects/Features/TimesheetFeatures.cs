@@ -120,6 +120,7 @@ internal sealed class TimesheetHandlers(
     ISettingsService settings,
     IReadRepository<ProjectMember> members,
     ICurrentUser user,
+    ERP.Application.Finance.IPostingService posting,
     IUnitOfWork uow) :
     IRequestHandler<GetTimesheet, TimesheetDto>,
     IRequestHandler<CreateTimesheet, TimesheetDto>,
@@ -130,7 +131,20 @@ internal sealed class TimesheetHandlers(
     IRequestHandler<DecideTimesheets, int>,
     IRequestHandler<WriteOffTimesheets, int>
 {
-    public async Task<TimesheetDto> Handle(GetTimesheet q, CancellationToken ct) => await BuildDtoAsync(await timesheets.GetAsync(q.Id, ct), ct);
+    public async Task<TimesheetDto> Handle(GetTimesheet q, CancellationToken ct)
+    {
+        var ts = await timesheets.GetAsync(q.Id, ct);
+        await access.EnsureProjectAsync(ts.ProjectId, ct);
+        return await BuildDtoAsync(ts, ct);
+    }
+
+    /// <summary>People change their own time; changing someone else's takes approval or project-manager rights. A typed name has no owner.</summary>
+    private void EnsureMayChange(ProjectTimesheet ts)
+    {
+        if (ts.WorkerUserId is null || ts.WorkerUserId == user.UserId) return;
+        if (access.Has(P.TimesheetsApprove) || access.Has(P.ProjectsManage)) return;
+        throw new ForbiddenException("Only the person who did the work or a manager can change this time.");
+    }
 
     public async Task<TimesheetDto> Handle(CreateTimesheet cmd, CancellationToken ct)
     {
@@ -173,7 +187,8 @@ internal sealed class TimesheetHandlers(
                 var existing = await timesheets.GetForUpdateAsync(id, token);
                 if (existing.TaskId is { } t0) taskIds.Add(t0);
                 if (i.Hours == 0) { await DeleteCoreAsync(existing, token); await timesheets.SaveChangesAsync(token); continue; }
-                await UpdateCoreAsync(existing, i, token);
+                // the grid only changes hours: everything else on the entry stays as it was
+                await UpdateCoreAsync(existing, i with { Description = i.Description ?? existing.Description, HourlyRate = i.HourlyRate ?? existing.HourlyRate, CostRate = i.CostRate ?? existing.CostRate, IsBillable = existing.IsBillable, WorkerUserId = existing.WorkerUserId, WorkerName = existing.WorkerName, TaskId = existing.TaskId }, token);
                 touched.Add(existing);
             }
             else if (i.Hours > 0) touched.Add(await CreateCoreAsync(i, token));
@@ -191,6 +206,8 @@ internal sealed class TimesheetHandlers(
     {
         var rows = await timesheets.Tracked(new Specification<ProjectTimesheet>(t => cmd.Ids.Contains(t.Id))).ToListAsync(ct);
         if (rows.Count != cmd.Ids.Distinct().Count()) throw new NotFoundException("One of the entries was not found.");
+        await access.EnsureProjectsAsync(rows.Select(t => t.ProjectId), ct);
+        foreach (var t in rows) EnsureMayChange(t);
         var n = 0;
         foreach (var t in rows)
         {
@@ -205,6 +222,10 @@ internal sealed class TimesheetHandlers(
     {
         var rows = await timesheets.Tracked(new Specification<ProjectTimesheet>(t => cmd.Ids.Contains(t.Id))).ToListAsync(ct);
         if (rows.Count != cmd.Ids.Distinct().Count()) throw new NotFoundException("One of the entries was not found.");
+        await access.EnsureProjectsAsync(rows.Select(t => t.ProjectId), ct);
+        if (cmd.Approve && user.UserId is { } me && rows.Any(t => t.WorkerUserId == me && t.ApprovalStatus == TimesheetStatus.Submitted)
+            && await settings.GetAsync<bool?>("projects.allowSelfApproval", null, ct) != true)
+            throw new ConflictException("You cannot approve your own time. Ask another approver.");
         var n = 0;
         foreach (var t in rows)
         {
@@ -217,15 +238,23 @@ internal sealed class TimesheetHandlers(
         return n;
     }
 
-    public async Task<int> Handle(WriteOffTimesheets cmd, CancellationToken ct)
+    public Task<int> Handle(WriteOffTimesheets cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
     {
-        var rows = await timesheets.Tracked(new Specification<ProjectTimesheet>(t => cmd.Ids.Contains(t.Id))).ToListAsync(ct);
+        var rows = await timesheets.Tracked(new Specification<ProjectTimesheet>(t => cmd.Ids.Contains(t.Id))).ToListAsync(token);
         if (rows.Count != cmd.Ids.Distinct().Count()) throw new NotFoundException("One of the entries was not found.");
         if (rows.Any(t => t.IsBilled)) throw new ConflictException("Billed time cannot be written off. Void the invoice first.");
+        await access.EnsureProjectsAsync(rows.Select(t => t.ProjectId), token);
+        foreach (var group in rows.GroupBy(t => t.ProjectId))
+        {
+            var posted = group.Where(t => t.CostJournalId != null && t.WipReleaseJournalId == null).ToList();
+            var p = await projects.GetAsync(group.Key, token);
+            var journal = await ProjectWip.ReleaseAsync(posting, p, posted.Sum(t => t.CostAmount), p.Number, $"Project {p.Number} work written off, work in progress to cost of sales", token);
+            if (journal is not null) foreach (var t in posted) t.WipReleaseJournalId = journal.Id;
+        }
         foreach (var t in rows) t.WrittenOff = true;
-        await timesheets.SaveChangesAsync(ct);
+        await timesheets.SaveChangesAsync(token);
         return rows.Count;
-    }
+    }, ct);
 
     private async Task<ProjectTimesheet> CreateCoreAsync(TimesheetInput i, CancellationToken ct)
     {
@@ -252,14 +281,18 @@ internal sealed class TimesheetHandlers(
     {
         if (ts.IsBilled) throw new ConflictException("Cannot edit a billed timesheet.");
         if (ts.WrittenOff) throw new ConflictException("Cannot edit time that was written off.");
+        if (ts.CostJournalId != null) throw new ConflictException("The cost of this time is already in the ledger, so it cannot be changed. Write it off or log a correcting entry.");
         var p = await projects.GetAsync(ts.ProjectId, ct);
         ProjectRules.EnsureTrackable(p);
+        await access.EnsureAsync(p, ct);
+        EnsureMayChange(ts);
         if (ts.ApprovalStatus is TimesheetStatus.Submitted or TimesheetStatus.Approved && await settings.GetAsync<bool?>("projects.timesheetApproval", p.LegalEntityId, ct) == true)
             throw new ConflictException("Submitted or approved time cannot be edited. Ask for it to be rejected first.");
         await EnsureTaskInProjectAsync(i.TaskId, ts.ProjectId, ct);
         var (name, userId) = await WorkerAsync(i, ct);
         await EnsureDayAsync(p, i, name, userId, ts.Id, ct);
-        var (bill, cost) = await RatesAsync(p, i, userId, ct, ts);
+        // the cost of the hour stays what it was unless the person changed
+        var (bill, cost) = await RatesAsync(p, userId == ts.WorkerUserId ? i with { CostRate = i.CostRate ?? ts.CostRate } : i, userId, ct, ts);
         ts.TaskId = i.TaskId; ts.Date = i.Date; ts.WorkerName = name; ts.WorkerUserId = userId; ts.Hours = i.Hours;
         ts.HourlyRate = bill; ts.TotalAmount = ProjectMath.Round(i.Hours * bill); ts.CostRate = cost; ts.CostAmount = ProjectMath.Round(i.Hours * cost);
         ts.Description = i.Description?.Trim(); ts.IsBillable = i.IsBillable && p.BillingType != ProjectBillingType.NonBillable;
@@ -269,9 +302,14 @@ internal sealed class TimesheetHandlers(
     private async Task DeleteCoreAsync(ProjectTimesheet ts, CancellationToken ct)
     {
         if (ts.IsBilled) throw new ConflictException("Cannot delete a billed timesheet.");
+        if (ts.CostJournalId != null) throw new ConflictException("The cost of this time is already in the ledger, so it cannot be deleted. Write it off instead.");
         var p = await projects.GetAsync(ts.ProjectId, ct);
         ProjectRules.EnsureTrackable(p);
+        await access.EnsureAsync(p, ct);
+        EnsureMayChange(ts);
         if (ts.ApprovalStatus == TimesheetStatus.Submitted) throw new ConflictException("Submitted time cannot be deleted. Ask for it to be rejected first.");
+        if (ts.ApprovalStatus == TimesheetStatus.Approved && await settings.GetAsync<bool?>("projects.timesheetApproval", p.LegalEntityId, ct) == true)
+            throw new ConflictException("Approved time cannot be deleted. Ask for it to be rejected first.");
         timesheets.Remove(ts);
     }
 
@@ -317,7 +355,8 @@ internal sealed class TimesheetHandlers(
         string? tTitle = null;
         if (ts.TaskId is { } tid)
             tTitle = await tasks.Query(new Specification<ProjectTask>(x => x.Id == tid)).Select(x => x.Title).FirstOrDefaultAsync(ct);
+        var cost = access.CanSeeCost;
         return new TimesheetDto(ts.Id, ts.ProjectId, p.Name, ts.TaskId, tTitle, ts.Date, ts.WorkerName, ts.Hours, ts.HourlyRate, ts.TotalAmount, ts.Description, ts.IsBillable, ts.IsBilled, ts.InvoiceId, ts.CreatedAt,
-            ts.WorkerUserId, ts.CostRate, ts.CostAmount, ts.ApprovalStatus, ts.RejectReason, ts.WrittenOff);
+            ts.WorkerUserId, cost ? ts.CostRate : 0m, cost ? ts.CostAmount : 0m, ts.ApprovalStatus, ts.RejectReason, ts.WrittenOff);
     }
 }

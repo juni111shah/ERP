@@ -9,14 +9,19 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Modules.Projects.Features;
 
-public sealed record ScheduleTaskDto(Guid Id, string Number, string Title, Guid? ParentTaskId, ProjectTaskStatus Status, DateOnly Start, DateOnly End, int DurationDays, int SlackDays, bool Critical, IReadOnlyList<Guid> DependsOn, string? AssignedTo);
-public sealed record ScheduleDto(Guid ProjectId, DateOnly Start, DateOnly Finish, IReadOnlyList<ScheduleTaskDto> Tasks, IReadOnlyList<Guid> CriticalPath);
+public sealed record ScheduleTaskDto(Guid Id, string Number, string Title, Guid? ParentTaskId, ProjectTaskStatus Status, DateOnly Start, DateOnly End, int DurationDays, int SlackDays, bool Critical, IReadOnlyList<Guid> DependsOn, string? AssignedTo,
+    DateOnly? DueDate = null, bool Late = false, DateOnly? BaselineStart = null, DateOnly? BaselineEnd = null);
+public sealed record ScheduleMilestoneDto(Guid Id, string Title, DateOnly Date, MilestoneStatus Status);
+public sealed record ScheduleDto(Guid ProjectId, DateOnly Start, DateOnly Finish, IReadOnlyList<ScheduleTaskDto> Tasks, IReadOnlyList<Guid> CriticalPath, IReadOnlyList<ScheduleMilestoneDto>? Milestones = null, bool HasBaseline = false);
 
 public sealed record GetProjectSchedule(Guid ProjectId) : IQuery<ScheduleDto>, IRequirePermission { public string RequiredPermission => P.TasksRead; }
 
 public sealed record CloneInput(string Name, DateOnly? StartDate, Guid? CustomerId, bool IncludeTeam = false, bool AsTemplate = false);
 public sealed record CloneProject(Guid Id, CloneInput Input) : ICommand<ProjectDto>, IRequirePermission { public string RequiredPermission => P.ProjectsManage; }
 public sealed record ArchiveProject(Guid Id, bool Archive) : ICommand<ProjectDto>, IRequirePermission { public string RequiredPermission => P.ProjectsManage; }
+
+/// <summary>Saves the current plan of every task as the baseline to compare against; clear removes it.</summary>
+public sealed record SetProjectBaseline(Guid ProjectId, bool Clear) : ICommand<ScheduleDto>, IRequirePermission { public string RequiredPermission => P.TasksManage; }
 
 public sealed class CloneProjectValidator : AbstractValidator<CloneProject>
 {
@@ -45,7 +50,8 @@ public static class ScheduleMath
             if (es.TryGetValue(id, out var v)) return v;
             if (!path.Add(id)) return projectStart.DayNumber; // a loop cannot be scheduled; the service refuses to create one, this is only a guard
             var n = byId[id];
-            var start = (n.Start ?? projectStart).DayNumber;
+            // a task with only a due date ends on it; one with no dates starts with the project
+            var start = n.Start?.DayNumber ?? (n.Due is { } due ? due.DayNumber - dur[id] + 1 : projectStart.DayNumber);
             foreach (var d in n.DependsOn.Where(byId.ContainsKey)) start = Math.Max(start, Es(d, path) + dur[d]);
             path.Remove(id);
             return es[id] = start;
@@ -82,14 +88,17 @@ internal sealed class PlanningHandlers(
     IReadRepository<ProjectChangeOrder> changeOrders,
     ILegalEntityGuard guard,
     INumberingService numbers,
+    ProjectAccess access,
     ISender sender) :
     IRequestHandler<GetProjectSchedule, ScheduleDto>,
+    IRequestHandler<SetProjectBaseline, ScheduleDto>,
     IRequestHandler<CloneProject, ProjectDto>,
     IRequestHandler<ArchiveProject, ProjectDto>
 {
     public async Task<ScheduleDto> Handle(GetProjectSchedule q, CancellationToken ct)
     {
         var p = await projects.GetAsync(q.ProjectId, ct);
+        await access.EnsureAsync(p, ct);
         var all = await tasks.Query(new Specification<ProjectTask>(t => t.ProjectId == p.Id && t.Status != ProjectTaskStatus.Cancelled)).ToListAsync(ct);
         var ids = all.Select(t => t.Id).ToList();
         var deps = (await dependencies.Query(new Specification<ProjectTaskDependency>(d => ids.Contains(d.TaskId))).ToListAsync(ct)).ToLookup(d => d.TaskId, d => d.DependsOnTaskId);
@@ -98,25 +107,45 @@ internal sealed class PlanningHandlers(
         var leaves = all.Where(t => !parents.Contains(t.Id)).Select(t => new ScheduleMath.Node(t.Id, t.StartDate, t.DueDate, t.EstimatedHours, deps[t.Id].Where(ids.Contains).ToList())).ToList();
         var slots = ScheduleMath.Compute(leaves, start);
         var rows = new List<ScheduleTaskDto>();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        bool Late(ProjectTask t, DateOnly end) => t.Status != ProjectTaskStatus.Done && (end < today || (t.DueDate is { } d && d < today));
         foreach (var t in all.OrderBy(t => t.Number))
         {
             if (slots.TryGetValue(t.Id, out var s))
-                rows.Add(new ScheduleTaskDto(t.Id, t.Number, t.Title, t.ParentTaskId, t.Status, s.Start, s.End, s.Duration, s.Slack, s.Critical && deps.Any(), deps[t.Id].ToList(), t.AssignedTo));
+                rows.Add(new ScheduleTaskDto(t.Id, t.Number, t.Title, t.ParentTaskId, t.Status, s.Start, s.End, s.Duration, s.Slack, s.Critical && deps.Any(), deps[t.Id].ToList(), t.AssignedTo, t.DueDate, Late(t, s.End), t.BaselineStart, t.BaselineEnd));
             else
             {
                 var kids = all.Where(k => k.ParentTaskId == t.Id).Select(k => slots.GetValueOrDefault(k.Id)).Where(k => k != null).ToList();
                 var a = kids.Count == 0 ? start : kids.Min(k => k!.Start); var b = kids.Count == 0 ? start : kids.Max(k => k!.End);
-                rows.Add(new ScheduleTaskDto(t.Id, t.Number, t.Title, t.ParentTaskId, t.Status, a, b, b.DayNumber - a.DayNumber + 1, 0, false, [], t.AssignedTo));
+                rows.Add(new ScheduleTaskDto(t.Id, t.Number, t.Title, t.ParentTaskId, t.Status, a, b, b.DayNumber - a.DayNumber + 1, 0, false, [], t.AssignedTo, t.DueDate, Late(t, b), t.BaselineStart, t.BaselineEnd));
             }
         }
-        var finish = rows.Count == 0 ? start : rows.Max(r => r.End);
+        var marks = (await milestones.Query(new Specification<ProjectMilestone>(m => m.ProjectId == p.Id && m.Status != MilestoneStatus.Cancelled)).ToListAsync(ct))
+            .OrderBy(m => m.DueDate).Select(m => new ScheduleMilestoneDto(m.Id, m.Title, m.DueDate, m.Status)).ToList();
+        var dates = rows.SelectMany(r => new[] { r.Start, r.End }).Concat(marks.Select(m => m.Date)).ToList();
         var critical = deps.Any() ? rows.Where(r => r.Critical).OrderBy(r => r.Start).Select(r => r.Id).ToList() : [];
-        return new ScheduleDto(p.Id, rows.Count == 0 ? start : rows.Min(r => r.Start), finish, rows, critical);
+        return new ScheduleDto(p.Id, dates.Count == 0 ? start : dates.Min(), dates.Count == 0 ? start : dates.Max(), rows, critical, marks, all.Any(t => t.BaselineStart != null));
+    }
+
+    public async Task<ScheduleDto> Handle(SetProjectBaseline cmd, CancellationToken ct)
+    {
+        var schedule = await Handle(new GetProjectSchedule(cmd.ProjectId), ct);
+        var slots = schedule.Tasks.ToDictionary(t => t.Id);
+        var id = cmd.ProjectId;
+        foreach (var t in await tasks.Tracked(new Specification<ProjectTask>(x => x.ProjectId == id)).ToListAsync(ct))
+        {
+            var slot = slots.GetValueOrDefault(t.Id);
+            t.BaselineStart = cmd.Clear ? null : slot?.Start;
+            t.BaselineEnd = cmd.Clear ? null : slot?.End;
+        }
+        await tasks.SaveChangesAsync(ct);
+        return await Handle(new GetProjectSchedule(cmd.ProjectId), ct);
     }
 
     public async Task<ProjectDto> Handle(CloneProject cmd, CancellationToken ct)
     {
         var src = await projects.GetAsync(cmd.Id, ct);
+        await access.EnsureAsync(src, ct);
         var i = cmd.Input;
         var entity = await guard.RequireAsync(src.LegalEntityId, ct);
         var newStart = i.StartDate ?? src.StartDate;
@@ -169,6 +198,7 @@ internal sealed class PlanningHandlers(
     public async Task<ProjectDto> Handle(ArchiveProject cmd, CancellationToken ct)
     {
         var p = await projects.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureAsync(p, ct);
         if (cmd.Archive && p.Status is ProjectStatus.Active or ProjectStatus.OnHold) throw new ConflictException("Complete or cancel the project before archiving it.");
         p.IsArchived = cmd.Archive;
         await projects.SaveChangesAsync(ct);

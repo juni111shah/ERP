@@ -27,6 +27,7 @@ public sealed record ProjectBillingSummaryDto(
 /// <summary>
 /// What to put on the invoice. Grouping: "detailed" (a line per entry), "person", "task" or "project" (one line each). DiscountPercent adds a
 /// discount line. ProgressPercent (fixed-fee projects only) bills that share of the fee without a milestone.
+/// A list of ids chooses those lines only: left out means everything ready to bill, an empty list means none of that kind.
 /// </summary>
 public sealed record BillProjectInput(
     Guid ProjectId,
@@ -66,6 +67,19 @@ public sealed record PreviewProjectBill(BillProjectInput Input) : IQuery<BillPre
 {
     public string RequiredPermission => P.BillingRead;
 }
+
+public sealed record BillableTimeDto(Guid Id, DateOnly Date, string Worker, string? Task, string? Description, decimal Hours, decimal Amount);
+public sealed record BillableExpenseDto(Guid Id, DateOnly Date, string Category, string Description, decimal Amount);
+public sealed record BillableMilestoneDto(Guid Id, string Title, DateOnly? AchievedDate, decimal Amount);
+public sealed record BillableWorkDto(Guid ProjectId, ProjectBillingType BillingType, decimal Fee, decimal FixedFeeRemaining, IReadOnlyList<BillableTimeDto> Time, IReadOnlyList<BillableExpenseDto> Expenses, IReadOnlyList<BillableMilestoneDto> Milestones);
+public sealed record ProjectInvoiceDto(Guid Id, string Number, DateOnly Date, DateOnly DueDate, DocumentStatus Status, decimal Total, decimal Paid);
+
+/// <summary>Everything that could go on the next invoice of a project, line by line, so people can choose.</summary>
+public sealed record GetBillableWork(Guid ProjectId) : IQuery<BillableWorkDto>, IRequirePermission { public string RequiredPermission => P.BillingRead; }
+/// <summary>The invoices raised from a project.</summary>
+public sealed record GetProjectInvoices(Guid ProjectId) : IQuery<IReadOnlyList<ProjectInvoiceDto>>, IRequirePermission { public string RequiredPermission => P.BillingRead; }
+/// <summary>Decides not to charge for all the approved, unbilled time and expenses of a project.</summary>
+public sealed record WriteOffProject(Guid ProjectId) : ICommand<int>, IRequirePermission { public string RequiredPermission => P.BillingManage; }
 
 /// <summary>Marks unbilled expenses as not to be charged.</summary>
 public sealed record WriteOffExpenses(IReadOnlyList<Guid> Ids) : ICommand<int>, IRequirePermission
@@ -136,16 +150,77 @@ internal sealed class BillingHandlers(
     IReadRepository<ProjectChangeOrder> changeOrders,
     IReadRepository<ProjectTask> tasks,
     IReadRepository<TaxCode> taxCodes,
+    IReadRepository<Invoice> invoices,
     ISender sender,
     IPostingService posting,
+    ProjectAccess access,
     IUnitOfWork uow) :
+    IRequestHandler<GetBillableWork, BillableWorkDto>,
+    IRequestHandler<GetProjectInvoices, IReadOnlyList<ProjectInvoiceDto>>,
+    IRequestHandler<WriteOffProject, int>,
     IRequestHandler<GetBillingOverview, IReadOnlyList<ProjectBillingSummaryDto>>,
     IRequestHandler<BillProject, BillProjectResultDto>,
     IRequestHandler<PreviewProjectBill, BillPreviewDto>,
     IRequestHandler<WriteOffExpenses, int>
 {
+    public async Task<BillableWorkDto> Handle(GetBillableWork q, CancellationToken ct)
+    {
+        var p = await projects.GetAsync(q.ProjectId, ct);
+        await access.EnsureAsync(p, ct);
+        var id = p.Id;
+        var time = p.BillingType == ProjectBillingType.TimeAndMaterials
+            ? await timesheets.Query(new Specification<ProjectTimesheet>(x => x.ProjectId == id && x.IsBillable && !x.IsBilled && !x.WrittenOff && x.ApprovalStatus == TimesheetStatus.Approved)).OrderBy(x => x.Date).ToListAsync(ct)
+            : [];
+        var taskIds = time.Where(t => t.TaskId != null).Select(t => t.TaskId!.Value).Distinct().ToList();
+        var titles = taskIds.Count == 0 ? new Dictionary<Guid, string>() : await tasks.Query(new Specification<ProjectTask>(t => taskIds.Contains(t.Id))).ToDictionaryAsync(t => t.Id, t => t.Title, ct);
+        var costs = await expenses.Query(new Specification<ProjectExpense>(x => x.ProjectId == id && x.IsBillable && !x.IsBilled && !x.WrittenOff && x.Status == ExpenseStatus.Approved)).OrderBy(x => x.Date).ToListAsync(ct);
+        var ms = await milestones.Query(new Specification<ProjectMilestone>(x => x.ProjectId == id && x.Status == MilestoneStatus.Achieved)).OrderBy(x => x.DueDate).ToListAsync(ct);
+        var fee = ProjectMath.EffectiveBudget(p.BudgetAmount, await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == id)).ToListAsync(ct));
+        var billed = await progressRows.Query(new Specification<ProjectProgressBilling>(x => x.ProjectId == id && !x.Released)).SumDecimalAsync(x => x.Amount, ct)
+            + await milestones.Query(new Specification<ProjectMilestone>(x => x.ProjectId == id && x.Status == MilestoneStatus.Invoiced)).SumDecimalAsync(x => x.Amount, ct);
+        var remaining = p.BillingType == ProjectBillingType.FixedFee ? Math.Max(0m, fee - billed - ms.Sum(m => m.Amount)) : 0m;
+        return new BillableWorkDto(id, p.BillingType, fee, remaining,
+            time.Select(t => new BillableTimeDto(t.Id, t.Date, t.WorkerName, t.TaskId is { } tid ? titles.GetValueOrDefault(tid) : null, t.Description, t.Hours, t.TotalAmount)).ToList(),
+            costs.Select(e => new BillableExpenseDto(e.Id, e.Date, e.Category, e.Description, BillingLines.Charge(e))).ToList(),
+            ms.Select(m => new BillableMilestoneDto(m.Id, m.Title, m.AchievedDate, m.Amount)).ToList());
+    }
+
+    public async Task<IReadOnlyList<ProjectInvoiceDto>> Handle(GetProjectInvoices q, CancellationToken ct)
+    {
+        await access.EnsureProjectAsync(q.ProjectId, ct);
+        var id = q.ProjectId;
+        var rows = await invoices.Query(new Specification<Invoice>(x => x.SourceType == ProjectInvoiceVoidedHandler.SourceType && x.SourceId == id)).ToListAsync(ct);
+        return rows.OrderByDescending(x => x.InvoiceDate).Select(x => new ProjectInvoiceDto(x.Id, x.Number, x.InvoiceDate, x.DueDate, x.Status, x.Total, x.Paid)).ToList();
+    }
+
+    public Task<int> Handle(WriteOffProject cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
+    {
+        var p = await projects.GetAsync(cmd.ProjectId, token);
+        await access.EnsureAsync(p, token);
+        var id = p.Id;
+        var time = await timesheets.Tracked(new Specification<ProjectTimesheet>(x => x.ProjectId == id && x.IsBillable && !x.IsBilled && !x.WrittenOff && x.ApprovalStatus == TimesheetStatus.Approved)).ToListAsync(token);
+        var costs = await expenses.Tracked(new Specification<ProjectExpense>(x => x.ProjectId == id && x.IsBillable && !x.IsBilled && !x.WrittenOff && x.Status == ExpenseStatus.Approved)).ToListAsync(token);
+        await ReleaseWrittenOffAsync(p, time, costs, token);
+        foreach (var t in time) t.WrittenOff = true;
+        foreach (var e in costs) e.WrittenOff = true;
+        await timesheets.SaveChangesAsync(token);
+        await expenses.SaveChangesAsync(token);
+        return time.Count + costs.Count;
+    }, ct);
+
+    private async Task ReleaseWrittenOffAsync(Project p, IReadOnlyList<ProjectTimesheet> time, IReadOnlyList<ProjectExpense> costs, CancellationToken ct)
+    {
+        var postedTime = time.Where(t => t.CostJournalId != null && t.WipReleaseJournalId == null).ToList();
+        var postedCosts = costs.Where(e => e.CostJournalId != null && e.WipReleaseJournalId == null).ToList();
+        var journal = await ProjectWip.ReleaseAsync(posting, p, postedTime.Sum(t => t.CostAmount) + postedCosts.Sum(e => e.Amount), p.Number, $"Project {p.Number} work written off, work in progress to cost of sales", ct);
+        if (journal is null) return;
+        foreach (var t in postedTime) t.WipReleaseJournalId = journal.Id;
+        foreach (var e in postedCosts) e.WipReleaseJournalId = journal.Id;
+    }
+
     public async Task<IReadOnlyList<ProjectBillingSummaryDto>> Handle(GetBillingOverview q, CancellationToken ct)
     {
+        var visible = await access.VisibleIdsAsync(ct);
         // Only the columns the summary needs, grouped by project once (no per-project rescans of whole tables).
         var approvedTime = (await timesheets.Query(new Specification<ProjectTimesheet>(x => x.IsBillable && !x.IsBilled && !x.WrittenOff)).Select(x => new { x.ProjectId, x.Hours, x.TotalAmount, x.ApprovalStatus }).ToListAsync(ct));
         var unbilled = approvedTime.Where(x => x.ApprovalStatus == TimesheetStatus.Approved).GroupBy(x => x.ProjectId).ToDictionary(g => g.Key, g => (Hours: g.Sum(x => x.Hours), Amount: g.Sum(x => x.TotalAmount)));
@@ -163,7 +238,7 @@ internal sealed class BillingHandlers(
         var list = new List<ProjectBillingSummaryDto>();
         foreach (var p in allProjects)
         {
-            if (p.BillingType == ProjectBillingType.NonBillable) continue;
+            if (p.BillingType == ProjectBillingType.NonBillable || (visible != null && !visible.Contains(p.Id))) continue;
             var (hours, hoursAmount) = p.BillingType == ProjectBillingType.FixedFee ? default : unbilled.GetValueOrDefault(p.Id); // a fixed-fee project bills milestones only
             var (msCount, msAmount) = achieved.GetValueOrDefault(p.Id);
             var expenseAmount = costs.GetValueOrDefault(p.Id);
@@ -207,14 +282,9 @@ internal sealed class BillingHandlers(
             // cost that was moved into work in progress goes to cost of sales now that the work is billed
             var releaseTime = plan.Time.Where(t => t.CostJournalId != null && t.WipReleaseJournalId == null).ToList();
             var releaseCosts = plan.Expenses.Where(e => e.CostJournalId != null && e.WipReleaseJournalId == null).ToList();
-            var release = ProjectMath.Round(releaseTime.Sum(t => t.CostAmount) + releaseCosts.Sum(e => e.Amount));
-            if (release > 0)
+            var journal = await ProjectWip.ReleaseAsync(posting, p, releaseTime.Sum(t => t.CostAmount) + releaseCosts.Sum(e => e.Amount), invoice.Number, $"Project {p.Number} billed, work in progress to cost of sales", transactionCt);
+            if (journal is not null)
             {
-                var cogs = await posting.AccountForRoleAsync("cogs", transactionCt);
-                var wip = await posting.AccountForRoleAsync(SystemRoles.Wip, transactionCt);
-                var memo = $"Project {p.Number} billed, work in progress to cost of sales";
-                var journal = await posting.PostAsync(new PostingRequest(p.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), "projects.cost.release", p.Id, memo, invoice.Number,
-                    [new PostingLine(cogs, release, 0, memo), new PostingLine(wip, 0, release, memo)]), transactionCt);
                 foreach (var t in releaseTime) t.WipReleaseJournalId = journal.Id;
                 foreach (var e in releaseCosts) e.WipReleaseJournalId = journal.Id;
             }
@@ -228,15 +298,17 @@ internal sealed class BillingHandlers(
         }, ct);
     }
 
-    public async Task<int> Handle(WriteOffExpenses cmd, CancellationToken ct)
+    public Task<int> Handle(WriteOffExpenses cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
     {
-        var rows = await expenses.Tracked(new Specification<ProjectExpense>(e => cmd.Ids.Contains(e.Id))).ToListAsync(ct);
+        var rows = await expenses.Tracked(new Specification<ProjectExpense>(e => cmd.Ids.Contains(e.Id))).ToListAsync(token);
         if (rows.Count != cmd.Ids.Distinct().Count()) throw new NotFoundException("One of the expenses was not found.");
         if (rows.Any(e => e.IsBilled)) throw new ConflictException("Billed expenses cannot be written off. Void the invoice first.");
+        await access.EnsureProjectsAsync(rows.Select(e => e.ProjectId), token);
+        foreach (var group in rows.GroupBy(e => e.ProjectId)) await ReleaseWrittenOffAsync(await projects.GetAsync(group.Key, token), [], group.ToList(), token);
         foreach (var e in rows) e.WrittenOff = true;
-        await expenses.SaveChangesAsync(ct);
+        await expenses.SaveChangesAsync(token);
         return rows.Count;
-    }
+    }, ct);
 
     private sealed record Plan(Project Project, List<ProjectTimesheet> Time, List<ProjectMilestone> Milestones, List<ProjectExpense> Expenses, List<BillingLines.Line> Lines, decimal Subtotal, decimal Discount, decimal ProgressAmount);
 
@@ -244,6 +316,7 @@ internal sealed class BillingHandlers(
     private async Task<Plan> PlanAsync(BillProjectInput i, CancellationToken ct)
     {
         var p = await projects.GetAsync(i.ProjectId, ct);
+        await access.EnsureAsync(p, ct);
         if (p.IsTemplate) throw new ConflictException($"'{p.Name}' is a template and cannot be invoiced.");
         if (p.BillingType == ProjectBillingType.NonBillable)
             throw new ConflictException($"Project '{p.Name}' is non-billable and cannot be invoiced.");
@@ -255,15 +328,15 @@ internal sealed class BillingHandlers(
             throw new FieldValidationException("progressPercent", "Progress billing is only for fixed-fee projects.");
 
         var tsQuery = timesheets.Tracked(new Specification<ProjectTimesheet>(x => x.ProjectId == p.Id && x.IsBillable && !x.IsBilled && !x.WrittenOff && x.ApprovalStatus == TimesheetStatus.Approved));
-        if (i.TimesheetIds is { Count: > 0 }) { var ids = i.TimesheetIds.ToHashSet(); tsQuery = tsQuery.Where(x => ids.Contains(x.Id)); }
+        if (i.TimesheetIds is not null) { var ids = i.TimesheetIds.ToHashSet(); tsQuery = tsQuery.Where(x => ids.Contains(x.Id)); }
         var time = p.BillingType == ProjectBillingType.FixedFee ? new List<ProjectTimesheet>() : await tsQuery.OrderBy(x => x.Date).ToListAsync(ct); // a fixed-fee project bills milestones only
 
         var msQuery = milestones.Tracked(new Specification<ProjectMilestone>(x => x.ProjectId == p.Id && x.Status == MilestoneStatus.Achieved));
-        if (i.MilestoneIds is { Count: > 0 }) { var ids = i.MilestoneIds.ToHashSet(); msQuery = msQuery.Where(x => ids.Contains(x.Id)); }
+        if (i.MilestoneIds is not null) { var ids = i.MilestoneIds.ToHashSet(); msQuery = msQuery.Where(x => ids.Contains(x.Id)); }
         var ms = await msQuery.ToListAsync(ct);
 
         var exQuery = expenses.Tracked(new Specification<ProjectExpense>(x => x.ProjectId == p.Id && x.IsBillable && !x.IsBilled && !x.WrittenOff && x.Status == ExpenseStatus.Approved));
-        if (i.ExpenseIds is { Count: > 0 }) { var ids = i.ExpenseIds.ToHashSet(); exQuery = exQuery.Where(x => ids.Contains(x.Id)); }
+        if (i.ExpenseIds is not null) { var ids = i.ExpenseIds.ToHashSet(); exQuery = exQuery.Where(x => ids.Contains(x.Id)); }
         var ex = await exQuery.OrderBy(x => x.Date).ToListAsync(ct);
 
         decimal progressAmount = 0m;
@@ -291,8 +364,8 @@ internal sealed class BillingHandlers(
     }
 }
 
-/// <summary>Voiding a project invoice puts its work back: the time, expenses, milestones and fixed-fee percentage can be billed again.</summary>
-public sealed class ProjectInvoiceVoidedHandler(IRepository<ProjectTimesheet> timesheets, IRepository<ProjectExpense> expenses, IRepository<ProjectMilestone> milestones, IRepository<ProjectProgressBilling> progress)
+/// <summary>Voiding a project invoice puts its work back: the time, expenses, milestones and fixed-fee percentage can be billed again, and the cost goes back into work in progress.</summary>
+public sealed class ProjectInvoiceVoidedHandler(IRepository<ProjectTimesheet> timesheets, IRepository<ProjectExpense> expenses, IRepository<ProjectMilestone> milestones, IRepository<ProjectProgressBilling> progress, IRepository<JournalEntry> journals, IPostingService posting)
     : INotificationHandler<InvoiceVoided>
 {
     public const string SourceType = "projects.project";
@@ -301,8 +374,14 @@ public sealed class ProjectInvoiceVoidedHandler(IRepository<ProjectTimesheet> ti
     {
         if (n.SourceType != SourceType) return;
         var invoiceId = n.InvoiceId;
-        foreach (var t in await timesheets.Tracked(new Specification<ProjectTimesheet>(x => x.InvoiceId == invoiceId)).ToListAsync(ct)) { t.IsBilled = false; t.InvoiceId = null; }
-        foreach (var e in await expenses.Tracked(new Specification<ProjectExpense>(x => x.InvoiceId == invoiceId)).ToListAsync(ct)) { e.IsBilled = false; e.InvoiceId = null; }
+        var time = await timesheets.Tracked(new Specification<ProjectTimesheet>(x => x.InvoiceId == invoiceId)).ToListAsync(ct);
+        var costs = await expenses.Tracked(new Specification<ProjectExpense>(x => x.InvoiceId == invoiceId)).ToListAsync(ct);
+        var releases = time.Where(t => t.WipReleaseJournalId != null).Select(t => t.WipReleaseJournalId!.Value).Concat(costs.Where(e => e.WipReleaseJournalId != null).Select(e => e.WipReleaseJournalId!.Value)).Distinct().ToList();
+        if (releases.Count > 0)
+            foreach (var journal in await journals.Tracked(new Specification<JournalEntry>(j => releases.Contains(j.Id)).Include(j => j.Lines)).ToListAsync(ct))
+                if (journal.Status == JournalStatus.Posted) await posting.ReverseTodayAsync(journal, $"Project invoice voided, cost back to work in progress", ct);
+        foreach (var t in time) { t.IsBilled = false; t.InvoiceId = null; t.WipReleaseJournalId = null; }
+        foreach (var e in costs) { e.IsBilled = false; e.InvoiceId = null; e.WipReleaseJournalId = null; }
         foreach (var m in await milestones.Tracked(new Specification<ProjectMilestone>(x => x.InvoiceId == invoiceId)).ToListAsync(ct))
         {
             m.Status = MilestoneStatus.Achieved; m.InvoiceId = null; // a system step: only a void puts an invoiced milestone back

@@ -39,7 +39,7 @@ public class ProjectsModuleTests
     {
         var module = new ProjectsModule();
         var menu = module.Menu.ToList();
-        Assert.Equal(12, menu.Count);
+        Assert.Equal(13, menu.Count);
 
         var routes = menu.Select(m => m.Route).ToList();
         Assert.Contains("/projects/list", routes);
@@ -47,11 +47,10 @@ public class ProjectsModuleTests
         Assert.Contains("/projects/timesheets", routes);
         Assert.Contains("/projects/billing", routes);
 
-        foreach (var m in menu)
-        {
-            Assert.Equal("projects", m.GroupId);
-            Assert.Equal("Projects", m.GroupLabel);
-        }
+        // two groups: the work itself, and the time and money around it
+        Assert.All(menu.Where(m => m.GroupId == "projects"), m => Assert.Equal("Projects", m.GroupLabel));
+        Assert.All(menu.Where(m => m.GroupId == "projects.money"), m => Assert.Equal("Project time and money", m.GroupLabel));
+        Assert.Equal(2, menu.Select(m => m.GroupId).Distinct().Count());
     }
 
     [Fact]

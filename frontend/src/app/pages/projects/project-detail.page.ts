@@ -1,874 +1,270 @@
-import { CommonModule, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, input, OnInit, signal } from '@angular/core';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterModule } from '@angular/router';
-import { NzBadgeModule } from 'ng-zorro-antd/badge';
+import { DecimalPipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, viewChild } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzCardModule } from 'ng-zorro-antd/card';
-import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
-import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
-import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
-import { NzGridModule } from 'ng-zorro-antd/grid';
+import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
-import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzModalModule } from 'ng-zorro-antd/modal';
-import { NzProgressModule } from 'ng-zorro-antd/progress';
-import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTableModule } from 'ng-zorro-antd/table';
-import { NzTabsModule } from 'ng-zorro-antd/tabs';
-import { NzTagModule } from 'ng-zorro-antd/tag';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import {
-  MilestoneDto,
-  MilestoneStatus,
-  ProjectBillingApi,
-  ProjectDto,
-  ProjectMilestonesApi,
-  ProjectsApi,
-  ProjectStatus,
-  ProjectTasksApi,
-  ProjectTaskStatus,
-  ProjectTimesheetsApi,
-  TaskDto,
-  TaskPriority,
-  TimesheetDto,
-} from '../../core/api/projects.api';
-import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { catchError, map, of } from 'rxjs';
+import { ProjectDto, ProjectInput, ProjectsApi, ProjectStatus } from '../../core/api/projects.api';
+import { ProjectsExtraApi, UserOption } from '../../core/api/projects-extra.api';
+import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { SessionStore } from '../../core/session/session.store';
+import { MasterDataState } from '../../shared/master-data-state';
+import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
+import { PartiesApi } from '../parties.page';
+import { LogTimeComponent } from './log-time.component';
+import { ProjectControlComponent, ProjectMilestonesComponent, ProjectMoneyComponent, ProjectNotesComponent, ProjectOverviewComponent, ProjectTeamComponent, ProjectTimeComponent, ProjectWorkComponent } from './project-tabs.components';
+import { BILLING_TYPES, errorText, filterOptions, PRJ_STYLES, PROJECT_ACTIONS, ProjectTagComponent } from './projects-ui';
+import { TaskDrawerComponent } from './task-drawer.component';
 
+interface TabDef { key: string; label: string; permission?: string | string[]; }
+const TABS: TabDef[] = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'tasks', label: 'Tasks', permission: 'projects.tasks.read' },
+  { key: 'milestones', label: 'Milestones', permission: 'projects.milestones.read' },
+  { key: 'time', label: 'Time and expenses', permission: ['projects.timesheets.read', 'projects.expenses.read'] },
+  { key: 'money', label: 'Billing and budget', permission: 'projects.billing.read' },
+  { key: 'team', label: 'Team' },
+  { key: 'risks', label: 'Risks and changes', permission: ['projects.risks.read', 'projects.changeorders.read'] },
+  { key: 'notes', label: 'Discussion and files' },
+];
+
+/** One page for one project: how it is doing at the top, and everything about it in tabs. The tab is in the address, so it can be linked and survives a reload. */
 @Component({
   selector: 'erp-project-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    CommonModule,
-    DecimalPipe,
-    RouterModule,
-    FormsModule,
-    ReactiveFormsModule,
-    NzGridModule,
-    NzCardModule,
-    NzTagModule,
-    NzButtonModule,
-    NzIconModule,
-    NzToolTipModule,
-    NzTabsModule,
-    NzTableModule,
-    NzProgressModule,
-    NzBadgeModule,
-    NzDrawerModule,
-    NzModalModule,
-    NzFormModule,
-    NzInputModule,
-    NzInputNumberModule,
-    NzSelectModule,
-    NzDatePickerModule,
-    NzCheckboxModule,
-    HasPermissionDirective,
-  ],
+  imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, RecordDrawerComponent, ProjectTagComponent, LogTimeComponent, TaskDrawerComponent,
+    ProjectOverviewComponent, ProjectWorkComponent, ProjectMilestonesComponent, ProjectTimeComponent, ProjectMoneyComponent, ProjectTeamComponent, ProjectControlComponent, ProjectNotesComponent],
   template: `
-    @if (p(); as proj) {
-      <div class="project-detail-container">
-        <!-- Top Breadcrumbs & Actions -->
-        <div class="detail-header">
-          <div class="title-section">
-            <div class="breadcrumb-row">
-              <a routerLink="/projects/list" class="back-link"><span nz-icon nzType="arrow-left"></span> Back to Projects</a>
-            </div>
-            <div class="heading-row">
-              <span class="code-pill">{{ proj.number }}</span>
-              <h1 class="project-title">{{ proj.name }}</h1>
-              <nz-tag [nzColor]="statusColor(proj.status)" class="status-badge">{{ proj.status }}</nz-tag>
-            </div>
-            <div class="meta-row">
-              @if (proj.customerName) {
-                <span class="meta-item"><span nz-icon nzType="user"></span> {{ proj.customerName }}</span>
-              }
-              @if (proj.managerName) {
-                <span class="meta-item"><span nz-icon nzType="team"></span> PM: {{ proj.managerName }}</span>
-              }
-              <span class="meta-item"><span nz-icon nzType="calendar"></span> {{ proj.startDate || '—' }} to {{ proj.endDate || '—' }}</span>
-              <span class="meta-item"><span nz-icon nzType="tag"></span> {{ formatBillingType(proj.billingType) }}</span>
-            </div>
+    @if (project(); as p) {
+      <header class="head" data-testid="project-head">
+        <div class="title-block">
+          <a routerLink="/projects/list" class="back"><span nz-icon nzType="arrow-left"></span> All projects</a>
+          <div class="title-row">
+            <h2 data-testid="project-title">{{ p.name }}</h2>
+            <span class="code">{{ p.number }}</span>
+            <erp-prj-tag kind="project" [value]="p.status" />
+            <span data-testid="plan-health"><erp-prj-tag kind="health" [value]="p.health" /></span>
+            @if (p.isTemplate) { <span class="flag">Template</span> } @if (p.isArchived) { <span class="flag">Archived</span> }
           </div>
-
-          <div class="header-btns">
-            <a nz-button [routerLink]="['/projects', proj.id, 'plan']" data-testid="open-plan"><span nz-icon nzType="schedule"></span> Plan</a>
-            <button *erpHasPermission="'projects.tasks.manage'" nz-button (click)="openTaskModal()">
-              <span nz-icon nzType="plus"></span> Add Task
-            </button>
-            <button *erpHasPermission="'projects.milestones.manage'" nz-button (click)="openMilestoneModal()">
-              <span nz-icon nzType="flag"></span> Add Milestone
-            </button>
-            <button *erpHasPermission="'projects.timesheets.manage'" nz-button nzType="primary" (click)="openTimesheetModal()">
-              <span nz-icon nzType="clock-circle"></span> Log Time
-            </button>
+          <div class="meta">
+            <span><span nz-icon nzType="user"></span> {{ p.customerName || 'Internal project' }}</span>
+            @if (p.managerName) { <span><span nz-icon nzType="team"></span> {{ p.managerName }}</span> }
+            <span><span nz-icon nzType="calendar"></span> {{ p.startDate || 'No start date' }} to {{ p.endDate || 'no end date' }}</span>
+            <span><erp-prj-tag kind="billing" [value]="p.billingType" /></span>
           </div>
         </div>
-
-        <!-- Stat KPI Cards -->
-        <div nz-row [nzGutter]="[16, 16]" class="kpi-row">
-          <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-            <nz-card class="stat-card">
-              <div class="stat-header">
-                <span class="stat-label">Cost vs budget</span>
-                <span nz-icon nzType="dollar" class="stat-icon icon-budget"></span>
-              </div>
-              <div class="stat-value">{{ currency() }} {{ proj.totalTimesheetCost | number: '1.0-0' }}</div>
-              <div class="stat-sub">of {{ currency() }} {{ proj.effectiveBudget | number: '1.0-0' }} budget (labour cost and expenses)</div>
-              <nz-progress [nzPercent]="calcPercent(proj.totalTimesheetCost, proj.effectiveBudget)" [nzStatus]="proj.totalTimesheetCost > proj.effectiveBudget && proj.effectiveBudget > 0 ? 'exception' : 'active'"></nz-progress>
-            </nz-card>
-          </div>
-          <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-            <nz-card class="stat-card">
-              <div class="stat-header">
-                <span class="stat-label">Tasks Progress</span>
-                <span nz-icon nzType="check-square" class="stat-icon icon-tasks"></span>
-              </div>
-              <div class="stat-value">{{ proj.completedTasks }} / {{ proj.totalTasks }}</div>
-              <div class="stat-sub">tasks completed</div>
-              <nz-progress [nzPercent]="calcPercent(proj.completedTasks, proj.totalTasks)" nzStrokeColor="#10955d"></nz-progress>
-            </nz-card>
-          </div>
-          <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-            <nz-card class="stat-card">
-              <div class="stat-header">
-                <span class="stat-label">Milestones</span>
-                <span nz-icon nzType="flag" class="stat-icon icon-milestones"></span>
-              </div>
-              <div class="stat-value">{{ proj.achievedMilestones }} / {{ proj.totalMilestones }}</div>
-              <div class="stat-sub">milestones reached</div>
-              <nz-progress [nzPercent]="calcPercent(proj.achievedMilestones, proj.totalMilestones)" nzStrokeColor="#2563eb"></nz-progress>
-            </nz-card>
-          </div>
-          <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-            <nz-card class="stat-card">
-              <div class="stat-header">
-                <span class="stat-label">Logged Hours</span>
-                <span nz-icon nzType="clock-circle" class="stat-icon icon-hours"></span>
-              </div>
-              <div class="stat-value">{{ proj.totalLoggedHours | number: '1.1-1' }}h</div>
-              <div class="stat-sub">{{ proj.totalBilledHours | number: '1.1-1' }}h billed · {{ (proj.totalLoggedHours - proj.totalBilledHours) | number: '1.1-1' }}h unbilled</div>
-              <nz-progress [nzPercent]="calcPercent(proj.totalBilledHours, proj.totalLoggedHours)" nzStrokeColor="#7c3aed"></nz-progress>
-            </nz-card>
-          </div>
+        <div class="actions">
+          @if (!closed()) {
+            @if (can('projects.timesheets.manage') && !p.isTemplate) { <button nz-button nzType="primary" (click)="logTime()?.open(p.id)" data-testid="log-time"><span nz-icon nzType="clock-circle"></span> Log time</button> }
+            @if (can('projects.tasks.manage')) { <button nz-button (click)="taskDrawer()?.create({ projectId: p.id })" data-testid="add-task"><span nz-icon nzType="plus"></span> Add task</button> }
+          }
+          @if (can('projects.projects.manage')) {
+            @for (s of nextStatuses(); track s) { <button nz-button (click)="changeStatus(s)" [attr.data-testid]="'status-' + s">{{ action(s) }}</button> }
+            <button nz-button nz-dropdown [nzDropdownMenu]="more" nzTrigger="click" nzPlacement="bottomRight" aria-label="More actions" data-testid="project-more"><span nz-icon nzType="more"></span></button>
+            <nz-dropdown-menu #more="nzDropdownMenu">
+              <ul nz-menu>
+                <li nz-menu-item (click)="edit()" data-testid="project-edit">Edit project</li>
+                <li nz-menu-item (click)="cloneOpen.set(true)" data-testid="plan-clone">{{ p.isTemplate ? 'Create a project from this' : 'Clone' }}</li>
+                @if (can('projects.billing.manage') && !p.isTemplate) { <li nz-menu-item (click)="postCosts()" data-testid="plan-post-costs" title="Move the cost of approved time and expenses into work in progress">Post costs to ledger</li> }
+                <li nz-menu-item (click)="toggleArchive()" data-testid="plan-archive">{{ p.isArchived ? 'Restore' : 'Archive' }}</li>
+                @if (canCancel()) { <li nz-menu-item nzDanger (click)="changeStatus('cancelled')" data-testid="status-cancelled">Cancel project</li> }
+                <li nz-menu-item nzDanger (click)="remove()" data-testid="project-delete">Delete project</li>
+              </ul>
+            </nz-dropdown-menu>
+          }
         </div>
+      </header>
 
-        <!-- Main Tabs Section -->
-        <nz-card class="main-card">
-          <nz-tabset [nzSelectedIndex]="activeTabIndex()" (nzSelectedIndexChange)="activeTabIndex.set($event)">
-            <!-- TAB 1: OVERVIEW -->
-            <nz-tab nzTitle="Overview">
-              <div class="overview-grid">
-                <div class="info-block">
-                  <h3>Project Scope & Details</h3>
-                  <p class="description-text">{{ proj.description || 'No project description provided yet.' }}</p>
-                  <div class="props-list">
-                    <div class="prop-row"><span class="prop-label">Project Code:</span> <span class="prop-val">{{ proj.number }}</span></div>
-                    <div class="prop-row"><span class="prop-label">Client Name:</span> <span class="prop-val">{{ proj.customerName || 'None' }}</span></div>
-                    <div class="prop-row"><span class="prop-label">Project Manager:</span> <span class="prop-val">{{ proj.managerName || 'Unassigned' }}</span></div>
-                    <div class="prop-row"><span class="prop-label">Billing Model:</span> <span class="prop-val">{{ formatBillingType(proj.billingType) }}</span></div>
-                    <div class="prop-row"><span class="prop-label">Total Allocated Budget:</span> <span class="prop-val">{{ currency() }} {{ proj.budgetAmount | number: '1.2-2' }}</span></div>
-                    <div class="prop-row"><span class="prop-label">Start Date:</span> <span class="prop-val">{{ proj.startDate || '—' }}</span></div>
-                    <div class="prop-row"><span class="prop-label">Target Completion:</span> <span class="prop-val">{{ proj.endDate || '—' }}</span></div>
-                  </div>
-                </div>
-              </div>
-            </nz-tab>
-
-            <!-- TAB 2: TASKS -->
-            <nz-tab [nzTitle]="'Tasks (' + tasks().length + ')'">
-              <div class="tab-toolbar">
-                <span class="tab-heading">Work Breakdown & Tasks</span>
-                <button *erpHasPermission="'projects.tasks.manage'" nz-button nzType="primary" nzSize="small" (click)="openTaskModal()">
-                  <span nz-icon nzType="plus"></span> Add Task
-                </button>
-              </div>
-              <nz-table #taskTable [nzData]="tasks()" [nzShowPagination]="false" nzSize="middle">
-                <thead>
-                  <tr>
-                    <th>Task Code</th>
-                    <th>Title</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Assigned To</th>
-                    <th>Est. / Actual Hours</th>
-                    <th>Due Date</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (t of taskTable.data; track t.id) {
-                    <tr>
-                      <td><span class="code-pill">{{ t.number }}</span></td>
-                      <td>
-                        <span class="item-title">{{ t.title }}</span>
-                        @if (t.milestoneTitle) {
-                          <span class="milestone-subtag"><span nz-icon nzType="flag"></span> {{ t.milestoneTitle }}</span>
-                        }
-                      </td>
-                      <td><nz-tag [nzColor]="priorityColor(t.priority)">{{ t.priority }}</nz-tag></td>
-                      <td><nz-tag [nzColor]="taskStatusColor(t.status)">{{ t.status }}</nz-tag></td>
-                      <td>{{ t.assignedTo || '—' }}</td>
-                      <td>{{ t.actualHours }}h / {{ t.estimatedHours }}h</td>
-                      <td>{{ t.dueDate || '—' }}</td>
-                      <td>
-                        <nz-select [ngModel]="t.status" (ngModelChange)="updateTaskStatus(t.id, $event)" nzSize="small" style="width: 120px;">
-                          <nz-option nzValue="Todo" nzLabel="To Do"></nz-option>
-                          <nz-option nzValue="InProgress" nzLabel="In Progress"></nz-option>
-                          <nz-option nzValue="Review" nzLabel="Review"></nz-option>
-                          <nz-option nzValue="Done" nzLabel="Done"></nz-option>
-                        </nz-select>
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </nz-table>
-            </nz-tab>
-
-            <!-- TAB 3: MILESTONES -->
-            <nz-tab [nzTitle]="'Milestones (' + milestones().length + ')'">
-              <div class="tab-toolbar">
-                <span class="tab-heading">Delivery Milestones & Fixed Billing</span>
-                <button *erpHasPermission="'projects.milestones.manage'" nz-button nzType="primary" nzSize="small" (click)="openMilestoneModal()">
-                  <span nz-icon nzType="plus"></span> Add Milestone
-                </button>
-              </div>
-              <nz-table #mTable [nzData]="milestones()" [nzShowPagination]="false" nzSize="middle">
-                <thead>
-                  <tr>
-                    <th>Milestone</th>
-                    <th>Due Date</th>
-                    <th>Billing Amount</th>
-                    <th>Status</th>
-                    <th>Achieved Date</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (m of mTable.data; track m.id) {
-                    <tr>
-                      <td><span class="item-title">{{ m.title }}</span></td>
-                      <td>{{ m.dueDate }}</td>
-                      <td><b>{{ currency() }} {{ m.amount | number: '1.2-2' }}</b></td>
-                      <td><nz-tag [nzColor]="milestoneStatusColor(m.status)">{{ m.status }}</nz-tag></td>
-                      <td>{{ m.achievedDate || '—' }}</td>
-                      <td>
-                        @if (m.status === 'Pending') {
-                          <button *erpHasPermission="'projects.milestones.manage'" nz-button nzSize="small" nzType="default" (click)="achieveMilestone(m.id)">
-                            <span nz-icon nzType="check"></span> Mark Achieved
-                          </button>
-                        } @else if (m.status === 'Achieved') {
-                          <span class="status-info-text">Ready to bill</span>
-                        } @else {
-                          <nz-tag nzColor="green">Billed</nz-tag>
-                        }
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </nz-table>
-            </nz-tab>
-
-            <!-- TAB 4: TIMESHEETS -->
-            <nz-tab [nzTitle]="'Timesheets (' + timesheets().length + ')'">
-              <div class="tab-toolbar">
-                <span class="tab-heading">Logged Hours & Work Logs</span>
-                <button *erpHasPermission="'projects.timesheets.manage'" nz-button nzType="primary" nzSize="small" (click)="openTimesheetModal()">
-                  <span nz-icon nzType="plus"></span> Log Time
-                </button>
-              </div>
-              <nz-table #tsTable [nzData]="timesheets()" [nzShowPagination]="false" nzSize="middle">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Worker</th>
-                    <th>Task</th>
-                    <th>Description</th>
-                    <th>Hours</th>
-                    <th>Hourly Rate</th>
-                    <th>Total Cost</th>
-                    <th>Billing Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (ts of tsTable.data; track ts.id) {
-                    <tr>
-                      <td>{{ ts.date }}</td>
-                      <td><b>{{ ts.workerName }}</b></td>
-                      <td>{{ ts.taskTitle || '—' }}</td>
-                      <td>{{ ts.description || '—' }}</td>
-                      <td>{{ ts.hours | number: '1.2-2' }}h</td>
-                      <td>{{ currency() }} {{ ts.hourlyRate | number: '1.2-2' }}</td>
-                      <td><b>{{ currency() }} {{ ts.totalAmount | number: '1.2-2' }}</b></td>
-                      <td>
-                        @if (!ts.isBillable) {
-                          <nz-tag nzColor="default">Non-Billable</nz-tag>
-                        } @else if (ts.isBilled) {
-                          <nz-tag nzColor="green">Billed</nz-tag>
-                        } @else {
-                          <nz-tag nzColor="orange">Unbilled</nz-tag>
-                        }
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </nz-table>
-            </nz-tab>
-
-            <!-- TAB 5: BILLING -->
-            <nz-tab nzTitle="Billing">
-              <div class="billing-summary-box">
-                <div class="billing-header">
-                  <div>
-                    <h3 style="margin:0 0 4px 0;">Project Billing Worksheet</h3>
-                    <p class="tab-subtitle">Review unbilled time entries and completed milestones for client invoicing.</p>
-                  </div>
-                  <button *erpHasPermission="'projects.billing.manage'" nz-button nzType="primary" [disabled]="unbilledTimesheets().length === 0 && unbilledMilestones().length === 0" (click)="generateBilling()">
-                    <span nz-icon nzType="dollar-circle"></span> Bill Work ({{ currency() }} {{ totalUnbilledAmount() | number: '1.2-2' }})
-                  </button>
-                </div>
-
-                <div nz-row [nzGutter]="16" style="margin-top: 16px;">
-                  <div nz-col [nzXs]="24" [nzMd]="12">
-                    <nz-card nzTitle="Unbilled Hours" nzSize="small">
-                      <p><b>{{ unbilledTimesheets().length }}</b> timesheet entries pending billing.</p>
-                      <p class="billing-stat-amount">Total: {{ currency() }} {{ unbilledHoursTotal() | number: '1.2-2' }}</p>
-                    </nz-card>
-                  </div>
-                  <div nz-col [nzXs]="24" [nzMd]="12">
-                    <nz-card nzTitle="Achieved Milestones" nzSize="small">
-                      <p><b>{{ unbilledMilestones().length }}</b> milestones reached and ready to invoice.</p>
-                      <p class="billing-stat-amount">Total: {{ currency() }} {{ unbilledMilestonesTotal() | number: '1.2-2' }}</p>
-                    </nz-card>
-                  </div>
-                </div>
-              </div>
-            </nz-tab>
-          </nz-tabset>
-        </nz-card>
-
-        <!-- Task Modal -->
-        <nz-modal [(nzVisible)]="taskModalVisible" nzTitle="Add Project Task" (nzOnCancel)="taskModalVisible = false" (nzOnOk)="saveTask()">
-          <ng-container *nzModalContent>
-            <form [formGroup]="taskForm" nz-form nzLayout="vertical">
-              <nz-form-item>
-                <nz-form-label nzRequired>Task Title</nz-form-label>
-                <nz-form-control><input nz-input formControlName="title" placeholder="e.g. Design database schema" /></nz-form-control>
-              </nz-form-item>
-              <div nz-row [nzGutter]="12">
-                <div nz-col [nzSpan]="12">
-                  <nz-form-item>
-                    <nz-form-label>Assigned To</nz-form-label>
-                    <nz-form-control><input nz-input formControlName="assignedTo" placeholder="Developer name" /></nz-form-control>
-                  </nz-form-item>
-                </div>
-                <div nz-col [nzSpan]="12">
-                  <nz-form-item>
-                    <nz-form-label>Priority</nz-form-label>
-                    <nz-form-control>
-                      <nz-select formControlName="priority">
-                        <nz-option nzValue="Low" nzLabel="Low"></nz-option>
-                        <nz-option nzValue="Medium" nzLabel="Medium"></nz-option>
-                        <nz-option nzValue="High" nzLabel="High"></nz-option>
-                        <nz-option nzValue="Urgent" nzLabel="Urgent"></nz-option>
-                      </nz-select>
-                    </nz-form-control>
-                  </nz-form-item>
-                </div>
-              </div>
-              <div nz-row [nzGutter]="12">
-                <div nz-col [nzSpan]="12">
-                  <nz-form-item>
-                    <nz-form-label>Estimated Hours</nz-form-label>
-                    <nz-form-control><nz-input-number formControlName="estimatedHours" [nzMin]="0" style="width:100%"></nz-input-number></nz-form-control>
-                  </nz-form-item>
-                </div>
-                <div nz-col [nzSpan]="12">
-                  <nz-form-item>
-                    <nz-form-label>Due Date</nz-form-label>
-                    <nz-form-control><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control>
-                  </nz-form-item>
-                </div>
-              </div>
-            </form>
-          </ng-container>
-        </nz-modal>
-
-        <!-- Milestone Modal -->
-        <nz-modal [(nzVisible)]="milestoneModalVisible" nzTitle="Add Project Milestone" (nzOnCancel)="milestoneModalVisible = false" (nzOnOk)="saveMilestone()">
-          <ng-container *nzModalContent>
-            <form [formGroup]="milestoneForm" nz-form nzLayout="vertical">
-              <nz-form-item>
-                <nz-form-label nzRequired>Milestone Title</nz-form-label>
-                <nz-form-control><input nz-input formControlName="title" placeholder="e.g. Phase 1 User Acceptance Testing" /></nz-form-control>
-              </nz-form-item>
-              <div nz-row [nzGutter]="12">
-                <div nz-col [nzSpan]="12">
-                  <nz-form-item>
-                    <nz-form-label nzRequired>Billing Amount (QAR)</nz-form-label>
-                    <nz-form-control><nz-input-number formControlName="amount" [nzMin]="0" style="width:100%"></nz-input-number></nz-form-control>
-                  </nz-form-item>
-                </div>
-                <div nz-col [nzSpan]="12">
-                  <nz-form-item>
-                    <nz-form-label nzRequired>Target Date</nz-form-label>
-                    <nz-form-control><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control>
-                  </nz-form-item>
-                </div>
-              </div>
-            </form>
-          </ng-container>
-        </nz-modal>
-
-        <!-- Timesheet Modal -->
-        <nz-modal [(nzVisible)]="timesheetModalVisible" nzTitle="Log Project Time" (nzOnCancel)="timesheetModalVisible = false" (nzOnOk)="saveTimesheet()">
-          <ng-container *nzModalContent>
-            <form [formGroup]="timesheetForm" nz-form nzLayout="vertical">
-              <div nz-row [nzGutter]="12">
-                <div nz-col [nzSpan]="12">
-                  <nz-form-item>
-                    <nz-form-label nzRequired>Worker Name</nz-form-label>
-                    <nz-form-control><input nz-input formControlName="workerName" placeholder="Full name" /></nz-form-control>
-                  </nz-form-item>
-                </div>
-                <div nz-col [nzSpan]="12">
-                  <nz-form-item>
-                    <nz-form-label nzRequired>Date</nz-form-label>
-                    <nz-form-control><nz-date-picker formControlName="date" style="width:100%"></nz-date-picker></nz-form-control>
-                  </nz-form-item>
-                </div>
-              </div>
-              <div nz-row [nzGutter]="12">
-                <div nz-col [nzSpan]="12">
-                  <nz-form-item>
-                    <nz-form-label nzRequired>Hours Spent</nz-form-label>
-                    <nz-form-control><nz-input-number formControlName="hours" [nzMin]="0.1" [nzMax]="24" [nzStep]="0.5" style="width:100%"></nz-input-number></nz-form-control>
-                  </nz-form-item>
-                </div>
-                <div nz-col [nzSpan]="12">
-                  <nz-form-item>
-                    <nz-form-label nzRequired>Hourly Rate (QAR)</nz-form-label>
-                    <nz-form-control><nz-input-number formControlName="hourlyRate" [nzMin]="0" style="width:100%"></nz-input-number></nz-form-control>
-                  </nz-form-item>
-                </div>
-              </div>
-              <nz-form-item>
-                <nz-form-label>Work Description</nz-form-label>
-                <nz-form-control><input nz-input formControlName="description" placeholder="Summary of work completed" /></nz-form-control>
-              </nz-form-item>
-              <nz-form-item>
-                <label nz-checkbox formControlName="isBillable">Billable to client</label>
-              </nz-form-item>
-            </form>
-          </ng-container>
-        </nz-modal>
+      <div class="kpis" data-testid="project-kpis">
+        <div class="kpi">
+          <div class="k-label">Progress</div><div class="k-value">{{ p.percentComplete | number: '1.0-0' }}%</div>
+          <div class="prj-bar"><i [style.width.%]="p.percentComplete"></i></div>
+          <div class="k-sub">{{ p.completedTasks }} of {{ p.totalTasks }} tasks done @if (p.overdueTasks) { · <span class="prj-danger">{{ p.overdueTasks }} overdue</span> }</div>
+        </div>
+        <div class="kpi">
+          <div class="k-label">Budget used</div><div class="k-value" [class.prj-danger]="budgetUsed() > 100">{{ budgetUsed() | number: '1.0-0' }}%</div>
+          <div class="prj-bar" [class.warn]="budgetUsed() > 85" [class.over]="budgetUsed() > 100"><i [style.width.%]="min100(budgetUsed())"></i></div>
+          <div class="k-sub">{{ currency() }} {{ p.totalTimesheetCost | number: '1.0-0' }} of {{ p.effectiveBudget | number: '1.0-0' }}</div>
+        </div>
+        <div class="kpi">
+          <div class="k-label">Hours</div><div class="k-value">{{ p.totalLoggedHours | number: '1.0-1' }}</div>
+          <div class="prj-bar" [class.over]="hoursUsed() > 100"><i [style.width.%]="min100(hoursUsed())"></i></div>
+          <div class="k-sub">@if (p.effectiveBudgetHours) { of {{ p.effectiveBudgetHours | number: '1.0-0' }} budgeted } @else { no hours budgeted }</div>
+        </div>
+        <div class="kpi">
+          <div class="k-label">Milestones</div><div class="k-value">{{ p.achievedMilestones }} / {{ p.totalMilestones }}</div>
+          <div class="prj-bar"><i [style.width.%]="p.totalMilestones ? (p.achievedMilestones / p.totalMilestones) * 100 : 0"></i></div>
+          <div class="k-sub">reached</div>
+        </div>
+        <a class="kpi link" [routerLink]="[]" [queryParams]="{ tab: 'money' }" data-testid="kpi-unbilled">
+          <div class="k-label">Ready to bill</div><div class="k-value">{{ currency() }} {{ p.unbilledAmount | number: '1.0-0' }}</div>
+          <div class="k-sub">{{ currency() }} {{ p.billedAmount | number: '1.0-0' }} billed so far</div>
+        </a>
       </div>
+
+      <nav class="tabs" role="tablist" aria-label="Project sections" data-testid="project-tabs">
+        @for (t of tabs(); track t.key) {
+          <a role="tab" [routerLink]="[]" [queryParams]="{ tab: t.key }" [class.on]="activeTab() === t.key" [attr.aria-selected]="activeTab() === t.key" [attr.data-testid]="'tab-' + t.key">{{ t.label }}</a>
+        }
+      </nav>
+
+      <div role="tabpanel">
+        @switch (activeTab()) {
+          @case ('overview') { <erp-project-overview [project]="p" (changed)="reload()" /> }
+          @case ('tasks') { <erp-project-work [project]="p" (changed)="reload()" /> }
+          @case ('milestones') { <erp-project-milestones [project]="p" (changed)="reload()" /> }
+          @case ('time') { <erp-project-time [projectId]="p.id" /> }
+          @case ('money') { <erp-project-money [project]="p" (changed)="reload()" /> }
+          @case ('team') { <erp-project-team [projectId]="p.id" /> }
+          @case ('risks') { <erp-project-control [projectId]="p.id" /> }
+          @case ('notes') { <erp-project-notes [projectId]="p.id" /> }
+        }
+      </div>
+
+      <erp-log-time (saved)="reload()" />
+      <erp-task-drawer (changed)="reload()" />
+      <erp-record-drawer title="Edit project" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="project" [saving]="state.saving()" [errors]="state.errors()" testId="project-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+
+      <nz-modal [nzVisible]="cloneOpen()" [nzTitle]="p.isTemplate ? 'New project from this template' : 'Clone project'" nzOkText="Create" (nzOnOk)="clone(p)" (nzOnCancel)="cloneOpen.set(false)">
+        <ng-container *nzModalContent>
+          <div class="form">
+            <label>Name<input nz-input [(ngModel)]="cloneName" maxlength="200" data-testid="clone-name" /></label>
+            <label>Start date<input nz-input type="date" [(ngModel)]="cloneStart" /></label>
+            <label class="check"><input type="checkbox" [(ngModel)]="cloneTeam" /> Keep the team and task assignees</label>
+            <label class="check"><input type="checkbox" [(ngModel)]="cloneTemplate" /> Save the copy as a template</label>
+            <p class="prj-muted">Tasks, milestones, dependencies and project rate cards are copied, and dates move with the start date. Time, expenses and billing are not copied.</p>
+          </div>
+        </ng-container>
+      </nz-modal>
+    } @else if (failed()) {
+      <div class="prj-card prj-empty" role="alert" data-testid="project-load-error">{{ failed() }} <a routerLink="/projects/list" class="prj-link">Back to projects</a></div>
+    } @else {
+      <div class="prj-empty">Loading the project</div>
     }
   `,
-  styles: [`
-    .project-detail-container {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .detail-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-    .back-link {
-      font-size: 13px;
-      color: #64748b;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 8px;
-      text-decoration: none;
-    }
-    .back-link:hover {
-      color: #10955d;
-    }
-    .heading-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .project-title {
-      font-size: 22px;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 0;
-    }
-    .meta-row {
-      display: flex;
-      gap: 18px;
-      margin-top: 8px;
-      flex-wrap: wrap;
-    }
-    .meta-item {
-      font-size: 13px;
-      color: #64748b;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .header-btns {
-      display: flex;
-      gap: 8px;
-    }
-    .kpi-row {
-      margin-bottom: 4px;
-    }
-    .stat-card {
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    }
-    .stat-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
-    }
-    .stat-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #64748b;
-    }
-    .stat-icon {
-      font-size: 18px;
-      padding: 6px;
-      border-radius: 8px;
-    }
-    .icon-budget { color: #d97706; background: #fef3c7; }
-    .icon-tasks { color: #10955d; background: #e6f7ef; }
-    .icon-milestones { color: #2563eb; background: #eff6ff; }
-    .icon-hours { color: #7c3aed; background: #f5f3ff; }
-    .stat-value {
-      font-size: 20px;
-      font-weight: 700;
-      color: #0f172a;
-      line-height: 1.2;
-    }
-    .stat-sub {
-      font-size: 12px;
-      color: #94a3b8;
-      margin: 2px 0 8px 0;
-    }
-    .main-card {
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-    }
-    .tab-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .tab-heading {
-      font-size: 15px;
-      font-weight: 600;
-      color: #0f172a;
-    }
-    .overview-grid {
-      padding: 12px 0;
-    }
-    .description-text {
-      font-size: 14px;
-      color: #334155;
-      line-height: 1.6;
-      background: #f8fafc;
-      padding: 16px;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
-    }
-    .props-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 12px;
-      margin-top: 16px;
-    }
-    .prop-row {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .prop-label {
-      font-size: 12px;
-      color: #64748b;
-      font-weight: 500;
-    }
-    .prop-val {
-      font-size: 14px;
-      font-weight: 600;
-      color: #0f172a;
-    }
-    .item-title {
-      font-weight: 600;
-      color: #0f172a;
-    }
-    .milestone-subtag {
-      display: block;
-      font-size: 11.5px;
-      color: #2563eb;
-      margin-top: 2px;
-    }
-    .status-info-text {
-      font-size: 12px;
-      color: #d97706;
-      font-weight: 500;
-    }
-    .billing-summary-box {
-      padding: 12px 0;
-    }
-    .billing-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-    .tab-subtitle {
-      font-size: 13px;
-      color: #64748b;
-      margin: 0;
-    }
-    .billing-stat-amount {
-      font-size: 16px;
-      font-weight: 700;
-      color: #10955d;
-      margin: 4px 0 0 0;
-    }
+  styles: [PRJ_STYLES + `
+    :host { display:block; }
+    .head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
+    .back { font-size:12.5px; color:var(--erp-color-text-secondary,#64748b); display:inline-flex; gap:5px; align-items:center; text-decoration:none; } .back:hover { color:var(--erp-color-primary,#10955d); }
+    .title-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:4px; } h2 { font-size:21px; font-weight:700; margin:0; color:var(--erp-color-text-primary,#0f172a); } .code { font-family:ui-monospace,monospace; font-size:12px; color:var(--erp-color-text-secondary,#64748b); } .flag { font-size:11.5px; font-weight:600; border-radius:4px; padding:1px 7px; background:var(--erp-color-bg-subtle,#eef2f6); color:var(--erp-color-text-secondary,#475569); }
+    .meta { display:flex; gap:16px; flex-wrap:wrap; margin-top:7px; font-size:13px; color:var(--erp-color-text-secondary,#64748b); } .meta span[nz-icon] { margin-inline-end:4px; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:14px; }
+    .kpi { background:var(--erp-color-bg-surface,#fff); border:1px solid var(--erp-color-border-subtle,#e2e8f0); border-radius:12px; padding:12px 14px; display:block; text-decoration:none; } .kpi.link:hover { border-color:var(--erp-color-primary,#10955d); }
+    .k-label { font-size:12px; font-weight:600; color:var(--erp-color-text-secondary,#64748b); } .k-value { font-size:20px; font-weight:700; color:var(--erp-color-text-primary,#0f172a); margin:2px 0 6px; font-variant-numeric:tabular-nums; } .k-sub { font-size:11.5px; color:var(--erp-color-text-secondary,#64748b); margin-top:5px; }
+    .tabs { display:flex; gap:2px; border-bottom:1px solid var(--erp-color-border-subtle,#e2e8f0); margin-bottom:14px; overflow-x:auto; scrollbar-width:thin; }
+    .tabs a { padding:9px 13px; white-space:nowrap; border-bottom:2px solid transparent; color:var(--erp-color-text-secondary,#475569); text-decoration:none; font-size:13.5px; } .tabs a:hover { color:var(--erp-color-text-primary,#0f172a); } .tabs a.on { color:var(--erp-color-primary,#10955d); border-bottom-color:var(--erp-color-primary,#10955d); font-weight:600; }
+    .form { display:flex; flex-direction:column; gap:10px; } .form label { display:flex; flex-direction:column; gap:4px; font-size:13px; } .form .check { flex-direction:row; align-items:center; gap:6px; }
+    @media (max-width:720px) { h2 { font-size:18px; } .actions { width:100%; } }
   `],
 })
-export class ProjectDetailPage implements OnInit {
+export class ProjectDetailPage {
   readonly id = input.required<string>();
+  /** From ?tab= in the address. */
+  readonly tab = input<string | null>(null);
 
   private readonly projectsApi = inject(ProjectsApi);
-  private readonly tasksApi = inject(ProjectTasksApi);
-  private readonly milestonesApi = inject(ProjectMilestonesApi);
-  private readonly timesheetsApi = inject(ProjectTimesheetsApi);
-  private readonly billingApi = inject(ProjectBillingApi);
-  private readonly fb = inject(FormBuilder);
+  private readonly extra = inject(ProjectsExtraApi);
+  private readonly parties = inject(PartiesApi);
   private readonly msg = inject(NzMessageService);
-  private readonly currencyService = inject(WorkspaceCurrencyService);
-
-  readonly currency = this.currencyService.currency;
+  private readonly modal = inject(NzModalService);
+  private readonly session = inject(SessionStore);
+  private readonly router = inject(Router);
+  readonly currency = inject(WorkspaceCurrencyService).currency;
+  readonly logTime = viewChild(LogTimeComponent);
+  readonly taskDrawer = viewChild(TaskDrawerComponent);
 
   readonly project = signal<ProjectDto | null>(null);
-  readonly p = computed(() => this.project());
-  readonly tasks = signal<TaskDto[]>([]);
-  readonly milestones = signal<MilestoneDto[]>([]);
-  readonly timesheets = signal<TimesheetDto[]>([]);
-  readonly activeTabIndex = signal(0);
+  readonly failed = signal<string | null>(null);
+  readonly cloneOpen = signal(false);
+  private readonly users = toSignal(this.extra.users().pipe(catchError(() => of([] as UserOption[]))), { initialValue: [] as UserOption[] });
+  cloneName = ''; cloneStart = toIsoDate(new Date()); cloneTeam = false; cloneTemplate = false;
 
-  taskModalVisible = false;
-  milestoneModalVisible = false;
-  timesheetModalVisible = false;
+  readonly tabs = computed(() => TABS.filter((t) => !t.permission || (Array.isArray(t.permission) ? t.permission : [t.permission]).some((x) => this.session.hasPermission(x))));
+  readonly activeTab = computed(() => { const t = this.tab(); return t && this.tabs().some((x) => x.key === t) ? t : 'overview'; });
+  readonly closed = computed(() => { const p = this.project(); return !p || p.status === 'completed' || p.status === 'cancelled' || !!p.isArchived; });
+  readonly nextStatuses = computed(() => { const p = this.project(); return p && !p.isTemplate ? (p.nextStatuses ?? []).filter((s) => s !== 'cancelled') : []; });
+  readonly canCancel = computed(() => (this.project()?.nextStatuses ?? []).includes('cancelled'));
+  readonly budgetUsed = computed(() => { const p = this.project(); return p && p.effectiveBudget > 0 ? (p.totalTimesheetCost / p.effectiveBudget) * 100 : 0; });
+  readonly hoursUsed = computed(() => { const p = this.project(); return p && p.effectiveBudgetHours > 0 ? (p.totalLoggedHours / p.effectiveBudgetHours) * 100 : 0; });
 
-  readonly taskForm = this.fb.group({
-    title: ['', Validators.required],
-    assignedTo: [''],
-    priority: ['Medium', Validators.required],
-    estimatedHours: [0, [Validators.min(0)]],
-    dueDate: [null],
+  readonly state: MasterDataState<ProjectDto> = new MasterDataState<ProjectDto>({
+    save: (id, body) => {
+      const p = this.project()!;
+      const merged = { legalEntityId: p.legalEntityId, status: p.status, taxCodeId: p.taxCodeId ?? null, sourceType: p.sourceType ?? null, sourceId: p.sourceId ?? null, isTemplate: p.isTemplate, customFields: p.customFields ?? null, ...(body as Partial<ProjectInput>) } as ProjectInput;
+      if (!merged.managerUserId) merged.managerName = p.managerUserId ? null : p.managerName ?? null;
+      return this.projectsApi.update(id!, merged);
+    },
+    reload: () => this.reload(), message: inject(NzMessageService), entityName: 'Project',
   });
+  readonly fields = computed<FieldSpec[]>(() => [
+    { key: 'name', label: 'Project name', type: 'text', required: true, maxLength: 200 },
+    { key: 'number', label: 'Project code', type: 'text', maxLength: 30 },
+    { key: 'customerId', label: 'Customer', type: 'lookup', lookup: (term) => this.parties.list({ page: 1, pageSize: 20, search: term, extra: { role: 'Customer' } }).pipe(map((r) => r.items.map((c) => ({ value: c.id, label: c.name })))), currentLabel: (r) => (r['customerName'] as string) ?? undefined },
+    { key: 'managerUserId', label: 'Project manager', type: 'select', options: this.users().map((u) => ({ value: u.id, label: u.fullName })), hint: this.project()?.managerName && !this.project()?.managerUserId ? `Typed name: ${this.project()!.managerName}. Choose a person to link an account.` : undefined },
+    { key: 'billingType', label: 'Billing model', type: 'select', required: true, options: filterOptions(BILLING_TYPES) },
+    { key: 'budgetAmount', label: `Budget or fixed fee (${this.currency()})`, type: 'number', min: 0 },
+    { key: 'budgetHours', label: 'Budgeted hours', type: 'number', min: 0 },
+    { key: 'startDate', label: 'Start date', type: 'date' },
+    { key: 'endDate', label: 'Target end date', type: 'date' },
+    { key: 'description', label: 'Description and scope', type: 'textarea', maxLength: 2000 },
+  ]);
 
-  readonly milestoneForm = this.fb.group({
-    title: ['', Validators.required],
-    amount: [0, [Validators.required, Validators.min(0)]],
-    dueDate: [null, Validators.required],
-  });
+  constructor() { effect(() => { this.id(); this.reload(); }); }
 
-  readonly timesheetForm = this.fb.group({
-    workerName: ['', Validators.required],
-    date: [new Date(), Validators.required],
-    hours: [1, [Validators.required, Validators.min(0.1), Validators.max(24)]],
-    hourlyRate: [150, [Validators.required, Validators.min(0)]],
-    description: [''],
-    isBillable: [true],
-  });
+  can(permission: string): boolean { return this.session.hasPermission(permission); }
+  action(s: ProjectStatus): string { return PROJECT_ACTIONS[s]; }
+  min100(n: number): number { return Math.max(0, Math.min(100, n)); }
 
-  readonly unbilledTimesheets = computed(() => this.timesheets().filter((ts) => ts.isBillable && !ts.isBilled));
-  readonly unbilledHoursTotal = computed(() => this.unbilledTimesheets().reduce((acc, ts) => acc + ts.totalAmount, 0));
-  readonly unbilledMilestones = computed(() => this.milestones().filter((m) => m.status === 'Achieved'));
-  readonly unbilledMilestonesTotal = computed(() => this.unbilledMilestones().reduce((acc, m) => acc + m.amount, 0));
-  readonly totalUnbilledAmount = computed(() => this.unbilledHoursTotal() + this.unbilledMilestonesTotal());
-
-  ngOnInit(): void {
-    this.loadAll();
-  }
-
-  loadAll(): void {
-    const projId = this.id();
-    this.projectsApi.get(projId).subscribe((res) => this.project.set(res));
-    this.tasksApi.list({ page: 1, pageSize: 200, filters: [{ field: 'projectId', op: 'eq', value: projId }] }).subscribe((res) => this.tasks.set(res.items));
-    this.milestonesApi.list({ page: 1, pageSize: 100, filters: [{ field: 'projectId', op: 'eq', value: projId }] }).subscribe((res) => this.milestones.set(res.items));
-    this.timesheetsApi.list({ page: 1, pageSize: 200, filters: [{ field: 'projectId', op: 'eq', value: projId }] }).subscribe((res) => this.timesheets.set(res.items));
-  }
-
-  calcPercent(current: number, total: number): number {
-    if (!total || total <= 0) return 0;
-    return Math.min(100, Math.round((current / total) * 100));
-  }
-
-  statusColor(status: ProjectStatus): string {
-    switch (status) {
-      case 'Active': return 'green';
-      case 'Planning': return 'blue';
-      case 'OnHold': return 'warning';
-      case 'Completed': return 'purple';
-      case 'Cancelled': return 'error';
-      default: return 'default';
-    }
-  }
-
-  taskStatusColor(status: ProjectTaskStatus): string {
-    switch (status) {
-      case 'Done': return 'green';
-      case 'InProgress': return 'blue';
-      case 'Review': return 'purple';
-      default: return 'default';
-    }
-  }
-
-  priorityColor(priority: TaskPriority): string {
-    switch (priority) {
-      case 'Urgent': return 'error';
-      case 'High': return 'warning';
-      case 'Medium': return 'blue';
-      default: return 'default';
-    }
-  }
-
-  milestoneStatusColor(status: MilestoneStatus): string {
-    switch (status) {
-      case 'Achieved': return 'blue';
-      case 'Invoiced': return 'green';
-      default: return 'default';
-    }
-  }
-
-  formatBillingType(type: string): string {
-    switch (type) {
-      case 'TimeAndMaterials': return 'Time & Materials';
-      case 'FixedFee': return 'Fixed Fee';
-      case 'NonBillable': return 'Non-Billable';
-      default: return type;
-    }
-  }
-
-  openTaskModal(): void {
-    this.taskForm.reset({ priority: 'Medium', estimatedHours: 0 });
-    this.taskModalVisible = true;
-  }
-
-  saveTask(): void {
-    if (this.taskForm.invalid) return;
-    const v = this.taskForm.value;
-    const dueDateStr = v.dueDate ? new Date(v.dueDate).toISOString().split('T')[0] : null;
-
-    this.tasksApi.create({
-      projectId: this.id(),
-      title: v.title!,
-      assignedTo: v.assignedTo || null,
-      priority: v.priority as TaskPriority,
-      estimatedHours: v.estimatedHours || 0,
-      actualHours: 0,
-      dueDate: dueDateStr,
-      status: 'Todo',
-    }).subscribe(() => {
-      this.msg.success('Task created');
-      this.taskModalVisible = false;
-      this.loadAll();
+  reload(): void {
+    this.projectsApi.get(this.id()).subscribe({
+      next: (p) => { this.project.set(p); this.failed.set(null); if (!this.cloneName) this.cloneName = `${p.name} (copy)`; },
+      error: (e) => this.failed.set(errorText(e, 'This project could not be opened.')),
     });
   }
 
-  updateTaskStatus(taskId: string, status: ProjectTaskStatus): void {
-    this.tasksApi.setStatus(taskId, status).subscribe(() => {
-      this.msg.success('Task status updated');
-      this.loadAll();
+  edit(): void { const p = this.project(); if (p) this.state.edit(p); }
+
+  changeStatus(status: ProjectStatus): void {
+    const p = this.project()!;
+    const go = () => this.projectsApi.setStatus(p.id, status).subscribe({ next: (r) => { this.project.set(r); this.msg.success('Status changed'); }, error: (e) => this.msg.error(errorText(e, 'Could not change the status.')) });
+    if (status === 'completed' || status === 'cancelled') this.modal.confirm({ nzTitle: `${PROJECT_ACTIONS[status]}: ${p.name}?`, nzContent: 'A completed or cancelled project takes no more work and cannot be reopened.', nzOkText: PROJECT_ACTIONS[status], nzOkDanger: status === 'cancelled', nzOnOk: go });
+    else go();
+  }
+
+  postCosts(): void {
+    const p = this.project()!;
+    this.extra.postCosts(p.id).subscribe({
+      next: (r) => this.msg.success(r.entries ? `Posted ${r.entries} entries (${this.currency()} ${r.amount.toFixed(2)}) to work in progress in journal ${r.journalNumber}` : 'Nothing new to post'),
+      error: (e) => this.msg.error(errorText(e, 'Could not post the costs.')),
     });
   }
 
-  openMilestoneModal(): void {
-    this.milestoneForm.reset({ amount: 0 });
-    this.milestoneModalVisible = true;
+  toggleArchive(): void {
+    const p = this.project()!;
+    this.extra.archive(p.id, !p.isArchived).subscribe({ next: (r) => { this.project.set(r); this.msg.success(r.isArchived ? 'Archived' : 'Restored'); }, error: (e) => this.msg.error(errorText(e, 'Could not change it.')) });
   }
 
-  saveMilestone(): void {
-    if (this.milestoneForm.invalid) return;
-    const v = this.milestoneForm.value;
-    const dueDateStr = v.dueDate ? new Date(v.dueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-
-    this.milestonesApi.create({
-      projectId: this.id(),
-      title: v.title!,
-      amount: v.amount!,
-      dueDate: dueDateStr,
-      status: 'Pending',
-    }).subscribe(() => {
-      this.msg.success('Milestone created');
-      this.milestoneModalVisible = false;
-      this.loadAll();
+  remove(): void {
+    const p = this.project()!;
+    this.modal.confirm({
+      nzTitle: `Delete ${p.number}?`, nzContent: `${p.name} and its tasks, milestones and time will be removed. A project with invoiced work cannot be deleted.`, nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => this.projectsApi.delete(p.id).subscribe({ next: () => { this.msg.success('Project deleted'); void this.router.navigate(['/projects/list']); }, error: (e) => this.msg.error(errorText(e, 'Could not delete the project.')) }),
     });
   }
 
-  achieveMilestone(id: string): void {
-    this.milestonesApi.achieve(id).subscribe(() => {
-      this.msg.success('Milestone marked as achieved');
-      this.loadAll();
-    });
-  }
-
-  openTimesheetModal(): void {
-    this.timesheetForm.reset({
-      date: new Date(),
-      hours: 1,
-      hourlyRate: 150,
-      isBillable: true,
-    });
-    this.timesheetModalVisible = true;
-  }
-
-  saveTimesheet(): void {
-    if (this.timesheetForm.invalid) return;
-    const v = this.timesheetForm.value;
-    const dateStr = v.date ? new Date(v.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-
-    this.timesheetsApi.create({
-      projectId: this.id(),
-      workerName: v.workerName!,
-      date: dateStr,
-      hours: v.hours!,
-      hourlyRate: v.hourlyRate!,
-      description: v.description || null,
-      isBillable: v.isBillable ?? true,
-    }).subscribe(() => {
-      this.msg.success('Timesheet logged');
-      this.timesheetModalVisible = false;
-      this.loadAll();
-    });
-  }
-
-  generateBilling(): void {
-    const unbilledTsIds = this.unbilledTimesheets().map((ts) => ts.id);
-    const unbilledMsIds = this.unbilledMilestones().map((m) => m.id);
-
-    this.billingApi.bill({
-      projectId: this.id(),
-      timesheetIds: unbilledTsIds,
-      milestoneIds: unbilledMsIds,
-    }).subscribe((res) => {
-      this.msg.success(`Billed ${res.billedTimesheetsCount} timesheets and ${res.billedMilestonesCount} milestones (${this.currency()} ${res.totalAmountBilled.toFixed(2)})`);
-      this.loadAll();
+  clone(p: ProjectDto): void {
+    this.extra.clone(p.id, { name: this.cloneName.trim() || `${p.name} (copy)`, startDate: this.cloneStart || null, includeTeam: this.cloneTeam, asTemplate: this.cloneTemplate }).subscribe({
+      next: (c) => { this.cloneOpen.set(false); this.msg.success(`Created ${c.number}`); void this.router.navigate(['/projects', c.id]); },
+      error: (e) => this.msg.error(errorText(e, 'Could not clone.')),
     });
   }
 }

@@ -119,6 +119,7 @@ internal sealed class ExtrasHandlers(
     IReadRepository<Project> projects,
     IReadRepository<ProjectTask> tasks,
     ProjectPeople people,
+    ProjectAccess access,
     ICurrentUser user) :
     IRequestHandler<ListRates, IReadOnlyList<RateDto>>,
     IRequestHandler<SaveRate, RateDto>,
@@ -177,6 +178,7 @@ internal sealed class ExtrasHandlers(
     // ---- comments
     public async Task<IReadOnlyList<CommentDto>> Handle(ListComments q, CancellationToken ct)
     {
+        await access.EnsureProjectAsync(q.OwnerType == "task" ? (await tasks.GetAsync(q.OwnerId, ct)).ProjectId : q.OwnerId, ct);
         var rows = await comments.Query(new Specification<ProjectComment>(c => c.OwnerType == q.OwnerType && c.OwnerId == q.OwnerId)).ToListAsync(ct);
         return rows.OrderBy(c => c.CreatedAt).Select(CommentOf).ToList();
     }
@@ -187,6 +189,7 @@ internal sealed class ExtrasHandlers(
         Guid projectId;
         if (i.OwnerType == "project") { projectId = (await projects.GetAsync(i.OwnerId, ct)).Id; }
         else projectId = (await tasks.GetAsync(i.OwnerId, ct)).ProjectId;
+        await access.EnsureProjectAsync(projectId, ct);
         var author = await people.NameAsync(user.UserId, ct) ?? user.Email ?? "Someone";
         var c = new ProjectComment { OwnerType = i.OwnerType, OwnerId = i.OwnerId, ProjectId = projectId, UserId = user.UserId, AuthorName = author, Text = i.Text.Trim() };
         comments.Add(c);
@@ -197,7 +200,7 @@ internal sealed class ExtrasHandlers(
     public async Task<Unit> Handle(DeleteComment cmd, CancellationToken ct)
     {
         var c = await comments.GetForUpdateAsync(cmd.Id, ct);
-        if (c.UserId != user.UserId && !user.Permissions.Contains(P.ProjectsManage)) throw new ConflictException("Only the author or a project manager can delete a comment.");
+        if (c.UserId != user.UserId && !access.Has(P.ProjectsManage)) throw new ForbiddenException("Only the author or a project manager can delete a comment.");
         comments.Remove(c);
         await comments.SaveChangesAsync(ct);
         return Unit.Value;
@@ -208,8 +211,9 @@ internal sealed class ExtrasHandlers(
     // ---- change orders
     public async Task<IReadOnlyList<ChangeOrderDto>> Handle(ListChangeOrders q, CancellationToken ct)
     {
+        var visible = await access.VisibleIdsAsync(ct);
         var rows = await changeOrders.Query(new Specification<ProjectChangeOrder>(c => q.ProjectId == null || c.ProjectId == q.ProjectId)).ToListAsync(ct);
-        return rows.OrderByDescending(c => c.CreatedAt).Select(ChangeOf).ToList();
+        return rows.Where(c => visible == null || visible.Contains(c.ProjectId)).OrderByDescending(c => c.CreatedAt).Select(ChangeOf).ToList();
     }
 
     public async Task<ChangeOrderDto> Handle(CreateChangeOrder cmd, CancellationToken ct)
@@ -217,8 +221,11 @@ internal sealed class ExtrasHandlers(
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
         ProjectRules.EnsureOpen(p);
-        var count = await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == p.Id)).CountAsync(ct);
-        var c = new ProjectChangeOrder { ProjectId = p.Id, Number = $"CO-{p.Number}-{count + 1:00}" };
+        await access.EnsureAsync(p, ct);
+        // numbered after the highest one so far: a deleted draft must not make the next number repeat
+        var used = await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == p.Id)).Select(c => c.Number).ToListAsync(ct);
+        var next = used.Select(n => int.TryParse(n[(n.LastIndexOf('-') + 1)..], out var v) ? v : 0).DefaultIfEmpty(0).Max() + 1;
+        var c = new ProjectChangeOrder { ProjectId = p.Id, Number = $"CO-{p.Number}-{next:00}" };
         Fill(c, i);
         changeOrders.Add(c);
         await changeOrders.SaveChangesAsync(ct);
@@ -228,6 +235,7 @@ internal sealed class ExtrasHandlers(
     public async Task<ChangeOrderDto> Handle(UpdateChangeOrder cmd, CancellationToken ct)
     {
         var c = await changeOrders.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureProjectAsync(c.ProjectId, ct);
         if (c.Status != ChangeOrderStatus.Draft) throw new ConflictException("Only a draft change order can be edited.");
         Fill(c, cmd.Input);
         await changeOrders.SaveChangesAsync(ct);
@@ -237,6 +245,7 @@ internal sealed class ExtrasHandlers(
     public async Task<Unit> Handle(DeleteChangeOrder cmd, CancellationToken ct)
     {
         var c = await changeOrders.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureProjectAsync(c.ProjectId, ct);
         if (c.Status != ChangeOrderStatus.Draft) throw new ConflictException("Only a draft change order can be deleted.");
         changeOrders.Remove(c);
         await changeOrders.SaveChangesAsync(ct);
@@ -246,6 +255,7 @@ internal sealed class ExtrasHandlers(
     public async Task<ChangeOrderDto> Handle(DecideChangeOrder cmd, CancellationToken ct)
     {
         var c = await changeOrders.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureProjectAsync(c.ProjectId, ct);
         if (c.Status != ChangeOrderStatus.Draft) throw new ConflictException("This change order has already been decided.");
         ProjectRules.EnsureOpen(await projects.GetAsync(c.ProjectId, ct));
         c.Status = cmd.Approve ? ChangeOrderStatus.Approved : ChangeOrderStatus.Rejected;
@@ -260,7 +270,8 @@ internal sealed class ExtrasHandlers(
     // ---- risks
     public async Task<IReadOnlyList<RiskDto>> Handle(ListRisks q, CancellationToken ct)
     {
-        var rows = await risks.Query(new Specification<ProjectRisk>(r => q.ProjectId == null || r.ProjectId == q.ProjectId)).ToListAsync(ct);
+        var visible = await access.VisibleIdsAsync(ct);
+        var rows = (await risks.Query(new Specification<ProjectRisk>(r => q.ProjectId == null || r.ProjectId == q.ProjectId)).ToListAsync(ct)).Where(r => visible == null || visible.Contains(r.ProjectId)).ToList();
         return rows.OrderBy(r => r.Status).ThenByDescending(r => r.Severity).ThenBy(r => r.DueDate).Select(RiskOf).ToList();
     }
 
@@ -268,6 +279,7 @@ internal sealed class ExtrasHandlers(
     {
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
+        await access.EnsureAsync(p, ct);
         string? owner = i.OwnerName?.Trim();
         if (i.OwnerUserId is { } uid) owner = await people.RequireNameAsync(uid, "ownerUserId", ct);
         ProjectRisk r;
@@ -280,7 +292,9 @@ internal sealed class ExtrasHandlers(
 
     public async Task<Unit> Handle(DeleteRisk cmd, CancellationToken ct)
     {
-        risks.Remove(await risks.GetForUpdateAsync(cmd.Id, ct));
+        var risk = await risks.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureProjectAsync(risk.ProjectId, ct);
+        risks.Remove(risk);
         await risks.SaveChangesAsync(ct);
         return Unit.Value;
     }
@@ -288,13 +302,17 @@ internal sealed class ExtrasHandlers(
     private static RiskDto RiskOf(ProjectRisk r) => new(r.Id, r.ProjectId, r.Kind, r.Title, r.Notes, r.Severity, r.Status, r.OwnerUserId, r.OwnerName, r.DueDate, r.CreatedAt);
 
     // ---- team
-    public async Task<IReadOnlyList<MemberDto>> Handle(ListMembers q, CancellationToken ct) =>
-        (await members.Query(new Specification<ProjectMember>(m => m.ProjectId == q.ProjectId)).ToListAsync(ct)).OrderBy(m => m.Name).Select(m => new MemberDto(m.Id, m.ProjectId, m.UserId, m.Name, m.Role)).ToList();
+    public async Task<IReadOnlyList<MemberDto>> Handle(ListMembers q, CancellationToken ct)
+    {
+        await access.EnsureProjectAsync(q.ProjectId, ct);
+        return (await members.Query(new Specification<ProjectMember>(m => m.ProjectId == q.ProjectId)).ToListAsync(ct)).OrderBy(m => m.Name).Select(m => new MemberDto(m.Id, m.ProjectId, m.UserId, m.Name, m.Role)).ToList();
+    }
 
     public async Task<MemberDto> Handle(AddMember cmd, CancellationToken ct)
     {
         var p = await projects.GetAsync(cmd.ProjectId, ct);
         ProjectRules.EnsureOpen(p);
+        await access.EnsureAsync(p, ct);
         var name = await people.RequireNameAsync(cmd.UserId, "userId", ct);
         if (await members.AnyAsync(m => m.ProjectId == p.Id && m.UserId == cmd.UserId, ct)) throw new ConflictException($"{name} is already on the team.");
         var m = new ProjectMember { ProjectId = p.Id, UserId = cmd.UserId, Name = name, Role = string.IsNullOrWhiteSpace(cmd.Role) ? null : cmd.Role.Trim() };
@@ -305,21 +323,28 @@ internal sealed class ExtrasHandlers(
 
     public async Task<Unit> Handle(RemoveMember cmd, CancellationToken ct)
     {
-        members.Remove(await members.GetForUpdateAsync(cmd.Id, ct));
+        var member = await members.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureProjectAsync(member.ProjectId, ct);
+        members.Remove(member);
         await members.SaveChangesAsync(ct);
         return Unit.Value;
     }
 
     // ---- allocation
-    public async Task<IReadOnlyList<AllocationDto>> Handle(ListAllocations q, CancellationToken ct) =>
-        (await allocations.Query(new Specification<ProjectAllocation>(a => (q.ProjectId == null || a.ProjectId == q.ProjectId) && (q.UserId == null || a.UserId == q.UserId))).ToListAsync(ct))
+    public async Task<IReadOnlyList<AllocationDto>> Handle(ListAllocations q, CancellationToken ct)
+    {
+        var visible = await access.VisibleIdsAsync(ct);
+        return (await allocations.Query(new Specification<ProjectAllocation>(a => (q.ProjectId == null || a.ProjectId == q.ProjectId) && (q.UserId == null || a.UserId == q.UserId))).ToListAsync(ct))
+            .Where(a => visible == null || visible.Contains(a.ProjectId))
             .OrderBy(a => a.FromDate).Select(a => new AllocationDto(a.Id, a.ProjectId, a.UserId, a.UserName, a.FromDate, a.ToDate, a.HoursPerWeek)).ToList();
+    }
 
     public async Task<AllocationDto> Handle(SaveAllocation cmd, CancellationToken ct)
     {
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
         ProjectRules.EnsureOpen(p);
+        await access.EnsureAsync(p, ct);
         var name = await people.RequireNameAsync(i.UserId, "userId", ct);
         ProjectAllocation a;
         if (cmd.Id is { } id) a = await allocations.GetForUpdateAsync(id, ct); else { a = new ProjectAllocation(); allocations.Add(a); }
@@ -330,7 +355,9 @@ internal sealed class ExtrasHandlers(
 
     public async Task<Unit> Handle(DeleteAllocation cmd, CancellationToken ct)
     {
-        allocations.Remove(await allocations.GetForUpdateAsync(cmd.Id, ct));
+        var allocation = await allocations.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureProjectAsync(allocation.ProjectId, ct);
+        allocations.Remove(allocation);
         await allocations.SaveChangesAsync(ct);
         return Unit.Value;
     }

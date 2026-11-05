@@ -57,7 +57,8 @@ public sealed class UpdateMilestoneValidator : AbstractValidator<UpdateMilestone
 internal sealed class MilestoneHandlers(
     IRepository<ProjectMilestone> milestones,
     IReadRepository<Project> projects,
-    IReadRepository<ProjectChangeOrder> changeOrders) :
+    IReadRepository<ProjectChangeOrder> changeOrders,
+    ProjectAccess access) :
     IRequestHandler<GetMilestone, MilestoneDto>,
     IRequestHandler<CreateMilestone, MilestoneDto>,
     IRequestHandler<UpdateMilestone, MilestoneDto>,
@@ -67,6 +68,7 @@ internal sealed class MilestoneHandlers(
     public async Task<MilestoneDto> Handle(GetMilestone q, CancellationToken ct)
     {
         var m = await milestones.GetAsync(q.Id, ct);
+        await access.EnsureProjectAsync(m.ProjectId, ct);
         return await BuildDtoAsync(m, ct);
     }
 
@@ -75,6 +77,7 @@ internal sealed class MilestoneHandlers(
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
         ProjectRules.EnsureOpen(p);
+        await access.EnsureAsync(p, ct);
         if (i.Status == MilestoneStatus.Invoiced) throw new FieldValidationException("status", "A milestone becomes Invoiced only when its project is billed.");
         await EnsureWithinFeeAsync(p, null, i, ct);
         var m = new ProjectMilestone
@@ -98,6 +101,7 @@ internal sealed class MilestoneHandlers(
         if (m.Status == MilestoneStatus.Invoiced) throw new ConflictException("An invoiced milestone cannot be edited.");
         var project = await projects.GetAsync(m.ProjectId, ct);
         ProjectRules.EnsureOpen(project);
+        await access.EnsureAsync(project, ct);
         await EnsureWithinFeeAsync(project, m.Id, i, ct);
         if (i.Status != m.Status) ProjectsTransitions.Milestone.Ensure(m.Status, i.Status, isSystem: false);
         var achieved = AchievedDateFor(i);
@@ -116,6 +120,7 @@ internal sealed class MilestoneHandlers(
         var m = await milestones.GetForUpdateAsync(cmd.Id, ct);
         if (m.Status == MilestoneStatus.Invoiced) throw new ConflictException("An invoiced milestone cannot be deleted.");
         ProjectRules.EnsureOpen(await projects.GetAsync(m.ProjectId, ct));
+        await access.EnsureProjectAsync(m.ProjectId, ct);
         milestones.Remove(m);
         await milestones.SaveChangesAsync(ct);
         return Unit.Value;
@@ -125,6 +130,7 @@ internal sealed class MilestoneHandlers(
     {
         var m = await milestones.GetForUpdateAsync(cmd.Id, ct);
         ProjectRules.EnsureOpen(await projects.GetAsync(m.ProjectId, ct));
+        await access.EnsureProjectAsync(m.ProjectId, ct);
         ProjectsTransitions.Milestone.Ensure(m.Status, MilestoneStatus.Achieved, isSystem: false);
         var achieved = cmd.AchievedDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
         if (achieved > DateOnly.FromDateTime(DateTime.UtcNow)) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");

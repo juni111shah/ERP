@@ -1,271 +1,108 @@
-import { CommonModule, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, viewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzCardModule } from 'ng-zorro-antd/card';
-import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
-import { NzFormModule } from 'ng-zorro-antd/form';
-import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzInputModule } from 'ng-zorro-antd/input';
-import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzModalModule } from 'ng-zorro-antd/modal';
-import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTagModule } from 'ng-zorro-antd/tag';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { catchError, of } from 'rxjs';
 import { createPagedList } from '../../core/api/paged-list';
-import { ProjectsExtraApi, UserOption } from '../../core/api/projects-extra.api';
+import { ProjectTasksApi, ProjectTaskStatus, TaskDto } from '../../core/api/projects.api';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
-import { ProjectTasksApi, ProjectTaskStatus, ProjectsApi, TaskDto, TaskInput, TaskPriority } from '../../core/api/projects.api';
+import { SessionStore } from '../../core/session/session.store';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { errorText, filterOptions, PRJ_STYLES, ProjectTagComponent, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from './projects-ui';
+import { TaskDrawerComponent } from './task-drawer.component';
 
+/** Tasks of every project, or of one when projectId is given. Click a row to open it. */
 @Component({
   selector: 'erp-project-tasks',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    CommonModule,
-    RouterModule,
-    FormsModule,
-    ReactiveFormsModule,
-    NzGridModule,
-    NzCardModule,
-    NzTagModule,
-    NzButtonModule,
-    NzIconModule,
-    NzToolTipModule,
-    NzSelectModule,
-    NzModalModule,
-    NzFormModule,
-    NzInputModule,
-    NzInputNumberModule,
-    NzDatePickerModule,
-    PagedTableComponent,
-    HasPermissionDirective,
-  ],
+  imports: [FormsModule, RouterModule, NzButtonModule, NzIconModule, NzSelectModule, PagedTableComponent, HasPermissionDirective, ProjectTagComponent, TaskDrawerComponent],
   template: `
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search task code, title, or assignee..." emptyText="No tasks found.">
-      <button toolbar *erpHasPermission="'projects.tasks.manage'" nz-button nzType="primary" (click)="openCreateModal()" data-testid="task-new">
-        <span nz-icon nzType="plus"></span> New Task
-      </button>
-        <ng-template #cell let-row let-column="column" let-value="value">
-          @switch (column.key) {
-            @case ('number') {
-              <span class="code-pill">{{ row.number }}</span>
-            }
-            @case ('title') {
-              <div class="task-title-cell">
-                <span class="task-title">{{ row.title }}</span>
-                @if (row.description) {
-                  <span class="task-desc">{{ row.description }}</span>
-                }
-              </div>
-            }
-            @case ('projectName') {
-              <a [routerLink]="['/projects', row.projectId]" class="project-link">{{ row.projectName || 'View Project' }}</a>
-            }
-            @case ('priority') {
-              <nz-tag [nzColor]="priorityColor(row.priority)">{{ row.priority }}</nz-tag>
-            }
-            @case ('status') {
-              <nz-select [ngModel]="row.status" (ngModelChange)="updateStatus(row.id, $event)" nzSize="small" style="width: 120px;" (click)="$event.stopPropagation()">
-                <nz-option nzValue="Todo" nzLabel="To Do"></nz-option>
-                <nz-option nzValue="InProgress" nzLabel="In Progress"></nz-option>
-                <nz-option nzValue="Review" nzLabel="Review"></nz-option>
-                <nz-option nzValue="Blocked" nzLabel="Blocked"></nz-option>
-                <nz-option nzValue="Done" nzLabel="Done"></nz-option>
-                <nz-option nzValue="Cancelled" nzLabel="Cancelled"></nz-option>
-              </nz-select>
-            }
-            @case ('hours') {
-              <span class="hours-cell">{{ row.actualHours }}h / {{ row.estimatedHours }}h</span>
-            }
-            @case ('dueDate') {
-              <span class="date-cell">{{ row.dueDate || '—' }}</span>
-            }
-            @default {
-              {{ value }}
-            }
+    <div class="prj-toolbar">
+      <div class="prj-chips" role="group" aria-label="Which tasks">
+        @for (v of views; track v.key) { <button type="button" class="prj-chip" [class.on]="view() === v.key" (click)="setView(v.key)" [attr.data-testid]="'task-view-' + v.key">{{ v.label }}</button> }
+      </div>
+    </div>
+    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search task code, title or assignee" emptyText="No tasks found." scrollX="1250px" exportFilename="project-tasks" (rowClick)="drawer()?.open($event.id)">
+      <button toolbar *erpHasPermission="'projects.tasks.manage'" nz-button nzType="primary" (click)="$event.stopPropagation(); drawer()?.create({ projectId: projectId() })" data-testid="task-new"><span nz-icon nzType="plus"></span> New task</button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('title') {
+            <div class="title-cell" [class.sub]="row.parentTaskId">
+              <span class="prj-strong">{{ row.title }}</span>
+              @if (row.milestoneTitle) { <span class="prj-muted"><span nz-icon nzType="flag"></span> {{ row.milestoneTitle }}</span> }
+            </div>
           }
-        </ng-template>
-      </erp-paged-table>
-
-      <!-- Task Modal -->
-      <nz-modal [(nzVisible)]="modalVisible" nzTitle="Create Task" (nzOnCancel)="modalVisible = false" (nzOnOk)="save()">
-        <ng-container *nzModalContent>
-          <form [formGroup]="form" nz-form nzLayout="vertical">
-            <nz-form-item>
-              <nz-form-label nzRequired>Project</nz-form-label>
-              <nz-form-control>
-                <nz-select formControlName="projectId" nzPlaceHolder="Select project">
-                  @for (p of projects().items; track p.id) {
-                    <nz-option [nzValue]="p.id" [nzLabel]="p.number + ' · ' + p.name"></nz-option>
-                  }
-                </nz-select>
-              </nz-form-control>
-            </nz-form-item>
-            <nz-form-item>
-              <nz-form-label nzRequired>Task Title</nz-form-label>
-              <nz-form-control><input nz-input formControlName="title" placeholder="e.g. Implement authentication middleware" /></nz-form-control>
-            </nz-form-item>
-            <div nz-row [nzGutter]="12">
-              <div nz-col [nzSpan]="12">
-                <nz-form-item>
-                  <nz-form-label>Priority</nz-form-label>
-                  <nz-form-control>
-                    <nz-select formControlName="priority">
-                      <nz-option nzValue="Low" nzLabel="Low"></nz-option>
-                      <nz-option nzValue="Medium" nzLabel="Medium"></nz-option>
-                      <nz-option nzValue="High" nzLabel="High"></nz-option>
-                      <nz-option nzValue="Urgent" nzLabel="Urgent"></nz-option>
-                    </nz-select>
-                  </nz-form-control>
-                </nz-form-item>
-              </div>
-              <div nz-col [nzSpan]="12">
-                <nz-form-item>
-                  <nz-form-label>Assigned To</nz-form-label>
-                  <nz-form-control>
-                    <nz-select formControlName="assignedUserId" nzAllowClear nzShowSearch nzPlaceHolder="Choose a person" data-testid="task-assignee">
-                      @for (u of users(); track u.id) { <nz-option [nzValue]="u.id" [nzLabel]="u.fullName"></nz-option> }
-                    </nz-select>
-                  </nz-form-control>
-                </nz-form-item>
-              </div>
-            </div>
-            <div nz-row [nzGutter]="12">
-              <div nz-col [nzSpan]="12">
-                <nz-form-item>
-                  <nz-form-label>Estimated Hours</nz-form-label>
-                  <nz-form-control><nz-input-number formControlName="estimatedHours" [nzMin]="0" style="width:100%"></nz-input-number></nz-form-control>
-                </nz-form-item>
-              </div>
-              <div nz-col [nzSpan]="12">
-                <nz-form-item>
-                  <nz-form-label>Due Date</nz-form-label>
-                  <nz-form-control><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control>
-                </nz-form-item>
-              </div>
-            </div>
-            <nz-form-item>
-              <nz-form-label>Description</nz-form-label>
-              <nz-form-control><input nz-input formControlName="description" placeholder="Task details and scope" /></nz-form-control>
-            </nz-form-item>
-          </form>
-        </ng-container>
-      </nz-modal>
+          @case ('projectName') { <a [routerLink]="['/projects', row.projectId]" [queryParams]="{ tab: 'tasks' }" class="prj-link" (click)="$event.stopPropagation()">{{ row.projectName }}</a> }
+          @case ('priority') { <erp-prj-tag kind="priority" [value]="row.priority" /> }
+          @case ('status') {
+            @if (canManage()) {
+              <nz-select [ngModel]="row.status" (ngModelChange)="updateStatus(row, $event)" nzSize="small" style="width:130px" (click)="$event.stopPropagation()" [attr.aria-label]="'Status of ' + row.number">
+                @for (s of moves(row); track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.label"></nz-option> }
+              </nz-select>
+            } @else { <erp-prj-tag kind="task" [value]="row.status" /> }
+          }
+          @case ('hours') { <span [class.prj-danger]="row.estimatedHours > 0 && row.actualHours > row.estimatedHours">{{ row.actualHours }} / {{ row.estimatedHours }} h</span> }
+          @case ('dueDate') { <span [class.prj-danger]="isLate(row)">{{ row.dueDate || '—' }}</span> }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
+    <erp-task-drawer (changed)="list.reload()" />
   `,
-  styles: [`
-    .task-title-cell {
-      display: flex;
-      flex-direction: column;
-    }
-    .task-title {
-      font-weight: 600;
-      color: #0f172a;
-    }
-    .task-desc {
-      font-size: 12px;
-      color: #64748b;
-    }
-    .project-link {
-      font-weight: 600;
-      color: #10955d;
-      text-decoration: none;
-    }
-    .project-link:hover {
-      text-decoration: underline;
-    }
-    .hours-cell {
-      font-weight: 500;
-      color: #334155;
-    }
-    .date-cell {
-      font-size: 12.5px;
-      color: #64748b;
-    }
-  `],
+  styles: [PRJ_STYLES + '.title-cell { display:flex; flex-direction:column; } .title-cell.sub { padding-inline-start:16px; }'],
 })
 export class ProjectTasksPage {
+  /** Set inside a project page, or by ?projectId= in the address. */
+  readonly projectId = input<string | null>(null);
+
   private readonly tasksApi = inject(ProjectTasksApi);
-  private readonly projectsApi = inject(ProjectsApi);
-  private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
-  private readonly extra = inject(ProjectsExtraApi);
-  readonly users = toSignal(this.extra.users().pipe(catchError(() => of([] as UserOption[]))), { initialValue: [] as UserOption[] });
+  private readonly session = inject(SessionStore);
+  readonly drawer = viewChild(TaskDrawerComponent);
 
-  readonly projects = toSignal(this.projectsApi.list({ page: 1, pageSize: 200 }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
-  readonly list = createPagedList((q) => this.tasksApi.list(q), { sort: 'createdAt' });
+  readonly views = [{ key: 'open', label: 'Open' }, { key: 'mine', label: 'Mine' }, { key: 'overdue', label: 'Overdue' }, { key: 'all', label: 'All' }];
+  readonly view = signal('open');
 
-  modalVisible = false;
-  readonly form = this.fb.group({
-    projectId: ['', Validators.required],
-    title: ['', Validators.required],
-    assignedUserId: [null as string | null],
-    priority: ['Medium', Validators.required],
-    estimatedHours: [0],
-    dueDate: [null],
-    description: [''],
-  });
+  readonly list = createPagedList((q) => {
+    const id = this.projectId();
+    const filters = [...(q.filters ?? []), ...(id ? [{ field: 'projectId', op: 'eq' as const, value: id }] : [])];
+    const view = this.view();
+    if (view === 'open' || view === 'overdue') filters.push({ field: 'status', op: 'in', value: ['todo', 'inProgress', 'review', 'blocked'] });
+    if (view === 'overdue') filters.push({ field: 'dueDate', op: 'lt', value: toIsoDate(new Date()) });
+    if (view === 'mine') { filters.push({ field: 'assignedUserId', op: 'eq', value: this.session.me()?.user?.id ?? '' }); filters.push({ field: 'status', op: 'in', value: ['todo', 'inProgress', 'review', 'blocked'] }); }
+    return this.tasksApi.list({ ...q, filters, ...(id ? {} : { extra: { ...(q.extra ?? {}), live: true } }) });
+  }, { sort: 'dueDate' });
 
-  readonly columns: TableColumn<TaskDto>[] = [
-    { key: 'number', label: 'Code', sortField: 'number', width: '130px' },
-    { key: 'title', label: 'Task Title', sortField: 'title' },
-    { key: 'projectName', label: 'Project', width: '180px' },
-    { key: 'priority', label: 'Priority', sortField: 'priority', width: '110px' },
-    { key: 'status', label: 'Status', sortField: 'status', width: '140px' },
-    { key: 'assignedTo', label: 'Assignee', sortField: 'assignedTo', width: '140px' },
-    { key: 'hours', label: 'Hours (Act/Est)', width: '140px' },
-    { key: 'dueDate', label: 'Due Date', sortField: 'dueDate', width: '130px' },
-  ];
+  readonly columns = computed<TableColumn<TaskDto>[]>(() => [
+    { key: 'number', label: 'Code', sortField: 'number', width: '120px', filter: false },
+    { key: 'title', label: 'Task', sortField: 'title', width: '340px', filter: false },
+    ...(this.projectId() ? [] : [{ key: 'projectName', label: 'Project', width: '190px', filter: false as const }]),
+    { key: 'priority', label: 'Priority', sortField: 'priority', width: '110px', filterField: 'priority', filterOptions: filterOptions(TASK_PRIORITIES) },
+    { key: 'status', label: 'Status', sortField: 'status', width: '160px', filterField: 'status', filterOptions: filterOptions(TASK_STATUSES) },
+    { key: 'assignedTo', label: 'Assigned to', width: '150px', filter: 'text', filterField: 'assignedTo' },
+    { key: 'hours', label: 'Hours', width: '120px', filter: false },
+    { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '120px', filter: 'date', filterField: 'dueDate' },
+  ]);
 
-  priorityColor(p: TaskPriority): string {
-    switch (p) {
-      case 'Urgent': return 'error';
-      case 'High': return 'warning';
-      case 'Medium': return 'blue';
-      default: return 'default';
-    }
+  constructor() {
+    let first = true;
+    effect(() => { this.projectId(); if (first) { first = false; return; } this.list.reload(); });
   }
 
-  updateStatus(taskId: string, status: ProjectTaskStatus): void {
-    this.tasksApi.setStatus(taskId, status).subscribe({
+  setView(key: string): void { this.view.set(key); this.list.setPage(1); }
+  canManage(): boolean { return this.session.hasPermission('projects.tasks.manage'); }
+  moves(t: TaskDto) { return taskOptions(t.status); }
+  isLate(t: TaskDto): boolean { return !!t.dueDate && t.dueDate < toIsoDate(new Date()) && t.status !== 'done' && t.status !== 'cancelled'; }
+
+  updateStatus(t: TaskDto, status: ProjectTaskStatus): void {
+    if (t.status === status) return;
+    this.tasksApi.setStatus(t.id, status).subscribe({
       next: () => { this.msg.success('Status updated'); this.list.reload(); },
-      error: (e) => { this.msg.error(e?.error?.detail ?? e?.error?.message ?? 'That change is not allowed.'); this.list.reload(); },
-    });
-  }
-
-  openCreateModal(): void {
-    this.form.reset({ priority: 'Medium', estimatedHours: 0 });
-    this.modalVisible = true;
-  }
-
-  save(): void {
-    if (this.form.invalid) return;
-    const v = this.form.value;
-    const dueDateStr = v.dueDate ? toIsoDate(new Date(v.dueDate)) : null;
-
-    this.tasksApi.create({
-      projectId: v.projectId!,
-      title: v.title!,
-      assignedTo: null,
-      assignedUserId: v.assignedUserId || null,
-      priority: v.priority as TaskPriority,
-      estimatedHours: v.estimatedHours || 0,
-      actualHours: 0,
-      dueDate: dueDateStr,
-      description: v.description || null,
-      status: 'Todo',
-    }).subscribe(() => {
-      this.msg.success('Task created');
-      this.modalVisible = false;
-      this.list.reload();
+      error: (e) => { this.msg.error(errorText(e, 'That change is not allowed.')); this.list.reload(); },
     });
   }
 }

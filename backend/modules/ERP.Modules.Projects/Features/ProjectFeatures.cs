@@ -33,10 +33,10 @@ public sealed record ProjectInput(
     JsonObject? CustomFields = null,
     Guid? ManagerUserId = null,
     Guid? TaxCodeId = null,
-    decimal BudgetHours = 0m,
+    decimal? BudgetHours = null,
     string? SourceType = null,
     Guid? SourceId = null,
-    bool IsTemplate = false);
+    bool? IsTemplate = null);
 
 public sealed record ProjectSummaryDto(
     Guid Id,
@@ -54,7 +54,14 @@ public sealed record ProjectSummaryDto(
     DateTime CreatedAt,
     Guid? ManagerUserId = null,
     bool IsTemplate = false,
-    bool IsArchived = false);
+    bool IsArchived = false,
+    decimal PercentComplete = 0m,
+    string? Health = null,
+    decimal Cost = 0m,
+    decimal EffectiveBudget = 0m,
+    int OpenTasks = 0,
+    int OverdueTasks = 0,
+    decimal UnbilledAmount = 0m);
 
 public sealed record ProjectDto(
     Guid Id,
@@ -94,7 +101,11 @@ public sealed record ProjectDto(
     decimal UnbilledAmount,
     decimal PercentComplete,
     string Health,
-    int OverdueTasks);
+    int OverdueTasks,
+    int OpenTasks = 0,
+    decimal EffectiveBudgetHours = 0m,
+    decimal LabourCost = 0m,
+    IReadOnlyList<ProjectStatus>? NextStatuses = null);
 
 public sealed record ProjectKpiDto(
     int TotalProjects,
@@ -102,7 +113,14 @@ public sealed record ProjectKpiDto(
     int CompletedProjects,
     decimal TotalBudget,
     decimal TotalLoggedHours,
-    decimal UnbilledAmount);
+    decimal UnbilledAmount,
+    int OnHoldProjects = 0,
+    int AtRiskProjects = 0,
+    int OffTrackProjects = 0,
+    int OverdueTasks = 0,
+    decimal TotalCost = 0m,
+    int TemplateCount = 0,
+    int ArchivedCount = 0);
 
 public sealed record GetProject(Guid Id) : IQuery<ProjectDto>, IRequirePermission { public string RequiredPermission => P.ProjectsRead; }
 public sealed record CreateProject(ProjectInput Input) : ICommand<ProjectDto>, IRequirePermission { public string RequiredPermission => P.ProjectsManage; }
@@ -122,7 +140,7 @@ public sealed class ProjectInputValidator : AbstractValidator<ProjectInput>
         RuleFor(x => x.CustomerName).MaximumLength(200);
         RuleFor(x => x.ManagerName).MaximumLength(150);
         RuleFor(x => x.BudgetAmount).GreaterThanOrEqualTo(0);
-        RuleFor(x => x.BudgetHours).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.BudgetHours).GreaterThanOrEqualTo(0).When(x => x.BudgetHours != null);
         RuleFor(x => x.SourceType).MaximumLength(60);
         RuleFor(x => x.Status).IsInEnum();
         RuleFor(x => x.BillingType).IsInEnum();
@@ -148,8 +166,8 @@ internal sealed class ProjectHandlers(
     IReadRepository<ProjectTimesheet> timesheets,
     IReadRepository<ERP.Domain.Parties.Party> parties,
     IReadRepository<ProjectExpense> expenses,
-    IReadRepository<ProjectChangeOrder> changeOrders,
     IReadRepository<ProjectProgressBilling> progress,
+    ProjectFigures figures,
     ProjectPeople people,
     ProjectAccess access,
     ILegalEntityGuard guard,
@@ -176,7 +194,7 @@ internal sealed class ProjectHandlers(
         if (i.Status is not (ProjectStatus.Planning or ProjectStatus.Active))
             throw new FieldValidationException("status", "A new project starts as Planning or Active.");
         var customerName = await EnsureCustomerAsync(i.CustomerId, ct);
-        var p = new Project { LegalEntityId = entity.Id };
+        var p = new Project { LegalEntityId = entity.Id, TaxCodeId = i.TaxCodeId };
         Map(i, p, customerName, await people.NameAsync(i.ManagerUserId, ct));
         p.Number = string.IsNullOrWhiteSpace(i.Number)
             ? await numbers.NextAsync(Docs.Project, entity.Id, null, ct)
@@ -194,13 +212,14 @@ internal sealed class ProjectHandlers(
     public async Task<ProjectDto> Handle(UpdateProject cmd, CancellationToken ct)
     {
         var p = await projects.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureAsync(p, ct);
         var i = cmd.Input;
         if (i.LegalEntityId != p.LegalEntityId)
             await guard.RequireAsync(i.LegalEntityId, ct);
 
         var customerName = await EnsureCustomerAsync(i.CustomerId, ct);
         if (i.Status != p.Status) { ProjectsTransitions.Project.Ensure(p.Status, i.Status, isSystem: false); if (i.Status == ProjectStatus.Completed) await EnsureCanCompleteAsync(p, ct); }
-        if (i.IsTemplate && !p.IsTemplate && await timesheets.AnyAsync(x => x.ProjectId == p.Id, ct)) throw new ConflictException("A project that has time logged cannot become a template.");
+        if (i.IsTemplate == true && !p.IsTemplate && await timesheets.AnyAsync(x => x.ProjectId == p.Id, ct)) throw new ConflictException("A project that has time logged cannot become a template.");
         var number = string.IsNullOrWhiteSpace(i.Number) ? p.Number : i.Number.Trim();
         if (number != p.Number && await projects.AnyAsync(x => x.Number == number && x.Id != p.Id, ct))
             throw new ConflictException($"Project number '{number}' is already in use.");
@@ -219,8 +238,12 @@ internal sealed class ProjectHandlers(
     public async Task<Unit> Handle(DeleteProject cmd, CancellationToken ct)
     {
         var p = await projects.GetForUpdateAsync(cmd.Id, ct);
-        if (await timesheets.AnyAsync(x => x.ProjectId == p.Id && x.IsBilled, ct) || await milestones.AnyAsync(x => x.ProjectId == p.Id && x.Status == MilestoneStatus.Invoiced, ct))
+        await access.EnsureAsync(p, ct);
+        if (await timesheets.AnyAsync(x => x.ProjectId == p.Id && x.IsBilled, ct) || await expenses.AnyAsync(x => x.ProjectId == p.Id && x.IsBilled, ct)
+            || await milestones.AnyAsync(x => x.ProjectId == p.Id && x.Status == MilestoneStatus.Invoiced, ct) || await progress.AnyAsync(x => x.ProjectId == p.Id && !x.Released, ct))
             throw new ConflictException("A project with invoiced work cannot be deleted. Complete or cancel it instead.");
+        if (await timesheets.AnyAsync(x => x.ProjectId == p.Id && x.CostJournalId != null, ct) || await expenses.AnyAsync(x => x.ProjectId == p.Id && x.CostJournalId != null, ct))
+            throw new ConflictException("The cost of this project is already in the ledger, so it cannot be deleted. Complete or cancel it instead.");
         projects.Remove(p);
         await projects.SaveChangesAsync(ct);
         return Unit.Value;
@@ -229,6 +252,7 @@ internal sealed class ProjectHandlers(
     public async Task<ProjectDto> Handle(ChangeProjectStatus cmd, CancellationToken ct)
     {
         var p = await projects.GetForUpdateAsync(cmd.Id, ct);
+        await access.EnsureAsync(p, ct);
         ProjectsTransitions.Project.Ensure(p.Status, cmd.Status, isSystem: false);
         if (cmd.Status == ProjectStatus.Completed) await EnsureCanCompleteAsync(p, ct);
         p.Status = cmd.Status;
@@ -238,16 +262,25 @@ internal sealed class ProjectHandlers(
 
     public async Task<ProjectKpiDto> Handle(GetProjectKpiSummary q, CancellationToken ct)
     {
-        // totals are added up in the database; templates and archived projects are left out
-        var live = projects.Query(new Specification<Project>(x => !x.IsTemplate && !x.IsArchived));
-        var totalProjects = await live.CountAsync(ct);
-        var activeProjects = await live.CountAsync(x => x.Status == ProjectStatus.Active, ct);
-        var completedProjects = await live.CountAsync(x => x.Status == ProjectStatus.Completed, ct);
-        var totalBudget = await live.SumDecimalAsync(x => x.BudgetAmount, ct);
-        var totalHours = await timesheets.Query().SumDecimalAsync(x => x.Hours, ct);
-        var unbilledHoursAmount = await timesheets.Query(new Specification<ProjectTimesheet>(x => x.IsBillable && !x.IsBilled && !x.WrittenOff && x.ApprovalStatus == TimesheetStatus.Approved)).SumDecimalAsync(x => x.TotalAmount, ct);
-        var unbilledMilestoneAmount = await milestones.Query(new Specification<ProjectMilestone>(x => x.Status == MilestoneStatus.Achieved)).SumDecimalAsync(x => x.Amount, ct);
-        return new ProjectKpiDto(totalProjects, activeProjects, completedProjects, totalBudget, totalHours, unbilledHoursAmount + unbilledMilestoneAmount);
+        // templates and archived projects are left out; the figures are the ones the billing page shows
+        var visible = await access.VisibleIdsAsync(ct);
+        var all = (await projects.Query().ToListAsync(ct)).Where(x => visible == null || visible.Contains(x.Id)).ToList();
+        var live = all.Where(x => !x.IsTemplate && !x.IsArchived).ToList();
+        var rows = await figures.ForAsync(live, ct);
+        return new ProjectKpiDto(
+            live.Count,
+            live.Count(x => x.Status == ProjectStatus.Active),
+            live.Count(x => x.Status == ProjectStatus.Completed),
+            rows.Values.Sum(x => x.Budget),
+            rows.Values.Sum(x => x.LoggedHours),
+            rows.Values.Sum(x => x.Unbilled),
+            live.Count(x => x.Status == ProjectStatus.OnHold),
+            rows.Values.Count(x => x.Health == "atRisk"),
+            rows.Values.Count(x => x.Health == "offTrack"),
+            rows.Values.Sum(x => x.OverdueTasks),
+            rows.Values.Sum(x => x.Cost),
+            all.Count(x => x.IsTemplate),
+            all.Count(x => x.IsArchived && !x.IsTemplate));
     }
 
     /// <summary>Checks the customer and returns its name; the project always shows the name on the customer record.</summary>
@@ -267,7 +300,8 @@ internal sealed class ProjectHandlers(
         var open = await tasks.Query(new Specification<ProjectTask>(t => t.ProjectId == id && t.Status != ProjectTaskStatus.Done && t.Status != ProjectTaskStatus.Cancelled)).CountAsync(ct);
         if (open > 0) throw new ConflictException($"{open} task(s) are still open. Finish or cancel them before completing the project.");
         if (p.BillingType == ProjectBillingType.NonBillable) return;
-        var unbilledTime = await timesheets.Query(new Specification<ProjectTimesheet>(t => t.ProjectId == id && t.IsBillable && !t.IsBilled && !t.WrittenOff && t.ApprovalStatus == TimesheetStatus.Approved)).CountAsync(ct);
+        // a fixed-fee project bills milestones and percentages, so its hours never wait to be billed
+        var unbilledTime = p.BillingType == ProjectBillingType.FixedFee ? 0 : await timesheets.Query(new Specification<ProjectTimesheet>(t => t.ProjectId == id && t.IsBillable && !t.IsBilled && !t.WrittenOff && t.ApprovalStatus == TimesheetStatus.Approved)).CountAsync(ct);
         var unbilledCosts = await expenses.Query(new Specification<ProjectExpense>(e => e.ProjectId == id && e.IsBillable && !e.IsBilled && !e.WrittenOff && e.Status == ExpenseStatus.Approved)).CountAsync(ct);
         var unbilledMilestones = await milestones.Query(new Specification<ProjectMilestone>(m => m.ProjectId == id && m.Status == MilestoneStatus.Achieved)).CountAsync(ct);
         if (unbilledTime + unbilledCosts + unbilledMilestones > 0)
@@ -280,13 +314,15 @@ internal sealed class ProjectHandlers(
         p.Description = i.Description?.Trim();
         p.CustomerId = i.CustomerId;
         p.CustomerName = i.CustomerId is null ? i.CustomerName?.Trim() : customerName;
-        p.ManagerName = managerName ?? i.ManagerName?.Trim();
-        p.ManagerUserId = i.ManagerUserId;
-        p.TaxCodeId = i.TaxCodeId;
-        p.BudgetHours = i.BudgetHours;
-        p.SourceType = string.IsNullOrWhiteSpace(i.SourceType) ? null : i.SourceType.Trim();
-        p.SourceId = i.SourceId;
-        p.IsTemplate = i.IsTemplate;
+        // What a form does not send stays as it was: a screen or an older app that only knows some fields must not wipe the others.
+        var typedManager = i.ManagerName?.Trim();
+        p.ManagerUserId = i.ManagerUserId ?? (string.Equals(typedManager, p.ManagerName, StringComparison.Ordinal) ? p.ManagerUserId : null);
+        p.ManagerName = managerName ?? typedManager;
+        p.TaxCodeId = i.TaxCodeId == Guid.Empty ? null : i.TaxCodeId ?? p.TaxCodeId;   // an empty id clears it
+        p.BudgetHours = i.BudgetHours ?? p.BudgetHours;
+        if (!string.IsNullOrWhiteSpace(i.SourceType)) p.SourceType = i.SourceType.Trim();
+        p.SourceId = i.SourceId ?? p.SourceId;
+        p.IsTemplate = i.IsTemplate ?? p.IsTemplate;
         p.Status = i.Status;
         p.BillingType = i.BillingType;
         p.BudgetAmount = i.BudgetAmount;
@@ -296,39 +332,13 @@ internal sealed class ProjectHandlers(
 
     private async Task<ProjectDto> BuildDtoAsync(Project p, CancellationToken ct)
     {
-        var pTimesheets = await timesheets.Query(new Specification<ProjectTimesheet>(x => x.ProjectId == p.Id)).ToListAsync(ct);
-        var pTasks = await tasks.Query(new Specification<ProjectTask>(x => x.ProjectId == p.Id)).ToListAsync(ct);
-        var pMilestones = await milestones.Query(new Specification<ProjectMilestone>(x => x.ProjectId == p.Id)).ToListAsync(ct);
-        var pExpenses = await expenses.Query(new Specification<ProjectExpense>(x => x.ProjectId == p.Id)).ToListAsync(ct);
-        var pChanges = await changeOrders.Query(new Specification<ProjectChangeOrder>(x => x.ProjectId == p.Id)).ToListAsync(ct);
-        var pProgress = await progress.Query(new Specification<ProjectProgressBilling>(x => x.ProjectId == p.Id && !x.Released)).ToListAsync(ct);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-
-        var totalLogged = pTimesheets.Sum(x => x.Hours);
-        var totalBilled = pTimesheets.Where(x => x.IsBilled).Sum(x => x.Hours);
-        var labourCost = pTimesheets.Sum(x => x.CostAmount);
-        var billableValue = pTimesheets.Where(x => x.IsBillable && !x.WrittenOff).Sum(x => x.TotalAmount);
-        var expenseCost = pExpenses.Where(x => x.Status == ExpenseStatus.Approved).Sum(x => x.Amount);
-        decimal Charge(ProjectExpense e) => ProjectMath.Round(e.Amount * (1m + e.MarkupPercent / 100m));
-        var billed = pTimesheets.Where(x => x.IsBilled).Sum(x => x.TotalAmount) + pExpenses.Where(x => x.IsBilled).Sum(Charge)
-            + pMilestones.Where(x => x.Status == MilestoneStatus.Invoiced).Sum(x => x.Amount) + pProgress.Sum(x => x.Amount);
-        var unbilled = p.BillingType == ProjectBillingType.NonBillable ? 0m
-            : (p.BillingType == ProjectBillingType.FixedFee ? 0m : pTimesheets.Where(x => x.IsBillable && !x.IsBilled && !x.WrittenOff && x.ApprovalStatus == TimesheetStatus.Approved).Sum(x => x.TotalAmount))
-              + pExpenses.Where(x => x.IsBillable && !x.IsBilled && !x.WrittenOff && x.Status == ExpenseStatus.Approved).Sum(Charge)
-              + pMilestones.Where(x => x.Status == MilestoneStatus.Achieved).Sum(x => x.Amount);
-        var budget = ProjectMath.EffectiveBudget(p.BudgetAmount, pChanges);
-        var approvedChanges = budget - p.BudgetAmount;
-        var open = pTasks.Count(x => x.Status is not (ProjectTaskStatus.Done or ProjectTaskStatus.Cancelled));
-        var overdue = pTasks.Count(x => x.DueDate is { } d && d < today && x.Status is not (ProjectTaskStatus.Done or ProjectTaskStatus.Cancelled));
+        var f = await figures.ForAsync(p, ct);
         var customJson = await fields.ReadAsync(Docs.Project, p, ct);
-
         return new ProjectDto(
             p.Id, p.Number, p.Name, p.Description, p.LegalEntityId, p.CustomerId, p.CustomerName, p.ManagerName, p.Status, p.BillingType, p.BudgetAmount, p.StartDate, p.EndDate,
-            totalLogged, totalBilled, labourCost + expenseCost, pTasks.Count, pTasks.Count(x => x.Status == ProjectTaskStatus.Done),
-            pMilestones.Count, pMilestones.Count(x => x.Status == MilestoneStatus.Achieved || x.Status == MilestoneStatus.Invoiced),
-            customJson, p.CreatedAt,
+            f.LoggedHours, f.BilledHours, f.Cost, f.TotalTasks, f.CompletedTasks, f.TotalMilestones, f.AchievedMilestones, customJson, p.CreatedAt,
             p.ManagerUserId, p.TaxCodeId, p.BudgetHours, p.IsTemplate, p.IsArchived, p.SourceType, p.SourceId,
-            budget, approvedChanges, billableValue, expenseCost, billed, unbilled, ProjectMath.PercentComplete(pTasks),
-            ProjectMath.Health(p, budget, labourCost + expenseCost, overdue, open, today), overdue);
+            f.Budget, f.ApprovedChanges, f.BillableValue, f.ExpenseCost, f.Billed, f.Unbilled, f.PercentComplete, f.Health, f.OverdueTasks, f.OpenTasks, f.BudgetHours, f.LabourCost,
+            ProjectsTransitions.ProjectNext(p.Status));
     }
 }

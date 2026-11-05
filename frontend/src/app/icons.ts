@@ -9,6 +9,8 @@ import {
   FallOutline, FolderOpenOutline, PartitionOutline, RiseOutline, UnorderedListOutline,
   ProjectOutline, ClockCircleOutline, DollarCircleOutline,
   ShoppingCartOutline, LineChartOutline,
+  ArrowLeftOutline, BarcodeOutline, CalculatorOutline, CalendarOutline, CommentOutline, EyeOutline, FieldTimeOutline, FileDoneOutline, FlagOutline, HistoryOutline, InboxOutline, MoreOutline,
+  PaperClipOutline, PauseCircleOutline, PlayCircleOutline, SaveOutline, ScheduleOutline, SendOutline, TableOutline, TagOutline, TransactionOutline, UserAddOutline, ZoomInOutline, ZoomOutOutline,
 } from '@ant-design/icons-angular/icons';
 
 /** Icons used by the shell and the server-driven menu (MenuItemDefinition.Icon). Unknown names fall back to "appstore". */
@@ -27,5 +29,8 @@ export const APP_ICONS = [
   HolderOutline, UndoOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline,
   // Step-by-step chart of accounts (category icons, column chevrons, view toggle).
   FallOutline, FolderOpenOutline, PartitionOutline, RiseOutline, UnorderedListOutline,
+  // Projects screens, and module menu icons that were fetched from /assets and failed.
+  ArrowLeftOutline, BarcodeOutline, CalculatorOutline, CalendarOutline, CommentOutline, EyeOutline, FieldTimeOutline, FileDoneOutline, FlagOutline, HistoryOutline, InboxOutline, MoreOutline,
+  PaperClipOutline, PauseCircleOutline, PlayCircleOutline, SaveOutline, ScheduleOutline, SendOutline, TableOutline, TagOutline, TransactionOutline, UserAddOutline, ZoomInOutline, ZoomOutOutline,
 ];
 export const KNOWN_ICONS = new Set(APP_ICONS.map((i) => i.name));

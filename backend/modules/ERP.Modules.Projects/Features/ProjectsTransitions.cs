@@ -15,6 +15,15 @@ public static class ProjectsTransitions
             [ProjectStatus.Cancelled] = [],
         });
 
+    /// <summary>Where a project can go from this status, for the status buttons on screen. Mirrors the map above.</summary>
+    public static IReadOnlyList<ProjectStatus> ProjectNext(ProjectStatus from) => from switch
+    {
+        ProjectStatus.Planning => [ProjectStatus.Active, ProjectStatus.Cancelled],
+        ProjectStatus.Active => [ProjectStatus.OnHold, ProjectStatus.Completed, ProjectStatus.Cancelled],
+        ProjectStatus.OnHold => [ProjectStatus.Active, ProjectStatus.Cancelled],
+        _ => [],
+    };
+
     public static readonly StatusTransitions<MilestoneStatus> Milestone = new(
         new Dictionary<MilestoneStatus, IEnumerable<MilestoneStatus>>
         {
