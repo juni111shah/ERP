@@ -216,6 +216,7 @@ export class ChecklistsApi extends CrudApiService<ChecklistRow, unknown> {
 
 // ---- Shifts ----------------------------------------------------------------------------------------------------------------
 
+export interface RosterEntry { id: string; employeeId: string; shiftId: string; fromDate: string; toDate: string; }
 export interface ShiftDto { id: string; code: string; name: string; startTime: string; graceMinutes: number; hoursPerDay: number; isActive: boolean; employees: number; }
 
 @Injectable({ providedIn: 'root' })
@@ -228,6 +229,9 @@ export class ShiftsApi {
   remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
   assign(id: string, employeeIds: string[]): Observable<{ assigned: number }> { return this.http.post<{ assigned: number }>(`${this.url}/${id}/assign`, { employeeIds }); }
   unassign(employeeIds: string[]): Observable<{ cleared: number }> { return this.http.post<{ cleared: number }>(`${this.url}/unassign`, { employeeIds }); }
+  roster(year: number, month: number): Observable<RosterEntry[]> { return this.http.get<RosterEntry[]>(`${this.url}/roster`, { params: { year, month } }); }
+  addRoster(id: string, body: { employeeIds: string[]; fromDate: string; toDate: string }): Observable<RosterEntry[]> { return this.http.post<RosterEntry[]>(`${this.url}/${id}/roster`, body); }
+  removeRoster(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/roster/${id}`); }
 }
 
 // ---- Recruitment -----------------------------------------------------------------------------------------------------------

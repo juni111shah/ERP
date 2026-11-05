@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
@@ -12,7 +13,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { toTime } from './daily-attendance.page';
-import { ShiftDto, ShiftsApi } from './hr-people.api';
+import { RosterEntry, ShiftDto, ShiftsApi } from './hr-people.api';
 import { EmployeeSummary, EmployeesApi } from './hr.api';
 
 /** Work shifts: start time, late grace and the hours of a normal day; employees on a shift are measured against it. */
@@ -20,7 +21,7 @@ import { EmployeeSummary, EmployeesApi } from './hr.api';
   selector: 'erp-shifts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule],
+  imports: [FormsModule, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, NzDatePickerModule],
   template: `
     <h1 class="erp-page-title">Shifts</h1>
     <div style="margin-bottom:12px">
@@ -35,10 +36,21 @@ import { EmployeeSummary, EmployeesApi } from './hr.api';
             <td *erpHasPermission="'hr.attendance.manage'">
               <button nz-button nzSize="small" (click)="edit(s)" [attr.data-testid]="'shift-edit-' + s.code">Edit</button>
               <button nz-button nzSize="small" (click)="openAssign(s)" [attr.data-testid]="'shift-assign-' + s.code">Assign employees</button>
+              <button nz-button nzSize="small" (click)="openRoster(s)" [attr.data-testid]="'shift-roster-' + s.code">Roster dates</button>
               <button nz-button nzSize="small" nzDanger (click)="remove(s)" [attr.data-testid]="'shift-delete-' + s.code">Delete</button>
             </td>
           </tr>
         } @empty { <tr><td colspan="8">No shifts yet. Everyone uses the shift times in the HR settings.</td></tr> }
+      </tbody>
+    </nz-table>
+    <h2 style="margin-top:24px">Dated roster this month</h2>
+    <nz-table [nzData]="roster()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="roster-table">
+      <thead><tr><th>Employee</th><th>Shift</th><th>From</th><th>To</th><th></th></tr></thead>
+      <tbody>
+        @for (r of roster(); track r.id) {
+          <tr><td>{{ employeeName(r.employeeId) }}</td><td>{{ shiftName(r.shiftId) }}</td><td>{{ r.fromDate }}</td><td>{{ r.toDate }}</td>
+            <td *erpHasPermission="'hr.attendance.manage'"><button nz-button nzSize="small" nzDanger (click)="removeRoster(r)">Remove</button></td></tr>
+        } @empty { <tr><td colspan="5">No dated shifts this month.</td></tr> }
       </tbody>
     </nz-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit shift' : 'New shift'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
@@ -50,6 +62,15 @@ import { EmployeeSummary, EmployeesApi } from './hr.api';
         </nz-select>
         <p style="margin-top:8px;color:var(--erp-color-text-secondary)">Employees leave any shift they are on now. Late arrival and overtime follow the new shift from the next entry.</p>
       </ng-container>
+    </nz-modal>
+    <nz-modal [nzVisible]="rostering() !== null" [nzTitle]="'Roster dates for ' + (rostering()?.name ?? '')" nzOkText="Add" (nzOnOk)="addRoster()" (nzOnCancel)="rostering.set(null)">
+      <ng-container *nzModalContent>
+        <nz-select style="width:100%;margin-bottom:8px" nzMode="multiple" nzShowSearch nzPlaceHolder="Choose employees" aria-label="Employees" [(ngModel)]="picked" data-testid="roster-employees">
+          @for (e of employees().items; track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.number + ' · ' + e.fullName"></nz-option> }
+        </nz-select>
+        <nz-range-picker style="width:100%" [(ngModel)]="range" data-testid="roster-range"></nz-range-picker>
+        <p style="margin-top:8px;color:var(--erp-color-text-secondary)">On these dates the shift replaces the employee's default shift.</p>
+      </ng-container>
     </nz-modal>`,
 })
 export class ShiftsPage {
@@ -58,7 +79,10 @@ export class ShiftsPage {
   readonly employees = toSignal(inject(EmployeesApi).list({ page: 1, pageSize: 200, sort: 'number' }).pipe(catchError(() => of({ items: [] as EmployeeSummary[] }))), { initialValue: { items: [] as EmployeeSummary[] } });
   readonly rows = signal<ShiftDto[]>([]);
   readonly assigning = signal<ShiftDto | null>(null);
+  readonly rostering = signal<ShiftDto | null>(null);
+  readonly roster = signal<RosterEntry[]>([]);
   picked: string[] = [];
+  range: Date[] = [];
 
   readonly state = new MasterDataState<ShiftDto>({
     save: (id, body) => { const b = this.toBody(body as Record<string, unknown>); return id ? this.api.update(id, b) : this.api.create(b); },
@@ -75,7 +99,24 @@ export class ShiftsPage {
 
   constructor() { this.load(); }
 
-  load(): void { this.api.list().subscribe((r) => this.rows.set(r)); }
+  load(): void {
+    this.api.list().subscribe((r) => this.rows.set(r));
+    const now = new Date();
+    this.api.roster(now.getFullYear(), now.getMonth() + 1).subscribe((r) => this.roster.set(r));
+  }
+  employeeName(id: string): string { return this.employees().items.find((e) => e.id === id)?.fullName ?? ''; }
+  shiftName(id: string): string { return this.rows().find((s) => s.id === id)?.name ?? ''; }
+  openRoster(s: ShiftDto): void { this.picked = []; this.range = []; this.rostering.set(s); }
+  addRoster(): void {
+    const s = this.rostering();
+    if (!s || !this.picked.length || this.range.length < 2) { this.message.warning('Choose the employees and the dates.'); return; }
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    this.api.addRoster(s.id, { employeeIds: this.picked, fromDate: iso(this.range[0]), toDate: iso(this.range[1]) }).subscribe({
+      next: () => { this.message.success('Roster dates added.'); this.rostering.set(null); this.load(); },
+      error: () => this.message.error('Could not add the roster dates.'),
+    });
+  }
+  removeRoster(r: RosterEntry): void { this.api.removeRoster(r.id).subscribe(() => this.load()); }
   edit(s: ShiftDto): void { this.state.edit({ ...s, startTime: s.startTime.slice(0, 5) } as ShiftDto); }
   openAssign(s: ShiftDto): void { this.picked = []; this.assigning.set(s); }
   assign(): void {

@@ -109,3 +109,66 @@ internal sealed class ShiftHandlers(IRepository<Shift> shifts, IRepository<Emplo
 
     private static ShiftDto ToDto(Shift s, int employees) => new(s.Id, s.Code, s.Name, s.StartTime, s.GraceMinutes, s.HoursPerDay, s.IsActive, employees);
 }
+
+public sealed record RosterInput(IReadOnlyList<Guid> EmployeeIds, DateOnly FromDate, DateOnly ToDate);
+public sealed record RosterDto(Guid Id, Guid EmployeeId, Guid ShiftId, DateOnly FromDate, DateOnly ToDate);
+public sealed record AddRoster(Guid ShiftId, RosterInput Input) : ICommand<IReadOnlyList<RosterDto>>, IRequirePermission { public string RequiredPermission => P.AttendanceManage; }
+public sealed record DeleteRoster(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => P.AttendanceManage; }
+public sealed record ListRoster(int Year, int Month) : IQuery<IReadOnlyList<RosterDto>>, IRequirePermission { public string RequiredPermission => P.AttendanceRead; }
+
+public sealed class AddRosterValidator : AbstractValidator<AddRoster>
+{
+    public AddRosterValidator()
+    {
+        RuleFor(x => x.Input.EmployeeIds).NotEmpty().Must(i => i.Count <= 500);
+        RuleFor(x => x.Input.ToDate).GreaterThanOrEqualTo(x => x.Input.FromDate).WithMessage("The end date cannot be before the start date.");
+    }
+}
+public sealed class ListRosterValidator : AbstractValidator<ListRoster> { public ListRosterValidator() { RuleFor(x => x.Year).InclusiveBetween(2000, 2100); RuleFor(x => x.Month).InclusiveBetween(1, 12); } }
+
+/// <summary>Which roster entry (if any) covers a date; the latest start wins when entries overlap. No I/O.</summary>
+public static class RosterMath
+{
+    public static Guid? ShiftOn(IEnumerable<ShiftRoster> entries, DateOnly date) =>
+        entries.Where(r => r.FromDate <= date && date <= r.ToDate).OrderByDescending(r => r.FromDate).Select(r => (Guid?)r.ShiftId).FirstOrDefault();
+}
+
+internal sealed class RosterHandlers(IRepository<ShiftRoster> roster, IReadRepository<Shift> shifts, IReadRepository<Employee> employees, ILegalEntityGuard guard) :
+    IRequestHandler<AddRoster, IReadOnlyList<RosterDto>>,
+    IRequestHandler<DeleteRoster, Unit>,
+    IRequestHandler<ListRoster, IReadOnlyList<RosterDto>>
+{
+    public async Task<IReadOnlyList<RosterDto>> Handle(AddRoster cmd, CancellationToken ct)
+    {
+        var shift = await shifts.GetAsync(cmd.ShiftId, ct);
+        if (!shift.IsActive) throw new ConflictException("This shift is not active.");
+        var i = cmd.Input; var ids = i.EmployeeIds.Distinct().ToList();
+        var staff = await employees.Query(new Specification<Employee>(e => ids.Contains(e.Id))).ToListAsync(ct);
+        if (staff.Count != ids.Count) throw new NotFoundException("One of the employees was not found.");
+        var added = new List<ShiftRoster>();
+        foreach (var e in staff)
+        {
+            await guard.RequireAsync(e.LegalEntityId, ct);
+            var r = new ShiftRoster { LegalEntityId = e.LegalEntityId, EmployeeId = e.Id, ShiftId = shift.Id, FromDate = i.FromDate, ToDate = i.ToDate };
+            roster.Add(r); added.Add(r);
+        }
+        await roster.SaveChangesAsync(ct);
+        return added.Select(ToDto).ToList();
+    }
+
+    public async Task<Unit> Handle(DeleteRoster cmd, CancellationToken ct)
+    {
+        roster.Remove(await roster.GetForUpdateAsync(cmd.Id, ct));
+        await roster.SaveChangesAsync(ct);
+        return Unit.Value;
+    }
+
+    public async Task<IReadOnlyList<RosterDto>> Handle(ListRoster q, CancellationToken ct)
+    {
+        var start = new DateOnly(q.Year, q.Month, 1); var end = start.AddMonths(1).AddDays(-1);
+        var rows = await roster.Query(new Specification<ShiftRoster>(r => r.FromDate <= end && r.ToDate >= start)).ToListAsync(ct);
+        return rows.OrderBy(r => r.FromDate).Select(ToDto).ToList();
+    }
+
+    private static RosterDto ToDto(ShiftRoster r) => new(r.Id, r.EmployeeId, r.ShiftId, r.FromDate, r.ToDate);
+}

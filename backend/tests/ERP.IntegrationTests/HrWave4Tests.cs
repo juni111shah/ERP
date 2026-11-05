@@ -159,6 +159,28 @@ public class HrWave4Tests(ApiFactory f) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task A_dated_roster_entry_overrides_the_default_shift_only_on_its_dates()
+    {
+        var kit = await HrKit.StartAsync(f);
+        var emp = await kit.EmployeeAsync(HrKit.Unique("Roster"), 3_000m, PlainPay);
+        var code = ("R" + Guid.NewGuid().ToString("N"))[..8];
+        var shift = await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/shifts", new { code, name = "Evening", startTime = "16:00:00", graceMinutes = 0, hoursPerDay = 8 }), HttpStatusCode.Created);
+        var id = (string)shift["id"]!;
+        Assert.Equal(HttpStatusCode.BadRequest, (await kit.Owner.PostAsJsonAsync($"{Hr}/shifts/{id}/roster", new { employeeIds = new[] { emp }, fromDate = "2026-10-10", toDate = "2026-10-01" })).StatusCode);
+        var added = (await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/shifts/{id}/roster", new { employeeIds = new[] { emp }, fromDate = "2026-10-06", toDate = "2026-10-07" }), HttpStatusCode.Created)).AsArray();
+        Assert.Single(added);
+
+        var inside = await HrKit.Ok(await kit.Owner.PutAsJsonAsync($"{Hr}/attendance/daily", new { employeeId = emp, date = "2026-10-06", checkIn = "16:30:00", checkOut = "23:30:00" }));
+        Assert.Equal(30, (int)inside["lateMinutes"]!);      // measured against 16:00
+        var outside = await HrKit.Ok(await kit.Owner.PutAsJsonAsync($"{Hr}/attendance/daily", new { employeeId = emp, date = "2026-10-08", checkIn = "16:30:00", checkOut = "23:30:00" }));
+        Assert.True((int)outside["lateMinutes"]! > 400);    // back on the 08:00 default
+
+        var month = (await HrKit.Ok(await kit.Owner.GetAsync($"{Hr}/shifts/roster?year=2026&month=10"))).AsArray();
+        Assert.Contains(month, r => (string)r!["employeeId"]! == emp.ToString());
+        Assert.Equal(HttpStatusCode.NoContent, (await kit.Owner.DeleteAsync($"{Hr}/shifts/roster/{(string)added[0]!["id"]!}")).StatusCode);
+    }
+
+    [Fact]
     public async Task A_half_day_counts_as_attended_with_half_a_day_unpaid_and_payroll_deducts_half_a_day()
     {
         var kit = await HrKit.StartAsync(f);
