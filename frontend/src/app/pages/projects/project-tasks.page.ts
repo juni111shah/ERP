@@ -19,6 +19,8 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { catchError, of } from 'rxjs';
 import { createPagedList } from '../../core/api/paged-list';
+import { ProjectsExtraApi, UserOption } from '../../core/api/projects-extra.api';
+import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { ProjectTasksApi, ProjectTaskStatus, ProjectsApi, TaskDto, TaskInput, TaskPriority } from '../../core/api/projects.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
@@ -76,7 +78,9 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-option nzValue="Todo" nzLabel="To Do"></nz-option>
                 <nz-option nzValue="InProgress" nzLabel="In Progress"></nz-option>
                 <nz-option nzValue="Review" nzLabel="Review"></nz-option>
+                <nz-option nzValue="Blocked" nzLabel="Blocked"></nz-option>
                 <nz-option nzValue="Done" nzLabel="Done"></nz-option>
+                <nz-option nzValue="Cancelled" nzLabel="Cancelled"></nz-option>
               </nz-select>
             }
             @case ('hours') {
@@ -127,7 +131,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <div nz-col [nzSpan]="12">
                 <nz-form-item>
                   <nz-form-label>Assigned To</nz-form-label>
-                  <nz-form-control><input nz-input formControlName="assignedTo" placeholder="Assignee name" /></nz-form-control>
+                  <nz-form-control>
+                    <nz-select formControlName="assignedUserId" nzAllowClear nzShowSearch nzPlaceHolder="Choose a person" data-testid="task-assignee">
+                      @for (u of users(); track u.id) { <nz-option [nzValue]="u.id" [nzLabel]="u.fullName"></nz-option> }
+                    </nz-select>
+                  </nz-form-control>
                 </nz-form-item>
               </div>
             </div>
@@ -189,6 +197,8 @@ export class ProjectTasksPage {
   private readonly projectsApi = inject(ProjectsApi);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
+  private readonly extra = inject(ProjectsExtraApi);
+  readonly users = toSignal(this.extra.users().pipe(catchError(() => of([] as UserOption[]))), { initialValue: [] as UserOption[] });
 
   readonly projects = toSignal(this.projectsApi.list({ page: 1, pageSize: 200 }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
   readonly list = createPagedList((q) => this.tasksApi.list(q), { sort: 'createdAt' });
@@ -197,7 +207,7 @@ export class ProjectTasksPage {
   readonly form = this.fb.group({
     projectId: ['', Validators.required],
     title: ['', Validators.required],
-    assignedTo: [''],
+    assignedUserId: [null as string | null],
     priority: ['Medium', Validators.required],
     estimatedHours: [0],
     dueDate: [null],
@@ -225,9 +235,9 @@ export class ProjectTasksPage {
   }
 
   updateStatus(taskId: string, status: ProjectTaskStatus): void {
-    this.tasksApi.setStatus(taskId, status).subscribe(() => {
-      this.msg.success('Status updated');
-      this.list.reload();
+    this.tasksApi.setStatus(taskId, status).subscribe({
+      next: () => { this.msg.success('Status updated'); this.list.reload(); },
+      error: (e) => { this.msg.error(e?.error?.detail ?? e?.error?.message ?? 'That change is not allowed.'); this.list.reload(); },
     });
   }
 
@@ -239,12 +249,13 @@ export class ProjectTasksPage {
   save(): void {
     if (this.form.invalid) return;
     const v = this.form.value;
-    const dueDateStr = v.dueDate ? new Date(v.dueDate).toISOString().split('T')[0] : null;
+    const dueDateStr = v.dueDate ? toIsoDate(new Date(v.dueDate)) : null;
 
     this.tasksApi.create({
       projectId: v.projectId!,
       title: v.title!,
-      assignedTo: v.assignedTo || null,
+      assignedTo: null,
+      assignedUserId: v.assignedUserId || null,
       priority: v.priority as TaskPriority,
       estimatedHours: v.estimatedHours || 0,
       actualHours: 0,

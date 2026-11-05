@@ -39,7 +39,7 @@ public class ProjectsModuleTests
     {
         var module = new ProjectsModule();
         var menu = module.Menu.ToList();
-        Assert.Equal(11, menu.Count);
+        Assert.Equal(12, menu.Count);
 
         var routes = menu.Select(m => m.Route).ToList();
         Assert.Contains("/projects/list", routes);

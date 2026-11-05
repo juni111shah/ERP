@@ -4,9 +4,9 @@ import { CrudApiService } from './crud-api.service';
 
 export type ProjectStatus = 'Planning' | 'Active' | 'OnHold' | 'Completed' | 'Cancelled';
 export type ProjectBillingType = 'TimeAndMaterials' | 'FixedFee' | 'NonBillable';
-export type ProjectTaskStatus = 'Todo' | 'InProgress' | 'Review' | 'Done';
+export type ProjectTaskStatus = 'Todo' | 'InProgress' | 'Review' | 'Done' | 'Blocked' | 'Cancelled';
 export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
-export type MilestoneStatus = 'Pending' | 'Achieved' | 'Invoiced';
+export type MilestoneStatus = 'Pending' | 'Achieved' | 'Invoiced' | 'Cancelled';
 
 export interface ProjectSummaryDto {
   id: string;
@@ -22,6 +22,9 @@ export interface ProjectSummaryDto {
   startDate?: string | null;
   endDate?: string | null;
   createdAt: string;
+  managerUserId?: string | null;
+  isTemplate?: boolean;
+  isArchived?: boolean;
 }
 
 export interface ProjectDto extends ProjectSummaryDto {
@@ -34,6 +37,19 @@ export interface ProjectDto extends ProjectSummaryDto {
   totalMilestones: number;
   achievedMilestones: number;
   customFields?: Record<string, unknown> | null;
+  taxCodeId?: string | null;
+  budgetHours: number;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  effectiveBudget: number;
+  approvedChanges: number;
+  billableValue: number;
+  expenseCost: number;
+  billedAmount: number;
+  unbilledAmount: number;
+  percentComplete: number;
+  health: 'onTrack' | 'atRisk' | 'offTrack' | 'closed';
+  overdueTasks: number;
 }
 
 export interface ProjectInput {
@@ -50,6 +66,12 @@ export interface ProjectInput {
   startDate?: string | null;
   endDate?: string | null;
   customFields?: Record<string, unknown> | null;
+  managerUserId?: string | null;
+  taxCodeId?: string | null;
+  budgetHours?: number;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  isTemplate?: boolean;
 }
 
 export interface ProjectKpiDto {
@@ -77,6 +99,11 @@ export interface TaskDto {
   actualHours: number;
   dueDate?: string | null;
   createdAt: string;
+  assignedUserId?: string | null;
+  parentTaskId?: string | null;
+  startDate?: string | null;
+  labels?: string | null;
+  dependsOn?: string[] | null;
 }
 
 export interface TaskInput {
@@ -90,6 +117,10 @@ export interface TaskInput {
   estimatedHours: number;
   actualHours: number;
   dueDate?: string | null;
+  assignedUserId?: string | null;
+  parentTaskId?: string | null;
+  startDate?: string | null;
+  labels?: string | null;
 }
 
 export interface MilestoneDto {
@@ -129,17 +160,25 @@ export interface TimesheetDto {
   isBilled: boolean;
   invoiceId?: string | null;
   createdAt: string;
+  workerUserId?: string | null;
+  costRate: number;
+  costAmount: number;
+  approvalStatus: 'Draft' | 'Submitted' | 'Approved' | 'Rejected';
+  rejectReason?: string | null;
+  writtenOff: boolean;
 }
 
 export interface TimesheetInput {
   projectId: string;
   taskId?: string | null;
   date: string;
-  workerName: string;
+  workerName?: string | null;
   hours: number;
-  hourlyRate: number;
+  hourlyRate?: number | null;
   description?: string | null;
   isBillable?: boolean;
+  workerUserId?: string | null;
+  costRate?: number | null;
 }
 
 export interface ProjectBillingSummaryDto {
@@ -152,12 +191,20 @@ export interface ProjectBillingSummaryDto {
   achievedMilestonesCount: number;
   achievedMilestonesAmount: number;
   totalUnbilledAmount: number;
+  unbilledExpensesAmount: number;
+  awaitingApprovalAmount: number;
+  fixedFeeRemaining: number;
 }
 
 export interface BillProjectInput {
   projectId: string;
   timesheetIds?: string[];
   milestoneIds?: string[];
+  expenseIds?: string[];
+  grouping?: string;
+  discountPercent?: number;
+  progressPercent?: number | null;
+  notes?: string | null;
 }
 
 export interface BillProjectResultDto {
@@ -167,6 +214,7 @@ export interface BillProjectResultDto {
   totalAmountBilled: number;
   invoiceId?: string;
   invoiceNumber?: string;
+  billedExpensesCount?: number;
 }
 
 @Injectable({ providedIn: 'root' })

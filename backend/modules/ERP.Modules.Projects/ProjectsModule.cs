@@ -54,6 +54,7 @@ public sealed class ProjectsModule : ModuleBase
         new("projects.timesheets", "Timesheets", "/projects/timesheets", "clock-circle", P.TimesheetsRead, 30, "projects", "Projects", 350),
         new("projects.billing", "Project billing", "/projects/billing", "dollar-circle", P.BillingRead, 40, "projects", "Projects", 350),
         new("projects.board", "Task board", "/projects/board", "project", P.TasksRead, 25, "projects", "Projects", 350),
+        new("projects.week", "My week", "/projects/week", "calendar", P.TimesheetsManage, 31, "projects", "Projects", 350),
         new("projects.expenses", "Expenses", "/projects/expenses", "wallet", P.ExpensesRead, 35, "projects", "Projects", 350),
         new("projects.approvals", "Timesheet approvals", "/projects/approvals", "audit", P.TimesheetsApprove, 36, "projects", "Projects", 350),
         new("projects.reports", "Project reports", "/projects/reports", "bar-chart", P.ReportsRead, 50, "projects", "Projects", 350),
