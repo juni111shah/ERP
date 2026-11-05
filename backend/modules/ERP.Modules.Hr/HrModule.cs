@@ -52,6 +52,12 @@ public sealed class HrModule : ModuleBase
         new("hr.documentexpiry", "Document expiry", "/hr/documents-expiry", "warning", P.EmployeesRead, 18, "hr", "HR and payroll", 400),
         new("hr.loans", "Loans and advances", "/hr/loans", "dollar", P.PayrollRead, 35, "hr", "HR and payroll", 400),
         new("hr.reports", "HR reports", "/hr/reports", "bar-chart", P.EmployeesRead, 70, "hr", "HR and payroll", 400),
+        new("hr.dailyattendance", "Daily attendance", "/hr/daily-attendance", "check-square", P.AttendanceRead, 22, "hr", "HR and payroll", 400),
+        new("hr.shifts", "Shifts", "/hr/shifts", "clock-circle", P.AttendanceRead, 23, "hr", "HR and payroll", 400),
+        new("hr.statutory", "Statutory rules", "/hr/statutory-rules", "audit", P.PayrollRead, 38, "hr", "HR and payroll", 400),
+        new("hr.recruitment", "Recruitment", "/hr/recruitment", "team", P.RecruitmentRead, 42, "hr", "HR and payroll", 400),
+        new("hr.checklists", "Checklists", "/hr/checklists", "form", P.EmployeesRead, 46, "hr", "HR and payroll", 400),
+        new("hr.tasks", "HR tasks", "/hr/tasks", "check-square", P.EmployeesRead, 47, "hr", "HR and payroll", 400),
         new("hr.employees", "Employees", "/hr/employees", "team", P.EmployeesRead, 10, "hr", "HR and payroll", 400),
         new("hr.attendance", "Attendance", "/hr/attendance", "check-square", P.AttendanceRead, 20, "hr", "HR and payroll", 400),
         new("hr.payroll", "Payroll", "/hr/payroll", "wallet", P.PayrollRead, 30, "hr", "HR and payroll", 400),
@@ -276,6 +282,13 @@ public sealed class HrModule : ModuleBase
             b.Property(x => x.NewValue).HasMaxLength(300);
             b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
             b.HasIndex(x => new { x.OrgId, x.EmployeeId, x.EffectiveDate });
+        });
+        mb.Entity<Shift>(b =>
+        {
+            b.ToTable("hr_Shifts");
+            b.Property(x => x.Code).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
         });
         mb.Entity<ChecklistTemplate>(b =>
         {

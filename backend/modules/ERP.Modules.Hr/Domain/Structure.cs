@@ -13,6 +13,8 @@ public partial class Employee
     [Filterable] public Guid? ManagerEmployeeId { get; set; }
     [Filterable] public Guid? DepartmentId { get; set; }
     [Filterable] public Guid? PositionId { get; set; }
+    /// <summary>The shift this person is measured against for late arrival and overtime; blank = the workspace settings.</summary>
+    [Filterable] public Guid? ShiftId { get; set; }
     public DateOnly? DateOfBirth { get; set; }
     public string? Gender { get; set; }
     public string? MaritalStatus { get; set; }

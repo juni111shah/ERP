@@ -142,3 +142,118 @@ export class MyHrApi {
     return this.http.get<PagedResult<LeaveRequestRow>>(`${this.url}/team/leave`, { params });
   }
 }
+
+// ---- Statutory payroll rules -----------------------------------------------------------------------------------------------
+
+export const STATUTORY_KINDS = [{ value: 'employeeDeduction', label: 'Employee deduction' }, { value: 'employerCost', label: 'Employer cost' }];
+export const STATUTORY_METHODS = [{ value: 'flat', label: 'Flat percent' }, { value: 'slab', label: 'Slabs (progressive)' }];
+export const STATUTORY_BASES = [{ value: 'basic', label: 'Basic salary' }, { value: 'gross', label: 'Gross pay' }];
+export interface StatutoryRuleRow { id: string; legalEntityId: string; code: string; name: string; kind: string; method: string; base: string; rate: number; isActive: boolean; }
+export interface StatutoryRuleDto extends StatutoryRuleRow {
+  threshold: number; cap: number; nationalities?: string; effectiveFrom?: string; effectiveTo?: string; slabs: { fromAmount: number; rate: number }[];
+}
+export interface StatutoryTotal { code: string; name: string; kind: string; employees: number; baseAmount: number; amount: number; }
+
+@Injectable({ providedIn: 'root' })
+export class StatutoryRulesApi extends CrudApiService<StatutoryRuleRow, unknown> {
+  protected readonly resource = `${BASE}/statutory-rules`;
+  detail(id: string): Observable<StatutoryRuleDto> { return this.http.get<StatutoryRuleDto>(`${this.url}/${id}`); }
+  totals(runId: string): Observable<StatutoryTotal[]> { return this.http.get<StatutoryTotal[]>(`${this.baseUrl}/${BASE}/payroll/${runId}/statutory`); }
+}
+
+// ---- Daily attendance ------------------------------------------------------------------------------------------------------
+
+export const DAILY_STATUSES = [
+  { value: 'present', label: 'Present' }, { value: 'absent', label: 'Absent' }, { value: 'leave', label: 'On leave' }, { value: 'holiday', label: 'Public holiday' }, { value: 'weeklyOff', label: 'Weekly off' }, { value: 'halfDay', label: 'Half day' },
+];
+export interface DailyAttendance { id: string; employeeId: string; date: string; checkIn?: string; checkOut?: string; status: string; workedMinutes: number; lateMinutes: number; overtimeMinutes: number; notes?: string; source?: string; }
+export interface DailyInput { employeeId: string; date: string; checkIn?: string | null; checkOut?: string | null; status?: string | null; notes?: string | null; source?: string | null; }
+export interface RollUpRow { employeeId: string; employeeName: string; workingDays: number; daysPresent: number; unpaidAbsentDays: number; paidLeaveDays: number; overtimeHours: number; lateDays: number; lateMinutes: number; }
+
+@Injectable({ providedIn: 'root' })
+export class DailyAttendanceApi {
+  private readonly http = inject(HttpClient);
+  private readonly url = `${inject(API_BASE_URL)}/${BASE}/attendance/daily`;
+  month(year: number, month: number, employeeId?: string | null): Observable<DailyAttendance[]> {
+    const params: Record<string, string | number> = { year, month };
+    if (employeeId) params['employeeId'] = employeeId;
+    return this.http.get<DailyAttendance[]>(this.url, { params });
+  }
+  save(body: DailyInput): Observable<DailyAttendance> { return this.http.put<DailyAttendance>(this.url, body); }
+  bulk(items: DailyInput[]): Observable<{ saved: number; rejected: string[] }> { return this.http.post<{ saved: number; rejected: string[] }>(`${this.url}/bulk`, { items }); }
+  rollUp(year: number, month: number, legalEntityId?: string | null): Observable<RollUpRow[]> { return this.http.post<RollUpRow[]>(`${this.url}/roll-up`, { year, month, legalEntityId: legalEntityId ?? null }); }
+  remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
+}
+
+// ---- History, onboarding checklists and tasks ------------------------------------------------------------------------------
+
+export interface HistoryEntry { id: string; effectiveDate: string; kind: string; summary: string; oldValue?: string; newValue?: string; isPay: boolean; }
+export const CHECKLIST_KINDS = [{ value: 'onboarding', label: 'Onboarding' }, { value: 'offboarding', label: 'Offboarding' }];
+export interface ChecklistRow { id: string; name: string; kind: string; isActive: boolean; }
+export interface ChecklistDto extends ChecklistRow { items: { title: string; dueOffsetDays: number }[]; }
+export interface EmployeeTask { id: string; employeeId: string; kind: string; title: string; dueDate?: string; isDone: boolean; doneAt?: string; notes?: string; overdue: boolean; }
+export interface OpenTask { id: string; employeeId: string; employeeName: string; kind: string; title: string; dueDate?: string; overdue: boolean; }
+
+@Injectable({ providedIn: 'root' })
+export class EmployeeLifeApi {
+  private readonly http = inject(HttpClient);
+  private readonly url = `${inject(API_BASE_URL)}/${BASE}`;
+  history(employeeId: string): Observable<HistoryEntry[]> { return this.http.get<HistoryEntry[]>(`${this.url}/employees/${employeeId}/history`); }
+  addNote(employeeId: string, summary: string): Observable<HistoryEntry> { return this.http.post<HistoryEntry>(`${this.url}/employees/${employeeId}/history`, { summary }); }
+  tasks(employeeId: string): Observable<EmployeeTask[]> { return this.http.get<EmployeeTask[]>(`${this.url}/employees/${employeeId}/tasks`); }
+  addTask(employeeId: string, body: { title: string; dueDate?: string | null; kind: string }): Observable<EmployeeTask> { return this.http.post<EmployeeTask>(`${this.url}/employees/${employeeId}/tasks`, body); }
+  applyChecklist(employeeId: string, templateId: string): Observable<EmployeeTask[]> { return this.http.post<EmployeeTask[]>(`${this.url}/employees/${employeeId}/checklists/${templateId}`, {}); }
+  setDone(taskId: string, done: boolean): Observable<EmployeeTask> { return this.http.post<EmployeeTask>(`${this.url}/tasks/${taskId}/done`, { done }); }
+  removeTask(taskId: string): Observable<void> { return this.http.delete<void>(`${this.url}/tasks/${taskId}`); }
+  openTasks(): Observable<OpenTask[]> { return this.http.get<OpenTask[]>(`${this.url}/tasks/open`); }
+}
+
+@Injectable({ providedIn: 'root' })
+export class ChecklistsApi extends CrudApiService<ChecklistRow, unknown> {
+  protected readonly resource = `${BASE}/checklists`;
+  detail(id: string): Observable<ChecklistDto> { return this.http.get<ChecklistDto>(`${this.url}/${id}`); }
+}
+
+// ---- Shifts ----------------------------------------------------------------------------------------------------------------
+
+export interface ShiftDto { id: string; code: string; name: string; startTime: string; graceMinutes: number; hoursPerDay: number; isActive: boolean; employees: number; }
+
+@Injectable({ providedIn: 'root' })
+export class ShiftsApi {
+  private readonly http = inject(HttpClient);
+  private readonly url = `${inject(API_BASE_URL)}/${BASE}/shifts`;
+  list(): Observable<ShiftDto[]> { return this.http.get<ShiftDto[]>(this.url); }
+  create(body: unknown): Observable<ShiftDto> { return this.http.post<ShiftDto>(this.url, body); }
+  update(id: string, body: unknown): Observable<ShiftDto> { return this.http.put<ShiftDto>(`${this.url}/${id}`, body); }
+  remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
+  assign(id: string, employeeIds: string[]): Observable<{ assigned: number }> { return this.http.post<{ assigned: number }>(`${this.url}/${id}/assign`, { employeeIds }); }
+  unassign(employeeIds: string[]): Observable<{ cleared: number }> { return this.http.post<{ cleared: number }>(`${this.url}/unassign`, { employeeIds }); }
+}
+
+// ---- Recruitment -----------------------------------------------------------------------------------------------------------
+
+export const OPENING_STATUSES = [{ value: 'open', label: 'Open' }, { value: 'onHold', label: 'On hold' }, { value: 'closed', label: 'Closed' }];
+export const CANDIDATE_STAGES = [
+  { value: 'applied', label: 'Applied' }, { value: 'screening', label: 'Screening' }, { value: 'interview', label: 'Interview' },
+  { value: 'offer', label: 'Offer' }, { value: 'hired', label: 'Hired' }, { value: 'rejected', label: 'Rejected' },
+];
+export interface OpeningRow { id: string; title: string; departmentId?: string; headcount: number; status: string; closingDate?: string; }
+export interface OpeningDto extends OpeningRow { positionId?: string; description?: string; candidates: number; hired: number; }
+export interface CandidateRow { id: string; openingId: string; fullName: string; email?: string; stage: string; stageChangedAt: string; }
+export interface CandidateDto extends CandidateRow { phone?: string; source?: string; expectedSalary?: number; notes?: string; employeeId?: string; }
+
+@Injectable({ providedIn: 'root' })
+export class OpeningsApi extends CrudApiService<OpeningRow, unknown> {
+  protected readonly resource = `${BASE}/openings`;
+  detail(id: string): Observable<OpeningDto> { return this.http.get<OpeningDto>(`${this.url}/${id}`); }
+}
+
+@Injectable({ providedIn: 'root' })
+export class CandidatesApi extends CrudApiService<CandidateRow, unknown> {
+  protected readonly resource = `${BASE}/candidates`;
+  detail(id: string): Observable<CandidateDto> { return this.http.get<CandidateDto>(`${this.url}/${id}`); }
+  move(id: string, stage: string, notes?: string | null): Observable<CandidateDto> { return this.http.post<CandidateDto>(`${this.url}/${id}/move`, { stage, notes: notes ?? null }); }
+  hire(id: string, body: unknown): Observable<{ employeeId: string; employeeNumber: string; tasksCreated: number }> {
+    return this.http.post<{ employeeId: string; employeeNumber: string; tasksCreated: number }>(`${this.url}/${id}/hire`, body);
+  }
+}

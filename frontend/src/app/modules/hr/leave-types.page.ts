@@ -39,25 +39,11 @@ export class LeaveTypesPage {
   }
 
   open(t: LeaveTypeDto): void {
-    this.state.edit({
-      ...t,
-      tiersText: (t.tiers ?? []).map((x) => `${x.fromServiceYears}:${x.days}`).join(', '),
-      bandsText: (t.payBands ?? []).map((x) => `${x.fromDay}:${x.payPercent}`).join(', '),
-    } as LeaveTypeDto);
-  }
-
-  /** "5:30, 10:35" -> pairs; blank -> an empty list (clears them). */
-  private pairs(text: unknown): [number, number][] {
-    return String(text ?? '').split(',').map((p) => p.trim()).filter(Boolean).map((p) => p.split(':').map((n) => Number(n.trim())) as [number, number]).filter((p) => p.length === 2 && p.every((n) => Number.isFinite(n)));
+    this.state.edit(t);
   }
 
   private toBody(v: Record<string, unknown>): Record<string, unknown> {
-    const { tiersText, bandsText, ...rest } = v;
-    return {
-      ...rest,
-      tiers: this.pairs(tiersText).map(([fromServiceYears, days]) => ({ fromServiceYears, days })),
-      payBands: this.pairs(bandsText).map(([fromDay, payPercent]) => ({ fromDay, payPercent })),
-    };
+    return { ...v, tiers: v['tiers'] ?? [], payBands: v['payBands'] ?? [] };
   }
   readonly columns: TableColumn<LeaveTypeDto>[] = [
     { key: 'code', label: 'Code', sortField: 'code', width: '110px' },
@@ -80,7 +66,7 @@ export class LeaveTypesPage {
     { key: 'accrualMode', label: 'Entitlement builds up', type: 'select', default: 'upfront', options: [{ value: 'upfront', label: 'All at the start of the year' }, { value: 'monthly', label: 'Month by month' }] },
     { key: 'requiresAttachmentAfterDays', label: 'Document needed after (days)', type: 'number', min: 0, max: 366, hint: 'Longer requests need a supporting document (for example a medical certificate). Blank = never.' },
     { key: 'encashable', label: 'Paid out when the employee leaves', type: 'switch', default: false },
-    { key: 'tiersText', label: 'Service-based entitlement', type: 'text', maxLength: 200, hint: 'years:days pairs, e.g. 0:21, 5:30 = 21 days, 30 days after 5 years of service.' },
-    { key: 'bandsText', label: 'Pay bands (sick leave)', type: 'text', maxLength: 200, hint: 'day:percent pairs, e.g. 1:100, 16:50, 31:0 = full pay, then half, then unpaid. Counted per employee per year.' },
+    { key: 'tiers', label: 'Service-based entitlement', type: 'rows', columns: [{ key: 'fromServiceYears', label: 'From years of service', type: 'number' }, { key: 'days', label: 'Days a year', type: 'number' }], hint: 'For example from 0 years: 21 days, from 5 years: 30 days.' },
+    { key: 'payBands', label: 'Pay bands (sick leave)', type: 'rows', columns: [{ key: 'fromDay', label: 'From day', type: 'number' }, { key: 'payPercent', label: 'Pay percent', type: 'number' }], hint: 'For example from day 1: 100%, from day 16: 50%, from day 31: 0%. Counted per employee per year.' },
   ];
 }

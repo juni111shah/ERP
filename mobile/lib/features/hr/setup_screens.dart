@@ -34,8 +34,8 @@ FormSpec leaveTypeForm(WidgetRef ref, {Json? existing}) {
         'accrualMode': existing['accrualMode'],
         'requiresAttachmentAfterDays': existing['requiresAttachmentAfterDays'],
         'encashable': existing['encashable'],
-        'tiersText': [for (final t in (existing['tiers'] as List<dynamic>? ?? const []).cast<Json>()) '${t['fromServiceYears']}:${t['days']}'].join(', '),
-        'bandsText': [for (final b in (existing['payBands'] as List<dynamic>? ?? const []).cast<Json>()) '${b['fromDay']}:${b['payPercent']}'].join(', '),
+        'tiers': [for (final t in (existing['tiers'] as List<dynamic>? ?? const []).cast<Json>()) {'fromServiceYears': '${t['fromServiceYears']}', 'days': '${t['days']}'}],
+        'payBands': [for (final b in (existing['payBands'] as List<dynamic>? ?? const []).cast<Json>()) {'fromDay': '${b['fromDay']}', 'payPercent': '${b['payPercent']}'}],
         'isActive': existing['isActive'],
       },
     },
@@ -50,8 +50,14 @@ FormSpec leaveTypeForm(WidgetRef ref, {Json? existing}) {
       Field.select('accrualMode', 'Entitlement builds up', options: const [Option('upfront', 'All at the start of the year'), Option('monthly', 'Month by month')], initial: 'upfront'),
       Field.integer('requiresAttachmentAfterDays', 'Document needed after (days)', min: 0, max: 366),
       Field.toggle('encashable', 'Paid out when the employee leaves'),
-      Field.text('tiersText', 'Service-based days (years:days)', maxLength: 200, hint: 'For example 0:21, 5:30'),
-      Field.text('bandsText', 'Pay bands (day:percent)', maxLength: 200, hint: 'For example 1:100, 16:50, 31:0 (sick leave)'),
+      Field.lines('tiers', 'Service-based days', minLines: 0, addLabel: 'Add tier', fields: [
+        Field.decimal('fromServiceYears', 'From years of service', required: true, min: 0, decimals: 1),
+        Field.decimal('days', 'Days a year', required: true, min: 0, decimals: 1),
+      ]),
+      Field.lines('payBands', 'Pay bands (sick leave)', minLines: 0, addLabel: 'Add band', fields: [
+        Field.integer('fromDay', 'From day', required: true, min: 1),
+        Field.decimal('payPercent', 'Pay percent', required: true, min: 0, max: 100, decimals: 2),
+      ]),
       Field.toggle('isActive', 'Active', initial: true),
     ],
     submit: (ref, body, raw) {
@@ -173,10 +179,5 @@ List<List<num>> pairsOf(Object? text) => [
 
 /// The form body with the two text fields turned into the lists the server expects.
 Map<String, dynamic> leaveTypeBody(Map<String, dynamic> body) {
-  final rest = {...body}..remove('tiersText')..remove('bandsText');
-  return {
-    ...rest,
-    'tiers': [for (final p in pairsOf(body['tiersText'])) {'fromServiceYears': p[0], 'days': p[1]}],
-    'payBands': [for (final p in pairsOf(body['bandsText'])) {'fromDay': p[0].toInt(), 'payPercent': p[1]}],
-  };
+  return {...body, 'tiers': body['tiers'] ?? const <Object>[], 'payBands': body['payBands'] ?? const <Object>[]};
 }

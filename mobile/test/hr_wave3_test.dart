@@ -26,22 +26,16 @@ Widget host(FakeAdapter adapter, Widget child, {Set<String> permissions = const 
 }
 
 void main() {
-  test('leave type text fields become the tier and pay-band lists the server expects', () {
+  test('leave type tiers and pay bands go to the server as lists, and a blank form clears them', () {
     expect(pairsOf('5:30, 10:35'), [[5, 30], [10, 35]]);
     expect(pairsOf(''), isEmpty);
     expect(pairsOf('nonsense, 3:x'), isEmpty);
-    final body = leaveTypeBody({'code': 'SICK', 'tiersText': '0:21, 5:30', 'bandsText': '1:100, 16:50, 31:0'});
-    expect(body.containsKey('tiersText'), isFalse);
-    expect(body['tiers'], [
-      {'fromServiceYears': 0, 'days': 21},
-      {'fromServiceYears': 5, 'days': 30},
-    ]);
-    expect(body['payBands'], [
-      {'fromDay': 1, 'payPercent': 100},
-      {'fromDay': 16, 'payPercent': 50},
-      {'fromDay': 31, 'payPercent': 0},
-    ]);
-    expect(leaveTypeBody({'tiersText': ''})['tiers'], isEmpty); // blank clears
+    final tiers = [{'fromServiceYears': 0, 'days': 21}, {'fromServiceYears': 5, 'days': 30}];
+    final bands = [{'fromDay': 1, 'payPercent': 100}, {'fromDay': 16, 'payPercent': 50}];
+    final body = leaveTypeBody({'code': 'SICK', 'tiers': tiers, 'payBands': bands});
+    expect(body['tiers'], tiers);
+    expect(body['payBands'], bands);
+    expect(leaveTypeBody({'code': 'X'})['tiers'], isEmpty); // nothing entered clears them
   });
 
   test('document expiry counts days from today and colours the chip', () {

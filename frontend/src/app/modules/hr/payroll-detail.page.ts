@@ -16,6 +16,7 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { MONTHS, PayrollApi, PayrollDto, PayrollLine } from './hr.api';
+import { StatutoryRulesApi, StatutoryTotal } from './hr-people.api';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 type Mode = 'pay' | 'adjust' | 'void' | null;
@@ -59,6 +60,7 @@ const STATUS_LABELS: Record<string, string> = { pendingApproval: 'Needs approval
         <nz-card><small>Employees</small><div><b>{{ r.employees }}</b></div></nz-card>
         <nz-card><small>Gross earnings</small><div><b>{{ r.grossEarnings | number: '1.2-2' }}</b></div><small>after absence, incl. overtime</small></nz-card>
         <nz-card><small>Deductions</small><div><b>{{ r.deductions | number: '1.2-2' }}</b></div><small>incl. loan recoveries</small></nz-card>
+        @if (r.employerCost) { <nz-card><small>Employer cost</small><div><b>{{ r.employerCost | number: '1.2-2' }}</b></div><small>on top of the pay</small></nz-card> }
         <nz-card><small>Net pay</small><div><b data-testid="payroll-net">{{ r.netPay | number: '1.2-2' }}</b></div>@if (r.paidOn) { <small>{{ 'ui.hr.paidOn' | translate: 'paid on' }} {{ r.paidOn }}</small> }</nz-card>
       </div>
       <nz-table [nzData]="r.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="payroll-lines">
@@ -67,6 +69,7 @@ const STATUS_LABELS: Record<string, string> = { pendingApproval: 'Needs approval
           <th>Employee</th><th>Days</th><th>Absent</th><th>OT hrs</th><th>Basic</th><th>Allowances</th><th>Overtime</th><th>Absence</th><th>Adjustment</th>
           @if (hasSettlement()) { <th>Leave payout</th><th>End of service</th> }
           <th>Gross earnings</th><th>Deductions</th>
+          @if (hasStatutory()) { <th>of which statutory</th> }
           @if (hasLoans()) { <th>of which loans</th> }
           <th>Net pay</th><th>Paid</th><th>Actions</th></tr></thead>
         <tbody>
@@ -78,6 +81,7 @@ const STATUS_LABELS: Record<string, string> = { pendingApproval: 'Needs approval
               <td>{{ l.absence | number: '1.2-2' }}</td><td>{{ l.adjustment | number: '1.2-2' }}</td>
               @if (hasSettlement()) { <td>{{ l.leaveEncashment | number: '1.2-2' }}</td><td>{{ l.endOfService | number: '1.2-2' }}</td> }
               <td>{{ l.grossEarnings | number: '1.2-2' }}</td><td>{{ l.deductions | number: '1.2-2' }}</td>
+              @if (hasStatutory()) { <td>{{ l.statutoryDeduction | number: '1.2-2' }}</td> }
               @if (hasLoans()) { <td>{{ l.loanRecovery | number: '1.2-2' }}</td> }
               <td><b>{{ l.netPay | number: '1.2-2' }}</b></td>
               <td>{{ l.paidOn ?? '' }}</td>
@@ -90,12 +94,20 @@ const STATUS_LABELS: Record<string, string> = { pendingApproval: 'Needs approval
           }
         </tbody>
       </nz-table>
+      @if (statutory().length) {
+        <h3 style="margin-top:20px">Statutory deductions and contributions</h3>
+        <nz-table [nzData]="statutory()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="payroll-statutory">
+          <thead><tr><th>Rule</th><th>Taken from</th><th>Employees</th><th>Base</th><th>Amount</th></tr></thead>
+          <tbody>@for (s of statutory(); track s.code) { <tr><td>{{ s.code }} · {{ s.name }}</td><td>{{ s.kind === 'employerCost' ? 'Employer' : 'Employee' }}</td><td>{{ s.employees }}</td><td>{{ s.baseAmount | number: '1.2-2' }}</td><td><b>{{ s.amount | number: '1.2-2' }}</b></td></tr> }</tbody>
+        </nz-table>
+      }
       <erp-record-drawer [title]="title()" [open]="mode() !== null" [fields]="fields()" [saving]="busy()" [errors]="errors()" [width]="440"
                          testId="payroll-action-form" [submitLabel]="mode() === 'pay' ? 'Pay' : mode() === 'void' ? 'Void payroll' : 'Save'" (submitted)="submit($event)" (closed)="mode.set(null)" />
     }`,
 })
 export class PayrollDetailPage {
   private readonly api = inject(PayrollApi);
+  private readonly statutoryApi = inject(StatutoryRulesApi);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id')!;
@@ -108,6 +120,8 @@ export class PayrollDetailPage {
   readonly errors = signal<ProblemDetails | null>(null);
   readonly period = computed(() => { const r = this.run(); return r ? `${MONTHS[r.month - 1]} ${r.year}` : ''; });
   readonly canSelect = computed(() => { const r = this.run(); return !!r && (r.status === 'posted' || r.status === 'partiallyPaid') && r.lines.some((l) => !l.paidOn); });
+  readonly statutory = signal<StatutoryTotal[]>([]);
+  readonly hasStatutory = computed(() => !!this.run()?.lines.some((l) => (l.statutoryDeduction ?? 0) > 0));
   readonly hasLoans = computed(() => !!this.run()?.lines.some((l) => (l.loanRecovery ?? 0) > 0));
   readonly hasSettlement = computed(() => this.run()?.kind === 'finalSettlement');
   readonly title = computed(() => this.mode() === 'pay' ? 'Pay salaries' : this.mode() === 'void' ? 'Void this payroll' : 'Adjust ' + (this.line()?.employeeName ?? ''));
@@ -179,11 +193,14 @@ export class PayrollDetailPage {
   private run$(call: ReturnType<PayrollApi['post']>, success: string, after?: () => void): Promise<void> {
     this.busy.set(true); this.errors.set(null);
     return new Promise((resolve) => call.subscribe({
-      next: (r) => { this.busy.set(false); this.mode.set(null); this.run.set(r); after?.(); this.message.success(r.status === 'pendingApproval' ? 'Sent for approval. Post it again once approved.' : success); resolve(); },
+      next: (r) => { this.busy.set(false); this.mode.set(null); this.run.set(r); this.loadTotals(r); after?.(); this.message.success(r.status === 'pendingApproval' ? 'Sent for approval. Post it again once approved.' : success); resolve(); },
       error: (e) => { this.fail(e); resolve(); },
     }));
   }
 
   private fail(e: unknown): void { this.busy.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Action failed'); }
-  private load(): void { this.api.detail(this.id).subscribe((r) => this.run.set(r)); }
+  private load(): void { this.api.detail(this.id).subscribe((r) => { this.run.set(r); this.loadTotals(r); }); }
+  private loadTotals(r: PayrollDto): void {
+    this.statutoryApi.totals(r.id).subscribe({ next: (t) => this.statutory.set(t), error: () => this.statutory.set([]) });
+  }
 }

@@ -13,6 +13,7 @@ import { SessionStore } from '../../core/session/session.store';
 import { DepartmentDto, DepartmentsApi, PositionDto, PositionsApi } from './hr-people.api';
 import { EmployeeDocumentsComponent } from './employee-documents.component';
 import { TerminateDialogComponent } from './terminate-dialog.component';
+import { EmployeeLifeComponent } from './employee-life.component';
 import { RouterLink } from '@angular/router';
 import { createPagedList } from '../../core/api/paged-list';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
@@ -33,7 +34,7 @@ const CONTRACT_TYPES = [{ value: 'permanent', label: 'Permanent' }, { value: 'fi
   selector: 'erp-employees',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, EmployeeDocumentsComponent, TerminateDialogComponent, NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, DecimalPipe, StatCardComponent],
+  imports: [RouterLink, EmployeeLifeComponent, EmployeeDocumentsComponent, TerminateDialogComponent, NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, DecimalPipe, StatCardComponent],
   styles: [`
     .emp-cell { display: flex; align-items: center; gap: 10px; }
     .emp-avatar {
@@ -127,6 +128,7 @@ const CONTRACT_TYPES = [{ value: 'permanent', label: 'Permanent' }, { value: 'fi
       @if (state.editing(); as e) {
         <div drawerActions style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
         <p data-testid="emp-summary" style="flex-basis:100%;margin:0">Gross <b>{{ e.grossMonthly?.toLocaleString() ?? '—' }}</b> {{ 'ui.hr.aMonth' | translate: 'a month' }} · {{ 'ui.hr.service' | translate: 'service' }} {{ e.serviceYears.toFixed(1) }} {{ 'ui.hr.years' | translate: 'years' }} · {{ 'ui.hr.eosAccrued' | translate: 'end-of-service accrued' }} <b>{{ e.gratuityAccrued.toLocaleString() }}</b></p>
+          <button nz-button (click)="lifeFor.set(e)" data-testid="emp-life"><span nz-icon nzType="audit"></span>History and tasks</button>
           <button nz-button (click)="docsFor.set(e)" data-testid="emp-docs"><span nz-icon nzType="file-text"></span>Documents</button>
           @if (e.status !== 'terminated') {
             <button *erpHasPermission="'hr.employees.manage'" nz-button nzDanger (click)="terminateFor.set(e)" data-testid="emp-terminate">End employment</button>
@@ -136,6 +138,7 @@ const CONTRACT_TYPES = [{ value: 'permanent', label: 'Permanent' }, { value: 'fi
         </div>
       }
     </erp-record-drawer>
+    @if (lifeFor(); as l) { <erp-employee-life [employeeId]="l.id" [employeeName]="l.fullName" [open]="true" (closed)="lifeFor.set(null)" /> }
     @if (docsFor(); as d) { <erp-employee-documents [employeeId]="d.id" [employeeName]="d.fullName" [open]="true" (closed)="docsFor.set(null)" /> }
     @if (terminateFor(); as t) { <erp-terminate-dialog [employeeId]="t.id" [employeeName]="t.fullName" [open]="true" (closed)="terminateFor.set(null)" (changed)="onTerminated()" /> }`,
 })
@@ -180,6 +183,7 @@ export class EmployeesPage {
   private readonly positionPage = toSignal(inject(PositionsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as PositionDto[] }))), { initialValue: { items: [] as PositionDto[] } });
   private readonly userList = toSignal(inject(AdminApi).users().pipe(catchError(() => of([]))), { initialValue: [] });
   readonly docsFor = signal<EmployeeDto | null>(null);
+  readonly lifeFor = signal<EmployeeDto | null>(null);
   readonly terminateFor = signal<EmployeeDto | null>(null);
   onTerminated(): void { this.list.reload(); this.state.close(); }
 

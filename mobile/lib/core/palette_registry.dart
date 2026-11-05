@@ -101,6 +101,12 @@ const Map<String, _Meta> _screenMeta = {
   'purchasing-receipts': (section: 'Purchasing', subtitle: 'Goods received from suppliers', keywords: ['grn', 'goods received', 'receiving', 'delivery']),
   // HR
   'hr-employees': (section: 'HR', subtitle: 'Staff records and contracts', keywords: ['staff', 'people', 'employee']),
+  'hr-daily-attendance': (section: 'HR', subtitle: 'Check-in and check-out day by day', keywords: ['attendance', 'clock', 'late', 'overtime', 'check in']),
+  'hr-shifts': (section: 'HR', subtitle: 'Start time, grace and hours per employee', keywords: ['shift', 'roster', 'late', 'start time']),
+  'hr-statutory': (section: 'HR', subtitle: 'Social security, pension and tax rules', keywords: ['tax', 'social security', 'pension', 'contribution', 'deduction']),
+  'hr-recruitment': (section: 'HR', subtitle: 'Vacancies, candidates and hiring', keywords: ['hiring', 'candidate', 'vacancy', 'job', 'interview']),
+  'hr-checklists': (section: 'HR', subtitle: 'Onboarding and offboarding steps', keywords: ['onboarding', 'offboarding', 'checklist', 'joiner']),
+  'hr-tasks': (section: 'HR', subtitle: 'Unfinished onboarding and offboarding steps', keywords: ['tasks', 'todo', 'overdue', 'onboarding']),
   'hr-my': (section: 'HR', subtitle: 'My leave, balances and payslips', keywords: ['self service', 'my leave', 'payslip', 'balance']),
   'hr-departments': (section: 'HR', subtitle: 'Departments, heads and structure', keywords: ['department', 'team', 'structure']),
   'hr-positions': (section: 'HR', subtitle: 'Job titles and grades', keywords: ['position', 'job', 'grade', 'title']),

@@ -182,8 +182,18 @@ internal static class HrEndpoints
         reports.MapGet("/gratuity", (DateOnly asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetGratuityReport(asOf, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapPost("/gratuity/provision", (ProvisionBody b, ISender s, CancellationToken ct) => s.Send(new PostGratuityProvision(b.LegalEntityId, b.AsOf), ct)).RequirePermission(P.PayrollPost);
 
+        // shifts
+        var shifts = group.MapGroup("/shifts");
+        shifts.MapGet("", (ISender s, CancellationToken ct) => s.Send(new ListShifts(), ct)).RequirePermission(P.AttendanceRead);
+        shifts.MapPost("", async (ShiftInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/shifts", await s.Send(new CreateShift(input), ct))).RequirePermission(P.AttendanceManage);
+        shifts.MapPut("/{id:guid}", (Guid id, ShiftInput input, ISender s, CancellationToken ct) => s.Send(new UpdateShift(id, input), ct)).RequirePermission(P.AttendanceManage);
+        shifts.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteShift(id), ct); return Results.NoContent(); }).RequirePermission(P.AttendanceManage);
+        shifts.MapPost("/{id:guid}/assign", async (Guid id, AssignShiftInput b, ISender s, CancellationToken ct) => new { assigned = await s.Send(new AssignShift(id, b.EmployeeIds), ct) }).RequirePermission(P.AttendanceManage);
+        shifts.MapPost("/unassign", async (AssignShiftInput b, ISender s, CancellationToken ct) => new { cleared = await s.Send(new UnassignShift(b.EmployeeIds), ct) }).RequirePermission(P.AttendanceManage);
+
         // daily attendance
         attendance.MapGet("/daily", (int year, int month, Guid? employeeId, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new ListDailyAttendance(year, month, employeeId, legalEntityId), ct)).RequirePermission(P.AttendanceRead);
+        attendance.MapPost("/punch", (PunchesBody b, ISender s, CancellationToken ct) => s.Send(new RecordPunches(b.Punches, b.Source), ct)).RequirePermission(P.AttendanceManage);
         attendance.MapPut("/daily", (DailyAttendanceInput input, ISender s, CancellationToken ct) => s.Send(new SaveDailyAttendance(input), ct)).RequirePermission(P.AttendanceManage);
         attendance.MapPost("/daily/bulk", (BulkDailyBody body, ISender s, CancellationToken ct) => s.Send(new BulkSaveDailyAttendance(body.Items), ct)).RequirePermission(P.AttendanceManage);
         attendance.MapPost("/daily/roll-up", (RollUpBody body, ISender s, CancellationToken ct) => s.Send(new RollUpAttendance(body.Year, body.Month, body.LegalEntityId), ct)).RequirePermission(P.AttendanceManage);

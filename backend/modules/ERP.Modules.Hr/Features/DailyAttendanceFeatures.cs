@@ -13,7 +13,7 @@ namespace ERP.Modules.Hr.Features;
 public sealed record DailyAttendanceInput(Guid EmployeeId, DateOnly Date, TimeOnly? CheckIn = null, TimeOnly? CheckOut = null, DailyAttendanceStatus? Status = null, string? Notes = null, string? Source = null);
 public sealed record DailyAttendanceDto(Guid Id, Guid EmployeeId, DateOnly Date, TimeOnly? CheckIn, TimeOnly? CheckOut, DailyAttendanceStatus Status, int WorkedMinutes, int LateMinutes, int OvertimeMinutes, string? Notes, string? Source);
 public sealed record BulkDailyAttendanceResult(int Saved, IReadOnlyList<string> Rejected);
-public sealed record AttendanceRollUpRow(Guid EmployeeId, string EmployeeName, int WorkingDays, int DaysPresent, int UnpaidAbsentDays, int PaidLeaveDays, decimal OvertimeHours, int LateDays, int LateMinutes);
+public sealed record AttendanceRollUpRow(Guid EmployeeId, string EmployeeName, int WorkingDays, int DaysPresent, decimal UnpaidAbsentDays, int PaidLeaveDays, decimal OvertimeHours, int LateDays, int LateMinutes);
 
 public sealed record ListDailyAttendance(int Year, int Month, Guid? EmployeeId, Guid? LegalEntityId) : IQuery<IReadOnlyList<DailyAttendanceDto>>, IRequirePermission { public string RequiredPermission => P.AttendanceRead; }
 public sealed record SaveDailyAttendance(DailyAttendanceInput Input) : ICommand<DailyAttendanceDto>, IRequirePermission { public string RequiredPermission => P.AttendanceManage; }
@@ -21,6 +21,31 @@ public sealed record BulkSaveDailyAttendance(IReadOnlyList<DailyAttendanceInput>
 public sealed record DeleteDailyAttendance(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => P.AttendanceManage; }
 /// <summary>Turns the month's daily logs into the monthly attendance record payroll reads (days present, unpaid absence, paid leave, overtime hours). Employees without logs are left alone.</summary>
 public sealed record RollUpAttendance(int Year, int Month, Guid? LegalEntityId) : ICommand<IReadOnlyList<AttendanceRollUpRow>>, IRequirePermission { public string RequiredPermission => P.AttendanceManage; }
+
+/// <summary>One raw clock event from a device or a phone: the employee number and the moment. The first punch of a day is the check-in, the latest later one the check-out.</summary>
+public sealed record PunchInput(string EmployeeNumber, DateTime At);
+public sealed record PunchesBody(IReadOnlyList<PunchInput> Punches, string? Source = null);
+public sealed record RecordPunches(IReadOnlyList<PunchInput> Punches, string? Source) : ICommand<BulkDailyAttendanceResult>, IRequirePermission { public string RequiredPermission => P.AttendanceManage; }
+public sealed class RecordPunchesValidator : AbstractValidator<RecordPunches>
+{
+    public RecordPunchesValidator()
+    {
+        RuleFor(x => x.Punches).NotEmpty().Must(p => p.Count <= 5000).WithMessage("Send at most 5000 punches at a time.");
+        RuleFor(x => x.Source).MaximumLength(50);
+    }
+}
+
+/// <summary>Folds one punch into the day's existing times; no I/O.</summary>
+public static class PunchMath
+{
+    public static (TimeOnly CheckIn, TimeOnly? CheckOut) Apply(TimeOnly? checkIn, TimeOnly? checkOut, TimeOnly at)
+    {
+        if (checkIn is not { } ci) return (at, checkOut is { } o && o > at ? o : null);
+        if (at < ci) return (at, checkOut ?? ci);   // an earlier punch arrives late: it becomes the check-in, the old one the check-out
+        if (at == ci) return (ci, checkOut);
+        return (ci, checkOut is { } co && co >= at ? co : at);
+    }
+}
 
 public sealed class DailyAttendanceInputValidator : AbstractValidator<DailyAttendanceInput>
 {
@@ -30,7 +55,7 @@ public sealed class DailyAttendanceInputValidator : AbstractValidator<DailyAtten
         RuleFor(x => x.Notes).MaximumLength(300);
         RuleFor(x => x.Source).MaximumLength(50);
         RuleFor(x => x.CheckOut!.Value).GreaterThan(x => x.CheckIn!.Value).When(x => x.CheckIn is not null && x.CheckOut is not null).WithName("CheckOut").WithMessage("Check-out must be after check-in.");
-        RuleFor(x => x.CheckIn).Must((x, c) => c is null || x.Status is null or DailyAttendanceStatus.Present).WithMessage("Only a present day can have a check-in.");
+        RuleFor(x => x.CheckIn).Must((x, c) => c is null || x.Status is null or DailyAttendanceStatus.Present or DailyAttendanceStatus.HalfDay).WithMessage("Only a present or half day can have a check-in.");
     }
 }
 public sealed class SaveDailyAttendanceValidator : AbstractValidator<SaveDailyAttendance> { public SaveDailyAttendanceValidator() => RuleFor(x => x.Input).SetValidator(new DailyAttendanceInputValidator()); }
@@ -66,13 +91,14 @@ public static class DailyAttendanceMath
 }
 
 internal sealed class DailyAttendanceHandlers(
-    IRepository<AttendanceLog> logs, IRepository<AttendanceRecord> records, IReadRepository<Employee> employees, LeaveCalendarProvider calendars, ISettingsService settings,
+    IRepository<AttendanceLog> logs, IRepository<AttendanceRecord> records, IReadRepository<Employee> employees, IReadRepository<Domain.Shift> shiftRepo, LeaveCalendarProvider calendars, ISettingsService settings,
     ILegalEntityGuard guard, IUnitOfWork uow) :
     IRequestHandler<ListDailyAttendance, IReadOnlyList<DailyAttendanceDto>>,
     IRequestHandler<SaveDailyAttendance, DailyAttendanceDto>,
     IRequestHandler<BulkSaveDailyAttendance, BulkDailyAttendanceResult>,
     IRequestHandler<DeleteDailyAttendance, Unit>,
-    IRequestHandler<RollUpAttendance, IReadOnlyList<AttendanceRollUpRow>>
+    IRequestHandler<RollUpAttendance, IReadOnlyList<AttendanceRollUpRow>>,
+    IRequestHandler<RecordPunches, BulkDailyAttendanceResult>
 {
     public async Task<IReadOnlyList<DailyAttendanceDto>> Handle(ListDailyAttendance q, CancellationToken ct)
     {
@@ -101,6 +127,28 @@ internal sealed class DailyAttendanceHandlers(
         return new BulkDailyAttendanceResult(saved, rejected);
     }, ct);
 
+    public Task<BulkDailyAttendanceResult> Handle(RecordPunches cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
+    {
+        var shift = await ShiftAsync(null, token);
+        var saved = 0; var rejected = new List<string>();
+        foreach (var p in cmd.Punches.OrderBy(p => p.At))
+        {
+            var number = p.EmployeeNumber.Trim();
+            try
+            {
+                var emp = await employees.Query(new Specification<Employee>(e => e.Number == number)).FirstOrDefaultAsync(token) ?? throw new NotFoundException($"unknown employee \"{number}\"");
+                var date = DateOnly.FromDateTime(p.At); var empId = emp.Id;
+                var day = await logs.Query(new Specification<AttendanceLog>(l => l.EmployeeId == empId && l.Date == date)).FirstOrDefaultAsync(token);
+                var (ci, co) = PunchMath.Apply(day?.Status is DailyAttendanceStatus.Present or DailyAttendanceStatus.HalfDay ? day.CheckIn : null, day?.Status is DailyAttendanceStatus.Present or DailyAttendanceStatus.HalfDay ? day.CheckOut : null, TimeOnly.FromDateTime(p.At));
+                var status = day?.Status == DailyAttendanceStatus.HalfDay ? DailyAttendanceStatus.HalfDay : DailyAttendanceStatus.Present;
+                await UpsertAsync(new DailyAttendanceInput(emp.Id, date, ci, co, status, day?.Notes, cmd.Source ?? "device"), shift, token);
+                await logs.SaveChangesAsync(token); saved++;
+            }
+            catch (Exception e) when (e is NotFoundException or ConflictException or FieldValidationException) { rejected.Add($"{number} {p.At:yyyy-MM-dd HH:mm}: {e.Message}"); }
+        }
+        return new BulkDailyAttendanceResult(saved, rejected);
+    }, ct);
+
     public async Task<Unit> Handle(DeleteDailyAttendance cmd, CancellationToken ct)
     {
         logs.Remove(await logs.GetForUpdateAsync(cmd.Id, ct));
@@ -122,8 +170,9 @@ internal sealed class DailyAttendanceHandlers(
         foreach (var g in month.GroupBy(l => l.EmployeeId))
         {
             if (!staff.TryGetValue(g.Key, out var e)) continue;
-            var present = g.Count(l => l.Status == DailyAttendanceStatus.Present);
-            var absent = g.Count(l => l.Status == DailyAttendanceStatus.Absent && calendar.IsWorkingDay(l.Date));
+            var half = g.Count(l => l.Status == DailyAttendanceStatus.HalfDay);
+            var present = g.Count(l => l.Status is DailyAttendanceStatus.Present or DailyAttendanceStatus.HalfDay);
+            var absent = g.Count(l => l.Status == DailyAttendanceStatus.Absent && calendar.IsWorkingDay(l.Date)) + half * 0.5m; // a half day is attended, half of it unpaid
             var leave = g.Count(l => l.Status == DailyAttendanceStatus.Leave);
             var overtime = Math.Round(g.Sum(l => l.OvertimeMinutes) / 60m, 2);
             var lateDays = g.Count(l => l.LateMinutes > 0);
@@ -139,27 +188,30 @@ internal sealed class DailyAttendanceHandlers(
         return result.OrderBy(r => r.EmployeeName).ToList();
     }, ct);
 
-    private sealed record Shift(TimeOnly Start, int GraceMinutes, int HoursPerDay);
+    private sealed record ShiftRule(TimeOnly Start, int GraceMinutes, int HoursPerDay);
 
-    private async Task<Shift> ShiftAsync(Guid? entityId, CancellationToken ct)
+    private async Task<ShiftRule> ShiftAsync(Guid? entityId, CancellationToken ct)
     {
         var start = await settings.GetAsync<string?>("hr.shiftStart", entityId, ct);
         var grace = await settings.GetAsync<int?>("hr.lateGraceMinutes", entityId, ct) ?? 10;
         var hours = await settings.GetAsync<int?>("hr.hoursPerDay", entityId, ct) ?? 8;
-        return new Shift(TimeOnly.TryParse(start, out var s) ? s : new TimeOnly(8, 0), grace, hours);
+        return new ShiftRule(TimeOnly.TryParse(start, out var s) ? s : new TimeOnly(8, 0), grace, hours);
     }
 
-    private async Task<AttendanceLog> UpsertAsync(DailyAttendanceInput i, Shift shift, CancellationToken ct)
+    private async Task<AttendanceLog> UpsertAsync(DailyAttendanceInput i, ShiftRule defaults, CancellationToken ct)
     {
         var emp = await employees.FindAsync(i.EmployeeId, ct) ?? throw new NotFoundException($"Employee {i.EmployeeId} was not found.");
+        var shift = defaults;
+        if (emp.ShiftId is { } shiftId && await shiftRepo.FindAsync(shiftId, ct) is { } own) shift = new ShiftRule(own.StartTime, own.GraceMinutes, own.HoursPerDay); // the employee's own shift wins over the workspace settings
         await guard.RequireAsync(emp.LegalEntityId, ct);
         if (i.Date < emp.JoinDate || (emp.TerminationDate is { } t && i.Date > t)) throw new ConflictException("The employee was not employed on this date.");
         var status = DailyAttendanceMath.StatusOf(i.Status, i.CheckIn);
-        var m = status == DailyAttendanceStatus.Present ? DailyAttendanceMath.Compute(i.CheckIn, i.CheckOut, shift.Start, shift.GraceMinutes, shift.HoursPerDay) : new DailyAttendanceMath.Result(0, 0, 0);
+        var worked = status is DailyAttendanceStatus.Present or DailyAttendanceStatus.HalfDay;
+        var m = worked ?DailyAttendanceMath.Compute(i.CheckIn, i.CheckOut, shift.Start, shift.GraceMinutes, shift.HoursPerDay) : new DailyAttendanceMath.Result(0, 0, 0);
         var date = i.Date; var empId = emp.Id;
         var log = await logs.Tracked(new Specification<AttendanceLog>(l => l.EmployeeId == empId && l.Date == date)).FirstOrDefaultAsync(ct);
         if (log is null) { log = new AttendanceLog { LegalEntityId = emp.LegalEntityId, EmployeeId = emp.Id, Date = i.Date }; logs.Add(log); }
-        log.CheckIn = status == DailyAttendanceStatus.Present ? i.CheckIn : null; log.CheckOut = status == DailyAttendanceStatus.Present ? i.CheckOut : null; log.Status = status;
+        log.CheckIn = worked ? i.CheckIn : null; log.CheckOut = worked ? i.CheckOut : null; log.Status = status;
         log.WorkedMinutes = m.Worked; log.LateMinutes = m.Late; log.OvertimeMinutes = m.Overtime; log.Notes = i.Notes?.Trim(); log.Source = i.Source ?? "manual";
         return log;
     }

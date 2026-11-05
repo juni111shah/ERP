@@ -34,7 +34,7 @@ FormSpec attendanceForm(Json row, int year, int month) {
         final p = toNum(v), w = toNum(all['workingDays']);
         return p != null && w != null && p > w ? 'Days present cannot exceed the working days' : null;
       }),
-      Field.decimal('unpaidAbsentDays', 'Unpaid absence (days)', required: true, min: 0, decimals: 0, validator: (v, all) {
+      Field.decimal('unpaidAbsentDays', 'Unpaid absence (days)', required: true, min: 0, decimals: 1, validator: (v, all) {
         final a = toNum(v), l = toNum(all['paidLeaveDays']), w = toNum(all['workingDays']);
         return a != null && w != null && a + (l ?? 0) > w ? 'Absence and leave cannot exceed the working days' : null;
       }),

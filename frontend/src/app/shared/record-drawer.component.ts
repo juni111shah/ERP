@@ -18,7 +18,9 @@ import { DynamicFieldsComponent } from '../core/custom-fields/dynamic-field.comp
 import { LookupOption } from '../core/custom-fields/lookup-registry';
 import { applyProblemDetailsToForm, controlError } from '../core/http/problem-details';
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'switch' | 'lookup';
+export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'switch' | 'lookup' | 'rows';
+/** One column of a `rows` field (a small table the user adds lines to). */
+export interface RowColumn { key: string; label: string; type: 'text' | 'number'; }
 export interface SelectOption { value: string | number | boolean; label: string; }
 
 /** Declarative description of one form field. The drawer renders, validates and serialises it. */
@@ -32,6 +34,8 @@ export interface FieldSpec {
   lookup?: (term: string) => Observable<LookupOption[]>;
   /** label of the currently selected lookup value when editing (the search has not run yet) */
   currentLabel?: (record: Record<string, unknown>) => string | undefined;
+  /** columns of a `rows` field; its value is a list of objects with these keys */
+  columns?: RowColumn[];
   min?: number;
   max?: number;
   maxLength?: number;
@@ -80,6 +84,20 @@ export interface FieldSpec {
                     <nz-select [nzId]="f.key" [formControlName]="f.key" nzAllowClear [attr.data-testid]="'f-' + f.key">
                       @for (o of f.options ?? []; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }
                     </nz-select>
+                  }
+                  @case ('rows') {
+                    <div [attr.data-testid]="'f-' + f.key">
+                      @for (r of rowsOf(f.key); track $index; let i = $index) {
+                        <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
+                          @for (c of f.columns ?? []; track c.key) {
+                            <input nz-input [type]="c.type === 'number' ? 'number' : 'text'" [attr.aria-label]="c.label" [placeholder]="c.label" [value]="r[c.key] ?? ''"
+                                   (input)="setCell(f.key, i, c, $any($event.target).value)" [attr.data-testid]="'f-' + f.key + '-' + i + '-' + c.key" />
+                          }
+                          <button nz-button type="button" nzSize="small" nzDanger (click)="removeRow(f.key, i)" [attr.aria-label]="'Remove line ' + (i + 1)">Remove</button>
+                        </div>
+                      }
+                      <button nz-button type="button" nzSize="small" (click)="addRow(f.key)" [attr.data-testid]="'f-' + f.key + '-add'">Add line</button>
+                    </div>
                   }
                   @case ('lookup') {
                     <nz-select [nzId]="f.key" [formControlName]="f.key" nzShowSearch nzServerSearch nzAllowClear (nzOnSearch)="search(f, $event)" [attr.data-testid]="'f-' + f.key">
@@ -144,6 +162,16 @@ export class RecordDrawerComponent {
       const problem = this.errors();
       if (problem) untracked(() => applyProblemDetailsToForm(this.form(), problem));
     });
+  }
+
+  rowsOf(key: string): Record<string, unknown>[] { const v = this.form().get(key)?.value; return Array.isArray(v) ? v : []; }
+  addRow(key: string): void { const c = this.form().get(key); c?.setValue([...this.rowsOf(key), {}]); c?.markAsDirty(); }
+  removeRow(key: string, index: number): void { const c = this.form().get(key); c?.setValue(this.rowsOf(key).filter((_, i) => i !== index)); c?.markAsDirty(); }
+  setCell(key: string, index: number, col: RowColumn, text: string): void {
+    const c = this.form().get(key);
+    const rows = this.rowsOf(key).map((r, i) => (i === index ? { ...r, [col.key]: col.type === 'number' ? (text === '' ? null : Number(text)) : text } : r));
+    c?.setValue(rows, { emitEvent: false }); // typing must not rebuild the inputs (the cursor would jump)
+    c?.markAsDirty();
   }
 
   err(key: string): string { return controlError(this.form().get(key)); }
@@ -219,10 +247,25 @@ export class RecordDrawerComponent {
   }
 
   private serialise(f: FieldSpec, v: unknown): unknown {
+    if (f.type === 'rows') return this.cleanRows(f, v);
     if (v === '' || v === undefined) return null;
     if (f.type === 'date') return v instanceof Date ? toIsoDate(v) : v;
     if (f.type === 'text' || f.type === 'textarea') return typeof v === 'string' ? v.trim() || null : v;
     return v;
+  }
+
+  /** Lines with every cell empty are dropped; number cells that are not numbers are left out. */
+  private cleanRows(f: FieldSpec, v: unknown): Record<string, unknown>[] {
+    const cols = f.columns ?? [];
+    return (Array.isArray(v) ? v : []).map((r: Record<string, unknown>) => {
+      const out: Record<string, unknown> = {};
+      for (const c of cols) {
+        const cell = r[c.key];
+        if (c.type === 'number') { if (typeof cell === 'number' && Number.isFinite(cell)) out[c.key] = cell; }
+        else if (typeof cell === 'string' && cell.trim()) out[c.key] = cell.trim();
+      }
+      return out;
+    }).filter((r) => Object.keys(r).length > 0);
   }
 
   private toDate(v: unknown): Date | null {
