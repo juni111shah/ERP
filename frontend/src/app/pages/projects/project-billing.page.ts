@@ -9,7 +9,12 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { ProjectBillingApi, ProjectBillingSummaryDto } from '../../core/api/projects.api';
+import { FormsModule } from '@angular/forms';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
+import { NzSelectModule } from 'ng-zorro-antd/select';
+import { ProjectBillingApi, ProjectBillingSummaryDto, ProjectTimesheetsApi } from '../../core/api/projects.api';
+import { BillPreviewDto, ProjectExpensesApi, ProjectsExtraApi } from '../../core/api/projects-extra.api';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 
@@ -30,6 +35,10 @@ import { StatCardComponent } from '../../shared/stat-card.component';
     NzIconModule,
     NzTableModule,
     NzModalModule,
+    FormsModule,
+    NzInputModule,
+    NzInputNumberModule,
+    NzSelectModule,
     HasPermissionDirective,
     StatCardComponent,
   ],
@@ -76,6 +85,9 @@ import { StatCardComponent } from '../../shared/stat-card.component';
               <th>Hours Amount</th>
               <th>Achieved Milestones</th>
               <th>Milestones Amount</th>
+              <th>Expenses</th>
+              <th>Waiting approval</th>
+              <th>Fixed fee left</th>
               <th>Total Unbilled</th>
               <th>Action</th>
             </tr>
@@ -92,9 +104,12 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                 <td>{{ currency() }} {{ row.unbilledHoursAmount | number: '1.2-2' }}</td>
                 <td>{{ row.achievedMilestonesCount }}</td>
                 <td>{{ currency() }} {{ row.achievedMilestonesAmount | number: '1.2-2' }}</td>
+                <td>{{ currency() }} {{ row.unbilledExpensesAmount | number: '1.2-2' }}</td>
+                <td>{{ row.awaitingApprovalAmount ? currency() + ' ' + (row.awaitingApprovalAmount | number: '1.2-2') : '' }}</td>
+                <td>{{ row.billingType === 'FixedFee' ? currency() + ' ' + (row.fixedFeeRemaining | number: '1.2-2') : '' }}</td>
                 <td><b class="total-unbilled-val">{{ currency() }} {{ row.totalUnbilledAmount | number: '1.2-2' }}</b></td>
                 <td>
-                  <button *erpHasPermission="'projects.billing.manage'" nz-button nzType="primary" nzSize="small" [disabled]="row.totalUnbilledAmount <= 0" (click)="confirmBill(row)">
+                  <button *erpHasPermission="'projects.billing.manage'" nz-button nzType="primary" nzSize="small" [disabled]="row.totalUnbilledAmount <= 0" (click)="openBill(row)" [attr.data-testid]="'bill-' + row.projectNumber">
                     <span nz-icon nzType="dollar"></span> Bill Work
                   </button>
                 </td>
@@ -103,6 +118,49 @@ import { StatCardComponent } from '../../shared/stat-card.component';
           </tbody>
         </nz-table>
       </nz-card>
+
+      <nz-modal [nzVisible]="billing() !== null" [nzTitle]="'Bill ' + (billing()?.projectName ?? '')" nzWidth="720" (nzOnCancel)="billing.set(null)" [nzFooter]="footer">
+        <ng-container *nzModalContent>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px" data-testid="bill-options">
+            <label>Group the invoice by
+              <nz-select [(ngModel)]="grouping" (ngModelChange)="preview()" style="width:170px;display:block" aria-label="Group by">
+                <nz-option nzValue="detailed" nzLabel="Each entry"></nz-option>
+                <nz-option nzValue="person" nzLabel="Person"></nz-option>
+                <nz-option nzValue="task" nzLabel="Task"></nz-option>
+                <nz-option nzValue="project" nzLabel="One line"></nz-option>
+              </nz-select>
+            </label>
+            <label>Discount %
+              <nz-input-number [(ngModel)]="discount" [nzMin]="0" [nzMax]="100" (ngModelChange)="preview()" style="display:block" aria-label="Discount percent"></nz-input-number>
+            </label>
+            @if (billing()?.billingType === 'FixedFee') {
+              <label>Bill a share of the fixed fee (%)
+                <nz-input-number [(ngModel)]="progress" [nzMin]="0" [nzMax]="100" (ngModelChange)="preview()" style="display:block" aria-label="Progress percent" data-testid="bill-progress"></nz-input-number>
+              </label>
+            }
+            <label style="flex:1">Note on the invoice
+              <input nz-input [(ngModel)]="notes" maxlength="500" aria-label="Invoice note" />
+            </label>
+          </div>
+          @if (previewError()) { <p style="color:#cf1322">{{ previewError() }}</p> }
+          @if (previewData(); as pv) {
+            <nz-table [nzData]="pv.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="bill-preview">
+              <thead><tr><th>Line</th><th style="text-align:right">Quantity</th><th style="text-align:right">Price</th><th style="text-align:right">Amount</th></tr></thead>
+              <tbody>
+                @for (l of pv.lines; track $index) { <tr><td>{{ l.description }}</td><td style="text-align:right">{{ l.quantity | number: '1.0-2' }}</td><td style="text-align:right">{{ l.price | number: '1.2-2' }}</td><td style="text-align:right">{{ l.amount | number: '1.2-2' }}</td></tr> }
+              </tbody>
+            </nz-table>
+            <p style="text-align:right;margin-top:8px">Subtotal {{ currency() }} {{ pv.subtotal | number: '1.2-2' }}
+              @if (pv.discount > 0) { · discount {{ pv.discount | number: '1.2-2' }} }
+              · <b>Total before tax {{ currency() }} {{ pv.total | number: '1.2-2' }}</b></p>
+          }
+        </ng-container>
+      </nz-modal>
+      <ng-template #footer>
+        <button nz-button (click)="writeOff()" nzDanger [disabled]="!previewData()" data-testid="bill-writeoff" title="Do not charge for the unbilled time and expenses of this project">Write off unbilled time</button>
+        <button nz-button (click)="billing.set(null)">Cancel</button>
+        <button nz-button nzType="primary" (click)="generate()" [disabled]="!previewData()" [nzLoading]="busy()" data-testid="bill-generate">Generate invoice</button>
+      </ng-template>
   `,
   styles: [`
     .table-card {
@@ -195,6 +253,73 @@ export class ProjectBillingPage implements OnInit {
       default: return type;
     }
   }
+
+  private readonly extra = inject(ProjectsExtraApi);
+  readonly billing = signal<ProjectBillingSummaryDto | null>(null);
+  readonly previewData = signal<BillPreviewDto | null>(null);
+  readonly previewError = signal<string | null>(null);
+  readonly busy = signal(false);
+  grouping = 'detailed';
+  discount = 0;
+  progress: number | null = null;
+  notes = '';
+
+  openBill(row: ProjectBillingSummaryDto): void {
+    this.grouping = 'detailed'; this.discount = 0; this.progress = null; this.notes = '';
+    this.billing.set(row);
+    this.preview();
+  }
+
+  private input() {
+    return { projectId: this.billing()!.projectId, grouping: this.grouping, discountPercent: this.discount || 0, progressPercent: this.progress || null, notes: this.notes || null };
+  }
+
+  preview(): void {
+    if (!this.billing()) return;
+    this.previewError.set(null);
+    this.extra.previewBill(this.input()).subscribe({
+      next: (r) => this.previewData.set(r),
+      error: (e) => { this.previewData.set(null); this.previewError.set(e?.error?.detail ?? e?.error?.message ?? 'Nothing to bill.'); },
+    });
+  }
+
+  generate(): void {
+    const row = this.billing(); if (!row) return;
+    this.busy.set(true);
+    this.extra.bill(this.input()).subscribe({
+      next: (res) => {
+        this.busy.set(false); this.billing.set(null);
+        this.msg.success(res.invoiceNumber ? `Generated invoice ${res.invoiceNumber} (${this.currency()} ${res.totalAmountBilled.toFixed(2)}) for ${row.projectName}` : 'Billed');
+        this.loadOverview();
+      },
+      error: (e) => { this.busy.set(false); this.msg.error(e?.error?.detail ?? e?.error?.message ?? 'Could not generate the invoice.'); },
+    });
+  }
+
+  writeOff(): void {
+    const row = this.billing(); if (!row) return;
+    this.modal.confirm({
+      nzTitle: `Write off the unbilled work of ${row.projectName}?`,
+      nzContent: 'The unbilled time and expenses will not be charged. This cannot be undone from here.',
+      nzOkText: 'Write off', nzOkDanger: true,
+      nzOnOk: () => {
+        const filters = [{ field: 'projectId', op: 'eq' as const, value: row.projectId }, { field: 'isBilled', op: 'eq' as const, value: false }];
+        this.timeApi.list({ page: 1, pageSize: 500, filters }).subscribe((t) => {
+          const ids = t.items.filter((x) => x.isBillable && !x.writtenOff).map((x) => x.id);
+          this.costApi.list({ page: 1, pageSize: 500, filters }).subscribe((e) => {
+            const costIds = e.items.filter((x) => x.isBillable && !x.writtenOff).map((x) => x.id);
+            const fail = (er: { error?: { detail?: string } }) => this.msg.error(er?.error?.detail ?? 'Could not write off.');
+            const done = () => { this.msg.success('Unbilled work written off'); this.billing.set(null); this.loadOverview(); };
+            const writeCosts = () => (costIds.length ? this.costApi.writeOff(costIds).subscribe({ next: done, error: fail }) : done());
+            if (ids.length) this.extra.writeOffTime(ids).subscribe({ next: writeCosts, error: fail }); else writeCosts();
+          });
+        });
+      },
+    });
+  }
+
+  private readonly timeApi = inject(ProjectTimesheetsApi);
+  private readonly costApi = inject(ProjectExpensesApi);
 
   confirmBill(row: ProjectBillingSummaryDto): void {
     this.modal.confirm({

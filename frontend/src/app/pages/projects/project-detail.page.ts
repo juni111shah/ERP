@@ -96,6 +96,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
           </div>
 
           <div class="header-btns">
+            <a nz-button [routerLink]="['/projects', proj.id, 'plan']" data-testid="open-plan"><span nz-icon nzType="schedule"></span> Plan</a>
             <button *erpHasPermission="'projects.tasks.manage'" nz-button (click)="openTaskModal()">
               <span nz-icon nzType="plus"></span> Add Task
             </button>
@@ -113,12 +114,12 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
           <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
             <nz-card class="stat-card">
               <div class="stat-header">
-                <span class="stat-label">Budget Consumption</span>
+                <span class="stat-label">Cost vs budget</span>
                 <span nz-icon nzType="dollar" class="stat-icon icon-budget"></span>
               </div>
               <div class="stat-value">{{ currency() }} {{ proj.totalTimesheetCost | number: '1.0-0' }}</div>
-              <div class="stat-sub">of {{ currency() }} {{ proj.budgetAmount | number: '1.0-0' }} budget</div>
-              <nz-progress [nzPercent]="calcPercent(proj.totalTimesheetCost, proj.budgetAmount)" [nzStatus]="proj.totalTimesheetCost > proj.budgetAmount && proj.budgetAmount > 0 ? 'exception' : 'active'"></nz-progress>
+              <div class="stat-sub">of {{ currency() }} {{ proj.effectiveBudget | number: '1.0-0' }} budget (labour cost and expenses)</div>
+              <nz-progress [nzPercent]="calcPercent(proj.totalTimesheetCost, proj.effectiveBudget)" [nzStatus]="proj.totalTimesheetCost > proj.effectiveBudget && proj.effectiveBudget > 0 ? 'exception' : 'active'"></nz-progress>
             </nz-card>
           </div>
           <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">

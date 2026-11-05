@@ -33,6 +33,7 @@ public class ProjectTaskRulesTests(ApiFactory f) : IClassFixture<ApiFactory>
         await ProjectsTestKit.Ok(await k.C.PutAsJsonAsync($"{ProjectsTestKit.Prj}/tasks/{id}", Body("InProgress")));
         await ProjectsTestKit.Ok(await k.C.PutAsJsonAsync($"{ProjectsTestKit.Prj}/tasks/{id}", Body("InProgress"))); // same status is fine
 
+        await ProjectsTestKit.Ok(await k.C.PutAsJsonAsync($"{ProjectsTestKit.Prj}/tasks/{id}/status", new { status = "Cancelled" })); // completing needs every task finished or cancelled
         await ProjectsTestKit.Ok(await k.C.PutAsJsonAsync($"{ProjectsTestKit.Prj}/projects/{p}/status", new { status = "Completed" }));
         Assert.Equal(HttpStatusCode.Conflict, (await k.PostTask(p)).StatusCode);
     }

@@ -11,6 +11,7 @@ import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
 import '../receivables/invoice_screens.dart';
+import '../projects/projects_extra_screens.dart' show createProjectFrom;
 import 'sales_common.dart';
 import 'package:erp_mobile/theme/tokens.dart';
 
@@ -161,6 +162,7 @@ class OrderDetailScreen extends StatelessWidget {
         edit: (d) => orderForm(ref, existing: d),
         body: _body,
         actions: [
+          createProjectFrom(sourceType: 'sales.order', nameOf: (d) => 'Delivery of ${d['number']}'),
           _orderStatus(id, 'Confirm', Icons.check_circle_outline, 'confirmed', {'draft'}),
           _orderStatus(id, 'Start processing', Icons.autorenew, 'processing', {'confirmed'}),
           ActionSpec(

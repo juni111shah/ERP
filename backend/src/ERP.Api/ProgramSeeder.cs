@@ -114,6 +114,9 @@ public static class ProgramSeeder
                 // 13. Comprehensive 2-Year Historical Data (24 months of activity)
                 await SeedTwoYearHistoryAsync(db, org.Id, legalEntity.Id, ct);
 
+                // 14. Fill the demo tables the seeders above leave empty (HR structure, leave, loans, hiring ...)
+                await ProgramDemoTopUp.RunAsync(db, org.Id, legalEntity.Id, ct);
+
                 await db.SaveChangesAsync(ct);
                 log.LogInformation("Successfully verified and seeded demo data for workspace '{OrgName}' ({OrgCode}).", org.Name, org.Code);
             }

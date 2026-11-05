@@ -18,18 +18,21 @@ public static class ProjectsTransitions
     public static readonly StatusTransitions<MilestoneStatus> Milestone = new(
         new Dictionary<MilestoneStatus, IEnumerable<MilestoneStatus>>
         {
-            [MilestoneStatus.Pending] = [MilestoneStatus.Achieved],
-            [MilestoneStatus.Achieved] = [MilestoneStatus.Pending, MilestoneStatus.Invoiced],
+            [MilestoneStatus.Pending] = [MilestoneStatus.Achieved, MilestoneStatus.Cancelled],
+            [MilestoneStatus.Achieved] = [MilestoneStatus.Pending, MilestoneStatus.Invoiced, MilestoneStatus.Cancelled],
             [MilestoneStatus.Invoiced] = [],
+            [MilestoneStatus.Cancelled] = [MilestoneStatus.Pending],
         },
         systemOnly: [MilestoneStatus.Invoiced]);
 
     public static readonly StatusTransitions<ProjectTaskStatus> Task = new(
         new Dictionary<ProjectTaskStatus, IEnumerable<ProjectTaskStatus>>
         {
-            [ProjectTaskStatus.Todo] = [ProjectTaskStatus.InProgress],
-            [ProjectTaskStatus.InProgress] = [ProjectTaskStatus.Review, ProjectTaskStatus.Todo],
-            [ProjectTaskStatus.Review] = [ProjectTaskStatus.Done, ProjectTaskStatus.InProgress],
+            [ProjectTaskStatus.Todo] = [ProjectTaskStatus.InProgress, ProjectTaskStatus.Blocked, ProjectTaskStatus.Cancelled],
+            [ProjectTaskStatus.InProgress] = [ProjectTaskStatus.Review, ProjectTaskStatus.Todo, ProjectTaskStatus.Blocked, ProjectTaskStatus.Cancelled],
+            [ProjectTaskStatus.Review] = [ProjectTaskStatus.Done, ProjectTaskStatus.InProgress, ProjectTaskStatus.Blocked, ProjectTaskStatus.Cancelled],
             [ProjectTaskStatus.Done] = [ProjectTaskStatus.InProgress],
+            [ProjectTaskStatus.Blocked] = [ProjectTaskStatus.Todo, ProjectTaskStatus.InProgress, ProjectTaskStatus.Cancelled],
+            [ProjectTaskStatus.Cancelled] = [ProjectTaskStatus.Todo],
         });
 }
