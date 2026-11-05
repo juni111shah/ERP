@@ -94,7 +94,7 @@ public class HrWave4Tests(ApiFactory f) : IClassFixture<ApiFactory>
 
         var roll = (await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/attendance/daily/roll-up", new { year = 2026, month = 10, legalEntityId = kit.Entity }))).AsArray().Single()!;
         Assert.Equal(2, (int)roll["daysPresent"]!);
-        Assert.Equal(1, (int)roll["unpaidAbsentDays"]!);
+        Assert.Equal(1m, (decimal)roll["unpaidAbsentDays"]!);
         Assert.Equal(1.5m, (decimal)roll["overtimeHours"]!);
         Assert.Equal(1, (int)roll["lateDays"]!);
 
@@ -106,6 +106,21 @@ public class HrWave4Tests(ApiFactory f) : IClassFixture<ApiFactory>
 
         var again = await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/attendance/daily/roll-up", new { year = 2026, month = 10, legalEntityId = kit.Entity }));
         Assert.Single(again.AsArray()); // running it again updates the same record
+    }
+
+    [Fact]
+    public async Task A_half_day_counts_as_attended_with_half_a_day_unpaid_and_payroll_deducts_half_a_day()
+    {
+        var kit = await HrKit.StartAsync(f);
+        var emp = await kit.EmployeeAsync(HrKit.Unique("Half"), 3_000m, PlainPay);
+        var half = await HrKit.Ok(await kit.Owner.PutAsJsonAsync($"{Hr}/attendance/daily", new { employeeId = emp, date = "2026-10-05", checkIn = "08:00:00", checkOut = "12:00:00", status = "halfDay" }));
+        Assert.Equal("halfDay", (string)half["status"]!);
+        Assert.Equal(240, (int)half["workedMinutes"]!);
+        var roll = (await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/attendance/daily/roll-up", new { year = 2026, month = 10, legalEntityId = kit.Entity }))).AsArray().Single()!;
+        Assert.Equal(1, (int)roll["daysPresent"]!);
+        Assert.Equal(0.5m, (decimal)roll["unpaidAbsentDays"]!);
+        var run = await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/payroll", new { legalEntityId = kit.Entity, year = 2026, month = 10 }), HttpStatusCode.Created);
+        Assert.Equal(50m, (decimal)run["lines"]!.AsArray().Single()!["absence"]!);   // 3000 / 30 x 0.5 day
     }
 
     [Fact]

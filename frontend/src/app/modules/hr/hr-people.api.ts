@@ -164,7 +164,7 @@ export class StatutoryRulesApi extends CrudApiService<StatutoryRuleRow, unknown>
 // ---- Daily attendance ------------------------------------------------------------------------------------------------------
 
 export const DAILY_STATUSES = [
-  { value: 'present', label: 'Present' }, { value: 'absent', label: 'Absent' }, { value: 'leave', label: 'On leave' }, { value: 'holiday', label: 'Public holiday' }, { value: 'weeklyOff', label: 'Weekly off' },
+  { value: 'present', label: 'Present' }, { value: 'absent', label: 'Absent' }, { value: 'leave', label: 'On leave' }, { value: 'holiday', label: 'Public holiday' }, { value: 'weeklyOff', label: 'Weekly off' }, { value: 'halfDay', label: 'Half day' },
 ];
 export interface DailyAttendance { id: string; employeeId: string; date: string; checkIn?: string; checkOut?: string; status: string; workedMinutes: number; lateMinutes: number; overtimeMinutes: number; notes?: string; source?: string; }
 export interface DailyInput { employeeId: string; date: string; checkIn?: string | null; checkOut?: string | null; status?: string | null; notes?: string | null; source?: string | null; }

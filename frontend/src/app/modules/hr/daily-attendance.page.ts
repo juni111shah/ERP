@@ -43,7 +43,7 @@ export function parseImport(text: string, idByNumber: ReadonlyMap<string, string
   return { rows, errors };
 }
 
-const STATUS_COLORS: Record<string, string> = { present: 'green', absent: 'red', leave: 'blue', holiday: 'purple', weeklyOff: 'default' };
+const STATUS_COLORS: Record<string, string> = { present: 'green', absent: 'red', leave: 'blue', holiday: 'purple', weeklyOff: 'default', halfDay: 'orange' };
 
 /** Day-by-day attendance: check-in and check-out, late and overtime, an import from a device export, and the roll-up into the monthly record payroll uses. */
 @Component({

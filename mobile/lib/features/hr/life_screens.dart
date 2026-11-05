@@ -116,7 +116,7 @@ class StatutoryRulesScreen extends StatelessWidget {
 // ---- Daily attendance ------------------------------------------------------------------------------------------------------
 
 const _dailyPath = '$hrPath/attendance/daily';
-const dailyStatuses = [Option('present', 'Present'), Option('absent', 'Absent'), Option('leave', 'On leave'), Option('holiday', 'Public holiday'), Option('weeklyOff', 'Weekly off')];
+const dailyStatuses = [Option('present', 'Present'), Option('absent', 'Absent'), Option('leave', 'On leave'), Option('holiday', 'Public holiday'), Option('weeklyOff', 'Weekly off'), Option('halfDay', 'Half day')];
 
 FormSpec dailyForm({Json? existing}) => FormSpec(
       title: existing == null ? 'Add a day' : 'Edit day',

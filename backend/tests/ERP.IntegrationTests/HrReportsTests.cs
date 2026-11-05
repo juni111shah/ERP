@@ -81,8 +81,8 @@ public class HrReportsTests(ApiFactory f) : IClassFixture<ApiFactory>
 
         var leave = r["leaveDaysByType"]!.AsArray();
         Assert.Contains(leave, l => ((string)l!["leaveType"]!).StartsWith("Annual") && (decimal)l["days"]! == 5m);
-        Assert.Equal(3, (int)r["absenceDays"]!);
-        Assert.Equal(3, (int)r["absenceByMonth"]!.AsArray().First(m => (int)m!["month"]! == 11)!["days"]!);
+        Assert.Equal(3, (decimal)r["absenceDays"]!);
+        Assert.Equal(3m, (decimal)r["absenceByMonth"]!.AsArray().First(m => (int)m!["month"]! == 11)!["days"]!);
     }
 
     private static int Count(JsonNode list, string key) => list.AsArray().FirstOrDefault(x => (string)x!["key"]! == key) is { } hit ? (int)hit["count"]! : 0;

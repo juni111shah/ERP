@@ -52,7 +52,7 @@ public class AttendanceRecord : LegalEntityScopedEntity
     [Filterable] public int Month { get; set; }
     public int WorkingDays { get; set; } = 26;
     public int DaysPresent { get; set; }
-    public int UnpaidAbsentDays { get; set; }
+    public decimal UnpaidAbsentDays { get; set; }
     public int PaidLeaveDays { get; set; }
     public decimal OvertimeHours { get; set; }
 }

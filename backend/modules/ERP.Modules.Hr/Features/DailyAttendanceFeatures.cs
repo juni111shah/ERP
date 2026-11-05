@@ -13,7 +13,7 @@ namespace ERP.Modules.Hr.Features;
 public sealed record DailyAttendanceInput(Guid EmployeeId, DateOnly Date, TimeOnly? CheckIn = null, TimeOnly? CheckOut = null, DailyAttendanceStatus? Status = null, string? Notes = null, string? Source = null);
 public sealed record DailyAttendanceDto(Guid Id, Guid EmployeeId, DateOnly Date, TimeOnly? CheckIn, TimeOnly? CheckOut, DailyAttendanceStatus Status, int WorkedMinutes, int LateMinutes, int OvertimeMinutes, string? Notes, string? Source);
 public sealed record BulkDailyAttendanceResult(int Saved, IReadOnlyList<string> Rejected);
-public sealed record AttendanceRollUpRow(Guid EmployeeId, string EmployeeName, int WorkingDays, int DaysPresent, int UnpaidAbsentDays, int PaidLeaveDays, decimal OvertimeHours, int LateDays, int LateMinutes);
+public sealed record AttendanceRollUpRow(Guid EmployeeId, string EmployeeName, int WorkingDays, int DaysPresent, decimal UnpaidAbsentDays, int PaidLeaveDays, decimal OvertimeHours, int LateDays, int LateMinutes);
 
 public sealed record ListDailyAttendance(int Year, int Month, Guid? EmployeeId, Guid? LegalEntityId) : IQuery<IReadOnlyList<DailyAttendanceDto>>, IRequirePermission { public string RequiredPermission => P.AttendanceRead; }
 public sealed record SaveDailyAttendance(DailyAttendanceInput Input) : ICommand<DailyAttendanceDto>, IRequirePermission { public string RequiredPermission => P.AttendanceManage; }
@@ -30,7 +30,7 @@ public sealed class DailyAttendanceInputValidator : AbstractValidator<DailyAtten
         RuleFor(x => x.Notes).MaximumLength(300);
         RuleFor(x => x.Source).MaximumLength(50);
         RuleFor(x => x.CheckOut!.Value).GreaterThan(x => x.CheckIn!.Value).When(x => x.CheckIn is not null && x.CheckOut is not null).WithName("CheckOut").WithMessage("Check-out must be after check-in.");
-        RuleFor(x => x.CheckIn).Must((x, c) => c is null || x.Status is null or DailyAttendanceStatus.Present).WithMessage("Only a present day can have a check-in.");
+        RuleFor(x => x.CheckIn).Must((x, c) => c is null || x.Status is null or DailyAttendanceStatus.Present or DailyAttendanceStatus.HalfDay).WithMessage("Only a present or half day can have a check-in.");
     }
 }
 public sealed class SaveDailyAttendanceValidator : AbstractValidator<SaveDailyAttendance> { public SaveDailyAttendanceValidator() => RuleFor(x => x.Input).SetValidator(new DailyAttendanceInputValidator()); }
@@ -122,8 +122,9 @@ internal sealed class DailyAttendanceHandlers(
         foreach (var g in month.GroupBy(l => l.EmployeeId))
         {
             if (!staff.TryGetValue(g.Key, out var e)) continue;
-            var present = g.Count(l => l.Status == DailyAttendanceStatus.Present);
-            var absent = g.Count(l => l.Status == DailyAttendanceStatus.Absent && calendar.IsWorkingDay(l.Date));
+            var half = g.Count(l => l.Status == DailyAttendanceStatus.HalfDay);
+            var present = g.Count(l => l.Status is DailyAttendanceStatus.Present or DailyAttendanceStatus.HalfDay);
+            var absent = g.Count(l => l.Status == DailyAttendanceStatus.Absent && calendar.IsWorkingDay(l.Date)) + half * 0.5m; // a half day is attended, half of it unpaid
             var leave = g.Count(l => l.Status == DailyAttendanceStatus.Leave);
             var overtime = Math.Round(g.Sum(l => l.OvertimeMinutes) / 60m, 2);
             var lateDays = g.Count(l => l.LateMinutes > 0);
@@ -155,11 +156,12 @@ internal sealed class DailyAttendanceHandlers(
         await guard.RequireAsync(emp.LegalEntityId, ct);
         if (i.Date < emp.JoinDate || (emp.TerminationDate is { } t && i.Date > t)) throw new ConflictException("The employee was not employed on this date.");
         var status = DailyAttendanceMath.StatusOf(i.Status, i.CheckIn);
-        var m = status == DailyAttendanceStatus.Present ? DailyAttendanceMath.Compute(i.CheckIn, i.CheckOut, shift.Start, shift.GraceMinutes, shift.HoursPerDay) : new DailyAttendanceMath.Result(0, 0, 0);
+        var worked = status is DailyAttendanceStatus.Present or DailyAttendanceStatus.HalfDay;
+        var m = worked ?DailyAttendanceMath.Compute(i.CheckIn, i.CheckOut, shift.Start, shift.GraceMinutes, shift.HoursPerDay) : new DailyAttendanceMath.Result(0, 0, 0);
         var date = i.Date; var empId = emp.Id;
         var log = await logs.Tracked(new Specification<AttendanceLog>(l => l.EmployeeId == empId && l.Date == date)).FirstOrDefaultAsync(ct);
         if (log is null) { log = new AttendanceLog { LegalEntityId = emp.LegalEntityId, EmployeeId = emp.Id, Date = i.Date }; logs.Add(log); }
-        log.CheckIn = status == DailyAttendanceStatus.Present ? i.CheckIn : null; log.CheckOut = status == DailyAttendanceStatus.Present ? i.CheckOut : null; log.Status = status;
+        log.CheckIn = worked ? i.CheckIn : null; log.CheckOut = worked ? i.CheckOut : null; log.Status = status;
         log.WorkedMinutes = m.Worked; log.LateMinutes = m.Late; log.OvertimeMinutes = m.Overtime; log.Notes = i.Notes?.Trim(); log.Source = i.Source ?? "manual";
         return log;
     }

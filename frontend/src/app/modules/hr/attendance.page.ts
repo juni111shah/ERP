@@ -121,7 +121,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
               </td>
               <td><nz-input-number [(ngModel)]="r.workingDays" [nzMin]="1" [nzMax]="31" [nzPrecision]="0" (ngModelChange)="touch(r)" style="width:70px"></nz-input-number></td>
               <td><nz-input-number [(ngModel)]="r.daysPresent" [nzMin]="0" [nzMax]="31" [nzPrecision]="0" (ngModelChange)="touch(r)" style="width:70px"></nz-input-number></td>
-              <td><nz-input-number [(ngModel)]="r.unpaidAbsentDays" [nzMin]="0" [nzMax]="31" [nzPrecision]="0" (ngModelChange)="touch(r)" style="width:70px" [attr.data-testid]="'att-unpaid-' + r.employeeNumber"></nz-input-number></td>
+              <td><nz-input-number [(ngModel)]="r.unpaidAbsentDays" [nzMin]="0" [nzMax]="31" [nzPrecision]="1" [nzStep]="0.5" (ngModelChange)="touch(r)" style="width:70px" [attr.data-testid]="'att-unpaid-' + r.employeeNumber"></nz-input-number></td>
               <td><nz-input-number [(ngModel)]="r.paidLeaveDays" [nzMin]="0" [nzMax]="31" [nzPrecision]="0" (ngModelChange)="touch(r)" style="width:70px"></nz-input-number></td>
               <td data-testid="att-leave">@if (r.leavePaidDays || r.leaveUnpaidDays) { <span>{{ r.leavePaidDays ?? 0 }} paid / {{ r.leaveUnpaidDays ?? 0 }} unpaid</span> } @else { <span style="opacity:.5">-</span> }</td>
               <td><nz-input-number [(ngModel)]="r.overtimeHours" [nzMin]="0" [nzPrecision]="1" (ngModelChange)="touch(r)" style="width:75px" [attr.data-testid]="'att-ot-' + r.employeeNumber"></nz-input-number></td>

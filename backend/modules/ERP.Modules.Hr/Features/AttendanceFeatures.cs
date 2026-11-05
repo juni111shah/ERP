@@ -8,9 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Modules.Hr.Features;
 
-public sealed record AttendanceInput(Guid EmployeeId, int Year, int Month, int WorkingDays, int DaysPresent, int UnpaidAbsentDays, int PaidLeaveDays, decimal OvertimeHours);
+public sealed record AttendanceInput(Guid EmployeeId, int Year, int Month, int WorkingDays, int DaysPresent, decimal UnpaidAbsentDays, int PaidLeaveDays, decimal OvertimeHours);
 public sealed record AttendanceRowDto(
-    Guid EmployeeId, string EmployeeNumber, string EmployeeName, string Designation, Guid LegalEntityId, Guid? RecordId, bool Recorded, int WorkingDays, int DaysPresent, int UnpaidAbsentDays, int PaidLeaveDays, decimal OvertimeHours,
+    Guid EmployeeId, string EmployeeNumber, string EmployeeName, string Designation, Guid LegalEntityId, Guid? RecordId, bool Recorded, int WorkingDays, int DaysPresent, decimal UnpaidAbsentDays, int PaidLeaveDays, decimal OvertimeHours,
     int LeavePaidDays = 0, int LeaveUnpaidDays = 0);
 
 /// <summary>Every active employee for a month with their recorded exceptions (or full attendance when nothing is recorded), plus the days of approved leave (read-only; payroll adds the unpaid ones to the recorded absences).</summary>

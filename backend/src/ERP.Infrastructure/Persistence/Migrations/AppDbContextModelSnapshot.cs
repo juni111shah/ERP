@@ -3946,8 +3946,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
-                    b.Property<int>("UnpaidAbsentDays")
-                        .HasColumnType("int");
+                    b.Property<decimal>("UnpaidAbsentDays")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");

@@ -22,8 +22,11 @@ owner: claude (branch claude/hr-wave1)
 ## Screens (added after the backend)
 Web: statutory rules, daily attendance (add a day, import, roll-up), history and tasks drawer on the employee, checklists, HR tasks, recruitment (vacancies, candidates, hire), statutory totals and employer cost on payroll detail. Mobile: the same, with history and tasks under the employee. Menu entries and Arabic phrases added; specs in `hr-wave5.spec.ts` and `mobile/test/hr_life_test.dart`.
 
+## Half-day attendance (added later)
+Status `halfDay` on a daily log: counts as attended, half a day unpaid in the roll-up. `UnpaidAbsentDays` is now decimal (migration `HrHalfDay`, script `0070_HrHalfDay.sql`).
+
 ## Not done
-Half-day attendance; shift rosters; photo or device integration; applying a country's actual tax tables (the rules are set up per entity by the user).
+Shift rosters; photo or device integration; applying a country's actual tax tables (the rules are set up per entity by the user).
 
 ## Tests
 `HrWave4Tests` (unit, 28 cases) and `HrWave4Tests` (integration, 6 scenarios); full backend suite green.

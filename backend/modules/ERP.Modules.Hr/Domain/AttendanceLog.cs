@@ -2,7 +2,7 @@ using ERP.Domain.Common;
 
 namespace ERP.Modules.Hr.Domain;
 
-public enum DailyAttendanceStatus { Present = 1, Absent = 2, Leave = 3, Holiday = 4, WeeklyOff = 5 }
+public enum DailyAttendanceStatus { Present = 1, Absent = 2, Leave = 3, Holiday = 4, WeeklyOff = 5, HalfDay = 6 }
 
 /// <summary>One employee's attendance on one day: check-in and check-out (typed in, imported from a device or a file) with the late and overtime minutes worked out on save. Rolled up into the monthly record that payroll reads.</summary>
 [DefaultSort("-date")]
