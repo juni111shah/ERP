@@ -91,7 +91,7 @@ public static class DailyAttendanceMath
 }
 
 internal sealed class DailyAttendanceHandlers(
-    IRepository<AttendanceLog> logs, IRepository<AttendanceRecord> records, IReadRepository<Employee> employees, IReadRepository<Domain.Shift> shiftRepo, LeaveCalendarProvider calendars, ISettingsService settings,
+    IRepository<AttendanceLog> logs, IRepository<AttendanceRecord> records, IReadRepository<Employee> employees, IReadRepository<Domain.Shift> shiftRepo, IReadRepository<ShiftRoster> rosterRepo, LeaveCalendarProvider calendars, ISettingsService settings,
     ILegalEntityGuard guard, IUnitOfWork uow) :
     IRequestHandler<ListDailyAttendance, IReadOnlyList<DailyAttendanceDto>>,
     IRequestHandler<SaveDailyAttendance, DailyAttendanceDto>,
@@ -202,7 +202,9 @@ internal sealed class DailyAttendanceHandlers(
     {
         var emp = await employees.FindAsync(i.EmployeeId, ct) ?? throw new NotFoundException($"Employee {i.EmployeeId} was not found.");
         var shift = defaults;
-        if (emp.ShiftId is { } shiftId && await shiftRepo.FindAsync(shiftId, ct) is { } own) shift = new ShiftRule(own.StartTime, own.GraceMinutes, own.HoursPerDay); // the employee's own shift wins over the workspace settings
+        var empIdForRoster = emp.Id; var dateForRoster = i.Date;
+        var covering = RosterMath.ShiftOn(await rosterRepo.Query(new Specification<ShiftRoster>(r => r.EmployeeId == empIdForRoster && r.FromDate <= dateForRoster && r.ToDate >= dateForRoster)).ToListAsync(ct), i.Date);
+        if ((covering ?? emp.ShiftId) is { } shiftId && await shiftRepo.FindAsync(shiftId, ct) is { } own) shift = new ShiftRule(own.StartTime, own.GraceMinutes, own.HoursPerDay); // a dated roster entry beats the default shift, which beats the workspace settings
         await guard.RequireAsync(emp.LegalEntityId, ct);
         if (i.Date < emp.JoinDate || (emp.TerminationDate is { } t && i.Date > t)) throw new ConflictException("The employee was not employed on this date.");
         var status = DailyAttendanceMath.StatusOf(i.Status, i.CheckIn);

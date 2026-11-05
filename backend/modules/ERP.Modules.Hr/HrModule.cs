@@ -283,6 +283,11 @@ public sealed class HrModule : ModuleBase
             b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
             b.HasIndex(x => new { x.OrgId, x.EmployeeId, x.EffectiveDate });
         });
+        mb.Entity<ShiftRoster>(b =>
+        {
+            b.ToTable("hr_ShiftRosters");
+            b.HasIndex(x => new { x.OrgId, x.EmployeeId, x.FromDate });
+        });
         mb.Entity<Shift>(b =>
         {
             b.ToTable("hr_Shifts");

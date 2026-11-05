@@ -31,8 +31,10 @@ Status `halfDay` on a daily log: counts as attended, half a day unpaid in the ro
 - **Table editors**: slabs, checklist steps, leave-type tiers and pay bands are edited as lines (a new `rows` field in the web record drawer; `Field.lines` on mobile) instead of typed text.
 - **HR settings**: already editable in the generic settings page (web and mobile) under "hr".
 
+- **Dated roster** (`/hr/shifts/{id}/roster`, `/hr/shifts/roster?year&month`): a shift for a date range per employee, overriding the default shift on those dates (latest start wins on overlap). Migration `HrShiftRoster`, script `0072_HrShiftRoster.sql`; web section on the Shifts page, "Roster dates" on the mobile shift sheet.
+
 ## Not done
-Rosters that change by date (an employee has one shift at a time); photo or face capture at the device; the device vendor connectors themselves (they call the punch endpoint).
+Photo or face capture at the device, and connectors for specific device brands (they need the vendor's protocol; they call the punch endpoint).
 
 ## Tests
 `HrWave4Tests` (unit, 28 cases) and `HrWave4Tests` (integration, 6 scenarios); full backend suite green.

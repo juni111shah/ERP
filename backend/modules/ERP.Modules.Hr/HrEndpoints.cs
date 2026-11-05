@@ -190,6 +190,9 @@ internal static class HrEndpoints
         shifts.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteShift(id), ct); return Results.NoContent(); }).RequirePermission(P.AttendanceManage);
         shifts.MapPost("/{id:guid}/assign", async (Guid id, AssignShiftInput b, ISender s, CancellationToken ct) => new { assigned = await s.Send(new AssignShift(id, b.EmployeeIds), ct) }).RequirePermission(P.AttendanceManage);
         shifts.MapPost("/unassign", async (AssignShiftInput b, ISender s, CancellationToken ct) => new { cleared = await s.Send(new UnassignShift(b.EmployeeIds), ct) }).RequirePermission(P.AttendanceManage);
+        shifts.MapGet("/roster", (int year, int month, ISender s, CancellationToken ct) => s.Send(new ListRoster(year, month), ct)).RequirePermission(P.AttendanceRead);
+        shifts.MapPost("/{id:guid}/roster", async (Guid id, RosterInput b, ISender s, CancellationToken ct) => Results.Created($"{Base}/shifts/roster", await s.Send(new AddRoster(id, b), ct))).RequirePermission(P.AttendanceManage);
+        shifts.MapDelete("/roster/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteRoster(id), ct); return Results.NoContent(); }).RequirePermission(P.AttendanceManage);
 
         // daily attendance
         attendance.MapGet("/daily", (int year, int month, Guid? employeeId, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new ListDailyAttendance(year, month, employeeId, legalEntityId), ct)).RequirePermission(P.AttendanceRead);

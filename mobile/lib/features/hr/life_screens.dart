@@ -696,6 +696,17 @@ FormSpec assignShiftForm(Json shift) => FormSpec(
       submit: (ref, body, raw) => ref.read(apiProvider).post('$_shiftsPath/${shift['id']}/assign', body: {'employeeIds': [body['employeeId']]}),
     );
 
+FormSpec rosterForm(Json shift) => FormSpec(
+      title: 'Roster dates for ${shift['name']}',
+      intro: "On these dates the shift replaces the employee's default shift.",
+      fields: [
+        Field.lookup('employeeId', 'Employee', path: '$hrPath/employees', labelKey: 'fullName', subtitleKey: 'number', required: true),
+        Field.date('fromDate', 'From', required: true, initial: 'today'),
+        Field.date('toDate', 'To', required: true, initial: 'today', validator: (v, all) => v != null && all['fromDate'] != null && '$v'.compareTo('${all['fromDate']}') < 0 ? 'Not before the start date' : null),
+      ],
+      submit: (ref, body, raw) => ref.read(apiProvider).post('$_shiftsPath/${shift['id']}/roster', body: {'employeeIds': [body['employeeId']], 'fromDate': body['fromDate'], 'toDate': body['toDate']}),
+    );
+
 /// Work shifts: late arrival and overtime are measured against the employee's shift.
 class ShiftsScreen extends ConsumerWidget {
   const ShiftsScreen({super.key});
@@ -730,6 +741,7 @@ class ShiftsScreen extends ConsumerWidget {
                             child: Column(mainAxisSize: MainAxisSize.min, children: [
                               ListTile(leading: const Icon(Icons.edit_outlined), title: const Text('Edit'), onTap: () { Navigator.pop(sheet); openForm<Object?>(context, shiftForm(existing: s)); }),
                               ListTile(leading: const Icon(Icons.person_add_alt), title: const Text('Assign an employee'), onTap: () { Navigator.pop(sheet); openForm<Object?>(context, assignShiftForm(s)); }),
+                              ListTile(leading: const Icon(Icons.event_repeat), title: const Text('Roster dates'), onTap: () { Navigator.pop(sheet); openForm<Object?>(context, rosterForm(s)); }),
                               ListTile(
                                 leading: const Icon(Icons.delete_outline),
                                 title: const Text('Delete'),

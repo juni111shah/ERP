@@ -27,6 +27,7 @@ Map<String, dynamic> candidate(String stage) => {'id': 'c1', 'openingId': 'o1', 
 
 void main() {
   shiftTests();
+  rosterTests();
   test('times are read as hh:mm and bad ones are flagged', () {
     expect(timeOf('8:05'), '08:05:00');
     expect(timeOf('17:30'), '17:30:00');
@@ -137,5 +138,20 @@ void shiftTests() {
     expect(find.text('Night'), findsOneWidget);
     expect(find.textContaining('from 22:00'), findsOneWidget);
     expect(find.textContaining('3 employee'), findsOneWidget);
+  });
+}
+
+void rosterTests() {
+  test('a roster entry needs an employee and dates, and the end cannot be before the start', () {
+    final spec = rosterForm({'id': 's1', 'name': 'Night'});
+    final values = FormEngine.start(spec.fields, spec.initial);
+    expect(FormEngine.validate(spec.fields, values)['employeeId'], isNotNull);
+    values
+      ..['employeeId'] = 'e1'
+      ..['fromDate'] = '2026-10-10'
+      ..['toDate'] = '2026-10-01';
+    expect(FormEngine.validate(spec.fields, values)['toDate'], isNotNull);
+    values['toDate'] = '2026-10-12';
+    expect(FormEngine.validate(spec.fields, values), isEmpty);
   });
 }

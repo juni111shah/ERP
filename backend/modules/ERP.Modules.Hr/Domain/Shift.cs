@@ -13,3 +13,12 @@ public class Shift : OrgEntity
     public int HoursPerDay { get; set; } = 8;
     [Filterable] public bool IsActive { get; set; } = true;
 }
+
+/// <summary>A shift worked on specific dates (rotation, cover, a season): overrides the employee's default shift from FromDate to ToDate.</summary>
+public class ShiftRoster : LegalEntityScopedEntity
+{
+    [Filterable] public Guid EmployeeId { get; set; }
+    public Guid ShiftId { get; set; }
+    [Sortable, Filterable] public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
+}
