@@ -60,6 +60,7 @@ internal sealed class ExpenseHandlers(
     IRepository<ProjectExpense> expenses,
     IReadRepository<Project> projects,
     ProjectPeople people,
+    ProjectAccess access,
     ISettingsService settings) :
     IRequestHandler<GetExpense, ExpenseDto>,
     IRequestHandler<CreateExpense, ExpenseDto>,
@@ -75,6 +76,7 @@ internal sealed class ExpenseHandlers(
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
         ProjectRules.EnsureTrackable(p);
+        await access.EnsureAsync(p, ct);
         var approval = await settings.GetAsync<bool?>("projects.expenseApproval", p.LegalEntityId, ct) == true;
         var e = new ProjectExpense { ProjectId = p.Id, Status = approval ? ExpenseStatus.Draft : ExpenseStatus.Approved };
         await FillAsync(e, p, i, ct);

@@ -137,3 +137,10 @@ utilisation, budget and work in progress, unbilled ageing, hours); task import; 
 
 **Not built:** releasing work in progress to cost of sales when the project is billed, client portal for projects, e-signature, (the generic attachment
 store accepts them), links that create a project from a sales order or opportunity (only the source fields exist), per-project member visibility rules.
+
+**Added after that:** work in progress is released to cost of sales when the work is billed (same transaction as the invoice); the setting `projects.restrictToMembers`
+limits people without manage rights to projects they manage or belong to (opening a project, adding tasks, time and expenses); customer sign-off: staff ask from the plan page,
+the customer signs with a typed name (or declines with a reason) in the portal's Projects tab, and signing a milestone's sign-off marks it achieved. Migration `ProjectsPortal`, script `0075`.
+
+**Still not built:** a drawn or certified e-signature (the sign-off is a typed name with time and user, not a legally certified signature), a button that creates a project from a sales order
+or opportunity (the source fields are accepted when creating a project), hiding other people's projects from the project list when members-only is on (the list itself is not filtered).

@@ -151,6 +151,7 @@ internal sealed class ProjectHandlers(
     IReadRepository<ProjectChangeOrder> changeOrders,
     IReadRepository<ProjectProgressBilling> progress,
     ProjectPeople people,
+    ProjectAccess access,
     ILegalEntityGuard guard,
     INumberingService numbers,
     ICustomFieldService fields) :
@@ -164,6 +165,7 @@ internal sealed class ProjectHandlers(
     public async Task<ProjectDto> Handle(GetProject q, CancellationToken ct)
     {
         var p = await projects.GetAsync(q.Id, ct);
+        await access.EnsureAsync(p, ct);
         return await BuildDtoAsync(p, ct);
     }
 

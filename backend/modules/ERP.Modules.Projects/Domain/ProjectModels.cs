@@ -230,6 +230,9 @@ public class ProjectTimesheet : OrgEntity
     /// <summary>The journal that moved this entry's cost into work in progress.</summary>
     public Guid? CostJournalId { get; set; }
 
+    /// <summary>The journal that moved this entry's cost from work in progress to cost of sales when it was billed.</summary>
+    public Guid? WipReleaseJournalId { get; set; }
+
     /// <summary>Unbilled time the company decided not to charge for.</summary>
     [Filterable]
     public bool WrittenOff { get; set; }

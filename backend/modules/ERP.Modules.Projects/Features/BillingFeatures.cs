@@ -137,6 +137,7 @@ internal sealed class BillingHandlers(
     IReadRepository<ProjectTask> tasks,
     IReadRepository<TaxCode> taxCodes,
     ISender sender,
+    IPostingService posting,
     IUnitOfWork uow) :
     IRequestHandler<GetBillingOverview, IReadOnlyList<ProjectBillingSummaryDto>>,
     IRequestHandler<BillProject, BillProjectResultDto>,
@@ -202,6 +203,20 @@ internal sealed class BillingHandlers(
             {
                 ProjectsTransitions.Milestone.Ensure(ms.Status, MilestoneStatus.Invoiced, isSystem: true);
                 ms.Status = MilestoneStatus.Invoiced; ms.InvoiceId = invoice.Id;
+            }
+            // cost that was moved into work in progress goes to cost of sales now that the work is billed
+            var releaseTime = plan.Time.Where(t => t.CostJournalId != null && t.WipReleaseJournalId == null).ToList();
+            var releaseCosts = plan.Expenses.Where(e => e.CostJournalId != null && e.WipReleaseJournalId == null).ToList();
+            var release = ProjectMath.Round(releaseTime.Sum(t => t.CostAmount) + releaseCosts.Sum(e => e.Amount));
+            if (release > 0)
+            {
+                var cogs = await posting.AccountForRoleAsync("cogs", transactionCt);
+                var wip = await posting.AccountForRoleAsync(SystemRoles.Wip, transactionCt);
+                var memo = $"Project {p.Number} billed, work in progress to cost of sales";
+                var journal = await posting.PostAsync(new PostingRequest(p.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), "projects.cost.release", p.Id, memo, invoice.Number,
+                    [new PostingLine(cogs, release, 0, memo), new PostingLine(wip, 0, release, memo)]), transactionCt);
+                foreach (var t in releaseTime) t.WipReleaseJournalId = journal.Id;
+                foreach (var e in releaseCosts) e.WipReleaseJournalId = journal.Id;
             }
             if (plan.ProgressAmount > 0)
                 progressRows.Add(new ProjectProgressBilling { ProjectId = p.Id, Date = DateOnly.FromDateTime(DateTime.UtcNow), Percent = i.ProgressPercent ?? 0m, Amount = plan.ProgressAmount, InvoiceId = invoice.Id });

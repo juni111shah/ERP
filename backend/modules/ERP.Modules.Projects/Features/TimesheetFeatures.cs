@@ -115,6 +115,7 @@ internal sealed class TimesheetHandlers(
     IReadRepository<Project> projects,
     IRepository<ProjectTask> tasks,
     ProjectPeople people,
+    ProjectAccess access,
     RateResolver rates,
     ISettingsService settings,
     IReadRepository<ProjectMember> members,
@@ -230,6 +231,7 @@ internal sealed class TimesheetHandlers(
     {
         var p = await projects.GetAsync(i.ProjectId, ct);
         ProjectRules.EnsureTrackable(p);
+        await access.EnsureAsync(p, ct);
         await EnsureTaskInProjectAsync(i.TaskId, p.Id, ct);
         var (name, userId) = await WorkerAsync(i, ct);
         await EnsureDayAsync(p, i, name, userId, null, ct);

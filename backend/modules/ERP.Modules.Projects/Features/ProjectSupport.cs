@@ -5,6 +5,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Modules.Projects.Features;
 
+/// <summary>With the setting "projects.restrictToMembers" on, people without the manage permission only reach projects they manage or belong to.</summary>
+public sealed class ProjectAccess(ICurrentUser user, ISettingsService settings, IReadRepository<ProjectMember> members)
+{
+    public async Task EnsureAsync(Project p, CancellationToken ct)
+    {
+        if (user.PortalKind != null) return; // the customer portal has its own endpoints and checks
+        if (await settings.GetAsync<bool?>("projects.restrictToMembers", p.LegalEntityId, ct) != true) return;
+        if (user.Permissions.Contains(P.ProjectsManage) || user.Permissions.Contains("*")) return;
+        if (user.UserId is not { } me) throw new ForbiddenException();
+        if (p.ManagerUserId == me) return;
+        if (await members.AnyAsync(m => m.ProjectId == p.Id && m.UserId == me, ct)) return;
+        throw new ForbiddenException();
+    }
+}
+
 /// <summary>Display names for sign-in accounts, so a task or an hour of work can point at a real person.</summary>
 public sealed class ProjectPeople(IUserDirectory directory)
 {

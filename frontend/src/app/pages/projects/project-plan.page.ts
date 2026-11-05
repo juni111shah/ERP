@@ -44,6 +44,7 @@ const HEALTH: Record<string, { label: string; color: string }> = { onTrack: { la
         </div>
         <div class="actions" *erpHasPermission="'projects.projects.manage'">
           <button nz-button *erpHasPermission="'projects.billing.manage'" (click)="postCosts(p)" data-testid="plan-post-costs" title="Move the cost of approved time and expenses into work in progress"><span nz-icon nzType="book"></span> Post costs to ledger</button>
+          <button nz-button *erpHasPermission="'projects.milestones.manage'" (click)="askSignOff(p)" data-testid="plan-signoff" title="Ask the customer to sign off the project in their portal"><span nz-icon nzType="edit"></span> Ask for sign-off</button>
           <button nz-button (click)="cloneOpen.set(true)" data-testid="plan-clone"><span nz-icon nzType="copy"></span> Clone</button>
           <button nz-button (click)="toggleArchive(p)" data-testid="plan-archive">{{ p.isArchived ? 'Restore' : 'Archive' }}</button>
         </div>
@@ -197,6 +198,12 @@ export class ProjectPlanPage {
   removeMember(m: MemberDto): void { this.api.removeMember(m.id).subscribe(() => this.load()); }
   addComment(): void { this.api.addComment('project', this.id, this.newComment.trim()).subscribe({ next: () => { this.newComment = ''; this.load(); }, error: (e) => this.msg.error(e?.error?.detail ?? 'Could not post.') }); }
   deleteComment(c: CommentDto): void { this.api.deleteComment(c.id).subscribe({ next: () => this.load(), error: (e) => this.msg.error(e?.error?.detail ?? 'Could not delete.') }); }
+  askSignOff(p: ProjectDto): void {
+    this.api.requestAcceptance({ projectId: p.id, title: `Sign-off of ${p.name}` }).subscribe({
+      next: () => this.msg.success('The customer can sign it in the portal'),
+      error: (e) => this.msg.error(e?.error?.detail ?? e?.error?.message ?? 'Could not ask for the sign-off.'),
+    });
+  }
   postCosts(p: ProjectDto): void {
     this.api.postCosts(p.id).subscribe({
       next: (r) => this.msg.success(r.entries ? `Posted ${r.entries} entries (${r.amount.toFixed(2)}) to work in progress in journal ${r.journalNumber}` : 'Nothing new to post'),

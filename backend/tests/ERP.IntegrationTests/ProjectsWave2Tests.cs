@@ -241,6 +241,35 @@ public class ProjectsWave2Tests(ApiFactory f) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Billing_work_whose_cost_was_posted_releases_work_in_progress_and_billing_still_works()
+    {
+        var k = await KitAsync();
+        var p = await k.ProjectAsync();
+        await Ok(await k.C.PostAsJsonAsync($"{Prj}/rates", new { projectId = p, billRate = 100m, costRate = 60m }), HttpStatusCode.Created);
+        await Ok(await k.C.PostAsJsonAsync($"{Prj}/timesheets", new { projectId = p, date = "2026-06-01", workerName = k.Worker, hours = 5m }), HttpStatusCode.Created);
+        await Ok(await k.C.PostAsJsonAsync($"{Prj}/billing/post-costs", new { projectId = p }));
+        var bill = await Ok(await k.C.PostAsJsonAsync($"{Prj}/billing/bill", new { projectId = p }));   // posts Dr cost of sales, Cr work in progress inside the same transaction
+        Assert.Equal(500m, (decimal)bill["totalAmountBilled"]!);
+        var after = await Ok(await k.C.PostAsJsonAsync($"{Prj}/billing/post-costs", new { projectId = p }));
+        Assert.Equal(0, (int)after["entries"]!);
+    }
+
+    [Fact]
+    public async Task A_sign_off_request_waits_for_the_customer_and_only_one_can_be_open_per_milestone()
+    {
+        var k = await KitAsync();
+        var p = await k.ProjectAsync();
+        var ms = await k.MilestoneAsync(p);
+        var request = await Ok(await k.C.PostAsJsonAsync($"{Prj}/acceptances", new { projectId = p, milestoneId = ms, title = "Phase 1 delivered" }), HttpStatusCode.Created);
+        Assert.Equal("pending", S(request, "status").ToLowerInvariant());
+        Assert.Equal(HttpStatusCode.Conflict, (await k.C.PostAsJsonAsync($"{Prj}/acceptances", new { projectId = p, milestoneId = ms, title = "Again" })).StatusCode);
+        Assert.Single((await Ok(await k.C.GetAsync($"{Prj}/acceptances?projectId={p}"))).AsArray());
+        // a staff sign-in is not a customer: the portal endpoints are closed to it
+        Assert.NotEqual(HttpStatusCode.OK, (await k.C.GetAsync($"{Prj}/portal/projects")).StatusCode);
+        Assert.NotEqual(HttpStatusCode.OK, (await k.C.PostAsJsonAsync($"{Prj}/portal/acceptances/{S(request, "id")}/sign", new { accept = true, signedByName = "Me", signature = "Me" })).StatusCode);
+    }
+
+    [Fact]
     public async Task Comments_risks_team_and_allocations_work_and_a_template_takes_no_time()
     {
         var k = await KitAsync();

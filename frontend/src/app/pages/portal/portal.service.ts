@@ -58,8 +58,17 @@ export class PortalService {
   receipts(): Observable<PortalReceipt[]> { return this.get('/portal/receipts'); }
   statement(): Observable<PortalStatement> { return this.get('/portal/statement'); }
   leases(): Observable<PortalLease[]> { return this.get('/m/realestate/portal/leases'); }
+  projects(): Observable<PortalProject[]> { return this.get('/m/projects/portal/projects'); }
+  acceptances(): Observable<PortalAcceptance[]> { return this.get('/m/projects/portal/acceptances'); }
+  sign(id: string, body: { accept: boolean; signedByName: string; signature?: string | null; comment?: string | null }): Observable<PortalAcceptance> {
+    return this.http.post<PortalAcceptance>(`${this.base}/m/projects/portal/acceptances/${id}/sign`, body, { headers: this.headers() });
+  }
   requests(): Observable<PortalRequest[]> { return this.get('/m/realestate/portal/requests'); }
   raise(body: { leaseId: string; issue: string; category?: string; priority: string }): Observable<PortalRequest> {
     return this.http.post<PortalRequest>(`${this.base}/m/realestate/portal/requests`, body, { headers: this.headers() });
   }
 }
+
+export interface PortalMilestone { id: string; title: string; dueDate: string; status: string; achievedDate?: string | null; }
+export interface PortalProject { id: string; number: string; name: string; status: string; startDate?: string | null; endDate?: string | null; percentComplete: number; managerName?: string | null; milestones: PortalMilestone[]; }
+export interface PortalAcceptance { id: string; projectId: string; projectName: string; title: string; status: string; requestedAt: string; signedByName?: string | null; signedAt?: string | null; }

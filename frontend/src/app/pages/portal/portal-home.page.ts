@@ -12,6 +12,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { OperatorFunction, catchError, of } from 'rxjs';
+import { PortalProjectsComponent } from './portal-projects.component';
 import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService, PortalStatement } from './portal.service';
 
 /** The tenant's own view: leases and rent schedule, invoices, receipts, statement and maintenance requests. */
@@ -22,7 +23,7 @@ import { matchText, TableToolsComponent } from '../../shared/table-tools.compone
   selector: 'erp-portal-home',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TableToolsComponent, TranslatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule, PaginationBarComponent],
+  imports: [PortalProjectsComponent, TableToolsComponent, TranslatePipe, CurrencyPipe, ReactiveFormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule, PaginationBarComponent],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; } .lease { margin-bottom: 24px; }`],
   template: `
     <div class="top"><h1>{{ 'portal.welcome' | translate: 'Welcome' }}, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">{{ 'portal.signOut' | translate: 'Sign out' }}</button></div>
@@ -103,6 +104,9 @@ import { matchText, TableToolsComponent } from '../../shared/table-tools.compone
           </div>
           @if (s.unallocatedReceipts > 0) { <p style="margin-top:12px; color:#10955d; font-weight:600;">{{ 'ui.portal.onAccount' | translate: 'On account' }}: {{ s.unallocatedReceipts | currency }}</p> }
         }
+      </nz-tab>
+      <nz-tab [nzTitle]="'portal.tab.projects' | translate: 'Projects'">
+        <ng-template nz-tab><erp-portal-projects /></ng-template>
       </nz-tab>
       <nz-tab [nzTitle]="'portal.tab.maintenance' | translate: 'Maintenance'">
         @if (leases().length) {

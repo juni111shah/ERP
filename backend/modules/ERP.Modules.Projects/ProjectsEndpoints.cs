@@ -146,6 +146,15 @@ internal static class ProjectsEndpoints
         allocations.MapPut("/{id:guid}", (Guid id, AllocationInput input, ISender s, CancellationToken ct) => s.Send(new SaveAllocation(id, input), ct)).RequirePermission(P.TeamManage);
         allocations.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteAllocation(id), ct); return Results.NoContent(); }).RequirePermission(P.TeamManage);
 
+        var accept = group.MapGroup("/acceptances");
+        accept.MapGet("", (Guid? projectId, ISender s, CancellationToken ct) => s.Send(new ListAcceptances(projectId), ct)).RequirePermission(P.MilestonesRead);
+        accept.MapPost("", async (RequestAcceptanceInput input, ISender s, CancellationToken ct) => Results.Created($"{Base}/acceptances", await s.Send(new RequestAcceptance(input), ct))).RequirePermission(P.MilestonesManage);
+
+        var portal = group.MapGroup("/portal");
+        portal.MapGet("/projects", (ISender s, CancellationToken ct) => s.Send(new GetPortalProjects(), ct)).RequireAuthorization("portal.customer");
+        portal.MapGet("/acceptances", (ISender s, CancellationToken ct) => s.Send(new ListPortalAcceptances(), ct)).RequireAuthorization("portal.customer");
+        portal.MapPost("/acceptances/{id:guid}/sign", (Guid id, SignAcceptanceInput body, ISender s, CancellationToken ct) => s.Send(new SignAcceptance(id, body), ct)).RequireAuthorization("portal.customer");
+
         var reports = group.MapGroup("/reports");
         reports.MapGet("/profitability", (DateOnly? from, DateOnly? to, Guid? projectId, ISender s, CancellationToken ct) => s.Send(new GetProfitabilityReport(from, to, projectId), ct)).RequirePermission(P.ReportsRead);
         reports.MapGet("/utilisation", (DateOnly from, DateOnly to, ISender s, CancellationToken ct) => s.Send(new GetUtilisationReport(from, to), ct)).RequirePermission(P.ReportsRead);

@@ -71,6 +71,7 @@ public sealed class ProjectsModule : ModuleBase
         new("projects.expenseApproval", "Expenses need approval before they can be billed", "false", "bool"),
         new("projects.maxHoursPerDay", "Most hours one person can log in a day", "16", "number"),
         new("projects.weeklyCapacityHours", "Working hours in a week (capacity for utilisation)", "40", "number"),
+        new("projects.restrictToMembers", "People without manage rights only reach projects they manage or belong to", "false", "bool", "Applies to opening a project and adding tasks, time and expenses to it."),
         new("projects.allowFutureTime", "Allow time to be logged for future dates", "false", "bool"),
     ];
 
@@ -99,6 +100,7 @@ public sealed class ProjectsModule : ModuleBase
     {
         services.AddScoped<ProjectPeople>();
         services.AddScoped<RateResolver>();
+        services.AddScoped<ProjectAccess>();
         services.AddScoped<IDashboardContributor, ProjectsDashboard>();
         services.AddScoped<ISearchProvider, ProjectsSearch>();
         services.AddScoped<ERP.Application.Reminders.IReminderSource, ProjectsReminders>();
@@ -237,6 +239,16 @@ public sealed class ProjectsModule : ModuleBase
             b.Property(x => x.UserName).HasMaxLength(150);
             b.Property(x => x.HoursPerWeek).HasPrecision(9, 2);
             b.HasIndex(x => new { x.OrgId, x.UserId, x.FromDate });
+        });
+        mb.Entity<ProjectAcceptance>(b =>
+        {
+            b.ToTable("prj_Acceptances");
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.RequestedByName).HasMaxLength(150);
+            b.Property(x => x.SignedByName).HasMaxLength(150);
+            b.Property(x => x.Signature).HasMaxLength(150);
+            b.Property(x => x.Comment).HasMaxLength(1000);
+            b.HasIndex(x => new { x.OrgId, x.ProjectId, x.Status });
         });
         mb.Entity<ProjectProgressBilling>(b =>
         {

@@ -79,6 +79,7 @@ export class ProjectsExtraApi {
   clone(projectId: string, body: { name: string; startDate?: string | null; customerId?: string | null; includeTeam?: boolean; asTemplate?: boolean }): Observable<ProjectDto> { return this.http.post<ProjectDto>(`${this.m}/projects/${projectId}/clone`, body); }
   archive(projectId: string, archive: boolean): Observable<ProjectDto> { return this.http.post<ProjectDto>(`${this.m}/projects/${projectId}/archive`, { archive }); }
 
+  requestAcceptance(body: { projectId: string; milestoneId?: string | null; title: string }): Observable<{ id: string; status: string }> { return this.http.post<{ id: string; status: string }>(`${this.m}/acceptances`, body); }
   postCosts(projectId: string): Observable<{ projectId: string; entries: number; amount: number; journalId?: string; journalNumber?: string }> { return this.http.post<{ projectId: string; entries: number; amount: number; journalId?: string; journalNumber?: string }>(`${this.m}/billing/post-costs`, { projectId }); }
 
   // time

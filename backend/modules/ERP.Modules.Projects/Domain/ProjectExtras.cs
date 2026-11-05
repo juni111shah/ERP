@@ -37,6 +37,7 @@ public class ProjectExpense : OrgEntity
     public Guid? InvoiceId { get; set; }
     [Filterable] public bool WrittenOff { get; set; }
     public Guid? CostJournalId { get; set; }
+    public Guid? WipReleaseJournalId { get; set; }
 }
 
 public class ProjectTaskDependency : OrgEntity
@@ -84,6 +85,24 @@ public class ProjectRisk : OrgEntity
     public Guid? OwnerUserId { get; set; }
     public string? OwnerName { get; set; }
     [Sortable] public DateOnly? DueDate { get; set; }
+}
+
+public enum AcceptanceStatus { Pending = 0, Signed = 1, Declined = 2 }
+
+/// <summary>A request for the customer to sign off the project or one of its milestones; answered in the customer portal with a typed signature.</summary>
+[DefaultSort("-requestedAt")]
+public class ProjectAcceptance : OrgEntity
+{
+    [Filterable] public Guid ProjectId { get; set; }
+    public Guid? MilestoneId { get; set; }
+    [Searchable] public string Title { get; set; } = string.Empty;
+    [Filterable, Sortable] public AcceptanceStatus Status { get; set; } = AcceptanceStatus.Pending;
+    public DateTime RequestedAt { get; set; }
+    public string? RequestedByName { get; set; }
+    public string? SignedByName { get; set; }
+    public string? Signature { get; set; }
+    public DateTime? SignedAt { get; set; }
+    public string? Comment { get; set; }
 }
 
 /// <summary>A person on the project team.</summary>

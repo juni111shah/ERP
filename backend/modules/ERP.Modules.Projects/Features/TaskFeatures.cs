@@ -101,6 +101,7 @@ internal sealed class TaskHandlers(
     IReadRepository<ProjectTimesheet> timesheets,
     IRepository<ProjectTaskDependency> dependencies,
     ProjectPeople people,
+    ProjectAccess access,
     INumberingService numbers) :
     IRequestHandler<GetTask, TaskDto>,
     IRequestHandler<CreateTask, TaskDto>,
@@ -116,6 +117,7 @@ internal sealed class TaskHandlers(
         var i = cmd.Input;
         var p = await projects.GetAsync(i.ProjectId, ct);
         ProjectRules.EnsureOpen(p);
+        await access.EnsureAsync(p, ct);
         await EnsureMilestoneInProjectAsync(i.MilestoneId, p.Id, ct);
         await EnsureParentAsync(i.ParentTaskId, p.Id, null, ct);
         var t = new ProjectTask { ProjectId = p.Id, Number = await numbers.NextAsync("task", p.LegalEntityId, null, ct) };
