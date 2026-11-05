@@ -133,5 +133,7 @@ timer (web and mobile); expenses with mark-up; write-off; invoice preview, group
 Gantt; task board; blocked and cancelled statuses; comments; change orders; risks and issues; project team and allocations; templates, clone and archive; reports (profitability,
 utilisation, budget and work in progress, unbilled ageing, hours); task import; reminders for due tasks and risks; health indicator.
 
-**Not built:** posting project cost and work in progress to the ledger, client portal for projects, e-signature, expense receipts as a dedicated screen (the generic attachment
+**Also added later:** posting project cost to work in progress (`POST /billing/post-costs`, migration `ProjectsLedger`, script `0074`, new account "Project cost recovery"), receipts on expenses and a Files tab on the project plan (generic attachments).
+
+**Not built:** releasing work in progress to cost of sales when the project is billed, client portal for projects, e-signature, (the generic attachment
 store accepts them), links that create a project from a sales order or opportunity (only the source fields exist), per-project member visibility rules.

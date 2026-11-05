@@ -7796,6 +7796,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
+                    b.Property<Guid?>("CostJournalId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -8361,6 +8364,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("CostAmount")
                         .HasPrecision(19, 4)
                         .HasColumnType("decimal(19,4)");
+
+                    b.Property<Guid?>("CostJournalId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("CostRate")
                         .HasPrecision(19, 4)

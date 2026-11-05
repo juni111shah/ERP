@@ -17,6 +17,7 @@ import { ProjectDto, ProjectsApi } from '../../core/api/projects.api';
 import { ChangeOrderDto, CommentDto, MemberDto, ProjectsExtraApi, RiskDto, ScheduleDto, UserOption } from '../../core/api/projects-extra.api';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { AttachmentsComponent } from '../../shared/attachments.component';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 
 const HEALTH: Record<string, { label: string; color: string }> = { onTrack: { label: 'On track', color: 'green' }, atRisk: { label: 'At risk', color: 'orange' }, offTrack: { label: 'Off track', color: 'red' }, closed: { label: 'Closed', color: 'default' } };
@@ -26,7 +27,7 @@ const HEALTH: Record<string, { label: string; color: string }> = { onTrack: { la
   selector: 'erp-project-plan',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule, NzTagModule, HasPermissionDirective],
+  imports: [CommonModule, DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule, NzTagModule, HasPermissionDirective, AttachmentsComponent],
   template: `
     @if (project(); as p) {
       <div class="head">
@@ -42,6 +43,7 @@ const HEALTH: Record<string, { label: string; color: string }> = { onTrack: { la
           </span>
         </div>
         <div class="actions" *erpHasPermission="'projects.projects.manage'">
+          <button nz-button *erpHasPermission="'projects.billing.manage'" (click)="postCosts(p)" data-testid="plan-post-costs" title="Move the cost of approved time and expenses into work in progress"><span nz-icon nzType="book"></span> Post costs to ledger</button>
           <button nz-button (click)="cloneOpen.set(true)" data-testid="plan-clone"><span nz-icon nzType="copy"></span> Clone</button>
           <button nz-button (click)="toggleArchive(p)" data-testid="plan-archive">{{ p.isArchived ? 'Restore' : 'Archive' }}</button>
         </div>
@@ -105,6 +107,10 @@ const HEALTH: Record<string, { label: string; color: string }> = { onTrack: { la
             <textarea nz-input rows="2" [(ngModel)]="newComment" maxlength="2000" placeholder="Write a comment" aria-label="Comment" data-testid="comment-text" style="flex:1"></textarea>
             <button nz-button nzType="primary" [disabled]="!newComment.trim()" (click)="addComment()" data-testid="comment-add">Post</button>
           </div>
+        </nz-tab>
+
+        <nz-tab nzTitle="Files">
+          <erp-attachments ownerType="project" [ownerId]="p.id" />
         </nz-tab>
 
         <nz-tab nzTitle="Change orders">
@@ -191,6 +197,12 @@ export class ProjectPlanPage {
   removeMember(m: MemberDto): void { this.api.removeMember(m.id).subscribe(() => this.load()); }
   addComment(): void { this.api.addComment('project', this.id, this.newComment.trim()).subscribe({ next: () => { this.newComment = ''; this.load(); }, error: (e) => this.msg.error(e?.error?.detail ?? 'Could not post.') }); }
   deleteComment(c: CommentDto): void { this.api.deleteComment(c.id).subscribe({ next: () => this.load(), error: (e) => this.msg.error(e?.error?.detail ?? 'Could not delete.') }); }
+  postCosts(p: ProjectDto): void {
+    this.api.postCosts(p.id).subscribe({
+      next: (r) => this.msg.success(r.entries ? `Posted ${r.entries} entries (${r.amount.toFixed(2)}) to work in progress in journal ${r.journalNumber}` : 'Nothing new to post'),
+      error: (e) => this.msg.error(e?.error?.detail ?? e?.error?.message ?? 'Could not post the costs.'),
+    });
+  }
   toggleArchive(p: ProjectDto): void { this.api.archive(p.id, !p.isArchived).subscribe({ next: (r) => { this.project.set(r); this.msg.success(r.isArchived ? 'Archived' : 'Restored'); }, error: (e) => this.msg.error(e?.error?.detail ?? 'Could not change.') }); }
   clone(p: ProjectDto): void {
     this.api.clone(p.id, { name: this.cloneName.trim() || `${p.name} (copy)`, startDate: this.cloneStart || null, includeTeam: this.cloneTeam, asTemplate: this.cloneTemplate }).subscribe({

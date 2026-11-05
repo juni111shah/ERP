@@ -27,9 +27,20 @@ public static class ProgramDemoTopUp
         await db.SaveChangesAsync(ct);
         await SeedProjectsExtrasAsync(db, legalEntityId, ct);
         await db.SaveChangesAsync(ct);
+        await EnsureProjectCostAccountAsync(db, ct);
+        await db.SaveChangesAsync(ct);
     }
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    /// <summary>Workspaces created before project cost posting existed have no "Project cost recovery" account; add it so the posting works.</summary>
+    private static async Task EnsureProjectCostAccountAsync(AppDbContext db, CancellationToken ct)
+    {
+        if (await db.Set<Account>().AnyAsync(a => a.SystemRole == "projects.costrecovery", ct)) return;
+        var code = "5080";
+        if (await db.Set<Account>().AnyAsync(a => a.Code == code, ct)) code = "5081";
+        db.Set<Account>().Add(new Account { Code = code, Name = "Project cost recovery", Type = AccountType.Expense, SystemRole = "projects.costrecovery", ReportingGroup = "Cost of sales", IsPostable = true, IsActive = true });
+    }
 
     private static async Task SeedHrAsync(AppDbContext db, Guid legalEntityId, CancellationToken ct)
     {

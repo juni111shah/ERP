@@ -36,6 +36,7 @@ public class ProjectExpense : OrgEntity
     [Filterable] public bool IsBilled { get; set; }
     public Guid? InvoiceId { get; set; }
     [Filterable] public bool WrittenOff { get; set; }
+    public Guid? CostJournalId { get; set; }
 }
 
 public class ProjectTaskDependency : OrgEntity

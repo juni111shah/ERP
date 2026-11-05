@@ -227,6 +227,9 @@ public class ProjectTimesheet : OrgEntity
     public Guid? DecidedByUserId { get; set; }
     public string? RejectReason { get; set; }
 
+    /// <summary>The journal that moved this entry's cost into work in progress.</summary>
+    public Guid? CostJournalId { get; set; }
+
     /// <summary>Unbilled time the company decided not to charge for.</summary>
     [Filterable]
     public bool WrittenOff { get; set; }

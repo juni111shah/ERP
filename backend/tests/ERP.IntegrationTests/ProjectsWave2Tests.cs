@@ -220,6 +220,27 @@ public class ProjectsWave2Tests(ApiFactory f) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Project_cost_moves_to_work_in_progress_once_and_only_new_cost_is_posted_the_next_time()
+    {
+        var k = await KitAsync();
+        var p = await k.ProjectAsync();
+        await Ok(await k.C.PostAsJsonAsync($"{Prj}/rates", new { projectId = p, billRate = 100m, costRate = 60m }), HttpStatusCode.Created);
+        await Ok(await k.C.PostAsJsonAsync($"{Prj}/timesheets", new { projectId = p, date = "2026-06-01", workerName = k.Worker, hours = 5m }), HttpStatusCode.Created);   // cost 300
+        await Ok(await k.C.PostAsJsonAsync($"{Prj}/expenses", new { projectId = p, date = "2026-06-01", category = "Materials", description = "Paint", amount = 100m }), HttpStatusCode.Created);
+
+        var first = await Ok(await k.C.PostAsJsonAsync($"{Prj}/billing/post-costs", new { projectId = p }));
+        Assert.Equal(2, (int)first["entries"]!);
+        Assert.Equal(400m, (decimal)first["amount"]!);
+        Assert.NotNull(first["journalId"]);
+
+        var again = await Ok(await k.C.PostAsJsonAsync($"{Prj}/billing/post-costs", new { projectId = p }));
+        Assert.Equal(0, (int)again["entries"]!);                    // nothing new
+        await Ok(await k.C.PostAsJsonAsync($"{Prj}/expenses", new { projectId = p, date = "2026-06-02", category = "Travel", description = "Taxi", amount = 25m }), HttpStatusCode.Created);
+        var next = await Ok(await k.C.PostAsJsonAsync($"{Prj}/billing/post-costs", new { projectId = p }));
+        Assert.Equal(25m, (decimal)next["amount"]!);
+    }
+
+    [Fact]
     public async Task Comments_risks_team_and_allocations_work_and_a_template_takes_no_time()
     {
         var k = await KitAsync();

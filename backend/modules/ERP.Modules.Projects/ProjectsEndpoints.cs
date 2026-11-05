@@ -19,6 +19,7 @@ public sealed record DependenciesBody(IReadOnlyList<Guid> DependsOn);
 public sealed record DecideChangeBody(bool Approve, string? Note);
 public sealed record MemberBody(Guid UserId, string? Role);
 public sealed record ArchiveBody(bool Archive);
+public sealed record PostCostsBody(Guid ProjectId);
 
 internal static class ProjectsEndpoints
 {
@@ -112,6 +113,7 @@ internal static class ProjectsEndpoints
         var billing = group.MapGroup("/billing");
         billing.MapGet("/overview", (ISender s, CancellationToken ct) => s.Send(new GetBillingOverview(), ct)).RequirePermission(P.BillingRead);
         billing.MapPost("/bill", (BillProjectInput input, ISender s, CancellationToken ct) => s.Send(new BillProject(input), ct)).RequirePermission(P.BillingManage);
+        billing.MapPost("/post-costs", (PostCostsBody b, ISender s, CancellationToken ct) => s.Send(new PostProjectCosts(b.ProjectId), ct)).RequirePermission(P.BillingManage);
         billing.MapPost("/preview", (BillProjectInput input, ISender s, CancellationToken ct) => s.Send(new PreviewProjectBill(input), ct)).RequirePermission(P.BillingRead);
 
         var rates = group.MapGroup("/rates");

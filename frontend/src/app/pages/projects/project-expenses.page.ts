@@ -13,7 +13,10 @@ import { ProjectsApi } from '../../core/api/projects.api';
 import { EXPENSE_CATEGORIES, ExpenseDto, ProjectExpensesApi, ProjectsExtraApi, UserOption } from '../../core/api/projects-extra.api';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { AttachmentsComponent } from '../../shared/attachments.component';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { NzModalModule } from 'ng-zorro-antd/modal';
+import { signal } from '@angular/core';
 import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
@@ -25,7 +28,7 @@ const COLORS: Record<string, string> = { Draft: 'default', Submitted: 'blue', Ap
   selector: 'erp-project-expenses',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, DecimalPipe, RouterModule, NzButtonModule, NzIconModule, NzTagModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective],
+  imports: [CommonModule, DecimalPipe, RouterModule, NzButtonModule, NzIconModule, NzTagModule, NzModalModule, AttachmentsComponent, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective],
   template: `
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search expenses" emptyText="No expenses recorded yet.">
       <button toolbar *erpHasPermission="'projects.expenses.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="expense-new"><span nz-icon nzType="plus"></span> New expense</button>
@@ -39,6 +42,7 @@ const COLORS: Record<string, string> = { Draft: 'default', Submitted: 'blue', Ap
             @if (row.writtenOff) { <nz-tag>Written off</nz-tag> } @else if (!row.isBillable) { <nz-tag>Not billable</nz-tag> } @else if (row.isBilled) { <nz-tag nzColor="green">Billed</nz-tag> } @else { <nz-tag nzColor="orange">Unbilled</nz-tag> }
           }
           @case ('actions') {
+            <button nz-button nzSize="small" (click)="receipts.set(row)" [attr.data-testid]="'expense-receipts-' + row.id">Receipts</button>
             @if (!row.isBilled && !row.writtenOff) {
               <span *erpHasPermission="'projects.expenses.manage'">
                 <button nz-button nzSize="small" (click)="state.edit(row)" [attr.data-testid]="'expense-edit-' + row.id">Edit</button>
@@ -51,6 +55,9 @@ const COLORS: Record<string, string> = { Draft: 'default', Submitted: 'blue', Ap
         }
       </ng-template>
     </erp-paged-table>
+    <nz-modal [nzVisible]="receipts() !== null" nzTitle="Receipts and documents" [nzFooter]="null" (nzOnCancel)="receipts.set(null)">
+      <ng-container *nzModalContent>@if (receipts(); as r) { <erp-attachments ownerType="projectexpense" [ownerId]="r.id" /> }</ng-container>
+    </nz-modal>
     <erp-record-drawer [title]="state.editing() ? 'Edit expense' : 'New expense'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
                        [saving]="state.saving()" [errors]="state.errors()" testId="expense-form" (submitted)="state.submit($event)" (closed)="state.close()" />
   `,
@@ -65,6 +72,7 @@ export class ProjectExpensesPage {
   readonly currency = inject(WorkspaceCurrencyService).currency;
 
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
+  readonly receipts = signal<ExpenseDto | null>(null);
   private readonly projects = toSignal(this.projectsApi.list({ page: 1, pageSize: 200 }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
   private readonly users = toSignal(this.extra.users().pipe(catchError(() => of([] as UserOption[]))), { initialValue: [] as UserOption[] });
 
@@ -98,7 +106,7 @@ export class ProjectExpensesPage {
     { key: 'chargeAmount', label: 'Charged', width: '120px', align: 'right', filter: false },
     { key: 'state', label: 'Approval', width: '110px', filter: false },
     { key: 'billing', label: 'Billing', width: '110px', filter: false },
-    { key: 'actions', label: '', width: '220px' },
+    { key: 'actions', label: '', width: '300px' },
   ];
 
   nameOf(id: string): string { const p = this.projects().items.find((x) => x.id === id); return p ? `${p.number} · ${p.name}` : 'Project'; }
