@@ -23,6 +23,14 @@ public sealed class ScheduledJobRunner(IServiceScopeFactory scopes, ILogger<Sche
     /// <summary>One pass over all workspaces (also called directly by tests).</summary>
     public async Task RunOnceAsync(DateOnly today, CancellationToken ct)
     {
+        // Billing first, so the rest of the pass sees who is suspended today. It belongs to no workspace.
+        try
+        {
+            using var billing = scopes.CreateScope();
+            await billing.ServiceProvider.GetRequiredService<ERP.Application.Platform.ISubscriptionLifecycle>().RunAsync(today, ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException) { log.LogError(e, "The daily billing run failed"); }
+
         List<Guid> orgIds;
         using (var scope = scopes.CreateScope())
             orgIds = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Organizations.IgnoreQueryFilters().Select(o => o.Id).ToListAsync(ct);
@@ -33,6 +41,8 @@ public sealed class ScheduledJobRunner(IServiceScopeFactory scopes, ILogger<Sche
             var sp = scope.ServiceProvider;
             using var _ = sp.GetRequiredService<IOrgContext>().Use(orgId);
             var modules = sp.GetRequiredService<IModuleAccess>();
+            // A suspended or cancelled client gets no reminders, statements or other automatic work.
+            if ((await sp.GetRequiredService<ERP.Application.Platform.ISubscriptionAccess>().GetAsync(orgId, ct)).Access == ERP.Domain.Platform.SubscriptionAccessLevel.Blocked) continue;
             foreach (var job in sp.GetServices<IScheduledJob>())
             {
                 try

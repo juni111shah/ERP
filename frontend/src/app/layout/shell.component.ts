@@ -28,6 +28,9 @@ import { PageTitleService } from '../core/services/page-title.service';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { GlobalSearchComponent } from './global-search.component';
 import { NotificationDrawerComponent } from './notification-drawer.component';
+import { SubscriptionBannerComponent } from './subscription-banner.component';
+import { WorkspaceBlockedComponent } from './workspace-blocked.component';
+import { blockedPageApplies } from '../core/format/subscription';
 
 interface MenuGroup { id: string; label: string; order: number; items: { id: string; label: string; route: string; icon?: string; module: string }[]; }
 
@@ -37,7 +40,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Dir, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
-    NzDropDownModule, NzAvatarModule, NzBadgeModule, NzTagModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent, BrandLogoComponent],
+    NzDropDownModule, NzAvatarModule, NzBadgeModule, NzTagModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent, BrandLogoComponent, SubscriptionBannerComponent, WorkspaceBlockedComponent],
   styles: [`
     :host { display: block; height: 100vh; }
     nz-layout.root {
@@ -1026,6 +1029,9 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     }
   `],
   template: `
+    @if (blocked()) {
+      <erp-workspace-blocked />
+    } @else {
     <nz-layout class="root" [dir]="i18n.dir()">
       <nz-sider class="sider" [class.as-drawer]="narrow()" [class.is-open]="drawerOpen()" (keydown.escape)="drawerOpen.set(false)" nzCollapsible [nzCollapsed]="collapsed()" [nzTrigger]="null" nzWidth="248px" [nzCollapsedWidth]="64" nzTheme="light" data-testid="sidebar">
         <div class="brand" [class.collapsed]="collapsed()" data-testid="sidebar-brand">
@@ -1297,14 +1303,19 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
             <ul nz-menu>
               <li nz-menu-item nzDisabled>{{ session.me()?.user?.email }}</li>
               <li nz-menu-item routerLink="/account/security" data-testid="account-security"><span nz-icon nzType="lock"></span> {{ 'shell.accountSecurity' | translate: 'Account security' }}</li>
+              @if (session.me()?.platformAdmin) {
+                <li nz-menu-item routerLink="/platform" data-testid="platform-console"><span nz-icon nzType="dashboard"></span> {{ 'shell.platformConsole' | translate: 'Platform console' }}</li>
+              }
               <li nz-menu-divider></li>
               <li nz-menu-item (click)="auth.logout()" data-testid="sign-out"><span nz-icon nzType="logout"></span> {{ 'shell.signOut' | translate: 'Sign out' }}</li>
             </ul>
           </nz-dropdown-menu>
         </nz-header>
+        <erp-subscription-banner />
         <nz-content class="content"><router-outlet /></nz-content>
       </nz-layout>
-    </nz-layout>`,
+    </nz-layout>
+    }`,
 })
 export class ShellComponent {
   readonly pageTitle = inject(PageTitleService);
@@ -1364,6 +1375,9 @@ export class ShellComponent {
     map((e) => e.urlAfterRedirects.split('?')[0]),
     startWith(this.router.url.split('?')[0]),
   ), { initialValue: '/' });
+
+  /** A suspended or cancelled workspace sees the blocked page everywhere but its billing page. */
+  readonly blocked = computed(() => blockedPageApplies(this.session.me()?.subscription?.access, this.currentPath()));
 
   /** A search, the icon-only sidebar and the group of the current page always show their items. */
   isGroupOpen(g: MenuGroup): boolean {
@@ -1437,7 +1451,8 @@ export class ShellComponent {
   // Unread count: on session change, after the drawer changes something, and every minute.
   readonly unread = toSignal(combineLatest([toObservable(this.session.me), toObservable(this.refresh), interval(60_000).pipe(startWith(0))]).pipe(
     map(([me]) => me),
-    switchMap((me) => (me ? this.http.get<{ unread: number }>(`${this.base}/notifications`).pipe(catchError(() => of({ unread: 0 }))) : of({ unread: 0 }))),
+    // A blocked workspace answers 402 to everything but its billing page, so there is nothing to ask.
+    switchMap((me) => (me && me.subscription?.access !== 'blocked' ? this.http.get<{ unread: number }>(`${this.base}/notifications`).pipe(catchError(() => of({ unread: 0 }))) : of({ unread: 0 }))),
   ), { initialValue: { unread: 0 } }) as () => { unread: number };
 
   /** Menu routes may carry a query string (e.g. /parties?type=customer); routerLink would encode the "?" and miss the route. */

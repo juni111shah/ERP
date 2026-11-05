@@ -10,6 +10,9 @@ public static class CoreEndpoints
     {
         api.MapSession();
         api.MapPlatform();
+        api.MapRegistration();
+        api.MapBilling();
+        api.MapPlatformAdmin();
         api.MapModules();
         api.MapOrganization();
         api.MapSecurity();

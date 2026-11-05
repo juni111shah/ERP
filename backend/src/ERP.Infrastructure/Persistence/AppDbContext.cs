@@ -73,13 +73,19 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<PortalOtp> PortalOtps => Set<PortalOtp>();
     public DbSet<MessageLog> MessageLogs => Set<MessageLog>();
     public DbSet<Setting> Settings => Set<Setting>();
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<WorkspaceSubscription> WorkspaceSubscriptions => Set<WorkspaceSubscription>();
+    public DbSet<SubscriptionInvoice> SubscriptionInvoices => Set<SubscriptionInvoice>();
+    public DbSet<SignupRequest> SignupRequests => Set<SignupRequest>();
+    public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
+    public DbSet<PlatformActivity> PlatformActivities => Set<PlatformActivity>();
     public DbSet<CustomFieldDefinition> CustomFieldDefinitions => Set<CustomFieldDefinition>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder b)
     {
         b.Properties<decimal>().HavePrecision(18, 2);
         b.Properties<string>().HaveMaxLength(400);
-        foreach (var enumType in new[] { typeof(AccountType), typeof(JournalStatus), typeof(TaxKind), typeof(PartyKind), typeof(ItemType),
+        foreach (var enumType in new[] { typeof(SubscriptionStatus), typeof(BillingCycle), typeof(SubscriptionInvoiceStatus), typeof(SignupStatus), typeof(SignupMode), typeof(AccountType), typeof(JournalStatus), typeof(TaxKind), typeof(PartyKind), typeof(ItemType),
                      typeof(ApprovalStatus), typeof(CustomFieldDataType), typeof(InstrumentKind), typeof(InstrumentDirection), typeof(InstrumentStatus), typeof(DocumentStatus), typeof(SettlementMethod), typeof(StatementLineStatus) })
             b.Properties(enumType).HaveConversion<string>().HaveMaxLength(40);
     }
@@ -106,6 +112,65 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Property(x => x.Name).HasMaxLength(200).IsRequired();
             b.Property(x => x.CountryCode).HasMaxLength(2).IsFixedLength();
             b.Property(x => x.BaseCurrency).HasMaxLength(3).IsFixedLength();
+        });
+        mb.Entity<SubscriptionPlan>(b =>
+        {
+            b.HasIndex(x => x.Code).IsUnique();
+            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(500);
+            b.Property(x => x.ModuleKeys).HasMaxLength(1000);
+            b.Property(x => x.Features).HasMaxLength(2000);
+        });
+        mb.Entity<WorkspaceSubscription>(b =>
+        {
+            b.HasIndex(x => x.OrgId).IsUnique();
+            b.HasIndex(x => x.Status);
+            b.Property(x => x.Notes).HasMaxLength(2000);
+            b.Property(x => x.LastReminderKey).HasMaxLength(60);
+            b.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrgId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<SubscriptionPlan>().WithMany().HasForeignKey(x => x.PlanId).OnDelete(DeleteBehavior.Restrict);
+        });
+        mb.Entity<SubscriptionInvoice>(b =>
+        {
+            b.HasIndex(x => x.Number).IsUnique();
+            b.HasIndex(x => new { x.OrgId, x.Status });
+            b.Property(x => x.Number).HasMaxLength(40).IsRequired();
+            b.Property(x => x.TaxLabel).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
+            b.Property(x => x.TaxPercent).HasPrecision(5, 2);
+            b.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrgId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<WorkspaceSubscription>().WithMany().HasForeignKey(x => x.SubscriptionId).OnDelete(DeleteBehavior.Restrict);
+        });
+        mb.Entity<SignupRequest>(b =>
+        {
+            b.HasIndex(x => x.Status);
+            b.HasIndex(x => x.VerificationTokenHash);
+            b.HasIndex(x => x.SignInKey);
+            b.Property(x => x.SignInKey).HasMaxLength(50).IsRequired();
+            b.Property(x => x.BusinessName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.ContactName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Email).HasMaxLength(256).IsRequired();
+            b.Property(x => x.CountryCode).HasMaxLength(2).IsFixedLength();
+            b.Property(x => x.BaseCurrency).HasMaxLength(3).IsFixedLength();
+            b.Property(x => x.PasswordHash).HasMaxLength(500);
+            b.Property(x => x.VerificationTokenHash).HasMaxLength(64);
+            b.HasOne<SubscriptionPlan>().WithMany().HasForeignKey(x => x.PlanId).OnDelete(DeleteBehavior.Restrict);
+        });
+        mb.Entity<PlatformSetting>(b =>
+        {
+            b.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
+            b.Property(x => x.TaxPercent).HasPrecision(5, 2);
+            b.Property(x => x.PaymentInstructions).HasMaxLength(2000);
+            b.Property(x => x.TermsText).Metadata.SetMaxLength(null);
+            b.Property(x => x.PrivacyText).Metadata.SetMaxLength(null);
+            b.Property(x => x.InvoicePrefix).HasMaxLength(10);
+        });
+        mb.Entity<PlatformActivity>(b =>
+        {
+            b.HasIndex(x => x.At);
+            b.HasIndex(x => x.OrgId);
+            b.Property(x => x.Detail).HasMaxLength(1000);
         });
         mb.Entity<LegalEntity>(b =>
         {

@@ -11,6 +11,11 @@ public sealed class AuthOptions
     public int AccessTokenMinutes { get; set; } = 5;
     public int PersistentRefreshDays { get; set; } = 30;
     public int SessionRefreshHours { get; set; } = 12;
+    /// <summary>
+    /// Browser tabs share one refresh cookie, so a tab can send a token another tab replaced a moment ago. Inside this window that
+    /// is treated as the overlap it is. After it, reuse counts as theft and ends the whole sign-in.
+    /// </summary>
+    public int RefreshReuseLeewaySeconds { get; set; } = 20;
     public bool SecureCookies { get; set; } = true;
     public int MaxFailedAttempts { get; set; } = 5;
     public int LockoutMinutes { get; set; } = 15;

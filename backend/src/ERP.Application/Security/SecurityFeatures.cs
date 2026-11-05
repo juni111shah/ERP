@@ -83,7 +83,7 @@ public sealed class InviteUserValidator : AbstractValidator<InviteUser>
 internal sealed partial class SecurityHandlers(
     IPermissionCatalog catalog, IRepository<Role> roles, IUserDirectory directory, IRepository<OrganizationMember> members,
     IRepository<RolePermission> rolePermissions, IRepository<UserRole> userRoles, IRepository<UserLegalEntityAccess> legalEntityAccess, IReadRepository<LegalEntity> legalEntities,
-    IUnitOfWork unitOfWork, ICurrentUser currentUser, ERP.Application.Auth.IAuthService auth) :
+    IUnitOfWork unitOfWork, ICurrentUser currentUser, ERP.Application.Auth.IAuthService auth, ERP.Application.Platform.ISubscriptionLimits limits) :
     IRequestHandler<ListPermissions, IReadOnlyList<PermissionDefinition>>,
     IRequestHandler<CreateRole, CreatedRoleDto>,
     IRequestHandler<ListUsers, IReadOnlyList<UserSummary>>,
@@ -152,6 +152,7 @@ internal sealed partial class SecurityHandlers(
             var adminRoleIds = await AdminRoleIdsAsync(ct);
             if (await userRoles.AnyAsync(ur => ur.UserId == cmd.UserId && adminRoleIds.Contains(ur.RoleId), ct)) await EnsureAnotherAdministratorAsync(cmd.UserId, adminRoleIds, ct);
         }
+        if (cmd.IsActive && !member.IsActive) await limits.EnsureUserSlotAsync(ct);
         member.IsActive = cmd.IsActive;
         await unitOfWork.SaveChangesAsync(ct);
         if (!cmd.IsActive) await auth.RevokeSessionsAsync(member.UserId, member.OrgId, "member-deactivated", ct);
@@ -175,6 +176,7 @@ internal sealed partial class SecurityHandlers(
     public async Task<UserAccount> Handle(InviteUser cmd, CancellationToken ct)
     {
         var i = cmd.Input;
+        await limits.EnsureUserSlotAsync(ct);
         var account = await directory.EnsureAccountAsync(i.Email.Trim(), i.FullName.Trim(), i.TemporaryPassword, ct);
         if (await members.AnyAsync(m => m.UserId == account.Id, ct)) throw new ConflictException("That user is already a member of this workspace.");
 

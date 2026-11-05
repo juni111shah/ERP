@@ -1,4 +1,4 @@
-/** Shared styles for the signed-out pages (login, forgot/reset password, onboarding). */
+/** Shared styles for the signed-out pages (forgot and reset password), and the password rule they share with registration. */
 export const AUTH_STYLES = `
   :host {
     display: grid;

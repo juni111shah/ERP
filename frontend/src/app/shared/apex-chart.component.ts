@@ -249,7 +249,7 @@ export class ApexChartComponent implements AfterViewInit, OnDestroy {
     const isHbar = c.kind === 'hbar';
     const isStacked = c.kind === 'stacked';
     const isSingleSeries = c.series.length === 1;
-    const isDistributed = isSingleSeries && !isStacked && c.categories.length > 1;
+    const isDistributed = isSingleSeries && !isStacked && c.categories.length > 1 && !c.singleColor;
 
     // Resolve series or distributed category colors
     let colors: string[];

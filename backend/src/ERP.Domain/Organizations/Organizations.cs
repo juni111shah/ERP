@@ -16,6 +16,8 @@ public class Organization : Entity, IAuditable
     public string DefaultLocale { get; set; } = "en";
     public string Plan { get; set; } = "standard";
     public bool IsActive { get; set; } = true;
+    /// <summary>The platform owner's own workspace: not a client, never billed and never listed as one.</summary>
+    public bool IsInternal { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }

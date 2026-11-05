@@ -257,6 +257,12 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
       box-shadow: 0 14px 26px -4px rgba(16, 149, 93, 0.52);
     }
 
+    .register-note {
+      margin: 14px 0 0;
+      font-size: 13px;
+      color: #64748b;
+    }
+
     .brand-footer-note {
       font-size: 11.5px;
       color: #94a3b8;
@@ -696,6 +702,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
                   }
                 </button>
               </div>
+              <p class="register-note">New here? <a routerLink="/register" class="forgot-anchor" data-testid="login-register">Create a workspace</a></p>
             </form>
           } @else {
             <!-- Multi-Workspace Picker -->
@@ -727,7 +734,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
         </div>
 
         <div class="brand-footer-note">
-          Enterprise Cloud Infrastructure · Sovereign & Multi-Tenant
+          Enterprise Cloud Infrastructure · Sovereign & Multi-Workspace
         </div>
       </section>
 
@@ -739,8 +746,8 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
             <span class="chip-dot"></span>
             <span>Enterprise Resource Planning · 360 Suite</span>
           </div>
-          <h2 class="shimmer-headline" title="Intelligent Operations, Real-Time Financials & Sovereign Multi-Tenant Scale">
-            Intelligent Operations, Real-Time Financials & Sovereign Multi-Tenant Scale
+          <h2 class="shimmer-headline" title="Intelligent Operations, Real-Time Financials & Sovereign Multi-Workspace Scale">
+            Intelligent Operations, Real-Time Financials & Sovereign Multi-Workspace Scale
           </h2>
           <p class="top-subtext">
             Unify dual-entry ledgers, dynamic billing, warehouse logistics, and point-of-sale in one high-performance enterprise suite.

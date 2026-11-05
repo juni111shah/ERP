@@ -53,16 +53,18 @@ without any protection. Proposed settings:
 The workflow also refuses to deploy to production unless the commit is already on `staging`, so promotion order holds
 even before you add these rules.
 
-## 3. First admin in staging and production
+## 3. Platform owner in staging and production
 
-There are no seeded users and self-signup is off. Create the first workspace once per environment:
+There are no seeded users. Make yourself the platform owner once per environment:
 
 ```powershell
 cd D:\ERP\envs\tools
-.\erp-env.ps1 restart -Environment production -AllowSelfSignup
-# open the production URL (.\erp-env.ps1 url) and register the first workspace right away
+.\erp-env.ps1 restart -Environment production -FounderEmail you@company.com
+# sign in at the production URL (.\erp-env.ps1 url) and open /platform
 .\erp-env.ps1 restart -Environment production
 ```
+
+Then add clients from the console. See [platform-console.md](../platform-console.md).
 
 ## 4. Optional: run the APIs as Windows services (admin)
 

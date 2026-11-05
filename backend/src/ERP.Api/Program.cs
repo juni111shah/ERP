@@ -100,6 +100,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 });
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, ERP.Api.Infrastructure.PlatformAdminHandler>();
 builder.Services.AddAuthorization(o =>
 {
     var staff = new AuthorizationPolicyBuilder()
@@ -108,6 +109,9 @@ builder.Services.AddAuthorization(o =>
         .Build();
     o.DefaultPolicy = staff;
     o.FallbackPolicy = staff;
+    o.AddPolicy(ERP.Api.Infrastructure.PlatformAdminRequirement.Policy, p => p.RequireAuthenticatedUser()
+        .RequireAssertion(ctx => !ctx.User.HasClaim(c => c.Type == "portal_party"))
+        .AddRequirements(new ERP.Api.Infrastructure.PlatformAdminRequirement()));
     o.AddPolicy("portal", p => p.RequireAuthenticatedUser().RequireClaim("portal_party"));
     o.AddPolicy("portal.customer", p => p.RequireAuthenticatedUser().RequireClaim("portal_party").RequireClaim("portal_kind", "customer"));
     o.AddPolicy("portal.vendor", p => p.RequireAuthenticatedUser().RequireClaim("portal_party").RequireClaim("portal_kind", "vendor"));
@@ -119,6 +123,9 @@ builder.Services.AddRateLimiter(o =>
     var permitLimit = builder.Configuration.GetValue("RateLimiting:LoginPerMinute", 10);
     o.AddPolicy("login", http => RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = permitLimit, Window = TimeSpan.FromMinutes(1) }));
+    // Typing a workspace code calls this at every pause, so it allows more than a password attempt.
+    o.AddPolicy("signup-check", http => RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1) }));
     o.OnRejected = async (ctx, ct) =>
     {
         ctx.HttpContext.Response.Headers.RetryAfter = "60";
@@ -197,6 +204,7 @@ app.UseCors("web");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<ModuleGateMiddleware>();
+app.UseMiddleware<ERP.Api.Infrastructure.SubscriptionGateMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<LegalEntityScopeMiddleware>();
 app.UseMiddleware<IdempotencyMiddleware>();
@@ -265,6 +273,7 @@ public static class DatabaseStartup
         }
         await DevSeeder.SeedAsync(scope.ServiceProvider);
         await ProgramSeeder.SeedModulesAsync(scope.ServiceProvider);
+        await scope.ServiceProvider.GetRequiredService<ERP.Infrastructure.Services.PlatformBootstrap>().RunAsync();
     }
 }
 

@@ -114,7 +114,18 @@ export class PageTitleService {
       '/admin/documents': { title: 'Document vault', module: 'Platform' },
       '/admin/messages': { title: 'Message log', module: 'Platform' },
       '/admin/audit': { title: 'Audit log', module: 'Platform' },
+      '/admin/billing': { title: 'Subscription and billing', module: 'Platform' },
       '/approvals': { title: 'Approvals', module: 'Platform' },
+
+      // The founder's console
+      '/platform': { title: 'Dashboard', module: 'Console' },
+      '/platform/clients': { title: 'Clients', module: 'Console' },
+      '/platform/signups': { title: 'Registrations', module: 'Console' },
+      '/platform/plans': { title: 'Plans and pricing', module: 'Console' },
+      '/platform/invoices': { title: 'Invoices', module: 'Console' },
+      '/platform/activity': { title: 'Activity', module: 'Console' },
+      '/platform/team': { title: 'Team', module: 'Console' },
+      '/platform/settings': { title: 'Settings', module: 'Console' },
       '/account/security': { title: this.i18n.t('security.title', 'Account security'), module: 'Account' },
       '/reports': { title: 'Reports', module: 'Reports' },
 

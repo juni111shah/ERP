@@ -5,17 +5,23 @@
 .EXAMPLE   .\erp-env.ps1 tunnel-restart -Environment staging     # new trycloudflare URL
 .EXAMPLE   .\erp-env.ps1 start -Environment all                   # after a reboot: apps + tunnels
 .EXAMPLE   .\erp-env.ps1 restart -Environment production -AllowSelfSignup   # one-off: create the first workspace, then restart without it
+.EXAMPLE   .\erp-env.ps1 restart -Environment production -FounderEmail you@company.com   # one-off: make this account the platform owner, then restart without it
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory, Position = 0)][ValidateSet('status', 'start', 'stop', 'restart', 'url', 'tunnel-restart', 'tunnel-stop')][string]$Action,
     [ValidateSet('staging', 'production', 'all')][string]$Environment = 'all',
-    [switch]$AllowSelfSignup
+    [switch]$AllowSelfSignup,
+    [string]$FounderEmail
 )
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'ErpOps.psm1') -Force -DisableNameChecking
 if ($Environment -eq 'all') { $names = @('staging', 'production') } else { $names = @($Environment) }
 if ($AllowSelfSignup -and $Environment -eq 'all') { throw '-AllowSelfSignup needs a single -Environment.' }
+if ($FounderEmail -and $Environment -eq 'all') { throw '-FounderEmail needs a single -Environment.' }
+if ($FounderEmail -and $Action -ne 'restart') { throw '-FounderEmail works with restart.' }
+$founderPassword = $null
+if ($FounderEmail) { $founderPassword = Read-Host "Password for $FounderEmail (used only if this account does not exist yet)" -AsSecureString }
 
 foreach ($n in $names) {
     $cfg = Get-ErpEnv -Environment $n
@@ -41,8 +47,9 @@ foreach ($n in $names) {
         'stop' { Stop-ErpApp $cfg; Stop-ErpTunnel $cfg; Write-Host "$n stopped (API and tunnel)" }
         'restart' {
             Stop-ErpApp $cfg
-            [void](Start-ErpApp $cfg -AllowSelfSignup:$AllowSelfSignup)
+            [void](Start-ErpApp $cfg -AllowSelfSignup:$AllowSelfSignup -FounderEmail $FounderEmail -FounderPassword $founderPassword)
             if (-not (Wait-ErpHealthy $cfg)) { throw "$n did not become healthy; see $($cfg.Logs)" }
+            if ($FounderEmail) { Write-Warning "$FounderEmail is set up as platform owner. Run once more without it so the password leaves this process: .\erp-env.ps1 restart -Environment $n" }
             if ($AllowSelfSignup) { Write-Warning "$n is running WITH self-signup enabled. Create the first workspace, then run: .\erp-env.ps1 restart -Environment $n" }
             Write-Host "$n public: $(Start-ErpTunnel $cfg)"
         }

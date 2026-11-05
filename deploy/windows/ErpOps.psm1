@@ -150,7 +150,7 @@ function Stop-ErpApp([pscustomobject]$Cfg) {
 }
 
 function Start-ErpApp {
-    param([pscustomobject]$Cfg, [switch]$AllowSelfSignup)
+    param([pscustomobject]$Cfg, [switch]$AllowSelfSignup, [string]$FounderEmail, [securestring]$FounderPassword)
     if (-not (Test-Path (Join-Path $Cfg.Current 'ERP.Api.dll'))) { throw "No release deployed at $($Cfg.Current)." }
     $key = [ErpCredMan]::Read($Cfg.SecretTarget)
     if (-not $key) { throw "Signing key $($Cfg.SecretTarget) is missing. Run init-secrets.ps1 -Environment $($Cfg.Name)." }
@@ -165,6 +165,10 @@ function Start-ErpApp {
         ERP_Hosting__PublicUrl = $(if ($Cfg.PublicUrl) { $Cfg.PublicUrl } else { '' })
     }
     if ($AllowSelfSignup) { $vars['Onboarding__AllowSelfSignup'] = 'true' }
+    if ($FounderEmail) {
+        $vars['Platform__FounderEmail'] = $FounderEmail
+        if ($FounderPassword) { $vars['Platform__FounderPassword'] = [System.Net.NetworkCredential]::new('', $FounderPassword).Password }
+    }
     $exe = Join-Path $Cfg.Current 'ERP.Api.exe'
     if (Test-Path $exe) { $run = "`"$exe`"" } else { $run = "dotnet `"$(Join-Path $Cfg.Current 'ERP.Api.dll')`"" }
     $log = Join-Path $Cfg.Logs ("app-{0:yyyyMMdd}.log" -f (Get-Date))

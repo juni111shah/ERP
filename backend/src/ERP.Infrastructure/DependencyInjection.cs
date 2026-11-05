@@ -81,6 +81,10 @@ public static class DependencyInjection
         services.AddScoped<OnboardingService>();
         services.AddScoped<IOnboardingService>(sp => sp.GetRequiredService<OnboardingService>());
         services.AddScoped<IUserDirectory, UserDirectory>();
+        services.AddScoped<ERP.Application.Platform.IPlatformDirectory, PlatformDirectory>();
+        services.AddScoped<ERP.Application.Platform.ISubscriptionAccess, SubscriptionAccess>();
+        services.AddScoped<ERP.Application.Platform.IPlatformMailer, PlatformMailer>();
+        services.AddScoped<PlatformBootstrap>();
         services.Configure<EmailOptions>(config.GetSection(EmailOptions.Section));
         services.AddSingleton<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<IPrintPdfRenderer, QuestPdfPrintRenderer>();

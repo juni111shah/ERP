@@ -45,6 +45,12 @@ export function displayDate(value: unknown): string {
   return text;
 }
 
+/** "USD 1,234.50": an amount with its currency from the API, always two decimals. */
+export function displayMoney(value: number | null | undefined, currency?: string | null): string {
+  const amount = (value ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return currency ? `${currency} ${amount}` : amount;
+}
+
 export function isIsoDate(value: unknown): boolean {
   return typeof value === 'string' && (ISO_DATE.test(value) || ISO_DATE_TIME.test(value));
 }
@@ -52,11 +58,11 @@ export function isIsoDate(value: unknown): boolean {
 const TONES: Record<string, StatusTone> = {};
 const tone = (t: StatusTone, ...names: string[]) => names.forEach((n) => { TONES[n] = t; });
 // Meaning of each tone: docs/team/uiux-advanced/design-system.md, status-tag map.
-tone('success', 'active', 'approved', 'completed', 'done', 'paid', 'posted', 'delivered', 'accepted', 'closedwon', 'won', 'received', 'achieved', 'converted', 'cleared', 'matched', 'published', 'present', 'operational', 'qualified', 'hired', 'occupied', 'settled', 'closed', 'ontrack', 'yes');
-tone('info', 'confirmed', 'sent', 'submitted', 'issued', 'processing', 'inprogress', 'released', 'open', 'contacted', 'proposal', 'negotiation', 'qualification', 'scheduled', 'planned', 'readytoinvoice', 'invoiced', 'billed', 'review', 'new', 'normal', 'reserved', 'ordered');
-tone('warning', 'draft', 'pending', 'pendingapproval', 'partlypaid', 'partiallypaid', 'partiallyreceived', 'partial', 'onhold', 'paused', 'parked', 'atrisk', 'holdingover', 'todo', 'expiring', 'medium');
-tone('orange', 'high', 'blocked', 'overbudget', 'expiringsoon');
-tone('error', 'overdue', 'cancelled', 'canceled', 'closedlost', 'lost', 'void', 'voided', 'rejected', 'declined', 'terminated', 'failed', 'offtrack', 'critical', 'urgent', 'unqualified', 'expired', 'refunded', 'bounced', 'absent', 'no');
+tone('success', 'active', 'approved', 'completed', 'done', 'paid', 'posted', 'delivered', 'accepted', 'closedwon', 'won', 'received', 'achieved', 'converted', 'cleared', 'matched', 'published', 'present', 'operational', 'qualified', 'hired', 'occupied', 'settled', 'closed', 'ontrack', 'yes', 'provisioned', 'full');
+tone('info', 'confirmed', 'sent', 'submitted', 'issued', 'processing', 'inprogress', 'released', 'open', 'contacted', 'proposal', 'negotiation', 'qualification', 'scheduled', 'planned', 'readytoinvoice', 'invoiced', 'billed', 'review', 'new', 'normal', 'reserved', 'ordered', 'trialing');
+tone('warning', 'draft', 'pending', 'pendingapproval', 'partlypaid', 'partiallypaid', 'partiallyreceived', 'partial', 'onhold', 'paused', 'parked', 'atrisk', 'holdingover', 'todo', 'expiring', 'medium', 'pastdue', 'expired', 'pendingemail', 'pendingreview', 'readonly');
+tone('orange', 'high', 'overbudget', 'expiringsoon');
+tone('error', 'overdue', 'cancelled', 'canceled', 'closedlost', 'lost', 'void', 'voided', 'rejected', 'declined', 'terminated', 'failed', 'offtrack', 'critical', 'urgent', 'unqualified', 'refunded', 'bounced', 'absent', 'no', 'suspended', 'blocked');
 tone('plain', 'inactive', 'low', 'archived', 'unavailable', 'vacant', 'writtenoff');
 
 /** The colour family for a status. Unknown values are neutral, so a new status still reads as a plain tag. */

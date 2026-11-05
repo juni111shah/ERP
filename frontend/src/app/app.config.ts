@@ -13,6 +13,9 @@ import { authInterceptor } from './core/http/auth.interceptor';
 import { entityScopeInterceptor } from './core/http/entity-scope.interceptor';
 import { envelopeInterceptor } from './core/http/envelope.interceptor';
 import { moduleDisabledInterceptor } from './core/http/module-disabled.interceptor';
+import { OneToastMessageService } from './core/http/one-toast-message.service';
+import { subscriptionGateInterceptor } from './core/http/subscription-gate.interceptor';
+import { NzMessageService } from 'ng-zorro-antd/message';
 import { APP_ICONS } from './icons';
 import { I18nService } from './core/i18n/i18n.service';
 import { TenantThemeService } from '../theme/tenant-theme.service';
@@ -25,8 +28,9 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(withInterceptors([authInterceptor, entityScopeInterceptor, moduleDisabledInterceptor, envelopeInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, entityScopeInterceptor, moduleDisabledInterceptor, subscriptionGateInterceptor, envelopeInterceptor])),
     provideAnimationsAsync(),
+    { provide: NzMessageService, useClass: OneToastMessageService },
     // Angular's number/date pipes (DecimalPipe, DatePipe, CurrencyPipe) read LOCALE_ID once, so the saved language decides it at startup;
     // switching language at runtime is handled reactively by I18nService.number()/date() (used by erp-stat-card and the shared pages).
     { provide: LOCALE_ID, useFactory: () => (inject(TenantThemeService).lang().toLowerCase().startsWith('ar') ? 'ar' : 'en-US') },

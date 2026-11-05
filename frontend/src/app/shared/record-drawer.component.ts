@@ -19,7 +19,7 @@ import { DynamicFieldsComponent } from '../core/custom-fields/dynamic-field.comp
 import { LookupOption } from '../core/custom-fields/lookup-registry';
 import { applyProblemDetailsToForm, controlError } from '../core/http/problem-details';
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'switch' | 'lookup' | 'rows';
+export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'switch' | 'lookup' | 'rows';
 /** One column of a `rows` field (a small table the user adds lines to). */
 export interface RowColumn { key: string; label: string; type: 'text' | 'number'; }
 export interface SelectOption { value: string | number | boolean; label: string; }
@@ -31,6 +31,8 @@ export interface FieldSpec {
   type: FieldType;
   required?: boolean;
   options?: SelectOption[];
+  /** a `select` long enough to want a search box */
+  searchable?: boolean;
   /** server-side search for `lookup` fields (returns id + label) */
   lookup?: (term: string) => Observable<LookupOption[]>;
   /** label of the currently selected lookup value when editing (the search has not run yet) */
@@ -85,7 +87,12 @@ export interface FieldSpec {
                   @case ('date') { <nz-date-picker [nzId]="f.key" [formControlName]="f.key" style="width:100%" [attr.data-testid]="'f-' + f.key"></nz-date-picker> }
                   @case ('switch') { <nz-switch [nzId]="f.key" [formControlName]="f.key" [attr.data-testid]="'f-' + f.key"></nz-switch> }
                   @case ('select') {
-                    <nz-select [nzId]="f.key" [formControlName]="f.key" nzAllowClear [attr.data-testid]="'f-' + f.key">
+                    <nz-select [nzId]="f.key" [formControlName]="f.key" nzAllowClear [nzShowSearch]="!!f.searchable" [attr.data-testid]="'f-' + f.key">
+                      @for (o of f.options ?? []; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }
+                    </nz-select>
+                  }
+                  @case ('multiselect') {
+                    <nz-select [nzId]="f.key" [formControlName]="f.key" nzMode="multiple" nzAllowClear [attr.data-testid]="'f-' + f.key">
                       @for (o of f.options ?? []; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }
                     </nz-select>
                   }

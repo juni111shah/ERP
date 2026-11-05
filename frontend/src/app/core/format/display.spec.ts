@@ -1,4 +1,4 @@
-import { displayDate, displayLabel, isIsoDate, statusTone } from './display';
+import { displayDate, displayLabel, displayMoney, isIsoDate, statusTone } from './display';
 
 describe('display helpers', () => {
   it('writes API values as words and leaves text for people alone', () => {
@@ -37,5 +37,28 @@ describe('display helpers', () => {
     expect(statusTone('draft')).toBe('warning');
     expect(statusTone('inProgress')).toBe('info');
     expect(statusTone('somethingNew')).toBe('neutral');
+  });
+
+  it('colours subscription and registration states by how urgent they are', () => {
+    expect(statusTone('trialing')).toBe('info');
+    expect(statusTone('active')).toBe('success');
+    expect(statusTone('pastDue')).toBe('warning');
+    expect(statusTone('expired')).toBe('warning');
+    expect(statusTone('suspended')).toBe('error');
+    expect(statusTone('cancelled')).toBe('error');
+    expect(statusTone('pendingEmail')).toBe('warning');
+    expect(statusTone('pendingReview')).toBe('warning');
+    expect(statusTone('provisioned')).toBe('success');
+    expect(statusTone('rejected')).toBe('error');
+    expect(statusTone('readOnly')).toBe('warning');
+    expect(statusTone('blocked')).toBe('error');
+    expect(statusTone('full')).toBe('success');
+  });
+
+  it('writes money with its currency and two decimals', () => {
+    expect(displayMoney(1234.5, 'USD')).toBe('USD 1,234.50');
+    expect(displayMoney(0, 'AED')).toBe('AED 0.00');
+    expect(displayMoney(null, 'AED')).toBe('AED 0.00');
+    expect(displayMoney(9.999)).toBe('10.00');
   });
 });
