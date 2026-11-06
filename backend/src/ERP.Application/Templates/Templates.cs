@@ -123,7 +123,7 @@ public static class CoreTemplates
              Security.CorePermissions.ItemsWrite, Security.CorePermissions.AttachmentsWrite, Security.CorePermissions.ApprovalsDecide,
              Security.CorePermissions.InvoicesWrite, Security.CorePermissions.InvoicesIssue, Security.CorePermissions.InvoicesVoid, Security.CorePermissions.InvoicesCredit, Security.CorePermissions.ReceiptsWrite, Security.CorePermissions.BankWrite,
              Security.CorePermissions.BillsWrite, Security.CorePermissions.BillsPost, Security.CorePermissions.BillsSubmit, Security.CorePermissions.BillsVoid, Security.CorePermissions.PaymentsWrite, Security.CorePermissions.PaymentsCancel,
-             Security.CorePermissions.AuditRead, Security.CorePermissions.SensitiveRead]),
+             Security.CorePermissions.AuditRead, Security.CorePermissions.SensitiveRead, Security.CorePermissions.YearEndClose]),
         new("Accountant", "Day-to-day bookkeeping",
             [.. CoreRead, .. FinanceRead, Security.CorePermissions.JournalsWrite, Security.CorePermissions.ChequesWrite,
              Security.CorePermissions.PartiesWrite, Security.CorePermissions.ItemsWrite, Security.CorePermissions.AttachmentsWrite,

@@ -112,9 +112,11 @@ internal sealed class ReceiptHandlers(
     {
         var s = await LoadAsync(cmd.Id, ct);
         if (s.Status != DocumentStatus.Issued) throw new ConflictException("This receipt is already voided.");
+        var lockedTo = (await guard.RequireAsync(s.LegalEntityId, ct)).BooksLockedTo;
         await settlementService.ReverseAsync(s, VoidMemo.For(s.Number, cmd.Reason), ct);
         s.Status = DocumentStatus.Voided; s.Unallocated = 0;
         VoidMemo.Stamp(s, cmd.Reason, clock, user);
+        VoidMemo.MarkIfLocked(s, s.Date, lockedTo, clock);
         VoidMemo.Audit(audit, user, clock, nameof(Settlement), s.Id, s.Number, cmd.Reason!);
         await settlements.SaveChangesAsync(ct);
         return await ToDtoAsync(s, ct);

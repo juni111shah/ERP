@@ -13,7 +13,7 @@ public sealed record VendorStatementDto(Guid PartyId, string? PartyName, DateOnl
 public sealed record GetApAgeing(DateOnly AsOf, Guid? LegalEntityId) : IQuery<ArAgeingDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 public sealed record GetVendorStatement(Guid PartyId, DateOnly AsOf, Guid? LegalEntityId) : IQuery<VendorStatementDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 
-internal sealed class ApReportHandlers(IReadRepository<Bill> bills, IReadRepository<Settlement> settlements) :
+internal sealed class ApReportHandlers(IReadRepository<Bill> bills, IReadRepository<Settlement> settlements, IReportCurrencyGuard currencies) :
     IRequestHandler<GetApAgeing, ArAgeingDto>,
     IRequestHandler<GetVendorStatement, VendorStatementDto>
 {
@@ -21,6 +21,7 @@ internal sealed class ApReportHandlers(IReadRepository<Bill> bills, IReadReposit
 
     public async Task<ArAgeingDto> Handle(GetApAgeing q, CancellationToken ct)
     {
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
         var open = await OpenAsync(q.AsOf, q.LegalEntityId, null, ct);
         var rows = new Dictionary<Guid, AgeingRow>();
         foreach (var o in open) rows[o.PartyId] = Ageing.Add(rows.GetValueOrDefault(o.PartyId) ?? new AgeingRow(o.PartyId, o.PartyName, 0, 0, 0, 0, 0, 0), q.AsOf, o.DueDate, o.Total - o.Paid);
@@ -32,6 +33,7 @@ internal sealed class ApReportHandlers(IReadRepository<Bill> bills, IReadReposit
 
     public async Task<VendorStatementDto> Handle(GetVendorStatement q, CancellationToken ct)
     {
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
         var open = await OpenAsync(q.AsOf, q.LegalEntityId, q.PartyId, ct);
         var advances = (await AdvancesAsync(q.AsOf, q.LegalEntityId, q.PartyId, ct)).Sum(a => a.Amount);
         var items = open.OrderBy(o => o.DueDate).Select(o => new AgeingItem(o.Id, o.Number, false, o.BillDate, o.DueDate, Math.Max(0, q.AsOf.DayNumber - o.DueDate.DayNumber), o.Total - o.Paid)).ToList();

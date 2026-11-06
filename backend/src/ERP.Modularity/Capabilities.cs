@@ -93,21 +93,6 @@ public static class ModuleProvisioning
     public const string ItemCategoriesKey = "core.itemCategories";
     public const string DashboardFocusKey = "core.dashboardFocus";
 
-    /// <summary>The installed modules asked for, plus everything they need, dependencies first.</summary>
-    public static IReadOnlyList<string> WithRequirements(ModuleRegistry modules, IEnumerable<string> wanted)
-    {
-        var ordered = new List<string>();
-        void Visit(string key, HashSet<string> path)
-        {
-            if (ordered.Contains(key, StringComparer.OrdinalIgnoreCase) || !path.Add(key)) return;
-            if (modules.Find(key) is not { } module) return;
-            foreach (var required in module.Manifest.Requires ?? []) Visit(required, path);
-            if (!module.Manifest.IsCore) ordered.Add(module.Manifest.Key);
-        }
-        foreach (var key in wanted) Visit(key, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-        return ordered;
-    }
-
     /// <summary>The settings a business type sets up: units, categories, areas switched off and dashboard order.</summary>
     public static IEnumerable<(string Key, string Value)> ProfileSettings(IndustryTemplate template)
     {

@@ -18,7 +18,7 @@ public sealed record StatementLine(string Group, string Code, string Name, decim
 public sealed record IncomeStatementDto(DateOnly From, DateOnly To, IReadOnlyList<StatementLine> Income, IReadOnlyList<StatementLine> Expenses, decimal TotalIncome, decimal TotalExpenses, decimal NetProfit);
 public sealed record BalanceSheetDto(
     DateOnly AsOf, IReadOnlyList<StatementLine> Assets, IReadOnlyList<StatementLine> Liabilities, IReadOnlyList<StatementLine> Equity,
-    decimal TotalAssets, decimal TotalLiabilities, decimal TotalEquity, decimal CurrentEarnings, bool Balanced);
+    decimal TotalAssets, decimal TotalLiabilities, decimal TotalEquity, decimal CurrentEarnings, bool Balanced, decimal PriorOpenEarnings = 0m);
 
 /// <summary>Trial balance for a period (opening balance, movement, closing balance per account). Draft journals never count.</summary>
 public sealed record GetTrialBalance(DateOnly? From, DateOnly To, Guid? LegalEntityId) : IQuery<TrialBalanceDto>, IRequirePermission
@@ -67,7 +67,7 @@ internal static class ReportRange
     }
 }
 
-internal sealed class LedgerReportHandlers(IReadRepository<JournalEntry> journals, IReadRepository<Account> accounts) :
+internal sealed class LedgerReportHandlers(IReadRepository<JournalEntry> journals, IReadRepository<Account> accounts, IReadRepository<FiscalYearClose> closes, ISettingsService settings, IReportCurrencyGuard currencies) :
     IRequestHandler<GetTrialBalance, TrialBalanceDto>,
     IRequestHandler<GetGeneralLedger, GeneralLedgerDto>,
     IRequestHandler<GetIncomeStatement, IncomeStatementDto>,
@@ -83,6 +83,7 @@ internal sealed class LedgerReportHandlers(IReadRepository<JournalEntry> journal
 
     public async Task<GeneralLedgerDto> Handle(GetGeneralLedger q, CancellationToken ct)
     {
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
         var account = await accounts.GetAsync(q.AccountId, ct);
         var entityId = q.LegalEntityId;
         var lines = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= q.To && (entityId == null || j.LegalEntityId == entityId)))
@@ -101,7 +102,7 @@ internal sealed class LedgerReportHandlers(IReadRepository<JournalEntry> journal
 
     public async Task<IncomeStatementDto> Handle(GetIncomeStatement q, CancellationToken ct)
     {
-        var rows = await BuildAsync(q.From, q.To, q.LegalEntityId, ct);
+        var rows = await BuildAsync(q.From, q.To, q.LegalEntityId, ct, excludeYearEnd: true); // a closing entry moves a result to equity; it is not income or expense
         // Income is credit-natured, so its closing (Dr - Cr) is negative; present it positive.
         var income = rows.Where(r => r.Type == AccountType.Income).Select(r => new StatementLine(r.ReportingGroup ?? "Income", r.Code, r.Name, -(r.Debit - r.Credit))).Where(l => l.Amount != 0).ToList();
         var expenses = rows.Where(r => r.Type == AccountType.Expense).Select(r => new StatementLine(r.ReportingGroup ?? "Expenses", r.Code, r.Name, r.Debit - r.Credit)).Where(l => l.Amount != 0).ToList();
@@ -115,15 +116,40 @@ internal sealed class LedgerReportHandlers(IReadRepository<JournalEntry> journal
         var assets = rows.Where(r => r.Type == AccountType.Asset).Select(r => new StatementLine(r.ReportingGroup ?? "Assets", r.Code, r.Name, r.Closing)).Where(l => l.Amount != 0).ToList();
         var liabilities = rows.Where(r => r.Type == AccountType.Liability).Select(r => new StatementLine(r.ReportingGroup ?? "Liabilities", r.Code, r.Name, -r.Closing)).Where(l => l.Amount != 0).ToList();
         var equity = rows.Where(r => r.Type == AccountType.Equity).Select(r => new StatementLine(r.ReportingGroup ?? "Equity", r.Code, r.Name, -r.Closing)).Where(l => l.Amount != 0).ToList();
-        var earnings = -rows.Where(r => r.Type is AccountType.Income or AccountType.Expense).Sum(r => r.Closing);
+        var unclosed = -rows.Where(r => r.Type is AccountType.Income or AccountType.Expense).Sum(r => r.Closing);
+        var priorOpen = await PriorOpenEarningsAsync(q.AsOf, q.LegalEntityId, ct);
+        var earnings = unclosed - priorOpen;
         var ta = assets.Sum(l => l.Amount); var tl = liabilities.Sum(l => l.Amount); var te = equity.Sum(l => l.Amount);
-        return new BalanceSheetDto(q.AsOf, assets, liabilities, equity, ta, tl, te, earnings, ta == tl + te + earnings);
+        return new BalanceSheetDto(q.AsOf, assets, liabilities, equity, ta, tl, te, earnings, ta == tl + te + earnings + priorOpen, priorOpen);
     }
 
-    private async Task<List<TrialBalanceRow>> BuildAsync(DateOnly? from, DateOnly to, Guid? entityId, CancellationToken ct)
+    /// <summary>
+    /// The result of fiscal years that ended before the one containing <paramref name="asOf"/> and are not closed yet, for entities that have closed a year by then.
+    /// For them current earnings is the open year only and retained earnings holds what was closed. A legal entity that never closed keeps
+    /// all of its unclosed result in current earnings, as it always has.
+    /// </summary>
+    private async Task<decimal> PriorOpenEarningsAsync(DateOnly asOf, Guid? entityId, CancellationToken ct)
     {
+        var closedEntities = await closes.Query(new Specification<FiscalYearClose>(c => c.ReopenedAt == null && c.YearEnd <= asOf && (entityId == null || c.LegalEntityId == entityId)))
+            .Select(c => c.LegalEntityId).Distinct().ToListAsync(ct);
+        if (closedEntities.Count == 0) return 0m;
+        var profitAndLoss = await accounts.Query(new Specification<Account>(a => a.Type == AccountType.Income || a.Type == AccountType.Expense)).Select(a => a.Id).ToListAsync(ct);
+        var prior = 0m;
+        foreach (var id in closedEntities)
+        {
+            var yearStart = FiscalYears.StartOf(asOf, await settings.GetAsync<int?>(FiscalYears.StartMonthSetting, id, ct) ?? 1);
+            var lines = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.LegalEntityId == id && j.Date < yearStart))
+                .SelectMany(j => j.Lines.Where(l => profitAndLoss.Contains(l.AccountId)), (j, l) => new { l.Debit, l.Credit }).ToListAsync(ct);
+            prior += lines.Sum(l => l.Credit - l.Debit);
+        }
+        return prior;
+    }
+
+    private async Task<List<TrialBalanceRow>> BuildAsync(DateOnly? from, DateOnly to, Guid? entityId, CancellationToken ct, bool excludeYearEnd = false)
+    {
+        await currencies.EnsureSingleCurrencyAsync(entityId, ct);
         // Sum on the client: decimal SUM is not portable across the supported databases and the projection is only three columns.
-        var movements = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= to && (entityId == null || j.LegalEntityId == entityId)))
+        var movements = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= to && (entityId == null || j.LegalEntityId == entityId) && (!excludeYearEnd || j.SourceType != LedgerSources.YearEnd)))
             .SelectMany(j => j.Lines, (j, l) => new Movement(l.AccountId, j.Date, l.Debit, l.Credit))
             .ToListAsync(ct);
         var byAccount = movements.GroupBy(m => m.AccountId).ToDictionary(g => g.Key, g => g.ToList());

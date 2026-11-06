@@ -102,7 +102,7 @@ internal sealed class SetupHandlers(
         var org = await organizations.GetForUpdateAsync(user.OrgId ?? throw new ForbiddenException(), ct);
 
         // Enable first: a module the plan does not allow is reported, not forced.
-        var wanted = ModuleProvisioning.WithRequirements(modules, template.SuggestedModules);
+        var wanted = ModuleDependencies.Resolve(template.SuggestedModules, modules.Find, null);
         var enabledNow = await access.EnabledModulesAsync(ct);
         var added = new List<string>();
         var refused = new List<string>();

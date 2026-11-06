@@ -269,7 +269,7 @@ public static class CountryPackCatalog
 public static class ModuleCatalog
 {
     public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule(), new ERP.Modules.Projects.ProjectsModule(), new ERP.Modules.Sales.SalesModule(), new ERP.Modules.Purchasing.PurchasingModule(), new ERP.Modules.Pos.PosModule(), new ERP.Modules.Retail.RetailModule(), new ERP.Modules.Distribution.DistributionModule(), new ERP.Modules.Manufacturing.ManufacturingModule(), new ERP.Modules.Crm.CrmModule(), new ERP.Modules.Services.ServicesModule(), new ERP.Modules.Assistant.AssistantModule(),
-        new ERP.Modules.IndustryPacks.Packs.BusinessTypesModule(), new ERP.Modules.IndustryPacks.Packs.ContractsModule(), new ERP.Modules.IndustryPacks.Packs.ExpensesModule(), new ERP.Modules.IndustryPacks.Packs.QualityModule(),
+        new ERP.Modules.Assets.AssetsModule(), new ERP.Modules.IndustryPacks.Packs.BusinessTypesModule(), new ERP.Modules.IndustryPacks.Packs.ContractsModule(), new ERP.Modules.IndustryPacks.Packs.ExpensesModule(), new ERP.Modules.IndustryPacks.Packs.QualityModule(),
         new ERP.Modules.IndustryPacks.Packs.HealthcareModule(), new ERP.Modules.IndustryPacks.Packs.EducationModule(), new ERP.Modules.IndustryPacks.Packs.HospitalityModule(), new ERP.Modules.IndustryPacks.Packs.LogisticsModule(),
         new ERP.Modules.IndustryPacks.Packs.TradeModule(), new ERP.Modules.IndustryPacks.Packs.AgricultureModule(), new ERP.Modules.IndustryPacks.Packs.ConstructionModule(), new ERP.Modules.IndustryPacks.Packs.PropertySalesModule()];
 

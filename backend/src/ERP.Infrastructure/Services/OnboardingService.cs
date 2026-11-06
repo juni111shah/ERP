@@ -129,8 +129,7 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
                 });
 
             // What the chosen modules bring with them: their roles, numbering and any modules they need.
-            var enabled = ModuleProvisioning.WithRequirements(modules, industry.SuggestedModules)
-                .Where(m => options?.AllowedModules is not { Count: > 0 } allowed || allowed.Contains(m, StringComparer.OrdinalIgnoreCase)).ToList();
+            var enabled = ModuleDependencies.Resolve(industry.SuggestedModules, modules.Find, options?.AllowedModules);
             var moduleTemplates = enabled.SelectMany(m => modules.Find(m)!.IndustryTemplates).Where(t => t.Hidden).ToList();
 
             foreach (var s in CoreTemplates.Sequences.Concat(industry.Sequences ?? []).Concat(moduleTemplates.SelectMany(t => t.Sequences ?? [])).DistinctBy(s => s.DocumentType))

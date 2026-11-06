@@ -177,10 +177,13 @@ internal sealed class BillHandlers(
     {
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status != DocumentStatus.Issued || bill.Paid != 0) throw new ConflictException("Only a posted bill with nothing paid can be voided.");
+        if (bill.SourceType == LedgerSources.Opening) throw new ConflictException("This document comes from the opening entry. Reverse the opening entry instead.");
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == bill.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
+        var lockedTo = (await guard.RequireAsync(bill.LegalEntityId, ct)).BooksLockedTo;
         await posting.ReverseTodayAsync(journal, VoidMemo.For(bill.Number, cmd.Reason), ct);
         bill.Status = DocumentStatus.Voided;
         VoidMemo.Stamp(bill, cmd.Reason, clock, user);
+        VoidMemo.MarkIfLocked(bill, bill.BillDate, lockedTo, clock);
         VoidMemo.Audit(audit, user, clock, nameof(Bill), bill.Id, bill.Number, cmd.Reason!);
         await publisher.Publish(new BillReleased(bill.Id), ct);
         await bills.SaveChangesAsync(ct);

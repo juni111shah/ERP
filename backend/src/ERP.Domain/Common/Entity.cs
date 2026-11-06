@@ -79,6 +79,12 @@ public interface IVoidable
     Guid? VoidedBy { get; set; }
 }
 
+/// <summary>Documents whose void can reach a locked period. Set only then: the date the void is reported on, while the document stays in its locked period.</summary>
+public interface IVoidedAfterLock
+{
+    DateOnly? VoidPostedOn { get; set; }
+}
+
 /// <summary>
 /// The time business handlers read. Always the real UTC time, unless trusted seeding code pins it with <see cref="Use"/> so that
 /// documents get the dates they would have had. Nothing reachable from a request can pin it.

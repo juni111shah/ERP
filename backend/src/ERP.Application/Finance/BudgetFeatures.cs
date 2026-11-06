@@ -99,7 +99,7 @@ internal sealed class BudgetHandlers(IRepository<Budget> budgets, IRepository<Bu
         var budget = await LoadAsync(q.BudgetId, ct);
         var from = new DateOnly(budget.FiscalYear, q.FromMonth, 1);
         var to = new DateOnly(budget.FiscalYear, q.ToMonth, 1).AddMonths(1).AddDays(-1);
-        var movements = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.LegalEntityId == budget.LegalEntityId && j.Date >= from && j.Date <= to))
+        var movements = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.SourceType != LedgerSources.YearEnd && j.LegalEntityId == budget.LegalEntityId && j.Date >= from && j.Date <= to))
             .SelectMany(j => j.Lines, (j, l) => new { l.AccountId, l.Debit, l.Credit }).ToListAsync(ct);
         var budgeted = budget.Lines.Where(l => l.Month >= q.FromMonth && l.Month <= q.ToMonth).GroupBy(l => l.AccountId).ToDictionary(g => g.Key, g => g.Sum(l => l.Amount));
         var actualByAccount = movements.GroupBy(m => m.AccountId).ToDictionary(g => g.Key, g => g.Sum(m => m.Debit - m.Credit));

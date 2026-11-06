@@ -18,15 +18,16 @@ public static class WorkflowEndpoints
     {
         var approvals = api.MapGroup("/approvals").WithTags("Workflow");
         approvals.MapGet("", (string? scope, ISender sender, CancellationToken ct) => sender.Send(new ListApprovals(scope), ct)).RequireAuthorization();
+        approvals.MapGet("/{id:guid}", (Guid id, ISender sender, CancellationToken ct) => sender.Send(new GetApproval(id), ct)).RequireAuthorization();
         approvals.MapPost("", async (ApprovalInput input, ISender sender, CancellationToken ct) =>
         {
             var created = await sender.Send(new SubmitApproval(input), ct);
             return Results.Created($"/api/v1/approvals/{created.Id}", created);
         }).RequireAuthorization();
         approvals.MapPost("/{id:guid}/approve", (Guid id, DecisionInput? decision, ISender sender, CancellationToken ct) =>
-            sender.Send(new DecideApproval(id, true, decision?.Comment), ct)).RequirePermission(CorePermissions.ApprovalsDecide);
+            sender.Send(new DecideApproval(id, true, decision?.Comment), ct)).RequireAuthorization(); // the permission differs per level: the approval service checks it
         approvals.MapPost("/{id:guid}/reject", (Guid id, DecisionInput? decision, ISender sender, CancellationToken ct) =>
-            sender.Send(new DecideApproval(id, false, decision?.Comment), ct)).RequirePermission(CorePermissions.ApprovalsDecide);
+            sender.Send(new DecideApproval(id, false, decision?.Comment), ct)).RequireAuthorization();
         approvals.MapPost("/{id:guid}/withdraw", (Guid id, ISender sender, CancellationToken ct) => sender.Send(new WithdrawApproval(id), ct)).RequireAuthorization();
 
         var policies = api.MapGroup("/approval-policies").WithTags("Workflow");

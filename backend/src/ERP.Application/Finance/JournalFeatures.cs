@@ -2,7 +2,9 @@ using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
+using ERP.Application.Workflow;
 using ERP.Domain.Finance;
+using ERP.Domain.Platform;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +17,7 @@ public sealed record JournalInput(Guid LegalEntityId, DateOnly Date, string? Mem
 public sealed record JournalLineDto(Guid Id, int Seq, Guid AccountId, string AccountCode, string AccountName, decimal Debit, decimal Credit, string? Description, Guid? PartyId);
 public sealed record JournalDto(
     Guid Id, string Number, Guid LegalEntityId, DateOnly Date, string? Memo, string? Reference, string SourceType, Guid? SourceId, string CurrencyCode,
-    JournalStatus Status, decimal Amount, Guid? ReversalOfId, DateTime? PostedAt, IReadOnlyList<JournalLineDto> Lines);
+    JournalStatus Status, decimal Amount, Guid? ReversalOfId, DateTime? PostedAt, IReadOnlyList<JournalLineDto> Lines, Guid? ApprovalRequestId = null);
 public sealed record JournalSummaryDto(Guid Id, string Number, Guid LegalEntityId, DateOnly Date, string? Memo, string SourceType, JournalStatus Status, decimal Amount, string CurrencyCode);
 
 public sealed record GetJournal(Guid Id) : IQuery<JournalDto>, IRequirePermission { public string RequiredPermission => CorePermissions.JournalsRead; }
@@ -51,7 +53,8 @@ public sealed class UpdateJournalValidator : AbstractValidator<UpdateJournal> { 
 
 internal sealed class JournalHandlers(
     IRepository<JournalEntry> journals, IRepository<JournalLine> lineRows, IReadRepository<Account> accounts, IRepository<Domain.Organizations.LegalEntity> entities, ILegalEntityGuard guard,
-    IPostingService posting, INumberingService numbering, ICurrentUser user, IClock clock, IUnitOfWork uow, IReferenceCheck references) :
+    IPostingService posting, INumberingService numbering, ICurrentUser user, IClock clock, IUnitOfWork uow, IReferenceCheck references, IReadRepository<FiscalYearClose> closes,
+    IApprovalService approvals, IReadRepository<ApprovalRequest> approvalRequests, ISettingsService settings) :
     IRequestHandler<GetJournal, JournalDto>,
     IRequestHandler<CreateJournal, JournalDto>,
     IRequestHandler<UpdateJournal, JournalDto>,
@@ -81,6 +84,7 @@ internal sealed class JournalHandlers(
     {
         var journal = await LoadDraftAsync(cmd.Id, ct);
         if (cmd.Input.LegalEntityId != journal.LegalEntityId) throw new FieldValidationException("legalEntityId", "The legal entity of a journal cannot change.");
+        await ReleaseApprovalAsync(journal, ct);
         // Replace the lines. New children are added through their own repository: a client-side GUID added through the
         // parent's navigation alone is treated as an existing row (concurrency error).
         foreach (var old in journal.Lines.ToList()) lineRows.Remove(old);
@@ -94,24 +98,54 @@ internal sealed class JournalHandlers(
 
     public async Task<Unit> Handle(DeleteJournal cmd, CancellationToken ct)
     {
-        journals.Remove(await LoadDraftAsync(cmd.Id, ct));
+        var journal = await LoadDraftAsync(cmd.Id, ct);
+        await ReleaseApprovalAsync(journal, ct);
+        journals.Remove(journal);
         await journals.SaveChangesAsync(ct);
         return Unit.Value;
     }
 
-    public async Task<JournalDto> Handle(PostJournal cmd, CancellationToken ct)
+    public Task<JournalDto> Handle(PostJournal cmd, CancellationToken ct) => uow.InTransactionAsync(token => PostJournalCoreAsync(cmd, token), ct);
+
+    /// <summary>Withdraws the journal's approval request while it is still pending; a decided request only loses its link. Any change to a draft needs a fresh approval.</summary>
+    private async Task ReleaseApprovalAsync(JournalEntry journal, CancellationToken ct)
+    {
+        if (journal.ApprovalRequestId is not { } rid) return;
+        var request = await approvalRequests.FindAsync(rid, ct);
+        if (request?.Status == ApprovalStatus.Pending) await approvals.WithdrawAsync(rid, ct);
+        journal.ApprovalRequestId = null;
+    }
+
+    private async Task<JournalDto> PostJournalCoreAsync(PostJournal cmd, CancellationToken ct)
     {
         var journal = await LoadDraftAsync(cmd.Id, ct);
         var entity = await guard.RequireAsync(journal.LegalEntityId, ct);
         await EnsurePostableAsync(journal.Lines.Select(l => l.AccountId).Distinct().ToList(), ct); // an account may have been deactivated since the draft was saved
         journal.Recalculate();
         journal.EnsureCanPost(entity.BooksLockedTo);
+
+        // Maker-checker: a matching policy, or the workspace setting, sends the journal for approval. It stays a draft, so reports never see it.
+        if (await approvals.RequiresApprovalAsync(ApprovalDocumentTypes.Journal, journal.Amount, ct) || await settings.GetAsync<bool>(JournalApprovalSetting, journal.LegalEntityId, ct))
+        {
+            var request = journal.ApprovalRequestId is { } rid ? await approvalRequests.FindAsync(rid, ct) : null;
+            if (request is null || request.Status is ApprovalStatus.Rejected or ApprovalStatus.Withdrawn)
+            {
+                var label = journal.Reference ?? journal.Memo ?? journal.Number;
+                var submitted = await approvals.SubmitAsync(ApprovalDocumentTypes.Journal, journal.Id, $"Journal {(label.Length <= 200 ? label : label[..200])}", journal.Amount, null, journal.LegalEntityId, ct);
+                journal.ApprovalRequestId = submitted.Id;
+                await journals.SaveChangesAsync(ct);
+                return await ToDtoAsync(journal, ct);
+            }
+            if (request.Status == ApprovalStatus.Pending) throw new ConflictException("This journal is waiting for approval.");
+        }
+
         journal.Number = await numbering.NextAsync("journal", entity.Id, journal.Date, ct);
         journal.Post(user.UserId ?? Guid.Empty, clock.UtcNow, entity.BooksLockedTo);
         await journals.SaveChangesAsync(ct);
         return await ToDtoAsync(journal, ct);
     }
 
+    private const string JournalApprovalSetting = "core.journalRequiresApproval";
     private static readonly HashSet<string> DocumentSourceTypes = new(StringComparer.OrdinalIgnoreCase) { "invoice", "creditnote", "bill", "receipt", "payment", "cheque" };
     private const string ManualSource = "manual";
 
@@ -139,6 +173,10 @@ internal sealed class JournalHandlers(
     {
         await guard.RequireAsync(cmd.LegalEntityId, ct);
         if (cmd.Through is { } d && d > DateOnly.FromDateTime(clock.UtcNow)) throw new FieldValidationException("through", "Books cannot be locked to a future date.");
+        // A closed year stays locked: posting into it would leave income and expense balances behind the closing entry.
+        var closedTo = await closes.Query(new Specification<FiscalYearClose>(c => c.LegalEntityId == cmd.LegalEntityId && c.ReopenedAt == null)).OrderByDescending(c => c.YearEnd).Select(c => (DateOnly?)c.YearEnd).FirstOrDefaultAsync(ct);
+        if (closedTo is { } closed && (cmd.Through is null || cmd.Through < closed))
+            throw new ConflictException($"Fiscal years are closed up to {closed:yyyy-MM-dd}. Reopen the year to move the lock before that date.");
         var entity = await entities.GetForUpdateAsync(cmd.LegalEntityId, ct);
         entity.BooksLockedTo = cmd.Through;
         await entities.SaveChangesAsync(ct);
@@ -182,6 +220,6 @@ internal sealed class JournalHandlers(
         var ids = j.Lines.Select(l => l.AccountId).Distinct().ToList();
         var names = (await accounts.Query(new Specification<Account>(a => ids.Contains(a.Id))).Select(a => new { a.Id, a.Code, a.Name }).ToListAsync(ct)).ToDictionary(a => a.Id);
         var lines = j.Lines.OrderBy(l => l.Seq).Select(l => new JournalLineDto(l.Id, l.Seq, l.AccountId, names[l.AccountId].Code, names[l.AccountId].Name, l.Debit, l.Credit, l.Description, l.PartyId)).ToList();
-        return new JournalDto(j.Id, j.Number, j.LegalEntityId, j.Date, j.Memo, j.Reference, j.SourceType, j.SourceId, j.CurrencyCode, j.Status, j.Amount, j.ReversalOfId, j.PostedAt, lines);
+        return new JournalDto(j.Id, j.Number, j.LegalEntityId, j.Date, j.Memo, j.Reference, j.SourceType, j.SourceId, j.CurrencyCode, j.Status, j.Amount, j.ReversalOfId, j.PostedAt, lines, j.ApprovalRequestId);
     }
 }

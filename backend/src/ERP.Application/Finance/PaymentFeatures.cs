@@ -4,6 +4,7 @@ using ERP.Application.Common;
 using ERP.Application.Organizations;
 using ERP.Application.Parties;
 using ERP.Application.Security;
+using ERP.Application.Workflow;
 using ERP.Domain.Finance;
 using ERP.Domain.Parties;
 using FluentValidation;
@@ -23,13 +24,17 @@ public sealed record PaymentDto(
     Guid Id, string Number, Guid LegalEntityId, Guid PartyId, string? PartyName, DateOnly Date, SettlementMethod Method, Guid? BankAccountId, string CurrencyCode, decimal Amount, decimal Unallocated,
     string? Reference, DocumentStatus Status, Guid? PaymentInstrumentId, Guid? JournalEntryId, IReadOnlyList<BillAllocationDto> Allocations,
     string? InstrumentKind = null, string? ChequeNumber = null, DateOnly? ChequeDate = null, string? ChequeStatus = null, string? ChequeBankName = null,
-    string? VoidReason = null, DateTime? VoidedAt = null);
+    string? VoidReason = null, DateTime? VoidedAt = null, Guid? ApprovalRequestId = null);
 public sealed record PaymentSummaryDto(Guid Id, string Number, Guid PartyId, string? PartyName, DateOnly Date, SettlementMethod Method, decimal Amount, decimal Unallocated, DocumentStatus Status, string CurrencyCode);
 
 public sealed record GetPayment(Guid Id) : IQuery<PaymentDto>, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsRead; }
 /// <summary>Pays a vendor: Dr payables, Cr bank / cash (or "cheques issued" for a cheque), settling bills at the same time.</summary>
 public sealed record CreatePayment(PaymentInput Input) : ICommand<PaymentDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
 public sealed record AllocatePayment(Guid Id, List<BillAllocationInput> Allocations) : ICommand<PaymentDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
+/// <summary>Posts a payment that waited for approval, once approved. A rejected or withdrawn one goes for approval again, as a bill does.</summary>
+public sealed record PostPayment(Guid Id) : ICommand<PaymentDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
+/// <summary>Removes a payment that never reached the ledger, withdrawing its approval request while that is still pending.</summary>
+public sealed record DeletePayment(Guid Id) : ICommand, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
 /// <summary>Reason is required (3-500 characters, see <see cref="VoidMemo"/>); it goes to the reversal memo and the audit log.</summary>
 public sealed record VoidPayment(Guid Id, string? Reason) : ICommand<PaymentDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => CorePermissions.PaymentsWrite; }
 
@@ -74,9 +79,11 @@ public sealed class CreatePaymentValidator : AbstractValidator<CreatePayment> { 
 internal sealed class PaymentHandlers(
     IRepository<Settlement> settlements, IRepository<SettlementAllocation> allocationRows, IRepository<Bill> bills, IRepository<PaymentInstrument> instruments, IRepository<JournalEntry> journals,
     IReadRepository<Account> accounts, IReadRepository<Party> parties, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering, IUnitOfWork uow,
-    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock) :
+    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock, IApprovalService approvals, IReadRepository<ApprovalRequest> approvalRequests) :
     IRequestHandler<GetPayment, PaymentDto>,
     IRequestHandler<CreatePayment, PaymentDto>,
+    IRequestHandler<PostPayment, PaymentDto>,
+    IRequestHandler<DeletePayment, Unit>,
     IRequestHandler<AllocatePayment, PaymentDto>,
     IRequestHandler<VoidPayment, PaymentDto>,
     IRequestHandler<ClearIssuedCheque, PaymentDto>
@@ -87,21 +94,51 @@ internal sealed class PaymentHandlers(
     public Task<PaymentDto> Handle(CreatePayment cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
     {
         var i = cmd.Input;
-        var entity = await guard.RequireAsync(i.LegalEntityId, token);
-        var party = await parties.FindAsync(i.PartyId, token) ?? throw new FieldValidationException("partyId", "Vendor not found.");
-        VendorRules.RequireVendor(party);
-        var bank = await accounts.FindAsync(i.BankAccountId, token);
-        if (bank is null || !BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
-
+        var (entity, party, bank) = await ResolveAsync(i, token);
         var settlement = new Settlement
         {
             LegalEntityId = entity.Id, Direction = InstrumentDirection.Issued, PartyId = party.Id, PartyName = party.Name, Date = i.Date, Method = i.Method, BankAccountId = bank.Id,
-            CurrencyCode = entity.BaseCurrency, Amount = i.Amount, Unallocated = i.Amount, Reference = i.Reference, Status = DocumentStatus.Issued,
-            Number = await numbering.NextAsync("payment", entity.Id, i.Date, token),
+            CurrencyCode = entity.BaseCurrency, Amount = i.Amount, Unallocated = i.Amount, Reference = i.Reference, Status = DocumentStatus.Issued, Number = "pending",
         };
-        var applied = await AllocateAsync(settlement, i.Allocations ?? [], token);
+        settlements.Add(settlement);
 
-        var ap = await posting.AccountForRoleAsync(SystemRoles.ApControl, token);
+        // Maker-checker: with a matching policy nothing reaches the ledger yet. The row waits, unnumbered and unposted; PostPayment finishes it after the approval.
+        if (await approvals.RequiresApprovalAsync(ApprovalDocumentTypes.Payment, i.Amount, token))
+        {
+            await CheckAllocationsAsync(settlement, i.Allocations ?? [], token);
+            settlement.Status = DocumentStatus.PendingApproval;
+            settlement.Number = "DRAFT-" + settlement.Id.ToString("N")[^8..];
+            settlement.PendingInput = System.Text.Json.JsonSerializer.Serialize(i);
+            await SubmitForApprovalAsync(settlement, token);
+            return await ToDtoAsync(settlement, token, []);
+        }
+        return await IssueAsync(settlement, i, entity, party, bank, token);
+    }, ct);
+
+    private async Task<(ERP.Domain.Organizations.LegalEntity Entity, Party Party, Account Bank)> ResolveAsync(PaymentInput i, CancellationToken ct)
+    {
+        var entity = await guard.RequireAsync(i.LegalEntityId, ct);
+        var party = await parties.FindAsync(i.PartyId, ct) ?? throw new FieldValidationException("partyId", "Vendor not found.");
+        VendorRules.RequireVendor(party);
+        var bank = await accounts.FindAsync(i.BankAccountId, ct);
+        if (bank is null || !BankAccountRules.IsCashOrBank(bank)) throw new FieldValidationException("bankAccountId", "Choose an active bank or cash account.");
+        return (entity, party, bank);
+    }
+
+    private async Task SubmitForApprovalAsync(Settlement s, CancellationToken ct)
+    {
+        var request = await approvals.SubmitAsync(ApprovalDocumentTypes.Payment, s.Id, $"Payment to {s.PartyName}", s.Amount, s.Reference, s.LegalEntityId, ct);
+        s.ApprovalRequestId = request.Id;
+        await settlements.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Numbers the payment, settles the bills and posts it: the part that never happens before an approval.</summary>
+    private async Task<PaymentDto> IssueAsync(Settlement settlement, PaymentInput i, ERP.Domain.Organizations.LegalEntity entity, Party party, Account bank, CancellationToken ct)
+    {
+        settlement.Number = await numbering.NextAsync("payment", entity.Id, i.Date, ct);
+        var applied = await AllocateAsync(settlement, i.Allocations ?? [], ct);
+
+        var ap = await posting.AccountForRoleAsync(SystemRoles.ApControl, ct);
         var memo = $"Payment to {party.Name}";
         var credit = bank.Id;
         if (i.Method == SettlementMethod.Instrument)
@@ -110,20 +147,54 @@ internal sealed class PaymentHandlers(
             {
                 LegalEntityId = entity.Id, Kind = (i.ChequeDate ?? i.Date) > i.Date ? InstrumentKind.PostDatedCheque : InstrumentKind.Cheque, Direction = InstrumentDirection.Issued, InstrumentNo = i.ChequeNo!.Trim(),
                 BankName = i.BankName?.Trim(), Amount = i.Amount, CurrencyCode = entity.BaseCurrency, InstrumentDate = i.ChequeDate ?? i.Date, ReceivedOn = i.Date, PartyId = party.Id, PartyName = party.Name,
-                Status = InstrumentStatus.Issued, BankAccountId = bank.Id, SettlementId = settlement.Id, Number = await numbering.NextAsync("instrument", entity.Id, i.Date, token),
+                Status = InstrumentStatus.Issued, BankAccountId = bank.Id, SettlementId = settlement.Id, Number = await numbering.NextAsync("instrument", entity.Id, i.Date, ct),
             };
-            credit = await posting.AccountForRoleAsync("instruments.issued", token);
+            credit = await posting.AccountForRoleAsync("instruments.issued", ct);
             settlement.PaymentInstrumentId = cheque.Id;
             instruments.Add(cheque);
         }
         var journal = await posting.PostAsync(new PostingRequest(entity.Id, i.Date, "payment", settlement.Id, memo, settlement.Number,
-            [new PostingLine(ap, i.Amount, 0, memo, party.Id), new PostingLine(credit, 0, i.Amount, memo)], entity.BaseCurrency), token);
+            [new PostingLine(ap, i.Amount, 0, memo, party.Id), new PostingLine(credit, 0, i.Amount, memo)], entity.BaseCurrency), ct);
         settlement.JournalEntryId = journal.Id;
-        settlements.Add(settlement);
+        settlement.Status = DocumentStatus.Issued;
+        settlement.PendingInput = null;
         allocationRows.AddRange(applied);
-        await settlements.SaveChangesAsync(token);
-        return await ToDtoAsync(settlement, token, applied);
-    }, ct);
+        await settlements.SaveChangesAsync(ct);
+        return await ToDtoAsync(settlement, ct, applied);
+    }
+
+    public Task<PaymentDto> Handle(PostPayment cmd, CancellationToken ct) => uow.InTransactionAsync(token => PostPaymentCoreAsync(cmd, token), ct);
+
+    private async Task<PaymentDto> PostPaymentCoreAsync(PostPayment cmd, CancellationToken ct)
+    {
+        var s = await LoadAsync(cmd.Id, ct);
+        if (s.Status != DocumentStatus.PendingApproval) throw new ConflictException("Only a payment waiting for approval can be posted here.");
+        if (await approvals.RequiresApprovalAsync(ApprovalDocumentTypes.Payment, s.Amount, ct))
+        {
+            var request = s.ApprovalRequestId is { } rid ? await approvalRequests.FindAsync(rid, ct) : null;
+            if (request is null || request.Status is ApprovalStatus.Rejected or ApprovalStatus.Withdrawn)
+            {
+                await SubmitForApprovalAsync(s, ct);
+                return await ToDtoAsync(s, ct);
+            }
+            if (request.Status == ApprovalStatus.Pending) throw new ConflictException("This payment is waiting for approval.");
+        }
+        var i = System.Text.Json.JsonSerializer.Deserialize<PaymentInput>(s.PendingInput!)!;
+        var (entity, party, bank) = await ResolveAsync(i, ct);
+        return await IssueAsync(s, i, entity, party, bank, ct);
+    }
+
+    public Task<Unit> Handle(DeletePayment cmd, CancellationToken ct) => uow.InTransactionAsync(token => DeletePaymentCoreAsync(cmd, token), ct);
+
+    private async Task<Unit> DeletePaymentCoreAsync(DeletePayment cmd, CancellationToken ct)
+    {
+        var s = await LoadAsync(cmd.Id, ct);
+        if (s.Status != DocumentStatus.PendingApproval) throw new ConflictException("Only a payment waiting for approval can be deleted. Void a posted one instead.");
+        if (s.ApprovalRequestId is { } rid && (await approvalRequests.FindAsync(rid, ct))?.Status == ApprovalStatus.Pending) await approvals.WithdrawAsync(rid, ct);
+        settlements.Remove(s);
+        await settlements.SaveChangesAsync(ct);
+        return Unit.Value;
+    }
 
     public Task<PaymentDto> Handle(AllocatePayment cmd, CancellationToken ct) => uow.InTransactionAsync(token => AllocatePaymentCoreAsync(cmd, token), ct);
 
@@ -142,6 +213,7 @@ internal sealed class PaymentHandlers(
     private async Task<PaymentDto> VoidPaymentCoreAsync(VoidPayment cmd, CancellationToken ct)
     {
         var s = await LoadAsync(cmd.Id, ct);
+        if (s.Status == DocumentStatus.PendingApproval) throw new ConflictException("This payment has not been posted. Delete it instead.");
         if (s.Status != DocumentStatus.Issued) throw new ConflictException("This payment is already voided.");
         PaymentInstrument? cheque = null;
         if (s.PaymentInstrumentId is { } iid)
@@ -150,7 +222,9 @@ internal sealed class PaymentHandlers(
             if (cheque?.Status == InstrumentStatus.Cleared) throw new ConflictException("The cheque has already cleared the bank, so the payment cannot be voided.");
         }
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == s.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
+        var lockedTo = (await guard.RequireAsync(s.LegalEntityId, ct)).BooksLockedTo;
         await posting.ReverseTodayAsync(journal, VoidMemo.For(s.Number, cmd.Reason), ct);
+        VoidMemo.MarkIfLocked(s, s.Date, lockedTo, clock);
         var ids = s.Allocations.Select(a => a.BillId!.Value).ToList();
         foreach (var bill in await bills.Tracked(new Specification<Bill>(b => ids.Contains(b.Id))).ToListAsync(ct))
         {
@@ -194,16 +268,33 @@ internal sealed class PaymentHandlers(
         foreach (var r in requested)
         {
             var bill = open.FirstOrDefault(b => b.Id == r.BillId) ?? throw new FieldValidationException("allocations", "A bill was not found.");
-            if (bill.PartyId != s.PartyId || bill.LegalEntityId != s.LegalEntityId) throw new FieldValidationException("allocations", $"{bill.Number} is not a bill of this vendor.");
-            if (bill.Status is not (DocumentStatus.Issued or DocumentStatus.PartlyPaid)) throw new FieldValidationException("allocations", $"{bill.Number} is not open.");
-            if (bill.BillDate > s.Date) throw new FieldValidationException("allocations", $"{bill.Number} is dated after the payment.");
-            if (r.Amount > bill.Total - bill.Paid) throw new FieldValidationException("allocations", $"{bill.Number} has only {bill.Total - bill.Paid:0.00} outstanding.");
+            CheckAllocation(s, bill, r);
             bill.Paid += r.Amount;
             BillStatus.Refresh(bill);
             s.Unallocated -= r.Amount;
             result.Add(new SettlementAllocation { SettlementId = s.Id, BillId = bill.Id, Amount = r.Amount });
         }
         return result;
+    }
+
+    private static void CheckAllocation(Settlement s, Bill bill, BillAllocationInput r)
+    {
+        if (bill.PartyId != s.PartyId || bill.LegalEntityId != s.LegalEntityId) throw new FieldValidationException("allocations", $"{bill.Number} is not a bill of this vendor.");
+        if (bill.Status is not (DocumentStatus.Issued or DocumentStatus.PartlyPaid)) throw new FieldValidationException("allocations", $"{bill.Number} is not open.");
+        if (bill.BillDate > s.Date) throw new FieldValidationException("allocations", $"{bill.Number} is dated after the payment.");
+        if (r.Amount > bill.Total - bill.Paid) throw new FieldValidationException("allocations", $"{bill.Number} has only {bill.Total - bill.Paid:0.00} outstanding.");
+    }
+
+    /// <summary>The same checks without touching the bills: a payment going for approval should not fail only after someone approved it.</summary>
+    private async Task CheckAllocationsAsync(Settlement s, List<BillAllocationInput> requested, CancellationToken ct)
+    {
+        if (requested.Count == 0) return;
+        if (requested.GroupBy(r => r.BillId).Any(g => g.Count() > 1)) throw new FieldValidationException("allocations", "A bill can appear only once.");
+        if (requested.Any(r => r.Amount <= 0)) throw new FieldValidationException("allocations", "Allocation amounts must be positive.");
+        if (requested.Sum(r => r.Amount) > s.Unallocated) throw new FieldValidationException("allocations", "The allocations exceed the unallocated amount of the payment.");
+        var ids = requested.Select(r => r.BillId).ToList();
+        var open = await bills.Query(new Specification<Bill>(b => ids.Contains(b.Id))).ToListAsync(ct);
+        foreach (var r in requested) CheckAllocation(s, open.FirstOrDefault(b => b.Id == r.BillId) ?? throw new FieldValidationException("allocations", "A bill was not found."), r);
     }
 
     private async Task<Settlement> LoadAsync(Guid id, CancellationToken ct)
@@ -217,6 +308,6 @@ internal sealed class PaymentHandlers(
         var ins = await InstrumentInfo.LoadAsync(instruments, s.PaymentInstrumentId, ct);
         return new PaymentDto(s.Id, s.Number, s.LegalEntityId, s.PartyId, s.PartyName, s.Date, s.Method, s.BankAccountId, s.CurrencyCode, s.Amount, s.Unallocated, s.Reference, s.Status, s.PaymentInstrumentId, s.JournalEntryId,
             rows.Select(a => new BillAllocationDto(a.Id, a.BillId!.Value, numbers.GetValueOrDefault(a.BillId.Value, "?"), a.Amount)).ToList(),
-            ins?.Kind, ins?.No, ins?.Date, ins?.Status, ins?.BankName, s.VoidReason, s.VoidedAt);
+            ins?.Kind, ins?.No, ins?.Date, ins?.Status, ins?.BankName, s.VoidReason, s.VoidedAt, s.ApprovalRequestId);
     }
 }

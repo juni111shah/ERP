@@ -66,19 +66,28 @@ public static class PartyLedger
     }
 }
 
-internal sealed class PartyLedgerHandlers(IReadRepository<Invoice> invoices, IReadRepository<Bill> bills, IReadRepository<Settlement> settlements) :
+internal sealed class PartyLedgerHandlers(IReadRepository<Invoice> invoices, IReadRepository<Bill> bills, IReadRepository<Settlement> settlements, IReportCurrencyGuard currencies) :
     IRequestHandler<GetCustomerLedger, PartyLedgerDto>,
     IRequestHandler<GetVendorLedger, PartyLedgerDto>
 {
+    /// <summary>A document voided after its period was locked stays on the statement at its own date and is taken back on the date of the void, so a locked period's statement does not change.</summary>
+    public const string VoidKind = "void";
+
     public async Task<PartyLedgerDto> Handle(GetCustomerLedger q, CancellationToken ct)
     {
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
         var docs = invoices.Query(new Specification<Invoice>(i => i.PartyId == q.PartyId && i.InvoiceDate <= q.To
-            && (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid || i.Status == DocumentStatus.Paid)
+            && (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid || i.Status == DocumentStatus.Paid || (i.Status == DocumentStatus.Voided && i.VoidPostedOn != null))
             && (q.LegalEntityId == null || i.LegalEntityId == q.LegalEntityId)));
         var cash = Settled(InstrumentDirection.Received, q.PartyId, q.To, q.LegalEntityId);
 
-        var openingDocs = await docs.Where(i => i.InvoiceDate < q.From).SumAsync(i => (decimal?)(i.IsCreditNote ? -i.Total : i.Total), ct) ?? 0m;
-        var openingCash = await cash.Where(s => s.Date < q.From).SumAsync(s => (decimal?)s.Amount, ct) ?? 0m;
+        // Sum on the client: decimal SUM is not portable across the supported databases (same as the trial balance).
+        var openingDocs = (await docs.Where(i => i.InvoiceDate < q.From).Select(i => new { i.IsCreditNote, i.Total }).ToListAsync(ct)).Sum(i => i.IsCreditNote ? -i.Total : i.Total);
+        var openingCash = (await cash.Where(s => s.Date < q.From).Select(s => s.Amount).ToListAsync(ct)).Sum();
+        var voidedDocs = await invoices.Query(new Specification<Invoice>(i => i.PartyId == q.PartyId && i.Status == DocumentStatus.Voided && i.VoidPostedOn != null && i.VoidPostedOn <= q.To && (q.LegalEntityId == null || i.LegalEntityId == q.LegalEntityId)))
+            .Select(i => new { i.Id, i.Number, i.IsCreditNote, On = i.VoidPostedOn!.Value, i.CurrencyCode, i.Total }).ToListAsync(ct);
+        var voidedCash = await VoidedSettlementsAsync(InstrumentDirection.Received, q.PartyId, q.To, q.LegalEntityId, ct);
+        var openingVoids = voidedDocs.Where(v => v.On < q.From).Sum(v => v.IsCreditNote ? v.Total : -v.Total) + voidedCash.Where(v => v.On < q.From).Sum(v => v.Amount);
 
         var inRange = await docs.Where(i => i.InvoiceDate >= q.From)
             .Select(i => new { i.Id, i.Number, i.IsCreditNote, i.InvoiceDate, i.PartyName, i.CurrencyCode, i.Total }).ToListAsync(ct);
@@ -87,20 +96,27 @@ internal sealed class PartyLedgerHandlers(IReadRepository<Invoice> invoices, IRe
 
         var lines = inRange.Select(i => new PartyLedgerLine(i.InvoiceDate, i.IsCreditNote ? "creditNote" : "invoice", i.Id, i.Number, null, i.CurrencyCode,
                 i.IsCreditNote ? 0 : i.Total, i.IsCreditNote ? i.Total : 0, 0))
-            .Concat(received.Select(s => new PartyLedgerLine(s.Date, "receipt", s.Id, s.Number, s.Reference, s.CurrencyCode, 0, s.Amount, 0)));
+            .Concat(received.Select(s => new PartyLedgerLine(s.Date, "receipt", s.Id, s.Number, s.Reference, s.CurrencyCode, 0, s.Amount, 0)))
+            .Concat(voidedDocs.Where(v => v.On >= q.From).Select(v => new PartyLedgerLine(v.On, VoidKind, v.Id, v.Number, null, v.CurrencyCode, v.IsCreditNote ? v.Total : 0, v.IsCreditNote ? 0 : v.Total, 0)))
+            .Concat(voidedCash.Where(v => v.On >= q.From).Select(v => new PartyLedgerLine(v.On, VoidKind, v.Id, v.Number, v.Reference, v.CurrencyCode, v.Amount, 0, 0)));
         var name = inRange.Select(i => i.PartyName).Concat(received.Select(s => s.PartyName)).FirstOrDefault(n => !string.IsNullOrEmpty(n));
-        return PartyLedger.Build(q.PartyId, name, "customer", q.From, q.To, openingDocs - openingCash, lines, debitRaises: true);
+        return PartyLedger.Build(q.PartyId, name, "customer", q.From, q.To, openingDocs - openingCash + openingVoids, lines, debitRaises: true);
     }
 
     public async Task<PartyLedgerDto> Handle(GetVendorLedger q, CancellationToken ct)
     {
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
         var docs = bills.Query(new Specification<Bill>(b => b.PartyId == q.PartyId && b.BillDate <= q.To
-            && (b.Status == DocumentStatus.Issued || b.Status == DocumentStatus.PartlyPaid || b.Status == DocumentStatus.Paid)
+            && (b.Status == DocumentStatus.Issued || b.Status == DocumentStatus.PartlyPaid || b.Status == DocumentStatus.Paid || (b.Status == DocumentStatus.Voided && b.VoidPostedOn != null))
             && (q.LegalEntityId == null || b.LegalEntityId == q.LegalEntityId)));
         var cash = Settled(InstrumentDirection.Issued, q.PartyId, q.To, q.LegalEntityId);
 
-        var openingDocs = await docs.Where(b => b.BillDate < q.From).SumAsync(b => (decimal?)b.Total, ct) ?? 0m;
-        var openingCash = await cash.Where(s => s.Date < q.From).SumAsync(s => (decimal?)s.Amount, ct) ?? 0m;
+        var openingDocs = (await docs.Where(b => b.BillDate < q.From).Select(b => b.Total).ToListAsync(ct)).Sum();
+        var openingCash = (await cash.Where(s => s.Date < q.From).Select(s => s.Amount).ToListAsync(ct)).Sum();
+        var voidedDocs = await bills.Query(new Specification<Bill>(b => b.PartyId == q.PartyId && b.Status == DocumentStatus.Voided && b.VoidPostedOn != null && b.VoidPostedOn <= q.To && (q.LegalEntityId == null || b.LegalEntityId == q.LegalEntityId)))
+            .Select(b => new { b.Id, b.Number, On = b.VoidPostedOn!.Value, b.CurrencyCode, b.Total, b.VendorReference }).ToListAsync(ct);
+        var voidedCash = await VoidedSettlementsAsync(InstrumentDirection.Issued, q.PartyId, q.To, q.LegalEntityId, ct);
+        var openingVoids = voidedCash.Where(v => v.On < q.From).Sum(v => v.Amount) - voidedDocs.Where(v => v.On < q.From).Sum(v => v.Total);
 
         var inRange = await docs.Where(b => b.BillDate >= q.From)
             .Select(b => new { b.Id, b.Number, b.BillDate, b.PartyName, b.CurrencyCode, b.Total, b.VendorReference }).ToListAsync(ct);
@@ -108,13 +124,21 @@ internal sealed class PartyLedgerHandlers(IReadRepository<Invoice> invoices, IRe
             .Select(s => new { s.Id, s.Number, s.Date, s.PartyName, s.CurrencyCode, s.Amount, s.Reference }).ToListAsync(ct);
 
         var lines = inRange.Select(b => new PartyLedgerLine(b.BillDate, "bill", b.Id, b.Number, b.VendorReference, b.CurrencyCode, 0, b.Total, 0))
-            .Concat(paid.Select(s => new PartyLedgerLine(s.Date, "payment", s.Id, s.Number, s.Reference, s.CurrencyCode, s.Amount, 0, 0)));
+            .Concat(paid.Select(s => new PartyLedgerLine(s.Date, "payment", s.Id, s.Number, s.Reference, s.CurrencyCode, s.Amount, 0, 0)))
+            .Concat(voidedDocs.Where(v => v.On >= q.From).Select(v => new PartyLedgerLine(v.On, VoidKind, v.Id, v.Number, v.VendorReference, v.CurrencyCode, v.Total, 0, 0)))
+            .Concat(voidedCash.Where(v => v.On >= q.From).Select(v => new PartyLedgerLine(v.On, VoidKind, v.Id, v.Number, v.Reference, v.CurrencyCode, 0, v.Amount, 0)));
         var name = inRange.Select(b => b.PartyName).Concat(paid.Select(s => s.PartyName)).FirstOrDefault(n => !string.IsNullOrEmpty(n));
-        return PartyLedger.Build(q.PartyId, name, "vendor", q.From, q.To, openingDocs - openingCash, lines, debitRaises: false);
+        return PartyLedger.Build(q.PartyId, name, "vendor", q.From, q.To, openingDocs - openingCash + openingVoids, lines, debitRaises: false);
     }
 
-    /// <summary>Receipts (received) or payments (issued) of the party up to a date; voided ones are left out.</summary>
+    /// <summary>Receipts (received) or payments (issued) of the party up to a date. Voided ones are left out, unless the void came after the period was locked.</summary>
     private IQueryable<Settlement> Settled(InstrumentDirection direction, Guid partyId, DateOnly to, Guid? entityId)
         => settlements.Query(new Specification<Settlement>(s => s.Direction == direction && s.PartyId == partyId && s.Date <= to
-            && s.Status == DocumentStatus.Issued && (entityId == null || s.LegalEntityId == entityId)));
+            && (s.Status == DocumentStatus.Issued || (s.Status == DocumentStatus.Voided && s.VoidPostedOn != null)) && (entityId == null || s.LegalEntityId == entityId)));
+
+    private sealed record VoidedSettlement(Guid Id, string Number, DateOnly On, string CurrencyCode, decimal Amount, string? Reference);
+
+    private Task<List<VoidedSettlement>> VoidedSettlementsAsync(InstrumentDirection direction, Guid partyId, DateOnly to, Guid? entityId, CancellationToken ct)
+        => settlements.Query(new Specification<Settlement>(s => s.Direction == direction && s.PartyId == partyId && s.Status == DocumentStatus.Voided && s.VoidPostedOn != null && s.VoidPostedOn <= to && (entityId == null || s.LegalEntityId == entityId)))
+            .Select(s => new VoidedSettlement(s.Id, s.Number, s.VoidPostedOn!.Value, s.CurrencyCode, s.Amount, s.Reference)).ToListAsync(ct);
 }

@@ -32,10 +32,17 @@ public sealed class TaxLineReader(IReadRepository<Invoice> invoices, IReadReposi
 {
     public async Task<IReadOnlyList<TaxLine>> ReadAsync(DateOnly from, DateOnly to, Guid entityId, CancellationToken ct)
     {
-        var sales = await invoices.Query(new Specification<Invoice>(i => i.InvoiceDate >= from && i.InvoiceDate <= to && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.PendingApproval && i.Status != DocumentStatus.Voided && i.LegalEntityId == entityId))
+        // A document voided after its period was locked stays in that period (what was filed does not change) and comes back negative in the period of the void.
+        var sales = await invoices.Query(new Specification<Invoice>(i => i.InvoiceDate >= from && i.InvoiceDate <= to && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.PendingApproval && (i.Status != DocumentStatus.Voided || i.VoidPostedOn != null) && i.LegalEntityId == entityId))
             .SelectMany(i => i.Lines, (i, l) => new { i.IsCreditNote, l.TaxCodeId, l.Net, l.TaxAmount }).ToListAsync(ct);
-        var purchases = await bills.Query(new Specification<Bill>(b => b.BillDate >= from && b.BillDate <= to && (b.Status == DocumentStatus.Issued || b.Status == DocumentStatus.PartlyPaid || b.Status == DocumentStatus.Paid) && b.LegalEntityId == entityId))
+        var voidedSales = await invoices.Query(new Specification<Invoice>(i => i.Status == DocumentStatus.Voided && i.VoidPostedOn >= from && i.VoidPostedOn <= to && i.LegalEntityId == entityId))
+            .SelectMany(i => i.Lines, (i, l) => new { IsCreditNote = !i.IsCreditNote, l.TaxCodeId, l.Net, l.TaxAmount }).ToListAsync(ct);
+        sales.AddRange(voidedSales);
+        var purchases = await bills.Query(new Specification<Bill>(b => b.BillDate >= from && b.BillDate <= to && (b.Status == DocumentStatus.Issued || b.Status == DocumentStatus.PartlyPaid || b.Status == DocumentStatus.Paid || (b.Status == DocumentStatus.Voided && b.VoidPostedOn != null)) && b.LegalEntityId == entityId))
             .SelectMany(b => b.Lines, (b, l) => new { l.TaxCodeId, l.Net, l.TaxAmount, l.TaxRecoverable }).ToListAsync(ct);
+        var voidedPurchases = await bills.Query(new Specification<Bill>(b => b.Status == DocumentStatus.Voided && b.VoidPostedOn >= from && b.VoidPostedOn <= to && b.LegalEntityId == entityId))
+            .SelectMany(b => b.Lines, (b, l) => new { l.TaxCodeId, Net = -l.Net, TaxAmount = -l.TaxAmount, l.TaxRecoverable }).ToListAsync(ct);
+        purchases.AddRange(voidedPurchases);
         var codes = await taxCodes.Query().Select(t => new { t.Id, t.Code, t.Kind, t.Rate, t.IsRecoverable }).ToDictionaryAsync(t => t.Id, ct);
 
         var result = new List<TaxLine>();
