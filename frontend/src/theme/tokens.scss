@@ -437,6 +437,13 @@ $erp-semantic-light: (
   'viz-8': p('viz-8'),
   'viz-grid': p('grey-100'),
   'viz-axis': p('grey-600'),
+  // Stat card value colours, one per card palette entry (stat-card.component.ts)
+  'stat-text-1': p('green-700'),
+  'stat-text-2': #1d4ed8,
+  'stat-text-3': #0284c7,
+  'stat-text-4': #d97706,
+  'stat-text-5': #7c3aed,
+  'stat-text-6': #e11d48,
   'skeleton-base': p('grey-100'),
   'skeleton-shine': p('grey-50'),
 );
@@ -532,6 +539,13 @@ $erp-semantic-dark: (
   'viz-8': p('viz-8-dark'),
   'viz-grid': p('night-200'),
   'viz-axis': p('night-600'),
+  // Lighter steps of the same hues; each is at least 4.5:1 on the dark surface
+  'stat-text-1': p('green-400'),
+  'stat-text-2': p('info-solid-dark'),
+  'stat-text-3': #38bdf8,
+  'stat-text-4': p('warning-solid-dark'),
+  'stat-text-5': p('viz-4-dark'),
+  'stat-text-6': p('viz-5-dark'),
   'skeleton-base': p('night-100'),
   'skeleton-shine': p('night-200'),
 );
