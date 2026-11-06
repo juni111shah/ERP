@@ -35,6 +35,7 @@ public sealed class PosModule : ModuleBase
         PermissionDefinition.Of(Pos.Permissions.OrdersRefund, "Take customer returns and give refunds"),
         PermissionDefinition.Of(Pos.Permissions.OrdersDiscountOverride, "Give discounts above the cashier limit"),
         PermissionDefinition.Of(Pos.Permissions.OrdersOnAccount, "Sell on a customer's account"),
+        PermissionDefinition.Of(Pos.Permissions.OrdersRefundOverride, "Refund a sale by a different tender than it was paid with"),
     ];
 
     public override IEnumerable<MenuItemDefinition> Menu =>
@@ -73,7 +74,7 @@ public sealed class PosModule : ModuleBase
                 new("POS Store Manager", "Register management, shift audit, voiding and returns",
                     [Pos.Permissions.RegistersRead, Pos.Permissions.RegistersManage, Pos.Permissions.SessionsRead, Pos.Permissions.SessionsManage,
                      Pos.Permissions.OrdersRead, Pos.Permissions.OrdersCreate, Pos.Permissions.OrdersVoid, Pos.Permissions.AnalyticsRead,
-                     Pos.Permissions.OrdersOverridePrice, Pos.Permissions.OrdersRefund, Pos.Permissions.OrdersDiscountOverride, Pos.Permissions.OrdersOnAccount], Key),
+                     Pos.Permissions.OrdersOverridePrice, Pos.Permissions.OrdersRefund, Pos.Permissions.OrdersDiscountOverride, Pos.Permissions.OrdersOnAccount, Pos.Permissions.OrdersRefundOverride], Key),
             ],
             Sequences:
             [

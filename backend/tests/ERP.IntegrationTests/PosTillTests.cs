@@ -330,8 +330,53 @@ public class PosTillTests(ApiFactory f) : IClassFixture<ApiFactory>
         (await ReturnAsync(t, order, 1, 50m, restock: false, reason: "Damaged")).EnsureSuccessStatusCode();
         Assert.Equal((8m, 120m), await StockAsync());
         var end = await BalancesAsync(t);
-        Assert.Equal(0m, Delta(mid, end, "5000")); // the loss stays in cost of sales
+        Assert.Equal(-15m, Delta(mid, end, "5000")); // cost of sales comes back with the sale...
+        Assert.Equal(15m, Delta(mid, end, "6900"));  // ...and the goods that are gone show as a write-off
+        Assert.Equal(0m, Delta(mid, end, "1300"));   // the shelf and its value are unchanged
         Assert.Equal(50m, Delta(mid, end, "4000"));
+    }
+
+    [Fact]
+    public async Task A_refund_follows_the_original_tender_unless_the_caller_may_override()
+    {
+        var t = await OpenTillAsync(1000m);
+        var item = await ItemAsync(t, 10m);
+        var order = await Json(await SellAsync(t, item, 3, 30m, PosPaymentMethod.Card));
+        var orderId = Guid.Parse((string)order["id"]!);
+        var line = Guid.Parse((string)order["lines"]![0]!["id"]!);
+        var clerk = await SignInWithRoleAsync(t, Permissions.OrdersRefund, Permissions.OrdersRead);
+
+        CreatePosReturnCommand Return(PosPaymentMethod method) => new(orderId, t.Session, "Changed mind", [new PosReturnLineInput(line, 1)], [new PosRefundInput(method, 10m)]);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await clerk.PostAsJsonAsync($"{Pos}/returns", Return(PosPaymentMethod.Cash))).StatusCode);
+        var before = await BalancesAsync(t);
+
+        (await clerk.PostAsJsonAsync($"{Pos}/returns", Return(PosPaymentMethod.Card))).EnsureSuccessStatusCode();
+        Assert.Equal(0m, Delta(before, await BalancesAsync(t), "1000")); // the refused cash refund left the drawer alone, and the card one never touched it
+
+        // Someone with the override can send the money another way.
+        (await t.C.PostAsJsonAsync($"{Pos}/returns", Return(PosPaymentMethod.Cash))).EnsureSuccessStatusCode();
+        Assert.Equal(-10m, Delta(before, await BalancesAsync(t), "1000"));
+    }
+
+    [Fact]
+    public async Task A_split_tender_refunds_each_way_only_up_to_what_it_took()
+    {
+        var t = await OpenTillAsync(1000m);
+        var item = await ItemAsync(t, 100m);
+        var order = await Json(await t.C.PostAsJsonAsync($"{Pos}/orders", new CreatePosOrderCommand(t.Entity, t.Register, t.Session, null, null,
+            [new PosOrderLineInput(item, Quantity: 2)],
+            [new PosPaymentInput(PosPaymentMethod.Cash, 50m, 50m, 0m, null), new PosPaymentInput(PosPaymentMethod.Card, 150m, 150m, 0m, null)])));
+        var orderId = Guid.Parse((string)order["id"]!);
+        var line = Guid.Parse((string)order["lines"]![0]!["id"]!);
+        var clerk = await SignInWithRoleAsync(t, Permissions.OrdersRefund, Permissions.OrdersRead);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await clerk.PostAsJsonAsync($"{Pos}/returns", new CreatePosReturnCommand(orderId, t.Session, "Back", [new PosReturnLineInput(line, 1)], [new PosRefundInput(PosPaymentMethod.Cash, 100m)]))).StatusCode);
+        (await clerk.PostAsJsonAsync($"{Pos}/returns", new CreatePosReturnCommand(orderId, t.Session, "Back", [new PosReturnLineInput(line, 1)], [new PosRefundInput(PosPaymentMethod.Cash, 50m), new PosRefundInput(PosPaymentMethod.Card, 50m)]))).EnsureSuccessStatusCode();
+
+        // The cash is spent now, so the rest can only go back on the card.
+        Assert.Equal(HttpStatusCode.Forbidden, (await clerk.PostAsJsonAsync($"{Pos}/returns", new CreatePosReturnCommand(orderId, t.Session, "Back", [new PosReturnLineInput(line, 1)], [new PosRefundInput(PosPaymentMethod.Cash, 100m)]))).StatusCode);
+        (await clerk.PostAsJsonAsync($"{Pos}/returns", new CreatePosReturnCommand(orderId, t.Session, "Back", [new PosReturnLineInput(line, 1)], [new PosRefundInput(PosPaymentMethod.Card, 100m)]))).EnsureSuccessStatusCode();
     }
 
     [Fact]

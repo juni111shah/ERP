@@ -74,6 +74,9 @@ public sealed class PosAccounts(IPostingService posting, IReadRepository<Item> i
     public async Task<Guid> DrawerOffsetAsync(PosRegister register, CancellationToken ct)
         => register.ExpenseAccountId ?? await RoleOrFallbackAsync("pos.cash-misc", SystemRoles.PurchasesExpense, ct);
 
+    /// <summary>Takes the cost of goods that came back and cannot be sold again.</summary>
+    public Task<Guid> StockWriteOffAsync(CancellationToken ct) => RoleOrFallbackAsync("pos.stock-writeoff", SystemRoles.PurchasesExpense, ct);
+
     public Task<Guid> SalesAsync(CancellationToken ct) => posting.AccountForRoleAsync("income.sales", ct);
 
     public Task<Guid> TaxAsync(CancellationToken ct) => posting.AccountForRoleAsync(SystemRoles.TaxOutput, ct);
