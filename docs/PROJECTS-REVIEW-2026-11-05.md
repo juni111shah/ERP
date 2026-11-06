@@ -175,7 +175,7 @@ Sections 1 to 6 came from reading the code. Opening the web screens showed that 
 
 **Not done:**
 
-- **Mobile:** no new screens. Flutter is not installed where this was built, so Dart could not be compiled or tested. Mobile gets the backend fixes only, and still lacks comments, files, schedule, team and sign-off status.
+- **Mobile:** no new screens. They were skipped in this round. Mobile gets the backend fixes only, and still lacks comments, files, schedule, team and sign-off status. Its existing checks still pass (`flutter analyze` and `flutter test`).
 - **Billing that needs an accounting decision:** retention, advance and recurring invoices, multi-currency, per-line tax.
 - **Links to other modules:** purchase orders and supplier bills charged to a project, payroll cost, HR leave and public holidays in capacity.
 - **Also still missing:** skills, dated rate history, recurring tasks, a calendar view, mentions and alerts when a task is assigned, overtime rules, mileage, and comments or files for customers in the portal.
