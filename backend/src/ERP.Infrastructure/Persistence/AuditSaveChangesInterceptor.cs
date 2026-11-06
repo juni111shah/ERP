@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ERP.Application.Abstractions;
+using ERP.Application.Common;
 using ERP.Domain.Common;
 using ERP.Domain.Identity;
 using ERP.Domain.Organizations;
@@ -65,6 +66,11 @@ public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext o
                 if (org.OrgId is { } current && scoped.OrgId != current)
                     throw new InvalidOperationException("Cross-workspace write blocked.");
             }
+
+            // The company boundary for a caller limited to some legal entities. Trusted system code runs with no such list.
+            if (entry.Entity is ILegalEntityScoped entityScoped && entry.State is EntityState.Added or EntityState.Modified
+                && org.AllowedLegalEntityIds is { } allowedEntities && !allowedEntities.Contains(entityScoped.LegalEntityId))
+                throw new ForbiddenException("You do not have access to this legal entity.");
 
             if (entry.Entity is IAuditable a)
             {

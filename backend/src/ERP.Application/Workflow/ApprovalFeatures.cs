@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Application.Security;
 using ERP.Domain.Platform;
 using FluentValidation;
@@ -33,7 +34,7 @@ public sealed class SubmitApprovalValidator : AbstractValidator<SubmitApproval>
     public SubmitApprovalValidator() => RuleFor(x => x.Input.Subject).NotEmpty().MaximumLength(300).WithMessage("Subject is required.");
 }
 
-internal sealed class ApprovalHandlers(IReadRepository<ApprovalRequest> requests, IApprovalService approvals, ICurrentUser user) :
+internal sealed class ApprovalHandlers(IReadRepository<ApprovalRequest> requests, IApprovalService approvals, ICurrentUser user, ILegalEntityGuard guard) :
     IRequestHandler<ListApprovals, IReadOnlyList<ApprovalDto>>,
     IRequestHandler<SubmitApproval, ApprovalDto>,
     IRequestHandler<DecideApproval, ApprovalDto>,
@@ -46,12 +47,15 @@ internal sealed class ApprovalHandlers(IReadRepository<ApprovalRequest> requests
         query = q.Scope == "mine" ? query.Where(r => r.RequestedBy == me)
             : user.HasPermission(CorePermissions.ApprovalsDecide) ? query.Where(r => r.Status == ApprovalStatus.Pending && r.RequestedBy != me)
             : query.Where(r => r.RequestedBy == me);
+        // Requests of no particular company stay visible to everyone the scope above allows.
+        if (user.AllowedLegalEntityIds?.ToList() is { } allowed) query = query.Where(r => r.LegalEntityId == null || allowed.Contains(r.LegalEntityId.Value));
         return (await query.OrderByDescending(r => r.RequestedAt).Take(200).ToListAsync(ct)).Select(ApprovalDto.From).ToList();
     }
 
     public async Task<ApprovalDto> Handle(SubmitApproval cmd, CancellationToken ct)
     {
         var i = cmd.Input;
+        if (i.LegalEntityId is { } entityId) await guard.RequireAsync(entityId, ct);
         return ApprovalDto.From(await approvals.SubmitAsync("general", null, i.Subject, i.Amount, i.Justification, i.LegalEntityId, ct));
     }
 
