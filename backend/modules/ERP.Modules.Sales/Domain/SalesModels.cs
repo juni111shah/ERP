@@ -22,6 +22,88 @@ public enum SalesOrderStatus
     Cancelled = 5,
 }
 
+public enum SalesReturnStatus
+{
+    Draft = 0,
+    Posted = 1,
+    Voided = 2,
+}
+
+/// <summary>Goods a customer sent back against a sales order or an invoice. Posting restocks at the cost the goods left at, reverses that cost of sales and issues the credit note.</summary>
+public class SalesReturn : LegalEntityScopedEntity, IVoidable
+{
+    [Searchable, Sortable]
+    public string Number { get; set; } = string.Empty;
+
+    [Filterable]
+    public Guid? SalesOrderId { get; set; }
+
+    [Searchable]
+    public string? OrderNumber { get; set; }
+
+    [Filterable]
+    public Guid? InvoiceId { get; set; }
+
+    [Searchable]
+    public string? InvoiceNumber { get; set; }
+
+    [Filterable]
+    public Guid CustomerPartyId { get; set; }
+
+    [Searchable, Sortable]
+    public string CustomerName { get; set; } = string.Empty;
+
+    [Sortable, Filterable]
+    public DateOnly ReturnDate { get; set; }
+
+    [Filterable]
+    public SalesReturnStatus Status { get; set; } = SalesReturnStatus.Draft;
+
+    public string Reason { get; set; } = string.Empty;
+
+    public string? Notes { get; set; }
+
+    public Guid? CreditNoteId { get; set; }
+
+    [Searchable]
+    public string? CreditNoteNumber { get; set; }
+
+    public decimal SubTotal { get; set; }
+
+    public decimal TaxTotal { get; set; }
+
+    [Sortable]
+    public decimal TotalAmount { get; set; }
+
+    public string? VoidReason { get; set; }
+
+    public DateTime? VoidedAt { get; set; }
+
+    public Guid? VoidedBy { get; set; }
+
+    public List<SalesReturnLine> Lines { get; set; } = [];
+}
+
+public class SalesReturnLine : OrgEntity
+{
+    public Guid ReturnId { get; set; }
+
+    public Guid? OrderLineId { get; set; }
+
+    public Guid? InvoiceLineId { get; set; }
+
+    public Guid? ItemId { get; set; }
+
+    public string ItemCode { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
+    public decimal Quantity { get; set; }
+
+    /// <summary>False when the goods came back unusable: the customer is credited, nothing goes back on the shelf and the cost stays in cost of sales.</summary>
+    public bool Restock { get; set; } = true;
+}
+
 public class SalesQuote : LegalEntityScopedEntity, IHasCustomFields
 {
     [Searchable, Sortable]
