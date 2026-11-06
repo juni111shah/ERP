@@ -67,6 +67,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<NumberSequence> NumberSequences => Set<NumberSequence>();
     public DbSet<ApprovalPolicy> ApprovalPolicies => Set<ApprovalPolicy>();
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
+    public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
@@ -92,7 +93,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         b.Properties<decimal>().HavePrecision(18, 2);
         b.Properties<string>().HaveMaxLength(400);
         foreach (var enumType in new[] { typeof(SubscriptionStatus), typeof(BillingCycle), typeof(SubscriptionInvoiceStatus), typeof(SignupStatus), typeof(SignupMode), typeof(AccountType), typeof(JournalStatus), typeof(TaxKind), typeof(PartyKind), typeof(ItemType),
-                     typeof(ApprovalStatus), typeof(CustomFieldDataType), typeof(InstrumentKind), typeof(InstrumentDirection), typeof(InstrumentStatus), typeof(DocumentStatus), typeof(SettlementMethod), typeof(StatementLineStatus) })
+                     typeof(ApprovalStatus), typeof(ApprovalStepStatus), typeof(CustomFieldDataType), typeof(InstrumentKind), typeof(InstrumentDirection), typeof(InstrumentStatus), typeof(DocumentStatus), typeof(SettlementMethod), typeof(StatementLineStatus) })
             b.Properties(enumType).HaveConversion<string>().HaveMaxLength(40);
     }
 
@@ -354,7 +355,20 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         });
         mb.Entity<BankStatementLine>(b => { b.HasIndex(x => new { x.OrgId, x.AccountId, x.Date }); b.HasIndex(x => x.MatchedJournalLineId); });
         mb.Entity<NumberSequence>(b => b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.DocumentType, x.Year }).IsUnique());
-        mb.Entity<ApprovalRequest>(b => b.HasIndex(x => new { x.OrgId, x.Status }));
+        mb.Entity<ApprovalRequest>(b =>
+        {
+            b.HasIndex(x => new { x.OrgId, x.Status });
+            b.Ignore(x => x.CurrentStep);
+            b.HasMany(x => x.Steps).WithOne().HasForeignKey(x => x.ApprovalRequestId).OnDelete(DeleteBehavior.Cascade);
+        });
+        mb.Entity<ApprovalStep>(b =>
+        {
+            b.HasIndex(x => new { x.ApprovalRequestId, x.Level }).IsUnique();
+            b.Property(x => x.ApproverPermission).HasMaxLength(100).IsRequired();
+            b.Property(x => x.Comment).HasMaxLength(1000);
+        });
+        mb.Entity<ApprovalPolicy>(b => b.Property(x => x.Level).HasDefaultValue(1));
+        mb.Entity<Settlement>(b => b.Property(x => x.PendingInput).Metadata.SetMaxLength(null));
         mb.Entity<Attachment>(b => { b.HasIndex(x => new { x.OrgId, x.OwnerType, x.OwnerId }); b.HasIndex(x => new { x.OrgId, x.ExpiresOn }); b.Property(x => x.Category).HasMaxLength(50); b.Property(x => x.Description).HasMaxLength(500); });
         mb.Entity<AuditEvent>(b =>
         {

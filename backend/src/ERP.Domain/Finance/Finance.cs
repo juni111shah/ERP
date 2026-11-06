@@ -95,6 +95,8 @@ public class JournalEntry : LegalEntityScopedEntity
     public DateTime? PostedAt { get; set; }
     public Guid? PostedBy { get; set; }
     public Guid? ReversalOfId { get; set; }
+    /// <summary>The approval request of a manual journal that needs one. The journal stays a draft (and out of every report) until it is approved and posted.</summary>
+    public Guid? ApprovalRequestId { get; set; }
     public List<JournalLine> Lines { get; set; } = new();
 
     public decimal TotalDebit => Lines.Sum(l => l.Debit);
