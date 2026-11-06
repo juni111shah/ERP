@@ -55,7 +55,7 @@ const KINDS: { value: CashMovementType; label: string; hint: string }[] = [
           </div>
           <div>
             <label class="field" for="pos-cash-reason">Reason</label>
-            <input id="pos-cash-reason" nz-input [ngModel]="reason()" (ngModelChange)="reason.set($event)" (keydown.enter)="submit()" maxlength="250" placeholder="e.g. Midday drop" data-testid="pos-cash-reason" />
+            <input id="pos-cash-reason" nz-input aria-label="Reason" [ngModel]="reason()" (ngModelChange)="reason.set($event)" (keydown.enter)="submit()" maxlength="250" placeholder="e.g. Midday drop" data-testid="pos-cash-reason" />
           </div>
         </div>
       </ng-container>

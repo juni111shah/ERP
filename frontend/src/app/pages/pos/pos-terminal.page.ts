@@ -31,6 +31,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
 import { SessionStore } from '../../core/session/session.store';
 import { ErpDatePipe } from '../../shared/display.pipes';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
 import { CartLine, cartTotals, fromHeldOrder, lineAmounts, parseScan, repriceHeld, round2, roundQty, Tender, toOrderLine, toPayments } from './pos-cart';
@@ -65,6 +66,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
     NzSkeletonModule,
     NzToolTipModule,
     HasPermissionDirective,
+    KeyboardClickDirective,
     StatePanelComponent,
     ThermalReceiptComponent,
     PosCashDialogComponent,
@@ -190,7 +192,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
 
             <div class="lines" #linesBox>
               @for (line of cart(); track line.key; let i = $index) {
-                <div class="line" [class.selected]="i === selected()" (click)="selected.set(i)" [attr.data-testid]="'pos-line-' + i">
+                <div class="line" [class.selected]="i === selected()" erpKeyboardClick erpKeyboardClickRole="" [attr.aria-label]="line.description" [attr.aria-current]="i === selected() ? 'true' : null" (click)="selected.set(i)" [attr.data-testid]="'pos-line-' + i">
                   <div class="line-main">
                     <span class="line-name" [attr.title]="line.description">{{ line.description }}</span>
                     <span class="line-meta">
@@ -270,7 +272,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
             </div>
             <div>
               <label class="field" for="pos-open-notes">Notes</label>
-              <input id="pos-open-notes" nz-input [ngModel]="shiftNotes()" (ngModelChange)="shiftNotes.set($event)" placeholder="Optional" />
+              <input id="pos-open-notes" nz-input aria-label="Notes" [ngModel]="shiftNotes()" (ngModelChange)="shiftNotes.set($event)" placeholder="Optional" />
             </div>
           </div>
         </ng-container>
@@ -294,7 +296,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
               </div>
               <div>
                 <label class="field" for="pos-close-notes">Notes</label>
-                <input id="pos-close-notes" nz-input [ngModel]="closeNotes()" (ngModelChange)="closeNotes.set($event)" placeholder="Optional" />
+                <input id="pos-close-notes" nz-input aria-label="Notes" [ngModel]="closeNotes()" (ngModelChange)="closeNotes.set($event)" placeholder="Optional" />
               </div>
             </div>
           }
@@ -328,7 +330,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
             </div>
             <div>
               <label class="field" for="pos-customer-name">Or just a name on the receipt</label>
-              <input id="pos-customer-name" nz-input [ngModel]="customerTyped()" (ngModelChange)="customerTyped.set($event)" (keydown.enter)="useTypedCustomer($event)" placeholder="Name only, no account" />
+              <input id="pos-customer-name" nz-input aria-label="Name on the receipt" [ngModel]="customerTyped()" (ngModelChange)="customerTyped.set($event)" (keydown.enter)="useTypedCustomer($event)" placeholder="Name only, no account" />
             </div>
           </div>
         </ng-container>
@@ -479,6 +481,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
     .lines { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
     .line { display: grid; grid-template-columns: minmax(0, 1fr) auto 72px auto auto; align-items: center; gap: 6px; padding: 7px 8px; border: 1px solid var(--erp-color-border-subtle); border-radius: 10px; cursor: pointer; }
     .line.selected { border-color: var(--erp-color-primary); background: var(--erp-color-primary-subtle); }
+    .line:focus-visible { outline: 2px solid var(--erp-color-primary); outline-offset: 1px; }
     .line-main { min-width: 0; }
     .line-name { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.25; color: var(--erp-color-text-primary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .line-meta { font-size: 11.5px; color: var(--erp-color-text-muted); }
@@ -849,21 +852,22 @@ export class PosTerminalPage implements OnDestroy {
     this.focusScan();
   }
 
-  /** The box empties at once, so a scanner can fire the next code before this one has come back. */
+  /** The box empties at once, so a scanner can fire the next code before this one has come back and the two never run together. */
   private submitScan(): void {
     const { quantity, code } = parseScan(this.searchQuery());
     if (!code) return;
+    this.emptyScanBox();
     const key = code.toLowerCase();
     const hit = this.known.get(key);
     if (hit) {
-      this.addItem(hit, quantity);
+      this.addItem(hit, quantity, false);
       return;
     }
     this.terminal.catalog({ registerId: this.registerId() || undefined, code, pageSize: 2 }).subscribe({
       next: (exact) => {
         if (exact.items.length) {
           this.remember(exact.items[0]);
-          this.addItem(exact.items[0], quantity);
+          this.addItem(exact.items[0], quantity, false);
           return;
         }
         // Not a code: the one product whose name matches is what was meant.
@@ -871,10 +875,12 @@ export class PosTerminalPage implements OnDestroy {
           next: (found) => {
             if (found.items.length === 1) {
               this.remember(found.items[0]);
-              this.addItem(found.items[0], quantity);
+              this.addItem(found.items[0], quantity, false);
             } else if (found.items.length === 0) {
               this.notFound(code);
             } else {
+              // Show the matches, unless the next code is already being typed.
+              if (!this.searchQuery()) this.onSearch(code);
               this.message.info(`More than one product matches "${code}". Tap the one you want.`);
             }
           },
@@ -887,20 +893,13 @@ export class PosTerminalPage implements OnDestroy {
 
   /** Not a product: a receipt scanned here starts its return, for whoever may take one. */
   private notFound(code: string): void {
-    const warn = () => {
-      this.message.warning(`No product matches "${code}".`);
-      this.scanBox()?.nativeElement.select();
-    };
+    const warn = () => this.message.warning(`No product matches "${code}".`);
     if (!this.session() || !this.store.hasPermission('pos.orders.refund') || !this.store.hasPermission('pos.orders.read')) {
       warn();
       return;
     }
     this.orders.byNumber(code).subscribe({
-      next: (order) => {
-        this.searchQuery.set('');
-        this.loadCatalog('');
-        this.startReturn(order.number);
-      },
+      next: (order) => this.startReturn(order.number),
       error: warn,
     });
   }
@@ -909,7 +908,15 @@ export class PosTerminalPage implements OnDestroy {
     return this.settings()?.allowNegativeStock === false && item.onHand !== null && item.onHand <= 0;
   }
 
-  addItem(item: PosCatalogItemDto, quantity = 1): void {
+  /** A scan has already emptied the box, and by the time its answer comes back the next code may be in it. */
+  private emptyScanBox(): void {
+    this.searchQuery.set('');
+    const box = this.scanBox()?.nativeElement;
+    if (box) box.value = ''; // not waiting for the next render: a scanner can be faster than that
+    this.loadCatalog('');
+  }
+
+  addItem(item: PosCatalogItemDto, quantity = 1, clearBox = true): void {
     if (item.price === null) {
       this.message.warning(`${item.name} has no sales price.`);
       return;
@@ -924,10 +931,7 @@ export class PosTerminalPage implements OnDestroy {
     }
     this.setCart(lines);
     this.selectLine(at);
-    if (this.searchQuery()) {
-      this.searchQuery.set('');
-      this.loadCatalog('');
-    }
+    if (clearBox && this.searchQuery()) this.emptyScanBox();
     this.focusScan();
   }
 

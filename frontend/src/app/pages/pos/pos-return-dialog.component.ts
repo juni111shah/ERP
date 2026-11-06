@@ -71,7 +71,7 @@ interface ReturnRow {
 
               <div>
                 <label class="field" for="pos-return-reason">Why did it come back?</label>
-                <input id="pos-return-reason" nz-input [ngModel]="reason()" (ngModelChange)="reason.set($event)" maxlength="500" placeholder="e.g. Wrong size" data-testid="pos-return-reason" />
+                <input id="pos-return-reason" nz-input aria-label="Why did it come back?" [ngModel]="reason()" (ngModelChange)="reason.set($event)" maxlength="500" placeholder="e.g. Wrong size" data-testid="pos-return-reason" />
               </div>
 
               <div>
