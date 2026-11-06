@@ -61,6 +61,12 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
           <a nz-button nzType="primary" nzSize="small" routerLink="/platform/clients" [queryParams]="{ status: 'planRequest' }">See them</a>
         </div>
       }
+      @if (d && d.newLeads > 0) {
+        <div class="todo" data-testid="platform-todo-leads">
+          <span><strong>{{ d.newLeads }} new {{ d.newLeads === 1 ? 'lead is' : 'leads are' }} waiting</strong> for a reply.</span>
+          <a nz-button nzType="primary" nzSize="small" routerLink="/platform/leads">See them</a>
+        </div>
+      }
       @if (lastRun(); as r) {
         <nz-alert class="done" nzType="success" nzShowIcon nzCloseable nzMessage="Billing run finished" [nzDescription]="runResult" (nzOnClose)="lastRun.set(null)" data-testid="platform-run-result"></nz-alert>
         <ng-template #runResult>

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using ERP.Application.Assistant;
+using ERP.Application.Platform;
 using ERP.Domain.Platform;
 using ERP.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
@@ -41,6 +42,7 @@ public sealed record WaitUntilCancelled : ChatStreamEvent;
 public class EngineApiFactoryBase : ApiFactory
 {
     public ScriptedChatClient Chat { get; } = new();
+    public FakeAiConnectionTester Tester { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -49,7 +51,21 @@ public class EngineApiFactoryBase : ApiFactory
         {
             s.RemoveAll<IChatModelClient>();
             s.AddSingleton<IChatModelClient>(Chat);
+            s.RemoveAll<IAiConnectionTester>();
+            s.AddSingleton<IAiConnectionTester>(Tester);
         });
+    }
+
+    /// <summary>A service the way the founder brings one into use: added, tested, then turned on.</summary>
+    public static async Task AddLiveServiceAsync(HttpClient founder, string name, string baseUrl, bool brand = true, bool workspace = false)
+    {
+        const string Providers = "/api/v1/platform-admin/assistant/providers";
+        var added = await founder.PostAsJsonAsync(Providers, new { name, baseUrl, model = "m", apiKey = "test-key-abcdef-1234", useForBrand = false, useForWorkspace = false });
+        Assert.True(added.IsSuccessStatusCode, await added.Content.ReadAsStringAsync());
+        var id = (string)(await Json(added))["providers"]!.AsArray().Last(p => (string)p!["name"]! == name)!["id"]!;
+        (await founder.PostAsync($"{Providers}/{id}/test", null)).EnsureSuccessStatusCode();
+        var on = await founder.PutAsJsonAsync($"{Providers}/{id}", new { name, baseUrl, model = "m", apiKey = (string?)null, useForBrand = brand, useForWorkspace = workspace });
+        Assert.True(on.IsSuccessStatusCode, await on.Content.ReadAsStringAsync());
     }
 }
 
@@ -80,11 +96,8 @@ public class AssistantEngineTests(EngineApiFactory f) : IClassFixture<EngineApiF
         return founder;
     }
 
-    private static async Task AddServiceAsync(HttpClient founder, string name, string baseUrl, bool workspace = false)
-    {
-        var res = await founder.PostAsJsonAsync($"{Url}/providers", new { name, baseUrl, model = "m", apiKey = "test-key-abcdef-1234", useForBrand = !workspace, useForWorkspace = workspace });
-        Assert.True(res.IsSuccessStatusCode, await res.Content.ReadAsStringAsync());
-    }
+    private static Task AddServiceAsync(HttpClient founder, string name, string baseUrl, bool workspace = false)
+        => EngineApiFactoryBase.AddLiveServiceAsync(founder, name, baseUrl, !workspace, workspace);
 
     private static object Ask(string text = "Hello", string bot = "brand") => new { bot, messages = new[] { new { role = "user", text } } };
 
@@ -350,10 +363,10 @@ public class AssistantEngineTests(EngineApiFactory f) : IClassFixture<EngineApiF
     public async Task The_limits_can_be_changed_by_the_owner_within_sensible_bounds()
     {
         var founder = await ResetAsync();
-        var view = await ApiFactory.Json(await founder.PutAsJsonAsync($"{Url}/limits", new { brandDailyTokens = 2000, workspaceDailyTokens = 3000 }));
+        var view = await ApiFactory.Json(await founder.PutAsJsonAsync($"{Url}/limits", new { brandDailyTokens = 2000, workspaceDailyTokens = 3000, workspaceDailyMessagesPerClient = 200 }));
         Assert.Equal(2000, (int)view["brandDailyTokens"]!);
         Assert.Equal(3000, (int)view["workspaceDailyTokens"]!);
-        Assert.Equal(HttpStatusCode.BadRequest, (await founder.PutAsJsonAsync($"{Url}/limits", new { brandDailyTokens = 10, workspaceDailyTokens = 3000 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await founder.PutAsJsonAsync($"{Url}/limits", new { brandDailyTokens = 10, workspaceDailyTokens = 3000, workspaceDailyMessagesPerClient = 200 })).StatusCode);
     }
 
     private sealed class FakeTool(string name, Func<string> run) : IAssistantTool

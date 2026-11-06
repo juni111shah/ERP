@@ -17,7 +17,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
-import { AI_PROVIDER_PRESETS, coverageWarnings, moved, presetValues } from './ai-providers';
+import { AI_PROVIDER_PRESETS, coverageWarnings, failureWarnings, moved, presetValues, usageTotals } from './ai-providers';
 import { AssistantTryComponent } from './assistant-try.component';
 import { PLATFORM_STYLES } from './platform-ui';
 
@@ -26,9 +26,10 @@ const COMMON_FIELDS: FieldSpec[] = [
   { key: 'baseUrl', label: 'Address', type: 'text', required: true, maxLength: 300, hint: 'The part before /chat/completions. It must start with https://.' },
   { key: 'model', label: 'Model', type: 'text', required: true, maxLength: 150, hint: "Copy the exact name from the service's model list." },
 ];
+// Not on the add form: a new service stays out of use until a test has passed.
 const USE_FIELDS: FieldSpec[] = [
-  { key: 'useForBrand', label: 'Use for the public assistant', type: 'switch', default: true, hint: 'Visitor questions are sent to this service.' },
-  { key: 'useForWorkspace', label: 'Clear for client data', type: 'switch', default: false, hint: "The workspace assistant sends client data to this service. Read its data terms first, and leave this off for free plans that may keep or review what you send." },
+  { key: 'useForBrand', label: 'Use for the public assistant', type: 'switch', default: false, hint: 'Visitor questions are sent to this service. It can be turned on once a test has passed.' },
+  { key: 'useForWorkspace', label: 'Clear for client data', type: 'switch', default: false, hint: "The workspace assistant sends client data to this service. It can be turned on once a test has passed. Read its data terms first, and leave this off for free plans that may keep or review what you send." },
 ];
 const ADD_FIELDS: FieldSpec[] = [
   {
@@ -40,11 +41,10 @@ const ADD_FIELDS: FieldSpec[] = [
   { ...COMMON_FIELDS[1], default: presetValues('groq')!.baseUrl },
   { ...COMMON_FIELDS[2], default: presetValues('groq')!.model },
   { key: 'apiKey', label: 'API key', type: 'password', required: true, hint: 'It is stored encrypted and is never shown again.' },
-  ...USE_FIELDS,
 ];
 const EDIT_FIELDS: FieldSpec[] = [
   ...COMMON_FIELDS,
-  { key: 'apiKey', label: 'New API key', type: 'password', hint: 'Leave empty to keep the current key. If you change the address, you must paste the key again.' },
+  { key: 'apiKey', label: 'New API key', type: 'password', hint: 'Leave empty to keep the current key. If you change the address, you must paste the key again. A new key, address or model takes the service out of use until a test passes.' },
   ...USE_FIELDS,
 ];
 
@@ -66,6 +66,8 @@ const EDIT_FIELDS: FieldSpec[] = [
     .address { max-width: 280px; overflow-wrap: anywhere; display: block; }
     .test-note { display: block; margin-top: 4px; max-width: 240px; }
     .assistant-lower { margin-top: 16px; margin-bottom: 0; }
+    .history { margin-top: 16px; }
+    .history tfoot td { font-weight: 600; border-top: 1px solid var(--erp-color-border-subtle); }
     .limits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; align-items: end; }
     .limits label { display: block; font-size: 13px; color: var(--erp-color-text-muted); }
     .limits nz-input-number { display: block; width: 100%; margin-top: 4px; }
@@ -85,9 +87,11 @@ const EDIT_FIELDS: FieldSpec[] = [
         }
       </div>
 
-      <nz-alert class="notice" nzType="info" nzShowIcon data-testid="assistant-not-built" nzMessage="The assistants themselves are not built yet. These settings are saved now and take effect when they are."></nz-alert>
       @if (!v.canManage) {
         <nz-alert class="notice" nzType="warning" nzShowIcon data-testid="assistant-owner-only" nzMessage="Only the platform owner can change these settings."></nz-alert>
+      }
+      @for (f of failures(); track f) {
+        <nz-alert class="notice" nzType="error" nzShowIcon data-testid="assistant-failure" [nzMessage]="f"></nz-alert>
       }
       @for (w of warnings(); track w) {
         <nz-alert class="notice" nzType="warning" nzShowIcon data-testid="assistant-coverage" [nzMessage]="w"></nz-alert>
@@ -113,7 +117,7 @@ const EDIT_FIELDS: FieldSpec[] = [
           <p class="pf-muted pf-small" style="margin:-4px 0 12px">The assistant tries the top service first. If that one fails or reaches its limit, it moves to the next.</p>
           <div class="pf-scroll">
             <table class="pf-table">
-              <thead><tr><th>Order</th><th>Service</th><th>Key</th><th>Used for</th><th>Last test</th><th></th></tr></thead>
+              <thead><tr><th>Order</th><th>Service</th><th>Key</th><th>Used for</th><th>Last check</th><th></th></tr></thead>
               <tbody>
                 @for (p of v.providers; track p.id; let i = $index) {
                   <tr [attr.data-testid]="'assistant-provider-' + p.name">
@@ -131,7 +135,7 @@ const EDIT_FIELDS: FieldSpec[] = [
                     <td class="pf-small">
                       @if (p.useForBrand) { <div>Public assistant</div> }
                       @if (p.useForWorkspace) { <div>Client data</div> }
-                      @if (!p.useForBrand && !p.useForWorkspace) { <span class="pf-muted">Not in use</span> }
+                      @if (!p.useForBrand && !p.useForWorkspace) { <span class="pf-muted">{{ p.lastTestOk ? 'Not in use. Press Edit to turn it on.' : 'Not in use until a test passes.' }}</span> }
                     </td>
                     <td>
                       @if (p.lastTestOk === null) { <span class="pf-muted pf-small">Not tested</span> }
@@ -191,6 +195,9 @@ const EDIT_FIELDS: FieldSpec[] = [
               <label>Workspace assistant, tokens a day
                 <nz-input-number name="workspaceLimit" [ngModel]="workspaceLimit()" (ngModelChange)="workspaceLimit.set($event)" [nzMin]="1000" [nzMax]="100000000" [nzStep]="10000" [nzPrecision]="0" data-testid="assistant-limit-workspace"></nz-input-number>
               </label>
+              <label>Workspace assistant, messages a day per client
+                <nz-input-number name="perClientLimit" [ngModel]="perClientLimit()" (ngModelChange)="perClientLimit.set($event)" [nzMin]="1" [nzMax]="1000000" [nzStep]="50" [nzPrecision]="0" data-testid="assistant-limit-per-client"></nz-input-number>
+              </label>
               <button nz-button type="submit" [disabled]="busy()" data-testid="assistant-limits-save">Save limits</button>
             </form>
           }
@@ -204,6 +211,31 @@ const EDIT_FIELDS: FieldSpec[] = [
           </section>
         }
       </div>
+
+      <section class="pf-card history" data-testid="assistant-history">
+        <h2>Last 30 days</h2>
+        @if (v.usageLast30Days.length) {
+          <div class="pf-scroll">
+            <table class="pf-table">
+              <thead><tr><th>For</th><th>Service</th><th class="num">Requests</th><th class="num">Failures</th><th class="num">Tokens</th></tr></thead>
+              <tbody>
+                @for (u of v.usageLast30Days; track u.bot + u.providerId) {
+                  <tr [attr.data-testid]="'assistant-history-' + u.providerName">
+                    <td class="pf-nowrap">{{ u.bot === 'brand' ? 'Public' : 'Workspace' }}</td>
+                    <td>{{ u.providerName }}</td>
+                    <td class="num">{{ u.requests | number }}</td>
+                    <td class="num">{{ u.failures | number }}</td>
+                    <td class="num">{{ u.inputTokens + u.outputTokens | number }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot><tr data-testid="assistant-history-total"><td colspan="2">Total</td><td class="num">{{ historyTotals().requests | number }}</td><td class="num">{{ historyTotals().failures | number }}</td><td class="num">{{ historyTotals().tokens | number }}</td></tr></tfoot>
+            </table>
+          </div>
+        } @else {
+          <p class="pf-empty" data-testid="assistant-history-empty">Nothing has been used in the last 30 days.</p>
+        }
+      </section>
     }
     <erp-record-drawer [title]="editing() ? 'Edit ' + editing()!.name : 'Add AI service'" [open]="open()" [fields]="editing() ? editFields : addFields" [value]="editValue()" [saving]="saving()" [errors]="errors()"
       [submitLabel]="editing() ? 'Save' : 'Add service'" testId="assistant-form" (submitted)="save($event)" (closed)="open.set(false)" />`,
@@ -228,8 +260,11 @@ export class PlatformAssistantPage {
     return p ? { name: p.name, baseUrl: p.baseUrl, model: p.model, useForBrand: p.useForBrand, useForWorkspace: p.useForWorkspace } : null;
   });
   readonly warnings = computed(() => { const v = this.view(); return v ? coverageWarnings(v) : []; });
+  readonly failures = computed(() => { const v = this.view(); return v ? failureWarnings(v) : []; });
+  readonly historyTotals = computed(() => usageTotals(this.view()?.usageLast30Days ?? []));
   readonly brandLimit = signal<number | null>(null);
   readonly workspaceLimit = signal<number | null>(null);
+  readonly perClientLimit = signal<number | null>(null);
 
   constructor() { this.load(); }
 
@@ -247,6 +282,7 @@ export class PlatformAssistantPage {
     this.view.set(v);
     this.brandLimit.set(v.brandDailyTokens);
     this.workspaceLimit.set(v.workspaceDailyTokens);
+    this.perClientLimit.set(v.workspaceDailyMessagesPerClient);
   }
 
   /** Tokens one assistant has used today, across all its services. */
@@ -257,8 +293,9 @@ export class PlatformAssistantPage {
   saveLimits(): void {
     const brand = this.brandLimit();
     const workspace = this.workspaceLimit();
-    if (brand === null || workspace === null) return;
-    this.run(this.api.setAssistantLimits({ brandDailyTokens: brand, workspaceDailyTokens: workspace }), 'Could not save the limits', () => this.message.success('Limits saved'));
+    const perClient = this.perClientLimit();
+    if (brand === null || workspace === null || perClient === null) return;
+    this.run(this.api.setAssistantLimits({ brandDailyTokens: brand, workspaceDailyTokens: workspace, workspaceDailyMessagesPerClient: perClient }), 'Could not save the limits', () => this.message.success('Limits saved'));
   }
 
   /** The switch does not move by itself: it shows what the server has saved. */
@@ -302,7 +339,13 @@ export class PlatformAssistantPage {
     this.saving.set(true);
     this.errors.set(null);
     (editing ? this.api.updateAiProvider(editing.id, input) : this.api.createAiProvider(input)).subscribe({
-      next: (view) => { this.saving.set(false); this.open.set(false); this.view.set(view); this.message.success(editing ? 'Service saved' : 'Service added. Press Test to check that it works.'); },
+      next: (view) => {
+        this.saving.set(false);
+        this.open.set(false);
+        this.view.set(view);
+        const wentOff = editing && (input.useForBrand || input.useForWorkspace) && view.providers.some((p) => p.id === editing.id && !p.useForBrand && !p.useForWorkspace);
+        this.message.success(!editing ? 'Service added. Press Test, then Edit to choose where it is used.' : wentOff ? 'Service saved. Press Test, then turn its use back on.' : 'Service saved');
+      },
       error: (e) => {
         this.saving.set(false);
         const problem = asProblem(e);

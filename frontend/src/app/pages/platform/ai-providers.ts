@@ -1,4 +1,4 @@
-import { AssistantConsoleView } from '../../core/api/platform.api';
+import { AssistantConsoleView, AssistantUsageRow } from '../../core/api/platform.api';
 
 export interface AiProviderPreset { value: string; label: string; name: string; baseUrl: string; model: string; }
 
@@ -34,4 +34,15 @@ export function coverageWarnings(view: AssistantConsoleView): string[] {
   if (view.brandEnabled && !view.providers.some((p) => p.useForBrand)) warnings.push('The public assistant is on, but no service is set to answer for it.');
   if (view.workspaceEnabled && !view.providers.some((p) => p.useForWorkspace)) warnings.push('The workspace assistant is on, but no service is cleared for client data.');
   return warnings;
+}
+
+/** A service in use whose key was rejected or that keeps failing, with the reason. */
+export function failureWarnings(view: AssistantConsoleView): string[] {
+  return view.providers.filter((p) => p.lastTestOk === false && (p.useForBrand || p.useForWorkspace))
+    .map((p) => `${p.name} is failing: ${p.lastTestMessage ?? 'no reason was given.'} Fix it under Edit, then press Test.`);
+}
+
+/** The bottom line of a usage table. */
+export function usageTotals(rows: readonly AssistantUsageRow[]): { requests: number; failures: number; tokens: number } {
+  return rows.reduce((t, u) => ({ requests: t.requests + u.requests, failures: t.failures + u.failures, tokens: t.tokens + u.inputTokens + u.outputTokens }), { requests: 0, failures: 0, tokens: 0 });
 }

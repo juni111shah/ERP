@@ -97,6 +97,47 @@ public class BrandAssistantRulesTests
         => Assert.Equal(flagged, BrandAssistant.QuotesUnknownPrice(reply, Plans));
 
     [Theory]
+    [InlineData("The Business plan is $149 a month.", false)]
+    [InlineData("That is $1,490 a year.", false)]
+    [InlineData("A special price of $99.", true)]
+    [InlineData("Only €12.50 per month.", true)]
+    [InlineData("It comes to 30$ a month.", true)]
+    [InlineData("It costs 30 dollars a month.", true)]
+    public void Currency_symbols_and_words_count_as_amounts(string reply, bool flagged)
+        => Assert.Equal(flagged, BrandAssistant.QuotesUnknownPrice(reply, Plans));
+
+    [Theory]
+    [InlineData("سعر الخطة ١٤٩ دولار شهرياً.", false)]
+    [InlineData("USD ٤٩ شهرياً", false)]
+    [InlineData("USD ١٬٤٩٠ سنوياً", false)]
+    [InlineData("سعر خاص ٣٠ دولاراً.", true)]
+    [InlineData("USD ٣٠ شهرياً", true)]
+    [InlineData("٤٩٫٥٠ درهم شهرياً", true)]
+    [InlineData("السعر ٣٠ ريالاً", true)]
+    [InlineData("السعر 30 ر.س", true)]
+    [InlineData("حتى ٢٥ مستخدماً و٣ كيانات قانونية.", false)]
+    public void Arabic_digits_and_currency_words_are_read_as_amounts(string reply, bool flagged)
+        => Assert.Equal(flagged, BrandAssistant.QuotesUnknownPrice(reply, Plans));
+
+    private static readonly PlatformModuleView[] Catalog = [new("hr", "Human Resources", "People and payroll", "People", false, []), new("sales", "Sales", "Selling", "Sales", false, [])];
+
+    [Theory]
+    [InlineData("Human Resources", "hr")]
+    [InlineData("human resources", "hr")]
+    [InlineData(" HR ", "hr")]
+    [InlineData("SALES", "sales")]
+    [InlineData("Teleportation", "Teleportation")]
+    public void A_module_is_understood_by_its_name_or_its_key(string asked, string key)
+        => Assert.Equal(key, BrandAssistant.ModuleKeys(Catalog, [asked]).Single());
+
+    [Fact]
+    public void A_module_name_from_the_model_finds_the_plan_that_has_it()
+    {
+        Assert.Equal("Enterprise", BrandAssistant.Recommend(Plans, 1, 1, ["Human Resources"])!.Name); // what a name did before it was turned into a key
+        Assert.Equal("Business", BrandAssistant.Recommend(Plans, 1, 1, BrandAssistant.ModuleKeys(Catalog, ["Human Resources"]))!.Name);
+    }
+
+    [Theory]
     [InlineData("مرحبا، كيف حالك؟", true)]
     [InlineData("Hello there", false)]
     [InlineData("ما هو ERP؟", true)]

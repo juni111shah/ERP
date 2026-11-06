@@ -13,7 +13,7 @@ import { displayMoney } from '../core/format/display';
 import { asProblem, problemMessage } from '../core/http/problem-details';
 import { AssistantTextComponent } from './assistant-text.component';
 
-type Lang = 'en' | 'ar';
+export type Lang = 'en' | 'ar';
 interface Message { role: 'visitor' | 'assistant'; text: string; plans?: PublicPlan[]; canStart?: boolean; contact?: boolean; }
 
 const TOKEN_KEY = 'erp.brandAssistant.token';
@@ -27,9 +27,15 @@ const WORDS = {
     privacy: 'Privacy', hello: 'Hi! Ask me about plans, modules or getting started.', placeholder: 'Type your question', send: 'Send', stop: 'Stop', thinking: 'Thinking',
     failed: 'Sorry, something went wrong. Please try again.', busy: 'You have sent a lot of questions. Please try again a little later.',
     contact: 'Talk to our team', contactTitle: 'Talk to our team', name: 'Your name', email: 'Work email', phone: 'Phone (optional)', company: 'Company (optional)', need: 'How can we help? (optional)',
-    consent: 'I agree that you may contact me about this.', submit: 'Send my details', back: 'Back to the chat', sent: 'Thanks. Our team will contact you by email.',
+    consent: 'I agree that you may contact me about this.', submit: 'Send my details', back: 'Back to the chat', sent: 'Thanks. Our team will reply to you.', sentAlso: 'You can also write to',
     start: 'Start free trial', choose: 'Choose this plan', compare: 'Compare plans', perMonth: 'per month', users: (n: number) => `Up to ${n} users`, noLimit: 'No limit on users',
     suggestions: ['Which plan fits 12 users?', 'What does the free trial include?', 'Which modules can I use?'],
+    statuses: {} as Record<string, string>,
+    errors: {
+      'daily-limit': 'The assistant has reached its limit for today. Please try again tomorrow.', 'no-service': 'The assistant is not available right now.',
+      unavailable: 'The assistant is not available right now. Please try again in a moment.', interrupted: 'The reply was interrupted. Please try again.',
+    } as Record<string, string>,
+    leadFields: {} as Record<string, string>,
   },
   ar: {
     open: 'اسأل عن HigherSquare 360', title: 'مساعد HigherSquare', close: 'إغلاق المساعد', language: 'English', languageShort: 'EN',
@@ -37,11 +43,31 @@ const WORDS = {
     privacy: 'الخصوصية', hello: 'مرحباً! اسألني عن الخطط أو الوحدات أو كيفية البدء.', placeholder: 'اكتب سؤالك', send: 'إرسال', stop: 'إيقاف', thinking: 'جارٍ التفكير',
     failed: 'عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى.', busy: 'لقد أرسلت أسئلة كثيرة. يرجى المحاولة لاحقاً.',
     contact: 'تحدث مع فريقنا', contactTitle: 'تحدث مع فريقنا', name: 'اسمك', email: 'بريد العمل', phone: 'الهاتف (اختياري)', company: 'الشركة (اختياري)', need: 'كيف يمكننا مساعدتك؟ (اختياري)',
-    consent: 'أوافق على أن تتواصلوا معي بخصوص هذا الأمر.', submit: 'إرسال بياناتي', back: 'العودة إلى المحادثة', sent: 'شكراً لك. سيتواصل معك فريقنا عبر البريد الإلكتروني.',
+    consent: 'أوافق على أن تتواصلوا معي بخصوص هذا الأمر.', submit: 'إرسال بياناتي', back: 'العودة إلى المحادثة', sent: 'شكراً لك. سيرد عليك فريقنا.', sentAlso: 'يمكنك أيضاً مراسلتنا على',
     start: 'ابدأ التجربة المجانية', choose: 'اختر هذه الخطة', compare: 'قارن الخطط', perMonth: 'شهرياً', users: (n: number) => `حتى ${n} مستخدم`, noLimit: 'بلا حد للمستخدمين',
     suggestions: ['أي خطة تناسب 12 مستخدماً؟', 'ماذا تشمل الفترة التجريبية المجانية؟', 'ما الوحدات التي يمكنني استخدامها؟'],
+    statuses: { Thinking: 'جارٍ التفكير', 'Checking the plans': 'جارٍ مراجعة الخطط', 'Reading the policy': 'جارٍ قراءة السياسة' } as Record<string, string>,
+    errors: {
+      'daily-limit': 'وصل المساعد إلى حده اليومي. يرجى المحاولة مرة أخرى غداً.', 'no-service': 'المساعد غير متاح حالياً.',
+      unavailable: 'المساعد غير متاح حالياً. يرجى المحاولة بعد قليل.', interrupted: 'انقطع الرد. يرجى المحاولة مرة أخرى.',
+    } as Record<string, string>,
+    leadFields: { name: 'أدخل اسمك.', email: 'أدخل عنوان بريد إلكتروني صحيحاً.', consent: 'يرجى الموافقة حتى نتمكن من التواصل معك.' } as Record<string, string>,
   },
 };
+
+/** What the server says it is doing, in the visitor's language. Anything not translated yet shows as the server wrote it. */
+export function statusText(lang: Lang, text: string): string { return WORDS[lang].statuses[text] ?? text; }
+
+/** Why a reply stopped, by the server's code, with the server's own words for a code not known here. */
+export function assistantErrorText(lang: Lang, code: string, message: string): string { return WORDS[lang].errors[code] ?? (message || WORDS[lang].failed); }
+
+/** Why the contact form was refused. Validation keys look like "Input.Email", and the rate limit answers 429 with no field. */
+export function leadErrorText(lang: Lang, err: unknown): string {
+  const problem = asProblem(err);
+  if (problem?.status === 429) return WORDS[lang].busy;
+  const field = Object.keys(problem?.errors ?? {})[0]?.split('.').pop()?.toLowerCase();
+  return (field && WORDS[lang].leadFields[field]) || problemMessage(err, WORDS[lang].failed);
+}
 
 /** The assistant on the public pages. It shows nothing unless the founder has switched it on, and it knows only public facts. */
 @Component({
@@ -140,7 +166,7 @@ const WORDS = {
               }
               @if (thinking()) { <div class="status" data-testid="brand-assistant-status">{{ thinking() }}...</div> }
               @if (error(); as e) { <div class="error" role="alert" data-testid="brand-assistant-error">{{ e }}</div> }
-              @if (leadSent()) { <div class="bubble assistant" data-testid="brand-lead-sent">{{ w().sent }}</div> }
+              @if (leadSent()) { <div class="bubble assistant" data-testid="brand-lead-sent">{{ w().sent }}@if (status()?.supportEmail; as mail) { {{ w().sentAlso }} <a [href]="'mailto:' + mail" data-testid="brand-lead-support"><bdi>{{ mail }}</bdi></a> }</div> }
             </div>
             <div class="send">
               <textarea #box nz-input rows="2" maxlength="1000" dir="auto" [attr.aria-label]="w().placeholder" [placeholder]="w().placeholder" [ngModel]="draft()" (ngModelChange)="draft.set($event)" (keydown.enter)="enter($any($event))" data-testid="brand-assistant-input"></textarea>
@@ -233,11 +259,11 @@ export class BrandAssistantComponent {
       next: (e) => {
         switch (e.type) {
           case 'session': this.write(TOKEN_KEY, e.token); break;
-          case 'status': if (!this.lastIsReply()) this.thinking.set(e.text === 'Thinking' ? this.w().thinking : e.text); break;
+          case 'status': if (!this.lastIsReply()) this.thinking.set(statusText(this.lang(), e.text)); break;
           case 'plans': this.pushMessage({ role: 'assistant', text: '', plans: e.plans, canStart: e.mode !== 'closed' }); break;
           case 'delta': this.thinking.set(null); this.appendReply(e.text); break;
           case 'contact': this.pushMessage({ role: 'assistant', text: '', contact: true }); break;
-          case 'error': this.error.set(this.w().failed); this.pushMessage({ role: 'assistant', text: '', contact: true }); break;
+          case 'error': this.error.set(assistantErrorText(this.lang(), e.code, e.message)); this.pushMessage({ role: 'assistant', text: '', contact: true }); break;
         }
       },
       error: (e) => { this.finish(); this.error.set(asProblem(e)?.status === 429 ? this.w().busy : streamErrorMessage(e, this.w().failed)); },
@@ -259,7 +285,7 @@ export class BrandAssistantComponent {
       token: this.read(TOKEN_KEY), name: l.name, email: l.email, phone: l.phone || null, company: l.company || null, need: l.need || null, consent: l.consent, website: this.trap() || null,
     }).subscribe({
       next: () => { this.leadSaving.set(false); this.leadSent.set(true); this.view.set('chat'); },
-      error: (e) => { this.leadSaving.set(false); this.leadError.set(problemMessage(e, this.w().failed)); },
+      error: (e) => { this.leadSaving.set(false); this.leadError.set(leadErrorText(this.lang(), e)); },
     });
   }
 

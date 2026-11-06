@@ -12,6 +12,7 @@ using ERP.Modules.Assistant.Domain;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace ERP.Modules.Assistant.Features;
 
@@ -227,7 +228,7 @@ internal sealed class WorkspaceAssistantHandlers(
 }
 
 internal sealed class AskWorkspaceAssistantHandler(
-    AssistantRunner runner, AssistantCatalog catalog, ISender sender, IRepository<AssistantConversation> conversations, IRepository<AssistantChatMessage> messages, IRepository<AssistantPendingAction> pending, IRepository<AssistantMessageCount> counts,
+    AssistantRunner runner, IReadRepository<PlatformSetting> platformSettings, IMemoryCache replying, AssistantCatalog catalog, ISender sender, IRepository<AssistantConversation> conversations, IRepository<AssistantChatMessage> messages, IRepository<AssistantPendingAction> pending, IRepository<AssistantMessageCount> counts,
     IReadRepository<Organization> organizations, IReadRepository<LegalEntity> legalEntities, ISettingsService settingsService, ISubscriptionLimits limits, ISubscriptionAccess subscriptions, ICurrentUser user, IClock clock, IValidator<AskWorkspaceAssistant> validator) : IStreamRequestHandler<AskWorkspaceAssistant, AssistantEvent>
 {
     public async IAsyncEnumerable<AssistantEvent> Handle(AskWorkspaceAssistant request, [EnumeratorCancellation] CancellationToken ct)
@@ -247,6 +248,12 @@ internal sealed class AskWorkspaceAssistantHandler(
         if (await counts.Query().Where(c => c.UserId == me && c.Day == today).SumAsync(c => c.Count, ct) >= dailyLimit)
         {
             yield return new AssistantError("user-limit", "You have used today's messages for the assistant. Please try again tomorrow.");
+            yield break;
+        }
+        var clientLimit = await platformSettings.Query().OrderBy(s => s.CreatedAt).Select(s => s.WorkspaceAssistantDailyMessagesPerClient).FirstOrDefaultAsync(ct);
+        if (clientLimit > 0 && await counts.Query().Where(c => c.Day == today).SumAsync(c => c.Count, ct) >= clientLimit)
+        {
+            yield return new AssistantError("client-limit", "Your workspace has used today's assistant messages. Please try again tomorrow.");
             yield break;
         }
         if (await limits.AssistantMonthlyMessagesAsync(ct) is { } allowance)

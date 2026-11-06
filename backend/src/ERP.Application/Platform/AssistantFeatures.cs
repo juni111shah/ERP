@@ -16,13 +16,13 @@ public sealed record AiProviderView(
 
 public sealed record AssistantConsoleView(
     bool BrandEnabled, bool WorkspaceEnabled, bool CanManage, IReadOnlyList<AiProviderView> Providers,
-    int BrandDailyTokens, int WorkspaceDailyTokens, IReadOnlyList<AssistantUsageRow> UsageToday);
+    int BrandDailyTokens, int WorkspaceDailyTokens, int WorkspaceDailyMessagesPerClient, IReadOnlyList<AssistantUsageRow> UsageToday, IReadOnlyList<AssistantUsageRow> UsageLast30Days);
 
 /// <summary>ApiKey is write-only. Leave it empty when editing to keep the stored key.</summary>
 public sealed record AiProviderInput(string Name, string BaseUrl, string Model, string? ApiKey, bool UseForBrand, bool UseForWorkspace);
 public sealed record AssistantVisibilityInput(bool BrandEnabled, bool WorkspaceEnabled);
 public sealed record AiProviderOrderInput(IReadOnlyList<Guid> Ids);
-public sealed record AssistantLimitsInput(int BrandDailyTokens, int WorkspaceDailyTokens);
+public sealed record AssistantLimitsInput(int BrandDailyTokens, int WorkspaceDailyTokens, int WorkspaceDailyMessagesPerClient);
 
 public sealed record GetAssistantConsole : IQuery<AssistantConsoleView>;
 public sealed record SetAssistantVisibility(AssistantVisibilityInput Input) : ICommand<AssistantConsoleView>;
@@ -104,6 +104,7 @@ public sealed class SetAssistantLimitsValidator : AbstractValidator<SetAssistant
     {
         RuleFor(x => x.Input.BrandDailyTokens).InclusiveBetween(Min, Max).WithMessage("Enter a number from 1,000 to 100,000,000.");
         RuleFor(x => x.Input.WorkspaceDailyTokens).InclusiveBetween(Min, Max).WithMessage("Enter a number from 1,000 to 100,000,000.");
+        RuleFor(x => x.Input.WorkspaceDailyMessagesPerClient).InclusiveBetween(1, 1_000_000).WithMessage("Enter a number from 1 to 1,000,000.");
     }
 }
 
@@ -145,9 +146,10 @@ internal sealed class AssistantConsoleHandlers(
     {
         var settings = await settingsStore.GetAsync(ct);
         var rows = await providers.Query().OrderBy(p => p.SortOrder).ThenBy(p => p.CreatedAt).ToListAsync(ct);
+        var today = DateOnly.FromDateTime(clock.UtcNow);
         return new(settings.BrandAssistantEnabled, settings.WorkspaceAssistantEnabled, await IsOwnerAsync(ct), rows.Select(p => new AiProviderView(
             p.Id, p.Name, p.BaseUrl, p.Model, p.ApiKeyHint, protector.TryUnprotect(p.EncryptedApiKey) is null, p.UseForBrand, p.UseForWorkspace, p.LastTestedAt, p.LastTestOk, p.LastTestMessage)).ToList(),
-            settings.BrandAssistantDailyTokens, settings.WorkspaceAssistantDailyTokens, await usage.ListAsync(DateOnly.FromDateTime(clock.UtcNow), ct));
+            settings.BrandAssistantDailyTokens, settings.WorkspaceAssistantDailyTokens, settings.WorkspaceAssistantDailyMessagesPerClient, await usage.ListAsync(today, ct), await usage.TotalsSinceAsync(today.AddDays(-29), ct));
     }
 
     public async Task<AssistantConsoleView> Handle(SetAssistantLimits cmd, CancellationToken ct)
@@ -156,7 +158,8 @@ internal sealed class AssistantConsoleHandlers(
         var s = await settingsStore.GetTrackedAsync(ct);
         s.BrandAssistantDailyTokens = cmd.Input.BrandDailyTokens;
         s.WorkspaceAssistantDailyTokens = cmd.Input.WorkspaceDailyTokens;
-        log.Add("AI assistant limits changed", null, null, $"Public {cmd.Input.BrandDailyTokens:N0} and workspace {cmd.Input.WorkspaceDailyTokens:N0} tokens a day.");
+        s.WorkspaceAssistantDailyMessagesPerClient = cmd.Input.WorkspaceDailyMessagesPerClient;
+        log.Add("AI assistant limits changed", null, null, $"Public {cmd.Input.BrandDailyTokens:N0} and workspace {cmd.Input.WorkspaceDailyTokens:N0} tokens a day, {cmd.Input.WorkspaceDailyMessagesPerClient:N0} workspace messages a day per client.");
         await providers.SaveChangesAsync(ct);
         return await ViewAsync(ct);
     }
@@ -185,6 +188,9 @@ internal sealed class AssistantConsoleHandlers(
         var last = await providers.Query().OrderByDescending(p => p.SortOrder).Select(p => (int?)p.SortOrder).FirstOrDefaultAsync(ct);
         var provider = new AiProvider { SortOrder = (last ?? 0) + 10 };
         Apply(provider, cmd.Input);
+        // Nothing answers through a new service until a test has passed and the founder has turned it on.
+        provider.UseForBrand = false;
+        provider.UseForWorkspace = false;
         SetKey(provider, cmd.Input.ApiKey!);
         providers.Add(provider);
         log.Add("AI service added", null, null, $"{provider.Name}, model {provider.Model}.");
@@ -201,9 +207,15 @@ internal sealed class AssistantConsoleHandlers(
         // Otherwise someone could point a stored key at a different address.
         if (addressChanged && !newKey) throw new FieldValidationException("apiKey", "The address changed, so paste the key again.");
         var connectionChanged = addressChanged || newKey || provider.Model != cmd.Input.Model.Trim();
+        if (!connectionChanged && provider.LastTestOk != true)
+        {
+            if (cmd.Input.UseForBrand && !provider.UseForBrand) throw new FieldValidationException("useForBrand", "Press Test first. This can be turned on once a test has passed.");
+            if (cmd.Input.UseForWorkspace && !provider.UseForWorkspace) throw new FieldValidationException("useForWorkspace", "Press Test first. This can be turned on once a test has passed.");
+        }
         Apply(provider, cmd.Input);
         if (newKey) SetKey(provider, cmd.Input.ApiKey!);
-        if (connectionChanged) { provider.LastTestedAt = null; provider.LastTestOk = null; provider.LastTestMessage = null; }
+        // A different connection is an untested one, and the clearance for client data was given to the old one.
+        if (connectionChanged) { provider.LastTestedAt = null; provider.LastTestOk = null; provider.LastTestMessage = null; provider.ConsecutiveFailures = 0; provider.UseForBrand = false; provider.UseForWorkspace = false; }
         log.Add(newKey ? "AI service key replaced" : "AI service changed", null, null, $"{provider.Name}, model {provider.Model}.");
         await providers.SaveChangesAsync(ct);
         return await ViewAsync(ct);
@@ -241,6 +253,7 @@ internal sealed class AssistantConsoleHandlers(
         provider.LastTestedAt = clock.UtcNow;
         provider.LastTestOk = result.Ok;
         provider.LastTestMessage = result.Message;
+        if (result.Ok) provider.ConsecutiveFailures = 0;
         await providers.SaveChangesAsync(ct);
         return await ViewAsync(ct);
     }

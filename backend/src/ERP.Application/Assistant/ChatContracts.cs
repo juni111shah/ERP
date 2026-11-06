@@ -66,4 +66,10 @@ public interface IAssistantUsageStore
     Task<long> TokensOnAsync(DateOnly day, AssistantBot bot, CancellationToken ct = default);
     Task RecordAsync(DateOnly day, AssistantBot bot, Guid providerId, string providerName, int inputTokens, int outputTokens, string? failure, CancellationToken ct = default);
     Task<IReadOnlyList<AssistantUsageRow>> ListAsync(DateOnly day, CancellationToken ct = default);
+    /// <summary>One row per assistant and service, added up from this day onwards.</summary>
+    Task<IReadOnlyList<AssistantUsageRow>> TotalsSinceAsync(DateOnly from, CancellationToken ct = default);
+    /// <summary>A real reply failed. The stored status becomes failed at once, or after enough failures in a row.</summary>
+    Task ServiceFailedAsync(Guid providerId, string failure, bool atOnce, DateTime at, CancellationToken ct = default);
+    /// <summary>A real reply worked, which clears any earlier failure.</summary>
+    Task ServiceWorkedAsync(Guid providerId, DateTime at, CancellationToken ct = default);
 }

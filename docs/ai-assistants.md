@@ -40,7 +40,7 @@ Confirmed changes available today: `create_party`, `create_draft_quote` (Sales m
 
 Public: 30 questions an hour per address (`RateLimiting:AssistantPerHour`), 20 questions per chat, 1,000 characters per question, a hidden honeypot field, and the daily token limit as the backstop.
 
-Workspace: 30 messages per person per day (`assistant.dailyMessagesPerUser`, 1 to 1000), a monthly allowance for the whole workspace set on each plan (`AssistantMonthlyMessages`: empty means no limit, 0 leaves the assistant out of the plan), and its own daily token limit. A workspace with no plan has no monthly limit. Messages are counted in `ast_MessageCounts`, apart from the chats, so deleting a chat cannot reset a limit. People with `assistant.usage.read` see the month's count in the panel. It is only a count: nobody can read another person's chats.
+Workspace: 30 messages per person per day (`assistant.dailyMessagesPerUser`, 1 to 1000), a daily limit per client (`PlatformSetting.WorkspaceAssistantDailyMessagesPerClient`, set in the console) so one client cannot use up the shared service, one reply at a time per person, a monthly allowance for the whole workspace set on each plan (`AssistantMonthlyMessages`: empty means no limit, 0 leaves the assistant out of the plan), and its own daily token limit. A workspace with no plan has no monthly limit. Messages are counted in `ast_MessageCounts`, apart from the chats, so deleting a chat cannot reset a limit. People with `assistant.usage.read` see the month's count in the panel. It is only a count: nobody can read another person's chats.
 
 ## Help articles
 

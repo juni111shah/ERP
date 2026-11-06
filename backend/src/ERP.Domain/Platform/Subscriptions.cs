@@ -195,6 +195,8 @@ public class PlatformSetting : Entity, IAuditable
     public int BrandAssistantDailyTokens { get; set; } = 150_000;
     /// <summary>Tokens the workspace assistant may use per day (UTC).</summary>
     public int WorkspaceAssistantDailyTokens { get; set; } = 50_000;
+    /// <summary>Messages one client's whole workspace may send the workspace assistant per day (UTC), so one client cannot use up the shared tokens.</summary>
+    public int WorkspaceAssistantDailyMessagesPerClient { get; set; } = 200;
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
