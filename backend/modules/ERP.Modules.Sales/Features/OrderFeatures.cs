@@ -235,9 +235,10 @@ internal sealed class OrderHandlers(
 
         PopulateLinesAndTotals(order, i.Lines);
         await fields.ApplyAsync(Docs.SalesOrder, order, i.CustomFields, isCreate: false, ct);
+        var warning = order.Status == SalesOrderStatus.Confirmed ? await CheckCreditAsync(order, orders, creditLimits, ct) : null; // a confirmed order can grow past the limit
 
         await orders.SaveChangesAsync(ct);
-        return await ToDtoAsync(order, fields, ct);
+        return await ToDtoAsync(order, fields, ct) with { Warnings = warning is null ? null : [warning] };
     }
 
     public async Task<Unit> Handle(DeleteOrder cmd, CancellationToken ct)

@@ -16,7 +16,7 @@ public sealed record PartyDto(
 
 public sealed record PartyInput(
     string Name, PartyKind Kind, PartyRoles Roles, string? Email, string? Phone, string? TaxNumber, string? IdNumber,
-    string? Iban, string? CurrencyCode, int? PaymentTermsDays, string? Address, bool IsActive = true, JsonObject? CustomFields = null, Guid? PartyGroupId = null, decimal? CreditLimit = null);
+    string? Iban, string? CurrencyCode, int? PaymentTermsDays, string? Address, bool IsActive = true, JsonObject? CustomFields = null, Guid? PartyGroupId = null, decimal? CreditLimit = null, bool ClearCreditLimit = false);
 
 public static class Masking
 {
@@ -142,7 +142,9 @@ internal sealed class PartyHandlers(IRepository<Party> parties, IReadRepository<
     {
         p.Name = i.Name.Trim(); p.Kind = i.Kind; p.Roles = i.Roles; p.Email = i.Email; p.Phone = i.Phone; p.TaxNumber = i.TaxNumber;
         p.IdNumber = i.IdNumber; p.Iban = i.Iban; p.CurrencyCode = string.IsNullOrWhiteSpace(i.CurrencyCode) ? null : i.CurrencyCode.Trim().ToUpperInvariant(); p.PaymentTermsDays = i.PaymentTermsDays;
-        p.Address = i.Address; p.IsActive = i.IsActive; p.PartyGroupId = i.PartyGroupId; p.CreditLimit = i.CreditLimit;
+        p.Address = i.Address; p.IsActive = i.IsActive; p.PartyGroupId = i.PartyGroupId;
+        // Left out means unchanged, so a client that does not know the field cannot drop a limit by saving the party.
+        p.CreditLimit = i.ClearCreditLimit ? null : i.CreditLimit ?? p.CreditLimit;
     }
 
     private async Task EnsureGroupAsync(Guid? groupId, CancellationToken ct)

@@ -29,6 +29,12 @@ public class CreditLimitTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, (await k.C.PostAsJsonAsync("/api/v1/parties", new { name = "Bad", kind = "Company", roles = "Customer", creditLimit = -1m })).StatusCode);
         var updated = await Ok(await k.C.PutAsJsonAsync($"/api/v1/parties/{id}", new { name = "Renamed", kind = "Company", roles = "Customer", creditLimit = 2500m }));
         Assert.Equal(2500m, (decimal)updated["creditLimit"]!);
+
+        // a client that does not send the field keeps the limit; removing it is explicit
+        var kept = await Ok(await k.C.PutAsJsonAsync($"/api/v1/parties/{id}", new { name = "Renamed", kind = "Company", roles = "Customer" }));
+        Assert.Equal(2500m, (decimal)kept["creditLimit"]!);
+        var cleared = await Ok(await k.C.PutAsJsonAsync($"/api/v1/parties/{id}", new { name = "Renamed", kind = "Company", roles = "Customer", clearCreditLimit = true }));
+        Assert.Null(cleared["creditLimit"]);
     }
 
     [Fact]
