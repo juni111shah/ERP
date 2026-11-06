@@ -49,7 +49,7 @@ const _numKeys = <String>{
 
 /// Keys the app reads as a list of rows.
 const _listKeys = <String>{
-  'accounts', 'allocations', 'competencies', 'componentBreakdown', 'components', 'drawerTransactions', 'funding', 'instalments',
+  'registers', 'accounts', 'allocations', 'competencies', 'componentBreakdown', 'components', 'drawerTransactions', 'funding', 'instalments',
   'inventoryItems', 'items', 'lines', 'operations', 'payments', 'rows', 'schedule', 'stops', 'assets', 'liabilities', 'equity',
   'income', 'expenses',
 };
@@ -59,7 +59,7 @@ const _boolKeys = <String>{
   'isRecoverable', 'isResolved', 'isSystem', 'pastEnd', 'recorded', 'requiresApproval',
 };
 
-const _mapKeys = <String>{'property', 'totals', 'customFields'};
+const _mapKeys = <String>{'property', 'totals', 'customFields', 'session', 'settings'};
 
 bool _isDateKey(String k) =>
     k.endsWith('Date') || k.endsWith('On') || k.endsWith('At') || k == 'date' || k == 'from' || k == 'to' || k == 'expiry' ||

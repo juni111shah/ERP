@@ -85,6 +85,7 @@ const Map<String, _Meta> _screenMeta = {
   'pos.terminal': (section: 'POS', subtitle: 'Ring up a sale at the counter', keywords: ['point of sale', 'checkout', 'till', 'sell']),
   'pos.sessions': (section: 'POS', subtitle: 'Open and close cash drawer shifts', keywords: ['shift', 'drawer', 'session', 'cash up']),
   'pos.orders': (section: 'POS', subtitle: 'Sales made at the counter', keywords: ['pos orders', 'counter', 'receipts']),
+  'pos.returns': (section: 'POS', subtitle: 'Goods customers brought back, and their refunds', keywords: ['refund', 'pos returns', 'credit note']),
   'pos.registers': (section: 'POS', subtitle: 'Tills and devices used for counter sales', keywords: ['till', 'register', 'device']),
   'pos.analytics': (section: 'POS', subtitle: 'Counter sales trends and best sellers', keywords: ['pos report', 'sales analytics']),
   'inventory.stock': (section: 'Inventory', subtitle: 'How much of each item you have, by warehouse', keywords: ['stock', 'on hand', 'quantity', 'soh']),

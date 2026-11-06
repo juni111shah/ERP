@@ -294,6 +294,7 @@ FormSpec itemForm(Json? existing) => FormSpec(
       initial: {
         if (existing != null) ...{
           'sku': existing['sku'],
+          'barcode': existing['barcode'], // the update replaces the barcode: left out, editing an item here would wipe it
           'name': existing['name'],
           'type': existing['type'],
           'uom': existing['uom'],
@@ -306,6 +307,7 @@ FormSpec itemForm(Json? existing) => FormSpec(
       },
       fields: [
         Field.text('sku', 'SKU', required: true, maxLength: 50),
+        Field.text('barcode', 'Barcode', maxLength: 64),
         Field.text('name', 'Name', required: true, maxLength: 200),
         Field.select('type', 'Type', options: const [Option('product', 'Product'), Option('service', 'Service')], required: true, initial: 'product'),
         Field.text('uom', 'Unit of measure', required: true, maxLength: 20, initial: 'ea'),
@@ -359,6 +361,7 @@ class ItemDetailScreen extends StatelessWidget {
           body: (context, d) => DetailBody(children: [
             DetailHeader(title: d['name']?.toString() ?? '', subtitle: '${d['sku']} · ${humanize(d['type']?.toString())}', status: d['isActive'] == false ? 'inactive' : null),
             InfoCard(rows: [
+              InfoRow('Barcode', text(d['barcode'])),
               InfoRow('Unit', text(d['uom'])),
               InfoRow('Sales price', d['salesPrice'] == null ? null : formatMoney((d['salesPrice'] as num))),
               InfoRow('Purchase price', d['purchasePrice'] == null ? null : formatMoney((d['purchasePrice'] as num))),

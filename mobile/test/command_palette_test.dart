@@ -190,7 +190,7 @@ void main() {
 
     test('every More screen except tab duplicates is listed with a real subtitle', () {
       final screens = entries.where((e) => e.data is ScreenTarget).toList();
-      expect(screens.length, 91); // 95 screens minus the 4 that are tabs
+      expect(screens.length, 92); // 96 screens minus the 4 that are tabs
       expect(screens.where((e) => e.subtitle == 'Open ${e.label}'), isEmpty); // every screen has hand-written metadata
       expect(entries.map((e) => e.id).toSet().length, entries.length);
     });
