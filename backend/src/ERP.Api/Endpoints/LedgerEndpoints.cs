@@ -51,5 +51,6 @@ public static class LedgerEndpoints
         reports.MapGet("/cash-forecast", (int? weeks, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetCashForecast(weeks ?? 13, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapGet("/tax-return", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetTaxReturn(from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapGet("/balance-sheet", (DateOnly asOf, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetBalanceSheet(asOf, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
+        reports.MapGet("/cash-flow", (DateOnly from, DateOnly to, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetCashFlowStatement(from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
     }
 }
