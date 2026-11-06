@@ -12,7 +12,7 @@ namespace ERP.Modules.RealEstate.Features;
 
 public sealed record RentRollRow(
     Guid PropertyId, string Property, Guid UnitId, string Unit, string? UnitType, decimal AreaSqft, Guid LeaseId, string? LeaseNumber, string Tenant, DateOnly Start, DateOnly Expiry, int DaysLeft,
-    decimal AnnualRent, decimal RentPerSqft, string VatStatus, decimal PdcsHeld, decimal Outstanding);
+    decimal AnnualRent, decimal RentPerSqft, string VatStatus, decimal PdcsHeld, decimal Outstanding, Guid? TenantPartyId = null);
 public sealed record RentRollDto(DateOnly AsOf, IReadOnlyList<RentRollRow> Rows, decimal TotalAnnualRent, decimal TotalOutstanding);
 
 public sealed record OccupancyRow(Guid PropertyId, string Property, Guid LegalEntityId, int TotalUnits, int Registered, int Occupied, int Vacant, int Other, decimal OccupancyPercent, decimal ContractedRent, decimal VacantAskingRent);
@@ -32,7 +32,7 @@ public sealed record CommissionsDto(DateOnly From, DateOnly To, IReadOnlyList<Co
 
 public sealed record GetRentRoll(DateOnly AsOf, Guid[]? PropertyIds, Guid? LegalEntityId) : IQuery<RentRollDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 public sealed record GetOccupancyReport(Guid? LegalEntityId) : IQuery<OccupancyDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
-/// <summary>Income (rent invoiced, net of credit notes) less property operating expenses (work order actual costs), with yield annualised against the indicative value.</summary>
+/// <summary>Income (rent invoiced, net of credit notes) less property operating expenses (work order actual costs), with yield annualised against the indicative value. Billed and collected are both before tax.</summary>
 public sealed record GetPortfolioPerformance(DateOnly From, DateOnly To, Guid? LegalEntityId) : IQuery<PerformanceDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 public sealed record GetLeaseExpiries(int Months, Guid? LegalEntityId) : IQuery<LeaseExpiriesDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 public sealed record GetMaintenanceCosts(DateOnly From, DateOnly To, Guid? LegalEntityId) : IQuery<MaintenanceCostsDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
@@ -62,16 +62,35 @@ internal sealed class ReportHandlers(
         var tenants = await parties.Query(new Specification<Party>(p => partyIds.Contains(p.Id))).Select(p => new { p.Id, p.Name }).ToDictionaryAsync(p => p.Id, p => p.Name, ct);
         var pdcs = (await instruments.Query(new Specification<PaymentInstrument>(i => i.Direction == InstrumentDirection.Received && i.Status == InstrumentStatus.InCustody && i.PartyId != null && partyIds.Contains(i.PartyId.Value)))
             .Select(i => new { i.PartyId, i.Amount }).ToListAsync(ct)).GroupBy(i => i.PartyId!.Value).ToDictionary(g => g.Key, g => g.Sum(i => i.Amount));
-        var owed = (await invoices.Query(new Specification<Invoice>(i => (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid) && partyIds.Contains(i.PartyId)))
-            .Select(i => new { i.PartyId, i.IsCreditNote, i.Total, i.Paid }).ToListAsync(ct)).GroupBy(i => i.PartyId).ToDictionary(g => g.Key, g => g.Sum(i => (i.IsCreditNote ? -1 : 1) * (i.Total - i.Paid)));
+        var open = await invoices.Query(new Specification<Invoice>(i => (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid) && partyIds.Contains(i.PartyId)))
+            .Select(i => new { i.PartyId, i.IsCreditNote, i.Total, i.Paid, i.SourceType, i.SourceId }).ToListAsync(ct);
+        // what is owed on each lease; anything else the tenant owes (other invoices, a lease that ended) is shown once, on the tenant's first row
+        var billedInstalments = open.Where(i => i.SourceId != null && i.SourceType is BillingHandlers.SourceType or "realestate.termination").Select(i => i.SourceId!.Value).Distinct().ToList();
+        var instalmentLease = await instalments.Query(new Specification<RentInstalment>(i => billedInstalments.Contains(i.Id))).Select(i => new { i.Id, i.LeaseId }).ToDictionaryAsync(i => i.Id, i => i.LeaseId, ct);
+        var otherLeaseIds = instalmentLease.Values.Distinct().ToList();
+        var otherLeases = await leases.Query(new Specification<Lease>(l => otherLeaseIds.Contains(l.Id))).Select(l => new { l.Id, l.PropertyId, l.LegalEntityId }).ToDictionaryAsync(l => l.Id, ct);
+        var listed = active.Select(l => l.Id).ToHashSet();
+        var owedOnLease = new Dictionary<Guid, decimal>(); var owedOther = new Dictionary<Guid, decimal>();
+        foreach (var i in open)
+        {
+            var amount = (i.IsCreditNote ? -1 : 1) * (i.Total - i.Paid);
+            Guid? leaseId = i.SourceId is { } source && instalmentLease.TryGetValue(source, out var found) ? found : null;
+            if (leaseId is { } lid && listed.Contains(lid)) { owedOnLease[lid] = owedOnLease.GetValueOrDefault(lid) + amount; continue; }
+            // rent of a lease the report was told to leave out stays out
+            if (leaseId is { } hidden && otherLeases.TryGetValue(hidden, out var o) && ((propertyIds.Length > 0 && !propertyIds.Contains(o.PropertyId)) || (entity != null && o.LegalEntityId != entity))) continue;
+            owedOther[i.PartyId] = owedOther.GetValueOrDefault(i.PartyId) + amount;
+        }
 
         var rows = active.Select(l =>
         {
             var u = unitMap[l.UnitId];
             var vat = l.TaxCodeId is not null ? "override" : u.Usage == UnitUsage.Commercial ? "standard" : "exempt";
             return new RentRollRow(l.PropertyId, propNames.GetValueOrDefault(l.PropertyId, "?"), l.UnitId, u.UnitNumber, typeNames.GetValueOrDefault(u.UnitTypeId), u.AreaSqft, l.Id, l.Number, tenants.GetValueOrDefault(l.LesseePartyId, "?"),
-                l.StartDate, l.EndDate, l.EndDate.DayNumber - q.AsOf.DayNumber, l.AnnualRent, u.AreaSqft > 0 ? Math.Round(l.AnnualRent / u.AreaSqft, 2) : 0, vat, pdcs.GetValueOrDefault(l.LesseePartyId), owed.GetValueOrDefault(l.LesseePartyId));
+                l.StartDate, l.EndDate, l.EndDate.DayNumber - q.AsOf.DayNumber, l.AnnualRent, u.AreaSqft > 0 ? Math.Round(l.AnnualRent / u.AreaSqft, 2) : 0, vat, 0m, owedOnLease.GetValueOrDefault(l.Id), l.LesseePartyId);
         }).OrderBy(r => r.Property).ThenBy(r => r.Unit).ToList();
+        // cheques and other balances belong to the tenant, not to a lease: one row carries them so a tenant with two leases is not counted twice
+        var seen = new HashSet<Guid>();
+        rows = rows.Select(r => seen.Add(r.TenantPartyId!.Value) ? r with { PdcsHeld = pdcs.GetValueOrDefault(r.TenantPartyId!.Value), Outstanding = r.Outstanding + owedOther.GetValueOrDefault(r.TenantPartyId!.Value) } : r).ToList();
         return new RentRollDto(q.AsOf, rows, rows.Sum(r => r.AnnualRent), rows.Sum(r => r.Outstanding));
     }
 
@@ -101,7 +120,7 @@ internal sealed class ReportHandlers(
 
         // rent invoices -> instalment -> lease -> property
         var rentInvoices = await invoices.Query(new Specification<Invoice>(i => i.SourceType == BillingHandlers.SourceType && i.InvoiceDate >= q.From && i.InvoiceDate <= q.To && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.Voided && (entity == null || i.LegalEntityId == entity)))
-            .Select(i => new { i.Id, i.SourceId, i.IsCreditNote, i.Net }).ToListAsync(ct);
+            .Select(i => new { i.Id, i.SourceId, i.IsCreditNote, i.Net, i.Total }).ToListAsync(ct);
         var instalmentIds = rentInvoices.Where(i => i.SourceId != null).Select(i => i.SourceId!.Value).ToList();
         var instalmentLease = await instalments.Query(new Specification<RentInstalment>(i => instalmentIds.Contains(i.Id))).Select(i => new { i.Id, i.LeaseId }).ToDictionaryAsync(i => i.Id, i => i.LeaseId, ct);
         var leaseIds = instalmentLease.Values.Distinct().ToList();
@@ -113,6 +132,9 @@ internal sealed class ReportHandlers(
         var collected = (await settlements.Query(new Specification<Settlement>(s => s.Direction == InstrumentDirection.Received && s.Status == DocumentStatus.Issued && s.Date >= q.From && s.Date <= q.To))
             .SelectMany(s => s.Allocations, (s, a) => new { a.InvoiceId, a.Amount }).ToListAsync(ct))
             .Where(a => a.InvoiceId != null && invoiceProperty.ContainsKey(a.InvoiceId.Value)).ToList();
+        // billed figures are before tax, so what is collected against them is too; receipts also carry the tax
+        var invoiceMoney = rentInvoices.ToDictionary(i => i.Id, i => (i.Net, i.Total));
+        var collectedNet = collected.GroupBy(a => a.InvoiceId!.Value).Select(g => new { InvoiceId = g.Key, Amount = RentInReceipts.NetPart(g.Sum(a => a.Amount), invoiceMoney[g.Key].Net, invoiceMoney[g.Key].Total) }).ToList();
 
         var costs = (await workOrders.Query(new Specification<WorkOrder>(w => (w.Status == WorkOrderStatus.Completed || w.Status == WorkOrderStatus.Closed) && w.ActualCost != null && w.CompletedOn >= q.From && w.CompletedOn <= q.To && (entity == null || w.LegalEntityId == entity)))
             .Select(w => new { w.PropertyId, w.ActualCost }).ToListAsync(ct)).GroupBy(w => w.PropertyId).ToDictionary(g => g.Key, g => g.Sum(w => w.ActualCost ?? 0));
@@ -128,7 +150,7 @@ internal sealed class ReportHandlers(
             var mine = unitRows.Where(u => u.PropertyId == p.Id).ToList();
             var occupancy = mine.Count == 0 ? 0 : Math.Round(100m * mine.Count(u => u.Status == UnitStatus.Occupied) / mine.Count, 1);
             var billed = rentInvoices.Where(i => invoiceProperty[i.Id] == p.Id).Sum(i => i.IsCreditNote ? -i.Net : i.Net);
-            var paid = collected.Where(a => invoiceProperty[a.InvoiceId!.Value] == p.Id).Sum(a => a.Amount);
+            var paid = collectedNet.Where(a => invoiceProperty[a.InvoiceId] == p.Id).Sum(a => a.Amount);
             return Build(p.Id, p.Name, p.LegalEntityId, p.IndicativeValue, occupancy, billed, costs.GetValueOrDefault(p.Id), billed, paid);
         }).ToList();
         var all = unitRows.Count == 0 ? 0 : Math.Round(100m * unitRows.Count(u => u.Status == UnitStatus.Occupied) / unitRows.Count, 1);

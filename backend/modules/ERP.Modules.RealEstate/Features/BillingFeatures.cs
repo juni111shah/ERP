@@ -57,7 +57,7 @@ internal sealed class InvoiceLeaseLinkHandler(IReadRepository<RentInstalment> in
 
 internal sealed class BillingHandlers(
     IRepository<RentInstalment> instalments, IReadRepository<Lease> leases, IReadRepository<Unit> units, IReadRepository<Property> properties,
-    IReadRepository<TaxCode> taxCodes, IInvoicingService invoicing, IPostingService posting, IUnitOfWork uow) :
+    IReadRepository<TaxCode> taxCodes, IInvoicingService invoicing, IPostingService posting, OwnerAccounts ownerAccounts, IUnitOfWork uow) :
     IRequestHandler<RunBilling, BillingResult>,
     IRequestHandler<InvoiceInstalment, InstalmentInvoiceDto>,
     INotificationHandler<InvoiceVoided>
@@ -90,7 +90,7 @@ internal sealed class BillingHandlers(
         if (n.SourceType != SourceType || n.SourceId is not { } id) return;
         var i = await instalments.Tracked(new Specification<RentInstalment>(x => x.Id == id && x.InvoiceId == n.InvoiceId)).FirstOrDefaultAsync(ct);
         if (i is null) return;
-        i.InvoiceId = null; i.Status = InstalmentStatus.Scheduled;
+        i.InvoiceId = null; i.Status = InstalmentStatus.Scheduled; i.CreditedToOwner = false;
         await instalments.SaveChangesAsync(ct);
     }
 
@@ -105,12 +105,14 @@ internal sealed class BillingHandlers(
         Guid? taxId = lease.TaxCodeId;
         if (taxId is null && unit.Usage == UnitUsage.Commercial)
             taxId = await taxCodes.Query(new Specification<TaxCode>(t => t.IsDefault && t.IsActive)).Select(t => (Guid?)t.Id).FirstOrDefaultAsync(ct);
-        var income = await posting.AccountForRoleAsync("realestate.income.leasing", ct);
+        // rent of a property managed for an owner is the owner's money until the payout; the management fee becomes income there
+        var toOwner = property.RentCreditsOwner;
+        var income = toOwner ? await ownerAccounts.PayableAsync(ct) : await posting.AccountForRoleAsync("realestate.income.leasing", ct);
         var description = $"Rent {property.Name} unit {unit.UnitNumber}, {i.PeriodFrom:dd MMM yyyy} to {i.PeriodTo:dd MMM yyyy}";
         var draft = new InvoiceDraft(lease.LegalEntityId, lease.LesseePartyId, i.DueDate, i.DueDate, [new InvoiceLineDraft(description, 1, i.Amount, taxId, income)], SourceType: SourceType, SourceId: i.Id, Notes: lease.Number);
         var invoice = await invoicing.BuildAsync(draft, ct);
         await invoicing.IssueAsync(invoice, ct);
-        i.InvoiceId = invoice.Id; i.Status = InstalmentStatus.Invoiced;
+        i.InvoiceId = invoice.Id; i.Status = InstalmentStatus.Invoiced; i.CreditedToOwner = toOwner;
         return invoice;
     }
 }

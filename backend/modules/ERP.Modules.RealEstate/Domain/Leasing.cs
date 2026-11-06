@@ -86,10 +86,10 @@ public class Lease : LegalEntityScopedEntity, IHasCustomFields
         HoldingOverFlag = false;
     }
 
-    /// <summary>The renewal lease was activated.</summary>
+    /// <summary>The renewal lease was activated. A lease the nightly job has already ended can still become renewed; a terminated one cannot.</summary>
     public void MarkRenewed()
     {
-        if (!IsOccupying) throw new DomainException($"Only an active lease can be renewed (this lease is {Status}).");
+        if (!IsOccupying && Status != LeaseStatus.Ended) throw new DomainException($"Only an active lease can be renewed (this lease is {Status}).");
         Status = LeaseStatus.Renewed;
     }
 }
@@ -108,6 +108,8 @@ public class RentInstalment : LegalEntityScopedEntity
     public Guid? InvoiceId { get; set; }
     /// <summary>Credit note raised when the lease was terminated early and this instalment had been invoiced beyond the termination date.</summary>
     public Guid? CreditNoteId { get; set; }
+    /// <summary>Its invoice credited the owner payable rather than company income, as the property was set when it was billed. Only such rent can be paid out to the owner.</summary>
+    public bool CreditedToOwner { get; set; }
 }
 
 public enum DepositKind { Received = 1, Damages = 2, Arrears = 3, Refund = 4, TransferOut = 5, TransferIn = 6 }

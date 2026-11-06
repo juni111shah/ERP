@@ -25,6 +25,11 @@ public class Property : LegalEntityScopedEntity, IHasCustomFields
     public Guid? OwnerPartyId { get; set; }
     /// <summary>Management fee charged to the owner, as a percentage of rent collected (managed-for-owner properties).</summary>
     public decimal ManagementFeePercent { get; set; }
+    /// <summary>Where the rent of a managed property is credited: true the owner payable, false company leasing income as before. Empty follows the ownership: a managed property credits the owner.</summary>
+    public bool? CreditRentToOwner { get; set; }
+
+    /// <summary>The rent of this property is the owner's money, not company income.</summary>
+    public bool RentCreditsOwner => OwnershipType == OwnershipType.ManagedForOwner && OwnerPartyId != null && (CreditRentToOwner ?? true);
     [Listable] public string? Region { get; set; }
     [Listable] public string? Community { get; set; }
     [Searchable] public string? PlotNumber { get; set; }
