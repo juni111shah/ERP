@@ -12,7 +12,7 @@ import { forkJoin } from 'rxjs';
 import { CountryDto, CurrencyOption } from '../../core/api/admin.api';
 import { ProblemDetails } from '../../core/api/api.models';
 import { createPagedList } from '../../core/api/paged-list';
-import { BillingCycle, ClientRow, ClientStartMode, IndustryOption, PlanView, PlatformApi } from '../../core/api/platform.api';
+import { BillingCycle, ClientRow, ClientStartMode, IndustryOption, PlanView, PlatformApi, groupIndustries } from '../../core/api/platform.api';
 import { suggestWorkspaceCode } from '../../core/format/subscription';
 import { asProblem, problemMessage } from '../../core/http/problem-details';
 import { ErpDatePipe, ErpMoneyPipe } from '../../shared/display.pipes';
@@ -109,7 +109,7 @@ export class PlatformClientsPage {
         return !typed || typed === suggestWorkspaceCode(prev['workspaceName'] as string) ? { signInKey: suggestWorkspaceCode(v as string) } : null;
       } },
       { key: 'signInKey', label: 'Workspace code', type: 'text', required: true, maxLength: 49, hint: 'What they use to reach this workspace. Letters, digits and dashes.' },
-      { key: 'industry', label: 'Industry', type: 'select', required: true, searchable: true, options: this.industries().filter((i) => (i.availability ?? '').toLowerCase() === 'available').map((i) => ({ value: i.key, label: i.label })) },
+      { key: 'industry', label: 'Industry', type: 'select', required: true, searchable: true, options: groupIndustries(this.industries()).flatMap((g) => g.items.map((i) => ({ value: i.key, label: i.label, group: g.group }))) },
       { key: 'countryCode', label: 'Country', type: 'select', required: true, searchable: true, options: countries.map((c) => ({ value: c.code, label: c.name })), onChange: (v, form, prev) => {
         const next = countries.find((c) => c.code === v)?.defaultCurrency;
         const before = countries.find((c) => c.code === prev['countryCode'])?.defaultCurrency;

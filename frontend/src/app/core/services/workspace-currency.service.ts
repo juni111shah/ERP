@@ -5,7 +5,7 @@ import { SessionStore } from '../session/session.store';
 export class WorkspaceCurrencyService {
   private readonly session = inject(SessionStore);
 
-  /** Active currency: legal entity currency if selected, else workspace currency, defaulting to USD */
+  /** Active currency: legal entity currency if selected, else the workspace's. Empty until the session has loaded. */
   readonly currency = computed(() => {
     const me = this.session.me();
     const currentEntityId = this.session.currentEntityId();
@@ -15,7 +15,7 @@ export class WorkspaceCurrencyService {
         return entity.baseCurrency;
       }
     }
-    return me?.workspace?.baseCurrency || 'QAR';
+    return me?.workspace?.baseCurrency || '';
   });
 
   /** Returns current currency code, e.g. 'USD', 'EUR', 'AED' */
@@ -30,6 +30,6 @@ export class WorkspaceCurrencyService {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(val);
-    return `${this.currency()} ${formatted}`;
+    return this.currency() ? `${this.currency()} ${formatted}` : formatted;
   }
 }

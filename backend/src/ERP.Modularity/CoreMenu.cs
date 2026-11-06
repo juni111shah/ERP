@@ -9,7 +9,8 @@ public static class CoreMenu
     [
         new("core.overview", "Overview", "/", "dashboard", null, 10, "workspace", "Workspace", 10),
         new("core.approvals", "Approvals", "/approvals", "check-square", null, 20, "workspace", "Workspace", 10),
-        
+        new("core.owner", "Owner dashboard", "/owner", "line-chart", CorePermissions.ReportsRead, 15, "workspace", "Workspace", 10),
+
         // Sales group
         new("sales.customers", "Customers", "/parties?type=customer", "team", CorePermissions.PartiesRead, 10, "sales", "Sales", 30),
         new("finance.invoices", "Invoices", "/finance/invoices", "file-text", CorePermissions.InvoicesRead, 20, "sales", "Sales", 30),
@@ -40,6 +41,7 @@ public static class CoreMenu
         new("core.users", "Users", "/admin/users", "user", CorePermissions.UsersRead, 20, "setup", "Setup", 900),
         new("core.roles", "Roles", "/admin/roles", "safety", CorePermissions.RolesRead, 30, "setup", "Setup", 900),
         new("core.customfields", "Custom fields", "/admin/custom-fields", "form", CorePermissions.CustomFieldsRead, 40, "setup", "Setup", 900),
+        new("core.setup", "Business setup", "/admin/setup", "setting", CorePermissions.SettingsRead, 45, "setup", "Setup", 900),
         new("core.modules", "Modules", "/admin/modules", "appstore-add", CorePermissions.SettingsRead, 50, "setup", "Setup", 900),
         new("core.approvalrules", "Approval rules", "/admin/approval-rules", "safety", CorePermissions.SettingsRead, 60, "setup", "Setup", 900),
         new("core.settings", "Settings", "/admin/settings", "setting", CorePermissions.SettingsRead, 70, "setup", "Setup", 900),

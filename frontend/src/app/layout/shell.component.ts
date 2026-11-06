@@ -34,6 +34,7 @@ import { SubscriptionBannerComponent } from './subscription-banner.component';
 import { WorkspaceBlockedComponent } from './workspace-blocked.component';
 import { blockedPageApplies } from '../core/format/subscription';
 import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
+import { visibleQuickCreate } from './quick-create';
 import { NavGroup, currentGroupId, groupIcon, nextFocusIndex, resolveOpenGroup, scrollDeltaToReveal } from './sidebar-nav';
 
 /** The category whose menu is showing beside the collapsed sidebar. A pinned flyout (click or keyboard) ignores the pointer leaving. */
@@ -1196,6 +1197,9 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
             }
           </div>
           <span class="spacer"></span>
+          @if (isDemo()) {
+            <nz-tag nzColor="warning" class="demo-label" data-testid="demo-data-label" nz-tooltip [nzTooltipTitle]="'shell.demoHint' | translate: 'This workspace holds sample data for trying the system'">{{ 'shell.demoData' | translate: 'Demo data' }}</nz-tag>
+          }
           <erp-global-search />
 
           <button type="button" class="topbar-quick-create-btn" nz-dropdown [nzDropdownMenu]="quickCreateMenu" nzPlacement="bottomRight"
@@ -1211,90 +1215,18 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
                 <span nz-icon nzType="thunderbolt" class="quick-create-header-icon"></span>
                 <span>{{ 'shell.quickActions' | translate: 'Quick Create' }}</span>
               </div>
-              <div class="quick-create-grid">
-                <!-- Sales Group -->
-                <div class="quick-create-col">
-                  <div class="quick-create-col-title">{{ 'menu.group.sales' | translate: 'Sales' }}</div>
-                  <a routerLink="/finance/invoices" class="quick-create-item">
-                    <span nz-icon nzType="file-text" class="item-icon green"></span>
-                    <span>{{ 'menu.finance.invoices' | translate: 'Invoice' }}</span>
-                  </a>
-                  <a routerLink="/sales/quotes" class="quick-create-item">
-                    <span nz-icon nzType="file-done" class="item-icon green"></span>
-                    <span>{{ 'menu.sales.quotes' | translate: 'Quotation' }}</span>
-                  </a>
-                  <a routerLink="/sales/orders" class="quick-create-item">
-                    <span nz-icon nzType="shopping-cart" class="item-icon green"></span>
-                    <span>{{ 'menu.sales.orders' | translate: 'Sales Order' }}</span>
-                  </a>
-                  <a routerLink="/parties" [queryParams]="{ type: 'customer' }" class="quick-create-item">
-                    <span nz-icon nzType="user-add" class="item-icon blue"></span>
-                    <span>{{ 'menu.sales.customers' | translate: 'Customer' }}</span>
-                  </a>
-                </div>
-
-                <!-- Purchasing Group -->
-                <div class="quick-create-col">
-                  <div class="quick-create-col-title">{{ 'menu.group.purchasing' | translate: 'Purchasing' }}</div>
-                  <a routerLink="/purchasing/orders" class="quick-create-item">
-                    <span nz-icon nzType="shopping" class="item-icon orange"></span>
-                    <span>{{ 'menu.purchasing.orders' | translate: 'Purchase Order' }}</span>
-                  </a>
-                  <a routerLink="/finance/bills" class="quick-create-item">
-                    <span nz-icon nzType="audit" class="item-icon orange"></span>
-                    <span>{{ 'menu.finance.bills' | translate: 'Vendor Bill' }}</span>
-                  </a>
-                  <a routerLink="/purchasing/receipts" class="quick-create-item">
-                    <span nz-icon nzType="inbox" class="item-icon orange"></span>
-                    <span>{{ 'menu.purchasing.receipts' | translate: 'Goods Receipt' }}</span>
-                  </a>
-                  <a routerLink="/parties" [queryParams]="{ type: 'vendor' }" class="quick-create-item">
-                    <span nz-icon nzType="team" class="item-icon blue"></span>
-                    <span>{{ 'menu.purchases.vendors' | translate: 'Vendor' }}</span>
-                  </a>
-                </div>
-
-                <!-- Finance Group -->
-                <div class="quick-create-col">
-                  <div class="quick-create-col-title">{{ 'menu.group.finance' | translate: 'Finance' }}</div>
-                  <a routerLink="/finance/journals" class="quick-create-item">
-                    <span nz-icon nzType="book" class="item-icon purple"></span>
-                    <span>{{ 'menu.finance.journals' | translate: 'Journal Entry' }}</span>
-                  </a>
-                  <a routerLink="/finance/receipts" class="quick-create-item">
-                    <span nz-icon nzType="dollar-circle" class="item-icon green"></span>
-                    <span>{{ 'menu.finance.receipts' | translate: 'Receive Money' }}</span>
-                  </a>
-                  <a routerLink="/finance/payments" class="quick-create-item">
-                    <span nz-icon nzType="transaction" class="item-icon red"></span>
-                    <span>{{ 'menu.finance.payments' | translate: 'Make Payment' }}</span>
-                  </a>
-                  <a routerLink="/finance/accounts" class="quick-create-item">
-                    <span nz-icon nzType="apartment" class="item-icon purple"></span>
-                    <span>{{ 'menu.finance.accounts' | translate: 'Account' }}</span>
-                  </a>
-                </div>
-
-                <!-- Operations & Retail Group -->
-                <div class="quick-create-col">
-                  <div class="quick-create-col-title">{{ 'menu.group.pos' | translate: 'Operations' }}</div>
-                  <a routerLink="/pos/terminal" class="quick-create-item">
-                    <span nz-icon nzType="calculator" class="item-icon teal"></span>
-                    <span>{{ 'menu.pos.terminal' | translate: 'POS Terminal' }}</span>
-                  </a>
-                  <a routerLink="/catalog/items" class="quick-create-item">
-                    <span nz-icon nzType="barcode" class="item-icon teal"></span>
-                    <span>{{ 'menu.core.items' | translate: 'Item / Product' }}</span>
-                  </a>
-                  <a routerLink="/manufacturing/workorders" class="quick-create-item">
-                    <span nz-icon nzType="tool" class="item-icon slate"></span>
-                    <span>{{ 'menu.manufacturing.workorders' | translate: 'Work Order' }}</span>
-                  </a>
-                  <a routerLink="/real-estate/leases" class="quick-create-item">
-                    <span nz-icon nzType="home" class="item-icon slate"></span>
-                    <span>{{ 'menu.realestate.leases' | translate: 'Lease Contract' }}</span>
-                  </a>
-                </div>
+              <div class="quick-create-grid" data-testid="quick-create-grid">
+                @for (g of quickCreate(); track g.titleKey) {
+                  <div class="quick-create-col">
+                    <div class="quick-create-col-title">{{ g.titleKey | translate: g.title }}</div>
+                    @for (e of g.entries; track e.link + e.label) {
+                      <a [routerLink]="e.link" [queryParams]="e.query" class="quick-create-item">
+                        <span nz-icon [nzType]="e.icon" [class]="'item-icon ' + e.color"></span>
+                        <span>{{ e.labelKey | translate: e.label }}</span>
+                      </a>
+                    }
+                  </div>
+                }
               </div>
             </div>
           </nz-dropdown-menu>
@@ -1416,6 +1348,10 @@ export class ShellComponent {
   readonly notificationsOpen = signal(false);
   readonly refresh = signal(0);
   readonly workspaceName = computed(() => this.session.me()?.workspace.name ?? 'ERP');
+  /** The workspace holds sample data: say so on every screen, so nobody mistakes it for real figures. */
+  readonly isDemo = computed(() => !!this.session.me()?.workspace.isDemo);
+  /** The New menu: only what this workspace has switched on and this person may create. */
+  readonly quickCreate = computed(() => visibleQuickCreate((m) => this.session.isModuleEnabled(m), (p) => this.session.hasPermission(p)));
   readonly initials = computed(() => (this.session.me()?.user.fullName ?? '?').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase());
   readonly toggleIcon = computed(() => this.i18n.dir() === 'rtl' ? (this.collapsed() ? 'double-left' : 'double-right') : (this.collapsed() ? 'double-right' : 'double-left'));
 

@@ -122,7 +122,8 @@ export class PartyStatementComponent {
     const title = `${this.side() === 'customer' ? t('statement.customerTitle', 'Customer Statement of Account') : t('statement.vendorTitle', 'Vendor Statement of Account')}`;
     const ws = this.session.me()?.workspace;
     const orgName = esc(ws?.name || 'HigherSquare 360 ERP');
-    const currency = esc(ws?.baseCurrency || 'QAR');
+    const entity = this.session.me()?.legalEntities.find((e) => e.id === this.session.currentEntityId());
+    const currency = esc(entity?.baseCurrency || ws?.baseCurrency || '');
     const rows = d.lines.map((l) => `<tr>
       <td>${day(l.date)}</td>
       <td><span class="badge">${esc(this.kindLabel(l.kind))}</span></td>
