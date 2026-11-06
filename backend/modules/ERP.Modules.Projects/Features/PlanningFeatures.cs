@@ -155,7 +155,7 @@ internal sealed class PlanningHandlers(
         var copy = new Project
         {
             LegalEntityId = entity.Id, Name = i.Name.Trim(), Description = src.Description, CustomerId = i.AsTemplate ? null : i.CustomerId ?? (src.IsTemplate ? null : src.CustomerId),
-            ManagerUserId = src.ManagerUserId, ManagerName = src.ManagerName, Status = ProjectStatus.Planning, BillingType = src.BillingType, BudgetAmount = src.BudgetAmount, BudgetHours = src.BudgetHours,
+            ManagerUserId = src.ManagerUserId, ManagerName = src.ManagerName, Status = ProjectStatus.Planning, BillingType = src.BillingType, BudgetAmount = src.BudgetAmount, ContractValue = src.ContractValue, BudgetHours = src.BudgetHours,
             TaxCodeId = src.TaxCodeId, StartDate = newStart, EndDate = Move(src.EndDate), IsTemplate = i.AsTemplate,
         };
         if (copy.CustomerId is { } cid) copy.CustomerName = (await sender.Send(new LookupCustomerName(cid), ct));

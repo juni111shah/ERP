@@ -60,6 +60,7 @@ public class HrWave1Tests(ApiFactory f) : IClassFixture<ApiFactory>
         var emp = await kit.EmployeeAsync(HrKit.Unique("Tight"), 1_000m, PlainPay);
         await kit.EmployeeAsync(HrKit.Unique("Steady"), 3_000m, PlainPay); // keeps the run payable when the first employee nets zero
         var loan = await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/loans", new { employeeId = emp, kind = "advance", principal = 5_000m, instalments = 2, instalmentAmount = 2_500m, startYear = 2026, startMonth = 10 }), HttpStatusCode.Created);
+        await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/loans/{(string)loan["id"]!}/disburse", new { bankAccountId = await BankAsync(kit), date = "2026-10-01" }));
         var run = await RunAsync(kit, 2026, 10);
         var line = run["lines"]!.AsArray().Single(l => (string)l!["employeeId"]! == emp)!;
         Assert.Equal(1_000m, (decimal)line["loanRecovery"]!);
@@ -87,7 +88,8 @@ public class HrWave1Tests(ApiFactory f) : IClassFixture<ApiFactory>
         var kit = await HrKit.StartAsync(f);
         var emp = await kit.EmployeeAsync(HrKit.Unique("Leaver"), 3_000m, PlainPay);
         await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/leave-types", new { code = HrKit.Unique("EN"), name = "Annual (payable)", isPaid = true, annualDays = 30m, carryForwardCap = 0m, requiresApproval = true, encashable = true }), HttpStatusCode.Created);
-        await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/loans", new { employeeId = emp, kind = "loan", principal = 600m, instalments = 1, startYear = 2027, startMonth = 1 }), HttpStatusCode.Created);
+        var loan = await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/loans", new { employeeId = emp, kind = "loan", principal = 600m, instalments = 1, startYear = 2027, startMonth = 1 }), HttpStatusCode.Created);
+        await HrKit.Ok(await kit.Owner.PostAsJsonAsync($"{Hr}/loans/{(string)loan["id"]!}/disburse", new { bankAccountId = await BankAsync(kit), date = "2026-10-01" }));
 
         var preview = await HrKit.Ok(await kit.Owner.GetAsync($"{Hr}/employees/{emp}/settlement-preview?terminationDate=2026-11-15"));
         Assert.Equal(1_500m, (decimal)preview["finalBasic"]!);           // 15 of 30 days

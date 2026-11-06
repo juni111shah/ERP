@@ -1,7 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Organizations;
-using ERP.Domain.Parties;
 using ERP.Modules.Services.Domain;
 using FluentValidation;
 using MediatR;
@@ -98,24 +97,23 @@ public class EngagementHandlers :
 {
     private readonly IRepository<ServiceEngagement> _repo;
     private readonly INumberingService _numbering;
+    private readonly ClientReferences _clients;
     private readonly ILegalEntityGuard _guard;
-    private readonly IReferenceCheck _references;
     private readonly IUserDirectory _users;
 
-    public EngagementHandlers(IRepository<ServiceEngagement> repo, INumberingService numbering, ILegalEntityGuard guard, IReferenceCheck references, IUserDirectory users)
+    public EngagementHandlers(IRepository<ServiceEngagement> repo, INumberingService numbering, ClientReferences clients, ILegalEntityGuard guard, IUserDirectory users)
     {
         _repo = repo;
         _numbering = numbering;
+        _clients = clients;
         _guard = guard;
-        _references = references;
         _users = users;
     }
 
     public async Task<EngagementDto> Handle(CreateEngagementCommand request, CancellationToken cancellationToken)
     {
         await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
-        if (!await _references.AllExistAsync<Party>([request.ClientId], cancellationToken))
-            throw new FieldValidationException("clientId", "Client not found.");
+        var clientName = await _clients.RequireNameAsync(request.ClientId, cancellationToken);
         if (request.LeadConsultantUserId is { } lead && (await _users.ListMembersAsync([lead], cancellationToken)).Count == 0)
             throw new FieldValidationException("leadConsultantUserId", "That user is not a member of this workspace.");
         var code = await _numbering.NextAsync("ENG", request.LegalEntityId, request.StartDate, cancellationToken);
@@ -125,7 +123,7 @@ public class EngagementHandlers :
             EngagementCode = code,
             Title = request.Title.Trim(),
             ClientId = request.ClientId,
-            ClientName = request.ClientName.Trim(),
+            ClientName = clientName,
             Type = request.Type,
             Status = EngagementStatus.Active,
             ContractValue = request.ContractValue,

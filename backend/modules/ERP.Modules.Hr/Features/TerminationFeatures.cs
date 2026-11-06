@@ -19,7 +19,7 @@ public sealed record SettlementPreviewDto(
     Guid EmployeeId, string EmployeeName, DateOnly TerminationDate, DateOnly? LastWorkingDay, int Year, int Month,
     decimal FinalBasic, decimal FinalAllowances, bool SalaryAlreadyPaid, decimal LeaveDays, decimal LeaveEncashment, decimal EndOfService, string? GratuityRule,
     decimal RecurringDeductions, decimal NoticeShortfallDays, decimal NoticeShortfallDeduction, decimal LoanBalance, decimal LoanRecovery, decimal UnrecoveredLoan,
-    decimal Gross, decimal Deductions, decimal NetPay, Guid? SettlementRunId, IReadOnlyList<string> Notes);
+    decimal Gross, decimal Deductions, decimal NetPay, Guid? SettlementRunId, IReadOnlyList<string> Notes, decimal StatutoryDeduction = 0m, decimal EmployerCost = 0m);
 
 public sealed record GetSettlementPreview(Guid EmployeeId, DateOnly TerminationDate, DateOnly? NoticeGivenOn) : IQuery<SettlementPreviewDto>, IRequirePermission { public string RequiredPermission => P.PayrollRead; }
 /// <summary>Ends the employment: status Terminated, date and reason stored, future-dated leave cancelled. Returns the settlement preview.</summary>
@@ -58,6 +58,9 @@ public static class SettlementMath
         return Math.Max(0, noticePeriodDays.Value - served);
     }
 
+    /// <summary>The statutory share of the employee never takes more than what is left of the pay.</summary>
+    public static decimal StatutoryShare(decimal employeeAmount, decimal payLeft) => Math.Min(employeeAmount, Math.Max(0m, payLeft));
+
     /// <summary>The loan balance is recovered from what is left of the pay, never more than the balance.</summary>
     public static decimal LoanRecovery(decimal loanBalance, decimal payBeforeLoans) => Math.Max(0m, Math.Min(loanBalance, payBeforeLoans));
 }
@@ -65,7 +68,7 @@ public static class SettlementMath
 internal sealed class TerminationHandlers(
     IRepository<Employee> employees, IReadRepository<LegalEntity> legalEntities, IReadRepository<LeaveType> leaveTypes, IRepository<LeaveBalance> balances, IRepository<LeaveRequest> leaveRequests,
     IReadRepository<EmployeeLoan> loans, IRepository<PayrollRun> runs, IRepository<PayrollLoanRecovery> recoveries, LeavePolicyService policy, GratuityCalculator gratuity, ISettingsService settings,
-    ILegalEntityGuard guard, INumberingService numbering, PayrollSeparation separation, EmployeeHistoryRecorder history, IUnitOfWork uow) :
+    ILegalEntityGuard guard, INumberingService numbering, PayrollSeparation separation, EmployeeHistoryRecorder history, IUnitOfWork uow, StatutoryEngine statutory, IRepository<PayrollLineStatutory> statutoryRows) :
     IRequestHandler<GetSettlementPreview, SettlementPreviewDto>,
     IRequestHandler<TerminateEmployee, SettlementPreviewDto>,
     IRequestHandler<CreateFinalSettlement, PayrollDto>
@@ -107,16 +110,18 @@ internal sealed class TerminationHandlers(
         {
             PayrollRunId = run.Id, EmployeeId = e.Id, EmployeeName = e.FullName, EmployeeNumber = e.Number, ProratedDays = PayrollMath.EmployedDays(e.JoinDate, e.TerminationDate, p.Year, p.Month),
             Basic = p.FinalBasic, Allowances = p.FinalAllowances, LeaveEncashment = p.LeaveEncashment, EndOfService = p.EndOfService, LoanRecovery = p.LoanRecovery,
-            GrossEarnings = p.Gross, Deductions = p.Deductions, NetPay = p.NetPay,
+            GrossEarnings = p.Gross, Deductions = p.Deductions, NetPay = p.NetPay, StatutoryDeduction = p.StatutoryDeduction, EmployerCost = p.EmployerCost,
             AdjustmentNote = p.NoticeShortfallDeduction > 0 ? $"Includes notice shortfall of {p.NoticeShortfallDays:0} days" : null,
         };
         run.Lines.Add(line);
-        run.Employees = 1; run.GrossEarnings = line.GrossEarnings; run.Deductions = line.Deductions; run.NetPay = line.NetPay;
+        run.Employees = 1; run.GrossEarnings = line.GrossEarnings; run.Deductions = line.Deductions; run.NetPay = line.NetPay; run.EmployerCost = line.EmployerCost;
         runs.Add(run);
+        foreach (var r in await StatutoryForAsync(e, p.FinalBasic, p.FinalAllowances, p.Year, p.Month, token))
+            statutoryRows.Add(new PayrollLineStatutory { PayrollRunId = run.Id, PayrollLineId = line.Id, EmployeeId = e.Id, RuleId = r.RuleId, Code = r.Code, Name = r.Name, Kind = r.Kind, BaseAmount = r.BaseAmount, Amount = r.Amount });
 
         // spread the loan recovery over the open loans, oldest first
         var left = p.LoanRecovery;
-        foreach (var loan in (await loans.Query(new Specification<EmployeeLoan>(l => l.EmployeeId == e.Id && l.Status == LoanStatus.Active && l.Remaining > 0)).ToListAsync(token)).OrderBy(l => l.StartYear).ThenBy(l => l.StartMonth))
+        foreach (var loan in (await loans.Query(new Specification<EmployeeLoan>(l => l.EmployeeId == e.Id && l.Status == LoanStatus.Active && l.Remaining > 0 && l.DisbursedOn != null)).ToListAsync(token)).OrderBy(l => l.StartYear).ThenBy(l => l.StartMonth))
         {
             if (left <= 0) break;
             var take = Math.Min(left, loan.Remaining);
@@ -126,6 +131,10 @@ internal sealed class TerminationHandlers(
         await runs.SaveChangesAsync(token);
         return PayrollHandlers.ToDto(run);
     }, ct);
+
+    /// <summary>The entity's statutory rules on the final month's salary, the base a regular run of that month would use. No salary here (a regular run already paid it) means nothing to deduct twice; leave encashment and end of service are outside the base.</summary>
+    private async Task<IReadOnlyList<StatutoryLineResult>> StatutoryForAsync(Employee e, decimal basic, decimal allowances, int year, int month, CancellationToken ct)
+        => basic + allowances <= 0 ? [] : StatutoryEngine.For(await statutory.LoadAsync(e.LegalEntityId, year, month, ct), e.Nationality, basic, basic + allowances);
 
     private async Task<PayrollRun?> ExistingSettlementAsync(Guid employeeId, CancellationToken ct)
         => (await runs.Query(new Specification<PayrollRun>(r => r.Kind == PayrollKind.FinalSettlement && r.Status != PayrollStatus.Voided).Include(r => r.Lines)).ToListAsync(ct)).FirstOrDefault(r => r.Lines.Any(l => l.EmployeeId == employeeId));
@@ -183,7 +192,7 @@ internal sealed class TerminationHandlers(
 
         // end of service under the entity's country rule
         var country = await legalEntities.Query(new Specification<LegalEntity>(l => l.Id == e.LegalEntityId)).Select(l => l.CountryCode).FirstOrDefaultAsync(ct) ?? "";
-        var g = gratuity.Calculate(e.BasicSalary, e.JoinDate, term, term, country);
+        var g = gratuity.Calculate(e.BasicSalary, e.JoinDate, term, term, country, daysBasis);
         var eos = g.Eligible ? PayrollMath.R(g.Amount) : 0m;
 
         // unserved notice
@@ -194,14 +203,20 @@ internal sealed class TerminationHandlers(
 
         // loans
         var empIdForLoans = e.Id;
-        var loanBalance = (await loans.Query(new Specification<EmployeeLoan>(l => l.EmployeeId == empIdForLoans && l.Status == LoanStatus.Active && l.Remaining > 0)).Select(l => l.Remaining).ToListAsync(ct)).Sum();
+        var openLoans = await loans.Query(new Specification<EmployeeLoan>(l => l.EmployeeId == empIdForLoans && l.Status == LoanStatus.Active && l.Remaining > 0)).Select(l => new { l.Remaining, l.DisbursedOn }).ToListAsync(ct);
+        var loanBalance = openLoans.Where(l => l.DisbursedOn != null).Sum(l => l.Remaining);
+        if (openLoans.Any(l => l.DisbursedOn == null)) notes.Add("A loan that was never paid out is not recovered here.");
 
         var gross = basic + allowances + encashment + eos;
         var before = gross - recurring - shortfall;
-        var loanRecovery = SettlementMath.LoanRecovery(loanBalance, before);
-        var deductions = recurring + shortfall + loanRecovery;
+        var rules = await StatutoryForAsync(e, basic, allowances, year, month, ct);
+        var statutoryDeduction = SettlementMath.StatutoryShare(rules.Where(r => r.Kind == StatutoryKind.EmployeeDeduction).Sum(r => r.Amount), before);
+        var employerCost = rules.Where(r => r.Kind == StatutoryKind.EmployerCost).Sum(r => r.Amount);
+        if (rules.Count > 0) notes.Add("Statutory deductions are worked out on the final month's salary; leave pay and end of service are outside their base.");
+        var loanRecovery = SettlementMath.LoanRecovery(loanBalance, before - statutoryDeduction);
+        var deductions = recurring + shortfall + statutoryDeduction + loanRecovery;
         var existing = await ExistingSettlementAsync(e.Id, ct);
         return new SettlementPreviewDto(e.Id, e.FullName, term, lastWorking, year, month, basic, allowances, paid, leaveDays, encashment, eos, g.Rule, recurring, shortfallDays, shortfall,
-            loanBalance, loanRecovery, loanBalance - loanRecovery, gross, deductions, gross - deductions, existing?.Id, notes);
+            loanBalance, loanRecovery, loanBalance - loanRecovery, gross, deductions, gross - deductions, existing?.Id, notes, statutoryDeduction, employerCost);
     }
 }

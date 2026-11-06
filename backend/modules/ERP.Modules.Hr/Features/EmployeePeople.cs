@@ -14,12 +14,12 @@ namespace ERP.Modules.Hr.Features;
 /// <summary>Builds the employee detail, hiding pay unless the caller may see it.</summary>
 public sealed class EmployeeDtoFactory(
     IReadRepository<LegalEntity> legalEntities, IReadRepository<Employee> employees, IReadRepository<LeaveRequest> leave, GratuityCalculator gratuity, ICustomFieldService fields,
-    IUserDirectory users, ICurrentUser user, IClock clock)
+    IUserDirectory users, ICurrentUser user, IClock clock, ISettingsService settings)
 {
     public async Task<EmployeeDto> BuildAsync(Employee e, bool includePay, CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(clock.UtcNow);
-        var service = gratuity.Calculate(e.BasicSalary, e.JoinDate, e.TerminationDate, today, await CountryAsync(e.LegalEntityId, ct));
+        var service = gratuity.Calculate(e.BasicSalary, e.JoinDate, e.TerminationDate, today, await CountryAsync(e.LegalEntityId, ct), await settings.GetAsync<int?>("hr.daysBasis", e.LegalEntityId, ct) ?? 30);
         string? iban = null;
         if (includePay) iban = e.Iban is { Length: > 4 } v && !user.HasPermission(CorePermissions.SensitiveRead) ? new string('*', v.Length - 4) + v[^4..] : e.Iban;
         string? userName = null;

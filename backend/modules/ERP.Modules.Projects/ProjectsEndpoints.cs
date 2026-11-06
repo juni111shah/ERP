@@ -34,7 +34,7 @@ internal static class ProjectsEndpoints
     {
         var projects = group.MapGroup("/projects");
         Scoped<Project, ProjectSummaryDto>(projects, P.ProjectsRead, ids => p => ids.Contains(p.Id),
-            p => new ProjectSummaryDto(p.Id, p.Number, p.Name, p.LegalEntityId, p.CustomerId, p.CustomerName, p.ManagerName, p.Status, p.BillingType, p.BudgetAmount, p.StartDate, p.EndDate, p.CreatedAt, p.ManagerUserId, p.IsTemplate, p.IsArchived, 0m, null, 0m, 0m, 0, 0, 0m), ProjectListEnrich.Projects);
+            p => new ProjectSummaryDto(p.Id, p.Number, p.Name, p.LegalEntityId, p.CustomerId, p.CustomerName, p.ManagerName, p.Status, p.BillingType, p.BudgetAmount, p.StartDate, p.EndDate, p.CreatedAt, p.ManagerUserId, p.IsTemplate, p.IsArchived, 0m, null, 0m, 0m, 0, 0, 0m, p.ContractValue), ProjectListEnrich.Projects);
         projects.MapGet("/kpis", (ISender s, CancellationToken ct) => s.Send(new GetProjectKpiSummary(), ct)).RequirePermission(P.ProjectsRead);
         projects.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetProject(id), ct)).RequirePermission(P.ProjectsRead);
         projects.MapPost("", async (ProjectInput input, ISender s, CancellationToken ct) =>

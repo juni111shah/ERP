@@ -89,16 +89,16 @@ internal sealed class UnitTypeHandlers(IRepository<UnitType> types) :
 public sealed record PropertyInput(
     Guid LegalEntityId, string Name, PropertyType PropertyType, OwnershipType OwnershipType, Guid? OwnerPartyId, string? Region,
     string? Community, string? PlotNumber, int? YearBuilt, int TotalUnits, decimal IndicativeValue, bool IsActive = true,
-    string? Notes = null, JsonObject? CustomFields = null, decimal ManagementFeePercent = 0);
+    string? Notes = null, JsonObject? CustomFields = null, decimal ManagementFeePercent = 0, bool? CreditRentToOwner = null);
 
 public sealed record PropertyDto(
     Guid Id, string Code, string Name, Guid LegalEntityId, PropertyType PropertyType, OwnershipType OwnershipType, Guid? OwnerPartyId,
     string? Region, string? Community, string? PlotNumber, int? YearBuilt, int TotalUnits, decimal IndicativeValue, bool IsActive,
-    string? Notes, JsonObject CustomFields, decimal ManagementFeePercent = 0)
+    string? Notes, JsonObject CustomFields, decimal ManagementFeePercent = 0, bool? CreditRentToOwner = null, bool RentCreditsOwner = false)
 {
     public static PropertyDto From(Property p, JsonObject customFields) => new(
         p.Id, p.Code, p.Name, p.LegalEntityId, p.PropertyType, p.OwnershipType, p.OwnerPartyId, p.Region, p.Community, p.PlotNumber,
-        p.YearBuilt, p.TotalUnits, p.IndicativeValue, p.IsActive, p.Notes, customFields, p.ManagementFeePercent);
+        p.YearBuilt, p.TotalUnits, p.IndicativeValue, p.IsActive, p.Notes, customFields, p.ManagementFeePercent, p.CreditRentToOwner, p.RentCreditsOwner);
 }
 
 /// <summary>Detail view with the KPI cards of spec RE-PROP-03.</summary>
@@ -131,6 +131,8 @@ public sealed class PropertyInputValidator : AbstractValidator<PropertyInput>
         RuleFor(x => x.OwnershipType).IsInEnum();
         RuleFor(x => x.OwnerPartyId).NotNull().When(x => x.OwnershipType == OwnershipType.ManagedForOwner)
             .WithMessage("Choose the owner of a property managed for a third party.");
+        RuleFor(x => x.CreditRentToOwner).Must(v => v != true).When(x => x.OwnershipType != OwnershipType.ManagedForOwner)
+            .WithMessage("Only a property managed for an owner can credit its rent to the owner.");
         RuleFor(x => x.TotalUnits).GreaterThanOrEqualTo(0);
         RuleFor(x => x.IndicativeValue).GreaterThanOrEqualTo(0);
         RuleFor(x => x.ManagementFeePercent).InclusiveBetween(0, 100);
@@ -215,6 +217,7 @@ internal sealed class PropertyHandlers(
         p.OwnerPartyId = i.OwnershipType == OwnershipType.ManagedForOwner ? i.OwnerPartyId : null;
         p.Region = i.Region; p.Community = i.Community; p.PlotNumber = i.PlotNumber; p.YearBuilt = i.YearBuilt;
         p.ManagementFeePercent = i.OwnershipType == OwnershipType.ManagedForOwner ? i.ManagementFeePercent : 0;
+        p.CreditRentToOwner = i.OwnershipType == OwnershipType.ManagedForOwner ? i.CreditRentToOwner ?? p.CreditRentToOwner : null; // a form that does not send it keeps the choice
         p.TotalUnits = i.TotalUnits; p.IndicativeValue = i.IndicativeValue; p.IsActive = i.IsActive; p.Notes = i.Notes;
     }
 }

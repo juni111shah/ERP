@@ -251,8 +251,11 @@ internal sealed class LeaseCommandHandlers(
             {
                 // The old lease must leave the "occupying" set first: only one occupying lease per unit may exist at any time.
                 var old = await leases.GetForUpdateAsync(oldId, token);
+                var stillOccupying = old.IsOccupying;
                 old.MarkRenewed();
                 await leases.SaveChangesAsync(token);
+                // the nightly job ended the old lease and freed the unit before the renewal was activated
+                if (!stillOccupying) unit.Occupy();
             }
             else unit.Occupy();
 

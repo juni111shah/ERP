@@ -42,6 +42,8 @@ public static class P
     public const string CrmRead = "realestate.crm.read";
     public const string CrmManage = "realestate.crm.manage";
     public const string SettingsWrite = "realestate.settings.write";
+    public const string OwnerPayoutsRead = "realestate.ownerpayouts.read";
+    public const string OwnerPayoutsManage = "realestate.ownerpayouts.manage";
 }
 
 /// <summary>Document-number keys (see the industry template's sequences) and custom-field entity types.</summary>
@@ -53,4 +55,5 @@ public static class Docs
     public const string Deal = "realestate.deal";
     public const string Acquisition = "realestate.acquisition";
     public const string Unit = "realestate.unit";
+    public const string OwnerPayout = "realestate.ownerpayout";
 }

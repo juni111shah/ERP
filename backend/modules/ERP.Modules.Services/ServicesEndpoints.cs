@@ -10,6 +10,9 @@ using Microsoft.AspNetCore.Routing;
 
 namespace ERP.Modules.Services;
 
+public sealed record UpdateTimeEntryBody(DateOnly ActivityDate, decimal Hours, decimal HourlyRate, string TaskDescription, bool IsBillable, Guid? ConsultantUserId = null, string? ConsultantName = null, string? CustomFields = null);
+public sealed record ApproveTimeEntryBody(Guid? Id = null, Guid? ApprovedByUserId = null);
+
 internal static class ServicesEndpoints
 {
     private const string Base = "/api/v1/m/services";
@@ -49,6 +52,9 @@ internal static class ServicesEndpoints
             return Results.Created($"{Base}/engagements/{result.Id}", result);
         }).RequirePermission(Permissions.EngagementsManage);
 
+        group.MapPost("/engagements/{id:guid}/invoice-time", (Guid id, EngagementTimeInvoiceBody? b, ISender s, CancellationToken ct) =>
+            s.Send(new InvoiceEngagementTime(id, b?.TimeEntryIds, b?.From, b?.To, b?.InvoiceDate, b?.DueDate, b?.TaxCodeId, b?.Notes), ct)).RequirePermission(Permissions.EngagementsManage);
+
         group.MapPost("/engagements/{id:guid}/status", async (Guid id, UpdateEngagementStatusCommand cmd, ISender s, CancellationToken ct) =>
         {
             if (id != cmd.Id) return Results.BadRequest();
@@ -85,6 +91,9 @@ internal static class ServicesEndpoints
             var result = await s.Send(cmd, ct);
             return Results.Created($"{Base}/retainers/{result.Id}", result);
         }).RequirePermission(Permissions.RetainersManage);
+
+        group.MapPost("/retainers/{id:guid}/invoice", (Guid id, RetainerInvoiceBody? b, ISender s, CancellationToken ct) =>
+            s.Send(new GenerateRetainerInvoice(id, b?.PeriodDate, b?.InvoiceDate, b?.DueDate, b?.TaxCodeId, b?.Notes), ct)).RequirePermission(Permissions.RetainersManage);
 
         group.MapPost("/retainers/{id:guid}/status", async (Guid id, UpdateRetainerStatusCommand cmd, ISender s, CancellationToken ct) =>
         {
@@ -150,7 +159,8 @@ internal static class ServicesEndpoints
                 t.TaskDescription,
                 t.IsBillable,
                 t.IsApproved,
-                t.CreatedAt));
+                t.CreatedAt,
+                t.InvoiceId));
 
         group.MapPost("/time-entries", async (LogTimeEntryCommand cmd, ISender s, CancellationToken ct) =>
         {
@@ -158,10 +168,20 @@ internal static class ServicesEndpoints
             return Results.Created($"{Base}/time-entries/{result.Id}", result);
         }).RequirePermission(Permissions.TimeEntriesManage);
 
-        group.MapPost("/time-entries/{id:guid}/approve", async (Guid id, ApproveTimeEntryCommand cmd, ISender s, CancellationToken ct) =>
+        group.MapPut("/time-entries/{id:guid}", (Guid id, UpdateTimeEntryBody b, ISender s, CancellationToken ct) =>
+            s.Send(new UpdateTimeEntryCommand(id, b.ActivityDate, b.Hours, b.HourlyRate, b.TaskDescription, b.IsBillable, b.ConsultantUserId, b.ConsultantName, b.CustomFields), ct)).RequirePermission(Permissions.TimeEntriesManage);
+
+        group.MapDelete("/time-entries/{id:guid}", async (Guid id, ISender s, CancellationToken ct) =>
         {
-            if (id != cmd.Id) return Results.BadRequest();
-            var result = await s.Send(cmd, ct);
+            await s.Send(new DeleteTimeEntryCommand(id), ct);
+            return Results.NoContent();
+        }).RequirePermission(Permissions.TimeEntriesManage);
+
+        // The approver is the signed-in user. A body is optional; what older clients send in it (id, approvedByUserId) changes nothing except that a mismatched id is refused.
+        group.MapPost("/time-entries/{id:guid}/approve", async (Guid id, ApproveTimeEntryBody? b, ISender s, CancellationToken ct) =>
+        {
+            if (b?.Id is { } bodyId && bodyId != id) return Results.BadRequest();
+            var result = await s.Send(new ApproveTimeEntryCommand(id), ct);
             return Results.Ok(result);
         }).RequirePermission(Permissions.TimeEntriesManage);
 

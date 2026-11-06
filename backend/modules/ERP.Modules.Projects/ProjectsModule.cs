@@ -132,6 +132,7 @@ public sealed class ProjectsModule : ModuleBase
             b.Property(x => x.CustomerName).HasMaxLength(200);
             b.Property(x => x.ManagerName).HasMaxLength(150);
             b.Property(x => x.BudgetAmount).HasPrecision(19, 4);
+            b.Property(x => x.ContractValue).HasPrecision(19, 4);
             b.Property(x => x.BudgetHours).HasPrecision(9, 2);
             b.Property(x => x.SourceType).HasMaxLength(60);
             b.HasIndex(x => new { x.OrgId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");

@@ -21,7 +21,7 @@ public sealed record GetGratuityReport(DateOnly AsOf, Guid? LegalEntityId) : IQu
 public sealed record PostGratuityProvision(Guid LegalEntityId, DateOnly AsOf) : ICommand<GratuityProvisionDto>, IRequirePermission { public string RequiredPermission => P.PayrollPost; }
 
 internal sealed class GratuityHandlers(
-    IReadRepository<Employee> employees, IReadRepository<LegalEntity> legalEntities, IReadRepository<JournalEntry> journals, GratuityCalculator calculator, ILegalEntityGuard guard, IPostingService posting, IUnitOfWork uow) :
+    IReadRepository<Employee> employees, IReadRepository<LegalEntity> legalEntities, IReadRepository<JournalEntry> journals, GratuityCalculator calculator, ISettingsService settings, ILegalEntityGuard guard, IPostingService posting, IUnitOfWork uow) :
     IRequestHandler<GetGratuityReport, GratuityReportDto>,
     IRequestHandler<PostGratuityProvision, GratuityProvisionDto>
 {
@@ -55,10 +55,12 @@ internal sealed class GratuityHandlers(
     {
         var staff = (await employees.Query(new Specification<Employee>(e => (entityId == null || e.LegalEntityId == entityId) && e.JoinDate <= asOf)).ToListAsync(ct)).Where(e => e.Status != EmployeeStatus.Terminated).OrderBy(e => e.Number).ToList();
         var countries = await legalEntities.Query().Select(l => new { l.Id, l.CountryCode }).ToDictionaryAsync(l => l.Id, l => l.CountryCode, ct);
+        var daysBasis = new Dictionary<Guid, int>();
+        foreach (var id in staff.Select(e => e.LegalEntityId).Distinct()) daysBasis[id] = await settings.GetAsync<int?>("hr.daysBasis", id, ct) ?? 30;
         string? rule = null;
         var rows = staff.Select(e =>
         {
-            var g = calculator.Calculate(e.BasicSalary, e.JoinDate, e.TerminationDate, asOf, countries.GetValueOrDefault(e.LegalEntityId, ""));
+            var g = calculator.Calculate(e.BasicSalary, e.JoinDate, e.TerminationDate, asOf, countries.GetValueOrDefault(e.LegalEntityId, ""), daysBasis[e.LegalEntityId]);
             rule ??= g.Rule;
             return new GratuityRow(e.Id, e.Number, e.FullName, e.LegalEntityId, e.JoinDate, e.BasicSalary, Math.Round(g.ServiceYears, 2), g.Eligible, g.EntitlementDays, g.Amount);
         }).ToList();

@@ -24,6 +24,7 @@ public sealed record LeadStageBody(LeadStage Stage, string? LostReason = null);
 public sealed record ListingStatusBody(ListingStatus Status);
 public sealed record RenewalDraftsBody(List<Guid> LeaseIds, decimal UpliftPercent);
 public sealed record DealStageBody(DealStage Stage, string? LostReason = null);
+public sealed record VoidOwnerPayoutBody(string? Reason);
 
 /// <summary>Thin controllers: every endpoint sends one MediatR request (see docs/ARCHITECTURE.md, request flow).</summary>
 internal static class RealEstateEndpoints
@@ -46,6 +47,7 @@ internal static class RealEstateEndpoints
         MapDeals(group.MapGroup("/deals"));
         MapAcquisitions(group.MapGroup("/acquisitions"));
         MapBilling(group.MapGroup("/billing"));
+        MapOwnerPayouts(group.MapGroup("/owner-payouts"));
         MapReports(group.MapGroup("/reports"));
     }
 
@@ -83,6 +85,18 @@ internal static class RealEstateEndpoints
         g.MapGet("/invoice-links", ([Microsoft.AspNetCore.Mvc.FromQuery] Guid[] ids, ISender s, CancellationToken ct) => s.Send(new GetInvoiceLeaseLinks(ids), ct)).RequirePermission(P.LeasesRead);
         g.MapPost("/run", (BillingRunBody body, ISender s, CancellationToken ct) => s.Send(new RunBilling(body.AsOf, body.LegalEntityId), ct)).RequirePermission(P.BillingRun);
         g.MapPost("/instalments/{id:guid}/invoice", (Guid id, ISender s, CancellationToken ct) => s.Send(new InvoiceInstalment(id), ct)).RequirePermission(P.BillingRun);
+    }
+
+    private static void MapOwnerPayouts(RouteGroupBuilder g)
+    {
+        g.MapPagedList<OwnerPayout, OwnerPayoutDto>("", P.OwnerPayoutsRead, p => new OwnerPayoutDto(p.Id, p.Number, p.LegalEntityId, p.OwnerPartyId, p.PeriodFrom, p.PeriodTo, p.Date, p.Method, p.Status, p.RentCollected, p.ManagementFee, p.MaintenanceCosts, p.Amount, p.BankAccountId, p.BillId, p.JournalEntryId, p.Notes, p.VoidReason, p.VoidedAt));
+        g.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetOwnerPayout(id), ct)).RequirePermission(P.OwnerPayoutsRead);
+        g.MapPost("", async (OwnerPayoutInput input, ISender s, CancellationToken ct) =>
+        {
+            var created = await s.Send(new CreateOwnerPayout(input), ct);
+            return Results.Created($"{Base}/owner-payouts/{created.Id}", created);
+        }).RequirePermission(P.OwnerPayoutsManage);
+        g.MapPost("/{id:guid}/void", (Guid id, VoidOwnerPayoutBody body, ISender s, CancellationToken ct) => s.Send(new VoidOwnerPayout(id, body.Reason), ct)).RequirePermission(P.OwnerPayoutsManage);
     }
 
     private static void MapUnitTypes(RouteGroupBuilder g)

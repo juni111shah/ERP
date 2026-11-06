@@ -36,7 +36,8 @@ public sealed record ProjectInput(
     decimal? BudgetHours = null,
     string? SourceType = null,
     Guid? SourceId = null,
-    bool? IsTemplate = null);
+    bool? IsTemplate = null,
+    decimal? ContractValue = null);
 
 public sealed record ProjectSummaryDto(
     Guid Id,
@@ -61,7 +62,8 @@ public sealed record ProjectSummaryDto(
     decimal EffectiveBudget = 0m,
     int OpenTasks = 0,
     int OverdueTasks = 0,
-    decimal UnbilledAmount = 0m);
+    decimal UnbilledAmount = 0m,
+    decimal? ContractValue = null);
 
 public sealed record ProjectDto(
     Guid Id,
@@ -105,7 +107,9 @@ public sealed record ProjectDto(
     int OpenTasks = 0,
     decimal EffectiveBudgetHours = 0m,
     decimal LabourCost = 0m,
-    IReadOnlyList<ProjectStatus>? NextStatuses = null);
+    IReadOnlyList<ProjectStatus>? NextStatuses = null,
+    decimal? ContractValue = null,
+    decimal WipBalance = 0m);
 
 public sealed record ProjectKpiDto(
     int TotalProjects,
@@ -140,6 +144,7 @@ public sealed class ProjectInputValidator : AbstractValidator<ProjectInput>
         RuleFor(x => x.CustomerName).MaximumLength(200);
         RuleFor(x => x.ManagerName).MaximumLength(150);
         RuleFor(x => x.BudgetAmount).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.ContractValue).GreaterThanOrEqualTo(0).When(x => x.ContractValue != null);
         RuleFor(x => x.BudgetHours).GreaterThanOrEqualTo(0).When(x => x.BudgetHours != null);
         RuleFor(x => x.SourceType).MaximumLength(60);
         RuleFor(x => x.Status).IsInEnum();
@@ -163,16 +168,18 @@ internal sealed class ProjectHandlers(
     IRepository<Project> projects,
     IReadRepository<ProjectTask> tasks,
     IReadRepository<ProjectMilestone> milestones,
-    IReadRepository<ProjectTimesheet> timesheets,
+    IRepository<ProjectTimesheet> timesheets,
     IReadRepository<ERP.Domain.Parties.Party> parties,
-    IReadRepository<ProjectExpense> expenses,
+    IRepository<ProjectExpense> expenses,
     IReadRepository<ProjectProgressBilling> progress,
     ProjectFigures figures,
     ProjectPeople people,
     ProjectAccess access,
     ILegalEntityGuard guard,
     INumberingService numbers,
-    ICustomFieldService fields) :
+    ICustomFieldService fields,
+    ERP.Application.Finance.IPostingService posting,
+    IUnitOfWork uow) :
     IRequestHandler<GetProject, ProjectDto>,
     IRequestHandler<CreateProject, ProjectDto>,
     IRequestHandler<UpdateProject, ProjectDto>,
@@ -209,7 +216,9 @@ internal sealed class ProjectHandlers(
         return await BuildDtoAsync(p, ct);
     }
 
-    public async Task<ProjectDto> Handle(UpdateProject cmd, CancellationToken ct)
+    public Task<ProjectDto> Handle(UpdateProject cmd, CancellationToken ct) => uow.InTransactionAsync(token => UpdateCoreAsync(cmd, token), ct);
+
+    private async Task<ProjectDto> UpdateCoreAsync(UpdateProject cmd, CancellationToken ct)
     {
         var p = await projects.GetForUpdateAsync(cmd.Id, ct);
         await access.EnsureAsync(p, ct);
@@ -228,7 +237,9 @@ internal sealed class ProjectHandlers(
             throw new ConflictException("A project that already has tasks or time cannot move to another legal entity.");
         p.LegalEntityId = i.LegalEntityId;
         p.Number = number;
+        var closing = i.Status != p.Status && i.Status is ProjectStatus.Completed or ProjectStatus.Cancelled;
         Map(i, p, customerName, await people.NameAsync(i.ManagerUserId, ct));
+        if (closing) await ProjectWip.ReleaseRemainingAsync(posting, timesheets, expenses, p, i.Status, ct);
 
         await fields.ApplyAsync(Docs.Project, p, i.CustomFields, isCreate: false, ct);
         await projects.SaveChangesAsync(ct);
@@ -249,16 +260,17 @@ internal sealed class ProjectHandlers(
         return Unit.Value;
     }
 
-    public async Task<ProjectDto> Handle(ChangeProjectStatus cmd, CancellationToken ct)
+    public Task<ProjectDto> Handle(ChangeProjectStatus cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
     {
-        var p = await projects.GetForUpdateAsync(cmd.Id, ct);
-        await access.EnsureAsync(p, ct);
+        var p = await projects.GetForUpdateAsync(cmd.Id, token);
+        await access.EnsureAsync(p, token);
         ProjectsTransitions.Project.Ensure(p.Status, cmd.Status, isSystem: false);
-        if (cmd.Status == ProjectStatus.Completed) await EnsureCanCompleteAsync(p, ct);
+        if (cmd.Status == ProjectStatus.Completed) await EnsureCanCompleteAsync(p, token);
         p.Status = cmd.Status;
-        await projects.SaveChangesAsync(ct);
-        return await BuildDtoAsync(p, ct);
-    }
+        if (cmd.Status is ProjectStatus.Completed or ProjectStatus.Cancelled) await ProjectWip.ReleaseRemainingAsync(posting, timesheets, expenses, p, cmd.Status, token);
+        await projects.SaveChangesAsync(token);
+        return await BuildDtoAsync(p, token);
+    }, ct);
 
     public async Task<ProjectKpiDto> Handle(GetProjectKpiSummary q, CancellationToken ct)
     {
@@ -326,6 +338,7 @@ internal sealed class ProjectHandlers(
         p.Status = i.Status;
         p.BillingType = i.BillingType;
         p.BudgetAmount = i.BudgetAmount;
+        p.ContractValue = i.ContractValue ?? p.ContractValue;
         p.StartDate = i.StartDate;
         p.EndDate = i.EndDate;
     }
@@ -339,6 +352,6 @@ internal sealed class ProjectHandlers(
             f.LoggedHours, f.BilledHours, f.Cost, f.TotalTasks, f.CompletedTasks, f.TotalMilestones, f.AchievedMilestones, customJson, p.CreatedAt,
             p.ManagerUserId, p.TaxCodeId, p.BudgetHours, p.IsTemplate, p.IsArchived, p.SourceType, p.SourceId,
             f.Budget, f.ApprovedChanges, f.BillableValue, f.ExpenseCost, f.Billed, f.Unbilled, f.PercentComplete, f.Health, f.OverdueTasks, f.OpenTasks, f.BudgetHours, f.LabourCost,
-            ProjectsTransitions.ProjectNext(p.Status));
+            ProjectsTransitions.ProjectNext(p.Status), p.ContractValue, f.WipBalance);
     }
 }

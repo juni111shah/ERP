@@ -48,6 +48,7 @@ public sealed class ServicesModule : ModuleBase
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<ClientReferences>();
         services.AddScoped<ISearchProvider, ServicesSearch>();
         services.AddScoped<IDashboardContributor, ServicesDashboard>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
@@ -114,6 +115,21 @@ public sealed class ServicesModule : ModuleBase
             b.HasIndex(x => new { x.LegalEntityId, x.EngagementId });
             b.HasIndex(x => new { x.LegalEntityId, x.ConsultantUserId });
             b.HasIndex(x => new { x.LegalEntityId, x.ActivityDate });
+            b.HasIndex(x => x.InvoiceId).HasFilter("[InvoiceId] IS NOT NULL");
+        });
+
+        modelBuilder.Entity<RetainerBillingPeriod>(b =>
+        {
+            b.ToTable("svc_RetainerPeriods");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.RecurringFee).HasPrecision(18, 2);
+            b.Property(x => x.IncludedHours).HasPrecision(18, 2);
+            b.Property(x => x.BillableHours).HasPrecision(18, 2);
+            b.Property(x => x.OverageHours).HasPrecision(18, 2);
+            b.Property(x => x.OverageHourlyRate).HasPrecision(18, 2);
+            b.Property(x => x.OverageAmount).HasPrecision(18, 2);
+            b.HasIndex(x => new { x.OrgId, x.RetainerId, x.PeriodStart }).IsUnique().HasFilter("[IsDeleted] = 0");
+            b.HasIndex(x => x.InvoiceId);
         });
     }
 }
