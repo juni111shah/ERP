@@ -51,7 +51,7 @@ public class ArchitectureTests
         Assert.True(Types.InAssembly(typeof(ERP.Modules.Projects.ProjectsModule).Assembly).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr").GetResult().IsSuccessful);
         Assert.True(Types.InAssembly(typeof(ERP.Modules.Sales.SalesModule).Assembly).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr", "ERP.Modules.Projects").GetResult().IsSuccessful);
         Assert.True(Types.InAssembly(typeof(ERP.Modules.Purchasing.PurchasingModule).Assembly).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr", "ERP.Modules.Projects", "ERP.Modules.Sales").GetResult().IsSuccessful);
-        Assert.True(Types.InAssembly(typeof(ERP.Modules.Pos.PosModule).Assembly).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr", "ERP.Modules.Projects", "ERP.Modules.Sales", "ERP.Modules.Purchasing").GetResult().IsSuccessful);
+        Assert.True(Types.InAssembly(typeof(ERP.Modules.Pos.PosModule).Assembly).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr", "ERP.Modules.Projects", "ERP.Modules.Sales", "ERP.Modules.Purchasing", "ERP.Modules.Retail").GetResult().IsSuccessful);
     }
 
     // ---- Endpoint -> MediatR (CQRS) -> Repository -> DB --------------------------------------------------------------
