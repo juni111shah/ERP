@@ -27,6 +27,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /** The end date field must not fall before the start date field of the same form. */
 const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErrors | null => {
@@ -275,7 +276,8 @@ export class RetainersPage implements OnInit {
 
   submitRetainer(): void {
     const engagement = this.selectedEngagement();
-    if (this.form.invalid || !engagement) return;
+    if (this.form.invalid) { showFormErrors(this.form); return; }
+    if (!engagement) return;
 
     this.isSubmitting.set(true);
     const val = this.form.value;
