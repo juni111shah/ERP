@@ -215,12 +215,12 @@ internal sealed class RequisitionHandlers(
             RequisitionId = req.Id,
             VendorPartyId = cmd.VendorPartyId,
             VendorName = string.IsNullOrWhiteSpace(cmd.VendorName) ? "Unassigned Vendor" : cmd.VendorName.Trim(),
-            OrderDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            OrderDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
             ExpectedDeliveryDate = req.RequiredDate,
             Currency = "QAR",
             Status = PurchaseOrderStatus.Draft,
             Notes = req.Reason,
-            Number = await numbers.NextAsync(Docs.PurchaseOrder, req.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), ct),
+            Number = await numbers.NextAsync(Docs.PurchaseOrder, req.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), ct),
         };
 
         decimal subtotal = 0;

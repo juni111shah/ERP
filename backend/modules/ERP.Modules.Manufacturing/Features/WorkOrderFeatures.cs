@@ -256,7 +256,7 @@ public class WorkOrderHandlers :
 
         return await _unitOfWork.InTransactionAsync(async token =>
         {
-            var completionDate = wo.CompletionDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var completionDate = wo.CompletionDate ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
             wo.CompletionDate = completionDate;
             wo.Status = WorkOrderStatus.Completed;
             wo.CompletedQuantity = request.CompletedQuantity;

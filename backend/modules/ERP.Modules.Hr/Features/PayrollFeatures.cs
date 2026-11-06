@@ -186,7 +186,7 @@ internal sealed class PayrollHandlers(
         {
             // end of service is paid out of the provision first; whatever the provision does not cover is expensed now
             var provisionAccount = await posting.AccountForRoleAsync("payroll.gratuity.provision", ct);
-            var available = Math.Max(0m, await provisions.BalanceAsync(run.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), ct));
+            var available = Math.Max(0m, await provisions.BalanceAsync(run.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), ct));
             var fromProvision = Math.Min(endOfService, available);
             if (fromProvision > 0) lines.Add(new PostingLine(provisionAccount, fromProvision, 0, memo));
             if (endOfService - fromProvision > 0) lines.Add(new PostingLine(await posting.AccountForRoleAsync("payroll.gratuity.expense", ct), endOfService - fromProvision, 0, memo));

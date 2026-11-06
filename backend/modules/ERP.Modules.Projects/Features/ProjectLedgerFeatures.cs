@@ -38,7 +38,7 @@ internal sealed class ProjectLedgerHandlers(
         var wip = await posting.AccountForRoleAsync(SystemRoles.Wip, token);
         var recovery = await posting.AccountForRoleAsync("projects.costrecovery", token);
         var memo = $"Project {p.Number} cost to work in progress";
-        var journal = await posting.PostAsync(new PostingRequest(p.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), "projects.cost", p.Id, memo, p.Number,
+        var journal = await posting.PostAsync(new PostingRequest(p.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), "projects.cost", p.Id, memo, p.Number,
             [new PostingLine(wip, amount, 0, memo), new PostingLine(recovery, 0, amount, memo)]), token);
         foreach (var t in time) t.CostJournalId = journal.Id;
         foreach (var e in costs) e.CostJournalId = journal.Id;

@@ -167,7 +167,7 @@ internal sealed class ExpenseHandlers(
 
     private async Task FillAsync(ProjectExpense e, Project p, ExpenseInput i, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         if (i.Date > today.AddDays(1)) throw new FieldValidationException("date", "An expense cannot be dated in the future.");
         string? name = i.WorkerName?.Trim();
         if (i.WorkerUserId is { } uid) name = await people.RequireNameAsync(uid, "workerUserId", ct);

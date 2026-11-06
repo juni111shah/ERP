@@ -36,7 +36,7 @@ public class ManufacturingKpiHandlers : IRequestHandler<GetManufacturingKpiSumma
         var openOrders = await _workOrders.Query(new Specification<WorkOrder>(w =>
             w.Status == WorkOrderStatus.Planned || w.Status == WorkOrderStatus.InProgress)).CountAsync(cancellationToken);
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var firstDayOfMonth = new DateOnly(today.Year, today.Month, 1);
 
         var completedThisMonth = await _workOrders.Query(new Specification<WorkOrder>(w =>

@@ -196,7 +196,7 @@ internal sealed class ChequeHandlers(
                 && x.Status != InstrumentStatus.Cancelled && x.Status != InstrumentStatus.Replaced && x.Status != InstrumentStatus.Bounced, ct))
             throw new ConflictException($"Cheque {no} from this customer is already registered.");
 
-        var received = i.ReceivedOn ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var received = i.ReceivedOn ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var cheque = new PaymentInstrument
         {
             LegalEntityId = entity.Id, Kind = i.Kind, Direction = InstrumentDirection.Received, InstrumentNo = no, BankName = bank, Amount = i.Amount, CurrencyCode = entity.BaseCurrency,

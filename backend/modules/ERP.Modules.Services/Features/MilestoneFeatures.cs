@@ -144,7 +144,7 @@ public class MilestoneHandlers :
         milestone.Status = request.Status;
         if (request.Status == MilestoneStatus.ReadyToInvoice && milestone.CompletionDate is null)
         {
-            milestone.CompletionDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            milestone.CompletionDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         }
         if (request.InvoiceId.HasValue)
         {
@@ -175,7 +175,7 @@ public class MilestoneHandlers :
             throw new ConflictException("Service engagement must have a valid client to generate an invoice.");
         }
 
-        var invoiceDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var invoiceDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var dueDate = milestone.DueDate > invoiceDate ? milestone.DueDate : invoiceDate;
 
         var invoice = await _sender.Send(new CreateInvoice(new InvoiceInput(

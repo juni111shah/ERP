@@ -207,7 +207,7 @@ internal sealed class DepositHandlers(
         if (to.Status is LeaseStatus.Cancelled or LeaseStatus.Ended or LeaseStatus.Terminated) throw new ConflictException("The receiving lease is closed.");
         var held = (await BuildAsync(from, token)).Held;
         if (held <= 0) throw new ConflictException("There is no deposit to transfer.");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         // Both leases keep the money in the same liability account, so only the deposit register changes.
         transactions.AddRange([
             new DepositTransaction { LegalEntityId = from.LegalEntityId, LeaseId = from.Id, Date = today, Kind = DepositKind.TransferOut, Amount = held, Description = $"Rolled over to {to.Number}" },
@@ -260,7 +260,7 @@ internal sealed class TerminationCreditHandlers(
             if (credit <= 0) continue;
             var line = original.Lines.First();
             var description = $"Credit for rent after termination on {end:dd MMM yyyy}: {line.Description}";
-            var draft = new InvoiceDraft(original.LegalEntityId, original.PartyId, DateOnly.FromDateTime(DateTime.UtcNow), DateOnly.FromDateTime(DateTime.UtcNow), [new InvoiceLineDraft(description, 1, credit, line.TaxCodeId, line.AccountId)],
+            var draft = new InvoiceDraft(original.LegalEntityId, original.PartyId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), [new InvoiceLineDraft(description, 1, credit, line.TaxCodeId, line.AccountId)],
                 IsCreditNote: true, SourceType: "realestate.termination", SourceId: i.Id, Notes: lease.Number, CreditNoteForId: original.Id);
             var note = await invoicing.BuildAsync(draft, token);
             await invoicing.IssueAsync(note, token);

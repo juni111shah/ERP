@@ -38,7 +38,7 @@ public class DistributionKpiHandlers : IRequestHandler<GetDistributionKpiSummary
         var totalRoutes = await _routes.Query().CountAsync(cancellationToken);
         var activeRoutes = await _routes.Query(new Specification<DistributionRoute>(r => r.IsActive)).CountAsync(cancellationToken);
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var firstDayOfMonth = new DateOnly(today.Year, today.Month, 1);
 
         var activeTripsToday = await _trips.Query(new Specification<VanSalesTrip>(t =>

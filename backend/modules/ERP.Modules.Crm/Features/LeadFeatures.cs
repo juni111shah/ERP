@@ -148,7 +148,7 @@ public class LeadHandlers :
     public async Task<LeadDto> Handle(CreateLeadCommand request, CancellationToken cancellationToken)
     {
         await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
-        var number = await _numbering.NextAsync("LEAD", request.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+        var number = await _numbering.NextAsync("LEAD", request.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), cancellationToken);
 
         var lead = new CrmLead
         {
@@ -234,7 +234,7 @@ public class LeadHandlers :
             lead.ConvertedPartyId = party.Id;
         }
 
-        var oppNumber = await _numbering.NextAsync("OPP", lead.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+        var oppNumber = await _numbering.NextAsync("OPP", lead.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), cancellationToken);
 
         var opp = new CrmOpportunity
         {

@@ -216,7 +216,7 @@ public sealed class InventoryStockPostingService(
                 m.ItemId,
                 qty,
                 returnCost,
-                DateOnly.FromDateTime(DateTime.UtcNow),
+                DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
                 reference,
                 $"POS void return {reference}",
                 m.WarehouseId,

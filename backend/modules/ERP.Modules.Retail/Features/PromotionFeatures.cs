@@ -163,7 +163,7 @@ public class PromotionHandlers :
     public async Task<PromoValidationResultDto> Handle(ValidatePromoCodeQuery request, CancellationToken cancellationToken)
     {
         var code = request.PromoCode.Trim().ToUpperInvariant();
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
 
         var promo = await _promotions.Query(new Specification<RetailPromotion>(p =>
             p.Code == code && p.LegalEntityId == request.LegalEntityId))

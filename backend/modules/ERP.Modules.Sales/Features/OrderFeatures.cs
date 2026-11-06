@@ -281,7 +281,7 @@ internal sealed class OrderHandlers(
                         order.LegalEntityId,
                         line.ItemId.Value,
                         delta,
-                        DateOnly.FromDateTime(DateTime.UtcNow),
+                        DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
                         order.Number,
                         $"Delivery for SO {order.Number} ({line.ItemCode})"), ct);
                 }
@@ -364,7 +364,7 @@ internal sealed class OrderHandlers(
         var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
             LegalEntityId: order.LegalEntityId,
             PartyId: order.CustomerPartyId.Value,
-            InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow),
+            InvoiceDate: DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
             DueDate: null,
             Lines: invoiceLines,
             Notes: $"Generated from Sales Order {order.Number}",
@@ -388,7 +388,7 @@ internal sealed class OrderHandlers(
                     order.LegalEntityId,
                     l.ItemId.Value,
                     undelivered,
-                    DateOnly.FromDateTime(DateTime.UtcNow),
+                    DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
                     order.Number,
                     $"Auto-fulfillment for Invoiced SO {order.Number} ({l.ItemCode})"), ct);
                 l.DeliveredQuantity = l.Quantity;

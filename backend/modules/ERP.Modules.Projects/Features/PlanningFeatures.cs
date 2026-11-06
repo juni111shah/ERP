@@ -103,11 +103,11 @@ internal sealed class PlanningHandlers(
         var ids = all.Select(t => t.Id).ToList();
         var deps = (await dependencies.Query(new Specification<ProjectTaskDependency>(d => ids.Contains(d.TaskId))).ToListAsync(ct)).ToLookup(d => d.TaskId, d => d.DependsOnTaskId);
         var parents = all.Where(t => t.ParentTaskId != null).Select(t => t.ParentTaskId!.Value).ToHashSet();
-        var start = p.StartDate ?? all.Where(t => t.StartDate != null).Select(t => t.StartDate!.Value).DefaultIfEmpty(DateOnly.FromDateTime(DateTime.UtcNow)).Min();
+        var start = p.StartDate ?? all.Where(t => t.StartDate != null).Select(t => t.StartDate!.Value).DefaultIfEmpty(DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow)).Min();
         var leaves = all.Where(t => !parents.Contains(t.Id)).Select(t => new ScheduleMath.Node(t.Id, t.StartDate, t.DueDate, t.EstimatedHours, deps[t.Id].Where(ids.Contains).ToList())).ToList();
         var slots = ScheduleMath.Compute(leaves, start);
         var rows = new List<ScheduleTaskDto>();
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         bool Late(ProjectTask t, DateOnly end) => t.Status != ProjectTaskStatus.Done && (end < today || (t.DueDate is { } d && d < today));
         foreach (var t in all.OrderBy(t => t.Number))
         {

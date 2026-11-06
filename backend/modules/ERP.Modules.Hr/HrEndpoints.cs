@@ -161,9 +161,9 @@ internal static class HrEndpoints
 
         var leave = group.MapGroup("/leave");
         leave.MapPagedList<LeaveRequest, LeaveRequestRow>("", P.LeaveRead, r => new LeaveRequestRow(r.Id, r.EmployeeId, r.EmployeeName, r.LeaveTypeId, r.FromDate, r.ToDate, r.Days, r.Status, r.Reason));
-        leave.MapPost("/apply-country-defaults", (int? year, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new ApplyLeaveCountryDefaults(year ?? DateTime.UtcNow.Year, legalEntityId), ct)).RequirePermission(P.LeaveApprove);
+        leave.MapPost("/apply-country-defaults", (int? year, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new ApplyLeaveCountryDefaults(year ?? ERP.Domain.Common.AppClock.UtcNow.Year, legalEntityId), ct)).RequirePermission(P.LeaveApprove);
         leave.MapGet("/days", (DateOnly from, DateOnly to, ISender s, CancellationToken ct) => s.Send(new GetLeaveDays(from, to), ct)).RequirePermission(P.LeaveRead);
-        leave.MapGet("/balances", (int? year, Guid? employeeId, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetLeaveBalances(year ?? DateTime.UtcNow.Year, employeeId, legalEntityId), ct)).RequirePermission(P.LeaveRead);
+        leave.MapGet("/balances", (int? year, Guid? employeeId, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetLeaveBalances(year ?? ERP.Domain.Common.AppClock.UtcNow.Year, employeeId, legalEntityId), ct)).RequirePermission(P.LeaveRead);
         leave.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetLeaveRequest(id), ct)).RequirePermission(P.LeaveRead);
         leave.MapPost("", async (LeaveRequestInput input, ISender s, CancellationToken ct) =>
         {

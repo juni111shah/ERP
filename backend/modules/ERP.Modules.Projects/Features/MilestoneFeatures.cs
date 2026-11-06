@@ -132,8 +132,8 @@ internal sealed class MilestoneHandlers(
         ProjectRules.EnsureOpen(await projects.GetAsync(m.ProjectId, ct));
         await access.EnsureProjectAsync(m.ProjectId, ct);
         ProjectsTransitions.Milestone.Ensure(m.Status, MilestoneStatus.Achieved, isSystem: false);
-        var achieved = cmd.AchievedDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
-        if (achieved > DateOnly.FromDateTime(DateTime.UtcNow)) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");
+        var achieved = cmd.AchievedDate ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
+        if (achieved > DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow)) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");
         m.Status = MilestoneStatus.Achieved;
         m.AchievedDate = achieved;
         await milestones.SaveChangesAsync(ct);
@@ -144,7 +144,7 @@ internal sealed class MilestoneHandlers(
     private static DateOnly? AchievedDateFor(MilestoneInput i)
     {
         if (i.Status is MilestoneStatus.Pending or MilestoneStatus.Cancelled) return null;
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var date = i.AchievedDate ?? today;
         if (date > today) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");
         return date;

@@ -79,6 +79,29 @@ public interface IVoidable
     Guid? VoidedBy { get; set; }
 }
 
+/// <summary>
+/// The time business handlers read. Always the real UTC time, unless trusted seeding code pins it with <see cref="Use"/> so that
+/// documents get the dates they would have had. Nothing reachable from a request can pin it.
+/// </summary>
+public static class AppClock
+{
+    private static readonly AsyncLocal<DateTime?> Pinned = new();
+
+    public static DateTime UtcNow => Pinned.Value ?? DateTime.UtcNow;
+
+    public static IDisposable Use(DateTime utc)
+    {
+        var previous = Pinned.Value;
+        Pinned.Value = DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+        return new Restore(previous);
+    }
+
+    private sealed class Restore(DateTime? previous) : IDisposable
+    {
+        public void Dispose() => Pinned.Value = previous;
+    }
+}
+
 public class DomainException(string message) : Exception(message);
 
 /// <summary>

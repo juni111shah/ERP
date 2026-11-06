@@ -203,7 +203,7 @@ internal static class RealEstateEndpoints
 
     private static void MapRenewals(RouteGroupBuilder g)
     {
-        g.MapGet("", (int? days, DateOnly? asOf, ISender s, CancellationToken ct) => s.Send(new GetRenewalWorkbench(days ?? 120, asOf ?? DateOnly.FromDateTime(DateTime.UtcNow)), ct)).RequirePermission(P.LeasesRenew);
+        g.MapGet("", (int? days, DateOnly? asOf, ISender s, CancellationToken ct) => s.Send(new GetRenewalWorkbench(days ?? 120, asOf ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow)), ct)).RequirePermission(P.LeasesRenew);
         g.MapPost("/drafts", (RenewalDraftsBody body, ISender s, CancellationToken ct) => s.Send(new CreateRenewalDrafts(body.LeaseIds, body.UpliftPercent), ct)).RequirePermission(P.LeasesRenew);
     }
 

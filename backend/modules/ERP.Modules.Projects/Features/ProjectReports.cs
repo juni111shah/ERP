@@ -175,7 +175,7 @@ internal sealed class ReportHandlers(
         var co = (await changeOrders.Query(new Specification<ProjectChangeOrder>(c => ids.Contains(c.ProjectId))).ToListAsync(ct)).ToLookup(c => c.ProjectId);
         var ms = (await milestones.Query(new Specification<ProjectMilestone>(m => ids.Contains(m.ProjectId) && m.Status == MilestoneStatus.Invoiced)).ToListAsync(ct)).ToLookup(m => m.ProjectId);
         var pr = (await progress.Query(new Specification<ProjectProgressBilling>(x => ids.Contains(x.ProjectId) && !x.Released)).ToListAsync(ct)).ToLookup(x => x.ProjectId);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var rows = new List<BudgetRow>();
         foreach (var p in list.OrderBy(p => p.Number))
         {
@@ -203,7 +203,7 @@ internal sealed class ReportHandlers(
 
     public async Task<IReadOnlyList<AgeingRow>> Handle(GetUnbilledAgeing q, CancellationToken ct)
     {
-        var asOf = q.AsOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var asOf = q.AsOf ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var visible = await access.VisibleIdsAsync(ct);
         var list = (await projects.Query(new Specification<Project>(p => !p.IsTemplate && p.BillingType != ProjectBillingType.NonBillable)).ToListAsync(ct)).Where(p => visible == null || visible.Contains(p.Id)).ToList();
         var ids = list.Select(p => p.Id).ToList();

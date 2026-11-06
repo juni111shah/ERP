@@ -254,12 +254,12 @@ internal sealed class QuoteHandlers(
             QuoteNumber = quote.Number,
             CustomerPartyId = quote.CustomerPartyId,
             CustomerName = quote.CustomerName,
-            OrderDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            OrderDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
             Currency = quote.Currency,
             Status = SalesOrderStatus.Confirmed,
             PaymentTerms = quote.Terms,
             Notes = quote.Notes,
-            Number = await numbers.NextAsync(Docs.SalesOrder, quote.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), ct),
+            Number = await numbers.NextAsync(Docs.SalesOrder, quote.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), ct),
         };
 
         foreach (var l in quote.Lines)

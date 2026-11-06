@@ -243,7 +243,7 @@ public class TripHandlers :
         }
 
         trip.Status = TripStatus.Completed;
-        trip.ReturnDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        trip.ReturnDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         trip.TotalSalesAmount = request.TotalSalesAmount;
         trip.TotalCollectionsAmount = request.TotalCollectionsAmount;
         if (!string.IsNullOrWhiteSpace(request.Notes))
@@ -273,7 +273,7 @@ public class TripHandlers :
                     trip.LegalEntityId,
                     item.ItemId,
                     issuedQty,
-                    trip.ReturnDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                    trip.ReturnDate ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
                     trip.TripNumber,
                     $"Van sales trip {trip.TripNumber} sold/damaged ({item.ItemCode})",
                     trip.WarehouseId != Guid.Empty ? trip.WarehouseId : null), cancellationToken);

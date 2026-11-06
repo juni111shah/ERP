@@ -615,7 +615,7 @@ public class OrderHandlers :
                         order.LegalEntityId,
                         l.ItemId.Value,
                         l.Quantity,
-                        DateOnly.FromDateTime(DateTime.UtcNow),
+                        DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
                         order.Number,
                         $"POS sale {order.Number} ({l.ItemCode})",
                         register.WarehouseId), token);

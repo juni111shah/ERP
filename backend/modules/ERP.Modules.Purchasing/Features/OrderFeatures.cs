@@ -412,7 +412,7 @@ internal sealed class PurchaseOrderHandlers(
             }
         }
 
-        var billDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var billDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var bill = await sender.Send(new CreateBill(new BillInput(
             LegalEntityId: order.LegalEntityId,
             PartyId: order.VendorPartyId.Value,

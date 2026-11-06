@@ -212,7 +212,7 @@ internal sealed class TimesheetHandlers(
         foreach (var t in rows)
         {
             if (t.ApprovalStatus is TimesheetStatus.Submitted or TimesheetStatus.Approved) continue;
-            t.ApprovalStatus = TimesheetStatus.Submitted; t.SubmittedAt = DateTime.UtcNow; t.RejectReason = null; n++;
+            t.ApprovalStatus = TimesheetStatus.Submitted; t.SubmittedAt = ERP.Domain.Common.AppClock.UtcNow; t.RejectReason = null; n++;
         }
         await timesheets.SaveChangesAsync(ct);
         return n;
@@ -232,7 +232,7 @@ internal sealed class TimesheetHandlers(
             if (t.ApprovalStatus != TimesheetStatus.Submitted) continue;
             t.ApprovalStatus = cmd.Approve ? TimesheetStatus.Approved : TimesheetStatus.Rejected;
             t.RejectReason = cmd.Approve ? null : cmd.Reason?.Trim();
-            t.DecidedAt = DateTime.UtcNow; t.DecidedByUserId = user.UserId; n++;
+            t.DecidedAt = ERP.Domain.Common.AppClock.UtcNow; t.DecidedByUserId = user.UserId; n++;
         }
         await timesheets.SaveChangesAsync(ct);
         return n;
@@ -330,7 +330,7 @@ internal sealed class TimesheetHandlers(
     /// <summary>No future dates unless the setting allows them, and one person cannot log more than the daily limit across all entries.</summary>
     private async Task EnsureDayAsync(Project p, TimesheetInput i, string name, Guid? userId, Guid? exceptId, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         if (i.Date > today.AddDays(1) && await settings.GetAsync<bool?>("projects.allowFutureTime", p.LegalEntityId, ct) != true)
             throw new FieldValidationException("date", "Time cannot be logged for a future date.");
         var limit = await settings.GetAsync<decimal?>("projects.maxHoursPerDay", p.LegalEntityId, ct) ?? 16m;

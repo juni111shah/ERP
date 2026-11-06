@@ -145,9 +145,9 @@ public sealed class InventoryModule : ModuleBase
         counts.MapPost("/{id:guid}/cancel", (Guid id, ISender s, CancellationToken ct) => s.Send(new CancelStockCount(id), ct)).RequirePermission(CountsManage);
 
         var reports = group.MapGroup("/reports");
-        reports.MapGet("/valuation", (DateOnly? asOf, ISender s, CancellationToken ct) => s.Send(new GetStockValuation(asOf ?? DateOnly.FromDateTime(DateTime.UtcNow)), ct)).RequirePermission(StockRead);
+        reports.MapGet("/valuation", (DateOnly? asOf, ISender s, CancellationToken ct) => s.Send(new GetStockValuation(asOf ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow)), ct)).RequirePermission(StockRead);
         reports.MapGet("/movement-summary", (DateOnly from, DateOnly to, ISender s, CancellationToken ct) => s.Send(new GetMovementSummary(from, to), ct)).RequirePermission(StockRead);
-        reports.MapGet("/slow-moving", (DateOnly? asOf, int? days, ISender s, CancellationToken ct) => s.Send(new GetSlowMoving(asOf ?? DateOnly.FromDateTime(DateTime.UtcNow), days ?? 90), ct)).RequirePermission(StockRead);
+        reports.MapGet("/slow-moving", (DateOnly? asOf, int? days, ISender s, CancellationToken ct) => s.Send(new GetSlowMoving(asOf ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), days ?? 90), ct)).RequirePermission(StockRead);
         reports.MapGet("/reorder", (ISender s, CancellationToken ct) => s.Send(new GetReorderSuggestions(), ct)).RequirePermission(StockRead);
 
         group.MapPost("/warehouses", async (WarehouseInput input, ISender sender, CancellationToken ct) =>

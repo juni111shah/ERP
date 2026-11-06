@@ -147,7 +147,7 @@ internal static class ProjectWip
         if (value <= 0) return null;
         var cogs = await posting.AccountForRoleAsync("cogs", ct);
         var wip = await posting.AccountForRoleAsync(ERP.Application.Finance.SystemRoles.Wip, ct);
-        return await posting.PostAsync(new ERP.Application.Finance.PostingRequest(p.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), "projects.cost.release", p.Id, memo, reference,
+        return await posting.PostAsync(new ERP.Application.Finance.PostingRequest(p.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), "projects.cost.release", p.Id, memo, reference,
             [new ERP.Application.Finance.PostingLine(cogs, value, 0, memo), new ERP.Application.Finance.PostingLine(wip, 0, value, memo)]), ct);
     }
 }

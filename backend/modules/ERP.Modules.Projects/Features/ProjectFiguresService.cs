@@ -31,7 +31,7 @@ public sealed class ProjectFigures(
         var ex = (await expenses.Query(new Specification<ProjectExpense>(x => ids.Contains(x.ProjectId))).ToListAsync(ct)).ToLookup(x => x.ProjectId);
         var co = (await changeOrders.Query(new Specification<ProjectChangeOrder>(x => ids.Contains(x.ProjectId))).ToListAsync(ct)).ToLookup(x => x.ProjectId);
         var pr = (await progress.Query(new Specification<ProjectProgressBilling>(x => ids.Contains(x.ProjectId) && !x.Released)).ToListAsync(ct)).ToLookup(x => x.ProjectId);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         return list.ToDictionary(p => p.Id, p => Compute(p, ts[p.Id].ToList(), tk[p.Id].ToList(), ms[p.Id].ToList(), ex[p.Id].ToList(), co[p.Id].ToList(), pr[p.Id].ToList(), today));
     }
 

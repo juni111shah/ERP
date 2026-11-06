@@ -270,7 +270,7 @@ internal sealed class BillingHandlers(
         {
             var notes = string.IsNullOrWhiteSpace(i.Notes) ? $"Generated for Project {p.Number}: {p.Name}" : $"{i.Notes.Trim()} (Project {p.Number}: {p.Name})";
             var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
-                LegalEntityId: p.LegalEntityId, PartyId: p.CustomerId!.Value, InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow), DueDate: i.DueDate, Lines: invoiceLines,
+                LegalEntityId: p.LegalEntityId, PartyId: p.CustomerId!.Value, InvoiceDate: DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), DueDate: i.DueDate, Lines: invoiceLines,
                 Notes: notes, SourceType: "projects.project", SourceId: p.Id)), transactionCt);
             foreach (var ts in plan.Time) { ts.IsBilled = true; ts.InvoiceId = invoice.Id; }
             foreach (var e in plan.Expenses) { e.IsBilled = true; e.InvoiceId = invoice.Id; }
@@ -289,7 +289,7 @@ internal sealed class BillingHandlers(
                 foreach (var e in releaseCosts) e.WipReleaseJournalId = journal.Id;
             }
             if (plan.ProgressAmount > 0)
-                progressRows.Add(new ProjectProgressBilling { ProjectId = p.Id, Date = DateOnly.FromDateTime(DateTime.UtcNow), Percent = i.ProgressPercent ?? 0m, Amount = plan.ProgressAmount, InvoiceId = invoice.Id });
+                progressRows.Add(new ProjectProgressBilling { ProjectId = p.Id, Date = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), Percent = i.ProgressPercent ?? 0m, Amount = plan.ProgressAmount, InvoiceId = invoice.Id });
             await timesheets.SaveChangesAsync(transactionCt);
             await expenses.SaveChangesAsync(transactionCt);
             await milestones.SaveChangesAsync(transactionCt);

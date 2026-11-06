@@ -143,7 +143,7 @@ public class EngagementHandlers :
         engagement.Status = request.Status;
         if (request.Status == EngagementStatus.Completed && engagement.ActualEndDate is null)
         {
-            engagement.ActualEndDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            engagement.ActualEndDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         }
 
         await _repo.SaveChangesAsync(cancellationToken);

@@ -46,7 +46,9 @@ public static class ProgramSeeder
         var section = config.GetSection("Seed");
         if (!section.GetValue<bool>("Enabled")) return;
 
-        var orgs = await sp.GetRequiredService<AppDbContext>().Organizations.ToListAsync(ct);
+        // Demo history goes only into the named demo workspaces. Seeding every workspace once wrote it into real ones.
+        var workspaces = (section["Workspaces"] ?? "demo,demo-re").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var orgs = await sp.GetRequiredService<AppDbContext>().Organizations.Where(o => workspaces.Contains(o.Code)).ToListAsync(ct);
         if (orgs.Count == 0) return;
 
         foreach (var org in orgs)
