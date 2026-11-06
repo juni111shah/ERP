@@ -514,9 +514,10 @@ export class PagedTableComponent<T> {
         case 'text': out.push({ field, op: 'contains', value: s.text!.trim() }); break;
         case 'select': out.push(s.values!.length === 1 ? { field, op: 'eq', value: s.values![0] } : { field, op: 'in', value: s.values! }); break;
         case 'date': {
-          const from = isoDate(s.range?.[0]); const to = isoDate(s.range?.[1]);
+          const from = isoDate(s.range?.[0]); const to = s.range?.[1];
           if (from) out.push({ field, op: 'gte', value: from });
-          if (to) out.push({ field, op: 'lte', value: to });
+          // Before the next day, so the end date counts in full for fields that also hold a time.
+          if (to) out.push({ field, op: 'lt', value: isoDate(new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1))! });
           break;
         }
         case 'number':
@@ -699,6 +700,6 @@ export class PagedTableComponent<T> {
       return obj;
     });
     this.csvService.exportToCsv(data as Record<string, any>[], this.exportFilename(), cols);
-    this.message.success(this.t('table.exported', 'CSV exported successfully'));
+    this.message.success(`${this.exportFilename()}.csv: ${items.length} ${this.t('table.rowsExported', 'rows exported')}`);
   }
 }

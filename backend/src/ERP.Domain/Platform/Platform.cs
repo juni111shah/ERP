@@ -17,9 +17,11 @@ public class AuditEvent : Entity, IOrgScoped
     public string RecordType { get; set; } = default!;
     [Filterable, Searchable]
     public string RecordId { get; set; } = default!;
+    [Searchable]
     public string? ChangedFields { get; set; }
     public string? Before { get; set; }
     public string? After { get; set; }
+    [Filterable, Searchable]
     public string? IpAddress { get; set; }
     public string? CorrelationId { get; set; }
 }

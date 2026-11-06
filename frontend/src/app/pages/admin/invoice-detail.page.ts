@@ -99,7 +99,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
             @for (h of history(); track h.id) {
               <nz-timeline-item [nzColor]="h.action === 'Deleted' ? 'red' : h.action === 'Created' ? 'green' : 'blue'">
                 <b>{{ h.action }}</b> · {{ fmtDate(h.occurredAt) }} · {{ userName(h.userId) }}
-                @if (h.changedFields) { <div class="muted">{{ h.changedFields }}</div> }
+                @if (h.changedFields.length) { <div class="muted">{{ h.changedFields.join(", ") }}</div> }
               </nz-timeline-item>
             }
           </nz-timeline>

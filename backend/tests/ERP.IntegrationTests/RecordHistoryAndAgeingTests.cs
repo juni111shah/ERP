@@ -57,6 +57,68 @@ public class RecordHistoryAndAgeingTests(ApiFactory f) : IClassFixture<ApiFactor
     }
 
     [Fact]
+    public async Task The_audit_log_lists_named_records_without_field_values_and_masks_the_detail()
+    {
+        var (c, _) = await f.SignInAsync(ApiFactory.AdminEmail);
+        var iban = "AE070331234567890123456";
+        var name = "Audit Log Co " + Guid.NewGuid().ToString("N")[..6];
+        var party = await Ok(await c.PostAsJsonAsync("/api/v1/parties", new { name, kind = "Company", roles = "Customer", iban }), HttpStatusCode.Created);
+        var id = (string)party["id"]!;
+        await Ok(await c.PutAsJsonAsync($"/api/v1/parties/{id}", new { name = name + " Ltd", kind = "Company", roles = "Customer", iban = "AE070331234567890999999" }));
+
+        var listBody = await (await c.GetAsync($"/api/v1/audit?filter=recordType:eq:Party&filter=recordId:eq:{id}&sort=-occurredAt")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain(iban, listBody);
+        var rows = ApiFactory.Unwrap(JsonNode.Parse(listBody)!).AsArray();
+        var updated = rows.Single(r => (string)r!["action"]! == "Updated")!;
+        Assert.Equal(name + " Ltd", (string)updated["recordLabel"]!);
+        Assert.Contains("Iban", updated["changedFields"]!.AsArray().Select(x => (string)x!));
+        Assert.DoesNotContain("UpdatedAt", updated["changedFields"]!.AsArray().Select(x => (string)x!));
+        Assert.Null(updated["before"]);
+        Assert.False(string.IsNullOrEmpty((string?)updated["userName"]));
+
+        var detailBody = await (await c.GetAsync($"/api/v1/audit/{updated["id"]}")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain(iban, detailBody);
+        var detail = ApiFactory.Unwrap(JsonNode.Parse(detailBody)!);
+        var fields = detail["fields"]!.AsArray();
+        var changedName = fields.Single(x => (string)x!["field"]! == "Name")!;
+        Assert.True((bool)changedName["changed"]!);
+        Assert.Equal(name, (string)changedName["old"]!);
+        Assert.StartsWith("*", (string)fields.Single(x => (string)x!["field"]! == "Iban")!["old"]!);
+        Assert.Contains(fields, x => !(bool)x!["changed"]!); // the unchanged fields come too, for "show unchanged"
+        Assert.DoesNotContain(fields, x => (string)x!["field"]! is "UpdatedAt" or "RowVersion");
+        Assert.Equal(2, (int)detail["recordEventCount"]!);
+        Assert.Equal("Updated", (string)detail["event"]!["action"]!);
+
+        // The screen's time ranges and field search use the generic list parameters.
+        var since = DateTime.UtcNow.AddHours(-1).ToString("O");
+        var inRange = await Ok(await c.GetAsync($"/api/v1/audit?filter=occurredAt:gte:{since}&filter=action:eq:Updated&filter=recordId:eq:{id}"));
+        Assert.Single(inRange.AsArray());
+        var tomorrow = DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd");
+        var beforeTomorrow = await Ok(await c.GetAsync($"/api/v1/audit?filter=occurredAt:lt:{tomorrow}&filter=recordId:eq:{id}"));
+        Assert.Equal(2, beforeTomorrow.AsArray().Count);
+        var longAgo = await Ok(await c.GetAsync($"/api/v1/audit?filter=occurredAt:lt:2000-01-01&filter=recordId:eq:{id}"));
+        Assert.Empty(longAgo.AsArray());
+        var searched = await Ok(await c.GetAsync($"/api/v1/audit?search=Iban&filter=recordId:eq:{id}"));
+        Assert.Single(searched.AsArray());
+
+        var facets = await Ok(await c.GetAsync("/api/v1/audit/facets"));
+        Assert.Contains("Party", facets["recordTypes"]!.AsArray().Select(x => (string)x!));
+        Assert.Contains("Updated", facets["actions"]!.AsArray().Select(x => (string)x!));
+        Assert.NotEmpty(facets["users"]!.AsArray());
+        Assert.True((int)facets["last7Days"]! >= 2);
+    }
+
+    [Fact]
+    public async Task The_audit_log_needs_the_audit_permission()
+    {
+        Assert.Equal(HttpStatusCode.Unauthorized, (await f.Client().GetAsync("/api/v1/audit")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await f.Client().GetAsync("/api/v1/audit/facets")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await f.Client().GetAsync($"/api/v1/audit/{Guid.NewGuid()}")).StatusCode);
+        var (admin, _) = await f.SignInAsync(ApiFactory.AdminEmail);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync($"/api/v1/audit/{Guid.NewGuid()}")).StatusCode);
+    }
+
+    [Fact]
     public async Task Receivables_ageing_can_be_filtered_and_grouped_by_business_unit_and_source()
     {
         var (c, _) = await f.SignInAsync(ApiFactory.AdminEmail);

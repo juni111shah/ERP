@@ -40,8 +40,16 @@ export interface PermissionDefinition { key: string; module: string; resource: s
 export interface UserSummary { id: string; email: string; fullName: string; isActive: boolean; lastSignInAt?: string; roles: string[]; roleIds: string[]; }
 export interface SettingView { key: string; label: string; module: string; type: string; description?: string; value: unknown; }
 export interface AuditEvent {
-  id: string; occurredAt: string; userId?: string; action: string; recordType: string; recordId: string; changedFields?: string; before?: string; after?: string; ipAddress?: string;
+  id: string; occurredAt: string; userId?: string | null; userName?: string | null; action: string; recordType: string; recordId: string;
+  /** The record's own number or name at the time, when it has one. */
+  recordLabel?: string | null;
+  /** Which of a record type's kinds this is, where one table holds two (money in or out). */
+  recordKind?: string | null;
+  changedFields: string[]; ipAddress?: string | null;
 }
+export interface AuditFieldDiff { field: string; old?: string | null; new?: string | null; changed: boolean; }
+export interface AuditEventDetail { event: AuditEvent; fields: AuditFieldDiff[]; before?: string | null; after?: string | null; sameSave: AuditEvent[]; recordEventCount: number; }
+export interface AuditFacets { recordTypes: string[]; actions: string[]; users: { id: string; name: string }[]; today: number; last7Days: number; deletionsLast7Days: number; activeUsersLast7Days: number; }
 export interface ApprovalDto {
   id: string; legalEntityId?: string; documentType: string; documentId?: string; subject: string; justification?: string; amount?: number; currencyCode?: string;
   requestedBy: string; requestedAt: string; status: string; decidedBy?: string; decidedAt?: string; decisionComment?: string;
@@ -136,7 +144,11 @@ export class RolesApi extends CrudApiService<RoleDto, unknown> {
 }
 
 @Injectable({ providedIn: 'root' })
-export class AuditApi extends CrudApiService<AuditEvent, never> { protected readonly resource = 'audit'; }
+export class AuditApi extends CrudApiService<AuditEvent, never> {
+  protected readonly resource = 'audit';
+  detail(id: string): Observable<AuditEventDetail> { return this.http.get<AuditEventDetail>(`${this.url}/${id}`); }
+  facets(): Observable<AuditFacets> { return this.http.get<AuditFacets>(`${this.url}/facets`); }
+}
 
 export interface MessageLogRow { id: string; channel: string; recipient: string; subject: string; body?: string; link?: string; status: string; error?: string; sentAt: string; attempts?: number; }
 @Injectable({ providedIn: 'root' })

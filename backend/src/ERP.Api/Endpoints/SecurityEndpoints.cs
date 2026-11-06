@@ -40,6 +40,8 @@ public static class SecurityEndpoints
         // ?filter=recordType:eq:Party&filter=recordId:eq:{id}&sort=-occurredAt
         api.MapGet("/audit/record", (string recordType, string recordId, int? page, int? pageSize, ISender sender, CancellationToken ct) =>
             sender.Send(new ERP.Application.Audit.GetRecordHistory(recordType, recordId, page ?? 1, pageSize ?? 25), ct)).RequirePermission(CorePermissions.AuditRead).WithTags("Security");
-        api.MapPagedList<AuditEvent, AuditEvent>("/audit", CorePermissions.AuditRead, a => a).WithTags("Security");
+        api.MapGet("/audit/facets", (ISender sender, CancellationToken ct) => sender.Send(new ERP.Application.Audit.GetAuditFacets(), ct)).RequirePermission(CorePermissions.AuditRead).WithTags("Security");
+        api.MapGet("/audit/{id:guid}", (Guid id, ISender sender, CancellationToken ct) => sender.Send(new ERP.Application.Audit.GetAuditEvent(id), ct)).RequirePermission(CorePermissions.AuditRead).WithTags("Security");
+        api.MapGet("/audit", ([AsParameters] ERP.Application.Audit.ListAuditEvents query, ISender sender, CancellationToken ct) => sender.Send(query, ct)).RequirePermission(CorePermissions.AuditRead).WithTags("Security");
     }
 }
