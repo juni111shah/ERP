@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Retail.Domain;
 using FluentValidation;
 using MediatR;
@@ -59,7 +60,7 @@ public record CreatePriceListCommand(
     string Code,
     string Name,
     PriceListType Type,
-    string Currency,
+    string? Currency,
     DateOnly? ValidFrom,
     DateOnly? ValidTo,
     bool IsDefault,
@@ -72,7 +73,7 @@ public record UpdatePriceListCommand(
     Guid Id,
     string Name,
     PriceListType Type,
-    string Currency,
+    string? Currency,
     DateOnly? ValidFrom,
     DateOnly? ValidTo,
     bool IsDefault,
@@ -92,7 +93,7 @@ public class CreatePriceListValidator : AbstractValidator<CreatePriceListCommand
         RuleFor(x => x.Code).NotEmpty().MaximumLength(50);
         RuleFor(x => x.Name).NotEmpty().MaximumLength(150);
         RuleFor(x => x.LegalEntityId).NotEmpty();
-        RuleFor(x => x.Currency).NotEmpty().MaximumLength(10);
+        RuleFor(x => x.Currency).MaximumLength(10);
     }
 }
 
@@ -112,11 +113,16 @@ public class PriceListHandlers :
     IRequestHandler<GetPriceListByIdQuery, RetailPriceListDto>
 {
     private readonly IRepository<RetailPriceList> _priceLists;
+    private readonly ILegalEntityGuard _guard;
 
-    public PriceListHandlers(IRepository<RetailPriceList> priceLists)
+    public PriceListHandlers(IRepository<RetailPriceList> priceLists, ILegalEntityGuard guard)
     {
         _priceLists = priceLists;
+        _guard = guard;
     }
+
+    private async Task<string> CurrencyAsync(string? requested, Guid legalEntityId, CancellationToken ct)
+        => string.IsNullOrWhiteSpace(requested) ? (await _guard.RequireAsync(legalEntityId, ct)).BaseCurrency : requested.Trim().ToUpperInvariant();
 
     public async Task<RetailPriceListDto> Handle(CreatePriceListCommand request, CancellationToken cancellationToken)
     {
@@ -134,7 +140,7 @@ public class PriceListHandlers :
             Code = code,
             Name = request.Name.Trim(),
             Type = request.Type,
-            Currency = request.Currency.Trim().ToUpperInvariant(),
+            Currency = await CurrencyAsync(request.Currency, request.LegalEntityId, cancellationToken),
             ValidFrom = request.ValidFrom,
             ValidTo = request.ValidTo,
             IsDefault = request.IsDefault,
@@ -166,7 +172,7 @@ public class PriceListHandlers :
 
         priceList.Name = request.Name.Trim();
         priceList.Type = request.Type;
-        priceList.Currency = request.Currency.Trim().ToUpperInvariant();
+        priceList.Currency = await CurrencyAsync(request.Currency, priceList.LegalEntityId, cancellationToken);
         priceList.ValidFrom = request.ValidFrom;
         priceList.ValidTo = request.ValidTo;
         priceList.IsDefault = request.IsDefault;

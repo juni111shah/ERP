@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Retail.Domain;
 using FluentValidation;
 using MediatR;
@@ -97,10 +98,12 @@ public class PromotionHandlers :
     IRequestHandler<GetPromotionByIdQuery, RetailPromotionDto?>
 {
     private readonly IRepository<RetailPromotion> _promotions;
+    private readonly ILegalEntityGuard _guard;
 
-    public PromotionHandlers(IRepository<RetailPromotion> promotions)
+    public PromotionHandlers(IRepository<RetailPromotion> promotions, ILegalEntityGuard guard)
     {
         _promotions = promotions;
+        _guard = guard;
     }
 
     public async Task<RetailPromotionDto?> Handle(GetPromotionByIdQuery request, CancellationToken cancellationToken)
@@ -169,37 +172,14 @@ public class PromotionHandlers :
             p.Code == code && p.LegalEntityId == request.LegalEntityId))
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (promo == null || !promo.IsActive)
+        var currency = (await _guard.RequireAsync(request.LegalEntityId, cancellationToken)).BaseCurrency;
+        var problem = PromotionRules.Problem(promo, today, request.OrderTotal, currency);
+        if (problem is not null)
         {
-            return new PromoValidationResultDto(false, "Invalid or inactive promotion code.", null, 0, 0);
+            return new PromoValidationResultDto(false, problem, null, 0, 0);
         }
 
-        if (today < promo.StartDate || today > promo.EndDate)
-        {
-            return new PromoValidationResultDto(false, "Promotion code has expired or is not yet active.", null, 0, 0);
-        }
-
-        if (promo.UsageLimit.HasValue && promo.TimesUsed >= promo.UsageLimit.Value)
-        {
-            return new PromoValidationResultDto(false, "Promotion usage limit has been reached.", null, 0, 0);
-        }
-
-        if (promo.MinimumOrderAmount.HasValue && request.OrderTotal < promo.MinimumOrderAmount.Value)
-        {
-            return new PromoValidationResultDto(false, $"Order must be at least QAR {promo.MinimumOrderAmount:N2} to use this coupon.", null, 0, 0);
-        }
-
-        decimal discount = 0;
-        if (promo.Type == PromotionType.PercentageDiscount)
-        {
-            discount = Math.Round(request.OrderTotal * (promo.DiscountValue / 100m), 2);
-        }
-        else if (promo.Type == PromotionType.FixedAmountDiscount)
-        {
-            discount = Math.Min(request.OrderTotal, promo.DiscountValue);
-        }
-
-        return new PromoValidationResultDto(true, "Promotion applied successfully.", promo.Type, promo.DiscountValue, discount);
+        return new PromoValidationResultDto(true, "Promotion applied successfully.", promo!.Type, promo.DiscountValue, PromotionRules.Discount(promo, request.OrderTotal));
     }
 
     private static RetailPromotionDto Map(RetailPromotion p) => new(

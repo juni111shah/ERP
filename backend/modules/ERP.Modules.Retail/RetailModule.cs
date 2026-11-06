@@ -75,6 +75,7 @@ public sealed class RetailModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, RetailDashboard>();
         services.AddScoped<ISearchProvider, RetailSearch>();
+        services.AddScoped<IPriceResolver, RetailPriceResolver>();
     }
 
     public override void ConfigureModel(ModelBuilder mb)
