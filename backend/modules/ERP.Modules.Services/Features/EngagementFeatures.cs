@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Services.Domain;
 using FluentValidation;
 using MediatR;
@@ -96,15 +97,21 @@ public class EngagementHandlers :
 {
     private readonly IRepository<ServiceEngagement> _repo;
     private readonly INumberingService _numbering;
+    private readonly ClientReferences _clients;
+    private readonly ILegalEntityGuard _guard;
 
-    public EngagementHandlers(IRepository<ServiceEngagement> repo, INumberingService numbering)
+    public EngagementHandlers(IRepository<ServiceEngagement> repo, INumberingService numbering, ClientReferences clients, ILegalEntityGuard guard)
     {
         _repo = repo;
         _numbering = numbering;
+        _clients = clients;
+        _guard = guard;
     }
 
     public async Task<EngagementDto> Handle(CreateEngagementCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
+        var clientName = await _clients.RequireNameAsync(request.ClientId, cancellationToken);
         var code = await _numbering.NextAsync("ENG", request.LegalEntityId, request.StartDate, cancellationToken);
         var engagement = new ServiceEngagement
         {
@@ -112,7 +119,7 @@ public class EngagementHandlers :
             EngagementCode = code,
             Title = request.Title.Trim(),
             ClientId = request.ClientId,
-            ClientName = request.ClientName.Trim(),
+            ClientName = clientName,
             Type = request.Type,
             Status = EngagementStatus.Active,
             ContractValue = request.ContractValue,

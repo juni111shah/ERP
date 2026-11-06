@@ -114,19 +114,42 @@ public class BillingMilestone : LegalEntityScopedEntity
     public string? CustomFields { get; set; }
 }
 
+[DefaultSort("-activityDate")]
 public class TimeEntryRecord : LegalEntityScopedEntity
 {
+    [Filterable]
     public Guid EngagementId { get; set; }
     public Guid ConsultantUserId { get; set; }
     public string ConsultantName { get; set; } = string.Empty;
+    [Sortable, Filterable]
     public DateOnly ActivityDate { get; set; }
     public decimal Hours { get; set; }
     public decimal HourlyRate { get; set; }
     public decimal TotalAmount { get; set; }
     public string TaskDescription { get; set; } = string.Empty;
     public bool IsBillable { get; set; } = true;
+    [Filterable]
     public bool IsApproved { get; set; }
     public Guid? ApprovedByUserId { get; set; }
     public DateTimeOffset? ApprovedAt { get; set; }
     public string? CustomFields { get; set; }
+    /// <summary>The invoice that billed this entry (time-and-materials billing or a retainer's overage); empty until then, and again when that invoice is voided.</summary>
+    public Guid? InvoiceId { get; set; }
+}
+
+/// <summary>One invoiced period of a retainer, with the figures as they were when it was billed. One live row per period keeps billing idempotent; voiding the invoice removes it.</summary>
+public class RetainerBillingPeriod : LegalEntityScopedEntity
+{
+    [Filterable]
+    public Guid RetainerId { get; set; }
+    [Sortable]
+    public DateOnly PeriodStart { get; set; }
+    public DateOnly PeriodEnd { get; set; }
+    public decimal RecurringFee { get; set; }
+    public decimal IncludedHours { get; set; }
+    public decimal BillableHours { get; set; }
+    public decimal OverageHours { get; set; }
+    public decimal OverageHourlyRate { get; set; }
+    public decimal OverageAmount { get; set; }
+    public Guid InvoiceId { get; set; }
 }

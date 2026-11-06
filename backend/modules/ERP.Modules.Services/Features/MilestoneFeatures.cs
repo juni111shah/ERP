@@ -114,6 +114,12 @@ public class MilestoneHandlers :
 
     public async Task<MilestoneDto> Handle(CreateMilestoneCommand request, CancellationToken cancellationToken)
     {
+        var engagement = await _engagements.FindAsync(request.EngagementId, cancellationToken)
+            ?? throw new FieldValidationException("engagementId", "Engagement not found.");
+        if (engagement.LegalEntityId != request.LegalEntityId) throw new FieldValidationException("engagementId", "The engagement belongs to another legal entity.");
+        if (engagement.Status == EngagementStatus.Cancelled) throw new ConflictException($"Engagement {engagement.EngagementCode} is cancelled.");
+        await EnsureWithinContractAsync(engagement, request.Amount, cancellationToken);
+
         var code = await _numbering.NextAsync("MLS", request.LegalEntityId, request.DueDate, cancellationToken);
         var milestone = new BillingMilestone
         {
@@ -217,6 +223,15 @@ public class MilestoneHandlers :
         }
 
         return Map(milestone);
+    }
+
+    /// <summary>The milestones of an engagement together cannot ask for more than its contract value. A contract value of zero sets no cap.</summary>
+    private async Task EnsureWithinContractAsync(ServiceEngagement engagement, decimal amount, CancellationToken ct)
+    {
+        if (engagement.ContractValue <= 0) return;
+        var planned = (await _repo.Query(new Specification<BillingMilestone>(x => x.EngagementId == engagement.Id)).Select(x => x.Amount).ToListAsync(ct)).Sum();
+        if (planned + amount > engagement.ContractValue)
+            throw new FieldValidationException("amount", $"The milestones would add up to {planned + amount:N2}, more than the contract value of {engagement.ContractValue:N2}.");
     }
 
     private static MilestoneDto Map(BillingMilestone m) =>
