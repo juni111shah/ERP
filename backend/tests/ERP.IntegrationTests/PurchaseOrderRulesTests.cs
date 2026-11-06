@@ -186,9 +186,10 @@ public class PurchaseOrderRulesTests(ApiFactory f) : IClassFixture<ApiFactory>
     {
         var x = await SetupAsync();
         await TaxCodeAsync(x, 5m);
-        var (id, _, po) = await CreatePoAsync(x, PoBody(x, taxRate: 5m));
+        var (id, line, po) = await CreatePoAsync(x, PoBody(x, taxRate: 5m));
         Assert.Equal((50m, 1050m), ((decimal)po["taxTotal"]!, (decimal)po["totalAmount"]!));
         await SetStatusAsync(x, id, "Approved");
+        await ReceiveAsync(x, id, line, 10m);
 
         var bill = await Ok(await x.C.PostAsync($"{Pur}/orders/{id}/convert-to-bill", null));
         Assert.Equal((decimal)po["taxTotal"]!, (decimal)bill["tax"]!);
@@ -199,8 +200,9 @@ public class PurchaseOrderRulesTests(ApiFactory f) : IClassFixture<ApiFactory>
     public async Task An_order_with_a_past_delivery_date_still_converts_with_a_valid_due_date()
     {
         var x = await SetupAsync();
-        var (id, _, _) = await CreatePoAsync(x, PoBody(x, orderDate: "2019-12-01", delivery: "2020-01-15"));
+        var (id, line, _) = await CreatePoAsync(x, PoBody(x, orderDate: "2019-12-01", delivery: "2020-01-15"));
         await SetStatusAsync(x, id, "Approved");
+        await ReceiveAsync(x, id, line, 10m);
 
         var bill = await Ok(await x.C.PostAsync($"{Pur}/orders/{id}/convert-to-bill", null));
         var billDate = DateOnly.Parse((string)bill["billDate"]!);
@@ -230,8 +232,9 @@ public class PurchaseOrderRulesTests(ApiFactory f) : IClassFixture<ApiFactory>
     public async Task Converting_twice_returns_the_same_bill()
     {
         var x = await SetupAsync();
-        var (id, _, _) = await CreatePoAsync(x);
+        var (id, line, _) = await CreatePoAsync(x);
         await SetStatusAsync(x, id, "Approved");
+        await ReceiveAsync(x, id, line, 10m);
         var first = await Ok(await x.C.PostAsync($"{Pur}/orders/{id}/convert-to-bill", null));
         var second = await Ok(await x.C.PostAsync($"{Pur}/orders/{id}/convert-to-bill", null));
         Assert.Equal((string)first["id"]!, (string)second["id"]!);

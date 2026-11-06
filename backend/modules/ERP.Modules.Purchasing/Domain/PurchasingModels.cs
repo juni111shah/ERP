@@ -144,6 +144,9 @@ public class PurchaseOrderLine : OrgEntity
 
     public decimal BilledQuantity { get; set; }
 
+    /// <summary>What has gone back to the vendor; already taken off ReceivedQuantity (and BilledQuantity for the billed part).</summary>
+    public decimal ReturnedQuantity { get; set; }
+
     public string UnitOfMeasure { get; set; } = "EA";
 
     public decimal UnitPrice { get; set; }
@@ -153,6 +156,31 @@ public class PurchaseOrderLine : OrgEntity
     public decimal TaxRate { get; set; }
 
     public decimal LineTotal { get; set; }
+}
+
+/// <summary>How much of a purchase order line one bill covers. A purchase order can be billed in parts; this is what links them.</summary>
+public class PurchaseOrderBillLine : OrgEntity
+{
+    public Guid OrderId { get; set; }
+
+    public Guid OrderLineId { get; set; }
+
+    public Guid BillId { get; set; }
+
+    public decimal Quantity { get; set; }
+
+    /// <summary>The part of Quantity billed against goods-received clearing; a bill posted later cannot clear more than this.</summary>
+    public decimal ClearingQuantity { get; set; }
+
+    /// <summary>What the vendor charged per unit on this bill (the override when there was one).</summary>
+    public decimal UnitPrice { get; set; }
+
+    public decimal TaxRate { get; set; }
+
+    public bool TaxRecoverable { get; set; } = true;
+
+    /// <summary>How much of Quantity has since gone back on a purchase return.</summary>
+    public decimal ReturnedQuantity { get; set; }
 }
 
 public class GoodsReceipt : LegalEntityScopedEntity, IHasCustomFields
@@ -179,6 +207,9 @@ public class GoodsReceipt : LegalEntityScopedEntity, IHasCustomFields
 
     public string? Notes { get; set; }
 
+    /// <summary>The warehouse asked for; empty means the legal entity's first active warehouse.</summary>
+    public Guid? WarehouseId { get; set; }
+
     public string? CustomFields { get; set; }
 
     public List<GoodsReceiptLine> Lines { get; set; } = [];
@@ -201,4 +232,7 @@ public class GoodsReceiptLine : OrgEntity
     public decimal QuantityReceived { get; set; }
 
     public string UnitOfMeasure { get; set; } = "EA";
+
+    /// <summary>True when this quantity moved no stock and put nothing on goods-received clearing (a line with no stocked item, or Inventory off), so billing it must not debit clearing.</summary>
+    public bool NoStockMoved { get; set; }
 }

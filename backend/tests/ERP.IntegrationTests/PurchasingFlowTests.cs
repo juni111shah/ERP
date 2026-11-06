@@ -107,12 +107,12 @@ public class PurchasingFlowTests(ApiFactory f) : IClassFixture<ApiFactory>
         // deleting a draft bill puts the order back, and it can be billed again
         var third = await ConvertAsync();
         await Ok(await env.C.PutAsJsonAsync($"{Pur}/orders/{third}/status", new { status = "Approved" }));
-        var bill = (string)(await Ok(await env.C.PostAsync($"{Pur}/orders/{third}/convert-to-bill", null)))["id"]!;
+        var bill = (string)(await Ok(await env.C.PostAsJsonAsync($"{Pur}/orders/{third}/convert-to-bill", new { allowUnreceived = true })))["id"]!;
         Assert.Equal(HttpStatusCode.NoContent, (await env.C.DeleteAsync($"{Fin}/bills/{bill}")).StatusCode);
         var order = await Ok(await env.C.GetAsync($"{Pur}/orders/{third}"));
         Assert.Equal("approved", (string)order["status"]!, ignoreCase: true);
         Assert.Null(order["invoicedBillId"]);
-        await Ok(await env.C.PostAsync($"{Pur}/orders/{third}/convert-to-bill", null));
+        await Ok(await env.C.PostAsJsonAsync($"{Pur}/orders/{third}/convert-to-bill", new { allowUnreceived = true }));
     }
 
     [Fact]

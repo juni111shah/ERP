@@ -25,6 +25,10 @@ public sealed record InvoiceVoided(Guid InvoiceId, string? SourceType, Guid? Sou
 /// <summary>Raised when a bill is deleted or voided, so the record it was generated from can be billed again.</summary>
 public sealed record BillReleased(Guid BillId) : INotification;
 
+/// <summary>Raised before a bill posts, so the record it was generated from can refuse it. A handler refuses by throwing.</summary>
+public sealed record BillPosting(Guid BillId, IReadOnlyList<BillPostingLine> Lines) : INotification;
+public sealed record BillPostingLine(Guid? AccountId, decimal Quantity);
+
 /// <summary>Builds, issues and voids sales invoices and credit notes. Shared by the invoice screens and by module billing runs.</summary>
 public interface IInvoicingService
 {

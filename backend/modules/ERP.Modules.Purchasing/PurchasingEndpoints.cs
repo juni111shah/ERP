@@ -13,7 +13,7 @@ namespace ERP.Modules.Purchasing;
 public sealed record ChangePurchaseOrderStatusBody(PurchaseOrderStatus Status);
 public sealed record ChangeRequisitionStatusBody(PurchaseRequisitionStatus Status);
 public sealed record ConvertRequisitionBody(Guid? VendorPartyId, string VendorName);
-public sealed record ConvertToBillBody(Dictionary<Guid, decimal>? UnitPriceOverrides = null);
+public sealed record ConvertToBillBody(Dictionary<Guid, decimal>? UnitPriceOverrides = null, List<BillOrderLineInput>? Lines = null, bool AllowUnreceived = false, string? VendorReference = null);
 
 internal static class PurchasingEndpoints
 {
@@ -39,11 +39,11 @@ internal static class PurchasingEndpoints
         orders.MapPost("/{id:guid}/convert-to-bill", async (Guid id, HttpRequest req, ISender s, CancellationToken ct) =>
         {
             ConvertToBillBody? body = null;
-            if (req.ContentLength > 0)
+            if (req.HasJsonContentType() && req.ContentLength != 0)
             {
                 body = await req.ReadFromJsonAsync<ConvertToBillBody>(cancellationToken: ct);
             }
-            var bill = await s.Send(new ConvertPurchaseOrderToBill(id, body?.UnitPriceOverrides), ct);
+            var bill = await s.Send(new ConvertPurchaseOrderToBill(id, body?.UnitPriceOverrides, body?.Lines, body?.AllowUnreceived ?? false, body?.VendorReference), ct);
             return Results.Ok(bill);
         }).RequirePermission(P.OrdersManage);
 

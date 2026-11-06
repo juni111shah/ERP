@@ -116,12 +116,25 @@ public sealed class PurchasingModule : ModuleBase
             b.Property(x => x.Quantity).HasPrecision(18, 4);
             b.Property(x => x.ReceivedQuantity).HasPrecision(18, 4);
             b.Property(x => x.BilledQuantity).HasPrecision(18, 4);
+            b.Property(x => x.ReturnedQuantity).HasPrecision(18, 4);
             b.Property(x => x.UnitOfMeasure).HasMaxLength(20);
             b.Property(x => x.UnitPrice).HasPrecision(19, 4);
             b.Property(x => x.DiscountPercent).HasPrecision(5, 2);
             b.Property(x => x.TaxRate).HasPrecision(5, 2);
             b.Property(x => x.LineTotal).HasPrecision(19, 4);
             b.HasIndex(x => new { x.OrgId, x.OrderId });
+        });
+
+        mb.Entity<PurchaseOrderBillLine>(b =>
+        {
+            b.ToTable("pur_OrderBillLines");
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.ClearingQuantity).HasPrecision(18, 4);
+            b.Property(x => x.ReturnedQuantity).HasPrecision(18, 4);
+            b.Property(x => x.UnitPrice).HasPrecision(19, 4);
+            b.Property(x => x.TaxRate).HasPrecision(5, 2);
+            b.HasIndex(x => new { x.OrgId, x.OrderId });
+            b.HasIndex(x => new { x.OrgId, x.BillId });
         });
 
         mb.Entity<PurchaseRequisition>(b =>
