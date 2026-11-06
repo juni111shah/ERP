@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, founderLandingGuard, guestOnlyGuard, moduleEnabledGuard, permissionGuard, anyPermissionGuard, platformAdminGuard, signedOutGuard } from './core/guards/access.guards';
+import { authGuard, founderLandingGuard, guestOnlyGuard, industryRecordGuard, moduleEnabledGuard, permissionGuard, anyPermissionGuard, platformAdminGuard, signedOutGuard } from './core/guards/access.guards';
 
 const placeholder = (title: string) => ({ loadComponent: () => import('./pages/placeholder.page').then((m) => m.PlaceholderPage), data: { title } });
 
@@ -130,6 +130,11 @@ export const routes: Routes = [
       { path: 'admin/documents', canMatch: [permissionGuard('core.attachments.read')], loadComponent: () => import('./pages/admin/documents.page').then((m) => m.DocumentsPage) },
       { path: 'admin/messages', canMatch: [permissionGuard('core.settings.read')], loadComponent: () => import('./pages/admin/messages.page').then((m) => m.MessagesPage) },
       { path: 'admin/audit', canMatch: [permissionGuard('core.audit.read')], loadComponent: () => import('./pages/admin/audit.page').then((m) => m.AuditPage) },
+      { path: 'admin/setup', canMatch: [permissionGuard('core.settings.read')], loadComponent: () => import('./pages/admin/setup.page').then((m) => m.SetupPage) },
+      { path: 'owner', canMatch: [permissionGuard('finance.reports.read')], loadComponent: () => import('./pages/owner.page').then((m) => m.OwnerPage) },
+      // Record types of any module: the module key and type key come from the address, and the definition decides the screen.
+      { path: 'industry/:module/:type', canMatch: [industryRecordGuard], loadComponent: () => import('./pages/industry/industry-list.page').then((m) => m.IndustryListPage) },
+      { path: 'industry/:module/:type/:id', canMatch: [industryRecordGuard], loadComponent: () => import('./pages/industry/industry-detail.page').then((m) => m.IndustryDetailPage) },
       { path: 'finance', pathMatch: 'full', redirectTo: '/finance/invoices' },
       { path: 'admin', pathMatch: 'full', redirectTo: '/admin/settings' },
       {

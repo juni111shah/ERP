@@ -21,8 +21,9 @@ import { applyProblemDetailsToForm, controlError } from '../core/http/problem-de
 
 export type FieldType = 'text' | 'password' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'switch' | 'lookup' | 'rows';
 /** One column of a `rows` field (a small table the user adds lines to). */
-export interface RowColumn { key: string; label: string; type: 'text' | 'number'; }
-export interface SelectOption { value: string | number | boolean; label: string; }
+export interface RowColumn { key: string; label: string; type: 'text' | 'number' | 'date' | 'select'; options?: SelectOption[]; width?: string; }
+/** `group` puts options under a heading in a `select`. */
+export interface SelectOption { value: string | number | boolean; label: string; group?: string; }
 
 /** Declarative description of one form field. The drawer renders, validates and serialises it. */
 export interface FieldSpec {
@@ -39,11 +40,17 @@ export interface FieldSpec {
   currentLabel?: (record: Record<string, unknown>) => string | undefined;
   /** columns of a `rows` field; its value is a list of objects with these keys */
   columns?: RowColumn[];
+  /** the cells a new line of a `rows` field starts with */
+  rowDefaults?: Record<string, unknown>;
+  /** text shown under a `rows` field from its current lines, such as a total */
+  summary?: (rows: Record<string, unknown>[]) => string;
   min?: number;
   max?: number;
   maxLength?: number;
   precision?: number;
   hint?: string;
+  /** Values offered while typing in a `text` field; anything else can still be typed. */
+  suggestions?: string[];
   default?: unknown;
   /** cannot be changed once the record exists */
   readonlyOnEdit?: boolean;
@@ -81,7 +88,10 @@ export interface FieldSpec {
               <nz-form-label [nzRequired]="!!f.required" [nzFor]="f.key">{{ f.label }}</nz-form-label>
               <nz-form-control [nzErrorTip]="err(f.key)" [nzValidateStatus]="$any(form().get(f.key))" [nzExtra]="f.hint ?? ''">
                 @switch (f.type) {
-                  @case ('text') { <input nz-input [id]="f.key" [formControlName]="f.key" [attr.maxlength]="f.maxLength ?? null" [attr.data-testid]="'f-' + f.key" /> }
+                  @case ('text') {
+                    <input nz-input [id]="f.key" [formControlName]="f.key" [attr.maxlength]="f.maxLength ?? null" [attr.list]="f.suggestions?.length ? f.key + '-options' : null" [attr.data-testid]="'f-' + f.key" />
+                    @if (f.suggestions?.length) { <datalist [id]="f.key + '-options'">@for (s of f.suggestions; track s) { <option [value]="s"></option> }</datalist> }
+                  }
                   @case ('password') { <input nz-input type="password" autocomplete="new-password" [id]="f.key" [formControlName]="f.key" [attr.data-testid]="'f-' + f.key" /> }
                   @case ('textarea') { <textarea nz-input rows="3" [id]="f.key" [formControlName]="f.key" [attr.maxlength]="f.maxLength ?? null" [attr.data-testid]="'f-' + f.key"></textarea> }
                   @case ('number') { <nz-input-number [nzId]="f.key" [formControlName]="f.key" [nzMin]="f.min ?? -1e12" [nzMax]="f.max ?? 1e12" [nzPrecision]="f.precision ?? 2" style="width:100%" [attr.data-testid]="'f-' + f.key"></nz-input-number> }
@@ -89,7 +99,15 @@ export interface FieldSpec {
                   @case ('switch') { <nz-switch [nzId]="f.key" [formControlName]="f.key" [attr.data-testid]="'f-' + f.key"></nz-switch> }
                   @case ('select') {
                     <nz-select [nzId]="f.key" [formControlName]="f.key" nzAllowClear [nzShowSearch]="!!f.searchable" [attr.data-testid]="'f-' + f.key">
-                      @for (o of f.options ?? []; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }
+                      @if (hasGroups(f)) {
+                        @for (g of groupsOf(f); track g.label) {
+                          <nz-option-group [nzLabel]="g.label">
+                            @for (o of g.options; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }
+                          </nz-option-group>
+                        }
+                      } @else {
+                        @for (o of f.options ?? []; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }
+                      }
                     </nz-select>
                   }
                   @case ('multiselect') {
@@ -101,20 +119,30 @@ export interface FieldSpec {
                     <div [attr.data-testid]="'f-' + f.key">
                       @if (rowsOf(f.key).length) {
                         <div style="display:flex;gap:8px;margin-bottom:4px;font-size:12px;color:var(--erp-color-text-muted)" aria-hidden="true">
-                          @for (c of f.columns ?? []; track c.key) { <span style="flex:1 1 0;min-width:0">{{ c.label }}</span> }
+                          @for (c of f.columns ?? []; track c.key) { <span [style.flex]="c.width ? '0 0 ' + c.width : '1 1 0'" style="min-width:0">{{ c.label }}</span> }
                           <span style="visibility:hidden">Remove</span>
                         </div>
                       }
                       @for (r of rowsOf(f.key); track $index; let i = $index) {
                         <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
                           @for (c of f.columns ?? []; track c.key) {
-                            <input nz-input [type]="c.type === 'number' ? 'number' : 'text'" [attr.aria-label]="c.label" [placeholder]="c.label" [value]="r[c.key] ?? ''"
-                                   (input)="setCell(f.key, i, c, $any($event.target).value)" [attr.data-testid]="'f-' + f.key + '-' + i + '-' + c.key" />
+                            @if (c.type === 'select') {
+                              <select class="ant-input" [attr.aria-label]="c.label" [style.flex]="c.width ? '0 0 ' + c.width : '1 1 0'" style="min-width:0"
+                                      (change)="setCell(f.key, i, c, $any($event.target).value)" [attr.data-testid]="'f-' + f.key + '-' + i + '-' + c.key">
+                                <option value="" [selected]="!r[c.key]"></option>
+                                @for (o of selectOptions(c, r[c.key]); track o.value) { <option [value]="o.value" [selected]="o.value === r[c.key]">{{ o.label }}</option> }
+                              </select>
+                            } @else {
+                              <input nz-input [type]="c.type === 'number' ? 'number' : c.type === 'date' ? 'date' : 'text'" [attr.aria-label]="c.label" [placeholder]="c.type === 'date' ? '' : c.label"
+                                     [style.flex]="c.width ? '0 0 ' + c.width : '1 1 0'" style="min-width:0" [value]="r[c.key] ?? ''"
+                                     (input)="setCell(f.key, i, c, $any($event.target).value)" [attr.data-testid]="'f-' + f.key + '-' + i + '-' + c.key" />
+                            }
                           }
                           <button nz-button type="button" nzSize="small" nzDanger (click)="removeRow(f.key, i)" [attr.aria-label]="'Remove line ' + (i + 1)">Remove</button>
                         </div>
                       }
                       <button nz-button type="button" nzSize="small" (click)="addRow(f.key)" [attr.data-testid]="'f-' + f.key + '-add'">Add line</button>
+                      @if (f.summary) { <div style="margin-top:8px;font-weight:600" [attr.data-testid]="'f-' + f.key + '-summary'">{{ f.summary(rowsOf(f.key)) }}</div> }
                     </div>
                   }
                   @case ('lookup') {
@@ -185,7 +213,24 @@ export class RecordDrawerComponent {
   }
 
   rowsOf(key: string): Record<string, unknown>[] { const v = this.form().get(key)?.value; return Array.isArray(v) ? v : []; }
-  addRow(key: string): void { const c = this.form().get(key); c?.setValue([...this.rowsOf(key), {}]); c?.markAsDirty(); }
+  addRow(key: string): void {
+    const c = this.form().get(key);
+    const defaults = this.fields().find((f) => f.key === key)?.rowDefaults ?? {};
+    c?.setValue([...this.rowsOf(key), { ...defaults }]);
+    c?.markAsDirty();
+  }
+  hasGroups(f: FieldSpec): boolean { return (f.options ?? []).some((o) => !!o.group); }
+  /** The options under their headings, in the order they were given; options without a heading come under "Other". */
+  groupsOf(f: FieldSpec): { label: string; options: SelectOption[] }[] {
+    const groups = new Map<string, SelectOption[]>();
+    for (const o of f.options ?? []) groups.set(o.group ?? 'Other', [...(groups.get(o.group ?? 'Other') ?? []), o]);
+    return [...groups].map(([label, options]) => ({ label, options }));
+  }
+  /** The options of a select cell, plus the value the line already holds when it is not among them. */
+  selectOptions(col: RowColumn, current: unknown): SelectOption[] {
+    const options = col.options ?? [];
+    return typeof current === 'string' && current && !options.some((o) => o.value === current) ? [...options, { value: current, label: current }] : options;
+  }
   removeRow(key: string, index: number): void { const c = this.form().get(key); c?.setValue(this.rowsOf(key).filter((_, i) => i !== index)); c?.markAsDirty(); }
   setCell(key: string, index: number, col: RowColumn, text: string): void {
     const c = this.form().get(key);
