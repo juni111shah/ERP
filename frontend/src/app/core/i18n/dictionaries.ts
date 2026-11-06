@@ -228,7 +228,7 @@ export const AR: Dictionary = {
   'common.amount': 'المبلغ', 'common.name': 'الاسم', 'common.email': 'البريد الإلكتروني', 'common.password': 'كلمة المرور', 'common.language': 'اللغة',
   // shell
   'shell.signOut': 'تسجيل الخروج', 'shell.assistant': 'المساعد', 'shell.notifications': 'الإشعارات', 'shell.markAllRead': 'تحديد الكل كمقروء', 'shell.caughtUp': 'لا توجد إشعارات جديدة',
-  'shell.accountSecurity': 'أمان الحساب', 'shell.search': 'ابحث في السجلات', 'shell.darkMode': 'الوضع الداكن', 'shell.allEntities': 'جميع الكيانات القانونية',
+  'shell.accountSecurity': 'أمان الحساب', 'shell.search': 'ابحث في السجلات', 'shell.darkMode': 'الوضع الداكن', 'shell.lightMode': 'الوضع الفاتح', 'shell.platformConsole': 'وحدة تحكم المنصة', 'shell.allEntities': 'جميع الكيانات القانونية',
   'shell.searchMenu': 'البحث في القائمة...', 'shell.noMenuItems': 'لا توجد عناصر مطابقة', 'shell.clearFilter': 'مسح البحث',
   'shell.quickActions': 'إجراءات سريعة', 'shell.quickCreate': 'جديد', 'shell.newRecord': 'جديد',
   'brand.name': 'هاير سكوير', 'brand.subtitle': 'تخطيط موارد المؤسسات', 'Demo Properties': 'عقارات تجريبية',
