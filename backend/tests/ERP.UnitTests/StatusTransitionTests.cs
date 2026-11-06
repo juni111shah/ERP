@@ -81,8 +81,12 @@ public class StatusTransitionTests
         t.Ensure(PurchaseOrderStatus.Draft, PurchaseOrderStatus.Approved);
         t.Ensure(PurchaseOrderStatus.Draft, PurchaseOrderStatus.Submitted);
         t.Ensure(PurchaseOrderStatus.Submitted, PurchaseOrderStatus.Approved);
-        t.Ensure(PurchaseOrderStatus.Approved, PurchaseOrderStatus.Received);
+        t.Ensure(PurchaseOrderStatus.Approved, PurchaseOrderStatus.Received, isSystem: true);
         t.Ensure(PurchaseOrderStatus.Received, PurchaseOrderStatus.Billed, isSystem: true);
+
+        // Only goods receipts mark an order received
+        Assert.Throws<ConflictException>(() => t.Ensure(PurchaseOrderStatus.Approved, PurchaseOrderStatus.Received));
+        Assert.Throws<ConflictException>(() => t.Ensure(PurchaseOrderStatus.Approved, PurchaseOrderStatus.PartiallyReceived));
 
         // Cancelled before receipt
         t.Ensure(PurchaseOrderStatus.Draft, PurchaseOrderStatus.Cancelled);

@@ -248,7 +248,6 @@ internal sealed class PurchaseReturnHandlers(
             ret.BillShares.Add(new PurchaseReturnBillShare { ReturnId = ret.Id, BillId = bill.Id, Quantity = l.Quantity, Amount = amount, AppliedToBill = applied });
         }
         BillStatus.Refresh(bill);
-        await Task.CompletedTask;
     }
 
     private async Task<JournalEntry?> PostJournalAsync(PurchaseReturn ret, Totals t, CancellationToken ct)
