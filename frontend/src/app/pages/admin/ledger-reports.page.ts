@@ -34,7 +34,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
     .num { text-align:end; font-variant-numeric: tabular-nums; white-space:nowrap }
     .total td { font-weight:700; background: var(--erp-color-bg-subtle) } h4 { margin: 16px 0 8px; font-size:15px; font-weight:700; color: var(--erp-color-text-primary) }
     .name { font-weight:600; color: var(--erp-color-text-primary) }
-    .card { background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-radius:12px; overflow:hidden; margin-top:12px }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius:12px; overflow:hidden; margin-top:12px }
     .check { margin-top:12px } .loading { text-align:center; padding:48px }
     .result { display:flex; justify-content:space-between; gap:16px; margin-top:16px; padding:14px 16px; border-radius:12px; font-size:16px; font-weight:700; background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); color: var(--erp-color-text-primary) }`],
   template: `

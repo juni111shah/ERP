@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -171,7 +172,7 @@ export class PlatformClientsPage {
       next: (created) => {
         this.saving.set(false);
         this.drawerOpen.set(false);
-        this.message.success('Client created');
+        this.message.success(doneText('created', 'Client', v['workspaceName'] as string));
         this.createdId = created.orgId;
         this.list.reload();
         this.secret.set({ title: 'Client created', password: created.temporaryPassword, facts: [{ label: 'Workspace code', value: created.signInKey }, { label: 'Administrator', value: created.adminEmail }] });

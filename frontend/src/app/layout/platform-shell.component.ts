@@ -91,16 +91,16 @@ interface ConsoleLink { path: string; label: string; icon: string; exact?: boole
             <h1 class="topbar-title" data-testid="platform-title">{{ pageTitle.title() }}</h1>
           </div>
           <span class="who">{{ session.me()?.user?.fullName }}</span>
-          <button type="button" class="tool-btn" (click)="theme.toggleTheme()" aria-label="Toggle dark mode" nz-tooltip [nzTooltipTitle]="theme.resolvedTheme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'" data-testid="platform-theme-toggle">
-            <span nz-icon nzType="bulb" [style.color]="theme.resolvedTheme() === 'dark' ? '#fbbf24' : 'inherit'"></span>
-          </button>
-          <button type="button" class="tool-btn" nz-dropdown [nzDropdownMenu]="userMenu" nzPlacement="bottomRight" [attr.aria-label]="session.me()?.user?.fullName || 'User menu'" data-testid="platform-user-menu">
+          <button type="button" class="tool-btn" nz-dropdown nzTrigger="click" [nzDropdownMenu]="userMenu" nzPlacement="bottomRight" [attr.aria-label]="session.me()?.user?.fullName || 'User menu'" data-testid="platform-user-menu">
             <nz-avatar nzSize="small" [nzText]="initials()"></nz-avatar>
           </button>
           <nz-dropdown-menu #userMenu="nzDropdownMenu">
             <ul nz-menu>
               <li nz-menu-item nzDisabled>{{ session.me()?.user?.email }}</li>
               <li nz-menu-item routerLink="/account/security"><span nz-icon nzType="lock"></span> Account security</li>
+              <li nz-menu-divider></li>
+              <li nz-menu-item (click)="i18n.toggle()" data-no-i18n data-testid="platform-lang-toggle"><span nz-icon nzType="global"></span> {{ i18n.lang() === 'ar' ? 'English' : 'العربية' }}</li>
+              <li nz-menu-item (click)="theme.toggleTheme()" data-testid="platform-theme-toggle"><span nz-icon nzType="bulb"></span> {{ theme.resolvedTheme() === 'dark' ? 'Light mode' : 'Dark mode' }}</li>
               <li nz-menu-divider></li>
               <li nz-menu-item (click)="auth.logout()"><span nz-icon nzType="logout"></span> Sign out</li>
             </ul>

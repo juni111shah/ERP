@@ -5,6 +5,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
@@ -20,13 +21,14 @@ import { toTime } from './daily-attendance.page';
 import { RosterEntry, ShiftDto, ShiftsApi } from './hr-people.api';
 import { EmployeeSummary, EmployeesApi } from './hr.api';
 import { ErpDatePipe } from '../../shared/display.pipes';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 
 /** Work shifts: start time, late grace and the hours of a normal day; employees on a shift are measured against it. */
 @Component({
   selector: 'erp-shifts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, NzDatePickerModule],
+  imports: [RowActionsComponent, ErpDatePipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, NzDatePickerModule],
   styles: [`.num { text-align: end; } .row-actions { display: flex; gap: 6px; flex-wrap: wrap; } .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }`],
   template: `
     <h1 class="erp-page-title">Shifts</h1>
@@ -60,7 +62,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
       <tbody>
         @for (r of roster(); track r.id) {
           <tr><td>{{ employeeName(r.employeeId) }}</td><td>{{ shiftName(r.shiftId) }}</td><td>{{ r.fromDate | erpDate }}</td><td>{{ r.toDate | erpDate }}</td>
-            <td *erpHasPermission="'hr.attendance.manage'"><button nz-button nzSize="small" nzDanger (click)="removeRoster(r)">Remove</button></td></tr>
+            <td class="erp-cell-actions" *erpHasPermission="'hr.attendance.manage'"><erp-row-actions><button nz-button nzSize="small" nzDanger (click)="removeRoster(r)">Remove</button></erp-row-actions></td></tr>
         }
       </tbody>
     </nz-table>
@@ -138,7 +140,7 @@ export class ShiftsPage {
     if (!s || !this.picked.length || this.range.length < 2) { this.message.warning('Choose the employees and the dates.'); return; }
     const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     this.api.addRoster(s.id, { employeeIds: this.picked, fromDate: iso(this.range[0]), toDate: iso(this.range[1]) }).subscribe({
-      next: () => { this.message.success('Roster dates added.'); this.rostering.set(null); this.load(); },
+      next: () => { this.message.success(`Roster dates added to ${s.name}.`); this.rostering.set(null); this.load(); },
       error: () => this.message.error('Could not add the roster dates.'),
     });
   }
@@ -165,7 +167,7 @@ export class ShiftsPage {
     this.modal.confirm({
       nzTitle: `Delete ${s.name}?`, nzContent: s.employees ? `${s.employees} employee(s) are on this shift.` : undefined, nzOkText: 'Delete', nzOkDanger: true,
       nzOnOk: () => new Promise<void>((resolve) => this.api.remove(s.id).subscribe({
-        next: () => { this.message.success('Shift deleted.'); this.load(); resolve(); },
+        next: () => { this.message.success(doneText('deleted', 'Shift', s.name)); this.load(); resolve(); },
         error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not delete the shift.'); resolve(); },
       })),
     });

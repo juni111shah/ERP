@@ -21,6 +21,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
 import { UsageBarComponent } from '../../shared/usage-bar.component';
 import { InvoiceActionsComponent } from './invoice-actions.component';
 import { ACCESS_WORDS, CYCLE_OPTIONS, OneTimePasswordComponent, OneTimeSecret, PLATFORM_STYLES, START_OPTIONS, cycleWords, invoiceTone, planOptions, statusWords } from './platform-ui';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 
 type DialogKind = 'assign' | 'plan' | 'trial' | 'activate' | 'invoice' | 'details';
 const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -30,7 +31,7 @@ const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()
   selector: 'erp-platform-client-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzIconModule, NzModalModule, NzSpinModule, NzSwitchModule, ErpDatePipe, ErpMoneyPipe, InvoiceActionsComponent, OneTimePasswordComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent, UsageBarComponent],
+  imports: [RowActionsComponent, FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzIconModule, NzModalModule, NzSpinModule, NzSwitchModule, ErpDatePipe, ErpMoneyPipe, InvoiceActionsComponent, OneTimePasswordComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent, UsageBarComponent],
   styles: [PLATFORM_STYLES, `
     .back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; font-size: 13px; }
     .header { margin-bottom: 16px; }
@@ -148,7 +149,7 @@ const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()
                     <td class="pf-nowrap">{{ m.isAdministrator ? 'Administrator' : 'Member' }}</td>
                     <td><erp-status [value]="m.isActive ? 'active' : 'inactive'" /></td>
                     <td class="pf-nowrap">{{ m.lastSignInAt ? (m.lastSignInAt | erpDate) : 'Never' }}</td>
-                    <td class="num"><button nz-button nzSize="small" type="button" (click)="issuePassword(m)" data-testid="client-user-password">Issue temporary password</button></td>
+                    <td class="erp-cell-actions num"><erp-row-actions><button nz-button nzSize="small" type="button" (click)="issuePassword(m)" data-testid="client-user-password">Issue temporary password</button></erp-row-actions></td>
                   </tr>
                 } @empty { <tr><td colspan="6" class="pf-muted">No users.</td></tr> }
               </tbody>
@@ -353,7 +354,7 @@ export class PlatformClientDetailPage {
 
   submitDialog(v: Record<string, unknown>): void {
     const kind = this.dialog();
-    const done = (text: string) => (d: ClientDetail) => { this.show(d); this.finish(text); };
+    const done = (text: (client: string) => string) => (d: ClientDetail) => { this.show(d); this.finish(text(d.client.name)); };
     const fail = (e: unknown) => {
       this.saving.set(false);
       const problem = asProblem(e);
@@ -368,17 +369,17 @@ export class PlatformClientDetailPage {
         this.api.setClientPlan(this.orgId, {
           planId: v['planId'] as string, cycle: v['cycle'] as BillingCycle, customPrice: startMode === 'complimentary' ? null : (v['customPrice'] as number | null) ?? null,
           isComplimentary: startMode === 'complimentary', startMode, trialDays: startMode === 'trial' ? (v['trialDays'] as number | null) ?? null : null,
-        }).subscribe({ next: done('Plan assigned'), error: fail });
+        }).subscribe({ next: done((n) => `Plan assigned to ${n}`), error: fail });
         break;
       }
       case 'plan':
-        this.api.setClientPlan(this.orgId, { planId: v['planId'] as string, cycle: v['cycle'] as BillingCycle, customPrice: (v['customPrice'] as number | null) ?? null, isComplimentary: !!v['isComplimentary'] }).subscribe({ next: done('Plan changed'), error: fail });
+        this.api.setClientPlan(this.orgId, { planId: v['planId'] as string, cycle: v['cycle'] as BillingCycle, customPrice: (v['customPrice'] as number | null) ?? null, isComplimentary: !!v['isComplimentary'] }).subscribe({ next: done((n) => `Plan changed for ${n}`), error: fail });
         break;
       case 'trial':
-        this.api.extendTrial(this.orgId, v['days'] as number).subscribe({ next: done('Trial extended'), error: fail });
+        this.api.extendTrial(this.orgId, v['days'] as number).subscribe({ next: done((n) => `Trial extended for ${n}`), error: fail });
         break;
       case 'activate':
-        this.api.activateClient(this.orgId, !!v['issueInvoice']).subscribe({ next: done('Client activated'), error: fail });
+        this.api.activateClient(this.orgId, !!v['issueInvoice']).subscribe({ next: done((n) => `Client ${n} activated`), error: fail });
         break;
       case 'invoice':
         this.api.issueInvoice(this.orgId, {
@@ -386,7 +387,7 @@ export class PlatformClientDetailPage {
         }).subscribe({ next: (i) => { this.finish(`Invoice ${i.number} issued`); this.load(); }, error: fail });
         break;
       case 'details':
-        this.api.updateClientDetails(this.orgId, { billingEmail: v['billingEmail'] as string | null, contactPhone: v['contactPhone'] as string | null, notes: v['notes'] as string | null }).subscribe({ next: done('Details saved'), error: fail });
+        this.api.updateClientDetails(this.orgId, { billingEmail: v['billingEmail'] as string | null, contactPhone: v['contactPhone'] as string | null, notes: v['notes'] as string | null }).subscribe({ next: done((n) => `Billing details saved for ${n}`), error: fail });
         break;
       default:
         this.saving.set(false);
@@ -403,14 +404,14 @@ export class PlatformClientDetailPage {
     const name = this.data()?.client.name ?? '';
     const reason = await askReason(this.modal, `Suspend ${name}?`, 'Suspend', 'Everyone in this workspace is shut out until you reactivate it. Their data is kept. They see the reason you give here.', false);
     if (reason === null) return;
-    this.api.suspendClient(this.orgId, reason || null).subscribe({ next: (d) => { this.show(d); this.message.success('Client suspended'); }, error: (e) => this.message.error(problemMessage(e, 'Could not suspend the client')) });
+    this.api.suspendClient(this.orgId, reason || null).subscribe({ next: (d) => { this.show(d); this.message.success(`Client ${name} suspended`); }, error: (e) => this.message.error(problemMessage(e, 'Could not suspend the client')) });
   }
 
   async cancel(): Promise<void> {
     const name = this.data()?.client.name ?? '';
     const reason = await askReason(this.modal, `Cancel the subscription of ${name}?`, 'Cancel subscription', 'Everyone in this workspace is shut out and billing stops. Their data is kept, and you can reactivate later.', false);
     if (reason === null) return;
-    this.api.cancelClient(this.orgId, reason || null).subscribe({ next: (d) => { this.show(d); this.message.success('Subscription cancelled'); }, error: (e) => this.message.error(problemMessage(e, 'Could not cancel the subscription')) });
+    this.api.cancelClient(this.orgId, reason || null).subscribe({ next: (d) => { this.show(d); this.message.success(`Subscription of ${name} cancelled`); }, error: (e) => this.message.error(problemMessage(e, 'Could not cancel the subscription')) });
   }
 
   reactivate(): void {
@@ -423,7 +424,7 @@ export class PlatformClientDetailPage {
       nzOnOk: () => {
         this.busy.set('reactivate');
         this.api.reactivateClient(this.orgId).subscribe({
-          next: (d) => { this.busy.set(null); this.show(d); this.message.success('Client reactivated'); },
+          next: (d) => { this.busy.set(null); this.show(d); this.message.success(`Client ${name} reactivated`); },
           error: (e) => { this.busy.set(null); this.message.error(problemMessage(e, 'Could not reactivate the client')); },
         });
       },
@@ -437,7 +438,7 @@ export class PlatformClientDetailPage {
       nzOkText: 'Decline',
       nzOkDanger: true,
       nzCancelText: 'Keep it',
-      nzOnOk: () => this.api.declinePlanRequest(this.orgId).subscribe({ next: (d) => { this.show(d); this.message.success('Request declined'); }, error: (e) => this.message.error(problemMessage(e, 'Could not decline the request')) }),
+      nzOnOk: () => this.api.declinePlanRequest(this.orgId).subscribe({ next: (d) => { this.show(d); this.message.success(`Plan change request from ${this.data()?.client.name ?? 'the client'} declined`); }, error: (e) => this.message.error(problemMessage(e, 'Could not decline the request')) }),
     });
   }
 

@@ -31,20 +31,12 @@ import { RevealDirective } from '../../shared/reveal.directive';
   styles: [`
     .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:16px; }
     .card {
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       display:block;
       padding:18px 20px;
-      border:1px solid var(--erp-color-border-subtle);
       border-radius:12px;
-      background: var(--erp-color-bg-surface);
       color:inherit;
       text-decoration:none;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .card:hover {
-      box-shadow: 0 8px 20px -4px rgba(16, 149, 93, 0.12);
-      border-color: var(--erp-color-primary, #10955d);
-      transform: translateY(-2px);
     }
     .card b { display:block; font-size:15px; font-weight:700; color: var(--erp-color-text-primary); margin-bottom:6px; }
     .card span { font-size:13px; color: var(--erp-color-text-muted); line-height:1.4; }
@@ -57,8 +49,8 @@ import { RevealDirective } from '../../shared/reveal.directive';
       <h1 class="erp-page-title">Reports</h1>
       <p style="color:var(--erp-color-text-muted); margin-top:-8px; margin-bottom:16px;">Operational summaries, tax filings, financial statements, and performance analytics.</p>
       <div class="hub" data-testid="reports-hub">
-        @for (r of available(); track r.slug) { <a class="card" [routerLink]="['/reports', r.slug]" [attr.data-testid]="'report-' + r.slug"><b>{{ r.title }}</b><span>{{ r.subtitle }}</span></a> }
-        @for (l of ledgerLinks; track l.title) { <a class="card" [routerLink]="l.link" [queryParams]="{ tab: l.tab }"><b>{{ l.title }}</b><span>{{ l.note }}</span></a> }
+        @for (r of available(); track r.slug) { <a class="card erp-lift" [routerLink]="['/reports', r.slug]" [attr.data-testid]="'report-' + r.slug"><b>{{ r.title }}</b><span>{{ r.subtitle }}</span></a> }
+        @for (l of ledgerLinks; track l.title) { <a class="card erp-lift" [routerLink]="l.link" [queryParams]="{ tab: l.tab }"><b>{{ l.title }}</b><span>{{ l.note }}</span></a> }
       </div>
     } @else {
       <h1 class="erp-page-title">{{ def()!.title }}</h1>
@@ -137,7 +129,8 @@ export class ReportPage {
   runAction(): void {
     const a = this.def()?.action; const entityId = this.entity();
     if (!a || !entityId || !this.to) return;
-    this.http.post(`${this.base}/${a.path}`, { legalEntityId: entityId, asOf: toIsoDate(this.to) }).subscribe({ next: () => this.message.success(a.done), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not complete the action') });
+    const asOf = toIsoDate(this.to);
+    this.http.post(`${this.base}/${a.path}`, { legalEntityId: entityId, asOf }).subscribe({ next: () => this.message.success(`${a.done} as of ${displayDate(asOf)}`), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not complete the action') });
   }
 
   has(f: string): boolean { return !!this.def()?.filters.includes(f as never); }

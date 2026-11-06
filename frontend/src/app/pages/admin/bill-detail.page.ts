@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
@@ -60,7 +61,7 @@ interface Bill {
     .line-items-table { margin-top: 16px; }
     .totals-section {
       margin-top: 16px;
-      text-align: right;
+      text-align: end;
     }
     .total-row {
       display: flex;
@@ -102,10 +103,10 @@ interface Bill {
               <tr>
                 <th style="width: 40px;">#</th>
                 <th>Description</th>
-                <th style="width: 100px; text-align: right;">Quantity</th>
-                <th style="width: 120px; text-align: right;">Price</th>
-                <th style="width: 120px; text-align: right;">Tax</th>
-                <th style="width: 140px; text-align: right;">Net Amount</th>
+                <th style="width: 100px; text-align: end;">Quantity</th>
+                <th style="width: 120px; text-align: end;">Price</th>
+                <th style="width: 120px; text-align: end;">Tax</th>
+                <th style="width: 140px; text-align: end;">Net Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -113,10 +114,10 @@ interface Bill {
                 <tr>
                   <td>{{ line.seq }}</td>
                   <td>{{ line.description }}</td>
-                  <td style="text-align: right;">{{ line.quantity }}</td>
-                  <td style="text-align: right;">{{ money(line.price) }}</td>
-                  <td style="text-align: right;">{{ money(line.taxAmount) }}</td>
-                  <td style="text-align: right;">{{ money(line.net) }}</td>
+                  <td style="text-align: end;">{{ line.quantity }}</td>
+                  <td style="text-align: end;">{{ money(line.price) }}</td>
+                  <td style="text-align: end;">{{ money(line.taxAmount) }}</td>
+                  <td style="text-align: end;">{{ money(line.net) }}</td>
                 </tr>
               }
             </tbody>
@@ -318,7 +319,7 @@ export class BillDetailPage implements OnInit {
     askReason(this.modal, 'Void this bill?', 'Void Bill', 'This cannot be undone. The bill will be marked as voided.').then((reason) => {
       if (!reason) return;
       this.api.void(bil.id, reason).subscribe({
-        next: (res) => { this.bill.set(res as unknown as Bill); this.message.success('Bill voided'); },
+        next: (res) => { this.bill.set(res as unknown as Bill); this.message.success(doneText('voided', 'Bill', bil.number)); },
         error: (err) => this.message.error(problemMessage(err, 'Failed to void bill', 'reason'))
       });
     });
@@ -344,7 +345,7 @@ export class BillDetailPage implements OnInit {
       nzOkText: 'Delete',
       nzOkDanger: true,
       nzOnOk: () => this.api.delete(bil.id).subscribe({
-        next: () => { this.message.success('Draft deleted'); this.router.navigate(['/finance/bills']); },
+        next: () => { this.message.success(doneText('deleted', 'Draft bill', bil.number)); this.router.navigate(['/finance/bills']); },
         error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to delete bill')
       })
     });

@@ -108,7 +108,7 @@ export class TerminateDialogComponent {
   confirm(): void {
     this.busy.set(true); this.error.set(null);
     this.api.terminate(this.employeeId(), { terminationDate: iso(this.terminationDate)!, reason: this.reason || null, lastWorkingDay: iso(this.lastWorkingDay), noticeGivenOn: iso(this.noticeGivenOn) }).subscribe({
-      next: (p) => { this.busy.set(false); this.preview.set(p); this.done.set(true); this.message.success('Employment ended'); this.changed.emit(); },
+      next: (p) => { this.busy.set(false); this.preview.set(p); this.done.set(true); this.message.success(`Employment ended for ${this.employeeName()}`); this.changed.emit(); },
       error: (e) => { this.busy.set(false); this.error.set(asProblem(e)?.detail ?? 'Could not end the employment'); },
     });
   }
@@ -116,7 +116,7 @@ export class TerminateDialogComponent {
   settle(): void {
     this.busy.set(true); this.error.set(null);
     this.api.finalSettlement(this.employeeId()).subscribe({
-      next: (run) => { this.busy.set(false); this.message.success('Final settlement prepared'); this.closed.emit(); this.done.set(false); void this.router.navigate(['/hr/payroll', run.id]); },
+      next: (run) => { this.busy.set(false); this.message.success(`Final settlement prepared: payroll ${run.number}`); this.closed.emit(); this.done.set(false); void this.router.navigate(['/hr/payroll', run.id]); },
       error: (e) => { this.busy.set(false); this.error.set(asProblem(e)?.detail ?? 'Could not prepare the final settlement'); },
     });
   }

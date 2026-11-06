@@ -9,13 +9,11 @@ export const AUTH_STYLES = `
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
   .card {
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
     width: 100%;
     max-width: 440px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
     border-radius: 16px;
     padding: 36px 36px;
-    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
   }
   .card.wide { max-width: 580px; }
   .brand { display: flex; align-items: center; margin-bottom: 24px; justify-content: center; }

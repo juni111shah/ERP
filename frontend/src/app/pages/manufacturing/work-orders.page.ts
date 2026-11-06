@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -345,7 +346,7 @@ export class WorkOrdersPageComponent implements OnInit {
       notes: v.notes || null,
     }).subscribe({
       next: () => {
-        this.message.success('Work order saved');
+        this.message.success(doneText('created', 'Work order', this.boms().find((b) => b.id === v.bomId)?.name));
         this.createVisible.set(false);
         this.isSubmitting.set(false);
         this.list.reload();
@@ -360,7 +361,7 @@ export class WorkOrdersPageComponent implements OnInit {
   releaseOrder(row: WorkOrderSummaryDto): void {
     this.api.release(row.id).subscribe({
       next: () => {
-        this.message.success('Work order released');
+        this.message.success(doneText('released', 'Work order', row.workOrderNumber));
         this.list.reload();
       },
       error: (err) => this.message.error(problemMessage(err, 'The work order could not be released')),
@@ -385,7 +386,7 @@ export class WorkOrdersPageComponent implements OnInit {
       notes: v.notes || null,
     }).subscribe({
       next: () => {
-        this.message.success('Work order completed');
+        this.message.success(doneText('completed', 'Work order', order.workOrderNumber));
         this.isCompleting.set(false);
         this.completeModalVisible.set(false);
         this.list.reload();
@@ -402,7 +403,7 @@ export class WorkOrdersPageComponent implements OnInit {
       if (reason === null) return;
       this.api.cancel(row.id, reason).subscribe({
         next: () => {
-          this.message.success('Work order cancelled');
+          this.message.success(doneText('cancelled', 'Work order', row.workOrderNumber));
           this.list.reload();
         },
         error: (err) => this.message.error(problemMessage(err, 'The work order could not be cancelled')),

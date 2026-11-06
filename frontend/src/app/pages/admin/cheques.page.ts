@@ -246,7 +246,7 @@ export class ChequesPage {
     };
     const replaced = this.replacing();
     this.saving.set(true);
-    (replaced ? this.api.replace(replaced.id, body) : this.api.register(body)).subscribe({ next: () => this.done(replaced ? 'Replacement registered' : 'Cheque registered'), error: (e) => this.fail(e) });
+    (replaced ? this.api.replace(replaced.id, body) : this.api.register(body)).subscribe({ next: () => this.done(replaced ? `Replacement cheque ${v.instrumentNo} registered` : `Cheque ${v.instrumentNo} registered`), error: (e) => this.fail(e) });
   }
 
   act(a: Action): void {
@@ -264,7 +264,7 @@ export class ChequesPage {
       : (this.actionReason.trim() ? this.api.bounce(c.id, date, this.actionReason.trim()) : null);
     if (!call) { this.message.warning(a === 'deposit' ? 'Choose a bank account' : a === 'followup' ? 'Enter the follow-up note' : 'Enter the reason'); return; }
     this.saving.set(true);
-    call.subscribe({ next: () => { this.action.set(null); this.done(a === 'followup' ? 'Follow-up logged' : 'Cheque updated'); }, error: (e) => this.fail(e) });
+    call.subscribe({ next: () => { this.action.set(null); this.done(a === 'followup' ? `Follow-up logged for cheque ${c.instrumentNo}` : `Cheque ${c.instrumentNo} ${a === 'deposit' ? 'deposited' : a === 'clear' ? 'cleared' : 'marked as bounced'}`); }, error: (e) => this.fail(e) });
   }
 
   cancel(): void {
@@ -272,7 +272,7 @@ export class ChequesPage {
     if (!c) return;
     this.modal.confirm({
       nzTitle: 'Cancel this cheque entry?', nzContent: 'It stays in the register as cancelled and cannot be deposited.', nzOkText: 'Cancel entry', nzOkDanger: true, nzCancelText: 'Keep it',
-      nzOnOk: () => this.api.cancel(c.id).subscribe({ next: () => this.done('Entry cancelled'), error: (e) => this.fail(e) }),
+      nzOnOk: () => this.api.cancel(c.id).subscribe({ next: () => this.done(`Cheque ${c.instrumentNo} cancelled`), error: (e) => this.fail(e) }),
     });
   }
 

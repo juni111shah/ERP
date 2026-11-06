@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -78,8 +79,8 @@ interface Journal {
                 <th style="width: 120px;">Account Code</th>
                 <th>Account Name</th>
                 <th>Description</th>
-                <th style="width: 140px; text-align: right;">Debit</th>
-                <th style="width: 140px; text-align: right;">Credit</th>
+                <th style="width: 140px; text-align: end;">Debit</th>
+                <th style="width: 140px; text-align: end;">Credit</th>
               </tr>
             </thead>
             <tbody>
@@ -89,18 +90,18 @@ interface Journal {
                   <td>{{ line.accountCode }}</td>
                   <td>{{ line.accountName }}</td>
                   <td>{{ line.description || '—' }}</td>
-                  <td style="text-align: right;">
+                  <td style="text-align: end;">
                     {{ line.debit > 0 ? money(line.debit) : '' }}
                   </td>
-                  <td style="text-align: right;">
+                  <td style="text-align: end;">
                     {{ line.credit > 0 ? money(line.credit) : '' }}
                   </td>
                 </tr>
               }
               <tr style="font-weight: 600; border-top: 2px solid var(--erp-color-border-subtle);">
-                <td colspan="4" style="text-align: right;">Total:</td>
-                <td style="text-align: right;">{{ money(totalDebit()) }}</td>
-                <td style="text-align: right;">{{ money(totalCredit()) }}</td>
+                <td colspan="4" style="text-align: end;">Total:</td>
+                <td style="text-align: end;">{{ money(totalDebit()) }}</td>
+                <td style="text-align: end;">{{ money(totalCredit()) }}</td>
               </tr>
             </tbody>
           </nz-table>
@@ -275,7 +276,7 @@ export class JournalDetailPage implements OnInit {
       nzOkText: 'Delete',
       nzOkDanger: true,
       nzOnOk: () => this.api.delete(jrn.id).subscribe({
-        next: () => { this.message.success('Draft deleted'); this.router.navigate(['/finance/journals']); },
+        next: () => { this.message.success(doneText('deleted', 'Draft journal', jrn.number)); this.router.navigate(['/finance/journals']); },
         error: (err) => this.fail(err, 'Failed to delete journal')
       })
     });

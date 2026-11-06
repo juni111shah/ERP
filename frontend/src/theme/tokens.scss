@@ -437,6 +437,13 @@ $erp-semantic-light: (
   'viz-8': p('viz-8'),
   'viz-grid': p('grey-100'),
   'viz-axis': p('grey-600'),
+  // Stat card value colours, one per card palette entry (stat-card.component.ts)
+  'stat-text-1': p('green-700'),
+  'stat-text-2': #1d4ed8,
+  'stat-text-3': #0284c7,
+  'stat-text-4': #d97706,
+  'stat-text-5': #7c3aed,
+  'stat-text-6': #e11d48,
   'skeleton-base': p('grey-100'),
   'skeleton-shine': p('grey-50'),
 );
@@ -532,6 +539,13 @@ $erp-semantic-dark: (
   'viz-8': p('viz-8-dark'),
   'viz-grid': p('night-200'),
   'viz-axis': p('night-600'),
+  // Lighter steps of the same hues; each is at least 4.5:1 on the dark surface
+  'stat-text-1': p('green-400'),
+  'stat-text-2': p('info-solid-dark'),
+  'stat-text-3': #38bdf8,
+  'stat-text-4': p('warning-solid-dark'),
+  'stat-text-5': p('viz-4-dark'),
+  'stat-text-6': p('viz-5-dark'),
   'skeleton-base': p('night-100'),
   'skeleton-shine': p('night-200'),
 );
@@ -823,8 +837,9 @@ $erp-type-roles: (
   --erp-drawer-width-lg: 880px;
   --erp-drawer-width-xl: 1120px;
   --erp-form-max-width: 960px;     // forms / wizards (their `content-max-width`, see token-mapping.md)
-  --erp-table-row-height-comfortable: 44px;
-  --erp-table-row-height-compact: 32px;
+  --erp-table-row-height-compact: 40px;
+  --erp-table-row-height-default: 48px;
+  --erp-table-row-height-comfortable: 56px;
   // Breakpoints (T13) — ng-zorro defaults, informational (media queries use the SCSS map)
   @each $k, $v in $erp-breakpoints { --erp-bp-#{$k}: #{$v}; }
 
@@ -836,6 +851,16 @@ $erp-type-roles: (
   --erp-kpi-accent-width: 3px;
   --erp-content-max-width: 1600px;
   --erp-focus-ring: 0 0 0 2px var(--erp-color-bg-surface), 0 0 0 4px var(--erp-color-focus-ring);
+
+  // Card surface, by what the card sits on (rules in _cards.scss). These are for the tinted page canvas.
+  --erp-card-bg: var(--erp-color-bg-surface);
+  --erp-card-bg-hover: var(--erp-color-bg-surface);
+  --erp-card-border: transparent;
+  --erp-card-border-hover: transparent;
+  --erp-card-border-on-surface: var(--erp-color-border-default);
+  --erp-card-shadow: var(--erp-shadow-1);
+  --erp-card-shadow-hover: var(--erp-shadow-2);
+  --erp-card-shadow-on-surface-hover: var(--erp-shadow-1);
 
   // ---- Bridge: ng-zorro variable theme (--ant-*) → semantic tokens ----------
   // `:root` beats ng-zorro's `html {}` block on specificity, so these win.
@@ -887,6 +912,15 @@ $erp-type-roles: (
   @include _emit('color-', $erp-semantic-dark);
   @include _emit-tones($erp-tones-dark);
   @include _emit-aliases;   // re-resolve aliases on the element that switches theme
+  // Dark mode: shadows go away, borders come back one step lighter than the surface, elevation becomes a surface tint.
+  --erp-card-bg: var(--erp-color-bg-surface);
+  --erp-card-bg-hover: var(--erp-color-bg-surface-raised);
+  --erp-card-border: var(--erp-color-border-subtle);
+  --erp-card-border-hover: var(--erp-color-border-default);
+  --erp-card-border-on-surface: var(--erp-color-border-subtle);
+  --erp-card-shadow: none;
+  --erp-card-shadow-hover: none;
+  --erp-card-shadow-on-surface-hover: none;
 }
 
 [data-theme='dark'] {
@@ -1011,7 +1045,7 @@ html {
   padding-inline: var(--erp-table-cell-px);
 }
 .ant-table { font-variant-numeric: tabular-nums; }
-.ant-card { border-radius: var(--erp-radius-card); border-color: var(--erp-color-border-subtle); }
+.ant-card { border-radius: var(--erp-radius-card); }
 .ant-modal-content,
 .ant-drawer-content,
 .ant-dropdown-menu,

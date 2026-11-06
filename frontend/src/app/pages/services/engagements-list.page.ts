@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
@@ -388,7 +389,7 @@ export class EngagementsListPage implements OnInit {
     this.isSavingStatus.set(true);
     this.api.updateStatus(item.id, this.newStatus).subscribe({
       next: () => {
-        this.msg.success('Engagement status changed');
+        this.msg.success(`${item.engagementCode} is now ${String(this.newStatus).replace(/_/g, ' ')}`);
         this.isSavingStatus.set(false);
         this.statusModalVisible.set(false);
         this.list.reload();
@@ -429,7 +430,7 @@ export class EngagementsListPage implements OnInit {
       description: val.description || null,
     }).subscribe({
       next: () => {
-        this.msg.success('Engagement saved');
+        this.msg.success(doneText('created', 'Engagement', val.title));
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
         this.list.reload();

@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
@@ -294,7 +295,7 @@ export class RetainersPage implements OnInit {
       terms: val.terms || null,
     }).subscribe({
       next: () => {
-        this.msg.success('Retainer saved');
+        this.msg.success(doneText('created', 'Retainer', val.title));
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
         this.list.reload();

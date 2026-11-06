@@ -50,7 +50,7 @@ const FIELD_MESSAGES: Record<string, string> = {
     .cycle small { color: var(--erp-color-success-text); font-weight: 600; }
     .plans { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); align-items: stretch; }
     .note { text-align: center; margin: 20px 0 0; color: var(--erp-color-text-muted); font-size: 13px; }
-    .card { background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 16px; padding: 28px; box-shadow: 0 4px 20px -2px rgba(0,0,0,.05); max-width: 680px; margin: 0 auto; min-width: 0; }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius: 16px; padding: 28px; max-width: 680px; margin: 0 auto; min-width: 0; }
     .card h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; color: var(--erp-color-text-primary); }
     .card > p.sub { margin: 0 0 18px; color: var(--erp-color-text-muted); }
     .chosen { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; margin-bottom: 20px; border-radius: 10px; background: var(--erp-color-primary-subtle); border: 1px solid var(--erp-color-primary-border); }

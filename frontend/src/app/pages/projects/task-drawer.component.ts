@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -283,7 +284,7 @@ export class TaskDrawerComponent {
     if (current && !body.assignedUserId && !current.assignedUserId) body.assignedTo = current.assignedTo ?? null;
     this.saving.set(true);
     (current ? this.tasksApi.update(current.id, body) : this.tasksApi.create(body)).subscribe({
-      next: () => { this.saving.set(false); this.msg.success('Task saved'); this.visible.set(false); this.changed.emit(); },
+      next: () => { this.saving.set(false); this.msg.success(doneText('saved', 'Task', current?.number ?? body.title)); this.visible.set(false); this.changed.emit(); },
       error: (e) => { this.saving.set(false); this.msg.error(errorText(e, 'Could not save the task.')); },
     });
   }
@@ -293,7 +294,7 @@ export class TaskDrawerComponent {
     this.modal.confirm({
       nzTitle: `Delete ${t.number}?`, nzContent: t.title, nzOkText: 'Delete', nzOkDanger: true,
       nzOnOk: () => this.tasksApi.delete(t.id).subscribe({
-        next: () => { this.msg.success('Task deleted'); this.visible.set(false); this.changed.emit(); },
+        next: () => { this.msg.success(doneText('deleted', 'Task', t.number)); this.visible.set(false); this.changed.emit(); },
         error: (e) => this.msg.error(errorText(e, 'Could not delete the task.')),
       }),
     });

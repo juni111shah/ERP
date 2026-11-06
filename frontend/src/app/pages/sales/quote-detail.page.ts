@@ -1,3 +1,4 @@
+import { SuccessToastService } from '../../core/services/success-toast.service';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
@@ -151,12 +152,12 @@ import { displayLabel } from '../../core/format/display';
               <tr>
                 <th style="width: 140px;">Item Code</th>
                 <th>Description</th>
-                <th style="width: 90px; text-align: right;">Quantity</th>
+                <th style="width: 90px; text-align: end;">Quantity</th>
                 <th style="width: 80px;">UoM</th>
-                <th style="width: 130px; text-align: right;">Unit Price</th>
-                <th style="width: 100px; text-align: right;">Disc %</th>
-                <th style="width: 100px; text-align: right;">Tax %</th>
-                <th style="width: 150px; text-align: right;">Line Total</th>
+                <th style="width: 130px; text-align: end;">Unit Price</th>
+                <th style="width: 100px; text-align: end;">Disc %</th>
+                <th style="width: 100px; text-align: end;">Tax %</th>
+                <th style="width: 150px; text-align: end;">Line Total</th>
               </tr>
             </thead>
             <tbody>
@@ -164,12 +165,12 @@ import { displayLabel } from '../../core/format/display';
                 <tr>
                   <td><strong>{{ item.itemCode || '-' }}</strong></td>
                   <td>{{ item.description }}</td>
-                  <td style="text-align: right;">{{ item.quantity | number:'1.0-2' }}</td>
+                  <td style="text-align: end;">{{ item.quantity | number:'1.0-2' }}</td>
                   <td>{{ item.unitOfMeasure }}</td>
-                  <td style="text-align: right;">{{ item.unitPrice | number:'1.2-2' }}</td>
-                  <td style="text-align: right;">{{ item.discountPercent }}%</td>
-                  <td style="text-align: right;">{{ item.taxRate }}%</td>
-                  <td style="text-align: right; font-weight: 600;">{{ item.lineTotal | number:'1.2-2' }}</td>
+                  <td style="text-align: end;">{{ item.unitPrice | number:'1.2-2' }}</td>
+                  <td style="text-align: end;">{{ item.discountPercent }}%</td>
+                  <td style="text-align: end;">{{ item.taxRate }}%</td>
+                  <td style="text-align: end; font-weight: 600;">{{ item.lineTotal | number:'1.2-2' }}</td>
                 </tr>
               }
             </tbody>
@@ -203,6 +204,7 @@ export class QuoteDetailPage {
   private readonly route = inject(ActivatedRoute);
   private readonly quotesApi = inject(SalesQuotesApi);
   private readonly message = inject(NzMessageService);
+  private readonly toast = inject(SuccessToastService);
 
   readonly quote = signal<QuoteDto | null>(null);
   readonly failed = signal(false);
@@ -234,7 +236,7 @@ export class QuoteDetailPage {
     this.quotesApi.setStatus(q.id, status).subscribe({
       next: (updated) => {
         this.quote.set(updated);
-        this.message.success(`Status changed to ${displayLabel(status).toLowerCase()}.`);
+        this.message.success(`${q.number} is now ${displayLabel(status).toLowerCase()}.`);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to update status')),
     });
@@ -245,7 +247,7 @@ export class QuoteDetailPage {
     if (!q) return;
     this.quotesApi.convertToOrder(q.id).subscribe({
       next: (order) => {
-        this.message.success(`Converted into Sales Order ${order.number}`);
+        this.toast.show(`${q.number} converted into sales order ${order.number}`, { label: 'View order', to: ['/sales/orders', order.id] });
         this.loadQuote(q.id);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to convert quote')),

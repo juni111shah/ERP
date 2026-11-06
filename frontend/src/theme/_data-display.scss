@@ -1,5 +1,146 @@
 // Tables and forms across the whole app.
 
+// Row height: three modes behind one toggle (TableDensityService), for every table. A taller control in a cell grows its row.
+:root {
+  --erp-table-row-h: 48px;
+  --erp-table-row-py: 8px;
+  // Tall enough for a page of rows under the shell's header, toolbar and pager; never so short that a table feels like a slit.
+  --erp-table-max-h: max(320px, calc(100dvh - 260px));
+  --erp-table-cell-max: 280px;
+}
+[data-table-density='compact'] { --erp-table-row-h: 40px; --erp-table-row-py: 4px; }
+[data-table-density='comfortable'] { --erp-table-row-h: 56px; --erp-table-row-py: 12px; }
+
+.ant-table.ant-table-small .ant-table-tbody > tr.ant-table-row > td,
+.ant-table.ant-table-middle .ant-table-tbody > tr.ant-table-row > td,
+.ant-table .ant-table-tbody > tr.ant-table-row > td {
+  height: var(--erp-table-row-h);
+  padding-block: var(--erp-table-row-py);
+  border-block-end: 1px solid var(--erp-color-border-subtle);
+}
+.ant-table .ant-table-tbody > tr.ant-table-row:hover > td {
+  background: var(--erp-color-bg-hover);
+}
+
+// One line between rows. Stripes come in only when the row is wider than the screen and the eye needs help following it.
+erp-paged-table .grid.proxied .ant-table-tbody > tr.ant-table-row:nth-child(even):not(:hover) > td {
+  background: var(--erp-color-bg-subtle);
+}
+
+// The header stays in view while the rows scroll, and the first column stays in view while the table scrolls sideways.
+.ant-table-content {
+  overflow: auto !important;
+  max-height: var(--erp-table-max-h);
+}
+.ant-table-thead > tr > th {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 3;
+}
+.ant-table-thead > tr > th.ant-table-cell-fix-left,
+.ant-table-thead > tr > th.ant-table-cell-fix-right {
+  z-index: 4;
+}
+// erp-paged-table pins through the Columns panel; every other table pins its first column here.
+nz-table:not([data-testid='paged-table']) .ant-table-thead > tr > th:first-child,
+nz-table:not([data-testid='paged-table']) .ant-table-tbody > tr.ant-table-row > td:first-child {
+  position: sticky;
+  inset-inline-start: 0;
+}
+nz-table:not([data-testid='paged-table']) .ant-table-thead > tr > th:first-child { z-index: 4; }
+nz-table:not([data-testid='paged-table']) .ant-table-tbody > tr.ant-table-row > td:first-child {
+  z-index: 2;
+  background: var(--erp-color-bg-surface);
+}
+nz-table:not([data-testid='paged-table']) .ant-table-tbody > tr.ant-table-row:hover > td:first-child { background: var(--erp-color-bg-hover); }
+.ant-table-content.erp-scrolled .ant-table-thead > tr > th:first-child,
+.ant-table-content.erp-scrolled .ant-table-tbody > tr.ant-table-row > td:first-child {
+  box-shadow: inset calc(-1px * var(--erp-direction-sign)) 0 0 var(--erp-color-border-default);
+}
+@media print {
+  .ant-table-content { max-height: none; overflow: visible !important; }
+  .ant-table-thead > tr > th { position: static; }
+}
+
+// Plain text in a cell stays on one line and ends in an ellipsis; TableCellTipService shows the rest on hover. Numbers never shorten.
+.ant-table-tbody > tr.ant-table-row > td:not(:has(*)):not([style*='right']):not([style*='end']),
+erp-paged-table .ant-table-tbody > tr.ant-table-row > td:not(.erp-cell-actions):not([style*='right']):not([style*='end']),
+.erp-truncate {
+  max-width: var(--erp-table-cell-max);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.erp-truncate { display: block; }
+.ant-table-tbody > tr.ant-table-row > td[style*='right'],
+.ant-table-tbody > tr.ant-table-row > td[style*='end'] {
+  white-space: nowrap;
+}
+.erp-cell-tip {
+  position: fixed;
+  z-index: 1070;
+  max-width: min(480px, calc(100vw - 16px));
+  padding: 6px 8px;
+  border-radius: var(--erp-radius-control);
+  background: var(--erp-color-bg-inverse);
+  color: var(--erp-color-text-inverse);
+  font-size: var(--erp-font-size-body-sm);
+  line-height: var(--erp-line-height-body-sm);
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  &[hidden] { display: none; }
+}
+
+// A blank cell shows a dash, so a missing value does not read as zero or as a row still loading. Action cells stay blank.
+.ant-table-tbody > tr.ant-table-row > td:empty:not(.erp-cell-actions)::after {
+  content: '—';
+  color: var(--erp-color-text-muted);
+}
+
+// Amounts sit at the end of the row, which is the left side in Arabic.
+[dir='rtl'] .ant-table td[style*='text-align: right'],
+[dir='rtl'] .ant-table th[style*='text-align: right'] {
+  text-align: left !important;
+}
+
+// Row actions appear with the row they act on. Touch screens get a kebab menu instead (RowActionsComponent).
+.erp-row-actions__inline {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--erp-space-1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ant-table-tbody > tr.ant-table-row > td .erp-row-actions__inline {
+    opacity: 0;
+    transition: opacity var(--erp-duration-fast) var(--erp-ease-standard);
+  }
+  .ant-table-tbody > tr.ant-table-row:hover > td .erp-row-actions__inline,
+  .ant-table-tbody > tr.ant-table-row:focus-within > td .erp-row-actions__inline,
+  .ant-table-tbody > tr.ant-table-row:has(.ant-popover-open, .ant-dropdown-open) > td .erp-row-actions__inline {
+    opacity: 1;
+  }
+}
+.erp-row-actions__menu {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--erp-space-1);
+  min-width: 160px;
+  .ant-btn { text-align: start; }
+}
+
+.erp-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 // Table headers: the column name comes first. Filter and sort controls stay out of the way until the pointer or keyboard reaches the
 // column, and stay visible while they are in use. The filter control overlays the end of the cell, so names do not wrap to make room for it.
 .ant-table-thead > tr > th {
@@ -25,9 +166,20 @@
   .ant-table-thead > tr > th:not(:hover):not(:focus-within) .ant-table-filter-trigger:not(.active):not(.ant-dropdown-open) {
     opacity: 0;
   }
+}
 
-  .ant-table-thead > tr > th:not(:hover):not(:focus-within) .ant-table-column-sorter:not(:has(.active)) {
-    opacity: 0;
+// Sort arrows only on the active column, and only the arrow in use. A mouse hovering a sortable header gets a faint hint that it can sort.
+.ant-table-column-sorter:not(:has(.active)) {
+  opacity: 0;
+}
+.ant-table-column-sorter:has(.active) .ant-table-column-sorter-up:not(.active),
+.ant-table-column-sorter:has(.active) .ant-table-column-sorter-down:not(.active) {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ant-table-thead > tr > th:hover .ant-table-column-sorter:not(:has(.active)),
+  .ant-table-thead > tr > th:focus-within .ant-table-column-sorter:not(:has(.active)) {
+    opacity: .6;
   }
 }
 

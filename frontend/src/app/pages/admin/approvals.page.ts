@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -31,7 +32,7 @@ import { StatePanelComponent } from '../../shared/state-panel.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpLabelPipe, ErpDatePipe, StatusTagComponent, StatePanelComponent, FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
   styles: [`.bar { display:flex; margin-bottom:12px } .spacer { flex:1 } .num { text-align:end; font-variant-numeric:tabular-nums; white-space:nowrap } .nowrap { white-space:nowrap }
-    .card { background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-radius:12px; overflow:hidden; margin-top:12px }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius:12px; overflow:hidden; margin-top:12px }
     .subject { font-weight:600; color: var(--erp-color-text-primary) }`],
   template: `
     <h1 class="erp-page-title">Approvals</h1>
@@ -117,7 +118,7 @@ export class ApprovalsPage {
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.submitApproval({ subject: v.subject, justification: v.justification || null, amount: v.amount, legalEntityId: null }).subscribe({
-      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success('Approval requested'); this.load(); },
+      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(doneText('submitted', 'Approval request', v.subject)); this.load(); },
       error: (e) => {
         this.saving.set(false);
         const p = asProblem(e);
@@ -128,11 +129,11 @@ export class ApprovalsPage {
   }
 
   decide(a: ApprovalDto, approve: boolean): void {
-    this.api.decide(a.id, approve).subscribe({ next: () => { this.message.success(approve ? 'Approved' : 'Rejected'); this.load(); }, error: (e) => this.fail(e) });
+    this.api.decide(a.id, approve).subscribe({ next: () => { this.message.success(doneText(approve ? 'approved' : 'rejected', 'Approval request', a.subject)); this.load(); }, error: (e) => this.fail(e) });
   }
 
   withdraw(a: ApprovalDto): void {
-    this.api.withdraw(a.id).subscribe({ next: () => { this.message.success('Request withdrawn'); this.load(); }, error: (e) => this.fail(e) });
+    this.api.withdraw(a.id).subscribe({ next: () => { this.message.success(`Approval request ${a.subject} withdrawn`); this.load(); }, error: (e) => this.fail(e) });
   }
 
   private fail(e: unknown): void { this.message.error(problemMessage(e, 'Action failed')); }

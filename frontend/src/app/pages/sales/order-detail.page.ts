@@ -175,13 +175,13 @@ import { displayLabel } from '../../core/format/display';
               <tr>
                 <th style="width: 140px;">Item Code</th>
                 <th>Description</th>
-                <th style="width: 90px; text-align: right;">Ordered</th>
-                <th style="width: 90px; text-align: right;">Delivered</th>
-                <th style="width: 90px; text-align: right;">Invoiced</th>
-                <th style="width: 120px; text-align: right;">Unit Price</th>
-                <th style="width: 90px; text-align: right;">Disc %</th>
-                <th style="width: 90px; text-align: right;">Tax %</th>
-                <th style="width: 140px; text-align: right;">Line Total</th>
+                <th style="width: 90px; text-align: end;">Ordered</th>
+                <th style="width: 90px; text-align: end;">Delivered</th>
+                <th style="width: 90px; text-align: end;">Invoiced</th>
+                <th style="width: 120px; text-align: end;">Unit Price</th>
+                <th style="width: 90px; text-align: end;">Disc %</th>
+                <th style="width: 90px; text-align: end;">Tax %</th>
+                <th style="width: 140px; text-align: end;">Line Total</th>
               </tr>
             </thead>
             <tbody>
@@ -189,17 +189,17 @@ import { displayLabel } from '../../core/format/display';
                 <tr>
                   <td><strong>{{ item.itemCode || '-' }}</strong></td>
                   <td>{{ item.description }}</td>
-                  <td style="text-align: right;">{{ item.quantity | number:'1.0-2' }} {{ item.unitOfMeasure }}</td>
-                  <td style="text-align: right;">
+                  <td style="text-align: end;">{{ item.quantity | number:'1.0-2' }} {{ item.unitOfMeasure }}</td>
+                  <td style="text-align: end;">
                     <span [style.color]="item.deliveredQuantity >= item.quantity ? 'var(--erp-color-primary)' : 'var(--erp-color-warning-text, #d97706)'">
                       {{ item.deliveredQuantity | number:'1.0-2' }}
                     </span>
                   </td>
-                  <td style="text-align: right;">{{ item.invoicedQuantity | number:'1.0-2' }}</td>
-                  <td style="text-align: right;">{{ item.unitPrice | number:'1.2-2' }}</td>
-                  <td style="text-align: right;">{{ item.discountPercent }}%</td>
-                  <td style="text-align: right;">{{ item.taxRate }}%</td>
-                  <td style="text-align: right; font-weight: 600;">{{ item.lineTotal | number:'1.2-2' }}</td>
+                  <td style="text-align: end;">{{ item.invoicedQuantity | number:'1.0-2' }}</td>
+                  <td style="text-align: end;">{{ item.unitPrice | number:'1.2-2' }}</td>
+                  <td style="text-align: end;">{{ item.discountPercent }}%</td>
+                  <td style="text-align: end;">{{ item.taxRate }}%</td>
+                  <td style="text-align: end; font-weight: 600;">{{ item.lineTotal | number:'1.2-2' }}</td>
                 </tr>
               }
             </tbody>
@@ -320,7 +320,7 @@ export class OrderDetailPage {
     this.ordersApi.setStatus(o.id, status).subscribe({
       next: (updated) => {
         this.order.set(updated);
-        this.message.success(`Status changed to ${displayLabel(status).toLowerCase()}.`);
+        this.message.success(`${o.number} is now ${displayLabel(status).toLowerCase()}.`);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to update status')),
     });
@@ -354,7 +354,7 @@ export class OrderDetailPage {
         this.saving.set(false);
         this.order.set(updated);
         this.fulfillmentModalVisible.set(false);
-        this.message.success('Delivery recorded.');
+        this.message.success(`Delivery recorded for ${o.number}.`);
       },
       error: (err) => {
         this.saving.set(false);
@@ -368,7 +368,7 @@ export class OrderDetailPage {
     if (!o) return;
     this.ordersApi.convertToInvoice(o.id).subscribe({
       next: () => {
-        this.message.success('Invoice generated successfully in Accounting');
+        this.message.success(`Invoice created from order ${o.number}`);
         this.loadOrder(o.id);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to generate invoice')),

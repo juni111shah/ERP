@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -276,7 +277,7 @@ export class StoresListPageComponent implements OnInit {
   deleteStore(store: RetailStoreDto): void {
     this.storesApi.delete(store.id).subscribe({
       next: () => {
-        this.msg.success('Store deleted');
+        this.msg.success(doneText('deleted', 'Store', store.name));
         this.list.reload();
       },
       error: (err) => this.msg.error(problemMessage(err, 'The store could not be deleted'))
@@ -309,7 +310,7 @@ export class StoresListPageComponent implements OnInit {
         customFields: this.selectedStore.customFields
       }).subscribe({
         next: () => {
-          this.msg.success('Store saved');
+          this.msg.success(doneText('saved', 'Store', val.name));
           this.isSaving.set(false);
           this.closeModal();
           this.list.reload();
@@ -334,7 +335,7 @@ export class StoresListPageComponent implements OnInit {
 
       this.storesApi.create(input).subscribe({
         next: () => {
-          this.msg.success('Store saved');
+          this.msg.success(doneText('saved', 'Store', val.name));
           this.isSaving.set(false);
           this.closeModal();
           this.list.reload();

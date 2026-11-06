@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -459,7 +460,7 @@ export class WholesalePricingPageComponent implements OnInit {
   deleteRule(row: WholesalePriceMatrixDto): void {
     this.wholesaleApi.delete(row.id).subscribe({
       next: () => {
-        this.msg.success('Price rule deleted');
+        this.msg.success(doneText('deleted', 'Price rule', row.itemName));
         this.list.reload();
       },
       error: (err) => this.msg.error(problemMessage(err, 'The price rule could not be deleted'))
@@ -529,7 +530,7 @@ export class WholesalePricingPageComponent implements OnInit {
     const id = this.editingId();
     (id ? this.wholesaleApi.update(id, input) : this.wholesaleApi.create(input)).subscribe({
       next: () => {
-        this.msg.success('Price rule saved');
+        this.msg.success(doneText('saved', 'Price rule', this.catalogItems().find(i => i.id === val.itemId)?.name));
         this.isSaving.set(false);
         this.isModalVisible.set(false);
         this.list.reload();

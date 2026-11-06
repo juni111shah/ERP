@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -92,7 +93,7 @@ export class SettingsPage {
     for (const [k, v] of Object.entries(this.draft())) if (v !== this.original()[k]) changed[k] = v;
     this.saving.set(true);
     this.api.saveSettings(changed).subscribe({
-      next: () => { this.saving.set(false); this.message.success('Settings saved'); this.load(); },
+      next: () => { this.saving.set(false); this.message.success(doneText('saved', 'Workspace settings')); this.load(); },
       error: (e) => { this.saving.set(false); this.message.error(problemMessage(e, 'Could not save the settings')); },
     });
   }

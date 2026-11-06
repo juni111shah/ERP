@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -265,7 +266,7 @@ export class PlatformSettingsPage {
       invoiceDueDays: v.invoiceDueDays ?? 0, renewalLeadDays: v.renewalLeadDays ?? 0, graceDays: v.graceDays ?? 0, suspendAfterDays: v.suspendAfterDays ?? 1,
       companyName: v.companyName ?? '', companyAddress: v.companyAddress || null, companyTaxNumber: v.companyTaxNumber || null, supportEmail: v.supportEmail || null, termsUrl: v.termsUrl || null, paymentInstructions: v.paymentInstructions || null, aboutText: v.aboutText ?? '', termsText: v.termsText ?? '', privacyText: v.privacyText ?? '',
     }).subscribe({
-      next: (s) => { this.saving.set(false); this.show(s); this.message.success('Settings saved'); },
+      next: (s) => { this.saving.set(false); this.show(s); this.message.success(doneText('saved', 'Platform settings')); },
       error: (e) => {
         this.saving.set(false);
         const problem = asProblem(e);

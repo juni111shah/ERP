@@ -124,41 +124,42 @@ const CATEGORY_COLOR_MAP: Record<string, string> = {
     }
 
     :host ::ng-deep .apexcharts-tooltip {
-      background: #ffffff !important;
-      border: 1px solid #e2e8f0 !important;
+      background: var(--erp-color-bg-surface-raised) !important;
+      color: var(--erp-color-text-primary) !important;
+      border: 1px solid var(--erp-color-border-default) !important;
       box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04) !important;
       border-radius: 8px !important;
       font-family: inherit !important;
     }
 
     :host ::ng-deep .apexcharts-tooltip-title {
-      background: #f8fafc !important;
-      border-bottom: 1px solid #edf2f7 !important;
+      background: var(--erp-color-bg-subtle) !important;
+      border-bottom: 1px solid var(--erp-color-border-subtle) !important;
       font-weight: 600 !important;
       font-size: 12px !important;
-      color: #0f172a !important;
+      color: var(--erp-color-text-primary) !important;
       padding: 6px 12px !important;
     }
 
     :host ::ng-deep .apexcharts-tooltip-series-group {
       padding: 4px 12px !important;
       font-size: 12px !important;
-      color: #334155 !important;
+      color: var(--erp-color-text-secondary) !important;
     }
 
     :host ::ng-deep .apexcharts-tooltip-text-y-value {
       font-weight: 600 !important;
-      color: #0f172a !important;
+      color: var(--erp-color-text-primary) !important;
     }
 
     :host ::ng-deep .apexcharts-legend-text {
-      color: #64748b !important;
+      color: var(--erp-color-text-muted) !important;
       font-weight: 500 !important;
       font-size: 12px !important;
     }
 
     :host ::ng-deep .apexcharts-gridline {
-      stroke: #f1f5f9;
+      stroke: var(--erp-color-viz-grid);
     }
   `],
   template: `
@@ -319,20 +320,20 @@ export class ApexChartComponent implements AfterViewInit, OnDestroy {
         style: {
           fontSize: '11px',
           fontWeight: 600,
-          colors: ['#475569'],
+          colors: ['var(--erp-color-text-secondary)'],
         },
         formatter: (val: number) => this.formatCompact(val),
       },
       stroke: {
         show: true,
         width: isStacked ? 1 : 0,
-        colors: ['#ffffff'],
+        colors: ['var(--erp-color-bg-surface)'],
       },
       xaxis: {
         categories: c.categories,
         labels: {
           style: {
-            colors: '#64748b',
+            colors: 'var(--erp-color-viz-axis)',
             fontSize: '11px',
             fontWeight: 500,
           },
@@ -342,7 +343,7 @@ export class ApexChartComponent implements AfterViewInit, OnDestroy {
         },
         axisBorder: {
           show: true,
-          color: '#e2e8f0',
+          color: 'var(--erp-color-border-default)',
         },
         axisTicks: {
           show: false,
@@ -351,7 +352,7 @@ export class ApexChartComponent implements AfterViewInit, OnDestroy {
       yaxis: {
         labels: {
           style: {
-            colors: '#64748b',
+            colors: 'var(--erp-color-viz-axis)',
             fontSize: '11px',
             fontWeight: 500,
           },
@@ -359,7 +360,7 @@ export class ApexChartComponent implements AfterViewInit, OnDestroy {
         },
       },
       grid: {
-        borderColor: '#f1f5f9',
+        borderColor: 'var(--erp-color-viz-grid)',
         strokeDashArray: 4,
         xaxis: {
           lines: {

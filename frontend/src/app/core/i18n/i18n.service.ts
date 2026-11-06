@@ -37,7 +37,8 @@ export class I18nService {
     effect(() => {
       const arabic = this.lang() === 'ar';
       if (typeof document === 'undefined') return;
-      if (arabic) setTimeout(() => this.dom.start(document.body));
+      // The language may have changed back before this runs; a translator left running would keep rewriting English pages.
+      if (arabic) setTimeout(() => { if (this.lang() === 'ar') this.dom.start(document.body); });
       else this.dom.stop(true);
     });
   }

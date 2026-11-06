@@ -20,17 +20,17 @@ export type StatTone = number | 'danger' | 'success' | 'warning' | 'neutral';
 
 /** Palette of the Overview "Executive Highlights" cards: stripe colour + value colour, picked by index. */
 export const STAT_PALETTES = [
-  { stripe: '#10955d', text: '#0d7b4c' }, // Emerald brand green
-  { stripe: '#2563eb', text: '#1d4ed8' }, // Indigo blue
-  { stripe: '#0ea5e9', text: '#0284c7' }, // Cyan
-  { stripe: '#f59e0b', text: '#d97706' }, // Amber
-  { stripe: '#8b5cf6', text: '#7c3aed' }, // Purple
-  { stripe: '#ec4899', text: '#e11d48' }, // Rose
+  { stripe: '#10955d', text: 'var(--erp-color-stat-text-1)' }, // Emerald brand green
+  { stripe: '#2563eb', text: 'var(--erp-color-stat-text-2)' }, // Indigo blue
+  { stripe: '#0ea5e9', text: 'var(--erp-color-stat-text-3)' }, // Cyan
+  { stripe: '#f59e0b', text: 'var(--erp-color-stat-text-4)' }, // Amber
+  { stripe: '#8b5cf6', text: 'var(--erp-color-stat-text-5)' }, // Purple
+  { stripe: '#ec4899', text: 'var(--erp-color-stat-text-6)' }, // Rose
 ];
 const NAMED: Record<string, { stripe: string; text: string }> = {
-  danger: { stripe: '#ef4444', text: '#cf1322' },
-  success: { stripe: '#10955d', text: '#0d7b4c' },
-  warning: { stripe: '#f59e0b', text: '#d97706' },
+  danger: { stripe: '#ef4444', text: 'var(--erp-color-error-text)' },
+  success: { stripe: '#10955d', text: 'var(--erp-color-stat-text-1)' },
+  warning: { stripe: '#f59e0b', text: 'var(--erp-color-stat-text-4)' },
   neutral: { stripe: '#94a3b8', text: 'var(--erp-color-text-primary, #0f172a)' },
 };
 
@@ -84,7 +84,7 @@ function formatAnimatedString(template: string, progress: number): string {
   imports: [NgTemplateOutlet, RouterLink, NzSkeletonModule],
   template: `
     @if (link(); as l) {
-      <a class="erp-stat-card erp-stat-card--link" [class.erp-stat-card--compact]="compact()" [routerLink]="l" [attr.data-testid]="testId()"><ng-container *ngTemplateOutlet="body" /></a>
+      <a class="erp-stat-card erp-stat-card--link erp-lift" [class.erp-stat-card--compact]="compact()" [routerLink]="l" [attr.data-testid]="testId()"><ng-container *ngTemplateOutlet="body" /></a>
     } @else {
       <div class="erp-stat-card" [class.erp-stat-card--compact]="compact()" [attr.data-testid]="testId()"><ng-container *ngTemplateOutlet="body" /></div>
     }

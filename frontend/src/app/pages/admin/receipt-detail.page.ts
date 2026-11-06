@@ -1,4 +1,10 @@
 import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
+import { SuccessPanelComponent } from '../../shared/success-panel.component';
+import { tNow } from '../../core/i18n/translate-now';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { isFirstPaymentMoment } from '../../core/format/celebrate';
+import { SessionStore } from '../../core/session/session.store';
+import { NzButtonModule as NzButtonModuleForPanel } from 'ng-zorro-antd/button';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -50,13 +56,28 @@ interface Receipt {
 @Component({
   selector: 'erp-receipt-detail',
   standalone: true,
-  imports: [RouterLink, NzSpinModule, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [HasPermissionDirective, SuccessPanelComponent, NzButtonModuleForPanel, RouterLink, NzSpinModule, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
     } @else if (error()) {
       <erp-state-panel kind="error" title="Could not load this receipt" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (receipt()) {
+      @if (justRecorded() && receipt(); as r) {
+        <erp-success-panel [title]="recordedTitle()" [detail]="recordedDetail()" [celebrate]="firstPayment()" (dismissed)="justRecorded.set(false)">
+          <a actions nz-button nzType="primary" [href]="'/print/receipt/' + r.id" target="_blank" rel="noopener" data-testid="success-print">Print receipt</a>
+          <button actions *erpHasPermission="'core.email.send'" nz-button type="button" (click)="emailOpen.set(true)" data-testid="success-email">Email receipt</button>
+          <a actions nz-button [routerLink]="['/finance/receipts']" [queryParams]="{ new: 1 }" data-testid="success-another">Record another</a>
+          <span loop>
+            @if (r.unallocated > 0) {
+              {{ money(r.unallocated) }} {{ 'ui.success.notAppliedYet' | translate: 'is not applied to an invoice yet.' }}
+              <a [routerLink]="['/finance/receipts']" [queryParams]="{ open: r.id }" data-testid="success-loop">{{ 'ui.success.applyIt' | translate: 'Apply it' }}</a>
+            } @else {
+              <a [routerLink]="['/parties', r.partyId]" data-testid="success-loop">{{ 'ui.success.seeWhatOwes' | translate: 'See what this customer still owes' }}</a>
+            }
+          </span>
+        </erp-success-panel>
+      }
       <erp-detail-page
         [backLink]="['/finance/receipts']"
         [backLabel]="'Back to Receipts'"
@@ -77,14 +98,14 @@ interface Receipt {
               <thead>
                 <tr>
                   <th>Invoice Number</th>
-                  <th style="width: 150px; text-align: right;">Amount Applied</th>
+                  <th style="width: 150px; text-align: end;">Amount Applied</th>
                 </tr>
               </thead>
               <tbody>
                 @for (alloc of allocTable.data; track alloc.id) {
                   <tr>
                     <td><a [routerLink]="['/finance/invoices', alloc.invoiceId]">{{ alloc.invoiceNumber }}</a></td>
-                    <td style="text-align: right;">{{ money(alloc.amount) }}</td>
+                    <td style="text-align: end;">{{ money(alloc.amount) }}</td>
                   </tr>
                 }
               </tbody>
@@ -92,7 +113,7 @@ interface Receipt {
           </div>
         }
       </erp-detail-page>
-      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/receipts/' + receipt()!.id + '/email'" (closed)="emailOpen.set(false)" />
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/receipts/' + receipt()!.id + '/email'" [documentLabel]="'Receipt ' + receipt()!.number" (closed)="emailOpen.set(false)" />
     }
   `
 })
@@ -110,6 +131,21 @@ export class ReceiptDetailPage implements OnInit {
   loading = signal(true);
   error = signal<string | null>(null);
   receipt = signal<Receipt | null>(null);
+  private readonly session = inject(SessionStore);
+  /** Arrived here straight after recording the money: the outcome stays on the page until it is closed or the person leaves. */
+  readonly justRecorded = signal(false);
+  readonly firstPayment = signal(false);
+  readonly recordedTitle = computed(() => {
+    const r = this.receipt();
+    return r ? tNow('ui.success.received', 'Received {amount} from {party}', { amount: this.money(r.amount), party: r.partyName }) : '';
+  });
+  readonly recordedDetail = computed(() => {
+    const r = this.receipt();
+    if (!r) return '';
+    const applied = r.allocations.map((a) => a.invoiceNumber).join(', ');
+    const facts = `${r.number}, ${displayDate(r.date)}, ${displayLabel(r.method)}`;
+    return applied ? tNow('ui.success.receiptApplied', 'Receipt {facts}, applied to {docs}.', { facts, docs: applied }) : tNow('ui.success.receiptFacts', 'Receipt {facts}.', { facts });
+  });
 
 
   actions = computed((): ActionButton[] => {
@@ -210,12 +246,22 @@ export class ReceiptDetailPage implements OnInit {
       next: (response) => {
         this.receipt.set(response);
         this.loading.set(false);
+        this.showRecorded(response);
       },
       error: (err) => {
         this.error.set(err.error?.message || 'Failed to load receipt');
         this.loading.set(false);
       }
     });
+  }
+
+  /** The message belongs to this visit, so the query flag leaves the address and a reload shows the plain record. */
+  private showRecorded(r: Receipt): void {
+    if (!this.route.snapshot.queryParamMap.get('recorded')) return;
+    this.justRecorded.set(true);
+    void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    this.api.list({ page: 1, pageSize: 1 }).pipe(catchError(() => of({ total: 0 }))).subscribe((page) =>
+      this.firstPayment.set(isFirstPaymentMoment(this.session.me()?.workspace?.id, page.total, r.allocations.length > 0)));
   }
 
   voidReceipt(): void {

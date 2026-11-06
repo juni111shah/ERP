@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule } from '@angular/common';
 import { problemMessage } from '../../core/http/problem-details';
 import { Component, inject, OnInit, signal } from '@angular/core';
@@ -439,7 +440,7 @@ export class LeadsListPageComponent implements OnInit {
 
     this.api.create(v).subscribe({
       next: () => {
-        this.message.success('Lead added.');
+        this.message.success(doneText('added', 'Lead', v.fullName));
         this.createVisible.set(false);
         this.isSubmitting.set(false);
         this.list.reload();
@@ -466,7 +467,7 @@ export class LeadsListPageComponent implements OnInit {
       expectedCloseDate: closeDate
     }).subscribe({
       next: () => {
-        this.message.success('Lead converted. The deal is in the pipeline.');
+        this.message.success(`${lead.leadNumber} converted. Deal ${v.opportunityTitle} is in the pipeline.`);
         this.convertModalVisible.set(false);
         this.isConverting.set(false);
         this.list.reload();

@@ -1,3 +1,4 @@
+import { doneText } from '../core/format/done-text';
 import { ChangeDetectionStrategy, Component, DestroyRef, Injectable, computed, inject, signal, OnInit } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -283,7 +284,7 @@ export class PartiesPage implements OnInit {
     const p = this.editing();
     this.saving.set(true);
     (p ? this.api.update(p.id, body) : this.api.create(body)).subscribe({
-      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success('Saved'); this.list.reload(); this.loadStats(); if (p) void this.router.navigate(['/parties', p.id]); else this.clearEditParam(); },
+      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(doneText('saved', 'Party', v.name)); this.list.reload(); this.loadStats(); if (p) void this.router.navigate(['/parties', p.id]); else this.clearEditParam(); },
       error: (e) => {
         this.saving.set(false);
         const problem = asProblem(e);

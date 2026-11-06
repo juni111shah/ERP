@@ -1,0 +1,84 @@
+// Cards: one treatment for every card in the app, decided by what the card sits on. The values live in tokens.scss (--erp-card-*).
+//   On the tinted page canvas   shadow, no border
+//   On white (drawer, modal)    border, no shadow
+//   Inside a panel              flat: the parent does the grouping and dividers separate the children
+//   Dark mode                   no shadow, a border one step lighter than the surface, and elevation shown by tint
+// A card that holds a form is a panel: a section of a page, with a hairline and no elevation.
+
+// Anything inside a drawer or a modal sits on white.
+.ant-drawer-body,
+.ant-modal-body,
+.ant-popover-inner-content {
+  --erp-card-border: var(--erp-card-border-on-surface);
+  --erp-card-shadow: none;
+  --erp-card-shadow-hover: var(--erp-card-shadow-on-surface-hover);
+}
+
+// Anything inside a card or a panel is flat, so cards never read as nested.
+.ant-card-body,
+.pf-card > *,
+.prj-card > *,
+.erp-panel > * {
+  --erp-card-bg: transparent;
+  --erp-card-bg-hover: transparent;
+  --erp-card-border: transparent;
+  --erp-card-border-hover: transparent;
+  --erp-card-shadow: none;
+  --erp-card-shadow-hover: none;
+}
+
+.ant-card,
+.erp-card {
+  background: var(--erp-card-bg);
+  border-color: var(--erp-card-border);
+  box-shadow: var(--erp-card-shadow);
+}
+.erp-card {
+  border-width: 1px;
+  border-style: solid;
+  border-radius: var(--erp-radius-card);
+}
+.ant-card .ant-card + .ant-card {
+  border-block-start: 1px solid var(--erp-color-border-subtle);
+  border-radius: 0;
+}
+
+// A form section is not a card.
+.erp-panel,
+.ant-card:has(> .ant-card-body > form),
+.pf-card:has(form),
+.prj-card:has(form),
+[class~='card']:has(form),
+[class~='panel']:has(form) {
+  --erp-card-border: var(--erp-color-border-subtle);
+  --erp-card-shadow: none;
+}
+.erp-panel {
+  background: var(--erp-card-bg);
+  border: 1px solid var(--erp-card-border);
+  border-radius: var(--erp-radius-card);
+}
+
+// A clickable card is one action across its whole surface, and the whole thing lifts.
+.erp-lift {
+  cursor: pointer;
+  transition: transform var(--erp-duration-base) var(--erp-ease-standard), box-shadow var(--erp-duration-base) var(--erp-ease-standard),
+    border-color var(--erp-duration-base) var(--erp-ease-standard), background-color var(--erp-duration-base) var(--erp-ease-standard);
+}
+.erp-lift:hover:not(:disabled),
+.erp-lift:focus-visible {
+  transform: translateY(-2px);
+  background: var(--erp-card-bg-hover);
+  border-color: var(--erp-card-border-hover);
+  box-shadow: var(--erp-card-shadow-hover);
+}
+@media (prefers-reduced-motion: reduce) {
+  .erp-lift:hover:not(:disabled),
+  .erp-lift:focus-visible {
+    transform: none;
+  }
+}
+[data-motion='reduced'] .erp-lift:hover:not(:disabled),
+[data-motion='reduced'] .erp-lift:focus-visible {
+  transform: none;
+}

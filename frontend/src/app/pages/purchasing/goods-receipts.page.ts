@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
@@ -65,7 +66,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
                   <span nz-icon nzType="printer"></span> Print
                 </a>
                 <button *erpHasPermission="'purchasing.receipts.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                        nz-popconfirm nzPopconfirmTitle="Delete this receipt?" (nzOnConfirm)="deleteReceipt(row.id)">
+                        nz-popconfirm nzPopconfirmTitle="Delete this receipt?" (nzOnConfirm)="deleteReceipt(row)">
                   Delete
                 </button>
               </div>
@@ -94,7 +95,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
                 <tr>
                   <th>Code</th>
                   <th>Description</th>
-                  <th style="width: 120px; text-align: right;">Qty Received</th>
+                  <th style="width: 120px; text-align: end;">Qty Received</th>
                 </tr>
               </thead>
               <tbody>
@@ -102,7 +103,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
                   <tr>
                     <td><strong>{{ item.itemCode || '-' }}</strong></td>
                     <td>{{ item.description }}</td>
-                    <td style="text-align: right; font-weight: 600; color: var(--erp-color-primary);">
+                    <td style="text-align: end; font-weight: 600; color: var(--erp-color-primary);">
                       {{ item.quantityReceived | number:'1.0-2' }} {{ item.unitOfMeasure }}
                     </td>
                   </tr>
@@ -157,10 +158,10 @@ export class GoodsReceiptsPage {
     });
   }
 
-  deleteReceipt(id: string): void {
-    this.receiptsApi.delete(id).subscribe({
+  deleteReceipt(row: { id: string; number?: string | null }): void {
+    this.receiptsApi.delete(row.id).subscribe({
       next: () => {
-        this.message.success('Goods receipt deleted');
+        this.message.success(doneText('deleted', 'Goods receipt', row.number));
         this.list.reload();
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to delete receipt')),

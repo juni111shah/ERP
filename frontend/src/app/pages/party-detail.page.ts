@@ -94,8 +94,8 @@ interface Party {
                       <th>Type</th>
                       <th>Number</th>
                       <th>Date</th>
-                      <th style="text-align: right;">Amount</th>
-                      <th style="text-align: right;">Outstanding</th>
+                      <th style="text-align: end;">Amount</th>
+                      <th style="text-align: end;">Outstanding</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -136,8 +136,8 @@ interface Party {
                       <th>Type</th>
                       <th>Number</th>
                       <th>Date</th>
-                      <th style="text-align: right;">Amount</th>
-                      <th style="text-align: right;">Outstanding</th>
+                      <th style="text-align: end;">Amount</th>
+                      <th style="text-align: end;">Outstanding</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -183,20 +183,20 @@ interface Party {
           @if (statement(); as st) {
             <p>{{ 'ui.common.asOf' | translate: 'As of' }} {{ st.asOf | erpDate }}</p>
             <nz-table #stTable [nzData]="st.items" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="party-statement">
-              <thead><tr><th>Number</th><th>Date</th><th>Due</th><th style="text-align: right;">Days overdue</th><th style="text-align: right;">Outstanding</th></tr></thead>
+              <thead><tr><th>Number</th><th>Date</th><th>Due</th><th style="text-align: end;">Days overdue</th><th style="text-align: end;">Outstanding</th></tr></thead>
               <tbody>
                 @for (it of stTable.data; track it.invoiceId) {
                   <tr>
                     <td>{{ it.number }}{{ it.isCreditNote ? ' (credit)' : '' }}</td>
                     <td>{{ it.invoiceDate | erpDate }}</td>
                     <td>{{ it.dueDate | erpDate }}</td>
-                    <td style="text-align: right;">{{ it.daysOverdue }}</td>
-                    <td style="text-align: right;">{{ it.outstanding | number:'1.2-2' }}</td>
+                    <td style="text-align: end;">{{ it.daysOverdue }}</td>
+                    <td style="text-align: end;">{{ it.outstanding | number:'1.2-2' }}</td>
                   </tr>
                 } @empty { <tr><td colspan="5" style="text-align: center; color: var(--erp-color-text-muted);">Nothing outstanding</td></tr> }
               </tbody>
             </nz-table>
-            <p style="text-align: right; margin-top: 12px;">{{ 'ui.party.unallocated' | translate: 'Unallocated' }}: {{ (st.unallocatedReceipts ?? st.unallocatedPayments ?? 0) | number:'1.2-2' }}<br /><b>{{ 'ui.party.balance' | translate: 'Balance' }}: {{ st.balance | number:'1.2-2' }}</b></p>
+            <p style="text-align: end; margin-top: 12px;">{{ 'ui.party.unallocated' | translate: 'Unallocated' }}: {{ (st.unallocatedReceipts ?? st.unallocatedPayments ?? 0) | number:'1.2-2' }}<br /><b>{{ 'ui.party.balance' | translate: 'Balance' }}: {{ st.balance | number:'1.2-2' }}</b></p>
           } @else { <p>Loading…</p> }
         </ng-container>
       </nz-drawer>

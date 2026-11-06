@@ -1,3 +1,4 @@
+import { doneText } from '../core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -67,7 +68,7 @@ export class CreateProjectButtonComponent {
       legalEntityId: this.legalEntityId(), name, status: 'planning', billingType: this.billingType, budgetAmount: this.amount() || 0,
       customerId: this.customerId() ?? null, sourceType: this.sourceType(), sourceId: this.sourceId(),
     }).subscribe({
-      next: (p) => { this.busy.set(false); this.open.set(false); this.msg.success(`Created ${(p as { number?: string }).number ?? 'the project'}`); void this.router.navigate(['/projects', (p as { id: string }).id]); },
+      next: (p) => { this.busy.set(false); this.open.set(false); this.msg.success(doneText('created', 'Project', (p as { number?: string }).number)); void this.router.navigate(['/projects', (p as { id: string }).id]); },
       error: (e) => { this.busy.set(false); this.msg.error(e?.error?.detail ?? e?.error?.message ?? 'Could not create the project.'); },
     });
   }

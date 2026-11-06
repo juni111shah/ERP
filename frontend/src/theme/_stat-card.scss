@@ -18,8 +18,8 @@
 erp-stat-card { display: block; min-width: 0; }
 
 .erp-stat-card {
-  background: var(--erp-color-bg-surface, #fff);
-  border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+  background: var(--erp-card-bg);
+  border: 1px solid var(--erp-card-border);
   border-radius: 12px;
   padding: 16px 18px;
   display: flex;
@@ -29,13 +29,10 @@ erp-stat-card { display: block; min-width: 0; }
   overflow: hidden;
   color: inherit;
   text-decoration: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .02), 0 4px 12px rgba(0, 0, 0, .02);
-  transition: transform .2s ease, box-shadow .2s ease;
+  box-shadow: var(--erp-card-shadow);
   min-height: 104px;
   height: 100%;
   box-sizing: border-box;
-
-  &.erp-stat-card--link:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, .05); cursor: pointer; }
 
   .erp-stat-stripe {
     position: absolute;
@@ -81,11 +78,9 @@ erp-stat-card { display: block; min-width: 0; }
     border-radius: 10px;
     min-height: 0;
     gap: 8px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, .02);
-    &.erp-stat-card--link:hover { background: var(--erp-color-bg-canvas, #fafbfc); border-color: #cbd5e1; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .04); }
     .erp-stat-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .erp-stat-label { margin: 0; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .erp-stat-caption { font-size: 11px; color: var(--erp-color-text-tertiary, #94a3b8); }
+    .erp-stat-caption { font-size: 11px; color: var(--erp-color-text-muted); }
     .erp-stat-value { font-size: 18px; margin: 0; flex-shrink: 0; color: var(--erp-color-text-primary, #0f172a); }
   }
 

@@ -29,11 +29,9 @@ import { ErpDatePipe } from '../../shared/display.pipes';
   imports: [ErpDatePipe, StatePanelComponent, StatCardComponent, TranslatePipe, ReactiveFormsModule, FormsModule, HasPermissionDirective, RevealDirective, TableToolsComponent, NzToolTipModule, NzTableModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzSelectModule, NzTagModule, NzIconModule],
   styles: [`
     .user-table-card {
-      background: var(--erp-color-bg-surface, #ffffff);
-      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
       margin-top: 16px;
     }
     .user-cell { display: flex; align-items: center; gap: 10px; }
@@ -215,7 +213,7 @@ export class UsersPage {
 
   toggleActive(user: UserSummary): void {
     this.api.setUserActive(user.id, !user.isActive).subscribe({
-      next: () => { this.message.success(user.isActive ? 'User deactivated' : 'User reactivated'); this.load(); },
+      next: () => { this.message.success(`User ${user.fullName} ${user.isActive ? 'deactivated' : 'reactivated'}`); this.load(); },
       error: (e) => { this.message.error(problemMessage(e, 'Could not change the user')); },
     });
   }
@@ -228,7 +226,7 @@ export class UsersPage {
     const call = user ? this.api.setUserRoles(user.id, v.roleIds)
       : this.api.inviteUser({ email: v.email, fullName: v.fullName, temporaryPassword: v.temporaryPassword || null, roleIds: v.roleIds, legalEntityIds: null });
     call.subscribe({
-      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(user ? 'Roles updated' : 'User invited'); this.load(); },
+      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(user ? `Roles updated for ${user.fullName}` : `User ${v.fullName} invited`); this.load(); },
       error: (e) => {
         this.saving.set(false);
         const p = asProblem(e);

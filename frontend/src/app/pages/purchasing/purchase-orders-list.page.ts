@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
@@ -128,7 +129,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
                 </a>
                 @if (row.status === 'draft' || row.status === 'cancelled') {
                   <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                          nz-popconfirm nzPopconfirmTitle="Delete this purchase order?" (nzOnConfirm)="deleteOrder(row.id)">
+                          nz-popconfirm nzPopconfirmTitle="Delete this purchase order?" (nzOnConfirm)="deleteOrder(row)">
                     Delete
                   </button>
                 }
@@ -334,7 +335,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
     .lines-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .lines-table th { background: var(--erp-color-bg-subtle); padding: 8px; text-align: left; font-weight: 600; color: var(--erp-color-text-secondary); border: 1px solid var(--erp-color-border-subtle); }
     .lines-table td { padding: 4px; border: 1px solid var(--erp-color-border-subtle); vertical-align: middle; }
-    .line-calc { text-align: right; padding-inline-end: 8px; font-weight: 600; color: var(--erp-color-text-primary); }
+    .line-calc { text-align: end; padding-inline-end: 8px; font-weight: 600; color: var(--erp-color-text-primary); }
     .po-summary-panel { margin-top: 16px; margin-inline-start: auto; width: 280px; background: var(--erp-color-bg-subtle); border-radius: 8px; padding: 12px; border: 1px solid var(--erp-color-border-subtle); }
     .summary-line { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: var(--erp-color-text-secondary); }
     .total-highlight { border-top: 1px solid var(--erp-color-border-default); padding-top: 6px; margin-top: 6px; font-weight: 700; font-size: 15px; color: var(--erp-color-text-primary); }
@@ -576,7 +577,7 @@ export class PurchaseOrdersListPage {
       next: (created) => {
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
-        this.message.success(`Purchase Order ${created.number} created.`);
+        this.message.success(doneText('created', 'Purchase order', created.number));
         this.list.reload();
         this.loadKpis();
         this.router.navigate(['/purchasing/orders', created.id]);
@@ -588,10 +589,10 @@ export class PurchaseOrdersListPage {
     });
   }
 
-  deleteOrder(id: string): void {
-    this.ordersApi.delete(id).subscribe({
+  deleteOrder(row: { id: string; number?: string | null }): void {
+    this.ordersApi.delete(row.id).subscribe({
       next: () => {
-        this.message.success('Purchase order deleted');
+        this.message.success(doneText('deleted', 'Purchase order', row.number));
         this.list.reload();
         this.loadKpis();
       },

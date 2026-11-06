@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -97,7 +98,7 @@ export class RolesPage {
     const role = this.editing();
     this.saving.set(true);
     (role ? this.api.update(role.id, body) : this.api.create(body)).subscribe({
-      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success('Role saved'); this.list.reload(); },
+      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(doneText('saved', 'Role', v.name)); this.list.reload(); },
       error: (e) => {
         this.saving.set(false);
         const p = asProblem(e);

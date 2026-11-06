@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
@@ -159,9 +160,9 @@ export class PayrollDetailPage {
   startAdjust(l: PayrollLine): void { this.errors.set(null); this.line.set(l); this.mode.set('adjust'); }
   startVoid(): void { this.errors.set(null); this.mode.set('void'); }
 
-  recalculate(): void { this.run$(this.api.recalculate(this.id), 'Recalculated'); }
+  recalculate(): void { this.run$(this.api.recalculate(this.id), (r) => `Payroll ${r.number} recalculated`); }
   post(): void {
-    this.modal.confirm({ nzTitle: 'Post this payroll?', nzContent: 'The accrual is posted to the ledger and the run can no longer be edited.', nzOkText: 'Post', nzOnOk: () => this.run$(this.api.post(this.id), 'Done') });
+    this.modal.confirm({ nzTitle: 'Post this payroll?', nzContent: 'The accrual is posted to the ledger and the run can no longer be edited.', nzOkText: 'Post', nzOnOk: () => this.run$(this.api.post(this.id), (r) => doneText('posted', 'Payroll', r.number)) });
   }
   remove(): void {
     this.modal.confirm({ nzTitle: 'Delete this draft?', nzOkDanger: true, nzOkText: 'Delete', nzOnOk: () => new Promise<void>((resolve) => this.api.remove(this.id).subscribe({ next: () => { history.back(); resolve(); }, error: (e) => { this.fail(e); resolve(); } })) });
@@ -179,9 +180,9 @@ export class PayrollDetailPage {
   }
 
   submit(v: Record<string, unknown>): void {
-    if (this.mode() === 'pay') this.run$(this.api.pay(this.id, v['bankAccountId'] as string, String(v['date']).slice(0, 10), [...this.selected()]), 'Salaries paid', () => this.selected.set(new Set()));
-    else if (this.mode() === 'void') this.run$(this.api.void(this.id, String(v['reason'] ?? '')), 'Payroll voided');
-    else this.run$(this.api.adjust(this.id, this.line()!.id, Number(v['adjustment'] ?? 0), (v['note'] as string) ?? null), 'Line adjusted');
+    if (this.mode() === 'pay') this.run$(this.api.pay(this.id, v['bankAccountId'] as string, String(v['date']).slice(0, 10), [...this.selected()]), (r) => `Salaries paid for payroll ${r.number}`, () => this.selected.set(new Set()));
+    else if (this.mode() === 'void') this.run$(this.api.void(this.id, String(v['reason'] ?? '')), (r) => doneText('voided', 'Payroll', r.number));
+    else this.run$(this.api.adjust(this.id, this.line()!.id, Number(v['adjustment'] ?? 0), (v['note'] as string) ?? null), (r) => `Payroll ${r.number} line adjusted`);
   }
 
   download(unpaidOnly: boolean): void {
@@ -203,10 +204,10 @@ export class PayrollDetailPage {
     const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
   }
 
-  private run$(call: ReturnType<PayrollApi['post']>, success: string, after?: () => void): Promise<void> {
+  private run$(call: ReturnType<PayrollApi['post']>, success: (r: PayrollDto) => string, after?: () => void): Promise<void> {
     this.busy.set(true); this.errors.set(null);
     return new Promise((resolve) => call.subscribe({
-      next: (r) => { this.busy.set(false); this.mode.set(null); this.run.set(r); this.loadTotals(r); after?.(); this.message.success(r.status === 'pendingApproval' ? 'Sent for approval. Post it again once approved.' : success); resolve(); },
+      next: (r) => { this.busy.set(false); this.mode.set(null); this.run.set(r); this.loadTotals(r); after?.(); this.message.success(r.status === 'pendingApproval' ? 'Sent for approval. Post it again once approved.' : success(r)); resolve(); },
       error: (e) => { this.fail(e); resolve(); },
     }));
   }

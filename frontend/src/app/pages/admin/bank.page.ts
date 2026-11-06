@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -30,37 +31,26 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
 import { countOf } from './finance-kpis';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 @Component({
   selector: 'erp-bank',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, NzSpinModule, StatePanelComponent, PaginationBarComponent, KeyboardClickDirective, NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
+  imports: [RowActionsComponent, ErpDatePipe, NzSpinModule, StatePanelComponent, PaginationBarComponent, KeyboardClickDirective, NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
   styles: [`
     .bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center }
     .bank-accounts-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:24px }
     .bank-card {
-      background: var(--erp-color-bg-surface, #ffffff);
-      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 12px;
       padding: 16px 20px;
-      cursor: pointer;
-      transition: all 0.2s ease-in-out;
       display: flex;
       flex-direction: column;
       gap: 6px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     }
-    .bank-card:hover {
-      border-color: var(--erp-color-primary, #10955d);
-      box-shadow: 0 4px 12px rgba(16, 149, 93, 0.08);
-      transform: translateY(-1px);
-    }
-    .bank-card.sel {
-      border-color: var(--erp-color-primary, #10955d);
-            box-shadow: 0 0 0 1px var(--erp-color-primary, #10955d), 0 4px 12px rgba(16, 149, 93, 0.1);
-    }
+    .bank-card.sel { --erp-card-border: var(--erp-color-primary); --erp-card-border-hover: var(--erp-color-primary); box-shadow: 0 0 0 1px var(--erp-color-primary); }
     .bank-card-header { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 500; color: var(--erp-color-text-secondary, #64748b); }
-    .bank-card-balance { font-size: 22px; font-weight: 700; color: var(--erp-color-text-title, #0f172a); letter-spacing: -0.3px; }
+    .bank-card-balance { font-size: 22px; font-weight: 700; color: var(--erp-color-text-primary, #0f172a); letter-spacing: -0.3px; }
     .rec-metrics-strip {
       display: flex;
       gap: 20px;
@@ -74,15 +64,13 @@ import { countOf } from './finance-kpis';
     }
     .rec-metric-item { display: flex; flex-direction: column; gap: 2px; }
     .rec-metric-label { font-size: 12px; color: var(--erp-color-text-secondary, #64748b); }
-    .rec-metric-val { font-size: 15px; font-weight: 600; color: var(--erp-color-text-title, #0f172a); }
+    .rec-metric-val { font-size: 15px; font-weight: 600; color: var(--erp-color-text-primary, #0f172a); }
     .rec-metric-divider { width: 1px; height: 28px; background: var(--erp-color-border-subtle, #edf2f7); }
     .bank-table-card {
-      background: var(--erp-color-bg-surface, #ffffff);
-      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 12px;
       margin-bottom: 24px;
       overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     }
     .bank-table-header {
       padding: 14px 20px;
@@ -92,7 +80,7 @@ import { countOf } from './finance-kpis';
       justify-content: space-between;
       background: var(--erp-color-bg-subtle);
     }
-    .bank-table-title { font-size: 14px; font-weight: 600; color: var(--erp-color-text-title, #0f172a); display: flex; align-items: center; gap: 8px; }
+    .bank-table-title { font-size: 14px; font-weight: 600; color: var(--erp-color-text-primary, #0f172a); display: flex; align-items: center; gap: 8px; }
     .num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap }
     .nowrap { white-space: nowrap }
     .amt-inflow { color: var(--erp-color-success-text, #10955d); font-weight: 600; }
@@ -120,7 +108,7 @@ import { countOf } from './finance-kpis';
     @if (position(); as p) {
       <div class="bank-accounts-grid" data-testid="bank-cards">
         @for (a of p.accounts; track a.accountId) {
-          <div erpKeyboardClick class="bank-card" [class.sel]="a.accountId === accountId()" (click)="select(a.accountId)" [attr.data-testid]="'bank-card-' + a.code">
+          <div erpKeyboardClick class="bank-card erp-lift" [class.sel]="a.accountId === accountId()" (click)="select(a.accountId)" [attr.data-testid]="'bank-card-' + a.code">
             <div class="bank-card-header">
               <span>{{ a.code }} · {{ a.name }}</span>
               @if (a.accountId === accountId()) {
@@ -190,7 +178,7 @@ import { countOf } from './finance-kpis';
                 <td class="num" [class.amt-inflow]="l.amount > 0" [class.amt-outflow]="l.amount < 0">
                   {{ l.amount < 0 ? '- ' + currency() + ' ' + ((-l.amount) | number: '1.2-2') : currency() + ' ' + (l.amount | number: '1.2-2') }}
                 </td>
-                <td class="nowrap"><button *erpHasPermission="'finance.bank.write'" nz-button nzType="link" nzSize="small" type="button" (click)="startBook(l)" data-testid="rec-book">Book it</button></td>
+                <td class="erp-cell-actions nowrap"><erp-row-actions><button *erpHasPermission="'finance.bank.write'" nz-button nzType="link" nzSize="small" type="button" (click)="startBook(l)" data-testid="rec-book">Book it</button></erp-row-actions></td>
               </tr>
             }
           </tbody>
@@ -348,7 +336,7 @@ export class BankPage {
     if (!l || !this.bookAccount) { this.message.warning('Choose the account to book it to'); return; }
     this.busy.set(true);
     this.api.book(l.id, this.bookAccount, this.bookMemo || undefined).subscribe({
-      next: () => { this.busy.set(false); this.bookLine.set(null); this.message.success('Booked and matched'); this.refresh(); },
+      next: () => { this.busy.set(false); this.bookLine.set(null); this.message.success(`Statement line ${l.description} booked and matched`); this.refresh(); },
       error: (e) => this.fail(e),
     });
   }
@@ -358,7 +346,7 @@ export class BankPage {
     if (this.trFrom === this.trTo) { this.message.warning('Choose two different accounts'); return; }
     this.busy.set(true);
     this.api.transfer({ legalEntityId: this.trEntity, fromAccountId: this.trFrom, toAccountId: this.trTo, amount: this.trAmount, date: toIsoDate(this.trDate), memo: null }).subscribe({
-      next: () => { this.busy.set(false); this.transferOpen.set(false); this.message.success('Transfer posted'); this.refresh(); },
+      next: () => { this.busy.set(false); this.transferOpen.set(false); this.message.success(doneText('posted', 'Bank transfer')); this.refresh(); },
       error: (e) => this.fail(e),
     });
   }

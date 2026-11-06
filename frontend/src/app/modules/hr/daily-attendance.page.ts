@@ -160,7 +160,7 @@ export class DailyAttendancePage {
     if (checkIn === undefined || checkOut === undefined) { this.message.warning('Enter times as hh:mm'); return; }
     this.busy.set(true); this.errors.set(null);
     this.api.save({ employeeId: v['employeeId'] as string, date: String(v['date']).slice(0, 10), checkIn, checkOut, status: (v['status'] as string) || null, notes: (v['notes'] as string) || null }).subscribe({
-      next: () => { this.busy.set(false); this.form.set(false); this.message.success('Day saved'); this.load(); },
+      next: () => { this.busy.set(false); this.form.set(false); this.message.success(`Attendance saved for ${String(v['date']).slice(0, 10)}`); this.load(); },
       error: (e) => { this.busy.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not save the day'); },
     });
   }

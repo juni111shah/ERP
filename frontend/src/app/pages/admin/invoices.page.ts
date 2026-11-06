@@ -1,3 +1,5 @@
+import { doneText } from '../../core/format/done-text';
+import { SuccessToastService } from '../../core/services/success-toast.service';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -143,6 +145,7 @@ export class InvoicesPage {
   private readonly api = inject(InvoicesApi);
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
+  private readonly toast = inject(SuccessToastService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(FormBuilder);
@@ -343,6 +346,7 @@ export class InvoicesPage {
   /** `?open=<id>` opens a drawer; `?duplicate=<id>` / `?creditFor=<id>` start a new draft prefilled from that invoice (detail page actions); `?partyId=<id>` starts one for that customer. */
   ngOnInit(): void {
     const q = this.route.snapshot.queryParamMap;
+    if (q.get('new')) this.show(null);
     const open = q.get('open'), dup = q.get('duplicate'), credit = q.get('creditFor'), party = q.get('partyId');
     if (open) this.open({ id: open } as never);
     else if (dup || credit) this.api.detail((dup ?? credit)!).subscribe((src) => this.prefill(src, !!credit && !dup));
@@ -414,8 +418,8 @@ export class InvoicesPage {
     this.saving.set(true);
     this.api.save(this.invoice()?.id ?? null, body).subscribe({
       next: (saved) => {
-        if (!issue) { this.done('Draft saved'); return; }
-        this.api.issue(saved.id).subscribe({ next: (i) => { this.done(`${this.i18n.t('ui.msg.issuedAs', 'Issued as')} ${i.number}`); for (const w of i.warnings ?? []) this.message.warning(w, { nzDuration: 8000 }); }, error: (e) => { this.saving.set(false); this.invoice.set(saved); this.reload(); this.fail(e); } });
+        if (!issue) { this.saving.set(false); this.drawerOpen.set(false); this.toast.show(doneText('saved', 'Draft invoice', v.partyId ? this.partyOptions().find((o) => o.value === v.partyId)?.label : null), { label: 'Open draft', to: ['/finance/invoices', saved.id] }); this.reload(); return; }
+        this.api.issue(saved.id).subscribe({ next: (i) => { this.saving.set(false); this.drawerOpen.set(false); for (const w of i.warnings ?? []) this.message.warning(w, { nzDuration: 8000 }); void this.router.navigate(['/finance/invoices', i.id], { queryParams: { issued: 1 } }); }, error: (e) => { this.saving.set(false); this.invoice.set(saved); this.reload(); this.fail(e); } });
       },
       error: (e) => { this.saving.set(false); this.fail(e); },
     });
@@ -425,7 +429,7 @@ export class InvoicesPage {
     const inv = this.invoice();
     if (!inv) return;
     void askReason(this.modal, 'Void this invoice?', 'Void Invoice', 'This reverses its journal and cannot be undone. The invoice will be marked as voided.').then((reason) => {
-      if (reason) this.api.void(inv.id, reason).subscribe({ next: () => this.done('Invoice voided'), error: (e) => this.fail(e) });
+      if (reason) this.api.void(inv.id, reason).subscribe({ next: () => this.done(doneText('voided', 'Invoice', inv.number)), error: (e) => this.fail(e) });
     });
   }
 
@@ -467,7 +471,7 @@ export class InvoicesPage {
     if (!credit) return;
     if (!this.applyInvoice || !this.applyAmount) { this.message.warning('Choose an invoice and an amount'); return; }
     this.api.applyCredit(credit.id, this.applyInvoice, this.applyAmount).subscribe({
-      next: () => { this.applyOpen.set(false); this.done('Credit applied'); },
+      next: () => { this.applyOpen.set(false); this.done(`Credit note ${credit.number} applied`); },
       error: (e) => this.fail(e),
     });
   }

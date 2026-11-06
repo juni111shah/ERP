@@ -58,14 +58,12 @@ import { TranslatePipe } from '../core/i18n/translate.pipe';
       padding: 32px 16px;
     }
     .status-card {
-      background: var(--erp-card-bg, #ffffff);
-      border: 1px solid var(--erp-border, #e5e7eb);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 16px;
       padding: 48px 36px;
       max-width: 520px;
       width: 100%;
       text-align: center;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
     }
     .status-icon-badge {
       width: 72px;
@@ -109,7 +107,7 @@ import { TranslatePipe } from '../core/i18n/translate.pipe';
     .status-tips {
       font-size: 12px;
       color: var(--erp-text-muted, #9ca3af);
-      border-top: 1px solid var(--erp-border, #f3f4f6);
+      border-top: 1px solid var(--erp-color-border-subtle);
       padding-top: 16px;
     }
   `]

@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -27,7 +28,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpDatePipe, TableToolsComponent, TranslatePipe, FormsModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzInputModule, NzInputNumberModule, NzModalModule, PaginationBarComponent, StatePanelComponent, StatusTagComponent],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; }
-    .panel { background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+    .panel { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
     .num { text-align: end; white-space: nowrap; } .owed { font-weight: 600; color: var(--erp-color-warning-text); } .clear { font-weight: 600; color: var(--erp-color-success-text); }
     .balance { background: var(--erp-color-bg-surface); padding: 16px; border-radius: 12px; border: 1px solid var(--erp-color-border-subtle); margin-bottom: 16px; }
     .balance .label { font-size: 14px; color: var(--erp-color-text-secondary); } .balance .amount { font-size: 24px; font-weight: 700; margin: 4px 0; color: var(--erp-color-success-text); } .balance .asof { font-size: 12px; color: var(--erp-color-text-muted); }
@@ -177,7 +178,7 @@ export class VendorHomePage implements OnInit {
 
   update(o: VendorWorkOrder, status: string, extra: { actualCost?: number | null; notes?: string | null } = {}): void {
     this.portal.updateWorkOrder(o.id, { status, ...extra }).subscribe({
-      next: () => { this.message.success('Work order updated'); this.completing.set(null); this.loadOrders(); },
+      next: () => { this.message.success(doneText('updated', 'Work order', o.number)); this.completing.set(null); this.loadOrders(); },
       error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not update the work order'),
     });
   }

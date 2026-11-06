@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
@@ -249,7 +250,7 @@ const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErr
 
             <div class="table-section">
               <h4>Item prices ({{ pl.items.length }})</h4>
-              <nz-table #itemsTable [nzData]="pl.items" nzSize="small" [nzBordered]="true" [nzShowPagination]="false" [nzFrontPagination]="false">
+              <nz-table #itemsTable [nzData]="pl.items" nzSize="small" [nzShowPagination]="false" [nzFrontPagination]="false">
                 <thead>
                   <tr>
                     <th>Item</th>
@@ -480,7 +481,7 @@ export class PriceListsPageComponent implements OnInit {
   deletePriceList(row: RetailPriceListSummaryDto): void {
     this.priceListsApi.delete(row.id).subscribe({
       next: () => {
-        this.msg.success('Price list deleted');
+        this.msg.success(doneText('deleted', 'Price list', row.name));
         this.list.reload();
       },
       error: (err) => this.msg.error(problemMessage(err, 'The price list could not be deleted'))
@@ -556,7 +557,7 @@ export class PriceListsPageComponent implements OnInit {
 
     (editing ? this.priceListsApi.update(editing.id, input) : this.priceListsApi.create(input)).subscribe({
       next: () => {
-        this.msg.success('Price list saved');
+        this.msg.success(doneText('saved', 'Price list', val.name));
         this.isSaving.set(false);
         this.closeModal();
         this.list.reload();

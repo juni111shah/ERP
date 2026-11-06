@@ -1,3 +1,4 @@
+import { doneText } from '../core/format/done-text';
 import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
@@ -15,6 +16,7 @@ import { asProblem } from '../core/http/problem-details';
 import { HasPermissionDirective } from './has-permission.directive';
 import { matchText, TableToolsComponent } from './table-tools.component';
 import { ErpLabelPipe, ErpDatePipe } from './display.pipes';
+import { RowActionsComponent } from './row-actions.component';
 
 export interface AttachmentItem { id: string; fileName: string; contentType: string; sizeBytes: number; createdAt: string; category?: string; description?: string; expiresOn?: string; }
 
@@ -30,7 +32,7 @@ export function daysUntil(date?: string | null): number | null {
   selector: 'erp-attachments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, ErpDatePipe, TableToolsComponent, DatePipe, FormsModule, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzTableModule, NzTagModule],
+  imports: [RowActionsComponent, ErpLabelPipe, ErpDatePipe, TableToolsComponent, DatePipe, FormsModule, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzTableModule, NzTagModule],
   template: `
     <h3>Documents</h3>
     <erp-table-tools [(search)]="q" (refresh)="load()" testId="attachments"></erp-table-tools>
@@ -43,7 +45,7 @@ export function daysUntil(date?: string | null): number | null {
             <td>{{ a.category | erpLabel }}</td>
             <td>@if (a.expiresOn) { <nz-tag [nzColor]="tone(a.expiresOn)">{{ a.expiresOn | erpDate }}</nz-tag> }</td>
             <td>{{ a.createdAt | date: 'dd MMM yyyy' }}</td>
-            <td><button aria-label="Remove" *erpHasPermission="'core.attachments.write'" nz-button nzType="text" nzSize="small" (click)="remove(a)"><span nz-icon nzType="delete"></span></button></td>
+            <td class="erp-cell-actions"><erp-row-actions><button aria-label="Remove" *erpHasPermission="'core.attachments.write'" nz-button nzType="text" nzSize="small" (click)="remove(a)"><span nz-icon nzType="delete"></span></button></erp-row-actions></td>
           </tr>
         } @empty { <tr><td colspan="5">No documents yet.</td></tr> }
       </tbody>
@@ -86,14 +88,14 @@ export class AttachmentsComponent {
     if (this.expires) form.append('expiresOn', toIsoDate(this.expires));
     this.busy.set(true);
     this.http.post(`${this.base}/attachments`, form).subscribe({
-      next: () => { this.busy.set(false); input.value = ''; this.category = ''; this.expires = null; this.message.success('Document uploaded'); this.load(); },
+      next: () => { this.busy.set(false); input.value = ''; this.category = ''; this.expires = null; this.message.success(`Document ${file.name} uploaded`); this.load(); },
       error: (e) => { this.busy.set(false); this.message.error(asProblem(e)?.detail ?? 'Upload failed'); },
     });
   }
 
   download(a: { id: string; fileName: string }): void { downloadAttachment(this.http, this.base, a); }
 
-  remove(a: AttachmentItem): void { this.http.delete(`${this.base}/attachments/${a.id}`).subscribe(() => { this.message.success('Document removed'); this.load(); }); }
+  remove(a: AttachmentItem): void { this.http.delete(`${this.base}/attachments/${a.id}`).subscribe(() => { this.message.success(doneText('removed', 'Document', a.fileName)); this.load(); }); }
 }
 
 /** Fetches a file with the auth header and hands it to the browser as a download. */

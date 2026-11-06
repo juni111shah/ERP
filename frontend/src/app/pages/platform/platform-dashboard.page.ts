@@ -193,7 +193,7 @@ export class PlatformDashboardPage {
       nzOnOk: () => {
         this.running.set(true);
         this.api.runBilling().subscribe({
-          next: (r) => { this.running.set(false); this.lastRun.set(r); this.message.success('Billing run finished'); this.load(); },
+          next: (r) => { this.running.set(false); this.lastRun.set(r); this.message.success(`Billing run finished: ${r.invoicesIssued} invoice(s) issued, ${r.trialsExpired} trial(s) ended, ${r.suspended} suspended`); this.load(); },
           error: (e) => { this.running.set(false); this.message.error(problemMessage(e, 'The billing run failed')); },
         });
       },

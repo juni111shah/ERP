@@ -61,7 +61,7 @@ type Group = 'none' | 'assignee' | 'priority' | 'project';
               <section class="col" [attr.data-testid]="'col-' + col.value">
                 <div class="list" cdkDropList [cdkDropListData]="$any(col.value)" [cdkDropListEnterPredicate]="canEnter" [cdkDropListDisabled]="!canManage()" (cdkDropListDropped)="drop($event, lane.key)">
                   @for (t of inColumn(lane.tasks, col.value); track t.id) {
-                    <article class="card" cdkDrag [cdkDragData]="t" [cdkDragDisabled]="!canManage()" [attr.data-testid]="'card-' + t.number" tabindex="0" (click)="drawer()?.open(t.id)" (keydown.enter)="drawer()?.open(t.id)">
+                    <article class="card erp-lift" cdkDrag [cdkDragData]="t" [cdkDragDisabled]="!canManage()" [attr.data-testid]="'card-' + t.number" tabindex="0" (click)="drawer()?.open(t.id)" (keydown.enter)="drawer()?.open(t.id)">
                       <div class="top"><span class="num">{{ t.number }}</span><erp-prj-tag kind="priority" [value]="t.priority" /></div>
                       <div class="title">@if (t.parentTaskId) { <span class="prj-muted" title="Subtask">↳ </span> }{{ t.title }}</div>
                       @if (!projectId() && group() !== 'project') { <a class="project" [routerLink]="['/projects', t.projectId]" [queryParams]="{ tab: 'tasks' }" (click)="$event.stopPropagation()">{{ t.projectName }}</a> }
@@ -99,8 +99,8 @@ type Group = 'none' | 'assignee' | 'priority' | 'project';
     .count { color:var(--erp-color-text-secondary,#64748b); font-weight:600; } .lane-title { font-weight:600; font-size:13px; margin:10px 0 6px; color:var(--erp-color-text-primary,#0f172a); min-width:1090px; }
     .col { background:var(--erp-color-bg-subtle,#f1f5f9); border-radius:10px; padding:6px; min-height:120px; display:flex; flex-direction:column; gap:6px; }
     .list { min-height:90px; display:flex; flex-direction:column; gap:7px; flex:1; }
-    .card { background:var(--erp-color-bg-surface,#fff); border:1px solid var(--erp-color-border-subtle,#e2e8f0); border-radius:9px; padding:9px; box-shadow:0 1px 2px rgba(0,0,0,.04); cursor:pointer; } .card:hover { border-color:var(--erp-color-primary,#10955d); } .card:focus-visible { outline:2px solid var(--erp-color-primary,#10955d); }
-    .card.cdk-drag-preview { box-shadow:0 8px 20px rgba(0,0,0,.18); } .cdk-drag-placeholder { opacity:.35; } .cdk-drop-list-receiving { outline:2px dashed var(--erp-color-primary,#10955d); outline-offset:2px; border-radius:8px; }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius:9px; padding:9px; cursor:pointer; } .card:focus-visible { outline:2px solid var(--erp-color-primary,#10955d); }
+    .card.cdk-drag-preview { --erp-card-shadow: var(--erp-shadow-3); } .cdk-drag-placeholder { opacity:.35; } .cdk-drop-list-receiving { outline:2px dashed var(--erp-color-primary,#10955d); outline-offset:2px; border-radius:8px; }
     .top { display:flex; justify-content:space-between; align-items:center; } .num { font-size:11.5px; color:var(--erp-color-text-secondary,#64748b); } .title { font-weight:600; margin:4px 0; color:var(--erp-color-text-primary,#0f172a); font-size:13px; }
     .project { display:block; font-size:11.5px; color:var(--erp-color-primary,#10955d); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .meta { display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:11.5px; color:var(--erp-color-text-secondary,#64748b); } .late { color:#cf1322; font-weight:600; }

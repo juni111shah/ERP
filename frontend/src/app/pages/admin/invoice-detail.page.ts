@@ -1,4 +1,9 @@
+import { doneText } from '../../core/format/done-text';
 import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
+import { SuccessPanelComponent } from '../../shared/success-panel.component';
+import { tNow } from '../../core/i18n/translate-now';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { NzButtonModule as NzButtonModuleForPanel } from 'ng-zorro-antd/button';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -40,11 +45,11 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
 @Component({
   selector: 'erp-invoice-detail',
   standalone: true,
-  imports: [NzSpinModule, StatePanelComponent, StatusTagComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
+  imports: [HasPermissionDirective, SuccessPanelComponent, NzButtonModuleForPanel, NzSpinModule, StatePanelComponent, StatusTagComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
   styles: [`
     .section { margin-top: 16px; }
     .section ::ng-deep .ant-card-head-title { color: var(--erp-color-text-muted); text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:600; }
-    .r { text-align:right; white-space:nowrap; }
+    .r { text-align:end; white-space:nowrap; }
     .muted { color: var(--erp-color-text-muted); }
   `],
   template: `
@@ -53,6 +58,23 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
     } @else if (error()) {
       <erp-state-panel kind="error" title="Could not load this invoice" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (invoice()) {
+      @if (outcome(); as o) {
+        @if (invoice(); as i) {
+          <erp-success-panel [title]="o.title" [detail]="o.detail" (dismissed)="outcome.set(null)">
+            <ng-container ngProjectAs="[actions]">
+              @if (o.kind === 'issued') {
+                <button *erpHasPermission="'core.email.send'" nz-button nzType="primary" type="button" (click)="emailOpen.set(true)" data-testid="success-send">Send to customer</button>
+                <a nz-button [href]="'/print/invoice/' + i.id" target="_blank" rel="noopener" data-testid="success-print">Print</a>
+                <a nz-button [routerLink]="['/finance/invoices']" [queryParams]="{ new: 1 }" data-testid="success-another">Create another</a>
+              } @else {
+                <button nz-button nzType="primary" type="button" (click)="recordPayment()" data-testid="success-pay">Record payment</button>
+                <button *erpHasPermission="'core.email.send'" nz-button type="button" (click)="emailOpen.set(true)" data-testid="success-send">Send again</button>
+              }
+            </ng-container>
+            <span loop><a [routerLink]="['/parties', i.partyId]" data-testid="success-loop">{{ 'ui.success.trackPayment' | translate: 'Track payment on the customer page' }}</a></span>
+          </erp-success-panel>
+        }
+      }
       @let inv = invoice()!;
       <erp-detail-page
         [backLink]="['/finance/invoices']"
@@ -99,18 +121,20 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
             @for (h of history(); track h.id) {
               <nz-timeline-item [nzColor]="h.action === 'Deleted' ? 'red' : h.action === 'Created' ? 'green' : 'blue'">
                 <b>{{ h.action }}</b> · {{ fmtDate(h.occurredAt) }} · {{ userName(h.userId) }}
-                @if (h.changedFields) { <div class="muted">{{ h.changedFields }}</div> }
+                @if (h.changedFields.length) { <div class="muted">{{ h.changedFields.join(", ") }}</div> }
               </nz-timeline-item>
             }
           </nz-timeline>
         </div>
       </erp-detail-page>
-      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/invoices/' + invoice()!.id + '/email'" (closed)="emailOpen.set(false)" />
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/invoices/' + invoice()!.id + '/email'" [documentLabel]="'Invoice ' + invoice()!.number" (sent)="onSent($event)" (closed)="emailOpen.set(false)" />
     }
   `
 })
 export class InvoiceDetailPage implements OnInit {
   readonly emailOpen = signal(false);
+  /** What just happened to this invoice: stays on the page until closed or the person leaves. */
+  readonly outcome = signal<{ kind: 'issued' | 'sent'; title: string; detail: string | null } | null>(null);
   private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
@@ -302,6 +326,7 @@ export class InvoiceDetailPage implements OnInit {
         this.invoice.set(response);
         this.loading.set(false);
         this.loadSections(response);
+        this.showIssued(response);
       },
       error: (err) => {
         this.error.set(err.error?.message || 'Failed to load invoice');
@@ -367,7 +392,7 @@ export class InvoiceDetailPage implements OnInit {
       nzOkText: 'Delete',
       nzOkDanger: true,
       nzOnOk: () => this.http.delete(`${this.apiBase}/finance/invoices/${inv.id}`).subscribe({
-        next: () => { this.message.success('Draft deleted'); void this.router.navigate(['/finance/invoices']); },
+        next: () => { this.message.success(doneText('deleted', 'Draft invoice', inv.number)); void this.router.navigate(['/finance/invoices']); },
         error: (e) => { this.message.error(problemMessage(e, 'Could not delete the draft')); },
       })
     });
@@ -379,7 +404,7 @@ export class InvoiceDetailPage implements OnInit {
     askReason(this.modal, 'Void this invoice?', 'Void Invoice', 'This reverses its journal and cannot be undone. The invoice will be marked as voided.').then((reason) => {
       if (!reason) return;
       this.http.post<Invoice>(`${this.apiBase}/finance/invoices/${inv.id}/void`, { reason }).subscribe({
-        next: (r) => { this.invoice.set(r); this.message.success('Invoice voided'); },
+        next: (r) => { this.invoice.set(r); this.message.success(doneText('voided', 'Invoice', inv.number)); },
         error: (e) => this.message.error(problemMessage(e, 'Could not void the invoice', 'reason')),
       });
     });
@@ -400,5 +425,19 @@ export class InvoiceDetailPage implements OnInit {
 
   email(): void {
     this.emailOpen.set(true);
+  }
+
+  private dueText(inv: Invoice): string { return inv.dueDate ? tNow('ui.success.due', ', due {date}', { date: displayDate(inv.dueDate) }) : ''; }
+
+  /** Issued from the list's drawer: the query flag leaves the address, so a reload shows the plain record. */
+  private showIssued(inv: Invoice): void {
+    if (!this.route.snapshot.queryParamMap.get('issued')) return;
+    void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    this.outcome.set({ kind: 'issued', title: tNow('ui.success.invoiceIssued', 'Invoice {number} issued to {party}', { number: inv.number, party: inv.partyName || '' }) + this.dueText(inv), detail: tNow('ui.success.toCollect', '{amount} to collect. Nothing has gone to the customer yet.', { amount: formatMoney(inv.total, inv.currencyCode) }) });
+  }
+
+  onSent(to: string): void {
+    const inv = this.invoice();
+    if (inv) this.outcome.set({ kind: 'sent', title: tNow('ui.success.invoiceSent', 'Invoice {number} sent to {party}', { number: inv.number, party: inv.partyName || to }) + this.dueText(inv), detail: tNow('ui.success.emailedTo', 'Emailed to {to}.', { to }) });
   }
 }

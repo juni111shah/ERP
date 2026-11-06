@@ -58,7 +58,7 @@ export class MessagesPage {
     if (!this.testTo.trim()) { this.toast.warning('Enter an email address first'); return; }
     this.testing.set(true);
     this.api.sendTestEmail(this.testTo.trim()).subscribe({
-      next: (r) => { this.testing.set(false); if (r.status === 'sent') this.toast.success('Test email sent'); else this.toast.error(r.error ?? 'The email could not be sent'); this.list.reload(); },
+      next: (r) => { this.testing.set(false); if (r.status === 'sent') this.toast.success(`Test email sent to ${this.testTo.trim()}`); else this.toast.error(r.error ?? 'The email could not be sent'); this.list.reload(); },
       error: (e) => { this.testing.set(false); this.toast.error((e?.error?.detail as string | undefined) ?? 'Could not send the test email'); },
     });
   }

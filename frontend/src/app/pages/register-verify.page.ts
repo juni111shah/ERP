@@ -16,7 +16,7 @@ import { RegisterResultComponent } from './register-result.component';
   imports: [RouterLink, NzSpinModule, BrandLogoComponent, RegisterResultComponent, StatePanelComponent],
   styles: [`
     :host { display: grid; place-items: center; min-height: 100vh; padding: 24px; box-sizing: border-box; background: radial-gradient(circle at 10% 20%, rgba(16,149,93,.06) 0%, transparent 40%), var(--erp-color-bg-canvas); }
-    .card { width: 100%; max-width: 520px; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 16px; padding: 32px; box-shadow: 0 4px 20px -2px rgba(0,0,0,.05); box-sizing: border-box; }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); width: 100%; max-width: 520px; border-radius: 16px; padding: 32px; box-sizing: border-box; }
     .brand { display: flex; justify-content: center; margin-bottom: 20px; }
     .brand erp-brand-logo { width: auto; }
     .busy { text-align: center; padding: 24px 0; color: var(--erp-color-text-muted); }

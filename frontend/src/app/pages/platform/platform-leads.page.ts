@@ -13,6 +13,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { PLATFORM_STYLES } from './platform-ui';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 
 const PAGE_SIZE = 100;
 
@@ -21,7 +22,7 @@ const PAGE_SIZE = 100;
   selector: 'erp-platform-leads',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzButtonModule, NzModalModule, NzSelectModule, NzSpinModule, AssistantTextComponent, ErpDatePipe, StatePanelComponent, StatusTagComponent],
+  imports: [RowActionsComponent, FormsModule, NzButtonModule, NzModalModule, NzSelectModule, NzSpinModule, AssistantTextComponent, ErpDatePipe, StatePanelComponent, StatusTagComponent],
   styles: [PLATFORM_STYLES, `
     .group { margin-bottom: 16px; }
     .need { display: block; max-width: 360px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -87,7 +88,7 @@ const PAGE_SIZE = 100;
                     <td><div class="said" dir="auto" data-no-i18n>{{ c.firstMessage }}</div></td>
                     <td class="num">{{ c.visitorMessages }}</td>
                     <td>@if (c.needsReview) { <erp-status value="overdue" label="Check the prices" /> }</td>
-                    <td class="num"><button nz-button nzSize="small" type="button" (click)="openChat(c.id)" data-testid="conversation-open">Read</button></td>
+                    <td class="erp-cell-actions num"><erp-row-actions><button nz-button nzSize="small" type="button" (click)="openChat(c.id)" data-testid="conversation-open">Read</button></erp-row-actions></td>
                   </tr>
                 }
               </tbody>

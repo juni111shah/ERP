@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -128,12 +129,12 @@ export class ProjectExpensesPage {
   }
 
   submit(e: ExpenseDto): void {
-    this.api.submit([e.id]).subscribe({ next: () => { this.msg.success('Sent for approval'); this.list.reload(); }, error: (er) => this.msg.error(errorText(er, 'Could not submit.')) });
+    this.api.submit([e.id]).subscribe({ next: () => { this.msg.success(`Expense ${e.description} sent for approval`); this.list.reload(); }, error: (er) => this.msg.error(errorText(er, 'Could not submit.')) });
   }
   remove(e: ExpenseDto): void {
     this.modal.confirm({
       nzTitle: 'Delete this expense?', nzContent: e.description, nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.api.delete(e.id).subscribe({ next: () => { this.msg.success('Expense deleted'); this.list.reload(); }, error: (er) => this.msg.error(errorText(er, 'Could not delete.')) }),
+      nzOnOk: () => this.api.delete(e.id).subscribe({ next: () => { this.msg.success(doneText('deleted', 'Expense', e.description)); this.list.reload(); }, error: (er) => this.msg.error(errorText(er, 'Could not delete.')) }),
     });
   }
 }

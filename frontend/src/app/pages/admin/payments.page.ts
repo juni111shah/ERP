@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
@@ -237,6 +238,7 @@ export class PaymentsPage {
   /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
   ngOnInit(): void {
     this.loadStats();
+    if (this.route.snapshot.queryParamMap.get('new')) this.open(null);
     const id = this.route.snapshot.queryParamMap.get('open');
     if (id) this.open({ id } as never);
     const partyId = this.route.snapshot.queryParamMap.get('partyId');
@@ -281,7 +283,7 @@ export class PaymentsPage {
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.create({ ...v, date: toIsoDate(v.date!), reference: v.reference || null, chequeNo: v.method === 'instrument' ? v.chequeNo : null, chequeDate: v.method === 'instrument' && v.chequeDate ? toIsoDate(v.chequeDate) : null, bankName: v.bankName || null, allocations: this.allocations() }).subscribe({
-      next: (r) => this.done(`${this.i18n.t('ui.msg.paid', 'Paid')} ${(r as PaymentDto).number}`),
+      next: (r) => { this.saving.set(false); this.drawerOpen.set(false); void this.router.navigate(['/finance/payments', (r as PaymentDto).id], { queryParams: { recorded: 1 } }); },
       error: (e) => this.fail(e),
     });
   }
@@ -291,7 +293,7 @@ export class PaymentsPage {
     const allocations = this.allocations();
     if (!r || allocations.length === 0) { this.message.warning('Enter an amount against at least one invoice'); return; }
     this.saving.set(true);
-    this.api.allocate(r.id, allocations).subscribe({ next: () => this.done('Payment allocated'), error: (e) => this.fail(e) });
+    this.api.allocate(r.id, allocations).subscribe({ next: () => this.done(doneText('updated', 'Payment', r.number)), error: (e) => this.fail(e) });
   }
 
   clearCheque(): void {
@@ -304,7 +306,7 @@ export class PaymentsPage {
     if (!r) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.
     void askReason(this.modal, 'Void this payment?', 'Void Payment', 'This reverses its journal and removes its allocations.').then((reason) => {
-      if (reason) this.api.void(r.id, reason).subscribe({ next: () => this.done('Payment voided'), error: (e) => this.fail(e) });
+      if (reason) this.api.void(r.id, reason).subscribe({ next: () => this.done(doneText('voided', 'Payment', r.number)), error: (e) => this.fail(e) });
     });
   }
 

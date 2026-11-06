@@ -29,7 +29,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpDatePipe, PortalProjectsComponent, TableToolsComponent, TranslatePipe, ReactiveFormsModule, NzSkeletonModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule, PaginationBarComponent, StatCardComponent, StatePanelComponent, StatusTagComponent],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; } .lease { margin-bottom: 24px; }
-    .panel { background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+    .panel { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
     .num { text-align: end; white-space: nowrap; } .owed { color: var(--erp-color-error-text); font-weight: 600; } .clear { color: var(--erp-color-success-text); font-weight: 600; }
     .balance { background: var(--erp-color-bg-surface); padding: 16px; border-radius: 12px; border: 1px solid var(--erp-color-border-subtle); margin-bottom: 16px; }
     .balance .label { font-size: 14px; color: var(--erp-color-text-secondary); } .balance .amount { font-size: 24px; font-weight: 700; margin: 4px 0; } .balance .asof { font-size: 12px; color: var(--erp-color-text-muted); }
@@ -205,7 +205,7 @@ export class PortalHomePage implements OnInit {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     this.raising.set(true);
     this.portal.raise(this.form.getRawValue()).subscribe({
-      next: () => { this.raising.set(false); this.message.success('Request sent'); this.form.patchValue({ issue: '' }); this.form.markAsPristine(); this.form.markAsUntouched(); this.loadRequests(); },
+      next: () => { this.raising.set(false); this.message.success('Maintenance request sent'); this.form.patchValue({ issue: '' }); this.form.markAsPristine(); this.form.markAsUntouched(); this.loadRequests(); },
       error: () => { this.raising.set(false); this.message.error('Could not send the request'); },
     });
   }

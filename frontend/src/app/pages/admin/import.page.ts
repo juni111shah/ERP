@@ -24,7 +24,7 @@ import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StatePanelComponent, NzIconModule, FormsModule, NzAlertModule, NzButtonModule, NzSelectModule, NzTableModule, PaginationBarComponent],
   styles: [`
-    .card { background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-radius:12px; overflow:hidden; max-width:800px; margin-bottom:16px; }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius:12px; overflow:hidden; max-width:800px; margin-bottom:16px; }
     .run { display:flex; gap:12px; align-items:center; flex-wrap:wrap; background: var(--erp-color-bg-surface); padding:16px; border-radius:12px; border:1px solid var(--erp-color-border-subtle); max-width:800px; }
     .req { color: var(--erp-color-error-text); font-weight:600; } .muted { color: var(--erp-color-text-muted); font-size:12.5px; }
   `],

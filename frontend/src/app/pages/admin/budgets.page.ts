@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -29,7 +30,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
-  styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px } .num { text-align:right } .bad { color: var(--erp-color-error, #cf1322) } .good { color: var(--erp-color-success, #389e0d) } .grid { overflow:auto }`],
+  styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px } .num { text-align:end } .bad { color: var(--erp-color-error, #cf1322) } .good { color: var(--erp-color-success, #389e0d) } .grid { overflow:auto }`],
   template: `
     @if (!editing()) {
       <h1 class="erp-page-title">Budgets</h1>
@@ -179,7 +180,7 @@ export class BudgetsPage {
     this.saving.set(true);
     const id = this.id();
     (id ? this.api.update(id, body) : this.api.create(body)).subscribe({
-      next: (b) => { this.saving.set(false); this.message.success('Budget saved'); this.id.set((b as unknown as BudgetDetail).id); },
+      next: (b) => { this.saving.set(false); this.message.success(doneText('saved', 'Budget', this.name)); this.id.set((b as unknown as BudgetDetail).id); },
       error: (e) => { this.saving.set(false); this.message.error(problemMessage(e, 'Could not save the budget')); },
     });
   }
@@ -189,7 +190,7 @@ export class BudgetsPage {
     if (!id) return;
     this.modal.confirm({
       nzTitle: 'Delete this budget?', nzContent: 'All its monthly figures are removed.', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.api.delete(id).subscribe({ next: () => { this.message.success('Budget deleted'); this.close(); }, error: (e) => this.message.error(problemMessage(e, 'Could not delete the budget')) }),
+      nzOnOk: () => this.api.delete(id).subscribe({ next: () => { this.message.success(doneText('deleted', 'Budget', this.name)); this.close(); }, error: (e) => this.message.error(problemMessage(e, 'Could not delete the budget')) }),
     });
   }
 

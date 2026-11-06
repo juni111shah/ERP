@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -235,7 +236,7 @@ export class MilestoneBillingPage implements OnInit {
       notes: val.notes || null,
     }).subscribe({
       next: () => {
-        this.msg.success('Milestone saved');
+        this.msg.success(doneText('created', 'Milestone', val.title));
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
         this.list.reload();

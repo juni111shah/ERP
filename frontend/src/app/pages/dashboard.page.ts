@@ -99,10 +99,10 @@ const rangeParams = (r: DashboardRange) => (r.preset === 'custom' ? { range: nul
 const latn = (locale: string) => `${locale}-u-nu-latn`;
 const FSI = '\u2068', PDI = '\u2069';
 
-const URGENCY: Record<string, { label: string; color: string }> = {
-  action: { label: 'Action needed', color: 'red' },
-  upcoming: { label: 'Upcoming', color: 'gold' },
-  info: { label: 'For information', color: 'blue' },
+const URGENCY: Record<string, { label: string; tone: string }> = {
+  action: { label: 'Action needed', tone: 'error' },
+  upcoming: { label: 'Upcoming', tone: 'warning' },
+  info: { label: 'For information', tone: 'info' },
 };
 
 export type DomainCategory =
@@ -178,11 +178,11 @@ interface KpiCluster {
       flex-wrap: wrap;
       gap: var(--erp-space-2, 8px) 16px;
       margin-bottom: 22px;
-      background: #ffffff;
+      background: var(--erp-color-bg-surface);
       padding: 7px 12px;
       border-radius: 14px;
       border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+      box-shadow: var(--erp-card-shadow);
     }
     @media (max-width: 767px) {
       .dashboard-toolbar { flex-direction: column; align-items: stretch; }
@@ -216,15 +216,15 @@ interface KpiCluster {
       transition: all 0.28s cubic-bezier(0.2, 0, 0, 1);
     }
     .tab-pill:hover {
-      background: #f1f5f9;
+      background: var(--erp-color-bg-hover);
       color: var(--erp-color-text-primary, #0f172a);
     }
     .tab-pill.active {
-      background: #e6f7ef;
-      border-color: rgba(16, 149, 93, 0.28);
-      color: #10955d;
+      background: var(--erp-color-primary-subtle);
+      border-color: color-mix(in srgb, var(--erp-color-primary) 28%, transparent);
+      color: var(--erp-color-primary-text);
       font-weight: 600;
-      box-shadow: 0 1px 3px rgba(16, 149, 93, 0.08);
+      box-shadow: 0 1px 3px color-mix(in srgb, var(--erp-color-primary) 8%, transparent);
       padding: 0 13px;
     }
 
@@ -271,8 +271,8 @@ interface KpiCluster {
       overflow: hidden;
       font-size: 11px;
       font-weight: 600;
-      background: #e2e8f0;
-      color: #64748b;
+      background: var(--erp-color-neutral-bg);
+      color: var(--erp-color-neutral-text);
       border-radius: 10px;
       transform: scale(0.8);
       transition: max-width 0.25s cubic-bezier(0.2, 0, 0, 1),
@@ -288,8 +288,8 @@ interface KpiCluster {
       transform: scale(1);
     }
     .tab-pill.active .tab-count {
-      background: #cbeedd;
-      color: #0b8457;
+      background: var(--erp-color-primary-subtle-hover);
+      color: var(--erp-color-primary-text);
     }
 
     .toolbar-meta {
@@ -327,7 +327,7 @@ interface KpiCluster {
     }
     .range-error {
       font-size: 12px;
-      color: var(--erp-color-error, #dc2626);
+      color: var(--erp-color-error-text);
     }
     @media (hover: none) {
       /* touch: compact icon-only Refresh (tooltip + aria-label still name it) */
@@ -347,15 +347,15 @@ interface KpiCluster {
       margin-bottom: 16px;
       border-radius: 10px;
       border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
-      background: #f8fafc;
+      background: var(--erp-color-bg-subtle);
       color: var(--erp-color-text-secondary, #475569);
     }
-    .load-error { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+    .load-error { border-color: var(--erp-color-error-border); background: var(--erp-color-error-bg); color: var(--erp-color-error-text); }
     .load-error-icon { font-size: 18px; }
 
     .view-mode-toggle {
       display: inline-flex;
-      background: #f1f5f9;
+      background: var(--erp-color-bg-sunken);
       padding: 3px;
       border-radius: 8px;
       gap: 2px;
@@ -371,12 +371,12 @@ interface KpiCluster {
       background: transparent;
       border-radius: 6px;
       cursor: pointer;
-      color: #64748b;
+      color: var(--erp-color-text-secondary);
       transition: all 0.2s;
     }
     .toggle-btn.active {
-      background: #ffffff;
-      color: #0f172a;
+      background: var(--erp-color-bg-surface);
+      color: var(--erp-color-text-primary);
       font-weight: 600;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     }
@@ -391,12 +391,12 @@ interface KpiCluster {
       align-items: center;
       flex-wrap: wrap;
       gap: 14px;
-      background: #ffffff;
+      background: var(--erp-color-bg-surface);
       padding: 14px 18px;
       border-radius: 14px;
       border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
       margin-bottom: 20px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+      box-shadow: var(--erp-card-shadow);
     }
     .matrix-title-wrap {
       display: flex;
@@ -405,8 +405,8 @@ interface KpiCluster {
     }
     .matrix-icon {
       font-size: 20px;
-      color: #10955d;
-      background: #e6f7ef;
+      color: var(--erp-color-primary-text);
+      background: var(--erp-color-primary-subtle);
       padding: 8px;
       border-radius: 10px;
       display: inline-flex;
@@ -432,7 +432,7 @@ interface KpiCluster {
     .matrix-search-box .search-icon {
       position: absolute;
       left: 12px;
-      color: #94a3b8;
+      color: var(--erp-color-text-muted);
       font-size: 14px;
       pointer-events: none;
     }
@@ -441,17 +441,20 @@ interface KpiCluster {
       height: 38px;
       padding: 0 34px 0 36px;
       border-radius: 10px;
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
+      border: 1px solid var(--erp-color-border-default);
+      background: var(--erp-color-bg-subtle);
       font-size: 13px;
-      color: #0f172a;
+      color: var(--erp-color-text-primary);
       transition: all 0.2s;
+    }
+    .matrix-search-input::placeholder {
+      color: var(--erp-color-text-placeholder);
     }
     .matrix-search-input:focus {
       outline: none;
-      background: #ffffff;
-      border-color: #10955d;
-      box-shadow: 0 0 0 3px rgba(16, 149, 93, 0.12);
+      background: var(--erp-color-bg-surface);
+      border-color: var(--erp-color-primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--erp-color-primary) 12%, transparent);
     }
     .clear-search-btn {
       position: absolute;
@@ -459,7 +462,7 @@ interface KpiCluster {
       background: transparent;
       border: none;
       cursor: pointer;
-      color: #94a3b8;
+      color: var(--erp-color-text-muted);
       font-size: 14px;
       font-weight: 700;
       display: inline-flex;
@@ -467,7 +470,7 @@ interface KpiCluster {
       line-height: 1;
     }
     .clear-search-btn:hover {
-      color: #0f172a;
+      color: var(--erp-color-text-primary);
     }
     .matrix-departments {
       display: flex;
@@ -475,11 +478,11 @@ interface KpiCluster {
       gap: 18px;
     }
     .matrix-dept-block {
-      background: #ffffff;
+      background: var(--erp-color-bg-surface);
       border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
       border-radius: 14px;
       padding: 16px 18px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+      box-shadow: var(--erp-card-shadow);
     }
     .dept-block-header {
       margin-bottom: 14px;
@@ -490,13 +493,13 @@ interface KpiCluster {
       gap: 8px;
       font-size: 14px;
       font-weight: 700;
-      color: #1e293b;
+      color: var(--erp-color-text-primary);
     }
     .dept-badge {
       font-size: 11px;
       font-weight: 600;
-      background: #f1f5f9;
-      color: #64748b;
+      background: var(--erp-color-neutral-bg);
+      color: var(--erp-color-neutral-text);
       padding: 2px 8px;
       border-radius: 12px;
     }
@@ -507,10 +510,10 @@ interface KpiCluster {
       align-items: center;
       justify-content: center;
       padding: 40px 20px;
-      background: #ffffff;
+      background: var(--erp-color-bg-surface);
       border-radius: 12px;
-      border: 1px dashed #cbd5e1;
-      color: #64748b;
+      border: 1px dashed var(--erp-color-border-default);
+      color: var(--erp-color-text-secondary);
       gap: 8px;
     }
     .section-divider {
@@ -521,13 +524,13 @@ interface KpiCluster {
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 0.08em;
-      color: #94a3b8;
+      color: var(--erp-color-text-muted);
     }
     .section-divider::before,
     .section-divider::after {
       content: '';
       flex: 1;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid var(--erp-color-border-default);
     }
     .section-divider span {
       padding: 0 14px;
@@ -570,11 +573,9 @@ interface KpiCluster {
     }
 
     .chart-panel {
-      background: #ffffff;
-      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 14px;
       padding: 20px 22px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
       display: flex;
       flex-direction: column;
       height: 100%;
@@ -604,7 +605,7 @@ interface KpiCluster {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #10955d;
+      color: var(--erp-color-primary-text);
       margin-bottom: 2px;
     }
     .secondary-analytics-grid {
@@ -647,22 +648,22 @@ interface KpiCluster {
       font-weight: 500;
       border-radius: 8px;
       border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
-      background: #ffffff;
+      background: var(--erp-color-bg-surface);
       color: var(--erp-color-text-secondary, #64748b);
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
     }
     .chart-tab-btn:hover:not(.active) {
-      background: #f8fafc;
-      border-color: #cbd5e1;
-      color: #0f172a;
+      background: var(--erp-color-bg-hover);
+      border-color: var(--erp-color-border-default);
+      color: var(--erp-color-text-primary);
     }
     .chart-tab-btn.active {
-      background: #e6f7ef;
-      border-color: rgba(16, 149, 93, 0.35);
-      color: #10955d;
+      background: var(--erp-color-primary-subtle);
+      border-color: color-mix(in srgb, var(--erp-color-primary) 35%, transparent);
+      color: var(--erp-color-primary-text);
       font-weight: 600;
-      box-shadow: 0 1px 2px rgba(16, 149, 93, 0.08);
+      box-shadow: 0 1px 2px color-mix(in srgb, var(--erp-color-primary) 8%, transparent);
     }
 
     .chart-canvas-wrap {
@@ -680,11 +681,9 @@ interface KpiCluster {
 
     /* Alerts Panel */
     .alerts-panel {
-      background: #ffffff;
-      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 14px;
       padding: 20px 22px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
       display: flex;
       flex-direction: column;
       height: 100%;
@@ -702,7 +701,7 @@ interface KpiCluster {
       margin: 0;
       font-size: 16px;
       font-weight: 700;
-      color: #0f172a;
+      color: var(--erp-color-text-primary);
     }
     .alert-list {
       display: flex;
@@ -723,8 +722,8 @@ interface KpiCluster {
       transition: background 0.15s, border-color 0.15s;
     }
     .alert:hover {
-      background: #f8fafc;
-      border-color: #e2e8f0;
+      background: var(--erp-color-bg-hover);
+      border-color: var(--erp-color-border-default);
     }
     .alert-icon-wrap {
       width: 32px;
@@ -737,16 +736,16 @@ interface KpiCluster {
       font-size: 14px;
     }
     .icon-critical {
-      background: #fee2e2;
-      color: #ef4444;
+      background: var(--erp-color-error-bg);
+      color: var(--erp-color-error-solid);
     }
     .icon-warning {
-      background: #fef3c7;
-      color: #f59e0b;
+      background: var(--erp-color-warning-bg);
+      color: var(--erp-color-warning-solid);
     }
     .icon-info {
-      background: #e0f2fe;
-      color: #0284c7;
+      background: var(--erp-color-info-bg);
+      color: var(--erp-color-info-solid);
     }
     .alert .msg {
       flex: 1;
@@ -776,11 +775,9 @@ interface KpiCluster {
       gap: 22px;
     }
     .cluster-card {
-      background: #ffffff;
-      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 14px;
       padding: 18px 20px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
     }
     .cluster-header {
       display: flex;
@@ -802,7 +799,7 @@ interface KpiCluster {
     .cluster-icon {
       font-size: 16px;
       color: var(--erp-color-primary, #10955d);
-      background: #e6f7ef;
+      background: var(--erp-color-primary-subtle);
       padding: 6px;
       border-radius: 8px;
     }
@@ -812,8 +809,8 @@ interface KpiCluster {
       border-radius: 12px;
       font-size: 11px;
       font-weight: 600;
-      background: #f1f5f9;
-      color: #64748b;
+      background: var(--erp-color-neutral-bg);
+      color: var(--erp-color-neutral-text);
     }
   `],
   template: `
@@ -1098,7 +1095,7 @@ interface KpiCluster {
                       [testId]="'kpi-' + k.key" />
                   } @empty {
                     <div class="empty-matrix-state">
-                      <span nz-icon nzType="search" style="font-size: 26px; color: #94a3b8;"></span>
+                      <span nz-icon nzType="search" style="font-size: 26px; color: var(--erp-color-text-muted);"></span>
                       <span>No metrics found matching "{{ metricSearchQuery() }}"</span>
                     </div>
                   }
@@ -1163,14 +1160,14 @@ interface KpiCluster {
                         <div class="msg">
                           <div class="alert-tags">
                             <nz-tag>{{ a.category | erpLabel }}</nz-tag>
-                            <nz-tag [nzColor]="urgency(a.urgency).color">{{ urgency(a.urgency).label }}</nz-tag>
+                            <nz-tag class="erp-tone" [attr.data-tone]="urgency(a.urgency).tone">{{ urgency(a.urgency).label }}</nz-tag>
                           </div>
                           <div>{{ alertText(a.message) }}</div>
                         </div>
                       </a>
                     } @empty {
                       <div class="empty-state">
-                        <span nz-icon nzType="check-circle" style="color: #10b981; font-size: 18px;"></span>
+                        <span nz-icon nzType="check-circle" style="color: var(--erp-color-success-solid); font-size: 18px;"></span>
                         <span>Nothing needs your attention right now.</span>
                       </div>
                     }
@@ -1297,14 +1294,14 @@ interface KpiCluster {
                         <div class="msg">
                           <div class="alert-tags">
                             <nz-tag>{{ a.category | erpLabel }}</nz-tag>
-                            <nz-tag [nzColor]="urgency(a.urgency).color">{{ urgency(a.urgency).label }}</nz-tag>
+                            <nz-tag class="erp-tone" [attr.data-tone]="urgency(a.urgency).tone">{{ urgency(a.urgency).label }}</nz-tag>
                           </div>
                           <div>{{ alertText(a.message) }}</div>
                         </div>
                       </a>
                     } @empty {
                       <div class="empty-state">
-                        <span nz-icon nzType="check-circle" style="color: #10b981; font-size: 18px;"></span>
+                        <span nz-icon nzType="check-circle" style="color: var(--erp-color-success-solid); font-size: 18px;"></span>
                         <span>No active alerts for {{ activeCategoryTitle() }}.</span>
                       </div>
                     }
@@ -1688,7 +1685,7 @@ export class DashboardPage {
     this.selectedChartKey.set(key);
   }
 
-  urgency(u: string): { label: string; color: string } {
+  urgency(u: string): { label: string; tone: string } {
     return URGENCY[u] ?? URGENCY['info'];
   }
 

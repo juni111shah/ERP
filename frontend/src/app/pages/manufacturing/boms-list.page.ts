@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -466,7 +467,7 @@ export class BomsListPageComponent implements OnInit {
     const request = editing ? this.api.update(editing.id, payload) : this.api.create(payload);
     request.subscribe({
       next: () => {
-        this.message.success(editing ? 'Bill of materials updated' : 'Bill of materials added');
+        this.message.success(doneText(editing ? 'updated' : 'added', 'Bill of materials', payload.name));
         this.createVisible.set(false);
         this.isSubmitting.set(false);
         this.list.reload();
@@ -481,7 +482,7 @@ export class BomsListPageComponent implements OnInit {
   deleteBom(row: BomSummaryDto): void {
     this.api.delete(row.id).subscribe({
       next: () => {
-        this.message.success('Bill of materials deleted');
+        this.message.success(doneText('deleted', 'Bill of materials', row.name));
         this.list.reload();
       },
       error: (err) => this.message.error(problemMessage(err, 'The bill of materials could not be deleted')),

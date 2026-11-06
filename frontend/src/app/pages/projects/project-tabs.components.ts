@@ -30,6 +30,7 @@ import { ProjectTimesheetsPage } from './project-timesheets.page';
 import { errorText, PRJ_STYLES, ProjectTagComponent } from './projects-ui';
 import { TaskDrawerComponent } from './task-drawer.component';
 import { ErpLabelPipe, ErpDatePipe } from '../../shared/display.pipes';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 
 const today = (): string => toIsoDate(new Date());
 const SUBTABS = `
@@ -293,7 +294,7 @@ export class ProjectMilestonesComponent {
   }
   signOf(milestoneId: string): AcceptanceDto | undefined { return this.acceptances().find((a) => a.milestoneId === milestoneId); }
   waiting(milestoneId: string): boolean { return this.acceptances().some((a) => a.milestoneId === milestoneId && a.status === 'pending'); }
-  achieve(m: MilestoneDto): void { this.api.achieve(m.id).subscribe({ next: () => { this.msg.success('Milestone achieved. It is now ready to bill.'); this.load(); this.changed.emit(); }, error: (e) => this.msg.error(errorText(e, 'Could not mark it achieved.')) }); }
+  achieve(m: MilestoneDto): void { this.api.achieve(m.id).subscribe({ next: () => { this.msg.success(`Milestone ${m.title} achieved. It is now ready to bill.`); this.load(); this.changed.emit(); }, error: (e) => this.msg.error(errorText(e, 'Could not mark it achieved.')) }); }
   setStatus(m: MilestoneDto, status: MilestoneDto['status']): void {
     this.api.update(m.id, { projectId: m.projectId, title: m.title, dueDate: m.dueDate, amount: m.amount, status, achievedDate: status === 'achieved' ? m.achievedDate : null }).subscribe({ next: () => { this.load(); this.changed.emit(); }, error: (e) => this.msg.error(errorText(e, 'Could not change the milestone.')) });
   }
@@ -301,7 +302,7 @@ export class ProjectMilestonesComponent {
   askSignOff(m: MilestoneDto): void { this.request(m.id, `Sign-off of ${m.title}`); }
   askProjectSignOff(): void { this.request(null, `Sign-off of ${this.project().name}`); }
   private request(milestoneId: string | null, title: string): void {
-    this.extra.requestAcceptance({ projectId: this.project().id, milestoneId, title }).subscribe({ next: () => { this.msg.success('The customer can sign it in their portal'); this.load(); }, error: (e) => this.msg.error(errorText(e, 'Could not ask for the sign-off.')) });
+    this.extra.requestAcceptance({ projectId: this.project().id, milestoneId, title }).subscribe({ next: () => { this.msg.success(`The customer can sign ${title} in their portal`); this.load(); }, error: (e) => this.msg.error(errorText(e, 'Could not ask for the sign-off.')) });
   }
 }
 
@@ -437,7 +438,7 @@ export class ProjectMoneyComponent {
   selector: 'erp-project-team',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzInputModule, NzSelectModule, HasPermissionDirective],
+  imports: [RowActionsComponent, DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzInputModule, NzSelectModule, HasPermissionDirective],
   template: `
     <div class="prj-card">
       <h3>Team</h3>
@@ -447,7 +448,7 @@ export class ProjectMoneyComponent {
           <tbody>
             @for (m of members(); track m.id) {
               <tr><td class="prj-strong">{{ m.name }}</td><td>{{ m.role }}</td><td class="prj-num">{{ plannedFor(m.userId) | number: '1.0-1' }}</td>
-                <td class="prj-num"><button *erpHasPermission="'projects.team.manage'" nz-button nzSize="small" nzDanger (click)="remove(m)">Remove</button></td></tr>
+                <td class="erp-cell-actions prj-num"><erp-row-actions><button *erpHasPermission="'projects.team.manage'" nz-button nzSize="small" nzDanger (click)="remove(m)">Remove</button></erp-row-actions></td></tr>
             } @empty { <tr><td colspan="4" class="prj-empty">No team members yet.</td></tr> }
           </tbody>
         </table>

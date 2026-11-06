@@ -108,7 +108,7 @@ const TIMER_KEY = 'erp.projects.timer';
     .pulse { width:10px; height:10px; border-radius:50%; background:#ef4444; animation:prj-pulse 1.4s infinite; } @keyframes prj-pulse { 50% { opacity:.3; } } @media (prefers-reduced-motion: reduce) { .pulse { animation:none; } }
     .grid-card { padding:0; } .grid { width:100%; border-collapse:collapse; min-width:820px; font-size:13px; } .grid th { font-weight:600; color:var(--erp-color-text-secondary,#475569); padding:9px 8px; border-bottom:1px solid var(--erp-color-border-subtle,#e2e8f0); }
     .grid td { padding:6px 8px; border-bottom:1px solid var(--erp-color-border-subtle,#f1f5f9); } .what { text-align:start; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .day { text-align:center; width:84px; } .day.off { background:var(--erp-color-bg-subtle,#f8fafc); } .day.now { box-shadow:inset 0 2px 0 var(--erp-color-primary,#10955d); }
-    .cell { width:68px; text-align:right; border:1px solid var(--erp-color-border-subtle,#cbd5e1); border-radius:6px; padding:4px 6px; background:var(--erp-color-bg-surface,#fff); color:var(--erp-color-text-primary,#0f172a); } .cell.locked { background:var(--erp-color-bg-subtle,#f1f5f9); color:var(--erp-color-text-secondary,#64748b); cursor:not-allowed; } .cell.rejected { border-color:#ef4444; }
+    .cell { width:68px; text-align:end; border:1px solid var(--erp-color-border-subtle,#cbd5e1); border-radius:6px; padding:4px 6px; background:var(--erp-color-bg-surface,#fff); color:var(--erp-color-text-primary,#0f172a); } .cell.locked { background:var(--erp-color-bg-subtle,#f1f5f9); color:var(--erp-color-text-secondary,#64748b); cursor:not-allowed; } .cell.rejected { border-color:#ef4444; }
     .sum td { font-weight:600; background:var(--erp-color-bg-subtle,#f8fafc); } .add { margin-top:12px; }
   `],
 })
@@ -252,7 +252,7 @@ export class ProjectWeekPage implements OnDestroy {
     if (!items.length) return;
     this.saving.set(true);
     this.extra.saveWeek(items).subscribe({
-      next: () => { this.saving.set(false); this.msg.success('Week saved'); this.load(); },
+      next: () => { this.saving.set(false); this.msg.success(`${items.length} time ${items.length === 1 ? 'entry' : 'entries'} saved for the week`); this.load(); },
       error: (e) => { this.saving.set(false); this.msg.error(errorText(e, 'Could not save the week.')); },
     });
   }

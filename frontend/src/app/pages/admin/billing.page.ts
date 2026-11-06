@@ -28,7 +28,7 @@ import { UsageBarComponent } from '../../shared/usage-bar.component';
   styles: [`
     :host { display: block; min-width: 0; }
     .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-bottom: 16px; align-items: start; }
-    .card { background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 12px; padding: 16px 18px; min-width: 0; box-sizing: border-box; }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius: 12px; padding: 16px 18px; min-width: 0; box-sizing: border-box; }
     .card h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; color: var(--erp-color-text-primary); }
     .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
     .head h2 { margin: 0; }
@@ -207,7 +207,7 @@ export class BillingPage {
     this.saving.set(true);
     this.errors.set(null);
     this.api.requestPlanChange({ planId: plan.id, cycle: v['cycle'] as BillingCycle, note: v['note'] as string | null }).subscribe({
-      next: (d) => { this.saving.set(false); this.asking.set(null); this.show(d); this.message.success('Request sent. Our team will be in touch.'); },
+      next: (d) => { this.saving.set(false); this.asking.set(null); this.show(d); this.message.success(`Plan change request for ${plan.name} sent. Our team will be in touch.`); },
       error: (e) => {
         this.saving.set(false);
         const problem = asProblem(e);
@@ -224,7 +224,7 @@ export class BillingPage {
       nzOkText: 'Withdraw',
       nzCancelText: 'Keep it',
       nzOnOk: () => this.api.withdrawPlanChange().subscribe({
-        next: (d) => { this.show(d); this.message.success('Request withdrawn'); },
+        next: (d) => { this.show(d); this.message.success('Plan change request withdrawn'); },
         error: (e) => this.message.error(problemMessage(e, 'Could not withdraw the request')),
       }),
     });

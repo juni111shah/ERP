@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
@@ -109,10 +110,10 @@ export class PosCashDialogComponent {
     this.api.recordDrawerTransaction(this.shiftId(), { type: this.type(), amount: this.amount()!, reason: this.reason().trim() }, this.idempotencyKey).subscribe({
       next: () => {
         this.busy.set(false);
+        this.message.success(doneText('recorded', 'Cash movement', `${this.amount()}, ${this.reason().trim()}`));
         this.idempotencyKey = crypto.randomUUID();
         this.amount.set(null);
         this.reason.set('');
-        this.message.success('Cash movement recorded.');
         this.recorded.emit();
       },
       error: (err) => {

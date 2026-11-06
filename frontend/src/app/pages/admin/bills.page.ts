@@ -1,3 +1,5 @@
+import { doneText } from '../../core/format/done-text';
+import { SuccessToastService, ToastAction } from '../../core/services/success-toast.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
@@ -137,6 +139,7 @@ export class BillsPage {
   private readonly router = inject(Router);
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
+  private readonly toast = inject(SuccessToastService);
   private readonly fb = inject(FormBuilder);
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
   private readonly taxPage = toSignal(inject(TaxCodesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as TaxCodeDto[] }))), { initialValue: { items: [] as TaxCodeDto[] } });
@@ -319,9 +322,9 @@ export class BillsPage {
     this.saving.set(true);
     this.api.save(this.bill()?.id ?? null, body).subscribe({
       next: (saved) => {
-        if (!post) { this.done('Draft saved'); return; }
+        if (!post) { this.done(doneText('saved', 'Draft bill', saved.number)); return; }
         this.api.post(saved.id).subscribe({
-          next: (b) => this.done(b.status === 'pendingApproval' ? 'Sent for approval. Post it again once it is approved.' : `${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${b.number}`),
+          next: (b) => this.done(b.status === 'pendingApproval' ? 'Sent for approval. Post it again once it is approved.' : `${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${b.number}`, b.status === 'pendingApproval' ? undefined : { label: 'View bill', to: ['/finance/bills', b.id] }),
           error: (e) => { this.saving.set(false); this.bill.set(saved); this.reload(); this.fail(e); },
         });
       },
@@ -334,7 +337,7 @@ export class BillsPage {
     if (!b) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.
     void askReason(this.modal, 'Void this bill?', 'Void Bill', 'This cannot be undone. The bill will be marked as voided.').then((reason) => {
-      if (reason) this.api.void(b.id, reason).subscribe({ next: () => this.done('Bill voided'), error: (e) => this.fail(e) });
+      if (reason) this.api.void(b.id, reason).subscribe({ next: () => this.done(doneText('voided', 'Bill', b.number)), error: (e) => this.fail(e) });
     });
   }
 
@@ -343,11 +346,11 @@ export class BillsPage {
     if (!b) return;
     this.modal.confirm({
       nzTitle: 'Delete this draft bill?', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.api.delete(b.id).subscribe({ next: () => this.done('Draft deleted'), error: (e) => this.fail(e) }),
+      nzOnOk: () => this.api.delete(b.id).subscribe({ next: () => this.done(doneText('deleted', 'Draft bill', b.number)), error: (e) => this.fail(e) }),
     });
   }
 
-  private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.reload(); }
+  private done(text: string, action?: ToastAction): void { this.saving.set(false); this.drawerOpen.set(false); this.toast.show(text, action); this.reload(); }
   reload(): void { this.list.reload(); this.loadStats(); }
 
   private loadStats(): void {

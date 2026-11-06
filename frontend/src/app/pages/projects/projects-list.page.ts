@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -67,7 +68,7 @@ type View = 'live' | 'active' | 'planning' | 'onHold' | 'mine' | 'completed' | '
       </div>
       <div class="cards" data-testid="project-cards">
         @for (row of list.items(); track row.id) {
-          <article class="pcard" tabindex="0" (click)="openDetail(row)" (keydown.enter)="openDetail(row)">
+          <article class="pcard erp-lift" tabindex="0" (click)="openDetail(row)" (keydown.enter)="openDetail(row)">
             <div class="ptop"><span class="code">{{ row.number }}</span> <erp-prj-tag kind="project" [value]="row.status" /> @if (row.health && row.health !== 'closed') { <erp-prj-tag kind="health" [value]="row.health" /> }</div>
             <h3>{{ row.name }}</h3>
             <p class="prj-muted">{{ row.customerName || 'Internal' }} @if (row.managerName) { · {{ row.managerName }} }</p>
@@ -164,7 +165,7 @@ type View = 'live' | 'active' | 'planning' | 'onHold' | 'mine' | 'completed' | '
     .meter { display:flex; align-items:center; gap:8px; } .meter .prj-bar { flex:1; min-width:50px; } .meter span { font-size:12px; font-variant-numeric:tabular-nums; } .small { font-size:12px; white-space:nowrap; }
     .acts { display:flex; gap:2px; justify-content:flex-end; } .new-group { display:inline-flex; gap:8px; }
     .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px; }
-    .pcard { background:var(--erp-color-bg-surface,#fff); border:1px solid var(--erp-color-border-subtle,#e2e8f0); border-radius:12px; padding:14px; cursor:pointer; display:flex; flex-direction:column; gap:6px; } .pcard:hover { border-color:var(--erp-color-primary,#10955d); } .pcard:focus-visible { outline:2px solid var(--erp-color-primary,#10955d); }
+    .pcard { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:6px; } .pcard:focus-visible { outline:2px solid var(--erp-color-primary,#10955d); }
     .ptop { display:flex; align-items:center; gap:6px; flex-wrap:wrap; } .pcard h3 { margin:2px 0 0; font-size:14.5px; font-weight:600; color:var(--erp-color-text-primary,#0f172a); } .pcard p { margin:0 0 4px; }
     .metric { display:flex; justify-content:space-between; font-size:12px; color:var(--erp-color-text-secondary,#475569); margin-top:4px; } .foot { display:flex; justify-content:space-between; margin-top:6px; font-size:12px; }
     .form { display:flex; flex-direction:column; gap:10px; } .form label { display:flex; flex-direction:column; gap:4px; font-size:13px; } .form .check { flex-direction:row; align-items:center; gap:6px; }
@@ -292,19 +293,19 @@ export class ProjectsListPage {
   searchCustomers(term: string): void { this.customerLookup(term).pipe(catchError(() => of([]))).subscribe((c) => this.customers.set(c)); }
 
   changeStatus(row: ProjectSummaryDto, status: ProjectSummaryDto['status']): void {
-    const go = () => this.api.setStatus(row.id, status).subscribe({ next: () => { this.msg.success('Status changed'); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not change the status.')) });
+    const go = () => this.api.setStatus(row.id, status).subscribe({ next: () => { this.msg.success(`${row.number} is now ${String(status).replace(/_/g, ' ')}`); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not change the status.')) });
     if (status === 'cancelled' || status === 'completed') this.modal.confirm({ nzTitle: `${PROJECT_ACTIONS[status]}: ${row.name}?`, nzContent: 'A completed or cancelled project takes no more work and cannot be reopened.', nzOkText: PROJECT_ACTIONS[status], nzOkDanger: status === 'cancelled', nzOnOk: go });
     else go();
   }
 
   toggleArchive(row: ProjectSummaryDto): void {
-    this.extra.archive(row.id, !row.isArchived).subscribe({ next: (r) => { this.msg.success(r.isArchived ? 'Archived' : 'Restored'); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not change it.')) });
+    this.extra.archive(row.id, !row.isArchived).subscribe({ next: (r) => { this.msg.success(doneText(r.isArchived ? 'archived' : 'restored', 'Project', row.number)); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not change it.')) });
   }
 
   remove(row: ProjectSummaryDto): void {
     this.modal.confirm({
       nzTitle: `Delete ${row.number}?`, nzContent: `${row.name} and its tasks, milestones and time will be removed. A project with invoiced work cannot be deleted.`, nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.api.delete(row.id).subscribe({ next: () => { this.msg.success('Project deleted'); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not delete the project.')) }),
+      nzOnOk: () => this.api.delete(row.id).subscribe({ next: () => { this.msg.success(doneText('deleted', 'Project', row.name)); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not delete the project.')) }),
     });
   }
 
@@ -328,7 +329,7 @@ export class ProjectsListPage {
     if (!id || !name) { this.msg.warning('Choose a template and a name.'); return false; }
     this.busy.set(true);
     this.extra.clone(id, { name, startDate: this.cloneStart || null, customerId: this.cloneCustomer, includeTeam: this.cloneTeam, asTemplate: this.cloneTemplate }).subscribe({
-      next: (c) => { this.busy.set(false); this.cloning.set(null); this.msg.success(`Created ${c.number}`); void this.router.navigate(['/projects', c.id]); },
+      next: (c) => { this.busy.set(false); this.cloning.set(null); this.msg.success(doneText('created', 'Project', c.number)); void this.router.navigate(['/projects', c.id]); },
       error: (e) => { this.busy.set(false); this.msg.error(errorText(e, 'Could not create the copy.')); },
     });
     return false;

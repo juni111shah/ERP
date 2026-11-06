@@ -367,7 +367,7 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
     /* phone top bar */
     @media (max-width: 767px) {
       .header { padding: 0 var(--erp-space-3, 12px); gap: var(--erp-space-1, 4px); }
-      .header-control-box, .lang-btn, .topbar-divider { display: none !important; }
+      .header-control-box, .topbar-divider { display: none !important; }
       .topbar-title-wrap { flex: 1 1 auto; min-width: 0; }
     }
     .nav-backdrop {
@@ -744,12 +744,6 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
     :host-context([data-theme='dark']) .bell-badge-count,
     :host-context(.dark) .bell-badge-count {
       box-shadow: 0 0 0 2px #0f172a, 0 2px 4px rgba(0, 0, 0, 0.5);
-    }
-    .lang-btn .lang-text {
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-      line-height: 1;
     }
 
     .topbar-avatar-btn {
@@ -1351,13 +1345,7 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
                 <img src="highersquare-assistant.svg" alt="" width="26" height="26" style="display:block" />
               </button>
             }
-            <button type="button" class="topbar-action-btn lang-btn" (click)="i18n.toggle()" aria-label="Language" nz-tooltip [nzTooltipTitle]="i18n.lang() === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'" data-testid="lang-toggle">
-              <span class="lang-text">{{ i18n.lang() === 'ar' ? 'EN' : 'العربية' }}</span>
-            </button>
-            <button type="button" class="topbar-action-btn" (click)="theme.toggleTheme()" aria-label="Toggle dark mode" nz-tooltip [nzTooltipTitle]="theme.resolvedTheme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'" data-testid="theme-toggle">
-              <span nz-icon nzType="bulb" class="action-btn-icon" [style.color]="theme.resolvedTheme() === 'dark' ? '#fbbf24' : 'inherit'"></span>
-            </button>
-            <button type="button" class="topbar-avatar-btn" nz-dropdown [nzDropdownMenu]="userMenu" data-testid="user-menu" [attr.aria-label]="session.me()?.user?.fullName || 'User menu'">
+            <button type="button" class="topbar-avatar-btn" nz-dropdown nzTrigger="click" [nzDropdownMenu]="userMenu" nzPlacement="bottomRight" data-testid="user-menu" [attr.aria-label]="session.me()?.user?.fullName || 'User menu'">
               <div class="user-avatar-ring">
                 <nz-avatar nzSize="small" [nzText]="initials()" class="header-avatar"></nz-avatar>
               </div>
@@ -1372,6 +1360,9 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
               @if (session.me()?.platformAdmin) {
                 <li nz-menu-item routerLink="/platform" data-testid="platform-console"><span nz-icon nzType="dashboard"></span> {{ 'shell.platformConsole' | translate: 'Platform console' }}</li>
               }
+              <li nz-menu-divider></li>
+              <li nz-menu-item (click)="i18n.toggle()" data-no-i18n data-testid="lang-toggle"><span nz-icon nzType="global"></span> {{ i18n.lang() === 'ar' ? 'English' : 'العربية' }}</li>
+              <li nz-menu-item (click)="theme.toggleTheme()" data-testid="theme-toggle"><span nz-icon nzType="bulb"></span> {{ theme.resolvedTheme() === 'dark' ? ('shell.lightMode' | translate: 'Light mode') : ('shell.darkMode' | translate: 'Dark mode') }}</li>
               <li nz-menu-divider></li>
               <li nz-menu-item (click)="auth.logout()" data-testid="sign-out"><span nz-icon nzType="logout"></span> {{ 'shell.signOut' | translate: 'Sign out' }}</li>
             </ul>

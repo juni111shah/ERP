@@ -1,4 +1,5 @@
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, formatNumber } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, HostListener, inject, OnDestroy, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -53,6 +54,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    RouterLink,
     DecimalPipe,
     FormsModule,
     ErpDatePipe,
@@ -135,7 +137,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
               } @else {
                 <div class="tiles" data-testid="pos-catalog">
                   @for (item of catalog(); track item.id) {
-                    <button type="button" class="tile" [disabled]="item.price === null || outOfStockBlocked(item)" [attr.title]="item.name" (click)="addItem(item)" [attr.data-testid]="'pos-item-' + item.sku">
+                    <button type="button" class="tile erp-lift" [disabled]="item.price === null || outOfStockBlocked(item)" [attr.title]="item.name" (click)="addItem(item)" [attr.data-testid]="'pos-item-' + item.sku">
                       <span class="tile-name">{{ item.name }}</span>
                       <span class="tile-code">{{ item.sku }}</span>
                       <span class="tile-foot">
@@ -257,6 +259,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
         </ng-container>
         <ng-template #receiptFooter>
           <a nz-button nzSize="large" [href]="receiptPrintUrl()" target="_blank" rel="noopener" data-testid="pos-print"><span nz-icon nzType="printer"></span>Print</a>
+          @if (receiptOrderId(); as orderId) { <a nz-button nzSize="large" [routerLink]="['/pos/orders', orderId]" data-testid="pos-view-order">View order</a> }
           <button #newSale nz-button nzType="primary" nzSize="large" (click)="finishReceipt()" data-testid="pos-new-sale">New sale</button>
         </ng-template>
       </nz-modal>
@@ -451,8 +454,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
     .scan-clear { width: 32px; height: 32px; color: var(--erp-color-text-muted); background: none; border: 0; border-radius: 6px; cursor: pointer; }
     .catalog { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; }
     .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 8px; align-content: start; }
-    .tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 96px; padding: 9px 10px; font: inherit; color: inherit; text-align: start; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 10px; cursor: pointer; user-select: none; }
-    .tile:hover:not(:disabled) { border-color: var(--erp-color-primary); background: var(--erp-color-bg-hover); }
+    .tile { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 96px; padding: 9px 10px; font: inherit; color: inherit; text-align: start; border-radius: 10px; cursor: pointer; user-select: none; }
     .tile:active:not(:disabled) { background: var(--erp-color-primary-subtle); }
     .tile:focus-visible { outline: 2px solid var(--erp-color-primary); outline-offset: 1px; }
     .tile:disabled { cursor: not-allowed; opacity: .6; }
@@ -596,6 +598,8 @@ export class PosTerminalPage implements OnDestroy {
 
   readonly receipt = signal<ThermalReceiptData | null>(null);
   readonly receiptTitle = signal('Sale complete');
+  /** The order behind the receipt, so the cashier can find it again. */
+  readonly receiptOrderId = signal<string | null>(null);
   readonly receiptChange = signal(0);
   readonly receiptPrintUrl = signal('');
 
@@ -1114,7 +1118,7 @@ export class PosTerminalPage implements OnDestroy {
         if (previous) this.orders.discardParked(previous).subscribe({ next: () => this.loadHeld(), error: () => this.loadHeld() });
         else this.loadHeld();
         this.clearCart();
-        this.message.success('Sale held.');
+        this.message.success('Sale held. Open Held to bring it back.');
       },
       error: (err) => {
         this.holding.set(false);
@@ -1161,7 +1165,7 @@ export class PosTerminalPage implements OnDestroy {
       next: () => {
         if (this.parkedOrderId === o.id) this.parkedOrderId = null;
         this.loadHeld();
-        this.message.success('Held sale discarded.');
+        this.message.success(`Held sale ${o.number} discarded.`);
       },
       error: (err) => this.message.error(problemMessage(err, 'The held sale could not be discarded.')),
     });
@@ -1223,7 +1227,8 @@ export class PosTerminalPage implements OnDestroy {
   }
 
   private showSaleReceipt(order: PosOrderDto): void {
-    this.receiptTitle.set('Sale complete');
+    this.receiptTitle.set(`Sale ${order.number} complete: ${this.currency()} ${formatNumber(order.totalAmount, 'en-US', '1.2-2')}`);
+    this.receiptOrderId.set(order.id);
     this.receiptChange.set(order.payments.reduce((sum, p) => sum + p.changeAmount, 0));
     this.receiptPrintUrl.set(`/print/pos-receipt/${order.id}`);
     this.receipt.set(saleReceipt(order, this.context()));
@@ -1260,7 +1265,8 @@ export class PosTerminalPage implements OnDestroy {
   returnDone(ret: PosReturnDto): void {
     this.returnOpen.set(false);
     this.returnNumber.set(null);
-    this.receiptTitle.set('Refund complete');
+    this.receiptTitle.set(`Refund ${ret.number} complete`);
+    this.receiptOrderId.set(null);
     this.receiptChange.set(0);
     this.receiptPrintUrl.set(`/print/pos-return/${ret.id}`);
     this.receipt.set(returnReceipt(ret, this.context()));
@@ -1296,7 +1302,7 @@ export class PosTerminalPage implements OnDestroy {
         this.shiftBusy.set(false);
         this.session.set(s);
         this.openShiftOpen.set(false);
-        this.message.success('Shift opened.');
+        this.message.success(`Shift opened on ${s.registerName}.`);
         this.focusScan();
         this.takeReturnFromLink();
       },
@@ -1325,7 +1331,7 @@ export class PosTerminalPage implements OnDestroy {
         this.shiftBusy.set(false);
         this.closeShiftOpen.set(false);
         this.session.set(null);
-        this.message.success('Shift closed.');
+        this.message.success(`Shift closed on ${s.registerName}.`);
         this.sessions.report(s.id).subscribe({
           next: (r) => this.shiftReport.set(r),
           error: () => this.focusScan(), // no read permission: the close itself succeeded

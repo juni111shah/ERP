@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
@@ -122,7 +123,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
             }
             @if (row.status === 'draft') {
               <button *erpHasPermission="'sales.quotes.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                      nz-popconfirm nzPopconfirmTitle="Delete this quote?" (nzOnConfirm)="deleteQuote(row.id)">
+                      nz-popconfirm nzPopconfirmTitle="Delete this quote?" (nzOnConfirm)="deleteQuote(row)">
                 Delete
               </button>
             }
@@ -327,7 +328,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
     .lines-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .lines-table th { background: var(--erp-color-bg-subtle); padding: 8px; text-align: left; font-weight: 600; color: var(--erp-color-text-secondary); border: 1px solid var(--erp-color-border-subtle); }
     .lines-table td { padding: 4px; border: 1px solid var(--erp-color-border-subtle); vertical-align: middle; }
-    .line-calc { text-align: right; padding-inline-end: 8px; font-weight: 600; color: var(--erp-color-text-primary); }
+    .line-calc { text-align: end; padding-inline-end: 8px; font-weight: 600; color: var(--erp-color-text-primary); }
     .quote-summary-panel { margin-top: 16px; margin-inline-start: auto; width: 280px; background: var(--erp-color-bg-subtle); border-radius: 8px; padding: 12px; border: 1px solid var(--erp-color-border-subtle); }
     .summary-line { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: var(--erp-color-text-secondary); }
     .total-highlight { border-top: 1px solid var(--erp-color-border-default); padding-top: 6px; margin-top: 6px; font-weight: 700; font-size: 15px; color: var(--erp-color-text-primary); }
@@ -570,7 +571,7 @@ export class QuotesListPage {
       next: (created) => {
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
-        this.message.success(`Quote ${created.number} created successfully.`);
+        this.message.success(doneText('created', 'Quote', created.number));
         this.list.reload();
         this.loadKpis();
       },
@@ -584,7 +585,7 @@ export class QuotesListPage {
   convertToOrder(quoteId: string): void {
     this.quotesApi.convertToOrder(quoteId).subscribe({
       next: (order) => {
-        this.message.success(`Converted into Sales Order ${order.number}`);
+        this.message.success(`Quote converted into sales order ${order.number}`);
         this.list.reload();
         this.loadKpis();
         this.router.navigate(['/sales/orders', order.id]);
@@ -593,10 +594,10 @@ export class QuotesListPage {
     });
   }
 
-  deleteQuote(id: string): void {
-    this.quotesApi.delete(id).subscribe({
+  deleteQuote(row: { id: string; number?: string | null }): void {
+    this.quotesApi.delete(row.id).subscribe({
       next: () => {
-        this.message.success('Quote deleted');
+        this.message.success(doneText('deleted', 'Quote', row.number));
         this.list.reload();
         this.loadKpis();
       },
