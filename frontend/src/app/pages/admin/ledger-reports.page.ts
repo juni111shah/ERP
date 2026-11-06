@@ -56,7 +56,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
         </div>
         <div class="field">Business unit <nz-select [(ngModel)]="businessUnitId" nzAllowClear nzPlaceHolder="All business units" style="width:200px" data-testid="rep-bu">@for (b of units(); track b.id) { <nz-option [nzValue]="b.id" [nzLabel]="b.name"></nz-option> }</nz-select></div>
         <div class="field">Party group <nz-select [(ngModel)]="partyGroupId" nzAllowClear nzPlaceHolder="All party groups" style="width:180px" data-testid="rep-party-group">@for (g of partyGroups(); track g.id) { <nz-option [nzValue]="g.id" [nzLabel]="g.name"></nz-option> }</nz-select></div>
-        <div class="field">Source type <input nz-input [(ngModel)]="sourceType" placeholder="Optional" style="width:150px" data-testid="rep-source" /></div>
+        <div class="field">Source type <input nz-input [(ngModel)]="sourceType" placeholder="Optional" aria-label="Source type" style="width:150px" data-testid="rep-source" /></div>
       }
       @if (tab() === 1) {
         <div class="field">Account

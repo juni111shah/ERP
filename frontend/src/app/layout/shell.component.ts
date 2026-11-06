@@ -31,6 +31,7 @@ import { NotificationDrawerComponent } from './notification-drawer.component';
 import { SubscriptionBannerComponent } from './subscription-banner.component';
 import { WorkspaceBlockedComponent } from './workspace-blocked.component';
 import { blockedPageApplies } from '../core/format/subscription';
+import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 
 interface MenuGroup { id: string; label: string; order: number; items: { id: string; label: string; route: string; icon?: string; module: string }[]; }
 
@@ -39,7 +40,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
   selector: 'erp-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Dir, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
+  imports: [KeyboardClickDirective, Dir, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
     NzDropDownModule, NzAvatarModule, NzBadgeModule, NzTagModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent, BrandLogoComponent, SubscriptionBannerComponent, WorkspaceBlockedComponent],
   styles: [`
     :host { display: block; height: 100vh; }
@@ -1116,7 +1117,7 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           }
         </div>
       </nz-sider>
-      @if (narrow() && drawerOpen()) { <div class="nav-backdrop" (click)="drawerOpen.set(false)" data-testid="nav-backdrop"></div> }
+      @if (narrow() && drawerOpen()) { <div class="nav-backdrop" erpKeyboardClick aria-label="Close menu" (click)="drawerOpen.set(false)" data-testid="nav-backdrop"></div> }
       <nz-layout class="main-layout">
         <nz-header class="header">
           @if (narrow()) {

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, input, signal } from '@angular/core';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { InViewDirective, TiltDirective, prefersReducedMotion } from './pricing-fx';
+import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 
 export type PhoneScreen = 'overview' | 'invoices' | 'hr' | 'approvals' | 'alerts';
 
@@ -113,7 +114,7 @@ export function lastMonths(count: number, withYear = false, now = new Date()): s
   selector: 'erp-phone',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzIconModule],
+  imports: [KeyboardClickDirective, NzIconModule],
   styles: [PHONE_STYLES],
   template: `
     <div class="body">
@@ -265,6 +266,7 @@ const AUTOPLAY_MS = 3800;
     /* Phones further back sit in shade rather than turning see-through, which would show the phone behind them. */
     .slot .bob::after { content: ''; position: absolute; inset: 0; border-radius: 36px; background: #04231a; opacity: var(--dim, 0); transform: translateZ(3px); transition: opacity .7s ease; pointer-events: none; }
     .slot.front { cursor: default; }
+    .slot:focus-visible { outline: 2px solid #fff; outline-offset: 4px; border-radius: 36px; }
     .slot.front .bob { animation: bob 5s ease-in-out infinite; }
     .fx-wait .slot { opacity: 0 !important; }
     .note { margin: 14px 0 0; font-size: 12px; color: #a9c9b9; }
@@ -293,12 +295,12 @@ const AUTOPLAY_MS = 3800;
         </div>
         <p class="note">Screens follow the real app. Names and figures are samples.</p>
       </div>
-      <div class="stage" erpInView erpTilt aria-hidden="true" (mouseenter)="hold(true)" (mouseleave)="hold(false)" data-testid="pricing-mobile-stage">
+      <div class="stage" erpInView erpTilt (mouseenter)="hold(true)" (mouseleave)="hold(false)" (focusin)="hold(true)" (focusout)="hold(false)" data-testid="pricing-mobile-stage">
         <div class="turntable">
-          <div class="floor"></div>
+          <div class="floor" aria-hidden="true"></div>
           @for (s of slides; track s.key; let i = $index) {
-            <div class="slot" [class.front]="i === active()" [style.transform]="placed()[i].transform" [style.opacity]="placed()[i].opacity" [style.--dim]="placed()[i].dim" (click)="select(i)">
-              <div class="bob"><erp-phone [screen]="s.key" /></div>
+            <div class="slot" [class.front]="i === active()" [style.transform]="placed()[i].transform" [style.opacity]="placed()[i].opacity" [style.--dim]="placed()[i].dim" erpKeyboardClick [attr.aria-label]="'Show ' + s.title" [attr.aria-pressed]="i === active()" (click)="select(i)">
+              <div class="bob" aria-hidden="true"><erp-phone [screen]="s.key" /></div>
             </div>
           }
         </div>

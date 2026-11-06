@@ -17,6 +17,7 @@ import { I18nService } from '../core/i18n/i18n.service';
 import { PageTitleService } from '../core/services/page-title.service';
 import { SessionStore } from '../core/session/session.store';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
+import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 
 interface ConsoleLink { path: string; label: string; icon: string; exact?: boolean; testId: string; badge?: boolean; }
 
@@ -25,7 +26,7 @@ interface ConsoleLink { path: string; label: string; icon: string; exact?: boole
   selector: 'erp-platform-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Dir, RouterOutlet, RouterLink, RouterLinkActive, NzAvatarModule, NzBadgeModule, NzButtonModule, NzDropDownModule, NzIconModule, NzMenuModule, NzToolTipModule, BrandLogoComponent],
+  imports: [KeyboardClickDirective, Dir, RouterOutlet, RouterLink, RouterLinkActive, NzAvatarModule, NzBadgeModule, NzButtonModule, NzDropDownModule, NzIconModule, NzMenuModule, NzToolTipModule, BrandLogoComponent],
   styles: [`
     :host { display: block; height: 100vh; }
     .root { display: flex; height: 100vh; overflow: hidden; background: var(--erp-color-bg-canvas); }
@@ -76,7 +77,7 @@ interface ConsoleLink { path: string; label: string; icon: string; exact?: boole
           <button type="button" (click)="auth.logout()" data-testid="platform-sign-out"><span nz-icon nzType="logout" aria-hidden="true"></span>Sign out</button>
         </div>
       </aside>
-      @if (narrow() && drawerOpen()) { <div class="backdrop" (click)="drawerOpen.set(false)" data-testid="platform-backdrop"></div> }
+      @if (narrow() && drawerOpen()) { <div class="backdrop" erpKeyboardClick aria-label="Close menu" (click)="drawerOpen.set(false)" data-testid="platform-backdrop"></div> }
       <div class="main">
         <header class="bar">
           @if (narrow()) {
