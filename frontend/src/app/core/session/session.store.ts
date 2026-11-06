@@ -17,7 +17,7 @@ export interface SubscriptionSummary {
 }
 export interface MeResponse {
   user: { id: string; email: string; fullName: string; mustChangePassword: boolean };
-  workspace: Workspace & { countryCode: string; baseCurrency: string; timeZone: string; defaultLocale: string };
+  workspace: Workspace & { countryCode: string; baseCurrency: string; timeZone: string; defaultLocale: string; /** The workspace holds sample data for trying the system. */ isDemo?: boolean };
   workspaces: Workspace[];
   permissions: string[];
   legalEntities: LegalEntityOption[];
