@@ -9,6 +9,7 @@ namespace ERP.Api.Endpoints;
 /// <summary>The journal-detail screen sends its askReason text as <c>memo</c>; <c>reason</c> is accepted as an alias (same field as the void endpoints).</summary>
 public sealed record ReverseBody(DateOnly? Date, string? Memo, string? Reason = null);
 public sealed record LockBooksBody(DateOnly? Through);
+public sealed record ReverseOpeningBody(string? Reason, DateOnly? Date = null);
 
 /// <summary>Journals, period lock and the ledger reports. Thin: bind, send one MediatR request, shape the result.</summary>
 public static class LedgerEndpoints
@@ -41,6 +42,13 @@ public static class LedgerEndpoints
         yearEnd.MapPost("/close", (CloseFiscalYear cmd, ISender sender, CancellationToken ct) => sender.Send(cmd, ct)).RequirePermission(CorePermissions.YearEndClose);
         yearEnd.MapPost("/reopen", (ReopenFiscalYear cmd, ISender sender, CancellationToken ct) => sender.Send(cmd, ct)).RequirePermission(CorePermissions.YearEndReopen);
 
+        var opening = api.MapGroup("/finance/opening-balances").WithTags("Finance");
+        opening.MapPost("", async (OpeningBalanceInput input, ISender sender, CancellationToken ct) =>
+        {
+            var created = await sender.Send(new PostOpeningBalance(input), ct);
+            return Results.Created($"/api/v1/finance/journals/{created.JournalId}", created);
+        }).RequirePermission(CorePermissions.JournalsPost);
+        opening.MapPost("/{journalId:guid}/reverse", (Guid journalId, ReverseOpeningBody body, ISender sender, CancellationToken ct) => sender.Send(new ReverseOpeningBalance(journalId, body.Reason, body.Date), ct)).RequirePermission(CorePermissions.JournalsReverse);
 
         var reports = api.MapGroup("/finance/reports").WithTags("Finance reports");
         reports.MapGet("/trial-balance", (DateOnly? from, DateOnly to, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetTrialBalance(from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);

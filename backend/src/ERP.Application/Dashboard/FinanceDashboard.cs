@@ -35,7 +35,7 @@ public sealed class FinanceDashboard(
             var overdue = open.Where(i => i.DueDate < scope.Today).Sum(i => sign(i.IsCreditNote) * (i.Total - i.Paid));
             kpis.Add(new("receivables", "Receivables", receivable, "money", $"overdue {overdue:N0}", 30, "/finance/invoices"));
 
-            var billed = await invoices.Query(new Specification<Invoice>(i => i.InvoiceDate >= from && i.InvoiceDate <= to && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.Voided && (entity == null || i.LegalEntityId == entity)))
+            var billed = await invoices.Query(new Specification<Invoice>(i => i.InvoiceDate >= from && i.InvoiceDate <= to && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.Voided && i.SourceType != ERP.Application.Finance.LedgerSources.Opening && (entity == null || i.LegalEntityId == entity)))
                 .Select(i => new { i.InvoiceDate, i.IsCreditNote, i.Net }).ToListAsync(ct);
             var collected = canSee(CorePermissions.ReceiptsRead)
                 ? await settlements.Query(new Specification<Settlement>(s => s.Direction == InstrumentDirection.Received && s.Status == DocumentStatus.Issued && s.Date >= from && s.Date <= to && (entity == null || s.LegalEntityId == entity)))
