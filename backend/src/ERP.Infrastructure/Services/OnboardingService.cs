@@ -145,8 +145,8 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
             foreach (var (k, v) in industry.Settings ?? new Dictionary<string, string>())
                 db.Settings.Add(new Setting { Key = k, Value = v });
 
-            var enabled = industry.SuggestedModules.Where(modules.IsInstalled).Distinct()
-                .Where(m => options?.AllowedModules is not { Count: > 0 } allowed || allowed.Contains(m, StringComparer.OrdinalIgnoreCase)).ToList();
+            // Every suggested module comes with what it requires, the same rule SetModuleState enforces afterwards.
+            var enabled = ModuleDependencies.Resolve(industry.SuggestedModules, modules.Find, options?.AllowedModules);
             foreach (var m in enabled)
                 db.OrganizationModules.Add(new OrganizationModule { ModuleKey = m, IsEnabled = true, EnabledAt = DateTime.UtcNow });
 

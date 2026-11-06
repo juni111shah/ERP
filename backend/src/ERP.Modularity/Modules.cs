@@ -91,6 +91,42 @@ public sealed class ModuleRegistry
     ];
 }
 
+/// <summary>Module dependencies when several are switched on together.</summary>
+public static class ModuleDependencies
+{
+    /// <summary>
+    /// The installed modules to enable for a suggested set: each with everything it requires, dependencies first. A plan limit (<paramref name="allowed"/>) applies to the
+    /// whole set, so a module whose dependency the plan leaves out stays off instead of being enabled without it. Suggestions that are not installed are ignored, and so is a
+    /// module that requires something not installed: that is the same state <c>SetModuleState</c> refuses later.
+    /// </summary>
+    public static IReadOnlyList<string> Resolve(IEnumerable<string> suggested, Func<string, IModule?> find, IReadOnlyCollection<string>? allowed = null)
+    {
+        var result = new List<string>();
+        var isAllowed = (string key) => allowed is not { Count: > 0 } || allowed.Contains(key, StringComparer.OrdinalIgnoreCase);
+
+        // Null when the key cannot be enabled. Dependencies come first in the list returned; a cycle cannot be satisfied.
+        List<string>? Closure(string key, HashSet<string> path)
+        {
+            if (find(key) is not { } module || !isAllowed(key) || !path.Add(key)) return null;
+            var chain = new List<string>();
+            foreach (var required in module.Manifest.Requires ?? [])
+            {
+                var sub = Closure(required, path);
+                if (sub is null) return null;
+                chain.AddRange(sub);
+            }
+            path.Remove(key);
+            chain.Add(key);
+            return chain;
+        }
+
+        foreach (var key in suggested.Distinct(StringComparer.OrdinalIgnoreCase))
+            if (Closure(key, new HashSet<string>(StringComparer.OrdinalIgnoreCase)) is { } chain)
+                result.AddRange(chain.Where(k => !result.Contains(k, StringComparer.OrdinalIgnoreCase)));
+        return result;
+    }
+}
+
 /// <summary>Problem type returned when a module is disabled for the workspace.</summary>
 public static class ModuleProblems
 {
