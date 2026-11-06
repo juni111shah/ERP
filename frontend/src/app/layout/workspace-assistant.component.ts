@@ -8,9 +8,10 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { Subscription, filter, map, startWith } from 'rxjs';
-import { AssistantActionCard, streamErrorMessage } from '../core/api/assistant-stream';
+import { AssistantActionCard, actionExpired, streamErrorMessage } from '../core/api/assistant-stream';
 import { AssistantConversationRow, WorkspaceAssistantApi } from '../core/api/workspace-assistant.api';
 import { problemMessage } from '../core/http/problem-details';
+import { Lang } from '../core/i18n/dictionaries';
 import { I18nService } from '../core/i18n/i18n.service';
 import { SessionStore } from '../core/session/session.store';
 import { AssistantTextComponent } from '../shared/assistant-text.component';
@@ -31,16 +32,17 @@ export class WorkspaceAssistantState {
   private readonly serviceReady = signal(false);
   readonly open = signal(false);
   private readonly allowed = computed(() => this.session.isModuleEnabled(MODULE_KEY) && this.session.hasPermission(PERMISSION));
+  private readonly workspaceId = computed(() => this.session.me()?.workspace.id ?? null);
   readonly available = computed(() => this.allowed() && this.serviceReady() && !HIDDEN_ON.some((p) => this.url().startsWith(p)));
 
   constructor() {
-    // Asked only of people who could use it, so nobody else causes a "module disabled" answer. It runs again after a workspace switch.
+    // Asked only of people who could use it, so nobody else causes a "module disabled" answer. It runs again after a workspace switch, and a session reload leaves the panel open.
     effect(() => {
-      const me = this.session.me();
+      const workspace = this.workspaceId();
       const allowed = this.allowed();
       untracked(() => {
         this.serviceReady.set(false);
-        if (!me || !allowed) { this.open.set(false); return; }
+        if (!workspace || !allowed) { this.open.set(false); return; }
         this.api.status().subscribe({ next: (s) => this.serviceReady.set(s.available), error: () => this.serviceReady.set(false) });
       });
     });
@@ -61,6 +63,16 @@ const WORDS = {
     notice: 'AI answers can be wrong, so check anything important. It only uses what you are allowed to see.', hello: 'Ask me about your records, or where to find something.', placeholder: 'Ask a question', send: 'Send', stop: 'Stop', working: 'Working',
     failed: 'Sorry, something went wrong. Please try again.', confirm: 'Confirm', cancel: 'Cancel', open: 'Open', cancelled: 'Cancelled', expired: 'Expired', check: 'Please check this before confirming.',
     suggestions: ['What needs my attention today?', 'Who owes us the most?', 'Where do I add a new customer?'],
+    errors: {
+      'user-limit': "You have used today's messages for the assistant. Please try again tomorrow.",
+      'month-limit': "Your workspace has used this month's assistant messages. Your administrator can ask for a larger plan.",
+      'daily-limit': 'The assistant has reached its limit for today. Please try again tomorrow.',
+      'no-service': 'The assistant is not available right now.',
+      off: 'The assistant is not available right now.',
+      interrupted: 'The reply was interrupted. Please try again.',
+      unavailable: 'The assistant is not available right now. Please try again in a moment.',
+    } as Record<string, string>,
+    statuses: {} as Record<string, string>,
   },
   ar: {
     title: 'المساعد', close: 'إغلاق المساعد', newChat: 'محادثة جديدة', history: 'المحادثات السابقة', back: 'العودة إلى المحادثة', noHistory: 'لا توجد محادثات سابقة بعد.', remove: 'حذف هذه المحادثة',
@@ -68,8 +80,38 @@ const WORDS = {
     notice: 'قد تكون إجابات الذكاء الاصطناعي خاطئة، لذا تحقق من أي أمر مهم. لا يستخدم إلا ما يحق لك الاطلاع عليه.', hello: 'اسألني عن سجلاتك أو عن مكان أي شيء في النظام.', placeholder: 'اطرح سؤالاً', send: 'إرسال', stop: 'إيقاف', working: 'جارٍ العمل',
     failed: 'عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى.', confirm: 'تأكيد', cancel: 'إلغاء', open: 'فتح', cancelled: 'أُلغي', expired: 'انتهت صلاحيته', check: 'يرجى التحقق من هذا قبل التأكيد.',
     suggestions: ['ما الذي يحتاج إلى انتباهي اليوم؟', 'من أكثر من يدين لنا بالمال؟', 'أين أضيف عميلاً جديداً؟'],
+    errors: {
+      'user-limit': 'لقد استخدمت رسائل اليوم المخصصة للمساعد. يرجى المحاولة مرة أخرى غداً.',
+      'month-limit': 'استخدمت مساحة عملك رسائل هذا الشهر المخصصة للمساعد. يمكن لمسؤول مساحة العمل طلب خطة أكبر.',
+      'daily-limit': 'وصل المساعد إلى الحد المسموح به لهذا اليوم. يرجى المحاولة مرة أخرى غداً.',
+      'no-service': 'المساعد غير متاح حالياً.',
+      off: 'المساعد غير متاح حالياً.',
+      interrupted: 'انقطع الرد. يرجى المحاولة مرة أخرى.',
+      unavailable: 'المساعد غير متاح حالياً. يرجى المحاولة مرة أخرى بعد قليل.',
+    } as Record<string, string>,
+    statuses: {
+      Thinking: 'جارٍ التفكير',
+      'Searching your records': 'جارٍ البحث في سجلاتك',
+      'Checking the help articles': 'جارٍ البحث في مقالات المساعدة',
+      'Looking through your records': 'جارٍ الاطلاع على سجلاتك',
+      'Running the report': 'جارٍ إعداد التقرير',
+      'Checking your overview': 'جارٍ الاطلاع على النظرة العامة',
+      'Checking approvals': 'جارٍ التحقق من الموافقات',
+      'Looking through the menu': 'جارٍ البحث في القائمة',
+      'Preparing the change': 'جارٍ تجهيز التغيير',
+    } as Record<string, string>,
   },
 };
+
+/** The server writes English, so each known code has its own words in each language. Anything else keeps the server's text. */
+export function assistantErrorText(lang: Lang, code: string, serverText: string): string {
+  return WORDS[lang].errors[code] ?? serverText;
+}
+
+/** What the assistant is doing right now. The server's status texts are English. */
+export function assistantStatusText(lang: Lang, text: string): string {
+  return lang === 'ar' ? WORDS.ar.statuses[text] ?? WORDS.ar.working : text;
+}
 
 /** The assistant's panel inside a workspace. A change is only ever made by the Confirm button on a card the server built. */
 @Component({
@@ -142,10 +184,10 @@ const WORDS = {
                 @case ('user') { <div class="bubble user" dir="auto" data-testid="workspace-assistant-user">{{ item.text }}</div> }
                 @case ('assistant') { <div class="bubble assistant" data-testid="workspace-assistant-reply"><erp-assistant-text [text]="item.text" /></div> }
                 @case ('action') {
-                  <div class="card" [attr.data-testid]="'workspace-assistant-card-' + item.card.status">
+                  <div class="card" [attr.data-testid]="'workspace-assistant-card-' + (expired(item.card) ? 'expired' : item.card.status)">
                     <strong dir="auto">{{ item.card.title }}</strong>
                     <dl dir="auto">@for (l of item.card.lines; track $index) { <dt>{{ l.label }}</dt><dd>{{ l.value }}</dd> }</dl>
-                    @if (item.card.status === 'pending') {
+                    @if (item.card.status === 'pending' && !expired(item.card)) {
                       <div class="hint">{{ w().check }}</div>
                       <div class="buttons">
                         <button nz-button nzType="primary" nzSize="small" type="button" [nzLoading]="item.busy" (click)="confirm(item.card)" data-testid="workspace-assistant-confirm">{{ w().confirm }}</button>
@@ -196,13 +238,16 @@ export class WorkspaceAssistantComponent {
   readonly past = signal<AssistantConversationRow[]>([]);
   private conversationId: string | null = null;
   private running?: Subscription;
+  /** The time cards are judged by. It moves when a card runs out, so its Confirm button goes away by itself. */
+  private readonly now = signal(Date.now());
+  private readonly workspaceId = computed(() => this.session.me()?.workspace.id ?? null);
   readonly usage = signal<{ messagesThisMonth: number; monthlyAllowance: number | null } | null>(null);
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.running?.unsubscribe());
-    // Another workspace must never see this one's open chat.
+    // Another workspace must never see this one's open chat. A session reload in the same workspace leaves it alone.
     effect(() => {
-      this.session.me()?.workspace.id;
+      this.workspaceId();
       untracked(() => this.newChat());
     });
     effect(() => { if (this.state.open()) setTimeout(() => this.boxRef()?.nativeElement.focus()); });
@@ -212,6 +257,8 @@ export class WorkspaceAssistantComponent {
       untracked(() => this.api.usage().subscribe({ next: (u) => this.usage.set(u), error: () => this.usage.set(null) }));
     });
   }
+
+  expired(card: AssistantActionCard): boolean { return actionExpired(card, this.now()); }
 
   enter(e: KeyboardEvent): void {
     if (e.shiftKey) return;
@@ -243,6 +290,7 @@ export class WorkspaceAssistantComponent {
           ...c.actions.map((a) => ({ at: a.createdAt, item: { kind: 'action', card: a } as Item })),
         ];
         this.items.set(timed.sort((x, y) => x.at.localeCompare(y.at)).map((t) => t.item));
+        this.watchExpiry(c.actions);
         this.conversationId = c.id;
         this.error.set(null);
         this.showHistory.set(false);
@@ -271,14 +319,14 @@ export class WorkspaceAssistantComponent {
     this.working.set(this.w().working);
     this.items.update((list) => [...list, { kind: 'user', text }]);
     this.scroll();
-    this.running = this.api.ask({ conversationId: this.conversationId, text, page: this.router.url }).subscribe({
+    this.running = this.api.ask({ conversationId: this.conversationId, text, page: this.router.url, language: this.i18n.lang() }).subscribe({
       next: (e) => {
         switch (e.type) {
           case 'conversation': this.conversationId = e.id; break;
-          case 'status': this.working.set(this.i18n.lang() === 'ar' ? this.w().working : e.text); break;
+          case 'status': this.working.set(assistantStatusText(this.i18n.lang(), e.text)); break;
           case 'delta': this.working.set(null); this.append(e.text); break;
-          case 'action': this.items.update((list) => [...list, { kind: 'action', card: e.action }]); this.scroll(); break;
-          case 'error': this.error.set(e.message); break;
+          case 'action': this.items.update((list) => [...list, { kind: 'action', card: e.action }]); this.watchExpiry([e.action]); this.scroll(); break;
+          case 'error': this.error.set(assistantErrorText(this.i18n.lang(), e.code, e.message)); break;
         }
       },
       error: (e) => { this.finish(); this.error.set(streamErrorMessage(e, this.w().failed)); },
@@ -305,6 +353,14 @@ export class WorkspaceAssistantComponent {
       next: (updated) => this.replaceCard(updated),
       error: (e) => { this.setBusy(card.id, false); this.message.error(problemMessage(e, this.w().failed)); },
     });
+  }
+
+  private watchExpiry(cards: AssistantActionCard[]): void {
+    this.now.set(Date.now());
+    for (const c of cards) {
+      const left = c.status === 'pending' && c.expiresAt ? Date.parse(c.expiresAt) - Date.now() : 0;
+      if (left > 0) setTimeout(() => this.now.set(Date.now()), left + 500);
+    }
   }
 
   private setBusy(id: string, busy: boolean): void {

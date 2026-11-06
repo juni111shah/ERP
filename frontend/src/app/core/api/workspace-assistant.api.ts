@@ -25,7 +25,7 @@ export class WorkspaceAssistantApi {
   conversations(): Observable<AssistantConversationRow[]> { return this.http.get<AssistantConversationRow[]>(`${this.base}/conversations`); }
   conversation(id: string): Observable<AssistantConversationDetail> { return this.http.get<AssistantConversationDetail>(`${this.base}/conversations/${id}`); }
   deleteConversation(id: string): Observable<unknown> { return this.http.delete(`${this.base}/conversations/${id}`); }
-  ask(input: { conversationId: string | null; text: string; page: string | null }): Observable<AssistantStreamEvent> { return this.platform.assistantStream(`${this.base}/messages`, input); }
+  ask(input: { conversationId: string | null; text: string; page: string | null; language: string }): Observable<AssistantStreamEvent> { return this.platform.assistantStream(`${this.base}/messages`, input); }
   /** The key makes a double click or a retry harmless: the server runs the change once and repeats its answer. */
   confirm(id: string): Observable<AssistantActionCard> {
     return this.http.post<AssistantActionCard>(`${this.base}/actions/${id}/confirm`, {}, { headers: new HttpHeaders({ 'Idempotency-Key': `assistant-action-${id}` }) });

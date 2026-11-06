@@ -17,8 +17,8 @@ public interface ISearchProvider
 
 public sealed record SearchResult(string Query, IReadOnlyList<SearchHit> Hits);
 
-/// <summary>Global search across every enabled provider (at least two characters).</summary>
-public sealed record GlobalSearch(string Query) : IQuery<SearchResult>;
+/// <summary>Global search across every enabled provider (at least two characters). <c>ExcludeModules</c> leaves modules out; the search box never sets it.</summary>
+public sealed record GlobalSearch(string Query, IReadOnlyCollection<string>? ExcludeModules = null) : IQuery<SearchResult>;
 
 internal sealed class SearchHandler(IEnumerable<ISearchProvider> providers, IModuleAccess modules) : IRequestHandler<GlobalSearch, SearchResult>
 {
@@ -31,7 +31,7 @@ internal sealed class SearchHandler(IEnumerable<ISearchProvider> providers, IMod
         var hits = new List<SearchHit>();
         foreach (var p in providers)
         {
-            if (p.ModuleKey is { } key && !await modules.IsEnabledAsync(key, ct)) continue;
+            if (p.ModuleKey is { } key && (q.ExcludeModules?.Contains(key) == true || !await modules.IsEnabledAsync(key, ct))) continue;
             hits.AddRange(await p.SearchAsync(term, PerProvider, ct));
         }
         return new SearchResult(term, hits);

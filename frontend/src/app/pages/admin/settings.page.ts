@@ -50,7 +50,7 @@ const MODULE_NAMES: Record<string, string> = { hr: 'HR and payroll', realestate:
                   @case ('bool') { <nz-switch [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.aria-label]="s.label" [attr.data-testid]="'setting-' + s.key"></nz-switch> }
                   @case ('text') { <input nz-input style="width:260px" [attr.aria-label]="s.label" [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
                   @case ('string') { <input nz-input style="width:260px" [attr.aria-label]="s.label" [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
-                  @default { <nz-input-number [ngModel]="draft()[s.key] ?? null" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key"></nz-input-number> }
+                  @default { <nz-input-number [ngModel]="draft()[s.key] ?? null" (ngModelChange)="set(s.key, $event)" [nzMin]="s.min ?? -infinity" [nzMax]="s.max ?? infinity" [attr.data-testid]="'setting-' + s.key"></nz-input-number> }
                 }
               </div>
             }
@@ -70,6 +70,7 @@ const MODULE_NAMES: Record<string, string> = { hr: 'HR and payroll', realestate:
 export class SettingsPage {
   private readonly api = inject(AdminApi);
   private readonly message = inject(NzMessageService);
+  readonly infinity = Number.POSITIVE_INFINITY;
   readonly settings = signal<SettingView[]>([]);
   readonly draft = signal<Record<string, unknown>>({});
   readonly saving = signal(false);

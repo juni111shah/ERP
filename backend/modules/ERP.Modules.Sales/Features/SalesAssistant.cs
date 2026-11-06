@@ -49,31 +49,31 @@ internal sealed class CreateQuoteAssistantAction(ISender sender, IValidator<Quot
     public string? ModuleKey => SalesModule.Key;
     public string Permission => P.QuotesManage;
 
-    private async Task<QuoteInput> BuildAsync(JsonElement a, CancellationToken ct)
+    private async Task<(QuoteInput Input, string EntityName)> BuildAsync(JsonElement a, AssistantActionContext context, CancellationToken ct)
     {
         var party = a.Id("customer_id") is { } id ? await parties.FindAsync(id, ct) : null;
-        if (party is null) throw new ConflictException("That customer could not be found.");
-        var entity = await scope.LegalEntityAsync(ct);
+        if (party is null) throw new ConflictException(context.T("That customer could not be found.", "تعذر العثور على هذا العميل."));
+        var entity = await scope.LegalEntityAsync(context, ct);
         var lines = new List<QuoteLineInput>();
         if (a.ValueKind == JsonValueKind.Object && a.TryGetProperty("lines", out var list) && list.ValueKind == JsonValueKind.Array)
             foreach (var l in list.EnumerateArray())
                 lines.Add(new QuoteLineInput(null, "", l.Text("description") ?? "", l.Number("quantity") ?? 0, "ea", l.Number("unit_price") ?? -1, 0, 0));
-        return new QuoteInput(entity.Id, null, party.Id, party.Name, null, null, DateOnly.FromDateTime(clock.UtcNow), null, entity.BaseCurrency, a.Text("notes"), null, lines);
+        return (new QuoteInput(entity.Id, null, party.Id, party.Name, null, null, DateOnly.FromDateTime(clock.UtcNow), null, entity.BaseCurrency, a.Text("notes"), null, lines), entity.Name);
     }
 
-    public async Task<AssistantActionPreview> PreviewAsync(JsonElement arguments, CancellationToken ct)
+    public async Task<AssistantActionPreview> PreviewAsync(JsonElement arguments, AssistantActionContext context, CancellationToken ct)
     {
-        var input = await BuildAsync(arguments, ct);
+        var (input, entityName) = await BuildAsync(arguments, context, ct);
         await validator.EnsureValidAsync(input, ct);
-        var lines = new List<AssistantActionLine> { new("Customer", input.CustomerName) };
+        var lines = new List<AssistantActionLine> { new(context.LegalEntityLabel, entityName), new(context.T("Customer", "العميل"), input.CustomerName) };
         lines.AddRange(input.Lines.Select(l => new AssistantActionLine(l.Description, $"{l.Quantity:0.##} x {input.Currency} {l.UnitPrice:0.00}")));
-        lines.Add(new("Total before tax", $"{input.Currency} {input.Lines.Sum(l => l.Quantity * l.UnitPrice):0.00}"));
-        return new("Create a draft quote", lines);
+        lines.Add(new(context.T("Total before tax", "الإجمالي قبل الضريبة"), $"{input.Currency} {input.Lines.Sum(l => l.Quantity * l.UnitPrice):0.00}"));
+        return new(context.T("Create a draft quote", "إنشاء مسودة عرض سعر"), lines, input.LegalEntityId);
     }
 
-    public async Task<AssistantActionResult> ExecuteAsync(JsonElement arguments, CancellationToken ct)
+    public async Task<AssistantActionResult> ExecuteAsync(JsonElement arguments, AssistantActionContext context, CancellationToken ct)
     {
-        var quote = await sender.Send(new CreateQuote(await BuildAsync(arguments, ct)), ct);
-        return new($"Draft quote {quote.Number} was created. Nothing has been sent to the customer.", $"/sales/quotes/{quote.Id}");
+        var quote = await sender.Send(new CreateQuote((await BuildAsync(arguments, context, ct)).Input), ct);
+        return new(context.T($"Draft quote {quote.Number} was created. Nothing has been sent to the customer.", $"تم إنشاء مسودة عرض السعر {quote.Number}. لم يُرسل شيء إلى العميل."), $"/sales/quotes/{quote.Id}");
     }
 }

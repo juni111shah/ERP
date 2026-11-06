@@ -86,8 +86,8 @@ public interface IModuleAccess
     Task<IReadOnlySet<string>> EnabledModulesAsync(CancellationToken ct = default);
 }
 
-/// <summary>A setting a module (or the core) declares. Values are stored per workspace, optionally per legal entity.</summary>
-public sealed record SettingDefinition(string Key, string Label, string DefaultJson, string Type = "number", string? Description = null);
+/// <summary>A setting a module (or the core) declares. Values are stored per workspace, optionally per legal entity. With <c>Min</c> or <c>Max</c>, the value must be a whole number in that range.</summary>
+public sealed record SettingDefinition(string Key, string Label, string DefaultJson, string Type = "number", string? Description = null, int? Min = null, int? Max = null);
 
 /// <summary>Every setting known to this deployment (core + installed modules). Implemented by the host from the module registry.</summary>
 public interface ISettingsCatalog
