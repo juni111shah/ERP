@@ -20,13 +20,14 @@ import { toTime } from './daily-attendance.page';
 import { RosterEntry, ShiftDto, ShiftsApi } from './hr-people.api';
 import { EmployeeSummary, EmployeesApi } from './hr.api';
 import { ErpDatePipe } from '../../shared/display.pipes';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 
 /** Work shifts: start time, late grace and the hours of a normal day; employees on a shift are measured against it. */
 @Component({
   selector: 'erp-shifts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, NzDatePickerModule],
+  imports: [RowActionsComponent, ErpDatePipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, NzDatePickerModule],
   styles: [`.num { text-align: end; } .row-actions { display: flex; gap: 6px; flex-wrap: wrap; } .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }`],
   template: `
     <h1 class="erp-page-title">Shifts</h1>
@@ -60,7 +61,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
       <tbody>
         @for (r of roster(); track r.id) {
           <tr><td>{{ employeeName(r.employeeId) }}</td><td>{{ shiftName(r.shiftId) }}</td><td>{{ r.fromDate | erpDate }}</td><td>{{ r.toDate | erpDate }}</td>
-            <td *erpHasPermission="'hr.attendance.manage'"><button nz-button nzSize="small" nzDanger (click)="removeRoster(r)">Remove</button></td></tr>
+            <td class="erp-cell-actions" *erpHasPermission="'hr.attendance.manage'"><erp-row-actions><button nz-button nzSize="small" nzDanger (click)="removeRoster(r)">Remove</button></erp-row-actions></td></tr>
         }
       </tbody>
     </nz-table>

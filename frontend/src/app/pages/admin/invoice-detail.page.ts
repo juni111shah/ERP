@@ -44,7 +44,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
   styles: [`
     .section { margin-top: 16px; }
     .section ::ng-deep .ant-card-head-title { color: var(--erp-color-text-muted); text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:600; }
-    .r { text-align:right; white-space:nowrap; }
+    .r { text-align:end; white-space:nowrap; }
     .muted { color: var(--erp-color-text-muted); }
   `],
   template: `

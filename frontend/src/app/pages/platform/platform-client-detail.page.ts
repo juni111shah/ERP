@@ -21,6 +21,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
 import { UsageBarComponent } from '../../shared/usage-bar.component';
 import { InvoiceActionsComponent } from './invoice-actions.component';
 import { ACCESS_WORDS, CYCLE_OPTIONS, OneTimePasswordComponent, OneTimeSecret, PLATFORM_STYLES, START_OPTIONS, cycleWords, invoiceTone, planOptions, statusWords } from './platform-ui';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 
 type DialogKind = 'assign' | 'plan' | 'trial' | 'activate' | 'invoice' | 'details';
 const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -30,7 +31,7 @@ const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()
   selector: 'erp-platform-client-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzIconModule, NzModalModule, NzSpinModule, NzSwitchModule, ErpDatePipe, ErpMoneyPipe, InvoiceActionsComponent, OneTimePasswordComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent, UsageBarComponent],
+  imports: [RowActionsComponent, FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzIconModule, NzModalModule, NzSpinModule, NzSwitchModule, ErpDatePipe, ErpMoneyPipe, InvoiceActionsComponent, OneTimePasswordComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent, UsageBarComponent],
   styles: [PLATFORM_STYLES, `
     .back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; font-size: 13px; }
     .header { margin-bottom: 16px; }
@@ -148,7 +149,7 @@ const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()
                     <td class="pf-nowrap">{{ m.isAdministrator ? 'Administrator' : 'Member' }}</td>
                     <td><erp-status [value]="m.isActive ? 'active' : 'inactive'" /></td>
                     <td class="pf-nowrap">{{ m.lastSignInAt ? (m.lastSignInAt | erpDate) : 'Never' }}</td>
-                    <td class="num"><button nz-button nzSize="small" type="button" (click)="issuePassword(m)" data-testid="client-user-password">Issue temporary password</button></td>
+                    <td class="erp-cell-actions num"><erp-row-actions><button nz-button nzSize="small" type="button" (click)="issuePassword(m)" data-testid="client-user-password">Issue temporary password</button></erp-row-actions></td>
                   </tr>
                 } @empty { <tr><td colspan="6" class="pf-muted">No users.</td></tr> }
               </tbody>

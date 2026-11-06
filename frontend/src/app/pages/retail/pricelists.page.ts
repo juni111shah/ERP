@@ -249,7 +249,7 @@ const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErr
 
             <div class="table-section">
               <h4>Item prices ({{ pl.items.length }})</h4>
-              <nz-table #itemsTable [nzData]="pl.items" nzSize="small" [nzBordered]="true" [nzShowPagination]="false" [nzFrontPagination]="false">
+              <nz-table #itemsTable [nzData]="pl.items" nzSize="small" [nzShowPagination]="false" [nzFrontPagination]="false">
                 <thead>
                   <tr>
                     <th>Item</th>

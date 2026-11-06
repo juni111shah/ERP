@@ -175,13 +175,13 @@ import { displayLabel } from '../../core/format/display';
               <tr>
                 <th style="width: 140px;">Item Code</th>
                 <th>Description</th>
-                <th style="width: 90px; text-align: right;">Ordered</th>
-                <th style="width: 90px; text-align: right;">Delivered</th>
-                <th style="width: 90px; text-align: right;">Invoiced</th>
-                <th style="width: 120px; text-align: right;">Unit Price</th>
-                <th style="width: 90px; text-align: right;">Disc %</th>
-                <th style="width: 90px; text-align: right;">Tax %</th>
-                <th style="width: 140px; text-align: right;">Line Total</th>
+                <th style="width: 90px; text-align: end;">Ordered</th>
+                <th style="width: 90px; text-align: end;">Delivered</th>
+                <th style="width: 90px; text-align: end;">Invoiced</th>
+                <th style="width: 120px; text-align: end;">Unit Price</th>
+                <th style="width: 90px; text-align: end;">Disc %</th>
+                <th style="width: 90px; text-align: end;">Tax %</th>
+                <th style="width: 140px; text-align: end;">Line Total</th>
               </tr>
             </thead>
             <tbody>
@@ -189,17 +189,17 @@ import { displayLabel } from '../../core/format/display';
                 <tr>
                   <td><strong>{{ item.itemCode || '-' }}</strong></td>
                   <td>{{ item.description }}</td>
-                  <td style="text-align: right;">{{ item.quantity | number:'1.0-2' }} {{ item.unitOfMeasure }}</td>
-                  <td style="text-align: right;">
+                  <td style="text-align: end;">{{ item.quantity | number:'1.0-2' }} {{ item.unitOfMeasure }}</td>
+                  <td style="text-align: end;">
                     <span [style.color]="item.deliveredQuantity >= item.quantity ? 'var(--erp-color-primary)' : 'var(--erp-color-warning-text, #d97706)'">
                       {{ item.deliveredQuantity | number:'1.0-2' }}
                     </span>
                   </td>
-                  <td style="text-align: right;">{{ item.invoicedQuantity | number:'1.0-2' }}</td>
-                  <td style="text-align: right;">{{ item.unitPrice | number:'1.2-2' }}</td>
-                  <td style="text-align: right;">{{ item.discountPercent }}%</td>
-                  <td style="text-align: right;">{{ item.taxRate }}%</td>
-                  <td style="text-align: right; font-weight: 600;">{{ item.lineTotal | number:'1.2-2' }}</td>
+                  <td style="text-align: end;">{{ item.invoicedQuantity | number:'1.0-2' }}</td>
+                  <td style="text-align: end;">{{ item.unitPrice | number:'1.2-2' }}</td>
+                  <td style="text-align: end;">{{ item.discountPercent }}%</td>
+                  <td style="text-align: end;">{{ item.taxRate }}%</td>
+                  <td style="text-align: end; font-weight: 600;">{{ item.lineTotal | number:'1.2-2' }}</td>
                 </tr>
               }
             </tbody>

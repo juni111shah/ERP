@@ -29,7 +29,7 @@ interface Row { accountId: string; label: string; type: string; months: number[]
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
-  styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px } .num { text-align:right } .bad { color: var(--erp-color-error, #cf1322) } .good { color: var(--erp-color-success, #389e0d) } .grid { overflow:auto }`],
+  styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px } .num { text-align:end } .bad { color: var(--erp-color-error, #cf1322) } .good { color: var(--erp-color-success, #389e0d) } .grid { overflow:auto }`],
   template: `
     @if (!editing()) {
       <h1 class="erp-page-title">Budgets</h1>

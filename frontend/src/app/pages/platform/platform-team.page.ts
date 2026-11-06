@@ -13,13 +13,14 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { OneTimePasswordComponent, OneTimeSecret, PLATFORM_STYLES } from './platform-ui';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 
 /** Who can open this console. */
 @Component({
   selector: 'erp-platform-team',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzButtonModule, NzIconModule, NzModalModule, NzSpinModule, ErpDatePipe, OneTimePasswordComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
+  imports: [RowActionsComponent, NzButtonModule, NzIconModule, NzModalModule, NzSpinModule, ErpDatePipe, OneTimePasswordComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
   styles: [PLATFORM_STYLES],
   template: `
     <div class="pf-head">
@@ -42,7 +43,7 @@ import { OneTimePasswordComponent, OneTimeSecret, PLATFORM_STYLES } from './plat
                   <td>{{ m.email }}</td>
                   <td class="pf-nowrap">{{ m.lastSignInAt ? (m.lastSignInAt | erpDate) : 'Never' }}</td>
                   <td><erp-status [value]="m.twoFactorEnabled ? 'active' : 'inactive'" [label]="m.twoFactorEnabled ? 'On' : 'Off'" /></td>
-                  <td class="num"><button nz-button nzSize="small" nzDanger type="button" (click)="remove(m)" [attr.data-testid]="'team-remove-' + m.email">Remove</button></td>
+                  <td class="erp-cell-actions num"><erp-row-actions><button nz-button nzSize="small" nzDanger type="button" (click)="remove(m)" [attr.data-testid]="'team-remove-' + m.email">Remove</button></erp-row-actions></td>
                 </tr>
               }
             </tbody>

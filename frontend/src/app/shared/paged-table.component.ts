@@ -3,7 +3,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
-import { ClearOutline, FilterFill, HolderOutline, UndoOutline, VerticalLeftOutline, VerticalRightOutline } from '@ant-design/icons-angular/icons';
+import { ClearOutline, ColumnHeightOutline, FilterFill, HolderOutline, UndoOutline, VerticalLeftOutline, VerticalRightOutline } from '@ant-design/icons-angular/icons';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
@@ -12,6 +12,7 @@ import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzIconModule, provideNzIconsPatch } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
+import { NzMenuModule } from 'ng-zorro-antd/menu';
 import { NzPopoverModule } from 'ng-zorro-antd/popover';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule, NzTableQueryParams } from 'ng-zorro-antd/table';
@@ -21,11 +22,13 @@ import { FilterCriterion } from '../core/api/api.models';
 import { PagedList } from '../core/api/paged-list';
 import { I18nService } from '../core/i18n/i18n.service';
 import { CsvExportService } from '../core/services/csv-export.service';
+import { TABLE_DENSITIES, TableDensityService } from '../core/services/table-density.service';
 import { displayDate, displayLabel, isIsoDate } from '../core/format/display';
 import { StatusTagComponent } from './status-tag.component';
 import { ExpandSearchComponent } from './expand-search.component';
 import { PageChange, PaginationBarComponent } from './pagination-bar.component';
 import { RevealDirective } from './reveal.directive';
+import { RowActionsComponent } from './row-actions.component';
 import { KeyboardClickDirective } from './keyboard-click.directive';
 
 export type ColumnFilterKind = 'text' | 'select' | 'date' | 'number';
@@ -37,7 +40,7 @@ export interface TableColumn<T> {
   /** server sort field ([Sortable] on the entity); omit to disable sorting */
   sortField?: string;
   width?: string;
-  /** 'right' for amounts */
+  /** 'right' for amounts. When omitted, a column holding numbers or formatted amounts is right-aligned and any other column follows the text direction. */
   align?: 'left' | 'right';
   /** cell text; defaults to row[key] */
   value?: (row: T) => unknown;
@@ -68,6 +71,12 @@ const ENUM_KEY = /^(status|stage|kind|type|usage|priority|category|source|source
 const STATUS_KEY = /^(status|stage|state|paymentStatus|approvalStatus)$/;
 const DATE_KEY = /(date|Date|On|At|Ends)$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
+/** Identifiers made of digits read as text, so they stay at the start of the cell. */
+const IDENTIFIER_KEY = /(code|number|no|phone|mobile|year|id|ref|reference)$/i;
+/** A formatted amount: optional currency code, grouped digits, optional decimals or percent. Plain digits alone could be a code. */
+const AMOUNT_TEXT = /^(-?[A-Z]{3}\s)?-?\d[\d,]*(\.\d+|,\d{3})\s?%?$|^-?\d+(\.\d+)?\s?%$/;
+/** What a blank cell shows, so a missing value is not mistaken for zero or for a row still loading. */
+export const EMPTY_CELL = '—';
 
 function isoDate(d: Date | null | undefined): string | null {
   if (!d) return null;
@@ -89,22 +98,22 @@ function humanizeValue(v: string): string {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [KeyboardClickDirective, ExpandSearchComponent, FormsModule, NgTemplateOutlet, CdkDropList, CdkDrag, CdkDragHandle, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule, NzCheckboxModule,
-    NzDatePickerModule, NzDropDownModule, NzInputNumberModule, NzPopoverModule, NzSelectModule, NzToolTipModule, PaginationBarComponent, RevealDirective, StatusTagComponent],
-  providers: [provideNzIconsPatch([FilterFill, HolderOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline, UndoOutline])],
+    NzDatePickerModule, NzDropDownModule, NzInputNumberModule, NzMenuModule, NzPopoverModule, NzSelectModule, NzToolTipModule, PaginationBarComponent, RevealDirective, RowActionsComponent, StatusTagComponent],
+  providers: [provideNzIconsPatch([ColumnHeightOutline, FilterFill, HolderOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline, UndoOutline])],
   styles: [`.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; } .bar .search { max-width: 320px; } .spacer { flex: 1; } tr.clickable { cursor: pointer; }
     :host { display: block; min-width: 0; max-width: 100%; } td[nzAlign=right], td[style*="right"] { white-space: nowrap; }
-    .note { color: #8c8c8c; font-size: 12px; }
+    .note { color: var(--erp-color-text-muted); font-size: 12px; } .density-size { color: var(--erp-color-text-muted); font-size: 12px; margin-inline-start: 12px; font-variant-numeric: tabular-nums; }
     .flt { padding: 8px; width: 240px; display: flex; flex-direction: column; gap: 8px; } .flt .row { display: flex; gap: 8px; } .flt .row > * { flex: 1; }
     .flt .btns { display: flex; justify-content: space-between; gap: 8px; }
     .cols { min-width: 260px; max-height: 360px; overflow: auto; } .col { display: flex; align-items: center; gap: 6px; padding: 4px 2px; background: inherit; }
-    .col .handle { cursor: move; color: #8c8c8c; } .col label { flex: 1; min-width: 0; } .col .on { color: #1677ff; background: rgba(22,119,255,.08); }
-    .cdk-drag-preview { background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.15); display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; }
+    .col .handle { cursor: move; color: var(--erp-color-text-muted); } .col label { flex: 1; min-width: 0; } .col .on { color: var(--erp-color-primary-text); background: var(--erp-color-primary-subtle); }
+    .cdk-drag-preview { background: var(--erp-color-bg-surface-raised); box-shadow: var(--erp-shadow-3); display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; }
     .cdk-drag-placeholder { opacity: .3; } .cdk-drop-list-dragging .col:not(.cdk-drag-placeholder) { transition: transform 200ms ease; }
     .reset { margin-top: 8px; }
     .col .pin { flex: none; }
-    .grid { position: relative; border-radius: 8px; } .grid:focus-visible { outline: 2px solid var(--erp-color-focus-ring, rgba(22,119,255,.4)); outline-offset: 2px; }
-    .grid.proxied ::ng-deep .ant-table-content, .grid.proxied ::ng-deep .ant-table-body { scrollbar-width: none; }
-    .grid.proxied ::ng-deep .ant-table-content::-webkit-scrollbar, .grid.proxied ::ng-deep .ant-table-body::-webkit-scrollbar { display: none; }
+    .grid { position: relative; border-radius: 8px; } .grid:focus-visible { outline: 2px solid var(--erp-color-focus-ring); outline-offset: 2px; }
+    .grid.proxied ::ng-deep .ant-table-content::-webkit-scrollbar:horizontal, .grid.proxied ::ng-deep .ant-table-body::-webkit-scrollbar:horizontal { height: 0; }
+    @supports not selector(::-webkit-scrollbar) { .grid.proxied ::ng-deep .ant-table-content, .grid.proxied ::ng-deep .ant-table-body { scrollbar-width: none; } }
     .foot { position: sticky; bottom: 0; z-index: 3; background: var(--erp-color-bg-surface, #fff); border-top: 1px solid var(--erp-color-border-subtle, #f0f0f0); padding: 0 4px; }
     .hscroll { overflow-x: auto; overflow-y: hidden; height: 14px; margin: 2px 0 0; cursor: pointer; }
     .hscroll[hidden] { display: none; }
@@ -133,6 +142,15 @@ function humanizeValue(v: string): string {
           <span nz-icon nzType="download"></span> {{ t('table.exportCsv', 'Export CSV') }}
         </button>
       }
+      <button nz-button nz-dropdown nzTrigger="click" nzPlacement="bottomRight" [nzDropdownMenu]="densityMenu" nz-tooltip [nzTooltipTitle]="t('table.rowHeight', 'Row height')"
+              [attr.aria-label]="t('table.rowHeight', 'Row height')" data-testid="table-density"><span nz-icon nzType="column-height"></span></button>
+      <nz-dropdown-menu #densityMenu="nzDropdownMenu">
+        <ul nz-menu>
+          @for (d of densities; track d.key) {
+            <li nz-menu-item [nzSelected]="density.mode() === d.key" (click)="density.set(d.key)" [attr.data-testid]="'table-density-' + d.key">{{ t(d.labelKey, d.label) }}<span class="density-size"><bdi dir="ltr">{{ d.height }}</bdi></span></li>
+          }
+        </ul>
+      </nz-dropdown-menu>
       @if (configurable()) {
         <button nz-button nz-popover nzPopoverTrigger="click" [nzPopoverContent]="colPanel" [nzPopoverTitle]="t('table.columns', 'Columns')" nzPopoverPlacement="bottomRight" data-testid="table-columns">
           <span nz-icon nzType="setting"></span> {{ t('table.columns', 'Columns') }}
@@ -162,9 +180,9 @@ function humanizeValue(v: string): string {
       <thead>
         <tr>
           @for (v of visibleColumns(); track v.key) {
-            <th [nzColumnKey]="v.col.sortField ?? v.key" [nzShowSort]="!!v.col.sortField" [nzSortFn]="!!v.col.sortField" [nzWidth]="v.col.width ?? null" [nzAlign]="v.col.align ?? null"
+            <th [nzColumnKey]="v.col.sortField ?? v.key" [nzShowSort]="!!v.col.sortField" [nzSortFn]="!!v.col.sortField" [nzWidth]="v.col.width ?? null" [nzAlign]="aligns()[v.key]"
                 [nzLeft]="v.pin === 'left'" [nzRight]="v.pin === 'right'" [nzCustomFilter]="!!kinds()[v.key]">
-              {{ v.col.label }}
+              @if (v.key === 'actions') { <span class="erp-visually-hidden">{{ v.col.label || t('table.rowActions', 'Row actions') }}</span> } @else { {{ v.col.label }} }
               @if (kinds()[v.key]; as kind) {
                 <ng-container ngProjectAs="nz-filter-trigger">
                 <nz-filter-trigger [nzVisible]="openKey() === v.key" (nzVisibleChange)="onFilterOpen(v.key, $event)" [nzActive]="isActive(v.key)" [nzDropdownMenu]="menu" [attr.data-testid]="'filter-' + v.key">
@@ -203,8 +221,10 @@ function humanizeValue(v: string): string {
         @for (row of tbl.data; track $index) {
           <tr [erpKeyboardClick]="clickable()" erpKeyboardClickRole="" [class.clickable]="clickable()" (click)="rowClick.emit(row)" [attr.data-testid]="'row-' + $index">
             @for (v of visibleColumns(); track v.key) {
-              <td [nzAlign]="v.col.align ?? null" [nzLeft]="v.pin === 'left'" [nzRight]="v.pin === 'right'">
-                @if (cell(); as tpl) { <ng-container *ngTemplateOutlet="tpl; context: { $implicit: row, column: v.col, value: display(row, v.col) }" /> }
+              <td [nzAlign]="aligns()[v.key]" [nzLeft]="v.pin === 'left'" [nzRight]="v.pin === 'right'" [class.erp-cell-actions]="v.key === 'actions'">
+                @if (v.key === 'actions' && cell(); as tpl) {
+                  <erp-row-actions><ng-container *ngTemplateOutlet="tpl; context: { $implicit: row, column: v.col, value: display(row, v.col) }" /></erp-row-actions>
+                } @else if (cell(); as tpl) { <ng-container *ngTemplateOutlet="tpl; context: { $implicit: row, column: v.col, value: display(row, v.col) }" /> }
                 @else if (isStatusColumn(v.col)) { <erp-status [value]="read(row, v.col)" /> }
                 @else { {{ display(row, v.col) }} }
               </td>
@@ -239,6 +259,8 @@ export class PagedTableComponent<T> {
   private readonly message = inject(NzMessageService);
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute, { optional: true });
+  readonly density = inject(TableDensityService);
+  readonly densities = TABLE_DENSITIES;
 
   readonly list = input.required<PagedList<T>>();
   readonly columns = input.required<TableColumn<T>[]>();
@@ -287,12 +309,13 @@ export class PagedTableComponent<T> {
       order.splice(prev ? order.indexOf(prev) + 1 : 0, 0, k);
     });
     const byKey = new Map(cols.map((c) => [c.key, c]));
+    const isHidden = (k: string) => l.hidden.includes(k) || (!!byKey.get(k)!.hidden && !l.shown.includes(k));
+    const first = order.find((k) => !isHidden(k));
     return order.map((k) => {
       const col = byKey.get(k)!;
       const saved = l.pins[k];
-      const pin: ColumnPin | null = saved === 'none' ? null : saved ?? this.defaultPin(col, keys.indexOf(k));
-      const hidden = l.hidden.includes(k) || (!!col.hidden && !l.shown.includes(k));
-      return { col, key: k, pin, hidden };
+      const pin: ColumnPin | null = saved === 'none' ? null : saved ?? this.defaultPin(col, k === first);
+      return { col, key: k, pin, hidden: isHidden(k) };
     });
   });
   /** Rendered columns: start-pinned first, then free, then end-pinned (sticky cells must sit at the edges). */
@@ -302,16 +325,32 @@ export class PagedTableComponent<T> {
     return [...v.filter((c) => c.pin === 'left'), ...v.filter((c) => !c.pin), ...v.filter((c) => c.pin === 'right')];
   });
   readonly visibleCount = computed(() => this.allColumns().filter((c) => !c.hidden).length);
-  readonly scroll = computed(() => {
-    const x = this.scrollX();
-    if (x) return { x };
-    return this.visibleColumns().some((c) => c.pin) ? { x: 'max-content' } : {};
-  });
+  /** Every table can scroll sideways, so its pinned columns hold when a narrow screen or a long value makes it wider than the page. */
+  readonly scroll = computed(() => ({ x: this.scrollX() ?? 'max-content' }));
 
-  private defaultPin(c: TableColumn<T>, index: number): ColumnPin | null {
+  private defaultPin(c: TableColumn<T>, first: boolean): ColumnPin | null {
     if (c.sticky) return c.sticky;
     if (c.key === 'actions') return 'right';
-    return index === 0 && !!this.scrollX() ? 'left' : null;
+    return first ? 'left' : null;
+  }
+
+  /** Numbers and amounts line up at the end of the cell; everything else follows the text. */
+  readonly aligns = computed((): Record<string, 'left' | 'right' | null> => {
+    const out: Record<string, 'left' | 'right' | null> = {};
+    const items = this.list().items();
+    for (const c of this.columns()) out[c.key] = c.align ?? this.inferredAlign(c, items);
+    return out;
+  });
+
+  private inferredAlign(c: TableColumn<T>, items: T[]): 'right' | null {
+    if (c.key === 'actions') return 'right';
+    if (IDENTIFIER_KEY.test(c.key)) return null;
+    for (const row of items) {
+      const shown = this.read(row, c);
+      if (shown === '' || shown === null || shown === undefined) continue;
+      return typeof shown === 'number' || (typeof shown === 'string' && AMOUNT_TEXT.test(shown.trim())) ? 'right' : null;
+    }
+    return null;
   }
 
   setVisible(key: string, visible: boolean): void {
@@ -531,6 +570,7 @@ export class PagedTableComponent<T> {
   /** What a cell shows: dates in the shared format and API values in words. Sorting, filtering and exports keep the raw value. */
   display(row: T, c: TableColumn<T>): unknown {
     const v = this.read(row, c);
+    if (v === '' || v === null || v === undefined) return c.key === 'actions' ? '' : EMPTY_CELL;
     if (isIsoDate(v)) return displayDate(v);
     return ENUM_KEY.test(c.key) && !c.value ? displayLabel(v) : v;
   }

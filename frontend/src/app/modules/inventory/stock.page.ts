@@ -73,20 +73,20 @@ type Action = 'receive' | 'issue' | 'adjust' | 'transfer' | 'policy';
     } @else {
     <div style="background:var(--erp-color-bg-surface, #ffffff);border:1px solid var(--erp-color-border-subtle, #edf2f7);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
       <nz-table [nzData]="shown()" [nzLoading]="!data()" nzSize="middle" [nzFrontPagination]="false" [nzShowPagination]="false" [nzNoResult]="noStock" data-testid="stock-table">
-        <thead><tr><th>SKU</th><th>Item</th><th>Warehouse</th><th style="text-align:right">Quantity</th><th style="text-align:right">Avg cost</th><th style="text-align:right">Value</th></tr></thead>
+        <thead><tr><th>SKU</th><th>Item</th><th>Warehouse</th><th style="text-align:end">Quantity</th><th style="text-align:end">Avg cost</th><th style="text-align:end">Value</th></tr></thead>
         <tbody>
           @for (r of shown(); track r.warehouseId + r.itemId) {
             <tr [class.low-row]="lowIds().has(r.itemId)">
               <td><span class="code-pill">{{ r.sku }}</span></td>
               <td><span class="name-cell">{{ r.item }}</span></td>
               <td><nz-tag>{{ r.warehouse }}</nz-tag></td>
-              <td style="text-align:right;white-space:nowrap">@if (lowIds().has(r.itemId)) { <nz-tag class="low-tag" nzColor="orange">Low</nz-tag> }{{ r.quantity | number: '1.0-4' }} {{ r.uom }}</td>
-              <td style="text-align:right;white-space:nowrap">{{ currency() }} {{ r.averageCost | number: '1.2-2' }}</td>
-              <td style="text-align:right;white-space:nowrap"><b>{{ currency() }} {{ r.value | number: '1.2-2' }}</b></td>
+              <td style="text-align:end;white-space:nowrap">@if (lowIds().has(r.itemId)) { <nz-tag class="low-tag" nzColor="orange">Low</nz-tag> }{{ r.quantity | number: '1.0-4' }} {{ r.uom }}</td>
+              <td style="text-align:end;white-space:nowrap">{{ currency() }} {{ r.averageCost | number: '1.2-2' }}</td>
+              <td style="text-align:end;white-space:nowrap"><b>{{ currency() }} {{ r.value | number: '1.2-2' }}</b></td>
             </tr>
           }
         </tbody>
-        @if (data(); as d) { <tfoot><tr><td colspan="5"><b>Total value</b></td><td style="text-align:right;white-space:nowrap"><b data-testid="stock-total">{{ currency() }} {{ d.totalValue | number: '1.2-2' }}</b></td></tr></tfoot> }
+        @if (data(); as d) { <tfoot><tr><td colspan="5"><b>Total value</b></td><td style="text-align:end;white-space:nowrap"><b data-testid="stock-total">{{ currency() }} {{ d.totalValue | number: '1.2-2' }}</b></td></tr></tfoot> }
       </nz-table>
     </div>
     <ng-template #noStock>

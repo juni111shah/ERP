@@ -166,7 +166,7 @@ import { problemMessage } from '../../core/http/problem-details';
               </button>
             </div>
 
-            <nz-table #loadedTable [nzData]="loadedItems()" nzSize="small" [nzBordered]="true" [nzShowPagination]="false" [nzFrontPagination]="false" nzNoResult="Nothing loaded yet. Choose an item above." style="margin-top: 12px">
+            <nz-table #loadedTable [nzData]="loadedItems()" nzSize="small" [nzShowPagination]="false" [nzFrontPagination]="false" nzNoResult="Nothing loaded yet. Choose an item above." style="margin-top: 12px">
               <thead>
                 <tr>
                   <th>Item</th>
@@ -215,7 +215,7 @@ import { problemMessage } from '../../core/http/problem-details';
               </div>
             </div>
 
-            <nz-table #recTable [nzData]="reconcileLines" nzSize="small" [nzBordered]="true" [nzShowPagination]="false" [nzFrontPagination]="false" nzNoResult="No items were recorded as loaded on this trip.">
+            <nz-table #recTable [nzData]="reconcileLines" nzSize="small" [nzShowPagination]="false" [nzFrontPagination]="false" nzNoResult="No items were recorded as loaded on this trip.">
               <thead>
                 <tr>
                   <th>Item</th>
@@ -303,7 +303,7 @@ import { problemMessage } from '../../core/http/problem-details';
 
             <div class="manifest-section">
               <h4>Stock on this trip</h4>
-              <nz-table #manTable [nzData]="trip.inventoryItems" nzSize="small" [nzBordered]="true" [nzShowPagination]="false" [nzFrontPagination]="false" nzNoResult="No items were recorded as loaded on this trip.">
+              <nz-table #manTable [nzData]="trip.inventoryItems" nzSize="small" [nzShowPagination]="false" [nzFrontPagination]="false" nzNoResult="No items were recorded as loaded on this trip.">
                 <thead>
                   <tr>
                     <th>Item</th>

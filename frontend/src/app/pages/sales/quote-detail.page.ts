@@ -151,12 +151,12 @@ import { displayLabel } from '../../core/format/display';
               <tr>
                 <th style="width: 140px;">Item Code</th>
                 <th>Description</th>
-                <th style="width: 90px; text-align: right;">Quantity</th>
+                <th style="width: 90px; text-align: end;">Quantity</th>
                 <th style="width: 80px;">UoM</th>
-                <th style="width: 130px; text-align: right;">Unit Price</th>
-                <th style="width: 100px; text-align: right;">Disc %</th>
-                <th style="width: 100px; text-align: right;">Tax %</th>
-                <th style="width: 150px; text-align: right;">Line Total</th>
+                <th style="width: 130px; text-align: end;">Unit Price</th>
+                <th style="width: 100px; text-align: end;">Disc %</th>
+                <th style="width: 100px; text-align: end;">Tax %</th>
+                <th style="width: 150px; text-align: end;">Line Total</th>
               </tr>
             </thead>
             <tbody>
@@ -164,12 +164,12 @@ import { displayLabel } from '../../core/format/display';
                 <tr>
                   <td><strong>{{ item.itemCode || '-' }}</strong></td>
                   <td>{{ item.description }}</td>
-                  <td style="text-align: right;">{{ item.quantity | number:'1.0-2' }}</td>
+                  <td style="text-align: end;">{{ item.quantity | number:'1.0-2' }}</td>
                   <td>{{ item.unitOfMeasure }}</td>
-                  <td style="text-align: right;">{{ item.unitPrice | number:'1.2-2' }}</td>
-                  <td style="text-align: right;">{{ item.discountPercent }}%</td>
-                  <td style="text-align: right;">{{ item.taxRate }}%</td>
-                  <td style="text-align: right; font-weight: 600;">{{ item.lineTotal | number:'1.2-2' }}</td>
+                  <td style="text-align: end;">{{ item.unitPrice | number:'1.2-2' }}</td>
+                  <td style="text-align: end;">{{ item.discountPercent }}%</td>
+                  <td style="text-align: end;">{{ item.taxRate }}%</td>
+                  <td style="text-align: end; font-weight: 600;">{{ item.lineTotal | number:'1.2-2' }}</td>
                 </tr>
               }
             </tbody>

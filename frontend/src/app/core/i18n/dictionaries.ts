@@ -15,6 +15,7 @@ export const EN: Dictionary = {
   'ui.overview.range.bucket.week': 'by week', 'ui.overview.range.bucket.month': 'by month', 'ui.overview.range.bucket.quarter': 'by quarter',
   'kpi.cash.caption': 'all bank and cash accounts, at {date}',
   // shared data table
+  'table.rowHeight': 'Row height', 'table.densityCompact': 'Compact', 'table.densityDefault': 'Default', 'table.densityComfortable': 'Comfortable', 'table.rowActions': 'Row actions',
   'table.columns': 'Columns', 'table.clearFilters': 'Clear filters', 'table.resetLayout': 'Reset layout', 'table.pinStart': 'Pin to start', 'table.pinEnd': 'Pin to end',
   'table.dragToReorder': 'Drag to reorder', 'table.contains': 'Contains…', 'table.any': 'Any', 'table.min': 'Min', 'table.max': 'Max', 'table.reset': 'Reset', 'table.apply': 'Apply',
   'table.pageFilterNote': 'Showing', 'table.onThisPage': 'on this page', 'table.exportCsv': 'Export CSV', 'table.noExport': 'No data to export', 'table.exported': 'CSV exported successfully',
@@ -187,6 +188,7 @@ export const AR: Dictionary = {
   'ui.overview.range.bucket.week': 'حسب الأسبوع', 'ui.overview.range.bucket.month': 'حسب الشهر', 'ui.overview.range.bucket.quarter': 'حسب الربع',
   'kpi.cash.caption': 'جميع الحسابات البنكية والنقدية في {date}',
   // shared data table
+  'table.rowHeight': 'ارتفاع الصف', 'table.densityCompact': 'مضغوط', 'table.densityDefault': 'افتراضي', 'table.densityComfortable': 'مريح', 'table.rowActions': 'إجراءات الصف',
   'table.columns': 'الأعمدة', 'table.clearFilters': 'مسح عوامل التصفية', 'table.resetLayout': 'إعادة ضبط التخطيط', 'table.pinStart': 'تثبيت في البداية', 'table.pinEnd': 'تثبيت في النهاية',
   'table.dragToReorder': 'اسحب لإعادة الترتيب', 'table.contains': 'يحتوي على…', 'table.any': 'الكل', 'table.min': 'الحد الأدنى', 'table.max': 'الحد الأقصى', 'table.reset': 'إعادة تعيين', 'table.apply': 'تطبيق',
   'table.pageFilterNote': 'عرض', 'table.onThisPage': 'في هذه الصفحة', 'table.exportCsv': 'تصدير CSV', 'table.noExport': 'لا توجد بيانات للتصدير', 'table.exported': 'تم تصدير ملف CSV بنجاح',

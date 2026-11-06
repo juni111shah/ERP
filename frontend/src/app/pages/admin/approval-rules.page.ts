@@ -17,13 +17,14 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TableToolsComponent } from '../../shared/table-tools.component';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 
 /** Approval rules: documents of a type at or above an amount need another person's approval before they post. */
 @Component({
   selector: 'erp-approval-rules',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, NzModalModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, FormsModule, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputNumberModule, NzSelectModule, NzSwitchModule, NzTableModule],
+  imports: [RowActionsComponent, ErpLabelPipe, NzModalModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, FormsModule, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputNumberModule, NzSelectModule, NzSwitchModule, NzTableModule],
   template: `
     <h1 class="erp-page-title">Approval rules</h1>
     <p>A document that matches a rule waits for a second person (with the approve permission) before it is posted.</p>
@@ -39,7 +40,7 @@ import { TableToolsComponent } from '../../shared/table-tools.component';
               <td><span style="font-weight:600;">{{ r.documentType === 'bill' ? 'Vendor bill' : (r.documentType | erpLabel) }}</span></td>
               <td><strong>{{ r.minAmount != null ? (r.minAmount | number:'1.2-2') : 'Any amount' }}</strong></td>
               <td><nz-switch [ngModel]="r.isActive" (ngModelChange)="toggle(r, $event)" [disabled]="!canWrite" aria-label="Rule is active" /></td>
-              <td><button *erpHasPermission="'core.settings.write'" nz-button nzDanger nzSize="small" type="button" (click)="remove(r)" data-testid="rule-delete">Delete</button></td>
+              <td class="erp-cell-actions"><erp-row-actions><button *erpHasPermission="'core.settings.write'" nz-button nzDanger nzSize="small" type="button" (click)="remove(r)" data-testid="rule-delete">Delete</button></erp-row-actions></td>
             </tr>
           }
         </tbody>

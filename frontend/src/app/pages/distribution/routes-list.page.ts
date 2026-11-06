@@ -201,7 +201,7 @@ import { SessionStore } from '../../core/session/session.store';
                 </button>
               </div>
 
-              <nz-table #stopsTable [nzData]="r.stops" nzSize="small" [nzBordered]="true" [nzShowPagination]="false" [nzFrontPagination]="false">
+              <nz-table #stopsTable [nzData]="r.stops" nzSize="small" [nzShowPagination]="false" [nzFrontPagination]="false">
                 <thead>
                   <tr>
                     <th nzWidth="60px">Order</th>

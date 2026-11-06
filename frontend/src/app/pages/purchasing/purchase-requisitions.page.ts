@@ -331,7 +331,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
     .lines-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .lines-table th { background: var(--erp-color-bg-subtle); padding: 8px; text-align: left; font-weight: 600; color: var(--erp-color-text-secondary); border: 1px solid var(--erp-color-border-subtle); }
     .lines-table td { padding: 4px; border: 1px solid var(--erp-color-border-subtle); vertical-align: middle; }
-    .line-calc { text-align: right; padding-inline-end: 8px; font-weight: 600; color: var(--erp-color-text-primary); }
+    .line-calc { text-align: end; padding-inline-end: 8px; font-weight: 600; color: var(--erp-color-text-primary); }
     .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; border-top: 1px solid var(--erp-color-border-subtle); padding-top: 16px; }
   `],
 })

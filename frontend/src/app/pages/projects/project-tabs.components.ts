@@ -30,6 +30,7 @@ import { ProjectTimesheetsPage } from './project-timesheets.page';
 import { errorText, PRJ_STYLES, ProjectTagComponent } from './projects-ui';
 import { TaskDrawerComponent } from './task-drawer.component';
 import { ErpLabelPipe, ErpDatePipe } from '../../shared/display.pipes';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 
 const today = (): string => toIsoDate(new Date());
 const SUBTABS = `
@@ -437,7 +438,7 @@ export class ProjectMoneyComponent {
   selector: 'erp-project-team',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzInputModule, NzSelectModule, HasPermissionDirective],
+  imports: [RowActionsComponent, DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzInputModule, NzSelectModule, HasPermissionDirective],
   template: `
     <div class="prj-card">
       <h3>Team</h3>
@@ -447,7 +448,7 @@ export class ProjectMoneyComponent {
           <tbody>
             @for (m of members(); track m.id) {
               <tr><td class="prj-strong">{{ m.name }}</td><td>{{ m.role }}</td><td class="prj-num">{{ plannedFor(m.userId) | number: '1.0-1' }}</td>
-                <td class="prj-num"><button *erpHasPermission="'projects.team.manage'" nz-button nzSize="small" nzDanger (click)="remove(m)">Remove</button></td></tr>
+                <td class="erp-cell-actions prj-num"><erp-row-actions><button *erpHasPermission="'projects.team.manage'" nz-button nzSize="small" nzDanger (click)="remove(m)">Remove</button></erp-row-actions></td></tr>
             } @empty { <tr><td colspan="4" class="prj-empty">No team members yet.</td></tr> }
           </tbody>
         </table>

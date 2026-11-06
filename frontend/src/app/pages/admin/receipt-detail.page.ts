@@ -77,14 +77,14 @@ interface Receipt {
               <thead>
                 <tr>
                   <th>Invoice Number</th>
-                  <th style="width: 150px; text-align: right;">Amount Applied</th>
+                  <th style="width: 150px; text-align: end;">Amount Applied</th>
                 </tr>
               </thead>
               <tbody>
                 @for (alloc of allocTable.data; track alloc.id) {
                   <tr>
                     <td><a [routerLink]="['/finance/invoices', alloc.invoiceId]">{{ alloc.invoiceNumber }}</a></td>
-                    <td style="text-align: right;">{{ money(alloc.amount) }}</td>
+                    <td style="text-align: end;">{{ money(alloc.amount) }}</td>
                   </tr>
                 }
               </tbody>

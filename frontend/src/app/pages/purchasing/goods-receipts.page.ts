@@ -94,7 +94,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
                 <tr>
                   <th>Code</th>
                   <th>Description</th>
-                  <th style="width: 120px; text-align: right;">Qty Received</th>
+                  <th style="width: 120px; text-align: end;">Qty Received</th>
                 </tr>
               </thead>
               <tbody>
@@ -102,7 +102,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
                   <tr>
                     <td><strong>{{ item.itemCode || '-' }}</strong></td>
                     <td>{{ item.description }}</td>
-                    <td style="text-align: right; font-weight: 600; color: var(--erp-color-primary);">
+                    <td style="text-align: end; font-weight: 600; color: var(--erp-color-primary);">
                       {{ item.quantityReceived | number:'1.0-2' }} {{ item.unitOfMeasure }}
                     </td>
                   </tr>

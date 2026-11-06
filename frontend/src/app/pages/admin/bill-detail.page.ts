@@ -60,7 +60,7 @@ interface Bill {
     .line-items-table { margin-top: 16px; }
     .totals-section {
       margin-top: 16px;
-      text-align: right;
+      text-align: end;
     }
     .total-row {
       display: flex;
@@ -102,10 +102,10 @@ interface Bill {
               <tr>
                 <th style="width: 40px;">#</th>
                 <th>Description</th>
-                <th style="width: 100px; text-align: right;">Quantity</th>
-                <th style="width: 120px; text-align: right;">Price</th>
-                <th style="width: 120px; text-align: right;">Tax</th>
-                <th style="width: 140px; text-align: right;">Net Amount</th>
+                <th style="width: 100px; text-align: end;">Quantity</th>
+                <th style="width: 120px; text-align: end;">Price</th>
+                <th style="width: 120px; text-align: end;">Tax</th>
+                <th style="width: 140px; text-align: end;">Net Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -113,10 +113,10 @@ interface Bill {
                 <tr>
                   <td>{{ line.seq }}</td>
                   <td>{{ line.description }}</td>
-                  <td style="text-align: right;">{{ line.quantity }}</td>
-                  <td style="text-align: right;">{{ money(line.price) }}</td>
-                  <td style="text-align: right;">{{ money(line.taxAmount) }}</td>
-                  <td style="text-align: right;">{{ money(line.net) }}</td>
+                  <td style="text-align: end;">{{ line.quantity }}</td>
+                  <td style="text-align: end;">{{ money(line.price) }}</td>
+                  <td style="text-align: end;">{{ money(line.taxAmount) }}</td>
+                  <td style="text-align: end;">{{ money(line.net) }}</td>
                 </tr>
               }
             </tbody>

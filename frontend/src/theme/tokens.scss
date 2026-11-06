@@ -837,8 +837,9 @@ $erp-type-roles: (
   --erp-drawer-width-lg: 880px;
   --erp-drawer-width-xl: 1120px;
   --erp-form-max-width: 960px;     // forms / wizards (their `content-max-width`, see token-mapping.md)
-  --erp-table-row-height-comfortable: 44px;
-  --erp-table-row-height-compact: 32px;
+  --erp-table-row-height-compact: 40px;
+  --erp-table-row-height-default: 48px;
+  --erp-table-row-height-comfortable: 56px;
   // Breakpoints (T13) — ng-zorro defaults, informational (media queries use the SCSS map)
   @each $k, $v in $erp-breakpoints { --erp-bp-#{$k}: #{$v}; }
 

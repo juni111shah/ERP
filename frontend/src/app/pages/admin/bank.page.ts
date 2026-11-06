@@ -30,11 +30,12 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
 import { countOf } from './finance-kpis';
+import { RowActionsComponent } from '../../shared/row-actions.component';
 @Component({
   selector: 'erp-bank',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, NzSpinModule, StatePanelComponent, PaginationBarComponent, KeyboardClickDirective, NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
+  imports: [RowActionsComponent, ErpDatePipe, NzSpinModule, StatePanelComponent, PaginationBarComponent, KeyboardClickDirective, NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
   styles: [`
     .bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center }
     .bank-accounts-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:24px }
@@ -190,7 +191,7 @@ import { countOf } from './finance-kpis';
                 <td class="num" [class.amt-inflow]="l.amount > 0" [class.amt-outflow]="l.amount < 0">
                   {{ l.amount < 0 ? '- ' + currency() + ' ' + ((-l.amount) | number: '1.2-2') : currency() + ' ' + (l.amount | number: '1.2-2') }}
                 </td>
-                <td class="nowrap"><button *erpHasPermission="'finance.bank.write'" nz-button nzType="link" nzSize="small" type="button" (click)="startBook(l)" data-testid="rec-book">Book it</button></td>
+                <td class="erp-cell-actions nowrap"><erp-row-actions><button *erpHasPermission="'finance.bank.write'" nz-button nzType="link" nzSize="small" type="button" (click)="startBook(l)" data-testid="rec-book">Book it</button></erp-row-actions></td>
               </tr>
             }
           </tbody>

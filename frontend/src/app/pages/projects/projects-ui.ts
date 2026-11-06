@@ -95,7 +95,7 @@ export const PRJ_STYLES = `
   .prj-muted { color:var(--erp-color-text-secondary,#64748b); font-size:12.5px; }
   .prj-link { font-weight:600; color:var(--erp-color-primary,#10955d); text-decoration:none; } .prj-link:hover { text-decoration:underline; }
   .prj-strong { font-weight:600; color:var(--erp-color-text-primary,#0f172a); }
-  .prj-danger { color:#cf1322; } .prj-num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .prj-danger { color:#cf1322; } .prj-num { text-align:end; white-space:nowrap; font-variant-numeric:tabular-nums; }
   .prj-empty { color:var(--erp-color-text-secondary,#64748b); text-align:center; padding:24px 8px; font-size:13px; }
   .prj-chips { display:flex; gap:6px; flex-wrap:wrap; }
   .prj-chip { border:1px solid var(--erp-color-border-subtle,#e2e8f0); background:var(--erp-color-bg-surface,#fff); color:var(--erp-color-text-secondary,#475569); border-radius:999px; padding:3px 12px; font-size:12.5px; cursor:pointer; }

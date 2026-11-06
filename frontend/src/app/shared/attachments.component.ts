@@ -15,6 +15,7 @@ import { asProblem } from '../core/http/problem-details';
 import { HasPermissionDirective } from './has-permission.directive';
 import { matchText, TableToolsComponent } from './table-tools.component';
 import { ErpLabelPipe, ErpDatePipe } from './display.pipes';
+import { RowActionsComponent } from './row-actions.component';
 
 export interface AttachmentItem { id: string; fileName: string; contentType: string; sizeBytes: number; createdAt: string; category?: string; description?: string; expiresOn?: string; }
 
@@ -30,7 +31,7 @@ export function daysUntil(date?: string | null): number | null {
   selector: 'erp-attachments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, ErpDatePipe, TableToolsComponent, DatePipe, FormsModule, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzTableModule, NzTagModule],
+  imports: [RowActionsComponent, ErpLabelPipe, ErpDatePipe, TableToolsComponent, DatePipe, FormsModule, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzTableModule, NzTagModule],
   template: `
     <h3>Documents</h3>
     <erp-table-tools [(search)]="q" (refresh)="load()" testId="attachments"></erp-table-tools>
@@ -43,7 +44,7 @@ export function daysUntil(date?: string | null): number | null {
             <td>{{ a.category | erpLabel }}</td>
             <td>@if (a.expiresOn) { <nz-tag [nzColor]="tone(a.expiresOn)">{{ a.expiresOn | erpDate }}</nz-tag> }</td>
             <td>{{ a.createdAt | date: 'dd MMM yyyy' }}</td>
-            <td><button aria-label="Remove" *erpHasPermission="'core.attachments.write'" nz-button nzType="text" nzSize="small" (click)="remove(a)"><span nz-icon nzType="delete"></span></button></td>
+            <td class="erp-cell-actions"><erp-row-actions><button aria-label="Remove" *erpHasPermission="'core.attachments.write'" nz-button nzType="text" nzSize="small" (click)="remove(a)"><span nz-icon nzType="delete"></span></button></erp-row-actions></td>
           </tr>
         } @empty { <tr><td colspan="5">No documents yet.</td></tr> }
       </tbody>
