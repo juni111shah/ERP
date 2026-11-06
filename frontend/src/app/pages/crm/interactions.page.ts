@@ -7,7 +7,6 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -26,6 +25,8 @@ import { createPagedList } from '../../core/api/paged-list';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { ErpDatePipe, ErpLabelPipe } from '../../shared/display.pipes';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 @Component({
   selector: 'erp-interactions-page',
@@ -39,7 +40,7 @@ import { ErpDatePipe, ErpLabelPipe } from '../../shared/display.pipes';
     NzTagModule,
     NzBadgeModule,
     NzDrawerModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzDatePickerModule,
     NzSelectModule,
@@ -385,7 +386,7 @@ export class InteractionsPageComponent implements OnInit {
 
   saveActivity(): void {
     if (this.activityForm.invalid) {
-      Object.values(this.activityForm.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      showFormErrors(this.activityForm);
       return;
     }
     const v = this.activityForm.value;

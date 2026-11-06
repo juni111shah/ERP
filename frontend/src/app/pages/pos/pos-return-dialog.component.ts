@@ -82,7 +82,7 @@ interface ReturnRow {
                   }
                 </div>
                 @if (method() === 'card' || method() === 'other') {
-                  <input class="ref" nz-input placeholder="Reference (optional)" aria-label="Refund reference" [ngModel]="reference()" (ngModelChange)="reference.set($event)" />
+                  <label class="erp-inline-field ref" style="display:flex">Reference (optional)<input nz-input [ngModel]="reference()" (ngModelChange)="reference.set($event)" /></label>
                 }
               </div>
 

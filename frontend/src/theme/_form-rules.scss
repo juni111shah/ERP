@@ -1,0 +1,65 @@
+// Forms across the whole app: browser autofill and the summary after a failed submit.
+// (A field's error needs nothing here: ng-zorro swaps the 24px margin under each field for a 24px error line, so nothing below it moves.)
+
+// The browser paints autofilled fields its own pale colour and offers no way to turn that off. A long inset shadow covers it with the
+// field's own surface, and the text stays readable. The transition keeps the browser's colour from flashing in.
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--erp-color-text-primary) !important;
+  caret-color: var(--erp-color-text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--erp-color-bg-surface) inset !important;
+  box-shadow: 0 0 0 1000px var(--erp-color-bg-surface) inset !important;
+  transition: background-color 99999s ease-in-out 0s;
+}
+
+// The summary at the top of a form.
+erp-form-error-summary { display: block; grid-column: 1 / -1; }
+erp-form-error-summary:empty { display: none; }
+
+.erp-form-summary {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--erp-color-error-bg);
+  border: 1px solid var(--erp-color-error-border, var(--erp-color-error-text));
+  border-radius: 8px;
+  color: var(--erp-color-text-primary);
+  outline: none;
+
+  &:focus-visible { box-shadow: 0 0 0 2px var(--erp-color-focus-ring); }
+
+  ul { margin: 6px 0 0; padding: 0; list-style: none; }
+  li + li { margin-top: 2px; }
+
+  button {
+    padding: 2px 0;
+    border: 0;
+    background: none;
+    color: var(--erp-color-error-text);
+    font: inherit;
+    text-align: start;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+
+    &:hover { text-decoration-thickness: 2px; }
+    &:focus-visible { outline: 2px solid var(--erp-color-focus-ring); outline-offset: 1px; border-radius: 2px; }
+  }
+}
+
+.erp-form-summary__title { display: block; font-weight: 600; }
+
+// A label kept above a small field that lives outside nz-form-item (toolbars, inline composers, dialogs).
+.erp-inline-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--erp-color-text-secondary);
+}

@@ -2,15 +2,15 @@ import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { LeaveApi, LeaveBalanceRow } from './hr.api';
+import { ErpTableModule } from '../../shared/erp-table.module';
 
 /** Leave balance per employee and leave type for a year: entitled + carried - taken, with requests still waiting. */
 @Component({
   selector: 'erp-leave-balances',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, NzInputNumberModule, NzTableModule],
+  imports: [DecimalPipe, FormsModule, NzInputNumberModule, ErpTableModule],
   template: `
     <h1 class="erp-page-title">Leave balances</h1>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><span>Year</span>

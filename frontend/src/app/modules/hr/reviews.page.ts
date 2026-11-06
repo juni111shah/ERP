@@ -59,9 +59,9 @@ const DEFAULT_COMPETENCIES = ['Job knowledge', 'Quality of work', 'Communication
         <div class="comp-head" aria-hidden="true"><span>Competency</span><span>Score (1 to 5)</span><span>Notes</span><span></span></div>
         @for (c of competencies(); track $index; let i = $index) {
           <div style="display:grid;grid-template-columns:1.3fr 90px 1.5fr 32px;gap:8px;margin-bottom:8px;align-items:center">
-            <input [attr.aria-label]="'Competency ' + (i + 1)" nz-input placeholder="Competency" [ngModel]="c.name" (ngModelChange)="patch(i, { name: $event })" [disabled]="locked()" />
+            <input [attr.aria-label]="'Competency ' + (i + 1)" nz-input [ngModel]="c.name" (ngModelChange)="patch(i, { name: $event })" [disabled]="locked()" />
             <nz-select [nzId]="'review-score-' + i" [attr.aria-label]="'Score ' + (i + 1)" [ngModel]="c.score" (ngModelChange)="patch(i, { score: $event })" [nzDisabled]="locked()">@for (n of [1, 2, 3, 4, 5]; track n) { <nz-option [nzValue]="n" [nzLabel]="'' + n"></nz-option> }</nz-select>
-            <input [attr.aria-label]="'Notes ' + (i + 1)" nz-input placeholder="Notes" [ngModel]="c.notes" (ngModelChange)="patch(i, { notes: $event })" [disabled]="locked()" />
+            <input [attr.aria-label]="'Notes ' + (i + 1)" nz-input [ngModel]="c.notes" (ngModelChange)="patch(i, { notes: $event })" [disabled]="locked()" />
             @if (!locked()) { <button [attr.aria-label]="'Remove competency ' + (i + 1)" nz-button nzType="text" nzSize="small" (click)="remove(i)"><span nz-icon nzType="delete"></span></button> }
           </div>
         }

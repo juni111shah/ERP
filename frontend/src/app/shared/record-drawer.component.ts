@@ -1,4 +1,5 @@
 import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { showFormErrors } from '../core/forms/form-errors';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, Subscription } from 'rxjs';
@@ -6,7 +7,6 @@ import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzSelectModule } from 'ng-zorro-antd/select';
@@ -18,6 +18,7 @@ import { FormSectionMeta } from '../core/custom-fields/custom-field.models';
 import { DynamicFieldsComponent } from '../core/custom-fields/dynamic-field.component';
 import { LookupOption } from '../core/custom-fields/lookup-registry';
 import { applyProblemDetailsToForm, controlError } from '../core/http/problem-details';
+import { ErpFormModule } from '../core/forms/erp-form.module';
 
 export type FieldType = 'text' | 'password' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'switch' | 'lookup' | 'rows';
 /** One column of a `rows` field (a small table the user adds lines to). */
@@ -42,6 +43,8 @@ export interface FieldSpec {
   min?: number;
   max?: number;
   maxLength?: number;
+  /** The keyboard a phone opens for a text field. Digits that are not a quantity (a routing code, a postal code) are 'numeric' text, not type 'number'. */
+  inputMode?: 'numeric' | 'tel' | 'email' | 'url';
   precision?: number;
   hint?: string;
   default?: unknown;
@@ -67,7 +70,7 @@ export interface FieldSpec {
   selector: 'erp-record-drawer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, ReactiveFormsModule, NzAlertModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzDatePickerModule, NzSelectModule, NzSwitchModule, NzButtonModule, DynamicFieldsComponent],
+  imports: [TranslatePipe, ReactiveFormsModule, NzAlertModule, NzDrawerModule, ErpFormModule, NzInputModule, NzInputNumberModule, NzDatePickerModule, NzSelectModule, NzSwitchModule, NzButtonModule, DynamicFieldsComponent],
   template: `
     <nz-drawer [nzVisible]="open()" [nzWidth]="width()" [nzTitle]="title()" (nzOnClose)="closed.emit()" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
@@ -81,7 +84,7 @@ export interface FieldSpec {
               <nz-form-label [nzRequired]="!!f.required" [nzFor]="f.key">{{ f.label }}</nz-form-label>
               <nz-form-control [nzErrorTip]="err(f.key)" [nzValidateStatus]="$any(form().get(f.key))" [nzExtra]="f.hint ?? ''">
                 @switch (f.type) {
-                  @case ('text') { <input nz-input [id]="f.key" [formControlName]="f.key" [attr.maxlength]="f.maxLength ?? null" [attr.data-testid]="'f-' + f.key" /> }
+                  @case ('text') { <input nz-input [id]="f.key" [formControlName]="f.key" [attr.maxlength]="f.maxLength ?? null" [attr.inputmode]="f.inputMode ?? null" [attr.data-testid]="'f-' + f.key" /> }
                   @case ('password') { <input nz-input type="password" autocomplete="new-password" [id]="f.key" [formControlName]="f.key" [attr.data-testid]="'f-' + f.key" /> }
                   @case ('textarea') { <textarea nz-input rows="3" [id]="f.key" [formControlName]="f.key" [attr.maxlength]="f.maxLength ?? null" [attr.data-testid]="'f-' + f.key"></textarea> }
                   @case ('number') { <nz-input-number [nzId]="f.key" [formControlName]="f.key" [nzMin]="f.min ?? -1e12" [nzMax]="f.max ?? 1e12" [nzPrecision]="f.precision ?? 2" style="width:100%" [attr.data-testid]="'f-' + f.key"></nz-input-number> }
@@ -206,8 +209,9 @@ export class RecordDrawerComponent {
     // Hidden fields are not part of the form the user sees, so they must not block saving.
     const invalid = visible.filter((f) => form.get(f.key)?.invalid);
     if (invalid.length > 0 || this.customGroup().invalid) {
-      for (const f of invalid) { const c = form.get(f.key)!; c.markAsDirty(); c.markAsTouched(); c.updateValueAndValidity(); }
-      this.customGroup().markAllAsTouched();
+      for (const f of invalid) showFormErrors(form.get(f.key)!);
+      showFormErrors(this.customGroup());
+      showFormErrors(form);
       return;
     }
     const raw = form.getRawValue() as Record<string, unknown>;

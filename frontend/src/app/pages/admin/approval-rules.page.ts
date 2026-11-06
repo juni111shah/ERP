@@ -1,4 +1,5 @@
 import { DecimalPipe } from '@angular/common';
+import { optimistic } from '../../core/http/optimistic';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -72,7 +73,12 @@ export class ApprovalRulesPage {
   }
 
   toggle(r: ApprovalPolicy, on: boolean): void {
-    this.api.save(r.id, { documentType: r.documentType, minAmount: r.minAmount ?? null, isActive: on }).subscribe({ next: () => this.load(), error: (e) => this.fail(e) });
+    const before = this.rules();
+    optimistic(this.api.save(r.id, { documentType: r.documentType, minAmount: r.minAmount ?? null, isActive: on }), {
+      apply: () => this.rules.set(before.map((x) => (x.id === r.id ? { ...x, isActive: on } : x))),
+      rollback: () => this.rules.set(before),
+      failed: (e) => this.fail(e),
+    });
   }
 
   remove(r: ApprovalPolicy): void {

@@ -9,7 +9,6 @@ import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { catchError, of } from 'rxjs';
@@ -22,20 +21,21 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ErpDatePipe } from '../../shared/display.pipes';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 /** Ledger reports on posted entries: trial balance, general ledger, income statement and balance sheet. */
 @Component({
   selector: 'erp-ledger-reports',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatePanelComponent, NzSpinModule, TranslatePipe, FormsModule, DecimalPipe, NgTemplateOutlet, NzTabsModule, NzTableModule, NzInputModule, NzSelectModule, NzDatePickerModule, NzButtonModule, NzAlertModule],
+  imports: [ErpDatePipe, StatePanelComponent, SkeletonComponent, TranslatePipe, FormsModule, DecimalPipe, NgTemplateOutlet, NzTabsModule, NzTableModule, NzInputModule, NzSelectModule, NzDatePickerModule, NzButtonModule, NzAlertModule],
   styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end }
     .field { display:flex; flex-direction:column; gap:4px; font-size:12px; color: var(--erp-color-text-muted) }
     .num { text-align:end; font-variant-numeric: tabular-nums; white-space:nowrap }
     .total td { font-weight:700; background: var(--erp-color-bg-subtle) } h4 { margin: 16px 0 8px; font-size:15px; font-weight:700; color: var(--erp-color-text-primary) }
     .name { font-weight:600; color: var(--erp-color-text-primary) }
     .card { background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-radius:12px; overflow:hidden; margin-top:12px }
-    .check { margin-top:12px } .loading { text-align:center; padding:48px }
+    .check { margin-top:12px }
     .result { display:flex; justify-content:space-between; gap:16px; margin-top:16px; padding:14px 16px; border-radius:12px; font-size:16px; font-weight:700; background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); color: var(--erp-color-text-primary) }`],
   template: `
     <h1 class="erp-page-title">Financial reports</h1>
@@ -56,7 +56,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
         </div>
         <div class="field">Business unit <nz-select [(ngModel)]="businessUnitId" nzAllowClear nzPlaceHolder="All business units" style="width:200px" data-testid="rep-bu">@for (b of units(); track b.id) { <nz-option [nzValue]="b.id" [nzLabel]="b.name"></nz-option> }</nz-select></div>
         <div class="field">Party group <nz-select [(ngModel)]="partyGroupId" nzAllowClear nzPlaceHolder="All party groups" style="width:180px" data-testid="rep-party-group">@for (g of partyGroups(); track g.id) { <nz-option [nzValue]="g.id" [nzLabel]="g.name"></nz-option> }</nz-select></div>
-        <div class="field">Source type <input nz-input [(ngModel)]="sourceType" placeholder="Optional" aria-label="Source type" style="width:150px" data-testid="rep-source" /></div>
+        <label class="field">Source type <input nz-input [(ngModel)]="sourceType" placeholder="Optional" style="width:150px" data-testid="rep-source" /></label>
       }
       @if (tab() === 1) {
         <div class="field">Account
@@ -74,7 +74,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
     } @else if (needsAccount()) {
       <erp-state-panel title="Choose an account" hint="The general ledger shows the entries of one account. Pick it above and the report runs." icon="book" />
     } @else if (!hasResult() && loading()) {
-      <div class="loading"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="table" [rows]="8" />
     } @else {
       @switch (tab()) {
         @case (0) {

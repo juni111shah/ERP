@@ -10,13 +10,13 @@ import { API_BASE_URL } from '../../core/api/api-config';
 import { BillsApi } from '../../core/api/admin.api';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { displayDate } from '../../core/format/display';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { daysOverdue, formatMoney, invoiceStatusLabel } from './invoice-sheet.component';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 interface BillLine {
   id: string;
@@ -55,7 +55,7 @@ interface Bill {
 @Component({
   selector: 'erp-bill-detail',
   standalone: true,
-  imports: [NzSpinModule, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [SkeletonComponent, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
   styles: [`
     .line-items-table { margin-top: 16px; }
     .totals-section {
@@ -79,7 +79,7 @@ interface Bill {
   `],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="detail" />
     } @else if (error()) {
       <erp-state-panel kind="error" title="Could not load this bill" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (bill()) {

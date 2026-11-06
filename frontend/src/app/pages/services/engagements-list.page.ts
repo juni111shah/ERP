@@ -5,7 +5,6 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -31,6 +30,8 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { PartiesApi, PartyDto } from '../parties.page';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /** The moves the server allows from each status. */
 const NEXT_STATUS: Record<EngagementStatus, EngagementStatus[]> = {
@@ -62,7 +63,7 @@ const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErr
     NzProgressModule,
     NzModalModule,
     NzDrawerModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
@@ -203,7 +204,7 @@ const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErr
 
           <div class="drawer-footer">
             <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
-            <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit" [disabled]="form.invalid">Save</button>
+            <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit">Save</button>
           </div>
         </form>
       </ng-container>
@@ -411,7 +412,7 @@ export class EngagementsListPage implements OnInit {
   }
 
   submitEngagement(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid) { showFormErrors(this.form); return; }
 
     this.isSubmitting.set(true);
     const val = this.form.value;

@@ -6,7 +6,6 @@ import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -32,13 +31,15 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { FormsModule } from '@angular/forms';
 import { ErpDatePipe } from '../../shared/display.pipes';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /** Acquisitions and funding: KPI cards, the acquisitions table, funding schedules and the new-acquisition form (with its funding sources). */
 @Component({
   selector: 'erp-acquisitions',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatCardComponent, FormsModule, TableToolsComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, DecimalPipe, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule,
+  imports: [ErpDatePipe, StatCardComponent, FormsModule, TableToolsComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, DecimalPipe, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, ErpFormModule, NzIconModule,
     NzInputModule, NzInputNumberModule, NzSelectModule, NzTableModule, NzTagModule],
   styles: [`
     .fund { display:grid; grid-template-columns: 1.2fr 1.6fr 1.2fr .8fr .8fr auto; gap:8px; margin-bottom:8px; align-items:center }
@@ -182,10 +183,13 @@ import { ErpDatePipe } from '../../shared/display.pipes';
           <nz-form-item><nz-form-label>Notes</nz-form-label><nz-form-control><input nz-input formControlName="notes" /></nz-form-control></nz-form-item>
           <h4>Funding sources</h4>
           <div formArrayName="funding">
+            @if (fundingRows.length) {
+              <div class="fund erp-inline-field" style="margin-bottom:4px" aria-hidden="true"><span>Type</span><span>Lender</span><span>Principal</span><span>Rate %</span><span>Term (months)</span><span></span></div>
+            }
             @for (f of fundingRows.controls; track $index) {
               <div class="fund" [formGroupName]="$index">
                 <nz-select formControlName="type">@for (t of types; track t.value) { <nz-option [nzValue]="t.value" [nzLabel]="t.label"></nz-option> }</nz-select>
-                <input aria-label="Lender" nz-input formControlName="lender" placeholder="Lender" [attr.data-testid]="'fund-lender-' + $index" />
+                <input aria-label="Lender" nz-input formControlName="lender" [attr.data-testid]="'fund-lender-' + $index" />
                 <nz-input-number formControlName="principal" [nzMin]="0" [nzPrecision]="2" [attr.data-testid]="'fund-principal-' + $index"></nz-input-number>
                 <nz-input-number formControlName="annualRatePercent" [nzMin]="0" [nzMax]="100" [nzPrecision]="2"></nz-input-number>
                 <nz-input-number formControlName="termMonths" [nzMin]="1" [nzMax]="600" [nzPrecision]="0"></nz-input-number>
@@ -276,7 +280,7 @@ export class AcquisitionsPage {
   }
 
   save(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     const v = this.form.getRawValue();
     const firstDue = new Date(v.purchaseDate!); firstDue.setMonth(firstDue.getMonth() + 1);
     const body = {

@@ -7,7 +7,6 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { Observable } from 'rxjs';
 import { ProblemDetails } from '../../core/api/api.models';
@@ -20,6 +19,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
 import { AI_PROVIDER_PRESETS, coverageWarnings, failureWarnings, moved, presetValues, usageTotals } from './ai-providers';
 import { AssistantTryComponent } from './assistant-try.component';
 import { PLATFORM_STYLES } from './platform-ui';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 const COMMON_FIELDS: FieldSpec[] = [
   { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 80, hint: 'Only you see this.' },
@@ -53,7 +53,7 @@ const EDIT_FIELDS: FieldSpec[] = [
   selector: 'erp-platform-assistant',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, NzAlertModule, NzButtonModule, NzIconModule, NzInputNumberModule, NzModalModule, NzSpinModule, NzSwitchModule, AssistantTryComponent, ErpDatePipe, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
+  imports: [DecimalPipe, FormsModule, NzAlertModule, NzButtonModule, NzIconModule, NzInputNumberModule, NzModalModule, SkeletonComponent, NzSwitchModule, AssistantTryComponent, ErpDatePipe, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
   styles: [PLATFORM_STYLES, `
     .group { margin-bottom: 16px; }
     .notice { margin-bottom: 16px; }
@@ -78,7 +78,7 @@ const EDIT_FIELDS: FieldSpec[] = [
     @if (failed()) {
       <erp-state-panel kind="error" title="Could not load the AI assistant settings" hint="The server did not answer." actionLabel="Try again" (action)="load()" />
     } @else if (!view()) {
-      <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="form" [rows]="4" />
     } @else if (view(); as v) {
       <div class="pf-head">
         <p>Choose where the AI assistant appears and which services answer for it. To change service, add the new one and move it to the top.</p>

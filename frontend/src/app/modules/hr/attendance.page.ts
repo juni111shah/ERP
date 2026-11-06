@@ -7,7 +7,6 @@ import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { asProblem } from '../../core/http/problem-details';
 import { SessionStore } from '../../core/session/session.store';
 import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
@@ -18,6 +17,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { ErpTableModule } from '../../shared/erp-table.module';
 
 type GridField = 'workingDays' | 'daysPresent' | 'unpaidAbsentDays' | 'paidLeaveDays' | 'overtimeHours';
 interface GridInput { key: GridField; label: string; min: number; max?: number; precision: number; step?: number; testId?: string; }
@@ -41,7 +41,7 @@ export function hasException(r: AttendanceRow): boolean {
   selector: 'erp-attendance',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzSelectModule, TableToolsComponent, FormsModule, NzAlertModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzModalModule, NzTableModule, StatCardComponent, StatePanelComponent, StatusTagComponent, NzIconModule],
+  imports: [TranslatePipe, NzSelectModule, TableToolsComponent, FormsModule, NzAlertModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzModalModule, ErpTableModule, StatCardComponent, StatePanelComponent, StatusTagComponent, NzIconModule],
   styles: [`
     .attendance-table-card {
       background: var(--erp-color-bg-surface, #ffffff);

@@ -1,22 +1,25 @@
 import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
+import { PreferenceSwitchesComponent } from '../shared/preference-switches.component';
+import { showFormErrors } from '../core/forms/form-errors';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { AuthService } from '../core/auth/auth.service';
 import { asProblem } from '../core/http/problem-details';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { AUTH_STYLES, PASSWORD_HINT, PASSWORD_RULE } from './auth-layout';
+import { ErpFormModule } from '../core/forms/erp-form.module';
 
 @Component({
   selector: 'erp-reset-password',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule, BrandLogoComponent],
+  imports: [PreferenceSwitchesComponent, ReactiveFormsModule, RouterLink, ErpFormModule, NzInputModule, NzButtonModule, NzAlertModule, BrandLogoComponent],
   styles: [AUTH_STYLES],
   template: `
+    <erp-preference-switches class="floating" />
     <div class="card">
       <div class="brand"><erp-brand-logo size="lg"></erp-brand-logo></div>
       <h1>Choose a new password</h1>
@@ -46,7 +49,7 @@ export class ResetPasswordPage {
   readonly error = signal<string | null>(null);
 
   submit(): void {
-    if (this.form.invalid) { this.form.controls.password.markAsDirty(); this.form.controls.password.updateValueAndValidity(); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     this.busy.set(true);
     this.auth.resetPassword(this.token(), this.form.getRawValue().password).subscribe({
       next: () => this.done.set(true),

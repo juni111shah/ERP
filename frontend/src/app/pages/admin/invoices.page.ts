@@ -6,7 +6,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -37,6 +36,8 @@ import { ErpDatePipe } from '../../shared/display.pipes';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { AllRows, countOf, countRows, fetchAllRows, moneyByCurrency, startOfYear } from './finance-kpis';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 const STATUS_OPTIONS = ['draft', 'pendingApproval', 'issued', 'partlyPaid', 'paid', 'voided'];
 /** Lease / property behind an invoice, supplied by the real-estate module only when it is installed (the core invoice knows nothing about leases). */
@@ -47,7 +48,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
   selector: 'erp-invoices',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatusTagComponent, StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [ErpDatePipe, StatusTagComponent, StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, ErpFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule, InvoiceSheetComponent],
   styles: [`.num { font-variant-numeric: tabular-nums } .sub { color: var(--erp-color-text-muted); font-size:12px }
     .doc-no { display:inline-flex; align-items:center; gap:4px; white-space:nowrap }
@@ -405,7 +406,7 @@ export class InvoicesPage {
   }
 
   save(issue: boolean): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); this.message.warning('Fill in the fields marked in red'); return; }
+    if (this.form.invalid) { showFormErrors(this.form); this.message.warning('Fill in the fields marked in red'); return; }
     const v = this.form.getRawValue();
     const body = {
       legalEntityId: v.legalEntityId, partyId: v.partyId, invoiceDate: toIsoDate(v.invoiceDate!), dueDate: v.dueDate ? toIsoDate(v.dueDate) : null, isCreditNote: v.isCreditNote, notes: v.notes || null,

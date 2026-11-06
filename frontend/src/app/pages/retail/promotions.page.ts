@@ -6,7 +6,6 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDividerModule } from 'ng-zorro-antd/divider';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -35,6 +34,8 @@ import { ErpDatePipe, ErpLabelPipe } from '../../shared/display.pipes';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { problemMessage } from '../../core/http/problem-details';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /** The end date field must not fall before the start date field of the same form. */
 const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErrors | null => {
@@ -55,7 +56,7 @@ const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErr
     NzTagModule,
     NzSwitchModule,
     NzModalModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
@@ -506,12 +507,7 @@ export class PromotionsPageComponent implements OnInit {
 
   savePromotion(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach(c => {
-        if (c.invalid) {
-          c.markAsDirty();
-          c.updateValueAndValidity({ onlySelf: true });
-        }
-      });
+      showFormErrors(this.form);
       return;
     }
 

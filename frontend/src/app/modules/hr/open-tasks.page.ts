@@ -1,19 +1,20 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { optimistic } from '../../core/http/optimistic';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { EmployeeLifeApi, OpenTask } from './hr-people.api';
 import { ErpDatePipe } from '../../shared/display.pipes';
+import { ErpTableModule } from '../../shared/erp-table.module';
 
 /** Onboarding and offboarding steps nobody has finished yet, overdue ones first. */
 @Component({
   selector: 'erp-open-tasks',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, HasPermissionDirective, StatePanelComponent, NzTableModule, NzTagModule],
+  imports: [ErpDatePipe, HasPermissionDirective, StatePanelComponent, ErpTableModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">HR tasks</h1>
     @if (failed()) {
@@ -41,7 +42,12 @@ export class OpenTasksPage {
   readonly failed = signal(false);
   constructor() { this.load(); }
   done(t: OpenTask): void {
-    this.api.setDone(t.id, true).subscribe({ next: () => this.load(), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not update the task') });
+    const before = this.tasks();
+    optimistic(this.api.setDone(t.id, true), {
+      apply: () => this.tasks.set(before.filter((x) => x.id !== t.id)),
+      rollback: () => this.tasks.set(before),
+      failed: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not update the task'),
+    });
   }
   load(): void {
     this.loading.set(true); this.failed.set(false);

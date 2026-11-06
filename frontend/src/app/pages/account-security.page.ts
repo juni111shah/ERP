@@ -22,9 +22,9 @@ import { asProblem } from '../core/http/problem-details';
       @if (enabled()) {
         <nz-alert nzType="success" nzShowIcon [nzMessage]="'security.on' | translate: 'Two-factor authentication is on.'" style="margin-bottom:16px" data-testid="tf-on"></nz-alert>
         <p>To switch it off, confirm your password and a current code.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input aria-label="Password" nz-input type="password" placeholder="Password" [(ngModel)]="password" style="width:200px" data-testid="tf-password" />
-          <input aria-label="Code" nz-input placeholder="Code" [(ngModel)]="code" style="width:140px" data-testid="tf-code" />
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <label class="erp-inline-field">Password<input nz-input type="password" autocomplete="current-password" [(ngModel)]="password" style="width:200px" data-testid="tf-password" /></label>
+          <label class="erp-inline-field">Code<input nz-input inputmode="numeric" autocomplete="one-time-code" [(ngModel)]="code" style="width:140px" data-testid="tf-code" /></label>
           <button nz-button nzDanger [nzLoading]="busy()" (click)="disable()" data-testid="tf-disable">{{ 'security.turnOff' | translate: 'Turn off' }}</button>
         </div>
       } @else if (!secret()) {
@@ -35,8 +35,8 @@ import { asProblem } from '../core/http/problem-details';
         <p><code style="font-size:18px" data-testid="tf-secret">{{ secret() }}</code></p>
         <p style="word-break:break-all;opacity:.7">{{ 'ui.security.openLink' | translate: 'Or open this link on your phone' }}: {{ uri() }}</p>
         <p>2. Enter the 6-digit code the app shows:</p>
-        <div style="display:flex;gap:8px">
-          <input aria-label="123456" nz-input placeholder="123456" [(ngModel)]="code" style="width:140px" maxlength="7" data-testid="tf-code" />
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <label class="erp-inline-field">6-digit code<input nz-input inputmode="numeric" autocomplete="one-time-code" placeholder="123456" [(ngModel)]="code" style="width:140px" maxlength="7" data-testid="tf-code" /></label>
           <button nz-button nzType="primary" [nzLoading]="busy()" (click)="enable()" data-testid="tf-enable">{{ 'security.turnOn' | translate: 'Turn on' }}</button>
         </div>
       }

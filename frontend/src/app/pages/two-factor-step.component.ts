@@ -4,7 +4,6 @@ import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { AuthService, LoginResponse, TwoFactorChallengeSetup } from '../core/auth/auth.service';
 import { asProblem } from '../core/http/problem-details';
 import { I18nService } from '../core/i18n/i18n.service';
@@ -23,7 +22,7 @@ export type TwoFactorMode = 'setup' | 'verify';
   selector: 'erp-two-factor-step',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, TranslatePipe, NzAlertModule, NzButtonModule, NzIconModule, NzInputModule, NzSpinModule],
+  imports: [FormsModule, TranslatePipe, NzAlertModule, NzButtonModule, NzIconModule, NzInputModule],
   styles: [`
     :host { display: block; }
     .tf-head { margin-bottom: 18px; }
@@ -35,7 +34,6 @@ export type TwoFactorMode = 'setup' | 'verify';
     .tf-qr-card { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; border-radius: 12px;
       border: 1.5px solid rgba(16, 149, 93, 0.2); background: rgba(255, 255, 255, 0.9); margin-bottom: 12px; }
     .tf-qr { width: 184px; height: 184px; image-rendering: pixelated; display: block; }
-    .tf-qr-loading { width: 184px; height: 184px; display: grid; place-items: center; }
     .tf-account { font-size: 12.5px; color: #64748b; text-align: center; word-break: break-all; }
     .tf-toggle { padding-inline: 0; font-size: 13px; color: #10955d; }
     .tf-key-row { display: flex; align-items: center; gap: 8px; margin: 4px 0 14px; padding: 10px 12px; border-radius: 10px;
@@ -107,7 +105,7 @@ export type TwoFactorMode = 'setup' | 'verify';
               <img class="tf-qr" [src]="s.qrCodeDataUri" [attr.alt]="'twofa.setup.qrAlt' | translate: 'QR code for your authenticator app'" data-testid="twofa-qr" />
               <div class="tf-account" dir="ltr">{{ s.issuer }} · {{ s.account }}</div>
             } @else {
-              <div class="tf-qr-loading"><nz-spin nzSimple></nz-spin></div>
+              <span class="erp-skel tf-qr" role="status" aria-label="Loading…" data-testid="twofa-qr-loading"></span>
             }
           </div>
           @if (setup(); as s) {

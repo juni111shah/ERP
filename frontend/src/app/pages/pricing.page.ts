@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { PreferenceSwitchesComponent } from '../shared/preference-switches.component';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { catchError, of } from 'rxjs';
 import { CountryDto } from '../core/api/admin.api';
 import { BillingCycle, IndustryOption, LegalDocuments, PlatformApi, PublicContent, PublicModule, PublicPlan, SignupConfig } from '../core/api/platform.api';
@@ -20,6 +20,7 @@ import { FitDirective, InViewDirective, TiltDirective } from './pricing-fx';
 import { PhoneComponent, PricingMobileComponent } from './pricing-mobile.component';
 import { WebDashComponent } from './pricing-web-dash.component';
 import { PRICING_STYLES } from './pricing.styles';
+import { SkeletonComponent } from '../shared/skeleton.component';
 
 const SALES_STEPS = ['Quote', 'Order', 'Delivery', 'Invoice', 'Payment'];
 
@@ -28,7 +29,7 @@ const SALES_STEPS = ['Quote', 'Order', 'Delivery', 'Invoice', 'Payment'];
   selector: 'erp-pricing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BrandAssistantComponent, FormsModule, RouterLink, NzButtonModule, NzIconModule, NzRadioModule, NzSpinModule, BrandLogoComponent, PlanCardComponent, StatePanelComponent, FitDirective, InViewDirective, TiltDirective, PhoneComponent, PricingMobileComponent, WebDashComponent],
+  imports: [PreferenceSwitchesComponent, BrandAssistantComponent, FormsModule, RouterLink, NzButtonModule, NzIconModule, NzRadioModule, SkeletonComponent, BrandLogoComponent, PlanCardComponent, StatePanelComponent, FitDirective, InViewDirective, TiltDirective, PhoneComponent, PricingMobileComponent, WebDashComponent],
   styles: [PRICING_STYLES],
   template: `
     <header class="top">
@@ -42,6 +43,7 @@ const SALES_STEPS = ['Quote', 'Order', 'Delivery', 'Invoice', 'Payment'];
           <button type="button" (click)="go('faq')">FAQ</button>
         </nav>
         <div class="top-actions">
+          <erp-preference-switches />
           @if (signedIn()) {
             <a nz-button nzType="primary" routerLink="/" data-testid="pricing-workspace">Go to my workspace</a>
           } @else {
@@ -99,7 +101,7 @@ const SALES_STEPS = ['Quote', 'Order', 'Delivery', 'Invoice', 'Payment'];
           <p>Pick the plan that fits the size of your business today, and move up when you need to.</p>
         </div>
         @if (loading()) {
-          <div class="center"><nz-spin nzSimple></nz-spin></div>
+          <erp-skeleton kind="cards" [rows]="3" />
         } @else if (failed()) {
           <erp-state-panel kind="error" title="The prices could not load" hint="Please try again in a moment." actionLabel="Try again" (action)="load()" />
         } @else if (config(); as c) {

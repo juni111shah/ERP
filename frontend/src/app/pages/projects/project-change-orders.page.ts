@@ -62,7 +62,7 @@ import { errorText, PRJ_STYLES, ProjectTagComponent } from './projects-ui';
     <nz-modal [nzVisible]="deciding() !== null" [nzTitle]="deciding()?.approve ? 'Approve change order' : 'Reject change order'" nzOkText="Confirm" [nzOkDanger]="!deciding()?.approve" (nzOnOk)="confirmDecision()" (nzOnCancel)="deciding.set(null)">
       <ng-container *nzModalContent>
         <p>{{ deciding()?.order?.number }} · {{ deciding()?.order?.title }}. @if (deciding()?.approve) { The project budget will change by {{ currency() }} {{ deciding()?.order?.amountChange | number: '1.2-2' }}. }</p>
-        <textarea nz-input rows="3" [(ngModel)]="note" maxlength="500" placeholder="Note (for example who agreed)" aria-label="Decision note" data-testid="co-note"></textarea>
+        <label class="erp-inline-field" style="display:flex">Note (for example who agreed)<textarea nz-input rows="3" [(ngModel)]="note" maxlength="500" data-testid="co-note"></textarea></label>
       </ng-container>
     </nz-modal>
   `,

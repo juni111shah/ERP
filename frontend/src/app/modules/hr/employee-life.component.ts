@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
+import { optimistic } from '../../core/http/optimistic';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
@@ -28,8 +29,8 @@ const KIND_LABELS: Record<string, string> = {
       <ng-container *nzDrawerContent>
         <nz-tabs>
           <nz-tab nzTitle="History">
-            <div *erpHasPermission="'hr.employees.manage'" style="display:flex;gap:8px;margin-bottom:12px">
-              <input nz-input aria-label="Add a note" placeholder="Add a note (course completed, warning given ...)" [(ngModel)]="note" maxlength="500" data-testid="history-note" />
+            <div *erpHasPermission="'hr.employees.manage'" style="display:flex;gap:8px;margin-bottom:12px;align-items:flex-end">
+              <label class="erp-inline-field" style="flex:1">Add a note<input nz-input placeholder="Course completed, warning given ..." [(ngModel)]="note" maxlength="500" data-testid="history-note" /></label>
               <button nz-button nzType="primary" [disabled]="!note.trim()" (click)="addNote()" data-testid="history-add">Add</button>
             </div>
             @for (h of history(); track h.id) {
@@ -51,10 +52,9 @@ const KIND_LABELS: Record<string, string> = {
               </nz-select>
               <button nz-button [disabled]="!templateId" (click)="apply()" data-testid="task-apply">Apply</button>
             </div>
-            <div *erpHasPermission="'hr.employees.manage'" style="display:flex;gap:8px;margin-bottom:12px">
-              <input nz-input aria-label="Task title" placeholder="Add a task" [(ngModel)]="taskTitle" maxlength="200" data-testid="task-title" />
-              <label for="life-due" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Task due date</label>
-              <nz-date-picker nzId="life-due" nzPlaceHolder="Due date" [(ngModel)]="taskDue" style="width:150px"></nz-date-picker>
+            <div *erpHasPermission="'hr.employees.manage'" style="display:flex;gap:8px;margin-bottom:12px;align-items:flex-end">
+              <label class="erp-inline-field" style="flex:1">Task title<input nz-input [(ngModel)]="taskTitle" maxlength="200" data-testid="task-title" /></label>
+              <label class="erp-inline-field" for="life-due">Task due date<nz-date-picker nzId="life-due" nzPlaceHolder="Due date" [(ngModel)]="taskDue" style="width:150px"></nz-date-picker></label>
               <button nz-button [disabled]="!taskTitle.trim()" (click)="addTask()" data-testid="task-add">Add</button>
             </div>
             @for (t of tasks(); track t.id) {
@@ -118,7 +118,12 @@ export class EmployeeLifeComponent {
   }
 
   toggle(t: EmployeeTask): void {
-    this.api.setDone(t.id, !t.isDone).subscribe({ next: () => this.loadTasks(), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not update the task') });
+    const before = this.tasks();
+    optimistic(this.api.setDone(t.id, !t.isDone), {
+      apply: () => this.tasks.set(before.map((x) => (x.id === t.id ? { ...x, isDone: !t.isDone } : x))),
+      rollback: () => this.tasks.set(before),
+      failed: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not update the task'),
+    });
   }
 
   private loadHistory(): void { this.api.history(this.employeeId()).subscribe((h) => this.history.set(h)); }

@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, inject, output, signal } 
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -15,6 +14,8 @@ import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { SessionStore } from '../../core/session/session.store';
 import { errorText } from './projects-ui';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /**
  * One way to log or edit time everywhere. The person defaults to whoever is signed in and the rate comes from the rate cards unless typed,
@@ -24,7 +25,7 @@ import { errorText } from './projects-ui';
   selector: 'erp-log-time',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NzCheckboxModule, NzDatePickerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule],
+  imports: [ReactiveFormsModule, NzCheckboxModule, NzDatePickerModule, ErpFormModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule],
   template: `
     <nz-modal [nzVisible]="visible()" [nzTitle]="editingId() ? 'Edit time' : 'Log time'" nzOkText="Save" [nzOkLoading]="saving()" (nzOnCancel)="visible.set(false)" (nzOnOk)="save()" [nzWidth]="560">
       <ng-container *nzModalContent>
@@ -153,7 +154,7 @@ export class LogTimeComponent {
 
   save(): boolean {
     const v = this.form.getRawValue();
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return false; }
+    if (this.form.invalid) { showFormErrors(this.form); return false; }
     if (!v.workerUserId && !(v.workerName ?? '').trim()) { this.msg.warning('Choose who did the work.'); return false; }
     const body = {
       projectId: v.projectId!, taskId: v.taskId || null, workerUserId: v.workerUserId || null, workerName: v.workerUserId ? null : (v.workerName ?? '').trim(),

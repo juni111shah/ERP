@@ -46,7 +46,7 @@ interface TryMessage { role: 'user' | 'assistant'; text: string; }
     }
     @if (error(); as e) { <div class="error" role="alert" data-testid="assistant-try-error">{{ e }}</div> }
     <div class="send">
-      <textarea nz-input rows="2" maxlength="2000" dir="auto" aria-label="Your message" placeholder="Type a message" [ngModel]="draft()" (ngModelChange)="draft.set($event)" (keydown.enter)="enter($any($event))" data-testid="assistant-try-input"></textarea>
+      <label class="erp-inline-field" style="flex:1">Your message<textarea nz-input rows="2" maxlength="2000" dir="auto" [ngModel]="draft()" (ngModelChange)="draft.set($event)" (keydown.enter)="enter($any($event))" data-testid="assistant-try-input"></textarea></label>
       @if (sending()) {
         <button nz-button type="button" (click)="stop()" data-testid="assistant-try-stop">Stop</button>
       } @else {

@@ -385,7 +385,7 @@ Behaviour per element is defined in `uiux/07-app-shell.md` §2; visual & interac
 
 * **Entity switcher**: `nz-select` 220 px, prefix icon `apartment`, option rows = name + muted code; "All legal entities" first, divider, then entities. On change: optimistic rescope (all entity-scoped queries invalidated; KPI/list skeletons show), toast "Showing <Entity>" (`NzMessage`, 2 s). Keyboard: focus + type-ahead. Hidden when the workspace has one entity (static label).
 * **Notifications**: bell `nz-badge [nzCount]` (max 99+), `aria-label="Notifications, 3 unread"`; drawer 400 px, tabs All / Approvals / Alerts / Mentions; items grouped "Today / Earlier"; new real-time item → bell does a 1-cycle 300 ms "ring" (rotate ±12°, disabled under reduced motion) and announces via `aria-live="polite"` "New notification: …" (critical = `assertive` + `nz-notification` toast).
-* **Dark-mode toggle**: icon button (moon / sun), `aria-pressed`, tooltip "Dark mode"/"Light mode" (spec §3.5); click → `theme.toggleTheme()`; long-press/right-click or the avatar Preferences offers Light / Dark / System. The icon cross-fades + rotates 90° in `quick` (150 ms).
+* **Dark-mode toggle**: an item of the avatar menu, with the language next to it (signed-out pages, which have no avatar menu, use `erp-preference-switches`); click → `theme.toggleTheme()`; long-press/right-click or the avatar Preferences offers Light / Dark / System. The icon cross-fades + rotates 90° in `quick` (150 ms).
 * **Avatar menu**: name, email, Preferences (Language, Density, Reduce motion, Digits), Change password, Sign out (uiux/07).
 
 ### 5.1 Command palette (Ctrl/⌘ + K, "/")

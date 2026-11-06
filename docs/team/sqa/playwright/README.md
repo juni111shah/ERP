@@ -71,8 +71,8 @@ The UX docs (`/workspace/erp-team/uiux/`) define no test ids, so this list is th
 | Shell (07) | `app-shell`, `sidebar-nav`, `nav-item-<routeKey>` | Layout and menu |
 | | `shell-workspace-name` (`data-workspace=<slug>`) | Workspace identity at the sider top |
 | | `entity-switcher`, `entity-option-<entityCode>` | Legal-entity switcher |
-| | `notifications-bell`, `notifications-badge`, `global-search`, `theme-toggle` | Header |
-| | `user-menu`, `user-menu-change-password`, `user-menu-signout` | User menu |
+| | `notifications-bell`, `notifications-badge`, `global-search` | Header |
+| | `user-menu`, `user-menu-change-password`, `user-menu-signout`, `lang-toggle`, `theme-toggle` | User menu |
 | | `session-ended-modal` | "Your session has ended" |
 | Guards (08 §2) | `page-forbidden`, `page-module-disabled` | 403 and "This feature isn't enabled for your workspace" |
 | Onboarding `/onboarding/*` (03) | `onboarding-continue`, `onboarding-back`, `onboarding-save-exit` | Wizard navigation |

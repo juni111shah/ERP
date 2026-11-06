@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { SkeletonComponent } from '../shared/skeleton.component';
 import { ActivatedRoute } from '@angular/router';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Title } from '@angular/platform-browser';
@@ -244,7 +245,7 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 @Component({
   selector: 'erp-print',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, DatePipe, DecimalPipe, NzButtonModule, NzIconModule, NzToolTipModule, ThermalReceiptComponent, PosShiftReportComponent],
+  imports: [SkeletonComponent, TranslatePipe, CommonModule, DatePipe, DecimalPipe, NzButtonModule, NzIconModule, NzToolTipModule, ThermalReceiptComponent, PosShiftReportComponent],
   styles: [`
     :host {
       --ink: #0f172a;
@@ -345,7 +346,7 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
   `],
   template: `
     @if (loading()) {
-      <div class="state">Loading document…</div>
+      <erp-skeleton kind="document" />
     } @else if (error()) {
       <div class="state err">{{ error() }}</div>
     } @else {

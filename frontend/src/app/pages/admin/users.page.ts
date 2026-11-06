@@ -2,12 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { AdminApi, RoleDto, RolesApi, UserSummary } from '../../core/api/admin.api';
 import { applyProblemDetailsToForm, asProblem, problemMessage, controlError } from '../../core/http/problem-details';
@@ -20,13 +18,16 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { ErpDatePipe } from '../../shared/display.pipes';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { ErpTableModule } from '../../shared/erp-table.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /** Users: invite, change roles, deactivate / reactivate. The server refuses to deactivate yourself or the last administrator. */
 @Component({
   selector: 'erp-users',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatePanelComponent, StatCardComponent, TranslatePipe, ReactiveFormsModule, FormsModule, HasPermissionDirective, RevealDirective, TableToolsComponent, NzToolTipModule, NzTableModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzSelectModule, NzTagModule, NzIconModule],
+  imports: [ErpDatePipe, StatePanelComponent, StatCardComponent, TranslatePipe, ReactiveFormsModule, FormsModule, HasPermissionDirective, RevealDirective, TableToolsComponent, NzToolTipModule, ErpTableModule, NzButtonModule, NzDrawerModule, ErpFormModule, NzInputModule, NzSelectModule, NzTagModule, NzIconModule],
   styles: [`
     .user-table-card {
       background: var(--erp-color-bg-surface, #ffffff);
@@ -221,7 +222,7 @@ export class UsersPage {
   }
 
   save(): void {
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     const v = this.form.getRawValue();
     const user = this.editing();
     this.saving.set(true);

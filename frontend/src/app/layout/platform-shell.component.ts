@@ -52,7 +52,7 @@ interface ConsoleLink { path: string; label: string; icon: string; exact?: boole
     .menu-btn, .tool-btn { width: 36px; height: 36px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--erp-color-text-secondary); cursor: pointer; font-size: 16px; padding: 0; }
     .menu-btn:hover, .tool-btn:hover { background: var(--erp-color-nav-item-hover-bg, rgba(16,149,93,.08)); color: var(--erp-color-primary-text); }
     .who { color: var(--erp-color-text-muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
-    .content { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; padding: 24px; }
+    .content { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding: 24px; }
     @media (max-width: 767px) {
       .bar { padding: 0 12px; }
       .who { display: none; }
@@ -91,16 +91,16 @@ interface ConsoleLink { path: string; label: string; icon: string; exact?: boole
             <h1 class="topbar-title" data-testid="platform-title">{{ pageTitle.title() }}</h1>
           </div>
           <span class="who">{{ session.me()?.user?.fullName }}</span>
-          <button type="button" class="tool-btn" (click)="theme.toggleTheme()" aria-label="Toggle dark mode" nz-tooltip [nzTooltipTitle]="theme.resolvedTheme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'" data-testid="platform-theme-toggle">
-            <span nz-icon nzType="bulb" [style.color]="theme.resolvedTheme() === 'dark' ? '#fbbf24' : 'inherit'"></span>
-          </button>
-          <button type="button" class="tool-btn" nz-dropdown [nzDropdownMenu]="userMenu" nzPlacement="bottomRight" [attr.aria-label]="session.me()?.user?.fullName || 'User menu'" data-testid="platform-user-menu">
+          <button type="button" class="tool-btn" nz-dropdown nzTrigger="click" [nzDropdownMenu]="userMenu" nzPlacement="bottomRight" [attr.aria-label]="session.me()?.user?.fullName || 'User menu'" data-testid="platform-user-menu">
             <nz-avatar nzSize="small" [nzText]="initials()"></nz-avatar>
           </button>
           <nz-dropdown-menu #userMenu="nzDropdownMenu">
             <ul nz-menu>
               <li nz-menu-item nzDisabled>{{ session.me()?.user?.email }}</li>
               <li nz-menu-item routerLink="/account/security"><span nz-icon nzType="lock"></span> Account security</li>
+              <li nz-menu-divider></li>
+              <li nz-menu-item (click)="i18n.toggle()" data-no-i18n data-testid="platform-lang-toggle"><span nz-icon nzType="global"></span> {{ i18n.lang() === 'ar' ? 'English' : 'العربية' }}</li>
+              <li nz-menu-item (click)="theme.toggleTheme()" data-testid="platform-theme-toggle"><span nz-icon nzType="bulb"></span> {{ theme.resolvedTheme() === 'dark' ? 'Light mode' : 'Dark mode' }}</li>
               <li nz-menu-divider></li>
               <li nz-menu-item (click)="auth.logout()"><span nz-icon nzType="logout"></span> Sign out</li>
             </ul>

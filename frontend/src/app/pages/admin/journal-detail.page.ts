@@ -9,13 +9,13 @@ import { JournalsApi } from '../../core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { displayDate } from '../../core/format/display';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { formatMoney } from './invoice-sheet.component';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 interface JournalLine {
   id: string;
@@ -49,10 +49,10 @@ interface Journal {
 @Component({
   selector: 'erp-journal-detail',
   standalone: true,
-  imports: [NzSpinModule, StatePanelComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [SkeletonComponent, StatePanelComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="detail" />
     } @else if (error()) {
       <erp-state-panel kind="error" title="Could not load this journal" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (journal()) {

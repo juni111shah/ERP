@@ -3,14 +3,12 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
 import { CustomFieldDefinitionsApi, CustomFieldMetadataService } from '../core/custom-fields/custom-field-metadata.service';
@@ -23,13 +21,16 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 import { StatePanelComponent } from '../shared/state-panel.component';
+import { ErpFormModule } from '../core/forms/erp-form.module';
+import { ErpTableModule } from '../shared/erp-table.module';
+import { showFormErrors } from '../core/forms/form-errors';
 
 /** Custom fields admin (Odoo Studio style): pick an entity type, list its fields, add / edit / deactivate in a drawer. */
 @Component({
   selector: 'erp-custom-fields',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatePanelComponent, KeyboardClickDirective, TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzSelectModule, NzButtonModule, NzDrawerModule, NzFormModule,
+  imports: [StatePanelComponent, KeyboardClickDirective, TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, ReactiveFormsModule, HasPermissionDirective, ErpTableModule, NzSelectModule, NzButtonModule, NzDrawerModule, ErpFormModule,
     NzInputModule, NzInputNumberModule, NzSwitchModule, NzTagModule, NzIconModule],
   styles: [`.bar { display:flex; gap:12px; margin-bottom:12px; align-items:center } .spacer { flex:1 }`],
   template: `
@@ -172,7 +173,7 @@ export class CustomFieldsPage {
   }
 
   save(): void {
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     const v = this.form.getRawValue();
     const choices = v.choices.split('\n').map((s) => s.trim()).filter(Boolean).map((value) => ({ value, label: value }));
     const body: CustomFieldDefinitionInput = {

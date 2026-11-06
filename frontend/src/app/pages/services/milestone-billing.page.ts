@@ -4,7 +4,6 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -26,6 +25,8 @@ import { ErpDatePipe } from '../../shared/display.pipes';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 @Component({
   selector: 'erp-milestone-billing-page',
@@ -37,7 +38,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
     NzButtonModule,
     NzIconModule,
     NzDrawerModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
@@ -134,7 +135,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
 
           <div class="drawer-footer">
             <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
-            <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit" [disabled]="form.invalid">Save</button>
+            <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit">Save</button>
           </div>
         </form>
       </ng-container>
@@ -220,7 +221,7 @@ export class MilestoneBillingPage implements OnInit {
   }
 
   submitMilestone(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     const val = this.form.value;
     const engagement = this.engagementsById().get(val.engagementId);
     if (!engagement) return;

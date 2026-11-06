@@ -3,7 +3,6 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -21,6 +20,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { problemMessage } from '../../core/http/problem-details';
 import { SessionStore } from '../../core/session/session.store';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 @Component({
   selector: 'erp-stores-list-page',
@@ -34,7 +35,7 @@ import { SessionStore } from '../../core/session/session.store';
     NzTagModule,
     NzSwitchModule,
     NzModalModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzSelectModule,
     NzPopconfirmModule,
@@ -285,12 +286,7 @@ export class StoresListPageComponent implements OnInit {
 
   saveStore(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach(c => {
-        if (c.invalid) {
-          c.markAsDirty();
-          c.updateValueAndValidity({ onlySelf: true });
-        }
-      });
+      showFormErrors(this.form);
       return;
     }
 

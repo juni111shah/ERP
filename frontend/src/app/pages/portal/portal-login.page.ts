@@ -1,23 +1,26 @@
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { PreferenceSwitchesComponent } from '../../shared/preference-switches.component';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { AUTH_STYLES } from '../auth-layout';
 import { PortalService } from './portal.service';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /** Sign-in for outside customers and suppliers: workspace + email, then the 6-digit code that was emailed. */
 @Component({
   selector: 'erp-portal-login',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, ReactiveFormsModule, NzCheckboxModule, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule],
+  imports: [PreferenceSwitchesComponent, TranslatePipe, ReactiveFormsModule, NzCheckboxModule, ErpFormModule, NzInputModule, NzButtonModule, NzAlertModule],
   styles: [AUTH_STYLES],
   template: `
+    <erp-preference-switches class="floating" />
     <div class="card">
       <div class="brand"><span class="brand-mark">P</span><span style="margin-inline-start:8px">{{ 'portal.title' | translate: 'Customer and supplier portal' }}</span></div>
       <h1>{{ 'portal.signIn' | translate: 'Sign in' }}</h1>
@@ -51,7 +54,7 @@ export class PortalLoginPage {
   submit(): void {
     const { workspace, email, code, vendor } = this.form.getRawValue();
     const kind = vendor ? 'vendor' : undefined;
-    if (this.form.controls.workspace.invalid || this.form.controls.email.invalid) { this.form.markAllAsTouched(); return; }
+    if (this.form.controls.workspace.invalid || this.form.controls.email.invalid) { showFormErrors(this.form.controls.workspace); showFormErrors(this.form.controls.email); return; }
     this.busy.set(true);
     this.error.set(null);
     if (!this.sent()) {

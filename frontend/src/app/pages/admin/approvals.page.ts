@@ -3,12 +3,10 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { AdminApi, ApprovalDto } from '../../core/api/admin.api';
@@ -23,13 +21,16 @@ import { FormsModule } from '@angular/forms';
 import { ErpDatePipe, ErpLabelPipe } from '../../shared/display.pipes';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { StatePanelComponent } from '../../shared/state-panel.component';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { ErpTableModule } from '../../shared/erp-table.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /** Approval inbox: requests waiting for me (approvers) and the ones I raised, with approve / reject / withdraw. */
 @Component({
   selector: 'erp-approvals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, ErpDatePipe, StatusTagComponent, StatePanelComponent, FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
+  imports: [ErpLabelPipe, ErpDatePipe, StatusTagComponent, StatePanelComponent, FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, HasPermissionDirective, ErpTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, ErpFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
   styles: [`.bar { display:flex; margin-bottom:12px } .spacer { flex:1 } .num { text-align:end; font-variant-numeric:tabular-nums; white-space:nowrap } .nowrap { white-space:nowrap }
     .card { background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-radius:12px; overflow:hidden; margin-top:12px }
     .subject { font-weight:600; color: var(--erp-color-text-primary) }`],
@@ -113,7 +114,7 @@ export class ApprovalsPage {
   open(): void { this.form.reset({ subject: '', justification: '', amount: null }); this.drawerOpen.set(true); }
 
   submit(): void {
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.submitApproval({ subject: v.subject, justification: v.justification || null, amount: v.amount, legalEntityId: null }).subscribe({

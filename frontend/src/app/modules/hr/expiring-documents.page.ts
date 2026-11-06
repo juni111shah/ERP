@@ -1,18 +1,18 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { DOCUMENT_TYPES, EmployeeDocumentsApi, ExpiringDocumentDto } from './hr-people.api';
 import { ErpDatePipe } from '../../shared/display.pipes';
+import { ErpTableModule } from '../../shared/erp-table.module';
 
 /** Passports, visas, residence IDs, labour cards and other documents that are expired or about to expire. */
 @Component({
   selector: 'erp-expiring-documents',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, FormsModule, NzSelectModule, NzTableModule, StatePanelComponent, StatusTagComponent],
+  imports: [ErpDatePipe, FormsModule, NzSelectModule, ErpTableModule, StatePanelComponent, StatusTagComponent],
   template: `
     <h1 class="erp-page-title">Document expiry</h1>
     <div style="display:flex;gap:12px;align-items:center;margin:12px 0">

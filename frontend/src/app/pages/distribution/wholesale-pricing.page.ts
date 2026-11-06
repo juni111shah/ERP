@@ -5,7 +5,6 @@ import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDividerModule } from 'ng-zorro-antd/divider';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -31,6 +30,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { ErpLabelPipe } from '../../shared/display.pipes';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { problemMessage } from '../../core/http/problem-details';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 @Component({
   selector: 'erp-wholesale-pricing-page',
@@ -45,7 +46,7 @@ import { problemMessage } from '../../core/http/problem-details';
     NzTagModule,
     NzSwitchModule,
     NzModalModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzSelectModule,
@@ -507,7 +508,7 @@ export class WholesalePricingPageComponent implements OnInit {
 
   saveRule(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      showFormErrors(this.form);
       return;
     }
     this.isSaving.set(true);

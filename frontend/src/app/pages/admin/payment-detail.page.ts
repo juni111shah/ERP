@@ -10,12 +10,12 @@ import { PaymentsApi } from '../../core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
 import { problemMessage } from '../../core/http/problem-details';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { displayDate, displayLabel } from '../../core/format/display';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { formatMoney } from './invoice-sheet.component';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 interface BillAllocation {
   id: string;
@@ -46,10 +46,10 @@ interface Payment {
 @Component({
   selector: 'erp-payment-detail',
   standalone: true,
-  imports: [RouterLink, NzSpinModule, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [RouterLink, SkeletonComponent, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="detail" />
     } @else if (error()) {
       <erp-state-panel kind="error" title="Could not load this payment" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (payment()) {

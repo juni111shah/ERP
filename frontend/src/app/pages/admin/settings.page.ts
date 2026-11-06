@@ -5,13 +5,13 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { AdminApi, SettingView } from '../../core/api/admin.api';
 import { displayLabel } from '../../core/format/display';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { asProblem, problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { CoaNumberingEditorComponent } from './coa/coa-numbering-editor.component';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 const MODULE_NAMES: Record<string, string> = { hr: 'HR and payroll', realestate: 'Real estate', crm: 'CRM', pos: 'Point of sale' };
 
@@ -20,7 +20,7 @@ const MODULE_NAMES: Record<string, string> = { hr: 'HR and payroll', realestate:
   selector: 'erp-settings',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzSpinModule, StatePanelComponent, CoaNumberingEditorComponent, HasPermissionDirective, NzButtonModule, NzInputModule, NzInputNumberModule, NzSwitchModule],
+  imports: [FormsModule, SkeletonComponent, StatePanelComponent, CoaNumberingEditorComponent, HasPermissionDirective, NzButtonModule, NzInputModule, NzInputNumberModule, NzSwitchModule],
   styles: [`
     .wrap { max-width: 740px; display:flex; flex-direction:column; gap:24px; }
     .group-card { background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 12px; padding: 20px 24px; }
@@ -30,13 +30,12 @@ const MODULE_NAMES: Record<string, string> = { hr: 'HR and payroll', realestate:
     .label { flex:1; font-weight: 500; color: var(--erp-color-text-primary); font-size: 14px; }
     .label small { display:block; color: var(--erp-color-text-muted); font-weight: normal; font-size: 12.5px; margin-top: 2px; }
     .actions { display:flex; justify-content:flex-end; }
-    .loading { text-align:center; padding:48px; }
   `],
   template: `
     <h1 class="erp-page-title">Settings</h1>
     <div class="wrap">
       @if (loading()) {
-        <div class="loading"><nz-spin nzSimple></nz-spin></div>
+        <erp-skeleton kind="form" [rows]="6" />
       } @else if (failed()) {
         <erp-state-panel kind="error" title="Could not load the workspace settings" hint="The server could not read the settings list, so they cannot be changed right now. Your saved values are not affected." actionLabel="Try again" (action)="load()" data-testid="settings-error" />
       } @else {

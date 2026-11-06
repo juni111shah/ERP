@@ -50,7 +50,7 @@ export function daysUntil(date?: string | null): number | null {
     </nz-table>
     <div *erpHasPermission="'core.attachments.write'" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
       <input type="file" #file data-testid="attachment-file" />
-      <input aria-label="Category (e.g. Ejari)" nz-input style="width:180px" placeholder="Category (e.g. Ejari)" [(ngModel)]="category" />
+      <label class="erp-inline-field">Category<input nz-input style="width:180px" placeholder="e.g. Ejari" [(ngModel)]="category" /></label>
       <nz-date-picker [(ngModel)]="expires" nzPlaceHolder="Expires on (optional)"></nz-date-picker>
       <button nz-button nzType="primary" [nzLoading]="busy()" (click)="upload(file)" data-testid="attachment-upload">Upload</button>
     </div>`,

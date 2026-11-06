@@ -1,0 +1,131 @@
+// Loading shapes: the page keeps its layout and only the content is missing. The highlight moves the way people read.
+@keyframes erp-skel-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes erp-skel-shimmer-rtl {
+  from { transform: translateX(100%); }
+  to { transform: translateX(-100%); }
+}
+
+.erp-skel {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: var(--erp-color-skeleton-base);
+  border-radius: 4px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, var(--erp-color-skeleton-shine), transparent);
+    transform: translateX(-100%);
+    animation: erp-skel-shimmer 1400ms ease-in-out infinite;
+  }
+}
+
+[dir='rtl'] .erp-skel::after {
+  transform: translateX(100%);
+  animation-name: erp-skel-shimmer-rtl;
+}
+
+// ng-zorro's own skeleton (stat cards, record history, and a few pages): same colours, same direction, same motion rule.
+.ant-skeleton.ant-skeleton-active .ant-skeleton-content .ant-skeleton-title,
+.ant-skeleton.ant-skeleton-active .ant-skeleton-content .ant-skeleton-paragraph > li,
+.ant-skeleton.ant-skeleton-active .ant-skeleton-avatar,
+.ant-skeleton.ant-skeleton-active .ant-skeleton-button,
+.ant-skeleton.ant-skeleton-active .ant-skeleton-input,
+.ant-skeleton.ant-skeleton-active .ant-skeleton-image {
+  background: linear-gradient(90deg, var(--erp-color-skeleton-base) 25%, var(--erp-color-skeleton-shine) 37%, var(--erp-color-skeleton-base) 63%);
+  background-size: 400% 100%;
+}
+
+[dir='rtl'] .ant-skeleton.ant-skeleton-active .ant-skeleton-content .ant-skeleton-title,
+[dir='rtl'] .ant-skeleton.ant-skeleton-active .ant-skeleton-content .ant-skeleton-paragraph > li,
+[dir='rtl'] .ant-skeleton.ant-skeleton-active .ant-skeleton-avatar {
+  animation-direction: reverse;
+}
+
+@mixin still {
+  .erp-skel::after { animation: none; display: none; }
+  .ant-skeleton.ant-skeleton-active .ant-skeleton-content .ant-skeleton-title,
+  .ant-skeleton.ant-skeleton-active .ant-skeleton-content .ant-skeleton-paragraph > li,
+  .ant-skeleton.ant-skeleton-active .ant-skeleton-avatar,
+  .ant-skeleton.ant-skeleton-active .ant-skeleton-button,
+  .ant-skeleton.ant-skeleton-active .ant-skeleton-input,
+  .ant-skeleton.ant-skeleton-active .ant-skeleton-image {
+    animation: none;
+    background: var(--erp-color-skeleton-base);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) { @include still; }
+[data-motion='reduced'] { @include still; }
+
+// The shapes: sized like the text and controls they stand in for.
+.erp-skel--line { height: 12px; margin: 5px 0; }
+.erp-skel--cell { display: inline-block; height: 12px; vertical-align: middle; }
+.erp-skel--bar { height: 10px; margin: 4px 0; }
+.erp-skel--title { height: 18px; margin: 3px 0; }
+.erp-skel--figure { height: 34px; width: 60%; margin: 4px 0 12px; }
+.erp-skel--circle { width: 36px; height: 36px; border-radius: 50%; flex: none; }
+.erp-skel--button { width: 96px; height: 32px; border-radius: 6px; }
+.erp-skel--input { height: 32px; border-radius: 6px; }
+
+.erp-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.erp-skel-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.erp-skel-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 20px 24px;
+  background: var(--erp-color-bg-surface);
+  border: 1px solid var(--erp-color-border-subtle);
+  border-radius: var(--erp-radius-card, 8px);
+}
+.erp-skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.erp-skel-grid--wide { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.erp-skel-pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px 24px; margin-top: 8px; }
+.erp-skel-field { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.erp-skel-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  > div { flex: 1; min-width: 0; }
+}
+.erp-skel-table { padding: 0; gap: 0; overflow: hidden; }
+.erp-skel-table__head,
+.erp-skel-table__row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--erp-color-border-subtle);
+}
+.erp-skel-table__head { background: var(--erp-color-bg-subtle); }
+.erp-skel-table__head .erp-skel { width: 60%; }
+.erp-skel-table__row:last-child { border-bottom: 0; }
+.erp-skel-document { gap: 6px; max-width: 800px; margin-inline: auto; width: 100%; }
+.erp-skel-document__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.erp-skel-document .erp-skel-table { margin-top: 24px; border: 1px solid var(--erp-color-border-subtle); border-radius: 6px; }
+
+// A loading table: its own rows stand in, so ng-zorro's spinner has nothing to add.
+nz-table .ant-spin-spinning { display: none !important; }
+nz-table.erp-table-skeleton .ant-spin-blur { opacity: 1; filter: none; }
+nz-table.erp-table-skeleton .ant-spin-blur::after { display: none; }
+nz-table.erp-table-skeleton .ant-table-placeholder { display: none; }
+.erp-table-skeleton__row > td { height: 50px; pointer-events: none; } // the height of a row with a status tag, the usual row
+
+// A page refreshing what it already shows.
+.erp-refreshing { opacity: .6; transition: opacity 150ms; pointer-events: none; }

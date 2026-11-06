@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { formErrorAttempts } from '../forms/form-errors';
 import { AbstractControl, FormGroup } from '@angular/forms';
 import { ProblemDetails } from '../api/api.models';
 import { tNow } from '../i18n/translate-now';
@@ -40,6 +41,7 @@ export function applyProblemDetailsToForm(form: FormGroup, problem: ProblemDetai
       unmatched.push(...messages);
     }
   }
+  if (Object.keys(problem.errors ?? {}).length > unmatched.length) formErrorAttempts.next(form);
   return unmatched;
 }
 

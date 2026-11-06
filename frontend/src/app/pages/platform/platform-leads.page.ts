@@ -5,7 +5,6 @@ import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { createPagedList } from '../../core/api/paged-list';
 import { BrandConversationRow, BrandLeadRow, BrandLeadStatus, BrandMessageRow, PlatformApi } from '../../core/api/platform.api';
@@ -16,6 +15,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { PLATFORM_STYLES } from './platform-ui';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 const CHATS_SHOWN = 100;
 const STATUSES: { value: BrandLeadStatus; label: string }[] = [{ value: 'new', label: 'New' }, { value: 'contacted', label: 'Contacted' }, { value: 'won', label: 'Won' }, { value: 'lost', label: 'Lost' }];
@@ -29,7 +29,7 @@ const TABS: { status: BrandLeadStatus | null; label: string; empty: string }[] =
   selector: 'erp-platform-leads',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzButtonModule, NzCheckboxModule, NzModalModule, NzSelectModule, NzSpinModule, NzTabsModule, AssistantTextComponent, ErpDatePipe, PagedTableComponent, StatePanelComponent, StatusTagComponent],
+  imports: [FormsModule, NzButtonModule, NzCheckboxModule, NzModalModule, NzSelectModule, SkeletonComponent, NzTabsModule, AssistantTextComponent, ErpDatePipe, PagedTableComponent, StatePanelComponent, StatusTagComponent],
   styles: [PLATFORM_STYLES, `
     .group { margin-bottom: 16px; }
     .pf-tabs { margin-bottom: 8px; }
@@ -84,7 +84,7 @@ const TABS: { status: BrandLeadStatus | null; label: string; empty: string }[] =
       @if (failed()) {
         <erp-state-panel kind="error" title="Could not load the public chats" hint="The server did not answer." actionLabel="Try again" (action)="load()" />
       } @else if (loading()) {
-        <div style="padding:32px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+        <erp-skeleton kind="list" [rows]="5" />
       } @else if (!conversations().length) {
         <p class="pf-empty">{{ onlyNotHelpful() ? 'No chats with an answer marked not helpful.' : 'No chats yet.' }}</p>
       } @else {

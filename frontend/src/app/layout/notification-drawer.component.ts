@@ -1,11 +1,14 @@
 import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { optimistic } from '../core/http/optimistic';
+import { SkeletonComponent } from '../shared/skeleton.component';
 import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, input, output, signal, effect, computed } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { API_BASE_URL } from '../core/api/api-config';
+import { API_BASE_URL } from '../core/api/api-config';
+
 import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 
 interface NotificationDto {
@@ -23,7 +26,7 @@ interface NotificationDto {
   selector: 'erp-notification-drawer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KeyboardClickDirective, TranslatePipe, DatePipe, RouterLink, NzButtonModule, NzIconModule],
+  imports: [SkeletonComponent, KeyboardClickDirective, TranslatePipe, DatePipe, RouterLink, NzButtonModule, NzIconModule],
   styles: [`
     :host {
       display: block;
@@ -240,6 +243,7 @@ interface NotificationDto {
     :host-context([data-theme='dark']) .notif-empty-title {
       color: #e2e8f0;
     }
+    .notif-loading { padding: 4px 16px; }
     .notif-empty-desc {
       font-size: 12px;
       color: var(--erp-text-muted, #94a3b8);
@@ -311,6 +315,9 @@ interface NotificationDto {
             }
           </div>
         } @empty {
+          @if (loading()) {
+            <div class="notif-loading" data-testid="notifications-loading"><erp-skeleton kind="list" [rows]="4" /></div>
+          } @else {
           <div class="notif-empty">
             <div class="notif-empty-icon">
               <span nz-icon nzType="check-circle" nzTheme="outline"></span>
@@ -318,6 +325,7 @@ interface NotificationDto {
             <div class="notif-empty-title">{{ 'shell.caughtUp' | translate: 'All caught up' }}</div>
             <div class="notif-empty-desc">{{ 'shell.noNotifications' | translate: 'No new notifications right now' }}</div>
           </div>
+          }
         }
       </div>
 
@@ -344,6 +352,9 @@ export class NotificationDrawerComponent {
   readonly closed = output<void>();
   readonly changed = output<void>();
   readonly items = signal<NotificationDto[]>([]);
+  /** Read marks show at once; this tells the bell. A failed mark takes it back. */
+  readonly unreadShift = output<number>();
+  readonly loading = signal(false);
 
   readonly unreadCount = computed(() => this.items().filter((x) => !x.readAt).length);
 
@@ -354,18 +365,21 @@ export class NotificationDrawerComponent {
   }
 
   private load(): void {
+    this.loading.set(true);
     this.http.get<{ items: NotificationDto[] }>(`${this.base}/notifications`).subscribe({
-      next: (r) => this.items.set(r.items || []),
-      error: () => this.items.set([])
+      next: (r) => { this.items.set(r.items || []); this.loading.set(false); },
+      error: () => { this.items.set([]); this.loading.set(false); }
     });
   }
 
   markAll(): void {
-    this.http.post(`${this.base}/notifications/read-all`, {}).subscribe({
-      next: () => {
-        this.load();
-        this.changed.emit();
-      }
+    const before = this.items();
+    const unread = before.filter((x) => !x.readAt).length;
+    const at = new Date().toISOString();
+    optimistic(this.http.post(`${this.base}/notifications/read-all`, {}), {
+      apply: () => { this.items.set(before.map((x) => (x.readAt ? x : { ...x, readAt: at }))); this.unreadShift.emit(-unread); },
+      rollback: () => { this.items.set(before); this.unreadShift.emit(unread); },
+      done: () => this.changed.emit(),
     });
   }
 
@@ -378,13 +392,12 @@ export class NotificationDrawerComponent {
       go();
       return;
     }
-    this.http.post(`${this.base}/notifications/${n.id}/read`, {}).subscribe({
-      next: () => {
-        this.changed.emit();
-        go();
-      },
-      error: go
+    optimistic(this.http.post(`${this.base}/notifications/${n.id}/read`, {}), {
+      apply: () => { this.items.update((list) => list.map((x) => (x.id === n.id ? { ...x, readAt: new Date().toISOString() } : x))); this.unreadShift.emit(-1); },
+      rollback: () => { this.items.update((list) => list.map((x) => (x.id === n.id ? { ...x, readAt: n.readAt } : x))); this.unreadShift.emit(1); },
+      done: () => this.changed.emit(),
     });
+    go();
   }
 
   getIcon(severity?: string): string {

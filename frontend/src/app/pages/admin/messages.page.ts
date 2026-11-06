@@ -20,8 +20,8 @@ import { countOf } from './finance-kpis';
   imports: [ErpLabelPipe, StatusTagComponent, PagedTableComponent, FormsModule, NzButtonModule, NzInputModule, NzTagModule],
   template: `
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search subject or recipient" emptyText="No messages sent yet" [clickable]="false">
-      <div toolbar style="display:flex;align-items:center;gap:8px">
-        <input aria-label="Test email address" nz-input style="width:200px" placeholder="Test email address" [(ngModel)]="testTo" data-testid="test-email-to" />
+      <div toolbar style="display:flex;align-items:flex-end;gap:8px">
+        <label class="erp-inline-field">Test email address<input nz-input type="email" style="width:200px" [(ngModel)]="testTo" data-testid="test-email-to" /></label>
         <button nz-button [nzLoading]="testing()" (click)="sendTest()" data-testid="test-email">Send test email</button>
         <button nz-button nzType="primary" [nzLoading]="running()" (click)="run()" data-testid="send-reminders">Send due reminders now</button>
       </div>

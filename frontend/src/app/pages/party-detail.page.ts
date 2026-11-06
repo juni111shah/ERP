@@ -2,7 +2,6 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -16,7 +15,6 @@ import { SessionStore } from '../core/session/session.store';
 import { I18nService } from '../core/i18n/i18n.service';
 import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 import { ErpLabelPipe, ErpDatePipe } from '../shared/display.pipes';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { StatePanelComponent } from '../shared/state-panel.component';
 import { StatusTagComponent } from '../shared/status-tag.component';
 import { catchError, forkJoin, of } from 'rxjs';
@@ -25,6 +23,8 @@ import { ListQuery } from '../core/api/api.models';
 import { WorkspaceCurrencyService } from '../core/services/workspace-currency.service';
 import { AllRows, fetchAllRows, moneyByCurrency } from './admin/finance-kpis';
 import { formatMoney } from './admin/invoice-sheet.component';
+import { ErpTableModule } from '../shared/erp-table.module';
+import { SkeletonComponent } from '../shared/skeleton.component';
 
 interface Transaction {
   id: string;
@@ -60,10 +60,10 @@ interface Party {
 @Component({
   selector: 'erp-party-detail',
   standalone: true,
-  imports: [ErpLabelPipe, ErpDatePipe, NzSpinModule, StatePanelComponent, StatusTagComponent, KeyboardClickDirective, TableToolsComponent, CommonModule, DatePipe, DecimalPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent, AttachmentsComponent, PartyStatementComponent, TranslatePipe],
+  imports: [ErpLabelPipe, ErpDatePipe, SkeletonComponent, StatePanelComponent, StatusTagComponent, KeyboardClickDirective, TableToolsComponent, CommonModule, DatePipe, DecimalPipe, ErpTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent, AttachmentsComponent, PartyStatementComponent, TranslatePipe],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="detail" />
     } @else if (error()) {
       <erp-state-panel kind="error" title="Could not load this party" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (party()) {
@@ -197,7 +197,7 @@ interface Party {
               </tbody>
             </nz-table>
             <p style="text-align: right; margin-top: 12px;">{{ 'ui.party.unallocated' | translate: 'Unallocated' }}: {{ (st.unallocatedReceipts ?? st.unallocatedPayments ?? 0) | number:'1.2-2' }}<br /><b>{{ 'ui.party.balance' | translate: 'Balance' }}: {{ st.balance | number:'1.2-2' }}</b></p>
-          } @else { <p>Loading…</p> }
+          } @else { <erp-skeleton kind="table" [rows]="4" [columns]="5" /> }
         </ng-container>
       </nz-drawer>
     }

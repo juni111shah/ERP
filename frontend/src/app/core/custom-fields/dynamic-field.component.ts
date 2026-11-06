@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angu
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzSelectModule } from 'ng-zorro-antd/select';
@@ -10,13 +9,14 @@ import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { controlError } from '../http/problem-details';
 import { FormFieldMeta, FormSectionMeta } from './custom-field.models';
 import { LookupOption, LookupRegistry } from './lookup-registry';
+import { ErpFormModule } from '../forms/erp-form.module';
 
 /** Renders one custom field from its metadata (Odoo Studio pattern: the UI is driven by the field registry). */
 @Component({
   selector: 'erp-dynamic-field',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NzFormModule, NzInputModule, NzInputNumberModule, NzDatePickerModule, NzSelectModule, NzSwitchModule, NzCheckboxModule],
+  imports: [ReactiveFormsModule, ErpFormModule, NzInputModule, NzInputNumberModule, NzDatePickerModule, NzSelectModule, NzSwitchModule, NzCheckboxModule],
   template: `
     <nz-form-item class="erp-field" data-origin="custom" [formGroup]="group()" [attr.data-testid]="'cf-' + field().key">
       <nz-form-label [nzRequired]="field().required" [nzFor]="field().key">{{ field().label }}</nz-form-label>

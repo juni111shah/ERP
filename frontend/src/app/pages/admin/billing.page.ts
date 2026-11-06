@@ -6,7 +6,6 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { ProblemDetails } from '../../core/api/api.models';
 import { BillingCycle, BillingOverview, PlatformApi, PublicPlan } from '../../core/api/platform.api';
 import { statusWords } from '../../core/format/subscription';
@@ -18,13 +17,14 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { UsageBarComponent } from '../../shared/usage-bar.component';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 /** A workspace's own plan: where it stands, what is owed, and a way to ask for a different plan. */
 @Component({
   selector: 'erp-billing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzModalModule, NzRadioModule, NzSpinModule, ErpDatePipe, ErpMoneyPipe, PlanCardComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent, UsageBarComponent],
+  imports: [FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzModalModule, NzRadioModule, SkeletonComponent, ErpDatePipe, ErpMoneyPipe, PlanCardComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent, UsageBarComponent],
   styles: [`
     :host { display: block; min-width: 0; }
     .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-bottom: 16px; align-items: start; }
@@ -60,7 +60,7 @@ import { UsageBarComponent } from '../../shared/usage-bar.component';
     @if (failed()) {
       <erp-state-panel kind="error" title="Could not load your subscription" [hint]="failed()" actionLabel="Try again" (action)="load()" />
     } @else if (!data()) {
-      <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="detail" />
     } @else if (!data()!.summary.hasSubscription) {
       <erp-state-panel icon="credit-card" title="No subscription on this workspace" hint="This workspace is not billed through a plan, so there is nothing to manage here." data-testid="billing-none" />
     } @else {

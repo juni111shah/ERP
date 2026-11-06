@@ -4,7 +4,6 @@ import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, Validatio
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -27,6 +26,7 @@ import { ErpLabelPipe } from '../../shared/display.pipes';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
 
 /** The end date field must not fall before the start date field of the same form. */
 const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErrors | null => {
@@ -46,7 +46,7 @@ const CYCLE_PERIOD: Record<RetainerCycle, string> = { monthly: 'month', quarterl
     NzButtonModule,
     NzIconModule,
     NzDrawerModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
@@ -179,7 +179,7 @@ const CYCLE_PERIOD: Record<RetainerCycle, string> = { monthly: 'month', quarterl
 
           <div class="drawer-footer">
             <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
-            <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit" [disabled]="form.invalid">Save</button>
+            <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit">Save</button>
           </div>
         </form>
       </ng-container>

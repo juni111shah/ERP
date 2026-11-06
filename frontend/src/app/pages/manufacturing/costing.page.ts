@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { of, switchMap } from 'rxjs';
 import { NzCardModule } from 'ng-zorro-antd/card';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTableModule } from 'ng-zorro-antd/table';
@@ -19,12 +18,13 @@ import {
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
 
 @Component({
   selector: 'erp-manufacturing-costing-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, NzCardModule, NzFormModule, NzSelectModule, NzSkeletonModule, NzTableModule, StatCardComponent, StatePanelComponent, StatusTagComponent],
+  imports: [DecimalPipe, FormsModule, NzCardModule, ErpFormModule, NzSelectModule, NzSkeletonModule, NzTableModule, StatCardComponent, StatePanelComponent, StatusTagComponent],
   template: `
     @if (bomsFailed()) {
       <erp-state-panel kind="error" title="The bills of materials could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="loadBoms()" />

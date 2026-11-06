@@ -31,15 +31,15 @@ import { ErpDatePipe } from '../../shared/display.pipes';
           @if (i > 0) { <p class="muted" style="margin:4px 0 0">You can sign this one after the one above.</p> } @else {
           <p class="muted" style="margin:4px 0 0">Enter your name, sign, then accept. To decline, leave a comment saying why.</p>
           <div class="row">
-            <input nz-input [(ngModel)]="name" placeholder="Your full name" maxlength="150" aria-label="Your full name" data-testid="signoff-name" />
-            <input nz-input [(ngModel)]="signature" placeholder="Type your name to sign" maxlength="150" aria-label="Signature" data-testid="signoff-signature" />
+            <label class="erp-inline-field" style="flex:1">Your full name<input nz-input [(ngModel)]="name" maxlength="150" autocomplete="name" data-testid="signoff-name" /></label>
+            <label class="erp-inline-field" style="flex:1">Type your name to sign<input nz-input [(ngModel)]="signature" maxlength="150" data-testid="signoff-signature" /></label>
           </div>
           <div class="pad">
             <canvas #pad width="480" height="140" aria-label="Draw your signature here" data-testid="signoff-pad"
                     (pointerdown)="down($event)" (pointermove)="move($event)" (pointerup)="up()" (pointerleave)="up()"></canvas>
             <button nz-button nzSize="small" type="button" (click)="clearPad()" data-testid="signoff-clear">Clear</button>
           </div>
-          <input nz-input [(ngModel)]="comment" placeholder="Comment (needed if you decline)" maxlength="1000" aria-label="Comment" style="margin-top:8px" />
+          <label class="erp-inline-field" style="display:flex;margin-top:8px">Comment (needed if you decline)<input nz-input [(ngModel)]="comment" maxlength="1000" /></label>
           <div class="row">
             <button nz-button nzType="primary" (click)="answer(a, true)" data-testid="signoff-accept">Accept and sign</button>
             <button nz-button nzDanger (click)="answer(a, false)" data-testid="signoff-decline">Decline</button>

@@ -8,7 +8,6 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -34,6 +33,8 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 const STAGES: OpportunityStage[] = ['qualification', 'proposal', 'negotiation', 'closedWon', 'closedLost'];
 /** The same moves the server allows (CrmTransitions.Opportunity). Won and lost go through the close form, which asks for the final value and reason. */
@@ -64,7 +65,7 @@ const VIEW_KEY = 'erp.crm.pipeline.view';
     NzIconModule,
     NzModalModule,
     NzDrawerModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
@@ -556,7 +557,7 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
 
   saveOpportunity(): void {
     if (this.oppForm.invalid) {
-      Object.values(this.oppForm.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      showFormErrors(this.oppForm);
       return;
     }
     this.isSubmitting.set(true);
@@ -587,7 +588,7 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
   }
 
   submitCloseDeal(): void {
-    if (this.closeForm.invalid) return;
+    if (this.closeForm.invalid) { showFormErrors(this.closeForm); return; }
     const opp = this.selectedOpportunity();
     if (!opp) return;
 

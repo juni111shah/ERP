@@ -4,7 +4,6 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -31,6 +30,8 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { askReason } from '../../shared/reason-prompt';
 import { StatusTagComponent } from '../../shared/status-tag.component';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 @Component({
   selector: 'erp-work-orders-page',
@@ -43,7 +44,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
     NzIconModule,
     NzModalModule,
     NzDrawerModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
@@ -330,7 +331,7 @@ export class WorkOrdersPageComponent implements OnInit {
       dueControl.updateValueAndValidity();
     }
     if (this.woForm.invalid) {
-      Object.values(this.woForm.controls).forEach((c) => c.markAsDirty());
+      showFormErrors(this.woForm);
       return;
     }
     this.isSubmitting.set(true);
@@ -375,7 +376,8 @@ export class WorkOrdersPageComponent implements OnInit {
 
   submitCompleteOrder(): void {
     const order = this.selectedOrder();
-    if (!order || this.completeForm.invalid) return;
+    if (!order) return;
+    if (this.completeForm.invalid) { showFormErrors(this.completeForm); return; }
     const v = this.completeForm.value;
     this.isCompleting.set(true);
     this.api.complete(order.id, {

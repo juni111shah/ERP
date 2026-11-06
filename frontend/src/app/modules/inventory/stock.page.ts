@@ -2,7 +2,6 @@ import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ProblemDetails } from '../../core/api/api.models';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
@@ -19,6 +18,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { FormsModule } from '@angular/forms';
+import { ErpTableModule } from '../../shared/erp-table.module';
 
 type Action = 'receive' | 'issue' | 'adjust' | 'transfer' | 'policy';
 
@@ -27,7 +27,7 @@ type Action = 'receive' | 'issue' | 'adjust' | 'transfer' | 'policy';
   selector: 'erp-stock',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, StatePanelComponent, FormsModule, NzIconModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzTableModule, NzTagModule],
+  imports: [StatCardComponent, StatePanelComponent, FormsModule, NzIconModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, ErpTableModule, NzTagModule],
   styles: [`
     .low-panel { margin-bottom: 16px; border: 1px solid var(--erp-color-warning-border); border-radius: 12px; background: var(--erp-color-bg-surface); overflow: hidden; }
     .low-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 16px; background: var(--erp-color-warning-bg); color: var(--erp-color-warning-text); font-weight: 600; }

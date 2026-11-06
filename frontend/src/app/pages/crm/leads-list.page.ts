@@ -7,7 +7,6 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -27,6 +26,8 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
 import { displayLabel } from '../../core/format/display';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /** A lead becomes Converted only through the convert action. */
 const STATUSES: LeadStatus[] = ['new', 'contacted', 'qualified', 'unqualified'];
@@ -43,7 +44,7 @@ const STATUSES: LeadStatus[] = ['new', 'contacted', 'qualified', 'unqualified'];
     NzBadgeModule,
     NzModalModule,
     NzDrawerModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
@@ -431,7 +432,7 @@ export class LeadsListPageComponent implements OnInit {
 
   saveLead(): void {
     if (this.leadForm.invalid) {
-      Object.values(this.leadForm.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      showFormErrors(this.leadForm);
       return;
     }
     this.isSubmitting.set(true);
@@ -452,7 +453,7 @@ export class LeadsListPageComponent implements OnInit {
   }
 
   submitConvertLead(): void {
-    if (this.convertForm.invalid) return;
+    if (this.convertForm.invalid) { showFormErrors(this.convertForm); return; }
     const lead = this.selectedLead();
     if (!lead) return;
 

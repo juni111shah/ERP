@@ -3,7 +3,6 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { ProblemDetails } from '../../core/api/api.models';
 import { PlatformApi, PlatformTeamMember } from '../../core/api/platform.api';
 import { asProblem, problemMessage } from '../../core/http/problem-details';
@@ -13,13 +12,14 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { OneTimePasswordComponent, OneTimeSecret, PLATFORM_STYLES } from './platform-ui';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 /** Who can open this console. */
 @Component({
   selector: 'erp-platform-team',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzButtonModule, NzIconModule, NzModalModule, NzSpinModule, ErpDatePipe, OneTimePasswordComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
+  imports: [NzButtonModule, NzIconModule, NzModalModule, SkeletonComponent, ErpDatePipe, OneTimePasswordComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
   styles: [PLATFORM_STYLES],
   template: `
     <div class="pf-head">
@@ -29,7 +29,7 @@ import { OneTimePasswordComponent, OneTimeSecret, PLATFORM_STYLES } from './plat
     @if (failed()) {
       <erp-state-panel kind="error" title="Could not load the team" hint="The server did not answer." actionLabel="Try again" (action)="load()" />
     } @else if (loading()) {
-      <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="list" [rows]="4" />
     } @else {
       <section class="pf-card" data-testid="team-list">
         <div class="pf-scroll">

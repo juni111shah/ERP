@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { PreferenceSwitchesComponent } from '../shared/preference-switches.component';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { catchError, forkJoin, of } from 'rxjs';
@@ -13,7 +14,7 @@ import { RegisterResultComponent } from './register-result.component';
   selector: 'erp-register-verify',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, NzSpinModule, BrandLogoComponent, RegisterResultComponent, StatePanelComponent],
+  imports: [PreferenceSwitchesComponent, RouterLink, NzSpinModule, BrandLogoComponent, RegisterResultComponent, StatePanelComponent],
   styles: [`
     :host { display: grid; place-items: center; min-height: 100vh; padding: 24px; box-sizing: border-box; background: radial-gradient(circle at 10% 20%, rgba(16,149,93,.06) 0%, transparent 40%), var(--erp-color-bg-canvas); }
     .card { width: 100%; max-width: 520px; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 16px; padding: 32px; box-shadow: 0 4px 20px -2px rgba(0,0,0,.05); box-sizing: border-box; }
@@ -24,6 +25,7 @@ import { RegisterResultComponent } from './register-result.component';
     @media (max-width: 767px) { :host { padding: 16px; } .card { padding: 20px 16px; } }
   `],
   template: `
+    <erp-preference-switches class="floating" />
     <div class="card">
       <div class="brand"><erp-brand-logo size="lg"></erp-brand-logo></div>
       @if (busy()) {

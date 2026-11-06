@@ -53,7 +53,7 @@ import { EmployeeSummary, EmployeesApi, LEAVE_STATUS_LABELS, LeaveApi, LeaveRequ
             <div><erp-status [value]="d.status" [label]="label(d.status)" />
               @if (d.decisionComment) { <span>{{ d.decisionComment }}</span> }</div>
           }
-          @if (canDecide()) { <input aria-label="Comment for the decision (optional)" nz-input placeholder="Comment for the decision (optional)" [(ngModel)]="comment" maxlength="500" data-testid="leave-comment" /> }
+          @if (canDecide()) { <label class="erp-inline-field" style="display:flex">Comment for the decision (optional)<input nz-input [(ngModel)]="comment" maxlength="500" data-testid="leave-comment" /></label> }
         </div>
       </ng-container>
     </nz-drawer>

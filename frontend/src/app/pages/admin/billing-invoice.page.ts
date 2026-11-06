@@ -1,25 +1,25 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { InvoiceDocument, PlatformApi } from '../../core/api/platform.api';
 import { problemMessage } from '../../core/http/problem-details';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { SubscriptionInvoiceComponent } from '../../shared/subscription-invoice.component';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 /** A client's own invoice, ready to print. It stays reachable when the workspace is blocked. */
 @Component({
   selector: 'erp-billing-invoice',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzSpinModule, StatePanelComponent, SubscriptionInvoiceComponent],
+  imports: [SkeletonComponent, StatePanelComponent, SubscriptionInvoiceComponent],
   template: `
     @if (doc(); as d) {
       <erp-subscription-invoice [doc]="d" [backLink]="['/admin/billing']" backLabel="Subscription and billing" />
     } @else if (failed()) {
       <div style="padding:24px"><erp-state-panel kind="error" title="Could not load this invoice" [hint]="failed()" actionLabel="Try again" (action)="load()" /></div>
     } @else {
-      <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="document" />
     }`,
 })
 export class BillingInvoicePage {

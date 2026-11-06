@@ -7,7 +7,6 @@ import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angula
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -32,6 +31,8 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
 import { ListQuery } from '../../core/api/api.models';
 import { daysOverdue, formatMoney } from './invoice-sheet.component';
 import { AllRows, countOf, countRows, fetchAllRows, moneyByCurrency, startOfYear } from './finance-kpis';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pendingApproval: 'Needs approval', issued: 'Posted' };
 
@@ -40,7 +41,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
   selector: 'erp-bills',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, StatusTagComponent, NzToolTipModule, RevealDirective, ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
+  imports: [StatCardComponent, StatusTagComponent, NzToolTipModule, RevealDirective, ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, ErpFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
   styles: [`.line { display:grid; grid-template-columns: 2fr 1.6fr .7fr .9fr 1.1fr 32px; gap:8px; margin-bottom:8px; align-items:center } .line nz-input-number { width:100% }
     .line-head { margin-bottom:4px; font-size:12px; font-weight:600; color: var(--erp-color-text-muted) }
     .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0; font-variant-numeric: tabular-nums } .amount { font-variant-numeric: tabular-nums; white-space:nowrap }`],
@@ -310,7 +311,7 @@ export class BillsPage {
   }
 
   save(post: boolean): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); this.message.warning('Fill in the fields marked in red'); return; }
+    if (this.form.invalid) { showFormErrors(this.form); this.message.warning('Fill in the fields marked in red'); return; }
     const v = this.form.getRawValue();
     const body = {
       legalEntityId: v.legalEntityId, partyId: v.partyId, vendorReference: v.vendorReference || null, billDate: toIsoDate(v.billDate!), dueDate: v.dueDate ? toIsoDate(v.dueDate) : null,

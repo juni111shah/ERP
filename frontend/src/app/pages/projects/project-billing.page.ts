@@ -5,7 +5,6 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { CsvExportService } from '../../core/services/csv-export.service';
 import { ProjectBillingApi, ProjectBillingSummaryDto } from '../../core/api/projects.api';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
@@ -13,13 +12,14 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { BillModalComponent } from './bill-modal.component';
 import { errorText, PRJ_STYLES, ProjectTagComponent } from './projects-ui';
+import { ErpTableModule } from '../../shared/erp-table.module';
 
 /** What is ready to bill across all projects. Billing a project opens the invoice builder, where nothing is created until it is confirmed. */
 @Component({
   selector: 'erp-project-billing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterModule, NzCardModule, NzButtonModule, NzIconModule, NzTableModule, HasPermissionDirective, StatCardComponent, BillModalComponent, ProjectTagComponent],
+  imports: [DecimalPipe, RouterModule, NzCardModule, NzButtonModule, NzIconModule, ErpTableModule, HasPermissionDirective, StatCardComponent, BillModalComponent, ProjectTagComponent],
   template: `
     <div class="erp-stat-grid erp-stat-grid--auto mb-4" data-testid="billing-stats-grid">
       <erp-stat-card label="Ready to bill" [value]="total()" format="money" [tone]="0" [caption]="'across ' + billableCount() + (billableCount() === 1 ? ' project' : ' projects')" />

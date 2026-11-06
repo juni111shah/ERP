@@ -1,21 +1,24 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { PreferenceSwitchesComponent } from '../shared/preference-switches.component';
+import { showFormErrors } from '../core/forms/form-errors';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { AuthService } from '../core/auth/auth.service';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { AUTH_STYLES } from './auth-layout';
+import { ErpFormModule } from '../core/forms/erp-form.module';
 
 @Component({
   selector: 'erp-forgot-password',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule, BrandLogoComponent],
+  imports: [PreferenceSwitchesComponent, ReactiveFormsModule, RouterLink, ErpFormModule, NzInputModule, NzButtonModule, NzAlertModule, BrandLogoComponent],
   styles: [AUTH_STYLES],
   template: `
+    <erp-preference-switches class="floating" />
     <div class="card">
       <div class="brand"><erp-brand-logo size="lg"></erp-brand-logo></div>
       <h1>Reset your password</h1>
@@ -42,7 +45,7 @@ export class ForgotPasswordPage {
   readonly sent = signal(false);
 
   submit(): void {
-    if (this.form.invalid) { this.form.controls.email.markAsDirty(); this.form.controls.email.updateValueAndValidity(); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     this.busy.set(true);
     // Same message whether or not the account exists (no user enumeration).
     this.auth.forgotPassword(this.form.getRawValue().email).subscribe({ next: () => this.sent.set(true), error: () => this.sent.set(true) });

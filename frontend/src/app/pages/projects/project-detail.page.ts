@@ -1,4 +1,5 @@
 import { DecimalPipe } from '@angular/common';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -41,7 +42,7 @@ const TABS: TabDef[] = [
   selector: 'erp-project-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, RecordDrawerComponent, ProjectTagComponent, LogTimeComponent, TaskDrawerComponent,
+  imports: [SkeletonComponent, ErpDatePipe, DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, RecordDrawerComponent, ProjectTagComponent, LogTimeComponent, TaskDrawerComponent,
     ProjectOverviewComponent, ProjectWorkComponent, ProjectMilestonesComponent, ProjectTimeComponent, ProjectMoneyComponent, ProjectTeamComponent, ProjectControlComponent, ProjectNotesComponent],
   template: `
     @if (project(); as p) {
@@ -148,7 +149,7 @@ const TABS: TabDef[] = [
     } @else if (failed()) {
       <div class="prj-card prj-empty" role="alert" data-testid="project-load-error">{{ failed() }} <a routerLink="/projects/list" class="prj-link">Back to projects</a></div>
     } @else {
-      <div class="prj-empty">Loading the project</div>
+      <erp-skeleton kind="detail" />
     }
   `,
   styles: [PRJ_STYLES + `

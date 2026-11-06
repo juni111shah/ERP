@@ -3,13 +3,11 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { forkJoin } from 'rxjs';
 import { CurrencyOption } from '../../core/api/admin.api';
@@ -17,13 +15,16 @@ import { PlanView, PlatformApi, PlatformSettingsView, SignupMode } from '../../c
 import { applyProblemDetailsToForm, asProblem, controlError, problemMessage } from '../../core/http/problem-details';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { PLATFORM_STYLES } from './platform-ui';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 /** How the business runs: who may register, how billing behaves, and what clients see on their invoices. */
 @Component({
   selector: 'erp-platform-settings',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NzAlertModule, NzButtonModule, NzFormModule, NzInputModule, NzInputNumberModule, NzRadioModule, NzSelectModule, NzSpinModule, NzSwitchModule, StatePanelComponent],
+  imports: [ReactiveFormsModule, RouterLink, NzAlertModule, NzButtonModule, ErpFormModule, NzInputModule, NzInputNumberModule, NzRadioModule, NzSelectModule, SkeletonComponent, NzSwitchModule, StatePanelComponent],
   styles: [PLATFORM_STYLES, `
     .group { margin-bottom: 16px; }
     .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
@@ -39,7 +40,7 @@ import { PLATFORM_STYLES } from './platform-ui';
     @if (failed()) {
       <erp-state-panel kind="error" title="Could not load the settings" hint="The server did not answer." actionLabel="Try again" (action)="load()" />
     } @else if (!settings()) {
-      <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="form" [rows]="6" />
     } @else {
       <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="save()" data-testid="settings-form" novalidate>
         <section class="pf-card group" data-testid="settings-registration">
@@ -255,7 +256,7 @@ export class PlatformSettingsPage {
 
   save(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); });
+      showFormErrors(this.form);
       return;
     }
     const v = this.form.getRawValue();

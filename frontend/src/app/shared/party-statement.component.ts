@@ -6,7 +6,6 @@ import { RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { API_BASE_URL } from '../core/api/api-config';
 import { I18nService } from '../core/i18n/i18n.service';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
@@ -14,6 +13,7 @@ import { SessionStore } from '../core/session/session.store';
 import { RevealDirective } from './reveal.directive';
 import { EmailDocumentDrawerComponent } from './email-document-drawer.component';
 import { HasPermissionDirective } from './has-permission.directive';
+import { ErpTableModule } from './erp-table.module';
 
 export interface PartyLedgerLine { date: string; kind: 'invoice' | 'creditNote' | 'receipt' | 'bill' | 'payment' | string; documentId: string; number: string; reference: string | null; currencyCode: string; debit: number; credit: number; balance: number }
 export interface PartyLedger { partyId: string; partyName: string | null; side: 'customer' | 'vendor'; from: string; to: string; openingBalance: number; lines: PartyLedgerLine[]; totalDebit: number; totalCredit: number; closingBalance: number }
@@ -32,7 +32,7 @@ const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '
   selector: 'erp-party-statement',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzIconModule, NzTableModule, TranslatePipe, RevealDirective, EmailDocumentDrawerComponent, HasPermissionDirective],
+  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzIconModule, ErpTableModule, TranslatePipe, RevealDirective, EmailDocumentDrawerComponent, HasPermissionDirective],
   styles: [`.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; } .num { text-align: end; white-space: nowrap; } .sum td { font-weight: 600; } .err { color: var(--erp-color-error, #cf1322); }`],
   template: `
     <div class="bar" erpReveal>

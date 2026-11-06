@@ -7,7 +7,6 @@ import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -37,6 +36,8 @@ import { ErpDatePipe } from '../../shared/display.pipes';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { problemMessage } from '../../core/http/problem-details';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 @Component({
   selector: 'erp-van-trips-page',
@@ -52,7 +53,7 @@ import { problemMessage } from '../../core/http/problem-details';
     NzBadgeModule,
     NzModalModule,
     NzDrawerModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
@@ -557,7 +558,7 @@ export class VanTripsPageComponent implements OnInit {
 
   saveTrip(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      showFormErrors(this.form);
       return;
     }
     if (this.loadedItems().length === 0) {

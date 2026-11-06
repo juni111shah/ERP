@@ -1,16 +1,15 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { PreferenceSwitchesComponent } from '../shared/preference-switches.component';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { catchError, debounceTime, of, switchMap, tap } from 'rxjs';
 import { CountryDto, CurrencyOption } from '../core/api/admin.api';
 import { BillingCycle, IndustryOption, PlatformApi, PublicPlan, SignupConfig, SignupResult } from '../core/api/platform.api';
@@ -23,6 +22,9 @@ import { PlanCardComponent } from '../shared/plan-card.component';
 import { StatePanelComponent } from '../shared/state-panel.component';
 import { PASSWORD_HINT, PASSWORD_RULE } from './auth-layout';
 import { RegisterResultComponent } from './register-result.component';
+import { ErpFormModule } from '../core/forms/erp-form.module';
+import { showFormErrors } from '../core/forms/form-errors';
+import { SkeletonComponent } from '../shared/skeleton.component';
 
 const CODE_RULE = /^[a-zA-Z0-9][a-zA-Z0-9-]{1,48}$/;
 const FIELD_MESSAGES: Record<string, string> = {
@@ -35,7 +37,7 @@ const FIELD_MESSAGES: Record<string, string> = {
   selector: 'erp-register',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BrandAssistantComponent, ReactiveFormsModule, FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzCheckboxModule, NzFormModule, NzIconModule, NzInputModule, NzRadioModule, NzSelectModule, NzSpinModule,
+  imports: [PreferenceSwitchesComponent, BrandAssistantComponent, ReactiveFormsModule, FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzCheckboxModule, ErpFormModule, NzIconModule, NzInputModule, NzRadioModule, NzSelectModule, SkeletonComponent,
     BrandLogoComponent, PlanCardComponent, RegisterResultComponent, StatePanelComponent],
   styles: [`
     :host { display: block; min-height: 100vh; background: radial-gradient(circle at 10% 20%, rgba(16,149,93,.06) 0%, transparent 40%), var(--erp-color-bg-canvas); }
@@ -77,11 +79,11 @@ const FIELD_MESSAGES: Record<string, string> = {
   template: `
     <header class="top">
       <a routerLink="/pricing" aria-label="Home" style="display:inline-flex;min-width:0"><erp-brand-logo size="lg"></erp-brand-logo></a>
-      <a class="signin" routerLink="/auth/login" data-testid="register-signin-link">Sign in</a>
+      <span style="display:inline-flex;align-items:center;gap:8px"><erp-preference-switches /><a class="signin" routerLink="/auth/login" data-testid="register-signin-link">Sign in</a></span>
     </header>
     <main>
       @if (loading()) {
-        <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+        <erp-skeleton kind="form" [rows]="6" />
       } @else if (loadFailed()) {
         <erp-state-panel kind="error" title="This page could not load" hint="The server did not answer. Please try again in a moment." actionLabel="Try again" (action)="load()" />
       } @else if (config(); as c) {
@@ -334,7 +336,7 @@ export class RegisterPage {
   submit(): void {
     const form = this.form;
     if (form.invalid) {
-      Object.values(form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); });
+      showFormErrors(form);
       return;
     }
     const v = form.getRawValue();

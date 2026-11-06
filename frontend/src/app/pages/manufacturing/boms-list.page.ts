@@ -1,9 +1,9 @@
 import { DecimalPipe } from '@angular/common';
+import { showFormErrors } from '../../core/forms/form-errors';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -22,6 +22,7 @@ import { SessionStore } from '../../core/session/session.store';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
 
 @Component({
   selector: 'erp-boms-list-page',
@@ -33,7 +34,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
     NzIconModule,
     NzSwitchModule,
     NzDrawerModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzPopconfirmModule,
@@ -435,11 +436,7 @@ export class BomsListPageComponent implements OnInit {
 
   saveBom(): void {
     if (this.bomForm.invalid) {
-      const mark = (group: FormGroup | FormArray) => Object.values(group.controls).forEach((c) => {
-        if (c instanceof FormGroup || c instanceof FormArray) mark(c);
-        else { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); }
-      });
-      mark(this.bomForm);
+      showFormErrors(this.bomForm);
       this.message.warning('Fill in the highlighted fields, including every component');
       return;
     }

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -28,7 +29,7 @@ interface Band { left: number; width: number; label: string; }
   selector: 'erp-project-gantt',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzModalModule, NzButtonModule, NzIconModule],
+  imports: [SkeletonComponent, NzModalModule, NzButtonModule, NzIconModule],
   template: `
     <div class="prj-toolbar" data-testid="gantt-toolbar">
       <div class="prj-chips" role="group" aria-label="Zoom">
@@ -84,7 +85,7 @@ interface Band { left: number; width: number; label: string; }
           </div>
         </div>
       } @else { <div class="prj-empty">No tasks yet. Add tasks to see the plan.</div> }
-    } @else { <div class="prj-empty">Loading the plan</div> }
+    } @else { <erp-skeleton kind="table" [rows]="6" [columns]="4" /> }
   `,
   styles: [PRJ_STYLES + `
     .legend { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--erp-color-text-secondary,#64748b); flex-wrap:wrap; }

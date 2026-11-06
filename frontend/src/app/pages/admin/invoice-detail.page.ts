@@ -19,7 +19,6 @@ import { AdminApi, AuditApi, AuditEvent, TaxCodeDto, TaxCodesApi, UserSummary } 
 import { asProblem, problemMessage } from '../../core/http/problem-details';
 import { askReason } from '../../shared/reason-prompt';
 import { AttachmentsComponent } from '../../shared/attachments.component';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { displayDate, displayLabel } from '../../core/format/display';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
@@ -27,6 +26,7 @@ import { InvoiceExtras, InvoiceExtrasService, InvoiceSheetComponent, InvoiceShee
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 interface Invoice extends InvoiceSheetData {
   legalEntityId: string;
@@ -40,7 +40,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
 @Component({
   selector: 'erp-invoice-detail',
   standalone: true,
-  imports: [NzSpinModule, StatePanelComponent, StatusTagComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
+  imports: [SkeletonComponent, StatePanelComponent, StatusTagComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
   styles: [`
     .section { margin-top: 16px; }
     .section ::ng-deep .ant-card-head-title { color: var(--erp-color-text-muted); text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:600; }
@@ -49,7 +49,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
   `],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="detail" />
     } @else if (error()) {
       <erp-state-panel kind="error" title="Could not load this invoice" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (invoice()) {

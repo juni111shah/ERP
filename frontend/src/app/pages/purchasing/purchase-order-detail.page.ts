@@ -1,4 +1,5 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
+import { showFormErrors } from '../../core/forms/form-errors';
 import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -7,7 +8,6 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDescriptionsModule } from 'ng-zorro-antd/descriptions';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
@@ -26,6 +26,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { displayLabel } from '../../core/format/display';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
 
 @Component({
   selector: 'erp-purchase-order-detail',
@@ -45,7 +46,7 @@ import { displayLabel } from '../../core/format/display';
     NzDescriptionsModule,
     NzProgressModule,
     NzModalModule,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzInputNumberModule,
     NzDatePickerModule,
@@ -388,7 +389,8 @@ export class PurchaseOrderDetailPage {
 
   saveReceipt(): void {
     const o = this.order();
-    if (!o || this.receiptForm.invalid) return;
+    if (!o) return;
+    if (this.receiptForm.invalid) { showFormErrors(this.receiptForm); return; }
 
     const raw = this.receiptForm.value;
     // The API refuses a line with nothing received, so lines left at zero are not sent.

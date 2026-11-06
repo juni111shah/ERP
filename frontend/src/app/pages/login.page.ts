@@ -1,11 +1,11 @@
 import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { PreferenceSwitchesComponent } from '../shared/preference-switches.component';
 import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AuthService, LoginResponse } from '../core/auth/auth.service';
@@ -14,16 +14,18 @@ import { asProblem } from '../core/http/problem-details';
 import { Workspace } from '../core/session/session.store';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.component';
+import { ErpFormModule } from '../core/forms/erp-form.module';
+import { showFormErrors } from '../core/forms/form-errors';
 
 @Component({
   selector: 'erp-login',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [PreferenceSwitchesComponent, 
     TranslatePipe,
     ReactiveFormsModule,
     RouterLink,
-    NzFormModule,
+    ErpFormModule,
     NzInputModule,
     NzButtonModule,
     NzCheckboxModule,
@@ -40,8 +42,15 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
       width: 100%;
       overflow: hidden;
       background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 40%, #e6f7ef 100%);
+    }
+
+    :host-context([data-theme='dark']) {
+      background: linear-gradient(135deg, #0b1f17 0%, var(--erp-color-bg-canvas) 40%, #0b1f17 100%);
+    }
+
+    :host {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      color: #0f172a;
+      color: var(--erp-color-text-primary);
     }
 
     .login-root {
@@ -100,7 +109,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
     .login-title {
       font-size: 36px;
       font-weight: 800;
-      color: #0f172a;
+      color: var(--erp-color-text-primary);
       letter-spacing: -0.025em;
       line-height: 1.15;
       margin: 0 0 6px 0;
@@ -108,7 +117,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
 
     .login-subtitle {
       font-size: 14px;
-      color: #64748b;
+      color: var(--erp-color-text-secondary);
       margin: 0;
       line-height: 1.45;
     }
@@ -123,14 +132,11 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
       flex-direction: column;
     }
 
-    .form-item {
-      margin-bottom: 16px;
-    }
 
     .form-item ::ng-deep .ant-form-item-label > label {
       font-size: 13px;
       font-weight: 600;
-      color: #334155;
+      color: var(--erp-color-text-secondary);
       height: auto;
       margin-bottom: 4px;
     }
@@ -138,7 +144,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
     .custom-input-group {
       border: 1.5px solid rgba(16, 149, 93, 0.2);
       border-radius: 10px;
-      background: rgba(255, 255, 255, 0.9);
+      background: var(--erp-color-bg-surface);
       backdrop-filter: blur(10px);
       box-shadow: 0 2px 6px rgba(16, 149, 93, 0.04);
       transition: all 0.2s ease;
@@ -146,14 +152,14 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
     }
 
     .custom-input-group:hover {
-      border-color: #10955d;
-      background: #ffffff;
+      border-color: var(--erp-color-primary-text);
+      background: var(--erp-color-bg-surface);
       box-shadow: 0 4px 12px rgba(16, 149, 93, 0.08);
     }
 
     .custom-input-group:focus-within {
-      border-color: #10955d;
-      background: #ffffff;
+      border-color: var(--erp-color-primary-text);
+      background: var(--erp-color-bg-surface);
       box-shadow: 0 0 0 3.5px rgba(16, 149, 93, 0.14);
     }
 
@@ -163,22 +169,15 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
       border: none;
       background: transparent;
       box-shadow: none !important;
-      color: #0f172a;
+      color: var(--erp-color-text-primary);
     }
 
     .custom-input-group input::placeholder {
-      color: #94a3b8;
-    }
-
-    .custom-input-group input:-webkit-autofill,
-    .custom-input-group input:-webkit-autofill:hover,
-    .custom-input-group input:-webkit-autofill:focus {
-      -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
-      -webkit-text-fill-color: #0f172a !important;
+      color: var(--erp-color-text-muted);
     }
 
     .field-icon {
-      color: #94a3b8;
+      color: var(--erp-color-text-muted);
       font-size: 16px;
       margin-right: 6px;
       margin-left: 4px;
@@ -188,7 +187,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
       background: transparent;
       border: none;
       cursor: pointer;
-      color: #64748b;
+      color: var(--erp-color-text-secondary);
       padding: 6px;
       display: flex;
       align-items: center;
@@ -197,7 +196,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
     }
 
     .eye-btn:hover {
-      color: #0f172a;
+      color: var(--erp-color-text-primary);
     }
 
     .aux-row {
@@ -209,17 +208,17 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
     }
 
     .aux-row ::ng-deep .ant-checkbox-wrapper {
-      color: #475569;
+      color: var(--erp-color-text-secondary);
       font-size: 13px;
     }
 
     .aux-row ::ng-deep .ant-checkbox-checked .ant-checkbox-inner {
-      background-color: #10955d;
-      border-color: #10955d;
+      background-color: var(--erp-color-primary-text);
+      border-color: var(--erp-color-primary-text);
     }
 
     .forgot-anchor {
-      color: #10955d;
+      color: var(--erp-color-primary-text);
       font-weight: 600;
       text-decoration: none;
       transition: color 0.15s;
@@ -260,12 +259,12 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
     .register-note {
       margin: 14px 0 0;
       font-size: 13px;
-      color: #64748b;
+      color: var(--erp-color-text-secondary);
     }
 
     .brand-footer-note {
       font-size: 11.5px;
-      color: #94a3b8;
+      color: var(--erp-color-text-muted);
       letter-spacing: 0.02em;
       padding-top: 14px;
       flex-shrink: 0;
@@ -282,7 +281,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
       height: 40px;
       border-radius: 10px;
       background: #e6f7ef;
-      color: #10955d;
+      color: var(--erp-color-primary-text);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -301,7 +300,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
       display: flex;
       align-items: center;
       padding: 12px 16px;
-      background: rgba(255, 255, 255, 0.9);
+      background: var(--erp-color-bg-surface);
       backdrop-filter: blur(8px);
       border: 1.5px solid rgba(16, 149, 93, 0.16);
       border-radius: 10px;
@@ -312,8 +311,8 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
     }
 
     .ws-card-btn:hover:not(:disabled) {
-      border-color: #10955d;
-      background: #ffffff;
+      border-color: var(--erp-color-primary-text);
+      background: var(--erp-color-bg-surface);
       transform: translateY(-1px);
       box-shadow: 0 6px 16px rgba(16, 149, 93, 0.12);
     }
@@ -341,7 +340,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
     .ws-name {
       font-size: 14px;
       font-weight: 600;
-      color: #0f172a;
+      color: var(--erp-color-text-primary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -349,12 +348,12 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
 
     .ws-sub {
       font-size: 11.5px;
-      color: #64748b;
+      color: var(--erp-color-text-secondary);
       margin-top: 1px;
     }
 
     .ws-caret {
-      color: #94a3b8;
+      color: var(--erp-color-text-muted);
       font-size: 13px;
     }
 
@@ -486,7 +485,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
 
     .top-subtext {
       font-size: 12.5px;
-      color: #475569;
+      color: var(--erp-color-text-secondary);
       line-height: 1.35;
       margin: 0;
       max-width: 100%;
@@ -558,13 +557,13 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
 
     .shimmer-pill:hover {
       transform: translateY(-1px);
-      border-color: #10955d;
-      background: #ffffff;
+      border-color: var(--erp-color-primary-text);
+      background: var(--erp-color-bg-surface);
       box-shadow: 0 4px 12px rgba(16, 149, 93, 0.12);
     }
 
     .shimmer-pill span[nz-icon] {
-      color: #10955d;
+      color: var(--erp-color-primary-text);
       font-size: 13px;
     }
 
@@ -619,6 +618,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from './two-factor-step.compone
     }
   `],
   template: `
+    <erp-preference-switches class="floating" />
     <div class="login-root">
       <!-- Atmospheric Ambient Lighting across the entire stage (unified one show) -->
       <div class="organic-blob-1"></div>
@@ -808,7 +808,7 @@ export class LoginPage {
   private selectionToken = '';
 
   submit(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => c.updateValueAndValidity()); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     const { email, password, rememberMe, code } = this.form.getRawValue();
     this.busy.set(true);
     this.error.set(null);

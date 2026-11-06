@@ -14,7 +14,7 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzPopoverModule } from 'ng-zorro-antd/popover';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTableModule, NzTableQueryParams } from 'ng-zorro-antd/table';
+import { NzTableQueryParams } from 'ng-zorro-antd/table';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { FilterCriterion } from '../core/api/api.models';
@@ -27,6 +27,7 @@ import { ExpandSearchComponent } from './expand-search.component';
 import { PageChange, PaginationBarComponent } from './pagination-bar.component';
 import { RevealDirective } from './reveal.directive';
 import { KeyboardClickDirective } from './keyboard-click.directive';
+import { ErpTableModule } from './erp-table.module';
 
 export type ColumnFilterKind = 'text' | 'select' | 'date' | 'number';
 export type ColumnPin = 'left' | 'right';
@@ -88,7 +89,7 @@ function humanizeValue(v: string): string {
   selector: 'erp-paged-table',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KeyboardClickDirective, ExpandSearchComponent, FormsModule, NgTemplateOutlet, CdkDropList, CdkDrag, CdkDragHandle, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule, NzCheckboxModule,
+  imports: [KeyboardClickDirective, ExpandSearchComponent, FormsModule, NgTemplateOutlet, CdkDropList, CdkDrag, CdkDragHandle, ErpTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule, NzCheckboxModule,
     NzDatePickerModule, NzDropDownModule, NzInputNumberModule, NzPopoverModule, NzSelectModule, NzToolTipModule, PaginationBarComponent, RevealDirective, StatusTagComponent],
   providers: [provideNzIconsPatch([FilterFill, HolderOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline, UndoOutline])],
   styles: [`.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; } .bar .search { max-width: 320px; } .spacer { flex: 1; } tr.clickable { cursor: pointer; }

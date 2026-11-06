@@ -26,15 +26,15 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
 import { ErpDatePipe } from '../../shared/display.pipes';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
 import { countOf } from './finance-kpis';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 @Component({
   selector: 'erp-bank',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, NzSpinModule, StatePanelComponent, PaginationBarComponent, KeyboardClickDirective, NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
+  imports: [ErpDatePipe, SkeletonComponent, StatePanelComponent, PaginationBarComponent, KeyboardClickDirective, NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
   styles: [`
     .bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center }
     .bank-accounts-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:24px }
@@ -97,7 +97,7 @@ import { countOf } from './finance-kpis';
     .nowrap { white-space: nowrap }
     .amt-inflow { color: var(--erp-color-success-text, #10955d); font-weight: 600; }
     .amt-outflow { color: var(--erp-color-error-text, #e11d48); font-weight: 600; }
-    .pager { padding: 0 16px 8px; } .loading { text-align: center; padding: 48px; }
+    .pager { padding: 0 16px 8px; }
     .field { display: block; margin-bottom: 12px; font-size: 12px; color: var(--erp-color-text-muted); }
     .field > * { margin-top: 4px; }
   `],
@@ -113,7 +113,7 @@ import { countOf } from './finance-kpis';
     @if (failed()) {
       <erp-state-panel kind="error" title="Could not load cash and bank" hint="The server did not return the balances." actionLabel="Try again" (action)="refresh()" data-testid="bank-error" />
     } @else if (!position()) {
-      <div class="loading"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="cards" [rows]="3" />
     } @else if (!position()!.accounts.length) {
       <erp-state-panel title="No cash or bank accounts yet" hint="Mark an account as a bank or cash account in the chart of accounts, and it appears here." icon="bank" />
     }
@@ -225,7 +225,7 @@ import { countOf } from './finance-kpis';
     <nz-modal [nzVisible]="importOpen()" nzTitle="Import bank statement" (nzOnCancel)="importOpen.set(false)" (nzOnOk)="runImport()" nzOkText="Import" [nzOkLoading]="busy()" [nzWidth]="640">
       <ng-container *nzModalContent>
         <p>Paste one line per row: <code>date, description, reference, amount</code> (date as 2026-05-31; money out is negative).</p>
-        <textarea aria-label="Statement lines" nz-input rows="10" [(ngModel)]="importText" placeholder="2026-05-03, Deposit, D1, 10000" data-testid="import-text"></textarea>
+        <label class="erp-inline-field" style="display:flex">Statement lines<textarea nz-input rows="10" [(ngModel)]="importText" placeholder="2026-05-03, Deposit, D1, 10000" data-testid="import-text"></textarea></label>
       </ng-container>
     </nz-modal>
 

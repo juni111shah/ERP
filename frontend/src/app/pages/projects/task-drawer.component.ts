@@ -4,7 +4,6 @@ import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angu
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -18,6 +17,8 @@ import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { SessionStore } from '../../core/session/session.store';
 import { AttachmentsComponent } from '../../shared/attachments.component';
 import { errorText, PRJ_STYLES, ProjectTagComponent, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from './projects-ui';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 const iso = (d: unknown): string | null => (d ? toIsoDate(d instanceof Date ? d : new Date(String(d))) : null);
 const toDate = (s?: string | null): Date | null => { if (!s) return null; const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
@@ -27,7 +28,7 @@ const toDate = (s?: string | null): Date | null => { if (!s) return null; const 
   selector: 'erp-task-drawer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, FormsModule, ReactiveFormsModule, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, ProjectTagComponent, AttachmentsComponent],
+  imports: [DatePipe, FormsModule, ReactiveFormsModule, NzButtonModule, NzDatePickerModule, NzDrawerModule, ErpFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, ProjectTagComponent, AttachmentsComponent],
   template: `
     <nz-drawer [nzVisible]="visible()" [nzWidth]="width" [nzTitle]="task()?.number ? task()!.number + ' · ' + task()!.title : 'New task'" (nzOnClose)="close()" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
@@ -119,7 +120,7 @@ const toDate = (s?: string | null): Date | null => { if (!s) return null; const 
               <div class="sub"><a (click)="open(s.id)" (keydown.enter)="open(s.id)" tabindex="0" class="prj-link">{{ s.number }}</a> <span class="sub-title">{{ s.title }}</span> <erp-prj-tag kind="task" [value]="s.status" /></div>
             } @empty { <p class="prj-muted">No subtasks.</p> }
             @if (canManage() && !t.parentTaskId) {
-              <div class="row"><input nz-input [(ngModel)]="newSubtask" [ngModelOptions]="{ standalone: true }" placeholder="Add a subtask" aria-label="New subtask" maxlength="200" (keyup.enter)="addSubtask()" data-testid="subtask-title" />
+              <div class="row" style="align-items:flex-end"><label class="erp-inline-field" style="flex:1">New subtask<input nz-input [(ngModel)]="newSubtask" [ngModelOptions]="{ standalone: true }" maxlength="200" (keyup.enter)="addSubtask()" data-testid="subtask-title" /></label>
                 <button nz-button type="button" [disabled]="!newSubtask.trim()" (click)="addSubtask()" data-testid="subtask-add">Add</button></div>
             }
           </section>
@@ -136,7 +137,7 @@ const toDate = (s?: string | null): Date | null => { if (!s) return null; const 
             @for (c of comments(); track c.id) {
               <div class="comment"><b>{{ c.authorName }}</b> <span class="prj-muted">{{ c.createdAt | date: 'medium' }}</span><p>{{ c.text }}</p></div>
             } @empty { <p class="prj-muted">No comments yet.</p> }
-            <div class="row"><textarea nz-input rows="2" [(ngModel)]="newComment" [ngModelOptions]="{ standalone: true }" maxlength="2000" placeholder="Write a comment" aria-label="Comment" data-testid="task-comment"></textarea>
+            <div class="row" style="align-items:flex-end"><label class="erp-inline-field" style="flex:1">Write a comment<textarea nz-input rows="2" [(ngModel)]="newComment" [ngModelOptions]="{ standalone: true }" maxlength="2000" data-testid="task-comment"></textarea></label>
               <button nz-button type="button" [disabled]="!newComment.trim()" (click)="addComment()" data-testid="task-comment-add">Post</button></div>
           </section>
 
@@ -276,7 +277,7 @@ export class TaskDrawerComponent {
   }
 
   save(): void {
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     const current = this.task();
     const body = this.body();
     // keep the typed name of an assignee who has no account, unless someone was chosen

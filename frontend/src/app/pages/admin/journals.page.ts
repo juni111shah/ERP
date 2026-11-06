@@ -6,7 +6,6 @@ import { FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } 
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -32,13 +31,15 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { ErpLabelPipe } from '../../shared/display.pipes';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /** Journals: list, draft entry with a balanced-lines editor, post, reverse; plus closing the books of a legal entity. */
 @Component({
   selector: 'erp-journals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, StatCardComponent, StatusTagComponent, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [ErpLabelPipe, StatCardComponent, StatusTagComponent, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, ErpFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
   styles: [`.line { display:grid; grid-template-columns: 2fr 1fr 1fr 1.4fr 32px; gap:8px; margin-bottom:8px; align-items:center } .line nz-input-number { width:100% }
     .line-head { margin-bottom:4px; font-size:12px; font-weight:600; color: var(--erp-color-text-muted) }
@@ -92,7 +93,7 @@ import { ErpLabelPipe } from '../../shared/display.pipes';
                 <nz-select [nzStatus]="lineStatus(l, 'accountId')" formControlName="accountId" nzShowSearch nzPlaceHolder="Account" [attr.data-testid]="'j-account-' + $index">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
                 <nz-input-number formControlName="debit" [nzMin]="0" [nzPrecision]="2" nzPlaceHolder="Debit" [attr.data-testid]="'j-debit-' + $index"></nz-input-number>
                 <nz-input-number formControlName="credit" [nzMin]="0" [nzPrecision]="2" nzPlaceHolder="Credit" [attr.data-testid]="'j-credit-' + $index"></nz-input-number>
-                <input aria-label="Description" nz-input formControlName="description" placeholder="Description" />
+                <input aria-label="Description" nz-input formControlName="description" />
                 @if (editable()) { <button aria-label="Remove line" nz-button nzType="text" type="button" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button> }
               </div>
             }
@@ -219,7 +220,7 @@ export class JournalsPage {
   }
 
   save(post: boolean): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); this.message.warning('Fill in the fields marked in red'); return; }
+    if (this.form.invalid) { showFormErrors(this.form); this.message.warning('Fill in the fields marked in red'); return; }
     const v = this.form.getRawValue();
     const body = {
       legalEntityId: v.legalEntityId, date: toIsoDate(v.date!), memo: v.memo || null, reference: v.reference || null,

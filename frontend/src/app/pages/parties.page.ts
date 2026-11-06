@@ -8,7 +8,6 @@ import { FilterCriterion, ListQuery } from '../core/api/api.models';
 import { ErpLabelPipe } from '../shared/display.pipes';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -30,6 +29,8 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { StatCardComponent } from '../shared/stat-card.component';
+import { ErpFormModule } from '../core/forms/erp-form.module';
+import { showFormErrors } from '../core/forms/form-errors';
 
 export interface PartyDto {
   id: string; code: string; name: string; kind: string; roles: string[]; email?: string; phone?: string; taxNumber?: string;
@@ -52,7 +53,7 @@ const groupFilter = (id: string | null) => (id ? [{ field: 'partyGroupId', op: '
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpLabelPipe, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, DynamicFieldsComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule,
-    NzFormModule, NzInputModule, NzSelectModule, NzSwitchModule, NzIconModule, NzTagModule, StatCardComponent],
+    ErpFormModule, NzInputModule, NzSelectModule, NzSwitchModule, NzIconModule, NzTagModule, StatCardComponent],
   template: `
     <h1 class="erp-page-title">{{ pageTitle() }}</h1>
 
@@ -275,7 +276,7 @@ export class PartiesPage implements OnInit {
   err(name: string): string { return controlError(this.form.get(name)); }
 
   save(): void {
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     const v = this.form.getRawValue();
     // Never send the masked ID number / IBAN back; the API keeps the stored values for users without core.sensitive.read.
     if (this.sensitiveLocked()) { delete v.idNumber; delete v.iban; }

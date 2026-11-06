@@ -456,7 +456,7 @@ export class ProjectMoneyComponent {
         <nz-select [(ngModel)]="newMember" nzShowSearch nzPlaceHolder="Add a person" style="width:240px" aria-label="Person to add" data-testid="member-user">
           @for (u of available(); track u.id) { <nz-option [nzValue]="u.id" [nzLabel]="u.fullName"></nz-option> }
         </nz-select>
-        <input nz-input [(ngModel)]="newRole" placeholder="Role" maxlength="100" style="width:200px" aria-label="Role" />
+        <label class="erp-inline-field">Role<input nz-input [(ngModel)]="newRole" maxlength="100" style="width:200px" /></label>
         <button nz-button nzType="primary" [disabled]="!newMember" (click)="add()" data-testid="member-add">Add</button>
         <a nz-button routerLink="/projects/resources">Plan allocations</a>
       </div>
@@ -506,7 +506,7 @@ export class ProjectTeamComponent {
               @if (canDelete(c)) { <button nz-button nzSize="small" nzType="link" (click)="removeComment(c)">Delete</button> }</div><p>{{ c.text }}</p></div>
           } @empty { <p class="prj-empty">No comments yet. Start the conversation.</p> }
           <div class="row">
-            <textarea nz-input rows="2" [(ngModel)]="newComment" maxlength="2000" placeholder="Write a comment" aria-label="Comment" data-testid="comment-text" style="flex:1"></textarea>
+            <label class="erp-inline-field" style="flex:1">Write a comment<textarea nz-input rows="2" [(ngModel)]="newComment" maxlength="2000" data-testid="comment-text"></textarea></label>
             <button nz-button nzType="primary" [disabled]="!newComment.trim()" (click)="addComment()" data-testid="comment-add">Post</button>
           </div>
         </div>

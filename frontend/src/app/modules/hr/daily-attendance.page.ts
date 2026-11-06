@@ -9,7 +9,6 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
 import { ProblemDetails } from '../../core/api/api.models';
@@ -21,6 +20,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
 import { DAILY_STATUSES, DailyAttendance, DailyAttendanceApi, DailyInput, RollUpRow } from './hr-people.api';
 import { EmployeeSummary, EmployeesApi, MONTHS } from './hr.api';
 import { ErpDatePipe } from '../../shared/display.pipes';
+import { ErpTableModule } from '../../shared/erp-table.module';
 
 /** "8:5" or "08:05" -> "08:05:00"; blank -> null; anything else -> undefined (invalid). */
 export function toTime(text: unknown): string | null | undefined {
@@ -52,7 +52,7 @@ export function parseImport(text: string, idByNumber: ReadonlyMap<string, string
   selector: 'erp-daily-attendance',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, DecimalPipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule],
+  imports: [ErpDatePipe, DecimalPipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, ErpTableModule, NzTagModule],
   styles: [`.num { text-align: end; white-space: nowrap; } .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; } .import-error { color: var(--erp-color-error-text); margin: 4px 0 0; } .gap { margin-inline-end: 10px; }`],
   template: `
     <h1 class="erp-page-title">Daily attendance</h1>

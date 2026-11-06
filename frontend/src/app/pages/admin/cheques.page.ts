@@ -4,7 +4,6 @@ import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angu
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -34,6 +33,8 @@ import { DecimalPipe } from '@angular/common';
 import { ErpDatePipe } from '../../shared/display.pipes';
 import { formatMoney } from './invoice-sheet.component';
 import { countOf } from './finance-kpis';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 const COLORS: Record<string, string> = { inCustody: 'blue', deposited: 'gold', cleared: 'green', bounced: 'red', replaced: 'default', cancelled: 'default', issued: 'cyan' };
 const LABELS: Record<string, string> = { inCustody: 'In custody', postDatedCheque: 'Post-dated' };
@@ -44,7 +45,7 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
   selector: 'erp-cheques',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, DecimalPipe, RecordHistoryComponent, StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [ErpDatePipe, DecimalPipe, RecordHistoryComponent, StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, ErpFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
@@ -147,10 +148,10 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
         <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--erp-color-text-muted)">Date</label>
         <nz-date-picker nzFormat="dd MMM yyyy" [(ngModel)]="actionDate" style="width:100%;margin-bottom:12px" data-testid="act-date"></nz-date-picker>
         @if (action() === 'deposit') {
-          <nz-select [(ngModel)]="actionBank" style="width:100%" nzPlaceHolder="Deposit to bank account" data-testid="act-bank">@for (a of banks(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
+          <label class="erp-inline-field" style="display:flex">Deposit to bank account<nz-select [(ngModel)]="actionBank" style="width:100%" data-testid="act-bank">@for (a of banks(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select></label>
         }
-        @if (action() === 'bounce') { <input aria-label="Reason given by the bank" nz-input [(ngModel)]="actionReason" placeholder="Reason given by the bank" data-testid="act-reason" /> }
-        @if (action() === 'followup') { <textarea aria-label="What was agreed with the customer?" nz-input rows="3" maxlength="500" [(ngModel)]="actionReason" placeholder="What was agreed with the customer?" data-testid="act-note"></textarea> }
+        @if (action() === 'bounce') { <label class="erp-inline-field" style="display:flex">Reason given by the bank<input nz-input [(ngModel)]="actionReason" data-testid="act-reason" /></label> }
+        @if (action() === 'followup') { <label class="erp-inline-field" style="display:flex">What was agreed with the customer?<textarea nz-input rows="3" maxlength="500" [(ngModel)]="actionReason" data-testid="act-note"></textarea></label> }
       </ng-container>
     </nz-modal>`,
 })
@@ -238,7 +239,7 @@ export class ChequesPage {
   }
 
   register(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     const v = this.form.getRawValue();
     const body = {
       ...v, instrumentDate: toIsoDate(v.instrumentDate!), receivedOn: v.receivedOn ? toIsoDate(v.receivedOn) : null, bankName: v.bankName || null, notes: v.notes || null,

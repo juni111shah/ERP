@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { PreferenceSwitchesComponent } from '../shared/preference-switches.component';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { LegalDocuments, PlatformApi } from '../core/api/platform.api';
 import { BrandAssistantComponent } from '../shared/brand-assistant.component';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { ErpDatePipe } from '../shared/display.pipes';
 import { StatePanelComponent } from '../shared/state-panel.component';
+import { SkeletonComponent } from '../shared/skeleton.component';
 
 export interface LegalBlock { heading: boolean; text: string; }
 
@@ -20,7 +21,7 @@ export function legalBlocks(text: string): LegalBlock[] {
   selector: 'erp-legal',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BrandAssistantComponent, RouterLink, NzSpinModule, BrandLogoComponent, ErpDatePipe, StatePanelComponent],
+  imports: [PreferenceSwitchesComponent, BrandAssistantComponent, RouterLink, SkeletonComponent, BrandLogoComponent, ErpDatePipe, StatePanelComponent],
   styles: [`
     :host { display: block; min-height: 100vh; background: var(--erp-color-bg-canvas); }
     .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 820px; margin: 0 auto; padding: 18px 24px; }
@@ -45,11 +46,11 @@ export function legalBlocks(text: string): LegalBlock[] {
   template: `
     <header class="top">
       <a class="logo" routerLink="/" aria-label="Home"><erp-brand-logo size="lg"></erp-brand-logo></a>
-      <a class="back" routerLink="/pricing">Pricing</a>
+      <span style="display:inline-flex;align-items:center;gap:8px"><erp-preference-switches /><a class="back" routerLink="/pricing">Pricing</a></span>
     </header>
     <main>
       @if (loading()) {
-        <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+        <erp-skeleton kind="text" [rows]="14" />
       } @else if (failed()) {
         <erp-state-panel kind="error" title="This page could not load" hint="Please try again in a moment." actionLabel="Try again" (action)="load()" />
       } @else if (docs(); as d) {

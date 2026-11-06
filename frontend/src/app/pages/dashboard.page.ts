@@ -9,7 +9,6 @@ import { NzDatePickerComponent, NzDatePickerModule } from 'ng-zorro-antd/date-pi
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { DashboardAlert, DashboardApi, DashboardChart, DashboardDto, KpiCard } from '../core/api/admin.api';
 import { I18nService } from '../core/i18n/i18n.service';
@@ -139,7 +138,7 @@ interface KpiCluster {
     StatCardComponent,
     NzIconModule,
     NzSkeletonModule,
-    NzSpinModule,
+
     NzTagModule,
   ],
   styles: [`
@@ -869,7 +868,7 @@ interface KpiCluster {
         <span class="sr-only" aria-live="polite" data-testid="dashboard-range-live">{{ announcement() }}</span>
       </div>
 
-      <nz-spin [nzSpinning]="loading() && !!data()" [attr.aria-busy]="loading()">
+      <div [class.erp-refreshing]="loading() && !!data()" [attr.aria-busy]="loading()">
         @if (!data()) {
           @if (loadError()) {
             <div class="load-error" role="alert" data-testid="dashboard-error">
@@ -1402,7 +1401,7 @@ interface KpiCluster {
             }
           }
         }
-      </nz-spin>
+      </div>
     </div>
   `,
 })

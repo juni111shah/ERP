@@ -47,9 +47,9 @@ interface Row { accountId: string; label: string; type: string; months: number[]
       <nz-tabset>
         <nz-tab nzTitle="Plan">
           <div class="bar">
-            <nz-select style="width:240px" nzPlaceHolder="Legal entity" [(ngModel)]="entityId" [nzDisabled]="!!id()" data-testid="budget-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
-            <input aria-label="Name" nz-input style="width:240px" placeholder="Name" [(ngModel)]="name" data-testid="budget-name" />
-            <nz-input-number [(ngModel)]="year" [nzMin]="2000" [nzMax]="2100" [nzPrecision]="0" data-testid="budget-year"></nz-input-number>
+            <label class="erp-inline-field">Legal entity<nz-select style="width:240px" [(ngModel)]="entityId" [nzDisabled]="!!id()" data-testid="budget-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select></label>
+            <label class="erp-inline-field">Name<input nz-input style="width:240px" [(ngModel)]="name" data-testid="budget-name" /></label>
+            <label class="erp-inline-field">Year<nz-input-number [(ngModel)]="year" [nzMin]="2000" [nzMax]="2100" [nzPrecision]="0" data-testid="budget-year"></nz-input-number></label>
             <nz-select style="width:280px" nzShowSearch nzPlaceHolder="Add an income/expense account" [ngModel]="null" (ngModelChange)="addRow($event)" data-testid="budget-add-account">
               @for (a of addable(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }
             </nz-select>

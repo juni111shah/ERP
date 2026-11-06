@@ -3,7 +3,6 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -15,13 +14,15 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 /** Roles with a permission checklist grouped by module and resource. Built-in roles are read-only. */
 @Component({
   selector: 'erp-roles',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzCheckboxModule, NzIconModule],
+  imports: [TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, ErpFormModule, NzInputModule, NzCheckboxModule, NzIconModule],
   styles: [`.perm-group { margin-bottom: 16px } .perm-group h4 { margin: 0 0 4px; text-transform: capitalize } .perm { display:block; margin: 2px 0 }`],
   template: `
     <h1 class="erp-page-title">Roles</h1>
@@ -91,7 +92,7 @@ export class RolesPage {
   }
 
   save(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     const v = this.form.getRawValue();
     const body = { name: v.name, description: v.description || null, permissions: [...this.selected()] };
     const role = this.editing();

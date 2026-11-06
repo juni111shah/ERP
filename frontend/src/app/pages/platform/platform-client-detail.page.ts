@@ -6,7 +6,6 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { ProblemDetails } from '../../core/api/api.models';
 import { BillingCycle, ClientDetail, ClientStartMode, PlanView, PlatformApi, PlatformModule, WorkspaceMember } from '../../core/api/platform.api';
@@ -21,6 +20,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
 import { UsageBarComponent } from '../../shared/usage-bar.component';
 import { InvoiceActionsComponent } from './invoice-actions.component';
 import { ACCESS_WORDS, CYCLE_OPTIONS, OneTimePasswordComponent, OneTimeSecret, PLATFORM_STYLES, START_OPTIONS, cycleWords, invoiceTone, planOptions, statusWords } from './platform-ui';
+import { SkeletonComponent } from '../../shared/skeleton.component';
 
 type DialogKind = 'assign' | 'plan' | 'trial' | 'activate' | 'invoice' | 'details';
 const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -30,7 +30,7 @@ const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()
   selector: 'erp-platform-client-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzIconModule, NzModalModule, NzSpinModule, NzSwitchModule, ErpDatePipe, ErpMoneyPipe, InvoiceActionsComponent, OneTimePasswordComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent, UsageBarComponent],
+  imports: [FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzIconModule, NzModalModule, SkeletonComponent, NzSwitchModule, ErpDatePipe, ErpMoneyPipe, InvoiceActionsComponent, OneTimePasswordComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent, UsageBarComponent],
   styles: [PLATFORM_STYLES, `
     .back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; font-size: 13px; }
     .header { margin-bottom: 16px; }
@@ -54,7 +54,7 @@ const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()
     @if (failed()) {
       <erp-state-panel kind="error" title="Could not load this client" [hint]="failed()" actionLabel="Try again" (action)="load()" />
     } @else if (!data()) {
-      <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+      <erp-skeleton kind="detail" />
     } @else {
       @let d = data()!;
       @let c = d.client;
@@ -167,7 +167,7 @@ const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()
                   </li>
                 }
               </ul>
-            } @else if (modulesFailed()) { <p class="pf-empty">The module list could not be loaded.</p> } @else { <p class="pf-empty">Loading...</p> }
+            } @else if (modulesFailed()) { <p class="pf-empty">The module list could not be loaded.</p> } @else { <erp-skeleton kind="list" [rows]="4" /> }
           </section>
           <section class="pf-card" data-testid="client-activity">
             <h2>Activity</h2>

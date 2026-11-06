@@ -209,7 +209,7 @@ export class EmployeesPage {
       { key: 'iban', label: 'IBAN', type: 'text', maxLength: 50 },
       { key: 'bankName', label: 'Bank name', type: 'text', maxLength: 150 },
       { key: 'labourCardNumber', label: 'Labour card / MOHRE personal no.', type: 'text', maxLength: 30, hint: 'UAE WPS: the 14-digit number used in the salary file.' },
-      { key: 'bankRoutingCode', label: 'Bank routing code', type: 'text', maxLength: 20, hint: 'UAE WPS: routing code of the employee\'s bank.' },
+      { key: 'bankRoutingCode', label: 'Bank routing code', type: 'text', inputMode: 'numeric', maxLength: 20, hint: 'UAE WPS: routing code of the employee\'s bank.' },
     ];
     const self = this.state.editing()?.id;
     return [

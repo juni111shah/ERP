@@ -7,7 +7,6 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { HttpErrorResponse } from '@angular/common/http';
 import { catchError, of, throwError } from 'rxjs';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
@@ -20,13 +19,14 @@ import { toTime } from './daily-attendance.page';
 import { RosterEntry, ShiftDto, ShiftsApi } from './hr-people.api';
 import { EmployeeSummary, EmployeesApi } from './hr.api';
 import { ErpDatePipe } from '../../shared/display.pipes';
+import { ErpTableModule } from '../../shared/erp-table.module';
 
 /** Work shifts: start time, late grace and the hours of a normal day; employees on a shift are measured against it. */
 @Component({
   selector: 'erp-shifts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, NzDatePickerModule],
+  imports: [ErpDatePipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, ErpTableModule, NzDatePickerModule],
   styles: [`.num { text-align: end; } .row-actions { display: flex; gap: 6px; flex-wrap: wrap; } .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }`],
   template: `
     <h1 class="erp-page-title">Shifts</h1>

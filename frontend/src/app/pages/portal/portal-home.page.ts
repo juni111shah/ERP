@@ -3,7 +3,6 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
@@ -22,12 +21,14 @@ import { portalMoney, PortalInvoice, PortalLease, PortalReceipt, PortalRequest, 
 import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
 import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
 import { ErpDatePipe } from '../../shared/display.pipes';
+import { ErpFormModule } from '../../core/forms/erp-form.module';
+import { showFormErrors } from '../../core/forms/form-errors';
 
 @Component({
   selector: 'erp-portal-home',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, PortalProjectsComponent, TableToolsComponent, TranslatePipe, ReactiveFormsModule, NzSkeletonModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, NzFormModule, NzInputModule, NzSelectModule, PaginationBarComponent, StatCardComponent, StatePanelComponent, StatusTagComponent],
+  imports: [ErpDatePipe, PortalProjectsComponent, TableToolsComponent, TranslatePipe, ReactiveFormsModule, NzSkeletonModule, NzTabsModule, NzTableModule, NzTagModule, NzButtonModule, ErpFormModule, NzInputModule, NzSelectModule, PaginationBarComponent, StatCardComponent, StatePanelComponent, StatusTagComponent],
   styles: [`:host { display:block; max-width: 1000px; margin: 0 auto; padding: 24px 16px; } .top { display:flex; align-items:center; gap:12px; margin-bottom:16px; } .top h1 { margin:0; flex:1; } .lease { margin-bottom: 24px; }
     .panel { background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
     .num { text-align: end; white-space: nowrap; } .owed { color: var(--erp-color-error-text); font-weight: 600; } .clear { color: var(--erp-color-success-text); font-weight: 600; }
@@ -202,7 +203,7 @@ export class PortalHomePage implements OnInit {
   private loadRequests(): void { this.portal.requests().pipe(catchError(() => of([] as PortalRequest[]))).subscribe((v) => this.requests.set(v)); }
 
   raise(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    if (this.form.invalid) { showFormErrors(this.form); return; }
     this.raising.set(true);
     this.portal.raise(this.form.getRawValue()).subscribe({
       next: () => { this.raising.set(false); this.message.success('Request sent'); this.form.patchValue({ issue: '' }); this.form.markAsPristine(); this.form.markAsUntouched(); this.loadRequests(); },
