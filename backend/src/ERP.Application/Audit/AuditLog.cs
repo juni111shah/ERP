@@ -10,8 +10,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Application.Audit;
 
-/// <summary>One row of the audit log. It carries no field values, so listing never exposes more than the record's name and which fields moved.</summary>
-public sealed record AuditRow(Guid Id, DateTime OccurredAt, Guid? UserId, string? UserName, string Action, string RecordType, string RecordId, string? RecordLabel, string? RecordKind, IReadOnlyList<string> ChangedFields, string? IpAddress);
+/// <summary>
+/// One row of the audit log. It carries no field values, so listing never exposes more than the record's name and which fields moved.
+/// <c>ValuesHidden</c> is true when the caller may not read this record type's values (see <see cref="IAuditFieldPolicy"/>); the name is then left out too.
+/// </summary>
+public sealed record AuditRow(Guid Id, DateTime OccurredAt, Guid? UserId, string? UserName, string Action, string RecordType, string RecordId, string? RecordLabel, string? RecordKind, IReadOnlyList<string> ChangedFields, string? IpAddress, bool ValuesHidden = false);
 
 /// <summary>A field of the record at the time of the event. <c>Changed</c> is false for values the event left alone.</summary>
 public sealed record AuditFieldDiff(string Field, string? Old, string? New, bool Changed);
@@ -40,7 +43,7 @@ public sealed record GetAuditFacets : IQuery<AuditFacets>, IRequirePermission
     public string RequiredPermission => CorePermissions.AuditRead;
 }
 
-internal sealed class AuditLogHandler(IReadRepository<AuditEvent> audits, IUserDirectory directory, IClock clock) :
+internal sealed class AuditLogHandler(IReadRepository<AuditEvent> audits, IUserDirectory directory, IClock clock, AuditFieldAccess access) :
     IRequestHandler<ListAuditEvents, PagedResult<AuditRow>>,
     IRequestHandler<GetAuditEvent, AuditEventDetail>,
     IRequestHandler<GetAuditFacets, AuditFacets>
@@ -61,7 +64,10 @@ internal sealed class AuditLogHandler(IReadRepository<AuditEvent> audits, IUserD
             .OrderBy(x => x.RecordType).Take(SameSaveLimit).ToListAsync(ct);
         var names = await UserNames([a, .. sameSave], ct);
         var count = await audits.CountAsync(x => x.RecordType == a.RecordType && x.RecordId == a.RecordId, ct);
-        return new AuditEventDetail(ToRow(a, names), AuditSnapshot.Fields(a), AuditSnapshot.Masked(a.Before), AuditSnapshot.Masked(a.After), sameSave.Select(x => ToRow(x, names)).ToList(), count);
+        var related = sameSave.Select(x => ToRow(x, names)).ToList();
+        return access.CanReadValues(a.RecordType)
+            ? new AuditEventDetail(ToRow(a, names), AuditSnapshot.Fields(a), AuditSnapshot.Masked(a.Before), AuditSnapshot.Masked(a.After), related, count)
+            : new AuditEventDetail(ToRow(a, names), AuditSnapshot.Fields(a).Where(f => f.Changed).Select(f => f with { Old = null, New = null }).ToList(), null, null, related, count);
     }
 
     public async Task<AuditFacets> Handle(GetAuditFacets q, CancellationToken ct)
@@ -87,11 +93,12 @@ internal sealed class AuditLogHandler(IReadRepository<AuditEvent> audits, IUserD
         return ids.Count == 0 ? [] : (await directory.ListMembersAsync(ids, ct)).ToDictionary(u => u.Id, u => u.FullName);
     }
 
-    private static AuditRow ToRow(AuditEvent a, Dictionary<Guid, string> names)
+    private AuditRow ToRow(AuditEvent a, Dictionary<Guid, string> names)
     {
-        var snapshot = AuditSnapshot.Latest(a);
+        var canRead = access.CanReadValues(a.RecordType);
+        var snapshot = canRead ? AuditSnapshot.Latest(a) : new Dictionary<string, string?>();
         return new AuditRow(a.Id, a.OccurredAt, a.UserId, a.UserId is { } u ? names.GetValueOrDefault(u) : null, a.Action, a.RecordType, a.RecordId,
-            AuditSnapshot.Label(snapshot), snapshot.GetValueOrDefault("Direction"), AuditSnapshot.ChangedFields(a), a.IpAddress);
+            AuditSnapshot.Label(snapshot), snapshot.GetValueOrDefault("Direction"), AuditSnapshot.ChangedFields(a), a.IpAddress, !canRead);
     }
 }
 

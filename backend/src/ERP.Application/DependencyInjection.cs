@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Finance.IInvoicingService, ERP.Application.Finance.InvoicingService>();
         services.AddScoped<ERP.Application.Finance.ISettlementService, ERP.Application.Finance.SettlementService>();
         services.AddScoped<ILegalEntityGuard, LegalEntityGuard>();
+        services.AddScoped<ERP.Application.Audit.AuditFieldAccess>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<INotifier, Notifier>();
         services.AddScoped<ERP.Application.Finance.TaxLineReader>();
