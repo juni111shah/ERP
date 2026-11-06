@@ -111,7 +111,12 @@ public class HrWave1Tests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal((decimal)preview["endOfService"]!, (decimal)line["endOfService"]!);
         Assert.Equal(HttpStatusCode.Conflict, (await kit.Owner.PostAsync($"{Hr}/employees/{emp}/final-settlement", null)).StatusCode); // one per leaver
 
-        var posted = await HrKit.Ok(await kit.Owner.PostAsync($"{Hr}/payroll/{(string)run["id"]!}/post", null));
+        // Recalculating would rebuild it as a normal run: every employee added, the settlement amounts lost.
+        Assert.Equal(HttpStatusCode.Conflict, (await kit.Owner.PostAsync($"{Hr}/payroll/{(string)run["id"]!}/recalculate", null)).StatusCode);
+        var unchanged = await HrKit.Ok(await kit.Owner.GetAsync($"{Hr}/payroll/{(string)run["id"]!}"));
+        Assert.Single(unchanged["lines"]!.AsArray());
+
+        var posted =await HrKit.Ok(await kit.Owner.PostAsync($"{Hr}/payroll/{(string)run["id"]!}/post", null));
         Assert.Equal("posted", (string)posted["status"]!);
         var loans = await HrKit.Ok(await kit.Owner.GetAsync($"{Hr}/loans?pageSize=50"));
         Assert.Equal("settled", (string)loans.AsArray().Single(l => (string)l!["employeeId"]! == emp)!["status"]!);

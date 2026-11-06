@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_adapter.dart';
+import 'support/more_actions.dart';
 
 const _me = Me(
   fullName: 'T',
@@ -192,6 +193,9 @@ void main() {
 
     testWidgets('a draft order offers Confirm, Cancel and Delete but not Convert', (tester) async {
       await openOrder(tester, orderJson('draft'));
+      // the bar leads with the order's next step, not with creating a project from it
+      expect(tester.getTopLeft(find.text('Confirm')).dx, lessThan(tester.getTopLeft(find.text('Create project')).dx));
+      await openMoreActions(tester);
       expect(find.text('Confirm'), findsOneWidget);
       expect(find.text('Cancel order'), findsOneWidget);
       expect(find.text('Delete'), findsOneWidget);
@@ -201,9 +205,13 @@ void main() {
 
     testWidgets('a confirmed order can record delivery and be invoiced; editing stops once delivery started', (tester) async {
       await openOrder(tester, orderJson('confirmed'));
+      expect(find.text('Start processing'), findsOneWidget);
       expect(find.text('Record delivery'), findsOneWidget);
+      expect(find.text('Create project'), findsNothing);
+      await openMoreActions(tester);
       expect(find.text('Convert to invoice'), findsOneWidget);
       expect(find.byTooltip('Edit'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
       await openOrder(tester, orderJson('processing', delivered: 1));
       expect(find.text('Start processing'), findsNothing);
       expect(find.byTooltip('Edit'), findsNothing);

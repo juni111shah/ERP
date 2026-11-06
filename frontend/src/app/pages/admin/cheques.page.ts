@@ -9,7 +9,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzModalModule } from 'ng-zorro-antd/modal';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
@@ -19,7 +19,7 @@ import {
 import { createPagedList } from '../../core/api/paged-list';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { LookupOption } from '../../core/custom-fields/lookup-registry';
-import { asProblem, controlError } from '../../core/http/problem-details';
+import { asProblem, problemMessage, controlError } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { PartiesApi } from '../parties.page';
@@ -31,6 +31,9 @@ import { StatCardComponent } from '../../shared/stat-card.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 
 import { DecimalPipe } from '@angular/common';
+import { ErpDatePipe } from '../../shared/display.pipes';
+import { formatMoney } from './invoice-sheet.component';
+import { countOf } from './finance-kpis';
 
 const COLORS: Record<string, string> = { inCustody: 'blue', deposited: 'gold', cleared: 'green', bounced: 'red', replaced: 'default', cancelled: 'default', issued: 'cyan' };
 const LABELS: Record<string, string> = { inCustody: 'In custody', postDatedCheque: 'Post-dated' };
@@ -41,18 +44,18 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
   selector: 'erp-cheques',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RecordHistoryComponent, StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [ErpDatePipe, DecimalPipe, RecordHistoryComponent, StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
   styles: [`.alloc { display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px; align-items:center }`],
   template: `
     <h1 class="erp-page-title">Cheque register</h1>
     <div class="erp-stat-grid erp-stat-grid--auto" data-testid="cheque-kpis">
       @let s = summary();
-      <erp-stat-card label="In custody" [loading]="!s" [value]="s ? s.inCustodyTotal.toFixed(2) : null" [caption]="s ? s.inCustodyCount + ' ' + ('ui.cheque.chequesLc' | translate: 'cheques') : null" [tone]="0" />
-      <erp-stat-card label="Matured, to deposit" [loading]="!s" [value]="s ? s.maturedTotal.toFixed(2) : null" [caption]="s ? s.maturedCount + ' ' + ('ui.cheque.chequesLc' | translate: 'cheques') : null" [tone]="s && s.maturedCount > 0 ? 'warning' : 1" />
-      <erp-stat-card label="Next 7 days" [loading]="!s" [value]="s ? s.next7DaysTotal.toFixed(2) : null" [tone]="2" />
-      <erp-stat-card label="Next 30 days" [loading]="!s" [value]="s ? s.next30DaysTotal.toFixed(2) : null" [tone]="5" />
-      <erp-stat-card label="Awaiting clearing" [loading]="!s" [value]="s ? s.depositedTotal.toFixed(2) : null" [tone]="4" />
+      <erp-stat-card label="In custody" [loading]="!s" [value]="s ? money(s.inCustodyTotal) : null" [caption]="s ? chequeCount(s.inCustodyCount) : null" [tone]="0" />
+      <erp-stat-card label="Matured, to deposit" [loading]="!s" [value]="s ? money(s.maturedTotal) : null" [caption]="s ? chequeCount(s.maturedCount) : null" [tone]="s && s.maturedCount > 0 ? 'warning' : 1" />
+      <erp-stat-card label="Next 7 days" [loading]="!s" [value]="s ? money(s.next7DaysTotal) : null" [tone]="2" />
+      <erp-stat-card label="Next 30 days" [loading]="!s" [value]="s ? money(s.next30DaysTotal) : null" [tone]="5" />
+      <erp-stat-card label="Awaiting clearing" [loading]="!s" [value]="s ? money(s.depositedTotal) : null" [tone]="4" />
       <erp-stat-card label="Bounced" [loading]="!s" [value]="s ? s.bouncedCount : null" format="number" [tone]="s && s.bouncedCount > 0 ? 'danger' : 'neutral'" />
     </div>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, cheque no., customer or bank" emptyText="No cheques yet" (rowClick)="open($event)">
@@ -68,7 +71,7 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
             <span class="name-cell">{{ row.partyName }}</span>
           }
           @case ('amount') {
-            <b>{{ currency() }} {{ row.amount | number: '1.2-2' }}</b>
+            <b style="white-space:nowrap;font-variant-numeric:tabular-nums">{{ currency() }} {{ row.amount | number: '1.2-2' }}</b>
           }
           @case ('status') {
             <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
@@ -92,19 +95,19 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
           <nz-form-item><nz-form-label nzRequired>Legal entity</nz-form-label><nz-form-control [nzErrorTip]="err('legalEntityId')">
             <nz-select formControlName="legalEntityId" data-testid="ch-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Customer</nz-form-label><nz-form-control [nzErrorTip]="err('partyId')">
-            <nz-select formControlName="partyId" nzShowSearch nzServerSearch (nzOnSearch)="searchParties($event)" (ngModelChange)="partyChanged($event)" data-testid="ch-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
+            <nz-select formControlName="partyId" nzShowSearch nzServerSearch nzPlaceHolder="Search customers" (nzOnSearch)="searchParties($event)" (ngModelChange)="partyChanged($event)" data-testid="ch-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Type</nz-form-label><nz-form-control><nz-select formControlName="kind">@for (k of kinds; track k.value) { <nz-option [nzValue]="k.value" [nzLabel]="k.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Cheque number</nz-form-label><nz-form-control [nzErrorTip]="err('instrumentNo')"><input nz-input formControlName="instrumentNo" data-testid="ch-no" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Bank</nz-form-label><nz-form-control><input nz-input formControlName="bankName" data-testid="ch-bank-name" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Amount</nz-form-label><nz-form-control [nzErrorTip]="err('amount')"><nz-input-number formControlName="amount" [nzMin]="0.01" [nzPrecision]="2" style="width:100%" data-testid="ch-amount"></nz-input-number></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Cheque date</nz-form-label><nz-form-control [nzErrorTip]="err('instrumentDate')" nzExtra="The date written on it. A later date makes it post-dated."><nz-date-picker formControlName="instrumentDate" style="width:100%" data-testid="ch-date"></nz-date-picker></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Received on</nz-form-label><nz-form-control><nz-date-picker formControlName="receivedOn" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Cheque date</nz-form-label><nz-form-control [nzErrorTip]="err('instrumentDate')" nzExtra="The date written on it. A later date makes it post-dated."><nz-date-picker nzFormat="dd MMM yyyy" formControlName="instrumentDate" style="width:100%" data-testid="ch-date"></nz-date-picker></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Received on</nz-form-label><nz-form-control><nz-date-picker nzFormat="dd MMM yyyy" formControlName="receivedOn" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Notes</nz-form-label><nz-form-control><input nz-input formControlName="notes" /></nz-form-control></nz-form-item>
         </form>
         <h4>Invoices this cheque pays</h4>
         @for (o of openInvoices(); track o.id) {
           <div class="alloc">
-            <span>{{ o.number }} · {{ 'ui.re.dueLc' | translate: 'due' }} {{ o.dueDate }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ o.outstanding.toFixed(2) }}</span>
+            <span>{{ o.number }} · {{ 'ui.re.dueLc' | translate: 'due' }} {{ o.dueDate | erpDate }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ money(o.outstanding, o.currencyCode) }}</span>
             <nz-input-number [ngModel]="amounts()[o.id] ?? 0" (ngModelChange)="setAmount(o.id, $event)" [nzMin]="0" [nzMax]="o.outstanding" [nzPrecision]="2" [ngModelOptions]="{standalone: true}" [attr.data-testid]="'ch-alloc-' + o.number"></nz-input-number>
           </div>
         } @empty { <div>No open invoices for this customer; the cheque will stay as customer credit.</div> }
@@ -119,13 +122,13 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
       <ng-container *nzDrawerContent>
         @if (cheque(); as c) {
           <p><nz-tag [nzColor]="color(c.status)">{{ label(c.status) }}</nz-tag> {{ c.number }}</p>
-          <p>{{ c.partyName }} · {{ c.bankName }} · <b>{{ c.amount.toFixed(2) }} {{ c.currencyCode }}</b></p>
-          <p>{{ 'ui.cheque.date' | translate: 'Cheque date' }} {{ c.instrumentDate }} @if (c.depositedOn) { · {{ 'ui.cheque.depositedLc' | translate: 'deposited' }} {{ c.depositedOn }} } @if (c.clearedOn) { · {{ 'ui.cheque.clearedLc' | translate: 'cleared' }} {{ c.clearedOn }} }</p>
-          @if (c.bounceReason) { <p>{{ 'ui.cheque.returned' | translate: 'Returned' }}: {{ c.bounceReason }} @if (c.bouncedOn) { · <span>Bounced on</span> <bdi dir="ltr">{{ c.bouncedOn }}</bdi> }</p> }
-          @if (c.followUpOn) { <p data-testid="ch-followup-note"><span>Followed up on</span> <bdi dir="ltr">{{ c.followUpOn }}</bdi>: {{ c.followUpNote }}</p> }
+          <p>{{ c.partyName }} · {{ c.bankName }} · <b>{{ money(c.amount, c.currencyCode) }}</b></p>
+          <p>{{ 'ui.cheque.date' | translate: 'Cheque date' }} {{ c.instrumentDate | erpDate }} @if (c.depositedOn) { · {{ 'ui.cheque.depositedLc' | translate: 'deposited' }} {{ c.depositedOn | erpDate }} } @if (c.clearedOn) { · {{ 'ui.cheque.clearedLc' | translate: 'cleared' }} {{ c.clearedOn | erpDate }} }</p>
+          @if (c.bounceReason) { <p>{{ 'ui.cheque.returned' | translate: 'Returned' }}: {{ c.bounceReason }} @if (c.bouncedOn) { · <span>Bounced on</span> <bdi dir="ltr">{{ c.bouncedOn | erpDate }}</bdi> }</p> }
+          @if (c.followUpOn) { <p data-testid="ch-followup-note"><span>Followed up on</span> <bdi dir="ltr">{{ c.followUpOn | erpDate }}</bdi>: {{ c.followUpNote }}</p> }
           @if (c.replacesInstrumentId) { <p><span>Replaces an earlier cheque that bounced</span></p> }
           @if (c.replacedByChequeId) { <p data-testid="ch-replaced-by"><span>Replaced by a new cheque</span></p> }
-          @for (a of c.allocations; track a.id) { <div>{{ 'ui.cheque.pays' | translate: 'Pays' }} {{ a.invoiceNumber }}: {{ a.amount.toFixed(2) }}</div> }
+          @for (a of c.allocations; track a.id) { <div>{{ 'ui.cheque.pays' | translate: 'Pays' }} {{ a.invoiceNumber }}: {{ money(a.amount, c.currencyCode) }}</div> }
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap" *erpHasPermission="'finance.cheques.approve'">
             @if (c.status === 'inCustody') { <button nz-button nzType="primary" (click)="act('deposit')" data-testid="ch-deposit">Deposit</button> }
             @if (c.status === 'deposited') { <button nz-button nzType="primary" (click)="act('clear')" data-testid="ch-clear">Mark cleared</button> }
@@ -141,7 +144,8 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
 
     <nz-modal [nzVisible]="action() !== null" [nzTitle]="actionTitle()" (nzOnCancel)="action.set(null)" (nzOnOk)="runAction()" [nzOkLoading]="saving()" nzOkText="Confirm">
       <ng-container *nzModalContent>
-        <nz-date-picker [(ngModel)]="actionDate" style="width:100%;margin-bottom:12px" data-testid="act-date"></nz-date-picker>
+        <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--erp-color-text-muted)">Date</label>
+        <nz-date-picker nzFormat="dd MMM yyyy" [(ngModel)]="actionDate" style="width:100%;margin-bottom:12px" data-testid="act-date"></nz-date-picker>
         @if (action() === 'deposit') {
           <nz-select [(ngModel)]="actionBank" style="width:100%" nzPlaceHolder="Deposit to bank account" data-testid="act-bank">@for (a of banks(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
         }
@@ -153,11 +157,14 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
 export class ChequesPage {
   private readonly currencyService = inject(WorkspaceCurrencyService);
   readonly currency = this.currencyService.currency;
+  readonly chequeCount = (n: number) => countOf(n, 'cheque');
+  money(v: number, currency?: string | null): string { return formatMoney(v, currency ?? this.currency()); }
   private readonly api = inject(ChequesApi);
   private readonly invoices = inject(InvoicesApi);
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
+  private readonly modal = inject(NzModalService);
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
   private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
   readonly entities = computed(() => this.entityPage().items);
@@ -262,9 +269,13 @@ export class ChequesPage {
 
   cancel(): void {
     const c = this.cheque();
-    if (c) this.api.cancel(c.id).subscribe({ next: () => this.done('Entry cancelled'), error: (e) => this.fail(e) });
+    if (!c) return;
+    this.modal.confirm({
+      nzTitle: 'Cancel this cheque entry?', nzContent: 'It stays in the register as cancelled and cannot be deposited.', nzOkText: 'Cancel entry', nzOkDanger: true, nzCancelText: 'Keep it',
+      nzOnOk: () => this.api.cancel(c.id).subscribe({ next: () => this.done('Entry cancelled'), error: (e) => this.fail(e) }),
+    });
   }
 
   private done(text: string): void { this.saving.set(false); this.formOpen.set(false); this.detailOpen.set(false); this.message.success(text); this.list.reload(); this.loadSummary(); }
-  private fail(e: unknown): void { this.saving.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not complete the action'); }
+  private fail(e: unknown): void { this.saving.set(false); this.message.error(problemMessage(e, 'Could not complete the action')); }
 }

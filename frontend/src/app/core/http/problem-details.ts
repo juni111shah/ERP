@@ -5,7 +5,9 @@ import { tNow } from '../i18n/translate-now';
 
 export function asProblem(err: unknown): ProblemDetails | null {
   if (err instanceof HttpErrorResponse && err.error && typeof err.error === 'object') {
-    return { status: err.status, ...(err.error as ProblemDetails) };
+    const problem: ProblemDetails = { status: err.status, ...(err.error as ProblemDetails) };
+    // A server failure's detail is for developers (a stack trace in development), so it never reaches the screen.
+    return err.status >= 500 ? { ...problem, detail: undefined } : problem;
   }
   return err instanceof HttpErrorResponse ? { status: err.status, title: err.statusText } : null;
 }

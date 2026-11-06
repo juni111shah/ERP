@@ -106,15 +106,6 @@ class PayrollDetailScreen extends StatelessWidget {
           body: (context, d) => payrollBody(context, ref, d),
           actions: [
             ActionSpec(
-              label: 'Recalculate',
-              icon: Icons.refresh,
-              permission: 'hr.payroll.manage',
-              visible: open,
-              confirm: 'Recalculate from the current salaries and attendance? Adjustments are kept.',
-              successMessage: 'Recalculated',
-              run: (ref, d, _) => ref.read(apiProvider).post('$path/recalculate'),
-            ),
-            ActionSpec(
               label: 'Record',
               icon: Icons.fact_check_outlined,
               permission: 'hr.payroll.post',
@@ -122,6 +113,15 @@ class PayrollDetailScreen extends StatelessWidget {
               confirm: 'Record this payroll in the accounts? When approval is required it is sent for approval first.',
               successMessage: 'Done',
               run: (ref, d, _) => ref.read(apiProvider).post('$path/post'),
+            ),
+            ActionSpec(
+              label: 'Recalculate',
+              icon: Icons.refresh,
+              permission: 'hr.payroll.manage',
+              visible: open,
+              confirm: 'Recalculate from the current salaries and attendance? Adjustments are kept.',
+              successMessage: 'Recalculated',
+              run: (ref, d, _) => ref.read(apiProvider).post('$path/recalculate'),
             ),
             ActionSpec(
               label: 'Pay',

@@ -15,7 +15,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
 import { AccountDto, AccountsApi, BankApi, CashPosition, LegalEntitiesApi, LegalEntityDto, Reconciliation, StatementLine } from '../../core/api/admin.api';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
-import { asProblem } from '../../core/http/problem-details';
+import { asProblem, problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
@@ -23,13 +23,18 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
 
 /** Cash and bank: balances, bank statement import, reconciliation and transfers between accounts. */
 import { RevealDirective } from '../../shared/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
+import { ErpDatePipe } from '../../shared/display.pipes';
+import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { ClientPager, PaginationBarComponent } from '../../shared/pagination-bar.component';
+import { countOf } from './finance-kpis';
 @Component({
   selector: 'erp-bank',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KeyboardClickDirective, NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
+  imports: [ErpDatePipe, NzSpinModule, StatePanelComponent, PaginationBarComponent, KeyboardClickDirective, NzToolTipModule, TranslatePipe, FormsModule, DecimalPipe, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule, RevealDirective],
   styles: [`
     .bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center }
     .bank-accounts-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:24px }
@@ -52,8 +57,7 @@ import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
     }
     .bank-card.sel {
       border-color: var(--erp-color-primary, #10955d);
-      background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
-      box-shadow: 0 0 0 1px var(--erp-color-primary, #10955d), 0 4px 12px rgba(16, 149, 93, 0.1);
+            box-shadow: 0 0 0 1px var(--erp-color-primary, #10955d), 0 4px 12px rgba(16, 149, 93, 0.1);
     }
     .bank-card-header { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 500; color: var(--erp-color-text-secondary, #64748b); }
     .bank-card-balance { font-size: 22px; font-weight: 700; color: var(--erp-color-text-title, #0f172a); letter-spacing: -0.3px; }
@@ -86,22 +90,33 @@ import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: #fafbfc;
+      background: var(--erp-color-bg-subtle);
     }
     .bank-table-title { font-size: 14px; font-weight: 600; color: var(--erp-color-text-title, #0f172a); display: flex; align-items: center; gap: 8px; }
-    .num { text-align: right }
-    .amt-inflow { color: #10955d; font-weight: 600; }
-    .amt-outflow { color: #e11d48; font-weight: 600; }
+    .num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap }
+    .nowrap { white-space: nowrap }
+    .amt-inflow { color: var(--erp-color-success-text, #10955d); font-weight: 600; }
+    .amt-outflow { color: var(--erp-color-error-text, #e11d48); font-weight: 600; }
+    .pager { padding: 0 16px 8px; } .loading { text-align: center; padding: 48px; }
+    .field { display: block; margin-bottom: 12px; font-size: 12px; color: var(--erp-color-text-muted); }
+    .field > * { margin-top: 4px; }
   `],
   template: `
     <h1 class="erp-page-title">Cash and bank</h1>
     <div class="bar" erpReveal>
       <nz-select [(ngModel)]="entityId" nzAllowClear nzPlaceHolder="All legal entities" style="width:240px" (ngModelChange)="refresh()" data-testid="bank-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
-      <nz-date-picker [(ngModel)]="asOf" (ngModelChange)="refresh()" data-testid="bank-asof"></nz-date-picker>
-      <button *erpHasPermission="'finance.bank.write'" nz-button (click)="transferOpen.set(true)" data-testid="bank-transfer"><span nz-icon nzType="swap"></span>Transfer</button>
+      <nz-date-picker [(ngModel)]="asOf" (ngModelChange)="refresh()" nzFormat="dd MMM yyyy" nz-tooltip nzTooltipTitle="Balances as of this date" data-testid="bank-asof"></nz-date-picker>
+      <button *erpHasPermission="'finance.bank.write'" nz-button (click)="openTransfer()" data-testid="bank-transfer"><span nz-icon nzType="swap"></span>Transfer</button>
       <button nz-button nzType="default" type="button" (click)="refresh()" data-testid="bank-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
     </div>
 
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load cash and bank" hint="The server did not return the balances." actionLabel="Try again" (action)="refresh()" data-testid="bank-error" />
+    } @else if (!position()) {
+      <div class="loading"><nz-spin nzSimple></nz-spin></div>
+    } @else if (!position()!.accounts.length) {
+      <erp-state-panel title="No cash or bank accounts yet" hint="Mark an account as a bank or cash account in the chart of accounts, and it appears here." icon="bank" />
+    }
     @if (position(); as p) {
       <div class="bank-accounts-grid" data-testid="bank-cards">
         @for (a of p.accounts; track a.accountId) {
@@ -116,7 +131,7 @@ import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
           </div>
         }
         <div class="bank-card" style="cursor:default">
-          <div class="bank-card-header"><span>Total Liquidity</span></div>
+          <div class="bank-card-header"><span>Total cash and bank</span></div>
           <div class="bank-card-balance">{{ currency() }} {{ p.total | number: '1.2-2' }}</div>
         </div>
       </div>
@@ -124,16 +139,16 @@ import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
 
     @if (rec(); as r) {
       <div class="bar" style="margin-top:12px">
-        <h3 style="margin:0;font-size:16px;font-weight:600">{{ 'ui.bank.reconciliation' | translate: 'Reconciliation' }} — {{ r.code }} {{ r.name }}</h3>
-        <nz-tag [nzColor]="r.reconciled ? 'green' : 'orange'" data-testid="rec-status">{{ r.reconciled ? 'Reconciled' : 'Differences to review' }}</nz-tag>
+        <h3 style="margin:0;font-size:16px;font-weight:600">{{ 'ui.bank.reconciliation' | translate: 'Reconciliation' }}: {{ r.code }} {{ r.name }}</h3>
+        <nz-tag [nzColor]="r.reconciled ? 'green' : 'orange'" data-testid="rec-status" style="margin:0">{{ r.reconciled ? 'Reconciled' : 'Differences to review' }}</nz-tag>
         <span style="flex:1"></span>
         <ng-container *erpHasPermission="'finance.bank.write'">
           <button nz-button (click)="importOpen.set(true)" data-testid="bank-import"><span nz-icon nzType="plus"></span>Import statement</button>
-          <button nz-button nzType="primary" [disabled]="!entityId" (click)="autoMatch()" data-testid="bank-automatch"><span nz-icon nzType="sync"></span>Auto-match</button>
+          <button nz-button nzType="primary" [disabled]="!statementEntity()" (click)="autoMatch()" data-testid="bank-automatch"><span nz-icon nzType="sync"></span>Auto-match</button>
         </ng-container>
       </div>
 
-      @if (!entityId) {
+      @if (!statementEntity()) {
         <p style="color:var(--erp-color-text-secondary);margin-bottom:12px">Choose a legal entity above to import and match statements.</p>
       }
 
@@ -144,17 +159,17 @@ import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
         </div>
         <div class="rec-metric-divider"></div>
         <div class="rec-metric-item">
-          <span class="rec-metric-label">{{ 'ui.bank.linesMatched' | translate: 'Lines matched' }}</span>
+          <span class="rec-metric-label">Lines matched</span>
           <span class="rec-metric-val">{{ r.matched }}</span>
         </div>
         <div class="rec-metric-divider"></div>
         <div class="rec-metric-item">
-          <span class="rec-metric-label">{{ 'ui.bank.unmatchedStatement' | translate: 'Unmatched statement' }}</span>
+          <span class="rec-metric-label">Not in the books</span>
           <span class="rec-metric-val">{{ currency() }} {{ r.unmatchedStatementTotal | number: '1.2-2' }}</span>
         </div>
         <div class="rec-metric-divider"></div>
         <div class="rec-metric-item">
-          <span class="rec-metric-label">{{ 'ui.bank.unmatchedLedger' | translate: 'Unmatched ledger' }}</span>
+          <span class="rec-metric-label">Not on the statement</span>
           <span class="rec-metric-val">{{ currency() }} {{ r.unmatchedLedgerTotal | number: '1.2-2' }}</span>
         </div>
       </div>
@@ -164,22 +179,23 @@ import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
           <span class="bank-table-title"><span nz-icon nzType="file-text"></span> On the statement, not in the books</span>
           <nz-tag>{{ r.unmatchedStatement.length }} {{ r.unmatchedStatement.length === 1 ? 'line' : 'lines' }}</nz-tag>
         </div>
-        <nz-table [nzData]="r.unmatchedStatement" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="rec-statement">
+        <nz-table #st [nzData]="statementRows()" [nzPageIndex]="stPg.page()" [nzPageSize]="stPg.size()" [nzShowPagination]="false" nzNoResult="Every statement line is matched." nzSize="middle" data-testid="rec-statement">
           <thead><tr><th>Date</th><th>Description</th><th>Reference</th><th class="num">Amount</th><th></th></tr></thead>
           <tbody>
-            @for (l of r.unmatchedStatement; track l.id) {
+            @for (l of st.data; track l.id) {
               <tr>
-                <td>{{ l.date }}</td>
+                <td class="nowrap">{{ l.date | erpDate }}</td>
                 <td>{{ l.description }}</td>
                 <td><span class="code-pill">{{ l.reference || '—' }}</span></td>
                 <td class="num" [class.amt-inflow]="l.amount > 0" [class.amt-outflow]="l.amount < 0">
                   {{ l.amount < 0 ? '- ' + currency() + ' ' + ((-l.amount) | number: '1.2-2') : currency() + ' ' + (l.amount | number: '1.2-2') }}
                 </td>
-                <td><a *erpHasPermission="'finance.bank.write'" (click)="startBook(l)" data-testid="rec-book">Book it</a></td>
+                <td class="nowrap"><button *erpHasPermission="'finance.bank.write'" nz-button nzType="link" nzSize="small" type="button" (click)="startBook(l)" data-testid="rec-book">Book it</button></td>
               </tr>
             }
           </tbody>
         </nz-table>
+        <div class="pager"><erp-pagination-bar [total]="statementRows().length" [page]="stPg.page()" [pageSize]="stPg.size()" [hideOnSinglePage]="true" (pageChange)="stPg.change($event)" /></div>
       </div>
 
       <div class="bank-table-card">
@@ -187,12 +203,12 @@ import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
           <span class="bank-table-title"><span nz-icon nzType="book"></span> In the books, not on the statement</span>
           <nz-tag>{{ r.unmatchedLedger.length }} {{ r.unmatchedLedger.length === 1 ? 'line' : 'lines' }}</nz-tag>
         </div>
-        <nz-table [nzData]="r.unmatchedLedger" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="rec-ledger">
+        <nz-table #lt [nzData]="ledgerRows()" [nzPageIndex]="ltPg.page()" [nzPageSize]="ltPg.size()" [nzShowPagination]="false" nzNoResult="Every ledger entry is matched." nzSize="middle" data-testid="rec-ledger">
           <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Amount</th></tr></thead>
           <tbody>
-            @for (l of r.unmatchedLedger; track l.journalLineId) {
+            @for (l of lt.data; track l.journalLineId) {
               <tr>
-                <td>{{ l.date }}</td>
+                <td class="nowrap">{{ l.date | erpDate }}</td>
                 <td><span class="code-pill">{{ l.number }}</span></td>
                 <td>{{ l.description }}</td>
                 <td class="num" [class.amt-inflow]="l.amount > 0" [class.amt-outflow]="l.amount < 0">
@@ -202,33 +218,36 @@ import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
             }
           </tbody>
         </nz-table>
+        <div class="pager"><erp-pagination-bar [total]="ledgerRows().length" [page]="ltPg.page()" [pageSize]="ltPg.size()" [hideOnSinglePage]="true" (pageChange)="ltPg.change($event)" /></div>
       </div>
     }
 
     <nz-modal [nzVisible]="importOpen()" nzTitle="Import bank statement" (nzOnCancel)="importOpen.set(false)" (nzOnOk)="runImport()" nzOkText="Import" [nzOkLoading]="busy()" [nzWidth]="640">
       <ng-container *nzModalContent>
         <p>Paste one line per row: <code>date, description, reference, amount</code> (date as 2026-05-31; money out is negative).</p>
-        <textarea aria-label="2026-05-03, Deposit, D1, 10000" nz-input rows="10" [(ngModel)]="importText" placeholder="2026-05-03, Deposit, D1, 10000" data-testid="import-text"></textarea>
+        <textarea aria-label="Statement lines" nz-input rows="10" [(ngModel)]="importText" placeholder="2026-05-03, Deposit, D1, 10000" data-testid="import-text"></textarea>
       </ng-container>
     </nz-modal>
 
     <nz-modal [nzVisible]="bookLine() !== null" nzTitle="Book statement line" (nzOnCancel)="bookLine.set(null)" (nzOnOk)="runBook()" nzOkText="Book and match" [nzOkLoading]="busy()">
       <ng-container *nzModalContent>
-        @if (bookLine(); as l) { <p>{{ l.date }} · {{ l.description }} · <b>{{ l.amount | number: '1.2-2' }}</b></p> }
-        <nz-select [(ngModel)]="bookAccount" nzShowSearch style="width:100%;margin-bottom:12px" nzPlaceHolder="Other account (for example bank charges)" data-testid="book-account">
-          @for (a of postable(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }
-        </nz-select>
-        <input aria-label="Memo (optional)" nz-input [(ngModel)]="bookMemo" placeholder="Memo (optional)" />
+        @if (bookLine(); as l) { <p>{{ l.date | erpDate }} · {{ l.description }} · <b>{{ currency() }} {{ l.amount | number: '1.2-2' }}</b></p> }
+        <div class="field">Other account
+          <nz-select [(ngModel)]="bookAccount" nzShowSearch style="width:100%" nzPlaceHolder="For example, bank charges" data-testid="book-account">
+            @for (a of postable(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }
+          </nz-select>
+        </div>
+        <div class="field">Memo (optional)<input nz-input [(ngModel)]="bookMemo" /></div>
       </ng-container>
     </nz-modal>
 
     <nz-modal [nzVisible]="transferOpen()" nzTitle="Transfer between cash and bank accounts" (nzOnCancel)="transferOpen.set(false)" (nzOnOk)="runTransfer()" nzOkText="Transfer" [nzOkLoading]="busy()">
       <ng-container *nzModalContent>
-        <nz-select [(ngModel)]="trEntity" style="width:100%;margin-bottom:12px" nzPlaceHolder="Legal entity" data-testid="tr-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
-        <nz-select [(ngModel)]="trFrom" style="width:100%;margin-bottom:12px" nzPlaceHolder="From" data-testid="tr-from">@for (a of cashAccounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
-        <nz-select [(ngModel)]="trTo" style="width:100%;margin-bottom:12px" nzPlaceHolder="To" data-testid="tr-to">@for (a of cashAccounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
-        <nz-input-number [(ngModel)]="trAmount" [nzMin]="0.01" [nzPrecision]="2" style="width:100%;margin-bottom:12px" data-testid="tr-amount"></nz-input-number>
-        <nz-date-picker [(ngModel)]="trDate" style="width:100%"></nz-date-picker>
+        <div class="field">Legal entity <nz-select [(ngModel)]="trEntity" style="width:100%" nzPlaceHolder="Choose" data-testid="tr-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select></div>
+        <div class="field">From <nz-select [(ngModel)]="trFrom" style="width:100%" nzPlaceHolder="Account the money leaves" data-testid="tr-from">@for (a of cashAccounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select></div>
+        <div class="field">To <nz-select [(ngModel)]="trTo" style="width:100%" nzPlaceHolder="Account the money reaches" data-testid="tr-to">@for (a of cashAccounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select></div>
+        <div class="field">Amount <nz-input-number [(ngModel)]="trAmount" [nzMin]="0.01" [nzPrecision]="2" style="width:100%" data-testid="tr-amount"></nz-input-number></div>
+        <div class="field">Date <nz-date-picker [(ngModel)]="trDate" nzFormat="dd MMM yyyy" style="width:100%"></nz-date-picker></div>
       </ng-container>
     </nz-modal>`,
 })
@@ -249,6 +268,15 @@ export class BankPage {
   readonly position = signal<CashPosition | null>(null);
   readonly accountId = signal<string | null>(null);
   readonly rec = signal<Reconciliation | null>(null);
+  readonly failed = signal(false);
+  readonly entityChoice = signal<string | null>(null);
+  /** The legal entity a statement belongs to: the one chosen, or the only one there is. */
+  readonly statementEntity = computed(() => this.entityChoice() ?? (this.entities().length === 1 ? this.entities()[0].id : null));
+  readonly stPg = new ClientPager(10);
+  readonly ltPg = new ClientPager(10);
+  /** Newest first, one page at a time: a bank with no statement imported can have hundreds of open ledger lines. */
+  readonly statementRows = computed(() => [...(this.rec()?.unmatchedStatement ?? [])].sort((a, b) => b.date.localeCompare(a.date)));
+  readonly ledgerRows = computed(() => [...(this.rec()?.unmatchedLedger ?? [])].sort((a, b) => b.date.localeCompare(a.date)));
   readonly busy = signal(false);
   readonly importOpen = signal(false);
   importText = '';
@@ -263,21 +291,34 @@ export class BankPage {
   private date(): string { return toIsoDate(this.asOf); }
 
   refresh(): void {
-    this.api.position(this.date(), this.entityId ?? undefined).subscribe((p) => {
-      this.position.set(p);
-      const id = this.accountId() ?? p.accounts.find((a) => a.isBank)?.accountId ?? p.accounts[0]?.accountId ?? null;
-      if (id) this.select(id);
+    this.failed.set(false);
+    this.entityChoice.set(this.entityId);
+    this.api.position(this.date(), this.entityId ?? undefined).subscribe({
+      next: (p) => {
+        this.position.set(p);
+        const id = this.accountId() ?? p.accounts.find((a) => a.isBank)?.accountId ?? p.accounts[0]?.accountId ?? null;
+        if (id) this.select(id);
+      },
+      error: () => this.failed.set(true),
     });
   }
 
   select(accountId: string): void {
     this.accountId.set(accountId);
-    this.api.reconciliation(accountId, this.date(), this.entityId ?? undefined).subscribe((r) => this.rec.set(r));
+    this.stPg.page.set(1);
+    this.ltPg.page.set(1);
+    this.api.reconciliation(accountId, this.date(), this.entityId ?? undefined).subscribe({ next: (r) => this.rec.set(r), error: (e) => this.fail(e) });
+  }
+
+  openTransfer(): void {
+    this.trEntity = this.statementEntity();
+    this.transferOpen.set(true);
   }
 
   runImport(): void {
     const account = this.accountId();
-    if (!account || !this.entityId) { this.message.warning('Choose a legal entity and an account'); return; }
+    const entity = this.statementEntity();
+    if (!account || !entity) { this.message.warning('Choose a legal entity and an account'); return; }
     const lines: { date: string; description: string; reference: string | null; amount: number }[] = [];
     for (const raw of this.importText.split('\n').map((l) => l.trim()).filter(Boolean)) {
       const [date, description, reference, amount] = raw.split(',').map((p) => p.trim());
@@ -287,7 +328,7 @@ export class BankPage {
     }
     if (lines.length === 0) return;
     this.busy.set(true);
-    this.api.import(account, this.entityId, lines).subscribe({
+    this.api.import(account, entity, lines).subscribe({
       next: (r) => { this.busy.set(false); this.importOpen.set(false); this.importText = ''; this.message.success(`${r.imported} ${this.i18n.t('ui.msg.importedLc', 'imported')}, ${r.duplicates} ${this.i18n.t('ui.msg.alreadyThere', 'already there')}`); this.select(account); },
       error: (e) => this.fail(e),
     });
@@ -295,8 +336,9 @@ export class BankPage {
 
   autoMatch(): void {
     const account = this.accountId();
-    if (!account || !this.entityId) return;
-    this.api.autoMatch(account, this.entityId).subscribe({ next: (r) => { this.message.success(`${r.matched} ${this.i18n.t('ui.bank.linesMatched', 'lines matched')}`); this.select(account); }, error: (e) => this.fail(e) });
+    const entity = this.statementEntity();
+    if (!account || !entity) return;
+    this.api.autoMatch(account, entity).subscribe({ next: (r) => { this.message.success(r.matched ? `${countOf(r.matched, 'line')} matched` : 'Nothing new to match'); this.select(account); }, error: (e) => this.fail(e) });
   }
 
   startBook(l: StatementLine): void { this.bookLine.set(l); this.bookAccount = null; this.bookMemo = ''; }
@@ -313,6 +355,7 @@ export class BankPage {
 
   runTransfer(): void {
     if (!this.trEntity || !this.trFrom || !this.trTo || !this.trAmount) { this.message.warning('Fill in every field'); return; }
+    if (this.trFrom === this.trTo) { this.message.warning('Choose two different accounts'); return; }
     this.busy.set(true);
     this.api.transfer({ legalEntityId: this.trEntity, fromAccountId: this.trFrom, toAccountId: this.trTo, amount: this.trAmount, date: toIsoDate(this.trDate), memo: null }).subscribe({
       next: () => { this.busy.set(false); this.transferOpen.set(false); this.message.success('Transfer posted'); this.refresh(); },
@@ -320,5 +363,5 @@ export class BankPage {
     });
   }
 
-  private fail(e: unknown): void { this.busy.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not complete the action'); }
+  private fail(e: unknown): void { this.busy.set(false); this.message.error(problemMessage(e, 'Could not complete the action')); }
 }

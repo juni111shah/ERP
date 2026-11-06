@@ -3,7 +3,6 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
@@ -15,13 +14,17 @@ import { ProblemDetails } from '../../core/api/api.models';
 import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
+import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { MONTHS, PayrollApi, PayrollDto, PayrollLine } from './hr.api';
 import { StatutoryRulesApi, StatutoryTotal } from './hr-people.api';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 type Mode = 'pay' | 'adjust' | 'void' | null;
 
-const STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', posted: 'blue', partiallyPaid: 'gold', paid: 'green', voided: 'red' };
 const STATUS_LABELS: Record<string, string> = { pendingApproval: 'Needs approval', partiallyPaid: 'Partly paid' };
 
 /** One payroll run: totals, the employee lines (adjust a line for one-offs while draft), post, pay (all or selected employees), void, payslips and the bank files. */
@@ -29,19 +32,24 @@ const STATUS_LABELS: Record<string, string> = { pendingApproval: 'Needs approval
   selector: 'erp-payroll-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzCardModule, NzIconModule, NzModalModule, NzTableModule, NzTagModule],
+  imports: [ErpDatePipe, TranslatePipe, DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatCardComponent, StatePanelComponent, StatusTagComponent, NzButtonModule, NzIconModule, NzModalModule, NzTableModule, NzTagModule],
+  styles: [`.num { text-align: end; white-space: nowrap; } .void-reason { color: var(--erp-color-error-text); } .sub { font-size: 12px; color: var(--erp-color-text-secondary); } .gap { margin-inline-end: 8px; }`],
   template: `
+    @if (failed()) {
+      <p><a routerLink="/hr/payroll">← Payroll</a></p>
+      <erp-state-panel kind="error" title="This payroll run could not be loaded" hint="It may have been deleted, or your connection dropped." actionLabel="Try again" (action)="reload()" />
+    }
     @if (run(); as r) {
       <p><a routerLink="/hr/payroll">← Payroll</a></p>
-      <h1 class="erp-page-title" data-testid="payroll-title">{{ 'ui.hr.payroll' | translate: 'Payroll' }} {{ period() }}
-        <nz-tag [nzColor]="statusColor(r.status)">{{ statusLabel(r.status) }}</nz-tag>
+      <h1 data-testid="payroll-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;font-size:20px;font-weight:600">{{ 'ui.hr.payroll' | translate: 'Payroll' }} {{ period() }}
+        <erp-status [value]="r.status" [label]="statusLabel(r.status)" />
         @if (r.kind === 'offCycle') { <nz-tag nzColor="orange">Off-cycle</nz-tag> }
         @if (r.kind === 'finalSettlement') { <nz-tag nzColor="magenta">Final settlement</nz-tag> }</h1>
       <p>{{ r.number }}@if (r.notes) { · {{ r.notes }} }</p>
-      @if (r.status === 'voided') { <p style="color:#cf1322" data-testid="payroll-void-reason">Voided{{ r.voidedAt ? ' on ' + r.voidedAt.slice(0, 10) : '' }}: {{ r.voidReason }}</p> }
+      @if (r.status === 'voided') { <p class="void-reason" data-testid="payroll-void-reason">Voided @if (r.voidedAt) { on {{ r.voidedAt | erpDate }} }: {{ r.voidReason }}</p> }
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0" data-testid="payroll-actions">
         @if (r.status === 'draft' || r.status === 'pendingApproval') {
-          <button *erpHasPermission="'hr.payroll.manage'" nz-button [disabled]="busy()" (click)="recalculate()" data-testid="payroll-recalc">Recalculate</button>
+          @if (r.kind !== 'finalSettlement') { <button *erpHasPermission="'hr.payroll.manage'" nz-button [disabled]="busy()" (click)="recalculate()" data-testid="payroll-recalc">Recalculate</button> }
           <button *erpHasPermission="'hr.payroll.post'" nz-button nzType="primary" [disabled]="busy()" (click)="post()" data-testid="payroll-post">{{ r.status === 'pendingApproval' ? 'Post (after approval)' : 'Submit and post' }}</button>
           <button *erpHasPermission="'hr.payroll.manage'" nz-button nzDanger [disabled]="busy()" (click)="remove()" data-testid="payroll-delete">Delete</button>
         }
@@ -54,40 +62,40 @@ const STATUS_LABELS: Record<string, string> = { pendingApproval: 'Needs approval
           <button *erpHasPermission="'hr.payroll.read'" nz-button (click)="emailAll()" [disabled]="busy()" data-testid="payroll-email-all"><span nz-icon nzType="mail"></span>Email payslips</button>
           <button *erpHasPermission="'hr.payroll.post'" nz-button nzDanger (click)="startVoid()" data-testid="payroll-void">Void</button>
         }
-        <a [href]="'/print/payroll/' + r.id" target="_blank" nz-button data-testid="payroll-print"><span nz-icon nzType="printer"></span>Print Summary</a>
+        <a [href]="'/print/payroll/' + r.id" target="_blank" nz-button data-testid="payroll-print"><span nz-icon nzType="printer"></span>Print summary</a>
       </div>
-      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
-        <nz-card><small>Employees</small><div><b>{{ r.employees }}</b></div></nz-card>
-        <nz-card><small>Gross earnings</small><div><b>{{ r.grossEarnings | number: '1.2-2' }}</b></div><small>after absence, incl. overtime</small></nz-card>
-        <nz-card><small>Deductions</small><div><b>{{ r.deductions | number: '1.2-2' }}</b></div><small>incl. loan recoveries</small></nz-card>
-        @if (r.employerCost) { <nz-card><small>Employer cost</small><div><b>{{ r.employerCost | number: '1.2-2' }}</b></div><small>on top of the pay</small></nz-card> }
-        <nz-card><small>Net pay</small><div><b data-testid="payroll-net">{{ r.netPay | number: '1.2-2' }}</b></div>@if (r.paidOn) { <small>{{ 'ui.hr.paidOn' | translate: 'paid on' }} {{ r.paidOn }}</small> }</nz-card>
+      <div class="erp-stat-grid erp-stat-grid--auto" data-testid="payroll-totals">
+        <erp-stat-card label="Employees" [value]="r.employees" format="number" [tone]="1" />
+        <erp-stat-card label="Gross earnings" [value]="r.grossEarnings" format="money" [shortenMillions]="false" caption="after absence, incl. overtime" [tone]="2" />
+        <erp-stat-card label="Deductions" [value]="r.deductions" format="money" [shortenMillions]="false" caption="incl. loan recoveries" [tone]="3" />
+        @if (r.employerCost) { <erp-stat-card label="Employer cost" [value]="r.employerCost" format="money" [shortenMillions]="false" caption="on top of the pay" [tone]="4" /> }
+        <erp-stat-card label="Net pay" [value]="r.netPay" format="money" [shortenMillions]="false" [caption]="r.paidOn ? (('ui.hr.paidOn' | translate: 'paid on') + ' ' + (r.paidOn | erpDate)) : null" testId="payroll-net" [tone]="0" />
       </div>
-      <nz-table [nzData]="r.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="payroll-lines">
+      <nz-table [nzData]="r.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="No employees in this run" data-testid="payroll-lines">
         <thead><tr>
-          @if (canSelect()) { <th style="width:36px"></th> }
-          <th>Employee</th><th>Days</th><th>Absent</th><th>OT hrs</th><th>Basic</th><th>Allowances</th><th>Overtime</th><th>Absence</th><th>Adjustment</th>
-          @if (hasSettlement()) { <th>Leave payout</th><th>End of service</th> }
-          <th>Gross earnings</th><th>Deductions</th>
-          @if (hasStatutory()) { <th>of which statutory</th> }
-          @if (hasLoans()) { <th>of which loans</th> }
-          <th>Net pay</th><th>Paid</th><th>Actions</th></tr></thead>
+          @if (canSelect()) { <th style="width:36px" aria-label="Select"></th> }
+          <th>Employee</th><th class="num">Days</th><th class="num">Absent</th><th class="num">OT hrs</th><th class="num">Basic</th><th class="num">Allowances</th><th class="num">Overtime</th><th class="num">Absence</th><th class="num">Adjustment</th>
+          @if (hasSettlement()) { <th class="num">Leave payout</th><th class="num">End of service</th> }
+          <th class="num">Gross earnings</th><th class="num">Deductions</th>
+          @if (hasStatutory()) { <th class="num">of which statutory</th> }
+          @if (hasLoans()) { <th class="num">of which loans</th> }
+          <th class="num">Net pay ({{ currency() }})</th><th>Paid</th><th>Actions</th></tr></thead>
         <tbody>
           @for (l of r.lines; track l.id) {
             <tr>
-              @if (canSelect()) { <td>@if (!l.paidOn) { <input type="checkbox" [checked]="selected().has(l.employeeId)" (change)="toggle(l.employeeId)" data-testid="payroll-select" /> }</td> }
-              <td>{{ l.employeeName }}<div style="font-size:12px;color:var(--erp-color-text-secondary)">{{ l.employeeNumber }}</div></td>
-              <td>{{ l.proratedDays || '' }}</td><td>{{ l.absentDays }}</td><td>{{ l.overtimeHours }}</td><td>{{ l.basic | number: '1.2-2' }}</td><td>{{ l.allowances | number: '1.2-2' }}</td><td>{{ l.overtime | number: '1.2-2' }}</td>
-              <td>{{ l.absence | number: '1.2-2' }}</td><td>{{ l.adjustment | number: '1.2-2' }}</td>
-              @if (hasSettlement()) { <td>{{ l.leaveEncashment | number: '1.2-2' }}</td><td>{{ l.endOfService | number: '1.2-2' }}</td> }
-              <td>{{ l.grossEarnings | number: '1.2-2' }}</td><td>{{ l.deductions | number: '1.2-2' }}</td>
-              @if (hasStatutory()) { <td>{{ l.statutoryDeduction | number: '1.2-2' }}</td> }
-              @if (hasLoans()) { <td>{{ l.loanRecovery | number: '1.2-2' }}</td> }
-              <td><b>{{ l.netPay | number: '1.2-2' }}</b></td>
-              <td>{{ l.paidOn ?? '' }}</td>
-              <td>
-                <a [href]="'/print/payslip/' + r.id + '?employeeId=' + l.employeeId" target="_blank" data-testid="payroll-payslip" style="margin-inline-end:8px">Payslip</a>
-                @if (r.status === 'posted' || r.status === 'partiallyPaid' || r.status === 'paid') { <a (click)="emailOne(l)" style="margin-inline-end:8px" data-testid="payroll-email-one">Email</a> }
+              @if (canSelect()) { <td>@if (!l.paidOn) { <input type="checkbox" [attr.aria-label]="'Select ' + l.employeeName" [checked]="selected().has(l.employeeId)" (change)="toggle(l.employeeId)" data-testid="payroll-select" /> }</td> }
+              <td>{{ l.employeeName }}<div class="sub">{{ l.employeeNumber }}</div></td>
+              <td class="num">{{ l.proratedDays || '' }}</td><td class="num">{{ l.absentDays }}</td><td class="num">{{ l.overtimeHours }}</td><td class="num">{{ l.basic | number: '1.2-2' }}</td><td class="num">{{ l.allowances | number: '1.2-2' }}</td><td class="num">{{ l.overtime | number: '1.2-2' }}</td>
+              <td class="num">{{ l.absence | number: '1.2-2' }}</td><td class="num">{{ l.adjustment | number: '1.2-2' }}</td>
+              @if (hasSettlement()) { <td class="num">{{ l.leaveEncashment | number: '1.2-2' }}</td><td class="num">{{ l.endOfService | number: '1.2-2' }}</td> }
+              <td class="num">{{ l.grossEarnings | number: '1.2-2' }}</td><td class="num">{{ l.deductions | number: '1.2-2' }}</td>
+              @if (hasStatutory()) { <td class="num">{{ l.statutoryDeduction | number: '1.2-2' }}</td> }
+              @if (hasLoans()) { <td class="num">{{ l.loanRecovery | number: '1.2-2' }}</td> }
+              <td class="num"><b>{{ l.netPay | number: '1.2-2' }}</b></td>
+              <td>{{ l.paidOn | erpDate }}</td>
+              <td style="white-space:nowrap">
+                <a class="gap" [href]="'/print/payslip/' + r.id + '?employeeId=' + l.employeeId" target="_blank" data-testid="payroll-payslip">Payslip</a>
+                @if (r.status === 'posted' || r.status === 'partiallyPaid' || r.status === 'paid') { <a class="gap" (click)="emailOne(l)" data-testid="payroll-email-one">Email</a> }
                 @if (r.status === 'draft' || r.status === 'pendingApproval') { <a *erpHasPermission="'hr.payroll.manage'" (click)="startAdjust(l)" data-testid="payroll-adjust">Adjust</a> }
               </td>
             </tr>
@@ -97,8 +105,8 @@ const STATUS_LABELS: Record<string, string> = { pendingApproval: 'Needs approval
       @if (statutory().length) {
         <h3 style="margin-top:20px">Statutory deductions and contributions</h3>
         <nz-table [nzData]="statutory()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="payroll-statutory">
-          <thead><tr><th>Rule</th><th>Taken from</th><th>Employees</th><th>Base</th><th>Amount</th></tr></thead>
-          <tbody>@for (s of statutory(); track s.code) { <tr><td>{{ s.code }} · {{ s.name }}</td><td>{{ s.kind === 'employerCost' ? 'Employer' : 'Employee' }}</td><td>{{ s.employees }}</td><td>{{ s.baseAmount | number: '1.2-2' }}</td><td><b>{{ s.amount | number: '1.2-2' }}</b></td></tr> }</tbody>
+          <thead><tr><th>Rule</th><th>Taken from</th><th class="num">Employees</th><th class="num">Base</th><th class="num">Amount ({{ currency() }})</th></tr></thead>
+          <tbody>@for (s of statutory(); track s.code) { <tr><td>{{ s.code }} · {{ s.name }}</td><td>{{ s.kind === 'employerCost' ? 'Employer' : 'Employee' }}</td><td class="num">{{ s.employees }}</td><td class="num">{{ s.baseAmount | number: '1.2-2' }}</td><td class="num"><b>{{ s.amount | number: '1.2-2' }}</b></td></tr> }</tbody>
         </nz-table>
       }
       <erp-record-drawer [title]="title()" [open]="mode() !== null" [fields]="fields()" [saving]="busy()" [errors]="errors()" [width]="440"
@@ -111,6 +119,8 @@ export class PayrollDetailPage {
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id')!;
+  readonly currency = inject(WorkspaceCurrencyService).currency;
+  readonly failed = signal(false);
   private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
   readonly run = signal<PayrollDto | null>(null);
   readonly busy = signal(false);
@@ -143,8 +153,8 @@ export class PayrollDetailPage {
 
   constructor() { this.load(); }
 
-  statusColor(s: string): string { return STATUS_COLORS[s] ?? 'default'; }
-  statusLabel(s: string): string { return STATUS_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1); }
+  statusLabel(s: string): string | null { return STATUS_LABELS[s] ?? null; }
+  reload(): void { this.load(); }
   toggle(employeeId: string): void { const next = new Set(this.selected()); if (!next.delete(employeeId)) next.add(employeeId); this.selected.set(next); }
   startAdjust(l: PayrollLine): void { this.errors.set(null); this.line.set(l); this.mode.set('adjust'); }
   startVoid(): void { this.errors.set(null); this.mode.set('void'); }
@@ -175,7 +185,10 @@ export class PayrollDetailPage {
   }
 
   download(unpaidOnly: boolean): void {
-    this.api.bankFile(this.id, unpaidOnly).subscribe((csv) => this.save(csv, `${this.run()?.number ?? 'payroll'}-bank-file.csv`));
+    this.api.bankFile(this.id, unpaidOnly).subscribe({
+      next: (csv) => this.save(csv, `${this.run()?.number ?? 'payroll'}-bank-file.csv`),
+      error: (e) => this.message.error(asProblem(e)?.detail ?? 'The bank file could not be prepared'),
+    });
   }
 
   downloadWps(unpaidOnly: boolean): void {
@@ -199,7 +212,10 @@ export class PayrollDetailPage {
   }
 
   private fail(e: unknown): void { this.busy.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Action failed'); }
-  private load(): void { this.api.detail(this.id).subscribe((r) => { this.run.set(r); this.loadTotals(r); }); }
+  private load(): void {
+    this.failed.set(false);
+    this.api.detail(this.id).subscribe({ next: (r) => { this.run.set(r); this.loadTotals(r); }, error: () => this.failed.set(true) });
+  }
   private loadTotals(r: PayrollDto): void {
     this.statutoryApi.totals(r.id).subscribe({ next: (t) => this.statutory.set(t), error: () => this.statutory.set([]) });
   }

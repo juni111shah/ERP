@@ -21,9 +21,11 @@ import { FilterCriterion } from '../core/api/api.models';
 import { PagedList } from '../core/api/paged-list';
 import { I18nService } from '../core/i18n/i18n.service';
 import { CsvExportService } from '../core/services/csv-export.service';
+import { displayDate, displayLabel, isIsoDate } from '../core/format/display';
+import { StatusTagComponent } from './status-tag.component';
 import { ExpandSearchComponent } from './expand-search.component';
 import { PageChange, PaginationBarComponent } from './pagination-bar.component';
-import { RevealDirective } from './reveal.directive';
+import { RevealDirective } from './reveal.directive';
 import { KeyboardClickDirective } from './keyboard-click.directive';
 
 export type ColumnFilterKind = 'text' | 'select' | 'date' | 'number';
@@ -63,6 +65,7 @@ interface Option { value: string; label: string; }
 
 const EMPTY_LAYOUT: Layout = { order: [], hidden: [], shown: [], pins: {} };
 const ENUM_KEY = /^(status|stage|kind|type|usage|priority|category|source|sourceType|direction|method|action|roles?|isActive|isCreditNote|currency|currencyCode|dealType|channel|entityType|recordType)$/i;
+const STATUS_KEY = /^(status|stage|state|paymentStatus|approvalStatus)$/;
 const DATE_KEY = /(date|Date|On|At|Ends)$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
 
@@ -86,7 +89,7 @@ function humanizeValue(v: string): string {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [KeyboardClickDirective, ExpandSearchComponent, FormsModule, NgTemplateOutlet, CdkDropList, CdkDrag, CdkDragHandle, NzTableModule, NzInputModule, NzIconModule, NzEmptyModule, NzButtonModule, NzCheckboxModule,
-    NzDatePickerModule, NzDropDownModule, NzInputNumberModule, NzPopoverModule, NzSelectModule, NzToolTipModule, PaginationBarComponent, RevealDirective],
+    NzDatePickerModule, NzDropDownModule, NzInputNumberModule, NzPopoverModule, NzSelectModule, NzToolTipModule, PaginationBarComponent, RevealDirective, StatusTagComponent],
   providers: [provideNzIconsPatch([FilterFill, HolderOutline, VerticalLeftOutline, VerticalRightOutline, ClearOutline, UndoOutline])],
   styles: [`.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; } .bar .search { max-width: 320px; } .spacer { flex: 1; } tr.clickable { cursor: pointer; }
     :host { display: block; min-width: 0; max-width: 100%; } td[nzAlign=right], td[style*="right"] { white-space: nowrap; }
@@ -201,8 +204,9 @@ function humanizeValue(v: string): string {
           <tr [erpKeyboardClick]="clickable()" erpKeyboardClickRole="" [class.clickable]="clickable()" (click)="rowClick.emit(row)" [attr.data-testid]="'row-' + $index">
             @for (v of visibleColumns(); track v.key) {
               <td [nzAlign]="v.col.align ?? null" [nzLeft]="v.pin === 'left'" [nzRight]="v.pin === 'right'">
-                @if (cell(); as tpl) { <ng-container *ngTemplateOutlet="tpl; context: { $implicit: row, column: v.col, value: read(row, v.col) }" /> }
-                @else { {{ read(row, v.col) }} }
+                @if (cell(); as tpl) { <ng-container *ngTemplateOutlet="tpl; context: { $implicit: row, column: v.col, value: display(row, v.col) }" /> }
+                @else if (isStatusColumn(v.col)) { <erp-status [value]="read(row, v.col)" /> }
+                @else { {{ display(row, v.col) }} }
               </td>
             }
           </tr>
@@ -223,6 +227,8 @@ function humanizeValue(v: string): string {
           <nz-empty [nzNotFoundContent]="t('table.loadFailed', 'The data could not be loaded.')"></nz-empty>
           <button nz-button nzSize="small" type="button" (click)="list().reload()" data-testid="table-retry">{{ t('table.retry', 'Try again') }}</button>
         </div>
+      } @else if (list().query().search || activeCount() > 0) {
+        <nz-empty [nzNotFoundContent]="t('table.noMatches', 'No results match your search or filters.')" data-testid="table-no-matches"></nz-empty>
       } @else {
         <nz-empty [nzNotFoundContent]="emptyText()"></nz-empty>
       }
@@ -522,6 +528,15 @@ export class PagedTableComponent<T> {
     return Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : (v ?? '');
   }
 
+  /** What a cell shows: dates in the shared format and API values in words. Sorting, filtering and exports keep the raw value. */
+  display(row: T, c: TableColumn<T>): unknown {
+    const v = this.read(row, c);
+    if (isIsoDate(v)) return displayDate(v);
+    return ENUM_KEY.test(c.key) && !c.value ? displayLabel(v) : v;
+  }
+
+  isStatusColumn(c: TableColumn<T>): boolean { return !c.value && STATUS_KEY.test(c.key); }
+
   onSearch(term: string): void {
     clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => this.list().setSearch(term), 300);
@@ -616,12 +631,17 @@ export class PagedTableComponent<T> {
     if (this.pager()?.handleKey(e, { arrows: true, homeEnd: 'ctrl' })) e.preventDefault();
   }
 
+  /** The sort chosen in the column headers; until the user picks one, the list keeps the order the page asked for. */
+  private headerSort: string | null = null;
+
   onQuery(p: NzTableQueryParams): void {
     const sorted = p.sort.find((s) => s.value);
     const sort = sorted ? (sorted.value === 'descend' ? '-' : '') + sorted.key : null;
     const q = this.list().query();
-    if ((q.sort ?? null) !== sort) this.list().setSort(sort);
-    else if (p.pageIndex !== q.page || p.pageSize !== q.pageSize) this.list().setPage(p.pageIndex, p.pageSize);
+    if (sort !== this.headerSort) {
+      this.headerSort = sort;
+      this.list().setSort(sort);
+    } else if (p.pageIndex !== q.page || p.pageSize !== q.pageSize) this.list().setPage(p.pageIndex, p.pageSize);
   }
 
   /** Exports the visible columns, in the on-screen order, of the rows shown (client-side column filters applied). */

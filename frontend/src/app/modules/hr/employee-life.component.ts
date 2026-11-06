@@ -11,6 +11,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { ChecklistRow, ChecklistsApi, EmployeeLifeApi, EmployeeTask, HistoryEntry } from './hr-people.api';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 const KIND_LABELS: Record<string, string> = {
   joined: 'Joined', salary: 'Pay', designation: 'Designation', department: 'Department', position: 'Position', manager: 'Manager', contract: 'Contract', status: 'Status', terminated: 'Left', note: 'Note',
@@ -21,7 +22,7 @@ const KIND_LABELS: Record<string, string> = {
   selector: 'erp-employee-life',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzInputModule, NzSelectModule, NzTabsModule, NzTagModule],
+  imports: [ErpDatePipe, FormsModule, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzInputModule, NzSelectModule, NzTabsModule, NzTagModule],
   template: `
     <nz-drawer [nzVisible]="open()" [nzWidth]="560" [nzTitle]="'History and tasks · ' + employeeName()" (nzOnClose)="closed.emit()">
       <ng-container *nzDrawerContent>
@@ -35,7 +36,7 @@ const KIND_LABELS: Record<string, string> = {
               <div style="padding:8px 0;border-bottom:1px solid var(--erp-color-border,#e2e8f0)" data-testid="history-row">
                 <nz-tag>{{ kind(h.kind) }}</nz-tag> <b>{{ h.summary }}</b>
                 <div style="font-size:12px;color:var(--erp-color-text-secondary)">
-                  {{ h.effectiveDate }}
+                  {{ h.effectiveDate | erpDate }}
                   @if (h.oldValue || h.newValue) { · {{ h.oldValue || '—' }} → {{ h.newValue || '—' }} }
                   @if (h.isPay && !h.oldValue && !h.newValue) { · pay details hidden }
                 </div>
@@ -44,21 +45,23 @@ const KIND_LABELS: Record<string, string> = {
           </nz-tab>
           <nz-tab nzTitle="Tasks">
             <div *erpHasPermission="'hr.employees.manage'" style="display:flex;gap:8px;margin-bottom:12px">
-              <nz-select style="flex:1" nzAllowClear nzPlaceHolder="Start a checklist" [(ngModel)]="templateId" data-testid="task-template">
-                @for (t of templates(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.name + ' (' + t.kind + ')'"></nz-option> }
+              <label for="life-template" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Start a checklist</label>
+              <nz-select nzId="life-template" style="flex:1" nzAllowClear nzPlaceHolder="Start a checklist" [(ngModel)]="templateId" data-testid="task-template">
+                @for (t of templates(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.name + ' (' + (t.kind === 'onboarding' ? 'Onboarding' : 'Offboarding') + ')'"></nz-option> }
               </nz-select>
               <button nz-button [disabled]="!templateId" (click)="apply()" data-testid="task-apply">Apply</button>
             </div>
             <div *erpHasPermission="'hr.employees.manage'" style="display:flex;gap:8px;margin-bottom:12px">
               <input nz-input aria-label="Task title" placeholder="Add a task" [(ngModel)]="taskTitle" maxlength="200" data-testid="task-title" />
-              <nz-date-picker [(ngModel)]="taskDue" style="width:150px"></nz-date-picker>
+              <label for="life-due" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Task due date</label>
+              <nz-date-picker nzId="life-due" nzPlaceHolder="Due date" [(ngModel)]="taskDue" style="width:150px"></nz-date-picker>
               <button nz-button [disabled]="!taskTitle.trim()" (click)="addTask()" data-testid="task-add">Add</button>
             </div>
             @for (t of tasks(); track t.id) {
               <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--erp-color-border,#e2e8f0)" data-testid="task-row">
-                <input type="checkbox" [checked]="t.isDone" (change)="toggle(t)" [disabled]="!canManage" />
+                <input type="checkbox" [attr.aria-label]="'Done: ' + t.title" [checked]="t.isDone" (change)="toggle(t)" [disabled]="!canManage" />
                 <span [style.text-decoration]="t.isDone ? 'line-through' : 'none'" style="flex:1">{{ t.title }}</span>
-                @if (t.dueDate) { <nz-tag [nzColor]="t.overdue ? 'red' : 'default'">{{ t.dueDate }}</nz-tag> }
+                @if (t.dueDate) { <nz-tag [nzColor]="t.overdue ? 'red' : 'default'">{{ t.dueDate | erpDate }}</nz-tag> }
               </div>
             } @empty { <p style="color:var(--erp-color-text-secondary)">No tasks.</p> }
           </nz-tab>

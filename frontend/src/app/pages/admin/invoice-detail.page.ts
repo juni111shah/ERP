@@ -19,9 +19,13 @@ import { AdminApi, AuditApi, AuditEvent, TaxCodeDto, TaxCodesApi, UserSummary } 
 import { asProblem, problemMessage } from '../../core/http/problem-details';
 import { askReason } from '../../shared/reason-prompt';
 import { AttachmentsComponent } from '../../shared/attachments.component';
+import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { displayDate, displayLabel } from '../../core/format/display';
 import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '../../shared/detail-page.component';
-import { InvoiceExtras, InvoiceExtrasService, InvoiceSheetComponent, InvoiceSheetData, daysOverdue, formatMoney, humanizeSource } from './invoice-sheet.component';
+import { InvoiceExtras, InvoiceExtrasService, InvoiceSheetComponent, InvoiceSheetData, daysOverdue, formatMoney, humanizeSource, invoiceStatusLabel } from './invoice-sheet.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 import { I18nService } from '../../core/i18n/i18n.service';
 
 interface Invoice extends InvoiceSheetData {
@@ -36,25 +40,25 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
 @Component({
   selector: 'erp-invoice-detail',
   standalone: true,
-  imports: [EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
+  imports: [NzSpinModule, StatePanelComponent, StatusTagComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, RouterLink, NzCardModule, NzTableModule, NzTagModule, NzTimelineModule, NzModalModule, DetailPageComponent, InvoiceSheetComponent, AttachmentsComponent],
   styles: [`
     .section { margin-top: 16px; }
-    .section ::ng-deep .ant-card-head-title { color:#b89b5e; text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:600; }
+    .section ::ng-deep .ant-card-head-title { color: var(--erp-color-text-muted); text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:600; }
     .r { text-align:right; white-space:nowrap; }
-    .muted { color:#8c8c8c; }
+    .muted { color: var(--erp-color-text-muted); }
   `],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;">Loading...</div>
+      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
     } @else if (error()) {
-      <div style="text-align: center; padding: 48px; color: #ff4d4f;">{{ error() }}</div>
+      <erp-state-panel kind="error" title="Could not load this invoice" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (invoice()) {
       @let inv = invoice()!;
       <erp-detail-page
         [backLink]="['/finance/invoices']"
         [backLabel]="'Back to Invoices'"
         [title]="(inv.isCreditNote ? ('ui.title.creditNoteNo' | translate: 'Credit Note #') : ('ui.title.invoiceNo' | translate: 'Invoice #')) + inv.number"
-        [status]="inv.status"
+        [status]="statusLabel(inv.status)"
         [actions]="actions()"
         [kpiCards]="kpiCards()"
         [descriptions]="descriptions()"
@@ -75,8 +79,8 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
                   @for (a of allocations(); track a.settlementId) {
                     <tr>
                       <td><a [routerLink]="['/finance/receipts', a.settlementId]">{{ a.number }}</a></td>
-                      <td>{{ a.date | date: 'dd MMM yyyy' }}</td><td>{{ humanize(a.method) }}</td><td>{{ a.reference || '—' }}</td>
-                      <td><nz-tag>{{ humanize(a.status) }}</nz-tag></td><td class="r">{{ money(a.amount) }}</td>
+                      <td>{{ fmtDate(a.date) }}</td><td>{{ humanize(a.method) }}</td><td>{{ a.reference || '—' }}</td>
+                      <td><erp-status [value]="a.status === 'issued' ? 'posted' : a.status" /></td><td class="r">{{ money(a.amount) }}</td>
                     </tr>
                   }
                 </tbody>
@@ -94,7 +98,7 @@ interface LeaseLink { invoiceId: string; leaseId: string; leaseNumber?: string |
           <nz-timeline>
             @for (h of history(); track h.id) {
               <nz-timeline-item [nzColor]="h.action === 'Deleted' ? 'red' : h.action === 'Created' ? 'green' : 'blue'">
-                <b>{{ h.action }}</b> · {{ h.occurredAt | date: 'dd MMM yyyy, HH:mm' }} · {{ userName(h.userId) }}
+                <b>{{ h.action }}</b> · {{ fmtDate(h.occurredAt) }} · {{ userName(h.userId) }}
                 @if (h.changedFields) { <div class="muted">{{ h.changedFields }}</div> }
               </nz-timeline-item>
             }
@@ -132,7 +136,7 @@ export class InvoiceDetailPage implements OnInit {
 
   balance = computed(() => {
     const inv = this.invoice();
-    return inv ? inv.total - inv.paid : 0;
+    return inv && inv.status !== 'voided' ? inv.total - inv.paid : 0;
   });
 
   daysOverdue = computed(() => {
@@ -163,8 +167,31 @@ export class InvoiceDetailPage implements OnInit {
         icon: 'dollar',
         type: 'primary',
         permission: 'finance.receipts.write',
-        visible: inv.status === 'issued' || inv.status === 'partlyPaid',
+        visible: !inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid'),
         handler: () => this.recordPayment()
+      },
+      {
+        // The list page's drawer holds the apply form.
+        label: 'Apply to invoice',
+        icon: 'link',
+        type: 'primary',
+        permission: 'finance.invoices.credit',
+        visible: inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid'),
+        handler: () => this.router.navigate(['/finance/invoices'], { queryParams: { open: inv.id } })
+      },
+      {
+        label: 'Edit draft',
+        icon: 'edit',
+        type: 'primary',
+        permission: 'finance.invoices.write',
+        visible: inv.status === 'draft',
+        handler: () => this.router.navigate(['/finance/invoices'], { queryParams: { open: inv.id } })
+      },
+      {
+        label: 'Open approvals',
+        icon: 'check-square',
+        visible: inv.status === 'pendingApproval',
+        handler: () => this.router.navigate(['/approvals'])
       },
       {
         label: 'Credit Note',
@@ -221,6 +248,14 @@ export class InvoiceDetailPage implements OnInit {
     const inv = this.invoice();
     if (!inv) return [];
 
+    if (inv.isCreditNote) {
+      return [
+        { title: 'Credit amount', value: formatMoney(inv.total), suffix: inv.currencyCode },
+        { title: 'Applied', value: formatMoney(inv.paid), suffix: inv.currencyCode },
+        { title: 'Still to apply', value: formatMoney(this.balance()), suffix: inv.currencyCode },
+      ];
+    }
+
     return [
       { title: 'Total Amount', value: formatMoney(inv.total), suffix: inv.currencyCode },
       { title: 'Amount Paid', value: formatMoney(inv.paid), suffix: inv.currencyCode },
@@ -232,7 +267,7 @@ export class InvoiceDetailPage implements OnInit {
   descriptions = computed((): DescriptionItem[] => {
     const inv = this.invoice();
     if (!inv) return [];
-    const fmt = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+    const fmt = displayDate;
     const h = this.extras()?.header;
     const items: DescriptionItem[] = [];
     if (h) items.push({ label: 'Company', value: h.legalEntityName || h.organizationName });
@@ -251,6 +286,8 @@ export class InvoiceDetailPage implements OnInit {
     if (originalId) items.push({ label: 'Credit Note For', value: x?.originalInvoiceNumber ? `${this.i18n.t('ui.label.invoice', 'Invoice')} ${x.originalInvoiceNumber}` : 'View original invoice', routerLink: ['/finance/invoices', originalId] });
     return items;
   });
+
+  retry(): void { this.loading.set(true); this.error.set(null); this.ngOnInit(); }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -293,6 +330,8 @@ export class InvoiceDetailPage implements OnInit {
   }
 
   money(v: number): string { return formatMoney(v, this.invoice()?.currencyCode); }
+  readonly fmtDate = displayDate;
+  readonly statusLabel = invoiceStatusLabel;
   humanize(v: string | null | undefined): string {
     if (!v) return '';
     const s = String(v).replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -329,7 +368,7 @@ export class InvoiceDetailPage implements OnInit {
       nzOkDanger: true,
       nzOnOk: () => this.http.delete(`${this.apiBase}/finance/invoices/${inv.id}`).subscribe({
         next: () => { this.message.success('Draft deleted'); void this.router.navigate(['/finance/invoices']); },
-        error: (e) => { const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not delete the draft'); },
+        error: (e) => { this.message.error(problemMessage(e, 'Could not delete the draft')); },
       })
     });
   }

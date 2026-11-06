@@ -11,6 +11,7 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
+import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTagModule } from 'ng-zorro-antd/tag';
@@ -27,11 +28,14 @@ import {
 } from '../../core/api/distribution.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { ErpLabelPipe } from '../../shared/display.pipes';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { problemMessage } from '../../core/http/problem-details';
 
 @Component({
   selector: 'erp-wholesale-pricing-page',
   standalone: true,
-  imports: [
+  imports: [ErpLabelPipe, 
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -47,67 +51,63 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzSelectModule,
     NzAlertModule,
     NzDividerModule,
+    NzPopconfirmModule,
+    StatusTagComponent,
     HasPermissionDirective,
     PagedTableComponent
   ],
   template: `
-    <erp-paged-table
-      #table
-      [list]="list"
-      [columns]="columns">
+    <!-- The server allows no search or sorting on price rules yet, so neither is offered. -->
+    <erp-paged-table [list]="list" [columns]="columns" [searchable]="false" [clickable]="false" emptyText="No wholesale price rules yet. Add one to give a tier a price by quantity.">
       <div toolbar style="display: flex; align-items: center; gap: 8px;">
         <button nz-button nzType="default" (click)="openSimulatorModal()">
           <span nz-icon nzType="calculator"></span> Calculate Wholesale Rate
         </button>
-        <button nz-button nzType="primary" *erpHasPermission="'distribution.pricing.manage'" (click)="openCreateModal()">
+        <button nz-button nzType="primary" *erpHasPermission="'distribution.pricing.manage'" (click)="openCreateModal()" data-testid="wholesale-new">
           <span nz-icon nzType="plus"></span> Add Pricing Tier
         </button>
       </div>
-          <ng-template #cell let-row let-column="column">
-            <ng-container [ngSwitch]="column.key">
-              <span *ngSwitchCase="'itemCode'" class="mono-code font-bold">{{ row.itemCode }}</span>
-              <span *ngSwitchCase="'itemName'">
-                <strong>{{ row.itemName }}</strong>
-              </span>
-              <span *ngSwitchCase="'tier'">
-                <nz-tag [nzColor]="getTierColor(row.tier)">{{ row.tier }}</nz-tag>
-              </span>
-              <span *ngSwitchCase="'bracket'">
-                <span>{{ row.minQuantity }} &mdash; {{ row.maxQuantity ? row.maxQuantity : '&infin;' }} units</span>
-              </span>
-              <span *ngSwitchCase="'discountPercentage'">
-                <nz-tag nzColor="green">{{ row.discountPercentage }}% Off</nz-tag>
-              </span>
-              <span *ngSwitchCase="'wholesaleUnitPrice'" class="font-bold">
-                {{ currency() }} {{ row.wholesaleUnitPrice | number:'1.2-2' }}
-              </span>
-              <span *ngSwitchCase="'isActive'">
-                <nz-tag [nzColor]="row.isActive ? 'success' : 'default'">
-                  {{ row.isActive ? 'Active' : 'Inactive' }}
-                </nz-tag>
-              </span>
-              <span *ngSwitchCase="'actions'">
-                <button nz-button nzType="link" nzSize="small" (click)="testRate(row)">
-                  <span nz-icon nzType="thunderbolt"></span> Quote
-                </button>
-              </span>
-            </ng-container>
-          </ng-template>
-        </erp-paged-table>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('itemCode') { <span class="mono-code font-bold">{{ row.itemCode }}</span> }
+          @case ('tier') { <nz-tag [nzColor]="getTierColor(row.tier)">{{ row.tier | erpLabel }}</nz-tag> }
+          @case ('bracket') { <span class="num">{{ bracket(row) }}</span> }
+          @case ('discountPercentage') { <span class="num">{{ row.discountPercentage | number:'1.0-2' }}%</span> }
+          @case ('wholesaleUnitPrice') { <span class="num font-bold">{{ currency() }} {{ row.wholesaleUnitPrice | number:'1.2-2' }}</span> }
+          @case ('isActive') { <erp-status [value]="row.isActive ? 'active' : 'inactive'" /> }
+          @case ('actions') {
+            <div class="table-actions">
+              <button nz-button nzType="link" nzSize="small" (click)="testRate(row)">
+                <span nz-icon nzType="calculator"></span> Quote
+              </button>
+              <button *erpHasPermission="'distribution.pricing.manage'" nz-button nzType="link" nzSize="small" (click)="openEditModal(row)">
+                <span nz-icon nzType="edit"></span> Edit
+              </button>
+              <button *erpHasPermission="'distribution.pricing.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                      nz-popconfirm nzPopconfirmTitle="Delete this price rule?" (nzOnConfirm)="deleteRule(row)">
+                <span nz-icon nzType="delete"></span> Delete
+              </button>
+            </div>
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
 
       <!-- Add Pricing Tier Modal -->
       <nz-modal
         [(nzVisible)]="isModalVisible"
-        nzTitle="New Wholesale Volume Pricing Rule"
+        [nzTitle]="editingId() ? 'Edit wholesale price rule' : 'New wholesale price rule'"
+        nzOkText="Save"
         [nzOkLoading]="isSaving()"
-        (nzOnCancel)="isModalVisible = false"
+        (nzOnCancel)="isModalVisible.set(false)"
         (nzOnOk)="saveRule()"
         nzWidth="680px">
         <ng-container *nzModalContent>
           <form nz-form [formGroup]="form" nzLayout="vertical">
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label nzRequired>Workspace Entity</nz-form-label>
+                <nz-form-label nzRequired>Legal entity</nz-form-label>
                 <nz-form-control nzErrorTip="Entity is required">
                   <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Entity">
                     <nz-option *ngFor="let ent of entities()" [nzValue]="ent.id" [nzLabel]="ent.name"></nz-option>
@@ -115,23 +115,23 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label nzRequired>Wholesale Account Tier</nz-form-label>
+                <nz-form-label nzRequired>Wholesale tier</nz-form-label>
                 <nz-form-control>
                   <nz-select formControlName="tier">
-                    <nz-option nzValue="Standard" nzLabel="Standard Wholesale"></nz-option>
-                    <nz-option nzValue="Bronze" nzLabel="Bronze Tier (10+ units)"></nz-option>
-                    <nz-option nzValue="Silver" nzLabel="Silver Tier (50+ units)"></nz-option>
-                    <nz-option nzValue="Gold" nzLabel="Gold Tier (100+ units)"></nz-option>
-                    <nz-option nzValue="Platinum" nzLabel="Platinum Tier (500+ units)"></nz-option>
+                    <nz-option nzValue="standard" nzLabel="Standard"></nz-option>
+                    <nz-option nzValue="bronze" nzLabel="Bronze"></nz-option>
+                    <nz-option nzValue="silver" nzLabel="Silver"></nz-option>
+                    <nz-option nzValue="gold" nzLabel="Gold"></nz-option>
+                    <nz-option nzValue="platinum" nzLabel="Platinum"></nz-option>
                   </nz-select>
                 </nz-form-control>
               </nz-form-item>
             </div>
 
             <nz-form-item>
-              <nz-form-label nzRequired>Catalog Product / Item</nz-form-label>
+              <nz-form-label nzRequired>Item</nz-form-label>
               <nz-form-control nzErrorTip="Item is required">
-                <nz-select formControlName="itemId" (ngModelChange)="onItemChosen($event)" nzPlaceHolder="Select Item">
+                <nz-select formControlName="itemId" nzShowSearch (ngModelChange)="onItemChosen($event)" nzPlaceHolder="Choose an item">
                   <nz-option *ngFor="let itm of catalogItems()" [nzValue]="itm.id" [nzLabel]="itm.name + ' (' + itm.sku + ')'"></nz-option>
                 </nz-select>
               </nz-form-control>
@@ -139,28 +139,28 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label nzRequired>Min Order Quantity</nz-form-label>
+                <nz-form-label nzRequired>From quantity</nz-form-label>
                 <nz-form-control>
                   <nz-input-number formControlName="minQuantity" [nzMin]="1" style="width: 100%"></nz-input-number>
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label>Max Order Quantity</nz-form-label>
+                <nz-form-label>To quantity</nz-form-label>
                 <nz-form-control>
-                  <nz-input-number formControlName="maxQuantity" [nzMin]="1" style="width: 100%" placeholder="No cap"></nz-input-number>
+                  <nz-input-number formControlName="maxQuantity" [nzMin]="1" style="width: 100%" nzPlaceHolder="No limit"></nz-input-number>
                 </nz-form-control>
               </nz-form-item>
             </div>
 
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label nzRequired>Wholesale Unit Price ({{ currency() }})</nz-form-label>
+                <nz-form-label nzRequired>Unit price ({{ currency() }})</nz-form-label>
                 <nz-form-control nzErrorTip="Price is required">
                   <nz-input-number formControlName="wholesaleUnitPrice" [nzMin]="0.01" style="width: 100%"></nz-input-number>
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label>Volume Discount %</nz-form-label>
+                <nz-form-label>Discount %</nz-form-label>
                 <nz-form-control>
                   <nz-input-number formControlName="discountPercentage" [nzMin]="0" [nzMax]="100" style="width: 100%"></nz-input-number>
                 </nz-form-control>
@@ -168,9 +168,9 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             </div>
 
             <nz-form-item>
-              <nz-form-label>Notes & Contract Terms</nz-form-label>
+              <nz-form-label>Notes</nz-form-label>
               <nz-form-control>
-                <textarea nz-input rows="2" formControlName="notes" placeholder="Bulk packaging requirements..."></textarea>
+                <textarea nz-input rows="2" formControlName="notes" placeholder="Packaging, contract terms"></textarea>
               </nz-form-control>
             </nz-form-item>
 
@@ -178,7 +178,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <nz-form-control>
                 <label>
                   <nz-switch formControlName="isActive"></nz-switch>
-                  <span style="margin-left: 8px;">Active Pricing Rule</span>
+                  <span style="margin-inline-start: 8px;">Active</span>
                 </label>
               </nz-form-control>
             </nz-form-item>
@@ -189,40 +189,40 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       <!-- Calculator Simulator Modal -->
       <nz-modal
         [(nzVisible)]="isSimulatorVisible"
-        nzTitle="Wholesale Volume Rate Calculator"
+        nzTitle="Calculate wholesale rate"
         [nzFooter]="null"
-        (nzOnCancel)="isSimulatorVisible = false">
+        (nzOnCancel)="isSimulatorVisible.set(false)">
         <ng-container *nzModalContent>
           <div class="sim-container">
-            <p class="text-secondary">Simulate net wholesale rates across different tiers and bulk order order quantities</p>
+            <p class="text-secondary">See which price a tier gets for a quantity. Nothing is saved.</p>
 
             <div class="sim-inputs">
               <div class="form-row">
-                <label>Select Item:</label>
-                <nz-select [(ngModel)]="simItemId" style="width: 100%" nzPlaceHolder="Choose product">
+                <label for="sim-item">Item</label>
+                <nz-select nzId="sim-item" [(ngModel)]="simItemId" style="width: 100%" nzShowSearch nzPlaceHolder="Choose an item">
                   <nz-option *ngFor="let itm of catalogItems()" [nzValue]="itm.id" [nzLabel]="itm.name + ' (' + itm.sku + ')'"></nz-option>
                 </nz-select>
               </div>
 
               <div class="row-2">
                 <div class="form-row">
-                  <label>Wholesale Tier:</label>
-                  <nz-select [(ngModel)]="simTier" style="width: 100%">
-                    <nz-option nzValue="Standard" nzLabel="Standard"></nz-option>
-                    <nz-option nzValue="Bronze" nzLabel="Bronze"></nz-option>
-                    <nz-option nzValue="Silver" nzLabel="Silver"></nz-option>
-                    <nz-option nzValue="Gold" nzLabel="Gold"></nz-option>
-                    <nz-option nzValue="Platinum" nzLabel="Platinum"></nz-option>
+                  <label for="sim-tier">Wholesale tier</label>
+                  <nz-select nzId="sim-tier" [(ngModel)]="simTier" style="width: 100%">
+                    <nz-option nzValue="standard" nzLabel="Standard"></nz-option>
+                    <nz-option nzValue="bronze" nzLabel="Bronze"></nz-option>
+                    <nz-option nzValue="silver" nzLabel="Silver"></nz-option>
+                    <nz-option nzValue="gold" nzLabel="Gold"></nz-option>
+                    <nz-option nzValue="platinum" nzLabel="Platinum"></nz-option>
                   </nz-select>
                 </div>
                 <div class="form-row">
-                  <label>Order Qty (Units):</label>
-                  <nz-input-number [(ngModel)]="simQuantity" [nzMin]="1" style="width: 100%"></nz-input-number>
+                  <label for="sim-qty">Quantity</label>
+                  <nz-input-number nzId="sim-qty" [(ngModel)]="simQuantity" [nzMin]="1" style="width: 100%"></nz-input-number>
                 </div>
               </div>
 
               <button nz-button nzType="primary" [nzLoading]="isCalculating()" (click)="calculateRate()" [disabled]="!simItemId">
-                <span nz-icon nzType="calculator"></span> Calculate Rate
+                <span nz-icon nzType="calculator"></span> Calculate
               </button>
             </div>
 
@@ -231,24 +231,24 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <div *ngIf="simResult() as res" class="sim-result">
               <nz-alert
                 [nzType]="res.tierApplied ? 'success' : 'warning'"
-                [nzMessage]="res.tierApplied ? 'Tier Rule Applied' : 'No Specific Tier Rule Found'"
-                [nzDescription]="res.tierApplied ? ('Applied tier price of ' + currency() + ' ' + res.unitPrice + ' per unit.') : 'Standard catalog pricing applies without volume bracket discount.'"
+                [nzMessage]="res.tierApplied ? 'A price rule applies' : 'No price rule applies'"
+                [nzDescription]="res.tierApplied ? null : 'No active rule matches this item, tier and quantity.'"
                 nzShowIcon>
               </nz-alert>
 
               <div *ngIf="res.tierApplied" class="discount-breakdown">
                 <div class="breakdown-row">
-                  <span>Unit Wholesale Price:</span>
+                  <span>Unit price</span>
                   <span class="font-bold">{{ currency() }} {{ res.unitPrice | number:'1.2-2' }}</span>
                 </div>
                 <div class="breakdown-row">
-                  <span>Order Quantity:</span>
-                  <span>{{ res.quantity }} units</span>
+                  <span>Quantity</span>
+                  <span>{{ res.quantity | number:'1.0-4' }}</span>
                 </div>
                 <nz-divider style="margin: 8px 0"></nz-divider>
                 <div class="breakdown-row total-row font-bold">
-                  <span>Total Wholesale Quotation:</span>
-                  <span style="color: #1890ff">{{ currency() }} {{ res.extendedTotal | number:'1.2-2' }}</span>
+                  <span>Total</span>
+                  <span>{{ currency() }} {{ res.extendedTotal | number:'1.2-2' }}</span>
                 </div>
               </div>
             </div>
@@ -258,16 +258,18 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
   `,
   styles: [`
     .text-secondary {
-      color: #8c8c8c;
+      color: var(--erp-color-text-muted);
       margin: 4px 0 0;
     }
     .mono-code {
-      font-family: monospace;
-      color: #1890ff;
+      font-family: var(--erp-font-family-mono);
+      white-space: nowrap;
     }
     .font-bold {
       font-weight: 600;
     }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .table-actions { display: flex; justify-content: flex-end; gap: 4px; }
     .row-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -295,7 +297,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     .discount-breakdown {
       margin-top: 16px;
       padding: 12px 16px;
-      background: #fafafa;
+      background: var(--erp-color-bg-subtle);
       border-radius: 6px;
     }
     .breakdown-row {
@@ -323,27 +325,29 @@ export class WholesalePricingPageComponent implements OnInit {
   readonly entities = signal<{ id: string; name: string }[]>([]);
   readonly catalogItems = signal<{ id: string; name: string; sku: string; salesPrice?: number }[]>([]);
   readonly isSaving = signal(false);
+  readonly editingId = signal<string | null>(null);
   readonly isCalculating = signal(false);
   readonly simResult = signal<WholesaleRateCalculationDto | null>(null);
 
-  isModalVisible = false;
-  isSimulatorVisible = false;
+  readonly isModalVisible = signal(false);
+  readonly isSimulatorVisible = signal(false);
 
   simItemId: string | null = null;
-  simTier: WholesaleTier = 'Bronze';
-  simQuantity = 100;
+  private simEntityId: string | null = null;
+  simTier: WholesaleTier = 'standard';
+  simQuantity = 1;
 
-  readonly list = createPagedList<WholesalePriceMatrixDto>((q: any) => this.wholesaleApi.list(q));
+  readonly list = createPagedList<WholesalePriceMatrixDto>((q) => this.wholesaleApi.list(q), { sort: '-createdAt' });
 
   readonly columns: TableColumn<WholesalePriceMatrixDto>[] = [
-    { key: 'itemCode', label: 'Item Code', sortField: 'itemCode' },
-    { key: 'itemName', label: 'Item Description', sortField: 'itemName' },
-    { key: 'tier', label: 'Wholesale Tier' },
-    { key: 'bracket', label: 'Quantity Bracket' },
-    { key: 'discountPercentage', label: 'Discount %' },
-    { key: 'wholesaleUnitPrice', label: 'Wholesale Price', align: 'right' },
-    { key: 'isActive', label: 'Status' },
-    { key: 'actions', label: 'Actions', align: 'right' }
+    { key: 'itemCode', label: 'Item code' },
+    { key: 'itemName', label: 'Item' },
+    { key: 'tier', label: 'Tier' },
+    { key: 'bracket', label: 'Quantity', filter: false, value: (r) => this.bracket(r) },
+    { key: 'discountPercentage', label: 'Discount', align: 'right' },
+    { key: 'wholesaleUnitPrice', label: 'Unit price', align: 'right' },
+    { key: 'isActive', label: 'Status', value: (r) => (r.isActive ? 'Active' : 'Inactive') },
+    { key: 'actions', label: 'Actions', align: 'right', filter: false, value: () => '' }
   ];
 
   form: FormGroup = this.fb.group({
@@ -351,11 +355,11 @@ export class WholesalePricingPageComponent implements OnInit {
     itemId: ['', [Validators.required]],
     itemCode: [''],
     itemName: [''],
-    tier: ['Standard', [Validators.required]],
-    minQuantity: [10, [Validators.required, Validators.min(1)]],
+    tier: ['standard', [Validators.required]],
+    minQuantity: [1, [Validators.required, Validators.min(0.0001)]],
     maxQuantity: [null],
-    discountPercentage: [10],
-    wholesaleUnitPrice: [15, [Validators.required, Validators.min(0.01)]],
+    discountPercentage: [0],
+    wholesaleUnitPrice: [null, [Validators.required, Validators.min(0.01)]],
     isActive: [true],
     notes: ['']
   });
@@ -365,16 +369,16 @@ export class WholesalePricingPageComponent implements OnInit {
       next: res => this.entities.set(res.items)
     });
     this.itemsApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: res => this.catalogItems.set(res.items)
+      next: res => this.catalogItems.set(res.items.filter(i => i.isActive))
     });
   }
 
   getTierColor(tier: WholesaleTier): string {
     switch (tier) {
-      case 'Bronze': return 'orange';
-      case 'Silver': return 'default';
-      case 'Gold': return 'gold';
-      case 'Platinum': return 'purple';
+      case 'bronze': return 'orange';
+      case 'silver': return 'default';
+      case 'gold': return 'gold';
+      case 'platinum': return 'purple';
       default: return 'blue';
     }
   }
@@ -385,48 +389,107 @@ export class WholesalePricingPageComponent implements OnInit {
       this.form.patchValue({
         itemCode: itm.sku,
         itemName: itm.name,
-        wholesaleUnitPrice: itm.salesPrice ? (itm.salesPrice * 0.85) : 15
+        // A starting point from the catalog price; the person can overtype it.
+        wholesaleUnitPrice: itm.salesPrice ? this.roundMoney(itm.salesPrice * (1 - (this.form.value.discountPercentage ?? 0) / 100)) : null
       });
     }
   }
 
+  private roundMoney(value: number): number {
+    return Math.round(value * 100) / 100;
+  }
+
+  bracket(row: WholesalePriceMatrixDto): string {
+    return row.maxQuantity ? `${row.minQuantity} to ${row.maxQuantity}` : `${row.minQuantity} and up`;
+  }
+
+  private setKeyFieldsEnabled(enabled: boolean): void {
+    for (const key of ['legalEntityId', 'itemId']) {
+      const control = this.form.get(key)!;
+      if (enabled) control.enable({ emitEvent: false });
+      else control.disable({ emitEvent: false });
+    }
+  }
+
   openCreateModal(): void {
-    const firstItem = this.catalogItems()[0];
+    this.editingId.set(null);
+    this.setKeyFieldsEnabled(true);
     this.form.reset({
-      legalEntityId: this.entities()[0]?.id || '',
-      itemId: firstItem?.id || '',
-      itemCode: firstItem?.sku || '',
-      itemName: firstItem?.name || '',
-      tier: 'Bronze',
-      minQuantity: 10,
-      maxQuantity: 49,
-      discountPercentage: 10,
-      wholesaleUnitPrice: firstItem?.salesPrice ? (firstItem.salesPrice * 0.9) : 20,
+      legalEntityId: this.entities().find(e => e.id === this.session.currentEntityId())?.id || this.entities()[0]?.id || '',
+      itemId: '',
+      itemCode: '',
+      itemName: '',
+      tier: 'standard',
+      minQuantity: 1,
+      maxQuantity: null,
+      discountPercentage: 0,
+      wholesaleUnitPrice: null,
       isActive: true,
       notes: ''
     });
-    this.isModalVisible = true;
+    this.isModalVisible.set(true);
+  }
+
+  /** A rule can point at an item outside the loaded catalog page; it still has to show in the pickers. */
+  private ensureCatalogItem(row: WholesalePriceMatrixDto): void {
+    if (this.catalogItems().some(i => i.id === row.itemId)) return;
+    this.catalogItems.update(items => [...items, { id: row.itemId, name: row.itemName, sku: row.itemCode }]);
+  }
+
+  openEditModal(row: WholesalePriceMatrixDto): void {
+    this.ensureCatalogItem(row);
+    this.editingId.set(row.id);
+    this.form.reset({
+      legalEntityId: row.legalEntityId,
+      itemId: row.itemId,
+      itemCode: row.itemCode,
+      itemName: row.itemName,
+      tier: row.tier,
+      minQuantity: row.minQuantity,
+      maxQuantity: row.maxQuantity ?? null,
+      discountPercentage: row.discountPercentage,
+      wholesaleUnitPrice: row.wholesaleUnitPrice,
+      isActive: row.isActive,
+      notes: row.notes ?? ''
+    });
+    this.setKeyFieldsEnabled(false);
+    this.isModalVisible.set(true);
+  }
+
+  deleteRule(row: WholesalePriceMatrixDto): void {
+    this.wholesaleApi.delete(row.id).subscribe({
+      next: () => {
+        this.msg.success('Price rule deleted');
+        this.list.reload();
+      },
+      error: (err) => this.msg.error(problemMessage(err, 'The price rule could not be deleted'))
+    });
   }
 
   openSimulatorModal(): void {
     this.simItemId = this.catalogItems()[0]?.id || null;
-    this.simTier = 'Bronze';
-    this.simQuantity = 100;
+    this.simEntityId = null;
+    this.simTier = 'standard';
+    this.simQuantity = 1;
     this.simResult.set(null);
-    this.isSimulatorVisible = true;
+    this.isSimulatorVisible.set(true);
   }
 
+  /** Opens the calculator on this rule's own item, tier and quantity. */
   testRate(row: WholesalePriceMatrixDto): void {
+    this.ensureCatalogItem(row);
     this.simItemId = row.itemId;
+    this.simEntityId = row.legalEntityId;
     this.simTier = row.tier;
     this.simQuantity = row.minQuantity;
-    this.openSimulatorModal();
+    this.simResult.set(null);
+    this.isSimulatorVisible.set(true);
     this.calculateRate();
   }
 
   calculateRate(): void {
     if (!this.simItemId) return;
-    const entityId = this.entities()[0]?.id;
+    const entityId = this.simEntityId || this.session.currentEntityId() || this.entities()[0]?.id;
     if (!entityId) return;
 
     this.isCalculating.set(true);
@@ -435,17 +498,20 @@ export class WholesalePricingPageComponent implements OnInit {
         this.simResult.set(res);
         this.isCalculating.set(false);
       },
-      error: () => {
-        this.msg.error('Failed to calculate wholesale rate');
+      error: (err) => {
+        this.msg.error(problemMessage(err, 'The rate could not be calculated'));
         this.isCalculating.set(false);
       }
     });
   }
 
   saveRule(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      Object.values(this.form.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      return;
+    }
     this.isSaving.set(true);
-    const val = this.form.value;
+    const val = this.form.getRawValue();
     const input: CreateWholesalePriceInput = {
       legalEntityId: val.legalEntityId,
       itemId: val.itemId,
@@ -454,20 +520,24 @@ export class WholesalePricingPageComponent implements OnInit {
       tier: val.tier,
       minQuantity: val.minQuantity,
       maxQuantity: val.maxQuantity,
-      discountPercentage: val.discountPercentage,
+      discountPercentage: val.discountPercentage ?? 0,
       wholesaleUnitPrice: val.wholesaleUnitPrice,
       isActive: val.isActive,
       notes: val.notes
     };
 
-    this.wholesaleApi.create(input).subscribe({
+    const id = this.editingId();
+    (id ? this.wholesaleApi.update(id, input) : this.wholesaleApi.create(input)).subscribe({
       next: () => {
-        this.msg.success('Wholesale pricing rule saved');
+        this.msg.success('Price rule saved');
         this.isSaving.set(false);
-        this.isModalVisible = false;
-        window.location.reload();
+        this.isModalVisible.set(false);
+        this.list.reload();
       },
-      error: () => this.isSaving.set(false)
+      error: (err) => {
+        this.msg.error(problemMessage(err, 'The price rule could not be saved'));
+        this.isSaving.set(false);
+      }
     });
   }
 }

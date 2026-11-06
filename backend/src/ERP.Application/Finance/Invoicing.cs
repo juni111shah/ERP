@@ -22,6 +22,9 @@ public sealed record InvoiceDraft(
 /// <summary>Raised after an invoice is voided so the module that created it (via SourceType / SourceId) can release what it linked.</summary>
 public sealed record InvoiceVoided(Guid InvoiceId, string? SourceType, Guid? SourceId) : INotification;
 
+/// <summary>Raised when a bill is deleted or voided, so the record it was generated from can be billed again.</summary>
+public sealed record BillReleased(Guid BillId) : INotification;
+
 /// <summary>Builds, issues and voids sales invoices and credit notes. Shared by the invoice screens and by module billing runs.</summary>
 public interface IInvoicingService
 {

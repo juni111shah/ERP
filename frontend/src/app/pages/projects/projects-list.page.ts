@@ -27,6 +27,7 @@ import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.com
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { PartiesApi } from '../parties.page';
 import { BILLING_TYPES, errorText, filterOptions, PRJ_STYLES, PROJECT_ACTIONS, PROJECT_STATUSES, ProjectTagComponent } from './projects-ui';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 /** An older project can name a manager without an account; the name is kept until a person is chosen. */
 const typedManager = (p: ProjectSummaryDto | null): string | undefined => (p?.managerName && !p.managerUserId ? `Typed name: ${p.managerName}. Choose a person to link an account.` : undefined);
@@ -38,7 +39,7 @@ type View = 'live' | 'active' | 'planning' | 'onHold' | 'mine' | 'completed' | '
   selector: 'erp-projects-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, NgTemplateOutlet, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, NzToolTipModule, PagedTableComponent, RecordDrawerComponent, StatCardComponent, HasPermissionDirective, ProjectTagComponent],
+  imports: [ErpDatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, NzToolTipModule, PagedTableComponent, RecordDrawerComponent, StatCardComponent, HasPermissionDirective, ProjectTagComponent],
   template: `
     <div class="erp-stat-grid erp-stat-grid--auto" data-testid="project-stats">
       <erp-stat-card label="Active projects" [value]="kpis()?.activeProjects ?? 0" format="number" [caption]="'of ' + (kpis()?.totalProjects ?? 0) + ' live projects'" [tone]="0" />
@@ -74,7 +75,7 @@ type View = 'live' | 'active' | 'planning' | 'onHold' | 'mine' | 'completed' | '
             <div class="prj-bar"><i [style.width.%]="clamp(row.percentComplete ?? 0)"></i></div>
             <div class="metric"><span>Budget used</span><b [class.prj-danger]="used(row) > 100">{{ used(row) | number: '1.0-0' }}%</b></div>
             <div class="prj-bar" [class.warn]="used(row) > 85" [class.over]="used(row) > 100"><i [style.width.%]="clamp(used(row))"></i></div>
-            <div class="foot prj-muted"><span>{{ row.openTasks ?? 0 }} open @if (row.overdueTasks) { · <span class="prj-danger">{{ row.overdueTasks }} overdue</span> }</span><span>{{ row.endDate || 'No end date' }}</span></div>
+            <div class="foot prj-muted"><span>{{ row.openTasks ?? 0 }} open @if (row.overdueTasks) { · <span class="prj-danger">{{ row.overdueTasks }} overdue</span> }</span><span>{{ (row.endDate | erpDate) || 'No end date' }}</span></div>
           </article>
         } @empty { <div class="prj-empty prj-card" style="grid-column:1/-1">{{ emptyText() }}</div> }
       </div>
@@ -102,7 +103,7 @@ type View = 'live' | 'active' | 'planning' | 'onHold' | 'mine' | 'completed' | '
             }
             @case ('unbilledAmount') { {{ row.unbilledAmount ? (currency() + ' ' + (row.unbilledAmount | number: '1.0-0')) : '' }} }
             @case ('billingType') { <erp-prj-tag kind="billing" [value]="row.billingType" /> }
-            @case ('dates') { <span class="small">{{ row.startDate || '—' }} to {{ row.endDate || '—' }}</span> }
+            @case ('dates') { <span class="small">{{ (row.startDate | erpDate) || '—' }} to {{ (row.endDate | erpDate) || '—' }}</span> }
             @case ('actions') {
               <div class="acts" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
                 <button *erpHasPermission="'projects.projects.manage'" aria-label="Edit project" nz-button nzType="text" nzSize="small" (click)="edit(row)" nzTooltipTitle="Edit" nz-tooltip [attr.data-testid]="'project-edit-' + row.number"><span nz-icon nzType="edit"></span></button>

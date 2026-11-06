@@ -28,6 +28,7 @@ public class ApiFactory : WebApplicationFactory<Program>
     public const string Password = "Test#Passw0rd";
     public const string AdminEmail = "admin@demo.local";
     public const string OwnerEmail = "owner@demo.local";
+    public const string FounderEmail = "founder@platform.test";
     private readonly SqliteConnection _conn = new("DataSource=:memory:");
     public CapturingResetSender Resets { get; } = new();
     public CapturingEmailChannel Emails { get; } = new();
@@ -42,6 +43,7 @@ public class ApiFactory : WebApplicationFactory<Program>
             ["ConnectionStrings:Default"] = "Server=unused-in-tests", // the DbContext is replaced below
             ["Database:AutoMigrate"] = "true",
             ["Auth:SigningKey"] = "integration-tests-signing-key-0123456789abcdef",
+            ["Auth:RefreshReuseLeewaySeconds"] = "0", // theft detection is tested at once; BrowserTabsTests turns the window on
             ["Auth:SecureCookies"] = "true",
             ["Onboarding:AllowSelfSignup"] = "true",
             ["Seed:Enabled"] = "true",
@@ -49,6 +51,8 @@ public class ApiFactory : WebApplicationFactory<Program>
             ["Seed:AdminEmail"] = AdminEmail,
             ["Seed:MultiWorkspaceEmail"] = OwnerEmail,
             ["Seed:AdminPassword"] = Password,
+            ["Platform:FounderEmail"] = FounderEmail,
+            ["Platform:FounderPassword"] = Password,
             ["RateLimiting:LoginPerMinute"] = "10000",
             ["Auth:TwoFactor:Enforce"] = "false", // most tests sign in with a password only; TwoFactorChallengeTests turns it on
             ["Storage:Root"] = Path.Combine(Path.GetTempPath(), "erp-tests-" + Guid.NewGuid().ToString("N")),

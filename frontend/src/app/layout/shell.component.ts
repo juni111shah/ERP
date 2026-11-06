@@ -1,8 +1,8 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { NzAvatarModule } from 'ng-zorro-antd/avatar';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -13,7 +13,7 @@ import { NzLayoutModule } from 'ng-zorro-antd/layout';
 import { NzMenuModule } from 'ng-zorro-antd/menu';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { catchError, combineLatest, interval, map, of, startWith, switchMap } from 'rxjs';
+import { catchError, combineLatest, filter, interval, map, of, startWith, switchMap } from 'rxjs';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { TenantThemeService } from '../../theme/tenant-theme.service';
 import { API_BASE_URL } from '../core/api/api-config';
@@ -28,6 +28,10 @@ import { PageTitleService } from '../core/services/page-title.service';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { GlobalSearchComponent } from './global-search.component';
 import { NotificationDrawerComponent } from './notification-drawer.component';
+import { SubscriptionBannerComponent } from './subscription-banner.component';
+import { WorkspaceBlockedComponent } from './workspace-blocked.component';
+import { blockedPageApplies } from '../core/format/subscription';
+import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 
 interface MenuGroup { id: string; label: string; order: number; items: { id: string; label: string; route: string; icon?: string; module: string }[]; }
 
@@ -36,8 +40,8 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
   selector: 'erp-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Dir, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
-    NzDropDownModule, NzAvatarModule, NzBadgeModule, NzTagModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent, BrandLogoComponent],
+  imports: [KeyboardClickDirective, Dir, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
+    NzDropDownModule, NzAvatarModule, NzBadgeModule, NzTagModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent, BrandLogoComponent, SubscriptionBannerComponent, WorkspaceBlockedComponent],
   styles: [`
     :host { display: block; height: 100vh; }
     nz-layout.root {
@@ -343,6 +347,30 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     }
     .nav-scroll-area::-webkit-scrollbar-thumb:hover {
       background: var(--erp-scrollbar-thumb-hover, rgba(16, 149, 93, 0.65)) !important;
+    }
+    .sider.as-drawer {
+      position: fixed !important;
+      inset-block: 0;
+      inset-inline-start: 0;
+      z-index: 1000;
+      transform: translateX(calc(-100% * var(--erp-direction-sign, 1)));
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .sider.as-drawer.is-open {
+      transform: none;
+      box-shadow: var(--erp-shadow-3);
+    }
+    /* phone top bar */
+    @media (max-width: 767px) {
+      .header { padding: 0 var(--erp-space-3, 12px); gap: var(--erp-space-1, 4px); }
+      .header-control-box, .lang-btn, .topbar-divider { display: none !important; }
+      .topbar-title-wrap { flex: 1 1 auto; min-width: 0; }
+    }
+    .nav-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: var(--erp-color-bg-overlay);
     }
     .main-layout {
       display: flex;
@@ -770,6 +798,15 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
       min-width: 0;
     }
     .group-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      border: 0;
+      background: none;
+      font: inherit;
+      text-align: start;
+      cursor: pointer;
       padding: 14px 18px 4px;
       font-size: 11px;
       font-weight: 600;
@@ -787,6 +824,11 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
                   padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
                   transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
+    .group-title:hover { color: var(--erp-color-text-primary); }
+    .group-title:focus-visible { outline: 2px solid var(--erp-color-focus-ring); outline-offset: -2px; border-radius: 4px; }
+    .group-chevron { font-size: 10px; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .group-title[aria-expanded='true'] .group-chevron { transform: rotate(90deg); }
+    :host-context([dir='rtl']) .group-title[aria-expanded='false'] .group-chevron { transform: rotate(180deg); }
     .group-title.collapsed {
       height: 0;
       padding-top: 0;
@@ -971,13 +1013,13 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
         }
 
         &.ant-menu-item-selected {
-          background: #e6f7ef !important;
-          color: #10955d !important;
-          border: 1px solid rgba(16, 149, 93, 0.25) !important;
+          background: var(--erp-color-primary-subtle) !important;
+          color: var(--erp-color-primary-text) !important;
+          border: 1px solid var(--erp-color-primary-border) !important;
           font-weight: 600 !important;
 
           .nav-icon {
-            color: #10955d !important;
+            color: var(--erp-color-primary-text) !important;
           }
 
           .nav-label {
@@ -988,8 +1030,11 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     }
   `],
   template: `
+    @if (blocked()) {
+      <erp-workspace-blocked />
+    } @else {
     <nz-layout class="root" [dir]="i18n.dir()">
-      <nz-sider class="sider" nzCollapsible [nzCollapsed]="collapsed()" [nzTrigger]="null" nzWidth="248px" [nzCollapsedWidth]="64" nzTheme="light" data-testid="sidebar">
+      <nz-sider class="sider" [class.as-drawer]="narrow()" [class.is-open]="drawerOpen()" (keydown.escape)="drawerOpen.set(false)" nzCollapsible [nzCollapsed]="collapsed()" [nzTrigger]="null" nzWidth="248px" [nzCollapsedWidth]="64" nzTheme="light" data-testid="sidebar">
         <div class="brand" [class.collapsed]="collapsed()" data-testid="sidebar-brand">
           <erp-brand-logo
             [collapsed]="collapsed()"
@@ -1044,8 +1089,11 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
         </div>
         <div class="nav-scroll-area">
           @for (g of menu(); track g.id) {
-            <div class="group-title" [class.collapsed]="collapsed()">{{ i18n.t('menu.group.' + g.id, g.label) }}</div>
-            <ul nz-menu nzMode="inline" [nzInlineCollapsed]="collapsed()" [nzInlineIndent]="0">
+            <button type="button" class="group-title" [class.collapsed]="collapsed()" [attr.aria-expanded]="isGroupOpen(g)" [attr.tabindex]="collapsed() ? -1 : null" (click)="toggleGroup(g)" [attr.data-testid]="'nav-group-' + g.id">
+              <span>{{ i18n.t('menu.group.' + g.id, g.label) }}</span>
+              <span class="group-chevron" nz-icon nzType="right" aria-hidden="true"></span>
+            </button>
+            <ul nz-menu nzMode="inline" [nzInlineCollapsed]="collapsed()" [nzInlineIndent]="0" [hidden]="!isGroupOpen(g)">
               @for (i of g.items; track i.id) {
                 <li nz-menu-item nz-tooltip [nzTooltipTitle]="collapsed() ? i.label : null" [nzTooltipPlacement]="i18n.dir() === 'rtl' ? 'left' : 'right'"
                     [routerLink]="linkPath(i.route)" [queryParams]="linkQuery(i.route)" routerLinkActive="ant-menu-item-selected" [routerLinkActiveOptions]="{ exact: i.route === '/' }"
@@ -1069,8 +1117,14 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           }
         </div>
       </nz-sider>
+      @if (narrow() && drawerOpen()) { <div class="nav-backdrop" erpKeyboardClick aria-label="Close menu" (click)="drawerOpen.set(false)" data-testid="nav-backdrop"></div> }
       <nz-layout class="main-layout">
         <nz-header class="header">
+          @if (narrow()) {
+            <button type="button" class="topbar-action-btn" (click)="drawerOpen.set(true)" [attr.aria-expanded]="drawerOpen()" [attr.aria-label]="'shell.openMenu' | translate: 'Open menu'" data-testid="nav-open">
+              <span nz-icon nzType="menu-unfold" class="action-btn-icon"></span>
+            </button>
+          }
           <div class="topbar-title-wrap" data-testid="topbar-title-wrap">
             @if (pageTitle.module(); as mod) {
               <span class="topbar-module-badge">
@@ -1250,14 +1304,19 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
             <ul nz-menu>
               <li nz-menu-item nzDisabled>{{ session.me()?.user?.email }}</li>
               <li nz-menu-item routerLink="/account/security" data-testid="account-security"><span nz-icon nzType="lock"></span> {{ 'shell.accountSecurity' | translate: 'Account security' }}</li>
+              @if (session.me()?.platformAdmin) {
+                <li nz-menu-item routerLink="/platform" data-testid="platform-console"><span nz-icon nzType="dashboard"></span> {{ 'shell.platformConsole' | translate: 'Platform console' }}</li>
+              }
               <li nz-menu-divider></li>
               <li nz-menu-item (click)="auth.logout()" data-testid="sign-out"><span nz-icon nzType="logout"></span> {{ 'shell.signOut' | translate: 'Sign out' }}</li>
             </ul>
           </nz-dropdown-menu>
         </nz-header>
+        <erp-subscription-banner />
         <nz-content class="content"><router-outlet /></nz-content>
       </nz-layout>
-    </nz-layout>`,
+    </nz-layout>
+    }`,
 })
 export class ShellComponent {
   readonly pageTitle = inject(PageTitleService);
@@ -1270,6 +1329,26 @@ export class ShellComponent {
   private readonly router = inject(Router);
 
   readonly collapsed = signal(false);
+  /** Phone width: the sidebar is a drawer over the page rather than a column beside it. */
+  readonly narrow = signal(false);
+  readonly drawerOpen = signal(false);
+
+  constructor() {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const phone = window.matchMedia('(max-width: 767px)');
+    const apply = () => {
+      this.narrow.set(phone.matches);
+      if (phone.matches) this.collapsed.set(false);
+      else this.drawerOpen.set(false);
+    };
+    apply();
+    // Tablets start with the icon-only sidebar, to leave room for tables.
+    if (!phone.matches && window.matchMedia('(max-width: 1100px)').matches) this.collapsed.set(true);
+    phone.addEventListener('change', apply);
+    inject(DestroyRef).onDestroy(() => phone.removeEventListener('change', apply));
+    // Choosing a page closes the drawer.
+    this.router.events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => this.drawerOpen.set(false));
+  }
   readonly notificationsOpen = signal(false);
   readonly refresh = signal(0);
   readonly workspaceName = computed(() => this.session.me()?.workspace.name ?? 'ERP');
@@ -1277,6 +1356,7 @@ export class ShellComponent {
   readonly toggleIcon = computed(() => this.i18n.dir() === 'rtl' ? (this.collapsed() ? 'double-left' : 'double-right') : (this.collapsed() ? 'double-right' : 'double-left'));
 
   toggleSidebar(): void {
+    if (this.narrow()) { this.drawerOpen.set(false); return; }
     this.collapsed.set(!this.collapsed());
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('resize'));
@@ -1286,6 +1366,43 @@ export class ShellComponent {
   }
 
   readonly menuSearch = signal('');
+
+  // ---------- sidebar groups: the user's choice is remembered, the first group starts open ----------
+  private readonly groupsKey = 'erp.nav.groups';
+  /** Group id -> open or closed, only for groups the user has toggled. */
+  private readonly groupChoices = signal<Record<string, boolean>>(this.readGroupChoices());
+  private readonly currentPath = toSignal(this.router.events.pipe(
+    filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+    map((e) => e.urlAfterRedirects.split('?')[0]),
+    startWith(this.router.url.split('?')[0]),
+  ), { initialValue: '/' });
+
+  /** A suspended or cancelled workspace sees the blocked page everywhere but its billing page. */
+  readonly blocked = computed(() => blockedPageApplies(this.session.me()?.subscription?.access, this.currentPath()));
+
+  /** A search, the icon-only sidebar and the group of the current page always show their items. */
+  isGroupOpen(g: MenuGroup): boolean {
+    if (this.collapsed() || this.menuSearch().trim() || this.holdsCurrentPage(g)) return true;
+    return this.groupChoices()[g.id] ?? g.id === this.rawMenu()[0]?.id;
+  }
+
+  toggleGroup(g: MenuGroup): void {
+    const next = { ...this.groupChoices(), [g.id]: !this.isGroupOpen(g) };
+    this.groupChoices.set(next);
+    try { localStorage.setItem(this.groupsKey, JSON.stringify(next)); } catch { /* storage unavailable */ }
+  }
+
+  private holdsCurrentPage(g: MenuGroup): boolean {
+    const path = this.currentPath();
+    return g.items.some((i) => {
+      const route = this.linkPath(i.route);
+      return route === '/' ? path === '/' : path === route || path.startsWith(route + '/');
+    });
+  }
+
+  private readGroupChoices(): Record<string, boolean> {
+    try { return JSON.parse(localStorage.getItem(this.groupsKey) ?? '{}') as Record<string, boolean>; } catch { return {}; }
+  }
 
   onSearchInput(event: Event): void {
     const target = event.target as HTMLInputElement;
@@ -1335,7 +1452,8 @@ export class ShellComponent {
   // Unread count: on session change, after the drawer changes something, and every minute.
   readonly unread = toSignal(combineLatest([toObservable(this.session.me), toObservable(this.refresh), interval(60_000).pipe(startWith(0))]).pipe(
     map(([me]) => me),
-    switchMap((me) => (me ? this.http.get<{ unread: number }>(`${this.base}/notifications`).pipe(catchError(() => of({ unread: 0 }))) : of({ unread: 0 }))),
+    // A blocked workspace answers 402 to everything but its billing page, so there is nothing to ask.
+    switchMap((me) => (me && me.subscription?.access !== 'blocked' ? this.http.get<{ unread: number }>(`${this.base}/notifications`).pipe(catchError(() => of({ unread: 0 }))) : of({ unread: 0 }))),
   ), { initialValue: { unread: 0 } }) as () => { unread: number };
 
   /** Menu routes may carry a query string (e.g. /parties?type=customer); routerLink would encode the "?" and miss the route. */

@@ -5,67 +5,82 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzModalModule } from 'ng-zorro-antd/modal';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { catchError, of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { catchError, of, throwError } from 'rxjs';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { asProblem } from '../../core/http/problem-details';
 import { toTime } from './daily-attendance.page';
 import { RosterEntry, ShiftDto, ShiftsApi } from './hr-people.api';
 import { EmployeeSummary, EmployeesApi } from './hr.api';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 /** Work shifts: start time, late grace and the hours of a normal day; employees on a shift are measured against it. */
 @Component({
   selector: 'erp-shifts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, NzDatePickerModule],
+  imports: [ErpDatePipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, NzDatePickerModule],
+  styles: [`.num { text-align: end; } .row-actions { display: flex; gap: 6px; flex-wrap: wrap; } .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }`],
   template: `
     <h1 class="erp-page-title">Shifts</h1>
     <div style="margin-bottom:12px">
       <button *erpHasPermission="'hr.attendance.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="shift-new"><span nz-icon nzType="plus"></span>New shift</button>
     </div>
-    <nz-table [nzData]="rows()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="shift-table">
-      <thead><tr><th>Code</th><th>Name</th><th>Starts</th><th>Grace (min)</th><th>Hours a day</th><th>Employees</th><th>Active</th><th></th></tr></thead>
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Shifts could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
+    } @else {
+    <nz-table [nzData]="rows()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="No shifts yet. Everyone uses the shift times in the HR settings." data-testid="shift-table">
+      <thead><tr><th>Code</th><th>Name</th><th>Starts</th><th class="num">Grace (min)</th><th class="num">Hours a day</th><th class="num">Employees</th><th>Status</th><th><span class="sr">Actions</span></th></tr></thead>
       <tbody>
         @for (s of rows(); track s.id) {
           <tr>
-            <td>{{ s.code }}</td><td>{{ s.name }}</td><td>{{ s.startTime.slice(0, 5) }}</td><td>{{ s.graceMinutes }}</td><td>{{ s.hoursPerDay }}</td><td>{{ s.employees }}</td><td>{{ s.isActive ? 'Yes' : 'No' }}</td>
+            <td>{{ s.code }}</td><td>{{ s.name }}</td><td>{{ s.startTime.slice(0, 5) }}</td><td class="num">{{ s.graceMinutes }}</td><td class="num">{{ s.hoursPerDay }}</td><td class="num">{{ s.employees }}</td><td><erp-status [value]="s.isActive ? 'active' : 'inactive'" /></td>
             <td *erpHasPermission="'hr.attendance.manage'">
-              <button nz-button nzSize="small" (click)="edit(s)" [attr.data-testid]="'shift-edit-' + s.code">Edit</button>
-              <button nz-button nzSize="small" (click)="openAssign(s)" [attr.data-testid]="'shift-assign-' + s.code">Assign employees</button>
-              <button nz-button nzSize="small" (click)="openRoster(s)" [attr.data-testid]="'shift-roster-' + s.code">Roster dates</button>
-              <button nz-button nzSize="small" nzDanger (click)="remove(s)" [attr.data-testid]="'shift-delete-' + s.code">Delete</button>
+              <div class="row-actions">
+                <button nz-button nzSize="small" (click)="edit(s)" [attr.data-testid]="'shift-edit-' + s.code">Edit</button>
+                <button nz-button nzSize="small" (click)="openAssign(s)" [attr.data-testid]="'shift-assign-' + s.code">Assign employees</button>
+                <button nz-button nzSize="small" (click)="openRoster(s)" [attr.data-testid]="'shift-roster-' + s.code">Roster dates</button>
+                <button nz-button nzSize="small" nzDanger (click)="remove(s)" [attr.data-testid]="'shift-delete-' + s.code">Delete</button>
+              </div>
             </td>
           </tr>
-        } @empty { <tr><td colspan="8">No shifts yet. Everyone uses the shift times in the HR settings.</td></tr> }
+        }
       </tbody>
     </nz-table>
     <h2 style="margin-top:24px">Dated roster this month</h2>
-    <nz-table [nzData]="roster()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="roster-table">
-      <thead><tr><th>Employee</th><th>Shift</th><th>From</th><th>To</th><th></th></tr></thead>
+    <nz-table [nzData]="roster()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="No dated shifts this month. Use Roster dates on a shift to add some." data-testid="roster-table">
+      <thead><tr><th>Employee</th><th>Shift</th><th>From</th><th>To</th><th><span class="sr">Actions</span></th></tr></thead>
       <tbody>
         @for (r of roster(); track r.id) {
-          <tr><td>{{ employeeName(r.employeeId) }}</td><td>{{ shiftName(r.shiftId) }}</td><td>{{ r.fromDate }}</td><td>{{ r.toDate }}</td>
+          <tr><td>{{ employeeName(r.employeeId) }}</td><td>{{ shiftName(r.shiftId) }}</td><td>{{ r.fromDate | erpDate }}</td><td>{{ r.toDate | erpDate }}</td>
             <td *erpHasPermission="'hr.attendance.manage'"><button nz-button nzSize="small" nzDanger (click)="removeRoster(r)">Remove</button></td></tr>
-        } @empty { <tr><td colspan="5">No dated shifts this month.</td></tr> }
+        }
       </tbody>
     </nz-table>
+    }
     <erp-record-drawer [title]="state.editing() ? 'Edit shift' : 'New shift'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
                        [saving]="state.saving()" [errors]="state.errors()" testId="shift-form" (submitted)="state.submit($event)" (closed)="state.close()" />
     <nz-modal [nzVisible]="assigning() !== null" [nzTitle]="'Assign employees to ' + (assigning()?.name ?? '')" nzOkText="Assign" (nzOnOk)="assign()" (nzOnCancel)="assigning.set(null)">
       <ng-container *nzModalContent>
-        <nz-select style="width:100%" nzMode="multiple" nzShowSearch nzPlaceHolder="Choose employees" aria-label="Employees" [(ngModel)]="picked" data-testid="shift-employees">
+        <label class="sr" for="shift-employees">Employees</label>
+        <nz-select nzId="shift-employees" style="width:100%" nzMode="multiple" nzShowSearch nzPlaceHolder="Choose employees" [(ngModel)]="picked" data-testid="shift-employees">
           @for (e of employees().items; track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.number + ' · ' + e.fullName"></nz-option> }
         </nz-select>
         <p style="margin-top:8px;color:var(--erp-color-text-secondary)">Employees leave any shift they are on now. Late arrival and overtime follow the new shift from the next entry.</p>
+        <button nz-button nzType="link" type="button" style="padding-inline:0" [disabled]="!picked.length" (click)="unassign()" data-testid="shift-unassign">Take the chosen employees off their shift</button>
       </ng-container>
     </nz-modal>
     <nz-modal [nzVisible]="rostering() !== null" [nzTitle]="'Roster dates for ' + (rostering()?.name ?? '')" nzOkText="Add" (nzOnOk)="addRoster()" (nzOnCancel)="rostering.set(null)">
       <ng-container *nzModalContent>
-        <nz-select style="width:100%;margin-bottom:8px" nzMode="multiple" nzShowSearch nzPlaceHolder="Choose employees" aria-label="Employees" [(ngModel)]="picked" data-testid="roster-employees">
+        <label class="sr" for="roster-employees">Employees</label>
+        <nz-select nzId="roster-employees" style="width:100%;margin-bottom:8px" nzMode="multiple" nzShowSearch nzPlaceHolder="Choose employees" [(ngModel)]="picked" data-testid="roster-employees">
           @for (e of employees().items; track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.number + ' · ' + e.fullName"></nz-option> }
         </nz-select>
         <nz-range-picker style="width:100%" [(ngModel)]="range" data-testid="roster-range"></nz-range-picker>
@@ -76,6 +91,9 @@ import { EmployeeSummary, EmployeesApi } from './hr.api';
 export class ShiftsPage {
   private readonly api = inject(ShiftsApi);
   private readonly message = inject(NzMessageService);
+  private readonly modal = inject(NzModalService);
+  readonly loading = signal(false);
+  readonly failed = signal(false);
   readonly employees = toSignal(inject(EmployeesApi).list({ page: 1, pageSize: 200, sort: 'number' }).pipe(catchError(() => of({ items: [] as EmployeeSummary[] }))), { initialValue: { items: [] as EmployeeSummary[] } });
   readonly rows = signal<ShiftDto[]>([]);
   readonly assigning = signal<ShiftDto | null>(null);
@@ -85,7 +103,14 @@ export class ShiftsPage {
   range: Date[] = [];
 
   readonly state = new MasterDataState<ShiftDto>({
-    save: (id, body) => { const b = this.toBody(body as Record<string, unknown>); return id ? this.api.update(id, b) : this.api.create(b); },
+    save: (id, body) => {
+      const v = body as Record<string, unknown>;
+      const startTime = toTime(v['startTime']);
+      // A mistyped time must not be saved as some other time.
+      if (!startTime) return throwError(() => new HttpErrorResponse({ status: 400, error: { errors: { startTime: ['Enter the time as hh:mm, for example 08:00.'] } } }));
+      const b = { ...v, startTime };
+      return id ? this.api.update(id, b) : this.api.create(b);
+    },
     reload: () => this.load(), message: this.message, entityName: 'Shift',
   });
   readonly fields: FieldSpec[] = [
@@ -100,7 +125,8 @@ export class ShiftsPage {
   constructor() { this.load(); }
 
   load(): void {
-    this.api.list().subscribe((r) => this.rows.set(r));
+    this.loading.set(true); this.failed.set(false);
+    this.api.list().subscribe({ next: (r) => { this.rows.set(r); this.loading.set(false); }, error: () => { this.loading.set(false); this.failed.set(true); } });
     const now = new Date();
     this.api.roster(now.getFullYear(), now.getMonth() + 1).subscribe((r) => this.roster.set(r));
   }
@@ -116,7 +142,9 @@ export class ShiftsPage {
       error: () => this.message.error('Could not add the roster dates.'),
     });
   }
-  removeRoster(r: RosterEntry): void { this.api.removeRoster(r.id).subscribe(() => this.load()); }
+  removeRoster(r: RosterEntry): void {
+    this.api.removeRoster(r.id).subscribe({ next: () => this.load(), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not remove the roster dates.') });
+  }
   edit(s: ShiftDto): void { this.state.edit({ ...s, startTime: s.startTime.slice(0, 5) } as ShiftDto); }
   openAssign(s: ShiftDto): void { this.picked = []; this.assigning.set(s); }
   assign(): void {
@@ -127,11 +155,19 @@ export class ShiftsPage {
       error: () => this.message.error('Could not assign the employees.'),
     });
   }
-  remove(s: ShiftDto): void {
-    this.api.remove(s.id).subscribe({ next: () => { this.message.success('Shift deleted.'); this.load(); }, error: (e) => this.message.error(e?.error?.detail ?? 'Could not delete the shift.') });
+  unassign(): void {
+    this.api.unassign(this.picked).subscribe({
+      next: (r) => { this.message.success(`${r.cleared} employee(s) taken off their shift.`); this.assigning.set(null); this.load(); },
+      error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not take the employees off their shift.'),
+    });
   }
-
-  private toBody(v: Record<string, unknown>): Record<string, unknown> {
-    return { ...v, startTime: toTime(v['startTime']) ?? '08:00:00' };
+  remove(s: ShiftDto): void {
+    this.modal.confirm({
+      nzTitle: `Delete ${s.name}?`, nzContent: s.employees ? `${s.employees} employee(s) are on this shift.` : undefined, nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => new Promise<void>((resolve) => this.api.remove(s.id).subscribe({
+        next: () => { this.message.success('Shift deleted.'); this.load(); resolve(); },
+        error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not delete the shift.'); resolve(); },
+      })),
+    });
   }
 }

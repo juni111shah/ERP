@@ -92,7 +92,7 @@ public sealed class CreateBusinessUnitValidator : AbstractValidator<CreateBusine
 
 internal sealed class OrganizationHandlers(
     IRepository<LegalEntity> legalEntities, IRepository<BusinessUnit> businessUnits, INumberingService numbers,
-    ICustomFieldService fields, ILegalEntityGuard legalEntityGuard) :
+    ICustomFieldService fields, ILegalEntityGuard legalEntityGuard, ERP.Application.Platform.ISubscriptionLimits limits) :
     IRequestHandler<CreateLegalEntity, LegalEntityDto>,
     IRequestHandler<UpdateLegalEntity, LegalEntityDto>,
     IRequestHandler<CreateBusinessUnit, BusinessUnitDto>,
@@ -103,6 +103,7 @@ internal sealed class OrganizationHandlers(
 
     public async Task<LegalEntityDto> Handle(CreateLegalEntity cmd, CancellationToken ct)
     {
+        await limits.EnsureLegalEntitySlotAsync(ct);
         var entity = new LegalEntity { Code = await numbers.NextAsync(LegalEntityType, ct: ct) };
         Map(cmd.Input, entity);
         await fields.ApplyAsync(LegalEntityType, entity, cmd.Input.CustomFields, isCreate: true, ct);

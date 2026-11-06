@@ -31,7 +31,9 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
         i.Key, i.Label, i.Description, i.Availability.ToString(), i.SuggestedModules,
         i.SuggestedModules.Where(modules.IsInstalled).ToList(), i.SortOrder)).ToList();
 
-    public async Task<OnboardingResult> CreateWorkspaceAsync(OnboardingRequest r, CancellationToken ct = default)
+    public Task<OnboardingResult> CreateWorkspaceAsync(OnboardingRequest r, CancellationToken ct = default) => CreateWorkspaceAsync(r, null, ct);
+
+    public async Task<OnboardingResult> CreateWorkspaceAsync(OnboardingRequest r, OnboardingOptions? options, CancellationToken ct = default)
     {
         var errors = new Dictionary<string, string[]>();
         var industry = Industries().FirstOrDefault(i => i.Key == r.Industry);
@@ -48,34 +50,51 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
         // SQL Server runs with a retrying execution strategy, which only allows a user-initiated transaction inside the
         // strategy: the whole unit runs there, and a retry replays it from a clean change tracker.
         if (!db.Database.IsRelational() || db.Database.CurrentTransaction is not null)
-            return await CreateWorkspaceCoreAsync(r, industry!, key, null, ct);
+            return await CreateWorkspaceCoreAsync(r, options, industry!, key, null, ct);
         var attempt = 0;
         return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
             if (attempt++ > 0) db.ChangeTracker.Clear();
             await using var tx = await db.Database.BeginTransactionAsync(ct);
-            return await CreateWorkspaceCoreAsync(r, industry!, key, tx, ct);
+            return await CreateWorkspaceCoreAsync(r, options, industry!, key, tx, ct);
         });
     }
 
-    private async Task<OnboardingResult> CreateWorkspaceCoreAsync(OnboardingRequest r, IndustryTemplate industry, string key, IDbContextTransaction? tx, CancellationToken ct)
+    private async Task<OnboardingResult> CreateWorkspaceCoreAsync(OnboardingRequest r, OnboardingOptions? options, IndustryTemplate industry, string key, IDbContextTransaction? tx, CancellationToken ct)
     {
         var organization = new Organization
         {
             Name = r.WorkspaceName.Trim(), Code = key, IndustryCode = industry!.Key, CountryCode = r.CountryCode.ToUpperInvariant(),
-            BaseCurrency = r.BaseCurrency.ToUpperInvariant(), TimeZone = r.TimeZone ?? "UTC",
+            BaseCurrency = r.BaseCurrency.ToUpperInvariant(), TimeZone = r.TimeZone ?? "UTC", IsInternal = options?.IsInternal ?? false,
         };
         db.Organizations.Add(organization);
 
         // The admin login: reuse an existing account (multi-workspace) if the password matches.
         var user = await users.FindByEmailAsync(r.AdminEmail.Trim());
+        var accountCreated = user is null;
         if (user is null)
         {
-            user = new AppUser { Id = ERP.Domain.Common.SequentialGuid.NewGuid(), UserName = r.AdminEmail.Trim(), Email = r.AdminEmail.Trim(), FullName = r.AdminName.Trim(), EmailConfirmed = true, CreatedAt = DateTime.UtcNow };
-            var created = await users.CreateAsync(user, r.AdminPassword);
+            user = new AppUser { Id = ERP.Domain.Common.SequentialGuid.NewGuid(), UserName = r.AdminEmail.Trim(), Email = r.AdminEmail.Trim(), FullName = r.AdminName.Trim(), EmailConfirmed = true, CreatedAt = DateTime.UtcNow, MustChangePassword = options?.AdminMustChangePassword ?? false };
+            IdentityResult created;
+            if (options?.AdminPasswordHash is { } newHash)
+            {
+                user.PasswordHash = newHash;
+                created = await users.CreateAsync(user);
+            }
+            else
+            {
+                // A registration for an account that has since gone has nothing to sign in with.
+                if (string.IsNullOrEmpty(r.AdminPassword)) throw new ConflictException("That account no longer exists. Please register again.");
+                created = await users.CreateAsync(user, r.AdminPassword);
+            }
             if (!created.Succeeded) throw new FieldValidationException(new Dictionary<string, string[]> { ["adminPassword"] = created.Errors.Select(e => e.Description).ToArray() });
         }
-        else if (!await users.CheckPasswordAsync(user, r.AdminPassword))
+        else if (options?.AdminPasswordHash is { } waitingHash)
+        {
+            // Registered as a new account, but one with this email appeared while it waited: only the same password may join it.
+            if (user.PasswordHash != waitingHash) throw new ConflictException("This email has since been registered. Please register again with that account's password.");
+        }
+        else if (options?.TrustExistingAccount != true && !await users.CheckPasswordAsync(user, r.AdminPassword))
             throw new FieldValidationException("adminEmail", "This email already has an account. Enter that account's password to add a new workspace to it.");
 
         using (org.Use(organization.Id))
@@ -126,19 +145,25 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
             foreach (var (k, v) in industry.Settings ?? new Dictionary<string, string>())
                 db.Settings.Add(new Setting { Key = k, Value = v });
 
-            var enabled = industry.SuggestedModules.Where(modules.IsInstalled).Distinct().ToList();
+            var enabled = industry.SuggestedModules.Where(modules.IsInstalled).Distinct()
+                .Where(m => options?.AllowedModules is not { Count: > 0 } allowed || allowed.Contains(m, StringComparer.OrdinalIgnoreCase)).ToList();
             foreach (var m in enabled)
                 db.OrganizationModules.Add(new OrganizationModule { ModuleKey = m, IsEnabled = true, EnabledAt = DateTime.UtcNow });
 
             db.OrganizationMembers.Add(new OrganizationMember { UserId = user.Id, JoinedAt = DateTime.UtcNow });
             db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = adminRole!.Id });
             db.ApprovalPolicies.Add(new ApprovalPolicy { DocumentType = "general", IsActive = true });
+            if (options?.Subscription is { } subscription)
+            {
+                subscription.OrgId = organization.Id;
+                db.WorkspaceSubscriptions.Add(subscription);
+            }
 
             await db.SaveChangesAsync(ct);
             if (tx is not null) await tx.CommitAsync(ct);
             cache.Remove(ModuleAccess.CacheKey(organization.Id));
 
-            return new(organization.Id, entity.Id, user.Id, enabled, industry.SuggestedModules.Where(m => !modules.IsInstalled(m)).ToList());
+            return new(organization.Id, entity.Id, user.Id, enabled, industry.SuggestedModules.Where(m => !modules.IsInstalled(m)).ToList(), accountCreated);
         }
     }
 }

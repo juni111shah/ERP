@@ -1,4 +1,5 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
+import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -14,15 +15,20 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { OrderDto, OrderFulfillmentLineInput, SalesOrdersApi, SalesOrderStatus } from '../../core/api/sales.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { ErpDatePipe } from '../../shared/display.pipes';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { displayLabel } from '../../core/format/display';
 
 @Component({
   selector: 'erp-order-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [ErpDatePipe, StatePanelComponent, StatusTagComponent, NzSkeletonModule, NzToolTipModule,
     CommonModule,
     DecimalPipe,
     FormsModule,
@@ -30,7 +36,6 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
     CreateProjectButtonComponent,
     NzGridModule,
     NzCardModule,
-    NzTagModule,
     NzButtonModule,
     NzIconModule,
     NzTableModule,
@@ -54,30 +59,36 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
           <div class="title-section">
             <div class="number-tag">
               <h1 class="order-number">{{ o.number }}</h1>
-              <nz-tag [nzColor]="statusColor(o.status)">{{ o.status }}</nz-tag>
-              @if (o.invoicedInvoiceId) {
-                <nz-tag nzColor="green"><span nz-icon nzType="check"></span> Invoiced</nz-tag>
-              }
+              <erp-status [value]="o.status" />
             </div>
             <p class="customer-subtitle">Customer: <strong>{{ o.customerName }}</strong></p>
           </div>
 
           <div class="header-actions">
-            <erp-create-project-button sourceType="sales.order" [sourceId]="o.id" [sourceLabel]="'order ' + o.number" [defaultName]="'Delivery of ' + o.number" [legalEntityId]="o.legalEntityId" [customerId]="o.customerPartyId" [amount]="o.totalAmount" />
-            @if (o.status === 'Draft') {
-              <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="primary" (click)="changeStatus('Confirmed')">
+            @if (o.status !== 'cancelled') {
+              <erp-create-project-button sourceType="sales.order" [sourceId]="o.id" [sourceLabel]="'order ' + o.number" [defaultName]="'Delivery of ' + o.number" [legalEntityId]="o.legalEntityId" [customerId]="o.customerPartyId" [amount]="o.totalAmount" />
+            }
+            @if (o.status === 'draft') {
+              <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="primary" (click)="changeStatus('confirmed')">
                 <span nz-icon nzType="check"></span>Confirm Order
               </button>
             }
-            @if (o.status === 'Confirmed' || o.status === 'Processing') {
+            @if (o.status === 'confirmed') {
+              <button *erpHasPermission="'sales.orders.manage'" nz-button (click)="changeStatus('processing')" data-testid="order-start-processing">
+                <span nz-icon nzType="play-circle"></span>Start Processing
+              </button>
+            }
+            @if (o.status === 'confirmed' || o.status === 'processing') {
               <button *erpHasPermission="'sales.orders.manage'" nz-button (click)="openFulfillmentModal()">
                 <span nz-icon nzType="send"></span>Record Delivery
               </button>
             }
-            @if (!o.invoicedInvoiceId && (o.status === 'Confirmed' || o.status === 'Processing' || o.status === 'Delivered')) {
-              <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="primary" (click)="convertToInvoice()">
-                <span nz-icon nzType="file-done"></span>Generate Invoice
-              </button>
+            @if (!o.invoicedInvoiceId && (o.status === 'confirmed' || o.status === 'processing' || o.status === 'delivered')) {
+              <span nz-tooltip [nzTooltipTitle]="o.customerPartyId ? null : 'Link this order to a customer record to invoice it.'">
+                <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="primary" [disabled]="!o.customerPartyId" (click)="convertToInvoice()" data-testid="order-invoice">
+                  <span nz-icon nzType="file-done"></span>Generate Invoice
+                </button>
+              </span>
             }
             @if (o.invoicedInvoiceId) {
               <a [routerLink]="['/finance/invoices', o.invoicedInvoiceId]" nz-button nzType="dashed">
@@ -87,9 +98,9 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
             <a [href]="'/print/order/' + o.id" target="_blank" nz-button data-testid="order-print">
               <span nz-icon nzType="printer"></span>Print / PDF
             </a>
-            @if (o.status !== 'Cancelled' && o.status !== 'Invoiced' && o.status !== 'Delivered') {
+            @if (o.status !== 'cancelled' && o.status !== 'invoiced' && o.status !== 'delivered') {
               <button *erpHasPermission="'sales.orders.manage'" nz-button nzDanger
-                      nz-popconfirm nzPopconfirmTitle="Cancel this order?" (nzOnConfirm)="changeStatus('Cancelled')">
+                      nz-popconfirm nzPopconfirmTitle="Cancel this order?" (nzOnConfirm)="changeStatus('cancelled')">
                 Cancel
               </button>
             }
@@ -110,8 +121,8 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                     Direct Order
                   }
                 </nz-descriptions-item>
-                <nz-descriptions-item nzTitle="Order Date">{{ o.orderDate }}</nz-descriptions-item>
-                <nz-descriptions-item nzTitle="Delivery Due">{{ o.expectedDeliveryDate || 'Standard' }}</nz-descriptions-item>
+                <nz-descriptions-item nzTitle="Order Date">{{ o.orderDate | erpDate }}</nz-descriptions-item>
+                <nz-descriptions-item nzTitle="Delivery Due">{{ (o.expectedDeliveryDate | erpDate) || '-' }}</nz-descriptions-item>
                 <nz-descriptions-item nzTitle="Currency">{{ o.currency }}</nz-descriptions-item>
                 <nz-descriptions-item nzTitle="Payment Terms">{{ o.paymentTerms || '-' }}</nz-descriptions-item>
                 <nz-descriptions-item nzTitle="Shipping Address" [nzSpan]="2">{{ o.shippingAddress || '-' }}</nz-descriptions-item>
@@ -134,7 +145,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
               </div>
               <div class="summary-row">
                 <span class="label">Discount</span>
-                <span class="value" style="color: #ef4444;">-{{ o.currency }} {{ o.discountTotal | number:'1.2-2' }}</span>
+                <span class="value" style="color: var(--erp-color-error-text);">-{{ o.currency }} {{ o.discountTotal | number:'1.2-2' }}</span>
               </div>
               <div class="summary-row">
                 <span class="label">Tax</span>
@@ -180,7 +191,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                   <td>{{ item.description }}</td>
                   <td style="text-align: right;">{{ item.quantity | number:'1.0-2' }} {{ item.unitOfMeasure }}</td>
                   <td style="text-align: right;">
-                    <span [style.color]="item.deliveredQuantity >= item.quantity ? '#10955d' : '#d97706'">
+                    <span [style.color]="item.deliveredQuantity >= item.quantity ? 'var(--erp-color-primary)' : 'var(--erp-color-warning-text, #d97706)'">
                       {{ item.deliveredQuantity | number:'1.0-2' }}
                     </span>
                   </td>
@@ -198,17 +209,19 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
         <!-- Fulfillment Delivery Modal -->
         <nz-modal
           [(nzVisible)]="fulfillmentModalVisible"
-          nzTitle="Record Goods Delivery"
+          nzTitle="Record Delivery"
+          nzOkText="Record Delivery"
+          [nzOkLoading]="saving()"
           (nzOnCancel)="fulfillmentModalVisible.set(false)"
           (nzOnOk)="saveFulfillment()">
           <ng-container *nzModalContent>
-            <p style="color: #64748b; margin-bottom: 16px;">Update quantities dispatched/delivered to client:</p>
+            <p style="color: var(--erp-color-text-muted); margin-bottom: 16px;">Enter the total delivered so far for each item.</p>
             <table class="modal-fulfillment-table">
               <thead>
                 <tr>
                   <th>Item</th>
                   <th style="width: 90px;">Ordered</th>
-                  <th style="width: 120px;">Delivered Qty</th>
+                  <th style="width: 120px;">Delivered so far</th>
                 </tr>
               </thead>
               <tbody>
@@ -219,7 +232,8 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                     <td>
                       <nz-input-number
                         [(ngModel)]="line.deliveredQuantity"
-                        [nzMin]="0"
+                        [attr.aria-label]="'Delivered quantity for ' + line.description"
+                        [nzMin]="line.alreadyDelivered"
                         [nzMax]="line.quantity"
                         style="width: 100%;">
                       </nz-input-number>
@@ -230,29 +244,33 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
             </table>
           </ng-container>
         </nz-modal>
+      } @else if (failed()) {
+        <erp-state-panel kind="error" title="This sales order could not be loaded." hint="Check your connection and try again." actionLabel="Try again" (action)="reload()" />
+      } @else {
+        <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 8 }" />
       }
     </div>
   `,
   styles: [`
-    .order-detail-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .order-detail-container { max-width: 1400px; margin: 0 auto; }
     .header-nav { margin-bottom: 12px; }
-    .back-link { color: #64748b; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
-    .back-link:hover { color: #10955d; }
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .back-link { color: var(--erp-color-text-muted); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+    .back-link:hover { color: var(--erp-color-primary); }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
     .number-tag { display: flex; align-items: center; gap: 12px; }
-    .order-number { font-size: 26px; font-weight: 700; color: #0f172a; margin: 0; }
-    .customer-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0 0; }
-    .header-actions { display: flex; gap: 8px; align-items: center; }
-    .info-card, .summary-card, .items-card { border-radius: 12px; border: 1px solid #e2e8f0; }
-    .note-box { background: #f8fafc; border-left: 3px solid #10955d; padding: 10px 14px; border-radius: 0 6px 6px 0; font-size: 13px; }
-    .note-box p { margin: 4px 0 0 0; color: #475569; }
-    .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #475569; }
-    .total-row { border-top: 2px solid #e2e8f0; border-bottom: none; margin-top: 8px; padding-top: 12px; font-size: 18px; font-weight: 700; color: #0f172a; }
-    .fulfillment-meter { margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 16px; }
-    .meter-label { display: flex; justify-content: space-between; font-size: 13px; color: #475569; margin-bottom: 6px; }
+    .order-number { font-size: 26px; font-weight: 700; color: var(--erp-color-text-primary); margin: 0; }
+    .customer-subtitle { color: var(--erp-color-text-muted); font-size: 14px; margin: 4px 0 0 0; }
+    .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .info-card, .summary-card, .items-card { border-radius: 12px; border: 1px solid var(--erp-color-border-subtle); }
+    .note-box { background: var(--erp-color-bg-subtle); border-inline-start: 3px solid var(--erp-color-primary); padding: 10px 14px; border-start-end-radius: 6px; border-end-end-radius: 6px; font-size: 13px; }
+    .note-box p { margin: 4px 0 0 0; color: var(--erp-color-text-secondary); }
+    .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--erp-color-border-subtle); font-size: 14px; color: var(--erp-color-text-secondary); }
+    .total-row { border-top: 2px solid var(--erp-color-border-subtle); border-bottom: none; margin-top: 8px; padding-top: 12px; font-size: 18px; font-weight: 700; color: var(--erp-color-text-primary); }
+    .fulfillment-meter { margin-top: 20px; border-top: 1px solid var(--erp-color-border-subtle); padding-top: 16px; }
+    .meter-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--erp-color-text-secondary); margin-bottom: 6px; }
     .modal-fulfillment-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .modal-fulfillment-table th { background: #f8fafc; padding: 8px; border: 1px solid #e2e8f0; text-align: left; }
-    .modal-fulfillment-table td { padding: 6px; border: 1px solid #e2e8f0; vertical-align: middle; }
+    .modal-fulfillment-table th { background: var(--erp-color-bg-subtle); padding: 8px; border: 1px solid var(--erp-color-border-subtle); text-align: left; }
+    .modal-fulfillment-table td { padding: 6px; border: 1px solid var(--erp-color-border-subtle); vertical-align: middle; }
   `],
 })
 export class OrderDetailPage {
@@ -262,7 +280,10 @@ export class OrderDetailPage {
 
   readonly order = signal<OrderDto | null>(null);
   readonly fulfillmentModalVisible = signal(false);
-  readonly fulfillmentDraft = signal<{ lineId: string; description: string; quantity: number; deliveredQuantity: number }[]>([]);
+  readonly fulfillmentDraft = signal<{ lineId: string; description: string; quantity: number; alreadyDelivered: number; deliveredQuantity: number }[]>([]);
+  readonly failed = signal(false);
+  readonly saving = signal(false);
+  private orderId: string | null = null;
 
   readonly fulfillmentPercentage = () => {
     const o = this.order();
@@ -280,10 +301,16 @@ export class OrderDetailPage {
     });
   }
 
+  reload(): void {
+    if (this.orderId) this.loadOrder(this.orderId);
+  }
+
   loadOrder(id: string): void {
+    this.orderId = id;
+    this.failed.set(false);
     this.ordersApi.get(id).subscribe({
       next: (o) => this.order.set(o),
-      error: () => this.message.error('Failed to load sales order'),
+      error: () => this.failed.set(true),
     });
   }
 
@@ -293,9 +320,9 @@ export class OrderDetailPage {
     this.ordersApi.setStatus(o.id, status).subscribe({
       next: (updated) => {
         this.order.set(updated);
-        this.message.success(`Status updated to ${status}`);
+        this.message.success(`Status changed to ${displayLabel(status).toLowerCase()}.`);
       },
-      error: (err) => this.message.error(err?.error?.message ?? 'Failed to update status'),
+      error: (err) => this.message.error(problemMessage(err, 'Failed to update status')),
     });
   }
 
@@ -307,7 +334,8 @@ export class OrderDetailPage {
         lineId: l.id,
         description: l.description,
         quantity: l.quantity,
-        deliveredQuantity: l.deliveredQuantity || l.quantity,
+        alreadyDelivered: l.deliveredQuantity,
+        deliveredQuantity: l.quantity,
       }))
     );
     this.fulfillmentModalVisible.set(true);
@@ -320,13 +348,18 @@ export class OrderDetailPage {
       lineId: d.lineId,
       deliveredQuantity: d.deliveredQuantity,
     }));
+    this.saving.set(true);
     this.ordersApi.updateFulfillment(o.id, lines).subscribe({
       next: (updated) => {
+        this.saving.set(false);
         this.order.set(updated);
         this.fulfillmentModalVisible.set(false);
-        this.message.success('Delivery quantities updated successfully');
+        this.message.success('Delivery recorded.');
       },
-      error: (err) => this.message.error(err?.error?.message ?? 'Failed to update delivery'),
+      error: (err) => {
+        this.saving.set(false);
+        this.message.error(problemMessage(err, 'Failed to update delivery'));
+      },
     });
   }
 
@@ -338,18 +371,8 @@ export class OrderDetailPage {
         this.message.success('Invoice generated successfully in Accounting');
         this.loadOrder(o.id);
       },
-      error: (err) => this.message.error(err?.error?.message ?? 'Failed to generate invoice'),
+      error: (err) => this.message.error(problemMessage(err, 'Failed to generate invoice')),
     });
   }
 
-  statusColor(status: string): string {
-    switch (status) {
-      case 'Confirmed': return 'blue';
-      case 'Processing': return 'orange';
-      case 'Delivered': return 'cyan';
-      case 'Invoiced': return 'green';
-      case 'Cancelled': return 'red';
-      default: return 'default';
-    }
-  }
 }

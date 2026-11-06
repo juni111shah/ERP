@@ -36,12 +36,13 @@ public class PosModuleTests
     {
         var module = new PosModule();
         var menu = module.Menu.ToList();
-        Assert.Equal(5, menu.Count);
+        Assert.Equal(6, menu.Count);
 
         var routes = menu.Select(m => m.Route).ToList();
         Assert.Contains("/pos/terminal", routes);
         Assert.Contains("/pos/sessions", routes);
         Assert.Contains("/pos/orders", routes);
+        Assert.Contains("/pos/returns", routes);
         Assert.Contains("/pos/registers", routes);
         Assert.Contains("/pos/analytics", routes);
 

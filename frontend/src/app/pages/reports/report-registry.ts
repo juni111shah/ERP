@@ -18,6 +18,8 @@ export interface ReportDef {
   rows: (data: any) => Record<string, unknown>[];
   /** a closing row shown in bold */
   totals?: (data: any) => Record<string, unknown> | null;
+  /** the report covers one legal entity, so it waits until one is chosen in the header */
+  needsEntity?: boolean;
   /** an extra button (for example posting the end-of-service provision); needs a single legal entity in scope */
   action?: { label: string; path: string; permission: string; done: string };
   /** headline numbers above the table */
@@ -36,7 +38,7 @@ const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 
 export const REPORTS: ReportDef[] = [
   {
     slug: 'tax-return', title: 'Tax return', subtitle: 'The periodic tax return of one legal entity, laid out by its country (VAT 201, VAT100, GSTR-3B...). Choose the legal entity in the header first.',
-    endpoint: 'finance/reports/tax-return', filters: ['range'],
+    endpoint: 'finance/reports/tax-return', filters: ['range'], needsEntity: true,
     columns: () => [t('label', 'Box'), m('amount', 'Amount')],
     rows: (x) => (x.rows as { label: string; labelAr: string; amount: number }[]).map((r) => ({ label: document.documentElement.lang === 'ar' ? r.labelAr : r.label, amount: r.amount })),
     summary: (x) => [

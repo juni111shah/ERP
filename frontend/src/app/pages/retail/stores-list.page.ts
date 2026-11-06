@@ -8,6 +8,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
+import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTagModule } from 'ng-zorro-antd/tag';
@@ -17,6 +18,9 @@ import { RetailStoreDto, RetailStoreInput, RetailStoresApi } from '../../core/ap
 import { createPagedList } from '../../core/api/paged-list';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { problemMessage } from '../../core/http/problem-details';
+import { SessionStore } from '../../core/session/session.store';
 
 @Component({
   selector: 'erp-stores-list-page',
@@ -33,50 +37,47 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     NzFormModule,
     NzInputModule,
     NzSelectModule,
+    NzPopconfirmModule,
+    StatusTagComponent,
     HasPermissionDirective,
     PagedTableComponent
   ],
   template: `
-    <erp-paged-table
-      #table
-      [list]="list"
-      [columns]="columns">
-      <button toolbar nz-button nzType="primary" *erpHasPermission="'retail.stores.manage'" (click)="openCreateModal()">
+    <erp-paged-table [list]="list" [columns]="columns" [clickable]="false" searchPlaceholder="Search by code, name or manager" emptyText="No stores yet. Add your first store.">
+      <button toolbar nz-button nzType="primary" *erpHasPermission="'retail.stores.manage'" (click)="openCreateModal()" data-testid="store-new">
         <span nz-icon nzType="plus"></span> Add Store
       </button>
-          <ng-template #cell let-row let-column="column">
-            <ng-container [ngSwitch]="column.key">
-              <span *ngSwitchCase="'code'" class="mono-code font-bold">{{ row.code }}</span>
-              <span *ngSwitchCase="'name'">
-                <div class="store-name-cell">
-                  <strong>{{ row.name }}</strong>
-                  <small *ngIf="row.storeManagerName" class="text-secondary">Mgr: {{ row.storeManagerName }}</small>
-                </div>
-              </span>
-              <span *ngSwitchCase="'phone'">
-                <span>{{ row.phone || '-' }}</span>
-              </span>
-              <span *ngSwitchCase="'email'">
-                <span>{{ row.email || '-' }}</span>
-              </span>
-              <span *ngSwitchCase="'isActive'">
-                <nz-tag [nzColor]="row.isActive ? 'success' : 'default'">
-                  {{ row.isActive ? 'Active' : 'Inactive' }}
-                </nz-tag>
-              </span>
-              <span *ngSwitchCase="'actions'">
-                <button nz-button nzType="link" nzSize="small" *erpHasPermission="'retail.stores.manage'" (click)="openEditModal(row)">
-                  <span nz-icon nzType="edit"></span> Edit
-                </button>
-              </span>
-            </ng-container>
-          </ng-template>
-        </erp-paged-table>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('code') { <span class="mono-code font-bold">{{ row.code }}</span> }
+          @case ('name') {
+            <div>{{ row.name }}</div>
+            @if (row.storeManagerName) { <div class="sub">Manager: {{ row.storeManagerName }}</div> }
+          }
+          @case ('phone') { <span class="nowrap">{{ row.phone || '-' }}</span> }
+          @case ('email') { {{ row.email || '-' }} }
+          @case ('warehouse') { {{ value || '-' }} }
+          @case ('isActive') { <erp-status [value]="row.isActive ? 'active' : 'inactive'" /> }
+          @case ('actions') {
+            <div class="table-actions" *erpHasPermission="'retail.stores.manage'">
+              <button nz-button nzType="link" nzSize="small" (click)="openEditModal(row)">
+                <span nz-icon nzType="edit"></span> Edit
+              </button>
+              <button nz-button nzType="link" nzDanger nzSize="small" nz-popconfirm [nzPopconfirmTitle]="'Delete store ' + row.code + '?'" (nzOnConfirm)="deleteStore(row)">
+                <span nz-icon nzType="delete"></span> Delete
+              </button>
+            </div>
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
 
       <!-- Store Modal -->
       <nz-modal
         [(nzVisible)]="isModalVisible"
-        [nzTitle]="isEditing() ? 'Edit Retail Store' : 'Add New Retail Store'"
+        [nzTitle]="isEditing() ? 'Edit store' : 'Add store'"
+        nzOkText="Save"
         [nzOkLoading]="isSaving()"
         (nzOnCancel)="closeModal()"
         (nzOnOk)="saveStore()">
@@ -84,22 +85,22 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           <form nz-form [formGroup]="form" nzLayout="vertical">
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label nzRequired>Store Code</nz-form-label>
+                <nz-form-label nzRequired>Code</nz-form-label>
                 <nz-form-control nzErrorTip="Code is required">
-                  <input nz-input formControlName="code" placeholder="e.g. STR-DXB-01" [readonly]="isEditing()" />
+                  <input nz-input formControlName="code" placeholder="e.g. STR-01" [readonly]="isEditing()" />
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label nzRequired>Store Name</nz-form-label>
+                <nz-form-label nzRequired>Name</nz-form-label>
                 <nz-form-control nzErrorTip="Name is required">
-                  <input nz-input formControlName="name" placeholder="e.g. Dubai Mall Flagship" />
+                  <input nz-input formControlName="name" placeholder="e.g. City centre store" />
                 </nz-form-control>
               </nz-form-item>
             </div>
 
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label nzRequired>Workspace / Entity</nz-form-label>
+                <nz-form-label nzRequired>Legal entity</nz-form-label>
                 <nz-form-control nzErrorTip="Entity is required">
                   <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Entity">
                     <nz-option *ngFor="let ent of entities()" [nzValue]="ent.id" [nzLabel]="ent.name"></nz-option>
@@ -107,7 +108,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
-                <nz-form-label>Fulfillment Warehouse</nz-form-label>
+                <nz-form-label>Warehouse</nz-form-label>
                 <nz-form-control>
                   <nz-select formControlName="warehouseId" nzAllowClear nzPlaceHolder="Select Warehouse">
                     <nz-option *ngFor="let wh of warehouses()" [nzValue]="wh.id" [nzLabel]="wh.name"></nz-option>
@@ -118,30 +119,30 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="row-2">
               <nz-form-item>
-                <nz-form-label>Store Manager</nz-form-label>
+                <nz-form-label>Manager</nz-form-label>
                 <nz-form-control>
-                  <input nz-input formControlName="storeManagerName" placeholder="e.g. Ahmed Al-Rashid" />
+                  <input nz-input formControlName="storeManagerName" />
                 </nz-form-control>
               </nz-form-item>
               <nz-form-item>
                 <nz-form-label>Phone</nz-form-label>
                 <nz-form-control>
-                  <input nz-input formControlName="phone" placeholder="+971 4 123 4567" />
+                  <input nz-input formControlName="phone" />
                 </nz-form-control>
               </nz-form-item>
             </div>
 
             <nz-form-item>
               <nz-form-label>Email</nz-form-label>
-              <nz-form-control>
-                <input nz-input type="email" formControlName="email" placeholder="store.dubai@example.com" />
+              <nz-form-control nzErrorTip="Enter a valid email address">
+                <input nz-input type="email" formControlName="email" />
               </nz-form-control>
             </nz-form-item>
 
             <nz-form-item>
               <nz-form-label>Address</nz-form-label>
               <nz-form-control>
-                <textarea nz-input rows="2" formControlName="address" placeholder="Ground Level, Unit 120..."></textarea>
+                <textarea nz-input rows="2" formControlName="address" placeholder="Floor, unit, street"></textarea>
               </nz-form-control>
             </nz-form-item>
 
@@ -149,7 +150,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               <nz-form-control>
                 <label>
                   <nz-switch formControlName="isActive"></nz-switch>
-                  <span style="margin-left: 8px;">Active Store Status</span>
+                  <span style="margin-inline-start: 8px;">Active</span>
                 </label>
               </nz-form-control>
             </nz-form-item>
@@ -159,16 +160,19 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
   `,
   styles: [`
     .text-secondary {
-      color: #8c8c8c;
+      color: var(--erp-color-text-muted);
       margin: 4px 0 0;
     }
     .mono-code {
-      font-family: monospace;
-      color: #1890ff;
+      font-family: var(--erp-font-family-mono);
+      white-space: nowrap;
     }
     .font-bold {
       font-weight: 600;
     }
+    .sub { font-size: 12px; color: var(--erp-color-text-muted); }
+    .nowrap { white-space: nowrap; }
+    .table-actions { display: flex; justify-content: flex-end; gap: 4px; }
     .store-name-cell {
       display: flex;
       flex-direction: column;
@@ -184,6 +188,7 @@ export class StoresListPageComponent implements OnInit {
   private readonly storesApi = inject(RetailStoresApi);
   private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly warehousesApi = inject(WarehousesApi);
+  private readonly session = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
 
@@ -192,8 +197,8 @@ export class StoresListPageComponent implements OnInit {
   readonly isSaving = signal(false);
   readonly isEditing = signal(false);
 
-  isModalVisible = false;
-  selectedStoreId: string | null = null;
+  readonly isModalVisible = signal(false);
+  private selectedStore: RetailStoreDto | null = null;
 
   form: FormGroup = this.fb.group({
     legalEntityId: ['', [Validators.required]],
@@ -202,21 +207,22 @@ export class StoresListPageComponent implements OnInit {
     warehouseId: [null],
     storeManagerName: [''],
     phone: [''],
-    email: [''],
+    email: ['', [Validators.email]],
     address: [''],
     isActive: [true]
   });
 
   readonly columns: TableColumn<RetailStoreDto>[] = [
-    { key: 'code', label: 'Store Code', sortField: 'code' },
-    { key: 'name', label: 'Store Name', sortField: 'name' },
+    { key: 'code', label: 'Code', sortField: 'code' },
+    { key: 'name', label: 'Name', sortField: 'name' },
+    { key: 'warehouse', label: 'Warehouse', value: (r) => this.warehouses().find((w) => w.id === r.warehouseId)?.name ?? '' },
     { key: 'phone', label: 'Phone' },
     { key: 'email', label: 'Email' },
-    { key: 'isActive', label: 'Status' },
-    { key: 'actions', label: 'Actions', align: 'right' }
+    { key: 'isActive', label: 'Status', value: (r) => (r.isActive ? 'Active' : 'Inactive') },
+    { key: 'actions', label: 'Actions', align: 'right', filter: false, value: () => '' }
   ];
 
-  readonly list = createPagedList<RetailStoreDto>((q: any) => this.storesApi.list(q));
+  readonly list = createPagedList<RetailStoreDto>((q) => this.storesApi.list(q), { sort: '-createdAt' });
 
   ngOnInit(): void {
     this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
@@ -229,9 +235,10 @@ export class StoresListPageComponent implements OnInit {
 
   openCreateModal(): void {
     this.isEditing.set(false);
-    this.selectedStoreId = null;
+    this.selectedStore = null;
+    this.form.get('legalEntityId')!.enable({ emitEvent: false });
     this.form.reset({
-      legalEntityId: this.entities()[0]?.id || '',
+      legalEntityId: this.entities().find((e) => e.id === this.session.currentEntityId())?.id || this.entities()[0]?.id || '',
       code: '',
       name: '',
       warehouseId: null,
@@ -241,12 +248,13 @@ export class StoresListPageComponent implements OnInit {
       address: '',
       isActive: true
     });
-    this.isModalVisible = true;
+    this.isModalVisible.set(true);
   }
 
   openEditModal(store: RetailStoreDto): void {
     this.isEditing.set(true);
-    this.selectedStoreId = store.id;
+    this.selectedStore = store;
+    this.form.get('legalEntityId')!.disable({ emitEvent: false });
     this.form.patchValue({
       legalEntityId: store.legalEntityId,
       code: store.code,
@@ -258,11 +266,21 @@ export class StoresListPageComponent implements OnInit {
       address: store.address,
       isActive: store.isActive
     });
-    this.isModalVisible = true;
+    this.isModalVisible.set(true);
   }
 
   closeModal(): void {
-    this.isModalVisible = false;
+    this.isModalVisible.set(false);
+  }
+
+  deleteStore(store: RetailStoreDto): void {
+    this.storesApi.delete(store.id).subscribe({
+      next: () => {
+        this.msg.success('Store deleted');
+        this.list.reload();
+      },
+      error: (err) => this.msg.error(problemMessage(err, 'The store could not be deleted'))
+    });
   }
 
   saveStore(): void {
@@ -277,25 +295,29 @@ export class StoresListPageComponent implements OnInit {
     }
 
     this.isSaving.set(true);
-    const val = this.form.value;
+    const val = this.form.getRawValue();
 
-    if (this.isEditing() && this.selectedStoreId) {
-      this.storesApi.update(this.selectedStoreId, {
+    if (this.isEditing() && this.selectedStore) {
+      this.storesApi.update(this.selectedStore.id, {
         name: val.name,
         warehouseId: val.warehouseId,
         storeManagerName: val.storeManagerName,
         phone: val.phone,
         email: val.email,
         address: val.address,
-        isActive: val.isActive
+        isActive: val.isActive,
+        customFields: this.selectedStore.customFields
       }).subscribe({
         next: () => {
-          this.msg.success('Store updated successfully');
+          this.msg.success('Store saved');
           this.isSaving.set(false);
           this.closeModal();
-          window.location.reload();
+          this.list.reload();
         },
-        error: () => this.isSaving.set(false)
+        error: (err) => {
+          this.msg.error(problemMessage(err, 'The store could not be saved'));
+          this.isSaving.set(false);
+        }
       });
     } else {
       const input: RetailStoreInput = {
@@ -312,12 +334,15 @@ export class StoresListPageComponent implements OnInit {
 
       this.storesApi.create(input).subscribe({
         next: () => {
-          this.msg.success('Store created successfully');
+          this.msg.success('Store saved');
           this.isSaving.set(false);
           this.closeModal();
-          window.location.reload();
+          this.list.reload();
         },
-        error: () => this.isSaving.set(false)
+        error: (err) => {
+          this.msg.error(problemMessage(err, 'The store could not be saved'));
+          this.isSaving.set(false);
+        }
       });
     }
   }

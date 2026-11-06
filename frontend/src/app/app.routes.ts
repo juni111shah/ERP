@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, moduleEnabledGuard, permissionGuard, anyPermissionGuard } from './core/guards/access.guards';
+import { authGuard, founderLandingGuard, guestOnlyGuard, moduleEnabledGuard, permissionGuard, anyPermissionGuard, platformAdminGuard, signedOutGuard } from './core/guards/access.guards';
 
 const placeholder = (title: string) => ({ loadComponent: () => import('./pages/placeholder.page').then((m) => m.PlaceholderPage), data: { title } });
 
@@ -7,7 +7,7 @@ export const routes: Routes = [
   {
     path: 'auth',
     children: [
-      { path: 'login', loadComponent: () => import('./pages/login.page').then((m) => m.LoginPage) },
+      { path: 'login', canMatch: [guestOnlyGuard], loadComponent: () => import('./pages/login.page').then((m) => m.LoginPage) },
       { path: 'forgot-password', loadComponent: () => import('./pages/forgot-password.page').then((m) => m.ForgotPasswordPage) },
       { path: 'reset-password', loadComponent: () => import('./pages/reset-password.page').then((m) => m.ResetPasswordPage) },
       { path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -22,13 +22,29 @@ export const routes: Routes = [
     ],
   },
   { path: 'print/:type/:id', loadComponent: () => import('./pages/print.page').then((m) => m.PrintPage) },
-  { path: 'onboarding', loadComponent: () => import('./pages/onboarding.page').then((m) => m.OnboardingPage) },
+  // The site's home address: signed-out visitors get the front page, everyone else falls through to the shell below.
+  { path: '', pathMatch: 'full', canMatch: [signedOutGuard], loadComponent: () => import('./pages/pricing.page').then((m) => m.PricingPage) },
+  { path: 'pricing', loadComponent: () => import('./pages/pricing.page').then((m) => m.PricingPage) },
+  { path: 'terms', loadComponent: () => import('./pages/legal.page').then((m) => m.LegalPage), data: { kind: 'terms' } },
+  { path: 'privacy', loadComponent: () => import('./pages/legal.page').then((m) => m.LegalPage), data: { kind: 'privacy' } },
+  { path: 'onboarding', pathMatch: 'full', redirectTo: 'register' },
+  { path: 'register', pathMatch: 'full', loadComponent: () => import('./pages/register.page').then((m) => m.RegisterPage) },
+  { path: 'register/verify', loadComponent: () => import('./pages/register-verify.page').then((m) => m.RegisterVerifyPage) },
+  // The two invoice documents sit outside the layouts, so they print clean.
+  { path: 'platform/invoices/:id', canMatch: [platformAdminGuard], loadComponent: () => import('./pages/platform/platform-invoice.page').then((m) => m.PlatformInvoicePage) },
+  { path: 'admin/billing/invoices/:id', canMatch: [authGuard, permissionGuard('core.billing.read')], loadComponent: () => import('./pages/admin/billing-invoice.page').then((m) => m.BillingInvoicePage) },
+  {
+    path: 'platform',
+    canMatch: [platformAdminGuard],
+    loadComponent: () => import('./layout/platform-shell.component').then((m) => m.PlatformShellComponent),
+    loadChildren: () => import('./pages/platform/platform.routes').then((m) => m.PLATFORM_ROUTES),
+  },
   {
     path: '',
     canMatch: [authGuard],
     loadComponent: () => import('./layout/shell.component').then((m) => m.ShellComponent),
     children: [
-      { path: '', pathMatch: 'full', loadComponent: () => import('./pages/dashboard.page').then((m) => m.DashboardPage) },
+      { path: '', pathMatch: 'full', canMatch: [founderLandingGuard], loadComponent: () => import('./pages/dashboard.page').then((m) => m.DashboardPage) },
       { path: 'parties', canMatch: [permissionGuard('core.parties.read')], loadComponent: () => import('./pages/parties.page').then((m) => m.PartiesPage) },
       // Convenient and legacy aliases for seamless direct navigation
       { path: 'invoices', pathMatch: 'full', redirectTo: '/finance/invoices' },
@@ -81,6 +97,7 @@ export const routes: Routes = [
       { path: 'parties/:id', canMatch: [permissionGuard('core.parties.read')], loadComponent: () => import('./pages/party-detail.page').then((m) => m.PartyDetailPage) },
       { path: 'admin/custom-fields', canMatch: [permissionGuard('core.customfields.read')], loadComponent: () => import('./pages/custom-fields.page').then((m) => m.CustomFieldsPage) },
       { path: 'admin/modules', canMatch: [permissionGuard('core.settings.read')], loadComponent: () => import('./pages/modules.page').then((m) => m.ModulesPage) },
+      { path: 'admin/billing', canMatch: [permissionGuard('core.billing.read')], loadComponent: () => import('./pages/admin/billing.page').then((m) => m.BillingPage) },
       { path: 'account/security', loadComponent: () => import('./pages/account-security.page').then((m) => m.AccountSecurityPage) },
       { path: 'approvals', loadComponent: () => import('./pages/admin/approvals.page').then((m) => m.ApprovalsPage) },
       { path: 'catalog/items', canMatch: [permissionGuard('core.items.read')], loadComponent: () => import('./pages/admin/items.page').then((m) => m.ItemsPage) },
@@ -182,6 +199,8 @@ export const routes: Routes = [
           { path: 'terminal', canMatch: [permissionGuard('pos.orders.create')], loadComponent: () => import('./pages/pos/pos-terminal.page').then((m) => m.PosTerminalPage) },
           { path: 'sessions', canMatch: [permissionGuard('pos.sessions.read')], loadComponent: () => import('./pages/pos/pos-sessions.page').then((m) => m.PosSessionsPage) },
           { path: 'orders', canMatch: [permissionGuard('pos.orders.read')], loadComponent: () => import('./pages/pos/pos-orders-list.page').then((m) => m.PosOrdersListPage) },
+          { path: 'orders/:id', canMatch: [permissionGuard('pos.orders.read')], loadComponent: () => import('./pages/pos/pos-orders-list.page').then((m) => m.PosOrdersListPage) },
+          { path: 'returns', canMatch: [permissionGuard('pos.orders.read')], loadComponent: () => import('./pages/pos/pos-returns.page').then((m) => m.PosReturnsPage) },
           { path: 'registers', canMatch: [permissionGuard('pos.registers.read')], loadComponent: () => import('./pages/pos/pos-registers.page').then((m) => m.PosRegistersPage) },
           { path: 'analytics', canMatch: [permissionGuard('pos.analytics.read')], loadComponent: () => import('./pages/pos/pos-analytics.page').then((m) => m.PosAnalyticsPage) },
         ],

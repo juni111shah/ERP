@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
+import { catchError, map, of } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -8,7 +10,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
-import { CountRow, CountsApi, InventoryLookups } from './inventory.api';
+import { CountRow, CountsApi, InventoryLookups, WarehousesApi } from './inventory.api';
 
 /** Physical stock counts: start a sheet for a warehouse, then open it to enter the counted quantities and post. */
 @Component({
@@ -18,7 +20,7 @@ import { CountRow, CountsApi, InventoryLookups } from './inventory.api';
   imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Stock counts</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search count number or memo" emptyText="No stock counts yet" (rowClick)="open($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search count number or memo" emptyText="No stock counts yet. Start one to compare what is on the shelf with the system." (rowClick)="open($event)">
       <button toolbar *erpHasPermission="'inventory.counts.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="count-new"><span nz-icon nzType="plus"></span>New count</button>
     </erp-paged-table>
     <erp-record-drawer title="New stock count" [open]="state.open()" [fields]="fields" [value]="null" [saving]="state.saving()" [errors]="state.errors()" testId="count-form"
@@ -33,11 +35,13 @@ export class CountsPage {
   readonly state = new MasterDataState<CountRow>({
     save: (_id, body) => this.api.create(body as never), reload: () => this.list.reload(), message: this.message, entityName: 'Stock count',
   });
+  private readonly warehouseNames = toSignal(inject(WarehousesApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(map((r) => new Map(r.items.map((w) => [w.id, w.name]))), catchError(() => of(new Map<string, string>()))), { initialValue: new Map<string, string>() });
   readonly columns: TableColumn<CountRow>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '140px' },
+    { key: 'warehouse', label: 'Warehouse', value: (c) => this.warehouseNames().get(c.warehouseId) ?? '' },
     { key: 'countDate', label: 'Count date', sortField: 'countDate', width: '130px' },
-    { key: 'status', label: 'Status', value: (c) => c.status.charAt(0).toUpperCase() + c.status.slice(1), width: '120px' },
-    { key: 'lines', label: 'Items', width: '90px' },
+    { key: 'status', label: 'Status', width: '120px' },
+    { key: 'lines', label: 'Items', width: '90px', align: 'right' },
     { key: 'memo', label: 'Memo' },
   ];
   readonly fields: FieldSpec[] = [

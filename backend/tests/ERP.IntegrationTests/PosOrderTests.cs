@@ -121,7 +121,7 @@ public class PosOrderTests(ApiFactory f) : IClassFixture<ApiFactory>
         var meRes = await admin.GetAsync("/api/v1/me");
         var me = await ApiFactory.Json(meRes);
         var callerUserId = (string)me["user"]!["id"]!;
-        var callerEmail = (string)me["user"]!["email"]!;
+        var callerName = (string)me["user"]!["fullName"]!;
 
         var anotherUserGuid = Guid.NewGuid();
         var cmd = new CreatePosOrderCommand(
@@ -146,7 +146,7 @@ public class PosOrderTests(ApiFactory f) : IClassFixture<ApiFactory>
 
         var order = await Json(res);
         Assert.Equal(callerUserId, (string)order["cashierUserId"]!);
-        Assert.Equal(callerEmail, (string)order["cashierName"]!);
+        Assert.Equal(callerName, (string)order["cashierName"]!);
     }
 
     [Fact]

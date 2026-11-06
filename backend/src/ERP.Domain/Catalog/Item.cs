@@ -12,6 +12,9 @@ public class Item : OrgEntity, IHasCustomFields
     public string Sku { get; set; } = default!;
     [Listable]
     public string Name { get; set; } = default!;
+    /// <summary>What a scanner reads (EAN, UPC or the shop's own code). Optional and unique per workspace.</summary>
+    [Searchable]
+    public string? Barcode { get; set; }
     [Filterable, Sortable]
     public ItemType Type { get; set; }
     public string Uom { get; set; } = "ea";

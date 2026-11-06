@@ -13,7 +13,10 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { catchError, of } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
+import { ListQuery } from '../../core/api/api.models';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { countRows } from './finance-kpis';
 import { AccountDto, AccountsApi, JournalDto, JournalSummary, JournalsApi, LegalEntitiesApi, LegalEntityDto } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
@@ -28,45 +31,25 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 import { StatCardComponent } from '../../shared/stat-card.component';
-
-const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green', reversed: 'orange' };
+import { ErpLabelPipe } from '../../shared/display.pipes';
 
 /** Journals: list, draft entry with a balanced-lines editor, post, reverse; plus closing the books of a legal entity. */
 @Component({
   selector: 'erp-journals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
+  imports: [ErpLabelPipe, StatCardComponent, StatusTagComponent, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
     NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
-  styles: [`.line { display:grid; grid-template-columns: 2fr 1fr 1fr 1.4fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 } .bad { color: var(--erp-color-error, #cf1322) }`],
+  styles: [`.line { display:grid; grid-template-columns: 2fr 1fr 1fr 1.4fr 32px; gap:8px; margin-bottom:8px; align-items:center } .line nz-input-number { width:100% }
+    .line-head { margin-bottom:4px; font-size:12px; font-weight:600; color: var(--erp-color-text-muted) }
+    .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0; font-variant-numeric: tabular-nums } .bad { color: var(--erp-color-error, #cf1322) }`],
   template: `
     <h1 class="erp-page-title">Journals</h1>
 
     <div class="erp-stat-grid erp-stat-grid--auto" data-testid="journal-stats">
-      <erp-stat-card label="Total volume"
-                     [value]="stats().totalVolume"
-                     format="money"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
-                     [tone]="0" />
-      <erp-stat-card label="Posted entries"
-                     [value]="stats().posted"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="active in general ledger"
-                     [tone]="1" />
-      <erp-stat-card label="Drafts"
-                     [value]="stats().drafts"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="unposted vouchers"
-                     [tone]="2" />
-      <erp-stat-card label="Journals count"
-                     [value]="list.total()"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="total records"
-                     [tone]="3" />
+      <erp-stat-card label="Posted" [value]="stats()?.posted" format="number" [loading]="statsLoading()" [caption]="stats() ? 'In the general ledger' : statsError()" [tone]="1" />
+      <erp-stat-card label="Drafts" [value]="stats()?.drafts" format="number" [loading]="statsLoading()" [caption]="stats() ? 'Not posted yet' : statsError()" [tone]="2" />
+      <erp-stat-card label="Reversed" [value]="stats()?.reversed" format="number" [loading]="statsLoading()" [caption]="stats() ? 'Undone by a later entry' : statsError()" [tone]="3" />
     </div>
 
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, memo or reference" emptyText="No journals yet" (rowClick)="open($event)">
@@ -76,13 +59,13 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
             <span class="code-pill">{{ row.number }}</span>
           }
           @case ('sourceType') {
-            <nz-tag>{{ row.sourceType }}</nz-tag>
+            <nz-tag>{{ row.sourceType | erpLabel }}</nz-tag>
           }
           @case ('amount') {
             <b>{{ value }}</b>
           }
           @case ('status') {
-            <nz-tag [nzColor]="color(row.status)">{{ row.status }}</nz-tag>
+            <erp-status [value]="row.status" />
           }
           @default {
             {{ value }}
@@ -98,14 +81,15 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
         <form nz-form nzLayout="vertical" [formGroup]="form" data-testid="journal-form">
           <nz-form-item><nz-form-label nzRequired>Legal entity</nz-form-label><nz-form-control [nzErrorTip]="err('legalEntityId')">
             <nz-select formControlName="legalEntityId" data-testid="j-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Date</nz-form-label><nz-form-control [nzErrorTip]="err('date')"><nz-date-picker formControlName="date" style="width:100%" data-testid="j-date"></nz-date-picker></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Date</nz-form-label><nz-form-control [nzErrorTip]="err('date')"><nz-date-picker nzFormat="dd MMM yyyy" formControlName="date" style="width:100%" data-testid="j-date"></nz-date-picker></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Memo</nz-form-label><nz-form-control><input nz-input formControlName="memo" data-testid="j-memo" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Reference</nz-form-label><nz-form-control><input nz-input formControlName="reference" /></nz-form-control></nz-form-item>
           <h4>Lines</h4>
           <div formArrayName="lines">
+            <div class="line line-head" aria-hidden="true" data-testid="j-line-head"><span>Account</span><span>Debit</span><span>Credit</span><span>Description</span><span></span></div>
             @for (l of lines.controls; track $index) {
               <div class="line" [formGroupName]="$index">
-                <nz-select formControlName="accountId" nzShowSearch nzPlaceHolder="Account" [attr.data-testid]="'j-account-' + $index">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
+                <nz-select [nzStatus]="lineStatus(l, 'accountId')" formControlName="accountId" nzShowSearch nzPlaceHolder="Account" [attr.data-testid]="'j-account-' + $index">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
                 <nz-input-number formControlName="debit" [nzMin]="0" [nzPrecision]="2" nzPlaceHolder="Debit" [attr.data-testid]="'j-debit-' + $index"></nz-input-number>
                 <nz-input-number formControlName="credit" [nzMin]="0" [nzPrecision]="2" nzPlaceHolder="Credit" [attr.data-testid]="'j-credit-' + $index"></nz-input-number>
                 <input aria-label="Description" nz-input formControlName="description" placeholder="Description" />
@@ -115,8 +99,8 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
           </div>
           @if (editable()) { <button nz-button nzType="dashed" type="button" (click)="addLine()" data-testid="j-add-line"><span nz-icon nzType="plus"></span> Add line</button> }
           <div class="totals" data-testid="j-totals">
-            <span>Debit <b>{{ totals().debit.toFixed(2) }}</b></span><span>Credit <b>{{ totals().credit.toFixed(2) }}</b></span>
-            <span [class.bad]="totals().debit !== totals().credit">Difference <b>{{ (totals().debit - totals().credit).toFixed(2) }}</b></span>
+            <span>Debit <b>{{ money(totals().debit) }}</b></span><span>Credit <b>{{ money(totals().credit) }}</b></span>
+            <span [class.bad]="totals().debit !== totals().credit">Difference <b>{{ money(totals().debit - totals().credit) }}</b></span>
           </div>
         </form>
       </ng-container>
@@ -138,7 +122,7 @@ const STATUS_COLORS: Record<string, string> = { draft: 'default', posted: 'green
       <ng-container *nzModalContent>
         <p>Nothing can be posted on or before the closing date. Clear the date to reopen the books.</p>
         <nz-select [(ngModel)]="lockEntity" style="width:100%;margin-bottom:12px" nzPlaceHolder="Legal entity" data-testid="lock-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name + (e.booksLockedTo ? ' (' + ('ui.journal.closedTo' | translate: 'closed to') + ' ' + e.booksLockedTo + ')' : '')"></nz-option> }</nz-select>
-        <nz-date-picker [(ngModel)]="lockDate" style="width:100%" data-testid="lock-date"></nz-date-picker>
+        <nz-date-picker nzFormat="dd MMM yyyy" [(ngModel)]="lockDate" style="width:100%" data-testid="lock-date"></nz-date-picker>
       </ng-container>
     </nz-modal>`,
 })
@@ -156,25 +140,26 @@ export class JournalsPage {
   readonly accounts = computed(() => this.accountPage().items.filter((a) => a.isPostable && a.isActive));
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
 
-  readonly stats = computed(() => {
-    const items = this.list.items();
-    const totalVolume = items.reduce((s, j) => s + (j.amount || 0), 0);
-    const posted = items.filter((j) => j.status === 'posted').length;
-    const drafts = items.filter((j) => j.status === 'draft').length;
-    return {
-      totalVolume,
-      posted,
-      drafts,
-      count: items.length,
-    };
-  });
+  /** Counted by the server for the whole workspace, not the page on screen. */
+  readonly stats = signal<{ posted: number; drafts: number; reversed: number } | null>(null);
+  readonly statsLoading = signal(true);
+  /** Caption of the cards when their figures could not be read. */
+  readonly statsError = computed(() => (this.statsLoading() ? null : 'Could not load this figure'));
+  reload(): void { this.list.reload(); this.loadStats(); }
+  private loadStats(): void {
+    const count = (status: string) => countRows((q: ListQuery) => this.api.list(q), [{ field: 'status', op: 'eq', value: status }]);
+    forkJoin({ posted: count('posted'), drafts: count('draft'), reversed: count('reversed') }).subscribe({
+      next: (s) => { this.stats.set(s); this.statsLoading.set(false); },
+      error: () => { this.stats.set(null); this.statsLoading.set(false); },
+    });
+  }
   readonly columns: TableColumn<JournalSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
     { key: 'date', label: 'Date', sortField: 'date', width: '120px', filterField: 'date' },
     { key: 'memo', label: 'Memo' },
-    { key: 'sourceType', label: 'Source', width: '110px' },
+    { key: 'sourceType', label: 'Source', width: '130px' },
     { key: 'amount', label: 'Amount', sortField: 'amount', width: '130px', align: 'right', value: (r) => formatMoney(r.amount, r.currencyCode) },
-    { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: ['draft', 'posted', 'reversed'] },
+    { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: [{ value: 'draft', label: 'Draft' }, { value: 'posted', label: 'Posted' }, { value: 'reversed', label: 'Reversed' }] },
   ];
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);
@@ -194,7 +179,9 @@ export class JournalsPage {
   readonly editable = computed(() => !this.journal() || (this.journal()!.status === 'draft' && this.journal()!.sourceType === 'manual'));
 
   get lines(): FormArray { return this.form.controls.lines as FormArray; }
-  color(status: string): string { return STATUS_COLORS[status] ?? 'default'; }
+  /** A line field the user has tried to save empty; these sit outside nz-form-control, so they need their own red state. */
+  lineStatus(line: unknown, name: string): 'error' | '' { const c = (line as { get(n: string): { invalid: boolean; touched: boolean } | null }).get(name); return c?.invalid && c.touched ? 'error' : ''; }
+  readonly money = formatMoney;
   err(name: string): string { return controlError(this.form.get(name)); }
 
   private newLine(l?: { accountId?: string; debit?: number; credit?: number; description?: string }) {
@@ -205,6 +192,7 @@ export class JournalsPage {
 
   /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
   ngOnInit(): void {
+    this.loadStats();
     const id = this.route.snapshot.queryParamMap.get('open');
     if (id) this.open({ id } as never);
   }
@@ -231,7 +219,7 @@ export class JournalsPage {
   }
 
   save(post: boolean): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); this.message.warning('Fill in the fields marked in red'); return; }
     const v = this.form.getRawValue();
     const body = {
       legalEntityId: v.legalEntityId, date: toIsoDate(v.date!), memo: v.memo || null, reference: v.reference || null,
@@ -252,7 +240,7 @@ export class JournalsPage {
     if (!j) return;
     void askReason(this.modal, 'Reverse this journal?', 'Reverse', 'A reversing entry is posted today (or on the original date if that is later). The reason becomes its memo.', false).then((reason) => {
       if (reason === null) return;
-      this.api.reverse(j.id, reason || undefined).subscribe({ next: (r) => { this.drawerOpen.set(false); this.message.success(`${this.i18n.t('ui.msg.reversedBy', 'Reversed by')} ${r.number}`); this.list.reload(); }, error: (e) => this.fail(e) });
+      this.api.reverse(j.id, reason || undefined).subscribe({ next: (r) => { this.drawerOpen.set(false); this.message.success(`${this.i18n.t('ui.msg.reversedBy', 'Reversed by')} ${r.number}`); this.reload(); }, error: (e) => this.fail(e) });
     });
   }
 
@@ -261,7 +249,7 @@ export class JournalsPage {
     if (!j) return;
     this.modal.confirm({
       nzTitle: 'Delete this draft journal?', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.api.delete(j.id).subscribe({ next: () => { this.drawerOpen.set(false); this.message.success('Draft deleted'); this.list.reload(); }, error: (e) => this.fail(e) }),
+      nzOnOk: () => this.api.delete(j.id).subscribe({ next: () => { this.drawerOpen.set(false); this.message.success('Draft deleted'); this.reload(); }, error: (e) => this.fail(e) }),
     });
   }
 
@@ -275,13 +263,13 @@ export class JournalsPage {
   }
 
   private done(j: JournalDto, text: string): void {
-    this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.list.reload();
+    this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.reload();
   }
 
   private fail(e: unknown, saved?: JournalDto): void {
     const p = asProblem(e);
     if (saved) this.journal.set(saved); // saved as a draft but could not post; keep it open for correction
     this.message.error(problemMessage(e, p?.detail ?? p?.title ?? 'Could not save the journal', 'memo'));
-    if (saved) this.list.reload();
+    if (saved) this.reload();
   }
 }

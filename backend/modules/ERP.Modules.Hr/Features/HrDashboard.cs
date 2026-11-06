@@ -76,7 +76,8 @@ public sealed class PayrollForecastSource(IReadRepository<PayrollRun> runs) : IC
 
     public async Task<IReadOnlyList<ForecastItem>> ItemsAsync(Guid? entityId, DateOnly asOf, DateOnly horizon, CancellationToken ct)
     {
-        var all = await runs.Query(new Specification<PayrollRun>(r => entityId == null || r.LegalEntityId == entityId)).Select(r => new { r.LegalEntityId, r.Year, r.Month, r.Status, r.NetPay, r.PlannedPayDate }).ToListAsync(ct);
+        var all = await runs.Query(new Specification<PayrollRun>(r => entityId == null || r.LegalEntityId == entityId)).Select(r => new { r.LegalEntityId, r.Kind, r.Year, r.Month, r.Status, r.NetPay, r.PlannedPayDate }).ToListAsync(ct);
+        all = all.Where(r => r.Kind == PayrollKind.Regular && r.Status != PayrollStatus.Voided).ToList(); // the forecast follows the monthly run, not one-off or cancelled ones
         var items = new List<ForecastItem>();
         foreach (var group in all.GroupBy(r => r.LegalEntityId))
         {
@@ -84,7 +85,7 @@ public sealed class PayrollForecastSource(IReadRepository<PayrollRun> runs) : IC
             if (recent.Count == 0) continue;
             var rate = recent.Average(r => r.NetPay);
             var day = Math.Min(recent[0].PlannedPayDate?.Day ?? 28, 28);
-            var exists = group.Where(r => r.Status != PayrollStatus.Paid).ToDictionary(r => (r.Year, r.Month), r => r);
+            var exists = group.Where(r => r.Status != PayrollStatus.Paid).GroupBy(r => (r.Year, r.Month)).ToDictionary(g => g.Key, g => g.First());
             for (var m = new DateOnly(asOf.Year, asOf.Month, 1); m <= horizon; m = m.AddMonths(1))
             {
                 if (group.Any(r => r.Year == m.Year && r.Month == m.Month && r.Status == PayrollStatus.Paid)) continue; // already paid out

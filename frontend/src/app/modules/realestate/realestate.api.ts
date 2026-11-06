@@ -279,5 +279,5 @@ export class LeadsApi extends CrudApiService<LeadDto, unknown> {
   protected readonly resource = `${BASE}/leads`;
   pipeline(): Observable<LeadPipeline> { return this.http.get<LeadPipeline>(`${this.url}/pipeline`); }
   moveStage(id: string, stage: string, lostReason?: string | null): Observable<LeadDto> { return this.http.post<LeadDto>(`${this.url}/${id}/stage`, { stage, lostReason }); }
-  convert(id: string, body: { commissionRatePercent?: number | null; dealValue?: number | null }): Observable<LeadDto> { return this.http.post<LeadDto>(`${this.url}/${id}/convert`, body); }
+  convert(id: string, body: { dealType?: string | null; commissionRatePercent?: number | null; dealValue?: number | null }): Observable<LeadDto> { return this.http.post<LeadDto>(`${this.url}/${id}/convert`, body); }
 }

@@ -15,6 +15,9 @@ import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { RevealDirective } from './reveal.directive';
 import { StatCardComponent, StatTone } from './stat-card.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { displayDate, displayLabel, statusTone, StatusTone as DisplayTone } from '../core/format/display';
+
+const BADGE_COLOR: Record<DisplayTone, string> = { success: 'success', info: 'processing', warning: 'warning', error: 'error', orange: 'orange', neutral: 'default', plain: 'default' };
 
 export interface KpiCard {
   title: string;
@@ -74,20 +77,6 @@ export interface DescriptionItem {
       align-items: center;
       gap: 12px;
     }
-    .status-tag {
-      font-size: 12px;
-      padding: 2px 8px;
-      border-radius: 4px;
-      text-transform: uppercase;
-    }
-    .status-draft { background: #f0f0f0; color: #666; }
-    .status-approved { background: #e6f7ff; color: #1890ff; }
-    .status-issued { background: #f6ffed; color: #52c41a; }
-    .status-partial { background: #fff7e6; color: #fa8c16; }
-    .status-paid { background: #f6ffed; color: #52c41a; }
-    .status-overdue { background: #fff1f0; color: #f5222d; }
-    .status-voided { background: #f5f5f5; color: #999; }
-    .status-posted { background: #f6ffed; color: #52c41a; }
     .action-bar {
       display: flex;
       gap: 8px;
@@ -100,14 +89,7 @@ export interface DescriptionItem {
       <p><a [routerLink]="backLink">← {{ backLabel }}</a></p>
     }
     
-    <h1 class="erp-page-title">
-      {{ title }}
-      @if (status) {
-        <span class="status-tag" [class]="'status-' + (status + '').toLowerCase()">
-          {{ status }}
-        </span>
-      }
-    </h1>
+    <h1 class="erp-page-title">{{ title }}</h1>
 
     @if (actions.length > 0) {
       <div class="action-bar">
@@ -145,7 +127,7 @@ export interface DescriptionItem {
               @if (item.routerLink) {
                 <a [routerLink]="item.routerLink">{{ item.value }}</a>
               } @else {
-                {{ item.value ?? '—' }}
+                {{ shown(item.value) }}
               }
             </nz-descriptions-item>
           }
@@ -159,13 +141,10 @@ export interface DescriptionItem {
       <nz-tabset>
         <ng-content select="[tabs]"></ng-content>
         
-        @if (showDocuments) {
+        @if (showDocuments && hasDocumentsContent) {
           <nz-tab nzTitle="Documents">
             <div style="padding: 16px;">
               <ng-content select="[documents]"></ng-content>
-              @if (!hasDocumentsContent) {
-                <p><i>Document attachments will be displayed here</i></p>
-              }
             </div>
           </nz-tab>
         }
@@ -192,6 +171,7 @@ export interface DescriptionItem {
 export class DetailPageComponent implements OnInit, OnChanges {
   readonly tone = kpiTone;
   isNumber(v: unknown): boolean { return typeof v === 'number'; }
+  shown(v: string | number | null): string | number { return v === null || v === undefined ? '—' : displayDate(v) || v; }
   @Input() backLink?: string[];
   @Input() backLabel = 'Back';
   @Input() title = '';
@@ -225,7 +205,7 @@ export class DetailPageComponent implements OnInit, OnChanges {
       this.pageTitle.setTitle(
         this.title,
         this.entityName !== 'Record' ? this.entityName : null,
-        this.status ? { text: this.status } : null
+        this.status ? { text: displayLabel(this.status), color: BADGE_COLOR[statusTone(this.status)] } : null
       );
     }
   }

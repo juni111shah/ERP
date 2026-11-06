@@ -4,8 +4,8 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api-config';
 import { CrudApiService } from './crud-api.service';
 
-export type PriceListType = 'Standard' | 'Wholesale' | 'Member' | 'Seasonal';
-export type PromotionType = 'PercentageDiscount' | 'FixedAmountDiscount';
+export type PriceListType = 'standard' | 'promotional' | 'tiered' | 'member';
+export type PromotionType = 'percentageDiscount' | 'fixedAmountDiscount' | 'buyXGetY' | 'bundle';
 
 export interface RetailStoreDto {
   id: string;
@@ -37,9 +37,19 @@ export interface RetailStoreInput {
 
 export interface RetailPriceListItemDto {
   id: string;
-  itemId: string;
-  itemCode?: string;
-  itemName?: string;
+  itemId?: string | null;
+  itemCode: string;
+  itemName: string;
+  basePrice: number;
+  price: number;
+  minQuantity?: number | null;
+}
+
+export interface RetailPriceListItemInput {
+  itemId?: string | null;
+  itemCode: string;
+  itemName: string;
+  basePrice: number;
   price: number;
   minQuantity?: number | null;
 }
@@ -70,7 +80,7 @@ export interface RetailPriceListDetailDto {
   validTo?: string | null;
   isDefault: boolean;
   isActive: boolean;
-  notes?: string | null;
+  description?: string | null;
   items: RetailPriceListItemDto[];
   customFields?: string | null;
   createdAt: string;
@@ -86,8 +96,8 @@ export interface CreatePriceListInput {
   validTo?: string | null;
   isDefault: boolean;
   isActive: boolean;
-  notes?: string | null;
-  items: { itemId: string; price: number; minQuantity?: number | null }[];
+  description?: string | null;
+  items: RetailPriceListItemInput[];
   customFields?: string | null;
 }
 
@@ -133,11 +143,11 @@ export interface PromoValidationResultDto {
 }
 
 export interface RetailKpiSummaryDto {
-  totalStores: number;
-  activeStores: number;
-  activePriceLists: number;
-  activePromotions: number;
-  promotionsRedeemedTotal: number;
+  totalStoresCount: number;
+  activeStoresCount: number;
+  activePriceListsCount: number;
+  activePromotionsCount: number;
+  totalPromotionsRedeemed: number;
 }
 
 @Injectable({ providedIn: 'root' })

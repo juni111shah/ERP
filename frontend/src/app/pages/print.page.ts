@@ -3,7 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Title } from '@angular/platform-browser';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, map, of, catchError } from 'rxjs';
+import { forkJoin, map, of, catchError, switchMap } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
@@ -14,6 +14,9 @@ import { displayNote } from '../core/i18n/translate-now';
 import { SessionStore } from '../core/session/session.store';
 import { TenantThemeService } from '../../theme/tenant-theme.service';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../shared/thermal-receipt.component';
+import { PosOrderDto, PosReturnDto, PosShiftReportDto } from '../core/api/pos.api';
+import { returnReceipt, saleReceipt } from './pos/pos-receipt';
+import { PosShiftReportComponent } from './pos/pos-shift-report.component';
 
 export interface PrintHeader {
   organizationName: string;
@@ -193,12 +196,24 @@ export interface PrintInspectionData {
 
 export interface PrintPosReceiptData {
   header: PrintHeader;
+  register?: { receiptHeader?: string | null; receiptFooter?: string | null } | null;
   posOrder: {
     id: string; number: string; customerName: string; cashierName: string; orderDate: string; subTotal: number;
     taxTotal: number; totalAmount: number; status: string; notes?: string | null;
     lines: { itemCode: string; description: string; quantity: number; unitPrice: number; lineTotal: number }[];
     payments?: { method: string; amount: number; changeAmount: number }[];
   };
+}
+
+export interface PrintPosReturnData {
+  header: PrintHeader;
+  register?: { name?: string; receiptHeader?: string | null; receiptFooter?: string | null } | null;
+  posReturn: PosReturnDto;
+}
+
+export interface PrintPosShiftData {
+  header: PrintHeader;
+  posShift: PosShiftReportDto;
 }
 
 export type PrintData =
@@ -218,7 +233,9 @@ export type PrintData =
   | PrintJobCardData
   | PrintManifestData
   | PrintInspectionData
-  | PrintPosReceiptData;
+  | PrintPosReceiptData
+  | PrintPosReturnData
+  | PrintPosShiftData;
 
 const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 'GST', PK: 'Sales tax', US: 'Sales tax' };
 
@@ -227,7 +244,7 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 @Component({
   selector: 'erp-print',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, DatePipe, DecimalPipe, NzButtonModule, NzIconModule, NzToolTipModule, ThermalReceiptComponent],
+  imports: [TranslatePipe, CommonModule, DatePipe, DecimalPipe, NzButtonModule, NzIconModule, NzToolTipModule, ThermalReceiptComponent, PosShiftReportComponent],
   styles: [`
     :host {
       --ink: #0f172a;
@@ -309,6 +326,8 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 
     .state { text-align: center; padding: 64px; color: var(--muted); }
     .state.err { color: #dc2626; }
+    .pos-shift-print { max-width: 560px; margin: 16px auto; padding: 16px; background: #fff; color: #111; }
+    .pos-shift-print h2 { margin: 0 0 8px; font-size: 16px; font-weight: 700; text-align: center; }
     .pos-receipt-print-wrapper {
       display: flex;
       justify-content: center;
@@ -349,6 +368,19 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
         @if (posReceiptPayload(); as rc) {
           <div class="pos-receipt-print-wrapper">
             <erp-thermal-receipt [receipt]="rc" />
+          </div>
+        }
+      } @else if (docType() === 'pos-return') {
+        @if (posReturnPayload(); as rc) {
+          <div class="pos-receipt-print-wrapper">
+            <erp-thermal-receipt [receipt]="rc" />
+          </div>
+        }
+      } @else if (docType() === 'pos-shift') {
+        @if (posShiftData(); as s) {
+          <div class="pos-shift-print">
+            <h2>{{ d.header.organizationName }}</h2>
+            <erp-pos-shift-report [report]="s.posShift" [currency]="d.header.baseCurrency || ''" />
           </div>
         }
       } @else if (docType() === 'receipt' && receiptSlipMode()) {
@@ -1228,36 +1260,27 @@ export class PrintPage implements OnInit {
     const pr = this.posReceiptData();
     const d = this.data();
     if (!pr || !d) return null;
-    return {
-      organizationName: d.header.organizationName || 'HigherSquare 360 ERP',
-      organizationNameAr: 'هاير سكوير 360',
-      branchAddress: d.header.legalEntityAddress || undefined,
-      title: 'Tax Invoice / Cash Receipt',
-      titleAr: 'فاتورة ضريبية / إيصال مبيعات',
-      receiptNumber: pr.posOrder.number,
-      date: pr.posOrder.orderDate,
-      status: pr.posOrder.status,
-      cashierName: pr.posOrder.cashierName,
-      customerName: pr.posOrder.customerName,
-      currency: d.header.baseCurrency || 'QAR',
-      lines: (pr.posOrder.lines || []).map((l: any) => ({
-        code: l.itemCode,
-        description: l.description,
-        quantity: l.quantity,
-        unitPrice: l.unitPrice,
-        lineTotal: l.lineTotal,
-      })),
-      subTotal: pr.posOrder.subTotal,
-      taxTotal: pr.posOrder.taxTotal,
-      totalAmount: pr.posOrder.totalAmount,
-      payments: (pr.posOrder.payments || []).map((p: any) => ({
-        method: p.method,
-        amount: p.amount,
-        changeAmount: p.changeAmount,
-      })),
-      notes: pr.posOrder.notes,
-    };
+    return saleReceipt(pr.posOrder as unknown as PosOrderDto, {
+      business: d.header.organizationName || undefined,
+      register: pr.register,
+      address: d.header.legalEntityAddress || undefined,
+      currency: d.header.baseCurrency || '',
+    });
   });
+
+  readonly posReturnPayload = computed<ThermalReceiptData | null>(() => {
+    const d = this.data();
+    if (!d || !('posReturn' in d)) return null;
+    const pr = d as PrintPosReturnData;
+    return returnReceipt(pr.posReturn, {
+      business: d.header.organizationName || undefined,
+      register: pr.register,
+      address: d.header.legalEntityAddress || undefined,
+      currency: d.header.baseCurrency || '',
+    });
+  });
+
+  readonly posShiftData = computed(() => { const d = this.data(); return d && 'posShift' in d ? (d as PrintPosShiftData) : null; });
 
   readonly receiptSlipPayload = computed<ThermalReceiptData | null>(() => {
     const r = this.receiptData();
@@ -1279,7 +1302,7 @@ export class PrintPage implements OnInit {
       subTotal: r.receipt.amount,
       totalAmount: r.receipt.amount,
       payments: [{
-        method: r.receipt.method || 'Cash',
+        method: r.receipt.method || 'cash',
         amount: r.receipt.amount,
       }],
       notes: r.receipt.reference,
@@ -1347,45 +1370,45 @@ export class PrintPage implements OnInit {
     if (!d) return '';
     if ('journal' in d) {
       const j = String(d.journal.status ?? '').toLowerCase();
-      return j === 'draft' ? 'Draft' : j === 'reversed' ? 'Reversed' : '';
+      return j === 'draft' ? 'draft' : j === 'reversed' ? 'Reversed' : '';
     }
     if ('lease' in d) {
       const s = String(d.lease.status ?? '').toLowerCase();
-      return s === 'active' ? 'Active' : s === 'draft' ? 'Draft' : s === 'terminated' ? 'Terminated' : '';
+      return s === 'active' ? 'active' : s === 'draft' ? 'draft' : s === 'terminated' ? 'terminated' : '';
     }
     if ('quote' in d) {
       const s = String(d.quote.status ?? '').toLowerCase();
-      return s === 'accepted' ? 'Accepted' : s === 'declined' ? 'Declined' : s === 'sent' ? 'Sent' : s === 'draft' ? 'Draft' : '';
+      return s === 'accepted' ? 'accepted' : s === 'declined' ? 'declined' : s === 'sent' ? 'sent' : s === 'draft' ? 'draft' : '';
     }
     if ('po' in d) {
       const s = String(d.po.status ?? '').toLowerCase();
-      return s === 'approved' ? 'Approved' : s === 'received' ? 'Received' : s === 'draft' ? 'Draft' : '';
+      return s === 'approved' ? 'approved' : s === 'received' ? 'received' : s === 'draft' ? 'draft' : '';
     }
     if ('order' in d) {
       const s = String(d.order.status ?? '').toLowerCase();
-      return s === 'confirmed' ? 'Confirmed' : s === 'delivered' ? 'Delivered' : s === 'draft' ? 'Draft' : '';
+      return s === 'confirmed' ? 'confirmed' : s === 'delivered' ? 'delivered' : s === 'draft' ? 'draft' : '';
     }
     if ('payroll' in d) {
       const s = String(d.payroll.status ?? '').toLowerCase();
-      return s === 'paid' ? 'Paid' : s === 'posted' ? 'Posted' : 'Draft';
+      return s === 'paid' ? 'paid' : s === 'posted' ? 'Posted' : 'Draft';
     }
     if ('payrollRun' in d) {
       const s = String(d.payrollRun.status ?? '').toLowerCase();
-      return s === 'paid' ? 'Paid' : '';
+      return s === 'paid' ? 'paid' : '';
     }
     if ('grn' in d) return 'Received';
     if ('job' in d) return d.job.status;
     if ('manifest' in d) return d.manifest.status;
     if ('inspection' in d) return d.inspection.status;
-    if ('posOrder' in d) return d.posOrder.status === 'Completed' ? 'Paid' : d.posOrder.status;
+    if ('posOrder' in d) return d.posOrder.status === 'completed' ? 'paid' : d.posOrder.status;
 
     if ('wo' in d) {
       const s = String(d.wo.status ?? '').toLowerCase();
-      return s === 'completed' ? 'Completed' : s === 'cancelled' ? 'Cancelled' : '';
+      return s === 'completed' ? 'completed' : s === 'cancelled' ? 'cancelled' : '';
     }
     const s = ('invoice' in d ? d.invoice.status : 'bill' in d ? d.bill.status : 'receipt' in d ? d.receipt.status : 'payment' in d ? d.payment.status : '') ?? '';
     const k = String(s).toLowerCase();
-    return k === 'paid' ? 'Paid' : k === 'draft' ? 'Draft' : k === 'voided' ? 'Void' : k === 'pendingapproval' ? 'Pending' : '';
+    return k === 'paid' ? 'paid' : k === 'draft' ? 'draft' : k === 'voided' ? 'Void' : k === 'pendingapproval' ? 'pending' : '';
   });
 
   readonly stampClass = computed(() => {
@@ -1538,12 +1561,35 @@ export class PrintPage implements OnInit {
         next: ({ inspection, header }) => this.setLoaded({ header, inspection: inspection.data || inspection } as PrintInspectionData),
         error: (err) => this.setError(err),
       });
-    } else if (type === 'pos-receipt') {
+    } else if (type === 'pos-return') {
+      this.http.get<PosReturnDto>(`${this.apiBase}/m/pos/returns/${id}`).pipe(
+        switchMap((posReturn) => forkJoin({
+          posReturn: of(posReturn),
+          header: this.loadHeader(),
+          register: this.http.get<any>(`${this.apiBase}/m/pos/registers/${posReturn.registerId}`).pipe(catchError(() => of(null))),
+        })),
+      ).subscribe({
+        next: ({ posReturn, header, register }) => this.setLoaded({ header, posReturn, register } as PrintPosReturnData),
+        error: (err) => this.setError(err),
+      });
+    } else if (type === 'pos-shift') {
       forkJoin({
-        order: this.http.get<any>(`${this.apiBase}/m/pos/orders/${id}`),
+        posShift: this.http.get<PosShiftReportDto>(`${this.apiBase}/m/pos/sessions/${id}/report`),
         header: this.loadHeader(),
       }).subscribe({
-        next: ({ order, header }) => this.setLoaded({ header, posOrder: order.data || order } as PrintPosReceiptData),
+        next: ({ posShift, header }) => this.setLoaded({ header, posShift } as PrintPosShiftData),
+        error: (err) => this.setError(err),
+      });
+    } else if (type === 'pos-receipt') {
+      this.http.get<any>(`${this.apiBase}/m/pos/orders/${id}`).pipe(
+        switchMap((order) => forkJoin({
+          order: of(order),
+          header: this.loadHeader(),
+          // a register that cannot be read must not stop the receipt from printing
+          register: this.http.get<any>(`${this.apiBase}/m/pos/registers/${order.registerId}`).pipe(catchError(() => of(null))),
+        })),
+      ).subscribe({
+        next: ({ order, header, register }) => this.setLoaded({ header, posOrder: order, register } as PrintPosReceiptData),
         error: (err) => this.setError(err),
       });
     } else {
@@ -1553,7 +1599,7 @@ export class PrintPage implements OnInit {
   }
 
   private loadHeader() {
-    return this.http.get<any>(`${this.apiBase}/admin/legal-entities?pageSize=10`).pipe(
+    return this.http.get<any>(`${this.apiBase}/legal-entities?pageSize=10`).pipe(
       map((res) => {
         const items = res?.data || res?.items || [];
         const entity = items[0] || {};

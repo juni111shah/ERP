@@ -15,7 +15,8 @@ public sealed record MeModule(string Key, string UiRoute);
 /// <summary>Everything the UI needs after sign-in: identity, workspace, permissions, legal entities and enabled modules.</summary>
 public sealed record MeDto(
     MeUser User, MeWorkspace Workspace, IReadOnlyList<WorkspaceOption> Workspaces, IReadOnlyList<string> Permissions,
-    IReadOnlyList<MeLegalEntity> LegalEntities, bool AllLegalEntities, IReadOnlyList<MeModule> EnabledModules);
+    IReadOnlyList<MeLegalEntity> LegalEntities, bool AllLegalEntities, IReadOnlyList<MeModule> EnabledModules,
+    bool PlatformAdmin, ERP.Application.Platform.SubscriptionSummary Subscription, bool IsInternalWorkspace);
 
 public sealed record GetMe : IQuery<MeDto>;
 
@@ -27,7 +28,8 @@ public sealed record GetNavigationMenu : IQuery<IReadOnlyList<MenuGroupDto>>;
 
 internal sealed class SessionHandlers(
     ICurrentUser user, IUserDirectory directory, IAuthService auth, IReadRepository<Organization> organizations,
-    IReadRepository<LegalEntity> legalEntities, ModuleRegistry modules, IModuleAccess access) :
+    IReadRepository<LegalEntity> legalEntities, ModuleRegistry modules, IModuleAccess access,
+    ERP.Application.Platform.IPlatformDirectory platform, ERP.Application.Platform.ISubscriptionAccess subscription) :
     IRequestHandler<GetMe, MeDto>,
     IRequestHandler<GetNavigationMenu, IReadOnlyList<MenuGroupDto>>
 {
@@ -46,7 +48,8 @@ internal sealed class SessionHandlers(
             permissions.OrderBy(p => p).ToList(),
             entities,
             allowedEntities is null,
-            modules.Modules.Where(m => m.Manifest.IsCore || enabled.Contains(m.Manifest.Key)).Select(m => new MeModule(m.Manifest.Key, m.Manifest.UiRoute)).ToList());
+            modules.Modules.Where(m => m.Manifest.IsCore || enabled.Contains(m.Manifest.Key)).Select(m => new MeModule(m.Manifest.Key, m.Manifest.UiRoute)).ToList(),
+            await platform.IsPlatformAdminAsync(userId, ct), await subscription.GetAsync(org.Id, ct), org.IsInternal);
     }
 
     public async Task<IReadOnlyList<MenuGroupDto>> Handle(GetNavigationMenu q, CancellationToken ct)

@@ -22,6 +22,7 @@ import { LogTimeComponent } from './log-time.component';
 import { ProjectControlComponent, ProjectMilestonesComponent, ProjectMoneyComponent, ProjectNotesComponent, ProjectOverviewComponent, ProjectTeamComponent, ProjectTimeComponent, ProjectWorkComponent } from './project-tabs.components';
 import { BILLING_TYPES, errorText, filterOptions, PRJ_STYLES, PROJECT_ACTIONS, ProjectTagComponent } from './projects-ui';
 import { TaskDrawerComponent } from './task-drawer.component';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 interface TabDef { key: string; label: string; permission?: string | string[]; }
 const TABS: TabDef[] = [
@@ -40,7 +41,7 @@ const TABS: TabDef[] = [
   selector: 'erp-project-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, RecordDrawerComponent, ProjectTagComponent, LogTimeComponent, TaskDrawerComponent,
+  imports: [ErpDatePipe, DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, RecordDrawerComponent, ProjectTagComponent, LogTimeComponent, TaskDrawerComponent,
     ProjectOverviewComponent, ProjectWorkComponent, ProjectMilestonesComponent, ProjectTimeComponent, ProjectMoneyComponent, ProjectTeamComponent, ProjectControlComponent, ProjectNotesComponent],
   template: `
     @if (project(); as p) {
@@ -57,7 +58,7 @@ const TABS: TabDef[] = [
           <div class="meta">
             <span><span nz-icon nzType="user"></span> {{ p.customerName || 'Internal project' }}</span>
             @if (p.managerName) { <span><span nz-icon nzType="team"></span> {{ p.managerName }}</span> }
-            <span><span nz-icon nzType="calendar"></span> {{ p.startDate || 'No start date' }} to {{ p.endDate || 'no end date' }}</span>
+            <span><span nz-icon nzType="calendar"></span> {{ (p.startDate | erpDate) || 'No start date' }} to {{ (p.endDate | erpDate) || 'no end date' }}</span>
             <span><erp-prj-tag kind="billing" [value]="p.billingType" /></span>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
+import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -9,21 +10,25 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { QuoteDto, SalesQuotesApi, SalesQuoteStatus } from '../../core/api/sales.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { ErpDatePipe } from '../../shared/display.pipes';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { displayLabel } from '../../core/format/display';
 
 @Component({
   selector: 'erp-quote-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [ErpDatePipe, StatePanelComponent, StatusTagComponent, NzSkeletonModule, NzToolTipModule,
     CommonModule,
     DecimalPipe,
     RouterModule,
     NzGridModule,
     NzCardModule,
-    NzTagModule,
     NzButtonModule,
     NzIconModule,
     NzTableModule,
@@ -44,26 +49,36 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
           <div class="title-section">
             <div class="number-tag">
               <h1 class="quote-number">{{ q.number }}</h1>
-              <nz-tag [nzColor]="statusColor(q.status)">{{ q.status }}</nz-tag>
+              <erp-status [value]="q.status" />
             </div>
             <p class="customer-subtitle">Quotation for {{ q.customerName }}</p>
           </div>
 
           <div class="header-actions">
-            @if (q.status === 'Draft') {
-              <button *erpHasPermission="'sales.quotes.manage'" nz-button (click)="changeStatus('Sent')">
+            @if (q.status === 'draft') {
+              <button *erpHasPermission="'sales.quotes.manage'" nz-button (click)="changeStatus('sent')">
                 <span nz-icon nzType="mail"></span>Mark Sent
               </button>
             }
-            @if (q.status === 'Sent' || q.status === 'Draft') {
-              <button *erpHasPermission="'sales.quotes.manage'" nz-button nzType="primary" (click)="changeStatus('Accepted')">
+            @if (q.status === 'sent' || q.status === 'draft') {
+              <button *erpHasPermission="'sales.quotes.manage'" nz-button nzType="primary" (click)="changeStatus('accepted')">
                 <span nz-icon nzType="check"></span>Accept Quote
               </button>
-              <button *erpHasPermission="'sales.quotes.manage'" nz-button nzDanger (click)="changeStatus('Declined')">
+              <button *erpHasPermission="'sales.quotes.manage'" nz-button nzDanger (click)="changeStatus('declined')">
                 <span nz-icon nzType="close"></span>Decline
               </button>
             }
-            @if (q.status === 'Accepted' && !q.convertedSalesOrderId) {
+            @if (q.status === 'sent') {
+              <button *erpHasPermission="'sales.quotes.manage'" nz-button (click)="changeStatus('expired')" data-testid="quote-expire">
+                <span nz-icon nzType="clock-circle"></span>Mark Expired
+              </button>
+            }
+            @if (q.status === 'declined' || q.status === 'expired') {
+              <button *erpHasPermission="'sales.quotes.manage'" nz-button (click)="changeStatus('draft')" data-testid="quote-reopen">
+                <span nz-icon nzType="undo"></span>Back to Draft
+              </button>
+            }
+            @if (q.status === 'accepted' && !q.convertedSalesOrderId) {
               <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="primary" (click)="convertToOrder()">
                 <span nz-icon nzType="shopping-cart"></span>Convert to Sales Order
               </button>
@@ -87,8 +102,8 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
                 <nz-descriptions-item nzTitle="Customer">{{ q.customerName }}</nz-descriptions-item>
                 <nz-descriptions-item nzTitle="Email">{{ q.customerEmail || '-' }}</nz-descriptions-item>
                 <nz-descriptions-item nzTitle="Phone">{{ q.customerPhone || '-' }}</nz-descriptions-item>
-                <nz-descriptions-item nzTitle="Quote Date">{{ q.quoteDate }}</nz-descriptions-item>
-                <nz-descriptions-item nzTitle="Valid Until">{{ q.validUntil || 'Open' }}</nz-descriptions-item>
+                <nz-descriptions-item nzTitle="Quote Date">{{ q.quoteDate | erpDate }}</nz-descriptions-item>
+                <nz-descriptions-item nzTitle="Valid Until">{{ (q.validUntil | erpDate) || 'No end date' }}</nz-descriptions-item>
                 <nz-descriptions-item nzTitle="Currency">{{ q.currency }}</nz-descriptions-item>
               </nz-descriptions>
 
@@ -115,7 +130,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
               </div>
               <div class="summary-row">
                 <span class="label">Discount</span>
-                <span class="value" style="color: #ef4444;">-{{ q.currency }} {{ q.discountTotal | number:'1.2-2' }}</span>
+                <span class="value" style="color: var(--erp-color-error-text);">-{{ q.currency }} {{ q.discountTotal | number:'1.2-2' }}</span>
               </div>
               <div class="summary-row">
                 <span class="label">Tax Total</span>
@@ -160,24 +175,28 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
             </tbody>
           </nz-table>
         </nz-card>
+      } @else if (failed()) {
+        <erp-state-panel kind="error" title="This quote could not be loaded." hint="Check your connection and try again." actionLabel="Try again" (action)="reload()" />
+      } @else {
+        <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 8 }" />
       }
     </div>
   `,
   styles: [`
-    .quote-detail-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .quote-detail-container { max-width: 1400px; margin: 0 auto; }
     .header-nav { margin-bottom: 12px; }
-    .back-link { color: #64748b; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
-    .back-link:hover { color: #10955d; }
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .back-link { color: var(--erp-color-text-muted); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+    .back-link:hover { color: var(--erp-color-primary); }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
     .number-tag { display: flex; align-items: center; gap: 12px; }
-    .quote-number { font-size: 26px; font-weight: 700; color: #0f172a; margin: 0; }
-    .customer-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0 0; }
-    .header-actions { display: flex; gap: 8px; align-items: center; }
-    .info-card, .summary-card, .items-card { border-radius: 12px; border: 1px solid #e2e8f0; }
-    .note-box { background: #f8fafc; border-left: 3px solid #10955d; padding: 10px 14px; border-radius: 0 6px 6px 0; font-size: 13px; }
-    .note-box p { margin: 4px 0 0 0; color: #475569; }
-    .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #475569; }
-    .total-row { border-top: 2px solid #e2e8f0; border-bottom: none; margin-top: 8px; padding-top: 12px; font-size: 18px; font-weight: 700; color: #0f172a; }
+    .quote-number { font-size: 26px; font-weight: 700; color: var(--erp-color-text-primary); margin: 0; }
+    .customer-subtitle { color: var(--erp-color-text-muted); font-size: 14px; margin: 4px 0 0 0; }
+    .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .info-card, .summary-card, .items-card { border-radius: 12px; border: 1px solid var(--erp-color-border-subtle); }
+    .note-box { background: var(--erp-color-bg-subtle); border-inline-start: 3px solid var(--erp-color-primary); padding: 10px 14px; border-start-end-radius: 6px; border-end-end-radius: 6px; font-size: 13px; }
+    .note-box p { margin: 4px 0 0 0; color: var(--erp-color-text-secondary); }
+    .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--erp-color-border-subtle); font-size: 14px; color: var(--erp-color-text-secondary); }
+    .total-row { border-top: 2px solid var(--erp-color-border-subtle); border-bottom: none; margin-top: 8px; padding-top: 12px; font-size: 18px; font-weight: 700; color: var(--erp-color-text-primary); }
   `],
 })
 export class QuoteDetailPage {
@@ -186,6 +205,8 @@ export class QuoteDetailPage {
   private readonly message = inject(NzMessageService);
 
   readonly quote = signal<QuoteDto | null>(null);
+  readonly failed = signal(false);
+  private quoteId: string | null = null;
 
   constructor() {
     this.route.paramMap.subscribe((params) => {
@@ -194,10 +215,16 @@ export class QuoteDetailPage {
     });
   }
 
+  reload(): void {
+    if (this.quoteId) this.loadQuote(this.quoteId);
+  }
+
   loadQuote(id: string): void {
+    this.quoteId = id;
+    this.failed.set(false);
     this.quotesApi.get(id).subscribe({
       next: (q) => this.quote.set(q),
-      error: () => this.message.error('Failed to load quote details'),
+      error: () => this.failed.set(true),
     });
   }
 
@@ -207,9 +234,9 @@ export class QuoteDetailPage {
     this.quotesApi.setStatus(q.id, status).subscribe({
       next: (updated) => {
         this.quote.set(updated);
-        this.message.success(`Status updated to ${status}`);
+        this.message.success(`Status changed to ${displayLabel(status).toLowerCase()}.`);
       },
-      error: (err) => this.message.error(err?.error?.message ?? 'Failed to update status'),
+      error: (err) => this.message.error(problemMessage(err, 'Failed to update status')),
     });
   }
 
@@ -221,18 +248,8 @@ export class QuoteDetailPage {
         this.message.success(`Converted into Sales Order ${order.number}`);
         this.loadQuote(q.id);
       },
-      error: (err) => this.message.error(err?.error?.message ?? 'Failed to convert quote'),
+      error: (err) => this.message.error(problemMessage(err, 'Failed to convert quote')),
     });
   }
 
-  statusColor(status: string): string {
-    switch (status) {
-      case 'Accepted':
-      case 'Converted': return 'green';
-      case 'Sent': return 'blue';
-      case 'Declined':
-      case 'Expired': return 'red';
-      default: return 'default';
-    }
-  }
 }

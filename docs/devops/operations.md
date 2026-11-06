@@ -77,17 +77,19 @@ Dev tunnel (the workstation UI on :4200) is managed by hand:
 & 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel --no-autoupdate --url http://localhost:4200 --http-host-header localhost
 ```
 
-## First admin (bootstrap)
+## Platform owner (bootstrap)
 
-Staging and production have no seeded users, and self-signup is off. Create the first workspace once:
+Staging and production have no seeded users. Make yourself the platform owner once per environment:
 
 ```powershell
-.\erp-env.ps1 restart -Environment production -AllowSelfSignup    # temporarily allows "create workspace"
-# open the production URL and register the first workspace/admin, right away
-.\erp-env.ps1 restart -Environment production                     # turns self-signup off again
+.\erp-env.ps1 restart -Environment production -FounderEmail you@company.com    # asks for a password if the account is new
+.\erp-env.ps1 restart -Environment production                                  # clears the password from the running process
 ```
 
-After that, add users by invitation from inside the app.
+This creates the account, an internal workspace for it and the starter plans. Sign in and open `/platform`. From there you
+add clients, or open registration at `/register`, with no more restarts. See [platform-console.md](../platform-console.md).
+
+The older `-AllowSelfSignup` switch still works, and starts the new workspace on the default plan. It is no longer needed.
 
 ## Logs
 

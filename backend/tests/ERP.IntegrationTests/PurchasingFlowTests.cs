@@ -72,6 +72,50 @@ public class PurchasingFlowTests(ApiFactory f) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Removing_what_was_generated_frees_the_record_it_came_from()
+    {
+        var env = await SetupPurchasingEnvAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var req = await Ok(await env.C.PostAsJsonAsync($"{Pur}/requisitions", new
+        {
+            legalEntityId = env.EntityId,
+            requesterName = "Alice",
+            requisitionDate = today,
+            lines = new[] { new { itemId = env.ItemId, itemCode = env.ItemSku, description = "Part", quantity = 1m, unitOfMeasure = "pcs", estimatedUnitPrice = 5m } }
+        }), HttpStatusCode.Created);
+        var reqId = (string)req["id"]!;
+        await Ok(await env.C.PutAsJsonAsync($"{Pur}/requisitions/{reqId}/status", new { status = "Approved" }));
+
+        async Task<string> ConvertAsync() => (string)(await Ok(await env.C.PostAsJsonAsync($"{Pur}/requisitions/{reqId}/convert-to-order", new { vendorPartyId = env.VendorPartyId, vendorName = "Vendor Corp" })))["id"]!;
+        async Task AssertRequisitionFreeAsync()
+        {
+            var r = await Ok(await env.C.GetAsync($"{Pur}/requisitions/{reqId}"));
+            Assert.Equal("approved", (string)r["status"]!, ignoreCase: true);
+            Assert.Null(r["convertedPurchaseOrderId"]);
+        }
+
+        // deleting a draft order frees the requisition
+        var first = await ConvertAsync();
+        Assert.Equal(HttpStatusCode.NoContent, (await env.C.DeleteAsync($"{Pur}/orders/{first}")).StatusCode);
+        await AssertRequisitionFreeAsync();
+
+        // so does cancelling one
+        var second = await ConvertAsync();
+        await Ok(await env.C.PutAsJsonAsync($"{Pur}/orders/{second}/status", new { status = "Cancelled" }));
+        await AssertRequisitionFreeAsync();
+
+        // deleting a draft bill puts the order back, and it can be billed again
+        var third = await ConvertAsync();
+        await Ok(await env.C.PutAsJsonAsync($"{Pur}/orders/{third}/status", new { status = "Approved" }));
+        var bill = (string)(await Ok(await env.C.PostAsync($"{Pur}/orders/{third}/convert-to-bill", null)))["id"]!;
+        Assert.Equal(HttpStatusCode.NoContent, (await env.C.DeleteAsync($"{Fin}/bills/{bill}")).StatusCode);
+        var order = await Ok(await env.C.GetAsync($"{Pur}/orders/{third}"));
+        Assert.Equal("approved", (string)order["status"]!, ignoreCase: true);
+        Assert.Null(order["invoicedBillId"]);
+        await Ok(await env.C.PostAsync($"{Pur}/orders/{third}/convert-to-bill", null));
+    }
+
+    [Fact]
     public async Task Full_purchasing_flow_requisition_to_po_to_receipt_to_bill()
     {
         var env = await SetupPurchasingEnvAsync();

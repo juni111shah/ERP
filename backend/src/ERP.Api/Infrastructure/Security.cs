@@ -1,3 +1,5 @@
+using ERP.Application.Abstractions;
+using ERP.Application.Platform;
 using ERP.Application.Security;
 using ERP.Modularity;
 using Microsoft.AspNetCore.Authorization;
@@ -20,6 +22,20 @@ public sealed class PermissionPolicyProvider(IOptions<AuthorizationOptions> opti
                 .RequireAssertion(ctx => !ctx.User.HasClaim(c => c.Type == "portal_party"))
                 .AddRequirements(new PermissionRequirement(policyName[PermissionEndpointExtensions.PolicyPrefix.Length..])).Build();
         return await base.GetPolicyAsync(policyName);
+    }
+}
+
+/// <summary>The founder's console: read from the account on every request, so taking someone off the team works at once.</summary>
+public sealed class PlatformAdminRequirement : IAuthorizationRequirement
+{
+    public const string Policy = "platform-admin";
+}
+
+public sealed class PlatformAdminHandler(ICurrentUser user, IPlatformDirectory directory) : AuthorizationHandler<PlatformAdminRequirement>
+{
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, PlatformAdminRequirement requirement)
+    {
+        if (user.UserId is { } id && await directory.IsPlatformAdminAsync(id)) context.Succeed(requirement);
     }
 }
 

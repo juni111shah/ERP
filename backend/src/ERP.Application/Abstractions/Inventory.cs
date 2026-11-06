@@ -37,4 +37,8 @@ public interface IStockPostingService
     Task<decimal> GetAverageCostAsync(Guid itemId, Guid? warehouseId = null, CancellationToken ct = default);
     Task ReverseReceiptAsync(string reference, CancellationToken ct = default);
     Task ReverseIssueAsync(string reference, CancellationToken ct = default);
+    /// <summary>Quantity on hand per stock-tracked item in the warehouse (or the legal entity's first warehouse). Items not tracked, and everything when the Inventory module is off, are left out.</summary>
+    Task<IReadOnlyDictionary<Guid, decimal>> GetOnHandAsync(IReadOnlyCollection<Guid> itemIds, Guid? warehouseId, Guid legalEntityId, CancellationToken ct = default);
+    /// <summary>Puts part of an earlier issue back on the shelf at the cost it left at, so cost of sales reverses exactly. Returns null when that issue moved no stock.</summary>
+    Task<Guid?> ReturnIssuedStockAsync(string issueReference, Guid itemId, decimal quantity, string returnReference, DateOnly date, CancellationToken ct = default);
 }

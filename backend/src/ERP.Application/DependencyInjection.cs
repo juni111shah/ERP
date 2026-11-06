@@ -52,6 +52,12 @@ public static class DependencyInjection
         services.AddScoped<IMessageChannel, InAppChannel>();
         services.AddScoped<IMessageChannel, OutboxEmailChannel>();
         services.AddScoped<IScheduledJob, ReminderJob>();
+        services.AddScoped<ERP.Application.Platform.ISubscriptionLimits, ERP.Application.Platform.SubscriptionLimits>();
+        services.AddScoped<ERP.Application.Platform.ISubscriptionLifecycle, ERP.Application.Platform.SubscriptionLifecycle>();
+        services.AddScoped<ERP.Application.Platform.PlatformLog>();
+        services.AddScoped<ERP.Application.Platform.PlatformSettingsStore>();
+        services.AddScoped<ERP.Application.Platform.SubscriptionInvoicing>();
+        services.AddScoped<ERP.Application.Platform.ClientProvisioner>();
         services.AddScoped<IScheduledJob, ERP.Application.Common.IdempotencyCleanupJob>();
         services.AddScoped<ERP.Application.Common.IdempotencyService>();
         services.AddScoped<IReminderSource, CoreReminderSource>();

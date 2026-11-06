@@ -63,9 +63,9 @@ C:\actions-runner              GitHub Actions self-hosted runner (labels: self-h
 - Staging/production start with `Database:AutoMigrate=true`: EF Core `MigrateAsync` creates the database if missing and applies
   every pending migration on startup. A deploy therefore carries all new migrations with it.
 - Production deploys take a `COPY_ONLY` backup first (`ERP_Prod_<timestamp>.bak` in the SQL Server default backup folder).
-- `Seed:Enabled=false`: no demo users, workspaces or data in staging/production. `Onboarding:AllowSelfSignup=false`: nobody can
-  register a workspace from the internet. The first workspace/admin is created once with a temporary switch
-  (see [operations.md](operations.md#first-admin-bootstrap)).
+- `Seed:Enabled=false`: no demo users, workspaces or data in staging/production. `Onboarding:AllowSelfSignup=false`: the older sign-up route is off.
+  Registration is controlled by the platform owner, who is set up once (see [operations.md](operations.md#platform-owner-bootstrap)
+  and [platform-console.md](../platform-console.md)).
 
 ## App changes that support this
 

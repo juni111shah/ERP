@@ -13,13 +13,14 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { errorText, filterOptions, PRJ_STYLES, ProjectTagComponent, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from './projects-ui';
 import { TaskDrawerComponent } from './task-drawer.component';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 /** Tasks of every project, or of one when projectId is given. Click a row to open it. */
 @Component({
   selector: 'erp-project-tasks',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterModule, NzButtonModule, NzIconModule, NzSelectModule, PagedTableComponent, HasPermissionDirective, ProjectTagComponent, TaskDrawerComponent],
+  imports: [ErpDatePipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzSelectModule, PagedTableComponent, HasPermissionDirective, ProjectTagComponent, TaskDrawerComponent],
   template: `
     <div class="prj-toolbar">
       <div class="prj-chips" role="group" aria-label="Which tasks">
@@ -46,7 +47,7 @@ import { TaskDrawerComponent } from './task-drawer.component';
             } @else { <erp-prj-tag kind="task" [value]="row.status" /> }
           }
           @case ('hours') { <span [class.prj-danger]="row.estimatedHours > 0 && row.actualHours > row.estimatedHours">{{ row.actualHours }} / {{ row.estimatedHours }} h</span> }
-          @case ('dueDate') { <span [class.prj-danger]="isLate(row)">{{ row.dueDate || '—' }}</span> }
+          @case ('dueDate') { <span [class.prj-danger]="isLate(row)">{{ (row.dueDate | erpDate) || '—' }}</span> }
           @default { {{ value }} }
         }
       </ng-template>

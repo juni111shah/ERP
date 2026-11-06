@@ -107,6 +107,8 @@ internal sealed class PayrollHandlers(
     public Task<PayrollDto> Handle(RecalculatePayroll cmd, CancellationToken ct) => uow.InTransactionAsync(async token =>
     {
         var run = await LoadDraftAsync(cmd.Id, token);
+        // A settlement holds one person and amounts worked out when they left; rebuilding it as a normal run would add every employee and lose them.
+        if (run.Kind == PayrollKind.FinalSettlement) throw new ConflictException("A final settlement cannot be recalculated. Delete the draft and prepare the settlement again.");
         await WithdrawPendingAsync(run, token);
         var keep = run.Lines.Where(l => l.Adjustment != 0).ToDictionary(l => l.EmployeeId, l => (l.Adjustment, l.AdjustmentNote));
         foreach (var old in run.Lines.ToList()) lineRows.Remove(old);

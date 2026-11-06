@@ -21,6 +21,7 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { StatCardComponent } from '../../shared/stat-card.component';
 import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
+import { ErpLabelPipe, ErpDatePipe } from '../../shared/display.pipes';
 
 const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', viewing: 'negotiating' };
 
@@ -29,7 +30,7 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
   selector: 'erp-leads',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KeyboardClickDirective, NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, StatCardComponent],
+  imports: [ErpLabelPipe, ErpDatePipe, KeyboardClickDirective, NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, StatCardComponent],
   styles: [`
     .pipeline-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
     .stage-chip {
@@ -43,8 +44,8 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
       background: var(--erp-color-bg-surface, #ffffff);
     }
     .stage-chip:hover { border-color: var(--erp-color-primary, #10955d); }
-    .stage-chip.active { background: #f0fdf4; border-color: var(--erp-color-primary, #10955d); color: var(--erp-color-primary, #10955d); }
-    .overdue-pill { color: #e11d48; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+    .stage-chip.active { background: var(--erp-color-primary-subtle); border-color: var(--erp-color-primary, #10955d); color: var(--erp-color-primary, #10955d); }
+    .overdue-pill { color: var(--erp-color-error-text); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
   `],
   template: `
     <h1 class="erp-page-title">Leads</h1>
@@ -107,7 +108,7 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
           }
           @case ('source') {
             @if (row.source) {
-              <nz-tag>{{ row.source }}</nz-tag>
+              <nz-tag>{{ row.source | erpLabel }}</nz-tag>
             } @else {
               <span class="muted-text">—</span>
             }
@@ -121,7 +122,7 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
                 @if (isOverdue(row.followUpOn)) {
                   <span nz-icon nzType="alert" nzTheme="outline"></span>
                 }
-                {{ row.followUpOn }}
+                {{ row.followUpOn | erpDate }}
               </span>
             } @else {
               <span class="muted-text">—</span>
@@ -142,7 +143,7 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
             <ng-container *erpHasPermission="'realestate.crm.manage'">
               @if (nextStage(l); as n) { <button nz-button nzSize="small" nzType="primary" (click)="move(l, n)" data-testid="lead-next">{{ 'ui.re.moveTo' | translate: 'Move to' }} {{ humanize(n) }}</button> }
               @if (l.stage !== 'won' && l.stage !== 'lost') {
-                <button nz-button nzSize="small" nzType="primary" (click)="convert(l)" data-testid="lead-convert">Convert to deal</button>
+                <button nz-button nzSize="small" nzType="primary" (click)="startConvert(l)" data-testid="lead-convert">Convert to deal</button>
                 <button nz-button nzSize="small" nzDanger (click)="losing.set(l)" data-testid="lead-lose">Mark as lost</button>
               }
               @if (l.stage === 'lost') { <button nz-button nzSize="small" (click)="move(l, 'new')" data-testid="lead-reopen">Reopen</button> }
@@ -154,7 +155,9 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
       }
     </erp-record-drawer>
     <erp-record-drawer title="Mark lead as lost" [open]="losing() !== null" [fields]="lostFields" [saving]="busy()" [errors]="errors()" [width]="420" testId="lead-lost-form"
-                       submitLabel="Mark as lost" (submitted)="lose($event)" (closed)="losing.set(null)" />`,
+                       submitLabel="Mark as lost" (submitted)="lose($event)" (closed)="losing.set(null)" />
+    <erp-record-drawer title="Convert to deal" [open]="converting() !== null" [fields]="convertFields()" [saving]="busy()" [errors]="errors()" [width]="420" testId="lead-convert-form"
+                       submitLabel="Convert" (submitted)="convert($event)" (closed)="converting.set(null)" />`,
 })
 export class LeadsPage {
   private readonly api = inject(LeadsApi);
@@ -192,6 +195,16 @@ export class LeadsPage {
     { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 4000 },
   ];
   readonly lostFields: FieldSpec[] = [{ key: 'lostReason', label: 'Why was it lost?', type: 'text', required: true, maxLength: 300 }];
+  readonly converting = signal<LeadDto | null>(null);
+  /** The deal value comes from the listing when the lead has one; otherwise the server needs it from here. */
+  readonly convertFields = computed<FieldSpec[]>(() => {
+    const hasListing = !!this.converting()?.listingId;
+    return [
+      { key: 'dealType', label: 'Deal type', type: 'select', options: [{ value: 'lease', label: 'Lease' }, { value: 'sale', label: 'Sale' }], default: 'lease' },
+      { key: 'dealValue', label: 'Deal value', type: 'number', min: 0, required: !hasListing, hint: hasListing ? 'Leave blank to use the listing price.' : 'Annual rent or sale price.' },
+      { key: 'commissionRatePercent', label: 'Commission rate (%)', type: 'number', min: 0, max: 100, hint: 'Leave blank for the default: 5% on a lease, 2% on a sale.' },
+    ];
+  });
   readonly losing = signal<LeadDto | null>(null);
   readonly busy = signal(false);
   readonly errors = signal<ProblemDetails | null>(null);
@@ -236,11 +249,15 @@ export class LeadsPage {
 
   lose(values: Record<string, unknown>): void { const l = this.losing(); if (l) this.move(l, 'lost', values['lostReason'] as string); }
 
-  convert(l: LeadDto): void {
-    this.busy.set(true);
-    this.api.convert(l.id, {}).subscribe({
-      next: () => { this.busy.set(false); this.state.close(); this.message.success('Lead converted to a deal'); this.refresh(); },
-      error: (e) => { this.busy.set(false); this.message.error(asProblem(e)?.detail ?? 'Could not convert the lead'); },
+  startConvert(l: LeadDto): void { this.errors.set(null); this.converting.set(l); }
+
+  convert(v: Record<string, unknown>): void {
+    const l = this.converting();
+    if (!l) return;
+    this.busy.set(true); this.errors.set(null);
+    this.api.convert(l.id, { dealType: (v['dealType'] as string) ?? null, dealValue: (v['dealValue'] as number) ?? null, commissionRatePercent: (v['commissionRatePercent'] as number) ?? null }).subscribe({
+      next: () => { this.busy.set(false); this.converting.set(null); this.state.close(); this.message.success('Lead converted to a deal'); this.refresh(); },
+      error: (e) => { this.busy.set(false); const p = asProblem(e); this.errors.set(p); if (!p?.errors) this.message.error(p?.detail ?? 'Could not convert the lead'); },
     });
   }
 }

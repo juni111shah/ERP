@@ -14,6 +14,7 @@ import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { SessionStore } from '../../core/session/session.store';
 import { errorText, PRJ_STYLES, ProjectTagComponent, statusLabel, TASK_MOVES, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from './projects-ui';
 import { TaskDrawerComponent } from './task-drawer.component';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 const BOARD: ProjectTaskStatus[] = ['todo', 'inProgress', 'review', 'blocked', 'done'];
 type Group = 'none' | 'assignee' | 'priority' | 'project';
@@ -23,22 +24,25 @@ type Group = 'none' | 'assignee' | 'priority' | 'project';
   selector: 'erp-project-board',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DragDropModule, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputModule, NzSelectModule, ProjectTagComponent, TaskDrawerComponent],
+  imports: [ErpDatePipe, DragDropModule, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputModule, NzSelectModule, ProjectTagComponent, TaskDrawerComponent],
   template: `
     <div class="prj-toolbar">
       @if (!projectId()) {
-        <nz-select [ngModel]="pickedProject()" (ngModelChange)="pickProject($event)" nzShowSearch nzAllowClear nzPlaceHolder="All projects" style="width:280px" aria-label="Project" data-testid="board-project">
+        <label class="prj-sr" for="board-project">Project</label>
+        <nz-select nzId="board-project" [ngModel]="pickedProject()" (ngModelChange)="pickProject($event)" nzShowSearch nzAllowClear nzPlaceHolder="All projects" style="width:280px" data-testid="board-project">
           @for (p of projects().items; track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="p.number + ' · ' + p.name"></nz-option> }
         </nz-select>
       }
-      <nz-select [ngModel]="who()" (ngModelChange)="who.set($event)" nzAllowClear nzPlaceHolder="Everyone" style="width:180px" aria-label="Assignee" data-testid="board-assignee">
+      <label class="prj-sr" for="board-assignee">Assignee</label>
+      <nz-select nzId="board-assignee" [ngModel]="who()" (ngModelChange)="who.set($event)" nzAllowClear nzPlaceHolder="Everyone" style="width:180px" data-testid="board-assignee">
         <nz-option nzValue="__none" nzLabel="Unassigned"></nz-option>
         @for (n of assignees(); track n) { <nz-option [nzValue]="n" [nzLabel]="n"></nz-option> }
       </nz-select>
       <input nz-input [ngModel]="term()" (ngModelChange)="term.set($event)" placeholder="Search tasks" aria-label="Search tasks" style="width:180px" data-testid="board-search" />
       <button type="button" class="prj-chip" [class.on]="mineOnly()" (click)="mineOnly.set(!mineOnly())" data-testid="board-mine">My tasks</button>
-      <nz-select [ngModel]="group()" (ngModelChange)="group.set($event)" style="width:170px" aria-label="Group rows by" data-testid="board-group">
-        <nz-option nzValue="none" nzLabel="No rows"></nz-option><nz-option nzValue="assignee" nzLabel="Row per person"></nz-option><nz-option nzValue="priority" nzLabel="Row per priority"></nz-option>
+      <label class="prj-sr" for="board-group">Group rows by</label>
+      <nz-select nzId="board-group" [ngModel]="group()" (ngModelChange)="group.set($event)" style="width:170px" data-testid="board-group">
+        <nz-option nzValue="none" nzLabel="One row"></nz-option><nz-option nzValue="assignee" nzLabel="Row per person"></nz-option><nz-option nzValue="priority" nzLabel="Row per priority"></nz-option>
         @if (!projectId()) { <nz-option nzValue="project" nzLabel="Row per project"></nz-option> }
       </nz-select>
       <span class="prj-spacer"></span>
@@ -63,12 +67,13 @@ type Group = 'none' | 'assignee' | 'priority' | 'project';
                       @if (!projectId() && group() !== 'project') { <a class="project" [routerLink]="['/projects', t.projectId]" [queryParams]="{ tab: 'tasks' }" (click)="$event.stopPropagation()">{{ t.projectName }}</a> }
                       <div class="meta">
                         @if (t.assignedTo) { <span class="who" [title]="t.assignedTo">{{ initials(t.assignedTo) }}</span> }
-                        @if (t.dueDate) { <span [class.late]="isLate(t)">{{ t.dueDate }}</span> }
+                        @if (t.dueDate) { <span [class.late]="isLate(t)">{{ t.dueDate | erpDate }}</span> }
                         @if (t.estimatedHours) { <span>{{ t.actualHours }}/{{ t.estimatedHours }} h</span> }
                       </div>
                       @if (labels(t).length) { <div class="labels">@for (l of labels(t); track l) { <span>{{ l }}</span> }</div> }
                       @if (canManage()) {
-                        <nz-select [ngModel]="t.status" (ngModelChange)="move(t, $event)" nzSize="small" class="mover" (click)="$event.stopPropagation()" [attr.aria-label]="'Move ' + t.number + ' to'">
+                        <label class="prj-sr" [for]="'board-move-' + t.id">Move {{ t.number }} to</label>
+                        <nz-select [nzId]="'board-move-' + t.id" [ngModel]="t.status" (ngModelChange)="move(t, $event)" nzSize="small" class="mover" (click)="$event.stopPropagation()">
                           @for (s of moves(t); track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.value === t.status ? s.label : 'Move to: ' + s.label"></nz-option> }
                         </nz-select>
                       }
@@ -88,7 +93,8 @@ type Group = 'none' | 'assignee' | 'priority' | 'project';
     <erp-task-drawer (changed)="load()" />
   `,
   styles: [PRJ_STYLES + `
-    .scroller { overflow-x:auto; padding-bottom:6px; } .heads, .lane { display:grid; grid-template-columns:repeat(5, minmax(210px, 1fr)); gap:10px; min-width:1090px; }
+    .prj-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    :host { display:block; min-width:0; } .scroller { overflow-x:auto; padding-bottom:6px; max-width:100%; } .heads, .lane { display:grid; grid-template-columns:repeat(5, minmax(210px, 1fr)); gap:10px; min-width:1090px; }
     .head { font-weight:600; color:var(--erp-color-text-primary,#334155); padding:6px 8px; display:flex; justify-content:space-between; font-size:13px; }
     .count { color:var(--erp-color-text-secondary,#64748b); font-weight:600; } .lane-title { font-weight:600; font-size:13px; margin:10px 0 6px; color:var(--erp-color-text-primary,#0f172a); min-width:1090px; }
     .col { background:var(--erp-color-bg-subtle,#f1f5f9); border-radius:10px; padding:6px; min-height:120px; display:flex; flex-direction:column; gap:6px; }

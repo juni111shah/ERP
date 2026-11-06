@@ -1,7 +1,7 @@
 import { ActivatedRoute, Router } from '@angular/router';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -14,7 +14,7 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { catchError, of } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import { AccountDto, AccountsApi, BillDto, BillSummary, BillsApi, LegalEntitiesApi, LegalEntityDto, TaxCodeDto, TaxCodesApi } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
@@ -22,16 +22,17 @@ import { LookupOption } from '../../core/custom-fields/lookup-registry';
 import { asProblem, controlError, problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
-import { DecimalPipe } from '@angular/common';
 import { PartiesApi } from '../parties.page';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { ListQuery } from '../../core/api/api.models';
+import { daysOverdue, formatMoney } from './invoice-sheet.component';
+import { AllRows, countOf, countRows, fetchAllRows, moneyByCurrency, startOfYear } from './finance-kpis';
 
-const STATUS_COLORS: Record<string, string> = { draft: 'default', pendingApproval: 'purple', issued: 'blue', partlyPaid: 'gold', paid: 'green', voided: 'red' };
 const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pendingApproval: 'Needs approval', issued: 'Posted' };
 
 /** Vendor bills: draft with a line editor, post to the ledger (after approval when a rule applies), void. */
@@ -39,36 +40,18 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
   selector: 'erp-bills',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
-  styles: [`.line { display:grid; grid-template-columns: 2fr 1.6fr .7fr .9fr 1.1fr auto; gap:8px; margin-bottom:8px; align-items:center } .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0 }`],
+  imports: [StatCardComponent, StatusTagComponent, NzToolTipModule, RevealDirective, ReactiveFormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzTagModule],
+  styles: [`.line { display:grid; grid-template-columns: 2fr 1.6fr .7fr .9fr 1.1fr 32px; gap:8px; margin-bottom:8px; align-items:center } .line nz-input-number { width:100% }
+    .line-head { margin-bottom:4px; font-size:12px; font-weight:600; color: var(--erp-color-text-muted) }
+    .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0; font-variant-numeric: tabular-nums } .amount { font-variant-numeric: tabular-nums; white-space:nowrap }`],
   template: `
     <h1 class="erp-page-title">Bills</h1>
 
     <div class="erp-stat-grid erp-stat-grid--auto" data-testid="bill-stats">
-      <erp-stat-card label="Total billed"
-                     [value]="stats().billed"
-                     format="money"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
-                     [tone]="0" />
-      <erp-stat-card label="Outstanding"
-                     [value]="stats().outstanding"
-                     format="money"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().outstanding > 0 ? 'payable balance' : 'all settled'"
-                     [tone]="stats().outstanding > 0 ? 2 : 'neutral'" />
-      <erp-stat-card label="Draft bills"
-                     [value]="stats().drafts"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="pending submission"
-                     [tone]="3" />
-      <erp-stat-card label="Bills count"
-                     [value]="list.total()"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="total records"
-                     [tone]="1" />
+      <erp-stat-card label="Billed this year" [value]="stats()?.billed" [loading]="statsLoading()" [caption]="stats()?.billedCaption ?? statsError()" [tone]="0" />
+      <erp-stat-card label="Outstanding" [value]="stats()?.outstanding" [loading]="statsLoading()" [caption]="stats()?.outstandingCaption ?? statsError()" [tone]="2" />
+      <erp-stat-card label="Overdue" [value]="stats()?.overdue" [loading]="statsLoading()" [caption]="stats()?.overdueCaption ?? statsError()" [tone]="stats()?.overdueCount ? 'danger' : 'neutral'" />
+      <erp-stat-card label="Drafts" [value]="stats()?.drafts" format="number" [loading]="statsLoading()" [caption]="stats() ? 'Not posted yet' : statsError()" [tone]="3" />
     </div>
 
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, vendor or reference" emptyText="No bills yet" (rowClick)="open($event)">
@@ -88,15 +71,13 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
             }
           }
           @case ('total') {
-            <b>{{ currency() }} {{ row.total | number: '1.2-2' }}</b>
+            <b class="amount">{{ value }}</b>
           }
           @case ('outstanding') {
-            <span [class.unallocated-badge]="row.outstanding > 0">
-              {{ currency() }} {{ row.outstanding | number: '1.2-2' }}
-            </span>
+            <span class="amount" [class.unallocated-badge]="row.outstanding > 0 && row.status !== 'voided'">{{ value }}</span>
           }
           @case ('status') {
-            <nz-tag [nzColor]="color(row.status)">{{ label(row.status) }}</nz-tag>
+            <erp-status [value]="row.status" [label]="label(row.status)" />
           }
           @default {
             {{ value }}
@@ -112,16 +93,17 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
           <nz-form-item><nz-form-label nzRequired>Legal entity</nz-form-label><nz-form-control [nzErrorTip]="err('legalEntityId')">
             <nz-select formControlName="legalEntityId" data-testid="bill-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label nzRequired>Vendor</nz-form-label><nz-form-control [nzErrorTip]="err('partyId')">
-            <nz-select formControlName="partyId" nzShowSearch nzServerSearch (nzOnSearch)="searchParties($event)" data-testid="bill-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
+            <nz-select formControlName="partyId" nzShowSearch nzServerSearch nzPlaceHolder="Search vendors" (nzOnSearch)="searchParties($event)" data-testid="bill-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Vendor reference</nz-form-label><nz-form-control [nzErrorTip]="err('vendorReference')"><input nz-input formControlName="vendorReference" data-testid="bill-ref" /></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Bill date</nz-form-label><nz-form-control [nzErrorTip]="err('billDate')"><nz-date-picker formControlName="billDate" style="width:100%" data-testid="bill-date"></nz-date-picker></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Due date</nz-form-label><nz-form-control [nzErrorTip]="err('dueDate')" nzExtra="Follows the bill date + the vendor's payment terms until you change it. Leave empty to use the terms."><nz-date-picker formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Bill date</nz-form-label><nz-form-control [nzErrorTip]="err('billDate')"><nz-date-picker nzFormat="dd MMM yyyy" formControlName="billDate" style="width:100%" data-testid="bill-date"></nz-date-picker></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Due date</nz-form-label><nz-form-control [nzErrorTip]="err('dueDate')" nzExtra="Follows the bill date + the vendor's payment terms until you change it. Leave empty to use the terms."><nz-date-picker nzFormat="dd MMM yyyy" formControlName="dueDate" style="width:100%"></nz-date-picker></nz-form-control></nz-form-item>
           <h4>Lines</h4>
           <div formArrayName="lines">
+            <div class="line line-head" aria-hidden="true" data-testid="bill-line-head"><span>Description</span><span>Expense account</span><span>Quantity</span><span>Unit price</span><span>Tax</span><span></span></div>
             @for (l of lines.controls; track $index) {
               <div class="line" [formGroupName]="$index">
-                <input aria-label="Description" nz-input formControlName="description" placeholder="Description" [attr.data-testid]="'bill-desc-' + $index" />
-                <nz-select formControlName="accountId" nzShowSearch nzPlaceHolder="Expense account" [attr.data-testid]="'bill-account-' + $index">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
+                <input aria-label="Description" nz-input [nzStatus]="lineStatus(l, 'description')" formControlName="description" placeholder="What was bought" [attr.data-testid]="'bill-desc-' + $index" />
+                <nz-select [nzStatus]="lineStatus(l, 'accountId')" formControlName="accountId" nzShowSearch nzPlaceHolder="Expense account" [attr.data-testid]="'bill-account-' + $index">@for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select>
                 <nz-input-number formControlName="quantity" [nzMin]="0.0001" [nzPrecision]="2"></nz-input-number>
                 <nz-input-number formControlName="price" [nzMin]="0" [nzPrecision]="2" [attr.data-testid]="'bill-price-' + $index"></nz-input-number>
                 <nz-select formControlName="taxCodeId" nzAllowClear nzPlaceHolder="No tax">@for (t of taxes(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.code + ' ' + t.rate + '%'"></nz-option> }</nz-select>
@@ -130,7 +112,7 @@ const STATUS_LABELS: Record<string, string> = { partlyPaid: 'Part paid', pending
             }
           </div>
           @if (editable()) { <button nz-button nzType="dashed" type="button" (click)="addLine()" data-testid="bill-add-line"><span nz-icon nzType="plus"></span> Add line</button> }
-          <div class="totals"><span>Net <b>{{ totals().net.toFixed(2) }}</b></span><span>Tax <b>{{ totals().tax.toFixed(2) }}</b></span><span>Total <b>{{ (totals().net + totals().tax).toFixed(2) }}</b></span></div>
+          <div class="totals"><span>Net <b>{{ lineMoney(totals().net) }}</b></span><span>Tax <b>{{ lineMoney(totals().tax) }}</b></span><span>Total <b>{{ lineMoney(totals().net + totals().tax) }}</b></span></div>
         </form>
       </ng-container>
     </nz-drawer>
@@ -164,17 +146,31 @@ export class BillsPage {
   readonly accounts = computed(() => this.accountPage().items.filter((a) => a.isPostable && a.isActive && (a.type === 'expense' || a.type === 'asset')));
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-billDate' });
 
+  private readonly statsData = signal<{ open: AllRows<BillSummary>; year: AllRows<BillSummary>; drafts: number } | null>(null);
+  readonly statsLoading = signal(true);
+  /** Caption of the cards when their figures could not be read. */
+  readonly statsError = computed(() => (this.statsLoading() ? null : 'Could not load this figure'));
+  /** The figures for the whole workspace, not the page on screen: open bills and this year's bills are read in full, drafts are counted by the server. */
   readonly stats = computed(() => {
-    const items = this.list.items();
-    const billed = items.reduce((s, b) => s + (b.total || 0), 0);
-    const outstanding = items.reduce((s, b) => s + (b.outstanding || 0), 0);
-    const drafts = items.filter((b) => b.status === 'draft').length;
+    const d = this.statsData();
+    if (!d) return null;
+    const cur = this.currency();
+    const late = d.open.items.filter((b) => daysOverdue(b) > 0);
     return {
-      billed,
-      outstanding,
-      drafts,
-      count: items.length,
+      billed: moneyByCurrency(d.year.items, (b) => b.total, cur),
+      billedCaption: countOf(d.year.items.length, 'bill') + (d.year.capped ? ' (latest rows only)' : ''),
+      outstanding: moneyByCurrency(d.open.items, (b) => b.outstanding, cur),
+      outstandingCaption: d.open.items.length ? countOf(d.open.items.length, 'open bill') : 'Everything is paid',
+      overdue: moneyByCurrency(late, (b) => b.outstanding, cur),
+      overdueCount: late.length,
+      overdueCaption: late.length ? countOf(late.length, 'bill') : 'Nothing overdue',
+      drafts: d.drafts,
     };
+  });
+  /** A new document opened from a link can beat the legal entity list; fill the only choice once it arrives. */
+  private readonly defaultEntity = effect(() => {
+    const entities = this.entities();
+    if (entities.length === 1 && this.drawerOpen() && !this.bill() && !this.form.controls.legalEntityId.value) this.form.controls.legalEntityId.setValue(entities[0].id);
   });
   readonly columns: TableColumn<BillSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
@@ -182,9 +178,9 @@ export class BillsPage {
     { key: 'vendorReference', label: 'Reference', width: '140px' },
     { key: 'billDate', label: 'Date', sortField: 'billDate', width: '120px', filterField: 'billDate' },
     { key: 'dueDate', label: 'Due', sortField: 'dueDate', width: '120px', filterField: 'dueDate' },
-    { key: 'total', label: 'Total', sortField: 'total', width: '110px' },
-    { key: 'outstanding', label: 'Outstanding', width: '110px' },
-    { key: 'status', label: 'Status', width: '130px', filterField: 'status', filterOptions: ['draft', 'pendingApproval', 'issued', 'partlyPaid', 'paid', 'voided'] },
+    { key: 'total', label: 'Total', sortField: 'total', width: '150px', align: 'right', value: (b) => formatMoney(b.total, b.currencyCode) },
+    { key: 'outstanding', label: 'Outstanding', width: '150px', align: 'right', value: (b) => (b.status === 'voided' ? '—' : formatMoney(b.outstanding, b.currencyCode)) },
+    { key: 'status', label: 'Status', width: '130px', filterField: 'status', filterOptions: ['draft', 'pendingApproval', 'issued', 'partlyPaid', 'paid', 'voided'].map((s) => ({ value: s, label: this.label(s) })) },
   ];
   readonly drawerOpen = signal(false);
   readonly saving = signal(false);
@@ -202,6 +198,7 @@ export class BillsPage {
   private syncingDueDate = false;
 
   constructor() {
+    this.loadStats();
     const c = this.form.controls;
     c.partyId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => { if (!this.syncingDueDate && id) this.withTerms(id, () => this.recalcDueDate()); });
     c.billDate.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => { if (!this.syncingDueDate) this.recalcDueDate(); });
@@ -248,7 +245,10 @@ export class BillsPage {
   readonly editable = computed(() => !this.bill() || this.bill()!.status === 'draft' || this.bill()!.status === 'pendingApproval');
 
   get lines(): FormArray { return this.form.controls.lines as FormArray; }
-  color(s: string): string { return STATUS_COLORS[s] ?? 'default'; }
+  /** A line field the user has tried to save empty; these sit outside nz-form-control, so they need their own red state. */
+  lineStatus(line: unknown, name: string): 'error' | '' { const c = (line as { get(n: string): { invalid: boolean; touched: boolean } | null }).get(name); return c?.invalid && c.touched ? 'error' : ''; }
+  /** Line totals in the currency of the chosen legal entity. */
+  lineMoney(v: number): string { return formatMoney(v, this.entities().find((e) => e.id === this.value().legalEntityId)?.baseCurrency ?? this.currency()); }
   label(s: string): string { return STATUS_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1); }
   err(name: string): string { return controlError(this.form.get(name)); }
 
@@ -262,10 +262,18 @@ export class BillsPage {
     this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => { r.items.forEach((p) => this.partyTerms.set(p.id, p.paymentTermsDays ?? null)); this.partyOptions.set(r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))); });
   }
 
-  /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
+  /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions); `?partyId=<id>` starts a new bill. */
   ngOnInit(): void {
     const id = this.route.snapshot.queryParamMap.get('open');
+    const party = this.route.snapshot.queryParamMap.get('partyId');
     if (id) this.open({ id } as never);
+    // The party page's New bill starts a draft for that vendor.
+    else if (party) this.parties.get(party).subscribe((p) => {
+      this.open(null);
+      this.partyTerms.set(p.id, p.paymentTermsDays ?? null);
+      this.partyOptions.set([{ value: p.id, label: `${p.code} · ${p.name}` }]);
+      this.form.controls.partyId.setValue(p.id);
+    });
   }
 
   openDetails(id: string): void { void this.router.navigate(['/finance/bills', id]); }
@@ -302,7 +310,7 @@ export class BillsPage {
   }
 
   save(post: boolean): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); this.message.warning('Fill in the fields marked in red'); return; }
     const v = this.form.getRawValue();
     const body = {
       legalEntityId: v.legalEntityId, partyId: v.partyId, vendorReference: v.vendorReference || null, billDate: toIsoDate(v.billDate!), dueDate: v.dueDate ? toIsoDate(v.dueDate) : null,
@@ -314,7 +322,7 @@ export class BillsPage {
         if (!post) { this.done('Draft saved'); return; }
         this.api.post(saved.id).subscribe({
           next: (b) => this.done(b.status === 'pendingApproval' ? 'Sent for approval. Post it again once it is approved.' : `${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${b.number}`),
-          error: (e) => { this.saving.set(false); this.bill.set(saved); this.list.reload(); this.fail(e); },
+          error: (e) => { this.saving.set(false); this.bill.set(saved); this.reload(); this.fail(e); },
         });
       },
       error: (e) => { this.saving.set(false); this.fail(e); },
@@ -339,6 +347,19 @@ export class BillsPage {
     });
   }
 
-  private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.list.reload(); }
+  private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.reload(); }
+  reload(): void { this.list.reload(); this.loadStats(); }
+
+  private loadStats(): void {
+    const source = (q: ListQuery) => this.api.list(q);
+    forkJoin({
+      open: fetchAllRows(source, [{ field: 'status', op: 'in', value: ['issued', 'partlyPaid'] }], 'dueDate'),
+      year: fetchAllRows(source, [{ field: 'status', op: 'in', value: ['issued', 'partlyPaid', 'paid'] }, { field: 'billDate', op: 'gte', value: startOfYear() }], '-billDate'),
+      drafts: countRows(source, [{ field: 'status', op: 'eq', value: 'draft' }]),
+    }).subscribe({
+      next: (d) => { this.statsData.set(d); this.statsLoading.set(false); },
+      error: () => { this.statsData.set(null); this.statsLoading.set(false); },
+    });
+  }
   private fail(e: unknown): void { this.message.error(problemMessage(e, 'Could not save the bill', 'reason')); }
 }

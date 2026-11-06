@@ -1,6 +1,9 @@
 import { inject } from '@angular/core';
 import { CanMatchFn, Router } from '@angular/router';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { catchError, map, of } from 'rxjs';
+import { AuthService } from '../auth/auth.service';
+import { landsOnConsole } from '../format/subscription';
 import { SessionStore } from '../session/session.store';
 import { I18nService } from '../i18n/i18n.service';
 
@@ -35,6 +38,43 @@ export const authGuard: CanMatchFn = (_route, segments) => {
   if (inject(SessionStore).isAuthenticated()) return true;
   const url = '/' + segments.map((s) => s.path).join('/');
   return inject(Router).createUrlTree(['/auth/login'], { queryParams: { returnUrl: url } });
+};
+
+/**
+ * The founder's console: signed-out people go to sign in, anyone else who is not on the platform team goes home.
+ * The session is normally restored before the first navigation; should /me still be missing, it is fetched here.
+ */
+export const platformAdminGuard: CanMatchFn = (_route, segments) => {
+  const session = inject(SessionStore);
+  const router = inject(Router);
+  if (!session.isAuthenticated()) {
+    return router.createUrlTree(['/auth/login'], { queryParams: { returnUrl: '/' + segments.map((s) => s.path).join('/') } });
+  }
+  const home = router.createUrlTree(['/']);
+  const me = session.me();
+  if (me) return me.platformAdmin ? true : home;
+  return inject(AuthService).loadMe().pipe(map((m) => (m.platformAdmin ? true : home)), catchError(() => of(home)));
+};
+
+/** The dashboard route: the platform team, in the platform's own workspace, starts on the console. A deep link never comes through here. */
+export const founderLandingGuard: CanMatchFn = () => {
+  const session = inject(SessionStore);
+  const router = inject(Router);
+  // The shell reloads a screen by passing through the root without changing the address; that must not leave the page.
+  if (router.getCurrentNavigation()?.extras.skipLocationChange) return true;
+  return landsOnConsole(session.me(), session.stayInWorkspace()) ? router.createUrlTree(['/platform']) : true;
+};
+
+/** The site's home address shows the public front page to signed-out visitors. Signed-in people fall through to their workspace. */
+export const signedOutGuard: CanMatchFn = () => !inject(SessionStore).isAuthenticated();
+
+/** A signed-in person who opens the sign-in page, say in another tab, is already in: they go where they were heading. */
+export const guestOnlyGuard: CanMatchFn = () => {
+  const session = inject(SessionStore);
+  const router = inject(Router);
+  if (!session.isAuthenticated()) return true;
+  const returnUrl = router.getCurrentNavigation()?.extractedUrl.queryParams['returnUrl'];
+  return router.parseUrl(safeReturnUrl(typeof returnUrl === 'string' ? returnUrl : null));
 };
 
 /** Only relative in-app paths are allowed as return URLs (no open redirects). */

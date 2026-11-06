@@ -16,13 +16,14 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { errorText, filterOptions, PRJ_STYLES, ProjectTagComponent, RISK_KINDS, RISK_SEVERITIES, RISK_STATUSES } from './projects-ui';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 /** Risks (things that might go wrong) and issues (things that have), for all projects or for one. */
 @Component({
   selector: 'erp-project-risks',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterModule, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, RecordDrawerComponent, HasPermissionDirective, ProjectTagComponent],
+  imports: [ErpDatePipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, RecordDrawerComponent, HasPermissionDirective, ProjectTagComponent],
   template: `
     <div class="prj-toolbar">
       <div class="prj-chips" role="group" aria-label="Filter by status">
@@ -44,7 +45,7 @@ import { errorText, filterOptions, PRJ_STYLES, ProjectTagComponent, RISK_KINDS, 
               <td><span class="prj-strong">{{ r.title }}</span>@if (r.notes) { <div class="prj-muted">{{ r.notes }}</div> }</td>
               @if (!projectId()) { <td><a [routerLink]="['/projects', r.projectId]" [queryParams]="{ tab: 'risks' }" class="prj-link">{{ projectName(r.projectId) }}</a></td> }
               <td><erp-prj-tag kind="severity" [value]="r.severity" /></td><td><erp-prj-tag kind="risk" [value]="r.status" /></td>
-              <td>{{ r.ownerName }}</td><td [class.prj-danger]="overdue(r)">{{ r.dueDate }}</td>
+              <td>{{ r.ownerName }}</td><td [class.prj-danger]="overdue(r)">{{ r.dueDate | erpDate }}</td>
               <td class="prj-num"><ng-container *erpHasPermission="'projects.risks.manage'"><button nz-button nzSize="small" (click)="state.edit(r)" [attr.data-testid]="'risk-edit-' + r.id">Edit</button> <button nz-button nzSize="small" nzDanger (click)="remove(r)">Delete</button></ng-container></td>
             </tr>
           }

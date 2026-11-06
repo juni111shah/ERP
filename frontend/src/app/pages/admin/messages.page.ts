@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -8,15 +7,17 @@ import { MessageLogApi, MessageLogRow } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { I18nService } from '../../core/i18n/i18n.service';
+import { ErpLabelPipe } from '../../shared/display.pipes';
+import { displayDate } from '../../core/format/display';
+import { StatusTagComponent } from '../../shared/status-tag.component';
+import { countOf } from './finance-kpis';
 
 /** Communication log: every reminder the system sent (in-app, email outbox), with a button to run the reminder pass now. */
 @Component({
   selector: 'erp-messages',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, FormsModule, NzButtonModule, NzInputModule, NzTagModule],
-  providers: [DatePipe],
+  imports: [ErpLabelPipe, StatusTagComponent, PagedTableComponent, FormsModule, NzButtonModule, NzInputModule, NzTagModule],
   template: `
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search subject or recipient" emptyText="No messages sent yet" [clickable]="false">
       <div toolbar style="display:flex;align-items:center;gap:8px">
@@ -26,11 +27,11 @@ import { I18nService } from '../../core/i18n/i18n.service';
       </div>
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'channel') {
-          <nz-tag [nzColor]="row.channel === 'email' ? 'blue' : 'purple'">{{ row.channel }}</nz-tag>
+          <nz-tag [nzColor]="row.channel === 'email' ? 'blue' : 'purple'">{{ row.channel | erpLabel }}</nz-tag>
         } @else if (column.key === 'subject') {
-          <span style="font-weight:600; color:#1e293b;">{{ row.subject }}</span>
+          <span style="font-weight:600;">{{ row.subject }}</span>
         } @else if (column.key === 'status') {
-          <nz-tag [nzColor]="row.status === 'sent' ? 'green' : (row.status === 'failed' ? 'red' : 'default')">{{ row.status }}</nz-tag>
+          <erp-status [value]="row.status" />
         } @else {
           {{ value }}
         }
@@ -38,20 +39,18 @@ import { I18nService } from '../../core/i18n/i18n.service';
     </erp-paged-table>`,
 })
 export class MessagesPage {
-  private readonly i18n = inject(I18nService);
   private readonly api = inject(MessageLogApi);
-  private readonly date = inject(DatePipe);
   private readonly toast = inject(NzMessageService);
   readonly running = signal(false);
   readonly testing = signal(false);
   testTo = '';
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-sentAt' });
   readonly columns: TableColumn<MessageLogRow>[] = [
-    { key: 'sentAt', label: 'Sent', sortField: 'sentAt', width: '170px', value: (m) => this.date.transform(m.sentAt, 'yyyy-MM-dd HH:mm') },
+    { key: 'sentAt', label: 'Sent', sortField: 'sentAt', width: '170px', value: (m) => displayDate(m.sentAt) },
     { key: 'channel', label: 'Channel', width: '90px' },
     { key: 'subject', label: 'Subject' },
     { key: 'body', label: 'Details' },
-    { key: 'status', label: 'Status', width: '90px' },
+    { key: 'status', label: 'Status', width: '100px' },
     { key: 'error', label: 'Error' },
   ];
 
@@ -67,8 +66,8 @@ export class MessagesPage {
   run(): void {
     this.running.set(true);
     this.api.sendReminders().subscribe({
-      next: (r: any) => { this.running.set(false); this.toast.success(`${r.sent} ${this.i18n.t('ui.msg.remindersSent', 'reminder(s) sent')}`); this.list.reload(); },
-      error: () => this.running.set(false),
+      next: (r: any) => { this.running.set(false); this.toast.success(r.sent ? `${countOf(r.sent, 'reminder')} sent` : 'No reminders are due'); this.list.reload(); },
+      error: (e) => { this.running.set(false); this.toast.error((e?.error?.detail as string | undefined) ?? 'Could not send the reminders'); },
     });
   }
 }

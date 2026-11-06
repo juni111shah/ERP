@@ -18,6 +18,8 @@ import { propertyFields } from './properties.page';
 import { PropertiesApi, PropertyDto, PropertySummary, RealEstateLookups, UnitListItem, UnitsApi, humanize, DESCRIPTION_COLUMNS } from './realestate.api';
 import { StatusTagComponent } from './status-tag.component';
 import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Property detail: KPI cards (spec RE-PROP-03), info and the property's units. */
@@ -25,13 +27,17 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
   selector: 'erp-property-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, RecordHistoryComponent, TranslatePipe, RouterLink, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule,
+  imports: [StatCardComponent, StatePanelComponent, RecordHistoryComponent, TranslatePipe, RouterLink, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule,
     NzGridModule, NzProgressModule, NzStatisticModule, NzTagModule],
   template: `
+    @if (failed()) {
+      <p><a routerLink="/real-estate/properties">← Properties</a></p>
+      <erp-state-panel kind="error" title="This property could not be loaded" hint="It may have been removed, or your connection dropped." actionLabel="Try again" (action)="reload()" />
+    }
     @if (summary(); as s) {
       <p><a routerLink="/real-estate/properties">← Properties</a></p>
-      <h1 class="erp-page-title" data-testid="property-title">{{ s.property.code }} · {{ s.property.name }}
-        <button *erpHasPermission="'realestate.properties.manage'" nz-button style="margin-inline-start:16px" (click)="state.edit(s.property)" data-testid="property-edit">Edit</button>
+      <h1 data-testid="property-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;font-size:20px;font-weight:600">{{ s.property.code }} · {{ s.property.name }}
+        <button *erpHasPermission="'realestate.properties.manage'" nz-button (click)="state.edit(s.property)" data-testid="property-edit">Edit</button>
       </h1>
       @if (s.unitsNotFullyRegistered) {
         <nz-tag nzColor="gold" data-testid="units-warning">{{ s.registeredUnits }} {{ 'ui.common.of' | translate: 'of' }} {{ s.property.totalUnits }} {{ 'ui.re.unitsRegistered' | translate: 'units registered' }}</nz-tag>
@@ -39,7 +45,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
       <div class="erp-stat-grid" style="margin-top:16px" data-testid="property-kpis">
         <erp-stat-card label="Units registered" [value]="s.registeredUnits + ' / ' + s.property.totalUnits" [tone]="0" />
         <erp-stat-card label="Occupied units" [value]="s.occupiedUnits" format="number" [tone]="1"><nz-progress [nzPercent]="s.occupancyPercent" nzSize="small"></nz-progress></erp-stat-card>
-        <erp-stat-card label="Contracted annual rent" [value]="s.contractedAnnualRent" format="number" [tone]="2" />
+        <erp-stat-card label="Contracted annual rent" [value]="s.contractedAnnualRent" format="money" [shortenMillions]="false" [tone]="2" />
         <erp-stat-card label="Gross yield" [value]="s.grossYieldPercent" format="percent" [tone]="3" />
       </div>
       <nz-card style="margin-top:16px" nzTitle="Details">
@@ -50,7 +56,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
           <nz-descriptions-item nzTitle="Community">{{ s.property.community }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="Plot number">{{ s.property.plotNumber }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="Year built">{{ s.property.yearBuilt }}</nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Indicative value">{{ s.property.indicativeValue.toLocaleString() }}</nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Indicative value">{{ currency() }} {{ s.property.indicativeValue.toLocaleString() }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="Status">{{ s.property.isActive ? 'Active' : 'Inactive' }}</nz-descriptions-item>
         </nz-descriptions>
       </nz-card>
@@ -72,6 +78,8 @@ export class PropertyDetailPage {
   private readonly api = inject(PropertiesApi);
   private readonly unitsApi = inject(UnitsApi);
   readonly humanize = humanize;
+  readonly currency = inject(WorkspaceCurrencyService).currency;
+  readonly failed = signal(false);
   readonly descriptionColumns = DESCRIPTION_COLUMNS;
   readonly summary = signal<PropertySummary | null>(null);
   readonly fields = propertyFields(inject(RealEstateLookups));
@@ -83,8 +91,8 @@ export class PropertyDetailPage {
     { key: 'unitNumber', label: 'Unit', sortField: 'unitNumber', width: '110px' },
     { key: 'unitTypeName', label: 'Type' },
     { key: 'floor', label: 'Floor' },
-    { key: 'areaSqft', label: 'Area (sq ft)', sortField: 'areaSqft' },
-    { key: 'askingRent', label: 'Asking rent', sortField: 'askingRent', value: (u) => u.askingRent.toLocaleString() },
+    { key: 'areaSqft', label: 'Area (sq ft)', sortField: 'areaSqft', align: 'right' },
+    { key: 'askingRent', label: 'Asking rent', sortField: 'askingRent', align: 'right', value: (u) => u.askingRent.toLocaleString() },
     { key: 'status', label: 'Status', sortField: 'status' },
     { key: 'tenantName', label: 'Tenant' },
     { key: 'leaseEnds', label: 'Lease ends' },
@@ -92,5 +100,6 @@ export class PropertyDetailPage {
 
   constructor() { this.load(); }
 
-  private load(): void { this.api.summary(this.id).subscribe((s) => this.summary.set(s)); }
+  reload(): void { this.load(); }
+  private load(): void { this.failed.set(false); this.api.summary(this.id).subscribe({ next: (s) => this.summary.set(s), error: () => this.failed.set(true) }); }
 }

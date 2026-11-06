@@ -31,13 +31,14 @@ import { I18nService } from '../../core/i18n/i18n.service';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { FormsModule } from '@angular/forms';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 /** Acquisitions and funding: KPI cards, the acquisitions table, funding schedules and the new-acquisition form (with its funding sources). */
 @Component({
   selector: 'erp-acquisitions',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, FormsModule, TableToolsComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, DecimalPipe, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule,
+  imports: [ErpDatePipe, StatCardComponent, FormsModule, TableToolsComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, DecimalPipe, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule,
     NzInputModule, NzInputNumberModule, NzSelectModule, NzTableModule, NzTagModule],
   styles: [`
     .fund { display:grid; grid-template-columns: 1.2fr 1.6fr 1.2fr .8fr .8fr auto; gap:8px; margin-bottom:8px; align-items:center }
@@ -150,7 +151,7 @@ import { FormsModule } from '@angular/forms';
                 <td nzAlign="right" style="font-weight:600;color:var(--erp-color-primary,#10955d);font-variant-numeric:tabular-nums">{{ f.outstanding | number: '1.0-0' }}</td>
                 <td nzAlign="center">
                   @if (f.nextDue) {
-                    <span>{{ f.nextDue }}</span>
+                    <span>{{ f.nextDue | erpDate }}</span>
                   } @else {
                     <span class="muted-text">—</span>
                   }
@@ -226,7 +227,7 @@ export class AcquisitionsPage {
     { key: 'number', label: 'Reference', width: '150px' },
     { key: 'sellerName', label: 'Seller' },
     { key: 'purchaseDate', label: 'Purchase date', sortField: 'purchaseDate', width: '130px' },
-    { key: 'purchasePrice', label: 'Price', sortField: 'purchasePrice', value: (a) => a.purchasePrice.toLocaleString() },
+    { key: 'purchasePrice', label: 'Price', sortField: 'purchasePrice', align: 'right', value: (a) => a.purchasePrice.toLocaleString() },
     { key: 'downPayment', label: 'Down payment', value: (a) => a.downPayment.toLocaleString() },
     { key: 'status', label: 'Status', width: '110px' },
   ];

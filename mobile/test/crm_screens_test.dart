@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_adapter.dart';
+import 'support/more_actions.dart';
 
 const _me = Me(
   fullName: 'Tester',
@@ -106,6 +107,7 @@ void main() {
 
     testWidgets('a new lead can be contacted, qualified, unqualified and converted', (tester) async {
       await open(tester, 'new');
+      await openMoreActions(tester);
       for (final a in ['Contacted', 'Qualify', 'Unqualify', 'Convert', 'Log activity']) {
         expect(find.text(a), findsOneWidget, reason: a);
       }
@@ -135,7 +137,12 @@ void main() {
 
     testWidgets('qualification can only go to proposal or be closed lost', (tester) async {
       await open(tester, 'qualification');
+      // the next stage and logging activity stay in the bar
       expect(find.text('Move to Proposal'), findsOneWidget);
+      expect(find.text('Log activity'), findsOneWidget);
+      expect(find.text('Create project'), findsNothing);
+      await openMoreActions(tester);
+      expect(find.text('Create project'), findsOneWidget);
       expect(find.text('Move to Negotiation'), findsNothing);
       expect(find.text('Close won'), findsNothing);
       expect(find.text('Close lost'), findsOneWidget);

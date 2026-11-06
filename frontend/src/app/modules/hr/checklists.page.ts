@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { problemMessage } from '../../core/http/problem-details';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -27,16 +29,20 @@ export function itemsText(items: { title: string; dueOffsetDays: number }[] | un
   selector: 'erp-checklists',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [NzModalModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Checklists</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search checklists" emptyText="No checklists yet" (rowClick)="open($event)">
       <button toolbar *erpHasPermission="'hr.employees.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="checklist-new"><span nz-icon nzType="plus"></span>New checklist</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit checklist' : 'New checklist'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="checklist-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
+                       [saving]="state.saving()" [errors]="state.errors()" testId="checklist-form" (submitted)="state.submit($event)" (closed)="state.close()">
+      @if (state.editing(); as e) { <div drawerActions style="margin-bottom:12px"><button *erpHasPermission="'hr.employees.manage'" nz-button nzDanger type="button" (click)="remove(e.id)" data-testid="checklist-delete">Delete</button></div> }
+    </erp-record-drawer>`,
 })
 export class ChecklistsPage {
+  private readonly confirm = inject(NzModalService);
+  private readonly toast = inject(NzMessageService);
   private readonly api = inject(ChecklistsApi);
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'name' });
   readonly state = new MasterDataState<ChecklistDto>({
@@ -60,5 +66,15 @@ export class ChecklistsPage {
   private toBody(v: Record<string, unknown>): Record<string, unknown> {
     const items = (Array.isArray(v['items']) ? v['items'] : []) as { title?: string; dueOffsetDays?: number }[];
     return { ...v, items: items.filter((i) => i.title).map((i) => ({ title: i.title, dueOffsetDays: Math.trunc(i.dueOffsetDays ?? 0) })) };
+  }
+
+  remove(id: string): void {
+    this.confirm.confirm({
+      nzTitle: 'Delete this checklist?', nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => new Promise<void>((resolve) => this.api.delete(id).subscribe({
+        next: () => { this.toast.success('Deleted'); this.state.close(); this.list.reload(); resolve(); },
+        error: (e) => { this.toast.error(problemMessage(e, 'Could not delete the checklist')); resolve(); },
+      })),
+    });
   }
 }

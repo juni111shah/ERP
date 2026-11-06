@@ -1,226 +1,91 @@
-import { CommonModule, DecimalPipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { NzBadgeModule } from 'ng-zorro-antd/badge';
+import { DecimalPipe } from '@angular/common';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzProgressModule } from 'ng-zorro-antd/progress';
-import { NzTagModule } from 'ng-zorro-antd/tag';
-import { CrmKpiApi, CrmKpisDto } from '../../core/api/crm.api';
+import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
+import { CrmKpiApi, CrmKpisDto, CrmOpportunitiesApi, PipelineStageSummaryDto } from '../../core/api/crm.api';
+import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 
 @Component({
   selector: 'erp-crm-analytics-page',
   standalone: true,
-  imports: [
-    CommonModule,
-    DecimalPipe,
-    NzCardModule,
-    NzGridModule,
-    NzIconModule,
-    NzButtonModule,
-    NzProgressModule,
-    NzTagModule,
-    NzBadgeModule,
-    StatCardComponent,
-  ],
+  imports: [DecimalPipe, RouterModule, NzGridModule, NzIconModule, NzButtonModule, NzSkeletonModule, StatCardComponent, StatePanelComponent, StatusTagComponent],
   template: `
     <h1 class="erp-page-title">CRM & Sales Pipeline Analytics</h1>
 
     <div class="analytics-toolbar">
       <button nz-button (click)="loadKpis()" [nzLoading]="loading()" data-testid="crm-analytics-refresh">
-        <span nz-icon nzType="reload"></span>Refresh KPIs
+        <span nz-icon nzType="reload"></span>Refresh
       </button>
     </div>
 
-    <div *ngIf="kpis() as k">
-      <!-- Top KPI Stat Grid -->
+    @if (failed()) {
+      <erp-state-panel kind="error" title="The CRM figures could not be loaded." hint="Check your connection and try again." actionLabel="Try again" (action)="loadKpis()" />
+    } @else {
       <div class="erp-stat-grid erp-stat-grid--auto" data-testid="crm-stats">
-        <erp-stat-card
-          label="Total Inbound Leads"
-          [value]="k.totalLeads"
-          format="number"
-          caption="total acquired"
-          [loading]="loading()"
-          [tone]="1" />
-
-        <erp-stat-card
-          label="Qualified Prospects"
-          [value]="k.qualifiedLeads"
-          format="number"
-          caption="sales ready"
-          [loading]="loading()"
-          [tone]="4" />
-
-        <erp-stat-card
-          label="Open Deals"
-          [value]="k.openOpportunitiesCount"
-          format="number"
-          caption="active in pipeline"
-          [loading]="loading()"
-          [tone]="3" />
-
-        <erp-stat-card
-          label="Open Pipeline Value"
-          [value]="k.openPipelineValue"
-          format="money"
-          caption="weighted estimate"
-          [loading]="loading()"
-          [tone]="0" />
-
-        <erp-stat-card
-          label="Closed Won Deals"
-          [value]="k.wonOpportunitiesCount"
-          format="number"
-          caption="contracts closed"
-          [loading]="loading()"
-          [tone]="2" />
-
-        <erp-stat-card
-          label="Total Won Revenue"
-          [value]="k.wonOpportunitiesRevenue"
-          format="money"
-          caption="booked commercial revenue"
-          [loading]="loading()"
-          [tone]="0" />
-
-        <erp-stat-card
-          label="Lead Conversion Rate"
-          [value]="k.leadConversionRatePercentage"
-          format="percent"
-          caption="prospect velocity"
-          [loading]="loading()"
-          [tone]="1" />
-
-        <erp-stat-card
-          label="Deal Win Rate"
-          [value]="k.winRatePercentage"
-          format="percent"
-          caption="opportunity win probability"
-          [loading]="loading()"
-          [tone]="4" />
+        <erp-stat-card label="Total Leads" [value]="kpis()?.totalLeads ?? 0" format="number" caption="all time" [loading]="loading()" [tone]="1" />
+        <erp-stat-card label="Qualified Leads" [value]="kpis()?.qualifiedLeads ?? 0" format="number" caption="qualified or converted" [loading]="loading()" [tone]="4" />
+        <erp-stat-card label="Lead Conversion" [value]="kpis()?.leadConversionRatePercentage ?? 0" format="percent" caption="leads converted to deals" [loading]="loading()" [tone]="1" />
+        <erp-stat-card label="Open Deals" [value]="kpis()?.openOpportunitiesCount ?? 0" format="number" caption="not yet won or lost" [loading]="loading()" [tone]="3" />
+        <erp-stat-card label="Open Pipeline" [value]="kpis()?.openPipelineValue ?? 0" format="money" caption="expected value, not weighted" [loading]="loading()" [tone]="0" />
+        <erp-stat-card label="Deals Won" [value]="kpis()?.wonOpportunitiesCount ?? 0" format="number" caption="closed won" [loading]="loading()" [tone]="2" />
+        <erp-stat-card label="Won Revenue" [value]="kpis()?.wonOpportunitiesRevenue ?? 0" format="money" caption="final value of won deals" [loading]="loading()" [tone]="0" />
+        <erp-stat-card label="Win Rate" [value]="kpis()?.winRatePercentage ?? 0" format="percent" caption="won out of all closed deals" [loading]="loading()" [tone]="4" />
       </div>
 
-      <!-- Performance Visual Breakdown -->
-      <div nz-row [nzGutter]="[16, 16]" class="insights-row">
-        <div nz-col [nzXs]="24" [nzLg]="12">
-          <nz-card nzTitle="Lead-to-Opportunity Funnel Conversion" class="detail-card">
-            <div class="funnel-metric">
-              <div class="funnel-header">
-                <span>Prospect Conversion Velocity</span>
-                <strong class="text-primary">{{ k.leadConversionRatePercentage | number:'1.1-1' }}%</strong>
-              </div>
-              <nz-progress
-                [nzPercent]="k.leadConversionRatePercentage"
-                [nzStrokeColor]="{ '0%': '#10955d', '100%': '#2563eb' }">
-              </nz-progress>
-            </div>
-
-            <div class="stats-summary-list">
-              <div class="stat-line">
-                <span class="label">Total Inbound Leads Acquired:</span>
-                <span class="val">{{ k.totalLeads }}</span>
-              </div>
-              <div class="stat-line">
-                <span class="label">Qualified for Sales Outreach:</span>
-                <span class="val">{{ k.qualifiedLeads }}</span>
-              </div>
-            </div>
-          </nz-card>
+      <section class="panel" data-testid="crm-stage-breakdown">
+        <div class="head">
+          <h3>Deals by stage</h3>
+          <a nz-button nzType="link" nzSize="small" routerLink="/crm/opportunities">Open pipeline</a>
         </div>
-
-        <div nz-col [nzXs]="24" [nzLg]="12">
-          <nz-card nzTitle="Sales Deal Win Rate & Revenue Efficiency" class="detail-card">
-            <div class="funnel-metric">
-              <div class="funnel-header">
-                <span>Opportunity Win Probability</span>
-                <strong class="text-success">{{ k.winRatePercentage | number:'1.1-1' }}%</strong>
-              </div>
-              <nz-progress
-                [nzPercent]="k.winRatePercentage"
-                [nzStrokeColor]="{ '0%': '#10955d', '100%': '#059669' }">
-              </nz-progress>
+        @if (stages(); as rows) {
+          @for (s of rows; track s.stage) {
+            <div class="row">
+              <span><erp-status [value]="s.stage" /></span>
+              <div class="track" aria-hidden="true"><div class="fill" [style.width.%]="maxValue() ? (s.totalExpectedRevenue / maxValue()) * 100 : 0"></div></div>
+              <span class="count">{{ s.count }}</span>
+              <span class="value">{{ currency() }} {{ s.totalExpectedRevenue | number:'1.0-0' }}</span>
             </div>
-
-            <div class="stats-summary-list">
-              <div class="stat-line">
-                <span class="label">Won Closed Contracts:</span>
-                <span class="val text-success">{{ k.wonOpportunitiesCount }} deals</span>
-              </div>
-              <div class="stat-line">
-                <span class="label">Active In-Flight Pipeline Value:</span>
-                <span class="val text-primary">\${{ k.openPipelineValue | number:'1.0-0' }}</span>
-              </div>
-            </div>
-          </nz-card>
-        </div>
-      </div>
-    </div>
+          }
+        } @else if (stagesFailed()) {
+          <p class="muted">The stages could not be loaded.</p>
+          <button nz-button nzSize="small" type="button" (click)="loadStages()">Try again</button>
+        } @else {
+          <nz-skeleton [nzActive]="true" [nzTitle]="false" [nzParagraph]="{ rows: 4 }" />
+        }
+      </section>
+    }
   `,
   styles: [`
-    .analytics-toolbar {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .insights-row {
-      margin-top: 16px;
-    }
-    .detail-card {
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-      height: 100%;
-      background: #ffffff;
-      
-      ::ng-deep .ant-card-head {
-        border-bottom: 1px solid #f1f5f9;
-        font-weight: 600;
-        font-size: 15px;
-        color: #0f172a;
-        padding: 0 20px;
-        min-height: 48px;
-      }
-      ::ng-deep .ant-card-body {
-        padding: 20px;
-      }
-    }
-    .text-primary { color: #10955d; font-weight: 600; }
-    .text-success { color: #10955d; font-weight: 600; }
-    .funnel-metric { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-    .funnel-header { display: flex; justify-content: space-between; font-size: 13px; color: #475569; }
-    .stats-summary-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      border-top: 1px solid #f1f5f9;
-      padding-top: 14px;
-    }
-    .stat-line {
-      display: flex;
-      justify-content: space-between;
-      padding: 6px 0;
-      border-bottom: 1px dashed #f1f5f9;
-      font-size: 14px;
-      color: #475569;
-      &:last-child {
-        border-bottom: none;
-      }
-    }
-    .stat-line .val {
-      font-weight: 600;
-      color: #0f172a;
-      font-variant-numeric: tabular-nums;
-    }
+    .analytics-toolbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 16px; }
+    .panel { margin-top: 16px; padding: 16px 20px; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: var(--erp-radius-card, 8px); }
+    .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--erp-color-text-primary); }
+    .row { display: grid; grid-template-columns: 130px 1fr 48px 150px; align-items: center; gap: 12px; padding: 6px 0; }
+    .track { height: 6px; border-radius: 3px; background: var(--erp-color-bg-subtle); overflow: hidden; }
+    .fill { height: 100%; border-radius: 3px; background: var(--erp-color-primary); }
+    .count, .value { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--erp-color-text-primary); }
+    .value { font-weight: 600; }
+    .muted { margin: 0 0 8px; color: var(--erp-color-text-muted); }
   `]
 })
 export class CrmAnalyticsPageComponent implements OnInit {
   private readonly kpiApi = inject(CrmKpiApi);
+  private readonly oppsApi = inject(CrmOpportunitiesApi);
+  private readonly currencyService = inject(WorkspaceCurrencyService);
 
+  readonly currency = this.currencyService.currency;
   readonly kpis = signal<CrmKpisDto | null>(null);
   readonly loading = signal(false);
+  readonly failed = signal(false);
+  readonly stages = signal<PipelineStageSummaryDto[] | null>(null);
+  readonly stagesFailed = signal(false);
+  readonly maxValue = computed(() => Math.max(0, ...(this.stages() ?? []).map((s) => s.totalExpectedRevenue)));
 
   ngOnInit(): void {
     this.loadKpis();
@@ -228,13 +93,25 @@ export class CrmAnalyticsPageComponent implements OnInit {
 
   loadKpis(): void {
     this.loading.set(true);
+    this.failed.set(false);
     this.kpiApi.getKpis().subscribe({
-      next: res => {
+      next: (res) => {
         this.kpis.set(res);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false)
+      error: () => {
+        this.loading.set(false);
+        this.failed.set(true);
+      },
+    });
+    this.loadStages();
+  }
+
+  loadStages(): void {
+    this.stagesFailed.set(false);
+    this.oppsApi.getPipelineSummary().subscribe({
+      next: (rows) => this.stages.set(rows),
+      error: () => this.stagesFailed.set(true),
     });
   }
 }
-

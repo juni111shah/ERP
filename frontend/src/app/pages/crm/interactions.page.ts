@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { problemMessage } from '../../core/http/problem-details';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
@@ -24,11 +25,12 @@ import { PartiesApi } from '../parties.page';
 import { createPagedList } from '../../core/api/paged-list';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { ErpDatePipe, ErpLabelPipe } from '../../shared/display.pipes';
 
 @Component({
   selector: 'erp-interactions-page',
   standalone: true,
-  imports: [
+  imports: [ErpLabelPipe, ErpDatePipe,
     CommonModule,
     ReactiveFormsModule,
     NzCardModule,
@@ -50,7 +52,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     <erp-paged-table
       #table
       [list]="list"
-      [columns]="columns">
+      [columns]="columns"
+      searchPlaceholder="Search subject"
+      [clickable]="false"
+      emptyText="No activity yet. Log a call, meeting or note."
+      exportFilename="crm-activity">
       
       <button toolbar *erpHasPermission="'crm.interactions.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="activity-log">
         <span nz-icon nzType="plus"></span> Log Activity
@@ -60,30 +66,28 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
         <ng-container [ngSwitch]="column.key">
           <span *ngSwitchCase="'type'">
             <nz-tag [nzColor]="getTypeColor(row.type)">
-              <span nz-icon [nzType]="getTypeIcon(row.type)"></span> {{ row.type }}
+              <span nz-icon [nzType]="getTypeIcon(row.type)"></span> {{ row.type | erpLabel }}
             </nz-tag>
           </span>
           <span *ngSwitchCase="'subject'">
-            <strong>{{ row.subject }}</strong>
+            <strong class="subject">{{ row.subject }}</strong>
           </span>
           <span *ngSwitchCase="'relatedEntityKind'">
-            <nz-tag>{{ row.relatedEntityKind }}</nz-tag>
+            <span class="related">{{ relatedLabel(row) }}</span>
           </span>
           <span *ngSwitchCase="'performedByName'">
-            <span>{{ row.performedByName || 'Agent' }}</span>
+            <span>{{ row.performedByName || '-' }}</span>
           </span>
           <span *ngSwitchCase="'interactionDate'">
-            <small>{{ row.interactionDate | date:'mediumDate' }}</small>
+            <span class="nowrap">{{ row.interactionDate | erpDate }}</span>
           </span>
           <span *ngSwitchCase="'followUpDate'">
-            <small *ngIf="row.followUpDate" class="text-warning font-medium">
-              {{ row.followUpDate | date:'mediumDate' }}
-            </small>
+            <span *ngIf="row.followUpDate" class="nowrap">{{ row.followUpDate | erpDate }}</span>
             <span *ngIf="!row.followUpDate" class="text-secondary">-</span>
           </span>
           <span *ngSwitchCase="'isResolved'">
             <nz-tag [nzColor]="row.isResolved ? 'success' : 'processing'">
-              {{ row.isResolved ? 'Resolved' : 'Follow-up Due' }}
+              {{ row.isResolved ? 'Resolved' : (row.followUpDate ? 'Follow-up due' : 'Open') }}
             </nz-tag>
           </span>
           <span *ngSwitchCase="'actions'">
@@ -91,7 +95,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
               @if (!row.isResolved) {
                 <button
                   *erpHasPermission="'crm.interactions.manage'"
-                  nz-button nzType="link" nzSize="small" class="text-success"
+                  nz-button nzType="link" nzSize="small"
                   (click)="resolveInteraction(row)">
                   <span nz-icon nzType="check"></span> Mark Done
                 </button>
@@ -106,12 +110,12 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     <nz-drawer
         [nzVisible]="createVisible()"
         [nzWidth]="560"
-        nzTitle="Log Customer Interaction"
+        nzTitle="Log Activity"
         (nzOnClose)="createVisible.set(false)">
         <ng-container *nzDrawerContent>
           <form [formGroup]="activityForm" nz-form nzLayout="vertical" (ngSubmit)="saveActivity()">
             <nz-form-item>
-              <nz-form-label nzRequired>Workspace Legal Entity</nz-form-label>
+              <nz-form-label nzRequired>Legal Entity</nz-form-label>
               <nz-form-control nzErrorTip="Entity required">
                 <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Entity">
                   <nz-option *ngFor="let ent of entities()" [nzValue]="ent.id" [nzLabel]="ent.name"></nz-option>
@@ -124,11 +128,11 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                 <nz-form-label nzRequired>Interaction Type</nz-form-label>
                 <nz-form-control>
                   <nz-select formControlName="type">
-                    <nz-option nzValue="Call" nzLabel="Phone Call"></nz-option>
-                    <nz-option nzValue="Meeting" nzLabel="Meeting / Presentation"></nz-option>
-                    <nz-option nzValue="Email" nzLabel="Email Exchange"></nz-option>
-                    <nz-option nzValue="Note" nzLabel="Internal Note"></nz-option>
-                    <nz-option nzValue="Task" nzLabel="Action Task"></nz-option>
+                    <nz-option nzValue="call" nzLabel="Phone Call"></nz-option>
+                    <nz-option nzValue="meeting" nzLabel="Meeting / Presentation"></nz-option>
+                    <nz-option nzValue="email" nzLabel="Email Exchange"></nz-option>
+                    <nz-option nzValue="note" nzLabel="Internal Note"></nz-option>
+                    <nz-option nzValue="task" nzLabel="Action Task"></nz-option>
                   </nz-select>
                 </nz-form-control>
               </nz-form-item>
@@ -159,14 +163,14 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             <nz-form-item>
               <nz-form-label nzRequired>Subject / Topic</nz-form-label>
               <nz-form-control nzErrorTip="Subject is required">
-                <input nz-input formControlName="subject" placeholder="e.g. Discovery demo follow-up call with CFO" />
+                <input nz-input formControlName="subject" placeholder="e.g. Follow-up call about the proposal" />
               </nz-form-control>
             </nz-form-item>
 
             <nz-form-item>
-              <nz-form-label>Detailed Notes & Summary</nz-form-label>
+              <nz-form-label>Notes</nz-form-label>
               <nz-form-control>
-                <textarea nz-input formControlName="details" rows="4" placeholder="Client questions, objections discussed, agreed next actions..."></textarea>
+                <textarea nz-input formControlName="details" rows="4" placeholder="What was discussed and what happens next..."></textarea>
               </nz-form-control>
             </nz-form-item>
 
@@ -188,16 +192,17 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
 
             <div class="drawer-footer">
               <button nz-button type="button" (click)="createVisible.set(false)">Cancel</button>
-              <button nz-button nzType="primary" type="submit" [nzLoading]="isSubmitting()">Log Touchpoint</button>
+              <button nz-button nzType="primary" type="submit" [nzLoading]="isSubmitting()">Log Activity</button>
             </div>
           </form>
         </ng-container>
       </nz-drawer>
   `,
   styles: [`
-    .text-secondary { color: var(--erp-text-secondary, #64748b); }
-    .text-warning { color: #f59e0b; }
-    .text-success { color: #10b981; }
+    .text-secondary { color: var(--erp-color-text-secondary); }
+    .nowrap { white-space: nowrap; }
+    .subject { display: block; width: 280px; white-space: normal; }
+    .related { display: block; width: 210px; white-space: normal; }
     .drawer-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 2rem; }
     .grid { display: grid; }
     .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -236,13 +241,13 @@ export class InteractionsPageComponent implements OnInit {
   activityForm!: FormGroup;
 
   readonly columns: TableColumn<CustomerInteractionDto>[] = [
-    { key: 'type', label: 'Activity Type', sortField: 'type' },
-    { key: 'subject', label: 'Subject / Meeting Topic', sortField: 'subject' },
-    { key: 'relatedEntityKind', label: 'Related To' },
-    { key: 'performedByName', label: 'Rep / Agent' },
-    { key: 'interactionDate', label: 'Interaction Date' },
-    { key: 'followUpDate', label: 'Follow-Up' },
-    { key: 'isResolved', label: 'Status' },
+    { key: 'type', label: 'Activity Type', sortField: 'type', width: '130px', filterField: 'type', filterOptions: ['call', 'meeting', 'email', 'note', 'task'] },
+    { key: 'subject', label: 'Subject', sortField: 'subject' },
+    { key: 'relatedEntityKind', label: 'Related To', filter: 'text', filterValue: (r) => this.relatedLabel(r), value: (r) => this.relatedLabel(r) },
+    { key: 'performedByName', label: 'Logged By', hidden: true },
+    { key: 'interactionDate', label: 'Date', sortField: 'interactionDate', width: '120px' },
+    { key: 'followUpDate', label: 'Follow-Up', sortField: 'followUpDate', width: '120px' },
+    { key: 'isResolved', label: 'Status', width: '120px', filter: false, value: (r) => (r.isResolved ? 'Resolved' : r.followUpDate ? 'Follow-up due' : 'Open') },
     { key: 'actions', label: 'Actions', align: 'right' }
   ];
 
@@ -257,7 +262,7 @@ export class InteractionsPageComponent implements OnInit {
       legalEntityId: ['', [Validators.required]],
       relatedEntityKind: ['Lead', [Validators.required]],
       relatedEntityId: ['', [Validators.required]],
-      type: ['Call', [Validators.required]],
+      type: ['call', [Validators.required]],
       subject: ['', [Validators.required]],
       details: [''],
       interactionDate: [new Date()],
@@ -297,7 +302,7 @@ export class InteractionsPageComponent implements OnInit {
       next: (res) => {
         const items = (res.items || []).map((o: any) => ({
           id: o.id,
-          name: o.title || o.dealNumber || o.id,
+          name: o.title || o.opportunityNumber || o.id,
         }));
         this.opportunities.set(items);
       },
@@ -316,6 +321,13 @@ export class InteractionsPageComponent implements OnInit {
     });
   }
 
+  /** The kind, with the name of the record when it is one of those loaded for the form. */
+  relatedLabel(row: CustomerInteractionDto): string {
+    const pool = row.relatedEntityKind === 'Lead' ? this.leads() : row.relatedEntityKind === 'Opportunity' ? this.opportunities() : this.customers();
+    const name = pool.find((r) => r.id === row.relatedEntityId)?.name;
+    return name ? `${row.relatedEntityKind}: ${name}` : row.relatedEntityKind;
+  }
+
   onRelatedKindChange(kind: string): void {
     this.currentRelatedKind.set(kind);
     let defaultId = '';
@@ -327,22 +339,22 @@ export class InteractionsPageComponent implements OnInit {
 
   getTypeColor(type: InteractionType): string {
     switch (type) {
-      case 'Call': return 'blue';
-      case 'Meeting': return 'purple';
-      case 'Email': return 'orange';
-      case 'Note': return 'cyan';
-      case 'Task': return 'geekblue';
+      case 'call': return 'blue';
+      case 'meeting': return 'purple';
+      case 'email': return 'orange';
+      case 'note': return 'cyan';
+      case 'task': return 'geekblue';
       default: return 'default';
     }
   }
 
   getTypeIcon(type: InteractionType): string {
     switch (type) {
-      case 'Call': return 'phone';
-      case 'Meeting': return 'team';
-      case 'Email': return 'mail';
-      case 'Note': return 'file-text';
-      case 'Task': return 'check-square';
+      case 'call': return 'phone';
+      case 'meeting': return 'team';
+      case 'email': return 'mail';
+      case 'note': return 'file-text';
+      case 'task': return 'check-square';
       default: return 'message';
     }
   }
@@ -354,7 +366,7 @@ export class InteractionsPageComponent implements OnInit {
       legalEntityId: this.entities()[0]?.id || '',
       relatedEntityKind: 'Lead',
       relatedEntityId: defaultLeadId,
-      type: 'Call',
+      type: 'call',
       interactionDate: new Date(),
       followUpDate: new Date(Date.now() + 3 * 86400000)
     });
@@ -364,7 +376,7 @@ export class InteractionsPageComponent implements OnInit {
   resolveInteraction(row: CustomerInteractionDto): void {
     this.api.resolve(row.id).subscribe({
       next: () => {
-        this.message.success('Follow-up marked resolved');
+        this.message.success('Marked as done.');
         this.list.reload();
       },
       error: () => this.message.error('Failed to resolve interaction')
@@ -373,7 +385,7 @@ export class InteractionsPageComponent implements OnInit {
 
   saveActivity(): void {
     if (this.activityForm.invalid) {
-      Object.values(this.activityForm.controls).forEach(c => c.markAsDirty());
+      Object.values(this.activityForm.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
       return;
     }
     const v = this.activityForm.value;
@@ -397,13 +409,13 @@ export class InteractionsPageComponent implements OnInit {
 
     this.api.create(payload as any).subscribe({
       next: () => {
-        this.message.success('Activity touchpoint logged');
+        this.message.success('Activity logged.');
         this.createVisible.set(false);
         this.isSubmitting.set(false);
         this.list.reload();
       },
-      error: () => {
-        this.message.error('Failed to log activity');
+      error: (err) => {
+        this.message.error(problemMessage(err, 'Failed to log activity'));
         this.isSubmitting.set(false);
       }
     });

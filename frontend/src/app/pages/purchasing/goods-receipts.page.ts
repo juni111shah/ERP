@@ -1,4 +1,5 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
+import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -12,12 +13,13 @@ import { createPagedList } from '../../core/api/paged-list';
 import { GoodsReceiptDto, GoodsReceiptSummaryDto, GoodsReceiptsApi } from '../../core/api/purchasing.api';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 @Component({
   selector: 'erp-goods-receipts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [ErpDatePipe, 
     CommonModule,
     DecimalPipe,
     RouterModule,
@@ -34,11 +36,14 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
     <erp-paged-table
       [list]="list"
       [columns]="columns"
-      searchPlaceholder="Search GRN number, PO number, vendor...">
+      searchPlaceholder="Search GRN number, PO number, vendor..."
+      emptyText="No goods received yet. Receive goods from an approved purchase order."
+      exportFilename="goods-receipts"
+      [clickable]="false">
           
           <ng-template #cell let-row let-column="column">
             @if (column.key === 'number') {
-              <strong>{{ row.number }}</strong>
+              <strong class="nowrap">{{ row.number }}</strong>
             } @else if (column.key === 'purchaseOrderNumber') {
               <a [routerLink]="['/purchasing/orders', row.purchaseOrderId]" class="po-link">
                 {{ row.purchaseOrderNumber }}
@@ -46,7 +51,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
             } @else if (column.key === 'vendorName') {
               <span class="vendor-name">{{ row.vendorName }}</span>
             } @else if (column.key === 'receiptDate') {
-              <span>{{ row.receiptDate }}</span>
+              <span>{{ row.receiptDate | erpDate }}</span>
             } @else if (column.key === 'receivedBy') {
               <span>{{ row.receivedBy }}</span>
             } @else if (column.key === 'deliveryNoteNumber') {
@@ -57,7 +62,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                   View Items
                 </button>
                 <a [href]="'/print/grn/' + row.id" target="_blank" nz-button nzType="link" nzSize="small">
-                  <span nz-icon nzType="printer"></span> Print GRN
+                  <span nz-icon nzType="printer"></span> Print
                 </a>
                 <button *erpHasPermission="'purchasing.receipts.manage'" nz-button nzType="link" nzDanger nzSize="small"
                         nz-popconfirm nzPopconfirmTitle="Delete this receipt?" (nzOnConfirm)="deleteReceipt(row.id)">
@@ -79,9 +84,9 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
           @if (selectedReceipt(); as grn) {
             <div class="modal-info">
               <p><strong>GRN Number:</strong> {{ grn.number }}</p>
-              <p><strong>PO Reference:</strong> {{ grn.PurchaseOrderNumber || grn.purchaseOrderNumber }}</p>
+              <p><strong>PO Reference:</strong> {{ grn.purchaseOrderNumber }}</p>
               <p><strong>Supplier:</strong> {{ grn.vendorName }}</p>
-              <p><strong>Received On:</strong> {{ grn.receiptDate }} by {{ grn.receivedBy }}</p>
+              <p><strong>Received On:</strong> {{ grn.receiptDate | erpDate }} by {{ grn.receivedBy }}</p>
             </div>
 
             <nz-table #linesTable [nzData]="grn.lines" [nzShowPagination]="false">
@@ -97,7 +102,7 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
                   <tr>
                     <td><strong>{{ item.itemCode || '-' }}</strong></td>
                     <td>{{ item.description }}</td>
-                    <td style="text-align: right; font-weight: 600; color: #10955d;">
+                    <td style="text-align: right; font-weight: 600; color: var(--erp-color-primary);">
                       {{ item.quantityReceived | number:'1.0-2' }} {{ item.unitOfMeasure }}
                     </td>
                   </tr>
@@ -116,11 +121,12 @@ import { PagedTableComponent, TableColumn } from '../../shared/paged-table.compo
       </nz-modal>
   `,
   styles: [`
-    .po-link { color: #10955d; font-weight: 600; }
-    .vendor-name { font-weight: 600; color: #1e293b; }
+    .nowrap { white-space: nowrap; }
+    .po-link { color: var(--erp-color-primary); font-weight: 600; white-space: nowrap; }
+    .vendor-name { display: block; width: 200px; white-space: normal; font-weight: 600; color: var(--erp-color-text-primary); }
     .action-buttons { display: flex; gap: 4px; align-items: center; }
     .modal-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; font-size: 13.5px; }
-    .modal-info p { margin: 0; color: #475569; }
+    .modal-info p { margin: 0; color: var(--erp-color-text-secondary); }
   `],
 })
 export class GoodsReceiptsPage {
@@ -133,12 +139,12 @@ export class GoodsReceiptsPage {
 
   readonly columns: TableColumn<GoodsReceiptSummaryDto>[] = [
     { key: 'number', label: 'GRN #', sortField: 'number', width: '130px' },
-    { key: 'purchaseOrderNumber', label: 'Purchase Order #', sortField: 'purchaseOrderNumber', width: '150px' },
+    { key: 'purchaseOrderNumber', label: 'Purchase Order #', width: '150px' },
     { key: 'vendorName', label: 'Vendor / Supplier', sortField: 'vendorName' },
-    { key: 'receiptDate', label: 'Receipt Date', sortField: 'receiptDate', width: '120px' },
-    { key: 'receivedBy', label: 'Received By', sortField: 'receivedBy', width: '150px' },
-    { key: 'deliveryNoteNumber', label: 'Delivery Note #', width: '140px' },
-    { key: 'actions', label: 'Actions', width: '150px' },
+    { key: 'receiptDate', label: 'Receipt Date', sortField: 'receiptDate', width: '120px', filterField: 'receiptDate' },
+    { key: 'receivedBy', label: 'Received By', width: '130px' },
+    { key: 'deliveryNoteNumber', label: 'Delivery Note', width: '120px' },
+    { key: 'actions', label: 'Actions', width: '240px' },
   ];
 
   viewDetail(id: string): void {
@@ -157,7 +163,7 @@ export class GoodsReceiptsPage {
         this.message.success('Goods receipt deleted');
         this.list.reload();
       },
-      error: (err) => this.message.error(err?.error?.message ?? 'Failed to delete receipt'),
+      error: (err) => this.message.error(problemMessage(err, 'Failed to delete receipt')),
     });
   }
 }

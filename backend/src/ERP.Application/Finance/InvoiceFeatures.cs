@@ -144,6 +144,8 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
     {
         var invoice = await LoadAsync(cmd.Id, ct);
         if (invoice.Status != DocumentStatus.Draft) throw new ConflictException("Only a draft can be deleted.");
+        // The record it was raised from (milestone, sales order, instalment...) must become billable again, as when an issued invoice is voided.
+        if (invoice.SourceType is not null) await publisher.Publish(new InvoiceVoided(invoice.Id, invoice.SourceType, invoice.SourceId), ct);
         invoices.Remove(invoice);
         await invoices.SaveChangesAsync(ct);
         return Unit.Value;

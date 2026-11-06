@@ -4,8 +4,8 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api-config';
 import { CrudApiService } from './crud-api.service';
 
-export type PurchaseOrderStatus = 'Draft' | 'Submitted' | 'Approved' | 'PartiallyReceived' | 'Received' | 'Billed' | 'Cancelled';
-export type PurchaseRequisitionStatus = 'Draft' | 'PendingApproval' | 'Approved' | 'Rejected' | 'Ordered';
+export type PurchaseOrderStatus = 'draft' | 'submitted' | 'approved' | 'partiallyReceived' | 'received' | 'billed' | 'cancelled';
+export type PurchaseRequisitionStatus = 'draft' | 'pendingApproval' | 'approved' | 'rejected' | 'ordered';
 
 export interface PurchaseOrderLineInput {
   itemId?: string | null;

@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { problemMessage } from '../../core/http/problem-details';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -30,7 +32,7 @@ export function slabsText(slabs: { fromAmount: number; rate: number }[] | undefi
   selector: 'erp-statutory-rules',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzTagModule],
+  imports: [NzModalModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzTagModule],
   template: `
     <h1 class="erp-page-title">Statutory rules</h1>
     <p style="color:var(--erp-color-text-secondary)">Deductions and employer contributions applied to every regular payroll run of the entity (social security, pension, tax ...).</p>
@@ -38,9 +40,13 @@ export function slabsText(slabs: { fromAmount: number; rate: number }[] | undefi
       <button toolbar *erpHasPermission="'hr.payroll.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="rule-new"><span nz-icon nzType="plus"></span>New rule</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit rule' : 'New rule'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="rule-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
+                       [saving]="state.saving()" [errors]="state.errors()" testId="rule-form" (submitted)="state.submit($event)" (closed)="state.close()">
+      @if (state.editing(); as e) { <div drawerActions style="margin-bottom:12px"><button *erpHasPermission="'hr.payroll.manage'" nz-button nzDanger type="button" (click)="remove(e.id)" data-testid="rule-delete">Delete</button></div> }
+    </erp-record-drawer>`,
 })
 export class StatutoryRulesPage {
+  private readonly confirm = inject(NzModalService);
+  private readonly toast = inject(NzMessageService);
   private readonly api = inject(StatutoryRulesApi);
   private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
@@ -80,5 +86,15 @@ export class StatutoryRulesPage {
 
   private toBody(v: Record<string, unknown>): Record<string, unknown> {
     return { ...v, slabs: v['method'] === 'slab' ? (v['slabs'] ?? []) : [] };
+  }
+
+  remove(id: string): void {
+    this.confirm.confirm({
+      nzTitle: 'Delete this rule?', nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => new Promise<void>((resolve) => this.api.delete(id).subscribe({
+        next: () => { this.toast.success('Deleted'); this.state.close(); this.list.reload(); resolve(); },
+        error: (e) => { this.toast.error(problemMessage(e, 'Could not delete the rule')); resolve(); },
+      })),
+    });
   }
 }

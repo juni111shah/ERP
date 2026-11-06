@@ -25,6 +25,10 @@ import { AttachmentsComponent } from '../../shared/attachments.component';
 import { StatusTagComponent } from './status-tag.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ErpDatePipe } from '../../shared/display.pipes';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { NzIconModule } from 'ng-zorro-antd/icon';
 
 type Action = 'terminate' | 'renew';
 
@@ -33,12 +37,17 @@ type Action = 'terminate' | 'renew';
   selector: 'erp-lease-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, RecordHistoryComponent, TranslatePipe, DatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
+  imports: [ErpDatePipe, StatCardComponent, StatePanelComponent, NzIconModule, RecordHistoryComponent, TranslatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
     NzStatisticModule, NzTableModule, NzTagModule],
+  styles: [`.num { text-align: end; white-space: nowrap; }`],
   template: `
+    @if (failed()) {
+      <p><a routerLink="/real-estate/leases">← Leases</a></p>
+      <erp-state-panel kind="error" title="This lease could not be loaded" hint="It may have been removed, or your connection dropped." actionLabel="Try again" (action)="reload()" />
+    }
     @if (lease(); as l) {
       <p><a routerLink="/real-estate/leases">← Leases</a></p>
-      <h1 class="erp-page-title" data-testid="lease-title">{{ l.number }} <erp-status-tag [status]="l.status" /></h1>
+      <h1 data-testid="lease-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;font-size:20px;font-weight:600">{{ l.number }} <erp-status-tag [status]="l.status" /></h1>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0" data-testid="lease-actions">
         @if (l.status === 'draft') {
           <button *erpHasPermission="'realestate.leases.activate'" nz-button nzType="primary" [disabled]="busy()" (click)="activate()" data-testid="lease-activate">Activate</button>
@@ -59,7 +68,7 @@ type Action = 'terminate' | 'renew';
           <button *erpHasPermission="'realestate.leases.terminate'" nz-button [disabled]="busy()" (click)="moveOut()" data-testid="lease-move-out">Confirm move-out</button>
         }
         <a [href]="'/print/lease/' + l.id" target="_blank" nz-button data-testid="lease-print">
-          <span nz-icon nzType="printer"></span>Print Contract / PDF
+          <span nz-icon nzType="printer"></span>Print contract
         </a>
       </div>
       <div class="erp-stat-grid" data-testid="lease-kpis">
@@ -70,13 +79,14 @@ type Action = 'terminate' | 'renew';
       </div>
       <nz-card style="margin-top:16px" nzTitle="Details">
         <nz-descriptions nzBordered [nzColumn]="descriptionColumns">
-          <nz-descriptions-item nzTitle="Unit">{{ l.unitNumber }}</nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Term">{{ l.startDate }} → {{ l.endDate }}</nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Tenant">{{ l.tenantName }}</nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Unit"><a [routerLink]="['/real-estate/properties', l.propertyId]">{{ l.unitNumber }}</a></nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Term">{{ l.startDate | erpDate }} → {{ l.endDate | erpDate }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="Rent-free days">{{ l.graceDays }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="Notice period">{{ l.noticePeriodDays }} {{ 'ui.common.days' | translate: 'days' }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="VAT on rent">{{ humanize(l.suggestedVat) }}</nz-descriptions-item>
-          @if (l.activatedAt) { <nz-descriptions-item nzTitle="Activated">{{ l.activatedAt | date: 'medium' }}</nz-descriptions-item> }
-          @if (l.terminationDate) { <nz-descriptions-item nzTitle="Terminated on">{{ l.terminationDate }} · {{ l.terminationReason }}</nz-descriptions-item> }
+          @if (l.activatedAt) { <nz-descriptions-item nzTitle="Activated">{{ l.activatedAt | erpDate }}</nz-descriptions-item> }
+          @if (l.terminationDate) { <nz-descriptions-item nzTitle="Terminated on">{{ l.terminationDate | erpDate }} · {{ l.terminationReason }}</nz-descriptions-item> }
           @if (l.renewalOfLeaseId) { <nz-descriptions-item nzTitle="Renewal of"><a [routerLink]="['/real-estate/leases', l.renewalOfLeaseId]">previous lease</a></nz-descriptions-item> }
           @if (l.renewedAsLeaseId) { <nz-descriptions-item nzTitle="Renewed as"><a [routerLink]="['/real-estate/leases', l.renewedAsLeaseId]">renewal lease</a></nz-descriptions-item> }
           @for (cf of customFieldList(l); track cf[0]) { <nz-descriptions-item [nzTitle]="cf[0]">{{ cf[1] }}</nz-descriptions-item> }
@@ -86,10 +96,10 @@ type Action = 'terminate' | 'renew';
       <nz-card style="margin-top:16px" nzTitle="Rent schedule">
         @if (l.schedule.length) {
           <nz-table #t [nzData]="l.schedule" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="rent-schedule">
-            <thead><tr><th>#</th><th>Period</th><th>Due</th><th>Rent (excl. VAT)</th><th>Status</th></tr></thead>
+            <thead><tr><th>#</th><th>Period</th><th>Due</th><th class="num">Rent excl. VAT ({{ l.currencyCode }})</th><th>Status</th></tr></thead>
             <tbody>
               @for (i of t.data; track i.id) {
-                <tr><td>{{ i.sequence }}</td><td>{{ i.periodFrom }} → {{ i.periodTo }}</td><td>{{ i.dueDate }}</td><td>{{ i.amount.toLocaleString() }}</td><td><erp-status-tag [status]="i.status" /></td></tr>
+                <tr><td>{{ i.sequence }}</td><td>{{ i.periodFrom | erpDate }} → {{ i.periodTo | erpDate }}</td><td>{{ i.dueDate | erpDate }}</td><td class="num">{{ i.amount.toLocaleString() }}</td><td><erp-status-tag [status]="i.status" /></td></tr>
               }
             </tbody>
           </nz-table>
@@ -110,10 +120,13 @@ export class LeaseDetailPage {
   private readonly message = inject(NzMessageService);
   private readonly router = inject(Router);
   private readonly modal = inject(NzModalService);
-  readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id')!;
+  private readonly route = inject(ActivatedRoute);
+  /** Follows the route: Renew and the renewal links open another lease on this same page. */
+  id = this.route.snapshot.paramMap.get('id')!;
   readonly humanize = humanize;
   readonly descriptionColumns = DESCRIPTION_COLUMNS;
   readonly lease = signal<LeaseDto | null>(null);
+  readonly failed = signal(false);
   readonly busy = signal(false);
   readonly editFields = leaseFields(inject(RealEstateLookups), true);
   readonly state = new MasterDataState<LeaseDto>({
@@ -123,7 +136,9 @@ export class LeaseDetailPage {
   readonly actionSaving = signal(false);
   readonly actionErrors = signal<ProblemDetails | null>(null);
 
-  constructor() { this.load(); }
+  constructor() {
+    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((p) => { this.id = p.get('id')!; this.lease.set(null); this.load(); });
+  }
 
   planLabel(n: number): string { return PAYMENT_PLANS.find((p) => p.value === n)?.label ?? `${n} ${this.i18n.t('ui.re.aYear', 'a year')}`; }
 
@@ -201,5 +216,6 @@ export class LeaseDetailPage {
     });
   }
 
-  private load(): void { this.api.detail(this.id).subscribe((l) => this.lease.set(l)); }
+  reload(): void { this.load(); }
+  private load(): void { this.failed.set(false); this.api.detail(this.id).subscribe({ next: (l) => this.lease.set(l), error: () => this.failed.set(true) }); }
 }

@@ -130,7 +130,7 @@ public class InteractionHandlers :
 
     public async Task<bool> Handle(ResolveInteractionCommand request, CancellationToken cancellationToken)
     {
-        var interaction = await _interactionRepo.FindAsync(request.Id, cancellationToken)
+        var interaction = await _interactionRepo.Tracked().FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException($"Interaction {request.Id} not found.");
 
         interaction.IsResolved = true;

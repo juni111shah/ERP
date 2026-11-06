@@ -16,8 +16,11 @@ import { ProblemDetails } from '../../core/api/api.models';
 import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
+import { StatePanelComponent } from '../../shared/state-panel.component';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 import { DAILY_STATUSES, DailyAttendance, DailyAttendanceApi, DailyInput, RollUpRow } from './hr-people.api';
 import { EmployeeSummary, EmployeesApi, MONTHS } from './hr.api';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 /** "8:5" or "08:05" -> "08:05:00"; blank -> null; anything else -> undefined (invalid). */
 export function toTime(text: unknown): string | null | undefined {
@@ -43,19 +46,21 @@ export function parseImport(text: string, idByNumber: ReadonlyMap<string, string
   return { rows, errors };
 }
 
-const STATUS_COLORS: Record<string, string> = { present: 'green', absent: 'red', leave: 'blue', holiday: 'purple', weeklyOff: 'default', halfDay: 'orange' };
 
 /** Day-by-day attendance: check-in and check-out, late and overtime, an import from a device export, and the roll-up into the monthly record payroll uses. */
 @Component({
   selector: 'erp-daily-attendance',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule],
+  imports: [ErpDatePipe, DecimalPipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule],
+  styles: [`.num { text-align: end; white-space: nowrap; } .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; } .import-error { color: var(--erp-color-error-text); margin: 4px 0 0; } .gap { margin-inline-end: 10px; }`],
   template: `
     <h1 class="erp-page-title">Daily attendance</h1>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0">
-      <nz-date-picker nzMode="month" [(ngModel)]="month" (ngModelChange)="load()" data-testid="daily-month"></nz-date-picker>
-      <nz-select style="width:240px" nzAllowClear nzShowSearch nzPlaceHolder="All employees" [(ngModel)]="employeeId" (ngModelChange)="load()" data-testid="daily-employee">
+      <label class="sr" for="daily-month">Month</label>
+      <nz-date-picker nzId="daily-month" nzMode="month" [nzAllowClear]="false" [(ngModel)]="month" (ngModelChange)="load()" data-testid="daily-month"></nz-date-picker>
+      <label class="sr" for="daily-employee">Employee</label>
+      <nz-select nzId="daily-employee" style="width:240px" nzAllowClear nzShowSearch nzPlaceHolder="All employees" [(ngModel)]="employeeId" (ngModelChange)="load()" data-testid="daily-employee">
         @for (e of employees().items; track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.number + ' · ' + e.fullName"></nz-option> }
       </nz-select>
       <span style="flex:1"></span>
@@ -63,19 +68,24 @@ const STATUS_COLORS: Record<string, string> = { present: 'green', absent: 'red',
       <button *erpHasPermission="'hr.attendance.manage'" nz-button (click)="importOpen.set(true)" data-testid="daily-import"><span nz-icon nzType="upload"></span>Import</button>
       <button *erpHasPermission="'hr.attendance.manage'" nz-button nzType="primary" [disabled]="busy()" (click)="rollUp()" data-testid="daily-rollup">Roll up to the month</button>
     </div>
-    <nz-table [nzData]="rows()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="daily-table">
-      <thead><tr><th>Date</th><th>Employee</th><th>In</th><th>Out</th><th>Status</th><th>Worked</th><th>Late (min)</th><th>Overtime (min)</th><th></th></tr></thead>
-      <tbody>
-        @for (r of rows(); track r.id) {
-          <tr>
-            <td>{{ r.date }}</td><td>{{ name(r.employeeId) }}</td><td>{{ r.checkIn?.slice(0, 5) }}</td><td>{{ r.checkOut?.slice(0, 5) }}</td>
-            <td><nz-tag [nzColor]="color(r.status)">{{ statusLabel(r.status) }}</nz-tag></td>
-            <td>{{ hours(r.workedMinutes) }}</td><td>{{ r.lateMinutes || '' }}</td><td>{{ r.overtimeMinutes || '' }}</td>
-            <td><a *erpHasPermission="'hr.attendance.manage'" (click)="startEdit(r)" style="margin-inline-end:10px">Edit</a><a *erpHasPermission="'hr.attendance.manage'" (click)="remove(r)">Delete</a></td>
-          </tr>
-        } @empty { <tr><td colspan="9" style="text-align:center;color:var(--erp-color-text-secondary)">No days recorded for this month</td></tr> }
-      </tbody>
-    </nz-table>
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Daily attendance could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
+    } @else {
+      <nz-table [nzData]="rows()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzNoResult]="noDays" data-testid="daily-table">
+        <thead><tr><th>Date</th><th>Employee</th><th>In</th><th>Out</th><th>Status</th><th class="num">Worked</th><th class="num">Late (min)</th><th class="num">Overtime (min)</th><th></th></tr></thead>
+        <tbody>
+          @for (r of rows(); track r.id) {
+            <tr>
+              <td>{{ r.date | erpDate }}</td><td>{{ name(r.employeeId) }}</td><td>{{ r.checkIn?.slice(0, 5) }}</td><td>{{ r.checkOut?.slice(0, 5) }}</td>
+              <td><erp-status [value]="r.status" [label]="statusLabel(r.status)" /></td>
+              <td class="num">{{ hours(r.workedMinutes) }}</td><td class="num">{{ r.lateMinutes || '' }}</td><td class="num">{{ r.overtimeMinutes || '' }}</td>
+              <td><a class="gap" *erpHasPermission="'hr.attendance.manage'" (click)="startEdit(r)">Edit</a><a *erpHasPermission="'hr.attendance.manage'" (click)="remove(r)">Delete</a></td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+      <ng-template #noDays><erp-state-panel title="No days recorded for this month" hint="Add a day by hand, or import the export from your attendance device." icon="calendar" /></ng-template>
+    }
 
     <erp-record-drawer [title]="editing() ? 'Edit day' : 'Add a day'" [open]="form()" [fields]="fields()" [value]="$any(editing())" [saving]="busy()" [errors]="errors()" [width]="440"
                        testId="daily-form" (submitted)="save($event)" (closed)="form.set(false)" />
@@ -83,8 +93,8 @@ const STATUS_COLORS: Record<string, string> = { present: 'green', absent: 'red',
     <nz-modal [nzVisible]="importOpen()" nzTitle="Import attendance" [nzWidth]="560" nzOkText="Import" [nzOkLoading]="busy()" (nzOnOk)="runImport()" (nzOnCancel)="importOpen.set(false)">
       <ng-container *nzModalContent>
         <p>One line per day: <code>employee number, date, check-in, check-out</code>, for example <code>EMP-001,2026-10-05,08:00,17:30</code>. Leave the times blank for an absent day.</p>
-        <textarea nz-input rows="8" [(ngModel)]="importText" data-testid="daily-import-text"></textarea>
-        @for (e of importErrors(); track e) { <p style="color:#cf1322;margin:4px 0 0">{{ e }}</p> }
+        <textarea nz-input rows="8" aria-label="Attendance lines to import" [(ngModel)]="importText" data-testid="daily-import-text"></textarea>
+        @for (e of importErrors(); track e) { <p class="import-error">{{ e }}</p> }
       </ng-container>
     </nz-modal>
 
@@ -109,6 +119,8 @@ export class DailyAttendancePage {
   employeeId: string | null = null;
   importText = '';
   readonly rows = signal<DailyAttendance[]>([]);
+  readonly loading = signal(false);
+  readonly failed = signal(false);
   readonly form = signal(false);
   readonly editing = signal<DailyAttendance | null>(null);
   readonly busy = signal(false);
@@ -129,11 +141,16 @@ export class DailyAttendancePage {
   constructor() { this.load(); }
 
   name(id: string): string { return this.byId().get(id)?.fullName ?? ''; }
-  color(s: string): string { return STATUS_COLORS[s] ?? 'default'; }
   statusLabel(s: string): string { return DAILY_STATUSES.find((x) => x.value === s)?.label ?? s; }
   hours(min: number): string { return min ? `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}` : ''; }
 
-  load(): void { this.api.month(this.month.getFullYear(), this.month.getMonth() + 1, this.employeeId).subscribe((r) => this.rows.set(r)); }
+  load(): void {
+    this.loading.set(true); this.failed.set(false);
+    this.api.month(this.month.getFullYear(), this.month.getMonth() + 1, this.employeeId).subscribe({
+      next: (r) => { this.rows.set(r); this.loading.set(false); },
+      error: () => { this.loading.set(false); this.failed.set(true); },
+    });
+  }
 
   startAdd(): void { this.editing.set(null); this.errors.set(null); this.form.set(true); }
   startEdit(r: DailyAttendance): void { this.editing.set({ ...r, checkIn: r.checkIn?.slice(0, 5), checkOut: r.checkOut?.slice(0, 5) }); this.errors.set(null); this.form.set(true); }
@@ -173,10 +190,17 @@ export class DailyAttendancePage {
   }
 
   rollUp(): void {
-    this.busy.set(true);
-    this.api.rollUp(this.month.getFullYear(), this.month.getMonth() + 1).subscribe({
-      next: (r) => { this.busy.set(false); if (r.length === 0) this.message.info(`No daily records in ${MONTHS[this.month.getMonth()]} yet`); else this.summary.set(r); },
-      error: (e) => { this.busy.set(false); this.message.error(asProblem(e)?.detail ?? 'Could not roll up the month'); },
+    this.modal.confirm({
+      nzTitle: `Roll up ${MONTHS[this.month.getMonth()]} ${this.month.getFullYear()}?`,
+      nzContent: 'For every employee with daily records, the monthly attendance is replaced by what the days add up to. Employees without daily records are left alone.',
+      nzOkText: 'Roll up',
+      nzOnOk: () => new Promise<void>((resolve) => {
+        this.busy.set(true);
+        this.api.rollUp(this.month.getFullYear(), this.month.getMonth() + 1).subscribe({
+          next: (r) => { this.busy.set(false); if (r.length === 0) this.message.info(`No daily records in ${MONTHS[this.month.getMonth()]} yet`); else this.summary.set(r); resolve(); },
+          error: (e) => { this.busy.set(false); this.message.error(asProblem(e)?.detail ?? 'Could not roll up the month'); resolve(); },
+        });
+      }),
     });
   }
 }

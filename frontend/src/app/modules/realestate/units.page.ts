@@ -43,19 +43,19 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                      [value]="stats().occupied"
                      format="number"
                      [loading]="list.loading() && list.items().length === 0"
-                     caption="generating revenue"
+                     [caption]="stats().partial ? 'on this page' : 'generating revenue'"
                      [tone]="1" />
       <erp-stat-card label="Vacant units"
                      [value]="stats().vacant"
                      format="number"
                      [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().vacant > 0 ? 'available to let' : '100% full'"
+                     [caption]="stats().partial ? 'on this page' : stats().vacant > 0 ? 'available to let' : 'none vacant'"
                      [tone]="stats().vacant > 0 ? 2 : 'neutral'" />
       <erp-stat-card label="Potential rent"
                      [value]="stats().potentialRent"
                      format="money"
                      [loading]="list.loading() && list.items().length === 0"
-                     caption="annual asking on page"
+                     [caption]="stats().partial ? 'annual asking rent, on this page' : 'annual asking rent, all units'"
                      [tone]="3" />
     </div>
 
@@ -144,6 +144,7 @@ export class UnitsPage {
       vacant,
       potentialRent,
       count: items.length,
+      partial: this.list.total() > items.length,
     };
   });
   readonly state = new MasterDataState<UnitDto>({
@@ -156,13 +157,13 @@ export class UnitsPage {
     { key: 'unitTypeName', label: 'Type' },
     { key: 'usage', label: 'Usage', sortField: 'usage', value: (u) => humanize(u.usage) },
     { key: 'floor', label: 'Floor' },
-    { key: 'areaSqft', label: 'Area (sq ft)', sortField: 'areaSqft' },
-    { key: 'askingRent', label: 'Asking rent', sortField: 'askingRent', value: (u) => u.askingRent.toLocaleString() },
+    { key: 'areaSqft', label: 'Area (sq ft)', sortField: 'areaSqft', align: 'right' },
+    { key: 'askingRent', label: 'Asking rent', sortField: 'askingRent', align: 'right', value: (u) => u.askingRent.toLocaleString() },
     { key: 'status', label: 'Status', sortField: 'status', filterField: 'status', filterOptions: STATUSES },
     { key: 'tenantName', label: 'Tenant' },
-    { key: 'currentRent', label: 'Current rent', value: (u) => u.currentRent?.toLocaleString() },
+    { key: 'currentRent', label: 'Current rent', align: 'right', value: (u) => u.currentRent?.toLocaleString() },
     { key: 'leaseEnds', label: 'Lease ends' },
-    { key: 'daysVacant', label: 'Days vacant' },
+    { key: 'daysVacant', label: 'Days vacant', align: 'right' },
   ];
 
   readonly fields: FieldSpec[] = [

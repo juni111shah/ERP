@@ -12,6 +12,7 @@ import '../../kit/form_page.dart';
 import '../../kit/list_screen.dart';
 import '../../kit/widgets.dart';
 import '../common/paged_list_view.dart';
+import 'package:erp_mobile/theme/app_theme.dart';
 import 'package:erp_mobile/theme/tokens.dart';
 import 'projects_extra_screens.dart';
 
@@ -152,48 +153,96 @@ ActionSpec _projectMove(String target, String text, IconData icon, {bool destruc
       run: (ref, d, _) => ref.read(apiProvider).put('$pBase/projects/${d['id']}/status', body: {'status': target}),
     );
 
+const _healthLabels = [Option('onTrack', 'On track'), Option('atRisk', 'At risk'), Option('offTrack', 'Off track')];
+
+Color _healthColor(Object? health) => switch ('$health') {
+      'onTrack' => Colors.green.shade700,
+      'atRisk' => Colors.orange.shade800,
+      'offTrack' => Colors.red.shade700,
+      _ => Colors.blueGrey,
+    };
+
+num _n(Object? v) => v is num ? v : 0;
+
+/// Hours without a pointless ".0": 51, 7.5.
+String _hours(num v) => v % 1 == 0 ? '${v.toInt()}' : '$v';
+
 class ProjectDetailScreen extends StatelessWidget {
   const ProjectDetailScreen({super.key, required this.id});
   final String id;
 
   @override
   Widget build(BuildContext context) => Consumer(builder: (context, ref, _) {
+        final currency = ref.watch(meOrEmptyProvider).baseCurrency;
+        String cash(Object? v) => '$currency ${formatMoney(_n(v))}'.trim();
         return DetailPage(
           path: '$pBase/projects/$id',
           titleOf: (d) => '${d['number']}',
           canEdit: (d) => ref.read(meOrEmptyProvider).can('projects.projects.manage') && !const {'completed', 'cancelled'}.contains(d['status']),
           edit: (d) => projectForm(ref, existing: d),
-          body: (context, d) => DetailBody(children: [
-            DetailHeader(title: '${d['name']}', subtitle: d['customerName'] == null ? 'No customer assigned' : '${d['customerName']}', status: null),
-            Align(alignment: Alignment.centerLeft, child: chip(projectStatuses, d['status'])),
-            const SizedBox(height: ErpSpace.s2),
-            InfoCard(rows: [
-              InfoRow('Billing', label(billingTypes, d['billingType'])),
-              InfoRow('Manager', text(d['managerName'])),
-              InfoRow('Budget', formatMoney((d['effectiveBudget'] as num?) ?? (d['budgetAmount'] as num?) ?? 0), bold: true),
-              InfoRow('Health', humanize('${d['health'] ?? ''}')),
-              InfoRow('Progress', '${d['percentComplete'] ?? 0}% of planned work done'),
-              InfoRow('Billed so far', formatMoney((d['billedAmount'] as num?) ?? 0)),
-              InfoRow('Unbilled', formatMoney((d['unbilledAmount'] as num?) ?? 0)),
-              InfoRow('Start', d['startDate'] == null ? null : formatDate(d['startDate'])),
-              InfoRow('End', d['endDate'] == null ? null : formatDate(d['endDate'])),
-              InfoRow('Hours logged', '${d['totalLoggedHours'] ?? 0}'),
-              InfoRow('Hours billed', '${d['totalBilledHours'] ?? 0}'),
-              InfoRow('Cost (labour and expenses)', formatMoney((d['totalTimesheetCost'] as num?) ?? 0)),
-              InfoRow('Tasks', '${d['completedTasks'] ?? 0} / ${d['totalTasks'] ?? 0} done'),
-              InfoRow('Milestones', '${d['achievedMilestones'] ?? 0} / ${d['totalMilestones'] ?? 0} achieved'),
-            ]),
-            if ((d['description'] ?? '').toString().isNotEmpty) ...[Text(d['description'].toString()), const SizedBox(height: ErpSpace.s3)],
-            _Related(title: 'Tasks', path: '$pBase/tasks', projectId: id, tile: taskTile),
-            _Related(title: 'Milestones', path: '$pBase/milestones', projectId: id, tile: milestoneTile),
-            _Related(title: 'Time entries', path: '$pBase/timesheets', projectId: id, tile: timesheetTile),
-            _Related(title: 'Expenses', path: '$pBase/expenses', projectId: id, tile: expenseTile),
-          ]),
+          body: (context, d) {
+            final budget = _n(d['effectiveBudget'] ?? d['budgetAmount']);
+            final cost = _n(d['totalTimesheetCost']);
+            final hours = _n(d['totalLoggedHours']);
+            final billedHours = _n(d['totalBilledHours']);
+            final budgetHours = _n(d['effectiveBudgetHours'] ?? d['budgetHours']);
+            final overdue = _n(d['overdueTasks']);
+            final health = _healthLabels.any((o) => o.value == d['health']) ? d['health'] : null;
+            return DetailBody(children: [
+              DetailHeader(title: '${d['name']}', subtitle: d['customerName'] == null ? 'No customer assigned' : '${d['customerName']}', status: null),
+              Padding(
+                padding: const EdgeInsets.only(bottom: ErpSpace.s3),
+                child: Wrap(spacing: ErpSpace.s2, runSpacing: ErpSpace.s1, children: [
+                  chip(projectStatuses, d['status']),
+                  if (health != null) StatusChip(label(_healthLabels, health), color: _healthColor(health)),
+                  StatusChip(label(billingTypes, d['billingType']), color: Colors.blueGrey),
+                ]),
+              ),
+              _ProgressCard(meters: [
+                _Meter(
+                  label: 'Work done',
+                  value: '${_n(d['percentComplete']).round()}%',
+                  share: _n(d['percentComplete']) / 100,
+                  note: '${_n(d['completedTasks'])} of ${_n(d['totalTasks'])} tasks done${overdue > 0 ? ', $overdue overdue' : ''}',
+                  alert: overdue > 0,
+                ),
+                _Meter(
+                  label: 'Budget used',
+                  value: budget > 0 ? '${(cost / budget * 100).round()}%' : 'No budget',
+                  share: budget > 0 ? cost / budget : 0,
+                  note: budget > 0 ? '${cash(cost)} of ${formatMoney(budget)}' : '${cash(cost)} spent',
+                  alert: budget > 0 && cost > budget,
+                ),
+                _Meter(
+                  label: 'Hours logged',
+                  value: '${_hours(hours)} h',
+                  share: budgetHours > 0 ? hours / budgetHours : 0,
+                  note: budgetHours > 0 ? 'of ${_hours(budgetHours)} budgeted, ${_hours(billedHours)} billed' : '${_hours(billedHours)} billed, no hours budgeted',
+                  alert: budgetHours > 0 && hours > budgetHours,
+                ),
+              ]),
+              InfoCard(title: 'Money', rows: [
+                InfoRow('Budget', cash(budget), bold: true),
+                InfoRow('Billed so far', cash(d['billedAmount'])),
+                InfoRow('Ready to bill', cash(d['unbilledAmount'])),
+                InfoRow('Cost so far', cash(cost)),
+              ]),
+              InfoCard(title: 'Details', rows: [
+                InfoRow('Manager', text(d['managerName'])),
+                InfoRow('Start', d['startDate'] == null ? null : formatDate(d['startDate'])),
+                InfoRow('End', d['endDate'] == null ? null : formatDate(d['endDate'])),
+                InfoRow('Milestones', '${_n(d['achievedMilestones'])} of ${_n(d['totalMilestones'])} reached'),
+              ]),
+              if ((d['description'] ?? '').toString().isNotEmpty) ...[Text(d['description'].toString()), const SizedBox(height: ErpSpace.s3)],
+              _Related(title: 'Tasks', path: '$pBase/tasks', projectId: id, tile: taskTile),
+              _Related(title: 'Milestones', path: '$pBase/milestones', projectId: id, tile: milestoneTile),
+              _Related(title: 'Time entries', path: '$pBase/timesheets', projectId: id, tile: timesheetTile),
+              _Related(title: 'Expenses', path: '$pBase/expenses', projectId: id, tile: expenseTile),
+            ]);
+          },
+          // Everyday work comes first: the first two that apply stay in the bar, the rest are under More.
           actions: [
             _projectMove('active', 'Activate', Icons.play_arrow),
-            _projectMove('onHold', 'Put on hold', Icons.pause),
-            _projectMove('completed', 'Complete', Icons.check_circle_outline, confirm: 'Complete this project? It cannot be reopened.'),
-            _projectMove('cancelled', 'Cancel', Icons.block, destructive: true, confirm: 'Cancel this project? It cannot be reopened.'),
             ActionSpec(
               label: 'Log time',
               icon: Icons.timer_outlined,
@@ -219,20 +268,6 @@ class ProjectDetailScreen extends StatelessWidget {
               form: (d) => expenseForm(ref, projectId: id, projectName: '${d['name']}'),
             ),
             ActionSpec(
-              label: 'Log a risk or issue',
-              icon: Icons.warning_amber_outlined,
-              permission: 'projects.risks.manage',
-              run: (ref, d, _) async => null,
-              form: (d) => riskForm(ref, projectId: id, projectName: '${d['name']}'),
-            ),
-            ActionSpec(
-              label: 'Clone project',
-              icon: Icons.copy_outlined,
-              permission: 'projects.projects.manage',
-              run: (ref, d, _) async => null,
-              form: (d) => cloneForm(ref, id, '${d['name']}'),
-            ),
-            ActionSpec(
               label: 'Add milestone',
               icon: Icons.flag_outlined,
               permission: 'projects.milestones.manage',
@@ -241,7 +276,24 @@ class ProjectDetailScreen extends StatelessWidget {
               form: (d) => milestoneForm(ref, projectId: id, projectName: '${d['name']}'),
             ),
             ActionSpec(
-              label: 'Delete',
+              label: 'Log a risk or issue',
+              icon: Icons.warning_amber_outlined,
+              permission: 'projects.risks.manage',
+              run: (ref, d, _) async => null,
+              form: (d) => riskForm(ref, projectId: id, projectName: '${d['name']}'),
+            ),
+            _projectMove('onHold', 'Put on hold', Icons.pause),
+            _projectMove('completed', 'Complete project', Icons.check_circle_outline, confirm: 'Complete this project? It cannot be reopened.'),
+            ActionSpec(
+              label: 'Clone project',
+              icon: Icons.copy_outlined,
+              permission: 'projects.projects.manage',
+              run: (ref, d, _) async => null,
+              form: (d) => cloneForm(ref, id, '${d['name']}'),
+            ),
+            _projectMove('cancelled', 'Cancel project', Icons.block, destructive: true, confirm: 'Cancel this project? It cannot be reopened.'),
+            ActionSpec(
+              label: 'Delete project',
               icon: Icons.delete_outline,
               permission: 'projects.projects.manage',
               destructive: true,
@@ -256,6 +308,54 @@ class ProjectDetailScreen extends StatelessWidget {
           ],
         );
       });
+}
+
+class _Meter {
+  const _Meter({required this.label, required this.value, required this.share, required this.note, this.alert = false});
+  final String label;
+  final String value;
+  final num share;
+  final String note;
+  final bool alert;
+}
+
+/// How the project is doing at a glance: a labelled bar for each measure.
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({required this.meters});
+  final List<_Meter> meters;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ErpTheme.of(context);
+    final error = Theme.of(context).colorScheme.error;
+    return Container(
+      key: const ValueKey('project-progress'),
+      margin: const EdgeInsets.only(bottom: ErpSpace.s3),
+      padding: const EdgeInsets.all(ErpSpace.s4),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(ErpRadius.panel),
+        border: Border.all(color: t.borderSubtle),
+        boxShadow: Theme.of(context).brightness == Brightness.dark ? null : ErpShadow.card,
+      ),
+      child: Column(children: [
+        for (var i = 0; i < meters.length; i++) ...[
+          if (i > 0) const SizedBox(height: ErpSpace.s35),
+          Row(children: [
+            Expanded(child: Text(meters[i].label, style: TextStyle(fontSize: ErpType.bodySmall, color: t.muted))),
+            Text(meters[i].value, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: meters[i].alert ? error : t.text, fontFeatures: ErpFonts.tabular)),
+          ]),
+          const SizedBox(height: ErpSpace.s1),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(value: meters[i].share.clamp(0, 1).toDouble(), minHeight: 6, color: meters[i].alert ? error : t.brand, backgroundColor: t.borderSubtle),
+          ),
+          const SizedBox(height: ErpSpace.s1),
+          Align(alignment: AlignmentDirectional.centerStart, child: Text(meters[i].note, style: TextStyle(fontSize: ErpType.caption, color: t.muted))),
+        ],
+      ]),
+    );
+  }
 }
 
 /// Records of a project (tasks, milestones, time) listed inside its detail screen.
@@ -294,12 +394,36 @@ class _RelatedState extends ConsumerState<_Related> {
     ref.listen(dataVersionProvider, (_, _) => _load());
     final list = _items;
     if (list != null && list.isEmpty) return const SizedBox.shrink();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(widget.title, style: Theme.of(context).textTheme.titleMedium),
-      if (_error != null) Text(_error!) else if (list == null) const LinearProgressIndicator(),
-      for (final i in list ?? const <Json>[]) widget.tile(context, i),
-      const SizedBox(height: ErpSpace.s2),
-    ]);
+    final t = ErpTheme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: ErpSpace.s3),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(ErpRadius.panel),
+        border: Border.all(color: t.borderSubtle),
+        boxShadow: Theme.of(context).brightness == Brightness.dark ? null : ErpShadow.card,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, ErpSpace.s35, ErpSpace.s4, ErpSpace.s1),
+            child: Text(widget.title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: t.text)),
+          ),
+          if (_error != null)
+            Padding(padding: const EdgeInsets.all(ErpSpace.s4), child: Text(_error!))
+          else if (list == null)
+            const Padding(padding: EdgeInsets.all(ErpSpace.s4), child: LinearProgressIndicator()),
+          for (var i = 0; i < (list?.length ?? 0); i++) ...[
+            if (i > 0) Divider(height: 1, indent: ErpSpace.s4, endIndent: ErpSpace.s4, color: t.borderSubtle),
+            // Every row here belongs to this project, so repeating its name would only make the rows taller.
+            widget.tile(context, {...list![i], 'projectName': null}),
+          ],
+          const SizedBox(height: ErpSpace.s1),
+        ]),
+      ),
+    );
   }
 }
 
@@ -372,6 +496,7 @@ ActionSpec _taskMove(String target, String text, IconData icon) => ActionSpec(
       label: text,
       icon: icon,
       permission: 'projects.tasks.manage',
+      destructive: target == 'cancelled',
       visible: (d) => (taskMoves[d['status']] ?? const []).contains(target),
       successMessage: 'Task ${label(taskStatuses, target).toLowerCase()}',
       run: (ref, d, _) => ref.read(apiProvider).put('$pBase/tasks/${d['id']}/status', body: {'status': target}),
@@ -406,12 +531,9 @@ class TaskDetailScreen extends StatelessWidget {
             if ((d['description'] ?? '').toString().isNotEmpty) Text(d['description'].toString()),
           ]),
           actions: [
-            _taskMove('inProgress', 'Start', Icons.play_arrow),
-            _taskMove('review', 'Send to review', Icons.rate_review_outlined),
             _taskMove('done', 'Done', Icons.check_circle_outline),
-            _taskMove('todo', 'Back to to do', Icons.undo),
-            _taskMove('blocked', 'Mark blocked', Icons.block),
-            _taskMove('cancelled', 'Cancel task', Icons.cancel_outlined),
+            _taskMove('review', 'Send to review', Icons.rate_review_outlined),
+            _taskMove('inProgress', 'Start', Icons.play_arrow),
             ActionSpec(
               label: 'Log time',
               icon: Icons.timer_outlined,
@@ -419,6 +541,9 @@ class TaskDetailScreen extends StatelessWidget {
               run: (ref, d, _) async => null,
               form: (d) => timesheetForm(ref, projectId: '${d['projectId']}', projectName: '${d['projectName']}', taskId: id, taskTitle: '${d['title']}'),
             ),
+            _taskMove('todo', 'Back to to do', Icons.undo),
+            _taskMove('blocked', 'Mark blocked', Icons.block),
+            _taskMove('cancelled', 'Cancel task', Icons.cancel_outlined),
             ActionSpec(
               label: 'Delete',
               icon: Icons.delete_outline,
@@ -574,18 +699,30 @@ FormSpec timesheetForm(WidgetRef ref, {Json? existing, String? projectId, String
   );
 }
 
-Widget timesheetTile(BuildContext context, Json t) => ListTile(
-      onTap: () => Navigator.of(context).push(_route(TimesheetDetailScreen(id: '${t['id']}'))),
-      title: Text('${t['hours']} h · ${t['workerName']}', maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('${formatDate(t['date'])}${(t['projectName'] ?? '').toString().isEmpty ? '' : ' · ${t['projectName']}'}${(t['description'] ?? '').toString().isEmpty ? '' : '\n${t['description']}'}'),
-      isThreeLine: (t['description'] ?? '').toString().isNotEmpty,
-      trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Text(formatMoney((t['totalAmount'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: ErpSpace.s1),
-        StatusChip(t['writtenOff'] == true ? 'Written off' : t['isBilled'] == true ? 'Billed' : (t['isBillable'] == true ? 'Unbilled' : 'Non-billable'), color: t['isBilled'] == true ? Colors.green.shade700 : Colors.blueGrey),
-        if ('${t['approvalStatus']}' != 'approved') StatusChip(humanize('${t['approvalStatus']}'), color: statusColor('${t['approvalStatus']}' == 'rejected' ? 'cancelled' : 'review')),
-      ]),
-    );
+Widget timesheetTile(BuildContext context, Json t) {
+  final approval = t['approvalStatus']?.toString();
+  final pending = approval != null && approval != 'approved';
+  final hasNote = (t['description'] ?? '').toString().isNotEmpty;
+  return ListTile(
+    onTap: () => Navigator.of(context).push(_route(TimesheetDetailScreen(id: '${t['id']}'))),
+    title: Text('${_hours(_n(t['hours']))} h · ${t['workerName']}', maxLines: 1, overflow: TextOverflow.ellipsis),
+    // The approval chip sits here because ListTile limits the height of its trailing side: a second chip there is cut off.
+    subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      Text('${formatDate(t['date'])}${(t['projectName'] ?? '').toString().isEmpty ? '' : ' · ${t['projectName']}'}${hasNote ? '\n${t['description']}' : ''}'),
+      if (pending)
+        Padding(
+          padding: const EdgeInsets.only(top: ErpSpace.s1),
+          child: StatusChip(humanize(approval), color: statusColor(approval == 'rejected' ? 'cancelled' : 'review')),
+        ),
+    ]),
+    isThreeLine: hasNote || pending,
+    trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+      Text(formatMoney((t['totalAmount'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
+      const SizedBox(height: ErpSpace.s1),
+      StatusChip(t['writtenOff'] == true ? 'Written off' : t['isBilled'] == true ? 'Billed' : (t['isBillable'] == true ? 'Unbilled' : 'Non-billable'), color: t['isBilled'] == true ? Colors.green.shade700 : Colors.blueGrey),
+    ]),
+  );
+}
 
 class TimesheetsScreen extends StatelessWidget {
   const TimesheetsScreen({super.key});

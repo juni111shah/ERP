@@ -72,7 +72,7 @@ public sealed class UpdateBillValidator : AbstractValidator<UpdateBill> { public
 internal sealed class BillHandlers(
     IRepository<Bill> bills, IRepository<BillLine> lineRows, IReadRepository<Party> parties, IReadRepository<TaxCode> taxCodes, IReadRepository<Account> accounts, IRepository<JournalEntry> journals,
     IReadRepository<ApprovalRequest> approvalRequests, IApprovalService approvals, ILegalEntityGuard guard, IPostingService posting, INumberingService numbering,
-    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock, IDbErrors dbErrors, IReadRepository<BusinessUnit> businessUnits, IReferenceCheck references, IUnitOfWork uow) :
+    IRepository<AuditEvent> audit, ICurrentUser user, IClock clock, IDbErrors dbErrors, IReadRepository<BusinessUnit> businessUnits, IReferenceCheck references, IUnitOfWork uow, IPublisher publisher) :
     IRequestHandler<GetBill, BillDto>,
     IRequestHandler<CreateBill, BillDto>,
     IRequestHandler<UpdateBill, BillDto>,
@@ -118,6 +118,7 @@ internal sealed class BillHandlers(
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status is not (DocumentStatus.Draft or DocumentStatus.PendingApproval)) throw new ConflictException("Only a draft bill can be deleted.");
         await WithdrawPendingAsync(bill, ct);
+        await publisher.Publish(new BillReleased(bill.Id), ct);
         bills.Remove(bill);
         await bills.SaveChangesAsync(ct);
         return Unit.Value;
@@ -181,6 +182,7 @@ internal sealed class BillHandlers(
         bill.Status = DocumentStatus.Voided;
         VoidMemo.Stamp(bill, cmd.Reason, clock, user);
         VoidMemo.Audit(audit, user, clock, nameof(Bill), bill.Id, bill.Number, cmd.Reason!);
+        await publisher.Publish(new BillReleased(bill.Id), ct);
         await bills.SaveChangesAsync(ct);
         return ToDto(bill);
     }

@@ -162,7 +162,6 @@ class OrderDetailScreen extends StatelessWidget {
         edit: (d) => orderForm(ref, existing: d),
         body: _body,
         actions: [
-          createProjectFrom(sourceType: 'sales.order', nameOf: (d) => 'Delivery of ${d['number']}'),
           _orderStatus(id, 'Confirm', Icons.check_circle_outline, 'confirmed', {'draft'}),
           _orderStatus(id, 'Start processing', Icons.autorenew, 'processing', {'confirmed'}),
           ActionSpec(
@@ -183,6 +182,7 @@ class OrderDetailScreen extends StatelessWidget {
             successMessage: 'Invoice created',
             run: (ref, d, _) => ref.read(apiProvider).post('$_path/$id/convert-to-invoice'),
           ),
+          createProjectFrom(sourceType: 'sales.order', nameOf: (d) => 'Delivery of ${d['number']}'),
           _orderStatus(id, 'Cancel order', Icons.block, 'cancelled', {'draft', 'confirmed', 'processing'}, destructive: true, message: 'Cancel this sales order?'),
           ActionSpec(
             label: 'Delete',

@@ -6,7 +6,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { AccountsApi, CoaNumbering } from '../../../core/api/admin.api';
-import { asProblem } from '../../../core/http/problem-details';
+import { asProblem, problemMessage } from '../../../core/http/problem-details';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HasPermissionDirective } from '../../../shared/has-permission.directive';
@@ -21,10 +21,10 @@ import { HasPermissionDirective } from '../../../shared/has-permission.directive
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, NzButtonModule, NzInputNumberModule, NzRadioModule, NzSelectModule, TranslatePipe, HasPermissionDirective],
   styles: [`
-    .box { max-width: 740px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-    .box h3 { font-size: 16px; font-weight: 700; color: #1e293b; margin-top: 0; margin-bottom: 14px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
+    .box { max-width: 740px; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 12px; padding: 20px 24px; }
+    .box h3 { font-size: 16px; font-weight: 700; color: var(--erp-color-text-primary); margin-top: 0; margin-bottom: 14px; border-bottom: 1px solid var(--erp-color-border-subtle); padding-bottom: 10px; }
     .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 0; }
-    .hint { color: #64748b; font-size: 13px; line-height: 1.5; }
+    .hint { color: var(--erp-color-text-muted); font-size: 13px; line-height: 1.5; }
     .mask { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; unicode-bidi: isolate; direction: ltr; font-weight: 600; color: #10955d; background: #f0fdf4; padding: 2px 6px; border-radius: 4px; }
   `],
   template: `
@@ -55,7 +55,7 @@ import { HasPermissionDirective } from '../../../shared/has-permission.directive
         <p class="hint">{{ 'coa.numbering.example' | translate: 'Example' }}: <span class="mask" data-testid="coa-numbering-pattern">{{ pattern() }}</span> ({{ length() }} {{ 'coa.numbering.chars' | translate: 'characters' }})</p>
       }
       <p class="hint">{{ 'coa.numbering.note' | translate: 'Existing accounts keep their codes. The mask applies to new accounts and to codes that are changed.' }}</p>
-      <button *erpHasPermission="'core.settings.write'" nz-button nzType="primary" [nzLoading]="saving()" [disabled]="!canSave()" (click)="save()" data-testid="coa-numbering-save">{{ 'common.save' | translate: 'Save' }}</button>
+      <button *erpHasPermission="'core.settings.write'" nz-button nzType="primary" [nzLoading]="saving()" [disabled]="!canSave()" (click)="save()" data-testid="coa-numbering-save">{{ 'coa.numbering.save' | translate: 'Save numbering' }}</button>
     </section>`,
 })
 export class CoaNumberingEditorComponent {
@@ -91,7 +91,7 @@ export class CoaNumberingEditorComponent {
     this.saving.set(true);
     this.api.setNumbering({ mode: this.mode(), segments: this.segments(), separator: this.separator() }).subscribe({
       next: (n) => { this.saving.set(false); this.saved.set(n); this.message.success(this.i18n.t('coa.numbering.saved', 'Numbering saved')); },
-      error: (e) => { this.saving.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? this.i18n.t('coa.numbering.failed', 'Could not save the numbering')); },
+      error: (e) => { this.saving.set(false); this.message.error(problemMessage(e, this.i18n.t('coa.numbering.failed', 'Could not save the numbering'))); },
     });
   }
 }

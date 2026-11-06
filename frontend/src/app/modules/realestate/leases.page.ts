@@ -80,19 +80,19 @@ import { StatCardComponent } from '../../shared/stat-card.component';
                      [value]="stats().active"
                      format="number"
                      [loading]="list.loading() && list.items().length === 0"
-                     caption="active contracts"
+                     [caption]="stats().partial ? 'on this page' : 'active contracts'"
                      [tone]="1" />
       <erp-stat-card label="Expiring in 60d"
                      [value]="stats().expiringSoon"
                      format="number"
                      [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().expiringSoon > 0 ? 'renewal action due' : 'no urgent expiries'"
+                     [caption]="stats().partial ? 'on this page' : stats().expiringSoon > 0 ? 'renewal action due' : 'no urgent expiries'"
                      [tone]="stats().expiringSoon > 0 ? 2 : 'neutral'" />
       <erp-stat-card label="Drafts"
                      [value]="stats().drafts"
                      format="number"
                      [loading]="list.loading() && list.items().length === 0"
-                     caption="in preparation"
+                     [caption]="stats().partial ? 'on this page' : 'in preparation'"
                      [tone]="3" />
     </div>
 
@@ -156,6 +156,7 @@ export class LeasesPage {
       expiringSoon,
       drafts,
       count: items.length,
+      partial: this.list.total() > items.length,
     };
   });
   readonly fields = leaseFields(inject(RealEstateLookups), false);
@@ -170,7 +171,7 @@ export class LeasesPage {
     { key: 'startDate', label: 'Start', sortField: 'startDate' },
     { key: 'endDate', label: 'End', sortField: 'endDate' },
     { key: 'daysToExpiry', label: 'Days left', value: (l) => (l.daysToExpiry == null ? '' : l.daysToExpiry >= 0 ? `${l.daysToExpiry} ${this.i18n.t('ui.re.daysLeft', 'days left')}` : `${this.i18n.t('ui.re.endedAgo', 'ended')} ${-l.daysToExpiry} ${this.i18n.t('ui.re.daysAgo', 'days ago')}`) },
-    { key: 'annualRent', label: 'Annual rent', sortField: 'annualRent', value: (l) => l.annualRent.toLocaleString() },
+    { key: 'annualRent', label: 'Annual rent', sortField: 'annualRent', align: 'right', value: (l) => l.annualRent.toLocaleString() },
     { key: 'status', label: 'Status', sortField: 'status' },
   ];
 

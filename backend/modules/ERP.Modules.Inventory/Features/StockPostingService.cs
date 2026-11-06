@@ -225,6 +225,32 @@ public sealed class InventoryStockPostingService(
         }
     }
 
+    public async Task<IReadOnlyDictionary<Guid, decimal>> GetOnHandAsync(IReadOnlyCollection<Guid> itemIds, Guid? warehouseId, Guid legalEntityId, CancellationToken ct = default)
+    {
+        var result = new Dictionary<Guid, decimal>();
+        if (itemIds.Count == 0 || !await IsInventoryEnabledAsync(ct)) return result;
+        var warehouse = await ResolveWarehouseAsync(warehouseId, legalEntityId, ct);
+        if (warehouse is null) return result;
+
+        var ids = itemIds.ToList();
+        var tracked = await items.Query(new Specification<Item>(i => ids.Contains(i.Id) && i.Type == ItemType.Product)).Select(i => i.Id).ToListAsync(ct);
+        foreach (var id in tracked) result[id] = 0m;
+        // Added up here, not in SQL, because SQLite (tests) cannot sum decimals.
+        var moves = await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == warehouse.Id && tracked.Contains(m.ItemId))).Select(m => new { m.ItemId, m.Quantity }).ToListAsync(ct);
+        foreach (var m in moves) result[m.ItemId] += m.Quantity;
+        return result;
+    }
+
+    public async Task<Guid?> ReturnIssuedStockAsync(string issueReference, Guid itemId, decimal quantity, string returnReference, DateOnly date, CancellationToken ct = default)
+    {
+        if (quantity <= 0 || string.IsNullOrWhiteSpace(issueReference) || !await IsInventoryEnabledAsync(ct)) return null;
+        var issue = await movements.Query(new Specification<StockMovement>(m => m.Reference == issueReference && m.ItemId == itemId && m.Kind == MovementKind.Issue)).FirstOrDefaultAsync(ct);
+        if (issue is null) return null;
+        var cogs = await posting.AccountForRoleAsync("cogs", ct);
+        return await ReceiveStockAsync(new StockReceiveRequest(issue.LegalEntityId, itemId, quantity, issue.UnitCost, date, returnReference, $"Customer return {returnReference} of {issueReference}", issue.WarehouseId,
+            OffsetAccountId: cogs, SkipJournal: !issue.JournalEntryId.HasValue), ct);
+    }
+
     private async Task<Warehouse?> ResolveWarehouseAsync(Guid? warehouseId, Guid legalEntityId, CancellationToken ct)
     {
         if (warehouseId.HasValue)

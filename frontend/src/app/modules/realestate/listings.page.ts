@@ -19,13 +19,14 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { StatCardComponent } from '../../shared/stat-card.component';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 /** Properties and units offered for rent or sale: draft, publish, close. */
 @Component({
   selector: 'erp-listings',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, DecimalPipe, StatCardComponent],
+  imports: [ErpDatePipe, TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, DecimalPipe, StatCardComponent],
   template: `
     <h1 class="erp-page-title">Listings</h1>
 
@@ -89,7 +90,7 @@ import { StatCardComponent } from '../../shared/stat-card.component';
             <erp-status-tag [status]="row.status" />
           }
           @case ('listedOn') {
-            {{ row.listedOn || '—' }}
+            {{ (row.listedOn | erpDate) || '—' }}
           }
           @default {
             {{ value }}
@@ -146,7 +147,7 @@ export class ListingsPage {
   readonly columns: TableColumn<ListingDto>[] = [
     { key: 'title', label: 'Title' },
     { key: 'kind', label: 'Kind', value: (l) => humanize(l.kind), width: '110px' },
-    { key: 'price', label: 'Price', sortField: 'price', value: (l) => l.price.toLocaleString(), width: '130px' },
+    { key: 'price', label: 'Price', sortField: 'price', align: 'right', value: (l) => l.price.toLocaleString(), width: '150px' },
     { key: 'channels', label: 'Channels' },
     { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: ['draft', 'published', 'closed'] },
     { key: 'listedOn', label: 'Listed', sortField: 'listedOn', width: '120px' },

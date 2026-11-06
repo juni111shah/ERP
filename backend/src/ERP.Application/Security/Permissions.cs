@@ -20,6 +20,8 @@ public static class CorePermissions
 
     public const string SettingsRead = "core.settings.read";
     public const string SettingsWrite = "core.settings.write";
+    public const string BillingRead = "core.billing.read";
+    public const string BillingManage = "core.billing.manage";
     public const string EntitiesRead = "core.entities.read";
     public const string EntitiesWrite = "core.entities.write";
     public const string BusinessUnitsRead = "core.businessunits.read";
@@ -81,6 +83,8 @@ public static class CorePermissions
     public static IReadOnlyList<PermissionDefinition> Definitions { get; } =
     [
         PermissionDefinition.Of(SettingsRead, "View workspace settings"),
+        PermissionDefinition.Of(BillingRead, "View the workspace's plan and invoices"),
+        PermissionDefinition.Of(BillingManage, "Ask for a plan change"),
         PermissionDefinition.Of(SettingsWrite, "Change workspace settings"),
         PermissionDefinition.Of(EntitiesRead, "View legal entities"),
         PermissionDefinition.Of(EntitiesWrite, "Create and edit legal entities, lock periods"),

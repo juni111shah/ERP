@@ -7,22 +7,22 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTagModule } from 'ng-zorro-antd/tag';
+import { StatusTagComponent } from '../../shared/status-tag.component';
 import { createPagedList } from '../../core/api/paged-list';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
-import { asProblem } from '../../core/http/problem-details';
+import { problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { EmployeeSummary, EmployeesApi, LEAVE_STATUS_LABELS, LeaveApi, LeaveRequestDto, LeaveRequestRow, LeaveTypeDto, LeaveTypesApi } from './hr.api';
 
-const TONE: Record<string, string> = { draft: 'default', submitted: 'blue', approved: 'green', rejected: 'red', cancelled: 'default' };
 
 /** Leave requests: draft, submit, then a manager approves or rejects; approved leave feeds attendance and payroll. */
 @Component({
   selector: 'erp-leave',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzIconModule, NzInputModule, NzSelectModule, NzTagModule],
+  imports: [FormsModule, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzIconModule, NzInputModule, NzSelectModule],
+  styles: [`.fld { display: flex; flex-direction: column; gap: 4px; } .fld > label { font-size: 13px; color: var(--erp-color-text-secondary); } .fld nz-select, .fld nz-date-picker { width: 100%; }`],
   template: `
     <h1 class="erp-page-title">Leave requests</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search employee or reason" emptyText="No leave requests yet" (rowClick)="open($event.id)">
@@ -31,24 +31,26 @@ const TONE: Record<string, string> = { draft: 'default', submitted: 'blue', appr
       </nz-select>
       <button toolbar *erpHasPermission="'hr.leave.request'" nz-button nzType="primary" (click)="create()" data-testid="leave-new"><span nz-icon nzType="plus"></span>New request</button>
       <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'status') { <nz-tag [nzColor]="tone(row.status)">{{ label(row.status) }}</nz-tag> } @else { {{ value }} }
+        @if (column.key === 'status') { <erp-status [value]="row.status" [label]="label(row.status)" /> } @else { {{ value }} }
       </ng-template>
     </erp-paged-table>
 
-    <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Leave request' : 'New leave request'" nzWidth="520" (nzOnClose)="drawer.set(false)" [nzFooter]="footer">
+    <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Leave request' : 'New leave request'" [nzWidth]="520" (nzOnClose)="drawer.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
         <div style="display:grid;gap:12px" data-testid="leave-form">
-          <nz-select nzShowSearch nzPlaceHolder="Employee" [(ngModel)]="employeeId" [nzDisabled]="!editable()" data-testid="leave-employee">@for (e of employees(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.number + ' · ' + e.fullName"></nz-option> }</nz-select>
-          <nz-select nzPlaceHolder="Leave type" [(ngModel)]="typeId" [nzDisabled]="!editable()" data-testid="leave-type">@for (t of types(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.name + (t.isPaid ? '' : ' (unpaid)')"></nz-option> }</nz-select>
+          <div class="fld"><label for="leave-employee">Employee</label>
+            <nz-select nzId="leave-employee" nzShowSearch nzPlaceHolder="Choose an employee" [(ngModel)]="employeeId" [nzDisabled]="!editable()" data-testid="leave-employee">@for (e of employees(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.number + ' · ' + e.fullName"></nz-option> }</nz-select></div>
+          <div class="fld"><label for="leave-type">Leave type</label>
+            <nz-select nzId="leave-type" nzPlaceHolder="Choose a leave type" [(ngModel)]="typeId" [nzDisabled]="!editable()" data-testid="leave-type">@for (t of types(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.name + (t.isPaid ? '' : ' (unpaid)')"></nz-option> }</nz-select></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <nz-date-picker [(ngModel)]="from" (ngModelChange)="preview()" [nzDisabled]="!editable()" nzPlaceHolder="From" data-testid="leave-from"></nz-date-picker>
-            <nz-date-picker [(ngModel)]="to" (ngModelChange)="preview()" [nzDisabled]="!editable()" nzPlaceHolder="To" data-testid="leave-to"></nz-date-picker>
+            <div class="fld"><label for="leave-from">From</label><nz-date-picker nzId="leave-from" [(ngModel)]="from" (ngModelChange)="preview()" [nzDisabled]="!editable()" nzPlaceHolder="First day" data-testid="leave-from"></nz-date-picker></div>
+            <div class="fld"><label for="leave-to">To</label><nz-date-picker nzId="leave-to" [(ngModel)]="to" (ngModelChange)="preview()" [nzDisabled]="!editable()" nzPlaceHolder="Last day" data-testid="leave-to"></nz-date-picker></div>
           </div>
           <div style="display:flex;gap:18px;flex-wrap:wrap"><label><input type="checkbox" [(ngModel)]="startHalf" [disabled]="!editable()" data-testid="leave-start-half" /> First day is a half day</label><label><input type="checkbox" [(ngModel)]="endHalf" [disabled]="!editable()" data-testid="leave-end-half" /> Last day is a half day</label></div>
           @if (days() !== null) { <div data-testid="leave-days"><b>{{ days() }}</b> working day(s) (weekends and public holidays are not counted)</div> }
-          <textarea aria-label="Reason" nz-input rows="3" placeholder="Reason" [(ngModel)]="reason" [disabled]="!editable()" maxlength="500" data-testid="leave-reason"></textarea>
+          <div class="fld"><label for="leave-reason">Reason</label><textarea id="leave-reason" nz-input rows="3" [(ngModel)]="reason" [disabled]="!editable()" maxlength="500" data-testid="leave-reason"></textarea></div>
           @if (detail(); as d) {
-            <div><nz-tag [nzColor]="tone(d.status)">{{ label(d.status) }}</nz-tag>
+            <div><erp-status [value]="d.status" [label]="label(d.status)" />
               @if (d.decisionComment) { <span>{{ d.decisionComment }}</span> }</div>
           }
           @if (canDecide()) { <input aria-label="Comment for the decision (optional)" nz-input placeholder="Comment for the decision (optional)" [(ngModel)]="comment" maxlength="500" data-testid="leave-comment" /> }
@@ -111,7 +113,6 @@ export class LeavePage {
     this.typesApi.list({ page: 1, pageSize: 100, filters: [{ field: 'isActive', op: 'eq', value: true }] }).subscribe((r) => this.types.set(r.items));
   }
 
-  tone(status: string): string { return TONE[status] ?? 'default'; }
   label(status: string): string { return LEAVE_STATUS_LABELS[status] ?? status; }
   filterStatus(status: string | null): void { this.list.setFilters(status ? [{ field: 'status', op: 'eq', value: status }] : []); }
 
@@ -135,7 +136,7 @@ export class LeavePage {
     this.api.days(toIsoDate(this.from), toIsoDate(this.to)).subscribe({ next: (r) => this.days.set(r.workingDays), error: () => this.days.set(null) });
   }
 
-  private fail(e: unknown, fallback: string): void { this.saving.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? fallback); }
+  private fail(e: unknown, fallback: string): void { this.saving.set(false); this.message.error(problemMessage(e, fallback)); }
 
   save(submit: boolean): void {
     if (!this.employeeId || !this.typeId || !this.from || !this.to) { this.message.warning('Choose the employee, leave type and dates'); return; }

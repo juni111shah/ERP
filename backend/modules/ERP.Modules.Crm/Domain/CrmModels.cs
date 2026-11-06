@@ -39,16 +39,25 @@ public enum InteractionType
     Task = 5
 }
 
+[DefaultSort("-leadNumber")]
 public class CrmLead : LegalEntityScopedEntity
 {
+    [Searchable, Sortable]
     public string LeadNumber { get; set; } = string.Empty;
+    [Searchable, Sortable]
     public string FullName { get; set; } = string.Empty;
+    [Searchable, Sortable]
     public string? CompanyName { get; set; }
     public string? JobTitle { get; set; }
+    [Searchable]
     public string? Email { get; set; }
+    [Searchable]
     public string? Phone { get; set; }
+    [Sortable, Filterable]
     public LeadSource Source { get; set; } = LeadSource.Website;
+    [Sortable, Filterable]
     public LeadStatus Status { get; set; } = LeadStatus.New;
+    [Sortable]
     public decimal EstimatedValue { get; set; }
     public Guid? AssignedUserId { get; set; }
     public string? AssignedUserName { get; set; }
@@ -59,16 +68,24 @@ public class CrmLead : LegalEntityScopedEntity
     public string? CustomFields { get; set; }
 }
 
+[DefaultSort("-opportunityNumber")]
 public class CrmOpportunity : LegalEntityScopedEntity
 {
+    [Searchable, Sortable]
     public string OpportunityNumber { get; set; } = string.Empty;
+    [Searchable, Sortable]
     public string Title { get; set; } = string.Empty;
     public Guid? CustomerPartyId { get; set; }
+    [Searchable, Sortable]
     public string CustomerName { get; set; } = string.Empty;
+    [Sortable, Filterable]
     public OpportunityStage Stage { get; set; } = OpportunityStage.Qualification;
+    [Sortable]
     public int ProbabilityPercent { get; set; } = 20;
+    [Sortable]
     public decimal ExpectedRevenue { get; set; }
     public decimal ActualRevenue { get; set; }
+    [Sortable]
     public DateOnly? ExpectedCloseDate { get; set; }
     public DateOnly? ActualCloseDate { get; set; }
     public string? CloseReason { get; set; }
@@ -79,16 +96,21 @@ public class CrmOpportunity : LegalEntityScopedEntity
     public string? CustomFields { get; set; }
 }
 
+[DefaultSort("-createdAt")]
 public class CrmInteraction : LegalEntityScopedEntity
 {
     public string RelatedEntityKind { get; set; } = "Lead"; // Lead, Opportunity, Customer
     public Guid RelatedEntityId { get; set; }
+    [Sortable, Filterable]
     public InteractionType Type { get; set; } = InteractionType.Call;
+    [Searchable, Sortable]
     public string Subject { get; set; } = string.Empty;
     public string? Details { get; set; }
+    [Sortable]
     public DateTimeOffset InteractionDate { get; set; } = DateTimeOffset.UtcNow;
     public Guid? PerformedByUserId { get; set; }
     public string? PerformedByName { get; set; }
+    [Sortable]
     public DateTimeOffset? FollowUpDate { get; set; }
     public bool IsResolved { get; set; } = true;
     public string? CustomFields { get; set; }

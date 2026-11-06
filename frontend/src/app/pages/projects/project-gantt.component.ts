@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, ou
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzModalService } from 'ng-zorro-antd/modal';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { catchError, of } from 'rxjs';
 import { ProjectsConfig, ProjectsExtraApi, ScheduleDto, ScheduleTaskDto } from '../../core/api/projects-extra.api';
 import { ProjectTasksApi, taskToInput } from '../../core/api/projects.api';
@@ -28,7 +28,7 @@ interface Band { left: number; width: number; label: string; }
   selector: 'erp-project-gantt',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzButtonModule, NzIconModule],
+  imports: [NzModalModule, NzButtonModule, NzIconModule],
   template: `
     <div class="prj-toolbar" data-testid="gantt-toolbar">
       <div class="prj-chips" role="group" aria-label="Zoom">

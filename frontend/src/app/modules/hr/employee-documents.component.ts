@@ -11,30 +11,31 @@ import { asProblem } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { DOCUMENT_TYPES, EmployeeDocumentDto, EmployeeDocumentRow, EmployeeDocumentsApi } from './hr-people.api';
+import { ErpDatePipe } from '../../shared/display.pipes';
 
 /** The identity and work documents of one employee (passport, visa, labour card ...) with expiry badges. */
 @Component({
   selector: 'erp-employee-documents',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, NzIconModule, NzModalModule, NzTableModule, NzTagModule],
+  imports: [ErpDatePipe, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, NzIconModule, NzModalModule, NzTableModule, NzTagModule],
   template: `
     <nz-drawer [nzVisible]="open()" [nzWidth]="640" [nzTitle]="'Documents · ' + employeeName()" (nzOnClose)="closed.emit()">
       <ng-container *nzDrawerContent>
         <button *erpHasPermission="'hr.employees.manage'" nz-button nzType="primary" (click)="startAdd()" data-testid="doc-new"><span nz-icon nzType="plus"></span>Add document</button>
-        <nz-table [nzData]="rows()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" style="margin-top:12px" data-testid="doc-table">
+        <nz-table [nzData]="rows()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="No documents recorded" style="margin-top:12px" data-testid="doc-table">
           <thead><tr><th>Type</th><th>Number</th><th>Expires</th><th>Status</th><th></th></tr></thead>
           <tbody>
             @for (d of rows(); track d.id) {
               <tr>
-                <td>{{ typeLabel(d.type) }}</td><td>{{ d.number }}</td><td>{{ d.expiryDate }}</td>
+                <td>{{ typeLabel(d.type) }}</td><td>{{ d.number }}</td><td>{{ d.expiryDate | erpDate }}</td>
                 <td>@if (d.expiryDate) { @if (daysLeft(d) < 0) { <nz-tag nzColor="red">Expired</nz-tag> } @else if (daysLeft(d) <= 30) { <nz-tag nzColor="orange">{{ daysLeft(d) }} days left</nz-tag> } @else { <nz-tag nzColor="green">Valid</nz-tag> } }</td>
                 <td>
                   <a *erpHasPermission="'hr.employees.manage'" (click)="startEdit(d)" style="margin-inline-end:10px">Edit</a>
                   <a *erpHasPermission="'hr.employees.manage'" (click)="remove(d)">Delete</a>
                 </td>
               </tr>
-            } @empty { <tr><td colspan="5" style="text-align:center;color:var(--erp-color-text-secondary)">No documents recorded</td></tr> }
+            }
           </tbody>
         </nz-table>
       </ng-container>

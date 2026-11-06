@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
+import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { NzTableModule } from 'ng-zorro-antd/table';
@@ -15,6 +15,16 @@ import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { SessionStore } from '../core/session/session.store';
 import { I18nService } from '../core/i18n/i18n.service';
 import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
+import { ErpLabelPipe, ErpDatePipe } from '../shared/display.pipes';
+import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { StatePanelComponent } from '../shared/state-panel.component';
+import { StatusTagComponent } from '../shared/status-tag.component';
+import { catchError, forkJoin, of } from 'rxjs';
+import { BillSummary, BillsApi, InvoiceSummary, InvoicesApi } from '../core/api/admin.api';
+import { ListQuery } from '../core/api/api.models';
+import { WorkspaceCurrencyService } from '../core/services/workspace-currency.service';
+import { AllRows, fetchAllRows, moneyByCurrency } from './admin/finance-kpis';
+import { formatMoney } from './admin/invoice-sheet.component';
 
 interface Transaction {
   id: string;
@@ -22,8 +32,9 @@ interface Transaction {
   number: string;
   date: string;
   amount: number;
-  outstanding: number;
+  outstanding: number | null;
   status: string;
+  currencyCode: string;
 }
 
 interface Party {
@@ -49,12 +60,12 @@ interface Party {
 @Component({
   selector: 'erp-party-detail',
   standalone: true,
-  imports: [KeyboardClickDirective, TableToolsComponent, CommonModule, DatePipe, CurrencyPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent, AttachmentsComponent, PartyStatementComponent, TranslatePipe],
+  imports: [ErpLabelPipe, ErpDatePipe, NzSpinModule, StatePanelComponent, StatusTagComponent, KeyboardClickDirective, TableToolsComponent, CommonModule, DatePipe, DecimalPipe, NzTableModule, NzTabsModule, NzDrawerModule, DetailPageComponent, AttachmentsComponent, PartyStatementComponent, TranslatePipe],
   template: `
     @if (loading()) {
-      <div style="text-align: center; padding: 48px;">Loading...</div>
+      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
     } @else if (error()) {
-      <div style="text-align: center; padding: 48px; color: #ff4d4f;">{{ error() }}</div>
+      <erp-state-panel kind="error" title="Could not load this party" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (party()) {
       <erp-detail-page
         [backLink]="['/parties']"
@@ -91,16 +102,16 @@ interface Party {
                   <tbody>
                     @for (tx of txTable.data; track tx.id) {
                       <tr erpKeyboardClick erpKeyboardClickRole="" style="cursor: pointer;" (click)="viewTransaction(tx)">
-                        <td>{{ tx.type }}</td>
-                        <td>{{ tx.number }}</td>
-                        <td>{{ tx.date | date:'dd MMM yyyy' }}</td>
-                        <td style="text-align: right;">{{ tx.amount | currency:party()!.currencyCode || 'QAR' }}</td>
-                        <td style="text-align: right;">{{ tx.outstanding | currency:party()!.currencyCode || 'QAR' }}</td>
-                        <td>{{ tx.status }}</td>
+                        <td>{{ tx.type | erpLabel }}</td>
+                        <td><span class="code-pill">{{ tx.number }}</span></td>
+                        <td style="white-space: nowrap;">{{ tx.date | erpDate }}</td>
+                        <td style="text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums;">{{ txMoney(tx.amount, tx.currencyCode) }}</td>
+                        <td style="text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums;">{{ tx.outstanding === null ? '—' : txMoney(tx.outstanding, tx.currencyCode) }}</td>
+                        <td><erp-status [value]="tx.status" /></td>
                       </tr>
                     }
                     @empty {
-                      <tr><td colspan="6" style="text-align: center; color: #999;">No transactions yet</td></tr>
+                      <tr><td colspan="6" style="text-align: center; color: var(--erp-color-text-muted);">{{ txFailed() ? 'Could not load the transactions. Use Refresh to try again.' : 'No transactions yet' }}</td></tr>
                     }
                   </tbody>
                 </nz-table>
@@ -133,16 +144,16 @@ interface Party {
                   <tbody>
                     @for (tx of txTable.data; track tx.id) {
                       <tr erpKeyboardClick erpKeyboardClickRole="" style="cursor: pointer;" (click)="viewTransaction(tx)">
-                        <td>{{ tx.type }}</td>
-                        <td>{{ tx.number }}</td>
-                        <td>{{ tx.date | date:'dd MMM yyyy' }}</td>
-                        <td style="text-align: right;">{{ tx.amount | currency:party()!.currencyCode || 'QAR' }}</td>
-                        <td style="text-align: right;">{{ tx.outstanding | currency:party()!.currencyCode || 'QAR' }}</td>
-                        <td>{{ tx.status }}</td>
+                        <td>{{ tx.type | erpLabel }}</td>
+                        <td><span class="code-pill">{{ tx.number }}</span></td>
+                        <td style="white-space: nowrap;">{{ tx.date | erpDate }}</td>
+                        <td style="text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums;">{{ txMoney(tx.amount, tx.currencyCode) }}</td>
+                        <td style="text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums;">{{ tx.outstanding === null ? '—' : txMoney(tx.outstanding, tx.currencyCode) }}</td>
+                        <td><erp-status [value]="tx.status" /></td>
                       </tr>
                     }
                     @empty {
-                      <tr><td colspan="6" style="text-align: center; color: #999;">No transactions yet</td></tr>
+                      <tr><td colspan="6" style="text-align: center; color: var(--erp-color-text-muted);">{{ txFailed() ? 'Could not load the transactions. Use Refresh to try again.' : 'No transactions yet' }}</td></tr>
                     }
                   </tbody>
                 </nz-table>
@@ -163,11 +174,6 @@ interface Party {
               </ng-template>
             </nz-tab>
           }
-          <nz-tab nzTitle="History">
-            <div style="padding: 16px;">
-              <p><i>Audit history will be displayed here</i></p>
-            </div>
-          </nz-tab>
         </nz-tabset>
         </div>
       </erp-detail-page>
@@ -175,19 +181,19 @@ interface Party {
       <nz-drawer [nzVisible]="statementOpen()" [nzWidth]="720" [nzTitle]="statementTitle()" (nzOnClose)="statementOpen.set(false)">
         <ng-container *nzDrawerContent>
           @if (statement(); as st) {
-            <p>{{ 'ui.common.asOf' | translate: 'As of' }} {{ st.asOf | date:'dd MMM yyyy' }}</p>
+            <p>{{ 'ui.common.asOf' | translate: 'As of' }} {{ st.asOf | erpDate }}</p>
             <nz-table #stTable [nzData]="st.items" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="party-statement">
               <thead><tr><th>Number</th><th>Date</th><th>Due</th><th style="text-align: right;">Days overdue</th><th style="text-align: right;">Outstanding</th></tr></thead>
               <tbody>
                 @for (it of stTable.data; track it.invoiceId) {
                   <tr>
                     <td>{{ it.number }}{{ it.isCreditNote ? ' (credit)' : '' }}</td>
-                    <td>{{ it.invoiceDate | date:'dd MMM yyyy' }}</td>
-                    <td>{{ it.dueDate | date:'dd MMM yyyy' }}</td>
+                    <td>{{ it.invoiceDate | erpDate }}</td>
+                    <td>{{ it.dueDate | erpDate }}</td>
                     <td style="text-align: right;">{{ it.daysOverdue }}</td>
                     <td style="text-align: right;">{{ it.outstanding | number:'1.2-2' }}</td>
                   </tr>
-                } @empty { <tr><td colspan="5" style="text-align: center; color: #999;">Nothing outstanding</td></tr> }
+                } @empty { <tr><td colspan="5" style="text-align: center; color: var(--erp-color-text-muted);">Nothing outstanding</td></tr> }
               </tbody>
             </nz-table>
             <p style="text-align: right; margin-top: 12px;">{{ 'ui.party.unallocated' | translate: 'Unallocated' }}: {{ (st.unallocatedReceipts ?? st.unallocatedPayments ?? 0) | number:'1.2-2' }}<br /><b>{{ 'ui.party.balance' | translate: 'Balance' }}: {{ st.balance | number:'1.2-2' }}</b></p>
@@ -217,6 +223,14 @@ export class PartyDetailPage implements OnInit {
   party = signal<Party | null>(null);
   transactions = signal<Transaction[]>([]);
   loadingTx = signal(false);
+  readonly txFailed = signal(false);
+  private readonly invoicesApi = inject(InvoicesApi);
+  private readonly billsApi = inject(BillsApi);
+  private readonly workspaceCurrency = inject(WorkspaceCurrencyService).currency;
+  /** The party's documents, read from the invoice and bill lists: the party record itself carries no totals. */
+  private readonly sales = signal<AllRows<InvoiceSummary> | null>(null);
+  private readonly purchases = signal<AllRows<BillSummary> | null>(null);
+  txMoney(v: number, currency: string): string { return formatMoney(v, currency); }
   readonly txQ = signal('');
   /** Client-side search over the loaded recent transactions (type, number, status). */
   readonly txShown = computed(() => this.transactions().filter((t) => matchText(this.txQ(), t.type, t.number, t.status)));
@@ -286,46 +300,27 @@ export class PartyDetailPage implements OnInit {
   kpiCards = computed((): KpiCard[] => {
     const p = this.party();
     if (!p) return [];
-    
+
     const cards: KpiCard[] = [];
+    const cur = p.currencyCode ?? this.workspaceCurrency();
+    const open = (status: string) => status === 'issued' || status === 'partlyPaid';
 
     if (this.isCustomer()) {
+      const rows = this.sales()?.items ?? [];
+      const sign = (r: InvoiceSummary) => (r.isCreditNote ? -1 : 1);
+      const balance = rows.filter((r) => open(r.status)).reduce((s, r) => s + sign(r) * r.outstanding, 0);
       cards.push(
-        {
-          title: 'Total Sales',
-          value: p.totalSales ?? 0,
-          suffix: p.currencyCode ?? 'QAR'
-        },
-        {
-          title: 'Outstanding',
-          value: p.outstandingReceivables ?? 0,
-          suffix: p.currencyCode ?? 'QAR',
-          valueStyle: { color: (p.outstandingReceivables ?? 0) > 0 ? '#fa8c16' : '#52c41a' }
-        }
+        { title: 'Total sales', caption: 'Less credit notes', value: this.sales() ? moneyByCurrency(rows, (r) => sign(r) * r.total, cur) : '—' },
+        { title: 'Outstanding', caption: balance < 0 ? 'Customer is in credit' : 'Open invoices less credits', value: this.sales() ? moneyByCurrency(rows.filter((r) => open(r.status)), (r) => sign(r) * r.outstanding, cur) : '—', valueStyle: { color: balance > 0 ? '#fa8c16' : '#52c41a' } },
       );
-
-      if (p.creditLimit) {
-        cards.push({
-          title: 'Credit Limit',
-          value: p.creditLimit,
-          suffix: p.currencyCode ?? 'QAR'
-        });
-      }
     }
 
     if (this.isVendor()) {
+      const rows = this.purchases()?.items ?? [];
+      const balance = rows.filter((r) => open(r.status)).reduce((s, r) => s + r.outstanding, 0);
       cards.push(
-        {
-          title: 'Total Purchases',
-          value: p.totalPurchases ?? 0,
-          suffix: p.currencyCode ?? 'QAR'
-        },
-        {
-          title: 'Outstanding Payables',
-          value: p.outstandingPayables ?? 0,
-          suffix: p.currencyCode ?? 'QAR',
-          valueStyle: { color: (p.outstandingPayables ?? 0) > 0 ? '#fa8c16' : '#52c41a' }
-        }
+        { title: 'Total purchases', value: this.purchases() ? moneyByCurrency(rows, (r) => r.total, cur) : '—' },
+        { title: 'Outstanding payables', value: this.purchases() ? moneyByCurrency(rows.filter((r) => open(r.status)), (r) => r.outstanding, cur) : '—', valueStyle: { color: balance > 0 ? '#fa8c16' : '#52c41a' } },
       );
     }
 
@@ -355,6 +350,8 @@ export class PartyDetailPage implements OnInit {
     ];
   });
 
+  retry(): void { this.loading.set(true); this.error.set(null); this.ngOnInit(); }
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
@@ -368,6 +365,7 @@ export class PartyDetailPage implements OnInit {
         this.party.set(response);
         this.loading.set(false);
         this.loadTransactions(id);
+        this.loadTotals(id);
       },
       error: (err) => {
         this.error.set(err.error?.message || 'Failed to load party');
@@ -376,17 +374,25 @@ export class PartyDetailPage implements OnInit {
     });
   }
 
+  /** Every issued document of this party. A failure leaves the cards showing a dash rather than a made-up zero. */
+  private loadTotals(partyId: string): void {
+    const filters = [{ field: 'partyId', op: 'eq' as const, value: partyId }, { field: 'status', op: 'in' as const, value: ['issued', 'partlyPaid', 'paid'] }];
+    if (this.isCustomer()) fetchAllRows((q: ListQuery) => this.invoicesApi.list(q), filters).pipe(catchError(() => of(null))).subscribe((r) => this.sales.set(r));
+    if (this.isVendor()) fetchAllRows((q: ListQuery) => this.billsApi.list(q), filters).pipe(catchError(() => of(null))).subscribe((r) => this.purchases.set(r));
+  }
+
   loadTransactions(partyId: string): void {
     this.loadingTx.set(true);
+    this.txFailed.set(false);
     
     const endpoints: string[] = [];
     if (this.isCustomer()) {
-      endpoints.push(`${this.apiBase}/finance/invoices?filter=partyId:eq:${partyId}&pageSize=10`);
-      endpoints.push(`${this.apiBase}/finance/receipts?filter=partyId:eq:${partyId}&pageSize=10`);
+      endpoints.push(`${this.apiBase}/finance/invoices?filter=partyId:eq:${partyId}&pageSize=10&sort=-invoiceDate`);
+      endpoints.push(`${this.apiBase}/finance/receipts?filter=partyId:eq:${partyId}&pageSize=10&sort=-date`);
     }
     if (this.isVendor()) {
-      endpoints.push(`${this.apiBase}/finance/bills?filter=partyId:eq:${partyId}&pageSize=10`);
-      endpoints.push(`${this.apiBase}/finance/payments?filter=partyId:eq:${partyId}&pageSize=10`);
+      endpoints.push(`${this.apiBase}/finance/bills?filter=partyId:eq:${partyId}&pageSize=10&sort=-billDate`);
+      endpoints.push(`${this.apiBase}/finance/payments?filter=partyId:eq:${partyId}&pageSize=10&sort=-date`);
     }
 
     Promise.all(endpoints.map(url => this.http.get<any>(url).toPromise()))
@@ -401,12 +407,15 @@ export class PartyDetailPage implements OnInit {
             res.items.forEach((item: any) => {
               allTx.push({
                 id: item.id,
-                type,
+                type: item.isCreditNote ? 'Credit note' : type,
                 number: item.number,
                 date: item.invoiceDate || item.billDate || item.date,
-                amount: item.total || item.amount || 0,
-                outstanding: item.total - (item.paid || 0),
-                status: item.status
+                // A credit note takes money off the account, so it reads as negative here too.
+                amount: (item.isCreditNote ? -1 : 1) * (item.total || item.amount || 0),
+                // Receipts and payments have no balance of their own.
+                outstanding: item.total === undefined ? null : item.status === 'voided' ? 0 : (item.isCreditNote ? -1 : 1) * (item.total - (item.paid || 0)),
+                status: item.total === undefined && item.status === 'issued' ? 'posted' : item.status,
+                currencyCode: item.currencyCode
               });
             });
           }
@@ -418,6 +427,7 @@ export class PartyDetailPage implements OnInit {
       })
       .catch(() => {
         this.loadingTx.set(false);
+        this.txFailed.set(true);
       });
   }
 
@@ -439,6 +449,7 @@ export class PartyDetailPage implements OnInit {
   viewTransaction(tx: Transaction): void {
     const routes: Record<string, string> = {
       'Invoice': '/finance/invoices',
+      'Credit note': '/finance/invoices',
       'Receipt': '/finance/receipts',
       'Bill': '/finance/bills',
       'Payment': '/finance/payments'

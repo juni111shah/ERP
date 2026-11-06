@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { problemMessage } from '../../core/http/problem-details';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -17,16 +19,20 @@ import { EmployeeSummary, EmployeesApi } from './hr.api';
   selector: 'erp-departments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [NzModalModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Departments</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search departments" emptyText="No departments yet" (rowClick)="state.edit($event)">
       <button toolbar *erpHasPermission="'hr.employees.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="dept-new"><span nz-icon nzType="plus"></span>New department</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit department' : 'New department'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="dept-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
+                       [saving]="state.saving()" [errors]="state.errors()" testId="dept-form" (submitted)="state.submit($event)" (closed)="state.close()">
+      @if (state.editing(); as e) { <div drawerActions style="margin-bottom:12px"><button *erpHasPermission="'hr.employees.manage'" nz-button nzDanger type="button" (click)="remove(e.id)" data-testid="dept-delete">Delete</button></div> }
+    </erp-record-drawer>`,
 })
 export class DepartmentsPage {
+  private readonly confirm = inject(NzModalService);
+  private readonly toast = inject(NzMessageService);
   private readonly api = inject(DepartmentsApi);
   private readonly employeesPage = toSignal(inject(EmployeesApi).list({ page: 1, pageSize: 200, sort: 'fullName' }).pipe(catchError(() => of({ items: [] as EmployeeSummary[] }))), { initialValue: { items: [] as EmployeeSummary[] } });
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
@@ -47,4 +53,14 @@ export class DepartmentsPage {
     { key: 'headEmployeeId', label: 'Head of department', type: 'select', options: this.employeesPage().items.map((e) => ({ value: e.id, label: `${e.number} · ${e.fullName}` })) },
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ]);
+
+  remove(id: string): void {
+    this.confirm.confirm({
+      nzTitle: 'Delete this department?', nzOkText: 'Delete', nzOkDanger: true,
+      nzOnOk: () => new Promise<void>((resolve) => this.api.delete(id).subscribe({
+        next: () => { this.toast.success('Deleted'); this.state.close(); this.list.reload(); resolve(); },
+        error: (e) => { this.toast.error(problemMessage(e, 'Could not delete the department')); resolve(); },
+      })),
+    });
+  }
 }

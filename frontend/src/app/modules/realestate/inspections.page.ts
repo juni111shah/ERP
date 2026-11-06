@@ -46,7 +46,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
         }
       </ng-template>
     </erp-paged-table>
-    <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Inspection' : 'New inspection'" nzWidth="760" (nzOnClose)="drawer.set(false)" [nzFooter]="footer">
+    <nz-drawer [nzVisible]="drawer()" [nzTitle]="id() ? 'Inspection' : 'New inspection'" [nzWidth]="760" (nzOnClose)="drawer.set(false)" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <nz-select nzPlaceHolder="Property" nzShowSearch nzServerSearch [(ngModel)]="propertyId" (nzOnSearch)="searchProperty($event)" [nzDisabled]="locked()" data-testid="insp-property">@for (o of propertyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select>
@@ -98,7 +98,7 @@ export class InspectionsPage {
     { key: 'inspectionDate', label: 'Date', sortField: 'inspectionDate', width: '120px' },
     { key: 'kind', label: 'Kind', value: (r) => humanize(r.kind), width: '110px' },
     { key: 'inspector', label: 'Inspector' },
-    { key: 'damageCost', label: 'Damage cost', value: (r) => r.damageCost.toLocaleString(), width: '130px' },
+    { key: 'damageCost', label: 'Damage cost', align: 'right', value: (r) => r.damageCost.toLocaleString(), width: '130px' },
     { key: 'status', label: 'Status', width: '110px' },
   ];
   readonly drawer = signal(false);

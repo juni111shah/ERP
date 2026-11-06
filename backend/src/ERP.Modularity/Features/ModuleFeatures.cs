@@ -24,7 +24,16 @@ public sealed record SetModuleState(string Key, bool Enable) : ICommand<ModuleSt
     public string RequiredPermission => CorePermissions.ModulesManage;
 }
 
-internal sealed class ModuleHandlers(ModuleRegistry modules, IModuleAccess access, IRepository<OrganizationModule> organizationModules) :
+/// <summary>The modules a plan can include (platform console).</summary>
+public sealed record PlatformModuleView(string Key, string Name, string Description, string Category, bool IsCore, IReadOnlyList<string> Requires);
+public sealed record ListPlatformModules : IQuery<IReadOnlyList<PlatformModuleView>>;
+
+/// <summary>A platform admin switching a module for a client. The caller is checked by the platform-admin policy on the endpoint.</summary>
+public sealed record SetClientModule(Guid OrgId, string Key, bool Enable) : ICommand<ModuleState>;
+
+internal sealed class ModuleHandlers(ModuleRegistry modules, IModuleAccess access, IRepository<OrganizationModule> organizationModules, ERP.Application.Platform.ISubscriptionLimits limits, IOrgContext org) :
+    IRequestHandler<ListPlatformModules, IReadOnlyList<PlatformModuleView>>,
+    IRequestHandler<SetClientModule, ModuleState>,
     IRequestHandler<ListModules, IReadOnlyList<ModuleView>>,
     IRequestHandler<SetModuleState, ModuleState>
 {
@@ -39,10 +48,19 @@ internal sealed class ModuleHandlers(ModuleRegistry modules, IModuleAccess acces
         return installed.Concat(planned).ToList();
     }
 
+    public Task<IReadOnlyList<PlatformModuleView>> Handle(ListPlatformModules q, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<PlatformModuleView>>(modules.Modules.Select(m => new PlatformModuleView(m.Manifest.Key, m.Manifest.Name, m.Manifest.Description, m.Manifest.Category, m.Manifest.IsCore, m.Manifest.Requires ?? [])).OrderBy(m => m.Name).ToList());
+
+    public async Task<ModuleState> Handle(SetClientModule cmd, CancellationToken ct)
+    {
+        using (org.Use(cmd.OrgId)) return await Handle(new SetModuleState(cmd.Key, cmd.Enable), ct);
+    }
+
     public async Task<ModuleState> Handle(SetModuleState cmd, CancellationToken ct)
     {
         var module = modules.Find(cmd.Key) ?? throw new NotFoundException("Module not installed.");
         if (module.Manifest.IsCore) throw new ConflictException("Core modules cannot be disabled.");
+        if (cmd.Enable) await limits.EnsureModuleAllowedAsync(cmd.Key, ct);
         var enabled = await access.EnabledModulesAsync(ct);
         if (cmd.Enable && (module.Manifest.Requires ?? []).FirstOrDefault(r => !enabled.Contains(r)) is { } missing)
             throw new ConflictException($"Enable '{missing}' first.");

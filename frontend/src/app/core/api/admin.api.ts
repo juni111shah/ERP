@@ -10,7 +10,7 @@ type CustomFields = Record<string, unknown>;
 
 // ---- Models (mirror the ERP.Application DTOs; enums are camelCase strings) -------------------------------------------
 
-export interface ItemDto { id: string; sku: string; name: string; type: string; uom: string; salesPrice?: number; purchasePrice?: number; taxCodeId?: string; isActive: boolean; customFields: CustomFields; }
+export interface ItemDto { id: string; sku: string; barcode?: string | null; name: string; type: string; uom: string; salesPrice?: number; purchasePrice?: number; taxCodeId?: string; isActive: boolean; customFields: CustomFields; }
 export interface AccountDto {
   id: string; code: string; name: string; type: string; reportingGroup?: string; systemRole?: string; isBank: boolean; isSystem: boolean; isActive: boolean;
   parentId?: string; isPostable: boolean; currencyCode?: string; customFields: CustomFields;
@@ -353,7 +353,8 @@ export interface KpiCard { key: string; label: string; value: number; format: 'm
 export interface ChartSeriesDto { name: string; values: number[]; }
 export interface DashboardBucket { from: string; to: string; }
 /** Time-series charts also send `buckets` (one per category, yyyy-MM-dd) and `granularity` so the client labels the axis in the user's language. */
-export interface DashboardChart { key: string; title: string; kind: 'bar' | 'stacked' | 'hbar'; categories: string[]; series: ChartSeriesDto[]; subtitle?: string; order: number; buckets?: DashboardBucket[]; granularity?: 'week' | 'month' | 'quarter'; }
+/** `singleColor`: one series over time reads as one colour, rather than a colour per bar. */
+export interface DashboardChart { key: string; title: string; kind: 'bar' | 'stacked' | 'hbar'; categories: string[]; series: ChartSeriesDto[]; subtitle?: string; order: number; buckets?: DashboardBucket[]; granularity?: 'week' | 'month' | 'quarter'; singleColor?: boolean; }
 export interface DashboardAlert { severity: 'critical' | 'warning' | 'info'; category: string; urgency: 'action' | 'upcoming' | 'info'; message: string; link?: string; rank: number; }
 /** `from`/`to` (yyyy-MM-dd) echo the reporting period the figures cover. */
 export interface DashboardDto { asOf: string; from?: string; to?: string; kpis: KpiCard[]; charts: DashboardChart[]; alerts: DashboardAlert[]; }

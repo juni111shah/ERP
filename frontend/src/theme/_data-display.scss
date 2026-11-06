@@ -1,0 +1,91 @@
+// Tables and forms across the whole app.
+
+// Table headers: the column name comes first. Filter and sort controls stay out of the way until the pointer or keyboard reaches the
+// column, and stay visible while they are in use. The filter control overlays the end of the cell, so names do not wrap to make room for it.
+.ant-table-thead > tr > th {
+  white-space: nowrap;
+}
+
+.ant-table-thead > tr > th .ant-table-filter-column {
+  position: static;
+}
+
+.ant-table-thead > tr > th .ant-table-filter-trigger {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--erp-space-1, 4px);
+  background: var(--erp-color-bg-subtle);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ant-table-thead > tr > th:not(:hover):not(:focus-within) .ant-table-filter-trigger:not(.active):not(.ant-dropdown-open) {
+    opacity: 0;
+  }
+
+  .ant-table-thead > tr > th:not(:hover):not(:focus-within) .ant-table-column-sorter:not(:has(.active)) {
+    opacity: 0;
+  }
+}
+
+// Record numbers are read as one piece.
+.ant-table-tbody .code-pill {
+  white-space: nowrap;
+}
+
+// Forms in a wide drawer use two columns, the layout the form spec asks for. Long text, lines and anything that is not a single field keep the full width.
+.ant-drawer-body {
+  container: erp-drawer / inline-size;
+}
+
+@container erp-drawer (min-width: 620px) {
+  form.ant-form-vertical {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--erp-space-4, 16px);
+    align-items: start;
+
+    > * {
+      grid-column: 1 / -1;
+    }
+
+    > nz-form-item:not(:has(textarea)):not(:has(nz-radio-group)):not(:has(nz-upload)):not(:has(nz-table)):not(:has(table)) {
+      grid-column: auto;
+    }
+  }
+}
+
+// Label cells of a details table follow the theme, so they stay readable in dark mode.
+.ant-descriptions-bordered .ant-descriptions-item-label {
+  background: var(--erp-color-bg-subtle);
+  color: var(--erp-color-text-secondary);
+}
+
+.ant-descriptions-bordered .ant-descriptions-item-content {
+  color: var(--erp-color-text-primary);
+}
+
+// A sidebar group that is closed takes no space, whatever display the menu styles set.
+ul[nz-menu][hidden] {
+  display: none !important;
+}
+
+// Phones: key numbers sit side by side, and the pager scrolls with the table so it does not cover the rows.
+@media (max-width: 767px) {
+  .erp-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: var(--erp-space-2, 8px) !important;
+  }
+
+  .erp-stat-card .erp-stat-value {
+    font-size: 17px;
+    overflow-wrap: anywhere;
+  }
+
+  erp-paged-table .foot {
+    position: static !important;
+  }
+}

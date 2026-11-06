@@ -5,6 +5,7 @@ import { ExpandSearchComponent } from '../shared/expand-search.component';
 import { I18nService } from '../core/i18n/i18n.service';
 import { Subject, catchError, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { API_BASE_URL } from '../core/api/api-config';
+import { ErpLabelPipe } from '../shared/display.pipes';
 
 interface SearchHit { category: string; title: string; subtitle?: string; link: string; }
 
@@ -13,7 +14,7 @@ interface SearchHit { category: string; title: string; subtitle?: string; link: 
   selector: 'erp-global-search',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ExpandSearchComponent],
+  imports: [ErpLabelPipe, ExpandSearchComponent],
   styles: [`
     :host { position: relative; display: inline-flex; align-items: center; }
     .panel { position: absolute; top: 44px; inset-inline-start: 0; width: 360px; max-width: 80vw; background: var(--erp-color-bg-surface, #ffffff); border: 1px solid var(--erp-color-border-subtle, #e2e8f0); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.15); max-height: 420px; overflow: auto; z-index: 1000; line-height: 1.4; padding: 4px; }
@@ -55,7 +56,7 @@ interface SearchHit { category: string; title: string; subtitle?: string; link: 
     @if (open() && term().trim().length >= 2) {
       <div class="panel" data-testid="search-results">
         @for (h of hits(); track $index; let i = $index) {
-          @if (i === 0 || hits()[i - 1].category !== h.category) { <div class="cat">{{ h.category }}</div> }
+          @if (i === 0 || hits()[i - 1].category !== h.category) { <div class="cat">{{ h.category | erpLabel }}</div> }
           <div class="hit" (mousedown)="go(h)" [attr.data-testid]="'search-hit'">
             <div class="hit-title">{{ h.title }}</div>
             @if (h.subtitle) { <div class="sub">{{ h.subtitle }}</div> }

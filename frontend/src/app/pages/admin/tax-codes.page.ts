@@ -57,7 +57,7 @@ export class TaxCodesPage {
     { key: 'code', label: 'Code', sortField: 'code', width: '140px' },
     { key: 'name', label: 'Name', sortField: 'name' },
     { key: 'kind', label: 'Kind', value: (t) => TAX_KINDS.find((k) => k.value === t.kind)?.label ?? t.kind },
-    { key: 'rate', label: 'Rate %' },
+    { key: 'rate', label: 'Rate %', width: '100px', align: 'right' },
     { key: 'isDefault', label: 'Default', value: (t) => yesNo(t.isDefault) },
     { key: 'isActive', label: 'Active', value: (t) => yesNo(t.isActive) },
   ];

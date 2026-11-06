@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_adapter.dart';
+import 'support/more_actions.dart';
 
 const _entity = LegalEntity(id: 'le1', code: 'MAIN', name: 'Main', baseCurrency: 'QAR');
 Me _me(Set<String> permissions) => Me(fullName: 'T', email: 't@t', baseCurrency: 'QAR', countryCode: 'QA', permissions: permissions, legalEntities: const [_entity], modules: const {'realestate'});
@@ -157,6 +158,7 @@ void main() {
 
     testWidgets('a new work order offers assign, start and cancel only', (tester) async {
       await openWorkOrder(tester, 'new');
+      await openMoreActions(tester);
       expect(find.text('Assign'), findsOneWidget);
       expect(find.text('Start work'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
@@ -207,8 +209,10 @@ void main() {
 
     testWidgets('lease actions follow the lease status', (tester) async {
       Future<void> open(String status) async {
+        await tester.pumpWidget(const SizedBox());
         await tester.pumpWidget(_host(FakeAdapter((o) => o.path.endsWith('/deposit') ? envelope({'transactions': []}) : envelope(lease(status))), const LeaseDetailScreen(id: 'l1')));
         await tester.pumpAndSettle();
+        await openMoreActions(tester);
       }
 
       await open('draft');

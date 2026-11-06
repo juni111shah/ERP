@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { code39 } from '../core/format/code39';
 import { I18nService } from '../core/i18n/i18n.service';
 import { WorkspaceCurrencyService } from '../core/services/workspace-currency.service';
 
@@ -8,16 +9,23 @@ export interface ThermalReceiptLine {
   description: string;
   quantity: number;
   unitPrice?: number;
+  discountPercent?: number;
   lineTotal: number;
 }
 
 export interface ThermalReceiptPayment {
   method: string;
   amount: number;
+  /** Cash handed over, shown when it differs from the amount applied. */
+  tendered?: number;
   changeAmount?: number;
+  reference?: string | null;
 }
 
 export interface ThermalReceiptData {
+  /** the register's receipt header and footer text */
+  headerNote?: string | null;
+  footerNote?: string | null;
   organizationName?: string;
   organizationNameAr?: string;
   branchName?: string;
@@ -31,9 +39,12 @@ export interface ThermalReceiptData {
   customerName?: string;
   account?: string;
   referenceNo?: string;
+  /** On a refund: the sale it is against. */
+  againstNumber?: string;
   currency?: string;
   lines?: ThermalReceiptLine[];
   subTotal?: number;
+  discountTotal?: number;
   taxTotal?: number;
   totalAmount: number;
   payments?: ThermalReceiptPayment[];
@@ -67,6 +78,7 @@ export interface ThermalReceiptData {
               </div>
             </div>
           </div>
+          @if (receipt().headerNote) { <div class="thankyou-text" data-testid="receipt-header-note">{{ receipt().headerNote }}</div> }
 
           <div class="receipt-doc-title">
             {{ isAr() ? (receipt().titleAr || 'فاتورة ضريبية / إيصال مبيعات') : (receipt().title || 'TAX INVOICE / CASH RECEIPT') }}
@@ -96,6 +108,12 @@ export interface ThermalReceiptData {
             <span class="kv-label">{{ isAr() ? 'التاريخ / الوقت:' : 'Date / Time:' }}</span>
             <span class="kv-val font-mono num-val">{{ formattedDate() }}</span>
           </div>
+          @if (receipt().againstNumber) {
+            <div class="kv-row">
+              <span class="kv-label">{{ isAr() ? 'عن الإيصال:' : 'Against receipt:' }}</span>
+              <span class="kv-val font-mono num-val">{{ receipt().againstNumber }}</span>
+            </div>
+          }
           @if (receipt().branchName) {
             <div class="kv-row">
               <span class="kv-label">{{ isAr() ? 'الفرع / الصندوق:' : 'Register / Branch:' }}</span>
@@ -131,6 +149,7 @@ export interface ThermalReceiptData {
                   @if (l.quantity > 1 || l.unitPrice) {
                     <div class="item-sub font-mono num-val">
                       {{ l.quantity }} &times; {{ curr() }} {{ (l.unitPrice ?? (l.lineTotal / l.quantity)) | number:'1.2-2' }}
+                      @if (l.discountPercent) { <span>&nbsp;-{{ l.discountPercent }}%</span> }
                     </div>
                   }
                 </div>
@@ -146,6 +165,12 @@ export interface ThermalReceiptData {
 
         <!-- Financial Totals -->
         <div class="receipt-totals-list">
+          @if (receipt().discountTotal) {
+            <div class="kv-row" data-testid="receipt-discount">
+              <span class="kv-label">{{ isAr() ? 'الخصم:' : 'Discount:' }}</span>
+              <span class="kv-val font-mono num-val">-{{ curr() }} {{ receipt().discountTotal | number:'1.2-2' }}</span>
+            </div>
+          }
           @if (receipt().subTotal !== undefined) {
             <div class="kv-row">
               <span class="kv-label">{{ isAr() ? 'المبلغ الصافي:' : 'Subtotal:' }}</span>
@@ -174,6 +199,18 @@ export interface ThermalReceiptData {
                 <span class="kv-label">{{ paymentMethodLabel(p.method) }}:</span>
                 <span class="kv-val font-mono num-val">{{ curr() }} {{ p.amount | number:'1.2-2' }}</span>
               </div>
+              @if (p.reference) {
+                <div class="kv-row payment-row">
+                  <span class="kv-label">{{ isAr() ? 'المرجع:' : 'Ref:' }}</span>
+                  <span class="kv-val font-mono num-val">{{ p.reference }}</span>
+                </div>
+              }
+              @if (p.tendered !== undefined && p.tendered > p.amount) {
+                <div class="kv-row payment-row">
+                  <span class="kv-label">{{ isAr() ? 'المبلغ المستلم:' : 'Tendered:' }}</span>
+                  <span class="kv-val font-mono num-val">{{ curr() }} {{ p.tendered | number:'1.2-2' }}</span>
+                </div>
+              }
               @if (p.changeAmount !== undefined && p.changeAmount > 0) {
                 <div class="kv-row change-row">
                   <span class="kv-label">{{ isAr() ? 'المبلغ المتبقي:' : 'Change:' }}</span>
@@ -194,6 +231,7 @@ export interface ThermalReceiptData {
             </div>
           }
 
+          @if (receipt().footerNote) { <div class="thankyou-text" data-testid="receipt-footer-note">{{ receipt().footerNote }}</div> }
           <div class="thankyou-text">
             {{ isAr() ? 'شكراً لتعاملكم معنا' : 'Thank you for your business' }}
           </div>
@@ -202,10 +240,14 @@ export interface ThermalReceiptData {
             <div class="website font-mono num-val">{{ receipt().website }}</div>
           }
 
-          <!-- Thermal Barcode with Order Number -->
-          <div class="thermal-barcode" aria-hidden="true">
-            <div class="barcode-lines"></div>
-            <div class="barcode-num font-mono">*{{ receipt().receiptNumber }}*</div>
+          <!-- A real Code 39 barcode: scan it at the till to find this sale for a return. -->
+          <div class="thermal-barcode" aria-hidden="true" data-testid="receipt-barcode">
+            @if (barcode(); as b) {
+              <svg class="barcode-svg" [attr.viewBox]="'0 0 ' + b.width + ' 30'" preserveAspectRatio="none" shape-rendering="crispEdges">
+                @for (bar of b.bars; track bar.x) { <rect [attr.x]="bar.x" y="0" [attr.width]="bar.width" height="30" fill="#000" /> }
+              </svg>
+            }
+            <div class="barcode-num font-mono">{{ receipt().receiptNumber }}</div>
           </div>
         </div>
 
@@ -474,32 +516,11 @@ export interface ThermalReceiptData {
       align-items: center;
     }
 
-    .barcode-lines {
-      height: 22px;
-      width: 170px;
-      background: repeating-linear-gradient(
-        90deg,
-        #0f172a 0px,
-        #0f172a 2px,
-        transparent 2px,
-        transparent 4px,
-        #0f172a 4px,
-        #0f172a 5px,
-        transparent 5px,
-        transparent 8px,
-        #0f172a 8px,
-        #0f172a 11px,
-        transparent 11px,
-        transparent 13px,
-        #0f172a 13px,
-        #0f172a 14px,
-        transparent 14px,
-        transparent 17px,
-        #0f172a 17px,
-        #0f172a 20px,
-        transparent 20px,
-        transparent 22px
-      );
+    .barcode-svg {
+      display: block;
+      height: 34px;
+      width: 100%;
+      max-width: 280px;
     }
 
     .barcode-num {
@@ -532,12 +553,14 @@ export class ThermalReceiptComponent {
   readonly receipt = input.required<ThermalReceiptData>();
   readonly isAr = computed(() => this.i18n.lang() === 'ar');
   readonly curr = computed(() => this.receipt().currency || this.currencyService.currency());
+  readonly barcode = computed(() => code39(this.receipt().receiptNumber));
 
   readonly statusLabel = computed(() => {
     const raw = this.receipt().status || 'Completed';
     if (!this.isAr()) return raw;
     switch (raw.toLowerCase()) {
       case 'completed': return 'مكتمل';
+      case 'refunded': return 'مسترد';
       case 'voided': return 'ملغى';
       case 'draft': return 'مسودة';
       case 'successful': return 'ناجح';

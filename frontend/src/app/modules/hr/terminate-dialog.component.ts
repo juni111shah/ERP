@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -42,10 +42,10 @@ const iso = (d: Date | null): string | null => (d ? `${d.getFullYear()}-${String
             @if (p.loanBalance > 0) { <tr><td>Loans and advances (balance {{ p.loanBalance | number: '1.2-2' }})</td><td>−{{ p.loanRecovery | number: '1.2-2' }}</td></tr> }
             <tr class="total"><td>Net to pay</td><td data-testid="settlement-net">{{ p.netPay | number: '1.2-2' }}</td></tr>
           </table>
-          @if (p.unrecoveredLoan > 0) { <p style="color:#d4380d;margin-top:8px">{{ p.unrecoveredLoan | number: '1.2-2' }} of loans cannot be recovered from this settlement.</p> }
+          @if (p.unrecoveredLoan > 0) { <p style="color:var(--erp-color-warning-text);margin-top:8px">{{ p.unrecoveredLoan | number: '1.2-2' }} of loans cannot be recovered from this settlement.</p> }
           @for (n of p.notes; track n) { <p style="color:var(--erp-color-text-secondary);margin:6px 0 0">{{ n }}</p> }
         }
-        @if (error()) { <p style="color:#cf1322;margin-top:8px">{{ error() }}</p> }
+        @if (error()) { <p style="color:var(--erp-color-error-text);margin-top:8px">{{ error() }}</p> }
       </ng-container>
     </nz-modal>
     <ng-template #footer>
@@ -66,6 +66,8 @@ export class TerminateDialogComponent {
   readonly employeeId = input.required<string>();
   readonly employeeName = input('');
   readonly open = input(false);
+  /** Set when the employment has already ended: the dialog goes straight to the settlement preview. */
+  readonly endedOn = input<string | null>(null);
   readonly closed = output<void>();
   readonly changed = output<void>();
 
@@ -77,6 +79,20 @@ export class TerminateDialogComponent {
   readonly done = signal(false);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
+
+  constructor() {
+    effect(() => {
+      const ended = this.endedOn();
+      if (!this.open() || !ended) return;
+      untracked(() => {
+        this.done.set(true); this.busy.set(true); this.error.set(null);
+        this.api.preview(this.employeeId(), ended, null).subscribe({
+          next: (p) => { this.busy.set(false); this.preview.set(p); },
+          error: (e) => { this.busy.set(false); this.error.set(asProblem(e)?.detail ?? 'Could not prepare the preview'); },
+        });
+      });
+    });
+  }
 
   month(m: number): string { return MONTHS[m - 1]; }
   close(): void { this.closed.emit(); if (this.done()) this.changed.emit(); this.done.set(false); this.preview.set(null); this.error.set(null); }

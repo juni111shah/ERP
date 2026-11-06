@@ -4,8 +4,8 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api-config';
 import { CrudApiService } from './crud-api.service';
 
-export type SalesQuoteStatus = 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired' | 'Converted';
-export type SalesOrderStatus = 'Draft' | 'Confirmed' | 'Processing' | 'Delivered' | 'Invoiced' | 'Cancelled';
+export type SalesQuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired' | 'converted';
+export type SalesOrderStatus = 'draft' | 'confirmed' | 'processing' | 'delivered' | 'invoiced' | 'cancelled';
 
 export interface QuoteLineInput {
   itemId?: string | null;

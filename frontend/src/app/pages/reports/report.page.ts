@@ -1,11 +1,10 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
-import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -14,10 +13,12 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { map } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
-import { asProblem } from '../../core/http/problem-details';
+import { asProblem, problemMessage } from '../../core/http/problem-details';
 import { SessionStore } from '../../core/session/session.store';
+import { displayDate } from '../../core/format/display';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { StatCardComponent } from '../../shared/stat-card.component';
+import { StatePanelComponent } from '../../shared/state-panel.component';
 import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef } from './report-registry';
 
 /** Reports hub (no slug) and the generic report page (/reports/:slug): filters, table, summary, CSV and Print. */
@@ -26,15 +27,15 @@ import { RevealDirective } from '../../shared/reveal.directive';
   selector: 'erp-report',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzEmptyModule, NzSelectModule, RevealDirective],
+  imports: [StatePanelComponent, StatCardComponent, FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzSelectModule, RevealDirective],
   styles: [`
     .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:16px; }
     .card {
       display:block;
       padding:18px 20px;
-      border:1px solid #e2e8f0;
+      border:1px solid var(--erp-color-border-subtle);
       border-radius:12px;
-      background:#ffffff;
+      background: var(--erp-color-bg-surface);
       color:inherit;
       text-decoration:none;
       box-shadow: 0 1px 3px rgba(0,0,0,0.03);
@@ -42,19 +43,19 @@ import { RevealDirective } from '../../shared/reveal.directive';
     }
     .card:hover {
       box-shadow: 0 8px 20px -4px rgba(16, 149, 93, 0.12);
-      border-color: #6ee7b7;
+      border-color: var(--erp-color-primary, #10955d);
       transform: translateY(-2px);
     }
-    .card b { display:block; font-size:15px; font-weight:700; color:#0f172a; margin-bottom:6px; }
-    .card span { font-size:13px; color: #64748b; line-height:1.4; }
-    .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:16px 0 } .spacer { flex:1 } .num { text-align:right } .total td { font-weight:600 }
+    .card b { display:block; font-size:15px; font-weight:700; color: var(--erp-color-text-primary); margin-bottom:6px; }
+    .card span { font-size:13px; color: var(--erp-color-text-muted); line-height:1.4; }
+    .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:16px 0 } .spacer { flex:1 } .num { text-align:end; font-variant-numeric: tabular-nums; white-space:nowrap } .total td { font-weight:600 }
     .kpis { display:flex; gap:24px; flex-wrap:wrap; margin-bottom:12px } .kpi { padding:8px 14px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px } .kpi b { display:block; font-size:18px }
     @media print { .bar button, .bar nz-date-picker, .bar nz-input-number { display:none } }
   `],
   template: `
     @if (!def()) {
       <h1 class="erp-page-title">Reports</h1>
-      <p style="color:#64748b; margin-top:-8px; margin-bottom:16px;">Operational summaries, tax filings, financial statements, and performance analytics.</p>
+      <p style="color:var(--erp-color-text-muted); margin-top:-8px; margin-bottom:16px;">Operational summaries, tax filings, financial statements, and performance analytics.</p>
       <div class="hub" data-testid="reports-hub">
         @for (r of available(); track r.slug) { <a class="card" [routerLink]="['/reports', r.slug]" [attr.data-testid]="'report-' + r.slug"><b>{{ r.title }}</b><span>{{ r.subtitle }}</span></a> }
         @for (l of ledgerLinks; track l.title) { <a class="card" [routerLink]="l.link" [queryParams]="{ tab: l.tab }"><b>{{ l.title }}</b><span>{{ l.note }}</span></a> }
@@ -63,11 +64,12 @@ import { RevealDirective } from '../../shared/reveal.directive';
       <h1 class="erp-page-title">{{ def()!.title }}</h1>
       <p>{{ def()!.subtitle }}</p>
       <div class="bar" erpReveal>
+        <a nz-button routerLink="/reports" data-testid="report-back"><span nz-icon nzType="arrow-left"></span>All reports</a>
         @if (has('owner')) {
           <nz-select style="width:260px" nzShowSearch nzServerSearch nzPlaceHolder="Property owner" [(ngModel)]="ownerId" (nzOnSearch)="searchOwners($event)" data-testid="report-owner">@for (o of owners(); track o.id) { <nz-option [nzValue]="o.id" [nzLabel]="o.name"></nz-option> }</nz-select>
         }
-        @if (has('range')) { <nz-date-picker [(ngModel)]="from" nzPlaceHolder="From"></nz-date-picker><nz-date-picker [(ngModel)]="to" nzPlaceHolder="To"></nz-date-picker> }
-        @if (has('asOf')) { <nz-date-picker [(ngModel)]="to" nzPlaceHolder="As of"></nz-date-picker> }
+        @if (has('range')) { <nz-date-picker [(ngModel)]="from" nzFormat="dd MMM yyyy" nzPlaceHolder="From"></nz-date-picker><nz-date-picker [(ngModel)]="to" nzFormat="dd MMM yyyy" nzPlaceHolder="To"></nz-date-picker> }
+        @if (has('asOf')) { <span>As of</span> <nz-date-picker [(ngModel)]="to" nzFormat="dd MMM yyyy" nzPlaceHolder="As of"></nz-date-picker> }
         @if (has('weeks')) { <nz-input-number [(ngModel)]="weeks" [nzMin]="1" [nzMax]="52" [nzPrecision]="0"></nz-input-number> <span>weeks</span> }
         @if (has('days')) { <nz-input-number [(ngModel)]="days" [nzMin]="1" [nzMax]="3650" [nzPrecision]="0"></nz-input-number> <span>days idle</span> }
         @if (has('months')) { <nz-input-number [(ngModel)]="months" [nzMin]="1" [nzMax]="36" [nzPrecision]="0"></nz-input-number> <span>months</span> }
@@ -77,10 +79,12 @@ import { RevealDirective } from '../../shared/reveal.directive';
         <button nz-button (click)="csv()" [disabled]="!data()" data-testid="report-csv"><span nz-icon nzType="download"></span>CSV</button>
         <button nz-button (click)="print()" [disabled]="!data()"><span nz-icon nzType="printer"></span>Print</button>
       </div>
+      @if (waitingForEntity()) { <erp-state-panel icon="bank" title="Choose a legal entity" hint="This report covers one legal entity. Choose it with the selector at the top of the page." data-testid="report-needs-entity" /> }
+      @if (failed(); as msg) { <erp-state-panel kind="error" title="Could not run this report" [hint]="msg" actionLabel="Try again" (action)="run()" data-testid="report-error" /> }
       @if (loading() && !data()) { <div class="erp-stat-grid erp-stat-grid--auto" data-testid="report-loading">@for (i of [0, 1, 2, 3]; track i) { <erp-stat-card label="" [loading]="true" [tone]="i" /> }</div> }
       @if (data(); as d) {
         @if (summary().length) { <div class="erp-stat-grid erp-stat-grid--auto" data-testid="report-summary">@for (s of summary(); track s.label; let i = $index) { <erp-stat-card [label]="s.label" [value]="s.value" [tone]="i" /> }</div> }
-        <nz-table [nzData]="rows()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="report-table">
+        <nz-table [nzData]="rows()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="Nothing to report for these filters." data-testid="report-table">
           <thead><tr>@for (c of columns(); track c.key) { <th [class.num]="isNum(c)">{{ c.label }}</th> }</tr></thead>
           <tbody>
             @for (r of rows(); track $index) { <tr>@for (c of columns(); track c.key) { <td [class.num]="isNum(c)">{{ cell(r, c) }}</td> }</tr> }
@@ -94,7 +98,7 @@ import { RevealDirective } from '../../shared/reveal.directive';
             <tbody>@for (r of sec.rows; track $index) { <tr>@for (c of sec.columns; track c.key) { <td [class.num]="isNum(c)">{{ cell(r, c) }}</td> }</tr> }</tbody>
           </nz-table>
         }
-      } @else if (!loading()) { <nz-empty nzNotFoundContent="Choose the filters and run the report."></nz-empty> }
+      } @else if (!loading() && !failed() && !waitingForEntity()) { <erp-state-panel icon="bar-chart" title="Choose the filters and run the report" /> }
     }`,
 })
 export class ReportPage {
@@ -115,6 +119,7 @@ export class ReportPage {
   searchOwners(term: string): void { this.http.get<{ items: { id: string; name: string }[] }>(`${this.base}/parties`, { params: { search: term, pageSize: 20 } }).subscribe((r) => this.owners.set(r.items)); }
   months = 12;
   readonly loading = signal(false);
+  readonly failed = signal<string | null>(null);
   readonly data = signal<unknown>(null);
   readonly columns = computed<ReportColumn[]>(() => this.def()?.columns(this.data()) ?? []);
   readonly rows = computed(() => (this.data() ? this.def()!.rows(this.data()) : []));
@@ -123,6 +128,11 @@ export class ReportPage {
   readonly summary = computed(() => (this.data() ? this.def()?.summary?.(this.data()) ?? [] : []));
 
   readonly entity = this.session.currentEntityId;
+
+  constructor() {
+    // Open with figures, not an empty page, unless the report first needs a choice from the user.
+    effect(() => { this.entity(); if (this.def() && !this.def()!.filters.includes('owner')) untracked(() => this.run()); });
+  }
 
   runAction(): void {
     const a = this.def()?.action; const entityId = this.entity();
@@ -139,12 +149,15 @@ export class ReportPage {
     if (c.type === 'money') return Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (c.type === 'percent') return `${Number(v).toFixed(1)}%`;
     if (c.type === 'number') return Number(v).toLocaleString();
-    return String(v);
+    return displayDate(v) || String(v);
   }
+
+  readonly waitingForEntity = computed(() => !!this.def()?.needsEntity && !this.entity());
 
   run(): void {
     const def = this.def();
     if (!def || !this.to) return;
+    if (this.waitingForEntity()) { this.data.set(null); this.failed.set(null); return; }
     const params: Record<string, string> = {};
     if (this.has('range')) { if (!this.from) return; params['from'] = toIsoDate(this.from); params['to'] = toIsoDate(this.to); }
     if (this.has('owner')) { if (!this.ownerId) { this.message.warning('Choose the property owner'); return; } params['ownerPartyId'] = this.ownerId; }
@@ -152,10 +165,13 @@ export class ReportPage {
     if (this.has('weeks')) params['weeks'] = String(this.weeks);
     if (this.has('months')) params['months'] = String(this.months);
     if (this.has('days')) params['days'] = String(this.days);
+    const entity = this.entity();
+    if (entity) params['legalEntityId'] = entity;
     this.loading.set(true);
+    this.failed.set(null);
     this.http.get(`${this.base}/${def.endpoint}`, { params }).subscribe({
       next: (d) => { this.data.set(d); this.loading.set(false); },
-      error: (e) => { this.loading.set(false); this.message.error(asProblem(e)?.detail ?? 'Could not run the report'); },
+      error: (e) => { this.loading.set(false); this.failed.set(problemMessage(e, 'The server did not return the report.')); },
     });
   }
 

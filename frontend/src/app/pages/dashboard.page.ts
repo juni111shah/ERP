@@ -18,6 +18,7 @@ import { SessionStore } from '../core/session/session.store';
 import { ApexChartComponent } from '../shared/apex-chart.component';
 import { RevealDirective } from '../shared/reveal.directive';
 import { StatCardComponent, StatFormat } from '../shared/stat-card.component';
+import { ErpLabelPipe } from '../shared/display.pipes';
 
 /** Overview period presets, shortest first, offered in the range dropdown next to `custom` (a picked date range). */
 export type RangePreset = '1m' | '3m' | '6m' | '1y' | '2y' | '3y' | 'custom';
@@ -54,6 +55,20 @@ export function presetRange(preset: Exclude<RangePreset, 'custom'>, end = startO
 }
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 /** A real calendar date in yyyy-MM-dd (rejects 2026-02-31). */
+/**
+ * Alerts arrive from the API as "1 employee document(s) have expired." This writes them as a person would:
+ * "1 employee document has expired." and "3 employee documents have expired."
+ */
+export function readableAlert(message: string): string {
+  const match = /(\d[\d,]*)\s+[^()]*?\(s\)/.exec(message);
+  if (!match) return message;
+  const end = match.index + match[0].length;
+  if (match[1] !== '1') return message.replace('(s)', 's');
+  const singular: Record<string, string> = { have: 'has', are: 'is', were: 'was', expire: 'expires', need: 'needs', require: 'requires' };
+  const rest = message.slice(end).replace(/\b(have|are|were|expire|need|require)\b/, (verb) => singular[verb]);
+  return message.slice(0, end).replace('(s)', '') + rest;
+}
+
 export const isRealDate = (s: unknown): s is string => typeof s === 'string' && ISO.test(s) && isoDate(parseIso(s)) === s;
 /** A usable period: real dates, from ≤ to, to not after today, and at most 5 years long. */
 export function validRange(from: unknown, to: unknown, today = startOfToday()): boolean {
@@ -111,7 +126,7 @@ interface KpiCluster {
   selector: 'erp-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [ErpLabelPipe, 
     TranslatePipe,
     RouterLink,
     FormsModule,
@@ -238,7 +253,8 @@ interface KpiCluster {
                   margin 0.3s cubic-bezier(0.2, 0, 0, 1);
     }
     .tab-pill.active .pill-text,
-    .tab-pill:hover .pill-text {
+    .tab-pill:hover .pill-text,
+    .tab-pill:focus-visible .pill-text {
       max-width: 170px;
       opacity: 1;
       transform: translateX(0);
@@ -1146,10 +1162,10 @@ interface KpiCluster {
                         </div>
                         <div class="msg">
                           <div class="alert-tags">
-                            <nz-tag>{{ a.category }}</nz-tag>
+                            <nz-tag>{{ a.category | erpLabel }}</nz-tag>
                             <nz-tag [nzColor]="urgency(a.urgency).color">{{ urgency(a.urgency).label }}</nz-tag>
                           </div>
-                          <div>{{ a.message }}</div>
+                          <div>{{ alertText(a.message) }}</div>
                         </div>
                       </a>
                     } @empty {
@@ -1280,10 +1296,10 @@ interface KpiCluster {
                         </div>
                         <div class="msg">
                           <div class="alert-tags">
-                            <nz-tag>{{ a.category }}</nz-tag>
+                            <nz-tag>{{ a.category | erpLabel }}</nz-tag>
                             <nz-tag [nzColor]="urgency(a.urgency).color">{{ urgency(a.urgency).label }}</nz-tag>
                           </div>
-                          <div>{{ a.message }}</div>
+                          <div>{{ alertText(a.message) }}</div>
                         </div>
                       </a>
                     } @empty {
@@ -1893,8 +1909,10 @@ export class DashboardPage {
       if (cat === 'hr') return c.includes('hr') || c.includes('payroll') || c.includes('employee');
       return true;
     });
-    return filtered.length > 0 ? filtered : alerts;
+    return filtered;
   });
+
+  readonly alertText = readableAlert;
 
   readonly currentChart = computed<DashboardChart | null>(() => {
     const charts = this.visibleCharts();

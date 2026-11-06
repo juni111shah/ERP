@@ -253,7 +253,7 @@ export const AR: Dictionary = {
   // dashboard
   'dashboard.welcome': 'مرحباً', 'dashboard.overview': 'نظرة عامة', 'dashboard.alerts': 'التنبيهات والمهام',
   // portal
-  'portal.title': 'بوابة المستأجر', 'portal.signIn': 'تسجيل الدخول', 'portal.emailCode': 'أرسل لي رمزاً', 'portal.workspace': 'رمز مساحة العمل', 'portal.welcome': 'مرحباً',
+  'portal.title': 'بوابة العملاء', 'portal.signIn': 'تسجيل الدخول', 'portal.emailCode': 'أرسل لي رمزاً', 'portal.workspace': 'رمز مساحة العمل', 'portal.welcome': 'مرحباً',
   'portal.tab.lease': 'عقدي', 'portal.tab.invoices': 'الفواتير', 'portal.tab.receipts': 'الإيصالات', 'portal.tab.statement': 'كشف الحساب', 'portal.tab.maintenance': 'الصيانة',
   'portal.balance': 'الرصيد المستحق', 'portal.sendRequest': 'إرسال الطلب', 'portal.noLease': 'لا يوجد عقد.', 'portal.signOut': 'تسجيل الخروج',
   // page and component labels with interpolated values (ui.*)

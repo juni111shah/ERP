@@ -2,7 +2,10 @@ import { ChangeDetectionStrategy, Component, DestroyRef, Injectable, computed, i
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { catchError, map, of } from 'rxjs';
+import { catchError, forkJoin, map, of } from 'rxjs';
+import { countRows } from './admin/finance-kpis';
+import { FilterCriterion, ListQuery } from '../core/api/api.models';
+import { ErpLabelPipe } from '../shared/display.pipes';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -48,36 +51,16 @@ const groupFilter = (id: string | null) => (id ? [{ field: 'partyGroupId', op: '
   selector: 'erp-parties',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, DynamicFieldsComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule,
+  imports: [ErpLabelPipe, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, DynamicFieldsComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule,
     NzFormModule, NzInputModule, NzSelectModule, NzSwitchModule, NzIconModule, NzTagModule, StatCardComponent],
   template: `
     <h1 class="erp-page-title">{{ pageTitle() }}</h1>
 
     <div class="erp-stat-grid erp-stat-grid--auto" data-testid="party-stats">
-      <erp-stat-card [label]="'Total ' + (typeFilter() === 'customer' ? 'customers' : typeFilter() === 'vendor' ? 'vendors' : 'parties')"
-                     [value]="stats().total"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().countOnPage + ' ' + ('table.onThisPage' | translate: 'on this page')"
-                     [tone]="0" />
-      <erp-stat-card label="Active"
-                     [value]="stats().active"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="active accounts"
-                     [tone]="1" />
-      <erp-stat-card label="Corporate"
-                     [value]="stats().companies"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="company entities"
-                     [tone]="2" />
-      <erp-stat-card label="Individual"
-                     [value]="stats().individuals"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     caption="private clients"
-                     [tone]="3" />
+      <erp-stat-card [label]="'Total ' + (typeFilter() === 'customer' ? 'customers' : typeFilter() === 'vendor' ? 'vendors' : 'parties')" [value]="stats()?.total" format="number" [loading]="statsLoading()" [tone]="0" />
+      <erp-stat-card label="Active" [value]="stats()?.active" format="number" [loading]="statsLoading()" [tone]="1" />
+      <erp-stat-card label="Companies" [value]="stats()?.companies" format="number" [loading]="statsLoading()" [tone]="2" />
+      <erp-stat-card label="Individuals" [value]="stats()?.individuals" format="number" [loading]="statsLoading()" [tone]="3" />
     </div>
 
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, code, email" (rowClick)="open($event)" [emptyText]="emptyText()">
@@ -92,7 +75,7 @@ const groupFilter = (id: string | null) => (id ? [{ field: 'partyGroupId', op: '
           @case ('roles') {
             <div style="display:flex;gap:4px;flex-wrap:wrap">
               @for (r of row.roles; track r) {
-                <nz-tag [nzColor]="roleTagColor(r)">{{ r }}</nz-tag>
+                <nz-tag [nzColor]="roleTagColor(r)">{{ r | erpLabel }}</nz-tag>
               }
             </div>
           }
@@ -127,7 +110,7 @@ const groupFilter = (id: string | null) => (id ? [{ field: 'partyGroupId', op: '
       <button toolbar *erpHasPermission="'core.parties.write'" nz-button nzType="primary" (click)="open(null)" data-testid="party-new"><span nz-icon nzType="plus"></span>New {{ typeFilter() === 'customer' ? 'customer' : typeFilter() === 'vendor' ? 'vendor' : 'party' }}</button>
     </erp-paged-table>
 
-    <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="640" [nzTitle]="editing() ? editing()!.name : 'New party'" (nzOnClose)="close()" [nzFooter]="footer">
+    <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="640" [nzTitle]="editing() ? editing()!.name : 'New ' + (typeFilter() === 'customer' ? 'customer' : typeFilter() === 'vendor' ? 'vendor' : 'party')" (nzOnClose)="close()" [nzFooter]="footer">
       <ng-container *nzDrawerContent>
         <form nz-form nzLayout="vertical" [formGroup]="form" data-testid="party-form">
           <nz-form-item><nz-form-label nzRequired>Name</nz-form-label><nz-form-control [nzErrorTip]="err('name')"><input nz-input formControlName="name" data-testid="party-name" /></nz-form-control></nz-form-item>
@@ -137,7 +120,7 @@ const groupFilter = (id: string | null) => (id ? [{ field: 'partyGroupId', op: '
           <nz-form-item><nz-form-label nzRequired>Roles</nz-form-label><nz-form-control [nzErrorTip]="err('roles')">
             <nz-select formControlName="roles" nzMode="multiple" data-testid="party-roles">@for (r of roles; track r) { <nz-option [nzValue]="r" [nzLabel]="r"></nz-option> }</nz-select>
           </nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Email</nz-form-label><nz-form-control [nzErrorTip]="err('email')"><input nz-input formControlName="email" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Email</nz-form-label><nz-form-control nzErrorTip="Enter a valid email address"><input nz-input formControlName="email" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Phone</nz-form-label><nz-form-control><input nz-input formControlName="phone" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Tax number</nz-form-label><nz-form-control><input nz-input formControlName="taxNumber" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Address</nz-form-label><nz-form-control><textarea nz-input rows="2" formControlName="address" data-testid="party-address"></textarea></nz-form-control></nz-form-item>
@@ -191,16 +174,22 @@ export class PartiesPage implements OnInit {
     { key: 'email', label: 'Email', sortField: 'email' },
     { key: 'isActive', label: 'Active', sortField: 'isActive', width: '110px' },
   ];
-  readonly stats = computed(() => {
-    const rows = this.list.items();
-    return {
-      total: this.list.total() || rows.length,
-      active: rows.filter((r) => r.isActive).length,
-      companies: rows.filter((r) => r.kind === 'company').length,
-      individuals: rows.filter((r) => r.kind === 'individual').length,
-      countOnPage: rows.length,
-    };
-  });
+  /** Counted by the server for the whole list, not the page on screen. */
+  readonly stats = signal<{ total: number; active: number; companies: number; individuals: number } | null>(null);
+  readonly statsLoading = signal(true);
+  private loadStats(): void {
+    const base = roleFilter(this.typeFilter());
+    const count = (extra: FilterCriterion[]) => countRows((q: ListQuery) => this.api.list(q), [...base, ...extra]);
+    forkJoin({
+      total: count([]),
+      active: count([{ field: 'isActive', op: 'eq', value: true }]),
+      companies: count([{ field: 'kind', op: 'eq', value: 'company' }]),
+      individuals: count([{ field: 'kind', op: 'eq', value: 'individual' }]),
+    }).subscribe({
+      next: (s) => { this.stats.set(s); this.statsLoading.set(false); },
+      error: () => { this.stats.set(null); this.statsLoading.set(false); },
+    });
+  }
 
   roleTagColor(role: string): string {
     switch ((role ?? '').toLowerCase()) {
@@ -218,6 +207,7 @@ export class PartiesPage implements OnInit {
   form = this.newForm();
 
   ngOnInit(): void {
+    this.loadStats();
     // Re-apply on every query change: Customers -> Vendors from the menu reuses this component.
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((qp) => {
       const type = qp.get('type');
@@ -225,6 +215,7 @@ export class PartiesPage implements OnInit {
         this.typeFilter.set(type);
         this.pageTitle.set(titleFor(type));
         this.list.setFilters([...roleFilter(type), ...groupFilter(this.groupFilterId())]);
+        this.loadStats();
       }
       // `?edit=<id>` (from the party detail page's Edit) opens the edit drawer for that party.
       const editId = qp.get('edit');
@@ -292,7 +283,7 @@ export class PartiesPage implements OnInit {
     const p = this.editing();
     this.saving.set(true);
     (p ? this.api.update(p.id, body) : this.api.create(body)).subscribe({
-      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success('Saved'); this.list.reload(); if (p) void this.router.navigate(['/parties', p.id]); else this.clearEditParam(); },
+      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success('Saved'); this.list.reload(); this.loadStats(); if (p) void this.router.navigate(['/parties', p.id]); else this.clearEditParam(); },
       error: (e) => {
         this.saving.set(false);
         const problem = asProblem(e);
@@ -308,7 +299,7 @@ export class PartiesPage implements OnInit {
     return this.fb.group({
       name: [p?.name ?? '', [Validators.required, Validators.maxLength(200)]],
       kind: [p?.kind?.toLowerCase() ?? 'company', Validators.required],
-      roles: [p?.roles ?? ['Customer'], Validators.required],
+      roles: [p?.roles ?? [this.typeFilter() === 'vendor' ? 'Vendor' : 'Customer'], Validators.required],
       email: [p?.email ?? '', Validators.email],
       phone: [p?.phone ?? ''],
       taxNumber: [p?.taxNumber ?? ''],

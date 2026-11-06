@@ -296,7 +296,8 @@ public sealed class AuthService(
         var hash = Hash(rawRefreshToken);
         var token = await db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash, ct) ?? throw new AuthException(401, "Not signed in.");
         var now = clock.UtcNow;
-        if (token.RevokedAt is not null || token.ReplacedById is not null)
+        var overlap = token.ReplacedById is not null && token.RevokedReason == "rotated" && token.RevokedAt is { } replacedAt && (now - replacedAt).TotalSeconds <= _o.RefreshReuseLeewaySeconds;
+        if (!overlap && (token.RevokedAt is not null || token.ReplacedById is not null))
         {
             // Reuse of a rotated token: assume theft and revoke the whole family.
             await db.RefreshTokens.Where(t => t.FamilyId == token.FamilyId && t.RevokedAt == null)
@@ -458,7 +459,8 @@ public sealed class AuthService(
             CreatedByIp = ip,
         };
         db.RefreshTokens.Add(refresh);
-        if (rotateFrom is not null) { rotateFrom.ReplacedById = refresh.Id; rotateFrom.RevokedAt = now; rotateFrom.RevokedReason = "rotated"; }
+        // An overlapping tab leaves the first replacement's time alone, so repeated reuse cannot keep the window open.
+        if (rotateFrom is not null && rotateFrom.ReplacedById is null) { rotateFrom.ReplacedById = refresh.Id; rotateFrom.RevokedAt = now; rotateFrom.RevokedReason = "rotated"; }
         using (org.Use(ws.Id)) await db.SaveChangesAsync(ct);
 
         return new(access, _o.AccessTokenMinutes * 60, raw, refresh.ExpiresAt, persistent, ws, all);

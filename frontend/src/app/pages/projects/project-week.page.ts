@@ -1,4 +1,5 @@
 import { DecimalPipe } from '@angular/common';
+import { ErpDatePipe } from '../../shared/display.pipes';
 import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -25,11 +26,11 @@ const TIMER_KEY = 'erp.projects.timer';
   selector: 'erp-project-week',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [DecimalPipe, ErpDatePipe, FormsModule, NzButtonModule, NzIconModule, NzSelectModule],
   template: `
     <div class="prj-toolbar">
       <button nz-button (click)="shift(-7)" aria-label="Previous week" data-testid="week-prev"><span nz-icon nzType="left"></span></button>
-      <b data-testid="week-label">{{ days()[0] }} to {{ days()[6] }}</b>
+      <b data-testid="week-label">{{ days()[0] | erpDate }} to {{ days()[6] | erpDate }}</b>
       <button nz-button (click)="shift(7)" aria-label="Next week" data-testid="week-next"><span nz-icon nzType="right"></span></button>
       <button nz-button (click)="today()">This week</button>
       <button nz-button (click)="copyLastWeek()" data-testid="week-copy"><span nz-icon nzType="copy"></span> Copy rows from last week</button>
@@ -49,10 +50,12 @@ const TIMER_KEY = 'erp.projects.timer';
         <button nz-button nzType="primary" nzDanger (click)="stop()" data-testid="timer-stop"><span nz-icon nzType="pause-circle"></span> Stop and log</button>
         <button nz-button (click)="discard()" data-testid="timer-discard">Discard</button>
       } @else {
-        <nz-select [(ngModel)]="timerProject" nzShowSearch nzPlaceHolder="Project to time" style="width:280px" (ngModelChange)="loadTimerTasks($event)" aria-label="Project to time" data-testid="timer-project">
+        <label class="prj-sr" for="timer-project">Project to time</label>
+        <nz-select nzId="timer-project" [(ngModel)]="timerProject" nzShowSearch nzPlaceHolder="Project to time" style="width:280px" (ngModelChange)="loadTimerTasks($event)" data-testid="timer-project">
           @for (p of projects().items; track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="p.number + ' · ' + p.name"></nz-option> }
         </nz-select>
-        <nz-select [(ngModel)]="timerTask" nzAllowClear nzShowSearch nzPlaceHolder="Task (optional)" style="width:240px" aria-label="Task to time" [nzDisabled]="!timerProject">
+        <label class="prj-sr" for="timer-task">Task to time</label>
+        <nz-select nzId="timer-task" [(ngModel)]="timerTask" nzAllowClear nzShowSearch nzPlaceHolder="Task (optional)" style="width:240px" [nzDisabled]="!timerProject">
           @for (t of timerTasks(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.number + ' · ' + t.title"></nz-option> }
         </nz-select>
         <button nz-button nzType="primary" [disabled]="!timerProject" (click)="start()" data-testid="timer-start"><span nz-icon nzType="play-circle"></span> Start timer</button>
@@ -88,16 +91,19 @@ const TIMER_KEY = 'erp.projects.timer';
     </div>
 
     <div class="prj-toolbar add">
-      <nz-select [(ngModel)]="addProject" nzShowSearch nzPlaceHolder="Add a project" style="width:280px" (ngModelChange)="loadTasks($event)" aria-label="Add project" data-testid="week-add-project">
+      <label class="prj-sr" for="week-add-project">Add a project</label>
+      <nz-select nzId="week-add-project" [(ngModel)]="addProject" nzShowSearch nzPlaceHolder="Add a project" style="width:280px" (ngModelChange)="loadTasks($event)" data-testid="week-add-project">
         @for (p of projects().items; track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="p.number + ' · ' + p.name"></nz-option> }
       </nz-select>
-      <nz-select [(ngModel)]="addTask" nzAllowClear nzShowSearch nzPlaceHolder="Task (optional)" style="width:240px" aria-label="Add task" [nzDisabled]="!addProject">
+      <label class="prj-sr" for="week-add-task">Task for the new row</label>
+      <nz-select nzId="week-add-task" [(ngModel)]="addTask" nzAllowClear nzShowSearch nzPlaceHolder="Task (optional)" style="width:240px" [nzDisabled]="!addProject">
         @for (t of tasks(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.number + ' · ' + t.title"></nz-option> }
       </nz-select>
       <button nz-button [disabled]="!addProject" (click)="addRow()" data-testid="week-add"><span nz-icon nzType="plus"></span> Add row</button>
     </div>
   `,
   styles: [PRJ_STYLES + `
+    .prj-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .timer { display:flex; gap:10px; align-items:center; flex-wrap:wrap; background:var(--erp-color-bg-surface,#fff); border:1px solid var(--erp-color-border-subtle,#e2e8f0); border-radius:10px; padding:10px 12px; margin-bottom:12px; }
     .pulse { width:10px; height:10px; border-radius:50%; background:#ef4444; animation:prj-pulse 1.4s infinite; } @keyframes prj-pulse { 50% { opacity:.3; } } @media (prefers-reduced-motion: reduce) { .pulse { animation:none; } }
     .grid-card { padding:0; } .grid { width:100%; border-collapse:collapse; min-width:820px; font-size:13px; } .grid th { font-weight:600; color:var(--erp-color-text-secondary,#475569); padding:9px 8px; border-bottom:1px solid var(--erp-color-border-subtle,#e2e8f0); }
