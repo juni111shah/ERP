@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Retail.Domain;
 using FluentValidation;
 using MediatR;
@@ -97,10 +98,12 @@ public class PromotionHandlers :
     IRequestHandler<GetPromotionByIdQuery, RetailPromotionDto?>
 {
     private readonly IRepository<RetailPromotion> _promotions;
+    private readonly ILegalEntityGuard _guard;
 
-    public PromotionHandlers(IRepository<RetailPromotion> promotions)
+    public PromotionHandlers(IRepository<RetailPromotion> promotions, ILegalEntityGuard guard)
     {
         _promotions = promotions;
+        _guard = guard;
     }
 
     public async Task<RetailPromotionDto?> Handle(GetPromotionByIdQuery request, CancellationToken cancellationToken)
@@ -111,6 +114,7 @@ public class PromotionHandlers :
 
     public async Task<RetailPromotionDto> Handle(CreatePromotionCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var promo = new RetailPromotion
         {
             LegalEntityId = request.LegalEntityId,

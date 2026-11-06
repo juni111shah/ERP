@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Retail.Domain;
 using FluentValidation;
 using MediatR;
@@ -112,14 +113,17 @@ public class PriceListHandlers :
     IRequestHandler<GetPriceListByIdQuery, RetailPriceListDto>
 {
     private readonly IRepository<RetailPriceList> _priceLists;
+    private readonly ILegalEntityGuard _guard;
 
-    public PriceListHandlers(IRepository<RetailPriceList> priceLists)
+    public PriceListHandlers(IRepository<RetailPriceList> priceLists, ILegalEntityGuard guard)
     {
         _priceLists = priceLists;
+        _guard = guard;
     }
 
     public async Task<RetailPriceListDto> Handle(CreatePriceListCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var code = request.Code.Trim();
         var exists = await _priceLists.Query(new Specification<RetailPriceList>(x => x.Code == code))
             .AnyAsync(cancellationToken);

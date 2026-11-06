@@ -97,14 +97,17 @@ public class MilestoneHandlers :
     private readonly IReadRepository<Invoice> _invoices;
     private readonly INumberingService _numbering;
     private readonly ISender _sender;
+    private readonly ERP.Application.Organizations.ILegalEntityGuard _guard;
 
     public MilestoneHandlers(
         IRepository<BillingMilestone> repo,
         IReadRepository<ServiceEngagement> engagements,
         IReadRepository<Invoice> invoices,
         INumberingService numbering,
-        ISender sender)
+        ISender sender,
+        ERP.Application.Organizations.ILegalEntityGuard guard)
     {
+        _guard = guard;
         _repo = repo;
         _engagements = engagements;
         _invoices = invoices;
@@ -114,6 +117,7 @@ public class MilestoneHandlers :
 
     public async Task<MilestoneDto> Handle(CreateMilestoneCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var code = await _numbering.NextAsync("MLS", request.LegalEntityId, request.DueDate, cancellationToken);
         var milestone = new BillingMilestone
         {

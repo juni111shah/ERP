@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using Microsoft.EntityFrameworkCore;
 using ERP.Modules.Services.Domain;
 using FluentValidation;
@@ -83,17 +84,21 @@ public class TimeEntryHandlers :
 {
     private readonly IRepository<TimeEntryRecord> _timeRepo;
     private readonly IRepository<ServiceEngagement> _engagementRepo;
+    private readonly ILegalEntityGuard _guard;
 
     public TimeEntryHandlers(
         IRepository<TimeEntryRecord> timeRepo,
-        IRepository<ServiceEngagement> engagementRepo)
+        IRepository<ServiceEngagement> engagementRepo,
+        ILegalEntityGuard guard)
     {
+        _guard = guard;
         _timeRepo = timeRepo;
         _engagementRepo = engagementRepo;
     }
 
     public async Task<TimeEntryDto> Handle(LogTimeEntryCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var totalAmount = Math.Round(request.Hours * request.HourlyRate, 2);
         var entry = new TimeEntryRecord
         {

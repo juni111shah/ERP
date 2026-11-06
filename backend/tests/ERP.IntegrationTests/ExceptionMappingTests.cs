@@ -140,11 +140,13 @@ public class ExceptionMappingTests(ApiFactory f) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.NotFound, notFoundRes.StatusCode);
 
         // 2. Milestone invoice on cancelled engagement -> 409
+        var clientRes = await c.PostAsJsonAsync("/api/v1/parties", new { name = "Acme Client " + Guid.NewGuid().ToString("N")[..4], kind = "Company", roles = "Customer" });
+        var clientId = (string)(await Json(clientRes))["id"]!;
         var engRes = await c.PostAsJsonAsync("/api/v1/m/services/engagements", new
         {
             legalEntityId = entity,
             title = "Consulting " + Guid.NewGuid().ToString("N")[..4],
-            clientId = Guid.NewGuid(),
+            clientId,
             clientName = "Acme Client",
             type = 1,
             startDate = "2026-05-01"

@@ -51,7 +51,7 @@ public sealed class UpdateJournalValidator : AbstractValidator<UpdateJournal> { 
 
 internal sealed class JournalHandlers(
     IRepository<JournalEntry> journals, IRepository<JournalLine> lineRows, IReadRepository<Account> accounts, IRepository<Domain.Organizations.LegalEntity> entities, ILegalEntityGuard guard,
-    IPostingService posting, INumberingService numbering, ICurrentUser user, IClock clock, IUnitOfWork uow) :
+    IPostingService posting, INumberingService numbering, ICurrentUser user, IClock clock, IUnitOfWork uow, IReferenceCheck references) :
     IRequestHandler<GetJournal, JournalDto>,
     IRequestHandler<CreateJournal, JournalDto>,
     IRequestHandler<UpdateJournal, JournalDto>,
@@ -166,6 +166,10 @@ internal sealed class JournalHandlers(
     {
         var ids = i.Lines.Select(l => l.AccountId).Distinct().ToList();
         await EnsurePostableAsync(ids, ct);
+        if (!await references.AllExistAsync<ERP.Domain.Parties.Party>(i.Lines.Where(l => l.PartyId.HasValue).Select(l => l.PartyId!.Value).Distinct().ToList(), ct))
+            throw new FieldValidationException("lines", "A party was not found.");
+        if (!await references.AllExistAsync<Domain.Organizations.BusinessUnit>(i.Lines.Where(l => l.BusinessUnitId.HasValue).Select(l => l.BusinessUnitId!.Value).Distinct().ToList(), ct))
+            throw new FieldValidationException("lines", "A business unit was not found.");
         journal.Date = i.Date; journal.Memo = i.Memo?.Trim(); journal.Reference = i.Reference?.Trim();
         var seq = 1;
         var lines = i.Lines.Select(l => new JournalLine { JournalEntryId = journal.Id, Seq = seq++, AccountId = l.AccountId, Debit = l.Debit, Credit = l.Credit, Description = l.Description, PartyId = l.PartyId, BusinessUnitId = l.BusinessUnitId }).ToList();

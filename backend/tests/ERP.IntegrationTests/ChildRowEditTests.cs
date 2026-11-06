@@ -29,7 +29,8 @@ public class ChildRowEditTests(ApiFactory f) : IClassFixture<ApiFactory>
         var entity = (string)(await Ok(await c.PostAsJsonAsync("/api/v1/legal-entities", new { name = "Stops " + tag, countryCode = "AE", baseCurrency = "AED" }), HttpStatusCode.Created))["id"]!;
         var route = (string)(await Ok(await c.PostAsJsonAsync($"{Dist}/routes", new { legalEntityId = entity, code = "R" + tag, name = "North" }), HttpStatusCode.Created))["id"]!;
 
-        object Stop(string name, int order) => new { customerPartyId = Guid.NewGuid(), customerName = name, sequenceOrder = order };
+        var customer = (string)(await Ok(await c.PostAsJsonAsync("/api/v1/parties", new { name = "Stops customer " + tag, kind = "Company", roles = "Customer" }), HttpStatusCode.Created))["id"]!;
+        object Stop(string name, int order) => new { customerPartyId = customer, customerName = name, sequenceOrder = order };
 
         await Ok(await c.PutAsJsonAsync($"{Dist}/routes/{route}", new { id = route, name = "North 2", vehicleNumber = "V1", isActive = true, stops = new[] { Stop("First", 1), Stop("Second", 2) } }));
         var saved = await Ok(await c.GetAsync($"{Dist}/routes/{route}"));
