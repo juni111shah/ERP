@@ -19,9 +19,9 @@ public sealed record OnboardingResult(Guid OrgId, Guid LegalEntityId, Guid Admin
 /// <param name="AllowedModules">The plan's modules; empty means every module the industry suggests.</param>
 public sealed record OnboardingOptions(
     string? AdminPasswordHash = null, bool TrustExistingAccount = false, bool AdminMustChangePassword = false, bool IsInternal = false,
-    ERP.Domain.Platform.WorkspaceSubscription? Subscription = null, IReadOnlyList<string>? AllowedModules = null);
+    ERP.Domain.Platform.WorkspaceSubscription? Subscription = null, IReadOnlyList<string>? AllowedModules = null, bool IsDemo = false);
 
-public sealed record IndustryView(string Key, string Label, string Description, string Availability, IReadOnlyList<string> SuggestedModules, IReadOnlyList<string> InstalledModules, int SortOrder);
+public sealed record IndustryView(string Key, string Label, string Description, string Availability, IReadOnlyList<string> SuggestedModules, IReadOnlyList<string> InstalledModules, int SortOrder, string? Group = null);
 
 /// <summary>Creates a workspace from an industry template and country pack (org, entity, seed data, modules, admin). Implemented in Infrastructure.</summary>
 public interface IOnboardingService

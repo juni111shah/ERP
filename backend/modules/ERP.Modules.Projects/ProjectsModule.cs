@@ -106,6 +106,7 @@ public sealed class ProjectsModule : ModuleBase
         services.AddScoped<ProjectAccess>();
         services.AddScoped<ProjectFigures>();
         services.AddScoped<IDashboardContributor, ProjectsDashboard>();
+        services.AddScoped<IOwnerDashboardSection, ProjectsOwnerSection>();
         services.AddScoped<ISearchProvider, ProjectsSearch>();
         services.AddScoped<ERP.Application.Reminders.IReminderSource, ProjectsReminders>();
         services.AddScoped<ERP.Application.Imports.IImportDefinition, ProjectTaskImport>();

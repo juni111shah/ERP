@@ -124,6 +124,7 @@ public sealed class HrModule : ModuleBase
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<LeaveRequest>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), LeavePolicyService.AttachmentOwnerType, P.LeaveRead, P.LeaveRequest));
         services.AddScoped<IDashboardContributor, HrDashboard>();
+        services.AddScoped<IOwnerDashboardSection, HrOwnerSection>();
         services.AddScoped<ERP.Application.Reminders.IReminderSource, EmployeeDocumentReminders>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<EmployeeDocument>(

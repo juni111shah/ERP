@@ -158,7 +158,7 @@ internal sealed class BillHandlers(
         var memo = $"Bill {bill.VendorReference} {bill.PartyName}".Trim();
         var lines = new List<PostingLine>();
         foreach (var g in bill.Lines.GroupBy(l => l.AccountId!.Value))
-            lines.Add(new PostingLine(g.Key, g.Sum(l => l.Net + (l.TaxRecoverable ? 0 : l.TaxAmount)), 0, memo)); // tax that cannot be recovered is part of the cost
+            lines.Add(new PostingLine(g.Key, g.Sum(l => l.Net + (l.TaxRecoverable ? 0 : l.TaxAmount)), 0, memo, BusinessUnitId: bill.BusinessUnitId)); // tax that cannot be recovered is part of the cost
         var recoverable = bill.Lines.Where(l => l.TaxRecoverable).Sum(l => l.TaxAmount);
         if (recoverable > 0) lines.Add(new PostingLine(await posting.AccountForRoleAsync(SystemRoles.TaxInput, ct), recoverable, 0, memo));
         lines.Add(new PostingLine(ap, 0, bill.Total, memo, bill.PartyId));

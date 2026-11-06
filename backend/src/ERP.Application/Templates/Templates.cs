@@ -24,7 +24,19 @@ public sealed record IndustryTemplate(
     IReadOnlyList<RoleTemplate>? Roles = null,
     IReadOnlyList<SequenceTemplate>? Sequences = null,
     IReadOnlyDictionary<string, string>? Settings = null,
-    int SortOrder = 100);
+    int SortOrder = 100,
+    /// <summary>Not offered at sign-up: a module's own roles and numbering, provisioned when the module is enabled.</summary>
+    bool Hidden = false,
+    /// <summary>The industry this business type belongs to, for grouping at sign-up.</summary>
+    string? Group = null,
+    IReadOnlyList<string>? Units = null,
+    IReadOnlyList<string>? ItemCategories = null,
+    /// <summary>Optional core areas switched off by default for this business type.</summary>
+    IReadOnlyList<string>? CapabilitiesOff = null,
+    /// <summary>Owner dashboard sections shown first, in order.</summary>
+    IReadOnlyList<string>? DashboardFocus = null,
+    /// <summary>Menu item id to label: the words this business uses, such as what it calls its customers.</summary>
+    IReadOnlyDictionary<string, string>? Terminology = null);
 
 /// <summary>Core, industry-neutral seed data used for every workspace.</summary>
 public static class CoreTemplates
@@ -124,10 +136,11 @@ public static class CoreTemplates
     /// <summary>Neutral industries offered at onboarding. Suggested module keys that are not installed are ignored.</summary>
     public static IReadOnlyList<IndustryTemplate> Industries { get; } =
     [
-        new("generic", "General business / other", "Core ERP only; enable modules later.", IndustryAvailability.Available, [], SortOrder: 999),
-        new("retail", "Retail and e-commerce", "Stores, stock and point of sale.", IndustryAvailability.Preview, ["inventory", "sales", "pos", "retail"], SortOrder: 20),
-        new("distribution", "Wholesale and distribution", "Purchasing, stock and sales orders.", IndustryAvailability.Preview, ["inventory", "sales", "purchasing", "distribution"], SortOrder: 30),
-        new("manufacturing", "Manufacturing", "Bills of materials, production and stock.", IndustryAvailability.Preview, ["inventory", "purchasing", "manufacturing"], SortOrder: 40),
+        new("generic", "General business / other", "Core ERP only; enable modules later.", IndustryAvailability.Available, [], SortOrder: 9999),
+        // Earlier keys stay valid for existing callers; the business types offered at sign-up replace them.
+        new("retail", "Retail and e-commerce", "Stores, stock and point of sale.", IndustryAvailability.Preview, ["inventory", "sales", "pos", "retail"], SortOrder: 20, Hidden: true),
+        new("distribution", "Wholesale and distribution", "Purchasing, stock and sales orders.", IndustryAvailability.Preview, ["inventory", "sales", "purchasing", "distribution"], SortOrder: 30, Hidden: true),
+        new("manufacturing", "Manufacturing", "Bills of materials, production and stock.", IndustryAvailability.Preview, ["inventory", "purchasing", "manufacturing"], SortOrder: 40, Hidden: true),
         new("services", "Professional services", "Projects, time and billing.", IndustryAvailability.Preview, ["projects", "crm", "services"], SortOrder: 50),
     ];
 }

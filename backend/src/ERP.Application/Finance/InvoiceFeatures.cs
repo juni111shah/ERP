@@ -12,7 +12,7 @@ namespace ERP.Application.Finance;
 public sealed record InvoiceLineInput(string Description, decimal Quantity, decimal Price, Guid? TaxCodeId = null, Guid? AccountId = null, Guid? ItemId = null);
 /// <summary>SourceType and SourceId are set only by module billing code; they are never read from a request body.</summary>
 public sealed record InvoiceInput(Guid LegalEntityId, Guid PartyId, DateOnly InvoiceDate, DateOnly? DueDate, List<InvoiceLineInput> Lines, bool IsCreditNote = false, string? Notes = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] string? SourceType = null, [property: System.Text.Json.Serialization.JsonIgnore] Guid? SourceId = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] string? SourceType = null, [property: System.Text.Json.Serialization.JsonIgnore] Guid? SourceId = null, Guid? BusinessUnitId = null);
 
 public sealed record InvoiceLineDto(Guid Id, int Seq, Guid? ItemId, string Description, decimal Quantity, decimal Price, Guid? TaxCodeId, decimal TaxAmount, decimal Net, Guid? AccountId);
 public sealed record InvoiceDto(
@@ -279,7 +279,7 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         => await invoices.Tracked(new Specification<Invoice>(i => i.Id == id).Include(i => i.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
 
     private static InvoiceDraft ToDraft(InvoiceInput i)
-        => new(i.LegalEntityId, i.PartyId, i.InvoiceDate, i.DueDate, i.Lines.Select(l => new InvoiceLineDraft(l.Description.Trim(), l.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId)).ToList(), i.IsCreditNote, SourceType: i.SourceType, SourceId: i.SourceId, Notes: i.Notes);
+        => new(i.LegalEntityId, i.PartyId, i.InvoiceDate, i.DueDate, i.Lines.Select(l => new InvoiceLineDraft(l.Description.Trim(), l.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId)).ToList(), i.IsCreditNote, SourceType: i.SourceType, SourceId: i.SourceId, BusinessUnitId: i.BusinessUnitId, Notes: i.Notes);
 }
 
 public static class SettlementStatus

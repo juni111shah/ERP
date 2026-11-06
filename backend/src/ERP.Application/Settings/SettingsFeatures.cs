@@ -21,6 +21,11 @@ public sealed class SettingsService(IRepository<Setting> settings, ISettingsCata
         new("core.journalRequiresApproval", "Manual journals need approval", "false", "bool"),
         // Edited on the chart of accounts screen (mask editor), not as a plain setting; stored in the same key/value table.
         new("finance.coa.numbering", "Chart of accounts numbering", "{\"mode\":\"free\",\"segments\":[4,2,2],\"separator\":\"-\"}", "json"),
+        // Edited on the business setup screen.
+        new("core.units", "Units of measure", "[]", "json"),
+        new("core.itemCategories", "Item categories", "[]", "json"),
+        new("core.disabledCapabilities", "Core areas switched off", "[]", "json"),
+        new("core.dashboardFocus", "Owner dashboard order", "[]", "json"),
     ];
 
     public async Task<string?> GetRawAsync(string key, Guid? legalEntityId = null, CancellationToken ct = default)

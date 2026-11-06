@@ -85,8 +85,6 @@ public sealed class ModuleRegistry
     /// <summary>Modules on the roadmap; listed as "unavailable" in Settings → Modules and onboarding.</summary>
     public static IReadOnlyList<ModuleManifest> Planned { get; } =
     [
-        new("fleet", "Fleet & Logistics", "Vehicles, drivers, fuel logs and dispatch.", "Logistics", Status: ModuleStatus.Planned),
-        new("hospitality", "Hospitality", "Bookings, front desk and room service.", "Industry", Status: ModuleStatus.Planned),
         new("maintenance", "Asset Maintenance", "Preventive maintenance, work orders and equipment schedules.", "Maintenance", Status: ModuleStatus.Planned),
     ];
 }

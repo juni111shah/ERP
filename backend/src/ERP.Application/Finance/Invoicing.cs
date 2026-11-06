@@ -103,7 +103,7 @@ public sealed class InvoicingService(
 
         var lines = new List<PostingLine> { Line(ar, sign * invoice.Total, memo, invoice.PartyId) };
         foreach (var g in invoice.Lines.GroupBy(l => l.AccountId!.Value))
-            lines.Add(Line(g.Key, -sign * g.Sum(l => l.Net), memo, null));
+            lines.Add(Line(g.Key, -sign * g.Sum(l => l.Net), memo, null) with { BusinessUnitId = invoice.BusinessUnitId });
         if (invoice.Tax > 0) lines.Add(Line(await posting.AccountForRoleAsync(SystemRoles.TaxOutput, ct), -sign * invoice.Tax, memo, null));
 
         lines.RemoveAll(l => l.Debit == 0 && l.Credit == 0);

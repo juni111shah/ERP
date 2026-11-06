@@ -1,3 +1,4 @@
+using ERP.Modularity;
 using ERP.Application.Dashboard;
 using ERP.Application.Search;
 using MediatR;
@@ -13,6 +14,8 @@ public static class DashboardEndpoints
     public static void MapDashboard(this RouteGroupBuilder api)
     {
         api.MapGet("/dashboard", (Guid? legalEntityId, DateOnly? from, DateOnly? to, ISender s, CancellationToken ct) => s.Send(new GetDashboard(legalEntityId, from, to), ct)).RequireAuthorization().WithTags("Dashboard");
+        api.MapGet("/dashboard/owner", (Guid? legalEntityId, DateOnly? from, DateOnly? to, ISender s, CancellationToken ct) => s.Send(new ERP.Application.Dashboard.GetOwnerDashboard(legalEntityId, from, to), ct))
+            .RequirePermission(ERP.Application.Security.CorePermissions.ReportsRead).WithTags("Dashboard");
         api.MapGet("/search", (string q, ISender s, CancellationToken ct) => s.Send(new GlobalSearch(q), ct)).RequireAuthorization().WithTags("Search");
     }
 }

@@ -219,7 +219,11 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Property(x => x.CountryCode).HasMaxLength(2).IsFixedLength();
             b.Property(x => x.BaseCurrency).HasMaxLength(3).IsFixedLength();
         });
-        mb.Entity<BusinessUnit>(b => b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Code }).IsUnique());
+        mb.Entity<BusinessUnit>(b =>
+        {
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Code }).IsUnique();
+            b.Property(x => x.Kind).HasMaxLength(30).HasDefaultValue("branch");
+        });
         mb.Entity<OrganizationModule>(b => b.HasIndex(x => new { x.OrgId, x.ModuleKey }).IsUnique());
         mb.Entity<OrganizationMember>(b => b.HasIndex(x => new { x.OrgId, x.UserId }).IsUnique());
         mb.Entity<Role>(b =>
@@ -250,6 +254,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         {
             b.HasIndex(x => new { x.OrgId, x.Sku }).IsUnique();
             b.Property(x => x.Barcode).HasMaxLength(64);
+            b.Property(x => x.Category).HasMaxLength(100);
             b.HasIndex(x => new { x.OrgId, x.Barcode }).IsUnique().HasFilter("[Barcode] IS NOT NULL AND [IsDeleted] = 0");
         });
         mb.Entity<Currency>(b => { b.HasIndex(x => x.Code).IsUnique(); b.Property(x => x.Code).HasMaxLength(3).IsFixedLength(); });

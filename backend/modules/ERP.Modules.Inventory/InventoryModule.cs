@@ -67,6 +67,7 @@ public sealed class InventoryModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ERP.Application.Dashboard.IDashboardContributor, InventoryDashboard>();
+        services.AddScoped<ERP.Application.Dashboard.IOwnerDashboardSection, InventoryOwnerSection>();
         services.AddScoped<ERP.Application.Search.ISearchProvider, InventorySearch>();
         services.AddScoped<ERP.Application.Reminders.IReminderSource, LowStockReminders>();
         services.AddScoped<IStockPostingService, InventoryStockPostingService>();

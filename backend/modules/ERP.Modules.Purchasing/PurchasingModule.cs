@@ -74,6 +74,7 @@ public sealed class PurchasingModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IDashboardContributor, PurchasingDashboard>();
+        services.AddScoped<ERP.Application.Dashboard.IOwnerDashboardSection, Features.PurchasingOwnerSection>();
         services.AddScoped<ISearchProvider, PurchasingSearch>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<PurchaseOrder>(

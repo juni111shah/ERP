@@ -68,6 +68,7 @@ public sealed class SalesModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IDashboardContributor, SalesDashboard>();
+        services.AddScoped<ERP.Application.Dashboard.IOwnerDashboardSection, Features.SalesOwnerSection>();
         services.AddScoped<ISearchProvider, SalesSearch>();
         services.AddScoped<ERP.Application.Assistant.IAssistantReader, QuotesAssistantReader>();
         services.AddScoped<ERP.Application.Assistant.IAssistantReader, OrdersAssistantReader>();

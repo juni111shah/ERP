@@ -27,9 +27,9 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
         => CoreTemplates.Industries.Concat(modules.Modules.SelectMany(m => m.IndustryTemplates)).GroupBy(i => i.Key).Select(g => g.Last())
             .OrderBy(i => i.SortOrder).ThenBy(i => i.Label).ToList();
 
-    public IReadOnlyList<IndustryView> IndustryViews() => Industries().Select(i => new IndustryView(
+    public IReadOnlyList<IndustryView> IndustryViews() => Industries().Where(i => !i.Hidden).Select(i => new IndustryView(
         i.Key, i.Label, i.Description, i.Availability.ToString(), i.SuggestedModules,
-        i.SuggestedModules.Where(modules.IsInstalled).ToList(), i.SortOrder)).ToList();
+        i.SuggestedModules.Where(modules.IsInstalled).ToList(), i.SortOrder, i.Group)).ToList();
 
     public Task<OnboardingResult> CreateWorkspaceAsync(OnboardingRequest r, CancellationToken ct = default) => CreateWorkspaceAsync(r, null, ct);
 
@@ -65,7 +65,7 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
         var organization = new Organization
         {
             Name = r.WorkspaceName.Trim(), Code = key, IndustryCode = industry!.Key, CountryCode = r.CountryCode.ToUpperInvariant(),
-            BaseCurrency = r.BaseCurrency.ToUpperInvariant(), TimeZone = r.TimeZone ?? "UTC", IsInternal = options?.IsInternal ?? false,
+            BaseCurrency = r.BaseCurrency.ToUpperInvariant(), TimeZone = r.TimeZone ?? "UTC", IsInternal = options?.IsInternal ?? false, IsDemo = options?.IsDemo ?? false,
         };
         db.Organizations.Add(organization);
 
@@ -128,13 +128,18 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
                     IsSearchable = f.IsSearchable, ShowInList = f.ShowInList, ModuleKey = $"country:{pack!.CountryCode.ToLowerInvariant()}",
                 });
 
-            foreach (var s in CoreTemplates.Sequences.Concat(industry.Sequences ?? []))
+            // What the chosen modules bring with them: their roles, numbering and any modules they need.
+            var enabled = ModuleProvisioning.WithRequirements(modules, industry.SuggestedModules)
+                .Where(m => options?.AllowedModules is not { Count: > 0 } allowed || allowed.Contains(m, StringComparer.OrdinalIgnoreCase)).ToList();
+            var moduleTemplates = enabled.SelectMany(m => modules.Find(m)!.IndustryTemplates).Where(t => t.Hidden).ToList();
+
+            foreach (var s in CoreTemplates.Sequences.Concat(industry.Sequences ?? []).Concat(moduleTemplates.SelectMany(t => t.Sequences ?? [])).DistinctBy(s => s.DocumentType))
                 db.NumberSequences.Add(new NumberSequence { DocumentType = s.DocumentType, Prefix = s.Prefix, Pattern = s.Pattern, ResetYearly = s.ResetYearly, Year = 0, NextValue = 1 });
             // The first legal entity code was allocated above.
             db.NumberSequences.Local.First(s => s.DocumentType == "legalentity").NextValue = 2;
 
             Role? adminRole = null;
-            foreach (var rt in CoreTemplates.Roles.Concat(industry.Roles ?? []))
+            foreach (var rt in CoreTemplates.Roles.Concat(industry.Roles ?? []).Concat(moduleTemplates.SelectMany(t => t.Roles ?? [])).DistinctBy(r => r.Name))
             {
                 var role = new Role { Name = rt.Name, Description = rt.Description, IsBuiltIn = true, ModuleKey = rt.ModuleKey };
                 role.Permissions.AddRange(rt.Permissions.Distinct().Select(p => new RolePermission { Permission = p }));
@@ -145,8 +150,8 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
             foreach (var (k, v) in industry.Settings ?? new Dictionary<string, string>())
                 db.Settings.Add(new Setting { Key = k, Value = v });
 
-            var enabled = industry.SuggestedModules.Where(modules.IsInstalled).Distinct()
-                .Where(m => options?.AllowedModules is not { Count: > 0 } allowed || allowed.Contains(m, StringComparer.OrdinalIgnoreCase)).ToList();
+            foreach (var (settingKey, settingValue) in ModuleProvisioning.ProfileSettings(industry))
+                db.Settings.Add(new Setting { Key = settingKey, Value = settingValue });
             foreach (var m in enabled)
                 db.OrganizationModules.Add(new OrganizationModule { ModuleKey = m, IsEnabled = true, EnabledAt = DateTime.UtcNow });
 
