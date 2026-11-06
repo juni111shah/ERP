@@ -20,7 +20,8 @@ public record BomComponentDto(
     decimal ScrapPercentage,
     decimal UnitCost,
     decimal ExtendedCost,
-    string? Notes);
+    string? Notes,
+    bool UseCurrentCost = false);
 
 public record BomComponentInput(
     Guid ComponentItemId,
@@ -29,7 +30,7 @@ public record BomComponentInput(
     decimal QuantityRequired,
     string Uom,
     decimal ScrapPercentage,
-    decimal UnitCost,
+    decimal? UnitCost,
     string? Notes);
 
 public record BillOfMaterialsDto(
@@ -151,9 +152,11 @@ public class BomHandlers :
     private readonly IReadRepository<Item> _items;
     private readonly ILegalEntityGuard _guard;
     private readonly IReadRepository<WorkOrder> _workOrders;
+    private readonly IStockPostingService _stock;
 
-    public BomHandlers(IRepository<BillOfMaterials> boms, IReadRepository<Item> items, ILegalEntityGuard guard, IReadRepository<WorkOrder> workOrders)
+    public BomHandlers(IRepository<BillOfMaterials> boms, IReadRepository<Item> items, ILegalEntityGuard guard, IReadRepository<WorkOrder> workOrders, IStockPostingService stock)
     {
+        _stock = stock;
         _workOrders = workOrders;
         _boms = boms;
         _items = items;
@@ -161,14 +164,61 @@ public class BomHandlers :
     }
 
     /// <summary>Catalog rows (sku, name) of the produced item and every component; each must exist and be a product. Names and codes come from the catalog, never from the request.</summary>
-    private async Task<Dictionary<Guid, (string Sku, string Name)>> CatalogAsync(Guid producedItemId, IEnumerable<BomComponentInput>? components, CancellationToken ct)
+    private async Task<Dictionary<Guid, (string Sku, string Name, decimal PurchasePrice)>> CatalogAsync(Guid producedItemId, IEnumerable<BomComponentInput>? components, CancellationToken ct)
     {
         var ids = (components ?? []).Select(c => c.ComponentItemId).Append(producedItemId).Distinct().ToList();
-        var found = await _items.Query(new Specification<Item>(i => ids.Contains(i.Id) && i.Type == ItemType.Product)).Select(i => new { i.Id, i.Sku, i.Name }).ToListAsync(ct);
-        var map = found.ToDictionary(i => i.Id, i => (i.Sku, i.Name));
+        var found = await _items.Query(new Specification<Item>(i => ids.Contains(i.Id) && i.Type == ItemType.Product)).Select(i => new { i.Id, i.Sku, i.Name, i.PurchasePrice }).ToListAsync(ct);
+        var map = found.ToDictionary(i => i.Id, i => (i.Sku, i.Name, i.PurchasePrice ?? 0m));
         if (!map.ContainsKey(producedItemId)) throw new FieldValidationException("producedItemId", "Choose a product item to produce.");
         if (components is not null && components.Any(c => !map.ContainsKey(c.ComponentItemId))) throw new FieldValidationException("components", "A component was not found or is not a product.");
         return map;
+    }
+
+    /// <summary>The typed cost, or with none typed the item's current average (its purchase price before anything is in stock). Such a line keeps following the average on every read.</summary>
+    private async Task<BomComponent> ComponentAsync(BillOfMaterials bom, BomComponentInput c, IReadOnlyDictionary<Guid, (string Sku, string Name, decimal PurchasePrice)> catalog, CancellationToken ct)
+    {
+        var useCurrent = c.UnitCost is null or <= 0;
+        var cost = c.UnitCost ?? 0m;
+        if (useCurrent)
+        {
+            var average = await _stock.GetAverageCostAsync(c.ComponentItemId, null, ct);
+            cost = average > 0 ? average : catalog[c.ComponentItemId].PurchasePrice;
+        }
+        return new BomComponent
+        {
+            LegalEntityId = bom.LegalEntityId,
+            BomId = bom.Id,
+            ComponentItemId = c.ComponentItemId,
+            ComponentItemCode = catalog[c.ComponentItemId].Sku,
+            ComponentItemName = catalog[c.ComponentItemId].Name,
+            QuantityRequired = c.QuantityRequired,
+            Uom = string.IsNullOrWhiteSpace(c.Uom) ? "PCS" : c.Uom.Trim(),
+            ScrapPercentage = c.ScrapPercentage,
+            UnitCost = cost,
+            UseCurrentCost = useCurrent,
+            Notes = c.Notes?.Trim()
+        };
+    }
+
+    /// <summary>Refuses a BOM that would make its product, however many levels down, a component of itself. Only active BOMs count; reactivating one comes back through here.</summary>
+    private async Task EnsureNoCycleAsync(Guid legalEntityId, Guid? bomId, Guid producedItemId, IEnumerable<Guid> componentIds, CancellationToken ct)
+    {
+        var others = await _boms.Query(new Specification<BillOfMaterials>(b => b.LegalEntityId == legalEntityId && b.IsActive && b.Id != bomId))
+            .Include(b => b.Components).ToListAsync(ct);
+        var edges = new Dictionary<Guid, HashSet<Guid>>();
+        var codes = new Dictionary<Guid, string>();
+        foreach (var other in others)
+        {
+            if (!edges.TryGetValue(other.ProducedItemId, out var set)) edges[other.ProducedItemId] = set = [];
+            codes[other.ProducedItemId] = other.ProducedItemCode;
+            foreach (var c in other.Components) { set.Add(c.ComponentItemId); codes[c.ComponentItemId] = c.ComponentItemCode; }
+        }
+
+        foreach (var component in componentIds.Distinct())
+        {
+            if (BomStructure.FindPath(edges, component, producedItemId) is { } path)
+                throw new FieldValidationException("components", $"This would make a loop: {string.Join(" uses ", path.Select(i => codes.GetValueOrDefault(i, i.ToString())))}, which this BOM would then use again.");
+        }
     }
 
     public async Task<BillOfMaterialsDto> Handle(CreateBomCommand request, CancellationToken cancellationToken)
@@ -177,6 +227,8 @@ public class BomHandlers :
         var code = request.Code.Trim().ToUpperInvariant();
         if (await _boms.AnyAsync(b => b.Code == code, cancellationToken)) throw new ConflictException($"A BOM with code '{code}' already exists.");
         var catalog = await CatalogAsync(request.ProducedItemId, request.Components, cancellationToken);
+        if (request.IsActive && request.Components is not null)
+            await EnsureNoCycleAsync(request.LegalEntityId, null, request.ProducedItemId, request.Components.Select(c => c.ComponentItemId), cancellationToken);
         var bom = new BillOfMaterials
         {
             LegalEntityId = request.LegalEntityId,
@@ -198,21 +250,7 @@ public class BomHandlers :
         if (request.Components != null)
         {
             foreach (var c in request.Components)
-            {
-                bom.Components.Add(new BomComponent
-                {
-                    LegalEntityId = bom.LegalEntityId,
-                    BomId = bom.Id,
-                    ComponentItemId = c.ComponentItemId,
-                    ComponentItemCode = catalog[c.ComponentItemId].Sku,
-                    ComponentItemName = catalog[c.ComponentItemId].Name,
-                    QuantityRequired = c.QuantityRequired,
-                    Uom = string.IsNullOrWhiteSpace(c.Uom) ? "PCS" : c.Uom.Trim(),
-                    ScrapPercentage = c.ScrapPercentage,
-                    UnitCost = c.UnitCost,
-                    Notes = c.Notes?.Trim()
-                });
-            }
+                bom.Components.Add(await ComponentAsync(bom, c, catalog, cancellationToken));
         }
 
         _boms.Add(bom);
@@ -229,6 +267,8 @@ public class BomHandlers :
         var catalog = await CatalogAsync(bom.ProducedItemId, request.Components, cancellationToken);
         if (request.Components is not null && request.Components.Any(c => c.ComponentItemId == bom.ProducedItemId))
             throw new FieldValidationException("components", "A product cannot be a component of itself.");
+        if (request.IsActive)
+            await EnsureNoCycleAsync(bom.LegalEntityId, bom.Id, bom.ProducedItemId, request.Components?.Select(c => c.ComponentItemId) ?? bom.Components.Select(c => c.ComponentItemId).ToList(), cancellationToken);
         bom.Name = request.Name.Trim();
         bom.OutputQuantity = request.OutputQuantity;
         bom.Uom = string.IsNullOrWhiteSpace(request.Uom) ? "PCS" : request.Uom.Trim();
@@ -243,21 +283,7 @@ public class BomHandlers :
         {
             bom.Components.Clear();
             foreach (var c in request.Components)
-            {
-                bom.Components.Add(new BomComponent
-                {
-                    LegalEntityId = bom.LegalEntityId,
-                    BomId = bom.Id,
-                    ComponentItemId = c.ComponentItemId,
-                    ComponentItemCode = catalog[c.ComponentItemId].Sku,
-                    ComponentItemName = catalog[c.ComponentItemId].Name,
-                    QuantityRequired = c.QuantityRequired,
-                    Uom = string.IsNullOrWhiteSpace(c.Uom) ? "PCS" : c.Uom.Trim(),
-                    ScrapPercentage = c.ScrapPercentage,
-                    UnitCost = c.UnitCost,
-                    Notes = c.Notes?.Trim()
-                });
-            }
+                bom.Components.Add(await ComponentAsync(bom, c, catalog, cancellationToken));
         }
 
         await _boms.SaveChangesAsync(cancellationToken);
@@ -279,8 +305,12 @@ public class BomHandlers :
         var bom = await _boms.Query(new Specification<BillOfMaterials>(b => b.Id == request.Id))
             .Include(b => b.Components)
             .FirstOrDefaultAsync(cancellationToken);
+        if (bom is null) return null;
 
-        return bom is null ? null : Map(bom);
+        // A no-tracking copy: lines with no typed cost show the item's current average.
+        var costs = await BomStructure.CurrentCostsAsync(bom.Components, _stock, null, cancellationToken);
+        foreach (var c in bom.Components) c.UnitCost = costs[c.Id];
+        return Map(bom);
     }
 
     private static BillOfMaterialsDto Map(BillOfMaterials b)
@@ -319,7 +349,8 @@ public class BomHandlers :
                 c.ScrapPercentage,
                 c.UnitCost,
                 Math.Round(c.QuantityRequired * c.UnitCost * (1 + (c.ScrapPercentage / 100m)), 2),
-                c.Notes)).ToList(),
+                c.Notes,
+                c.UseCurrentCost)).ToList(),
             b.CustomFields,
             b.CreatedAt);
     }

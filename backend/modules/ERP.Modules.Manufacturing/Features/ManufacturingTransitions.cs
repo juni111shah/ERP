@@ -11,7 +11,8 @@ public static class ManufacturingTransitions
             [WorkOrderStatus.Draft] = [WorkOrderStatus.Planned, WorkOrderStatus.Cancelled],
             [WorkOrderStatus.Planned] = [WorkOrderStatus.InProgress, WorkOrderStatus.Cancelled],
             [WorkOrderStatus.InProgress] = [WorkOrderStatus.Completed, WorkOrderStatus.Cancelled],
-            [WorkOrderStatus.Completed] = [],
+            [WorkOrderStatus.Completed] = [WorkOrderStatus.Reversed],
             [WorkOrderStatus.Cancelled] = [],
+            [WorkOrderStatus.Reversed] = [],
         });
 }

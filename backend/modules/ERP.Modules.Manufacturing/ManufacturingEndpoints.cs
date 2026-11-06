@@ -11,6 +11,9 @@ using Microsoft.AspNetCore.Routing;
 namespace ERP.Modules.Manufacturing;
 
 public sealed record CancelWorkOrderBody(string? Reason);
+public sealed record ReleaseWorkOrderBody(bool? IssueMaterials);
+public sealed record ReverseWorkOrderBody(string Reason);
+public sealed record OperationHoursBody(decimal ActualHours, OperationStatus? Status);
 
 internal static class ManufacturingEndpoints
 {
@@ -61,17 +64,25 @@ internal static class ManufacturingEndpoints
             var created = await s.Send(cmd, ct);
             return Results.Created($"{Base}/workorders/{created.Id}", created);
         }).RequirePermission(Permissions.WorkOrdersManage);
-        orders.MapPost("/{id:guid}/release", (Guid id, ISender s, CancellationToken ct) =>
-            s.Send(new ReleaseWorkOrderCommand(id), ct)).RequirePermission(Permissions.WorkOrdersManage);
+        orders.MapPost("/{id:guid}/release", (Guid id, ReleaseWorkOrderBody? body, ISender s, CancellationToken ct) =>
+            s.Send(new ReleaseWorkOrderCommand(id, body?.IssueMaterials), ct)).RequirePermission(Permissions.WorkOrdersManage);
+        orders.MapPost("/{id:guid}/issue", (Guid id, IssueWorkOrderMaterialsCommand cmd, ISender s, CancellationToken ct) =>
+            s.Send(cmd with { WorkOrderId = id }, ct)).RequirePermission(Permissions.WorkOrdersManage);
+        orders.MapPost("/{id:guid}/return-materials", (Guid id, ReturnWorkOrderMaterialsCommand cmd, ISender s, CancellationToken ct) =>
+            s.Send(cmd with { WorkOrderId = id }, ct)).RequirePermission(Permissions.WorkOrdersManage);
+        orders.MapPut("/{id:guid}/operations/{operationId:guid}/hours", (Guid id, Guid operationId, OperationHoursBody body, ISender s, CancellationToken ct) =>
+            s.Send(new RecordOperationHoursCommand(id, operationId, body.ActualHours, body.Status), ct)).RequirePermission(Permissions.WorkOrdersManage);
         orders.MapPost("/{id:guid}/complete", (Guid id, CompleteWorkOrderCommand cmd, ISender s, CancellationToken ct) =>
             s.Send(cmd with { Id = id }, ct)).RequirePermission(Permissions.WorkOrdersManage);
         orders.MapPost("/{id:guid}/cancel", (Guid id, CancelWorkOrderBody body, ISender s, CancellationToken ct) =>
             s.Send(new CancelWorkOrderCommand(id, body.Reason), ct)).RequirePermission(Permissions.WorkOrdersManage);
+        orders.MapPost("/{id:guid}/reverse", (Guid id, ReverseWorkOrderBody body, ISender s, CancellationToken ct) =>
+            s.Send(new ReverseWorkOrderCommand(id, body.Reason), ct)).RequirePermission(Permissions.WorkOrdersReverse);
 
         // Product Costing & Variance
         var costing = group.MapGroup("/costing");
-        costing.MapGet("/rollup/{bomId:guid}", (Guid bomId, ISender s, CancellationToken ct) =>
-            s.Send(new CalculateProductCostingRollupQuery(bomId), ct)).RequirePermission(Permissions.CostingRead);
+        costing.MapGet("/rollup/{bomId:guid}", (Guid bomId, Guid? warehouseId, ISender s, CancellationToken ct) =>
+            s.Send(new CalculateProductCostingRollupQuery(bomId, warehouseId), ct)).RequirePermission(Permissions.CostingRead);
         costing.MapGet("/variance", (Guid legalEntityId, Guid itemId, ISender s, CancellationToken ct) =>
             s.Send(new GetProductCostVarianceQuery(legalEntityId, itemId), ct)).RequirePermission(Permissions.CostingRead);
 

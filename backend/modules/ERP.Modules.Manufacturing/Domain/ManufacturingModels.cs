@@ -8,7 +8,9 @@ public enum WorkOrderStatus
     Planned = 1,
     InProgress = 2,
     Completed = 3,
-    Cancelled = 4
+    Cancelled = 4,
+    /// <summary>A completed order taken back: stock restored and its journals reversed.</summary>
+    Reversed = 5
 }
 
 public enum OperationStatus
@@ -51,6 +53,8 @@ public class BomComponent : LegalEntityScopedEntity
     public string Uom { get; set; } = "PCS";
     public decimal ScrapPercentage { get; set; }
     public decimal UnitCost { get; set; }
+    /// <summary>No cost was typed: <see cref="UnitCost"/> is a snapshot and reads take the item's current average instead.</summary>
+    public bool UseCurrentCost { get; set; }
     public string? Notes { get; set; }
 
     public BillOfMaterials Bom { get; set; } = null!;
@@ -77,10 +81,40 @@ public class WorkOrder : LegalEntityScopedEntity, IHasCustomFields
     public WorkOrderStatus Status { get; set; } = WorkOrderStatus.Draft;
     public decimal EstimatedTotalCost { get; set; }
     public decimal ActualTotalCost { get; set; }
+    /// <summary>Material carried in WIP and released at completion.</summary>
+    public decimal MaterialCost { get; set; }
+    /// <summary>Labour and overhead absorbed into WIP at completion.</summary>
+    public decimal ConversionCost { get; set; }
+    /// <summary>The share of the order's cost that went with the scrapped units instead of into finished goods.</summary>
+    public decimal ScrapCost { get; set; }
     public string? Notes { get; set; }
     public string? CustomFields { get; set; }
+    public DateTimeOffset? ReversedAt { get; set; }
+    public Guid? ReversedByUserId { get; set; }
+    public string? ReversalReason { get; set; }
 
     public ICollection<WorkOrderOperation> Operations { get; set; } = new List<WorkOrderOperation>();
+    public ICollection<WorkOrderMaterialIssue> MaterialIssues { get; set; } = new List<WorkOrderMaterialIssue>();
+}
+
+/// <summary>Material moved between stock and a work order: an issue (positive) or a return to stock (negative), at the cost it moved at.</summary>
+public class WorkOrderMaterialIssue : LegalEntityScopedEntity
+{
+    public Guid WorkOrderId { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal UnitCost { get; set; }
+    public decimal Value { get; set; }
+    public DateOnly IssueDate { get; set; }
+    /// <summary>True when completion consumed it automatically rather than someone issuing it.</summary>
+    public bool Backflushed { get; set; }
+    public string? Notes { get; set; }
+    /// <summary>Set when cancelling or reversing the order put this material back.</summary>
+    public DateTimeOffset? ReversedAt { get; set; }
+
+    public WorkOrder WorkOrder { get; set; } = null!;
 }
 
 public class WorkOrderOperation : LegalEntityScopedEntity

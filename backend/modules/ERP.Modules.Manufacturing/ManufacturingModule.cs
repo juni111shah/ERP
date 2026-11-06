@@ -27,6 +27,7 @@ public sealed class ManufacturingModule : ModuleBase
         PermissionDefinition.Of(Manufacturing.Permissions.BomsManage, "Create and manage bills of materials"),
         PermissionDefinition.Of(Manufacturing.Permissions.WorkOrdersRead, "View production work orders and operations"),
         PermissionDefinition.Of(Manufacturing.Permissions.WorkOrdersManage, "Create, release and complete production work orders"),
+        PermissionDefinition.Of(Manufacturing.Permissions.WorkOrdersReverse, "Reverse a completed work order, restoring stock and journals"),
         PermissionDefinition.Of(Manufacturing.Permissions.CostingRead, "View standard costing rollups and production variances"),
         PermissionDefinition.Of(Manufacturing.Permissions.AnalyticsRead, "View manufacturing output and yield analytics"),
     ];
@@ -43,6 +44,9 @@ public sealed class ManufacturingModule : ModuleBase
     [
         new("manufacturing.autoConsumeComponents", "Automatically backflush component stock on work order completion", "true", "bool"),
         new("manufacturing.strictCostVarianceAlert", "Alert when actual production unit cost exceeds standard by >10%", "true", "bool"),
+        new("manufacturing.issueMaterialsOnRelease", "Issue the bill of materials to the work order when it is released", "false", "bool"),
+        new("manufacturing.allowNegativeStock", "Allow issuing components the warehouse does not hold, taking stock below zero", "false", "bool"),
+        new("manufacturing.overCompletionPercent", "How far above the planned quantity a work order may finish, in percent", "0", "number"),
     ];
 
     public override IEnumerable<CustomizableEntityDefinition> CustomizableEntities =>
@@ -54,12 +58,17 @@ public sealed class ManufacturingModule : ModuleBase
     public override IEnumerable<IndustryTemplate> IndustryTemplates =>
     [
         new("light_manufacturing", "Light Manufacturing & Assembly", "Assembly recipes, component stock allocation and operational routing.", IndustryAvailability.Available, [Key],
+            Accounts:
+            [
+                new("5060", "Conversion cost absorbed", ERP.Domain.Finance.AccountType.Expense, WorkOrderHandlers.AbsorptionRole, ReportingGroup: "Cost of sales"),
+                new("5070", "Production scrap", ERP.Domain.Finance.AccountType.Expense, WorkOrderHandlers.ScrapRole, ReportingGroup: "Cost of sales"),
+            ],
             Roles:
             [
                 new("Production Planner", "BOM composition, work order scheduling and operation assignment",
                     [Manufacturing.Permissions.BomsRead, Manufacturing.Permissions.BomsManage, Manufacturing.Permissions.WorkOrdersRead, Manufacturing.Permissions.WorkOrdersManage], Key),
                 new("Cost Accountant", "BOM cost rollups, production variance analysis and manufacturing yield reporting",
-                    [Manufacturing.Permissions.BomsRead, Manufacturing.Permissions.WorkOrdersRead, Manufacturing.Permissions.CostingRead, Manufacturing.Permissions.AnalyticsRead], Key),
+                    [Manufacturing.Permissions.BomsRead, Manufacturing.Permissions.WorkOrdersRead, Manufacturing.Permissions.WorkOrdersReverse, Manufacturing.Permissions.CostingRead, Manufacturing.Permissions.AnalyticsRead], Key),
             ],
             Sequences:
             [
@@ -128,9 +137,26 @@ public sealed class ManufacturingModule : ModuleBase
             b.Property(x => x.Uom).HasMaxLength(20).IsRequired();
             b.Property(x => x.EstimatedTotalCost).HasPrecision(19, 4);
             b.Property(x => x.ActualTotalCost).HasPrecision(19, 4);
+            b.Property(x => x.MaterialCost).HasPrecision(19, 4);
+            b.Property(x => x.ConversionCost).HasPrecision(19, 4);
+            b.Property(x => x.ScrapCost).HasPrecision(19, 4);
+            b.Property(x => x.ReversalReason).HasMaxLength(500);
             b.Property(x => x.Notes).HasMaxLength(1000);
             b.HasIndex(x => new { x.OrgId, x.WorkOrderNumber }).IsUnique().HasFilter("[IsDeleted] = 0");
             b.HasMany(x => x.Operations).WithOne(o => o.WorkOrder).HasForeignKey(o => o.WorkOrderId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(x => x.MaterialIssues).WithOne(i => i.WorkOrder).HasForeignKey(i => i.WorkOrderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        mb.Entity<WorkOrderMaterialIssue>(b =>
+        {
+            b.ToTable("mfg_WorkOrderMaterialIssues");
+            b.Property(x => x.ItemCode).HasMaxLength(50).IsRequired();
+            b.Property(x => x.ItemName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.UnitCost).HasPrecision(19, 4);
+            b.Property(x => x.Value).HasPrecision(19, 4);
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.HasIndex(x => new { x.OrgId, x.WorkOrderId });
         });
 
         mb.Entity<WorkOrderOperation>(b =>
