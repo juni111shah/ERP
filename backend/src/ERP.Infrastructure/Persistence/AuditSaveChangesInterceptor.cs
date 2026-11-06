@@ -6,6 +6,7 @@ using ERP.Domain.Identity;
 using ERP.Domain.Organizations;
 using ERP.Domain.Platform;
 using ERP.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -24,7 +25,9 @@ public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext o
     /// <summary>Enums are stored by name, so an event still reads properly if the enum's numbers ever change.</summary>
     private static readonly JsonSerializerOptions SnapshotJson = new() { Converters = { new JsonStringEnumConverter() } };
 
-    private static readonly HashSet<Type> NotAudited = [typeof(AiProvider), typeof(AssistantUsageDay), typeof(BrandConversation), typeof(BrandMessage), typeof(SignupRequest), typeof(PlatformActivity), typeof(AuditEvent), typeof(RefreshToken), typeof(PasswordResetToken), typeof(Notification), typeof(MessageLog), typeof(PortalOtp)];
+    /// <summary>Never copied into the audit trail. Identity tokens hold authenticator keys and recovery codes; idempotency records hold whole response bodies.</summary>
+    private static readonly HashSet<Type> NotAudited = [typeof(AiProvider), typeof(AssistantUsageDay), typeof(BrandConversation), typeof(BrandMessage), typeof(SignupRequest), typeof(PlatformActivity), typeof(AuditEvent), typeof(RefreshToken), typeof(PasswordResetToken), typeof(Notification), typeof(MessageLog), typeof(PortalOtp),
+        typeof(IdentityUserToken<Guid>), typeof(IdentityUserClaim<Guid>), typeof(IdentityUserLogin<Guid>), typeof(IdempotencyRecord)];
 
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
     {
