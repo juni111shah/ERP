@@ -22,6 +22,108 @@ public enum PurchaseRequisitionStatus
     Ordered = 4,
 }
 
+public enum PurchaseReturnStatus
+{
+    Draft = 0,
+    Posted = 1,
+    Voided = 2,
+}
+
+/// <summary>Goods sent back to a vendor, or a debit note on a bill. Posting takes the goods out of stock and reduces what is owed to the vendor.</summary>
+public class PurchaseReturn : LegalEntityScopedEntity, IVoidable
+{
+    [Searchable, Sortable]
+    public string Number { get; set; } = string.Empty;
+
+    [Filterable]
+    public Guid? PurchaseOrderId { get; set; }
+
+    [Searchable]
+    public string? PurchaseOrderNumber { get; set; }
+
+    /// <summary>Set when the return was raised against one bill; otherwise it takes from the order's bills, newest first.</summary>
+    [Filterable]
+    public Guid? BillId { get; set; }
+
+    [Filterable]
+    public Guid VendorPartyId { get; set; }
+
+    [Searchable, Sortable]
+    public string VendorName { get; set; } = string.Empty;
+
+    [Sortable, Filterable]
+    public DateOnly ReturnDate { get; set; }
+
+    [Filterable]
+    public PurchaseReturnStatus Status { get; set; } = PurchaseReturnStatus.Draft;
+
+    public string Reason { get; set; } = string.Empty;
+
+    public string? Notes { get; set; }
+
+    public Guid? WarehouseId { get; set; }
+
+    /// <summary>Net value of the billed part.</summary>
+    public decimal SubTotal { get; set; }
+
+    public decimal TaxTotal { get; set; }
+
+    /// <summary>What payables go down by.</summary>
+    [Sortable]
+    public decimal TotalAmount { get; set; }
+
+    /// <summary>What left stock, at its cost.</summary>
+    public decimal StockValue { get; set; }
+
+    public Guid? JournalEntryId { get; set; }
+
+    public string? VoidReason { get; set; }
+
+    public DateTime? VoidedAt { get; set; }
+
+    public Guid? VoidedBy { get; set; }
+
+    public List<PurchaseReturnLine> Lines { get; set; } = [];
+
+    public List<PurchaseReturnBillShare> BillShares { get; set; } = [];
+}
+
+public class PurchaseReturnLine : OrgEntity
+{
+    public Guid ReturnId { get; set; }
+
+    public Guid? OrderLineId { get; set; }
+
+    public Guid? BillLineId { get; set; }
+
+    public Guid? ItemId { get; set; }
+
+    public string ItemCode { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
+    public decimal Quantity { get; set; }
+}
+
+/// <summary>What a posted return took off one bill, so a void can put back exactly that.</summary>
+public class PurchaseReturnBillShare : OrgEntity
+{
+    public Guid ReturnId { get; set; }
+
+    public Guid BillId { get; set; }
+
+    public Guid? OrderLineId { get; set; }
+
+    public Guid? OrderBillLineId { get; set; }
+
+    public decimal Quantity { get; set; }
+
+    public decimal Amount { get; set; }
+
+    /// <summary>The part of Amount that reduced the bill's balance. The rest, on a bill already paid, stays as a debit with the vendor.</summary>
+    public decimal AppliedToBill { get; set; }
+}
+
 public class PurchaseRequisition : LegalEntityScopedEntity, IHasCustomFields
 {
     [Searchable, Sortable]

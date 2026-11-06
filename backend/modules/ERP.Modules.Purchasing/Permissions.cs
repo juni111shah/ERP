@@ -11,6 +11,9 @@ public static class P
     public const string ReceiptsRead = "purchasing.receipts.read";
     public const string ReceiptsManage = "purchasing.receipts.manage";
 
+    public const string ReturnsRead = "purchasing.returns.read";
+    public const string ReturnsManage = "purchasing.returns.manage";
+
     public const string AnalyticsRead = "purchasing.analytics.read";
 }
 
@@ -19,4 +22,5 @@ public static class Docs
     public const string PurchaseOrder = "purchase_order";
     public const string PurchaseRequisition = "purchase_requisition";
     public const string GoodsReceipt = "goods_receipt";
+    public const string PurchaseReturn = "purchase_return";
 }
