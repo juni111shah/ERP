@@ -3,24 +3,35 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:erp_mobile/app.dart';
 import 'package:erp_mobile/core/api_client.dart';
+import 'package:erp_mobile/core/app_language.dart';
 import 'package:erp_mobile/core/key_value_store.dart';
 import 'package:erp_mobile/core/me.dart';
 import 'package:erp_mobile/core/palette_registry.dart';
 import 'package:erp_mobile/core/session.dart';
 import 'package:erp_mobile/features/assistant/assistant_api.dart';
+import 'package:erp_mobile/features/assistant/assistant_links.dart';
 import 'package:erp_mobile/features/assistant/assistant_page.dart';
 import 'package:erp_mobile/features/assistant/assistant_stream.dart';
 import 'package:erp_mobile/features/assistant/assistant_text.dart';
+import 'package:erp_mobile/features/home/home_page.dart';
+import 'package:erp_mobile/features/intro/intro_flag.dart';
 import 'package:erp_mobile/features/more/more_page.dart';
+import 'package:erp_mobile/features/onboarding/onboarding_tour.dart';
+import 'package:erp_mobile/features/payables/bill_screens.dart';
+import 'package:erp_mobile/features/receivables/invoice_screens.dart';
+import 'package:erp_mobile/features/receivables/party_screens.dart';
 import 'package:erp_mobile/kit/data_version.dart';
 import 'package:erp_mobile/theme/app_theme.dart';
+import 'package:flutter/gestures.dart' show TapGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'fakes/fake_api.dart';
 import 'fakes/fake_session.dart';
 import 'support/fake_adapter.dart';
 
@@ -40,13 +51,13 @@ const _menu = [
   MenuGroup(id: 'g', label: 'G', items: [MenuItem(id: 'finance.invoices', label: 'Invoices', route: '/finance/invoices', module: 'finance')]),
 ];
 
-List<Override> _overrides(FakeAdapter adapter, {Me? me}) {
-  final store = MemoryKeyValueStore();
+List<Override> _overrides(HttpClientAdapter adapter, {Me? me, MemoryKeyValueStore? store}) {
   final who = me ?? _me();
+  final keys = store ?? MemoryKeyValueStore();
   return [
-    storeProvider.overrideWithValue(store),
+    storeProvider.overrideWithValue(keys),
     initialServerUrlProvider.overrideWithValue('http://api.test'),
-    apiProvider.overrideWith((ref) => ApiClient(store: store, baseUrl: 'http://api.test', dio: Dio()
+    apiProvider.overrideWith((ref) => ApiClient(store: keys, baseUrl: 'http://api.test', dio: Dio()
       ..transformer = SyncTransformer()
       ..httpClientAdapter = adapter)..accessToken = 'token'),
     sessionProvider.overrideWith(() => FakeSessionController()),
@@ -56,10 +67,31 @@ List<Override> _overrides(FakeAdapter adapter, {Me? me}) {
   ];
 }
 
-Widget _host(Widget child, FakeAdapter adapter, {Me? me}) => ProviderScope(
-      overrides: _overrides(adapter, me: me),
+Widget _host(Widget child, FakeAdapter adapter, {Me? me, MemoryKeyValueStore? store}) => ProviderScope(
+      overrides: _overrides(adapter, me: me, store: store),
       child: MaterialApp(theme: AppTheme.light(), home: child),
     );
+
+/// As the real app sets itself up on a device whose language is Arabic.
+Widget _arabicHost(Widget child, FakeAdapter adapter, {Me? me, MemoryKeyValueStore? store}) => ProviderScope(
+      overrides: _overrides(adapter, me: me, store: store),
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        locale: const Locale('ar'),
+        supportedLocales: appLocales,
+        localizationsDelegates: appLocalizationsDelegates,
+        builder: appLanguageBuilder,
+        home: child,
+      ),
+    );
+
+const _twoEntities = [
+  LegalEntity(id: 'e1', code: 'E1', name: 'Acme Doha', baseCurrency: 'QAR'),
+  LegalEntity(id: 'e2', code: 'E2', name: 'Acme Dubai', baseCurrency: 'AED'),
+];
+
+Me _meWith({List<LegalEntity> entities = _twoEntities, bool all = false, Set<String> permissions = const {'assistant.chats.use'}}) =>
+    Me(fullName: 'A', email: 'a@a.test', baseCurrency: 'QAR', countryCode: 'QA', permissions: permissions, legalEntities: entities, modules: const {'assistant'}, allLegalEntities: all);
 
 /// The rendered text of a [Text] found by its words, for looking at what is tappable.
 List<InlineSpan> _spansOf(WidgetTester t, String words) {
@@ -390,12 +422,22 @@ void main() {
       expect(finder(send), findsOneWidget);
     });
 
-    testWidgets('an error event is shown', (t) async {
+    testWidgets('an error event shows the words for its code, and the server\'s for a code the app does not know', (t) async {
       final (adapter, reply) = replying();
       await t.pumpWidget(_host(const AssistantPage(), adapter));
       await ask(t, 'Hello');
       reply.add(utf8.encode(_sse('error', {'code': 'user-limit', 'message': 'Try tomorrow.'})));
       unawaited(reply.close());
+      await turns(t);
+      expect(find.text(AssistantWords.en.errors['user-limit']!), findsOneWidget);
+      expect(find.text('Try tomorrow.'), findsNothing);
+
+      final (other, otherReply) = replying();
+      await t.pumpWidget(const SizedBox());
+      await t.pumpWidget(_host(const AssistantPage(), other));
+      await ask(t, 'Hello');
+      otherReply.add(utf8.encode(_sse('error', {'code': 'something-new', 'message': 'Try tomorrow.'})));
+      unawaited(otherReply.close());
       await turns(t);
       expect(find.text('Try tomorrow.'), findsOneWidget);
     });
@@ -488,9 +530,489 @@ void main() {
       ));
       await turns(t);
       final tappable = _spansOf(t, 'Invoices').whereType<TextSpan>().where((s) => s.recognizer != null).map((s) => s.text);
-      expect(tappable, ['Invoices']);
+      expect(tappable, ['Invoices', 'Acme']);
       expect(find.textContaining('evil.test', findRichText: true), findsNothing);
       expect(find.textContaining('/parties', findRichText: true), findsNothing);
+    });
+
+    testWidgets('tapping a customer link in a reply opens that customer', (t) async {
+      final adapter = FakeAdapter((_) => envelope({'id': '123', 'name': 'Acme', 'roles': <String>[]}));
+      await t.pumpWidget(_host(const Scaffold(body: AssistantReplyText(text: 'See [Acme](/parties/123)')), adapter));
+      await turns(t);
+      final link = _spansOf(t, 'Acme').whereType<TextSpan>().singleWhere((s) => s.recognizer != null);
+      (link.recognizer! as TapGestureRecognizer).onTap!();
+      await turns(t);
+      expect(t.widget<PartyDetailScreen>(find.byType(PartyDetailScreen)).id, '123');
+    });
+
+    testWidgets('a finished card opens the record it made, and its Open button is in the card', (t) async {
+      final (adapter, reply) = replying(other: (o) => o.path.contains('/actions/') ? envelope(card(status: 'done', message: 'Created Acme.', link: '/parties/123')) : envelope({'id': '123', 'name': 'Acme', 'roles': <String>[]}));
+      await t.pumpWidget(_host(const AssistantPage(), adapter));
+      await ask(t, 'Add Acme');
+      reply.add(utf8.encode(_sse('action', card())));
+      unawaited(reply.close());
+      await turns(t);
+      await t.tap(finder(const ValueKey('assistant-confirm')));
+      await turns(t);
+      await t.tap(find.text(AssistantWords.en.open));
+      await turns(t);
+      expect(t.widget<PartyDetailScreen>(find.byType(PartyDetailScreen)).id, '123');
+    });
+
+    group('Arabic', () {
+      testWidgets('an Arabic device gets the assistant in Arabic and right to left, in its own scope', (t) async {
+        final adapter = FakeAdapter((_) => envelope(<dynamic>[]));
+        await t.pumpWidget(_arabicHost(const AssistantPage(), adapter));
+        await turns(t);
+        final page = t.element(find.byType(Scaffold));
+        expect(Directionality.of(page), TextDirection.rtl);
+        expect(Localizations.localeOf(page), const Locale('ar'));
+        expect(MaterialLocalizations.of(page).backButtonTooltip, isNot('Back'));
+        for (final words in [AssistantWords.ar.title, AssistantWords.ar.notice, AssistantWords.ar.hello, AssistantWords.ar.send, ...AssistantWords.ar.suggestions]) {
+          expect(find.text(words), findsOneWidget, reason: words);
+        }
+        expect(find.byTooltip(AssistantWords.ar.newChat), findsOneWidget);
+        expect(find.byTooltip(AssistantWords.ar.history), findsOneWidget);
+        expect(t.widget<TextField>(finder(input)).decoration?.hintText, AssistantWords.ar.placeholder);
+        // Outside the scope nothing changes.
+        final outside = t.element(find.byType(AssistantPage));
+        expect(Directionality.of(outside), TextDirection.ltr);
+        expect(Localizations.localeOf(outside), const Locale('en'));
+        expect(AppLanguage.maybeOf(outside), const Locale('ar'));
+      });
+
+      testWidgets('other screens keep English and left to right on an Arabic device', (t) async {
+        late BuildContext inner;
+        await t.pumpWidget(_arabicHost(Builder(builder: (context) {
+          inner = context;
+          return const Scaffold(body: Text('Invoices'));
+        }), FakeAdapter((_) => envelope(null))));
+        await turns(t);
+        expect(Directionality.of(inner), TextDirection.ltr);
+        expect(Localizations.localeOf(inner), const Locale('en'));
+        expect(MaterialLocalizations.of(inner).backButtonTooltip, 'Back');
+      });
+
+      /// The real app, for someone who may create nothing: the home tabs' New buttons share a hero tag, which fails any push in a debug build.
+      Future<BuildContext> pumpApp(WidgetTester t, Locale device) async {
+        t.platformDispatcher.localesTestValue = [device];
+        addTearDown(t.platformDispatcher.clearLocalesTestValue);
+        final store = MemoryKeyValueStore()
+          ..values[IntroKeys.seen] = '1'
+          ..values[OnboardingTourStore.seenKey] = '1';
+        await t.pumpWidget(ProviderScope(overrides: _overrides(FakeErpAdapter(), store: store), child: const ErpApp()));
+        for (var i = 0; i < 6; i++) {
+          await t.pump(const Duration(milliseconds: 50));
+        }
+        await turns(t);
+        return t.element(find.byType(HomePage));
+      }
+
+      Future<void> openAssistant(WidgetTester t, BuildContext from) async {
+        unawaited(Navigator.of(from).push(MaterialPageRoute<void>(builder: assistantScreen.builder)));
+        for (var i = 0; i < 40; i++) {
+          await t.pump(const Duration(milliseconds: 20));
+        }
+      }
+
+      testWidgets('the real app turns only the assistant to Arabic on an Arabic device', (t) async {
+        final home = await pumpApp(t, const Locale('ar', 'QA'));
+        expect(t.widget<MaterialApp>(find.byType(MaterialApp)).supportedLocales, appLocales);
+        expect(AppLanguage.maybeOf(home), const Locale('ar'));
+        expect(Directionality.of(home), TextDirection.ltr);
+        expect(Localizations.localeOf(home), const Locale('en'));
+
+        await openAssistant(t, home);
+        expect(find.text(AssistantWords.ar.hello), findsOneWidget);
+        expect(Directionality.of(t.element(find.text(AssistantWords.ar.hello))), TextDirection.rtl);
+      });
+
+      testWidgets('the real app leaves the assistant in English on any other device', (t) async {
+        final home = await pumpApp(t, const Locale('fr'));
+        expect(AppLanguage.maybeOf(home), const Locale('en'));
+        await openAssistant(t, home);
+        expect(find.text(AssistantWords.en.hello), findsOneWidget);
+        expect(Directionality.of(t.element(find.text(AssistantWords.en.hello))), TextDirection.ltr);
+      });
+
+      testWidgets('with room for 360 points nothing overflows and tap targets hold, picker and usage included', (t) async {
+        await t.binding.setSurfaceSize(const Size(360, 780));
+        addTearDown(() => t.binding.setSurfaceSize(null));
+        final handle = t.ensureSemantics();
+        final adapter = FakeAdapter((_) => envelope({'messagesThisMonth': 12, 'monthlyAllowance': 500, 'peopleThisMonth': 3}));
+        await t.pumpWidget(_arabicHost(const AssistantPage(), adapter, me: _meWith(all: true, permissions: const {'assistant.chats.use', 'assistant.usage.read'})));
+        await turns(t);
+        expect(t.takeException(), isNull);
+        expect(find.text(AssistantWords.ar.usage(12, 500)), findsOneWidget);
+        expect(find.text(AssistantWords.ar.allEntities), findsOneWidget);
+        await expectLater(t, meetsGuideline(androidTapTargetGuideline));
+        await expectLater(t, meetsGuideline(labeledTapTargetGuideline));
+        handle.dispose();
+      });
+
+      testWidgets('past chats show their dates in Arabic without failing', (t) async {
+        final adapter = FakeAdapter((_) => envelope([
+              {'id': 'c1', 'title': 'Overdue invoices', 'lastMessageAt': '2026-11-06T10:00:00Z'},
+            ]));
+        await t.pumpWidget(_arabicHost(const AssistantPage(), adapter));
+        await t.tap(finder(const ValueKey('assistant-history')));
+        await turns(t);
+        expect(t.takeException(), isNull);
+        expect(find.text('Overdue invoices'), findsOneWidget);
+        expect(find.textContaining('نوفمبر'), findsOneWidget);
+      });
+
+      testWidgets('limits and statuses read in Arabic', (t) async {
+        final (adapter, reply) = replying();
+        await t.pumpWidget(_arabicHost(const AssistantPage(), adapter));
+        await ask(t, 'مرحبا');
+        expect(find.text('${AssistantWords.ar.working}...'), findsOneWidget);
+        reply.add(utf8.encode(_sse('status', {'text': 'Searching your records'})));
+        await turns(t);
+        expect(find.text('${AssistantWords.ar.statuses!['Searching your records']}...'), findsOneWidget);
+        expect(find.textContaining('Searching'), findsNothing);
+        reply.add(utf8.encode(_sse('status', {'text': 'Something new'})));
+        await turns(t);
+        expect(find.text('${AssistantWords.ar.working}...'), findsOneWidget);
+        reply.add(utf8.encode(_sse('error', {'code': 'month-limit', 'message': 'Your workspace has used this month.'})));
+        unawaited(reply.close());
+        await turns(t);
+        expect(find.text(AssistantWords.ar.errors['month-limit']!), findsOneWidget);
+        expect(find.textContaining('Your workspace'), findsNothing);
+      });
+
+      testWidgets('a known server sentence on a card is translated', (t) async {
+        final (adapter, reply) = replying(other: (_) => envelope(card(status: 'failed', message: 'Choose a legal entity at the top of the page first.')));
+        await t.pumpWidget(_arabicHost(const AssistantPage(), adapter));
+        await ask(t, 'أضف');
+        reply.add(utf8.encode(_sse('action', card())));
+        unawaited(reply.close());
+        await turns(t);
+        await t.tap(finder(const ValueKey('assistant-confirm')));
+        await turns(t);
+        expect(find.text(AssistantWords.ar.serverTexts['Choose a legal entity at the top of the page first.']!), findsOneWidget);
+      });
+    });
+
+    group('legal entity', () {
+      const picker = ValueKey('assistant-entity');
+
+      Future<void> choose(WidgetTester t, String name) async {
+        await t.tap(finder(picker));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 400));
+        await t.tap(find.text(name).last);
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 400));
+      }
+
+      testWidgets('no picker and no header for someone with one legal entity', (t) async {
+        final (adapter, reply) = replying();
+        final store = MemoryKeyValueStore()..values[AssistantEntityController.keyFor('w1')] = 'e1';
+        await t.pumpWidget(_host(const AssistantPage(), adapter, me: _meWith(entities: const [LegalEntity(id: 'e1', code: 'E1', name: 'Acme Doha', baseCurrency: 'QAR')]), store: store));
+        await turns(t);
+        expect(finder(picker), findsNothing);
+        await ask(t, 'Hello');
+        expect(adapter.requests.last.headers.containsKey(AssistantApi.entityHeader), isFalse);
+        unawaited(reply.close());
+        await turns(t);
+      });
+
+      testWidgets('someone limited to some entities must choose, and their choice travels and is remembered', (t) async {
+        final store = MemoryKeyValueStore();
+        final (adapter, reply) = replying();
+        await t.pumpWidget(_host(const AssistantPage(), adapter, me: _meWith(), store: store));
+        await turns(t);
+        expect(find.text(AssistantWords.en.chooseEntity), findsOneWidget);
+        expect(find.text(AssistantWords.en.allEntities), findsNothing);
+        await choose(t, 'Acme Dubai');
+        expect(store.values[AssistantEntityController.keyFor('w1')], 'e2');
+        await ask(t, 'Hello');
+        expect(adapter.requests.last.path, '$_base/messages');
+        expect(adapter.requests.last.headers[AssistantApi.entityHeader], 'e2');
+        unawaited(reply.close());
+        await turns(t);
+      });
+
+      testWidgets('the header goes on every assistant call, with the idempotency key kept', (t) async {
+        final store = MemoryKeyValueStore()..values[AssistantEntityController.keyFor('w1')] = 'e1';
+        final (adapter, reply) = replying(other: (o) {
+          if (o.path.contains('/actions/')) return envelope(card(status: 'done', message: 'Done.'));
+          return o.path == '$_base/conversations' ? envelope(<dynamic>[]) : envelope(<String, dynamic>{});
+        });
+        await t.pumpWidget(_host(const AssistantPage(), adapter, me: _meWith(), store: store));
+        await turns(t);
+        await ask(t, 'Add Acme');
+        reply.add(utf8.encode(_sse('action', card())));
+        unawaited(reply.close());
+        await turns(t);
+        await t.tap(finder(const ValueKey('assistant-confirm')));
+        await turns(t);
+        await t.tap(finder(const ValueKey('assistant-history')));
+        await turns(t);
+        final calls = adapter.requests.where((o) => o.path.startsWith(_base)).toList();
+        expect(calls.map((o) => o.path), containsAll(['$_base/messages', '$_base/actions/a1/confirm', '$_base/conversations']));
+        expect(calls.every((o) => o.headers[AssistantApi.entityHeader] == 'e1'), isTrue);
+        expect(calls.singleWhere((o) => o.path.endsWith('/confirm')).headers['Idempotency-Key'], 'assistant-action-a1');
+      });
+
+      testWidgets('All is a choice only for those allowed it, and sends nothing', (t) async {
+        final store = MemoryKeyValueStore()..values[AssistantEntityController.keyFor('w1')] = 'e1';
+        final (adapter, reply) = replying();
+        await t.pumpWidget(_host(const AssistantPage(), adapter, me: _meWith(all: true), store: store));
+        await turns(t);
+        expect(find.text('Acme Doha'), findsWidgets);
+        await choose(t, AssistantWords.en.allEntities);
+        expect(store.values.containsKey(AssistantEntityController.keyFor('w1')), isFalse);
+        await ask(t, 'Hello');
+        expect(adapter.requests.last.headers.containsKey(AssistantApi.entityHeader), isFalse);
+        unawaited(reply.close());
+        await turns(t);
+      });
+
+      testWidgets('a remembered entity the person has lost is dropped', (t) async {
+        final store = MemoryKeyValueStore()..values[AssistantEntityController.keyFor('w1')] = 'gone';
+        final (adapter, reply) = replying();
+        await t.pumpWidget(_host(const AssistantPage(), adapter, me: _meWith(), store: store));
+        await turns(t);
+        expect(find.text(AssistantWords.en.chooseEntity), findsOneWidget);
+        await ask(t, 'Hello');
+        expect(adapter.requests.last.headers.containsKey(AssistantApi.entityHeader), isFalse);
+        unawaited(reply.close());
+        await turns(t);
+      });
+
+      test('a choice stays on assistant calls: the same client sends other features none', () async {
+        final store = MemoryKeyValueStore()..values[AssistantEntityController.keyFor('w1')] = 'e1';
+        final adapter = FakeAdapter((_) => envelope(<String, dynamic>{}));
+        final container = ProviderContainer(overrides: _overrides(adapter, me: _meWith(), store: store));
+        addTearDown(container.dispose);
+        container.read(assistantEntityProvider);
+        await Future<void>.delayed(Duration.zero);
+        await container.read(assistantApiProvider).status();
+        expect(adapter.requests.last.headers[AssistantApi.entityHeader], 'e1');
+        await container.read(apiProvider).get('/api/v1/parties');
+        await container.read(apiProvider).delete('/api/v1/parties/1');
+        await container.read(apiProvider).post('/api/v1/parties', body: const <String, dynamic>{});
+        for (final o in adapter.requests.skip(1)) {
+          expect(o.headers.containsKey(AssistantApi.entityHeader), isFalse, reason: o.path);
+        }
+      });
+
+      testWidgets('another workspace\'s choice is not used, and the picker waits during a reply', (t) async {
+        final store = MemoryKeyValueStore()
+          ..values[AssistantEntityController.keyFor('w1')] = 'e1'
+          ..values[AssistantEntityController.keyFor('w2')] = 'e2';
+        final (adapter, reply) = replying();
+        await t.pumpWidget(_host(const AssistantPage(), adapter, me: _meWith(), store: store));
+        await turns(t);
+        await ask(t, 'Hello');
+        expect(adapter.requests.last.headers[AssistantApi.entityHeader], 'e1');
+        expect(t.widget<DropdownButton<String?>>(finder(picker)).onChanged, isNull);
+        unawaited(reply.close());
+        await turns(t);
+        expect(t.widget<DropdownButton<String?>>(finder(picker)).onChanged, isNotNull);
+      });
+    });
+
+    group('usage', () {
+      const usage = ValueKey('assistant-usage');
+      final allowed = _meWith(entities: const [], permissions: const {'assistant.chats.use', 'assistant.usage.read'});
+
+      testWidgets('shows the count to people who may read it', (t) async {
+        final adapter = FakeAdapter((_) => envelope({'messagesThisMonth': 12, 'monthlyAllowance': 500, 'peopleThisMonth': 3}));
+        await t.pumpWidget(_host(const AssistantPage(), adapter, me: allowed));
+        await turns(t);
+        expect(find.text('Your workspace has used 12 of 500 messages this month.'), findsOneWidget);
+        expect(adapter.requests.single.path, '$_base/usage');
+      });
+
+      testWidgets('a plan with no limit has no second figure', (t) async {
+        final adapter = FakeAdapter((_) => envelope({'messagesThisMonth': 12, 'monthlyAllowance': null, 'peopleThisMonth': 3}));
+        await t.pumpWidget(_host(const AssistantPage(), adapter, me: allowed));
+        await turns(t);
+        expect(find.text('Your workspace has used 12 messages this month.'), findsOneWidget);
+      });
+
+      testWidgets('nobody else asks for it', (t) async {
+        final adapter = FakeAdapter((_) => envelope(<String, dynamic>{}));
+        await t.pumpWidget(_host(const AssistantPage(), adapter));
+        await turns(t);
+        expect(finder(usage), findsNothing);
+        expect(adapter.requests, isEmpty);
+      });
+
+      testWidgets('a failure or a bad answer hides the line and leaves the chat alone', (t) async {
+        for (final answer in [() => problem(403, 'nope'), () => problem(500, 'boom'), () => envelope({'peopleThisMonth': 3})]) {
+          await t.pumpWidget(const SizedBox());
+          await t.pumpWidget(_host(const AssistantPage(), FakeAdapter((_) => answer()), me: allowed));
+          await turns(t);
+          expect(finder(usage), findsNothing);
+          expect(find.text('nope'), findsNothing);
+          expect(find.text('boom'), findsNothing);
+          expect(finder(input), findsOneWidget);
+        }
+      });
+    });
+
+    group('a card with an expiry', () {
+      Future<void> showCard(WidgetTester t, Map<String, dynamic> json, FakeAdapter adapter, StreamController<List<int>> reply) async {
+        await t.pumpWidget(_host(const AssistantPage(), adapter));
+        await ask(t, 'Add Acme');
+        reply.add(utf8.encode(_sse('action', json)));
+        unawaited(reply.close());
+        await turns(t);
+      }
+
+      test('parses it as optional, and reads a time with no zone as UTC', () {
+        AssistantActionCard parse(Object? at) => AssistantActionCard.fromJson({'id': 'a', 'status': 'pending', 'expiresAt': at});
+        expect(parse(null).expiresAt, isNull);
+        expect(parse('soon').expiresAt, isNull);
+        expect(parse(12).expiresAt, isNull);
+        expect(parse('2026-11-06T10:00:00Z').expiresAt, DateTime.utc(2026, 11, 6, 10));
+        expect(parse('2026-11-06T10:00:00').expiresAt, DateTime.utc(2026, 11, 6, 10));
+        expect(parse('2026-11-06T13:00:00+03:00').expiresAt, DateTime.utc(2026, 11, 6, 10));
+        expect(AssistantActionCard.fromJson(const {'id': 'a'}).isPastExpiry(DateTime(2100)), isFalse);
+      });
+
+      testWidgets('past: no Confirm, and it says expired', (t) async {
+        final (adapter, reply) = replying();
+        await showCard(t, {...card(), 'expiresAt': '2020-01-01T00:00:00Z'}, adapter, reply);
+        expect(finder(const ValueKey('assistant-confirm')), findsNothing);
+        expect(finder(const ValueKey('assistant-cancel')), findsNothing);
+        expect(find.text(AssistantWords.en.expired), findsOneWidget);
+        expect(finder(const ValueKey('assistant-card-expired')), findsOneWidget);
+      });
+
+      testWidgets('future: Confirm shows, and goes when the time runs out on the open screen', (t) async {
+        final (adapter, reply) = replying();
+        final at = DateTime.now().toUtc().add(const Duration(minutes: 10));
+        await showCard(t, {...card(), 'expiresAt': at.toIso8601String()}, adapter, reply);
+        expect(finder(const ValueKey('assistant-confirm')), findsOneWidget);
+        await t.pump(const Duration(minutes: 11));
+        expect(finder(const ValueKey('assistant-confirm')), findsNothing);
+        expect(find.text(AssistantWords.en.expired), findsOneWidget);
+      });
+
+      testWidgets('absent, or not a time: Confirm shows', (t) async {
+        for (final json in [card(), {...card(), 'expiresAt': 'soon'}, {...card(), 'expiresAt': null}]) {
+          final (adapter, reply) = replying();
+          await t.pumpWidget(const SizedBox());
+          await showCard(t, json, adapter, reply);
+          expect(finder(const ValueKey('assistant-confirm')), findsOneWidget);
+        }
+      });
+
+      testWidgets('a past expiry on a finished card changes nothing', (t) async {
+        final (adapter, reply) = replying();
+        await showCard(t, {...card(status: 'done', message: 'Created Acme.'), 'expiresAt': '2020-01-01T00:00:00Z'}, adapter, reply);
+        expect(find.text('Created Acme.'), findsOneWidget);
+        expect(find.text(AssistantWords.en.expired), findsNothing);
+      });
+
+      testWidgets('an entity line renders as any other line', (t) async {
+        final (adapter, reply) = replying();
+        await showCard(t, {...card(), 'lines': [{'label': 'Name', 'value': 'Acme'}, {'label': 'Legal entity', 'value': 'Acme Dubai'}]}, adapter, reply);
+        expect(find.text('Legal entity'), findsOneWidget);
+        expect(find.text('Acme Dubai'), findsOneWidget);
+      });
+    });
+
+    group('view-only workspace', () {
+      const viewOnly = 'This workspace is view-only until its subscription is brought up to date. See Subscription and billing.';
+
+      (FakeAdapter, StreamController<List<int>>) refusing() => replying(other: (o) => o.path.endsWith('/confirm') ? problem(402, viewOnly) : envelope(card(status: 'cancelled')));
+
+      Future<void> confirmRefused(WidgetTester t, StreamController<List<int>> reply) async {
+        await t.enterText(finder(input), 'Add Acme');
+        await turns(t);
+        await t.tap(finder(send));
+        await turns(t);
+        reply.add(utf8.encode(_sse('action', card())));
+        unawaited(reply.close());
+        await turns(t);
+        await t.tap(finder(const ValueKey('assistant-confirm')));
+        await turns(t);
+      }
+
+      void expectUsable(WidgetTester t, FakeAdapter adapter) {
+        expect(t.widget<FilledButton>(finder(const ValueKey('assistant-confirm'))).onPressed, isNotNull);
+        expect(t.widget<OutlinedButton>(finder(const ValueKey('assistant-cancel'))).onPressed, isNotNull);
+        expect(find.text('Add Acme'), findsOneWidget);
+        expect(find.text('Create customer'), findsOneWidget);
+        expect(finder(input), findsOneWidget);
+      }
+
+      testWidgets('a 402 on Confirm says why, leaves the chat usable and can still be cancelled', (t) async {
+        final (adapter, reply) = refusing();
+        await t.pumpWidget(_host(const AssistantPage(), adapter));
+        await confirmRefused(t, reply);
+        expect(find.text(viewOnly), findsOneWidget);
+        expect(find.byType(SnackBar), findsOneWidget);
+        expectUsable(t, adapter);
+
+        await t.tap(finder(const ValueKey('assistant-cancel')));
+        await turns(t);
+        expect(find.text(AssistantWords.en.cancelled), findsOneWidget);
+      });
+
+      testWidgets('in Arabic it says so in Arabic', (t) async {
+        final (adapter, reply) = refusing();
+        await t.pumpWidget(_arabicHost(const AssistantPage(), adapter));
+        await confirmRefused(t, reply);
+        expect(find.text(AssistantWords.ar.paused), findsOneWidget);
+        expect(find.text(viewOnly), findsNothing);
+        expectUsable(t, adapter);
+      });
+
+      testWidgets('a 402 with no words of its own still says why', (t) async {
+        final (adapter, reply) = replying(other: (_) => ResponseBody.fromString('{}', 402, headers: {Headers.contentTypeHeader: ['application/json']}));
+        await t.pumpWidget(_host(const AssistantPage(), adapter));
+        await confirmRefused(t, reply);
+        expect(find.text(AssistantWords.en.paused), findsOneWidget);
+      });
+
+      testWidgets('the chat can go on after a refusal', (t) async {
+        var asked = 0;
+        final first = StreamController<List<int>>();
+        final adapter = FakeAdapter((o) {
+          if (o.path == '$_base/messages') return asked++ == 0 ? _streamed(first.stream) : _sseOnce(_sse('delta', {'text': 'Still here'}));
+          return problem(402, viewOnly);
+        });
+        await t.pumpWidget(_host(const AssistantPage(), adapter));
+        await confirmRefused(t, first);
+        await ask(t, 'Anything else?');
+        await turns(t);
+        expect(find.textContaining('Still here', findRichText: true), findsOneWidget);
+      });
+    });
+
+    group('link targets', () {
+      testWidgets('records open their own screen, other addresses their list or nothing', (t) async {
+        late BuildContext context;
+        await t.pumpWidget(MaterialApp(home: Builder(builder: (c) {
+          context = c;
+          return const SizedBox();
+        })));
+        Widget? open(String? link, {List<MenuGroup> menu = _menu}) => assistantLinkTarget(link, menu: menu)?.call(context);
+        const guid = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+
+        expect((open('/parties/$guid') as PartyDetailScreen?)?.id, guid);
+        expect((open('/finance/invoices/$guid') as InvoiceDetailScreen?)?.id, guid);
+        expect((open('/finance/bills/$guid') as BillDetailScreen?)?.id, guid);
+        expect(open('/projects/$guid?tab=tasks'), isNotNull);
+        expect(open('/finance/invoices'), isA<InvoicesScreen>());
+        // A record whose kind has no screen of its own opens the list.
+        expect(open('/crm/leads/$guid'), isNotNull);
+        expect(open('/crm/leads/$guid').runtimeType, open('/crm/leads').runtimeType);
+        // Words are not ids, and nothing else on the site or off it opens anything.
+        expect(open('/parties/new'), isNull);
+        expect(open('/parties/../auth/logout'), isNull);
+        expect(open('/web/only/$guid'), isNull);
+        expect(open('https://evil.test/parties/$guid'), isNull);
+        expect(open('//evil.test/parties/$guid'), isNull);
+        expect(open(null), isNull);
+      });
     });
 
     testWidgets('an Arabic reply reads right to left and an English one left to right', (t) async {

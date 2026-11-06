@@ -11,7 +11,7 @@ The phone app for the ERP. It talks to the same API as the web app (`backend/src
 | Overview | The same KPI cards, alerts and charts as the web dashboard (`GET /api/v1/dashboard`) |
 | Invoices | Searchable, paged list and a detail screen (`/api/v1/finance/invoices`) |
 | Receipts, Customers | Searchable, paged lists (`/api/v1/finance/receipts`, `/api/v1/parties`) |
-| Assistant | The workspace AI chat with streamed replies and Confirm/Cancel cards (`/api/v1/m/assistant`), on More and in search when the module, the permission and the service allow it |
+| Assistant | The workspace AI chat with streamed replies and Confirm/Cancel cards (`/api/v1/m/assistant`), on More and in search when the module, the permission and the service allow it. In Arabic and right to left on an Arabic device (the only translated screen so far), with a legal entity picker for people with more than one, usage for `assistant.usage.read`, and links that open the record |
 
 Read-only for now. Creating and editing documents, push notifications, offline mode and Arabic/RTL are the next steps.
 

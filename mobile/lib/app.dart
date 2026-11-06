@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/app_language.dart';
 import 'core/brand.dart';
 import 'core/session.dart';
 import 'core/theme_mode.dart';
@@ -76,6 +77,9 @@ class _ErpAppState extends ConsumerState<ErpApp> {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ref.watch(themeModeProvider),
+      supportedLocales: appLocales,
+      localizationsDelegates: appLocalizationsDelegates,
+      builder: appLanguageBuilder,
       routerConfig: ref.watch(routerProvider),
     );
   }

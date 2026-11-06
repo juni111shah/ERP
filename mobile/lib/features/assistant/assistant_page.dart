@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show DateFormat; // intl has its own TextDirection
 
 import '../../core/api_client.dart';
+import '../../core/app_language.dart';
 import '../../core/brand.dart';
 import '../../core/me.dart';
 import '../../core/session.dart';
@@ -16,8 +17,8 @@ import '../../kit/registry.dart';
 import '../../kit/skeleton.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
-import '../dashboard/overview_logic.dart';
 import 'assistant_api.dart';
+import 'assistant_links.dart';
 import 'assistant_stream.dart';
 import 'assistant_text.dart';
 
@@ -31,9 +32,10 @@ final assistantScreen = MobileScreen(
   builder: (_) => const AssistantPage(),
 );
 
-/// Copy for the assistant, in English and Arabic (same words as the web panel, same choice of language as `IntroStrings`).
+/// Copy for the assistant, in English and Arabic (same words as the web panel).
 class AssistantWords {
   const AssistantWords._({
+    required this.direction,
     required this.title,
     required this.newChat,
     required this.history,
@@ -52,13 +54,42 @@ class AssistantWords {
     required this.cancelled,
     required this.expired,
     required this.check,
+    required this.entity,
+    required this.allEntities,
+    required this.chooseEntity,
+    required this.paused,
     required this.suggestions,
+    required this.usage,
+    required this.errors,
+    required this.statuses,
+    required this.serverTexts,
   });
 
+  final TextDirection direction;
   final String title, newChat, history, noHistory, remove, notice, hello, placeholder, send, stop, working, failed, confirm, cancel, open, cancelled, expired, check;
+  final String entity, allEntities, chooseEntity;
+
+  /// For a workspace that cannot make changes (402).
+  final String paused;
   final List<String> suggestions;
 
+  /// The workspace's usage this month; the second figure is null when the plan has no limit.
+  final String Function(int used, int? max) usage;
+
+  /// By the code of the stream's `error` event.
+  final Map<String, String> errors;
+
+  /// By the words of the stream's `status` event, which come only in English. Null means show them as they are.
+  final Map<String, String>? statuses;
+
+  /// Fixed sentences the server can send, by their English words.
+  final Map<String, String> serverTexts;
+
+  static String _enUsage(int used, int? max) => max == null ? 'Your workspace has used $used messages this month.' : 'Your workspace has used $used of $max messages this month.';
+  static String _arUsage(int used, int? max) => max == null ? 'استخدمت مساحة عملك $used رسالة هذا الشهر.' : 'استخدمت مساحة عملك $used من أصل $max رسالة هذا الشهر.';
+
   static const en = AssistantWords._(
+    direction: TextDirection.ltr,
     title: 'Assistant',
     newChat: 'New chat',
     history: 'Past chats',
@@ -77,10 +108,28 @@ class AssistantWords {
     cancelled: 'Cancelled',
     expired: 'Expired',
     check: 'Please check this before confirming.',
+    entity: 'Legal entity',
+    allEntities: 'All legal entities',
+    chooseEntity: 'Choose a legal entity',
+    paused: 'This workspace is view-only until its subscription is brought up to date, so this change was not made.',
     suggestions: ['What needs my attention today?', 'Who owes us the most?', 'Where do I add a new customer?'],
+    usage: _enUsage,
+    errors: {
+      'user-limit': "You have used today's messages for the assistant. Please try again tomorrow.",
+      'month-limit': "Your workspace has used this month's assistant messages. Your administrator can ask for a larger plan.",
+      'daily-limit': 'The assistant has reached its limit for today. Please try again tomorrow.',
+      'no-service': 'The assistant is not available right now.',
+      'off': 'The assistant is not available right now.',
+      'interrupted': 'The reply was interrupted. Please try again.',
+      'unavailable': 'The assistant is not available right now. Please try again in a moment.',
+      'failed': 'Sorry, something went wrong. Please try again.',
+    },
+    statuses: null,
+    serverTexts: {},
   );
 
   static const ar = AssistantWords._(
+    direction: TextDirection.rtl,
     title: 'المساعد',
     newChat: 'محادثة جديدة',
     history: 'المحادثات السابقة',
@@ -99,11 +148,78 @@ class AssistantWords {
     cancelled: 'أُلغي',
     expired: 'انتهت صلاحيته',
     check: 'يرجى التحقق من هذا قبل التأكيد.',
+    entity: 'الكيان القانوني',
+    allEntities: 'كل الكيانات القانونية',
+    chooseEntity: 'اختر كياناً قانونياً',
+    paused: 'مساحة العمل هذه للعرض فقط إلى أن يتم تحديث اشتراكها، لذا لم يُنفَّذ هذا التغيير.',
     suggestions: ['ما الذي يحتاج إلى انتباهي اليوم؟', 'من أكثر من يدين لنا بالمال؟', 'أين أضيف عميلاً جديداً؟'],
+    usage: _arUsage,
+    errors: {
+      'user-limit': 'لقد استخدمت رسائل اليوم المتاحة للمساعد. يرجى المحاولة مرة أخرى غداً.',
+      'month-limit': 'استخدمت مساحة عملك رسائل المساعد المتاحة لهذا الشهر. يمكن لمسؤول مساحة العمل طلب خطة أكبر.',
+      'daily-limit': 'بلغ المساعد الحد المسموح به لهذا اليوم. يرجى المحاولة مرة أخرى غداً.',
+      'no-service': 'المساعد غير متاح الآن.',
+      'off': 'المساعد غير متاح الآن.',
+      'interrupted': 'انقطع الرد. يرجى المحاولة مرة أخرى.',
+      'unavailable': 'المساعد غير متاح الآن. يرجى المحاولة مرة أخرى بعد قليل.',
+      'failed': 'عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى.',
+    },
+    statuses: {
+      'Thinking': 'جارٍ التفكير',
+      'Searching your records': 'جارٍ البحث في سجلاتك',
+      'Checking the help articles': 'جارٍ الاطلاع على مقالات المساعدة',
+      'Looking through your records': 'جارٍ الاطلاع على سجلاتك',
+      'Running the report': 'جارٍ إعداد التقرير',
+      'Checking your overview': 'جارٍ الاطلاع على نظرتك العامة',
+      'Checking approvals': 'جارٍ التحقق من الموافقات',
+      'Looking through the menu': 'جارٍ البحث في القائمة',
+      'Preparing the change': 'جارٍ تحضير التغيير',
+    },
+    serverTexts: {
+      'Choose a legal entity at the top of the page first.': 'اختر كياناً قانونياً من أعلى الشاشة أولاً.',
+      'This suggestion has expired. Ask again if you still want it.': 'انتهت صلاحية هذا الاقتراح. اطلبه مرة أخرى إن كنت لا تزال تريده.',
+      'You cannot work in that legal entity.': 'لا يمكنك العمل في هذا الكيان القانوني.',
+    },
   );
 
+  /// What to show for a stream `error` event: the words for its code, or the server's own for a code this app does not know.
+  String errorFor(String code, String serverMessage) => errors[code] ?? (serverMessage.isEmpty ? failed : serverMessage);
+
+  /// What to show for a stream `status` event. An unknown status in Arabic stays general rather than showing English.
+  String statusFor(String serverText) {
+    final words = statuses;
+    if (words != null) return words[serverText] ?? working;
+    return serverText.isEmpty ? working : serverText;
+  }
+
+  /// A sentence from the server, in this language when it is one of the fixed ones.
+  String serverText(String text) => serverTexts[text] ?? text;
+
+  /// What to show for a failed call.
+  String problem(Object error) {
+    if (error is ApiException && error.status == 402) {
+      return identical(this, ar) ? paused : assistantErrorMessage(error, paused);
+    }
+    return serverText(assistantErrorMessage(error, failed));
+  }
+
   static AssistantWords of(BuildContext context) =>
-      Localizations.maybeLocaleOf(context)?.languageCode == 'ar' || Directionality.maybeOf(context) == TextDirection.rtl ? ar : en;
+      AppLanguage.maybeOf(context)?.languageCode == 'ar' || Localizations.maybeLocaleOf(context)?.languageCode == 'ar' || Directionality.maybeOf(context) == TextDirection.rtl ? ar : en;
+}
+
+/// Sets the assistant's language around [child]: with an Arabic device this also gives its buttons and tooltips Flutter's own Arabic. The rest
+/// of the app stays English for now (see [appLanguageBuilder]), so this is the only place that turns right to left.
+class AssistantScope extends StatelessWidget {
+  const AssistantScope({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final language = AppLanguage.maybeOf(context);
+    if (language?.languageCode == 'ar') return Localizations.override(context: context, locale: language, child: child);
+    return Directionality(textDirection: AssistantWords.of(context).direction, child: child);
+  }
 }
 
 /// The assistant's chat. A change is only ever made by the Confirm button on a card the server built.
@@ -246,7 +362,7 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
       onError: (Object e) {
         if (!mounted || chat != _chat) return;
         _finish();
-        setState(() => _error = assistantErrorMessage(e, _w.failed));
+        setState(() => _error = _w.problem(e));
       },
       onDone: () {
         if (mounted && chat == _chat) _finish();
@@ -260,7 +376,7 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
       case AssistantConversationEvent(:final id):
         _conversationId = id;
       case AssistantStatusEvent(:final text):
-        setState(() => _working = identical(_w, AssistantWords.ar) ? _w.working : text);
+        setState(() => _working = _w.statusFor(text));
       case AssistantDeltaEvent(:final text):
         setState(() {
           _working = null;
@@ -273,8 +389,8 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
       case AssistantActionEvent(:final card):
         setState(() => _items = [..._items, AssistantCardItem(card)]);
         _scrollDown();
-      case AssistantErrorEvent(:final message):
-        setState(() => _error = message);
+      case AssistantErrorEvent(:final code, :final message):
+        setState(() => _error = _w.errorFor(code, message));
     }
   }
 
@@ -315,7 +431,7 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
   }
 
   void _toast(ApiException e) {
-    if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(assistantErrorMessage(e, _w.failed))));
+    if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(_w.problem(e))));
   }
 
   void _scrollDown() {
@@ -330,28 +446,71 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
     ref.listen(sessionProvider.select((s) => s.workspace?.id), (_, _) => _newChat());
     final w = AssistantWords.of(context);
     final t = ErpTheme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(children: [
-          const AssistantMark(size: 28),
-          const SizedBox(width: ErpSpace.s2),
-          Flexible(child: Text(w.title, maxLines: 1, overflow: TextOverflow.ellipsis)),
-        ]),
-        actions: [
-          IconButton(key: const ValueKey('assistant-new'), tooltip: w.newChat, icon: const Icon(Icons.add), onPressed: _newChat),
-          IconButton(key: const ValueKey('assistant-history'), tooltip: w.history, icon: const Icon(Icons.history), onPressed: _toggleHistory),
-        ],
-      ),
-      body: Column(children: [
-        Container(
-          width: double.infinity,
-          color: t.sunken,
-          padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s4, vertical: ErpSpace.s2),
-          child: Text(w.notice, style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
+    final usage = ref.watch(assistantUsageProvider).asData?.value;
+    return AssistantScope(
+      child: Scaffold(
+        appBar: AppBar(
+          title: Row(children: [
+            const AssistantMark(size: 28),
+            const SizedBox(width: ErpSpace.s2),
+            Flexible(child: Text(w.title, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          ]),
+          actions: [
+            IconButton(key: const ValueKey('assistant-new'), tooltip: w.newChat, icon: const Icon(Icons.add), onPressed: _newChat),
+            IconButton(key: const ValueKey('assistant-history'), tooltip: w.history, icon: const Icon(Icons.history), onPressed: _toggleHistory),
+          ],
         ),
-        Expanded(child: _showHistory ? _history(w, t) : _log(w, t)),
-        if (!_showHistory) _sendBar(w),
-      ]),
+        body: Column(children: [
+          Container(
+            width: double.infinity,
+            color: t.sunken,
+            padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s4, vertical: ErpSpace.s2),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text(w.notice, style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
+              if (usage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: ErpSpace.s1),
+                  child: Text(w.usage(usage.messagesThisMonth, usage.monthlyAllowance), key: const ValueKey('assistant-usage'), style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
+                ),
+            ]),
+          ),
+          _entityPicker(w, t),
+          Expanded(child: _showHistory ? _history(w, t) : _log(w, t)),
+          if (!_showHistory) _sendBar(w),
+        ]),
+      ),
+    );
+  }
+
+  /// Only for people with more than one legal entity. It stays put during a reply, which is already running in the one it started in.
+  Widget _entityPicker(AssistantWords w, ErpTheme t) {
+    final me = ref.watch(meOrEmptyProvider);
+    if (me.legalEntities.length <= 1) return const SizedBox.shrink();
+    final items = <DropdownMenuItem<String?>>[
+      if (me.allLegalEntities) DropdownMenuItem<String?>(value: null, child: Text(w.allEntities, maxLines: 1, overflow: TextOverflow.ellipsis)),
+      for (final e in me.legalEntities) DropdownMenuItem<String?>(value: e.id, child: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis)),
+    ];
+    return DecoratedBox(
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: t.borderSubtle))),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: ErpSpace.s4),
+        child: Row(children: [
+          Icon(Icons.account_balance_outlined, size: 18, color: t.muted, semanticLabel: w.entity),
+          const SizedBox(width: ErpSpace.s2),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                key: const ValueKey('assistant-entity'),
+                isExpanded: true,
+                value: ref.watch(assistantEntityIdProvider),
+                hint: Text(w.chooseEntity, maxLines: 1, overflow: TextOverflow.ellipsis),
+                items: items,
+                onChanged: _sending ? null : (id) => ref.read(assistantEntityProvider.notifier).choose(id),
+              ),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -380,7 +539,7 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
                   padding: const EdgeInsetsDirectional.fromSTEB(ErpSpace.s4, ErpSpace.s2, ErpSpace.s2, ErpSpace.s2),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     Text(c.title, textDirection: assistantDirection(c.title), maxLines: 2, overflow: TextOverflow.ellipsis),
-                    Text(_when(c.lastMessageAt), style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
+                    Text(_when(c.lastMessageAt, _dateLocale(context)), style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
                   ]),
                 ),
               ),
@@ -392,9 +551,13 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
     );
   }
 
-  static String _when(String at) {
+  /// Arabic dates need the data Flutter's delegates load for an Arabic device, which a right-to-left direction alone does not bring.
+  /// Null is the default English, as in the rest of the app.
+  static String? _dateLocale(BuildContext context) => AppLanguage.maybeOf(context)?.languageCode == 'ar' ? 'ar' : null;
+
+  static String _when(String at, String? locale) {
     final time = DateTime.tryParse(at);
-    return time == null ? at : DateFormat.yMMMd().add_jm().format(time.toLocal());
+    return time == null ? at : DateFormat.yMMMd(locale).add_jm().format(time.toLocal());
   }
 
   Widget _log(AssistantWords w, ErpTheme t) {
@@ -530,9 +693,9 @@ class _AssistantReplyTextState extends ConsumerState<AssistantReplyText> {
     final brand = ErpTheme.of(context).brand;
 
     InlineSpan span(AssistantInline part) {
-      final screen = screenForLink(part.link, menu: menu);
-      if (screen == null) return TextSpan(text: part.text, style: part.bold ? const TextStyle(fontWeight: FontWeight.w700) : null);
-      final tap = TapGestureRecognizer()..onTap = () => Navigator.of(context).push(MaterialPageRoute<void>(builder: screen.builder));
+      final target = assistantLinkTarget(part.link, menu: menu);
+      if (target == null) return TextSpan(text: part.text, style: part.bold ? const TextStyle(fontWeight: FontWeight.w700) : null);
+      final tap = TapGestureRecognizer()..onTap = () => Navigator.of(context).push(MaterialPageRoute<void>(builder: target));
       _links.add(tap);
       return TextSpan(text: part.text, recognizer: tap, style: TextStyle(color: brand, decoration: TextDecoration.underline));
     }
@@ -567,7 +730,7 @@ class _AssistantReplyTextState extends ConsumerState<AssistantReplyText> {
   }
 }
 
-class _ActionCardView extends ConsumerWidget {
+class _ActionCardView extends ConsumerStatefulWidget {
   const _ActionCardView({required this.item, required this.words, required this.onConfirm, required this.onCancel});
 
   final AssistantCardItem item;
@@ -576,14 +739,58 @@ class _ActionCardView extends ConsumerWidget {
   final VoidCallback onCancel;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ActionCardView> createState() => _ActionCardViewState();
+}
+
+class _ActionCardViewState extends ConsumerState<_ActionCardView> {
+  Timer? _expiry;
+  var _ranOut = false;
+
+  /// So that a card left open on the screen loses its Confirm button when its time is up, not just the next time it is drawn.
+  void _watchExpiry() {
+    _expiry?.cancel();
+    _expiry = null;
+    _ranOut = false;
+    final card = widget.item.card;
+    final at = card.expiresAt;
+    if (at == null || card.status != 'pending') return;
+    final left = at.difference(DateTime.now());
+    if (left <= Duration.zero) return;
+    _expiry = Timer(left, () {
+      if (mounted) setState(() => _ranOut = true);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _watchExpiry();
+  }
+
+  @override
+  void didUpdateWidget(_ActionCardView old) {
+    super.didUpdateWidget(old);
+    if (old.item.card.id != widget.item.card.id || old.item.card.status != widget.item.card.status || old.item.card.expiresAt != widget.item.card.expiresAt) _watchExpiry();
+  }
+
+  @override
+  void dispose() {
+    _expiry?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = ErpTheme.of(context);
+    final item = widget.item;
+    final words = widget.words;
     final card = item.card;
+    final expired = card.status == 'pending' && (_ranOut || card.isPastExpiry(DateTime.now()));
     final direction = assistantDirection(card.title) ?? Directionality.of(context);
-    final link = card.link;
-    final screen = link != null && isInternalLink(link) ? screenForLink(link, menu: ref.watch(menuProvider).asData?.value ?? const <MenuGroup>[]) : null;
+    final target = assistantLinkTarget(card.link, menu: ref.watch(menuProvider).asData?.value ?? const <MenuGroup>[]);
+    final outcome = expired || card.message?.isNotEmpty != true ? words.expired : words.serverText(card.message!);
     return Padding(
-      key: ValueKey('assistant-card-${card.status}'),
+      key: ValueKey('assistant-card-${expired ? 'expired' : card.status}'),
       padding: const EdgeInsets.only(bottom: ErpSpace.s2),
       child: DecoratedBox(
         decoration: BoxDecoration(border: Border.all(color: t.brand), borderRadius: BorderRadius.circular(ErpRadius.card)),
@@ -607,26 +814,26 @@ class _ActionCardView extends ConsumerWidget {
               ]),
             ),
             const SizedBox(height: ErpSpace.s2),
-            if (card.status == 'pending') ...[
+            if (card.status == 'pending' && !expired) ...[
               Text(words.check, style: TextStyle(fontSize: ErpType.bodySmall, color: t.muted)),
               const SizedBox(height: ErpSpace.s2),
               Wrap(spacing: ErpSpace.s2, runSpacing: ErpSpace.s2, children: [
-                FilledButton(key: const ValueKey('assistant-confirm'), onPressed: item.busy ? null : onConfirm, child: Text(words.confirm)),
-                OutlinedButton(key: const ValueKey('assistant-cancel'), onPressed: item.busy ? null : onCancel, child: Text(words.cancel)),
+                FilledButton(key: const ValueKey('assistant-confirm'), onPressed: item.busy ? null : widget.onConfirm, child: Text(words.confirm)),
+                OutlinedButton(key: const ValueKey('assistant-cancel'), onPressed: item.busy ? null : widget.onCancel, child: Text(words.cancel)),
               ]),
             ] else if (card.status == 'cancelled')
               Text(words.cancelled, style: const TextStyle(fontSize: ErpType.bodySmall))
             else ...[
               Text(
-                card.message?.isNotEmpty == true ? card.message! : words.expired,
+                outcome,
                 key: const ValueKey('assistant-outcome'),
-                textDirection: assistantDirection(card.message ?? ''),
+                textDirection: assistantDirection(outcome),
                 style: TextStyle(fontSize: ErpType.bodySmall, color: card.status == 'done' ? null : ErpColors.danger),
               ),
-              if (screen != null)
+              if (target != null)
                 Align(
                   alignment: AlignmentDirectional.centerStart,
-                  child: TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: screen.builder)), child: Text(words.open)),
+                  child: TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: target)), child: Text(words.open)),
                 ),
             ],
           ]),
@@ -645,27 +852,29 @@ class AssistantEntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ErpTheme.of(context);
     final w = AssistantWords.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(ErpSpace.s4, ErpSpace.s3, ErpSpace.s4, 0),
-      child: Material(
-        color: t.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ErpRadius.card), side: BorderSide(color: t.borderSubtle)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: const ValueKey('assistant-entry'),
-          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: assistantScreen.builder)),
-          child: Padding(
-            padding: const EdgeInsets.all(ErpSpace.s3),
-            child: Row(children: [
-              const AssistantMark(size: 36),
-              const SizedBox(width: ErpSpace.s3),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(w.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text(w.hello, style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
-                ]),
-              ),
-            ]),
+    return AssistantScope(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(ErpSpace.s4, ErpSpace.s3, ErpSpace.s4, 0),
+        child: Material(
+          color: t.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ErpRadius.card), side: BorderSide(color: t.borderSubtle)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: const ValueKey('assistant-entry'),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: assistantScreen.builder)),
+            child: Padding(
+              padding: const EdgeInsets.all(ErpSpace.s3),
+              child: Row(children: [
+                const AssistantMark(size: 36),
+                const SizedBox(width: ErpSpace.s3),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(w.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(w.hello, style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
+                  ]),
+                ),
+              ]),
+            ),
           ),
         ),
       ),

@@ -85,14 +85,14 @@ class ApiClient {
     return u;
   }
 
-  Future<dynamic> get(String path, {Map<String, dynamic>? query}) => _send('GET', path, query: query);
-
   /// [headers] travel with this call only, for example an `Idempotency-Key`.
+  Future<dynamic> get(String path, {Map<String, dynamic>? query, Map<String, String>? headers}) => _send('GET', path, query: query, headers: headers);
+
   Future<dynamic> post(String path, {Object? body, Map<String, String>? headers}) => _send('POST', path, body: body, headers: headers);
 
   Future<dynamic> put(String path, {Object? body}) => _send('PUT', path, body: body);
 
-  Future<dynamic> delete(String path) => _send('DELETE', path);
+  Future<dynamic> delete(String path, {Map<String, String>? headers}) => _send('DELETE', path, headers: headers);
 
   /// Downloads a binary answer (PDF and the like) with the same token, refresh and error handling as [get].
   Future<ApiFile> getBytes(String path, {Map<String, dynamic>? query}) async =>
@@ -100,7 +100,7 @@ class ApiClient {
 
   /// A POST whose answer is read as it arrives (server-sent events), with the same token and refresh as [post]. A failure before the
   /// first byte comes as the normal JSON envelope and throws [ApiException]. Cancelling [cancelToken] closes the connection.
-  Future<Stream<List<int>>> postStream(String path, {Object? body, CancelToken? cancelToken, bool retry = true}) async {
+  Future<Stream<List<int>>> postStream(String path, {Object? body, CancelToken? cancelToken, bool retry = true, Map<String, String>? headers}) async {
     try {
       final res = await _dio.request<ResponseBody>(
         path,
@@ -110,7 +110,7 @@ class ApiClient {
           method: 'POST',
           responseType: ResponseType.stream,
           receiveTimeout: const Duration(minutes: 2), // the longest silence allowed; the server sends a keep-alive every 15 seconds
-          headers: {clientHeader: clientName, if (accessToken != null) 'Authorization': 'Bearer $accessToken'},
+          headers: {clientHeader: clientName, if (accessToken != null) 'Authorization': 'Bearer $accessToken', ...?headers},
         ),
       );
       await _captureCookie(res);
@@ -119,7 +119,7 @@ class ApiClient {
       if (status >= 200 && status < 300) return bytes;
       final text = await const Utf8Decoder(allowMalformed: true).bind(bytes).join();
       if (status == 401 && retry) {
-        if (await refresh() != null) return await postStream(path, body: body, cancelToken: cancelToken, retry: false);
+        if (await refresh() != null) return await postStream(path, body: body, cancelToken: cancelToken, retry: false, headers: headers);
         onSessionExpired?.call();
       }
       dynamic parsed;

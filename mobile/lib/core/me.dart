@@ -28,6 +28,7 @@ class Me {
     required this.permissions,
     required this.legalEntities,
     required this.modules,
+    this.allLegalEntities = false,
   });
 
   final String fullName;
@@ -36,6 +37,9 @@ class Me {
   final String countryCode;
   final Set<String> permissions;
   final List<LegalEntity> legalEntities;
+
+  /// Not limited to some legal entities, so "All legal entities" is a choice for this person.
+  final bool allLegalEntities;
 
   /// Keys of the enabled modules, for example "sales", "pos".
   final Set<String> modules;
@@ -59,6 +63,7 @@ class Me {
       permissions: {for (final p in (json['permissions'] as List<dynamic>? ?? const [])) p.toString()},
       legalEntities: [for (final e in (json['legalEntities'] as List<dynamic>? ?? const [])) LegalEntity.fromJson(e as Map<String, dynamic>)],
       modules: {for (final m in (json['enabledModules'] as List<dynamic>? ?? const [])) (m as Map<String, dynamic>)['key'].toString()},
+      allLegalEntities: json['allLegalEntities'] == true,
     );
   }
 

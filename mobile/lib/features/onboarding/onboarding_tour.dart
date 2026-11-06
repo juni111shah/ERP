@@ -113,7 +113,7 @@ class OnboardingStrings {
   );
 
   /// Arabic when the app locale is Arabic or the surrounding text direction is RTL, else English.
-  /// (At 5595eb3 MaterialApp has no supportedLocales, so the locale alone is always English;
+  /// (Outside the assistant the app keeps its locale English for now, see `appLanguageBuilder`;
   /// the RTL check lets an RTL build pick Arabic too.)
   static OnboardingStrings of(BuildContext context) {
     final locale = Localizations.maybeLocaleOf(context);

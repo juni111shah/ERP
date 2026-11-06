@@ -10,7 +10,7 @@ class AssistantActionLine {
 
 /// Built by the server from what would really happen, never from the model's words.
 class AssistantActionCard {
-  const AssistantActionCard({required this.id, required this.title, required this.lines, required this.status, this.message, this.link, this.createdAt = ''});
+  const AssistantActionCard({required this.id, required this.title, required this.lines, required this.status, this.message, this.link, this.createdAt = '', this.expiresAt});
 
   final String id;
   final String title;
@@ -21,6 +21,20 @@ class AssistantActionCard {
   final String? message;
   final String? link;
   final String createdAt;
+
+  /// When the server stops accepting Confirm, if it says. The server still decides; this only saves a tap that could not work.
+  final DateTime? expiresAt;
+
+  bool isPastExpiry(DateTime now) => expiresAt != null && now.isAfter(expiresAt!);
+
+  static final _hasZone = RegExp(r'(Z|[+-]\d{2}(:?\d{2})?)$', caseSensitive: false);
+
+  /// The server's times are UTC, even when the text does not say so.
+  static DateTime? _instant(Object? raw) {
+    if (raw is! String) return null;
+    final text = raw.trim();
+    return DateTime.tryParse(_hasZone.hasMatch(text) ? text : '${text}Z');
+  }
 
   factory AssistantActionCard.fromJson(Map<String, dynamic> json) {
     final lines = json['lines'];
@@ -36,6 +50,7 @@ class AssistantActionCard {
       message: json['message']?.toString(),
       link: json['link']?.toString(),
       createdAt: (json['createdAt'] ?? '').toString(),
+      expiresAt: _instant(json['expiresAt']),
     );
   }
 }

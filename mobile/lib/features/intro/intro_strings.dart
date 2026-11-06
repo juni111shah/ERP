@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 /// Copy for the first-open intro tour, in English and Arabic. Arabic is picked by an `ar` locale or a right-to-left
-/// direction (the app declares no supported locales yet). Value-led copy: outcomes, no figures or claims we can't back.
+/// direction (outside the assistant the app keeps its locale English for now, see `appLanguageBuilder`). Value-led copy: outcomes, no figures or claims we can't back.
 class IntroStrings {
   const IntroStrings._({
     required this.eyebrows,

@@ -123,8 +123,8 @@ class _FixedPending extends PendingWorkspaceController {
   PendingWorkspaceSelection? build() => value;
 }
 
-/// The app's theme around [child], in [direction]. RTL is forced with a Directionality because the app ships no
-/// flutter_localizations (no new packages allowed), which is what a real `ar` locale would add.
+/// The app's theme around [child], in [direction]. RTL is forced with a Directionality because the app itself stays left to right
+/// outside the assistant (see `appLanguageBuilder`).
 Widget fakeHost(Widget child, {TextDirection direction = TextDirection.ltr, List<Override>? overrides}) => ProviderScope(
       overrides: overrides ?? fakeOverrides(),
       child: MaterialApp(
