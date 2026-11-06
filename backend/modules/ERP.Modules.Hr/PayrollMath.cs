@@ -31,10 +31,10 @@ public static class PayrollMath
         return to < from ? 0 : to.DayNumber - from.DayNumber + 1;
     }
 
-    /// <summary>Earnings and net of a line whose parts are already fixed, after changing only the manual adjustment.</summary>
-    public static (decimal Gross, decimal Net) WithAdjustment(decimal basic, decimal allowances, decimal overtime, decimal absence, decimal adjustment, decimal deductions)
+    /// <summary>Earnings and net of a line whose parts are already fixed, after changing only the manual adjustment. Terminal pay is the leave encashment and end of service of a final settlement.</summary>
+    public static (decimal Gross, decimal Net) WithAdjustment(decimal basic, decimal allowances, decimal overtime, decimal absence, decimal adjustment, decimal deductions, decimal terminalPay = 0m)
     {
-        var earnings = basic + allowances - absence + overtime + adjustment;
+        var earnings = basic + allowances - absence + overtime + adjustment + terminalPay;
         return (earnings, earnings - deductions);
     }
 
