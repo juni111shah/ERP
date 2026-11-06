@@ -22,7 +22,7 @@ A **generic, multi-tenant, multi-industry ERP**. The core (organizations/workspa
 
 | Layer | Technology |
 |---|---|
-| Backend | .NET 8 (SDK pinned in `backend/global.json`: 8.0.100, rollForward latestFeature), ASP.NET Core **minimal APIs**, **MediatR** CQRS + FluentValidation, **EF Core 8**, Serilog, SignalR |
+| Backend | .NET 8 (SDK pinned in the root `global.json`: 8.0.100, rollForward latestFeature; `LangVersion` pinned to 12 in `backend/Directory.Build.props`), ASP.NET Core **minimal APIs**, **MediatR** CQRS + FluentValidation, **EF Core 8**, Serilog, SignalR |
 | Database | **SQL Server only** (never SQLite/Postgres/MySQL for the app). Dev DB `ERP_Dev` on Muhammad's local SQL Server (Windows auth) |
 | Architecture | Clean architecture: `ERP.Domain` -> `ERP.Application` -> `ERP.Infrastructure` -> `ERP.Api`; `ERP.Modularity` holds `IModule` + registry |
 | API | Every endpoint returns the `ApiResponse<T>` envelope `{ success, statusCode, message, data, errors, traceId }` (RFC 7807 compatible errors). Core routes `/api/v1/...`; module routes `/api/v1/m/{moduleKey}/...` |
@@ -32,7 +32,7 @@ A **generic, multi-tenant, multi-industry ERP**. The core (organizations/workspa
 
 ```
 backend/
-  ERP.sln, Directory.Build.props, Directory.Packages.props, global.json
+  ERP.sln, Directory.Build.props, Directory.Packages.props
   src/ERP.Domain            entities, enums, domain rules (no dependencies)
   src/ERP.Application       MediatR commands/queries + handlers, validators, abstractions
                             (areas: Auth, Catalog, Common, Customization, Dashboard, Finance, Imports,

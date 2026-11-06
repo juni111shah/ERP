@@ -8,6 +8,7 @@ Industries (real estate, retail, inventory, HR, manufacturing...) plug in as **m
 
 ## Stack
 - Backend: ASP.NET Core 8, Clean Architecture: `ERP.Domain` -> `ERP.Application` (MediatR CQRS + FluentValidation) -> `ERP.Infrastructure` (EF Core, SQL Server) -> `ERP.Api`. `ERP.Modularity` holds the `IModule` contract and registry.
+- Toolchain: the root `global.json` pins SDK 8 and `backend/Directory.Build.props` pins `LangVersion` to 12. Do not set it to `latest`: C# 14 breaks `array.Contains(x)` in EF Core 8 queries at runtime.
 - Frontend: Angular 19 + ng-zorro-antd 19.3.1, theme CSS variables `--erp-*`.
 - Realtime: SignalR. Logging: Serilog.
 

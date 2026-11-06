@@ -3,7 +3,10 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>latest</LangVersion>
+    <!-- C# 12 is the version net8.0 ships with. Keep it pinned, not "latest": under a newer SDK, C# 14 binds
+         array.Contains(x) in EF queries to MemoryExtensions.Contains(ReadOnlySpan<T>), which EF Core 8 cannot
+         evaluate, so those queries return HTTP 500 at runtime. Raise it only together with the TFM and EF Core. -->
+    <LangVersion>12</LangVersion>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
