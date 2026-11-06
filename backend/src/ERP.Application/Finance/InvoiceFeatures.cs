@@ -100,7 +100,7 @@ public sealed class ApplyCreditNoteValidator : AbstractValidator<ApplyCreditNote
 
 internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository<InvoiceLine> lineRows, IInvoicingService invoicing, IClock clock,
     IRepository<AuditEvent> audit, ICurrentUser user, IRepository<CreditApplication> creditApplications, IPublisher publisher,
-    IReadRepository<ERP.Domain.Organizations.LegalEntity> legalEntities, IReadRepository<ERP.Domain.Parties.Party> parties, ERP.Application.Templates.CountryPackRegistry countryPacks, IUnitOfWork uow) :
+    IReadRepository<ERP.Domain.Organizations.LegalEntity> legalEntities, IReadRepository<ERP.Domain.Parties.Party> parties, ERP.Application.Templates.CountryPackRegistry countryPacks, IUnitOfWork uow, ICreditLimitService creditLimits) :
     IRequestHandler<GetInvoice, InvoiceDto>,
     IRequestHandler<CreateInvoice, InvoiceDto>,
     IRequestHandler<UpdateInvoice, InvoiceDto>,
@@ -158,9 +158,11 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
     {
         var invoice = await LoadAsync(cmd.Id, ct);
         await EnsureWithinUncreditedAsync(invoice, ct);
+        var creditWarning = !invoice.IsCreditNote && invoice.Status == DocumentStatus.Draft ? await creditLimits.CheckAsync(invoice.PartyId, invoice.LegalEntityId, invoice.Total, ct) : null;
         await invoicing.IssueAsync(invoice, ct);
         await invoices.SaveChangesAsync(ct);
-        return InvoiceDto.From(invoice) with { Warnings = await RequirementWarningsAsync(invoice, ct) };
+        var warnings = await RequirementWarningsAsync(invoice, ct);
+        return InvoiceDto.From(invoice) with { Warnings = creditWarning is null ? warnings : [creditWarning, .. warnings] };
     }
 
     /// <summary>What the country pack expects on a tax invoice and is missing; informational only.</summary>

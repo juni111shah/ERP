@@ -98,7 +98,8 @@ public sealed record OrderDto(
     Guid? InvoicedInvoiceId,
     IReadOnlyList<OrderLineDto> Lines,
     JsonObject CustomFields,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    IReadOnlyList<string>? Warnings = null);
 
 public sealed record OrderFulfillmentLineInput(Guid LineId, decimal DeliveredQuantity);
 
@@ -157,7 +158,8 @@ internal sealed class OrderHandlers(
     ICustomFieldService fields,
     IStockPostingService stockPosting,
     IReadRepository<TaxCode> taxCodes,
-    IUnitOfWork uow) :
+    IUnitOfWork uow,
+    ICreditLimitService creditLimits) :
     IRequestHandler<GetOrder, OrderDto>,
     IRequestHandler<CreateOrder, OrderDto>,
     IRequestHandler<UpdateOrder, OrderDto>,
@@ -264,10 +266,21 @@ internal sealed class OrderHandlers(
         SalesTransitions.Order.Ensure(order.Status, cmd.Status, isSystem: false);
         if (cmd.Status == SalesOrderStatus.Cancelled && order.Lines.Any(l => l.DeliveredQuantity > 0))
             throw new ConflictException("This sales order has delivered goods: stock has left and its cost is posted, so it cannot be cancelled. Record a sales return first.");
+        var warning = cmd.Status == SalesOrderStatus.Confirmed ? await CheckCreditAsync(order, orders, creditLimits, ct) : null;
 
         order.Status = cmd.Status;
         await orders.SaveChangesAsync(ct);
-        return await ToDtoAsync(order, fields, ct);
+        return await ToDtoAsync(order, fields, ct) with { Warnings = warning is null ? null : [warning] };
+    }
+
+    /// <summary>A confirmed order counts toward the customer's credit together with their other confirmed orders not invoiced yet.</summary>
+    public static async Task<string?> CheckCreditAsync(SalesOrder order, IReadRepository<SalesOrder> orders, ICreditLimitService creditLimits, CancellationToken ct)
+    {
+        if (order.CustomerPartyId is not { } party) return null;
+        var open = await orders.Query(new Specification<SalesOrder>(o => o.CustomerPartyId == party && o.LegalEntityId == order.LegalEntityId && o.Id != order.Id
+                && (o.Status == SalesOrderStatus.Confirmed || o.Status == SalesOrderStatus.Processing || o.Status == SalesOrderStatus.Delivered)))
+            .Select(o => o.TotalAmount).ToListAsync(ct);
+        return await creditLimits.CheckAsync(party, order.LegalEntityId, order.TotalAmount + open.Sum(), ct);
     }
 
     // Stock issues, status and totals commit together: a failure part-way leaves no half-fulfilled order.
