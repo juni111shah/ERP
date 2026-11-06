@@ -80,6 +80,8 @@ internal static class PosEndpoints
             var created = await s.Send(cmd, ct);
             return Results.Created($"{Base}/orders/{created.Id}", created);
         }).RequirePermission(Permissions.OrdersCreate);
+        orders.MapPost("/quote", (QuotePosOrderQuery query, ISender s, CancellationToken ct) =>
+            s.Send(query, ct)).RequirePermission(Permissions.OrdersCreate);
         orders.MapPost("/{id:guid}/void", (Guid id, VoidOrderBody b, ISender s, CancellationToken ct) =>
             s.Send(new VoidPosOrderCommand(id, b.Reason), ct)).RequirePermission(Permissions.OrdersVoid);
         orders.MapPost("/park", async (ParkPosOrderCommand cmd, ISender s, CancellationToken ct) =>

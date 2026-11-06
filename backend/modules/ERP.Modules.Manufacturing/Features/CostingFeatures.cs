@@ -36,7 +36,8 @@ public record ProductCostVarianceDto(
     decimal VariancePercentage,
     int CompletedWorkOrdersCount);
 
-public record CalculateProductCostingRollupQuery(Guid BomId) : IQuery<ProductCostRollupDto?>;
+/// <summary>WarehouseId says whose average to read for lines with no typed cost; without it the stock service uses the workspace's first active warehouse.</summary>
+public record CalculateProductCostingRollupQuery(Guid BomId, Guid? WarehouseId = null) : IQuery<ProductCostRollupDto?>;
 
 public record GetProductCostVarianceQuery(Guid LegalEntityId, Guid ItemId) : IQuery<ProductCostVarianceDto?>;
 
@@ -46,11 +47,14 @@ public class CostingHandlers :
 {
     private readonly IRepository<BillOfMaterials> _boms;
     private readonly IRepository<WorkOrder> _workOrders;
+    private readonly IStockPostingService _stock;
 
     public CostingHandlers(
         IRepository<BillOfMaterials> boms,
-        IRepository<WorkOrder> workOrders)
+        IRepository<WorkOrder> workOrders,
+        IStockPostingService stock)
     {
+        _stock = stock;
         _boms = boms;
         _workOrders = workOrders;
     }
@@ -63,20 +67,21 @@ public class CostingHandlers :
 
         if (bom == null) return null;
 
-        var totalMaterial = bom.Components.Sum(c => c.QuantityRequired * c.UnitCost * (1 + (c.ScrapPercentage / 100m)));
+        var costs = await BomStructure.CurrentCostsAsync(bom.Components, _stock, request.WarehouseId, cancellationToken);
+        var totalMaterial = BomStructure.MaterialCost(bom.Components, costs);
         var totalCost = totalMaterial + (bom.LaborCostPerUnit * bom.OutputQuantity) + (bom.OverheadCostPerUnit * bom.OutputQuantity);
         var unitCost = bom.OutputQuantity > 0 ? Math.Round(totalCost / bom.OutputQuantity, 2) : 0;
 
         var breakdown = bom.Components.Select(c =>
         {
-            var lineCost = Math.Round(c.QuantityRequired * c.UnitCost * (1 + (c.ScrapPercentage / 100m)), 2);
+            var lineCost = Math.Round(c.QuantityRequired * costs[c.Id] * (1 + (c.ScrapPercentage / 100m)), 2);
             var share = totalMaterial > 0 ? Math.Round((lineCost / totalMaterial) * 100, 1) : 0;
             return new CostComponentBreakdownDto(
                 c.ComponentItemId,
                 c.ComponentItemCode,
                 c.ComponentItemName,
                 c.QuantityRequired,
-                c.UnitCost,
+                costs[c.Id],
                 lineCost,
                 share);
         }).ToList();
@@ -112,7 +117,8 @@ public class CostingHandlers :
         decimal standardUnitCost = 0;
         if (activeBom != null)
         {
-            var mat = activeBom.Components.Sum(c => c.QuantityRequired * c.UnitCost * (1 + (c.ScrapPercentage / 100m)));
+            var costs = await BomStructure.CurrentCostsAsync(activeBom.Components, _stock, null, cancellationToken);
+            var mat = BomStructure.MaterialCost(activeBom.Components, costs);
             standardUnitCost = activeBom.OutputQuantity > 0
                 ? Math.Round((mat / activeBom.OutputQuantity) + activeBom.LaborCostPerUnit + activeBom.OverheadCostPerUnit, 2)
                 : 0;

@@ -183,6 +183,14 @@ public class PosOrder : LegalEntityScopedEntity, IHasCustomFields
 
     public string? InvoiceNumber { get; set; }
 
+    /// <summary>The discount code used on this sale, and the id of what it redeemed so a void can give the use back.</summary>
+    public string? PromoCode { get; set; }
+
+    public Guid? PromotionId { get; set; }
+
+    /// <summary>What the code took off, before tax. Already inside DiscountTotal.</summary>
+    public decimal PromoDiscount { get; set; }
+
     [Filterable]
     public PosOrderStatus Status { get; set; } = PosOrderStatus.Completed;
 
@@ -218,6 +226,9 @@ public class PosOrderLine : OrgEntity
     public decimal UnitPrice { get; set; }
 
     public decimal DiscountPercent { get; set; }
+
+    /// <summary>This line's share of an order-level discount code, as an amount before tax.</summary>
+    public decimal PromoDiscount { get; set; }
 
     public decimal TaxRate { get; set; }
 

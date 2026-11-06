@@ -186,6 +186,18 @@ public class ReturnHandlers(
 
         // Money only goes back the way it came: nobody collects cash for goods they still owe for.
         var priorRefunds = await returns.Query(new Specification<PosReturn>(r => r.OriginalOrderId == order.Id)).SelectMany(r => r.Refunds).Select(f => new { f.Method, f.Amount }).ToListAsync(token);
+
+        // Each tender gives back only what it took, so a card sale cannot walk out as cash, unless someone with the right says otherwise.
+        if (!user.HasPermission(Permissions.OrdersRefundOverride))
+        {
+            foreach (var tender in request.Refunds.Where(r => r.Method != PosPaymentMethod.Account).GroupBy(r => r.Method))
+            {
+                var taken = order.Payments.Where(p => p.Method == tender.Key).Sum(p => p.Amount) - priorRefunds.Where(f => f.Method == tender.Key).Sum(f => f.Amount);
+                if (tender.Sum(r => r.Amount) > taken)
+                    throw new ForbiddenException($"This sale has {taken:N2} left to refund by {tender.Key}. Refunding another way needs the refund override permission.");
+            }
+        }
+
         var paid = order.Payments.Where(p => p.Method != PosPaymentMethod.Account).Sum(p => p.Amount);
         var paidLeft = paid - priorRefunds.Where(f => f.Method != PosPaymentMethod.Account).Sum(f => f.Amount);
         var moneyBack = refunded - toAccount;
@@ -276,8 +288,16 @@ public class ReturnHandlers(
         returns.Add(ret);
         await returns.SaveChangesAsync(token);
 
-        foreach (var l in lines.Where(l => l.Restock && l.ItemId.HasValue))
-            await stock.ReturnIssuedStockAsync(order.Number, l.ItemId!.Value, l.Quantity, ret.Number, today, token);
+        foreach (var l in lines.Where(l => l.ItemId.HasValue))
+        {
+            var back = await stock.ReturnIssuedStockAsync(order.Number, l.ItemId!.Value, l.Quantity, ret.Number, today, token);
+            if (l.Restock || back is null) continue;
+
+            // Damaged goods: the cost of sales comes back with the sale, then the goods leave stock again as a write-off, so the loss shows as what it is.
+            var soldFrom = order.RegisterId == register.Id ? register : await registers.FindAsync(order.RegisterId, token);
+            await stock.IssueStockAsync(new StockIssueRequest(ret.LegalEntityId, l.ItemId.Value, l.Quantity, today, ret.Number,
+                $"Written off, not fit to resell: {ret.Number} ({l.ItemCode})", soldFrom?.WarehouseId, await accounts.StockWriteOffAsync(token)), token);
+        }
 
         return Map(ret);
     }, cancellationToken);

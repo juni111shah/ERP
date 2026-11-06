@@ -35,6 +35,7 @@ public sealed class PosModule : ModuleBase
         PermissionDefinition.Of(Pos.Permissions.OrdersRefund, "Take customer returns and give refunds"),
         PermissionDefinition.Of(Pos.Permissions.OrdersDiscountOverride, "Give discounts above the cashier limit"),
         PermissionDefinition.Of(Pos.Permissions.OrdersOnAccount, "Sell on a customer's account"),
+        PermissionDefinition.Of(Pos.Permissions.OrdersRefundOverride, "Refund a sale by a different tender than it was paid with"),
     ];
 
     public override IEnumerable<MenuItemDefinition> Menu =>
@@ -73,7 +74,7 @@ public sealed class PosModule : ModuleBase
                 new("POS Store Manager", "Register management, shift audit, voiding and returns",
                     [Pos.Permissions.RegistersRead, Pos.Permissions.RegistersManage, Pos.Permissions.SessionsRead, Pos.Permissions.SessionsManage,
                      Pos.Permissions.OrdersRead, Pos.Permissions.OrdersCreate, Pos.Permissions.OrdersVoid, Pos.Permissions.AnalyticsRead,
-                     Pos.Permissions.OrdersOverridePrice, Pos.Permissions.OrdersRefund, Pos.Permissions.OrdersDiscountOverride, Pos.Permissions.OrdersOnAccount], Key),
+                     Pos.Permissions.OrdersOverridePrice, Pos.Permissions.OrdersRefund, Pos.Permissions.OrdersDiscountOverride, Pos.Permissions.OrdersOnAccount, Pos.Permissions.OrdersRefundOverride], Key),
             ],
             Sequences:
             [
@@ -143,6 +144,8 @@ public sealed class PosModule : ModuleBase
             b.Property(x => x.TotalAmount).HasPrecision(19, 4);
             b.Property(x => x.ReturnedTotal).HasPrecision(19, 4);
             b.Property(x => x.InvoiceNumber).HasMaxLength(40);
+            b.Property(x => x.PromoCode).HasMaxLength(50);
+            b.Property(x => x.PromoDiscount).HasPrecision(19, 4);
             b.Property(x => x.Notes).HasMaxLength(1000);
             b.HasIndex(x => new { x.OrgId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
             b.HasIndex(x => new { x.OrgId, x.SessionId });
@@ -160,6 +163,7 @@ public sealed class PosModule : ModuleBase
             b.Property(x => x.ReturnedAmount).HasPrecision(19, 4);
             b.Property(x => x.UnitPrice).HasPrecision(19, 4);
             b.Property(x => x.DiscountPercent).HasPrecision(5, 2);
+            b.Property(x => x.PromoDiscount).HasPrecision(19, 4);
             b.Property(x => x.TaxRate).HasPrecision(5, 2);
             b.Property(x => x.LineTotal).HasPrecision(19, 4);
             b.HasIndex(x => new { x.OrgId, x.PosOrderId });

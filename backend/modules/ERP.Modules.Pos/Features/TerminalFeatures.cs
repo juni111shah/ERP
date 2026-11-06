@@ -50,7 +50,8 @@ public class TerminalHandlers(
     IReadRepository<TaxCode> taxCodes,
     IReadRepository<Party> parties,
     IStockPostingService stock,
-    ISettingsService settings) :
+    ISettingsService settings,
+    IEnumerable<IPriceResolver> priceResolvers) :
     IRequestHandler<GetPosTerminalQuery, PosTerminalDto>,
     IRequestHandler<GetPosCatalogQuery, PosCatalogPageDto>,
     IRequestHandler<GetPosCustomersQuery, List<PosCustomerDto>>,
@@ -97,11 +98,16 @@ public class TerminalHandlers(
             : await taxCodes.Query(new Specification<TaxCode>(t => taxIds.Contains(t.Id))).Select(t => new { t.Id, t.Rate }).ToDictionaryAsync(t => t.Id, t => t.Rate, ct);
 
         var onHand = (IReadOnlyDictionary<Guid, decimal>)new Dictionary<Guid, decimal>();
+        var prices = (IReadOnlyDictionary<Guid, decimal>)new Dictionary<Guid, decimal>();
         if (request.RegisterId is { } registerId && await registers.FindAsync(registerId, ct) is { } register)
+        {
             onHand = await stock.GetOnHandAsync(rows.Select(i => i.Id).ToList(), register.WarehouseId, register.LegalEntityId, ct);
+            if (priceResolvers.FirstOrDefault() is { } resolver) // for one unit; quantity breaks and customer prices come from /orders/quote
+                prices = await resolver.GetPricesAsync(new PriceQuery(register.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), null, rows.ToDictionary(i => i.Id, _ => 1m)), ct);
+        }
 
         return new PosCatalogPageDto(rows.Select(i => new PosCatalogItemDto(
-            i.Id, i.Sku, i.Barcode, i.Name, i.Uom, i.Type, i.SalesPrice,
+            i.Id, i.Sku, i.Barcode, i.Name, i.Uom, i.Type, prices.TryGetValue(i.Id, out var listed) ? listed : i.SalesPrice,
             i.TaxCodeId is { } t && rates.TryGetValue(t, out var rate) ? rate : 0m,
             onHand.TryGetValue(i.Id, out var q) ? q : null)).ToList(), total);
     }

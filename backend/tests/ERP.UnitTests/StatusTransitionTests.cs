@@ -214,6 +214,11 @@ public class StatusTransitionTests
 
         var exWo = Assert.Throws<ConflictException>(() =>
             wo.Ensure(WorkOrderStatus.Completed, WorkOrderStatus.InProgress));
-        Assert.Contains("Allowed transitions from 'Completed': none", exWo.Message);
+        Assert.Contains("Allowed transitions from 'Completed': Reversed", exWo.Message);
+
+        wo.Ensure(WorkOrderStatus.Completed, WorkOrderStatus.Reversed);
+        var exReversed = Assert.Throws<ConflictException>(() =>
+            wo.Ensure(WorkOrderStatus.Reversed, WorkOrderStatus.Completed));
+        Assert.Contains("Allowed transitions from 'Reversed': none", exReversed.Message);
     }
 }
