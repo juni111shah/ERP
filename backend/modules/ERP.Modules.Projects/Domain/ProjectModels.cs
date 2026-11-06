@@ -77,8 +77,13 @@ public class Project : LegalEntityScopedEntity, IHasCustomFields
     [Filterable, Sortable]
     public ProjectBillingType BillingType { get; set; } = ProjectBillingType.TimeAndMaterials;
 
+    /// <summary>The cost budget (health, earned value). Until <see cref="ContractValue"/> is set it also stands in as the fixed fee, as it always has.</summary>
     [Sortable]
     public decimal BudgetAmount { get; set; }
+
+    /// <summary>What the customer pays (fee caps, percentage billing, margin). Empty means the budget amount is used.</summary>
+    [Sortable]
+    public decimal? ContractValue { get; set; }
 
     [Sortable]
     public DateOnly? StartDate { get; set; }

@@ -9,11 +9,12 @@ using Microsoft.EntityFrameworkCore;
 namespace ERP.Modules.Projects.Features;
 
 public sealed record ProfitabilityRow(Guid ProjectId, string Number, string Name, string? CustomerName, ProjectStatus Status, ProjectBillingType BillingType,
-    decimal Hours, decimal BillableHours, decimal Billed, decimal Unbilled, decimal LabourCost, decimal ExpenseCost, decimal Cost, decimal Margin, decimal MarginPercent);
+    decimal Hours, decimal BillableHours, decimal Billed, decimal Unbilled, decimal LabourCost, decimal ExpenseCost, decimal Cost, decimal Margin, decimal MarginPercent,
+    decimal ContractValue = 0m, decimal? ContractMargin = null, decimal? ContractMarginPercent = null);
 public sealed record UtilisationRow(string Person, Guid? UserId, decimal LoggedHours, decimal BillableHours, decimal CapacityHours, decimal AllocatedHours, decimal UtilisationPercent, decimal BillablePercent);
 public sealed record BudgetRow(Guid ProjectId, string Number, string Name, ProjectStatus Status, ProjectBillingType BillingType, decimal Budget, decimal ApprovedChanges, decimal Cost, decimal UsedPercent,
     decimal BudgetHours, decimal LoggedHours, decimal PercentComplete, decimal ForecastCost, decimal ForecastVariance, decimal EarnedRevenue, decimal Billed, decimal WorkInProgress, string Health,
-    decimal PlannedValue = 0m, decimal EarnedValue = 0m, decimal? CostIndex = null, decimal? ScheduleIndex = null);
+    decimal PlannedValue = 0m, decimal EarnedValue = 0m, decimal? CostIndex = null, decimal? ScheduleIndex = null, decimal ContractValue = 0m, decimal? ForecastMargin = null);
 public sealed record AgeingRow(Guid ProjectId, string Number, string Name, decimal Current, decimal Days31To60, decimal Days61To90, decimal Over90, decimal Total);
 public sealed record HoursRow(string Group, decimal Hours, decimal BillableHours, decimal Amount, decimal Cost);
 
@@ -44,6 +45,10 @@ public sealed class GetHoursReportValidator : AbstractValidator<GetHoursReport>
 public static class ReportMath
 {
     public static decimal Percent(decimal part, decimal whole) => whole == 0 ? 0m : Math.Round(part / whole * 100m, 1);
+
+    /// <summary>The agreed fee a margin is measured against: a fixed-fee project always has one (the budget stands in until a contract value is set); any other project only when a contract value was entered.</summary>
+    public static decimal ContractFee(Project p, IEnumerable<ProjectChangeOrder> changeOrders)
+        => p.BillingType == ProjectBillingType.FixedFee || p.ContractValue != null ? ProjectMath.Fee(p, changeOrders) : 0m;
 
     private static readonly DayOfWeek[] MondayToFriday = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday];
 
@@ -126,6 +131,8 @@ internal sealed class ReportHandlers(
         var ms = (await milestones.Query(new Specification<ProjectMilestone>(m => ids.Contains(m.ProjectId) && (m.Status == MilestoneStatus.Achieved || m.Status == MilestoneStatus.Invoiced))).ToListAsync(ct))
             .Where(m => (m.AchievedDate ?? m.DueDate) is var d && (q.From == null || d >= q.From) && (q.To == null || d <= q.To)).ToLookup(m => m.ProjectId);
         var pr = (await progress.Query(new Specification<ProjectProgressBilling>(x => ids.Contains(x.ProjectId) && !x.Released && (q.From == null || x.Date >= q.From) && (q.To == null || x.Date <= q.To))).ToListAsync(ct)).ToLookup(x => x.ProjectId);
+        var co = (await changeOrders.Query(new Specification<ProjectChangeOrder>(c => ids.Contains(c.ProjectId))).ToListAsync(ct)).ToLookup(c => c.ProjectId);
+        var wholeLife = q.From == null && q.To == null; // the contract is a whole-life figure: comparing it with one period's cost would mean nothing
         var rows = new List<ProfitabilityRow>();
         foreach (var p in list.OrderBy(p => p.Number))
         {
@@ -136,8 +143,10 @@ internal sealed class ReportHandlers(
                   + e.Where(x => x.IsBillable && !x.IsBilled && !x.WrittenOff).Sum(BillingLines.Charge) + ms[p.Id].Where(m => m.Status == MilestoneStatus.Achieved).Sum(m => m.Amount);
             var labour = t.Sum(x => x.CostAmount); var expenseCost = e.Sum(x => x.Amount);
             var cost = labour + expenseCost; var margin = billed + unbilled - cost;
+            var fee = ReportMath.ContractFee(p, co[p.Id]);
+            decimal? contractMargin = wholeLife && fee > 0 ? fee - cost : null;
             rows.Add(new ProfitabilityRow(p.Id, p.Number, p.Name, p.CustomerName, p.Status, p.BillingType, t.Sum(x => x.Hours), t.Where(x => x.IsBillable && !x.WrittenOff).Sum(x => x.Hours),
-                billed, unbilled, labour, expenseCost, cost, margin, ReportMath.Percent(margin, billed + unbilled)));
+                billed, unbilled, labour, expenseCost, cost, margin, ReportMath.Percent(margin, billed + unbilled), fee, contractMargin, contractMargin is { } cm ? ReportMath.Percent(cm, fee) : null));
         }
         return rows;
     }
@@ -186,7 +195,8 @@ internal sealed class ReportHandlers(
             var pct = ProjectMath.PercentComplete(tk[p.Id]);
             var billed = ts[p.Id].Where(x => x.IsBilled).Sum(x => x.TotalAmount) + ex[p.Id].Where(x => x.IsBilled).Sum(BillingLines.Charge) + ms[p.Id].Sum(m => m.Amount) + pr[p.Id].Sum(x => x.Amount);
             var forecast = ReportMath.Forecast(cost, pct);
-            var earned = p.BillingType == ProjectBillingType.FixedFee ? Math.Round(budget * pct / 100m, 2) : 0m;
+            var fee = ReportMath.ContractFee(p, co[p.Id]);
+            var earned = p.BillingType == ProjectBillingType.FixedFee ? Math.Round(fee * pct / 100m, 2) : 0m;
             var wip = p.BillingType == ProjectBillingType.FixedFee ? earned - billed : 0m;
             var tasksOpen = tk[p.Id].Where(t => t.Status is not (ProjectTaskStatus.Done or ProjectTaskStatus.Cancelled)).ToList();
             var overdue = tasksOpen.Count(t => t.DueDate is { } d && d < today);
@@ -196,7 +206,7 @@ internal sealed class ReportHandlers(
             var pv = share is { } planned ? Math.Round(budget * planned, 2) : 0m;
             rows.Add(new BudgetRow(p.Id, p.Number, p.Name, p.Status, p.BillingType, budget, budget - p.BudgetAmount, cost, ReportMath.Percent(cost, budget), hoursBudget, logged, pct, forecast,
                 budget > 0 ? budget - forecast : 0m, earned, billed, wip, ProjectMath.Health(p, budget, cost, overdue, tasksOpen.Count, today),
-                pv, ev, cost > 0 && budget > 0 ? Math.Round(ev / cost, 2) : null, pv > 0 ? Math.Round(ev / pv, 2) : null));
+                pv, ev, cost > 0 && budget > 0 ? Math.Round(ev / cost, 2) : null, pv > 0 ? Math.Round(ev / pv, 2) : null, fee, fee > 0 ? fee - forecast : null));
         }
         return rows;
     }

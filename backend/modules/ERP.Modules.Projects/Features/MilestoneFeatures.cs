@@ -150,11 +150,11 @@ internal sealed class MilestoneHandlers(
         return date;
     }
 
-    /// <summary>On a fixed-fee project the milestones together cannot ask for more than the fee (budget plus approved change orders).</summary>
+    /// <summary>On a fixed-fee project the milestones together cannot ask for more than the fee (contract value, or the budget when none is set, plus approved change orders).</summary>
     private async Task EnsureWithinFeeAsync(Project p, Guid? exceptId, MilestoneInput i, CancellationToken ct)
     {
-        if (p.BillingType != ProjectBillingType.FixedFee || p.BudgetAmount <= 0 || i.Status == MilestoneStatus.Cancelled) return;
-        var fee = ProjectMath.EffectiveBudget(p.BudgetAmount, await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == p.Id)).ToListAsync(ct));
+        if (p.BillingType != ProjectBillingType.FixedFee || ProjectMath.ContractBase(p) <= 0 || i.Status == MilestoneStatus.Cancelled) return;
+        var fee = ProjectMath.Fee(p, await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == p.Id)).ToListAsync(ct));
         var others = await milestones.Query(new Specification<ProjectMilestone>(x => x.ProjectId == p.Id && x.Status != MilestoneStatus.Cancelled && (exceptId == null || x.Id != exceptId))).SumDecimalAsync(x => x.Amount, ct);
         if (others + i.Amount > fee) throw new FieldValidationException("amount", $"The milestones would add up to {others + i.Amount:N2}, more than the fixed fee of {fee:N2}.");
     }

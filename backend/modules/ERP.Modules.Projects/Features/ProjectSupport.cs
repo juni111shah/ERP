@@ -99,6 +99,12 @@ public static class ProjectMath
     public static decimal EffectiveBudget(decimal budget, IEnumerable<ProjectChangeOrder> changeOrders) =>
         budget + changeOrders.Where(c => c.Status == ChangeOrderStatus.Approved).Sum(c => c.AmountChange);
 
+    /// <summary>The contract fee before change orders: the contract value when set, otherwise the budget amount (projects created before the two were separated).</summary>
+    public static decimal ContractBase(Project p) => p.ContractValue ?? p.BudgetAmount;
+
+    /// <summary>The contract fee including approved change orders; what fee caps and percentage billing work from.</summary>
+    public static decimal Fee(Project p, IEnumerable<ProjectChangeOrder> changeOrders) => EffectiveBudget(ContractBase(p), changeOrders);
+
     public static decimal EffectiveBudgetHours(decimal hours, IEnumerable<ProjectChangeOrder> changeOrders) =>
         hours + changeOrders.Where(c => c.Status == ChangeOrderStatus.Approved).Sum(c => c.HoursChange);
 
@@ -149,6 +155,20 @@ internal static class ProjectWip
         var wip = await posting.AccountForRoleAsync(ERP.Application.Finance.SystemRoles.Wip, ct);
         return await posting.PostAsync(new ERP.Application.Finance.PostingRequest(p.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), "projects.cost.release", p.Id, memo, reference,
             [new ERP.Application.Finance.PostingLine(cogs, value, 0, memo), new ERP.Application.Finance.PostingLine(wip, 0, value, memo)]), ct);
+    }
+
+    /// <summary>A project that is completed or cancelled can earn nothing more against its cost: everything still in work in progress goes to cost of sales. Safe to call again: released entries are skipped.</summary>
+    public static async Task<ERP.Domain.Finance.JournalEntry?> ReleaseRemainingAsync(ERP.Application.Finance.IPostingService posting, IRepository<ProjectTimesheet> timesheets, IRepository<ProjectExpense> expenses, Project p, ProjectStatus closingAs, CancellationToken ct)
+    {
+        var id = p.Id;
+        var time = await timesheets.Tracked(new Specification<ProjectTimesheet>(t => t.ProjectId == id && t.CostJournalId != null && t.WipReleaseJournalId == null)).ToListAsync(ct);
+        var costs = await expenses.Tracked(new Specification<ProjectExpense>(e => e.ProjectId == id && e.CostJournalId != null && e.WipReleaseJournalId == null)).ToListAsync(ct);
+        var memo = $"Project {p.Number} {(closingAs == ProjectStatus.Cancelled ? "cancelled" : "completed")}, remaining work in progress to cost of sales";
+        var journal = await ReleaseAsync(posting, p, time.Sum(t => t.CostAmount) + costs.Sum(e => e.Amount), p.Number, memo, ct);
+        if (journal is null) return null;
+        foreach (var t in time) t.WipReleaseJournalId = journal.Id;
+        foreach (var e in costs) e.WipReleaseJournalId = journal.Id;
+        return journal;
     }
 }
 
