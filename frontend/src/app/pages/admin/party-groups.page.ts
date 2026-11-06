@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -51,7 +52,7 @@ export class PartyGroupsPage {
   remove(g: PartyGroupDto): void {
     this.modal.confirm({
       nzTitle: `Delete ${g.name}?`, nzContent: 'A group that parties still belong to cannot be deleted.', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.api.delete(g.id).subscribe({ next: () => { this.toast.success('Party group deleted'); this.list.reload(); }, error: (e) => this.toast.error(problemMessage(e, 'Could not delete the party group')) }),
+      nzOnOk: () => this.api.delete(g.id).subscribe({ next: () => { this.toast.success(doneText('deleted', 'Party group', g.name)); this.list.reload(); }, error: (e) => this.toast.error(problemMessage(e, 'Could not delete the party group')) }),
     });
   }
   readonly fields: FieldSpec[] = [

@@ -76,7 +76,7 @@ export class AccountSecurityPage {
   enable(): void {
     this.busy.set(true);
     this.http.post<{ recoveryCodes: string[] }>(`${this.base}/auth/2fa/enable`, { code: this.code }).subscribe({
-      next: (r) => { this.busy.set(false); this.recovery.set(r.recoveryCodes); this.secret.set(''); this.code = ''; this.enabled.set(true); this.message.success('Two-factor authentication is on'); },
+      next: (r) => { this.busy.set(false); this.recovery.set(r.recoveryCodes); this.secret.set(''); this.code = ''; this.enabled.set(true); this.message.success('Two-factor authentication is now on for your account'); },
       error: (e) => this.fail(e, 'The code is incorrect'),
     });
   }
@@ -84,7 +84,7 @@ export class AccountSecurityPage {
   disable(): void {
     this.busy.set(true);
     this.http.post(`${this.base}/auth/2fa/disable`, { password: this.password, code: this.code }).subscribe({
-      next: () => { this.busy.set(false); this.password = ''; this.code = ''; this.recovery.set([]); this.enabled.set(false); this.message.success('Two-factor authentication is off'); },
+      next: () => { this.busy.set(false); this.password = ''; this.code = ''; this.recovery.set([]); this.enabled.set(false); this.message.success('Two-factor authentication is now off for your account'); },
       error: (e) => this.fail(e, 'Could not turn it off'),
     });
   }

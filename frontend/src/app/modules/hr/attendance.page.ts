@@ -6,6 +6,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { asProblem } from '../../core/http/problem-details';
@@ -274,7 +275,7 @@ export class AttendancePage {
   save(r: AttendanceRow): void {
     this.saving.set(true);
     this.api.save(this.body(r)).subscribe({
-      next: (saved) => { this.saving.set(false); this.store(saved); this.message.success('Attendance saved'); },
+      next: (saved) => { this.saving.set(false); this.store(saved); this.message.success(`Attendance saved for ${r.employeeName}`); },
       error: (e) => this.fail(e),
     });
   }
@@ -283,7 +284,7 @@ export class AttendancePage {
     const rows = this.rows().filter((r) => this.dirty().has(r.employeeId));
     this.saving.set(true);
     forkJoin(rows.map((r) => this.api.save(this.body(r)))).subscribe({
-      next: (all) => { this.saving.set(false); all.forEach((saved) => this.store(saved)); this.message.success(`${all.length} row(s) saved`); },
+      next: (all) => { this.saving.set(false); all.forEach((saved) => this.store(saved)); this.message.success(`Attendance saved for ${all.length} employee(s)`); },
       error: (e) => this.fail(e),
     });
   }
@@ -294,7 +295,7 @@ export class AttendancePage {
     this.modal.confirm({
       nzTitle: `Clear the record of ${r.employeeName}?`, nzContent: 'The figures for this month are removed and the employee goes back to full attendance.', nzOkText: 'Clear', nzOkDanger: true,
       nzOnOk: () => new Promise<void>((resolve) => this.api.remove(id).subscribe({
-        next: () => { this.message.success('Back to full attendance'); this.reloadKeepingEdits(); resolve(); },
+        next: () => { this.message.success(`Attendance record cleared for ${r.employeeName}, back to full attendance`); this.reloadKeepingEdits(); resolve(); },
         error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not clear the record'); resolve(); },
       })),
     });

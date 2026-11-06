@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { ProblemDetails } from '../../core/api/api.models';
 import { createPagedList } from '../../core/api/paged-list';
@@ -145,7 +146,7 @@ export class WorkOrdersPage {
     this.moveSaving.set(true);
     const chargeableTo = (values['chargeableTo'] as string | null) ?? null;
     this.api.setCostBasis(w.id, { chargeableTo, ownerSharePercent: chargeableTo === 'shared' ? (values['ownerSharePercent'] as number | null) : null, billId: (values['billId'] as string | null) ?? null }).subscribe({
-      next: () => { this.moveSaving.set(false); this.costBasisFor.set(null); this.state.close(); this.message.success('Cost basis saved'); this.list.reload(); },
+      next: () => { this.moveSaving.set(false); this.costBasisFor.set(null); this.state.close(); this.message.success(`Cost basis saved for work order ${w.number ?? w.issue}`); this.list.reload(); },
       error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.moveErrors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not save the cost basis'); },
     });
   }
@@ -168,7 +169,7 @@ export class WorkOrdersPage {
   private changeStatus(w: WorkOrderDto, body: { status: string; actualCost?: number | null; resolutionNotes?: string | null }): void {
     this.moveSaving.set(true);
     this.api.changeStatus(w.id, body).subscribe({
-      next: () => { this.moveSaving.set(false); this.completing.set(null); this.state.close(); this.message.success('Work order updated'); this.list.reload(); },
+      next: () => { this.moveSaving.set(false); this.completing.set(null); this.state.close(); this.message.success(doneText('updated', 'Work order', w.number ?? w.issue)); this.list.reload(); },
       error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.moveErrors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not update the work order'); },
     });
   }

@@ -357,7 +357,7 @@ export class PurchaseOrderDetailPage {
     this.ordersApi.setStatus(o.id, status).subscribe({
       next: (updated) => {
         this.order.set(updated);
-        this.message.success(`Status changed to ${displayLabel(status).toLowerCase()}.`);
+        this.message.success(`${o.number} is now ${displayLabel(status).toLowerCase()}.`);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to update status')),
     });
@@ -417,7 +417,7 @@ export class PurchaseOrderDetailPage {
     this.receiptsApi.create(input).subscribe({
       next: () => {
         this.saving.set(false);
-        this.message.success('Goods receipt recorded.');
+        this.message.success(`Goods receipt recorded against ${o.number}.`);
         this.receiptModalVisible.set(false);
         this.loadOrder(o.id);
       },
@@ -433,7 +433,7 @@ export class PurchaseOrderDetailPage {
     if (!o) return;
     this.ordersApi.convertToBill(o.id).subscribe({
       next: () => {
-        this.message.success('Vendor Bill generated successfully in Accounting');
+        this.message.success(`Vendor bill created from order ${o.number}`);
         this.loadOrder(o.id);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to generate vendor bill')),

@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
@@ -128,7 +129,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
                 </a>
                 @if (row.status === 'draft' || row.status === 'cancelled') {
                   <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                          nz-popconfirm nzPopconfirmTitle="Delete this order?" (nzOnConfirm)="deleteOrder(row.id)">
+                          nz-popconfirm nzPopconfirmTitle="Delete this order?" (nzOnConfirm)="deleteOrder(row)">
                     Delete
                   </button>
                 }
@@ -580,7 +581,7 @@ export class OrdersListPage {
       next: (created) => {
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
-        this.message.success(`Sales Order ${created.number} created.`);
+        this.message.success(doneText('created', 'Sales order', created.number));
         this.list.reload();
         this.loadKpis();
         this.router.navigate(['/sales/orders', created.id]);
@@ -592,10 +593,10 @@ export class OrdersListPage {
     });
   }
 
-  deleteOrder(id: string): void {
-    this.ordersApi.delete(id).subscribe({
+  deleteOrder(row: { id: string; number?: string | null }): void {
+    this.ordersApi.delete(row.id).subscribe({
       next: () => {
-        this.message.success('Sales order deleted');
+        this.message.success(doneText('deleted', 'Sales order', row.number));
         this.list.reload();
         this.loadKpis();
       },

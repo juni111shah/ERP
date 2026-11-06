@@ -5,6 +5,7 @@ import { ApplicationConfig, LOCALE_ID, inject, provideAppInitializer, provideZon
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { en_US, provideNzI18n } from 'ng-zorro-antd/i18n';
+import { provideNzConfig } from 'ng-zorro-antd/core/config';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
 import { firstValueFrom } from 'rxjs';
 import { routes } from './app.routes';
@@ -36,6 +37,8 @@ export const appConfig: ApplicationConfig = {
     { provide: LOCALE_ID, useFactory: () => (inject(TenantThemeService).lang().toLowerCase().startsWith('ar') ? 'ar' : 'en-US') },
     provideNzI18n(en_US),
     provideNzIcons(APP_ICONS),
+    // A routine confirmation leaves on its own after 4 seconds. Anything that matters more uses a success panel that stays.
+    provideNzConfig({ message: { nzDuration: 4000, nzMaxStack: 3 } }),
     // Restore the session from the refresh cookie before the first navigation.
     provideAppInitializer(() => { inject(I18nService); return firstValueFrom(inject(AuthService).restore()); }),
   ],

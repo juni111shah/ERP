@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { askReason } from '../../shared/reason-prompt';
@@ -229,6 +230,7 @@ export class ReceiptsPage {
     const id = this.route.snapshot.queryParamMap.get('open');
     if (id) this.open({ id } as never);
     // `?partyId=&invoiceId=` (invoice detail's Record Payment) starts a new receipt for that customer, allocated to the invoice's balance.
+    if (this.route.snapshot.queryParamMap.get('new')) this.open(null);
     const partyId = this.route.snapshot.queryParamMap.get('partyId');
     if (!id && partyId) {
       this.open(null);
@@ -271,7 +273,7 @@ export class ReceiptsPage {
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.create({ ...v, date: toIsoDate(v.date!), reference: v.reference || null, allocations: this.allocations() }).subscribe({
-      next: (r) => this.done(`${this.i18n.t('ui.msg.recorded', 'Recorded')} ${(r as ReceiptDto).number}`),
+      next: (r) => { this.saving.set(false); this.drawerOpen.set(false); void this.router.navigate(['/finance/receipts', (r as ReceiptDto).id], { queryParams: { recorded: 1 } }); },
       error: (e) => this.fail(e),
     });
   }
@@ -281,7 +283,7 @@ export class ReceiptsPage {
     const allocations = this.allocations();
     if (!r || allocations.length === 0) { this.message.warning('Enter an amount against at least one invoice'); return; }
     this.saving.set(true);
-    this.api.allocate(r.id, allocations).subscribe({ next: () => this.done('Receipt allocated'), error: (e) => this.fail(e) });
+    this.api.allocate(r.id, allocations).subscribe({ next: () => this.done(doneText('updated', 'Receipt', r.number)), error: (e) => this.fail(e) });
   }
 
   voidDocument(): void {
@@ -289,7 +291,7 @@ export class ReceiptsPage {
     if (!r) return;
     // Same required-reason prompt as the detail page; the void endpoint takes no body, so the reason is not sent.
     void askReason(this.modal, 'Void this receipt?', 'Void Receipt', 'This reverses its journal and removes its allocations.').then((reason) => {
-      if (reason) this.api.void(r.id, reason).subscribe({ next: () => this.done('Receipt voided'), error: (e) => this.fail(e) });
+      if (reason) this.api.void(r.id, reason).subscribe({ next: () => this.done(doneText('voided', 'Receipt', r.number)), error: (e) => this.fail(e) });
     });
   }
 

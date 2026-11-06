@@ -372,7 +372,7 @@ export class AccountPanelsComponent {
 
   toggleActive(a: AccountNodeDto): void {
     this.store.setActive(a.id, !a.isActive).subscribe({
-      next: () => this.message.success(a.isActive ? this.i18n.t('coa.deactivated', 'Account deactivated') : this.i18n.t('coa.activated', 'Account activated')),
+      next: () => this.message.success(`${a.isActive ? this.i18n.t('coa.deactivated', 'Account deactivated') : this.i18n.t('coa.activated', 'Account activated')}: ${a.code} ${a.name}`),
       error: (e) => { this.message.error(problemMessage(e, this.i18n.t('coa.saveFailed', 'Could not update the account'))); },
     });
   }

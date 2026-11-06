@@ -64,6 +64,7 @@ nz-table:not([data-testid='paged-table']) .ant-table-tbody > tr.ant-table-row:ho
 
 // Plain text in a cell stays on one line and ends in an ellipsis; TableCellTipService shows the rest on hover. Numbers never shorten.
 .ant-table-tbody > tr.ant-table-row > td:not(:has(*)):not([style*='right']):not([style*='end']),
+erp-paged-table .ant-table-tbody > tr.ant-table-row > td:not(.erp-cell-actions):not([style*='right']):not([style*='end']),
 .erp-truncate {
   max-width: var(--erp-table-cell-max);
   overflow: hidden;

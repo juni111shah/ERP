@@ -102,7 +102,7 @@ export class ProjectTasksPage {
   updateStatus(t: TaskDto, status: ProjectTaskStatus): void {
     if (t.status === status) return;
     this.tasksApi.setStatus(t.id, status).subscribe({
-      next: () => { this.msg.success('Status updated'); this.list.reload(); },
+      next: () => { this.msg.success(`${t.number} is now ${String(status).replace(/_/g, ' ')}`); this.list.reload(); },
       error: (e) => { this.msg.error(errorText(e, 'That change is not allowed.')); this.list.reload(); },
     });
   }

@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
@@ -318,7 +319,7 @@ export class BillDetailPage implements OnInit {
     askReason(this.modal, 'Void this bill?', 'Void Bill', 'This cannot be undone. The bill will be marked as voided.').then((reason) => {
       if (!reason) return;
       this.api.void(bil.id, reason).subscribe({
-        next: (res) => { this.bill.set(res as unknown as Bill); this.message.success('Bill voided'); },
+        next: (res) => { this.bill.set(res as unknown as Bill); this.message.success(doneText('voided', 'Bill', bil.number)); },
         error: (err) => this.message.error(problemMessage(err, 'Failed to void bill', 'reason'))
       });
     });
@@ -344,7 +345,7 @@ export class BillDetailPage implements OnInit {
       nzOkText: 'Delete',
       nzOkDanger: true,
       nzOnOk: () => this.api.delete(bil.id).subscribe({
-        next: () => { this.message.success('Draft deleted'); this.router.navigate(['/finance/bills']); },
+        next: () => { this.message.success(doneText('deleted', 'Draft bill', bil.number)); this.router.navigate(['/finance/bills']); },
         error: (err) => this.message.error(err?.error?.detail || err?.error?.message || 'Failed to delete bill')
       })
     });

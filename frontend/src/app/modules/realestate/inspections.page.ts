@@ -8,6 +8,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { createPagedList } from '../../core/api/paged-list';
@@ -160,11 +161,11 @@ export class InspectionsPage {
     });
   }
 
-  save(): void { this.send(() => { this.message.success('Inspection saved'); this.list.reload(); }); }
+  save(): void { this.send(() => { this.message.success(doneText('saved', 'Inspection', this.propertyOptions().find((o) => o.value === this.propertyId)?.label)); this.list.reload(); }); }
 
   complete(): void {
     this.send((id) => this.api.complete(id, this.raise).subscribe({
-      next: () => { this.message.success('Inspection completed'); this.drawer.set(false); this.list.reload(); },
+      next: () => { this.message.success(doneText('completed', 'Inspection', this.propertyOptions().find((o) => o.value === this.propertyId)?.label)); this.drawer.set(false); this.list.reload(); },
       error: (e) => { const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not complete'); },
     }));
   }

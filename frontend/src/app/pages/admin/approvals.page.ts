@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -117,7 +118,7 @@ export class ApprovalsPage {
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.submitApproval({ subject: v.subject, justification: v.justification || null, amount: v.amount, legalEntityId: null }).subscribe({
-      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success('Approval requested'); this.load(); },
+      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(doneText('submitted', 'Approval request', v.subject)); this.load(); },
       error: (e) => {
         this.saving.set(false);
         const p = asProblem(e);
@@ -128,11 +129,11 @@ export class ApprovalsPage {
   }
 
   decide(a: ApprovalDto, approve: boolean): void {
-    this.api.decide(a.id, approve).subscribe({ next: () => { this.message.success(approve ? 'Approved' : 'Rejected'); this.load(); }, error: (e) => this.fail(e) });
+    this.api.decide(a.id, approve).subscribe({ next: () => { this.message.success(doneText(approve ? 'approved' : 'rejected', 'Approval request', a.subject)); this.load(); }, error: (e) => this.fail(e) });
   }
 
   withdraw(a: ApprovalDto): void {
-    this.api.withdraw(a.id).subscribe({ next: () => { this.message.success('Request withdrawn'); this.load(); }, error: (e) => this.fail(e) });
+    this.api.withdraw(a.id).subscribe({ next: () => { this.message.success(`Approval request ${a.subject} withdrawn`); this.load(); }, error: (e) => this.fail(e) });
   }
 
   private fail(e: unknown): void { this.message.error(problemMessage(e, 'Action failed')); }

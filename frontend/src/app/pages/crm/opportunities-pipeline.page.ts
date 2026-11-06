@@ -573,7 +573,7 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
       notes: v.notes
     }).subscribe({
       next: () => {
-        this.message.success('Deal added to the pipeline.');
+        this.message.success(`Deal ${v.title} added to the pipeline.`);
         this.createVisible.set(false);
         this.isSubmitting.set(false);
         this.reloadAll();
@@ -595,7 +595,7 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
 
     this.api.closeDeal(opp.id, v.isWon, v.isWon ? v.actualRevenue : 0, v.closeReason).subscribe({
       next: () => {
-        this.message.success(v.isWon ? 'Deal closed as won.' : 'Deal closed as lost.');
+        this.message.success(`${opp.opportunityNumber} closed as ${v.isWon ? 'won' : 'lost'}.`);
         this.closeModalVisible.set(false);
         this.isClosing.set(false);
         this.reloadAll();

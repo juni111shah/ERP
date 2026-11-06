@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -179,7 +180,7 @@ export class BudgetsPage {
     this.saving.set(true);
     const id = this.id();
     (id ? this.api.update(id, body) : this.api.create(body)).subscribe({
-      next: (b) => { this.saving.set(false); this.message.success('Budget saved'); this.id.set((b as unknown as BudgetDetail).id); },
+      next: (b) => { this.saving.set(false); this.message.success(doneText('saved', 'Budget', this.name)); this.id.set((b as unknown as BudgetDetail).id); },
       error: (e) => { this.saving.set(false); this.message.error(problemMessage(e, 'Could not save the budget')); },
     });
   }
@@ -189,7 +190,7 @@ export class BudgetsPage {
     if (!id) return;
     this.modal.confirm({
       nzTitle: 'Delete this budget?', nzContent: 'All its monthly figures are removed.', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.api.delete(id).subscribe({ next: () => { this.message.success('Budget deleted'); this.close(); }, error: (e) => this.message.error(problemMessage(e, 'Could not delete the budget')) }),
+      nzOnOk: () => this.api.delete(id).subscribe({ next: () => { this.message.success(doneText('deleted', 'Budget', this.name)); this.close(); }, error: (e) => this.message.error(problemMessage(e, 'Could not delete the budget')) }),
     });
   }
 

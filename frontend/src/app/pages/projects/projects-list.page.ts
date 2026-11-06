@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -292,19 +293,19 @@ export class ProjectsListPage {
   searchCustomers(term: string): void { this.customerLookup(term).pipe(catchError(() => of([]))).subscribe((c) => this.customers.set(c)); }
 
   changeStatus(row: ProjectSummaryDto, status: ProjectSummaryDto['status']): void {
-    const go = () => this.api.setStatus(row.id, status).subscribe({ next: () => { this.msg.success('Status changed'); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not change the status.')) });
+    const go = () => this.api.setStatus(row.id, status).subscribe({ next: () => { this.msg.success(`${row.number} is now ${String(status).replace(/_/g, ' ')}`); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not change the status.')) });
     if (status === 'cancelled' || status === 'completed') this.modal.confirm({ nzTitle: `${PROJECT_ACTIONS[status]}: ${row.name}?`, nzContent: 'A completed or cancelled project takes no more work and cannot be reopened.', nzOkText: PROJECT_ACTIONS[status], nzOkDanger: status === 'cancelled', nzOnOk: go });
     else go();
   }
 
   toggleArchive(row: ProjectSummaryDto): void {
-    this.extra.archive(row.id, !row.isArchived).subscribe({ next: (r) => { this.msg.success(r.isArchived ? 'Archived' : 'Restored'); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not change it.')) });
+    this.extra.archive(row.id, !row.isArchived).subscribe({ next: (r) => { this.msg.success(doneText(r.isArchived ? 'archived' : 'restored', 'Project', row.number)); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not change it.')) });
   }
 
   remove(row: ProjectSummaryDto): void {
     this.modal.confirm({
       nzTitle: `Delete ${row.number}?`, nzContent: `${row.name} and its tasks, milestones and time will be removed. A project with invoiced work cannot be deleted.`, nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.api.delete(row.id).subscribe({ next: () => { this.msg.success('Project deleted'); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not delete the project.')) }),
+      nzOnOk: () => this.api.delete(row.id).subscribe({ next: () => { this.msg.success(doneText('deleted', 'Project', row.name)); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not delete the project.')) }),
     });
   }
 
@@ -328,7 +329,7 @@ export class ProjectsListPage {
     if (!id || !name) { this.msg.warning('Choose a template and a name.'); return false; }
     this.busy.set(true);
     this.extra.clone(id, { name, startDate: this.cloneStart || null, customerId: this.cloneCustomer, includeTeam: this.cloneTeam, asTemplate: this.cloneTemplate }).subscribe({
-      next: (c) => { this.busy.set(false); this.cloning.set(null); this.msg.success(`Created ${c.number}`); void this.router.navigate(['/projects', c.id]); },
+      next: (c) => { this.busy.set(false); this.cloning.set(null); this.msg.success(doneText('created', 'Project', c.number)); void this.router.navigate(['/projects', c.id]); },
       error: (e) => { this.busy.set(false); this.msg.error(errorText(e, 'Could not create the copy.')); },
     });
     return false;

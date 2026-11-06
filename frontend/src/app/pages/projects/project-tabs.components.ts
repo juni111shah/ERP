@@ -294,7 +294,7 @@ export class ProjectMilestonesComponent {
   }
   signOf(milestoneId: string): AcceptanceDto | undefined { return this.acceptances().find((a) => a.milestoneId === milestoneId); }
   waiting(milestoneId: string): boolean { return this.acceptances().some((a) => a.milestoneId === milestoneId && a.status === 'pending'); }
-  achieve(m: MilestoneDto): void { this.api.achieve(m.id).subscribe({ next: () => { this.msg.success('Milestone achieved. It is now ready to bill.'); this.load(); this.changed.emit(); }, error: (e) => this.msg.error(errorText(e, 'Could not mark it achieved.')) }); }
+  achieve(m: MilestoneDto): void { this.api.achieve(m.id).subscribe({ next: () => { this.msg.success(`Milestone ${m.title} achieved. It is now ready to bill.`); this.load(); this.changed.emit(); }, error: (e) => this.msg.error(errorText(e, 'Could not mark it achieved.')) }); }
   setStatus(m: MilestoneDto, status: MilestoneDto['status']): void {
     this.api.update(m.id, { projectId: m.projectId, title: m.title, dueDate: m.dueDate, amount: m.amount, status, achievedDate: status === 'achieved' ? m.achievedDate : null }).subscribe({ next: () => { this.load(); this.changed.emit(); }, error: (e) => this.msg.error(errorText(e, 'Could not change the milestone.')) });
   }
@@ -302,7 +302,7 @@ export class ProjectMilestonesComponent {
   askSignOff(m: MilestoneDto): void { this.request(m.id, `Sign-off of ${m.title}`); }
   askProjectSignOff(): void { this.request(null, `Sign-off of ${this.project().name}`); }
   private request(milestoneId: string | null, title: string): void {
-    this.extra.requestAcceptance({ projectId: this.project().id, milestoneId, title }).subscribe({ next: () => { this.msg.success('The customer can sign it in their portal'); this.load(); }, error: (e) => this.msg.error(errorText(e, 'Could not ask for the sign-off.')) });
+    this.extra.requestAcceptance({ projectId: this.project().id, milestoneId, title }).subscribe({ next: () => { this.msg.success(`The customer can sign ${title} in their portal`); this.load(); }, error: (e) => this.msg.error(errorText(e, 'Could not ask for the sign-off.')) });
   }
 }
 

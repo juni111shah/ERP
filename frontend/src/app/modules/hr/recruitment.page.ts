@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { catchError, of } from 'rxjs';
@@ -133,10 +134,11 @@ export class RecruitmentPage {
 
   openOpening(row: OpeningRow): void { this.openingsApi.detail(row.id).subscribe((o) => this.openingState.edit(o)); }
   removeOpening(id: string): void {
+    const deletedTitle = this.openingState.editing()?.title;
     this.modal.confirm({
       nzTitle: 'Delete this vacancy?', nzOkText: 'Delete', nzOkDanger: true,
       nzOnOk: () => new Promise<void>((resolve) => this.openingsApi.delete(id).subscribe({
-        next: () => { this.message.success('Vacancy deleted'); this.openingState.close(); this.openings.reload(); resolve(); },
+        next: () => { this.message.success(doneText('deleted', 'Vacancy', deletedTitle)); this.openingState.close(); this.openings.reload(); resolve(); },
         error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not delete the vacancy'); resolve(); },
       })),
     });

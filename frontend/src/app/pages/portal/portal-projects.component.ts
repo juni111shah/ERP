@@ -116,7 +116,7 @@ export class PortalProjectsComponent implements OnInit {
 
   answer(a: PortalAcceptance, accept: boolean): void {
     this.portal.sign(a.id, { accept, signedByName: this.name.trim(), signature: this.signature.trim() || null, comment: this.comment.trim() || null, signatureImage: accept ? this.drawn() : null }).subscribe({
-      next: () => { this.msg.success(accept ? 'Signed. Thank you.' : 'Declined'); this.name = this.signature = this.comment = ''; this.clearPad(); this.load(); },
+      next: () => { this.msg.success(accept ? `${a.title} signed. Thank you.` : `${a.title} declined`); this.name = this.signature = this.comment = ''; this.clearPad(); this.load(); },
       error: (e) => this.msg.error(e?.error?.errors ? Object.values(e.error.errors as Record<string, string[]>)[0]?.[0] ?? 'Check the form.' : e?.error?.detail ?? 'Could not save your answer.'),
     });
   }

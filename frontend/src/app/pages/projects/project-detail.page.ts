@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -236,7 +237,7 @@ export class ProjectDetailPage {
 
   changeStatus(status: ProjectStatus): void {
     const p = this.project()!;
-    const go = () => this.projectsApi.setStatus(p.id, status).subscribe({ next: (r) => { this.project.set(r); this.msg.success('Status changed'); }, error: (e) => this.msg.error(errorText(e, 'Could not change the status.')) });
+    const go = () => this.projectsApi.setStatus(p.id, status).subscribe({ next: (r) => { this.project.set(r); this.msg.success(`${p.number} is now ${String(status).replace(/_/g, ' ')}`); }, error: (e) => this.msg.error(errorText(e, 'Could not change the status.')) });
     if (status === 'completed' || status === 'cancelled') this.modal.confirm({ nzTitle: `${PROJECT_ACTIONS[status]}: ${p.name}?`, nzContent: 'A completed or cancelled project takes no more work and cannot be reopened.', nzOkText: PROJECT_ACTIONS[status], nzOkDanger: status === 'cancelled', nzOnOk: go });
     else go();
   }
@@ -251,20 +252,20 @@ export class ProjectDetailPage {
 
   toggleArchive(): void {
     const p = this.project()!;
-    this.extra.archive(p.id, !p.isArchived).subscribe({ next: (r) => { this.project.set(r); this.msg.success(r.isArchived ? 'Archived' : 'Restored'); }, error: (e) => this.msg.error(errorText(e, 'Could not change it.')) });
+    this.extra.archive(p.id, !p.isArchived).subscribe({ next: (r) => { this.project.set(r); this.msg.success(doneText(r.isArchived ? 'archived' : 'restored', 'Project', r.number)); }, error: (e) => this.msg.error(errorText(e, 'Could not change it.')) });
   }
 
   remove(): void {
     const p = this.project()!;
     this.modal.confirm({
       nzTitle: `Delete ${p.number}?`, nzContent: `${p.name} and its tasks, milestones and time will be removed. A project with invoiced work cannot be deleted.`, nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.projectsApi.delete(p.id).subscribe({ next: () => { this.msg.success('Project deleted'); void this.router.navigate(['/projects/list']); }, error: (e) => this.msg.error(errorText(e, 'Could not delete the project.')) }),
+      nzOnOk: () => this.projectsApi.delete(p.id).subscribe({ next: () => { this.msg.success(doneText('deleted', 'Project', p.name)); void this.router.navigate(['/projects/list']); }, error: (e) => this.msg.error(errorText(e, 'Could not delete the project.')) }),
     });
   }
 
   clone(p: ProjectDto): void {
     this.extra.clone(p.id, { name: this.cloneName.trim() || `${p.name} (copy)`, startDate: this.cloneStart || null, includeTeam: this.cloneTeam, asTemplate: this.cloneTemplate }).subscribe({
-      next: (c) => { this.cloneOpen.set(false); this.msg.success(`Created ${c.number}`); void this.router.navigate(['/projects', c.id]); },
+      next: (c) => { this.cloneOpen.set(false); this.msg.success(doneText('created', 'Project', c.number)); void this.router.navigate(['/projects', c.id]); },
       error: (e) => this.msg.error(errorText(e, 'Could not clone.')),
     });
   }

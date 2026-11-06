@@ -1,3 +1,4 @@
+import { doneText } from '../core/format/done-text';
 import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
@@ -87,14 +88,14 @@ export class AttachmentsComponent {
     if (this.expires) form.append('expiresOn', toIsoDate(this.expires));
     this.busy.set(true);
     this.http.post(`${this.base}/attachments`, form).subscribe({
-      next: () => { this.busy.set(false); input.value = ''; this.category = ''; this.expires = null; this.message.success('Document uploaded'); this.load(); },
+      next: () => { this.busy.set(false); input.value = ''; this.category = ''; this.expires = null; this.message.success(`Document ${file.name} uploaded`); this.load(); },
       error: (e) => { this.busy.set(false); this.message.error(asProblem(e)?.detail ?? 'Upload failed'); },
     });
   }
 
   download(a: { id: string; fileName: string }): void { downloadAttachment(this.http, this.base, a); }
 
-  remove(a: AttachmentItem): void { this.http.delete(`${this.base}/attachments/${a.id}`).subscribe(() => { this.message.success('Document removed'); this.load(); }); }
+  remove(a: AttachmentItem): void { this.http.delete(`${this.base}/attachments/${a.id}`).subscribe(() => { this.message.success(doneText('removed', 'Document', a.fileName)); this.load(); }); }
 }
 
 /** Fetches a file with the auth header and hands it to the browser as a download. */

@@ -124,7 +124,7 @@ export class ProjectTimesheetsPage {
   remove(r: TimesheetDto): void {
     this.modal.confirm({
       nzTitle: 'Delete this time entry?', nzContent: `${r.workerName}, ${r.hours} h on ${r.date}`, nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.timesheetsApi.delete(r.id).subscribe({ next: () => { this.msg.success('Entry deleted'); this.list.reload(); }, error: (e) => this.msg.error(errorText(e, 'Could not delete the entry.')) }),
+      nzOnOk: () => this.timesheetsApi.delete(r.id).subscribe({ next: () => { this.msg.success(`Time entry of ${r.hours} h for ${r.workerName} deleted`); this.list.reload(); }, error: (e) => this.msg.error(errorText(e, 'Could not delete the entry.')) }),
     });
   }
 }

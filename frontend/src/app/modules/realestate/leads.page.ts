@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { Observable, map } from 'rxjs';
@@ -242,7 +243,7 @@ export class LeadsPage {
   move(l: LeadDto, stage: string, reason?: string): void {
     this.busy.set(true);
     this.api.moveStage(l.id, stage, reason).subscribe({
-      next: () => { this.busy.set(false); this.losing.set(null); this.state.close(); this.message.success('Lead updated'); this.refresh(); },
+      next: () => { this.busy.set(false); this.losing.set(null); this.state.close(); this.message.success(doneText('updated', 'Lead', l.name)); this.refresh(); },
       error: (e) => { this.busy.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? 'Could not move the lead'); },
     });
   }
@@ -256,7 +257,7 @@ export class LeadsPage {
     if (!l) return;
     this.busy.set(true); this.errors.set(null);
     this.api.convert(l.id, { dealType: (v['dealType'] as string) ?? null, dealValue: (v['dealValue'] as number) ?? null, commissionRatePercent: (v['commissionRatePercent'] as number) ?? null }).subscribe({
-      next: () => { this.busy.set(false); this.converting.set(null); this.state.close(); this.message.success('Lead converted to a deal'); this.refresh(); },
+      next: () => { this.busy.set(false); this.converting.set(null); this.state.close(); this.message.success(`Lead ${l.name} converted to a deal`); this.refresh(); },
       error: (e) => { this.busy.set(false); const p = asProblem(e); this.errors.set(p); if (!p?.errors) this.message.error(p?.detail ?? 'Could not convert the lead'); },
     });
   }

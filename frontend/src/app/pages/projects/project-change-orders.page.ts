@@ -112,7 +112,7 @@ export class ProjectChangeOrdersPage {
   confirmDecision(): void {
     const d = this.deciding(); if (!d) return;
     this.deciding.set(null);
-    this.api.decideChangeOrder(d.order.id, d.approve, this.note || undefined).subscribe({ next: () => { this.msg.success(d.approve ? 'Approved. The project budget now includes it.' : 'Rejected'); this.load(); }, error: (e) => this.msg.error(errorText(e, 'Could not save the decision.')) });
+    this.api.decideChangeOrder(d.order.id, d.approve, this.note || undefined).subscribe({ next: () => { this.msg.success(d.approve ? `${d.order.number} approved. The project budget now includes it.` : `${d.order.number} rejected`); this.load(); }, error: (e) => this.msg.error(errorText(e, 'Could not save the decision.')) });
   }
   remove(c: ChangeOrderDto): void {
     this.modal.confirm({ nzTitle: 'Delete this change order?', nzContent: c.title, nzOkText: 'Delete', nzOkDanger: true, nzOnOk: () => this.api.deleteChangeOrder(c.id).subscribe({ next: () => this.load(), error: (e) => this.msg.error(errorText(e, 'Could not delete.')) }) });

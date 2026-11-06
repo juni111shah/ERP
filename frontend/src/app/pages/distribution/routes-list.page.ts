@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -446,7 +447,7 @@ export class RoutesListPageComponent implements OnInit {
   deleteRoute(row: DistributionRouteSummaryDto): void {
     this.routesApi.delete(row.id).subscribe({
       next: () => {
-        this.msg.success('Route deleted');
+        this.msg.success(doneText('deleted', 'Route', row.name));
         this.list.reload();
       },
       error: (err) => this.msg.error(problemMessage(err, 'The route could not be deleted'))
@@ -513,7 +514,7 @@ export class RoutesListPageComponent implements OnInit {
 
     (editing ? this.updateAndVerify(editing.id, input) : this.routesApi.create(input)).subscribe({
       next: () => {
-        this.msg.success('Route saved');
+        this.msg.success(doneText('saved', 'Route', val.name));
         this.isSaving.set(false);
         this.isModalVisible.set(false);
         this.list.reload();
@@ -567,7 +568,7 @@ export class RoutesListPageComponent implements OnInit {
 
     this.saveStops(route, existingStops).subscribe({
       next: () => {
-        this.msg.success('Stop added');
+        this.msg.success(`Stop ${stopVal.customerName} added to route ${route.name}`);
         this.isSavingStop.set(false);
         this.isStopModalVisible.set(false);
         this.viewDetail(route);
@@ -585,7 +586,7 @@ export class RoutesListPageComponent implements OnInit {
     if (!route) return;
     this.saveStops(route, this.stopInputs(route.stops.filter(s => s.id !== stop.id))).subscribe({
       next: () => {
-        this.msg.success('Stop removed');
+        this.msg.success(`Stop ${stop.customerName} removed from route ${route.name}`);
         this.viewDetail(route);
         this.list.reload();
       },

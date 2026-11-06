@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { catchError, of } from 'rxjs';
 import { AccountDto, AccountsApi } from '../../core/api/admin.api';
@@ -92,7 +93,7 @@ export class LoansPage {
   cancel(l: LoanRow): void {
     this.modal.confirm({
       nzTitle: 'Cancel this loan?', nzContent: 'Recovery stops. Instalments already taken in posted payrolls stay.', nzOkText: 'Cancel loan', nzOkDanger: true,
-      nzOnOk: () => new Promise<void>((resolve) => this.api.cancel(l.id).subscribe({ next: () => { this.message.success('Loan cancelled'); this.list.reload(); resolve(); }, error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not cancel'); resolve(); } })),
+      nzOnOk: () => new Promise<void>((resolve) => this.api.cancel(l.id).subscribe({ next: () => { this.message.success(doneText('cancelled', 'Loan')); this.list.reload(); resolve(); }, error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not cancel'); resolve(); } })),
     });
   }
 
@@ -107,7 +108,7 @@ export class LoansPage {
       call = this.api.create({ employeeId: v['employeeId'], kind: v['kind'], principal: v['principal'], instalments: v['instalments'], instalmentAmount: v['instalmentAmount'] ?? null, startYear: year, startMonth: month, reason: v['reason'] ?? null });
     }
     call.subscribe({
-      next: () => { this.saving.set(false); this.mode.set(null); this.message.success(payOut ? 'Loan paid out' : 'Loan saved'); this.list.reload(); },
+      next: () => { this.saving.set(false); this.mode.set(null); this.message.success(payOut ? `Loan of ${this.target()?.principal} paid out` : `Loan of ${v['principal']} saved`); this.list.reload(); },
       error: (e) => { this.saving.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not save'); },
     });
   }

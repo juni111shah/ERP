@@ -5,6 +5,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
@@ -139,7 +140,7 @@ export class ShiftsPage {
     if (!s || !this.picked.length || this.range.length < 2) { this.message.warning('Choose the employees and the dates.'); return; }
     const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     this.api.addRoster(s.id, { employeeIds: this.picked, fromDate: iso(this.range[0]), toDate: iso(this.range[1]) }).subscribe({
-      next: () => { this.message.success('Roster dates added.'); this.rostering.set(null); this.load(); },
+      next: () => { this.message.success(`Roster dates added to ${s.name}.`); this.rostering.set(null); this.load(); },
       error: () => this.message.error('Could not add the roster dates.'),
     });
   }
@@ -166,7 +167,7 @@ export class ShiftsPage {
     this.modal.confirm({
       nzTitle: `Delete ${s.name}?`, nzContent: s.employees ? `${s.employees} employee(s) are on this shift.` : undefined, nzOkText: 'Delete', nzOkDanger: true,
       nzOnOk: () => new Promise<void>((resolve) => this.api.remove(s.id).subscribe({
-        next: () => { this.message.success('Shift deleted.'); this.load(); resolve(); },
+        next: () => { this.message.success(doneText('deleted', 'Shift', s.name)); this.load(); resolve(); },
         error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not delete the shift.'); resolve(); },
       })),
     });

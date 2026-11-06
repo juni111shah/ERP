@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
@@ -122,7 +123,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
             }
             @if (row.status === 'draft') {
               <button *erpHasPermission="'sales.quotes.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                      nz-popconfirm nzPopconfirmTitle="Delete this quote?" (nzOnConfirm)="deleteQuote(row.id)">
+                      nz-popconfirm nzPopconfirmTitle="Delete this quote?" (nzOnConfirm)="deleteQuote(row)">
                 Delete
               </button>
             }
@@ -570,7 +571,7 @@ export class QuotesListPage {
       next: (created) => {
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
-        this.message.success(`Quote ${created.number} created successfully.`);
+        this.message.success(doneText('created', 'Quote', created.number));
         this.list.reload();
         this.loadKpis();
       },
@@ -584,7 +585,7 @@ export class QuotesListPage {
   convertToOrder(quoteId: string): void {
     this.quotesApi.convertToOrder(quoteId).subscribe({
       next: (order) => {
-        this.message.success(`Converted into Sales Order ${order.number}`);
+        this.message.success(`Quote converted into sales order ${order.number}`);
         this.list.reload();
         this.loadKpis();
         this.router.navigate(['/sales/orders', order.id]);
@@ -593,10 +594,10 @@ export class QuotesListPage {
     });
   }
 
-  deleteQuote(id: string): void {
-    this.quotesApi.delete(id).subscribe({
+  deleteQuote(row: { id: string; number?: string | null }): void {
+    this.quotesApi.delete(row.id).subscribe({
       next: () => {
-        this.message.success('Quote deleted');
+        this.message.success(doneText('deleted', 'Quote', row.number));
         this.list.reload();
         this.loadKpis();
       },

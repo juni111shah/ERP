@@ -9,6 +9,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { createPagedList } from '../../core/api/paged-list';
+import { doneText } from '../../core/format/done-text';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { problemMessage } from '../../core/http/problem-details';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
@@ -143,7 +144,7 @@ export class LeavePage {
     const body = { employeeId: this.employeeId, leaveTypeId: this.typeId, fromDate: toIsoDate(this.from), toDate: toIsoDate(this.to), reason: this.reason || null, submit, startHalfDay: this.startHalf, endHalfDay: this.endHalf };
     this.saving.set(true);
     this.api.save(this.id(), body).subscribe({
-      next: (d) => { this.saving.set(false); this.message.success(submit ? 'Request submitted' : 'Draft saved'); this.list.reload(); if (submit) this.drawer.set(false); else { this.id.set(d.id); this.detail.set(d); } },
+      next: (d) => { this.saving.set(false); this.message.success(doneText(submit ? 'submitted' : 'saved', 'Leave request', d.employeeName)); this.list.reload(); if (submit) this.drawer.set(false); else { this.id.set(d.id); this.detail.set(d); } },
       error: (e) => this.fail(e, 'Could not save the request'),
     });
   }
@@ -153,7 +154,7 @@ export class LeavePage {
     if (!id) return;
     this.saving.set(true);
     this.api.action(id, action, this.comment || undefined).subscribe({
-      next: () => { this.saving.set(false); this.message.success(action === 'approve' ? 'Request approved' : 'Request rejected'); this.drawer.set(false); this.list.reload(); },
+      next: () => { this.saving.set(false); this.message.success(doneText(action === 'approve' ? 'approved' : 'rejected', 'Leave request', this.detail()?.employeeName)); this.drawer.set(false); this.list.reload(); },
       error: (e) => this.fail(e, 'Could not record the decision'),
     });
   }
@@ -163,7 +164,7 @@ export class LeavePage {
     if (!id) return;
     this.saving.set(true);
     this.api.action(id, 'cancel').subscribe({
-      next: () => { this.saving.set(false); this.message.success('Request cancelled'); this.drawer.set(false); this.list.reload(); },
+      next: () => { this.saving.set(false); this.message.success(doneText('cancelled', 'Leave request', this.detail()?.employeeName)); this.drawer.set(false); this.list.reload(); },
       error: (e) => this.fail(e, 'Could not cancel the request'),
     });
   }

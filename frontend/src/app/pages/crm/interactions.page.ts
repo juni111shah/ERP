@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule } from '@angular/common';
 import { problemMessage } from '../../core/http/problem-details';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
@@ -376,7 +377,7 @@ export class InteractionsPageComponent implements OnInit {
   resolveInteraction(row: CustomerInteractionDto): void {
     this.api.resolve(row.id).subscribe({
       next: () => {
-        this.message.success('Marked as done.');
+        this.message.success(doneText('completed', 'Activity', row.subject));
         this.list.reload();
       },
       error: () => this.message.error('Failed to resolve interaction')
@@ -409,7 +410,7 @@ export class InteractionsPageComponent implements OnInit {
 
     this.api.create(payload as any).subscribe({
       next: () => {
-        this.message.success('Activity logged.');
+        this.message.success(doneText('recorded', 'Activity', v.subject));
         this.createVisible.set(false);
         this.isSubmitting.set(false);
         this.list.reload();

@@ -598,8 +598,8 @@ export class VanTripsPageComponent implements OnInit {
     };
 
     this.tripsApi.create(input).subscribe({
-      next: () => {
-        this.msg.success('Van trip dispatched');
+      next: (created) => {
+        this.msg.success(`Van trip ${created.tripNumber} dispatched`);
         this.isSaving.set(false);
         this.isDispatchModalVisible.set(false);
         this.list.reload();
@@ -674,7 +674,7 @@ export class VanTripsPageComponent implements OnInit {
 
     this.tripsApi.completeTrip(trip.id, input).subscribe({
       next: () => {
-        this.msg.success('Trip reconciled and completed');
+        this.msg.success(`Trip ${trip.tripNumber} reconciled and completed`);
         this.isSavingReconcile.set(false);
         this.isReconcileModalVisible.set(false);
         this.list.reload();

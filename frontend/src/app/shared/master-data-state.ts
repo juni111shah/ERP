@@ -3,6 +3,7 @@ import { Observable } from 'rxjs';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { ProblemDetails } from '../core/api/api.models';
 import { asProblem } from '../core/http/problem-details';
+import { doneText } from '../core/format/done-text';
 import { currentLang, phraseNow, tNow } from '../core/i18n/translate-now';
 
 export interface MasterDataDeps {
@@ -13,6 +14,19 @@ export interface MasterDataDeps {
   message: NzMessageService;
   /** shown in the success toast, e.g. "Unit" */
   entityName: string;
+  /** The saved record's own name or number, so the toast can say which one. Defaults to its name, number, code or title. */
+  recordName?: (saved: unknown, payload: Record<string, unknown>) => string | null | undefined;
+}
+
+/** The record's own name or number, from what the server returned or else from what was sent. */
+function namedIn(saved: unknown, payload: Record<string, unknown>): string | null {
+  for (const source of [saved as Record<string, unknown> | null, payload]) {
+    for (const key of ['name', 'number', 'title', 'code']) {
+      const value = source?.[key];
+      if (typeof value === 'string' && value.trim()) return value;
+    }
+  }
+  return null;
 }
 
 /**
@@ -35,10 +49,10 @@ export class MasterDataState<T extends { id: string }> {
     this.saving.set(true);
     this.errors.set(null);
     this.deps.save(this.editing()?.id ?? null, payload).subscribe({
-      next: () => {
+      next: (saved) => {
         this.saving.set(false);
         this.open.set(false);
-        this.deps.message.success(tNow('ui.msg.entitySaved', '{entity} saved', { entity: this.entityLabel(false) }));
+        this.deps.message.success(doneText('saved', this.deps.entityName, this.deps.recordName ? this.deps.recordName(saved, payload) : namedIn(saved, payload)));
         this.deps.reload();
       },
       error: (e) => {

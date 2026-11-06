@@ -1,3 +1,4 @@
+import { SuccessToastService } from '../../core/services/success-toast.service';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
@@ -203,6 +204,7 @@ export class QuoteDetailPage {
   private readonly route = inject(ActivatedRoute);
   private readonly quotesApi = inject(SalesQuotesApi);
   private readonly message = inject(NzMessageService);
+  private readonly toast = inject(SuccessToastService);
 
   readonly quote = signal<QuoteDto | null>(null);
   readonly failed = signal(false);
@@ -234,7 +236,7 @@ export class QuoteDetailPage {
     this.quotesApi.setStatus(q.id, status).subscribe({
       next: (updated) => {
         this.quote.set(updated);
-        this.message.success(`Status changed to ${displayLabel(status).toLowerCase()}.`);
+        this.message.success(`${q.number} is now ${displayLabel(status).toLowerCase()}.`);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to update status')),
     });
@@ -245,7 +247,7 @@ export class QuoteDetailPage {
     if (!q) return;
     this.quotesApi.convertToOrder(q.id).subscribe({
       next: (order) => {
-        this.message.success(`Converted into Sales Order ${order.number}`);
+        this.toast.show(`${q.number} converted into sales order ${order.number}`, { label: 'View order', to: ['/sales/orders', order.id] });
         this.loadQuote(q.id);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to convert quote')),

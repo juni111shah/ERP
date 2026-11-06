@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -335,7 +336,7 @@ export class BankPage {
     if (!l || !this.bookAccount) { this.message.warning('Choose the account to book it to'); return; }
     this.busy.set(true);
     this.api.book(l.id, this.bookAccount, this.bookMemo || undefined).subscribe({
-      next: () => { this.busy.set(false); this.bookLine.set(null); this.message.success('Booked and matched'); this.refresh(); },
+      next: () => { this.busy.set(false); this.bookLine.set(null); this.message.success(`Statement line ${l.description} booked and matched`); this.refresh(); },
       error: (e) => this.fail(e),
     });
   }
@@ -345,7 +346,7 @@ export class BankPage {
     if (this.trFrom === this.trTo) { this.message.warning('Choose two different accounts'); return; }
     this.busy.set(true);
     this.api.transfer({ legalEntityId: this.trEntity, fromAccountId: this.trFrom, toAccountId: this.trTo, amount: this.trAmount, date: toIsoDate(this.trDate), memo: null }).subscribe({
-      next: () => { this.busy.set(false); this.transferOpen.set(false); this.message.success('Transfer posted'); this.refresh(); },
+      next: () => { this.busy.set(false); this.transferOpen.set(false); this.message.success(doneText('posted', 'Bank transfer')); this.refresh(); },
       error: (e) => this.fail(e),
     });
   }

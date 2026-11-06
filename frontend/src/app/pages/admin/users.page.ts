@@ -213,7 +213,7 @@ export class UsersPage {
 
   toggleActive(user: UserSummary): void {
     this.api.setUserActive(user.id, !user.isActive).subscribe({
-      next: () => { this.message.success(user.isActive ? 'User deactivated' : 'User reactivated'); this.load(); },
+      next: () => { this.message.success(`User ${user.fullName} ${user.isActive ? 'deactivated' : 'reactivated'}`); this.load(); },
       error: (e) => { this.message.error(problemMessage(e, 'Could not change the user')); },
     });
   }
@@ -226,7 +226,7 @@ export class UsersPage {
     const call = user ? this.api.setUserRoles(user.id, v.roleIds)
       : this.api.inviteUser({ email: v.email, fullName: v.fullName, temporaryPassword: v.temporaryPassword || null, roleIds: v.roleIds, legalEntityIds: null });
     call.subscribe({
-      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(user ? 'Roles updated' : 'User invited'); this.load(); },
+      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(user ? `Roles updated for ${user.fullName}` : `User ${v.fullName} invited`); this.load(); },
       error: (e) => {
         this.saving.set(false);
         const p = asProblem(e);

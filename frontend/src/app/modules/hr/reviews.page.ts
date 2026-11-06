@@ -5,6 +5,7 @@ import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { createPagedList } from '../../core/api/paged-list';
@@ -163,15 +164,16 @@ export class ReviewsPage {
     });
   }
 
-  save(): void { this.persist(() => { this.message.success('Review saved'); this.list.reload(); }); }
+  save(): void { this.persist(() => { this.message.success(doneText('saved', 'Review', this.employeeName())); this.list.reload(); }); }
 
   deleteDraft(): void {
     const id = this.id();
     if (!id) return;
+    const deletedFor = this.employeeName();
     this.modal.confirm({
       nzTitle: 'Delete this draft review?', nzOkText: 'Delete', nzOkDanger: true,
       nzOnOk: () => new Promise<void>((resolve) => this.api.delete(id).subscribe({
-        next: () => { this.message.success('Review deleted'); this.drawer.set(false); this.list.reload(); resolve(); },
+        next: () => { this.message.success(doneText('deleted', 'Review', deletedFor)); this.drawer.set(false); this.list.reload(); resolve(); },
         error: (e) => { this.fail(e, 'Could not delete the review'); resolve(); },
       })),
     });
@@ -181,7 +183,7 @@ export class ReviewsPage {
     this.persist((id) => {
       this.busy.set(true);
       this.api.submit(id).subscribe({
-        next: (r) => { this.busy.set(false); this.status.set(r.status); this.message.success('Review submitted'); this.list.reload(); },
+        next: (r) => { this.busy.set(false); this.status.set(r.status); this.message.success(doneText('submitted', 'Review', this.employeeName())); this.list.reload(); },
         error: (e) => this.fail(e, 'Could not submit the review'),
       });
     });
@@ -192,7 +194,7 @@ export class ReviewsPage {
     if (!id) return;
     this.busy.set(true);
     this.api.acknowledge(id).subscribe({
-      next: (r) => { this.busy.set(false); this.status.set(r.status); this.message.success('Acknowledged'); this.list.reload(); },
+      next: (r) => { this.busy.set(false); this.status.set(r.status); this.message.success(`Review acknowledged for ${this.employeeName()}`); this.list.reload(); },
       error: (e) => this.fail(e, 'Could not acknowledge the review'),
     });
   }

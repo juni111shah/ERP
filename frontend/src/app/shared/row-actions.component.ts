@@ -30,7 +30,7 @@ const CAN_HOVER = '(hover: hover) and (pointer: fine)';
         <span nz-icon nzType="more"></span>
       </button>
       <ng-template #menu>
-        <div class="erp-row-actions__menu" (click)="closeAfter($event)"><ng-container *ngTemplateOutlet="actions" /></div>
+        <div class="erp-row-actions__menu" (click)="closeAfter($event)" (keydown.escape)="open.set(false)"><ng-container *ngTemplateOutlet="actions" /></div>
       </ng-template>
     }`,
 })

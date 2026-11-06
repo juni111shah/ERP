@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -177,7 +178,7 @@ export class VendorHomePage implements OnInit {
 
   update(o: VendorWorkOrder, status: string, extra: { actualCost?: number | null; notes?: string | null } = {}): void {
     this.portal.updateWorkOrder(o.id, { status, ...extra }).subscribe({
-      next: () => { this.message.success('Work order updated'); this.completing.set(null); this.loadOrders(); },
+      next: () => { this.message.success(doneText('updated', 'Work order', o.number)); this.completing.set(null); this.loadOrders(); },
       error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not update the work order'),
     });
   }

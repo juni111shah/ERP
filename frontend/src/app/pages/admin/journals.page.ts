@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
@@ -228,7 +229,7 @@ export class JournalsPage {
     this.saving.set(true);
     this.api.save(this.journal()?.id ?? null, body).subscribe({
       next: (saved) => {
-        if (!post) return this.done(saved, 'Draft saved');
+        if (!post) return this.done(saved, doneText('saved', 'Draft journal', saved.number));
         this.api.post(saved.id).subscribe({ next: (p) => this.done(p, `${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${p.number}`), error: (e) => { this.saving.set(false); this.fail(e, saved); } });
       },
       error: (e) => { this.saving.set(false); this.fail(e); },
@@ -249,7 +250,7 @@ export class JournalsPage {
     if (!j) return;
     this.modal.confirm({
       nzTitle: 'Delete this draft journal?', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.api.delete(j.id).subscribe({ next: () => { this.drawerOpen.set(false); this.message.success('Draft deleted'); this.reload(); }, error: (e) => this.fail(e) }),
+      nzOnOk: () => this.api.delete(j.id).subscribe({ next: () => { this.drawerOpen.set(false); this.message.success(doneText('deleted', 'Draft journal', j.number)); this.reload(); }, error: (e) => this.fail(e) }),
     });
   }
 
@@ -257,7 +258,7 @@ export class JournalsPage {
     if (!this.lockEntity) return;
     this.saving.set(true);
     this.api.lockBooks(this.lockEntity, this.lockDate ? toIsoDate(this.lockDate) : null).subscribe({
-      next: () => { this.saving.set(false); this.lockOpen.set(false); this.message.success('Books updated'); },
+      next: () => { this.saving.set(false); this.lockOpen.set(false); this.message.success(this.lockDate ? `Books locked up to ${toIsoDate(this.lockDate)}` : 'Books unlocked'); },
       error: (e) => { this.saving.set(false); this.fail(e); },
     });
   }

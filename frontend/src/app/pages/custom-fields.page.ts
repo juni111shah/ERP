@@ -1,3 +1,4 @@
+import { doneText } from '../core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -184,7 +185,7 @@ export class CustomFieldsPage {
     this.saving.set(true);
     (d ? this.api.update(d.id, body) : this.api.create(body)).subscribe({
       next: () => {
-        this.saving.set(false); this.drawerOpen.set(false); this.message.success('Field saved');
+        this.saving.set(false); this.drawerOpen.set(false); this.message.success(doneText('saved', 'Custom field', body.label));
         this.meta.invalidate(body.entityType); this.load();
       },
       error: (e) => {

@@ -169,13 +169,13 @@ export class LeaseDetailPage {
 
   startAction(a: Action): void { this.actionErrors.set(null); this.action.set(a); }
 
-  activate(): void { this.run(this.api.activate(this.id), 'Lease activated'); }
+  activate(): void { this.run(this.api.activate(this.id), (l) => `Lease ${l.number ?? l.unitNumber} activated`); }
 
   cancel(): void {
-    this.modal.confirm({ nzTitle: 'Cancel this draft lease?', nzOkText: 'Cancel draft', nzOkDanger: true, nzOnOk: () => this.run(this.api.cancel(this.id), 'Draft cancelled') });
+    this.modal.confirm({ nzTitle: 'Cancel this draft lease?', nzOkText: 'Cancel draft', nzOkDanger: true, nzOnOk: () => this.run(this.api.cancel(this.id), (l) => `Draft lease for unit ${l.unitNumber} cancelled`) });
   }
 
-  toggleHoldingOver(l: LeaseDto): void { this.run(this.api.holdingOver(this.id, !l.holdingOverFlag), 'Updated'); }
+  toggleHoldingOver(l: LeaseDto): void { this.run(this.api.holdingOver(this.id, !l.holdingOverFlag), (u) => `Holding over switched ${u.holdingOverFlag ? 'on' : 'off'} for lease ${u.number ?? u.unitNumber}`); }
 
   creditNotes(): void {
     this.busy.set(true);
@@ -185,7 +185,7 @@ export class LeaseDetailPage {
     });
   }
 
-  moveOut(): void { this.run(this.api.moveOut(this.id), 'Move-out confirmed'); }
+  moveOut(): void { this.run(this.api.moveOut(this.id), (l) => `Move-out confirmed for unit ${l.unitNumber}`); }
 
   runAction(values: Record<string, unknown>): void {
     const kind = this.action();
@@ -199,7 +199,7 @@ export class LeaseDetailPage {
       next: (result) => {
         this.actionSaving.set(false);
         this.action.set(null);
-        if (kind === 'renew') { this.message.success('Renewal draft created'); void this.router.navigate(['/real-estate/leases', (result as LeaseDto).id]); return; }
+        if (kind === 'renew') { this.message.success(`Renewal draft created for unit ${(result as LeaseDto).unitNumber}`); void this.router.navigate(['/real-estate/leases', (result as LeaseDto).id]); return; }
         const t = result as { cancelledInstalments: number; instalmentsNeedingCreditNote: unknown[] };
         this.message.success(`${this.i18n.t('ui.msg.leaseTerminated', 'Lease terminated')} · ${t.cancelledInstalments} ${this.i18n.t('ui.msg.instalmentsCancelled', 'instalments cancelled')}` + (t.instalmentsNeedingCreditNote.length ? ` · ${t.instalmentsNeedingCreditNote.length} ${this.i18n.t('ui.msg.instalmentsNeedCn', 'invoiced instalments need a credit note')}` : ''));
         this.load();
@@ -208,10 +208,10 @@ export class LeaseDetailPage {
     });
   }
 
-  private run(call: ReturnType<LeasesApi['activate']>, success: string): void {
+  private run(call: ReturnType<LeasesApi['activate']>, success: (l: LeaseDto) => string): void {
     this.busy.set(true);
     call.subscribe({
-      next: (l) => { this.busy.set(false); this.lease.set(l); this.message.success(success); },
+      next: (l) => { this.busy.set(false); this.lease.set(l); this.message.success(success(l)); },
       error: (e) => { this.busy.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Action failed'); },
     });
   }

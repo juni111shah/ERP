@@ -3,6 +3,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
@@ -79,7 +80,7 @@ export class EmployeeDocumentsComponent {
     const body = { ...v, employeeId: this.employeeId(), issueDate: this.day(v['issueDate']), expiryDate: this.day(v['expiryDate']) };
     const id = this.editing()?.id;
     (id ? this.api.update(id, body) : this.api.create(body)).subscribe({
-      next: () => { this.saving.set(false); this.form.set(false); this.message.success('Document saved'); this.load(); },
+      next: () => { this.saving.set(false); this.form.set(false); this.message.success(doneText('saved', 'Document', (v['number'] as string) || this.typeLabel(String(v['type'])))); this.load(); },
       error: (e) => { this.saving.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not save the document'); },
     });
   }

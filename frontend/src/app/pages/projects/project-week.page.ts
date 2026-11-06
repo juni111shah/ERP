@@ -252,7 +252,7 @@ export class ProjectWeekPage implements OnDestroy {
     if (!items.length) return;
     this.saving.set(true);
     this.extra.saveWeek(items).subscribe({
-      next: () => { this.saving.set(false); this.msg.success('Week saved'); this.load(); },
+      next: () => { this.saving.set(false); this.msg.success(`${items.length} time ${items.length === 1 ? 'entry' : 'entries'} saved for the week`); this.load(); },
       error: (e) => { this.saving.set(false); this.msg.error(errorText(e, 'Could not save the week.')); },
     });
   }

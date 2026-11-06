@@ -110,6 +110,6 @@ export class LeaseDepositComponent {
     if (l.renewedAsLeaseId) this.api.transferDeposit(l.id, l.renewedAsLeaseId).subscribe({ next: () => this.done('Deposit rolled over to the renewal'), error: (e) => this.fail(e) });
   }
 
-  private done(text: string): void { this.saving.set(false); this.mode.set(null); this.message.success(text); this.load(); this.changed.emit(); }
+  private done(text: string): void { this.saving.set(false); this.mode.set(null); this.message.success(`${text} for lease ${this.lease().number ?? this.lease().unitNumber}`); this.load(); this.changed.emit(); }
   private fail(e: unknown): void { this.saving.set(false); const p = asProblem(e); this.errors.set(p); if (!p?.errors) this.message.error(p?.detail ?? p?.title ?? 'Could not complete the action'); }
 }

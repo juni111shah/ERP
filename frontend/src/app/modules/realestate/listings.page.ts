@@ -4,6 +4,7 @@ import { DecimalPipe } from '@angular/common';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { createPagedList } from '../../core/api/paged-list';
@@ -166,7 +167,7 @@ export class ListingsPage {
 
   setStatus(l: ListingDto, status: string): void {
     this.api.setStatus(l.id, status).subscribe({
-      next: () => { this.state.close(); this.message.success('Listing updated'); this.list.reload(); },
+      next: () => { this.state.close(); this.message.success(doneText('updated', 'Listing', l.title)); this.list.reload(); },
       error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not update the listing'),
     });
   }

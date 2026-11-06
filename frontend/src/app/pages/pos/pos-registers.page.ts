@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
@@ -142,7 +143,7 @@ export class PosRegistersPage {
       nzOnOk: () => this.api.delete(reg.id).subscribe({
         next: () => {
           this.list.reload();
-          this.message.success('Register deleted.');
+          this.message.success(doneText('deleted', 'Register', reg.name));
         },
         error: (err) => this.message.error(problemMessage(err, 'The register could not be deleted.')),
       }),

@@ -129,7 +129,8 @@ export class ReportPage {
   runAction(): void {
     const a = this.def()?.action; const entityId = this.entity();
     if (!a || !entityId || !this.to) return;
-    this.http.post(`${this.base}/${a.path}`, { legalEntityId: entityId, asOf: toIsoDate(this.to) }).subscribe({ next: () => this.message.success(a.done), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not complete the action') });
+    const asOf = toIsoDate(this.to);
+    this.http.post(`${this.base}/${a.path}`, { legalEntityId: entityId, asOf }).subscribe({ next: () => this.message.success(`${a.done} as of ${displayDate(asOf)}`), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not complete the action') });
   }
 
   has(f: string): boolean { return !!this.def()?.filters.includes(f as never); }

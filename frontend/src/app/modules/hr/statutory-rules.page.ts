@@ -10,6 +10,7 @@ import { catchError, of } from 'rxjs';
 import { LegalEntitiesApi, LegalEntityDto } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { doneText } from '../../core/format/done-text';
 import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
@@ -89,10 +90,11 @@ export class StatutoryRulesPage {
   }
 
   remove(id: string): void {
+    const deletedName = this.state.editing()?.name;
     this.confirm.confirm({
       nzTitle: 'Delete this rule?', nzOkText: 'Delete', nzOkDanger: true,
       nzOnOk: () => new Promise<void>((resolve) => this.api.delete(id).subscribe({
-        next: () => { this.toast.success('Deleted'); this.state.close(); this.list.reload(); resolve(); },
+        next: () => { this.toast.success(doneText('deleted', 'Statutory rule', deletedName)); this.state.close(); this.list.reload(); resolve(); },
         error: (e) => { this.toast.error(problemMessage(e, 'Could not delete the rule')); resolve(); },
       })),
     });

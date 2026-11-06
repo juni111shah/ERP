@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -275,7 +276,7 @@ export class JournalDetailPage implements OnInit {
       nzOkText: 'Delete',
       nzOkDanger: true,
       nzOnOk: () => this.api.delete(jrn.id).subscribe({
-        next: () => { this.message.success('Draft deleted'); this.router.navigate(['/finance/journals']); },
+        next: () => { this.message.success(doneText('deleted', 'Draft journal', jrn.number)); this.router.navigate(['/finance/journals']); },
         error: (err) => this.fail(err, 'Failed to delete journal')
       })
     });

@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { asProblem } from '../../core/http/problem-details';
@@ -99,7 +100,7 @@ export class CountDetailPage {
 
   save(after?: () => void): void {
     this.busy.set(true);
-    this.api.saveLines(this.id(), this.body()).subscribe({ next: (c) => { this.busy.set(false); this.apply(c); this.message.success('Counts saved'); after?.(); }, error: (e) => this.fail(e, 'Could not save the counts') });
+    this.api.saveLines(this.id(), this.body()).subscribe({ next: (c) => { this.busy.set(false); this.apply(c); this.message.success(`Counts saved for ${c.number}`); after?.(); }, error: (e) => this.fail(e, 'Could not save the counts') });
   }
 
   post(): void {
@@ -107,7 +108,7 @@ export class CountDetailPage {
       nzTitle: 'Post the differences?', nzContent: 'One stock adjustment is booked for every item whose counted quantity differs from the system. This cannot be undone.', nzOkText: 'Post',
       nzOnOk: () => new Promise<void>((resolve) => {
         this.api.saveLines(this.id(), this.body()).subscribe({
-          next: () => this.api.post(this.id()).subscribe({ next: (c) => { this.apply(c); this.message.success('Count posted'); resolve(); }, error: (e) => { this.fail(e, 'Could not post the count'); resolve(); } }),
+          next: () => this.api.post(this.id()).subscribe({ next: (c) => { this.apply(c); this.message.success(doneText('posted', 'Stock count', c.number)); resolve(); }, error: (e) => { this.fail(e, 'Could not post the count'); resolve(); } }),
           error: (e) => { this.fail(e, 'Could not save the counts'); resolve(); },
         });
       }),
@@ -117,7 +118,7 @@ export class CountDetailPage {
   cancel(): void {
     this.modal.confirm({
       nzTitle: 'Cancel this count?', nzContent: 'The counted figures are kept on the sheet, but nothing is posted to stock.', nzOkText: 'Cancel count', nzOkDanger: true, nzCancelText: 'Keep counting',
-      nzOnOk: () => new Promise<void>((resolve) => this.api.cancel(this.id()).subscribe({ next: (c) => { this.apply(c); this.message.success('Count cancelled'); resolve(); }, error: (e) => { this.fail(e, 'Could not cancel'); resolve(); } })),
+      nzOnOk: () => new Promise<void>((resolve) => this.api.cancel(this.id()).subscribe({ next: (c) => { this.apply(c); this.message.success(doneText('cancelled', 'Stock count', c.number)); resolve(); }, error: (e) => { this.fail(e, 'Could not cancel'); resolve(); } })),
     });
   }
 }

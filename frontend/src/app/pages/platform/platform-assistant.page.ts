@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -258,7 +259,7 @@ export class PlatformAssistantPage {
     const brand = this.brandLimit();
     const workspace = this.workspaceLimit();
     if (brand === null || workspace === null) return;
-    this.run(this.api.setAssistantLimits({ brandDailyTokens: brand, workspaceDailyTokens: workspace }), 'Could not save the limits', () => this.message.success('Limits saved'));
+    this.run(this.api.setAssistantLimits({ brandDailyTokens: brand, workspaceDailyTokens: workspace }), 'Could not save the limits', () => this.message.success('Daily token limits saved for the assistants'));
   }
 
   /** The switch does not move by itself: it shows what the server has saved. */
@@ -302,7 +303,7 @@ export class PlatformAssistantPage {
     this.saving.set(true);
     this.errors.set(null);
     (editing ? this.api.updateAiProvider(editing.id, input) : this.api.createAiProvider(input)).subscribe({
-      next: (view) => { this.saving.set(false); this.open.set(false); this.view.set(view); this.message.success(editing ? 'Service saved' : 'Service added. Press Test to check that it works.'); },
+      next: (view) => { this.saving.set(false); this.open.set(false); this.view.set(view); this.message.success(editing ? doneText('saved', 'AI service', input.name) : `${doneText('added', 'AI service', input.name)}. Press Test to check that it works.`); },
       error: (e) => {
         this.saving.set(false);
         const problem = asProblem(e);

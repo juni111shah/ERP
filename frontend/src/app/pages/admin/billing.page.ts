@@ -207,7 +207,7 @@ export class BillingPage {
     this.saving.set(true);
     this.errors.set(null);
     this.api.requestPlanChange({ planId: plan.id, cycle: v['cycle'] as BillingCycle, note: v['note'] as string | null }).subscribe({
-      next: (d) => { this.saving.set(false); this.asking.set(null); this.show(d); this.message.success('Request sent. Our team will be in touch.'); },
+      next: (d) => { this.saving.set(false); this.asking.set(null); this.show(d); this.message.success(`Plan change request for ${plan.name} sent. Our team will be in touch.`); },
       error: (e) => {
         this.saving.set(false);
         const problem = asProblem(e);
@@ -224,7 +224,7 @@ export class BillingPage {
       nzOkText: 'Withdraw',
       nzCancelText: 'Keep it',
       nzOnOk: () => this.api.withdrawPlanChange().subscribe({
-        next: (d) => { this.show(d); this.message.success('Request withdrawn'); },
+        next: (d) => { this.show(d); this.message.success('Plan change request withdrawn'); },
         error: (e) => this.message.error(problemMessage(e, 'Could not withdraw the request')),
       }),
     });

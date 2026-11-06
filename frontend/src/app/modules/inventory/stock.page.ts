@@ -166,7 +166,7 @@ export class StockPage {
     this.saving.set(true);
     const call = action === 'policy' ? this.api.setPolicy(body as never) : this.api.act(action, body);
     call.subscribe({
-      next: () => { this.saving.set(false); this.current.set(null); this.message.success('Saved'); this.load(); },
+      next: () => { this.saving.set(false); this.current.set(null); this.message.success(action === 'policy' ? 'Reorder policy saved' : action === 'adjust' ? `Stock adjusted by ${values['quantityDelta']}` : action === 'receive' ? `${values['quantity']} received into stock` : action === 'issue' ? `${values['quantity']} issued from stock` : `${values['quantity']} transferred between warehouses`); this.load(); },
       error: (e) => { this.saving.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not save'); },
     });
   }

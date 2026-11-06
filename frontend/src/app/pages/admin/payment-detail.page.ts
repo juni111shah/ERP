@@ -1,4 +1,8 @@
 import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
+import { SuccessPanelComponent } from '../../shared/success-panel.component';
+import { tNow } from '../../core/i18n/translate-now';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
+import { NzButtonModule as NzButtonModuleForPanel } from 'ng-zorro-antd/button';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -46,13 +50,28 @@ interface Payment {
 @Component({
   selector: 'erp-payment-detail',
   standalone: true,
-  imports: [RouterLink, NzSpinModule, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
+  imports: [HasPermissionDirective, SuccessPanelComponent, NzButtonModuleForPanel, RouterLink, NzSpinModule, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
   template: `
     @if (loading()) {
       <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
     } @else if (error()) {
       <erp-state-panel kind="error" title="Could not load this payment" [hint]="error()" actionLabel="Try again" (action)="retry()" />
     } @else if (payment()) {
+      @if (justRecorded() && payment(); as p) {
+        <erp-success-panel [title]="recordedTitle()" [detail]="recordedDetail()" (dismissed)="justRecorded.set(false)">
+          <a actions nz-button nzType="primary" [href]="'/print/payment/' + p.id" target="_blank" rel="noopener" data-testid="success-print">Print payment</a>
+          <button actions *erpHasPermission="'core.email.send'" nz-button type="button" (click)="emailOpen.set(true)" data-testid="success-email">Email to vendor</button>
+          <a actions nz-button [routerLink]="['/finance/payments']" [queryParams]="{ new: 1 }" data-testid="success-another">Record another</a>
+          <span loop>
+            @if (p.unallocated > 0) {
+              {{ money(p.unallocated) }} {{ 'ui.success.notAppliedBill' | translate: 'is not applied to a bill yet.' }}
+              <a [routerLink]="['/finance/payments']" [queryParams]="{ open: p.id }" data-testid="success-loop">{{ 'ui.success.applyIt' | translate: 'Apply it' }}</a>
+            } @else {
+              <a [routerLink]="['/parties', p.partyId]" data-testid="success-loop">{{ 'ui.success.seeWhatWeOwe' | translate: 'See what is still owed to this vendor' }}</a>
+            }
+          </span>
+        </erp-success-panel>
+      }
       <erp-detail-page
         [backLink]="['/finance/payments']"
         [backLabel]="'Back to Payments'"
@@ -88,7 +107,7 @@ interface Payment {
           </div>
         }
       </erp-detail-page>
-      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/payments/' + payment()!.id + '/email'" (closed)="emailOpen.set(false)" />
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/payments/' + payment()!.id + '/email'" [documentLabel]="'Payment ' + payment()!.number" (closed)="emailOpen.set(false)" />
     }
   `
 })
@@ -103,6 +122,19 @@ export class PaymentDetailPage implements OnInit {
   private readonly modal = inject(NzModalService);
 
   money(v: number): string { return formatMoney(v, this.payment()?.currencyCode); }
+  /** Arrived here straight after recording the money: the outcome stays on the page until it is closed or the person leaves. */
+  readonly justRecorded = signal(false);
+  readonly recordedTitle = computed(() => {
+    const p = this.payment();
+    return p ? tNow('ui.success.paid', 'Paid {amount} to {party}', { amount: this.money(p.amount), party: p.partyName }) : '';
+  });
+  readonly recordedDetail = computed(() => {
+    const p = this.payment();
+    if (!p) return '';
+    const applied = p.allocations.map((a) => a.billNumber).join(', ');
+    const facts = `${p.number}, ${displayDate(p.date)}, ${displayLabel(p.method)}`;
+    return applied ? tNow('ui.success.paymentApplied', 'Payment {facts}, applied to {docs}.', { facts, docs: applied }) : tNow('ui.success.paymentFacts', 'Payment {facts}.', { facts });
+  });
   loading = signal(true);
   error = signal<string | null>(null);
   payment = signal<Payment | null>(null);
@@ -205,12 +237,20 @@ export class PaymentDetailPage implements OnInit {
       next: (response) => {
         this.payment.set(response);
         this.loading.set(false);
+        this.showRecorded();
       },
       error: (err) => {
         this.error.set(err.error?.message || 'Failed to load payment');
         this.loading.set(false);
       }
     });
+  }
+
+  /** The message belongs to this visit, so the query flag leaves the address and a reload shows the plain record. */
+  private showRecorded(): void {
+    if (!this.route.snapshot.queryParamMap.get('recorded')) return;
+    this.justRecorded.set(true);
+    void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
   }
 
   voidPayment(): void {

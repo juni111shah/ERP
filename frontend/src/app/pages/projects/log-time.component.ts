@@ -162,7 +162,7 @@ export class LogTimeComponent {
     const id = this.editingId();
     this.saving.set(true);
     (id ? this.timesheets.update(id, body) : this.timesheets.create(body)).subscribe({
-      next: () => { this.saving.set(false); this.msg.success('Time saved'); this.visible.set(false); this.saved.emit(); },
+      next: () => { this.saving.set(false); this.msg.success(`${body.hours} h logged`); this.visible.set(false); this.saved.emit(); },
       error: (e) => { this.saving.set(false); this.msg.error(errorText(e, 'Could not save the time.')); },
     });
     return false;

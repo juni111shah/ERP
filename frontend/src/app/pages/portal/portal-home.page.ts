@@ -205,7 +205,7 @@ export class PortalHomePage implements OnInit {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     this.raising.set(true);
     this.portal.raise(this.form.getRawValue()).subscribe({
-      next: () => { this.raising.set(false); this.message.success('Request sent'); this.form.patchValue({ issue: '' }); this.form.markAsPristine(); this.form.markAsUntouched(); this.loadRequests(); },
+      next: () => { this.raising.set(false); this.message.success('Maintenance request sent'); this.form.patchValue({ issue: '' }); this.form.markAsPristine(); this.form.markAsUntouched(); this.loadRequests(); },
       error: () => { this.raising.set(false); this.message.error('Could not send the request'); },
     });
   }

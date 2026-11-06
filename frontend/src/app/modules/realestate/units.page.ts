@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { createPagedList } from '../../core/api/paged-list';
 import { ProblemDetails } from '../../core/api/api.models';
@@ -232,7 +233,7 @@ export class UnitsPage {
     this.actionSaving.set(true);
     this.actionErrors.set(null);
     this.api.changeStatus(current.unit.id, { action: current.kind, until: (values['until'] as string) ?? null, reason: (values['reason'] as string) ?? null }).subscribe({
-      next: () => { this.actionSaving.set(false); this.action.set(null); this.state.close(); this.message.success('Unit updated'); this.list.reload(); },
+      next: () => { this.actionSaving.set(false); this.action.set(null); this.state.close(); this.message.success(doneText('updated', 'Unit', current.unit.unitNumber)); this.list.reload(); },
       error: (e) => { this.actionSaving.set(false); const p = asProblem(e); this.actionErrors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not update the unit'); },
     });
   }

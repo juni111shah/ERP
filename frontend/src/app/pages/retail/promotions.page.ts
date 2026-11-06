@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
@@ -440,7 +441,7 @@ export class PromotionsPageComponent implements OnInit {
   deletePromotion(row: RetailPromotionDto): void {
     this.promotionsApi.delete(row.id).subscribe({
       next: () => {
-        this.msg.success('Promotion deleted');
+        this.msg.success(doneText('deleted', 'Promotion', row.name));
         this.list.reload();
       },
       error: (err) => this.msg.error(problemMessage(err, 'The promotion could not be deleted'))
@@ -535,7 +536,7 @@ export class PromotionsPageComponent implements OnInit {
     const id = this.editingId();
     (id ? this.promotionsApi.update(id, input) : this.promotionsApi.create(input)).subscribe({
       next: () => {
-        this.msg.success('Promotion saved');
+        this.msg.success(doneText('saved', 'Promotion', val.name));
         this.isSaving.set(false);
         this.closeModal();
         this.list.reload();

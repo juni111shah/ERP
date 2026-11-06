@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { ProblemDetails } from '../../core/api/api.models';
 import { createPagedList } from '../../core/api/paged-list';
@@ -132,7 +133,7 @@ export class DealsPage {
   invoice(d: DealDto): void {
     this.moveSaving.set(true);
     this.api.invoiceCommission(d.id).subscribe({
-      next: () => { this.moveSaving.set(false); this.state.close(); this.message.success('Commission invoice issued'); this.list.reload(); },
+      next: () => { this.moveSaving.set(false); this.state.close(); this.message.success(`Commission invoice issued for deal ${d.number ?? d.clientName}`); this.list.reload(); },
       error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not invoice the commission'); },
     });
   }
@@ -142,7 +143,7 @@ export class DealsPage {
     if (!d) return;
     this.moveSaving.set(true);
     this.api.payAgent(d.id, values['bankAccountId'] as string, values['date'] as string).subscribe({
-      next: () => { this.moveSaving.set(false); this.payOpen.set(null); this.state.close(); this.message.success('Agent paid'); this.list.reload(); },
+      next: () => { this.moveSaving.set(false); this.payOpen.set(null); this.state.close(); this.message.success(`Agent paid for deal ${d.number ?? d.clientName}`); this.list.reload(); },
       error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.moveErrors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not pay the agent'); },
     });
   }
@@ -150,7 +151,7 @@ export class DealsPage {
   private send(d: DealDto, body: { stage: string; lostReason?: string | null }): void {
     this.moveSaving.set(true);
     this.api.moveStage(d.id, body).subscribe({
-      next: () => { this.moveSaving.set(false); this.losing.set(null); this.state.close(); this.message.success('Deal updated'); this.list.reload(); },
+      next: () => { this.moveSaving.set(false); this.losing.set(null); this.state.close(); this.message.success(doneText('updated', 'Deal', d.number ?? d.clientName)); this.list.reload(); },
       error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.moveErrors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not update the deal'); },
     });
   }

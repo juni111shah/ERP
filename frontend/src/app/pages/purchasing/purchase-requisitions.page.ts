@@ -1,3 +1,4 @@
+import { doneText } from '../../core/format/done-text';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { problemMessage } from '../../core/http/problem-details';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
@@ -114,7 +115,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
                 }
                 @if (row.status === 'draft') {
                   <button *erpHasPermission="'purchasing.requisitions.manage'" nz-button nzType="link" nzDanger nzSize="small"
-                          nz-popconfirm nzPopconfirmTitle="Delete this requisition?" (nzOnConfirm)="deleteRequisition(row.id)">
+                          nz-popconfirm nzPopconfirmTitle="Delete this requisition?" (nzOnConfirm)="deleteRequisition(row)">
                     Delete
                   </button>
                 }
@@ -495,7 +496,7 @@ export class PurchaseRequisitionsPage {
       next: (created) => {
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
-        this.message.success(`Requisition ${created.number} submitted.`);
+        this.message.success(doneText('submitted', 'Requisition', created.number));
         this.list.reload();
       },
       error: (err) => {
@@ -529,7 +530,7 @@ export class PurchaseRequisitionsPage {
     this.reqsApi.convertToOrder(req.id, vendor.id, vendor.name).subscribe({
       next: (po) => {
         this.converting.set(false);
-        this.message.success(`Converted to Purchase Order ${po.number}`);
+        this.message.success(`${req.number} converted to purchase order ${po.number}`);
         this.convertModalVisible.set(false);
         this.list.reload();
         this.router.navigate(['/purchasing/orders', po.id]);
@@ -541,10 +542,10 @@ export class PurchaseRequisitionsPage {
     });
   }
 
-  deleteRequisition(id: string): void {
-    this.reqsApi.delete(id).subscribe({
+  deleteRequisition(row: { id: string; number?: string | null }): void {
+    this.reqsApi.delete(row.id).subscribe({
       next: () => {
-        this.message.success('Requisition deleted');
+        this.message.success(doneText('deleted', 'Requisition', row.number));
         this.list.reload();
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to delete')),

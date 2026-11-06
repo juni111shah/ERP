@@ -320,7 +320,7 @@ export class OrderDetailPage {
     this.ordersApi.setStatus(o.id, status).subscribe({
       next: (updated) => {
         this.order.set(updated);
-        this.message.success(`Status changed to ${displayLabel(status).toLowerCase()}.`);
+        this.message.success(`${o.number} is now ${displayLabel(status).toLowerCase()}.`);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to update status')),
     });
@@ -354,7 +354,7 @@ export class OrderDetailPage {
         this.saving.set(false);
         this.order.set(updated);
         this.fulfillmentModalVisible.set(false);
-        this.message.success('Delivery recorded.');
+        this.message.success(`Delivery recorded for ${o.number}.`);
       },
       error: (err) => {
         this.saving.set(false);
@@ -368,7 +368,7 @@ export class OrderDetailPage {
     if (!o) return;
     this.ordersApi.convertToInvoice(o.id).subscribe({
       next: () => {
-        this.message.success('Invoice generated successfully in Accounting');
+        this.message.success(`Invoice created from order ${o.number}`);
         this.loadOrder(o.id);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to generate invoice')),

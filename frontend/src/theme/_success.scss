@@ -1,0 +1,79 @@
+// Success states. A panel that stays for what matters (SuccessPanelComponent), a toast action for the rest (SuccessToastService).
+
+.erp-success-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--erp-space-3);
+  margin-block-end: var(--erp-space-4);
+  padding: var(--erp-space-4) var(--erp-space-5);
+  border: 1px solid var(--erp-color-success-border);
+  border-radius: var(--erp-radius-card);
+  background: var(--erp-color-success-bg);
+}
+.erp-success-panel__icon {
+  flex: none;
+  margin-block-start: 2px;
+  font-size: 22px;
+  color: var(--erp-color-success-solid);
+}
+.erp-success-panel__body {
+  flex: 1;
+  min-width: 0;
+}
+.erp-success-panel__title {
+  margin: 0;
+  font-size: var(--erp-font-size-title-sm);
+  line-height: var(--erp-line-height-title-sm);
+  font-weight: 600;
+  color: var(--erp-color-text-primary);
+}
+.erp-success-panel__detail {
+  margin: var(--erp-space-1) 0 0;
+  color: var(--erp-color-text-secondary);
+}
+.erp-success-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--erp-space-2);
+  margin-block-start: var(--erp-space-3);
+  &:empty { display: none; }
+}
+.erp-success-panel__loop {
+  margin: var(--erp-space-3) 0 0;
+  color: var(--erp-color-text-secondary);
+  &:empty { display: none; }
+}
+.erp-success-panel__close { flex: none; }
+
+.erp-toast-action {
+  margin-inline-start: var(--erp-space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--erp-color-primary-text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.erp-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 1080;
+  overflow: hidden;
+  pointer-events: none;
+  i {
+    position: absolute;
+    width: 7px;
+    height: 11px;
+    border-radius: 1px;
+    opacity: 0;
+    animation: erp-confetti-fall 1.4s var(--erp-ease-decelerate) forwards;
+  }
+}
+@keyframes erp-confetti-fall {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--turn)); }
+}

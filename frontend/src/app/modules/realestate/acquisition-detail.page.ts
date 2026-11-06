@@ -8,6 +8,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDescriptionsModule } from 'ng-zorro-antd/descriptions';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
@@ -126,7 +127,7 @@ export class AcquisitionDetailPage {
     const body = { legalEntityId: a.legalEntityId, propertyId: a.propertyId, sellerName: a.sellerName, purchaseDate: a.purchaseDate, contractReference: a.contractReference ?? null, purchasePrice: a.purchasePrice, downPayment: a.downPayment, transferFees: a.transferFees, otherCosts: a.otherCosts, payFromAccountId: v['payFromAccountId'], notes: a.notes ?? null,
       funding: a.funding.map((f) => ({ type: f.type, lender: f.lender, principal: f.principal, annualRatePercent: f.annualRatePercent, termMonths: f.termMonths, firstDueDate: f.firstDueDate })) };
     this.api.save(a.id, body).subscribe({
-      next: (saved) => { this.busy.set(false); this.acq.set(saved); this.choosingBank.set(false); this.message.success('Bank account saved'); },
+      next: (saved) => { this.busy.set(false); this.acq.set(saved); this.choosingBank.set(false); this.message.success(`Bank account saved for purchase ${saved.number}`); },
       error: (e) => { this.busy.set(false); const p = asProblem(e); this.errors.set(p); if (!p?.errors) this.message.error(p?.detail ?? p?.title ?? 'Could not save the bank account'); },
     });
   }
@@ -143,24 +144,24 @@ export class AcquisitionDetailPage {
   complete(): void {
     const a = this.acq();
     if (a && a.cashAtCompletion > 0 && !a.payFromAccountId) { this.errors.set(null); this.choosingBank.set(true); return; }
-    this.modal.confirm({ nzTitle: 'Complete this purchase?', nzContent: 'The property is capitalised and the instalment schedules are generated. Financing cannot be changed afterwards.', nzOkText: 'Complete', nzOnOk: () => this.run(this.api.complete(this.id), 'Purchase completed') });
+    this.modal.confirm({ nzTitle: 'Complete this purchase?', nzContent: 'The property is capitalised and the instalment schedules are generated. Financing cannot be changed afterwards.', nzOkText: 'Complete', nzOnOk: () => this.run(this.api.complete(this.id), (a) => doneText('completed', 'Purchase', a.number)) });
   }
-  cancel(): void { this.modal.confirm({ nzTitle: 'Cancel this draft?', nzOkDanger: true, nzOkText: 'Cancel draft', nzOnOk: () => this.run(this.api.cancel(this.id), 'Draft cancelled') }); }
+  cancel(): void { this.modal.confirm({ nzTitle: 'Cancel this draft?', nzOkDanger: true, nzOkText: 'Cancel draft', nzOnOk: () => this.run(this.api.cancel(this.id), (a) => doneText('cancelled', 'Purchase draft', a.number)) }); }
 
   pay(v: Record<string, unknown>): void {
     const i = this.paying();
     if (!i) return;
     this.busy.set(true);
     this.api.payInstalment(i.id, v['bankAccountId'] as string, v['date'] as string).subscribe({
-      next: () => { this.busy.set(false); this.paying.set(null); this.message.success('Instalment paid'); this.load(); },
+      next: () => { this.busy.set(false); this.paying.set(null); this.message.success(`Instalment ${i.sequence} paid for purchase ${this.acq()?.number}`); this.load(); },
       error: (e) => { this.busy.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not pay the instalment'); },
     });
   }
 
-  private run(call: ReturnType<AcquisitionsApi['complete']>, success: string): Promise<void> {
+  private run(call: ReturnType<AcquisitionsApi['complete']>, success: (a: AcquisitionDto) => string): Promise<void> {
     this.busy.set(true);
     return new Promise((resolve) => call.subscribe({
-      next: (a) => { this.busy.set(false); this.acq.set(a); this.message.success(success); resolve(); },
+      next: (a) => { this.busy.set(false); this.acq.set(a); this.message.success(success(a)); resolve(); },
       error: (e) => { this.busy.set(false); this.message.error(problemMessage(e, 'Action failed')); resolve(); },
     }));
   }

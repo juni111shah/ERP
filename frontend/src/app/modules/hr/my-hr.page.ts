@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { doneText } from '../../core/format/done-text';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
@@ -135,21 +136,21 @@ export class MyHrPage {
   request(v: Record<string, unknown>): void {
     this.saving.set(true); this.errors.set(null);
     this.api.requestLeave({ leaveTypeId: v['leaveTypeId'] as string, fromDate: String(v['fromDate']).slice(0, 10), toDate: String(v['toDate']).slice(0, 10), reason: (v['reason'] as string) || null, submit: true }).subscribe({
-      next: () => { this.saving.set(false); this.requesting.set(false); this.message.success('Leave request sent'); this.loadAll(); },
+      next: () => { this.saving.set(false); this.requesting.set(false); this.message.success(`Leave request sent for ${String(v['fromDate']).slice(0, 10)} to ${String(v['toDate']).slice(0, 10)}`); this.loadAll(); },
       error: (e) => { this.saving.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not send the request'); },
     });
   }
 
   act(r: LeaveRequestRow, what: 'submit' | 'cancel'): void {
     (what === 'submit' ? this.api.submitLeave(r.id) : this.api.cancelLeave(r.id)).subscribe({
-      next: () => { this.message.success(what === 'submit' ? 'Submitted' : 'Cancelled'); this.loadAll(); },
+      next: () => { this.message.success(doneText(what === 'submit' ? 'submitted' : 'cancelled', 'Leave request', `${r.fromDate.slice(0, 10)} to ${r.toDate.slice(0, 10)}`)); this.loadAll(); },
       error: (e) => this.message.error(asProblem(e)?.detail ?? 'Action failed'),
     });
   }
 
   decide(r: LeaveRequestRow, what: 'approve' | 'reject'): void {
     this.leaveApi.action(r.id, what).subscribe({
-      next: () => { this.message.success(what === 'approve' ? 'Approved' : 'Rejected'); this.loadAll(); },
+      next: () => { this.message.success(doneText(what === 'approve' ? 'approved' : 'rejected', 'Leave request', r.employeeName)); this.loadAll(); },
       error: (e) => this.message.error(asProblem(e)?.detail ?? 'Action failed'),
     });
   }
