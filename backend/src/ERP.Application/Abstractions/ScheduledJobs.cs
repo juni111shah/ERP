@@ -9,5 +9,7 @@ public interface IScheduledJob
     string Name { get; }
     /// <summary>Module that must be enabled for the workspace; null = core.</summary>
     string? ModuleKey { get; }
+    /// <summary>Housekeeping that must happen even when the module is off or the workspace is suspended, such as deleting data past its retention period. It stays inside the workspace.</summary>
+    bool RunsWhenOff => false;
     Task RunAsync(DateOnly today, CancellationToken ct);
 }

@@ -17,6 +17,8 @@ public class AssistantChatMessage : OrgEntity, INotAudited
     public Guid UserId { get; set; }
     public DateTime At { get; set; }
     public bool FromUser { get; set; }
+    /// <summary>What became of a suggestion, for the model's next turn. People see the card instead, so a note never appears in the chat.</summary>
+    public bool IsNote { get; set; }
     public string Text { get; set; } = default!;
 }
 
@@ -48,4 +50,8 @@ public class AssistantPendingAction : OrgEntity, INotAudited
     public string? Link { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime ExpiresAt { get; set; }
+    /// <summary>The language the card was written in, which its outcome follows.</summary>
+    public string Language { get; set; } = "en";
+    /// <summary>The legal entity shown on the card, which Confirm runs against. Null for a change that belongs to none.</summary>
+    public Guid? LegalEntityId { get; set; }
 }

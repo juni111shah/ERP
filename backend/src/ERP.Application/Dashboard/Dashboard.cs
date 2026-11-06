@@ -138,8 +138,8 @@ public interface IDashboardContributor
     Task<DashboardContribution> BuildAsync(DashboardScope scope, CancellationToken ct);
 }
 
-/// <summary><c>From</c>/<c>To</c> are optional; missing values default to the last year ending today.</summary>
-public sealed record GetDashboard(Guid? LegalEntityId, DateOnly? From = null, DateOnly? To = null) : IQuery<DashboardDto>;
+/// <summary><c>From</c>/<c>To</c> are optional; missing values default to the last year ending today. <c>ExcludeModules</c> leaves modules out; the overview screen never sets it.</summary>
+public sealed record GetDashboard(Guid? LegalEntityId, DateOnly? From = null, DateOnly? To = null, IReadOnlyCollection<string>? ExcludeModules = null) : IQuery<DashboardDto>;
 
 public sealed class GetDashboardValidator : AbstractValidator<GetDashboard>
 {
@@ -166,7 +166,7 @@ internal sealed class DashboardHandler(IEnumerable<IDashboardContributor> contri
         var kpis = new List<KpiCard>(); var charts = new List<DashboardChart>(); var alerts = new List<DashboardAlert>();
         foreach (var c in contributors)
         {
-            if (c.ModuleKey != "core" && !await modules.IsEnabledAsync(c.ModuleKey, ct)) continue;
+            if (q.ExcludeModules?.Contains(c.ModuleKey) == true || (c.ModuleKey != "core" && !await modules.IsEnabledAsync(c.ModuleKey, ct))) continue;
             var part = await c.BuildAsync(scope, ct);
             kpis.AddRange(part.Kpis); charts.AddRange(part.Charts); alerts.AddRange(part.Alerts);
         }

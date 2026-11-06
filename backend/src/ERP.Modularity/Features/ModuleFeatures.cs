@@ -2,13 +2,15 @@ using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Security;
 using ERP.Domain.Organizations;
+using ERP.Domain.Platform;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Modularity.Features;
 
+/// <summary><c>Notice</c> is a code the page turns into words, for a module that will not appear even when enabled here.</summary>
 public sealed record ModuleView(
-    string Key, string Name, string Description, string Category, string Version, bool IsCore, IReadOnlyList<string> Requires, string UiRoute, string State);
+    string Key, string Name, string Description, string Category, string Version, bool IsCore, IReadOnlyList<string> Requires, string UiRoute, string State, string? Notice = null);
 
 public sealed record ModuleState(string Key, string State);
 
@@ -31,7 +33,7 @@ public sealed record ListPlatformModules : IQuery<IReadOnlyList<PlatformModuleVi
 /// <summary>A platform admin switching a module for a client. The caller is checked by the platform-admin policy on the endpoint.</summary>
 public sealed record SetClientModule(Guid OrgId, string Key, bool Enable) : ICommand<ModuleState>;
 
-internal sealed class ModuleHandlers(ModuleRegistry modules, IModuleAccess access, IRepository<OrganizationModule> organizationModules, ERP.Application.Platform.ISubscriptionLimits limits, IOrgContext org) :
+internal sealed class ModuleHandlers(ModuleRegistry modules, IModuleAccess access, IRepository<OrganizationModule> organizationModules, ERP.Application.Platform.ISubscriptionLimits limits, IOrgContext org, IReadRepository<PlatformSetting> settings, IReadRepository<AiProvider> providers) :
     IRequestHandler<ListPlatformModules, IReadOnlyList<PlatformModuleView>>,
     IRequestHandler<SetClientModule, ModuleState>,
     IRequestHandler<ListModules, IReadOnlyList<ModuleView>>,
@@ -45,7 +47,16 @@ internal sealed class ModuleHandlers(ModuleRegistry modules, IModuleAccess acces
             m.Manifest.IsCore || enabled.Contains(m.Manifest.Key) ? "enabled" : "disabled"));
         var planned = ModuleRegistry.Planned.Where(p => !modules.IsInstalled(p.Key)).Select(p => new ModuleView(p.Key, p.Name, p.Description, p.Category,
             p.Version, p.IsCore, p.Requires ?? [], p.UiRoute, "unavailable"));
-        return installed.Concat(planned).ToList();
+        var notice = await AssistantNoticeAsync(ct);
+        return installed.Concat(planned).Select(m => m.Key == "assistant" ? m with { Notice = notice } : m).ToList();
+    }
+
+    /// <summary>Why the workspace assistant would stay hidden. It says nothing about which service is used.</summary>
+    private async Task<string?> AssistantNoticeAsync(CancellationToken ct)
+    {
+        if (!await settings.Query().OrderBy(s => s.CreatedAt).Select(s => s.WorkspaceAssistantEnabled).FirstOrDefaultAsync(ct)) return "assistant-off";
+        if (await limits.AssistantMonthlyMessagesAsync(ct) == 0) return "assistant-plan";
+        return await providers.AnyAsync(p => p.UseForWorkspace, ct) ? null : "assistant-no-service";
     }
 
     public Task<IReadOnlyList<PlatformModuleView>> Handle(ListPlatformModules q, CancellationToken ct)

@@ -21,6 +21,7 @@ public sealed class AssistantModule : ModuleBase
     public const string UsageRead = "assistant.usage.read";
     public const string RetentionDaysSetting = "assistant.retentionDays";
     public const string DailyMessagesSetting = "assistant.dailyMessagesPerUser";
+    public const int MinRetentionDays = 7, MaxRetentionDays = 3650, MinDailyMessages = 1, MaxDailyMessages = 1000;
 
     public override ModuleManifest Manifest { get; } = new(Key, "AI assistant",
         "Ask questions about your business and get answers from your own records. Enabling it sends the information needed for each answer to an AI service provider.", "Horizontal");
@@ -29,8 +30,8 @@ public sealed class AssistantModule : ModuleBase
 
     public override IEnumerable<SettingDefinition> Settings =>
     [
-        new(RetentionDaysSetting, "Days to keep assistant chats", "90", "number"),
-        new(DailyMessagesSetting, "Messages each person can send per day", "30", "number"),
+        new(RetentionDaysSetting, "Days to keep assistant chats", "90", "number", Min: MinRetentionDays, Max: MaxRetentionDays),
+        new(DailyMessagesSetting, "Messages each person can send per day", "30", "number", Min: MinDailyMessages, Max: MaxDailyMessages),
     ];
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
@@ -69,6 +70,7 @@ public sealed class AssistantModule : ModuleBase
             b.Property(x => x.Status).HasMaxLength(20).IsRequired();
             b.Property(x => x.Message).HasMaxLength(500);
             b.Property(x => x.Link).HasMaxLength(300);
+            b.Property(x => x.Language).HasMaxLength(5).IsRequired();
             b.HasIndex(x => new { x.OrgId, x.ConversationId });
         });
     }
@@ -79,7 +81,8 @@ public sealed class AssistantModule : ModuleBase
         group.MapGet("/usage", (ISender s, CancellationToken ct) => s.Send(new GetAssistantUsage(), ct)).RequirePermission(UsageRead);
         group.MapGet("/conversations", (ISender s, CancellationToken ct) => s.Send(new ListAssistantConversations(), ct)).RequirePermission(ChatsUse);
         group.MapGet("/conversations/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetAssistantConversation(id), ct)).RequirePermission(ChatsUse);
-        group.MapDelete("/conversations/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteAssistantConversation(id), ct); return Results.NoContent(); }).RequirePermission(ChatsUse);
+        // A person's own chat is not business data, so a view-only workspace can still delete it.
+        group.MapDelete("/conversations/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteAssistantConversation(id), ct); return Results.NoContent(); }).RequirePermission(ChatsUse).WithMetadata(new AllowedInReadOnlyWorkspace());
         // Asking changes nothing in the business, so a view-only workspace can still ask. Confirming a change stays blocked there.
         group.MapPost("/messages", (WorkspaceMessageInput input, ISender s, CancellationToken ct) => new AssistantStreamResult(s.CreateStream(new AskWorkspaceAssistant(input), ct)))
             .RequirePermission(ChatsUse).WithMetadata(new AllowedInReadOnlyWorkspace());

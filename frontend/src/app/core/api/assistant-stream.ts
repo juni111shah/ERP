@@ -18,7 +18,12 @@ export type AssistantStreamEvent =
   | { type: 'action'; action: AssistantActionCard };
 
 /** Built by the server from what would really happen, never from the model's words. */
-export interface AssistantActionCard { id: string; title: string; lines: { label: string; value: string }[]; status: 'pending' | 'done' | 'cancelled' | 'failed' | 'expired'; message?: string | null; link?: string | null; }
+export interface AssistantActionCard { id: string; title: string; lines: { label: string; value: string }[]; status: 'pending' | 'done' | 'cancelled' | 'failed' | 'expired'; message?: string | null; link?: string | null; expiresAt?: string | null; }
+
+/** Still marked pending, but past its time. The server refuses it anyway; this only stops offering the button. */
+export function actionExpired(card: AssistantActionCard, now: number): boolean {
+  return card.status === 'pending' && !!card.expiresAt && Date.parse(card.expiresAt) <= now;
+}
 
 /** Reads server-sent events from text that arrives in pieces, which can split an event or even a character sequence anywhere. */
 export class AssistantStreamParser {

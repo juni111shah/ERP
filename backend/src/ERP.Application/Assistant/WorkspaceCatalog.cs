@@ -41,8 +41,17 @@ public interface IAssistantHelp
 public sealed record AssistantHelpPack(string? ModuleKey, IReadOnlyList<AssistantHelpArticle> Articles) : IAssistantHelp;
 
 public sealed record AssistantActionLine(string Label, string Value);
-public sealed record AssistantActionPreview(string Title, IReadOnlyList<AssistantActionLine> Lines);
+/// <summary><c>LegalEntityId</c> is stored with the card, so Confirm runs against the entity the person saw. Null for a change that belongs to no legal entity.</summary>
+public sealed record AssistantActionPreview(string Title, IReadOnlyList<AssistantActionLine> Lines, Guid? LegalEntityId = null);
 public sealed record AssistantActionResult(string Message, string? Link);
+
+/// <summary>Who a card is for: the person's language and, once the card exists, the legal entity stored on it.</summary>
+public sealed record AssistantActionContext(string Language, Guid? LegalEntityId = null)
+{
+    public static string Normalize(string? language) => language?.StartsWith("ar", StringComparison.OrdinalIgnoreCase) == true ? "ar" : "en";
+    public string T(string english, string arabic) => Language == "ar" ? arabic : english;
+    public string LegalEntityLabel => T("Legal entity", "الكيان القانوني");
+}
 
 /// <summary>
 /// A change the assistant may suggest. The model can only ask for a preview: running it takes a person's click on a card built from that preview,
@@ -56,8 +65,8 @@ public interface IAssistantAction
     string? ModuleKey { get; }
     string Permission { get; }
     /// <summary>Throws <see cref="ConflictException"/> with a message for the person when the request cannot go ahead.</summary>
-    Task<AssistantActionPreview> PreviewAsync(JsonElement arguments, CancellationToken ct);
-    Task<AssistantActionResult> ExecuteAsync(JsonElement arguments, CancellationToken ct);
+    Task<AssistantActionPreview> PreviewAsync(JsonElement arguments, AssistantActionContext context, CancellationToken ct);
+    Task<AssistantActionResult> ExecuteAsync(JsonElement arguments, AssistantActionContext context, CancellationToken ct);
 }
 
 /// <summary>
@@ -137,14 +146,15 @@ public static class AssistantArguments
     }
 }
 
-/// <summary>The legal entity a new document belongs to: the one selected at the top of the page, or the only one this person has.</summary>
+/// <summary>The legal entity a new document belongs to: the one stored on the card, else the one selected at the top of the page, or the only one this person has.</summary>
 public sealed class AssistantScope(ICurrentUser user, IReadRepository<LegalEntity> entities)
 {
-    public async Task<LegalEntity> LegalEntityAsync(CancellationToken ct)
+    public async Task<LegalEntity> LegalEntityAsync(AssistantActionContext context, CancellationToken ct)
     {
+        if (context.LegalEntityId is { } stored) return await entities.FindAsync(stored, ct) ?? throw new ConflictException(context.T("That legal entity no longer exists.", "لم يعد هذا الكيان القانوني موجوداً."));
         if (user.LegalEntityId is { } selected) return await entities.GetAsync(selected, ct);
         var allowed = await entities.Query().Where(e => user.AllowedLegalEntityIds == null || user.AllowedLegalEntityIds.Contains(e.Id)).Take(2).ToListAsync(ct);
-        return allowed.Count == 1 ? allowed[0] : throw new ConflictException("Choose a legal entity at the top of the page first.");
+        return allowed.Count == 1 ? allowed[0] : throw new ConflictException(context.T("Choose a legal entity at the top of the page first.", "اختر كياناً قانونياً من أعلى الصفحة أولاً."));
     }
 }
 
@@ -226,17 +236,18 @@ internal sealed class CreatePartyAssistantAction(ISender sender, IValidator<Crea
         return new CreateParty(new PartyInput(a.Text("name") ?? "", kind, role, null, null, null, null, null, null, null, null));
     }
 
-    public async Task<AssistantActionPreview> PreviewAsync(JsonElement arguments, CancellationToken ct)
+    public async Task<AssistantActionPreview> PreviewAsync(JsonElement arguments, AssistantActionContext context, CancellationToken ct)
     {
         var command = Build(arguments);
         await validator.EnsureValidAsync(command, ct);
         var i = command.Input;
-        return new("Add a new " + (i.Roles == PartyRoles.Vendor ? "supplier" : "customer"), [new("Name", i.Name), new("Type", i.Kind == PartyKind.Individual ? "Individual" : "Company")]);
+        var title = i.Roles == PartyRoles.Vendor ? context.T("Add a new supplier", "إضافة مورد جديد") : context.T("Add a new customer", "إضافة عميل جديد");
+        return new(title, [new(context.T("Name", "الاسم"), i.Name), new(context.T("Type", "النوع"), i.Kind == PartyKind.Individual ? context.T("Individual", "فرد") : context.T("Company", "شركة"))]);
     }
 
-    public async Task<AssistantActionResult> ExecuteAsync(JsonElement arguments, CancellationToken ct)
+    public async Task<AssistantActionResult> ExecuteAsync(JsonElement arguments, AssistantActionContext context, CancellationToken ct)
     {
         var party = await sender.Send(Build(arguments), ct);
-        return new($"{party.Name} was added with code {party.Code}.", $"/parties/{party.Id}");
+        return new(context.T($"{party.Name} was added with code {party.Code}.", $"تمت إضافة {party.Name} بالرمز {party.Code}."), $"/parties/{party.Id}");
     }
 }

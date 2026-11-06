@@ -38,15 +38,20 @@ public sealed class SettingsService(IRepository<Setting> settings, ISettingsCata
 
     public async Task SetRawAsync(string key, string jsonValue, Guid? legalEntityId = null, CancellationToken ct = default)
     {
-        if (catalog.Definitions().All(d => d.Def.Key != key)) throw new FieldValidationException(key, "Unknown setting.");
-        using (JsonDocument.Parse(jsonValue)) { } // must be valid JSON
+        var definition = catalog.Definitions().FirstOrDefault(d => d.Def.Key == key).Def ?? throw new FieldValidationException(key, "Unknown setting.");
+        using (var doc = JsonDocument.Parse(jsonValue)) // must be valid JSON
+        {
+            var (min, max) = (definition.Min ?? int.MinValue, definition.Max ?? int.MaxValue);
+            if ((definition.Min ?? definition.Max) is not null && !(doc.RootElement.ValueKind == JsonValueKind.Number && doc.RootElement.TryGetInt32(out var number) && number >= min && number <= max))
+                throw new FieldValidationException(key, $"{definition.Label} must be a whole number from {min} to {max}.");
+        }
         var row = await settings.Tracked(new Specification<Setting>(s => s.Key == key && s.LegalEntityId == legalEntityId)).FirstOrDefaultAsync(ct);
         if (row is null) settings.Add(new Setting { Key = key, LegalEntityId = legalEntityId, Value = jsonValue });
         else row.Value = jsonValue;
     }
 }
 
-public sealed record SettingView(string Key, string Label, string Module, string Type, string? Description, JsonElement Value);
+public sealed record SettingView(string Key, string Label, string Module, string Type, string? Description, JsonElement Value, int? Min = null, int? Max = null);
 
 public sealed record ListSettings : IQuery<IReadOnlyList<SettingView>>, IRequirePermission
 {
@@ -67,7 +72,7 @@ internal sealed class SettingsHandlers(ISettingsService settings, ISettingsCatal
         foreach (var (def, module) in catalog.Definitions().Where(d => d.Module == "core" || enabled.Contains(d.Module)))
         {
             var raw = await settings.GetRawAsync(def.Key, ct: ct) ?? "null";
-            list.Add(new(def.Key, def.Label, module, def.Type, def.Description, JsonSerializer.Deserialize<JsonElement>(raw)));
+            list.Add(new(def.Key, def.Label, module, def.Type, def.Description, JsonSerializer.Deserialize<JsonElement>(raw), def.Min, def.Max));
         }
         return list;
     }

@@ -47,7 +47,7 @@ internal sealed class SearchRecordsTool(ISender sender) : IAssistantTool
     {
         var query = ToolAnswers.ReadText(argumentsJson, "query");
         if (query is null) return "Give some words to search for.";
-        var result = await sender.Send(new GlobalSearch(query), ct);
+        var result = await sender.Send(new GlobalSearch(query, WorkspaceAssistant.PrivateModules), ct);
         return result.Hits.Count == 0 ? "Nothing matches." : ToolAnswers.Serialize(result.Hits.Take(20));
     }
 }
@@ -122,7 +122,7 @@ internal sealed class GetOverviewTool(ISender sender, ICurrentUser user) : IAssi
 
     public async Task<string> RunAsync(string argumentsJson, CancellationToken ct)
     {
-        var d = await sender.Send(new GetDashboard(user.LegalEntityId), ct);
+        var d = await sender.Send(new GetDashboard(user.LegalEntityId, ExcludeModules: WorkspaceAssistant.PrivateModules), ct);
         return ToolAnswers.Serialize(new { d.AsOf, Figures = d.Kpis.Select(k => new { k.Label, k.Value, k.Caption, k.Link }), NeedsAttention = d.Alerts.Select(a => new { a.Category, a.Urgency, a.Message, a.Link }) });
     }
 }
@@ -134,7 +134,7 @@ internal sealed class ListApprovalsTool(ISender sender) : IAssistantTool
 
     public async Task<string> RunAsync(string argumentsJson, CancellationToken ct)
     {
-        var list = await sender.Send(new ListApprovals(null), ct);
+        var list = (await sender.Send(new ListApprovals(null), ct)).Where(a => !WorkspaceAssistant.PrivateApprovalTypes.Contains(a.DocumentType)).ToList();
         return list.Count == 0 ? "There is nothing waiting." : ToolAnswers.Serialize(new { Link = "/approvals", Items = list.Take(20).Select(a => new { a.Subject, a.Amount, Status = a.Status.ToString(), a.RequestedAt }) });
     }
 }
@@ -159,7 +159,7 @@ internal sealed class FindScreenTool(ISender sender) : IAssistantTool
 /// The only way the model can touch data, and it changes nothing: it records a suggestion for the person to confirm with a button.
 /// The model never sees the suggestion's id, so nothing it writes can confirm one, even if a record's text tells it to.
 /// </summary>
-internal sealed class ProposeActionTool(AssistantCatalog catalog, IRepository<AssistantPendingAction> pending, ICurrentUser user, IClock clock, Guid conversationId) : IAssistantTool
+internal sealed class ProposeActionTool(AssistantCatalog catalog, IRepository<AssistantPendingAction> pending, ICurrentUser user, IClock clock, Guid conversationId, string language) : IAssistantTool
 {
     private static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(15);
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -179,14 +179,14 @@ internal sealed class ProposeActionTool(AssistantCatalog catalog, IRepository<As
         if (action is null) return "That change is not available to this person. Tell them so.";
         var arguments = doc.RootElement.TryGetProperty("arguments", out var a) ? a.Clone() : default;
         AssistantActionPreview preview;
-        try { preview = await action.PreviewAsync(arguments, ct); }
+        try { preview = await action.PreviewAsync(arguments, new AssistantActionContext(language), ct); }
         catch (Exception e) when (e is ConflictException or NotFoundException or ForbiddenException) { return "This change cannot go ahead: " + e.Message; }
 
         var now = clock.UtcNow;
         var row = new AssistantPendingAction
         {
             ConversationId = conversationId, UserId = user.UserId!.Value, ActionKey = action.Key, ArgumentsJson = arguments.GetRawText(), Title = preview.Title,
-            LinesJson = JsonSerializer.Serialize(preview.Lines, Json), Status = AssistantPendingAction.Pending, CreatedAt = now, ExpiresAt = now + Lifetime,
+            LinesJson = JsonSerializer.Serialize(preview.Lines, Json), Status = AssistantPendingAction.Pending, CreatedAt = now, ExpiresAt = now + Lifetime, Language = language, LegalEntityId = preview.LegalEntityId,
         };
         pending.Add(row);
         await pending.SaveChangesAsync(ct);

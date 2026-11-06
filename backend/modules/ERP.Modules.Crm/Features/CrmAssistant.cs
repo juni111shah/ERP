@@ -61,27 +61,27 @@ internal sealed class LogNoteAssistantAction(ISender sender, IValidator<LogInter
     public string? ModuleKey => CrmModule.Key;
     public string Permission => Permissions.InteractionsManage;
 
-    private async Task<(LogInteractionCommand Command, string CustomerName)> BuildAsync(JsonElement a, CancellationToken ct)
+    private async Task<(LogInteractionCommand Command, string CustomerName, string EntityName)> BuildAsync(JsonElement a, AssistantActionContext context, CancellationToken ct)
     {
         var party = a.Id("customer_id") is { } id ? await parties.FindAsync(id, ct) : null;
-        if (party is null) throw new ConflictException("That customer could not be found.");
-        var entity = await scope.LegalEntityAsync(ct);
-        return (new LogInteractionCommand(entity.Id, "Customer", party.Id, InteractionType.Note, a.Text("subject") ?? "", a.Text("details"), null, user.UserId, null, null, true, null), party.Name);
+        if (party is null) throw new ConflictException(context.T("That customer could not be found.", "تعذر العثور على هذا العميل."));
+        var entity = await scope.LegalEntityAsync(context, ct);
+        return (new LogInteractionCommand(entity.Id, "Customer", party.Id, InteractionType.Note, a.Text("subject") ?? "", a.Text("details"), null, user.UserId, null, null, true, null), party.Name, entity.Name);
     }
 
-    public async Task<AssistantActionPreview> PreviewAsync(JsonElement arguments, CancellationToken ct)
+    public async Task<AssistantActionPreview> PreviewAsync(JsonElement arguments, AssistantActionContext context, CancellationToken ct)
     {
-        var (command, customer) = await BuildAsync(arguments, ct);
+        var (command, customer, entityName) = await BuildAsync(arguments, context, ct);
         await validator.EnsureValidAsync(command, ct);
-        var lines = new List<AssistantActionLine> { new("Customer", customer), new("Subject", command.Subject) };
-        if (command.Details is { } details) lines.Add(new("Details", details));
-        return new("Add a note to the activity log", lines);
+        var lines = new List<AssistantActionLine> { new(context.LegalEntityLabel, entityName), new(context.T("Customer", "العميل"), customer), new(context.T("Subject", "الموضوع"), command.Subject) };
+        if (command.Details is { } details) lines.Add(new(context.T("Details", "التفاصيل"), details));
+        return new(context.T("Add a note to the activity log", "إضافة ملاحظة إلى سجل الأنشطة"), lines, command.LegalEntityId);
     }
 
-    public async Task<AssistantActionResult> ExecuteAsync(JsonElement arguments, CancellationToken ct)
+    public async Task<AssistantActionResult> ExecuteAsync(JsonElement arguments, AssistantActionContext context, CancellationToken ct)
     {
-        var (command, customer) = await BuildAsync(arguments, ct);
+        var (command, customer, _) = await BuildAsync(arguments, context, ct);
         await sender.Send(command, ct);
-        return new($"The note was added for {customer}.", "/crm/interactions");
+        return new(context.T($"The note was added for {customer}.", $"تمت إضافة الملاحظة إلى {customer}."), "/crm/interactions");
     }
 }

@@ -22,13 +22,13 @@ public sealed record GetWorkspaceAssistantStatus : IQuery<WorkspaceAssistantStat
 public sealed record AssistantUsageView(int MessagesThisMonth, int? MonthlyAllowance, int PeopleThisMonth);
 public sealed record GetAssistantUsage : IQuery<AssistantUsageView>;
 
-public sealed record WorkspaceMessageInput(Guid? ConversationId, string Text, string? Page);
+public sealed record WorkspaceMessageInput(Guid? ConversationId, string Text, string? Page, string? Language = null);
 public sealed record AskWorkspaceAssistant(WorkspaceMessageInput Input) : IStreamRequest<AssistantEvent>;
 
 public sealed record AssistantConversationRow(Guid Id, string Title, DateTime LastMessageAt);
 public sealed record ListAssistantConversations : IQuery<IReadOnlyList<AssistantConversationRow>>;
 public sealed record AssistantMessageRow(DateTime At, bool FromUser, string Text);
-public sealed record AssistantActionCard(Guid Id, string Title, IReadOnlyList<AssistantActionLine> Lines, string Status, string? Message, string? Link, DateTime CreatedAt);
+public sealed record AssistantActionCard(Guid Id, string Title, IReadOnlyList<AssistantActionLine> Lines, string Status, string? Message, string? Link, DateTime CreatedAt, DateTime ExpiresAt);
 public sealed record AssistantConversationDetail(Guid Id, string Title, IReadOnlyList<AssistantMessageRow> Messages, IReadOnlyList<AssistantActionCard> Actions);
 public sealed record GetAssistantConversation(Guid Id) : IQuery<AssistantConversationDetail>;
 public sealed record DeleteAssistantConversation(Guid Id) : ICommand;
@@ -41,6 +41,7 @@ public sealed class AskWorkspaceAssistantValidator : AbstractValidator<AskWorksp
     {
         RuleFor(x => x.Input.Text).NotEmpty().WithMessage("Type a question.").MaximumLength(WorkspaceAssistant.MaxMessageLength).WithMessage($"Please keep your question under {WorkspaceAssistant.MaxMessageLength:N0} characters.");
         RuleFor(x => x.Input.Page).MaximumLength(300);
+        RuleFor(x => x.Input.Language).MaximumLength(10);
     }
 }
 
@@ -49,6 +50,9 @@ public static class WorkspaceAssistant
     public const int MaxMessageLength = 2000;
     public const int HistoryMessages = 12;
     public const int MaxReplyTokens = 900;
+    /// <summary>Staff and pay records stay away from the outside service, whatever the person may see on screen.</summary>
+    public static readonly string[] PrivateModules = ["hr"];
+    public static readonly string[] PrivateApprovalTypes = ["payroll"];
 
     public const string Rules = """
         You are the assistant inside a company's business management system. You help one signed-in person with their own work, using only what they are allowed to see.
@@ -65,19 +69,33 @@ public static class WorkspaceAssistant
         - Reply in the language of the person's last message. Search words for records are usually in English, so translate them when searching if needed.
         - Be brief and concrete: lead with the answer, then at most a short list, never a table. Keep record numbers and amounts exactly as the tools give them, with their currency.
         - When a tool gives a link, offer it as [label](/path). Write no other links.
+        - In Arabic, use the same words as the system: workspace مساحة العمل, module وحدة, plan خطة, legal entity كيان قانوني, view-only للعرض فقط, customer عميل, supplier مورد, invoice فاتورة, supplier bill فاتورة مورد.
         """;
 
     /// <summary>What changes with each message goes after the rules: today's date, where the person is, and what they may use.</summary>
-    public static string Context(DateOnly today, string workspace, string currency, string? page, IEnumerable<IAssistantReader> readers, IEnumerable<IAssistantAction> actions)
+    public static string Context(DateOnly today, string workspace, string? legalEntity, string currency, string? page, bool viewOnly, IEnumerable<IAssistantReader> readers, IEnumerable<IAssistantAction> actions)
     {
         var s = new StringBuilder("CONTEXT\n");
-        s.AppendLine($"Today is {today:yyyy-MM-dd}. Workspace: {workspace}. Base currency: {currency}.");
-        if (!string.IsNullOrWhiteSpace(page)) s.AppendLine($"The person is on this page: {page}");
+        s.AppendLine($"Today is {today:yyyy-MM-dd}. Workspace: {workspace}. Legal entity selected: {legalEntity ?? "none, so this covers all that this person may see"}. Base currency: {currency}.");
+        // Only the path: a search word in the address can be a person's name.
+        if (!string.IsNullOrWhiteSpace(page)) s.AppendLine($"The person is on this page: {page.Split('?', '#')[0]}");
         var kinds = readers.ToList();
         s.AppendLine(kinds.Count > 0 ? "Kinds for list_records: " + string.Join("; ", kinds.Select(r => $"{r.Key} ({r.Description})")) : "This person cannot list any kinds of record.");
         var changes = actions.ToList();
-        s.AppendLine(changes.Count > 0 ? "Changes for propose_action: " + string.Join("; ", changes.Select(a => $"{a.Key} ({a.Description} Arguments: {a.ParametersJsonSchema})")) : "This person cannot make any changes through you.");
+        if (viewOnly) s.AppendLine("This workspace is view-only, so no change can be made right now. Do not offer or suggest any change. If the person asks for one, tell them the workspace is view-only until its subscription is renewed.");
+        else s.AppendLine(changes.Count > 0 ? "Changes for propose_action: " + string.Join("; ", changes.Select(a => $"{a.Key} ({a.Description} Arguments: {a.ParametersJsonSchema})")) : "This person cannot make any changes through you.");
         return s.ToString();
+    }
+
+    /// <summary>What became of a suggestion, kept in the chat's history so the model knows on its next turn.</summary>
+    internal static AssistantChatMessage Note(AssistantPendingAction a, DateTime at, string text)
+        => new() { ConversationId = a.ConversationId, UserId = a.UserId, At = at, FromUser = false, IsNote = true, Text = "[System note, not shown to the person] " + text };
+
+    internal static void Expire(AssistantPendingAction a, IRepository<AssistantChatMessage> messages)
+    {
+        a.Status = AssistantPendingAction.Expired;
+        a.Message = new AssistantActionContext(a.Language).T("This suggestion has expired. Ask again if you still want it.", "انتهت صلاحية هذا الاقتراح. اطلبه مرة أخرى إذا كنت لا تزال تريده.");
+        messages.Add(Note(a, a.ExpiresAt, $"The suggested change \"{a.Title}\" expired without being confirmed. It was not made."));
     }
 
     public static string TitleFrom(string text)
@@ -89,7 +107,7 @@ public static class WorkspaceAssistant
 
 internal sealed class WorkspaceAssistantHandlers(
     IRepository<AssistantConversation> conversations, IRepository<AssistantChatMessage> messages, IRepository<AssistantPendingAction> actions, IReadRepository<PlatformSetting> settings,
-    IReadRepository<AiProvider> providers, IReadRepository<AssistantMessageCount> counts, AssistantCatalog catalog, ISubscriptionLimits limits, IAuditCorrelation correlation, ICurrentUser user, IClock clock) :
+    IReadRepository<AiProvider> providers, IReadRepository<AssistantMessageCount> counts, AssistantCatalog catalog, ISubscriptionLimits limits, IAuditCorrelation correlation, IOrgContext org, ICurrentUser user, IClock clock) :
     IRequestHandler<GetWorkspaceAssistantStatus, WorkspaceAssistantStatus>,
     IRequestHandler<GetAssistantUsage, AssistantUsageView>,
     IRequestHandler<ListAssistantConversations, IReadOnlyList<AssistantConversationRow>>,
@@ -121,7 +139,7 @@ internal sealed class WorkspaceAssistantHandlers(
     public async Task<AssistantConversationDetail> Handle(GetAssistantConversation q, CancellationToken ct)
     {
         var c = await conversations.Query().FirstOrDefaultAsync(x => x.Id == q.Id && x.UserId == Me, ct) ?? throw new NotFoundException();
-        var list = await messages.Query().Where(m => m.ConversationId == c.Id).OrderBy(m => m.At).Select(m => new AssistantMessageRow(m.At, m.FromUser, m.Text)).ToListAsync(ct);
+        var list = await messages.Query().Where(m => m.ConversationId == c.Id && !m.IsNote).OrderBy(m => m.At).Select(m => new AssistantMessageRow(m.At, m.FromUser, m.Text)).ToListAsync(ct);
         var cards = await actions.Query().Where(a => a.ConversationId == c.Id).OrderBy(a => a.CreatedAt).ToListAsync(ct);
         return new(c.Id, c.Title, list, cards.Select(ToCard).ToList());
     }
@@ -144,31 +162,47 @@ internal sealed class WorkspaceAssistantHandlers(
         var now = clock.UtcNow;
         if (now > row.ExpiresAt)
         {
-            row.Status = AssistantPendingAction.Expired;
-            row.Message = "This suggestion has expired. Ask again if you still want it.";
+            WorkspaceAssistant.Expire(row, messages);
             await actions.SaveChangesAsync(ct);
             return ToCard(row);
         }
-        var action = await catalog.FindActionAsync(row.ActionKey, ct) ?? throw new ForbiddenException();
+        var context = new AssistantActionContext(row.Language, row.LegalEntityId);
+        if (row.LegalEntityId is { } entity && user.AllowedLegalEntityIds is { } allowed && !allowed.Contains(entity))
+            return await FailAsync(row, context.T("You no longer have access to the legal entity this was for, so nothing was changed.", "لم تعد لديك صلاحية الوصول إلى الكيان القانوني الخاص بهذا الاقتراح، لذلك لم يتغير شيء."), ct);
+        var noPermission = context.T("You no longer have permission for this change, so nothing was changed.", "لم تعد لديك صلاحية إجراء هذا التغيير، لذلك لم يتغير شيء.");
+        var action = await catalog.FindActionAsync(row.ActionKey, ct);
+        if (action is null) return await FailAsync(row, noPermission, ct);
         using var doc = JsonDocument.Parse(row.ArgumentsJson);
         AssistantActionResult? result = null;
         string? problem = null;
         correlation.Id = $"assistant-conversation:{row.ConversationId}"; // the change's audit rows point back to the chat it came from
-        try { result = await action.ExecuteAsync(doc.RootElement, ct); }
+        if (row.LegalEntityId is not null) org.SetLegalEntity(row.LegalEntityId); // the selection at the top of the page may have moved on since the card was made
+        try { result = await action.ExecuteAsync(doc.RootElement, context, ct); }
         catch (FieldValidationException e) { problem = e.Errors.Values.SelectMany(v => v).FirstOrDefault() ?? e.Message; }
         catch (ValidationException e) { problem = e.Errors.FirstOrDefault()?.ErrorMessage ?? e.Message; }
         catch (ConflictException e) { problem = e.Message; }
         catch (DomainException e) { problem = e.Message; }
         catch (NotFoundException e) { problem = e.Message; }
-        finally { correlation.Id = null; }
+        catch (ForbiddenException) { problem = noPermission; }
+        finally { correlation.Id = null; org.SetLegalEntity(user.LegalEntityId); }
 
         // A command that failed may have left half-made changes in memory. They must not be saved with the outcome below.
         actions.DiscardChanges();
         row = await actions.GetForUpdateAsync(cmd.Id, ct);
-        row.Status = result is null ? AssistantPendingAction.Failed : AssistantPendingAction.Done;
-        row.Message = result?.Message ?? problem;
-        row.Link = result?.Link;
-        messages.Add(new AssistantChatMessage { ConversationId = row.ConversationId, UserId = Me, At = now, FromUser = false, Text = result is null ? $"That change did not go through: {problem}" : $"Done: {result.Message}" });
+        if (result is null) return await FailAsync(row, problem!, ct);
+        row.Status = AssistantPendingAction.Done;
+        row.Message = result.Message;
+        row.Link = result.Link;
+        messages.Add(WorkspaceAssistant.Note(row, now, $"The person confirmed the suggested change \"{row.Title}\" and it was done: {result.Message}"));
+        await actions.SaveChangesAsync(ct);
+        return ToCard(row);
+    }
+
+    private async Task<AssistantActionCard> FailAsync(AssistantPendingAction row, string problem, CancellationToken ct)
+    {
+        row.Status = AssistantPendingAction.Failed;
+        row.Message = problem;
+        messages.Add(WorkspaceAssistant.Note(row, clock.UtcNow, $"The suggested change \"{row.Title}\" did not go through, so it was not made: {problem}"));
         await actions.SaveChangesAsync(ct);
         return ToCard(row);
     }
@@ -179,6 +213,7 @@ internal sealed class WorkspaceAssistantHandlers(
         if (row.Status == AssistantPendingAction.Pending)
         {
             row.Status = AssistantPendingAction.Cancelled;
+            messages.Add(WorkspaceAssistant.Note(row, clock.UtcNow, $"The person cancelled the suggested change \"{row.Title}\". It was not made."));
             await actions.SaveChangesAsync(ct);
         }
         return ToCard(row);
@@ -188,12 +223,12 @@ internal sealed class WorkspaceAssistantHandlers(
         => await actions.Tracked().FirstOrDefaultAsync(a => a.Id == id && a.UserId == Me, ct) ?? throw new NotFoundException();
 
     internal static AssistantActionCard ToCard(AssistantPendingAction a)
-        => new(a.Id, a.Title, JsonSerializer.Deserialize<List<AssistantActionLine>>(a.LinesJson, Json) ?? [], a.Status, a.Message, a.Link, a.CreatedAt);
+        => new(a.Id, a.Title, JsonSerializer.Deserialize<List<AssistantActionLine>>(a.LinesJson, Json) ?? [], a.Status, a.Message, a.Link, a.CreatedAt, DateTime.SpecifyKind(a.ExpiresAt, DateTimeKind.Utc));
 }
 
 internal sealed class AskWorkspaceAssistantHandler(
     AssistantRunner runner, AssistantCatalog catalog, ISender sender, IRepository<AssistantConversation> conversations, IRepository<AssistantChatMessage> messages, IRepository<AssistantPendingAction> pending, IRepository<AssistantMessageCount> counts,
-    IReadRepository<Organization> organizations, ISettingsService settingsService, ISubscriptionLimits limits, ICurrentUser user, IClock clock, IValidator<AskWorkspaceAssistant> validator) : IStreamRequestHandler<AskWorkspaceAssistant, AssistantEvent>
+    IReadRepository<Organization> organizations, IReadRepository<LegalEntity> legalEntities, ISettingsService settingsService, ISubscriptionLimits limits, ISubscriptionAccess subscriptions, ICurrentUser user, IClock clock, IValidator<AskWorkspaceAssistant> validator) : IStreamRequestHandler<AskWorkspaceAssistant, AssistantEvent>
 {
     public async IAsyncEnumerable<AssistantEvent> Handle(AskWorkspaceAssistant request, [EnumeratorCancellation] CancellationToken ct)
     {
@@ -208,7 +243,7 @@ internal sealed class AskWorkspaceAssistantHandler(
 
         var now = clock.UtcNow;
         var today = DateOnly.FromDateTime(now);
-        var dailyLimit = await settingsService.GetAsync<int?>(AssistantModule.DailyMessagesSetting, null, ct) ?? 30;
+        var dailyLimit = Math.Clamp(await settingsService.GetAsync<int?>(AssistantModule.DailyMessagesSetting, null, ct) ?? 30, AssistantModule.MinDailyMessages, AssistantModule.MaxDailyMessages);
         if (await counts.Query().Where(c => c.UserId == me && c.Day == today).SumAsync(c => c.Count, ct) >= dailyLimit)
         {
             yield return new AssistantError("user-limit", "You have used today's messages for the assistant. Please try again tomorrow.");
@@ -227,7 +262,13 @@ internal sealed class AskWorkspaceAssistantHandler(
         var text = request.Input.Text.Trim();
         AssistantConversation? conversation = null;
         if (request.Input.ConversationId is { } id)
+        {
             conversation = await conversations.Tracked().FirstOrDefaultAsync(c => c.Id == id && c.UserId == me, ct) ?? throw new NotFoundException();
+            // A card nobody pressed closes here, so the model knows it is no longer on offer.
+            var overdue = await pending.Tracked().Where(a => a.ConversationId == id && a.Status == AssistantPendingAction.Pending && a.ExpiresAt < now).ToListAsync(ct);
+            foreach (var a in overdue) WorkspaceAssistant.Expire(a, messages);
+            if (overdue.Count > 0) await messages.SaveChangesAsync(ct);
+        }
         if (conversation is null)
         {
             conversation = new AssistantConversation { UserId = me, Title = WorkspaceAssistant.TitleFrom(text), StartedAt = now, LastMessageAt = now };
@@ -245,13 +286,16 @@ internal sealed class AskWorkspaceAssistantHandler(
         yield return new AssistantData("conversation", new { id = conversation.Id });
 
         var org = await organizations.GetAsync(user.OrgId ?? throw new ForbiddenException(), ct);
-        var system = WorkspaceAssistant.Rules + "\n\n" + WorkspaceAssistant.Context(DateOnly.FromDateTime(now), org.Name, org.BaseCurrency, request.Input.Page, await catalog.ReadersAsync(ct), await catalog.ActionsAsync(ct));
-        var proposals = new ProposeActionTool(catalog, pending, user, clock, conversation.Id);
-        IAssistantTool[] tools =
+        var legalEntity = user.LegalEntityId is { } selected ? (await legalEntities.FindAsync(selected, ct))?.Name : null;
+        var viewOnly = (await subscriptions.GetAsync(org.Id, ct)).Access == SubscriptionAccessLevel.ReadOnly;
+        var system = WorkspaceAssistant.Rules + "\n\n" + WorkspaceAssistant.Context(DateOnly.FromDateTime(now), org.Name, legalEntity, org.BaseCurrency, request.Input.Page, viewOnly, await catalog.ReadersAsync(ct), await catalog.ActionsAsync(ct));
+        var proposals = new ProposeActionTool(catalog, pending, user, clock, conversation.Id, AssistantActionContext.Normalize(request.Input.Language));
+        List<IAssistantTool> tools =
         [
             new SearchRecordsTool(sender), new ListRecordsTool(catalog), new RunReportTool(sender, user, clock), new GetOverviewTool(sender, user),
-            new ListApprovalsTool(sender), new FindScreenTool(sender), new SearchHelpTool(catalog), proposals,
+            new ListApprovalsTool(sender), new FindScreenTool(sender), new SearchHelpTool(catalog),
         ];
+        if (!viewOnly) tools.Add(proposals);
 
         var reply = new StringBuilder();
         var shown = 0;
@@ -285,11 +329,13 @@ internal sealed class AssistantChatCleanupJob(
 {
     public string Name => "assistant-chat-cleanup";
     public string? ModuleKey => AssistantModule.Key;
+    /// <summary>With the module off or the workspace suspended, people cannot delete their own chats, so these must still go.</summary>
+    public bool RunsWhenOff => true;
 
     public async Task RunAsync(DateOnly today, CancellationToken ct)
     {
-        var days = await settings.GetAsync<int?>(AssistantModule.RetentionDaysSetting, null, ct) ?? 90;
-        var cutoff = today.AddDays(-Math.Max(days, 0)).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var days = Math.Clamp(await settings.GetAsync<int?>(AssistantModule.RetentionDaysSetting, null, ct) ?? 90, AssistantModule.MinRetentionDays, AssistantModule.MaxRetentionDays);
+        var cutoff = today.AddDays(-days).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var old = await conversations.Tracked().Where(c => c.LastMessageAt < cutoff).Take(1000).ToListAsync(ct);
         if (old.Count == 0) return;
         var ids = old.Select(c => c.Id).ToList();

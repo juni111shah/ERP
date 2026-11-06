@@ -6,9 +6,9 @@ There are two assistants, sharing one engine and nothing else. Both are off unti
 |---|---|---|
 | Who | Visitors on the pricing, terms, privacy and register pages | Signed-in staff in a workspace |
 | Knows | Public facts only | What that person may see |
-| Turned on by | Platform owner | Platform owner, then each workspace's administrator (module `assistant`), then the `assistant.chats.use` permission |
+| Turned on by | Platform owner | Platform owner, then each workspace's administrator (module `assistant`, with a notice that information goes to an outside AI provider), then the `assistant.chats.use` permission. The modules page says why it stays hidden when the owner's switch is off, no service is cleared or the plan leaves it out |
 | Stored in | `BrandConversations`, `BrandMessages`, `BrandLeads`, belonging to no workspace | `ast_Conversations`, `ast_Messages`, `ast_PendingActions`, scoped by OrgId and private to their owner |
-| Kept for | Chats 30 days. Leads until deleted | 90 days by default (`assistant.retentionDays`) |
+| Kept for | Chats 30 days. Leads until deleted | 90 days by default (`assistant.retentionDays`, 7 to 3650) |
 
 Settings for services, keys, limits and usage are described in [platform-console.md](platform-console.md#ai-assistant-settings).
 
@@ -25,11 +25,14 @@ Settings for services, keys, limits and usage are described in [platform-console
 In-process calls skip the web layer's module and permission checks, so these rules live in the tool layer:
 
 - `AssistantCatalog` decides what this person may use, checking both the module and the permission. To add something, register an `IAssistantReader` or `IAssistantAction` from your module's `ConfigureServices`. The core never names an industry.
-- A reader returns safe fields only. No contact details, bank details or identity numbers. HR and payroll have no reader on purpose.
+- A reader returns safe fields only. No contact details, bank details or identity numbers. HR and payroll have no reader on purpose, and `WorkspaceAssistant.PrivateModules` and `PrivateApprovalTypes` keep them out of `search_records`, `get_overview` and `list_approvals` too. `find_screen` still lists HR screens, because a menu label holds no record. Only the path of the page goes into the prompt, because a search word in the address can be a name.
 - Tools never take an organisation id. Tenant and legal-entity scope come from the signed-in token and the normal query filters.
 - **The model cannot change data.** `propose_action` only stores a suggestion and shows a card built from the server's preview. The model never sees the suggestion's id. The change runs only from the Confirm button, as a fresh request that passes the whole pipeline, including the view-only block. It sends the same command as the screens, so validation, numbering and approval rules still apply, and the change itself is audited as usual. A suggestion expires after 15 minutes.
+- **A card keeps what the person saw.** The legal entity is stored on the card and shown on it, and Confirm runs against that entity whatever is selected by then. Losing the permission or the entity gives a failed card with a clear message, not an error. Titles, labels and outcomes use the language sent with the message.
+- **The model hears what became of a card.** A note goes into the chat's history when a card is confirmed, cancelled, expires or fails (`IsNote`). People see the card, so notes never appear in the chat.
+- **View-only workspaces.** The context tells the model that changes are unavailable and `propose_action` is not offered. Asking, cancelling a card and deleting a chat still work.
 - **Records are treated as data.** A hostile customer name can at worst cause a suggestion that the person sees and can refuse. There are no web tools, and the reply renderer has no HTML, no images and no links off the site (`parseAssistantText`), so there is nowhere to send data.
-- Chat text is kept out of the audit trail (`INotAudited`), because that trail is immutable.
+- Chat text is kept out of the audit trail (`INotAudited`), because that trail is immutable. Deleting a chat removes its rows for real, rather than the usual soft delete. The retention job (`RunsWhenOff`) runs even when the module is off or the workspace is suspended, because people cannot delete their own chats then.
 
 Confirmed changes available today: `create_party`, `create_draft_quote` (Sales module) and `log_customer_note` (CRM module). Keep payments, posting, deletion, payroll, users, roles and billing out.
 
@@ -37,7 +40,7 @@ Confirmed changes available today: `create_party`, `create_draft_quote` (Sales m
 
 Public: 30 questions an hour per address (`RateLimiting:AssistantPerHour`), 20 questions per chat, 1,000 characters per question, a hidden honeypot field, and the daily token limit as the backstop.
 
-Workspace: 30 messages per person per day (`assistant.dailyMessagesPerUser`), a monthly allowance for the whole workspace set on each plan (`AssistantMonthlyMessages`: empty means no limit, 0 leaves the assistant out of the plan), and its own daily token limit. A workspace with no plan has no monthly limit. Messages are counted in `ast_MessageCounts`, apart from the chats, so deleting a chat cannot reset a limit. People with `assistant.usage.read` see the month's count in the panel. It is only a count: nobody can read another person's chats.
+Workspace: 30 messages per person per day (`assistant.dailyMessagesPerUser`, 1 to 1000), a monthly allowance for the whole workspace set on each plan (`AssistantMonthlyMessages`: empty means no limit, 0 leaves the assistant out of the plan), and its own daily token limit. A workspace with no plan has no monthly limit. Messages are counted in `ast_MessageCounts`, apart from the chats, so deleting a chat cannot reset a limit. People with `assistant.usage.read` see the month's count in the panel. It is only a count: nobody can read another person's chats.
 
 ## Help articles
 

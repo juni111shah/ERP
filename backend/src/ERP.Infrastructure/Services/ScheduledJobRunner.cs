@@ -47,13 +47,13 @@ public sealed class ScheduledJobRunner(IServiceScopeFactory scopes, ILogger<Sche
             var sp = scope.ServiceProvider;
             using var _ = sp.GetRequiredService<IOrgContext>().Use(orgId);
             var modules = sp.GetRequiredService<IModuleAccess>();
-            // A suspended or cancelled client gets no reminders, statements or other automatic work.
-            if ((await sp.GetRequiredService<ERP.Application.Platform.ISubscriptionAccess>().GetAsync(orgId, ct)).Access == ERP.Domain.Platform.SubscriptionAccessLevel.Blocked) continue;
+            // A suspended or cancelled client gets no reminders, statements or other automatic work. Only housekeeping that must still happen runs.
+            var blocked = (await sp.GetRequiredService<ERP.Application.Platform.ISubscriptionAccess>().GetAsync(orgId, ct)).Access == ERP.Domain.Platform.SubscriptionAccessLevel.Blocked;
             foreach (var job in sp.GetServices<IScheduledJob>())
             {
                 try
                 {
-                    if (job.ModuleKey is { } key && !await modules.IsEnabledAsync(key, ct)) continue;
+                    if (!job.RunsWhenOff && (blocked || (job.ModuleKey is { } key && !await modules.IsEnabledAsync(key, ct)))) continue;
                     await job.RunAsync(today, ct);
                 }
                 catch (Exception e) when (e is not OperationCanceledException) { log.LogError(e, "Scheduled job {Job} failed for workspace {Org}", job.Name, orgId); }

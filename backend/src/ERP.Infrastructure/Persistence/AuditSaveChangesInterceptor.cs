@@ -75,7 +75,8 @@ public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext o
             var action = entry.State switch { EntityState.Added => "Created", EntityState.Deleted => "Deleted", _ => "Updated" };
             var before = entry.State == EntityState.Added ? null : Snapshot(entry, original: true);
 
-            if (entry.State == EntityState.Deleted && entry.Entity is ISoftDelete sd)
+            // Chat text is really deleted: a soft delete would keep the words for ever and the retention period would mean nothing.
+            if (entry.State == EntityState.Deleted && entry.Entity is ISoftDelete sd && entry.Entity is not INotAudited)
             {
                 entry.State = EntityState.Modified;
                 sd.IsDeleted = true; sd.DeletedAt = now; sd.DeletedBy = userId;

@@ -38,7 +38,7 @@ export interface BusinessUnitDto { id: string; legalEntityId: string; code: stri
 export interface RoleDto { id: string; name: string; description?: string; isBuiltIn: boolean; moduleKey?: string; permissions: string[]; }
 export interface PermissionDefinition { key: string; module: string; resource: string; action: string; description: string; }
 export interface UserSummary { id: string; email: string; fullName: string; isActive: boolean; lastSignInAt?: string; roles: string[]; roleIds: string[]; }
-export interface SettingView { key: string; label: string; module: string; type: string; description?: string; value: unknown; }
+export interface SettingView { key: string; label: string; module: string; type: string; description?: string; value: unknown; min?: number | null; max?: number | null; }
 export interface AuditEvent {
   id: string; occurredAt: string; userId?: string; action: string; recordType: string; recordId: string; changedFields?: string; before?: string; after?: string; ipAddress?: string;
 }
