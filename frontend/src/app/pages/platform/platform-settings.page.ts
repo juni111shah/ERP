@@ -168,6 +168,12 @@ import { PLATFORM_STYLES } from './platform-ui';
                 <textarea nz-input rows="4" formControlName="paymentInstructions" maxlength="2000" data-testid="settings-instructions"></textarea>
               </nz-form-control>
             </nz-form-item>
+            <nz-form-item class="wide">
+              <nz-form-label>About your company</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('aboutText')" nzExtra="A few lines the public AI assistant can use when people ask about you. Leave it empty and the assistant says it does not know.">
+                <textarea nz-input rows="4" formControlName="aboutText" maxlength="2000" data-testid="settings-about"></textarea>
+              </nz-form-control>
+            </nz-form-item>
             @if (settings()?.legalIsStarterText) {
               <nz-alert class="wide" nzType="warning" nzShowIcon data-testid="settings-legal-starter" nzMessage="The terms and privacy policy below are starter wording. Have a lawyer review them for your country, and fill in your company name and support email above, before you sell." style="margin-bottom:16px"></nz-alert>
             }
@@ -223,6 +229,7 @@ export class PlatformSettingsPage {
     supportEmail: [null as string | null],
     termsUrl: [null as string | null],
     paymentInstructions: [null as string | null],
+    aboutText: [null as string | null],
     termsText: [''],
     privacyText: [''],
   });
@@ -256,7 +263,7 @@ export class PlatformSettingsPage {
     this.api.saveSettings({
       signupMode: v.signupMode!, requireEmailVerification: !!v.requireEmailVerification, defaultPlanId: v.defaultPlanId, currency: v.currency!, taxPercent: v.taxPercent ?? 0, taxLabel: v.taxLabel!, invoicePrefix: v.invoicePrefix!,
       invoiceDueDays: v.invoiceDueDays ?? 0, renewalLeadDays: v.renewalLeadDays ?? 0, graceDays: v.graceDays ?? 0, suspendAfterDays: v.suspendAfterDays ?? 1,
-      companyName: v.companyName ?? '', companyAddress: v.companyAddress || null, companyTaxNumber: v.companyTaxNumber || null, supportEmail: v.supportEmail || null, termsUrl: v.termsUrl || null, paymentInstructions: v.paymentInstructions || null, termsText: v.termsText ?? '', privacyText: v.privacyText ?? '',
+      companyName: v.companyName ?? '', companyAddress: v.companyAddress || null, companyTaxNumber: v.companyTaxNumber || null, supportEmail: v.supportEmail || null, termsUrl: v.termsUrl || null, paymentInstructions: v.paymentInstructions || null, aboutText: v.aboutText ?? '', termsText: v.termsText ?? '', privacyText: v.privacyText ?? '',
     }).subscribe({
       next: (s) => { this.saving.set(false); this.show(s); this.message.success('Settings saved'); },
       error: (e) => {

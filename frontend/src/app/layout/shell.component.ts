@@ -1,3 +1,4 @@
+import { WorkspaceAssistantComponent, WorkspaceAssistantState } from './workspace-assistant.component';
 import { CdkConnectedOverlay, CdkOverlayOrigin, ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, afterRenderEffect, computed, inject, linkedSignal, signal, viewChild, DestroyRef } from '@angular/core';
@@ -43,7 +44,7 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
   selector: 'erp-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KeyboardClickDirective, Dir, OverlayModule, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
+  imports: [WorkspaceAssistantComponent, KeyboardClickDirective, Dir, OverlayModule, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
     NzDropDownModule, NzAvatarModule, NzBadgeModule, NzTagModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent, BrandLogoComponent, SubscriptionBannerComponent, WorkspaceBlockedComponent],
   styles: [`
     :host { display: block; height: 100vh; }
@@ -375,6 +376,7 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
       z-index: 999;
       background: var(--erp-color-bg-overlay);
     }
+    @media (min-width: 1200px) { .main-layout.with-assistant { margin-inline-end: 420px; } }
     .main-layout {
       display: flex;
       flex-direction: column;
@@ -1176,7 +1178,7 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
         </ng-template>
       }
       @if (narrow() && drawerOpen()) { <div class="nav-backdrop" erpKeyboardClick aria-label="Close menu" (click)="drawerOpen.set(false)" data-testid="nav-backdrop"></div> }
-      <nz-layout class="main-layout">
+      <nz-layout class="main-layout" [class.with-assistant]="assistant.available() && assistant.open()">
         <nz-header class="header">
           @if (narrow()) {
             <button type="button" class="topbar-action-btn" (click)="drawerOpen.set(true)" [attr.aria-expanded]="drawerOpen()" [attr.aria-label]="'shell.openMenu' | translate: 'Open menu'" data-testid="nav-open">
@@ -1344,6 +1346,11 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
               <erp-notification-drawer [open]="notificationsOpen()" (closed)="notificationsOpen.set(false)" (changed)="bump()" />
             </nz-dropdown-menu>
 
+            @if (assistant.available()) {
+              <button type="button" class="topbar-action-btn" (click)="assistant.toggle()" [attr.aria-label]="'shell.assistant' | translate: 'Assistant'" [attr.aria-pressed]="assistant.open()" nz-tooltip [nzTooltipTitle]="'shell.assistant' | translate: 'Assistant'" data-testid="workspace-assistant-toggle">
+                <img src="highersquare-assistant.svg" alt="" width="26" height="26" style="display:block" />
+              </button>
+            }
             <button type="button" class="topbar-action-btn lang-btn" (click)="i18n.toggle()" aria-label="Language" nz-tooltip [nzTooltipTitle]="i18n.lang() === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'" data-testid="lang-toggle">
               <span class="lang-text">{{ i18n.lang() === 'ar' ? 'EN' : 'العربية' }}</span>
             </button>
@@ -1374,9 +1381,11 @@ interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
         <nz-content class="content"><router-outlet /></nz-content>
       </nz-layout>
     </nz-layout>
+    <erp-workspace-assistant />
     }`,
 })
 export class ShellComponent {
+  readonly assistant = inject(WorkspaceAssistantState);
   readonly pageTitle = inject(PageTitleService);
   readonly session = inject(SessionStore);
   readonly i18n = inject(I18nService);

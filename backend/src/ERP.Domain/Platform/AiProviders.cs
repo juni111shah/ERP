@@ -27,3 +27,17 @@ public class AiProvider : Entity, IAuditable
     public DateTime? UpdatedAt { get; set; }
     public Guid? UpdatedBy { get; set; }
 }
+
+/// <summary>What one AI service used for one assistant on one day (UTC). It keeps the service's name, so the record outlives a deleted service.</summary>
+public class AssistantUsageDay : Entity
+{
+    public DateOnly Day { get; set; }
+    public string Bot { get; set; } = default!;
+    public Guid ProviderId { get; set; }
+    public string ProviderName { get; set; } = default!;
+    public int Requests { get; set; }
+    public int Failures { get; set; }
+    public long InputTokens { get; set; }
+    public long OutputTokens { get; set; }
+    public string? LastFailure { get; set; }
+}

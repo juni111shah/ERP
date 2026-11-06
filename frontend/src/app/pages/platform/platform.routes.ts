@@ -6,6 +6,7 @@ export const PLATFORM_ROUTES: Routes = [
   { path: 'clients', loadComponent: () => import('./platform-clients.page').then((m) => m.PlatformClientsPage) },
   { path: 'clients/:orgId', loadComponent: () => import('./platform-client-detail.page').then((m) => m.PlatformClientDetailPage) },
   { path: 'signups', loadComponent: () => import('./platform-signups.page').then((m) => m.PlatformSignupsPage) },
+  { path: 'leads', loadComponent: () => import('./platform-leads.page').then((m) => m.PlatformLeadsPage) },
   { path: 'plans', loadComponent: () => import('./platform-plans.page').then((m) => m.PlatformPlansPage) },
   { path: 'invoices', loadComponent: () => import('./platform-invoices.page').then((m) => m.PlatformInvoicesPage) },
   { path: 'activity', loadComponent: () => import('./platform-activity.page').then((m) => m.PlatformActivityPage) },

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { LegalDocuments, PlatformApi } from '../core/api/platform.api';
+import { BrandAssistantComponent } from '../shared/brand-assistant.component';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { ErpDatePipe } from '../shared/display.pipes';
 import { StatePanelComponent } from '../shared/state-panel.component';
@@ -19,7 +20,7 @@ export function legalBlocks(text: string): LegalBlock[] {
   selector: 'erp-legal',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, NzSpinModule, BrandLogoComponent, ErpDatePipe, StatePanelComponent],
+  imports: [BrandAssistantComponent, RouterLink, NzSpinModule, BrandLogoComponent, ErpDatePipe, StatePanelComponent],
   styles: [`
     :host { display: block; min-height: 100vh; background: var(--erp-color-bg-canvas); }
     .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 820px; margin: 0 auto; padding: 18px 24px; }
@@ -68,7 +69,8 @@ export function legalBlocks(text: string): LegalBlock[] {
           </nav>
         </article>
       }
-    </main>`,
+    </main>
+    @defer (on idle) { <erp-brand-assistant /> }`,
 })
 export class LegalPage {
   private readonly api = inject(PlatformApi);

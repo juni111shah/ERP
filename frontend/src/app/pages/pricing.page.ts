@@ -8,10 +8,11 @@ import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { catchError, of } from 'rxjs';
 import { CountryDto } from '../core/api/admin.api';
-import { BillingCycle, IndustryOption, LegalDocuments, PlatformApi, PublicModule, PublicPlan, SignupConfig } from '../core/api/platform.api';
+import { BillingCycle, IndustryOption, LegalDocuments, PlatformApi, PublicContent, PublicModule, PublicPlan, SignupConfig } from '../core/api/platform.api';
 import { displayMoney } from '../core/format/display';
 import { limitText, yearlySaving } from '../core/format/subscription';
 import { SessionStore } from '../core/session/session.store';
+import { BrandAssistantComponent } from '../shared/brand-assistant.component';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { PlanCardComponent } from '../shared/plan-card.component';
 import { StatePanelComponent } from '../shared/state-panel.component';
@@ -20,27 +21,6 @@ import { PhoneComponent, PricingMobileComponent } from './pricing-mobile.compone
 import { WebDashComponent } from './pricing-web-dash.component';
 import { PRICING_STYLES } from './pricing.styles';
 
-interface Faq { q: string; a: string; }
-
-/** What every workspace gets. Each line is a feature that exists in the product today. */
-const BUILT_IN = [
-  { icon: 'team', title: 'Roles and permissions', text: 'Give each person access to exactly what their job needs, down to single actions.' },
-  { icon: 'apartment', title: 'Several companies, one sign-in', text: 'Run more than one legal entity and choose who can see which.' },
-  { icon: 'check-square', title: 'Approval rules', text: 'Decide what needs a second pair of eyes before it goes through.' },
-  { icon: 'form', title: 'Your own fields', text: 'Add the details your business tracks to records, with no developer needed.' },
-  { icon: 'download', title: 'Bring your data', text: 'Import your customers, suppliers and items from a spreadsheet to get going quickly.' },
-  { icon: 'book', title: 'Document vault', text: 'Keep files with the records they belong to, instead of in someone\'s inbox.' },
-  { icon: 'printer', title: 'Print and email documents', text: 'Send invoices and other documents to customers straight from the record.' },
-  { icon: 'user', title: 'Customer and supplier portals', text: 'Let the people you do business with see what is theirs, without an account on your system.' },
-];
-
-const TRUST = [
-  { icon: 'safety', title: 'Two-factor sign-in', text: 'A code from an authenticator app on top of the password.' },
-  { icon: 'audit', title: 'A full audit log', text: 'See who changed what, and when.' },
-  { icon: 'lock', title: 'Your data kept apart', text: 'Each workspace is walled off from every other.' },
-  { icon: 'history', title: 'Your data stays yours', text: 'Even if a subscription ends, your records are not deleted by it.' },
-];
-
 const SALES_STEPS = ['Quote', 'Order', 'Delivery', 'Invoice', 'Payment'];
 
 /** The front door: what the product does, what it costs and the answers people look for before they register. Signed-out visitors land here. */
@@ -48,7 +28,7 @@ const SALES_STEPS = ['Quote', 'Order', 'Delivery', 'Invoice', 'Payment'];
   selector: 'erp-pricing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, NzButtonModule, NzIconModule, NzRadioModule, NzSpinModule, BrandLogoComponent, PlanCardComponent, StatePanelComponent, FitDirective, InViewDirective, TiltDirective, PhoneComponent, PricingMobileComponent, WebDashComponent],
+  imports: [BrandAssistantComponent, FormsModule, RouterLink, NzButtonModule, NzIconModule, NzRadioModule, NzSpinModule, BrandLogoComponent, PlanCardComponent, StatePanelComponent, FitDirective, InViewDirective, TiltDirective, PhoneComponent, PricingMobileComponent, WebDashComponent],
   styles: [PRICING_STYLES],
   template: `
     <header class="top">
@@ -252,7 +232,7 @@ const SALES_STEPS = ['Quote', 'Order', 'Delivery', 'Invoice', 'Payment'];
       <div class="inner">
         <div class="head rise" erpInView><h2>Included in every workspace</h2><p>These come with every plan, whichever modules you use.</p></div>
         <div class="cards" erpInView>
-          @for (b of builtIn; track b.title; let i = $index) {
+          @for (b of builtIn(); track b.title; let i = $index) {
             <div class="feature pop" [style.--d]="i"><span class="ico" nz-icon [nzType]="b.icon"></span><h3>{{ b.title }}</h3><p>{{ b.text }}</p></div>
           }
         </div>
@@ -309,7 +289,7 @@ const SALES_STEPS = ['Quote', 'Order', 'Delivery', 'Invoice', 'Payment'];
       <div class="inner">
         <div class="head"><h2>Built to be trusted with your business</h2></div>
         <div class="cards four" erpInView>
-          @for (t of trust; track t.title; let i = $index) {
+          @for (t of trust(); track t.title; let i = $index) {
             <div class="feature pop" [style.--d]="i"><span class="ico" nz-icon [nzType]="t.icon"></span><h3>{{ t.title }}</h3><p>{{ t.text }}</p></div>
           }
         </div>
@@ -355,15 +335,14 @@ const SALES_STEPS = ['Quote', 'Order', 'Delivery', 'Invoice', 'Payment'];
         </div>
         <p class="copyright">© {{ year }} {{ companyName() }}</p>
       </div>
-    </footer>`,
+    </footer>
+    @defer (on idle) { <erp-brand-assistant /> }`,
 })
 export class PricingPage {
   private readonly api = inject(PlatformApi);
   private readonly router = inject(Router);
   private readonly session = inject(SessionStore);
 
-  readonly builtIn = BUILT_IN;
-  readonly trust = TRUST;
   readonly salesSteps = SALES_STEPS;
   readonly year = new Date().getFullYear();
   /** The full-size logo does not fit beside the sign-in link on a phone. */
@@ -376,11 +355,15 @@ export class PricingPage {
   readonly cycle = signal<BillingCycle>('monthly');
 
   // The page still makes sense without any of these, so a failed call only hides its section.
+  private readonly content = toSignal(this.api.publicContent().pipe(catchError(() => of(null as PublicContent | null))), { initialValue: null as PublicContent | null });
   private readonly allModules = toSignal(this.api.publicModules().pipe(catchError(() => of([] as PublicModule[]))), { initialValue: [] as PublicModule[] });
   private readonly allIndustries = toSignal(this.api.industries().pipe(catchError(() => of([] as IndustryOption[]))), { initialValue: [] as IndustryOption[] });
   private readonly countries = toSignal(this.api.countries().pipe(catchError(() => of([] as CountryDto[]))), { initialValue: [] as CountryDto[] });
   private readonly legal = toSignal(this.api.legal().pipe(catchError(() => of(null as LegalDocuments | null))), { initialValue: null as LegalDocuments | null });
 
+  readonly builtIn = computed(() => this.content()?.builtIn ?? []);
+  readonly trust = computed(() => this.content()?.trust ?? []);
+  readonly faqs = computed(() => this.content()?.faqs ?? []);
   readonly modules = computed(() => this.allModules().filter((m) => !m.isCore));
   readonly industries = computed(() => this.allIndustries().filter((i) => (i.availability ?? '').toLowerCase() === 'available' && i.key !== 'generic'));
   readonly packs = computed(() => this.countries().filter((c) => c.hasPack));
@@ -404,29 +387,6 @@ export class PricingPage {
     if (this.industries().length) list.push({ value: String(this.industries().length), label: 'industry setups' });
     if (this.packs().length) list.push({ value: String(this.packs().length), label: 'country setups' });
     if (list.length) list.push({ value: 'Web + mobile', label: 'work from anywhere' });
-    return list;
-  });
-
-  readonly faqs = computed<Faq[]>(() => {
-    const days = this.trialDays();
-    const mail = this.supportEmail();
-    const contact = mail ? `write to ${mail}` : 'contact our team';
-    const list: Faq[] = [
-      { q: 'How does the free trial work?', a: days
-        ? `You get up to ${days} days to use the system with your own business, depending on the plan. You do not need a card. We remind you before the trial ends.`
-        : 'Plans start as soon as your workspace is ready, and your first invoice follows.' },
-      { q: 'What happens when the trial ends?', a: 'Your workspace becomes view-only: nothing is lost and you can still see everything. Choose a plan and you can carry on exactly where you stopped.' },
-      { q: 'How do I pay?', a: 'We send an invoice for each billing period, and you pay it by bank transfer using the details on the invoice. We do not take card payments online at the moment.' },
-      { q: 'Can I change my plan later?', a: 'Yes. Ask for the plan you want from Subscription and billing inside your workspace, and we confirm the change. If you move to a smaller plan, modules it does not include are switched off, and their data stays.' },
-      { q: 'What is a legal entity?', a: 'A separate company with its own books. If your group has two companies, that is two legal entities in one workspace, and you can decide who sees which.' },
-      { q: 'What counts as a user?', a: 'Anyone with an active sign-in to your workspace. Deactivating someone frees their place, and their past work stays on record.' },
-      { q: 'What if a payment is late?', a: 'You keep working during a grace period. If the invoice is still unpaid, the workspace becomes view-only and may later be suspended until it is paid. Paying restores access.' },
-      { q: 'Is my data safe, and is it private?', a: 'Each workspace is kept apart from every other. Two-factor sign-in, permissions by role and a full audit log are built in. See our Privacy Policy for how information is handled.' },
-      { q: 'Is there a mobile app?', a: 'Yes. Sign in with your usual account to see your figures, invoices and customers, handle approvals and use My HR on your phone. It uses the same workspace as the web.' },
-      { q: 'Can I bring my existing data?', a: 'Yes. You can import customers, suppliers and items from a spreadsheet when you set up.' },
-      { q: 'How do I cancel, and what happens to my data?', a: `To cancel, ${contact}. Access stops, but cancelling does not delete your records, so you can come back. Tell us if you want your data deleted.` },
-      { q: 'We need more than the plans offer. Can you help?', a: `Yes. For more users, a special price or anything else the plans do not cover, ${contact}.` },
-    ];
     return list;
   });
 

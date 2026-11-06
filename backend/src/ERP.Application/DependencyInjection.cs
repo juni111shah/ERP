@@ -56,6 +56,15 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Platform.ISubscriptionLifecycle, ERP.Application.Platform.SubscriptionLifecycle>();
         services.AddScoped<ERP.Application.Platform.PlatformLog>();
         services.AddScoped<ERP.Application.Platform.PlatformSettingsStore>();
+        services.AddScoped<ERP.Application.Platform.IPlatformJob, ERP.Application.Platform.BrandConversationCleanupJob>();
+        services.AddScoped<ERP.Application.Assistant.AssistantRunner>();
+        services.AddScoped<ERP.Application.Assistant.AssistantCatalog>();
+        services.AddScoped<ERP.Application.Assistant.AssistantScope>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, ERP.Application.Assistant.PartiesAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, ERP.Application.Assistant.InvoicesAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, ERP.Application.Assistant.BillsAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, ERP.Application.Assistant.ItemsAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantAction, ERP.Application.Assistant.CreatePartyAssistantAction>();
         services.AddScoped<ERP.Application.Platform.SubscriptionInvoicing>();
         services.AddScoped<ERP.Application.Platform.ClientProvisioner>();
         services.AddScoped<IScheduledJob, ERP.Application.Common.IdempotencyCleanupJob>();

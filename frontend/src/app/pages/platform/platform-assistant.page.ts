@@ -1,21 +1,24 @@
+import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { Observable } from 'rxjs';
 import { ProblemDetails } from '../../core/api/api.models';
-import { AiProviderInput, AiProviderView, AssistantConsoleView, PlatformApi } from '../../core/api/platform.api';
+import { AiProviderInput, AiProviderView, AssistantBot, AssistantConsoleView, PlatformApi } from '../../core/api/platform.api';
 import { asProblem, problemMessage } from '../../core/http/problem-details';
 import { ErpDatePipe } from '../../shared/display.pipes';
 import { FieldSpec, RecordDrawerComponent } from '../../shared/record-drawer.component';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { AI_PROVIDER_PRESETS, coverageWarnings, moved, presetValues } from './ai-providers';
+import { AssistantTryComponent } from './assistant-try.component';
 import { PLATFORM_STYLES } from './platform-ui';
 
 const COMMON_FIELDS: FieldSpec[] = [
@@ -50,7 +53,7 @@ const EDIT_FIELDS: FieldSpec[] = [
   selector: 'erp-platform-assistant',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzAlertModule, NzButtonModule, NzIconModule, NzModalModule, NzSpinModule, NzSwitchModule, ErpDatePipe, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
+  imports: [DecimalPipe, FormsModule, NzAlertModule, NzButtonModule, NzIconModule, NzInputNumberModule, NzModalModule, NzSpinModule, NzSwitchModule, AssistantTryComponent, ErpDatePipe, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
   styles: [PLATFORM_STYLES, `
     .group { margin-bottom: 16px; }
     .notice { margin-bottom: 16px; }
@@ -62,6 +65,12 @@ const EDIT_FIELDS: FieldSpec[] = [
     .row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
     .address { max-width: 280px; overflow-wrap: anywhere; display: block; }
     .test-note { display: block; margin-top: 4px; max-width: 240px; }
+    .assistant-lower { margin-top: 16px; margin-bottom: 0; }
+    .limits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; align-items: end; }
+    .limits label { display: block; font-size: 13px; color: var(--erp-color-text-muted); }
+    .limits nz-input-number { display: block; width: 100%; margin-top: 4px; }
+    .limits button { grid-column: 1 / -1; justify-self: start; }
+    @media (max-width: 767px) { .limits { grid-template-columns: minmax(0, 1fr); } }
   `],
   template: `
     @if (failed()) {
@@ -147,6 +156,54 @@ const EDIT_FIELDS: FieldSpec[] = [
           </div>
         }
       </section>
+
+      <div class="pf-grid assistant-lower">
+        <section class="pf-card" data-testid="assistant-usage">
+          <h2>Today's usage</h2>
+          <p class="pf-muted pf-small" style="margin:-4px 0 12px">Counted per day in UTC. When an assistant reaches its limit it stops until the next day, which also protects you from a bill if you use a paid key.</p>
+          <dl class="pf-facts">
+            <dt>Public assistant</dt><dd data-testid="assistant-used-brand">{{ used('brand') | number }} of {{ v.brandDailyTokens | number }} tokens</dd>
+            <dt>Workspace assistant</dt><dd data-testid="assistant-used-workspace">{{ used('workspace') | number }} of {{ v.workspaceDailyTokens | number }} tokens</dd>
+          </dl>
+          @if (v.usageToday.length) {
+            <div class="pf-scroll" style="margin-top:12px">
+              <table class="pf-table">
+                <thead><tr><th>Service</th><th>For</th><th class="num">Replies</th><th class="num">Failed</th><th class="num">Tokens</th></tr></thead>
+                <tbody>
+                  @for (u of v.usageToday; track u.bot + u.providerId) {
+                    <tr [attr.data-testid]="'assistant-usage-' + u.providerName">
+                      <td>{{ u.providerName }}@if (u.lastFailure) { <span class="pf-muted pf-small address">{{ u.lastFailure }}</span> }</td>
+                      <td class="pf-nowrap">{{ u.bot === 'brand' ? 'Public' : 'Workspace' }}</td>
+                      <td class="num">{{ u.requests | number }}</td>
+                      <td class="num">{{ u.failures | number }}</td>
+                      <td class="num">{{ u.inputTokens + u.outputTokens | number }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+          @if (v.canManage) {
+            <form class="limits" (ngSubmit)="saveLimits()" data-testid="assistant-limits">
+              <label>Public assistant, tokens a day
+                <nz-input-number name="brandLimit" [ngModel]="brandLimit()" (ngModelChange)="brandLimit.set($event)" [nzMin]="1000" [nzMax]="100000000" [nzStep]="10000" [nzPrecision]="0" data-testid="assistant-limit-brand"></nz-input-number>
+              </label>
+              <label>Workspace assistant, tokens a day
+                <nz-input-number name="workspaceLimit" [ngModel]="workspaceLimit()" (ngModelChange)="workspaceLimit.set($event)" [nzMin]="1000" [nzMax]="100000000" [nzStep]="10000" [nzPrecision]="0" data-testid="assistant-limit-workspace"></nz-input-number>
+              </label>
+              <button nz-button type="submit" [disabled]="busy()" data-testid="assistant-limits-save">Save limits</button>
+            </form>
+          }
+        </section>
+
+        @if (v.canManage) {
+          <section class="pf-card" data-testid="assistant-try">
+            <h2>Try it</h2>
+            <p class="pf-muted pf-small" style="margin:-4px 0 12px">Talk to your services directly, even with the assistants switched off. Replies count towards today's usage, and nothing is saved.</p>
+            <erp-assistant-try (used)="reload()" />
+          </section>
+        }
+      </div>
     }
     <erp-record-drawer [title]="editing() ? 'Edit ' + editing()!.name : 'Add AI service'" [open]="open()" [fields]="editing() ? editFields : addFields" [value]="editValue()" [saving]="saving()" [errors]="errors()"
       [submitLabel]="editing() ? 'Save' : 'Add service'" testId="assistant-form" (submitted)="save($event)" (closed)="open.set(false)" />`,
@@ -171,12 +228,37 @@ export class PlatformAssistantPage {
     return p ? { name: p.name, baseUrl: p.baseUrl, model: p.model, useForBrand: p.useForBrand, useForWorkspace: p.useForWorkspace } : null;
   });
   readonly warnings = computed(() => { const v = this.view(); return v ? coverageWarnings(v) : []; });
+  readonly brandLimit = signal<number | null>(null);
+  readonly workspaceLimit = signal<number | null>(null);
 
   constructor() { this.load(); }
 
   load(): void {
     this.failed.set(false);
-    this.api.assistant().subscribe({ next: (v) => this.view.set(v), error: () => this.failed.set(true) });
+    this.api.assistant().subscribe({ next: (v) => this.show(v), error: () => this.failed.set(true) });
+  }
+
+  /** Fresh usage after a try-out. A failure here is not worth interrupting anyone for. */
+  reload(): void {
+    this.api.assistant().subscribe({ next: (v) => this.view.set(v), error: () => undefined });
+  }
+
+  private show(v: AssistantConsoleView): void {
+    this.view.set(v);
+    this.brandLimit.set(v.brandDailyTokens);
+    this.workspaceLimit.set(v.workspaceDailyTokens);
+  }
+
+  /** Tokens one assistant has used today, across all its services. */
+  used(bot: AssistantBot): number {
+    return (this.view()?.usageToday ?? []).filter((u) => u.bot === bot).reduce((sum, u) => sum + u.inputTokens + u.outputTokens, 0);
+  }
+
+  saveLimits(): void {
+    const brand = this.brandLimit();
+    const workspace = this.workspaceLimit();
+    if (brand === null || workspace === null) return;
+    this.run(this.api.setAssistantLimits({ brandDailyTokens: brand, workspaceDailyTokens: workspace }), 'Could not save the limits', () => this.message.success('Limits saved'));
   }
 
   /** The switch does not move by itself: it shows what the server has saved. */

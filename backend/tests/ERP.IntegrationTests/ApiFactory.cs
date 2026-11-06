@@ -54,6 +54,7 @@ public class ApiFactory : WebApplicationFactory<Program>
             ["Platform:FounderEmail"] = FounderEmail,
             ["Platform:FounderPassword"] = Password,
             ["RateLimiting:LoginPerMinute"] = "10000",
+            ["RateLimiting:AssistantPerHour"] = "10000",
             ["Auth:TwoFactor:Enforce"] = "false", // most tests sign in with a password only; TwoFactorChallengeTests turns it on
             ["Storage:Root"] = Path.Combine(Path.GetTempPath(), "erp-tests-" + Guid.NewGuid().ToString("N")),
         };

@@ -79,9 +79,12 @@ public static class DependencyInjection
             .PersistKeysToFileSystem(new DirectoryInfo(config["DataProtection:KeysPath"] ?? Path.Combine(storageRoot, "data-protection-keys")));
         if (OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi(protectToLocalMachine: true);
         services.AddScoped<ERP.Application.Platform.IAiKeyProtector, DataProtectionAiKeyProtector>();
-        services.AddHttpClient(OpenAiStyleConnectionTester.ClientName, c => c.Timeout = TimeSpan.FromSeconds(20))
+        services.AddHttpClient(OpenAiStyleConnectionTester.ClientName, c => c.Timeout = TimeSpan.FromSeconds(30))
             .ConfigurePrimaryHttpMessageHandler(OpenAiStyleConnectionTester.CreateHandler);
         services.AddScoped<ERP.Application.Platform.IAiConnectionTester, OpenAiStyleConnectionTester>();
+        services.AddScoped<ERP.Application.Assistant.IChatModelClient, OpenAiStyleChatClient>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantUsageStore, AssistantUsageStore>();
+        services.AddSingleton<ERP.Application.Platform.IBrandSessionTokens, BrandSessionTokens>();
         services.AddScoped<AuthService>();
         services.AddSingleton<TwoFactorChallenges>();
         services.AddSingleton<IQrCodeRenderer, QrCodeRenderer>();

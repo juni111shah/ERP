@@ -17,6 +17,7 @@ import { BillingCycle, IndustryOption, PlatformApi, PublicPlan, SignupConfig, Si
 import { displayMoney } from '../core/format/display';
 import { suggestWorkspaceCode, yearlySaving } from '../core/format/subscription';
 import { applyProblemDetailsToForm, asProblem, controlError } from '../core/http/problem-details';
+import { BrandAssistantComponent } from '../shared/brand-assistant.component';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { PlanCardComponent } from '../shared/plan-card.component';
 import { StatePanelComponent } from '../shared/state-panel.component';
@@ -34,7 +35,7 @@ const FIELD_MESSAGES: Record<string, string> = {
   selector: 'erp-register',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzCheckboxModule, NzFormModule, NzIconModule, NzInputModule, NzRadioModule, NzSelectModule, NzSpinModule,
+  imports: [BrandAssistantComponent, ReactiveFormsModule, FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzCheckboxModule, NzFormModule, NzIconModule, NzInputModule, NzRadioModule, NzSelectModule, NzSpinModule,
     BrandLogoComponent, PlanCardComponent, RegisterResultComponent, StatePanelComponent],
   styles: [`
     :host { display: block; min-height: 100vh; background: radial-gradient(circle at 10% 20%, rgba(16,149,93,.06) 0%, transparent 40%), var(--erp-color-bg-canvas); }
@@ -219,7 +220,8 @@ const FIELD_MESSAGES: Record<string, string> = {
           </div>
         }
       }
-    </main>`,
+    </main>
+    @defer (on idle) { <erp-brand-assistant /> }`,
 })
 export class RegisterPage {
   private readonly api = inject(PlatformApi);

@@ -121,6 +121,7 @@ export class PageTitleService {
       '/platform': { title: 'Dashboard', module: 'Console' },
       '/platform/clients': { title: 'Clients', module: 'Console' },
       '/platform/signups': { title: 'Registrations', module: 'Console' },
+      '/platform/leads': { title: 'Leads', module: 'Console' },
       '/platform/plans': { title: 'Plans and pricing', module: 'Console' },
       '/platform/invoices': { title: 'Invoices', module: 'Console' },
       '/platform/activity': { title: 'Activity', module: 'Console' },

@@ -85,3 +85,10 @@ Things it deliberately does not do yet:
 - **Order:** the top service answers first. A service answers for the public assistant or for client data only if its switch for that is on.
 
 The assistants themselves are built in later steps, so these settings have no visible effect on clients yet.
+
+### Trying it, limits and usage
+
+- **Try it** talks to the connected services directly, even with the assistants switched off, using `POST /platform-admin/assistant/try`. Replies arrive as server-sent events (`AssistantStreamResult`). Nothing is saved, and only the owner can use it.
+- **Moving between services:** `AssistantRunner` tries each service in order. It moves on only while nothing has been shown, so a reply is never answered twice. A service that reports its limit is skipped until the wait it asked for has passed (60 seconds if it does not say, one hour at most). This is held in memory, so a restart clears it.
+- **Daily limits** are in tokens per assistant, counted per UTC day in `AssistantUsageDays`, and include replies the person stopped early. A service that reports no usage is estimated at four characters a token. At the limit the assistant stops until the next day.
+- **Tools:** at most `AssistantRunner.MaxToolCallsPerTurn` per reply. Each tool must check for itself that the caller may see what it returns.

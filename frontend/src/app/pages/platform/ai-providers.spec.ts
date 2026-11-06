@@ -30,7 +30,7 @@ describe('moved', () => {
 
 describe('coverageWarnings', () => {
   const provider = { id: '1', name: 'A', baseUrl: 'https://a.example', model: 'm', keyHint: 'abcd', keyNeedsReentry: false, lastTestedAt: null, lastTestOk: null, lastTestMessage: null };
-  const view = (over: Partial<AssistantConsoleView>): AssistantConsoleView => ({ brandEnabled: false, workspaceEnabled: false, canManage: true, providers: [], ...over });
+  const view = (over: Partial<AssistantConsoleView>): AssistantConsoleView => ({ brandEnabled: false, workspaceEnabled: false, canManage: true, providers: [], brandDailyTokens: 1000, workspaceDailyTokens: 1000, usageToday: [], ...over });
 
   it('says nothing while the assistants are hidden', () => {
     expect(coverageWarnings(view({}))).toEqual([]);

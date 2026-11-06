@@ -1,8 +1,10 @@
 using ERP.Api.Infrastructure;
+using ERP.Application.Assistant;
 using ERP.Application.Platform;
 using ERP.Application.Security;
 using ERP.Modularity;
 using ERP.Modularity.Features;
+using ERP.Domain.Platform;
 using MediatR;
 
 namespace ERP.Api.Endpoints;
@@ -20,6 +22,10 @@ public static class PlatformAdminEndpoints
         g.MapPost("/signups", (SignupInput input, HttpContext http, ISender sender, CancellationToken ct) =>
             sender.Send(new RegisterWorkspace(input, http.Connection.RemoteIpAddress?.ToString()), ct)).AllowAnonymous().RequireRateLimiting("login");
         g.MapPost("/signups/verify", (VerifySignupInput input, ISender sender, CancellationToken ct) => sender.Send(new VerifySignup(input.Token), ct)).AllowAnonymous().RequireRateLimiting("login");
+        g.MapGet("/content", (ISender sender, CancellationToken ct) => sender.Send(new GetPublicContent(), ct)).AllowAnonymous();
+        g.MapGet("/assistant/status", (ISender sender, CancellationToken ct) => sender.Send(new GetBrandAssistantStatus(), ct)).AllowAnonymous();
+        g.MapPost("/assistant/messages", (BrandMessageInput input, ISender sender, CancellationToken ct) => new AssistantStreamResult(sender.CreateStream(new AskBrandAssistant(input), ct))).AllowAnonymous().RequireRateLimiting("assistant-public");
+        g.MapPost("/assistant/leads", async (BrandLeadInput input, ISender sender, CancellationToken ct) => { await sender.Send(new SubmitBrandLead(input), ct); return Results.NoContent(); }).AllowAnonymous().RequireRateLimiting("login");
     }
 
     /// <summary>A client's own plan and invoices.</summary>
@@ -75,8 +81,15 @@ public static class PlatformAdminEndpoints
         g.MapGet("/activity", ([AsParameters] ListPlatformActivity q, ISender s, CancellationToken ct) => s.Send(q, ct));
         g.MapPost("/billing-run", (ISender s, CancellationToken ct) => s.Send(new RunBillingNow(), ct));
 
+        g.MapGet("/leads", ([AsParameters] ListBrandLeads q, ISender s, CancellationToken ct) => s.Send(q, ct));
+        g.MapPut("/leads/{id:guid}/status/{status:regex(^(new|contacted|won|lost)$)}", (Guid id, string status, ISender s, CancellationToken ct) => s.Send(new SetBrandLeadStatus(id, Enum.Parse<BrandLeadStatus>(status, ignoreCase: true)), ct));
+        g.MapDelete("/leads/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteBrandLead(id), ct); return Results.NoContent(); });
+        g.MapGet("/assistant/conversations", ([AsParameters] ListBrandConversations q, ISender s, CancellationToken ct) => s.Send(q, ct));
+        g.MapGet("/assistant/conversations/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetBrandConversation(id), ct));
         g.MapGet("/assistant", (ISender s, CancellationToken ct) => s.Send(new GetAssistantConsole(), ct));
         g.MapPut("/assistant/visibility", (AssistantVisibilityInput input, ISender s, CancellationToken ct) => s.Send(new SetAssistantVisibility(input), ct));
+        g.MapPut("/assistant/limits", (AssistantLimitsInput input, ISender s, CancellationToken ct) => s.Send(new SetAssistantLimits(input), ct));
+        g.MapPost("/assistant/try", (AssistantTryInput input, ISender s, CancellationToken ct) => new AssistantStreamResult(s.CreateStream(new TryAssistant(input), ct)));
         g.MapPost("/assistant/providers", (AiProviderInput input, ISender s, CancellationToken ct) => s.Send(new CreateAiProvider(input), ct));
         g.MapPut("/assistant/providers/order", (AiProviderOrderInput input, ISender s, CancellationToken ct) => s.Send(new ReorderAiProviders(input), ct));
         g.MapPut("/assistant/providers/{id:guid}", (Guid id, AiProviderInput input, ISender s, CancellationToken ct) => s.Send(new UpdateAiProvider(id, input), ct));

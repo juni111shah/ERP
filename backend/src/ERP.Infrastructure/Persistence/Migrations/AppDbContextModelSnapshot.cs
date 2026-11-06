@@ -2529,6 +2529,52 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.ToTable("ApprovalRequests");
                 });
 
+            modelBuilder.Entity("ERP.Domain.Platform.AssistantUsageDay", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Bot")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Failures")
+                        .HasColumnType("int");
+
+                    b.Property<long>("InputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("LastFailure")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long>("OutputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ProviderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProviderName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("Requests")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Day", "Bot", "ProviderId")
+                        .IsUnique();
+
+                    b.ToTable("AssistantUsageDays");
+                });
+
             modelBuilder.Entity("ERP.Domain.Platform.Attachment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2986,6 +3032,11 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("BrandAssistantDailyTokens")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(150000);
+
                     b.Property<bool>("BrandAssistantEnabled")
                         .HasColumnType("bit");
 
@@ -3083,6 +3134,11 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("WorkspaceAssistantDailyTokens")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(50000);
 
                     b.Property<bool>("WorkspaceAssistantEnabled")
                         .HasColumnType("bit");

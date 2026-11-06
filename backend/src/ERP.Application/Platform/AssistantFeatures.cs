@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using ERP.Application.Abstractions;
+using ERP.Application.Assistant;
 using ERP.Application.Common;
 using ERP.Domain.Platform;
 using FluentValidation;
@@ -13,15 +14,19 @@ public sealed record AiProviderView(
     Guid Id, string Name, string BaseUrl, string Model, string KeyHint, bool KeyNeedsReentry, bool UseForBrand, bool UseForWorkspace,
     DateTime? LastTestedAt, bool? LastTestOk, string? LastTestMessage);
 
-public sealed record AssistantConsoleView(bool BrandEnabled, bool WorkspaceEnabled, bool CanManage, IReadOnlyList<AiProviderView> Providers);
+public sealed record AssistantConsoleView(
+    bool BrandEnabled, bool WorkspaceEnabled, bool CanManage, IReadOnlyList<AiProviderView> Providers,
+    int BrandDailyTokens, int WorkspaceDailyTokens, IReadOnlyList<AssistantUsageRow> UsageToday);
 
 /// <summary>ApiKey is write-only. Leave it empty when editing to keep the stored key.</summary>
 public sealed record AiProviderInput(string Name, string BaseUrl, string Model, string? ApiKey, bool UseForBrand, bool UseForWorkspace);
 public sealed record AssistantVisibilityInput(bool BrandEnabled, bool WorkspaceEnabled);
 public sealed record AiProviderOrderInput(IReadOnlyList<Guid> Ids);
+public sealed record AssistantLimitsInput(int BrandDailyTokens, int WorkspaceDailyTokens);
 
 public sealed record GetAssistantConsole : IQuery<AssistantConsoleView>;
 public sealed record SetAssistantVisibility(AssistantVisibilityInput Input) : ICommand<AssistantConsoleView>;
+public sealed record SetAssistantLimits(AssistantLimitsInput Input) : ICommand<AssistantConsoleView>;
 public sealed record CreateAiProvider(AiProviderInput Input) : ICommand<AssistantConsoleView>;
 public sealed record UpdateAiProvider(Guid Id, AiProviderInput Input) : ICommand<AssistantConsoleView>;
 public sealed record DeleteAiProvider(Guid Id) : ICommand<AssistantConsoleView>;
@@ -90,6 +95,18 @@ public sealed class AiProviderInputValidator : AbstractValidator<AiProviderInput
     }
 }
 
+public sealed class SetAssistantLimitsValidator : AbstractValidator<SetAssistantLimits>
+{
+    private const int Min = 1_000;
+    private const int Max = 100_000_000;
+
+    public SetAssistantLimitsValidator()
+    {
+        RuleFor(x => x.Input.BrandDailyTokens).InclusiveBetween(Min, Max).WithMessage("Enter a number from 1,000 to 100,000,000.");
+        RuleFor(x => x.Input.WorkspaceDailyTokens).InclusiveBetween(Min, Max).WithMessage("Enter a number from 1,000 to 100,000,000.");
+    }
+}
+
 public sealed class CreateAiProviderValidator : AbstractValidator<CreateAiProvider>
 {
     public CreateAiProviderValidator()
@@ -107,9 +124,10 @@ public sealed class UpdateAiProviderValidator : AbstractValidator<UpdateAiProvid
 /// <summary>The founder's control of the AI assistants. Anyone on the platform team can look; only the owner can change anything or use a key.</summary>
 internal sealed class AssistantConsoleHandlers(
     IRepository<AiProvider> providers, PlatformSettingsStore settingsStore, IPlatformDirectory directory, IAiKeyProtector protector, IAiConnectionTester tester,
-    PlatformLog log, ICurrentUser user, IClock clock) :
+    IAssistantUsageStore usage, PlatformLog log, ICurrentUser user, IClock clock) :
     IRequestHandler<GetAssistantConsole, AssistantConsoleView>,
     IRequestHandler<SetAssistantVisibility, AssistantConsoleView>,
+    IRequestHandler<SetAssistantLimits, AssistantConsoleView>,
     IRequestHandler<CreateAiProvider, AssistantConsoleView>,
     IRequestHandler<UpdateAiProvider, AssistantConsoleView>,
     IRequestHandler<DeleteAiProvider, AssistantConsoleView>,
@@ -128,7 +146,19 @@ internal sealed class AssistantConsoleHandlers(
         var settings = await settingsStore.GetAsync(ct);
         var rows = await providers.Query().OrderBy(p => p.SortOrder).ThenBy(p => p.CreatedAt).ToListAsync(ct);
         return new(settings.BrandAssistantEnabled, settings.WorkspaceAssistantEnabled, await IsOwnerAsync(ct), rows.Select(p => new AiProviderView(
-            p.Id, p.Name, p.BaseUrl, p.Model, p.ApiKeyHint, protector.TryUnprotect(p.EncryptedApiKey) is null, p.UseForBrand, p.UseForWorkspace, p.LastTestedAt, p.LastTestOk, p.LastTestMessage)).ToList());
+            p.Id, p.Name, p.BaseUrl, p.Model, p.ApiKeyHint, protector.TryUnprotect(p.EncryptedApiKey) is null, p.UseForBrand, p.UseForWorkspace, p.LastTestedAt, p.LastTestOk, p.LastTestMessage)).ToList(),
+            settings.BrandAssistantDailyTokens, settings.WorkspaceAssistantDailyTokens, await usage.ListAsync(DateOnly.FromDateTime(clock.UtcNow), ct));
+    }
+
+    public async Task<AssistantConsoleView> Handle(SetAssistantLimits cmd, CancellationToken ct)
+    {
+        await RequireOwnerAsync(ct);
+        var s = await settingsStore.GetTrackedAsync(ct);
+        s.BrandAssistantDailyTokens = cmd.Input.BrandDailyTokens;
+        s.WorkspaceAssistantDailyTokens = cmd.Input.WorkspaceDailyTokens;
+        log.Add("AI assistant limits changed", null, null, $"Public {cmd.Input.BrandDailyTokens:N0} and workspace {cmd.Input.WorkspaceDailyTokens:N0} tokens a day.");
+        await providers.SaveChangesAsync(ct);
+        return await ViewAsync(ct);
     }
 
     public Task<AssistantConsoleView> Handle(GetAssistantConsole q, CancellationToken ct) => ViewAsync(ct);

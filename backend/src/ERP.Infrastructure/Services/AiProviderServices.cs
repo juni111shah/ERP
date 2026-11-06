@@ -43,7 +43,7 @@ public sealed class OpenAiStyleConnectionTester(IHttpClientFactory clients) : IA
         catch (HttpRequestException) { return new(false, "Could not reach the service. Check the address."); }
     }
 
-    private static AiConnectionResult Describe(HttpStatusCode status) => (int)status switch
+    public static AiConnectionResult Describe(HttpStatusCode status) => (int)status switch
     {
         >= 200 and < 300 => new(true, "Connected. The model answered."),
         >= 300 and < 400 => new(false, "The address redirects somewhere else. Use the final address."),
@@ -76,4 +76,20 @@ public sealed class OpenAiStyleConnectionTester(IHttpClientFactory clients) : IA
             }
         },
     };
+}
+
+/// <summary>A token a visitor's browser holds for its conversation. It expires, so an old link to a chat stops working.</summary>
+public sealed class BrandSessionTokens(IDataProtectionProvider dataProtection) : IBrandSessionTokens
+{
+    private static readonly TimeSpan Lifetime = TimeSpan.FromHours(24);
+    private readonly ITimeLimitedDataProtector _protector = dataProtection.CreateProtector("erp.brand-assistant-session.v1").ToTimeLimitedDataProtector();
+
+    public string Issue(Guid conversationId) => _protector.Protect(conversationId.ToString("N"), Lifetime);
+
+    public Guid? Read(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        try { return Guid.TryParse(_protector.Unprotect(token), out var id) ? id : null; }
+        catch (CryptographicException) { return null; }
+    }
 }
