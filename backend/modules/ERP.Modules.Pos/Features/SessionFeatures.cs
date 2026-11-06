@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Finance;
 using ERP.Modules.Pos.Domain;
 using FluentValidation;
 using MediatR;
@@ -25,7 +26,9 @@ public record PosSessionSummaryDto(
     decimal CashDifference,
     PosSessionStatus Status,
     string? Notes,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    decimal TotalPayIn = 0,
+    decimal TotalPayOut = 0);
 
 public record CashDrawerTransactionDto(
     Guid Id,
@@ -34,7 +37,8 @@ public record CashDrawerTransactionDto(
     decimal Amount,
     string Reason,
     Guid PerformedByUserId,
-    DateTimeOffset Timestamp);
+    DateTimeOffset Timestamp,
+    string? PerformedByName = null);
 
 public record PosSessionDto(
     Guid Id,
@@ -76,13 +80,17 @@ public record CloseSessionCommand(
     Guid? ClosedByUserId,
     string? Notes) : ICommand<PosSessionDto>;
 
-/// <summary>PerformedByUserId is ignored: the movement is attributed to the signed-in caller.</summary>
+/// <summary>
+/// PerformedByUserId is ignored: the movement is attributed to the signed-in caller. AccountId is the other side in the ledger:
+/// a pay-in or pay-out always posts (to the register's account unless one is named here); a float or a safe drop only posts when an account is named, otherwise the cash stayed inside cash on hand.
+/// </summary>
 public record RecordDrawerTransactionCommand(
     Guid SessionId,
     CashMovementType Type,
     decimal Amount,
     string Reason,
-    Guid? PerformedByUserId) : ICommand<CashDrawerTransactionDto>;
+    Guid? PerformedByUserId,
+    Guid? AccountId = null) : ICommand<CashDrawerTransactionDto>;
 
 public record GetCurrentSessionQuery(Guid RegisterId) : IQuery<PosSessionDto?>;
 
@@ -110,8 +118,9 @@ public class RecordDrawerTransactionValidator : AbstractValidator<RecordDrawerTr
     public RecordDrawerTransactionValidator()
     {
         RuleFor(x => x.SessionId).NotEmpty();
+        RuleFor(x => x.Type).IsInEnum();
         RuleFor(x => x.Amount).GreaterThan(0);
-        RuleFor(x => x.Reason).NotEmpty();
+        RuleFor(x => x.Reason).NotEmpty().MaximumLength(250);
     }
 }
 
@@ -123,6 +132,7 @@ public class SessionHandlers :
 {
     /// <summary>Filtered unique index: one open session per register (see PosModule).</summary>
     public const string OneOpenSessionIndex = "UX_pos_Sessions_OneOpenPerRegister";
+    private const string JournalSource = "pos-session";
 
     private readonly IRepository<PosSession> _sessions;
     private readonly IRepository<PosRegister> _registers;
@@ -131,6 +141,9 @@ public class SessionHandlers :
     private readonly IUserDirectory _users;
     private readonly IUnitOfWork _uow;
     private readonly IDbErrors _dbErrors;
+    private readonly IPostingService _posting;
+    private readonly ISettingsService _settings;
+    private readonly PosAccounts _accounts;
 
     public SessionHandlers(
         IRepository<PosSession> sessions,
@@ -139,7 +152,10 @@ public class SessionHandlers :
         ICurrentUser user,
         IUserDirectory users,
         IUnitOfWork uow,
-        IDbErrors dbErrors)
+        IDbErrors dbErrors,
+        IPostingService posting,
+        ISettingsService settings,
+        PosAccounts accounts)
     {
         _sessions = sessions;
         _registers = registers;
@@ -148,6 +164,9 @@ public class SessionHandlers :
         _users = users;
         _uow = uow;
         _dbErrors = dbErrors;
+        _posting = posting;
+        _settings = settings;
+        _accounts = accounts;
     }
 
     private Guid CallerId => _user.UserId is { } id && id != Guid.Empty ? id : throw new ForbiddenException();
@@ -203,6 +222,7 @@ public class SessionHandlers :
                         Amount = request.OpeningCash,
                         Reason = "Opening cash float",
                         PerformedByUserId = caller,
+                        PerformedByName = callerName,
                         Timestamp = session.OpenedAt
                     };
                     _drawerTransactions.Add(openFloat);
@@ -245,6 +265,21 @@ public class SessionHandlers :
 
         var session = await _sessions.Query(new Specification<PosSession>(s => s.Id == request.SessionId)).FirstAsync(token);
         session.DrawerTransactions = await _drawerTransactions.Query(new Specification<CashDrawerTransaction>(t => t.SessionId == session.Id)).ToListAsync(token);
+
+        // Cash over or short is real money: without this entry the ledger keeps a balance the drawer does not have.
+        if (session.CashDifference != 0)
+        {
+            var register = await _registers.FindAsync(session.RegisterId, token) ?? throw new NotFoundException($"Register {session.RegisterId} not found");
+            var cash = await _accounts.CashAsync(register, token);
+            var variance = await _accounts.VarianceAsync(register, token);
+            var memo = $"Cash {(session.CashDifference > 0 ? "over" : "short")} on closing {session.RegisterName}";
+            var amount = Math.Abs(session.CashDifference);
+            await _posting.PostAsync(new PostingRequest(session.LegalEntityId, DateOnly.FromDateTime(closedAt.UtcDateTime), JournalSource, session.Id, memo, session.RegisterName,
+                session.CashDifference > 0
+                    ? [new PostingLine(cash, amount, 0, memo), new PostingLine(variance, 0, amount, memo)]
+                    : [new PostingLine(variance, amount, 0, memo), new PostingLine(cash, 0, amount, memo)]), token);
+            await _sessions.SaveChangesAsync(token);
+        }
         return Map(session);
     }, cancellationToken);
 
@@ -252,23 +287,46 @@ public class SessionHandlers :
     {
         var caller = CallerId;
         var amount = request.Amount;
+        if (request.AccountId is not null && !_user.HasPermission(Permissions.RegistersManage))
+            throw new ForbiddenException("Choosing a ledger account for a cash movement needs the register management permission.");
+        var session = await _sessions.Query(new Specification<PosSession>(s => s.Id == request.SessionId)).FirstOrDefaultAsync(token)
+            ?? throw new NotFoundException($"Session {request.SessionId} not found");
+        var allowNegative = await _settings.GetAsync<bool?>("pos.allowNegativeDrawer", session.LegalEntityId, token) ?? false;
         var openOnly = new Specification<PosSession>(s => s.Id == request.SessionId && s.Status == PosSessionStatus.Open);
+        var openAndCovered = new Specification<PosSession>(s => s.Id == request.SessionId && s.Status == PosSessionStatus.Open && (allowNegative || s.ExpectedCash >= amount));
 
         var rows = request.Type switch
         {
             CashMovementType.FloatIn or CashMovementType.PayIn => await _sessions.Tracked(openOnly).ExecuteUpdateAsync(set => set
                 .SetProperty(s => s.TotalPayIn, s => s.TotalPayIn + amount)
                 .SetProperty(s => s.ExpectedCash, s => s.ExpectedCash + amount), token),
-            CashMovementType.PayOut or CashMovementType.DropOut => await _sessions.Tracked(openOnly).ExecuteUpdateAsync(set => set
+            CashMovementType.PayOut or CashMovementType.DropOut => await _sessions.Tracked(openAndCovered).ExecuteUpdateAsync(set => set
                 .SetProperty(s => s.TotalPayOut, s => s.TotalPayOut + amount)
                 .SetProperty(s => s.ExpectedCash, s => s.ExpectedCash - amount), token),
             _ => 0,
         };
         if (rows == 0)
         {
-            if (!await _sessions.Query(new Specification<PosSession>(s => s.Id == request.SessionId)).AnyAsync(token))
-                throw new NotFoundException($"Session {request.SessionId} not found");
-            throw new ConflictException("Cannot record drawer transactions on a closed session.");
+            if (session.Status != PosSessionStatus.Open || !await _sessions.AnyAsync(s => s.Id == session.Id && s.Status == PosSessionStatus.Open, token))
+                throw new ConflictException("Cannot record drawer transactions on a closed session.");
+            throw new ConflictException($"The drawer does not hold {amount:N2} in cash.");
+        }
+
+        var register = await _registers.FindAsync(session.RegisterId, token) ?? throw new NotFoundException($"Register {session.RegisterId} not found");
+        var counter = request.Type is CashMovementType.PayIn or CashMovementType.PayOut
+            ? request.AccountId ?? await _accounts.DrawerOffsetAsync(register, token)
+            : request.AccountId;
+
+        var reason = request.Reason.Trim();
+        if (counter is { } other)
+        {
+            var cash = await _accounts.CashAsync(register, token);
+            var cashComesIn = request.Type is CashMovementType.FloatIn or CashMovementType.PayIn;
+            var memo = $"Drawer {request.Type} - {session.RegisterName}: {reason}";
+            await _posting.PostAsync(new PostingRequest(session.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), JournalSource, session.Id, memo.Length > 250 ? memo[..250] : memo, session.RegisterName,
+                cashComesIn
+                    ? [new PostingLine(cash, amount, 0, reason), new PostingLine(other, 0, amount, reason)]
+                    : [new PostingLine(other, amount, 0, reason), new PostingLine(cash, 0, amount, reason)]), token);
         }
 
         var tx = new CashDrawerTransaction
@@ -276,14 +334,16 @@ public class SessionHandlers :
             SessionId = request.SessionId,
             Type = request.Type,
             Amount = request.Amount,
-            Reason = request.Reason.Trim(),
+            Reason = reason,
             PerformedByUserId = caller,
-            Timestamp = DateTimeOffset.UtcNow
+            PerformedByName = await CallerNameAsync(token),
+            Timestamp = DateTimeOffset.UtcNow,
+            AccountId = counter,
         };
         _drawerTransactions.Add(tx);
         await _drawerTransactions.SaveChangesAsync(token);
 
-        return new CashDrawerTransactionDto(tx.Id, tx.SessionId, tx.Type, tx.Amount, tx.Reason, tx.PerformedByUserId, tx.Timestamp);
+        return new CashDrawerTransactionDto(tx.Id, tx.SessionId, tx.Type, tx.Amount, tx.Reason, tx.PerformedByUserId, tx.Timestamp, tx.PerformedByName);
     }, cancellationToken);
 
     public async Task<PosSessionDto?> Handle(GetCurrentSessionQuery request, CancellationToken cancellationToken)
@@ -305,7 +365,7 @@ public class SessionHandlers :
         return Map(session);
     }
 
-    private static PosSessionDto Map(PosSession s) => new(
+    internal static PosSessionDto Map(PosSession s) => new(
         s.Id,
         s.LegalEntityId,
         s.RegisterId,
@@ -333,6 +393,7 @@ public class SessionHandlers :
             t.Amount,
             t.Reason,
             t.PerformedByUserId,
-            t.Timestamp)).ToList(),
+            t.Timestamp,
+            t.PerformedByName)).ToList(),
         s.CreatedAt);
 }

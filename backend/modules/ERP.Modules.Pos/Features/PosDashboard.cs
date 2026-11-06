@@ -8,7 +8,8 @@ namespace ERP.Modules.Pos.Features;
 public sealed class PosDashboard(
     IReadRepository<PosOrder> orders,
     IReadRepository<PosSession> sessions,
-    ICurrentUser user) : IDashboardContributor
+    ICurrentUser user,
+    PosCalendar calendar) : IDashboardContributor
 {
     public string ModuleKey => PosModule.Key;
 
@@ -19,7 +20,9 @@ public sealed class PosDashboard(
 
         if (user.HasPermission(Permissions.OrdersRead))
         {
-            var todayOrdersQuery = PosToday.CompletedOrders(orders.Query(), entity);
+            var day = await calendar.TodayAsync(ct);
+            var (start, _) = await calendar.RangeAsync(day, day, ct);
+            var todayOrdersQuery = PosToday.CompletedOrders(orders.Query(), entity, start);
 
             var todaySales = await todayOrdersQuery.SumAsync(o => (decimal?)o.TotalAmount, ct) ?? 0m;
             var todayCount = await todayOrdersQuery.CountAsync(ct);

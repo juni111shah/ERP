@@ -8,6 +8,7 @@ namespace ERP.Modules.Pos.Features;
 public sealed class PosSearch(
     IReadRepository<PosOrder> orders,
     IReadRepository<PosRegister> registers,
+    IReadRepository<PosReturn> returns,
     ICurrentUser user) : ISearchProvider
 {
     public string? ModuleKey => PosModule.Key;
@@ -25,6 +26,15 @@ public sealed class PosSearch(
                 .ToListAsync(ct);
 
             hits.AddRange(oList.Select(o => new SearchHit("POS Orders", $"{o.Number} · {o.CustomerName}", $"{o.TotalAmount:N2} · {o.Status}", $"/pos/orders/{o.Id}")));
+
+            if (hits.Count < limit)
+            {
+                var returned = await returns.Query(new Specification<PosReturn>(r => r.Number.Contains(term) || r.OriginalNumber.Contains(term) || r.CustomerName.Contains(term)))
+                    .Take(limit - hits.Count)
+                    .Select(r => new { r.Number, r.OriginalNumber, r.CustomerName, r.TotalAmount })
+                    .ToListAsync(ct);
+                hits.AddRange(returned.Select(r => new SearchHit("POS Returns", $"{r.Number} · {r.CustomerName}", $"{r.TotalAmount:N2} · of {r.OriginalNumber}", "/pos/returns")));
+            }
         }
 
         if (user.HasPermission(Permissions.RegistersRead) && hits.Count < limit)

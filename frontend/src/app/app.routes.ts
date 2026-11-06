@@ -199,6 +199,8 @@ export const routes: Routes = [
           { path: 'terminal', canMatch: [permissionGuard('pos.orders.create')], loadComponent: () => import('./pages/pos/pos-terminal.page').then((m) => m.PosTerminalPage) },
           { path: 'sessions', canMatch: [permissionGuard('pos.sessions.read')], loadComponent: () => import('./pages/pos/pos-sessions.page').then((m) => m.PosSessionsPage) },
           { path: 'orders', canMatch: [permissionGuard('pos.orders.read')], loadComponent: () => import('./pages/pos/pos-orders-list.page').then((m) => m.PosOrdersListPage) },
+          { path: 'orders/:id', canMatch: [permissionGuard('pos.orders.read')], loadComponent: () => import('./pages/pos/pos-orders-list.page').then((m) => m.PosOrdersListPage) },
+          { path: 'returns', canMatch: [permissionGuard('pos.orders.read')], loadComponent: () => import('./pages/pos/pos-returns.page').then((m) => m.PosReturnsPage) },
           { path: 'registers', canMatch: [permissionGuard('pos.registers.read')], loadComponent: () => import('./pages/pos/pos-registers.page').then((m) => m.PosRegistersPage) },
           { path: 'analytics', canMatch: [permissionGuard('pos.analytics.read')], loadComponent: () => import('./pages/pos/pos-analytics.page').then((m) => m.PosAnalyticsPage) },
         ],

@@ -184,6 +184,7 @@ export class PageTitleService {
       '/pos/terminal': { title: 'Point of Sale', module: 'POS' },
       '/pos/sessions': { title: 'Shifts & Cash Drawers', module: 'POS' },
       '/pos/orders': { title: 'Counter Sales Orders', module: 'POS' },
+      '/pos/returns': { title: 'Returns', module: 'POS' },
       '/pos/registers': { title: 'Point of Sale Registers', module: 'POS' },
       '/pos/analytics': { title: 'Point of Sale Analytics', module: 'POS' },
 

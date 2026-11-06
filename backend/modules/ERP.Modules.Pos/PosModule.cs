@@ -32,6 +32,9 @@ public sealed class PosModule : ModuleBase
         PermissionDefinition.Of(Pos.Permissions.OrdersVoid, "Void POS counter sales"),
         PermissionDefinition.Of(Pos.Permissions.AnalyticsRead, "View POS sales and shift analytics"),
         PermissionDefinition.Of(Pos.Permissions.OrdersOverridePrice, "Override POS item sales price"),
+        PermissionDefinition.Of(Pos.Permissions.OrdersRefund, "Take customer returns and give refunds"),
+        PermissionDefinition.Of(Pos.Permissions.OrdersDiscountOverride, "Give discounts above the cashier limit"),
+        PermissionDefinition.Of(Pos.Permissions.OrdersOnAccount, "Sell on a customer's account"),
     ];
 
     public override IEnumerable<MenuItemDefinition> Menu =>
@@ -39,6 +42,7 @@ public sealed class PosModule : ModuleBase
         new("pos.terminal", "POS Terminal", "/pos/terminal", "shop", Pos.Permissions.OrdersCreate, 10, "pos", "Point of sale", 320),
         new("pos.sessions", "Shifts & Drawers", "/pos/sessions", "schedule", Pos.Permissions.SessionsRead, 20, "pos", "Point of sale", 320),
         new("pos.orders", "Counter Orders", "/pos/orders", "shopping-cart", Pos.Permissions.OrdersRead, 30, "pos", "Point of sale", 320),
+        new("pos.returns", "Returns", "/pos/returns", "rollback", Pos.Permissions.OrdersRead, 35, "pos", "Point of sale", 320),
         new("pos.registers", "Registers", "/pos/registers", "desktop", Pos.Permissions.RegistersRead, 40, "pos", "Point of sale", 320),
         new("pos.analytics", "POS Analytics", "/pos/analytics", "bar-chart", Pos.Permissions.AnalyticsRead, 50, "pos", "Point of sale", 320),
     ];
@@ -46,8 +50,10 @@ public sealed class PosModule : ModuleBase
     public override IEnumerable<SettingDefinition> Settings =>
     [
         new("pos.allowNegativeDrawer", "Allow drawer balance to go below zero", "false", "bool"),
+        new("pos.allowNegativeStock", "Allow a sale to take stock below zero", "true", "bool"),
         new("pos.enforceFloatAtOpen", "Require cashier to specify opening float cash", "true", "bool"),
         new("pos.maxDiscountPercent", "Maximum discount percent allowed on POS order lines", "100", "number"),
+        new("pos.cashierDiscountPercent", "Discount limit for users without the discount override permission (blank: same as the maximum)", "null", "number"),
         new("pos.allowPartialPayment", "Allow partial payment on POS orders", "false", "bool"),
     ];
 
@@ -63,14 +69,16 @@ public sealed class PosModule : ModuleBase
             Roles:
             [
                 new("Cashier", "Counter sales checkout and shift closing",
-                    [Pos.Permissions.OrdersCreate, Pos.Permissions.OrdersRead, Pos.Permissions.SessionsManage, Pos.Permissions.SessionsRead], Key),
-                new("POS Store Manager", "Register management, shift audit and voiding",
+                    [Pos.Permissions.OrdersCreate, Pos.Permissions.OrdersRead, Pos.Permissions.RegistersRead, Pos.Permissions.SessionsManage, Pos.Permissions.SessionsRead], Key),
+                new("POS Store Manager", "Register management, shift audit, voiding and returns",
                     [Pos.Permissions.RegistersRead, Pos.Permissions.RegistersManage, Pos.Permissions.SessionsRead, Pos.Permissions.SessionsManage,
-                     Pos.Permissions.OrdersRead, Pos.Permissions.OrdersCreate, Pos.Permissions.OrdersVoid, Pos.Permissions.AnalyticsRead], Key),
+                     Pos.Permissions.OrdersRead, Pos.Permissions.OrdersCreate, Pos.Permissions.OrdersVoid, Pos.Permissions.AnalyticsRead,
+                     Pos.Permissions.OrdersOverridePrice, Pos.Permissions.OrdersRefund, Pos.Permissions.OrdersDiscountOverride, Pos.Permissions.OrdersOnAccount], Key),
             ],
             Sequences:
             [
                 new("POS", "POS", "{prefix}-{seq:5}", false),
+                new("POSR", "POSR", "{prefix}-{seq:5}", false),
             ],
             SortOrder: 35),
     ];
@@ -79,6 +87,8 @@ public sealed class PosModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, PosDashboard>();
         services.AddScoped<ISearchProvider, PosSearch>();
+        services.AddScoped<PosAccounts>();
+        services.AddScoped<PosCalendar>();
     }
 
     public override void ConfigureModel(ModelBuilder mb)
@@ -117,6 +127,7 @@ public sealed class PosModule : ModuleBase
             b.ToTable("pos_DrawerTransactions");
             b.Property(x => x.Amount).HasPrecision(19, 4);
             b.Property(x => x.Reason).HasMaxLength(250).IsRequired();
+            b.Property(x => x.PerformedByName).HasMaxLength(150);
             b.HasIndex(x => new { x.OrgId, x.SessionId });
         });
 
@@ -130,6 +141,8 @@ public sealed class PosModule : ModuleBase
             b.Property(x => x.TaxTotal).HasPrecision(19, 4);
             b.Property(x => x.DiscountTotal).HasPrecision(19, 4);
             b.Property(x => x.TotalAmount).HasPrecision(19, 4);
+            b.Property(x => x.ReturnedTotal).HasPrecision(19, 4);
+            b.Property(x => x.InvoiceNumber).HasMaxLength(40);
             b.Property(x => x.Notes).HasMaxLength(1000);
             b.HasIndex(x => new { x.OrgId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
             b.HasIndex(x => new { x.OrgId, x.SessionId });
@@ -143,6 +156,8 @@ public sealed class PosModule : ModuleBase
             b.Property(x => x.ItemCode).HasMaxLength(50);
             b.Property(x => x.Description).HasMaxLength(500).IsRequired();
             b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.ReturnedQuantity).HasPrecision(18, 4);
+            b.Property(x => x.ReturnedAmount).HasPrecision(19, 4);
             b.Property(x => x.UnitPrice).HasPrecision(19, 4);
             b.Property(x => x.DiscountPercent).HasPrecision(5, 2);
             b.Property(x => x.TaxRate).HasPrecision(5, 2);
@@ -158,6 +173,48 @@ public sealed class PosModule : ModuleBase
             b.Property(x => x.ChangeAmount).HasPrecision(19, 4);
             b.Property(x => x.Reference).HasMaxLength(100);
             b.HasIndex(x => new { x.OrgId, x.PosOrderId });
+        });
+
+        mb.Entity<PosReturn>(b =>
+        {
+            b.ToTable("pos_Returns");
+            b.Property(x => x.Number).HasMaxLength(30).IsRequired();
+            b.Property(x => x.OriginalNumber).HasMaxLength(30).IsRequired();
+            b.Property(x => x.CustomerName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.CashierName).HasMaxLength(150).IsRequired();
+            b.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+            b.Property(x => x.SubTotal).HasPrecision(19, 4);
+            b.Property(x => x.TaxTotal).HasPrecision(19, 4);
+            b.Property(x => x.TotalAmount).HasPrecision(19, 4);
+            b.Property(x => x.CreditNoteNumber).HasMaxLength(40);
+            b.HasIndex(x => new { x.OrgId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
+            b.HasIndex(x => new { x.OrgId, x.OriginalOrderId });
+            b.HasIndex(x => new { x.OrgId, x.SessionId });
+            b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.PosReturnId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(x => x.Refunds).WithOne().HasForeignKey(x => x.PosReturnId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        mb.Entity<PosReturnLine>(b =>
+        {
+            b.ToTable("pos_ReturnLines");
+            b.Property(x => x.ItemCode).HasMaxLength(50);
+            b.Property(x => x.Description).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.UnitPrice).HasPrecision(19, 4);
+            b.Property(x => x.DiscountPercent).HasPrecision(5, 2);
+            b.Property(x => x.TaxRate).HasPrecision(5, 2);
+            b.Property(x => x.NetAmount).HasPrecision(19, 4);
+            b.Property(x => x.TaxAmount).HasPrecision(19, 4);
+            b.Property(x => x.LineTotal).HasPrecision(19, 4);
+            b.HasIndex(x => new { x.OrgId, x.PosReturnId });
+        });
+
+        mb.Entity<PosReturnRefund>(b =>
+        {
+            b.ToTable("pos_ReturnRefunds");
+            b.Property(x => x.Amount).HasPrecision(19, 4);
+            b.Property(x => x.Reference).HasMaxLength(100);
+            b.HasIndex(x => new { x.OrgId, x.PosReturnId });
         });
     }
 

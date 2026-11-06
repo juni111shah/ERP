@@ -207,7 +207,12 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.HasOne<PartyGroup>().WithMany().HasForeignKey(x => x.PartyGroupId).OnDelete(DeleteBehavior.NoAction);
             b.Property(x => x.Name).HasMaxLength(200).IsRequired();
         });
-        mb.Entity<Item>(b => b.HasIndex(x => new { x.OrgId, x.Sku }).IsUnique());
+        mb.Entity<Item>(b =>
+        {
+            b.HasIndex(x => new { x.OrgId, x.Sku }).IsUnique();
+            b.Property(x => x.Barcode).HasMaxLength(64);
+            b.HasIndex(x => new { x.OrgId, x.Barcode }).IsUnique().HasFilter("[Barcode] IS NOT NULL AND [IsDeleted] = 0");
+        });
         mb.Entity<Currency>(b => { b.HasIndex(x => x.Code).IsUnique(); b.Property(x => x.Code).HasMaxLength(3).IsFixedLength(); });
         mb.Entity<ExchangeRate>(b =>
         {

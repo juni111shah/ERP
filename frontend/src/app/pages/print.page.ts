@@ -14,6 +14,9 @@ import { displayNote } from '../core/i18n/translate-now';
 import { SessionStore } from '../core/session/session.store';
 import { TenantThemeService } from '../../theme/tenant-theme.service';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../shared/thermal-receipt.component';
+import { PosOrderDto, PosReturnDto, PosShiftReportDto } from '../core/api/pos.api';
+import { returnReceipt, saleReceipt } from './pos/pos-receipt';
+import { PosShiftReportComponent } from './pos/pos-shift-report.component';
 
 export interface PrintHeader {
   organizationName: string;
@@ -202,6 +205,17 @@ export interface PrintPosReceiptData {
   };
 }
 
+export interface PrintPosReturnData {
+  header: PrintHeader;
+  register?: { name?: string; receiptHeader?: string | null; receiptFooter?: string | null } | null;
+  posReturn: PosReturnDto;
+}
+
+export interface PrintPosShiftData {
+  header: PrintHeader;
+  posShift: PosShiftReportDto;
+}
+
 export type PrintData =
   | PrintInvoiceData
   | PrintBillData
@@ -219,7 +233,9 @@ export type PrintData =
   | PrintJobCardData
   | PrintManifestData
   | PrintInspectionData
-  | PrintPosReceiptData;
+  | PrintPosReceiptData
+  | PrintPosReturnData
+  | PrintPosShiftData;
 
 const TAX_NAME: Record<string, string> = { AE: 'VAT', SA: 'VAT', GB: 'VAT', IN: 'GST', PK: 'Sales tax', US: 'Sales tax' };
 
@@ -228,7 +244,7 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 @Component({
   selector: 'erp-print',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, DatePipe, DecimalPipe, NzButtonModule, NzIconModule, NzToolTipModule, ThermalReceiptComponent],
+  imports: [TranslatePipe, CommonModule, DatePipe, DecimalPipe, NzButtonModule, NzIconModule, NzToolTipModule, ThermalReceiptComponent, PosShiftReportComponent],
   styles: [`
     :host {
       --ink: #0f172a;
@@ -310,6 +326,8 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 
     .state { text-align: center; padding: 64px; color: var(--muted); }
     .state.err { color: #dc2626; }
+    .pos-shift-print { max-width: 560px; margin: 16px auto; padding: 16px; background: #fff; color: #111; }
+    .pos-shift-print h2 { margin: 0 0 8px; font-size: 16px; font-weight: 700; text-align: center; }
     .pos-receipt-print-wrapper {
       display: flex;
       justify-content: center;
@@ -350,6 +368,19 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
         @if (posReceiptPayload(); as rc) {
           <div class="pos-receipt-print-wrapper">
             <erp-thermal-receipt [receipt]="rc" />
+          </div>
+        }
+      } @else if (docType() === 'pos-return') {
+        @if (posReturnPayload(); as rc) {
+          <div class="pos-receipt-print-wrapper">
+            <erp-thermal-receipt [receipt]="rc" />
+          </div>
+        }
+      } @else if (docType() === 'pos-shift') {
+        @if (posShiftData(); as s) {
+          <div class="pos-shift-print">
+            <h2>{{ d.header.organizationName }}</h2>
+            <erp-pos-shift-report [report]="s.posShift" [currency]="d.header.baseCurrency || ''" />
           </div>
         }
       } @else if (docType() === 'receipt' && receiptSlipMode()) {
@@ -1229,38 +1260,27 @@ export class PrintPage implements OnInit {
     const pr = this.posReceiptData();
     const d = this.data();
     if (!pr || !d) return null;
-    return {
-      organizationName: d.header.organizationName || 'HigherSquare 360 ERP',
-      organizationNameAr: 'هاير سكوير 360',
-      branchAddress: d.header.legalEntityAddress || undefined,
-      headerNote: pr.register?.receiptHeader,
-      footerNote: pr.register?.receiptFooter,
-      title: 'Tax Invoice / Cash Receipt',
-      titleAr: 'فاتورة ضريبية / إيصال مبيعات',
-      receiptNumber: pr.posOrder.number,
-      date: pr.posOrder.orderDate,
-      status: pr.posOrder.status,
-      cashierName: pr.posOrder.cashierName,
-      customerName: pr.posOrder.customerName,
-      currency: d.header.baseCurrency || 'QAR',
-      lines: (pr.posOrder.lines || []).map((l: any) => ({
-        code: l.itemCode,
-        description: l.description,
-        quantity: l.quantity,
-        unitPrice: l.unitPrice,
-        lineTotal: l.lineTotal,
-      })),
-      subTotal: pr.posOrder.subTotal,
-      taxTotal: pr.posOrder.taxTotal,
-      totalAmount: pr.posOrder.totalAmount,
-      payments: (pr.posOrder.payments || []).map((p: any) => ({
-        method: p.method,
-        amount: p.amount,
-        changeAmount: p.changeAmount,
-      })),
-      notes: pr.posOrder.notes,
-    };
+    return saleReceipt(pr.posOrder as unknown as PosOrderDto, {
+      business: d.header.organizationName || undefined,
+      register: pr.register,
+      address: d.header.legalEntityAddress || undefined,
+      currency: d.header.baseCurrency || '',
+    });
   });
+
+  readonly posReturnPayload = computed<ThermalReceiptData | null>(() => {
+    const d = this.data();
+    if (!d || !('posReturn' in d)) return null;
+    const pr = d as PrintPosReturnData;
+    return returnReceipt(pr.posReturn, {
+      business: d.header.organizationName || undefined,
+      register: pr.register,
+      address: d.header.legalEntityAddress || undefined,
+      currency: d.header.baseCurrency || '',
+    });
+  });
+
+  readonly posShiftData = computed(() => { const d = this.data(); return d && 'posShift' in d ? (d as PrintPosShiftData) : null; });
 
   readonly receiptSlipPayload = computed<ThermalReceiptData | null>(() => {
     const r = this.receiptData();
@@ -1539,6 +1559,25 @@ export class PrintPage implements OnInit {
         header: this.loadHeader(),
       }).subscribe({
         next: ({ inspection, header }) => this.setLoaded({ header, inspection: inspection.data || inspection } as PrintInspectionData),
+        error: (err) => this.setError(err),
+      });
+    } else if (type === 'pos-return') {
+      this.http.get<PosReturnDto>(`${this.apiBase}/m/pos/returns/${id}`).pipe(
+        switchMap((posReturn) => forkJoin({
+          posReturn: of(posReturn),
+          header: this.loadHeader(),
+          register: this.http.get<any>(`${this.apiBase}/m/pos/registers/${posReturn.registerId}`).pipe(catchError(() => of(null))),
+        })),
+      ).subscribe({
+        next: ({ posReturn, header, register }) => this.setLoaded({ header, posReturn, register } as PrintPosReturnData),
+        error: (err) => this.setError(err),
+      });
+    } else if (type === 'pos-shift') {
+      forkJoin({
+        posShift: this.http.get<PosShiftReportDto>(`${this.apiBase}/m/pos/sessions/${id}/report`),
+        header: this.loadHeader(),
+      }).subscribe({
+        next: ({ posShift, header }) => this.setLoaded({ header, posShift } as PrintPosShiftData),
         error: (err) => this.setError(err),
       });
     } else if (type === 'pos-receipt') {

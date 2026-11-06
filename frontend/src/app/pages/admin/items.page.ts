@@ -25,7 +25,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
   imports: [DecimalPipe, NzTagModule, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Items</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search SKU or name" emptyText="No items yet" (rowClick)="state.edit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search SKU, name or barcode" emptyText="No items yet" (rowClick)="state.edit($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
         @switch (column.key) {
           @case ('sku') {
@@ -66,6 +66,7 @@ export class ItemsPage {
   readonly columns: TableColumn<ItemDto>[] = [
     { key: 'sku', label: 'SKU', sortField: 'sku', width: '140px' },
     { key: 'name', label: 'Name', sortField: 'name' },
+    { key: 'barcode', label: 'Barcode', width: '150px' },
     { key: 'type', label: 'Type', value: (i) => (i.type === 'product' ? 'Product' : 'Service') },
     { key: 'uom', label: 'UoM', width: '80px' },
     { key: 'salesPrice', label: 'Sales price', width: '140px', align: 'right' },
@@ -74,6 +75,7 @@ export class ItemsPage {
   readonly fields = computed<FieldSpec[]>(() => [
     { key: 'sku', label: 'SKU', type: 'text', required: true, maxLength: 40 },
     { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 200 },
+    { key: 'barcode', label: 'Barcode', type: 'text', maxLength: 64, hint: 'What a scanner reads at the till. Optional, and unique to one item.' },
     { key: 'type', label: 'Type', type: 'select', required: true, options: ITEM_TYPES, default: 'service' },
     { key: 'uom', label: 'Unit of measure', type: 'text', required: true, maxLength: 20, default: 'each' },
     { key: 'salesPrice', label: 'Sales price', type: 'number', min: 0 },
