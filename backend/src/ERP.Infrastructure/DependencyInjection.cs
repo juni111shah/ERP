@@ -12,6 +12,7 @@ using ERP.Infrastructure.Persistence;
 using ERP.Infrastructure.Printing;
 using ERP.Infrastructure.Services;
 using ERP.Modularity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -72,7 +73,15 @@ public static class DependencyInjection
             .AddPasswordValidator<PasswordNotEmailValidator>();
 
         services.Configure<AuthOptions>(config.GetSection(AuthOptions.Section));
-        services.AddDataProtection();
+        // Stored AI keys must stay readable across deployments, and each release runs from a new folder, so the keys and the application name are fixed.
+        var storageRoot = Path.GetFullPath(config["Storage:Root"] ?? Path.Combine(AppContext.BaseDirectory, "storage"));
+        var dataProtection = services.AddDataProtection().SetApplicationName("ERP")
+            .PersistKeysToFileSystem(new DirectoryInfo(config["DataProtection:KeysPath"] ?? Path.Combine(storageRoot, "data-protection-keys")));
+        if (OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi(protectToLocalMachine: true);
+        services.AddScoped<ERP.Application.Platform.IAiKeyProtector, DataProtectionAiKeyProtector>();
+        services.AddHttpClient(OpenAiStyleConnectionTester.ClientName, c => c.Timeout = TimeSpan.FromSeconds(20))
+            .ConfigurePrimaryHttpMessageHandler(OpenAiStyleConnectionTester.CreateHandler);
+        services.AddScoped<ERP.Application.Platform.IAiConnectionTester, OpenAiStyleConnectionTester>();
         services.AddScoped<AuthService>();
         services.AddSingleton<TwoFactorChallenges>();
         services.AddSingleton<IQrCodeRenderer, QrCodeRenderer>();

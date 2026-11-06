@@ -10,6 +10,7 @@ export const PLATFORM_ROUTES: Routes = [
   { path: 'invoices', loadComponent: () => import('./platform-invoices.page').then((m) => m.PlatformInvoicesPage) },
   { path: 'activity', loadComponent: () => import('./platform-activity.page').then((m) => m.PlatformActivityPage) },
   { path: 'team', loadComponent: () => import('./platform-team.page').then((m) => m.PlatformTeamPage) },
+  { path: 'assistant', loadComponent: () => import('./platform-assistant.page').then((m) => m.PlatformAssistantPage) },
   { path: 'settings', loadComponent: () => import('./platform-settings.page').then((m) => m.PlatformSettingsPage) },
   { path: '**', redirectTo: '' },
 ];

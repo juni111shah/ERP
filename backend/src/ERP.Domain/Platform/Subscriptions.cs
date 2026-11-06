@@ -181,6 +181,12 @@ public class PlatformSetting : Entity, IAuditable
     public DateTime? LegalUpdatedAt { get; set; }
     /// <summary>Bank details and how to pay; shown to clients and printed on invoices.</summary>
     public string? PaymentInstructions { get; set; }
+    /// <summary>The one account allowed to manage AI services and their keys. Set at startup from Platform:FounderEmail.</summary>
+    public Guid? OwnerUserId { get; set; }
+    /// <summary>Show the AI assistant on the public pages.</summary>
+    public bool BrandAssistantEnabled { get; set; }
+    /// <summary>Show the AI assistant inside workspaces.</summary>
+    public bool WorkspaceAssistantEnabled { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }

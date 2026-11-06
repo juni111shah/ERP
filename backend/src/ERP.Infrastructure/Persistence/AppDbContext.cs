@@ -78,6 +78,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<SubscriptionInvoice> SubscriptionInvoices => Set<SubscriptionInvoice>();
     public DbSet<SignupRequest> SignupRequests => Set<SignupRequest>();
     public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
+    public DbSet<AiProvider> AiProviders => Set<AiProvider>();
     public DbSet<PlatformActivity> PlatformActivities => Set<PlatformActivity>();
     public DbSet<CustomFieldDefinition> CustomFieldDefinitions => Set<CustomFieldDefinition>();
 
@@ -156,6 +157,15 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Property(x => x.PasswordHash).HasMaxLength(500);
             b.Property(x => x.VerificationTokenHash).HasMaxLength(64);
             b.HasOne<SubscriptionPlan>().WithMany().HasForeignKey(x => x.PlanId).OnDelete(DeleteBehavior.Restrict);
+        });
+        mb.Entity<AiProvider>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(80).IsRequired();
+            b.Property(x => x.BaseUrl).HasMaxLength(300).IsRequired();
+            b.Property(x => x.Model).HasMaxLength(150).IsRequired();
+            b.Property(x => x.EncryptedApiKey).HasMaxLength(4000).IsRequired();
+            b.Property(x => x.ApiKeyHint).HasMaxLength(4).IsRequired();
+            b.Property(x => x.LastTestMessage).HasMaxLength(200);
         });
         mb.Entity<PlatformSetting>(b =>
         {

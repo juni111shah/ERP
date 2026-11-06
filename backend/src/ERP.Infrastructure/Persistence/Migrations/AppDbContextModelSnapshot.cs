@@ -2314,6 +2314,73 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.ToTable("PartyGroups");
                 });
 
+            modelBuilder.Entity("ERP.Domain.Platform.AiProvider", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApiKeyHint")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)");
+
+                    b.Property<string>("BaseUrl")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EncryptedApiKey")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("LastTestMessage")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool?>("LastTestOk")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastTestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("UseForBrand")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("UseForWorkspace")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AiProviders");
+                });
+
             modelBuilder.Entity("ERP.Domain.Platform.ApprovalPolicy", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2919,6 +2986,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("BrandAssistantEnabled")
+                        .HasColumnType("bit");
+
                     b.Property<string>("CompanyAddress")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
@@ -2963,6 +3033,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("NextInvoiceNumber")
                         .HasColumnType("int");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PaymentInstructions")
                         .HasMaxLength(2000)
@@ -3010,6 +3083,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("WorkspaceAssistantEnabled")
+                        .HasColumnType("bit");
 
                     b.HasKey("Id");
 

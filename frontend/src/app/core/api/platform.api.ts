@@ -102,6 +102,13 @@ export interface PlatformSettingsView {
 export type PlatformSettingsInput = Omit<PlatformSettingsView, 'emailServerConfigured' | 'nextInvoiceNumber' | 'legalIsStarterText'>;
 export interface PlatformTeamMember { userId: string; email: string; fullName: string; lastSignInAt: string | null; twoFactorEnabled: boolean; }
 export interface NewTeamMember { member: PlatformTeamMember; temporaryPassword: string | null; }
+export interface AiProviderView {
+  id: string; name: string; baseUrl: string; model: string; keyHint: string; keyNeedsReentry: boolean; useForBrand: boolean; useForWorkspace: boolean;
+  lastTestedAt: string | null; lastTestOk: boolean | null; lastTestMessage: string | null;
+}
+export interface AssistantConsoleView { brandEnabled: boolean; workspaceEnabled: boolean; canManage: boolean; providers: AiProviderView[]; }
+/** apiKey is write-only: leave it null when editing to keep the stored key. */
+export interface AiProviderInput { name: string; baseUrl: string; model: string; apiKey: string | null; useForBrand: boolean; useForWorkspace: boolean; }
 
 /** Registration, a client's own billing, and the founder's console. Every console route sits behind the server's platform-admin policy. */
 @Injectable({ providedIn: 'root' })
@@ -176,4 +183,13 @@ export class PlatformApi {
   team(): Observable<PlatformTeamMember[]> { return this.http.get<PlatformTeamMember[]>(`${this.admin}/team`); }
   addTeamMember(input: { email: string; fullName: string }): Observable<NewTeamMember> { return this.http.post<NewTeamMember>(`${this.admin}/team`, input); }
   removeTeamMember(userId: string): Observable<unknown> { return this.http.delete(`${this.admin}/team/${userId}`); }
+
+  // ---- Console: AI assistant ------------------------------------------------------------------------------------------
+  assistant(): Observable<AssistantConsoleView> { return this.http.get<AssistantConsoleView>(`${this.admin}/assistant`); }
+  setAssistantVisibility(input: { brandEnabled: boolean; workspaceEnabled: boolean }): Observable<AssistantConsoleView> { return this.http.put<AssistantConsoleView>(`${this.admin}/assistant/visibility`, input); }
+  createAiProvider(input: AiProviderInput): Observable<AssistantConsoleView> { return this.http.post<AssistantConsoleView>(`${this.admin}/assistant/providers`, input); }
+  updateAiProvider(id: string, input: AiProviderInput): Observable<AssistantConsoleView> { return this.http.put<AssistantConsoleView>(`${this.admin}/assistant/providers/${id}`, input); }
+  deleteAiProvider(id: string): Observable<AssistantConsoleView> { return this.http.delete<AssistantConsoleView>(`${this.admin}/assistant/providers/${id}`); }
+  reorderAiProviders(ids: string[]): Observable<AssistantConsoleView> { return this.http.put<AssistantConsoleView>(`${this.admin}/assistant/providers/order`, { ids }); }
+  testAiProvider(id: string): Observable<AssistantConsoleView> { return this.http.post<AssistantConsoleView>(`${this.admin}/assistant/providers/${id}/test`, {}); }
 }

@@ -75,6 +75,14 @@ public static class PlatformAdminEndpoints
         g.MapGet("/activity", ([AsParameters] ListPlatformActivity q, ISender s, CancellationToken ct) => s.Send(q, ct));
         g.MapPost("/billing-run", (ISender s, CancellationToken ct) => s.Send(new RunBillingNow(), ct));
 
+        g.MapGet("/assistant", (ISender s, CancellationToken ct) => s.Send(new GetAssistantConsole(), ct));
+        g.MapPut("/assistant/visibility", (AssistantVisibilityInput input, ISender s, CancellationToken ct) => s.Send(new SetAssistantVisibility(input), ct));
+        g.MapPost("/assistant/providers", (AiProviderInput input, ISender s, CancellationToken ct) => s.Send(new CreateAiProvider(input), ct));
+        g.MapPut("/assistant/providers/order", (AiProviderOrderInput input, ISender s, CancellationToken ct) => s.Send(new ReorderAiProviders(input), ct));
+        g.MapPut("/assistant/providers/{id:guid}", (Guid id, AiProviderInput input, ISender s, CancellationToken ct) => s.Send(new UpdateAiProvider(id, input), ct));
+        g.MapDelete("/assistant/providers/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new DeleteAiProvider(id), ct));
+        g.MapPost("/assistant/providers/{id:guid}/test", (Guid id, ISender s, CancellationToken ct) => s.Send(new TestAiProvider(id), ct));
+
         g.MapGet("/team", (ISender s, CancellationToken ct) => s.Send(new ListPlatformTeam(), ct));
         g.MapPost("/team", (TeamMemberInput input, ISender s, CancellationToken ct) => s.Send(new AddPlatformTeamMember(input), ct));
         g.MapDelete("/team/{userId:guid}", async (Guid userId, ISender s, CancellationToken ct) =>

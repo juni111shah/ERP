@@ -131,6 +131,7 @@ export class PlatformShellComponent {
     { path: '/platform/invoices', label: 'Invoices', icon: 'file-text', testId: 'platform-nav-invoices' },
     { path: '/platform/activity', label: 'Activity', icon: 'history', testId: 'platform-nav-activity' },
     { path: '/platform/team', label: 'Team', icon: 'safety-certificate', testId: 'platform-nav-team' },
+    { path: '/platform/assistant', label: 'AI assistant', icon: 'thunderbolt', testId: 'platform-nav-assistant' },
     { path: '/platform/settings', label: 'Settings', icon: 'setting', testId: 'platform-nav-settings' },
   ];
 

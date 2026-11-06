@@ -19,7 +19,7 @@ import { DynamicFieldsComponent } from '../core/custom-fields/dynamic-field.comp
 import { LookupOption } from '../core/custom-fields/lookup-registry';
 import { applyProblemDetailsToForm, controlError } from '../core/http/problem-details';
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'switch' | 'lookup' | 'rows';
+export type FieldType = 'text' | 'password' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'switch' | 'lookup' | 'rows';
 /** One column of a `rows` field (a small table the user adds lines to). */
 export interface RowColumn { key: string; label: string; type: 'text' | 'number'; }
 export interface SelectOption { value: string | number | boolean; label: string; }
@@ -82,6 +82,7 @@ export interface FieldSpec {
               <nz-form-control [nzErrorTip]="err(f.key)" [nzValidateStatus]="$any(form().get(f.key))" [nzExtra]="f.hint ?? ''">
                 @switch (f.type) {
                   @case ('text') { <input nz-input [id]="f.key" [formControlName]="f.key" [attr.maxlength]="f.maxLength ?? null" [attr.data-testid]="'f-' + f.key" /> }
+                  @case ('password') { <input nz-input type="password" autocomplete="new-password" [id]="f.key" [formControlName]="f.key" [attr.data-testid]="'f-' + f.key" /> }
                   @case ('textarea') { <textarea nz-input rows="3" [id]="f.key" [formControlName]="f.key" [attr.maxlength]="f.maxLength ?? null" [attr.data-testid]="'f-' + f.key"></textarea> }
                   @case ('number') { <nz-input-number [nzId]="f.key" [formControlName]="f.key" [nzMin]="f.min ?? -1e12" [nzMax]="f.max ?? 1e12" [nzPrecision]="f.precision ?? 2" style="width:100%" [attr.data-testid]="'f-' + f.key"></nz-input-number> }
                   @case ('date') { <nz-date-picker [nzId]="f.key" [formControlName]="f.key" style="width:100%" [attr.data-testid]="'f-' + f.key"></nz-date-picker> }

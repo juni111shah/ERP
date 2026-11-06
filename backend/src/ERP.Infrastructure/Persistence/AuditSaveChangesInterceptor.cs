@@ -18,9 +18,9 @@ namespace ERP.Infrastructure.Persistence;
 public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext org, IClock clock) : SaveChangesInterceptor
 {
     private static readonly HashSet<string> SecretProperties = new(StringComparer.OrdinalIgnoreCase)
-        { "PasswordHash", "SecurityStamp", "ConcurrencyStamp", "TokenHash", "RowVersion" };
+        { "PasswordHash", "SecurityStamp", "ConcurrencyStamp", "TokenHash", "RowVersion", "EncryptedApiKey" };
 
-    private static readonly HashSet<Type> NotAudited = [typeof(SignupRequest), typeof(PlatformActivity), typeof(AuditEvent), typeof(RefreshToken), typeof(PasswordResetToken), typeof(Notification), typeof(MessageLog), typeof(PortalOtp)];
+    private static readonly HashSet<Type> NotAudited = [typeof(AiProvider), typeof(SignupRequest), typeof(PlatformActivity), typeof(AuditEvent), typeof(RefreshToken), typeof(PasswordResetToken), typeof(Notification), typeof(MessageLog), typeof(PortalOtp)];
 
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
     {

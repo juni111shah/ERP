@@ -125,6 +125,7 @@ export class PageTitleService {
       '/platform/invoices': { title: 'Invoices', module: 'Console' },
       '/platform/activity': { title: 'Activity', module: 'Console' },
       '/platform/team': { title: 'Team', module: 'Console' },
+      '/platform/assistant': { title: 'AI assistant', module: 'Console' },
       '/platform/settings': { title: 'Settings', module: 'Console' },
       '/account/security': { title: this.i18n.t('security.title', 'Account security'), module: 'Account' },
       '/reports': { title: 'Reports', module: 'Reports' },
