@@ -89,7 +89,7 @@ public sealed class CapabilityGateMiddleware(RequestDelegate next)
 /// <summary>What choosing a business type or enabling a module brings with it.</summary>
 public static class ModuleProvisioning
 {
-    public const string UnitsKey = "core.units";
+    public const string UnitsKey = "core.uoms";
     public const string ItemCategoriesKey = "core.itemCategories";
     public const string DashboardFocusKey = "core.dashboardFocus";
 
