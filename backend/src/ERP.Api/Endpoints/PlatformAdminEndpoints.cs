@@ -64,6 +64,7 @@ public static class PlatformAdminEndpoints
         g.MapPost("/clients/{orgId:guid}/decline-plan-request", (Guid orgId, ISender s, CancellationToken ct) => s.Send(new DeclinePlanRequest(orgId), ct));
         g.MapPost("/clients/{orgId:guid}/invoices", (Guid orgId, IssueInvoiceInput input, ISender s, CancellationToken ct) => s.Send(new IssueClientInvoice(orgId, input), ct));
         g.MapPost("/clients/{orgId:guid}/users/{userId:guid}/temporary-password", (Guid orgId, Guid userId, ISender s, CancellationToken ct) => s.Send(new ResetClientUserPassword(orgId, userId), ct));
+        g.MapPut("/clients/{orgId:guid}/demo", (Guid orgId, SetClientDemoInput input, ISender s, CancellationToken ct) => s.Send(new SetClientDemo(orgId, input.IsDemo), ct));
         g.MapPost("/clients/{orgId:guid}/modules/{key}/{action:regex(^(enable|disable)$)}", (Guid orgId, string key, string action, ISender s, CancellationToken ct) => s.Send(new SetClientModule(orgId, key, action == "enable"), ct));
 
         g.MapGet("/invoices", ([AsParameters] ListPlatformInvoices q, ISender s, CancellationToken ct) => s.Send(q, ct));

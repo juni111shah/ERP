@@ -26,6 +26,8 @@ public sealed class SettingsService(IRepository<Setting> settings, ISettingsCata
         new("core.itemCategories", "Item categories", "[]", "json"),
         new("core.disabledCapabilities", "Core areas switched off", "[]", "json"),
         new("core.dashboardFocus", "Owner dashboard order", "[]", "json"),
+        // Which steps of the demo data seeder have finished, so a re-run skips them. Empty outside demo workspaces.
+        new("core.demoSeedCheckpoints", "Demo data progress", "[]", "json"),
     ];
 
     public async Task<string?> GetRawAsync(string key, Guid? legalEntityId = null, CancellationToken ct = default)

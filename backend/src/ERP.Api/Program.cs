@@ -204,6 +204,19 @@ if (serveSpa)
     app.UseDefaultFiles();
     app.UseStaticFiles();
 }
+// Demo seeding only (tools/seed-demo-orgs): lets the seeder date documents in the past through the real handlers. Needs Development and an explicit flag,
+// and is not mapped otherwise, so no shared or production host can ever honour the header.
+if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Seed:AllowDemoClock"))
+{
+    app.Use(async (http, next) =>
+    {
+        if (http.Request.Headers.TryGetValue("X-Demo-Clock", out var pinned) && DateTime.TryParse(pinned, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var at))
+        {
+            using (ERP.Domain.Common.AppClock.Use(at)) await next(http);
+        }
+        else await next(http);
+    });
+}
 app.UseCors("web");
 app.UseRateLimiter();
 app.UseAuthentication();

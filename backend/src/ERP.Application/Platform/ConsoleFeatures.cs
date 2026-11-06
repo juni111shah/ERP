@@ -85,6 +85,9 @@ public sealed record DeclinePlanRequest(Guid OrgId) : ICommand<ClientDetail>;
 public sealed record UpdateClientNotes(Guid OrgId, ClientNotesInput Input) : ICommand<ClientDetail>;
 public sealed record IssueClientInvoice(Guid OrgId, IssueInvoiceInput Input) : ICommand<InvoiceRow>;
 public sealed record ResetClientUserPassword(Guid OrgId, Guid UserId) : ICommand<TemporaryPassword>;
+public sealed record SetClientDemoInput(bool IsDemo);
+/// <summary>Labels a workspace as synthetic demonstration data. The label shows in the app and tells everyone its figures are not real.</summary>
+public sealed record SetClientDemo(Guid OrgId, bool IsDemo) : ICommand<bool>;
 
 public sealed record ListPlatformInvoices : PagedQuery, IQuery<PagedResult<PlatformInvoiceRow>>
 {
@@ -780,5 +783,16 @@ internal sealed class PlatformSettingsHandlers(PlatformSettingsStore settingsSto
         log.Add("Team member removed", null, null, email);
         await settings.SaveChangesAsync(ct);
         return MediatR.Unit.Value;
+    }
+}
+
+internal sealed class SetClientDemoHandler(ERP.Application.Abstractions.IRepository<ERP.Domain.Organizations.Organization> organizations) : MediatR.IRequestHandler<SetClientDemo, bool>
+{
+    public async Task<bool> Handle(SetClientDemo cmd, CancellationToken ct)
+    {
+        var org = await organizations.GetForUpdateAsync(cmd.OrgId, ct);
+        org.IsDemo = cmd.IsDemo;
+        await organizations.SaveChangesAsync(ct);
+        return org.IsDemo;
     }
 }
