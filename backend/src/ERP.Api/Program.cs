@@ -200,6 +200,9 @@ if (serveSpa)
     app.UseDefaultFiles();
     app.UseStaticFiles();
 }
+// Routing runs after the static files on purpose. The SPA fallback below matches almost every path, and the static file
+// middleware skips a request that already has an endpoint, so routing first would answer /main.js with index.html.
+app.UseRouting();
 app.UseCors("web");
 app.UseRateLimiter();
 app.UseAuthentication();
