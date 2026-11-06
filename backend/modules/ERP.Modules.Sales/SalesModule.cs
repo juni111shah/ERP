@@ -146,6 +146,8 @@ public sealed class SalesModule : ModuleBase
             b.Property(x => x.Quantity).HasPrecision(18, 4);
             b.Property(x => x.DeliveredQuantity).HasPrecision(18, 4);
             b.Property(x => x.InvoicedQuantity).HasPrecision(18, 4);
+            b.Property(x => x.AutoDeliveredQuantity).HasPrecision(18, 4);
+            b.Property(x => x.ReturnedQuantity).HasPrecision(18, 4);
             b.Property(x => x.UnitOfMeasure).HasMaxLength(20);
             b.Property(x => x.UnitPrice).HasPrecision(19, 4);
             b.Property(x => x.DiscountPercent).HasPrecision(5, 2);

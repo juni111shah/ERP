@@ -164,6 +164,12 @@ public class SalesOrderLine : OrgEntity
 
     public decimal InvoicedQuantity { get; set; }
 
+    /// <summary>The part of DeliveredQuantity issued by the invoice conversion itself; it goes back on the shelf if that invoice is deleted or voided.</summary>
+    public decimal AutoDeliveredQuantity { get; set; }
+
+    /// <summary>Delivered goods the customer has returned against an invoice.</summary>
+    public decimal ReturnedQuantity { get; set; }
+
     public string UnitOfMeasure { get; set; } = "EA";
 
     public decimal UnitPrice { get; set; }

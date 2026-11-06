@@ -47,7 +47,7 @@ internal sealed class InventoryReportHandlers(IReadRepository<StockMovement> mov
         var stock = moves.GroupBy(m => m.LegalEntityId).ToDictionary(g => g.Key, g => g.GroupBy(m => (m.WarehouseId, m.ItemId)).Sum(p => StockCosting.Replay(p).Value));
         // Reversed entries and their reversals both count, as in the trial balance. Added up here because SQLite (tests) cannot sum decimals.
         var ledger = (await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= q.AsOf && (q.LegalEntityId == null || j.LegalEntityId == q.LegalEntityId)))
-                .SelectMany(j => j.Lines.Where(l => inventoryAccounts.Contains(l.AccountId)).Select(l => new { j.LegalEntityId, l.Debit, l.Credit })).ToListAsync(ct))
+                .SelectMany(j => j.Lines.Where(l => inventoryAccounts.Contains(l.AccountId)), (j, l) => new { j.LegalEntityId, l.Debit, l.Credit }).ToListAsync(ct))
             .GroupBy(l => l.LegalEntityId).ToDictionary(g => g.Key, g => g.Sum(l => l.Debit - l.Credit));
         var ids = stock.Keys.Union(ledger.Keys).ToList();
         if (q.LegalEntityId is { } one && !ids.Contains(one)) ids.Add(one);

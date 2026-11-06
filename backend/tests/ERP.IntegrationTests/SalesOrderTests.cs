@@ -369,6 +369,9 @@ public class SalesOrderTests(ApiFactory f) : IClassFixture<ApiFactory>
             isActive = true
         }), HttpStatusCode.Created);
         var itemId = (string)itemRes["id"]!;
+        var warehouse = (string)(await Ok(await s.C.PostAsJsonAsync("/api/v1/m/inventory/warehouses", new { code = "W" + Guid.NewGuid().ToString("N")[..6], name = "Warehouse", legalEntityId = s.Entity }), HttpStatusCode.Created))["id"]!;
+        var offset = (string)(await Ok(await s.C.GetAsync($"{Fin}/accounts?pageSize=500"))).AsArray().First(a => (string?)a!["systemRole"] == "inventory.clearing")!["id"]!;
+        await Ok(await s.C.PostAsJsonAsync("/api/v1/m/inventory/stock/receive", new { warehouseId = warehouse, itemId, quantity = 10m, unitCost = 5m, date = "2026-05-01", offsetAccountId = offset }), HttpStatusCode.Created);
 
         var orderRes = await Ok(await s.C.PostAsJsonAsync($"{Sales}/orders", new
         {

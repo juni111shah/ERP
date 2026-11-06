@@ -12,7 +12,7 @@ namespace ERP.Modules.Sales;
 
 public sealed record ChangeQuoteStatusBody(SalesQuoteStatus Status);
 public sealed record ChangeOrderStatusBody(SalesOrderStatus Status);
-public sealed record UpdateFulfillmentBody(List<OrderFulfillmentLineInput> Lines);
+public sealed record UpdateFulfillmentBody(List<OrderFulfillmentLineInput> Lines, DateOnly? DeliveryDate = null, Guid? WarehouseId = null);
 
 internal static class SalesEndpoints
 {
@@ -52,7 +52,7 @@ internal static class SalesEndpoints
         orders.MapPut("/{id:guid}", (Guid id, OrderInput input, ISender s, CancellationToken ct) => s.Send(new UpdateOrder(id, input), ct)).RequirePermission(P.OrdersManage);
         orders.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteOrder(id), ct); return Results.NoContent(); }).RequirePermission(P.OrdersManage);
         orders.MapPut("/{id:guid}/status", (Guid id, ChangeOrderStatusBody b, ISender s, CancellationToken ct) => s.Send(new ChangeOrderStatus(id, b.Status), ct)).RequirePermission(P.OrdersManage);
-        orders.MapPut("/{id:guid}/fulfillment", (Guid id, UpdateFulfillmentBody b, ISender s, CancellationToken ct) => s.Send(new UpdateOrderFulfillment(id, b.Lines), ct)).RequirePermission(P.OrdersManage);
+        orders.MapPut("/{id:guid}/fulfillment", (Guid id, UpdateFulfillmentBody b, ISender s, CancellationToken ct) => s.Send(new UpdateOrderFulfillment(id, b.Lines, b.DeliveryDate, b.WarehouseId), ct)).RequirePermission(P.OrdersManage);
         orders.MapPost("/{id:guid}/convert-to-invoice", (Guid id, ISender s, CancellationToken ct) => s.Send(new ConvertOrderToInvoice(id), ct)).RequirePermission(P.OrdersManage);
 
         var kpis = group.MapGroup("/kpis");
