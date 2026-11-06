@@ -51,7 +51,7 @@ public sealed class UpdateJournalValidator : AbstractValidator<UpdateJournal> { 
 
 internal sealed class JournalHandlers(
     IRepository<JournalEntry> journals, IRepository<JournalLine> lineRows, IReadRepository<Account> accounts, IRepository<Domain.Organizations.LegalEntity> entities, ILegalEntityGuard guard,
-    IPostingService posting, INumberingService numbering, ICurrentUser user, IClock clock, IUnitOfWork uow) :
+    IPostingService posting, INumberingService numbering, ICurrentUser user, IClock clock, IUnitOfWork uow, IReadRepository<FiscalYearClose> closes) :
     IRequestHandler<GetJournal, JournalDto>,
     IRequestHandler<CreateJournal, JournalDto>,
     IRequestHandler<UpdateJournal, JournalDto>,
@@ -139,6 +139,10 @@ internal sealed class JournalHandlers(
     {
         await guard.RequireAsync(cmd.LegalEntityId, ct);
         if (cmd.Through is { } d && d > DateOnly.FromDateTime(clock.UtcNow)) throw new FieldValidationException("through", "Books cannot be locked to a future date.");
+        // A closed year stays locked: posting into it would leave income and expense balances behind the closing entry.
+        var closedTo = await closes.Query(new Specification<FiscalYearClose>(c => c.LegalEntityId == cmd.LegalEntityId && c.ReopenedAt == null)).OrderByDescending(c => c.YearEnd).Select(c => (DateOnly?)c.YearEnd).FirstOrDefaultAsync(ct);
+        if (closedTo is { } closed && (cmd.Through is null || cmd.Through < closed))
+            throw new ConflictException($"Fiscal years are closed up to {closed:yyyy-MM-dd}. Reopen the year to move the lock before that date.");
         var entity = await entities.GetForUpdateAsync(cmd.LegalEntityId, ct);
         entity.BooksLockedTo = cmd.Through;
         await entities.SaveChangesAsync(ct);

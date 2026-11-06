@@ -55,6 +55,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalLine> JournalLines => Set<JournalLine>();
+    public DbSet<FiscalYearClose> FiscalYearCloses => Set<FiscalYearClose>();
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<BudgetLine> BudgetLines => Set<BudgetLine>();
     public DbSet<PaymentInstrument> PaymentInstruments => Set<PaymentInstrument>();
@@ -276,6 +277,15 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Ignore(x => x.TotalDebit); b.Ignore(x => x.TotalCredit);
         });
         mb.Entity<JournalLine>(b => b.HasIndex(x => new { x.AccountId, x.JournalEntryId }));
+        mb.Entity<FiscalYearClose>(b =>
+        {
+            // One live close per entity and year; a reopened close stays as history. Also stops two concurrent closes.
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.FiscalYear }).IsUnique()
+                .HasFilter(sqlServer ? "[ReopenedAt] IS NULL AND [IsDeleted] = 0" : "\"ReopenedAt\" IS NULL AND \"IsDeleted\" = 0");
+            b.Property(x => x.ReopenReason).HasMaxLength(500);
+            b.HasOne<LegalEntity>().WithMany().HasForeignKey(x => x.LegalEntityId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne<JournalEntry>().WithMany().HasForeignKey(x => x.JournalEntryId).OnDelete(DeleteBehavior.NoAction);
+        });
         mb.Entity<Budget>(b =>
         {
             b.Property(x => x.Name).HasMaxLength(200).IsRequired();

@@ -90,7 +90,7 @@ public sealed class FinanceDashboard(
 
         if (canSee(CorePermissions.ReportsRead))
         {
-            var lines = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date >= from && j.Date <= to && (entity == null || j.LegalEntityId == entity)))
+            var lines = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.SourceType != ERP.Application.Finance.LedgerSources.YearEnd && j.Date >= from && j.Date <= to && (entity == null || j.LegalEntityId == entity)))
                 .SelectMany(j => j.Lines, (j, l) => new Line(l.AccountId, j.Date, l.Debit, l.Credit)).ToListAsync(ct);
             var info = await accounts.Query(new Specification<Account>(a => a.Type == AccountType.Income || a.Type == AccountType.Expense)).Select(a => new { a.Id, a.Type, a.ReportingGroup, a.Name }).ToListAsync(ct);
             var income = 0m; var expense = 0m; var byGroup = new Dictionary<string, decimal>();

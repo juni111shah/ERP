@@ -139,6 +139,33 @@ public class JournalLine : Entity
     public string? Dimensions { get; set; }
 }
 
+/// <summary>
+/// The close of one fiscal year of a legal entity. Income and expense balances moved to retained earnings by <see cref="JournalEntryId"/>,
+/// dated <see cref="YearEnd"/>, and the books were locked to that date. A reopened close keeps its row (with the reversal) as history.
+/// </summary>
+[DefaultSort("-yearEnd")]
+public class FiscalYearClose : LegalEntityScopedEntity
+{
+    /// <summary>A fiscal year is named for the calendar year it ends in.</summary>
+    [Filterable, Sortable]
+    public int FiscalYear { get; set; }
+    public DateOnly YearStart { get; set; }
+    [Sortable]
+    public DateOnly YearEnd { get; set; }
+    /// <summary>Null when income and expense were already at zero, so there was nothing to move.</summary>
+    public Guid? JournalEntryId { get; set; }
+    /// <summary>Amount moved to retained earnings: positive = profit. Includes earlier years that were never closed.</summary>
+    public decimal NetResult { get; set; }
+    /// <summary>The books lock before this close, restored when the year is reopened.</summary>
+    public DateOnly? PreviousBooksLockedTo { get; set; }
+    public DateTime ClosedAt { get; set; }
+    public Guid? ClosedBy { get; set; }
+    public DateTime? ReopenedAt { get; set; }
+    public Guid? ReopenedBy { get; set; }
+    public string? ReopenReason { get; set; }
+    public Guid? ReversalJournalId { get; set; }
+}
+
 public enum InstrumentKind { Cheque, PostDatedCheque, BankDraft, PromissoryNote }
 public enum InstrumentDirection { Received, Issued }
 public enum InstrumentStatus { InCustody, Deposited, Cleared, Bounced, Replaced, Cancelled, Issued }

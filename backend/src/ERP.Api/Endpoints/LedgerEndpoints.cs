@@ -35,6 +35,13 @@ public static class LedgerEndpoints
             return Results.NoContent();
         }).WithTags("Organization").RequirePermission(CorePermissions.EntitiesWrite);
 
+        var yearEnd = api.MapGroup("/finance/year-end").WithTags("Finance");
+        yearEnd.MapPagedList<FiscalYearClose, FiscalYearCloseDto>("", CorePermissions.ReportsRead,
+            c => new FiscalYearCloseDto(c.Id, c.LegalEntityId, c.FiscalYear, c.YearStart, c.YearEnd, c.JournalEntryId, c.NetResult, c.PreviousBooksLockedTo, c.ClosedAt, c.ClosedBy, c.ReopenedAt, c.ReopenedBy, c.ReopenReason, c.ReversalJournalId, false));
+        yearEnd.MapPost("/close", (CloseFiscalYear cmd, ISender sender, CancellationToken ct) => sender.Send(cmd, ct)).RequirePermission(CorePermissions.YearEndClose);
+        yearEnd.MapPost("/reopen", (ReopenFiscalYear cmd, ISender sender, CancellationToken ct) => sender.Send(cmd, ct)).RequirePermission(CorePermissions.YearEndReopen);
+
+
         var reports = api.MapGroup("/finance/reports").WithTags("Finance reports");
         reports.MapGet("/trial-balance", (DateOnly? from, DateOnly to, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetTrialBalance(from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
         reports.MapGet("/general-ledger", (Guid accountId, DateOnly? from, DateOnly to, Guid? legalEntityId, ISender sender, CancellationToken ct) => sender.Send(new GetGeneralLedger(accountId, from, to, legalEntityId), ct)).RequirePermission(CorePermissions.ReportsRead);
