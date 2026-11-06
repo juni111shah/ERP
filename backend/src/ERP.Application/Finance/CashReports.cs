@@ -45,7 +45,7 @@ public sealed record GetCashForecast(int Weeks, Guid? LegalEntityId) : IQuery<Ca
 
 internal sealed class CashReportHandlers(
     IReadRepository<Invoice> invoices, IReadRepository<Bill> bills, IReadRepository<TaxCode> taxCodes, IReadRepository<JournalEntry> journals, IReadRepository<Account> accounts,
-    IEnumerable<ICashForecastSource> sources, IModuleAccess modules, IClock clock) :
+    IEnumerable<ICashForecastSource> sources, IModuleAccess modules, IClock clock, IReportCurrencyGuard currencies) :
     IRequestHandler<GetTaxSummary, TaxSummaryDto>,
     IRequestHandler<GetCashMovements, CashMovementsDto>,
     IRequestHandler<GetCashForecast, CashForecastDto>
@@ -72,6 +72,7 @@ internal sealed class CashReportHandlers(
 
     public async Task<CashMovementsDto> Handle(GetCashMovements q, CancellationToken ct)
     {
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
         var entity = q.LegalEntityId;
         var cash = await accounts.Query(new Specification<Account>(a => a.IsActive && a.Type == AccountType.Asset && (a.IsBank || a.SystemRole == "cash" || a.SystemRole == "bank"))).OrderBy(a => a.Code)
             .Select(a => new { a.Id, a.Code, a.Name }).ToListAsync(ct);

@@ -59,7 +59,7 @@ public sealed class TransferFundsValidator : AbstractValidator<TransferFunds>
 }
 
 internal sealed class BankHandlers(
-    IRepository<BankStatementLine> lines, IReadRepository<JournalEntry> journals, IReadRepository<Account> accounts, ILegalEntityGuard guard, IPostingService posting, IUnitOfWork uow) :
+    IRepository<BankStatementLine> lines, IReadRepository<JournalEntry> journals, IReadRepository<Account> accounts, ILegalEntityGuard guard, IPostingService posting, IUnitOfWork uow, IReportCurrencyGuard currencies) :
     IRequestHandler<ImportStatement, ImportResult>,
     IRequestHandler<AutoMatchStatement, int>,
     IRequestHandler<MatchStatementLine, StatementLineDto>,
@@ -178,6 +178,7 @@ internal sealed class BankHandlers(
 
     public async Task<CashPositionDto> Handle(GetCashPosition q, CancellationToken ct)
     {
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
         var cash = await accounts.Query(new Specification<Account>(a => a.IsActive && a.Type == AccountType.Asset && (a.IsBank || a.SystemRole == "cash" || a.SystemRole == "bank"))).OrderBy(a => a.Code)
             .Select(a => new { a.Id, a.Code, a.Name, a.IsBank }).ToListAsync(ct);
         var ids = cash.Select(c => c.Id).ToList();

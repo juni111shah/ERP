@@ -67,7 +67,7 @@ internal static class ReportRange
     }
 }
 
-internal sealed class LedgerReportHandlers(IReadRepository<JournalEntry> journals, IReadRepository<Account> accounts, IReadRepository<FiscalYearClose> closes, ISettingsService settings) :
+internal sealed class LedgerReportHandlers(IReadRepository<JournalEntry> journals, IReadRepository<Account> accounts, IReadRepository<FiscalYearClose> closes, ISettingsService settings, IReportCurrencyGuard currencies) :
     IRequestHandler<GetTrialBalance, TrialBalanceDto>,
     IRequestHandler<GetGeneralLedger, GeneralLedgerDto>,
     IRequestHandler<GetIncomeStatement, IncomeStatementDto>,
@@ -83,6 +83,7 @@ internal sealed class LedgerReportHandlers(IReadRepository<JournalEntry> journal
 
     public async Task<GeneralLedgerDto> Handle(GetGeneralLedger q, CancellationToken ct)
     {
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
         var account = await accounts.GetAsync(q.AccountId, ct);
         var entityId = q.LegalEntityId;
         var lines = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= q.To && (entityId == null || j.LegalEntityId == entityId)))
@@ -146,6 +147,7 @@ internal sealed class LedgerReportHandlers(IReadRepository<JournalEntry> journal
 
     private async Task<List<TrialBalanceRow>> BuildAsync(DateOnly? from, DateOnly to, Guid? entityId, CancellationToken ct, bool excludeYearEnd = false)
     {
+        await currencies.EnsureSingleCurrencyAsync(entityId, ct);
         // Sum on the client: decimal SUM is not portable across the supported databases and the projection is only three columns.
         var movements = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= to && (entityId == null || j.LegalEntityId == entityId) && (!excludeYearEnd || j.SourceType != LedgerSources.YearEnd)))
             .SelectMany(j => j.Lines, (j, l) => new Movement(l.AccountId, j.Date, l.Debit, l.Credit))
