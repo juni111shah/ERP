@@ -99,6 +99,7 @@ internal sealed partial class SecurityHandlers(
         var i = cmd.Input;
         var unknown = i.Permissions.Where(p => p != CorePermissions.All && catalog.All.All(d => d.Key != p)).ToList();
         if (unknown.Count > 0) throw new FieldValidationException("permissions", $"Unknown permissions: {string.Join(", ", unknown)}");
+        EnsureCanGrant(await CallerGrantsAsync(ct), i.Permissions);
         var name = i.Name.Trim();
         if (await roles.AnyAsync(r => r.Name == name, ct)) throw new ConflictException("A role with that name exists.");
         var role = new Role { Name = name, Description = i.Description };
@@ -117,6 +118,8 @@ internal sealed partial class SecurityHandlers(
         if (role.IsBuiltIn) throw new ConflictException("Built-in roles cannot be edited. Create a custom role instead.");
         var unknown = i.Permissions.Where(p => p != CorePermissions.All && catalog.All.All(d => d.Key != p)).ToList();
         if (unknown.Count > 0) throw new FieldValidationException("permissions", $"Unknown permissions: {string.Join(", ", unknown)}");
+        // Only what the edit adds is a grant: a permission the role already has may stay, even if the caller does not hold it.
+        EnsureCanGrant(await CallerGrantsAsync(ct), i.Permissions.Except(role.Permissions.Select(p => p.Permission)));
         var name = i.Name.Trim();
         if (name != role.Name && await roles.AnyAsync(r => r.Name == name, ct)) throw new ConflictException("A role with that name exists.");
         role.Name = name; role.Description = i.Description;
@@ -134,11 +137,16 @@ internal sealed partial class SecurityHandlers(
         var member = await members.Tracked(new Specification<OrganizationMember>(m => m.UserId == cmd.UserId)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException("That user is not a member of this workspace.");
         var roleIds = await roles.Query(new Specification<Role>(r => cmd.RoleIds.Contains(r.Id))).Select(r => r.Id).ToListAsync(ct);
         var current = await userRoles.Tracked(new Specification<UserRole>(ur => ur.UserId == cmd.UserId)).ToListAsync(ct);
+        var added = roleIds.Where(id => current.All(ur => ur.RoleId != id)).ToList();
+        var held = await CallerGrantsAsync(ct);
+        if (cmd.UserId == currentUser.UserId && !held.Contains(CorePermissions.All) && (added.Count > 0 || current.Any(ur => !roleIds.Contains(ur.RoleId))))
+            throw new ForbiddenException("Only an administrator can change their own roles.");
+        await EnsureCanAssignAsync(held, added, ct);
         var adminRoleIds = await AdminRoleIdsAsync(ct);
         var losesAdmin = current.Any(ur => adminRoleIds.Contains(ur.RoleId)) && !roleIds.Any(adminRoleIds.Contains);
         if (losesAdmin) await EnsureAnotherAdministratorAsync(cmd.UserId, adminRoleIds, ct);
         foreach (var ur in current.Where(ur => !roleIds.Contains(ur.RoleId))) userRoles.Remove(ur);
-        userRoles.AddRange(roleIds.Where(id => current.All(ur => ur.RoleId != id)).Select(id => new UserRole { UserId = cmd.UserId, RoleId = id }));
+        userRoles.AddRange(added.Select(id => new UserRole { UserId = cmd.UserId, RoleId = id }));
         await unitOfWork.SaveChangesAsync(ct);
         return await SummaryAsync(member.UserId, ct);
     }
@@ -159,6 +167,28 @@ internal sealed partial class SecurityHandlers(
         return await SummaryAsync(member.UserId, ct);
     }
 
+    /// <summary>What the caller's roles grant right now, read from the database: the token expands "*" and can be minutes old.</summary>
+    private async Task<HashSet<string>> CallerGrantsAsync(CancellationToken ct)
+    {
+        var me = currentUser.UserId ?? throw new ForbiddenException();
+        var roleIds = await userRoles.Query(new Specification<UserRole>(ur => ur.UserId == me)).Select(ur => ur.RoleId).ToListAsync(ct);
+        return (await rolePermissions.Query(new Specification<RolePermission>(p => roleIds.Contains(p.RoleId))).Select(p => p.Permission).ToListAsync(ct)).ToHashSet(StringComparer.Ordinal);
+    }
+
+    /// <summary>Nobody hands out more than they hold, and only a "*" holder hands out "*".</summary>
+    private static void EnsureCanGrant(HashSet<string> held, IEnumerable<string> wanted)
+    {
+        if (held.Contains(CorePermissions.All)) return;
+        var beyond = wanted.Where(p => !held.Contains(p)).Distinct().Order(StringComparer.Ordinal).ToList();
+        if (beyond.Count > 0) throw new ForbiddenException($"You can only grant permissions you hold yourself. Not held: {string.Join(", ", beyond)}");
+    }
+
+    private async Task EnsureCanAssignAsync(HashSet<string> held, IReadOnlyCollection<Guid> roleIds, CancellationToken ct)
+    {
+        if (roleIds.Count == 0 || held.Contains(CorePermissions.All)) return;
+        EnsureCanGrant(held, await rolePermissions.Query(new Specification<RolePermission>(p => roleIds.Contains(p.RoleId))).Select(p => p.Permission).ToListAsync(ct));
+    }
+
     /// <summary>Roles that grant everything ("*"): the workspace must always keep one active holder.</summary>
     private async Task<List<Guid>> AdminRoleIdsAsync(CancellationToken ct)
         => await roles.Query(new Specification<Role>(r => r.Permissions.Any(p => p.Permission == CorePermissions.All))).Select(r => r.Id).ToListAsync(ct);
@@ -177,11 +207,12 @@ internal sealed partial class SecurityHandlers(
     {
         var i = cmd.Input;
         await limits.EnsureUserSlotAsync(ct);
+        // Only roles / legal entities of this workspace count (the repositories apply the tenant filter).
+        var roleIds = await roles.Query(new Specification<Role>(r => i.RoleIds.Contains(r.Id))).Select(r => r.Id).ToListAsync(ct);
+        await EnsureCanAssignAsync(await CallerGrantsAsync(ct), roleIds, ct); // before the account is created, so a refused invite leaves nothing behind
         var account = await directory.EnsureAccountAsync(i.Email.Trim(), i.FullName.Trim(), i.TemporaryPassword, ct);
         if (await members.AnyAsync(m => m.UserId == account.Id, ct)) throw new ConflictException("That user is already a member of this workspace.");
 
-        // Only roles / legal entities of this workspace count (the repositories apply the tenant filter).
-        var roleIds = await roles.Query(new Specification<Role>(r => i.RoleIds.Contains(r.Id))).Select(r => r.Id).ToListAsync(ct);
         members.Add(new OrganizationMember { UserId = account.Id, JoinedAt = DateTime.UtcNow });
         userRoles.AddRange(roleIds.Select(r => new UserRole { UserId = account.Id, RoleId = r }));
         if (i.LegalEntityIds is { Length: > 0 })
