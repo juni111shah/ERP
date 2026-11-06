@@ -25,6 +25,7 @@ public static class PlatformAdminEndpoints
         g.MapGet("/content", (ISender sender, CancellationToken ct) => sender.Send(new GetPublicContent(), ct)).AllowAnonymous();
         g.MapGet("/assistant/status", (ISender sender, CancellationToken ct) => sender.Send(new GetBrandAssistantStatus(), ct)).AllowAnonymous();
         g.MapPost("/assistant/messages", (BrandMessageInput input, ISender sender, CancellationToken ct) => new AssistantStreamResult(sender.CreateStream(new AskBrandAssistant(input), ct))).AllowAnonymous().RequireRateLimiting("assistant-public");
+        g.MapPost("/assistant/messages/{id:guid}/feedback", async (Guid id, BrandFeedbackInput input, ISender sender, CancellationToken ct) => { await sender.Send(new SetBrandMessageFeedback(id, input), ct); return Results.NoContent(); }).AllowAnonymous().RequireRateLimiting("assistant-public");
         g.MapPost("/assistant/leads", async (BrandLeadInput input, ISender sender, CancellationToken ct) => { await sender.Send(new SubmitBrandLead(input), ct); return Results.NoContent(); }).AllowAnonymous().RequireRateLimiting("login");
     }
 

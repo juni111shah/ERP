@@ -7,6 +7,7 @@ using ERP.Application.Abstractions;
 using ERP.Application.Assistant;
 using ERP.Application.Common;
 using ERP.Application.Platform;
+using ERP.Domain.Common;
 using ERP.Domain.Platform;
 using FluentValidation;
 using MediatR;
@@ -275,6 +276,7 @@ internal sealed class AskBrandAssistantHandler(
         IAssistantTool[] tools = [new RecommendPlanTool(config.Plans, modules), new ReadPolicyTool(legal)];
 
         var reply = new StringBuilder();
+        var replyId = SequentialGuid.NewGuid(); // known before the row is saved, so the visitor can rate the reply they were just given
         var fallback = false;
         try
         {
@@ -290,6 +292,9 @@ internal sealed class AskBrandAssistantHandler(
                     case AssistantError { Code: var code } when FallbackCodes.Contains(code):
                         fallback = true;
                         continue;
+                    case AssistantDone when reply.Length > 0: // a turn with no words saves no row
+                        yield return new AssistantData("reply", new { id = replyId });
+                        break;
                 }
                 yield return e;
             }
@@ -299,6 +304,7 @@ internal sealed class AskBrandAssistantHandler(
                 var answer = Fallback(text, matches, status.SupportEmail);
                 reply.Append(answer);
                 yield return new AssistantDelta(answer);
+                yield return new AssistantData("reply", new { id = replyId });
                 yield return new AssistantData("contact", new { reason = "unavailable" });
                 yield return new AssistantDone(0, 0);
             }
@@ -308,7 +314,7 @@ internal sealed class AskBrandAssistantHandler(
             // Saved even when the visitor leaves part way through a reply.
             if (reply.Length > 0)
             {
-                messages.Add(new BrandMessage { ConversationId = conversation.Id, At = clock.UtcNow, FromVisitor = false, Text = reply.ToString() });
+                messages.Add(new BrandMessage { Id = replyId, ConversationId = conversation.Id, At = clock.UtcNow, FromVisitor = false, Text = reply.ToString() });
                 if (BrandAssistant.QuotesUnknownPrice(reply.ToString(), config.Plans)) conversation.NeedsReview = true;
                 await messages.SaveChangesAsync(CancellationToken.None);
             }

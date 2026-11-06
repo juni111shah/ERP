@@ -20,7 +20,7 @@ public sealed record WorkspaceAssistantStatus(bool Available);
 public sealed record GetWorkspaceAssistantStatus : IQuery<WorkspaceAssistantStatus>;
 
 /// <summary>Counts only. An administrator sees how much the workspace uses the assistant, never what anyone asked.</summary>
-public sealed record AssistantUsageView(int MessagesThisMonth, int? MonthlyAllowance, int PeopleThisMonth);
+public sealed record AssistantUsageView(int MessagesThisMonth, int? MonthlyAllowance, int PeopleThisMonth, int Helpful, int NotHelpful);
 public sealed record GetAssistantUsage : IQuery<AssistantUsageView>;
 
 public sealed record WorkspaceMessageInput(Guid? ConversationId, string Text, string? Page, string? Language = null);
@@ -28,13 +28,16 @@ public sealed record AskWorkspaceAssistant(WorkspaceMessageInput Input) : IStrea
 
 public sealed record AssistantConversationRow(Guid Id, string Title, DateTime LastMessageAt);
 public sealed record ListAssistantConversations : IQuery<IReadOnlyList<AssistantConversationRow>>;
-public sealed record AssistantMessageRow(DateTime At, bool FromUser, string Text);
+public sealed record AssistantMessageRow(Guid Id, DateTime At, bool FromUser, string Text, bool? Helpful);
 public sealed record AssistantActionCard(Guid Id, string Title, IReadOnlyList<AssistantActionLine> Lines, string Status, string? Message, string? Link, DateTime CreatedAt, DateTime ExpiresAt);
 public sealed record AssistantConversationDetail(Guid Id, string Title, IReadOnlyList<AssistantMessageRow> Messages, IReadOnlyList<AssistantActionCard> Actions);
 public sealed record GetAssistantConversation(Guid Id) : IQuery<AssistantConversationDetail>;
 public sealed record DeleteAssistantConversation(Guid Id) : ICommand;
 public sealed record ConfirmAssistantAction(Guid Id) : ICommand<AssistantActionCard>;
 public sealed record CancelAssistantAction(Guid Id) : ICommand<AssistantActionCard>;
+/// <summary>Null takes the choice back.</summary>
+public sealed record AssistantFeedbackInput(bool? Helpful);
+public sealed record SetAssistantFeedback(Guid Id, AssistantFeedbackInput Input) : ICommand;
 
 public sealed class AskWorkspaceAssistantValidator : AbstractValidator<AskWorkspaceAssistant>
 {
@@ -115,7 +118,8 @@ internal sealed class WorkspaceAssistantHandlers(
     IRequestHandler<GetAssistantConversation, AssistantConversationDetail>,
     IRequestHandler<DeleteAssistantConversation, Unit>,
     IRequestHandler<ConfirmAssistantAction, AssistantActionCard>,
-    IRequestHandler<CancelAssistantAction, AssistantActionCard>
+    IRequestHandler<CancelAssistantAction, AssistantActionCard>,
+    IRequestHandler<SetAssistantFeedback, Unit>
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private Guid Me => user.UserId ?? throw new ForbiddenException();
@@ -131,7 +135,10 @@ internal sealed class WorkspaceAssistantHandlers(
         var today = DateOnly.FromDateTime(clock.UtcNow);
         var monthStart = new DateOnly(today.Year, today.Month, 1);
         var month = counts.Query().Where(c => c.Day >= monthStart);
-        return new(await month.SumAsync(c => c.Count, ct), await limits.AssistantMonthlyMessagesAsync(ct), await month.Select(c => c.UserId).Distinct().CountAsync(ct));
+        var since = monthStart.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var rated = messages.Query().Where(m => m.At >= since);
+        return new(await month.SumAsync(c => c.Count, ct), await limits.AssistantMonthlyMessagesAsync(ct), await month.Select(c => c.UserId).Distinct().CountAsync(ct),
+            await rated.CountAsync(m => m.Helpful == true, ct), await rated.CountAsync(m => m.Helpful == false, ct));
     }
 
     public async Task<IReadOnlyList<AssistantConversationRow>> Handle(ListAssistantConversations q, CancellationToken ct)
@@ -140,7 +147,7 @@ internal sealed class WorkspaceAssistantHandlers(
     public async Task<AssistantConversationDetail> Handle(GetAssistantConversation q, CancellationToken ct)
     {
         var c = await conversations.Query().FirstOrDefaultAsync(x => x.Id == q.Id && x.UserId == Me, ct) ?? throw new NotFoundException();
-        var list = await messages.Query().Where(m => m.ConversationId == c.Id && !m.IsNote).OrderBy(m => m.At).Select(m => new AssistantMessageRow(m.At, m.FromUser, m.Text)).ToListAsync(ct);
+        var list = await messages.Query().Where(m => m.ConversationId == c.Id && !m.IsNote).OrderBy(m => m.At).Select(m => new AssistantMessageRow(m.Id, m.At, m.FromUser, m.Text, m.Helpful)).ToListAsync(ct);
         var cards = await actions.Query().Where(a => a.ConversationId == c.Id).OrderBy(a => a.CreatedAt).ToListAsync(ct);
         return new(c.Id, c.Title, list, cards.Select(ToCard).ToList());
     }
@@ -220,6 +227,15 @@ internal sealed class WorkspaceAssistantHandlers(
         return ToCard(row);
     }
 
+    /// <summary>A reply this person was given. Anyone else's, their own question or a hidden note all answer as if it did not exist.</summary>
+    public async Task<Unit> Handle(SetAssistantFeedback cmd, CancellationToken ct)
+    {
+        var message = await messages.Tracked().FirstOrDefaultAsync(m => m.Id == cmd.Id && m.UserId == Me && !m.FromUser && !m.IsNote, ct) ?? throw new NotFoundException();
+        message.Helpful = cmd.Input.Helpful;
+        await messages.SaveChangesAsync(ct);
+        return Unit.Value;
+    }
+
     private async Task<AssistantPendingAction> OwnActionAsync(Guid id, CancellationToken ct)
         => await actions.Tracked().FirstOrDefaultAsync(a => a.Id == id && a.UserId == Me, ct) ?? throw new NotFoundException();
 
@@ -248,6 +264,13 @@ internal sealed class AskWorkspaceAssistantHandler(
         if (await counts.Query().Where(c => c.UserId == me && c.Day == today).SumAsync(c => c.Count, ct) >= dailyLimit)
         {
             yield return new AssistantError("user-limit", "You have used today's messages for the assistant. Please try again tomorrow.");
+            yield break;
+        }
+        // One reply at a time per person. A second tab would otherwise double the load on a free service.
+        var replyingKey = $"assistant-replying:{me}";
+        if (replying.TryGetValue(replyingKey, out _))
+        {
+            yield return new AssistantError("busy", "Please wait for the current reply to finish.");
             yield break;
         }
         var clientLimit = await platformSettings.Query().OrderBy(s => s.CreatedAt).Select(s => s.WorkspaceAssistantDailyMessagesPerClient).FirstOrDefaultAsync(ct);
@@ -305,7 +328,9 @@ internal sealed class AskWorkspaceAssistantHandler(
         if (!viewOnly) tools.Add(proposals);
 
         var reply = new StringBuilder();
+        var replyId = SequentialGuid.NewGuid(); // known before the row is saved, so the person can rate the reply they were just given
         var shown = 0;
+        replying.Set(replyingKey, true, TimeSpan.FromMinutes(3));
         try
         {
             await foreach (var e in runner.RunAsync(new AssistantTurn(AssistantBot.Workspace, system, history, tools, WorkspaceAssistant.MaxReplyTokens), ct))
@@ -314,16 +339,18 @@ internal sealed class AskWorkspaceAssistantHandler(
                 for (; shown < proposals.Proposed.Count; shown++) yield return new AssistantData("action", WorkspaceAssistantHandlers.ToCard(proposals.Proposed[shown]));
                 if (e is AssistantServiceUsed) continue; // people in a workspace are not told which service answered
                 if (e is AssistantDelta d) reply.Append(d.Text);
+                if (e is AssistantDone && reply.Length > 0) yield return new AssistantData("reply", new { id = replyId }); // a turn with no words saves no row
                 yield return e;
             }
             for (; shown < proposals.Proposed.Count; shown++) yield return new AssistantData("action", WorkspaceAssistantHandlers.ToCard(proposals.Proposed[shown]));
         }
         finally
         {
+            replying.Remove(replyingKey);
             // Saved even when the person leaves part way through a reply.
             if (reply.Length > 0)
             {
-                messages.Add(new AssistantChatMessage { ConversationId = conversation.Id, UserId = me, At = clock.UtcNow, FromUser = false, Text = reply.ToString() });
+                messages.Add(new AssistantChatMessage { Id = replyId, ConversationId = conversation.Id, UserId = me, At = clock.UtcNow, FromUser = false, Text = reply.ToString() });
                 await messages.SaveChangesAsync(CancellationToken.None);
             }
         }

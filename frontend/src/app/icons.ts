@@ -11,7 +11,7 @@ import {
   ShoppingCartOutline, LineChartOutline, ArrowDownOutline, ArrowUpOutline, MinusOutline,
   ArrowLeftOutline, BarcodeOutline, CalculatorOutline, CalendarOutline, CommentOutline, EyeOutline, FieldTimeOutline, FileDoneOutline, FlagOutline, HistoryOutline, InboxOutline, MoreOutline,
   PaperClipOutline, PauseCircleOutline, PlayCircleOutline, SaveOutline, ScheduleOutline, SendOutline, TableOutline, TagOutline, TransactionOutline, UserAddOutline, ZoomInOutline, ZoomOutOutline,
-  AlertOutline, ArrowRightOutline, CarOutline, CheckCircleFill, CloseCircleFill, CloseCircleOutline, CloseOutline, CompassOutline, DesktopOutline, DownOutline, EnvironmentOutline, ExperimentOutline, EyeInvisibleOutline, FileSearchOutline, FilterFill, FrownOutline, GiftOutline, InfoCircleOutline, MinusCircleOutline, PhoneOutline, PoweroffOutline, ProfileOutline, SafetyCertificateFill, SafetyCertificateOutline, SolutionOutline, StepForwardOutline, SyncOutline, ThunderboltFill, TrophyOutline, UploadOutline,
+  AlertOutline, ArrowRightOutline, CarOutline, CheckCircleFill, CloseCircleFill, CloseCircleOutline, CloseOutline, CompassOutline, DesktopOutline, DislikeFill, DislikeOutline, DownOutline, EnvironmentOutline, ExperimentOutline, EyeInvisibleOutline, FileSearchOutline, FilterFill, FrownOutline, GiftOutline, InfoCircleOutline, LikeFill, LikeOutline, MinusCircleOutline, PhoneOutline, PoweroffOutline, ProfileOutline, SafetyCertificateFill, SafetyCertificateOutline, SolutionOutline, StepForwardOutline, SyncOutline, ThunderboltFill, TrophyOutline, UploadOutline,
   ContactsOutline, CustomerServiceOutline, DatabaseOutline, IdcardOutline,
 } from '@ant-design/icons-angular/icons';
 
@@ -36,7 +36,7 @@ export const APP_ICONS = [
   // Projects screens, and module menu icons that were fetched from /assets and failed.
   ArrowLeftOutline, BarcodeOutline, CalculatorOutline, CalendarOutline, CommentOutline, EyeOutline, FieldTimeOutline, FileDoneOutline, FlagOutline, HistoryOutline, InboxOutline, MoreOutline,
   PaperClipOutline, PauseCircleOutline, PlayCircleOutline, SaveOutline, ScheduleOutline, SendOutline, TableOutline, TagOutline, TransactionOutline, UserAddOutline, ZoomInOutline, ZoomOutOutline,
-  AlertOutline, ArrowRightOutline, CarOutline, CheckCircleFill, CloseCircleFill, CloseCircleOutline, CloseOutline, CompassOutline, DesktopOutline, DownOutline, EnvironmentOutline, ExperimentOutline, EyeInvisibleOutline, FileSearchOutline, FilterFill, FrownOutline, GiftOutline, InfoCircleOutline, MinusCircleOutline, PhoneOutline, PoweroffOutline, ProfileOutline, SafetyCertificateFill, SafetyCertificateOutline, SolutionOutline, StepForwardOutline, SyncOutline, ThunderboltFill, TrophyOutline, UploadOutline,
+  AlertOutline, ArrowRightOutline, CarOutline, CheckCircleFill, CloseCircleFill, CloseCircleOutline, CloseOutline, CompassOutline, DesktopOutline, DislikeFill, DislikeOutline, DownOutline, EnvironmentOutline, ExperimentOutline, EyeInvisibleOutline, FileSearchOutline, FilterFill, FrownOutline, GiftOutline, InfoCircleOutline, LikeFill, LikeOutline, MinusCircleOutline, PhoneOutline, PoweroffOutline, ProfileOutline, SafetyCertificateFill, SafetyCertificateOutline, SolutionOutline, StepForwardOutline, SyncOutline, ThunderboltFill, TrophyOutline, UploadOutline,
   // Sidebar category icons (see layout/sidebar-nav.ts).
   ContactsOutline, CustomerServiceOutline, DatabaseOutline, IdcardOutline,
 ];

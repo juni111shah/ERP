@@ -183,6 +183,8 @@ public sealed class AssistantRunner(
 
     private async Task<string> RunToolAsync(IAssistantTool tool, ChatToolCall call, CancellationToken ct)
     {
+        // The tool's name only: its arguments and results can hold what people asked and what the records say.
+        log.LogInformation("Assistant used tool {Tool}", tool.Definition.Name);
         try { return await tool.RunAsync(call.ArgumentsJson, ct); }
         catch (OperationCanceledException) { throw; }
         catch (Exception e)

@@ -449,6 +449,96 @@ public class BrandAssistantTests(EngineApiFactory f) : IClassFixture<EngineApiFa
         Assert.False(await db.AuditEvents.IgnoreQueryFilters().AnyAsync(a => a.RecordType == nameof(BrandMessage) || a.RecordType == nameof(BrandConversation)));
     }
 
+    private static string ReplyId(IEnumerable<(string Name, JsonNode Data)> events) => (string)events.Single(e => e.Name == "reply").Data["id"]!;
+
+    [Fact]
+    public async Task A_visitor_can_rate_their_own_reply_and_nobody_elses()
+    {
+        await ResetAsync();
+        f.Chat.Script(Service, _ => Reply("First"), _ => Reply("Second"));
+        var mine = await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Hello")));
+        var other = await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Hi")));
+        Assert.True(mine.FindIndex(e => e.Name == "reply") < mine.FindIndex(e => e.Name == "done"));
+        var (id, token, otherToken) = (ReplyId(mine), TokenOf(mine), TokenOf(other));
+        string Feedback(string message) => $"{Public}/messages/{message}/feedback";
+
+        Assert.Equal(HttpStatusCode.NotFound, (await f.Client().PostAsJsonAsync(Feedback(id), new { token = otherToken, helpful = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await f.Client().PostAsJsonAsync(Feedback(id), new { token = "not-a-real-token", helpful = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await f.Client().PostAsJsonAsync(Feedback(id), new { helpful = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await f.Client().PostAsJsonAsync(Feedback(Guid.NewGuid().ToString()), new { token, helpful = false })).StatusCode);
+
+        BrandMessage Saved(AppDbContext db) => db.BrandMessages.AsNoTracking().Single(m => m.Id == Guid.Parse(id));
+        using (var scope = f.Services.CreateScope()) Assert.Null(Saved(scope.ServiceProvider.GetRequiredService<AppDbContext>()).Helpful);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await f.Client().PostAsJsonAsync(Feedback(id), new { token, helpful = false })).StatusCode);
+        using (var scope = f.Services.CreateScope()) Assert.False(Saved(scope.ServiceProvider.GetRequiredService<AppDbContext>()).Helpful);
+        Assert.Equal(HttpStatusCode.NoContent, (await f.Client().PostAsJsonAsync(Feedback(id), new { token, helpful = (bool?)null })).StatusCode);
+        using (var scope = f.Services.CreateScope()) Assert.Null(Saved(scope.ServiceProvider.GetRequiredService<AppDbContext>()).Helpful);
+
+        // The visitor's own question takes no rating.
+        using (var scope = f.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var chat = Saved(db).ConversationId;
+            var question = db.BrandMessages.AsNoTracking().First(m => m.FromVisitor && m.ConversationId == chat);
+            Assert.Equal(HttpStatusCode.NotFound, (await f.Client().PostAsJsonAsync(Feedback(question.Id.ToString()), new { token, helpful = true })).StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task A_written_answer_can_be_rated_too_but_an_empty_turn_offers_nothing()
+    {
+        await ResetAsync();
+        f.Chat.Script(Service, _ => throw new ChatServiceException(ChatFailureKind.Unavailable, "down"), _ => [new ChatUsage(5, 0)]);
+
+        var written = await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("How do I pay?")));
+        Assert.Equal(HttpStatusCode.NoContent, (await f.Client().PostAsJsonAsync($"{Public}/messages/{ReplyId(written)}/feedback", new { token = TokenOf(written), helpful = true })).StatusCode);
+
+        var empty = await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Say nothing")));
+        Assert.DoesNotContain(empty, e => e.Name == "reply");
+    }
+
+    [Fact]
+    public async Task Feedback_is_closed_while_the_assistant_is_off()
+    {
+        var founder = await ResetAsync();
+        f.Chat.Script(Service, _ => Reply("Hi"));
+        var events = await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Hello")));
+        (await founder.PutAsJsonAsync($"{Admin}/assistant/visibility", new { brandEnabled = false, workspaceEnabled = false })).EnsureSuccessStatusCode();
+
+        Assert.Equal(HttpStatusCode.NotFound, (await f.Client().PostAsJsonAsync($"{Public}/messages/{ReplyId(events)}/feedback", new { token = TokenOf(events), helpful = true })).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_not_helpful_chat_shows_in_the_console_with_a_filter()
+    {
+        var founder = await ResetAsync();
+        f.Chat.Script(Service, _ => Reply("Bad answer"), _ => Reply("Good answer"), _ => Reply("Unrated answer"));
+        var bad = await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Bad one")));
+        var good = await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Good one")));
+        await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Unrated one")));
+        (await f.Client().PostAsJsonAsync($"{Public}/messages/{ReplyId(bad)}/feedback", new { token = TokenOf(bad), helpful = false })).EnsureSuccessStatusCode();
+        (await f.Client().PostAsJsonAsync($"{Public}/messages/{ReplyId(good)}/feedback", new { token = TokenOf(good), helpful = true })).EnsureSuccessStatusCode();
+        var chats = $"{Admin}/assistant/conversations";
+
+        var all = (await ApiFactory.Json(await founder.GetAsync(chats))).AsArray();
+        Assert.Equal(3, all.Count);
+        Assert.Single(all, c => (bool)c!["notHelpful"]!);
+
+        var filtered = await ApiFactory.Envelope(await founder.GetAsync($"{chats}?notHelpful=true"));
+        var row = filtered["data"]!.AsArray().Single()!;
+        Assert.Equal("Bad one", (string)row["firstMessage"]!);
+        Assert.True((bool)row["notHelpful"]!);
+        Assert.False((bool)row["needsReview"]!); // a price worry and a thumbs down are different things
+
+        var transcript = (await ApiFactory.Json(await founder.GetAsync($"{chats}/{row["id"]}"))).AsArray();
+        Assert.Single(transcript, m => (bool?)m!["helpful"] == false && (string)m!["text"]! == "Bad answer");
+
+        // Taking the thumb back takes the chat off the list.
+        (await f.Client().PostAsJsonAsync($"{Public}/messages/{ReplyId(bad)}/feedback", new { token = TokenOf(bad), helpful = (bool?)null })).EnsureSuccessStatusCode();
+        Assert.Empty((await ApiFactory.Json(await founder.GetAsync($"{chats}?notHelpful=true"))).AsArray());
+    }
+
     [Fact]
     public async Task The_public_page_content_has_one_source_with_both_languages()
     {
@@ -489,5 +579,23 @@ public class BrandAssistantRateLimitTests
         Assert.Equal(HttpStatusCode.OK, (await visitor.PostAsJsonAsync("/api/v1/public/assistant/messages", new { text = "One" })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await visitor.PostAsJsonAsync("/api/v1/public/assistant/messages", new { text = "Two" })).StatusCode);
         Assert.Equal(HttpStatusCode.TooManyRequests, (await visitor.PostAsJsonAsync("/api/v1/public/assistant/messages", new { text = "Three" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Feedback_counts_against_the_same_limit()
+    {
+        await using var f = new LimitedFactory();
+        var (founder, _) = await f.SignInAsync(ApiFactory.FounderEmail);
+        await EngineApiFactoryBase.AddLiveServiceAsync(founder, "Limited", "https://limited.example.com/v1");
+        (await founder.PutAsJsonAsync("/api/v1/platform-admin/assistant/visibility", new { brandEnabled = true, workspaceEnabled = false })).EnsureSuccessStatusCode();
+        f.Chat.Script("https://limited.example.com/v1", _ => [new ChatTextDelta("Hi")]);
+
+        var visitor = f.Client();
+        var body = await (await visitor.PostAsJsonAsync("/api/v1/public/assistant/messages", new { text = "One" })).Content.ReadAsStringAsync();
+        JsonNode Event(string name) => JsonNode.Parse(body.Split("\n\n").First(b => b.StartsWith($"event: {name}")).Split('\n')[1]["data:".Length..])!;
+        var (feedback, token) = ($"/api/v1/public/assistant/messages/{Event("reply")["id"]}/feedback", (string)Event("session")["token"]!);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await visitor.PostAsJsonAsync(feedback, new { token, helpful = true })).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await visitor.PostAsJsonAsync(feedback, new { token, helpful = false })).StatusCode);
     }
 }

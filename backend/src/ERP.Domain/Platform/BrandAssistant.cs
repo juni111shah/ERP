@@ -18,6 +18,8 @@ public class BrandMessage : Entity
     public DateTime At { get; set; }
     public bool FromVisitor { get; set; }
     public string Text { get; set; } = default!;
+    /// <summary>The visitor's thumbs up or down on a reply. Null until they choose.</summary>
+    public bool? Helpful { get; set; }
 }
 
 public enum BrandLeadStatus { New, Contacted, Won, Lost }

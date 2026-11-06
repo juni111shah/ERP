@@ -31,8 +31,14 @@ class AssistantUserItem extends AssistantItem {
 }
 
 class AssistantReplyItem extends AssistantItem {
-  const AssistantReplyItem(this.text);
+  const AssistantReplyItem(this.text, {this.id, this.helpful});
   final String text;
+
+  /// The saved reply, known once its stream has ended. Without one there is nothing to rate.
+  final String? id;
+
+  /// The person's thumbs up or down, null until they choose.
+  final bool? helpful;
 }
 
 class AssistantCardItem extends AssistantItem {
@@ -52,7 +58,7 @@ class AssistantConversationDetail {
   factory AssistantConversationDetail.fromJson(Map<String, dynamic> json) {
     final timed = <(String, AssistantItem)>[
       for (final m in (json['messages'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>())
-        ((m['at'] ?? '').toString(), m['fromUser'] == true ? AssistantUserItem((m['text'] ?? '').toString()) : AssistantReplyItem((m['text'] ?? '').toString())),
+        ((m['at'] ?? '').toString(), m['fromUser'] == true ? AssistantUserItem((m['text'] ?? '').toString()) : AssistantReplyItem((m['text'] ?? '').toString(), id: m['id']?.toString(), helpful: m['helpful'] as bool?)),
       for (final a in (json['actions'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>())
         ((a['createdAt'] ?? '').toString(), AssistantCardItem(AssistantActionCard.fromJson(a))),
     ];
@@ -70,16 +76,21 @@ class AssistantConversationDetail {
 
 /// How much of the plan's messages the workspace has used. [monthlyAllowance] is null when the plan has no limit.
 class AssistantUsage {
-  const AssistantUsage({required this.messagesThisMonth, required this.monthlyAllowance, required this.peopleThisMonth});
+  const AssistantUsage({required this.messagesThisMonth, required this.monthlyAllowance, required this.peopleThisMonth, this.helpful = 0, this.notHelpful = 0});
 
   final int messagesThisMonth;
   final int? monthlyAllowance;
   final int peopleThisMonth;
 
+  /// Replies rated this month. Counts only, never words.
+  final int helpful, notHelpful;
+
   factory AssistantUsage.fromJson(Map<String, dynamic> json) => AssistantUsage(
         messagesThisMonth: (json['messagesThisMonth'] as num).toInt(),
         monthlyAllowance: (json['monthlyAllowance'] as num?)?.toInt(),
         peopleThisMonth: (json['peopleThisMonth'] as num?)?.toInt() ?? 0,
+        helpful: (json['helpful'] as num?)?.toInt() ?? 0,
+        notHelpful: (json['notHelpful'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -122,10 +133,10 @@ class AssistantApi {
 
   /// The reply as it is written. Only [cancelToken] closes the connection, which also stops the reply at the AI service; cancelling the
   /// stream alone would leave it running. A failure before the first event throws [ApiException].
-  Stream<AssistantEvent> ask({required String? conversationId, required String text, required CancelToken cancelToken}) async* {
+  Stream<AssistantEvent> ask({required String? conversationId, required String text, String language = 'en', required CancelToken cancelToken}) async* {
     final parser = AssistantStreamParser();
     // The phone has no page address to give, so the server's optional `page` stays empty.
-    final bytes = await _api.postStream('$_base/messages', body: {'conversationId': conversationId, 'text': text, 'page': null}, cancelToken: cancelToken, headers: _scope);
+    final bytes = await _api.postStream('$_base/messages', body: {'conversationId': conversationId, 'text': text, 'page': null, 'language': language}, cancelToken: cancelToken, headers: _scope);
     await for (final chunk in bytes) {
       for (final event in parser.add(chunk)) {
         yield event;
@@ -139,6 +150,9 @@ class AssistantApi {
 
   Future<AssistantActionCard> cancel(String id) async =>
       AssistantActionCard.fromJson(await _api.post('$_base/actions/$id/cancel', body: const <String, dynamic>{}, headers: _scope) as Map<String, dynamic>);
+
+  /// Null takes the choice back.
+  Future<void> feedback(String id, bool? helpful) => _api.post('$_base/messages/$id/feedback', body: {'helpful': helpful}, headers: _scope);
 }
 
 /// The legal entity picked on the assistant screen, null for none. Remembered per workspace, and used by the assistant only.

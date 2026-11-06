@@ -120,6 +120,11 @@ void main() {
       expect((events[3] as AssistantErrorEvent).message, 'Not now');
     });
 
+    test('a reply\'s id arrives as its own event', () {
+      final events = AssistantStreamParser().add(utf8.encode(_sse('reply', {'id': 'r1'})));
+      expect((events.single as AssistantReplyEvent).id, 'r1');
+    });
+
     test('an event split across chunks arrives once it is whole', () {
       final parser = AssistantStreamParser();
       final bytes = utf8.encode(_sse('delta', {'text': 'Hello'}));
@@ -299,7 +304,28 @@ void main() {
       final o = adapter.requests.single;
       expect((o.method, o.path), ('POST', '$_base/messages'));
       expect(o.responseType, ResponseType.stream);
-      expect(o.data, {'conversationId': 'c1', 'text': 'Hello', 'page': null});
+      expect(o.data, {'conversationId': 'c1', 'text': 'Hello', 'page': null, 'language': 'en'});
+    });
+
+    test('a rating goes to the reply, and null takes it back', () async {
+      final adapter = FakeAdapter((_) => envelope(null, status: 204));
+      final api = AssistantApi(client(adapter));
+      await api.feedback('r1', false);
+      await api.feedback('r1', null);
+      expect(adapter.requests.map((o) => (o.method, o.path)), everyElement(('POST', '$_base/messages/r1/feedback')));
+      expect(adapter.requests.map((o) => o.data), [{'helpful': false}, {'helpful': null}]);
+    });
+
+    test('a saved reply keeps its id and its rating', () {
+      final detail = AssistantConversationDetail.fromJson({
+        'id': 'c1',
+        'messages': [
+          {'id': 'q', 'at': '2026-11-06T10:00:00Z', 'fromUser': true, 'text': 'one', 'helpful': null},
+          {'id': 'r', 'at': '2026-11-06T10:00:01Z', 'fromUser': false, 'text': 'two', 'helpful': false},
+        ],
+      });
+      final reply = detail.items[1] as AssistantReplyItem;
+      expect((reply.id, reply.helpful), ('r', false));
     });
 
     test('a saved chat puts messages and cards in time order', () {
@@ -593,14 +619,14 @@ void main() {
         expect(MaterialLocalizations.of(inner).backButtonTooltip, 'Back');
       });
 
-      /// The real app, for someone who may create nothing: the home tabs' New buttons share a hero tag, which fails any push in a debug build.
-      Future<BuildContext> pumpApp(WidgetTester t, Locale device) async {
+      /// The real app, by default for someone who may create nothing.
+      Future<BuildContext> pumpApp(WidgetTester t, Locale device, {Me? me}) async {
         t.platformDispatcher.localesTestValue = [device];
         addTearDown(t.platformDispatcher.clearLocalesTestValue);
         final store = MemoryKeyValueStore()
           ..values[IntroKeys.seen] = '1'
           ..values[OnboardingTourStore.seenKey] = '1';
-        await t.pumpWidget(ProviderScope(overrides: _overrides(FakeErpAdapter(), store: store), child: const ErpApp()));
+        await t.pumpWidget(ProviderScope(overrides: _overrides(FakeErpAdapter(), me: me, store: store), child: const ErpApp()));
         for (var i = 0; i < 6; i++) {
           await t.pump(const Duration(milliseconds: 50));
         }
@@ -633,6 +659,14 @@ void main() {
         await openAssistant(t, home);
         expect(find.text(AssistantWords.en.hello), findsOneWidget);
         expect(Directionality.of(t.element(find.text(AssistantWords.en.hello))), TextDirection.ltr);
+      });
+
+      testWidgets('the real app can open a screen from home for someone who may create, whose tabs each have a New button', (t) async {
+        final home = await pumpApp(t, const Locale('en'), me: _me(permissions: const {'*'}));
+        expect(find.byType(FloatingActionButton, skipOffstage: false), findsNWidgets(3));
+        await openAssistant(t, home);
+        expect(t.takeException(), isNull);
+        expect(find.text(AssistantWords.en.hello), findsOneWidget);
       });
 
       testWidgets('with room for 360 points nothing overflows and tap targets hold, picker and usage included', (t) async {
@@ -815,6 +849,109 @@ void main() {
       });
     });
 
+    group('rating a reply', () {
+      const helpful = ValueKey('assistant-helpful');
+      const notHelpful = ValueKey('assistant-not-helpful');
+
+      bool isOn(WidgetTester t, ValueKey<String> key) => t.widget<IconButton>(finder(key)).isSelected == true;
+
+      Future<void> replied(WidgetTester t, FakeAdapter adapter, StreamController<List<int>> reply, {Widget Function(Widget, FakeAdapter)? host}) async {
+        await t.pumpWidget((host ?? (w, a) => _host(w, a))(const AssistantPage(), adapter));
+        await ask(t, 'Hello');
+        reply.add(utf8.encode(_sse('delta', {'text': 'Hi'}) + _sse('reply', {'id': 'r1'}) + _sse('done', {'inputTokens': 1, 'outputTokens': 1})));
+        await turns(t);
+      }
+
+      testWidgets('the thumbs wait for the end of the stream, when the server has saved the reply', (t) async {
+        final (adapter, reply) = replying();
+        await replied(t, adapter, reply);
+        expect(finder(helpful), findsNothing);
+        unawaited(reply.close());
+        await turns(t);
+        expect(finder(helpful), findsOneWidget);
+        expect(finder(notHelpful), findsOneWidget);
+      });
+
+      testWidgets('a choice is sent, and pressing it again takes it back', (t) async {
+        final (adapter, reply) = replying();
+        await replied(t, adapter, reply);
+        unawaited(reply.close());
+        await turns(t);
+
+        await t.tap(finder(notHelpful));
+        await turns(t);
+        expect(adapter.requests.last.path, '$_base/messages/r1/feedback');
+        expect(adapter.requests.last.data, {'helpful': false});
+        expect(isOn(t, notHelpful), isTrue);
+        expect(isOn(t, helpful), isFalse);
+
+        await t.tap(finder(notHelpful));
+        await turns(t);
+        expect(adapter.requests.last.data, {'helpful': null});
+        expect(isOn(t, notHelpful), isFalse);
+      });
+
+      testWidgets('a refused choice is put back and the reason shown', (t) async {
+        final (adapter, reply) = replying(other: (_) => problem(404, 'Not found.'));
+        await replied(t, adapter, reply);
+        unawaited(reply.close());
+        await turns(t);
+        await t.tap(finder(helpful));
+        await turns(t);
+        expect(isOn(t, helpful), isFalse);
+        expect(find.text('Not found.'), findsOneWidget);
+      });
+
+      testWidgets('a reply stopped part way has no id, so it offers no thumbs', (t) async {
+        final reply = StreamController<List<int>>();
+        await t.pumpWidget(_host(const AssistantPage(), FakeAdapter((_) => _streamed(reply.stream))));
+        await ask(t, 'Hello');
+        reply.add(utf8.encode(_sse('delta', {'text': 'Partial'})));
+        await turns(t);
+        await t.tap(finder(stop));
+        await turns(t);
+        expect(finder(helpful), findsNothing);
+      });
+
+      testWidgets('a past chat shows the choice already made', (t) async {
+        final adapter = FakeAdapter((o) {
+          if (o.path == '$_base/conversations') return envelope([{'id': 'c1', 'title': 'Stock', 'lastMessageAt': '2026-11-06T10:00:00Z'}]);
+          return envelope({'id': 'c1', 'title': 'Stock', 'actions': <dynamic>[], 'messages': [{'id': 'r9', 'at': '2026-11-06T10:00:00Z', 'fromUser': false, 'text': 'Saved', 'helpful': true}]});
+        });
+        await t.pumpWidget(_host(const AssistantPage(), adapter));
+        await t.tap(finder(const ValueKey('assistant-history')));
+        await turns(t);
+        await t.tap(find.text('Stock'));
+        await turns(t);
+        expect(isOn(t, helpful), isTrue);
+      });
+
+      testWidgets('in Arabic the thumbs have Arabic names, and tap targets hold at 360 points', (t) async {
+        await t.binding.setSurfaceSize(const Size(360, 780));
+        addTearDown(() => t.binding.setSurfaceSize(null));
+        final handle = t.ensureSemantics();
+        final (adapter, reply) = replying();
+        await replied(t, adapter, reply, host: (w, a) => _arabicHost(w, a));
+        unawaited(reply.close());
+        await turns(t);
+        expect(t.takeException(), isNull);
+        expect(find.byTooltip(AssistantWords.ar.helpful), findsOneWidget);
+        expect(find.byTooltip(AssistantWords.ar.notHelpful), findsOneWidget);
+        await expectLater(t, meetsGuideline(androidTapTargetGuideline));
+        await expectLater(t, meetsGuideline(labeledTapTargetGuideline));
+        handle.dispose();
+      });
+
+      testWidgets('in English they have English names', (t) async {
+        final (adapter, reply) = replying();
+        await replied(t, adapter, reply);
+        unawaited(reply.close());
+        await turns(t);
+        expect(find.byTooltip(AssistantWords.en.helpful), findsOneWidget);
+        expect(find.byTooltip(AssistantWords.en.notHelpful), findsOneWidget);
+      });
+    });
+
     group('usage', () {
       const usage = ValueKey('assistant-usage');
       final allowed = _meWith(entities: const [], permissions: const {'assistant.chats.use', 'assistant.usage.read'});
@@ -832,6 +969,18 @@ void main() {
         await t.pumpWidget(_host(const AssistantPage(), adapter, me: allowed));
         await turns(t);
         expect(find.text('Your workspace has used 12 messages this month.'), findsOneWidget);
+      });
+
+      testWidgets('ratings show as counts once there are any', (t) async {
+        final rated = FakeAdapter((_) => envelope({'messagesThisMonth': 12, 'monthlyAllowance': null, 'peopleThisMonth': 3, 'helpful': 5, 'notHelpful': 1}));
+        await t.pumpWidget(_host(const AssistantPage(), rated, me: allowed));
+        await turns(t);
+        expect(find.text(AssistantWords.en.ratings(5, 1)), findsOneWidget);
+
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(_host(const AssistantPage(), FakeAdapter((_) => envelope({'messagesThisMonth': 12, 'monthlyAllowance': null, 'peopleThisMonth': 3, 'helpful': 0, 'notHelpful': 0})), me: allowed));
+        await turns(t);
+        expect(finder(const ValueKey('assistant-ratings')), findsNothing);
       });
 
       testWidgets('nobody else asks for it', (t) async {

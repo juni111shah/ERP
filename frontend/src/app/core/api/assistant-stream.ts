@@ -15,7 +15,9 @@ export type AssistantStreamEvent =
   /** The workspace assistant's saved conversation. */
   | { type: 'conversation'; id: string }
   /** A change waiting for the person's click. */
-  | { type: 'action'; action: AssistantActionCard };
+  | { type: 'action'; action: AssistantActionCard }
+  /** The id the reply is saved under, for rating it. The row exists once the stream has ended. */
+  | { type: 'reply'; id: string };
 
 /** Built by the server from what would really happen, never from the model's words. */
 export interface AssistantActionCard { id: string; title: string; lines: { label: string; value: string }[]; status: 'pending' | 'done' | 'cancelled' | 'failed' | 'expired'; message?: string | null; link?: string | null; expiresAt?: string | null; }
@@ -64,6 +66,7 @@ function parseBlock(block: string): AssistantStreamEvent | null {
       case 'contact': return { type: 'contact', reason: String(body['reason'] ?? '') };
       case 'conversation': return { type: 'conversation', id: String(body['id'] ?? '') };
       case 'action': return { type: 'action', action: body as unknown as AssistantActionCard };
+      case 'reply': return { type: 'reply', id: String(body['id'] ?? '') };
       default: return null;
     }
   } catch {

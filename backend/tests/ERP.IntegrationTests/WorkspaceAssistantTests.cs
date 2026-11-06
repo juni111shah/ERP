@@ -417,8 +417,10 @@ public class WorkspaceAssistantTests(EngineApiFactory f) : IClassFixture<EngineA
         Assert.Equal(HttpStatusCode.PaymentRequired, (await client.PostAsync($"{Url}/actions/{card["id"]}/confirm", null)).StatusCode);
         Assert.False(await PartyExistsAsync(client, name));
 
-        // Deleting your own chat is not a business change.
+        // Rating a reply and deleting your own chat are not business changes.
         var chats = await ApiFactory.Json(await client.GetAsync($"{Url}/conversations"));
+        var reply = (await ApiFactory.Json(await client.GetAsync($"{Url}/conversations/{chats[0]!["id"]}")))["messages"]!.AsArray().First(m => !(bool)m!["fromUser"]!)!;
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"{Url}/messages/{reply["id"]}/feedback", new { helpful = true })).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"{Url}/conversations/{chats[0]!["id"]}")).StatusCode);
     }
 
@@ -782,6 +784,160 @@ public class WorkspaceAssistantTests(EngineApiFactory f) : IClassFixture<EngineA
 
         foreach (var p in (await ApiFactory.Json(await founder.GetAsync("/api/v1/platform-admin/assistant")))["providers"]!.AsArray()) await founder.DeleteAsync($"/api/v1/platform-admin/assistant/providers/{p!["id"]}");
         Assert.Equal("assistant-no-service", await NoticeAsync((await f.SignInAsync(ApiFactory.AdminEmail)).Client));
+    }
+
+    private static string ReplyId(IEnumerable<(string Name, JsonNode Data)> events) => (string)events.Single(e => e.Name == "reply").Data["id"]!;
+    private static object Rate(bool? helpful) => new { helpful };
+
+    [Fact]
+    public async Task A_reply_can_be_rated_and_its_id_comes_before_the_stream_ends()
+    {
+        var admin = await ReadyAsync();
+        f.Chat.Script(Service, _ => Reply("Rate me"));
+        var events = await ReadAsync(await admin.PostAsJsonAsync($"{Url}/messages", Ask("Question")));
+        Assert.True(events.FindIndex(e => e.Name == "reply") < events.FindIndex(e => e.Name == "done"));
+        var (id, chat) = (ReplyId(events), (string)events.First(e => e.Name == "conversation").Data["id"]!);
+
+        async Task<JsonNode> RowAsync() => (await ApiFactory.Json(await admin.GetAsync($"{Url}/conversations/{chat}")))["messages"]!.AsArray().Single(m => (string)m!["id"]! == id)!;
+        Assert.Null((await RowAsync())["helpful"]);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsJsonAsync($"{Url}/messages/{id}/feedback", Rate(false))).StatusCode);
+        Assert.False((bool)(await RowAsync())["helpful"]!);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsJsonAsync($"{Url}/messages/{id}/feedback", Rate(true))).StatusCode);
+        Assert.True((bool)(await RowAsync())["helpful"]!);
+        // Pressing the same thumb again takes the choice back.
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsJsonAsync($"{Url}/messages/{id}/feedback", Rate(null))).StatusCode);
+        Assert.Null((await RowAsync())["helpful"]);
+    }
+
+    [Fact]
+    public async Task Only_your_own_replies_can_be_rated()
+    {
+        var admin = await ReadyAsync();
+        f.Chat.Script(Service, _ => Reply("Mine"));
+        var events = await ReadAsync(await admin.PostAsJsonAsync($"{Url}/messages", Ask("Question")));
+        var (id, chat) = (ReplyId(events), (string)events.First(e => e.Name == "conversation").Data["id"]!);
+
+        // A colleague in the same workspace, even one who may use the assistant, and someone who may not.
+        var colleague = await UserWithAsync(admin, "assistant.chats.use");
+        var outsider = await UserWithAsync(admin, "core.parties.read");
+        Assert.Equal(HttpStatusCode.NotFound, (await colleague.PostAsJsonAsync($"{Url}/messages/{id}/feedback", Rate(false))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.PostAsJsonAsync($"{Url}/messages/{id}/feedback", Rate(false))).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await f.Client().PostAsJsonAsync($"{Url}/messages/{id}/feedback", Rate(false))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync($"{Url}/messages/{Guid.NewGuid()}/feedback", Rate(false))).StatusCode);
+
+        var rows = (await ApiFactory.Json(await admin.GetAsync($"{Url}/conversations/{chat}")))["messages"]!.AsArray();
+        Assert.All(rows, m => Assert.Null(m!["helpful"]));
+
+        // A reply is the only thing that takes a rating: not the person's own question, and not a note kept for the model.
+        var question = (string)rows.Single(m => (bool)m!["fromUser"]!)!["id"]!;
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync($"{Url}/messages/{question}/feedback", Rate(true))).StatusCode);
+        var (card, _, cardChat) = await ProposeCustomerInChatAsync(admin);
+        (await admin.PostAsync($"{Url}/actions/{card["id"]}/cancel", null)).EnsureSuccessStatusCode();
+        using var scope = f.Services.CreateScope();
+        var note = (await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.SqlQueryRaw<string>("SELECT Id AS Value FROM ast_Messages WHERE lower(ConversationId) = lower({0}) AND IsNote = 1", cardChat).ToListAsync()).Single();
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync($"{Url}/messages/{note}/feedback", Rate(true))).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_turn_with_no_words_offers_nothing_to_rate()
+    {
+        var admin = await ReadyAsync();
+        f.Chat.Script(Service, _ => [new ChatUsage(10, 0)]);
+        var events = await ReadAsync(await admin.PostAsJsonAsync($"{Url}/messages", Ask("Say nothing")));
+        Assert.Contains(events, e => e.Name == "done");
+        Assert.DoesNotContain(events, e => e.Name == "reply");
+    }
+
+    [Fact]
+    public async Task Usage_counts_this_months_ratings_and_never_the_words()
+    {
+        var admin = await ReadyAsync();
+        using (var scope = f.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.ExecuteSqlRawAsync("UPDATE ast_Messages SET Helpful = NULL");
+        var person = await UserWithAsync(admin, "assistant.chats.use");
+        async Task<string> RateAsync(HttpClient c, bool helpful, string words)
+        {
+            f.Chat.Script(Service, _ => Reply(words));
+            var id = ReplyId(await ReadAsync(await c.PostAsJsonAsync($"{Url}/messages", Ask(words))));
+            (await c.PostAsJsonAsync($"{Url}/messages/{id}/feedback", Rate(helpful))).EnsureSuccessStatusCode();
+            return id;
+        }
+        await RateAsync(admin, true, "Private one");
+        await RateAsync(person, true, "Private two"); // the whole workspace is counted, whoever rated
+        await RateAsync(admin, false, "Private three");
+        var old = await RateAsync(admin, false, "Private four");
+        using (var scope = f.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.ExecuteSqlRawAsync("UPDATE ast_Messages SET At = '2000-01-01 00:00:00' WHERE lower(Id) = lower({0})", old);
+
+        var res = await admin.GetAsync($"{Url}/usage");
+        var text = await res.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Private", text);
+        var usage = ApiFactory.Unwrap(JsonNode.Parse(text)!);
+        Assert.Equal(2, (int)usage["helpful"]!);
+        Assert.Equal(1, (int)usage["notHelpful"]!);
+    }
+
+    [Fact]
+    public async Task The_daily_limit_for_a_client_stops_everyone_in_it_and_zero_turns_it_off()
+    {
+        var admin = await ReadyAsync();
+        var person = await UserWithAsync(admin, "assistant.chats.use");
+        async Task SetLimitAsync(int limit)
+        {
+            using var scope = f.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            (await db.PlatformSettings.OrderBy(x => x.CreatedAt).FirstAsync()).WorkspaceAssistantDailyMessagesPerClient = limit;
+            await db.SaveChangesAsync();
+        }
+        await SetLimitAsync(1);
+        try
+        {
+            f.Chat.Script(Service, _ => Reply("One"));
+            Assert.Equal("One", Written(await ReadAsync(await admin.PostAsJsonAsync($"{Url}/messages", Ask("Hello")))));
+
+            // Another person has messages of their own left, but the workspace has none.
+            var refused = await ReadAsync(await person.PostAsJsonAsync($"{Url}/messages", Ask("Hello")));
+            Assert.Equal("client-limit", (string)refused.Single().Data["code"]!);
+            Assert.Single(f.Chat.Calls);
+
+            // Another client is not held back by this one.
+            var (other, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re");
+            (await other.PostAsync("/api/v1/modules/assistant/enable", null)).EnsureSuccessStatusCode();
+            (other, _) = await f.SignInAsync(ApiFactory.OwnerEmail, workspaceCode: "demo-re");
+            f.Chat.Script(Service, _ => Reply("Elsewhere"));
+            Assert.Equal("Elsewhere", Written(await ReadAsync(await other.PostAsJsonAsync($"{Url}/messages", Ask("Hello")))));
+
+            await SetLimitAsync(0);
+            f.Chat.Script(Service, _ => Reply("Off"));
+            Assert.Equal("Off", Written(await ReadAsync(await person.PostAsJsonAsync($"{Url}/messages", Ask("Hello")))));
+        }
+        finally { await SetLimitAsync(200); }
+    }
+
+    [Fact]
+    public async Task One_person_waits_for_their_reply_to_finish_and_nobody_else_does()
+    {
+        var admin = await ReadyAsync();
+        var colleague = await UserWithAsync(admin, "assistant.chats.use");
+        using var started = new SemaphoreSlim(0);
+        using var release = new SemaphoreSlim(0);
+        f.Chat.Script(Service, _ => { started.Release(); release.Wait(TimeSpan.FromSeconds(30)); return Reply("First"); }, _ => Reply("Colleague"), _ => Reply("Next"));
+
+        var first = admin.PostAsJsonAsync($"{Url}/messages", Ask("Hello"));
+        Assert.True(await started.WaitAsync(TimeSpan.FromSeconds(30)));
+        try
+        {
+            var busy = await ReadAsync(await admin.PostAsJsonAsync($"{Url}/messages", Ask("And another")));
+            Assert.Equal("busy", (string)busy.Single().Data["code"]!);
+            Assert.Single(f.Chat.Calls); // nothing was spent
+            Assert.Equal("Colleague", Written(await ReadAsync(await colleague.PostAsJsonAsync($"{Url}/messages", Ask("Hello")))));
+        }
+        finally { release.Release(); }
+        Assert.Equal("First", Written(await ReadAsync(await first)));
+
+        // Finished, so the same person can ask again.
+        Assert.Equal("Next", Written(await ReadAsync(await admin.PostAsJsonAsync($"{Url}/messages", Ask("And another")))));
     }
 
     [Fact]

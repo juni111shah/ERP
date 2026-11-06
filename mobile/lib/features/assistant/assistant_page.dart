@@ -60,6 +60,9 @@ class AssistantWords {
     required this.paused,
     required this.suggestions,
     required this.usage,
+    required this.ratings,
+    required this.helpful,
+    required this.notHelpful,
     required this.errors,
     required this.statuses,
     required this.serverTexts,
@@ -76,6 +79,12 @@ class AssistantWords {
   /// The workspace's usage this month; the second figure is null when the plan has no limit.
   final String Function(int used, int? max) usage;
 
+  /// How this month's replies were rated, as counts.
+  final String Function(int helpful, int notHelpful) ratings;
+
+  /// The names of the thumbs on a reply.
+  final String helpful, notHelpful;
+
   /// By the code of the stream's `error` event.
   final Map<String, String> errors;
 
@@ -87,6 +96,8 @@ class AssistantWords {
 
   static String _enUsage(int used, int? max) => max == null ? 'Your workspace has used $used messages this month.' : 'Your workspace has used $used of $max messages this month.';
   static String _arUsage(int used, int? max) => max == null ? 'استخدمت مساحة عملك $used رسالة هذا الشهر.' : 'استخدمت مساحة عملك $used من أصل $max رسالة هذا الشهر.';
+  static String _enRatings(int helpful, int notHelpful) => 'Answers rated this month: $helpful helpful, $notHelpful not helpful.';
+  static String _arRatings(int helpful, int notHelpful) => 'الإجابات المقيّمة هذا الشهر: $helpful مفيدة، $notHelpful غير مفيدة.';
 
   static const en = AssistantWords._(
     direction: TextDirection.ltr,
@@ -114,8 +125,13 @@ class AssistantWords {
     paused: 'This workspace is view-only until its subscription is brought up to date, so this change was not made.',
     suggestions: ['What needs my attention today?', 'Who owes us the most?', 'Where do I add a new customer?'],
     usage: _enUsage,
+    ratings: _enRatings,
+    helpful: 'This answer was helpful',
+    notHelpful: 'This answer was not helpful',
     errors: {
       'user-limit': "You have used today's messages for the assistant. Please try again tomorrow.",
+      'client-limit': "Your workspace has used today's assistant messages. Please try again tomorrow.",
+      'busy': 'Please wait for the current reply to finish.',
       'month-limit': "Your workspace has used this month's assistant messages. Your administrator can ask for a larger plan.",
       'daily-limit': 'The assistant has reached its limit for today. Please try again tomorrow.',
       'no-service': 'The assistant is not available right now.',
@@ -154,8 +170,13 @@ class AssistantWords {
     paused: 'مساحة العمل هذه للعرض فقط إلى أن يتم تحديث اشتراكها، لذا لم يُنفَّذ هذا التغيير.',
     suggestions: ['ما الذي يحتاج إلى انتباهي اليوم؟', 'من أكثر من يدين لنا بالمال؟', 'أين أضيف عميلاً جديداً؟'],
     usage: _arUsage,
+    ratings: _arRatings,
+    helpful: 'كانت هذه الإجابة مفيدة',
+    notHelpful: 'لم تكن هذه الإجابة مفيدة',
     errors: {
       'user-limit': 'لقد استخدمت رسائل اليوم المتاحة للمساعد. يرجى المحاولة مرة أخرى غداً.',
+      'client-limit': 'استخدمت مساحة عملك رسائل اليوم المخصصة للمساعد. يرجى المحاولة مرة أخرى غداً.',
+      'busy': 'يرجى الانتظار حتى ينتهي الرد الحالي.',
       'month-limit': 'استخدمت مساحة عملك رسائل المساعد المتاحة لهذا الشهر. يمكن لمسؤول مساحة العمل طلب خطة أكبر.',
       'daily-limit': 'بلغ المساعد الحد المسموح به لهذا اليوم. يرجى المحاولة مرة أخرى غداً.',
       'no-service': 'المساعد غير متاح الآن.',
@@ -242,6 +263,7 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
   var _loadingPast = false;
   var _past = <AssistantConversationRow>[];
   String? _conversationId;
+  String? _replyId;
   StreamSubscription<AssistantEvent>? _run;
   CancelToken? _token;
 
@@ -267,9 +289,26 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
     _token = null;
   }
 
+  /// Pressing the chosen thumb again takes it back. A failure puts back what was there.
+  Future<void> _rate(AssistantReplyItem item, bool choice) async {
+    final id = item.id;
+    if (id == null) return;
+    void show(bool? helpful) => setState(() => _items = [for (final i in _items) i is AssistantReplyItem && i.id == id ? AssistantReplyItem(i.text, id: id, helpful: helpful) : i]);
+    final helpful = item.helpful == choice ? null : choice;
+    show(helpful);
+    try {
+      await _api.feedback(id, helpful);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      show(item.helpful);
+      _toast(e);
+    }
+  }
+
   void _newChat() {
     _stopRun();
     _chat++;
+    _replyId = null;
     setState(() {
       _sending = false;
       _working = null;
@@ -302,6 +341,7 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
   Future<void> _openConversation(String id) async {
     final chat = ++_chat;
     _stopRun();
+    _replyId = null;
     setState(() {
       _sending = false;
       _working = null;
@@ -330,6 +370,7 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
         if (_conversationId == id) {
           _stopRun();
           _chat++;
+          _replyId = null;
           _sending = false;
           _working = null;
           _conversationId = null;
@@ -347,6 +388,7 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
     final chat = ++_chat;
     final token = CancelToken();
     _input.clear();
+    _replyId = null;
     setState(() {
       _error = null;
       _sending = true;
@@ -355,7 +397,7 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
     });
     _scrollDown();
     _token = token;
-    _run = _api.ask(conversationId: _conversationId, text: text, cancelToken: token).listen(
+    _run = _api.ask(conversationId: _conversationId, text: text, language: AppLanguage.maybeOf(context)?.languageCode == 'ar' || Localizations.maybeLocaleOf(context)?.languageCode == 'ar' ? 'ar' : 'en', cancelToken: token).listen(
       (e) {
         if (mounted && chat == _chat) _onEvent(e);
       },
@@ -375,6 +417,8 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
     switch (e) {
       case AssistantConversationEvent(:final id):
         _conversationId = id;
+      case AssistantReplyEvent(:final id):
+        _replyId = id;
       case AssistantStatusEvent(:final text):
         setState(() => _working = _w.statusFor(text));
       case AssistantDeltaEvent(:final text):
@@ -403,9 +447,14 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
   void _finish() {
     _run = null;
     _token = null;
+    // The server saves a reply as its stream ends, so the buttons wait until now.
+    final id = _replyId;
+    _replyId = null;
     setState(() {
       _sending = false;
       _working = null;
+      final last = _items.lastIndexWhere((i) => i is AssistantReplyItem);
+      if (id != null && last >= 0) _items = [for (var n = 0; n < _items.length; n++) n == last ? AssistantReplyItem((_items[n] as AssistantReplyItem).text, id: id) : _items[n]];
     });
   }
 
@@ -471,6 +520,11 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
                 Padding(
                   padding: const EdgeInsets.only(top: ErpSpace.s1),
                   child: Text(w.usage(usage.messagesThisMonth, usage.monthlyAllowance), key: const ValueKey('assistant-usage'), style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
+                ),
+              if (usage != null && (usage.helpful > 0 || usage.notHelpful > 0))
+                Padding(
+                  padding: const EdgeInsets.only(top: ErpSpace.s1),
+                  child: Text(w.ratings(usage.helpful, usage.notHelpful), key: const ValueKey('assistant-ratings'), style: TextStyle(fontSize: ErpType.caption, color: t.muted)),
                 ),
             ]),
           ),
@@ -580,7 +634,17 @@ class _AssistantPageState extends ConsumerState<AssistantPage> {
         for (final item in _items)
           switch (item) {
             AssistantUserItem(:final text) => _Bubble(mine: true, child: Text(text, textDirection: assistantDirection(text))),
-            AssistantReplyItem(:final text) => _Bubble(mine: false, child: AssistantReplyText(text: text)),
+            AssistantReplyItem(:final text, :final id, :final helpful) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                _Bubble(mine: false, child: AssistantReplyText(text: text)),
+                if (id != null)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(key: const ValueKey('assistant-helpful'), tooltip: w.helpful, isSelected: helpful == true, icon: const Icon(Icons.thumb_up_outlined, size: 18), selectedIcon: const Icon(Icons.thumb_up, size: 18), onPressed: () => _rate(item, true)),
+                      IconButton(key: const ValueKey('assistant-not-helpful'), tooltip: w.notHelpful, isSelected: helpful == false, icon: const Icon(Icons.thumb_down_outlined, size: 18), selectedIcon: const Icon(Icons.thumb_down, size: 18), onPressed: () => _rate(item, false)),
+                    ]),
+                  ),
+              ]),
             AssistantCardItem() => _ActionCardView(
                 item: item,
                 words: w,

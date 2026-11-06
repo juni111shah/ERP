@@ -133,7 +133,7 @@ class _PartiesScreenState extends ConsumerState<PartiesScreen> {
                 IconButton(tooltip: 'Overdue by age', icon: const Icon(Icons.hourglass_bottom), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ArAgeingScreen()))),
             ])
           : null,
-      floatingActionButton: canCreate ? FloatingActionButton.extended(onPressed: () => openForm<Object?>(context, partyForm(null, defaultRole: _role)), icon: const Icon(Icons.add), label: const Text('New')) : null,
+      floatingActionButton: canCreate ? FloatingActionButton.extended(heroTag: this, onPressed: () => openForm<Object?>(context, partyForm(null, defaultRole: _role)), icon: const Icon(Icons.add), label: const Text('New')) : null,
       body: Column(children: [
         if (widget.role == null)
           SizedBox(

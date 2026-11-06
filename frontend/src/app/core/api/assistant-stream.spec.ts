@@ -25,6 +25,10 @@ describe('AssistantStreamParser', () => {
     const events = new AssistantStreamParser().push('event: done\ndata: {"inputTokens":3,"outputTokens":4}\n\nevent: error\ndata: {"code":"daily-limit","message":"Limit"}\n\n');
     expect(events).toEqual([{ type: 'done', inputTokens: 3, outputTokens: 4 }, { type: 'error', code: 'daily-limit', message: 'Limit' }]);
   });
+
+  it('reads the id a reply is saved under', () => {
+    expect(new AssistantStreamParser().push('event: reply\ndata: {"id":"r1"}\n\n')).toEqual([{ type: 'reply', id: 'r1' }]);
+  });
 });
 
 describe('streamErrorMessage', () => {

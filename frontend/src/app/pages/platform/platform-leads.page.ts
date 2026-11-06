@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
@@ -28,7 +29,7 @@ const TABS: { status: BrandLeadStatus | null; label: string; empty: string }[] =
   selector: 'erp-platform-leads',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, NzButtonModule, NzModalModule, NzSelectModule, NzSpinModule, NzTabsModule, AssistantTextComponent, ErpDatePipe, PagedTableComponent, StatePanelComponent, StatusTagComponent],
+  imports: [FormsModule, NzButtonModule, NzCheckboxModule, NzModalModule, NzSelectModule, NzSpinModule, NzTabsModule, AssistantTextComponent, ErpDatePipe, PagedTableComponent, StatePanelComponent, StatusTagComponent],
   styles: [PLATFORM_STYLES, `
     .group { margin-bottom: 16px; }
     .pf-tabs { margin-bottom: 8px; }
@@ -78,13 +79,14 @@ const TABS: { status: BrandLeadStatus | null; label: string; empty: string }[] =
     </section>
     <section class="pf-card" data-testid="conversations-list">
       <h2>Public chats</h2>
-      <p class="pf-muted pf-small" style="margin:-4px 0 12px">Chats where a reply quoted a price that matches no plan are marked and listed first, so you can check them.</p>
+      <p class="pf-muted pf-small" style="margin:-4px 0 12px">Chats where a reply quoted a price that matches no plan are marked and listed first, so you can check them. Chats where a visitor marked an answer as not helpful are marked too.</p>
+      <label nz-checkbox style="margin-bottom:12px" [ngModel]="onlyNotHelpful()" (ngModelChange)="filterNotHelpful($event)" data-testid="conversations-not-helpful">Only chats with an answer marked not helpful</label>
       @if (failed()) {
         <erp-state-panel kind="error" title="Could not load the public chats" hint="The server did not answer." actionLabel="Try again" (action)="load()" />
       } @else if (loading()) {
         <div style="padding:32px;text-align:center"><nz-spin nzSimple></nz-spin></div>
       } @else if (!conversations().length) {
-        <p class="pf-empty">No chats yet.</p>
+        <p class="pf-empty">{{ onlyNotHelpful() ? 'No chats with an answer marked not helpful.' : 'No chats yet.' }}</p>
       } @else {
         <div class="pf-scroll">
           <table class="pf-table">
@@ -95,7 +97,10 @@ const TABS: { status: BrandLeadStatus | null; label: string; empty: string }[] =
                   <td class="pf-nowrap">{{ c.lastMessageAt | erpDate }}</td>
                   <td><div class="said" dir="auto" data-no-i18n>{{ c.firstMessage }}</div></td>
                   <td class="num">{{ c.visitorMessages }}</td>
-                  <td>@if (c.needsReview) { <erp-status value="overdue" label="Check the prices" /> }</td>
+                  <td>
+                    @if (c.needsReview) { <erp-status value="overdue" label="Check the prices" /> }
+                    @if (c.notHelpful) { <erp-status value="overdue" label="Not helpful" data-testid="conversation-not-helpful" /> }
+                  </td>
                   <td><div class="row-actions">
                     <button nz-button nzSize="small" type="button" (click)="openChat(c.id)" data-testid="conversation-open">Read</button>
                     @if (canManage()) {
@@ -116,6 +121,8 @@ const TABS: { status: BrandLeadStatus | null; label: string; empty: string }[] =
           @for (m of chat() ?? []; track $index) {
             <div class="turn" [class.visitor]="m.fromVisitor" [class.assistant]="!m.fromVisitor">
               @if (m.fromVisitor) { <span dir="auto">{{ m.text }}</span> } @else { <erp-assistant-text [text]="m.text" /> }
+              @if (m.helpful === false) { <erp-status value="overdue" label="Not helpful" data-testid="transcript-not-helpful" /> }
+              @if (m.helpful === true) { <erp-status value="active" label="Helpful" data-testid="transcript-helpful" /> }
             </div>
           } @empty { <p class="pf-empty">This chat has been deleted.</p> }
         </div>
@@ -142,6 +149,7 @@ export class PlatformLeadsPage {
   readonly chat = signal<BrandMessageRow[] | null>(null);
   readonly loading = signal(true);
   readonly failed = signal(false);
+  readonly onlyNotHelpful = signal(false);
   /** Only the owner can change a chat. The server decides; this just hides buttons that would be refused. */
   readonly canManage = signal(false);
 
@@ -152,10 +160,15 @@ export class PlatformLeadsPage {
 
   load(): void {
     this.failed.set(false);
-    this.api.brandConversations({ page: 1, pageSize: CHATS_SHOWN }).subscribe({
+    this.api.brandConversations({ page: 1, pageSize: CHATS_SHOWN, extra: this.onlyNotHelpful() ? { notHelpful: true } : {} }).subscribe({
       next: (r) => { this.conversations.set(r.items); this.loading.set(false); },
       error: () => { this.loading.set(false); this.failed.set(true); },
     });
+  }
+
+  filterNotHelpful(on: boolean): void {
+    this.onlyNotHelpful.set(on);
+    this.load();
   }
 
   select(index: number): void {

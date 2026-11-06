@@ -25,9 +25,16 @@ public sealed record ListBrandLeads : PagedQuery, IQuery<PagedResult<BrandLeadRo
 public sealed record SetBrandLeadStatus(Guid Id, BrandLeadStatus Status) : ICommand<BrandLeadRow>;
 public sealed record DeleteBrandLead(Guid Id) : ICommand;
 
-public sealed record BrandConversationRow(Guid Id, DateTime StartedAt, DateTime LastMessageAt, int VisitorMessages, bool NeedsReview, string? FirstMessage);
-public sealed record ListBrandConversations : PagedQuery, IQuery<PagedResult<BrandConversationRow>>;
-public sealed record BrandMessageRow(DateTime At, bool FromVisitor, string Text);
+/// <summary>A null <c>Helpful</c> takes the choice back.</summary>
+public sealed record BrandFeedbackInput(string? Token, bool? Helpful);
+public sealed record SetBrandMessageFeedback(Guid Id, BrandFeedbackInput Input) : ICommand;
+
+public sealed record BrandConversationRow(Guid Id, DateTime StartedAt, DateTime LastMessageAt, int VisitorMessages, bool NeedsReview, bool NotHelpful, string? FirstMessage);
+public sealed record ListBrandConversations : PagedQuery, IQuery<PagedResult<BrandConversationRow>>
+{
+    public bool? NotHelpful { get; init; }
+}
+public sealed record BrandMessageRow(DateTime At, bool FromVisitor, string Text, bool? Helpful);
 public sealed record GetBrandConversation(Guid Id) : IQuery<IReadOnlyList<BrandMessageRow>>;
 public sealed record MarkBrandConversationReviewed(Guid Id) : ICommand;
 public sealed record DeleteBrandConversation(Guid Id) : ICommand;
@@ -52,6 +59,7 @@ internal sealed class BrandLeadHandlers(
     IRepository<BrandLead> leads, IRepository<BrandConversation> conversations, IRepository<BrandMessage> messages, IReadRepository<SignupRequest> signups,
     PlatformSettingsStore settingsStore, IBrandSessionTokens tokens, PlatformLog log, IPlatformMailer mailer, IPlatformDirectory directory, ICurrentUser user) :
     IRequestHandler<SubmitBrandLead, Unit>,
+    IRequestHandler<SetBrandMessageFeedback, Unit>,
     IRequestHandler<ListBrandLeads, PagedResult<BrandLeadRow>>,
     IRequestHandler<SetBrandLeadStatus, BrandLeadRow>,
     IRequestHandler<DeleteBrandLead, Unit>,
@@ -84,6 +92,17 @@ internal sealed class BrandLeadHandlers(
         await leads.SaveChangesAsync(ct);
         await mailer.SendAsync(settings.SupportEmail, $"New lead: {lead.Name}",
             $"{lead.Name} ({lead.Email}) asked to be contacted through the assistant.\nCompany: {lead.Company ?? "not given"}\nPhone: {lead.Phone ?? "not given"}\n\n{lead.Need}\n\nSee it in your console: {mailer.Link("/platform/leads")}", ct);
+        return Unit.Value;
+    }
+
+    /// <summary>Only a reply in the chat this signed token belongs to. Anything else answers as if it did not exist, so a stranger learns nothing.</summary>
+    public async Task<Unit> Handle(SetBrandMessageFeedback cmd, CancellationToken ct)
+    {
+        if (!(await settingsStore.GetAsync(ct)).BrandAssistantEnabled) throw new NotFoundException();
+        var conversation = tokens.Read(cmd.Input.Token) ?? throw new NotFoundException();
+        var message = await messages.Tracked().FirstOrDefaultAsync(m => m.Id == cmd.Id && m.ConversationId == conversation && !m.FromVisitor, ct) ?? throw new NotFoundException();
+        message.Helpful = cmd.Input.Helpful;
+        await messages.SaveChangesAsync(ct);
         return Unit.Value;
     }
 
@@ -120,16 +139,18 @@ internal sealed class BrandLeadHandlers(
     public async Task<PagedResult<BrandConversationRow>> Handle(ListBrandConversations q, CancellationToken ct)
     {
         var query = conversations.Query();
+        if (q.NotHelpful == true) query = query.Where(c => messages.Query(null).Any(m => m.ConversationId == c.Id && m.Helpful == false));
         var total = await query.CountAsync(ct);
         var page = await query.OrderByDescending(c => c.NeedsReview).ThenByDescending(c => c.LastMessageAt).Skip((q.PageNumber - 1) * q.Size).Take(q.Size).ToListAsync(ct);
         var ids = page.Select(c => c.Id).ToList();
         var first = (await messages.Query().Where(m => ids.Contains(m.ConversationId) && m.FromVisitor).OrderBy(m => m.At).Select(m => new { m.ConversationId, m.Text }).ToListAsync(ct))
             .GroupBy(m => m.ConversationId).ToDictionary(g => g.Key, g => g.First().Text);
-        return new(page.Select(c => new BrandConversationRow(c.Id, c.StartedAt, c.LastMessageAt, c.VisitorMessages, c.NeedsReview, first.GetValueOrDefault(c.Id))).ToList(), total, q.PageNumber, q.Size);
+        var notHelpful = await messages.Query().Where(m => ids.Contains(m.ConversationId) && m.Helpful == false).Select(m => m.ConversationId).Distinct().ToListAsync(ct);
+        return new(page.Select(c => new BrandConversationRow(c.Id, c.StartedAt, c.LastMessageAt, c.VisitorMessages, c.NeedsReview, notHelpful.Contains(c.Id), first.GetValueOrDefault(c.Id))).ToList(), total, q.PageNumber, q.Size);
     }
 
     public async Task<IReadOnlyList<BrandMessageRow>> Handle(GetBrandConversation q, CancellationToken ct)
-        => await messages.Query().Where(m => m.ConversationId == q.Id).OrderBy(m => m.At).Select(m => new BrandMessageRow(m.At, m.FromVisitor, m.Text)).ToListAsync(ct);
+        => await messages.Query().Where(m => m.ConversationId == q.Id).OrderBy(m => m.At).Select(m => new BrandMessageRow(m.At, m.FromVisitor, m.Text, m.Helpful)).ToListAsync(ct);
 
     public async Task<Unit> Handle(MarkBrandConversationReviewed cmd, CancellationToken ct)
     {

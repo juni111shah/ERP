@@ -6,9 +6,10 @@ import { AssistantActionCard, AssistantStreamEvent } from './assistant-stream';
 import { PlatformApi } from './platform.api';
 
 export interface AssistantConversationRow { id: string; title: string; lastMessageAt: string; }
+export interface AssistantUsage { messagesThisMonth: number; monthlyAllowance: number | null; peopleThisMonth: number; helpful: number; notHelpful: number; }
 export interface AssistantConversationDetail {
   id: string; title: string;
-  messages: { at: string; fromUser: boolean; text: string }[];
+  messages: { id: string; at: string; fromUser: boolean; text: string; helpful: boolean | null }[];
   actions: (AssistantActionCard & { createdAt: string })[];
 }
 
@@ -21,7 +22,7 @@ export class WorkspaceAssistantApi {
 
   status(): Observable<{ available: boolean }> { return this.http.get<{ available: boolean }>(`${this.base}/status`); }
   /** Counts only, for people with the usage permission. */
-  usage(): Observable<{ messagesThisMonth: number; monthlyAllowance: number | null; peopleThisMonth: number }> { return this.http.get<{ messagesThisMonth: number; monthlyAllowance: number | null; peopleThisMonth: number }>(`${this.base}/usage`); }
+  usage(): Observable<AssistantUsage> { return this.http.get<AssistantUsage>(`${this.base}/usage`); }
   conversations(): Observable<AssistantConversationRow[]> { return this.http.get<AssistantConversationRow[]>(`${this.base}/conversations`); }
   conversation(id: string): Observable<AssistantConversationDetail> { return this.http.get<AssistantConversationDetail>(`${this.base}/conversations/${id}`); }
   deleteConversation(id: string): Observable<unknown> { return this.http.delete(`${this.base}/conversations/${id}`); }
@@ -31,4 +32,6 @@ export class WorkspaceAssistantApi {
     return this.http.post<AssistantActionCard>(`${this.base}/actions/${id}/confirm`, {}, { headers: new HttpHeaders({ 'Idempotency-Key': `assistant-action-${id}` }) });
   }
   cancel(id: string): Observable<AssistantActionCard> { return this.http.post<AssistantActionCard>(`${this.base}/actions/${id}/cancel`, {}); }
+  /** Null takes the choice back. */
+  feedback(id: string, helpful: boolean | null): Observable<unknown> { return this.http.post(`${this.base}/messages/${id}/feedback`, { helpful }); }
 }

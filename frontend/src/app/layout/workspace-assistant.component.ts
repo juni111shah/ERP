@@ -9,7 +9,7 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { Subscription, filter, map, startWith } from 'rxjs';
 import { AssistantActionCard, actionExpired, streamErrorMessage } from '../core/api/assistant-stream';
-import { AssistantConversationRow, WorkspaceAssistantApi } from '../core/api/workspace-assistant.api';
+import { AssistantConversationRow, AssistantUsage, WorkspaceAssistantApi } from '../core/api/workspace-assistant.api';
 import { problemMessage } from '../core/http/problem-details';
 import { Lang } from '../core/i18n/dictionaries';
 import { I18nService } from '../core/i18n/i18n.service';
@@ -27,7 +27,7 @@ export class WorkspaceAssistantState {
   private readonly api = inject(WorkspaceAssistantApi);
   private readonly session = inject(SessionStore);
   private readonly router = inject(Router);
-  private readonly url = toSignal(this.router.events.pipe(filter((e) => e instanceof NavigationEnd), map(() => this.router.url), startWith(this.router.url)), { initialValue: this.router.url });
+  readonly url = toSignal(this.router.events.pipe(filter((e) => e instanceof NavigationEnd), map(() => this.router.url), startWith(this.router.url)), { initialValue: this.router.url });
 
   private readonly serviceReady = signal(false);
   readonly open = signal(false);
@@ -53,18 +53,37 @@ export class WorkspaceAssistantState {
 
 type Item =
   | { kind: 'user'; text: string }
-  | { kind: 'assistant'; text: string }
+  | { kind: 'assistant'; text: string; id?: string; helpful?: boolean | null }
   | { kind: 'action'; card: AssistantActionCard; busy?: boolean };
+
+/** What to offer on each kind of page. Each needs what its answer would use. HR has none on purpose: its records stay away from the assistant. */
+const PAGE_STARTERS: { prefix: string; module: string; permission: string; en: string; ar: string }[] = [
+  { prefix: '/finance', module: 'core', permission: 'finance.invoices.read', en: 'Which invoices are overdue?', ar: 'ما الفواتير المتأخرة؟' },
+  { prefix: '/finance', module: 'core', permission: 'finance.bills.read', en: 'Which supplier bills are due soon?', ar: 'ما فواتير الموردين المستحقة قريباً؟' },
+  { prefix: '/finance', module: 'core', permission: 'finance.reports.read', en: 'How much do we owe our suppliers?', ar: 'كم ندين لموردينا؟' },
+  { prefix: '/sales', module: 'sales', permission: 'sales.quotes.read', en: 'Show the latest sales quotes', ar: 'اعرض أحدث عروض الأسعار' },
+  { prefix: '/sales', module: 'sales', permission: 'sales.orders.read', en: 'Which sales orders are still open?', ar: 'ما أوامر البيع التي لا تزال مفتوحة؟' },
+  { prefix: '/purchasing', module: 'purchasing', permission: 'purchasing.orders.read', en: 'Show the latest purchase orders', ar: 'اعرض أحدث أوامر الشراء' },
+  { prefix: '/purchasing', module: 'purchasing', permission: 'purchasing.requisitions.read', en: 'Which purchase requisitions are waiting?', ar: 'ما طلبات الشراء التي تنتظر؟' },
+  { prefix: '/inventory', module: 'inventory', permission: 'inventory.stock.read', en: 'What stock do we have on hand?', ar: 'ما المخزون المتوفر لدينا؟' },
+  { prefix: '/inventory', module: 'inventory', permission: 'inventory.counts.read', en: 'Show the latest stock counts', ar: 'اعرض أحدث عمليات جرد المخزون' },
+  { prefix: '/projects', module: 'projects', permission: 'projects.projects.read', en: 'Which projects are live?', ar: 'ما المشاريع الجارية؟' },
+  { prefix: '/projects', module: 'projects', permission: 'projects.tasks.read', en: 'Which project tasks are due soon?', ar: 'ما مهام المشاريع المستحقة قريباً؟' },
+];
 
 const WORDS = {
   en: {
     title: 'Assistant', close: 'Close the assistant', newChat: 'New chat', history: 'Past chats', back: 'Back to the chat', noHistory: 'No past chats yet.', remove: 'Delete this chat',
     usage: (used: number, max: number | null) => max === null ? `Your workspace has used ${used} messages this month.` : `Your workspace has used ${used} of ${max} messages this month.`,
+    ratings: (helpful: number, notHelpful: number) => `Answers rated this month: ${helpful} helpful, ${notHelpful} not helpful.`,
+    helpful: 'This answer was helpful', notHelpful: 'This answer was not helpful',
     notice: 'AI answers can be wrong, so check anything important. It only uses what you are allowed to see.', hello: 'Ask me about your records, or where to find something.', placeholder: 'Ask a question', send: 'Send', stop: 'Stop', working: 'Working',
     failed: 'Sorry, something went wrong. Please try again.', confirm: 'Confirm', cancel: 'Cancel', open: 'Open', cancelled: 'Cancelled', expired: 'Expired', check: 'Please check this before confirming.',
     suggestions: ['What needs my attention today?', 'Who owes us the most?', 'Where do I add a new customer?'],
     errors: {
       'user-limit': "You have used today's messages for the assistant. Please try again tomorrow.",
+      'client-limit': "Your workspace has used today's assistant messages. Please try again tomorrow.",
+      busy: 'Please wait for the current reply to finish.',
       'month-limit': "Your workspace has used this month's assistant messages. Your administrator can ask for a larger plan.",
       'daily-limit': 'The assistant has reached its limit for today. Please try again tomorrow.',
       'no-service': 'The assistant is not available right now.',
@@ -77,11 +96,15 @@ const WORDS = {
   ar: {
     title: 'المساعد', close: 'إغلاق المساعد', newChat: 'محادثة جديدة', history: 'المحادثات السابقة', back: 'العودة إلى المحادثة', noHistory: 'لا توجد محادثات سابقة بعد.', remove: 'حذف هذه المحادثة',
     usage: (used: number, max: number | null) => max === null ? `استخدمت مساحة عملك ${used} رسالة هذا الشهر.` : `استخدمت مساحة عملك ${used} من أصل ${max} رسالة هذا الشهر.`,
+    ratings: (helpful: number, notHelpful: number) => `الإجابات المقيّمة هذا الشهر: ${helpful} مفيدة، ${notHelpful} غير مفيدة.`,
+    helpful: 'كانت هذه الإجابة مفيدة', notHelpful: 'لم تكن هذه الإجابة مفيدة',
     notice: 'قد تكون إجابات الذكاء الاصطناعي خاطئة، لذا تحقق من أي أمر مهم. لا يستخدم إلا ما يحق لك الاطلاع عليه.', hello: 'اسألني عن سجلاتك أو عن مكان أي شيء في النظام.', placeholder: 'اطرح سؤالاً', send: 'إرسال', stop: 'إيقاف', working: 'جارٍ العمل',
     failed: 'عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى.', confirm: 'تأكيد', cancel: 'إلغاء', open: 'فتح', cancelled: 'أُلغي', expired: 'انتهت صلاحيته', check: 'يرجى التحقق من هذا قبل التأكيد.',
     suggestions: ['ما الذي يحتاج إلى انتباهي اليوم؟', 'من أكثر من يدين لنا بالمال؟', 'أين أضيف عميلاً جديداً؟'],
     errors: {
       'user-limit': 'لقد استخدمت رسائل اليوم المخصصة للمساعد. يرجى المحاولة مرة أخرى غداً.',
+      'client-limit': 'استخدمت مساحة عملك رسائل اليوم المخصصة للمساعد. يرجى المحاولة مرة أخرى غداً.',
+      busy: 'يرجى الانتظار حتى ينتهي الرد الحالي.',
       'month-limit': 'استخدمت مساحة عملك رسائل هذا الشهر المخصصة للمساعد. يمكن لمسؤول مساحة العمل طلب خطة أكبر.',
       'daily-limit': 'وصل المساعد إلى الحد المسموح به لهذا اليوم. يرجى المحاولة مرة أخرى غداً.',
       'no-service': 'المساعد غير متاح حالياً.',
@@ -108,6 +131,13 @@ export function assistantErrorText(lang: Lang, code: string, serverText: string)
   return WORDS[lang].errors[code] ?? serverText;
 }
 
+/** Starters for the page the person is on, only for what they can use. Any other page, or one with nothing they can use, gets the general ones. */
+export function assistantStarters(lang: Lang, url: string, can: (module: string, permission: string) => boolean): string[] {
+  const path = url.split(/[?#]/)[0];
+  const here = PAGE_STARTERS.filter((s) => (path === s.prefix || path.startsWith(s.prefix + '/')) && can(s.module, s.permission)).map((s) => s[lang]);
+  return here.length ? here : WORDS[lang].suggestions;
+}
+
 /** What the assistant is doing right now. The server's status texts are English. */
 export function assistantStatusText(lang: Lang, text: string): string {
   return lang === 'ar' ? WORDS.ar.statuses[text] ?? WORDS.ar.working : text;
@@ -128,6 +158,7 @@ export function assistantStatusText(lang: Lang, text: string): string {
     .bubble { max-width: 90%; padding: 8px 12px; border-radius: 12px; }
     .bubble.user { align-self: flex-end; background: var(--erp-color-primary-subtle, #e7f6ef); white-space: pre-wrap; overflow-wrap: anywhere; }
     .bubble.assistant { align-self: flex-start; background: var(--erp-color-bg-subtle, #f1f5f9); }
+    .rate { display: flex; gap: 2px; margin-top: 4px; }
     .card { border: 1px solid var(--erp-color-primary-border, #10955d); border-radius: 10px; padding: 10px 12px; }
     .card strong { display: block; margin-bottom: 6px; }
     .card dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; margin: 0 0 8px; }
@@ -162,7 +193,10 @@ export function assistantStatusText(lang: Lang, text: string): string {
           <button nz-button nzType="text" nzSize="small" type="button" [attr.aria-label]="w().close" (click)="state.open.set(false)" data-testid="workspace-assistant-close"><span nz-icon nzType="close"></span></button>
         </div>
         <div class="notice">{{ w().notice }}</div>
-        @if (usage(); as u) { <div class="notice" data-testid="workspace-assistant-usage">{{ w().usage(u.messagesThisMonth, u.monthlyAllowance) }}</div> }
+        @if (usage(); as u) {
+          <div class="notice" data-testid="workspace-assistant-usage">{{ w().usage(u.messagesThisMonth, u.monthlyAllowance) }}</div>
+          @if (u.helpful || u.notHelpful) { <div class="notice" data-testid="workspace-assistant-ratings">{{ w().ratings(u.helpful, u.notHelpful) }}</div> }
+        }
 
         @if (showHistory()) {
           <div class="past" data-testid="workspace-assistant-past">
@@ -177,12 +211,22 @@ export function assistantStatusText(lang: Lang, text: string): string {
           <div class="log" #log aria-live="polite" data-testid="workspace-assistant-log">
             @if (!items().length) {
               <div class="bubble assistant">{{ w().hello }}</div>
-              <div class="chips">@for (s of w().suggestions; track s) { <button type="button" (click)="send(s)" data-testid="workspace-assistant-suggestion">{{ s }}</button> }</div>
+              <div class="chips">@for (s of starters(); track s) { <button type="button" (click)="send(s)" data-testid="workspace-assistant-suggestion">{{ s }}</button> }</div>
             }
             @for (item of items(); track $index) {
               @switch (item.kind) {
                 @case ('user') { <div class="bubble user" dir="auto" data-testid="workspace-assistant-user">{{ item.text }}</div> }
-                @case ('assistant') { <div class="bubble assistant" data-testid="workspace-assistant-reply"><erp-assistant-text [text]="item.text" /></div> }
+                @case ('assistant') {
+                  <div class="bubble assistant" data-testid="workspace-assistant-reply">
+                    <erp-assistant-text [text]="item.text" />
+                    @if (item.id) {
+                      <div class="rate">
+                        <button nz-button nzType="text" nzSize="small" type="button" [attr.aria-label]="w().helpful" [attr.title]="w().helpful" [attr.aria-pressed]="item.helpful === true" (click)="rate(item.id, item.helpful, true)" data-testid="workspace-assistant-helpful"><span nz-icon nzType="like" [nzTheme]="item.helpful === true ? 'fill' : 'outline'"></span></button>
+                        <button nz-button nzType="text" nzSize="small" type="button" [attr.aria-label]="w().notHelpful" [attr.title]="w().notHelpful" [attr.aria-pressed]="item.helpful === false" (click)="rate(item.id, item.helpful, false)" data-testid="workspace-assistant-not-helpful"><span nz-icon nzType="dislike" [nzTheme]="item.helpful === false ? 'fill' : 'outline'"></span></button>
+                      </div>
+                    }
+                  </div>
+                }
                 @case ('action') {
                   <div class="card" [attr.data-testid]="'workspace-assistant-card-' + (expired(item.card) ? 'expired' : item.card.status)">
                     <strong dir="auto">{{ item.card.title }}</strong>
@@ -229,6 +273,7 @@ export class WorkspaceAssistantComponent {
   readonly state = inject(WorkspaceAssistantState);
   readonly i18n = inject(I18nService);
   readonly w = computed(() => WORDS[this.i18n.lang()]);
+  readonly starters = computed(() => assistantStarters(this.i18n.lang(), this.state.url(), (module, permission) => this.session.isModuleEnabled(module) && this.session.hasPermission(permission)));
   readonly items = signal<Item[]>([]);
   readonly draft = signal('');
   readonly sending = signal(false);
@@ -237,11 +282,12 @@ export class WorkspaceAssistantComponent {
   readonly showHistory = signal(false);
   readonly past = signal<AssistantConversationRow[]>([]);
   private conversationId: string | null = null;
+  private replyId: string | null = null;
   private running?: Subscription;
   /** The time cards are judged by. It moves when a card runs out, so its Confirm button goes away by itself. */
   private readonly now = signal(Date.now());
   private readonly workspaceId = computed(() => this.session.me()?.workspace.id ?? null);
-  readonly usage = signal<{ messagesThisMonth: number; monthlyAllowance: number | null } | null>(null);
+  readonly usage = signal<AssistantUsage | null>(null);
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.running?.unsubscribe());
@@ -270,6 +316,7 @@ export class WorkspaceAssistantComponent {
     this.running?.unsubscribe();
     this.sending.set(false);
     this.working.set(null);
+    this.replyId = null;
     this.conversationId = null;
     this.items.set([]);
     this.error.set(null);
@@ -286,7 +333,7 @@ export class WorkspaceAssistantComponent {
     this.api.conversation(id).subscribe({
       next: (c) => {
         const timed: { at: string; item: Item }[] = [
-          ...c.messages.map((m) => ({ at: m.at, item: (m.fromUser ? { kind: 'user', text: m.text } : { kind: 'assistant', text: m.text }) as Item })),
+          ...c.messages.map((m) => ({ at: m.at, item: (m.fromUser ? { kind: 'user', text: m.text } : { kind: 'assistant', text: m.text, id: m.id, helpful: m.helpful }) as Item })),
           ...c.actions.map((a) => ({ at: a.createdAt, item: { kind: 'action', card: a } as Item })),
         ];
         this.items.set(timed.sort((x, y) => x.at.localeCompare(y.at)).map((t) => t.item));
@@ -315,6 +362,7 @@ export class WorkspaceAssistantComponent {
     if (!text || this.sending()) return;
     this.draft.set('');
     this.error.set(null);
+    this.replyId = null;
     this.sending.set(true);
     this.working.set(this.w().working);
     this.items.update((list) => [...list, { kind: 'user', text }]);
@@ -323,6 +371,7 @@ export class WorkspaceAssistantComponent {
       next: (e) => {
         switch (e.type) {
           case 'conversation': this.conversationId = e.id; break;
+          case 'reply': this.replyId = e.id; break;
           case 'status': this.working.set(assistantStatusText(this.i18n.lang(), e.text)); break;
           case 'delta': this.working.set(null); this.append(e.text); break;
           case 'action': this.items.update((list) => [...list, { kind: 'action', card: e.action }]); this.watchExpiry([e.action]); this.scroll(); break;
@@ -353,6 +402,19 @@ export class WorkspaceAssistantComponent {
       next: (updated) => this.replaceCard(updated),
       error: (e) => { this.setBusy(card.id, false); this.message.error(problemMessage(e, this.w().failed)); },
     });
+  }
+
+  /** Pressing the chosen thumb again takes it back. A failure puts back what was there. */
+  rate(id: string, current: boolean | null | undefined, choice: boolean): void {
+    const helpful = current === choice ? null : choice;
+    this.setHelpful(id, helpful);
+    this.api.feedback(id, helpful).subscribe({
+      error: (e) => { this.setHelpful(id, current ?? null); this.message.error(problemMessage(e, this.w().failed)); },
+    });
+  }
+
+  private setHelpful(id: string, helpful: boolean | null): void {
+    this.items.update((list) => list.map((i) => (i.kind === 'assistant' && i.id === id ? { ...i, helpful } : i)));
   }
 
   private watchExpiry(cards: AssistantActionCard[]): void {
@@ -387,5 +449,9 @@ export class WorkspaceAssistantComponent {
   private finish(): void {
     this.sending.set(false);
     this.working.set(null);
+    // The server saves a reply as its stream ends, so the buttons wait until now.
+    const id = this.replyId;
+    this.replyId = null;
+    if (id) this.items.update((list) => { const last = list.map((i) => i.kind).lastIndexOf('assistant'); return list.map((i, n) => (n === last ? { ...i, id } : i)); });
   }
 }

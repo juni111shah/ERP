@@ -14,7 +14,7 @@ import { asProblem, problemMessage } from '../core/http/problem-details';
 import { AssistantTextComponent } from './assistant-text.component';
 
 export type Lang = 'en' | 'ar';
-interface Message { role: 'visitor' | 'assistant'; text: string; plans?: PublicPlan[]; canStart?: boolean; contact?: boolean; }
+interface Message { role: 'visitor' | 'assistant'; text: string; plans?: PublicPlan[]; canStart?: boolean; contact?: boolean; id?: string; helpful?: boolean | null; }
 
 const TOKEN_KEY = 'erp.brandAssistant.token';
 const MESSAGES_KEY = 'erp.brandAssistant.messages';
@@ -24,6 +24,7 @@ const WORDS = {
   en: {
     open: 'Ask about HigherSquare 360', title: 'HigherSquare assistant', close: 'Close the assistant', language: 'Arabic', languageShort: 'ع',
     notice: 'AI answers can be wrong, so check anything important. Please do not share passwords or payment details.',
+    helpful: 'This answer was helpful', notHelpful: 'This answer was not helpful',
     privacy: 'Privacy', hello: 'Hi! Ask me about plans, modules or getting started.', placeholder: 'Type your question', send: 'Send', stop: 'Stop', thinking: 'Thinking',
     failed: 'Sorry, something went wrong. Please try again.', busy: 'You have sent a lot of questions. Please try again a little later.',
     contact: 'Talk to our team', contactTitle: 'Talk to our team', name: 'Your name', email: 'Work email', phone: 'Phone (optional)', company: 'Company (optional)', need: 'How can we help? (optional)',
@@ -40,6 +41,7 @@ const WORDS = {
   ar: {
     open: 'اسأل عن HigherSquare 360', title: 'مساعد HigherSquare', close: 'إغلاق المساعد', language: 'English', languageShort: 'EN',
     notice: 'قد تكون إجابات الذكاء الاصطناعي خاطئة، لذا تحقق من أي أمر مهم. يرجى عدم مشاركة كلمات المرور أو بيانات الدفع.',
+    helpful: 'كانت هذه الإجابة مفيدة', notHelpful: 'لم تكن هذه الإجابة مفيدة',
     privacy: 'الخصوصية', hello: 'مرحباً! اسألني عن الخطط أو الوحدات أو كيفية البدء.', placeholder: 'اكتب سؤالك', send: 'إرسال', stop: 'إيقاف', thinking: 'جارٍ التفكير',
     failed: 'عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى.', busy: 'لقد أرسلت أسئلة كثيرة. يرجى المحاولة لاحقاً.',
     contact: 'تحدث مع فريقنا', contactTitle: 'تحدث مع فريقنا', name: 'اسمك', email: 'بريد العمل', phone: 'الهاتف (اختياري)', company: 'الشركة (اختياري)', need: 'كيف يمكننا مساعدتك؟ (اختياري)',
@@ -91,6 +93,7 @@ export function leadErrorText(lang: Lang, err: unknown): string {
     .bubble { max-width: 88%; padding: 8px 12px; border-radius: 12px; }
     .bubble.visitor { align-self: flex-end; background: var(--erp-color-primary-subtle, #e7f6ef); white-space: pre-wrap; overflow-wrap: anywhere; }
     .bubble.assistant { align-self: flex-start; background: var(--erp-color-bg-subtle, #f1f5f9); }
+    .rate { display: flex; gap: 2px; margin-top: 4px; }
     .status { color: var(--erp-color-text-muted, #64748b); font-size: 12.5px; }
     .chips { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
     .chips button { border: 1px solid var(--erp-color-border-subtle, #e2e8f0); background: none; border-radius: 16px; padding: 5px 12px; cursor: pointer; color: inherit; font: inherit; text-align: start; }
@@ -160,6 +163,12 @@ export function leadErrorText(lang: Lang, err: unknown): string {
                 @if (m.text) {
                   <div class="bubble" [class.visitor]="m.role === 'visitor'" [class.assistant]="m.role === 'assistant'" [attr.data-testid]="'brand-assistant-' + m.role">
                     @if (m.role === 'visitor') { <span dir="auto">{{ m.text }}</span> } @else { <erp-assistant-text [text]="m.text" (navigated)="open.set(false)" /> }
+                    @if (m.id; as id) {
+                      <div class="rate">
+                        <button nz-button nzType="text" nzSize="small" type="button" [attr.aria-label]="w().helpful" [attr.title]="w().helpful" [attr.aria-pressed]="m.helpful === true" (click)="rate(id, m.helpful, true)" data-testid="brand-assistant-helpful"><span nz-icon nzType="like" [nzTheme]="m.helpful === true ? 'fill' : 'outline'"></span></button>
+                        <button nz-button nzType="text" nzSize="small" type="button" [attr.aria-label]="w().notHelpful" [attr.title]="w().notHelpful" [attr.aria-pressed]="m.helpful === false" (click)="rate(id, m.helpful, false)" data-testid="brand-assistant-not-helpful"><span nz-icon nzType="dislike" [nzTheme]="m.helpful === false ? 'fill' : 'outline'"></span></button>
+                      </div>
+                    }
                   </div>
                 }
                 @if (m.contact) { <button nz-button nzSize="small" type="button" class="contact-link" (click)="view.set('contact')" data-testid="brand-assistant-contact-offer">{{ w().contact }}</button> }
@@ -203,6 +212,7 @@ export class BrandAssistantComponent {
   readonly leadSaving = signal(false);
   readonly leadError = signal<string | null>(null);
   readonly leadSent = signal(false);
+  private replyId: string | null = null;
   private running?: Subscription;
 
   constructor() { inject(DestroyRef).onDestroy(() => this.running?.unsubscribe()); }
@@ -252,6 +262,7 @@ export class BrandAssistantComponent {
     if (!text || this.sending()) return;
     this.draft.set('');
     this.error.set(null);
+    this.replyId = null;
     this.sending.set(true);
     this.thinking.set(this.w().thinking);
     this.pushMessage({ role: 'visitor', text });
@@ -259,6 +270,7 @@ export class BrandAssistantComponent {
       next: (e) => {
         switch (e.type) {
           case 'session': this.write(TOKEN_KEY, e.token); break;
+          case 'reply': this.replyId = e.id; break;
           case 'status': if (!this.lastIsReply()) this.thinking.set(statusText(this.lang(), e.text)); break;
           case 'plans': this.pushMessage({ role: 'assistant', text: '', plans: e.plans, canStart: e.mode !== 'closed' }); break;
           case 'delta': this.thinking.set(null); this.appendReply(e.text); break;
@@ -274,6 +286,20 @@ export class BrandAssistantComponent {
   stop(): void {
     this.running?.unsubscribe();
     this.finish();
+  }
+
+  /** Pressing the chosen thumb again takes it back. A failure puts back what was there. */
+  rate(id: string, current: boolean | null | undefined, choice: boolean): void {
+    const helpful = current === choice ? null : choice;
+    this.setHelpful(id, helpful);
+    this.api.brandFeedback(id, { token: this.read(TOKEN_KEY), helpful }).subscribe({
+      error: (e) => { this.setHelpful(id, current ?? null); this.error.set(asProblem(e)?.status === 429 ? this.w().busy : this.w().failed); },
+    });
+  }
+
+  private setHelpful(id: string, helpful: boolean | null): void {
+    this.messages.update((list) => list.map((m) => (m.id === id ? { ...m, helpful } : m)));
+    this.persist();
   }
 
   submitLead(): void {
@@ -315,6 +341,10 @@ export class BrandAssistantComponent {
   private finish(): void {
     this.sending.set(false);
     this.thinking.set(null);
+    // The server saves a reply as its stream ends, so the buttons wait until now. The contact offer can come after the words.
+    const id = this.replyId;
+    this.replyId = null;
+    if (id) this.messages.update((list) => { const last = list.map((m) => m.role === 'assistant' && !!m.text).lastIndexOf(true); return list.map((m, n) => (n === last ? { ...m, id } : m)); });
     this.persist();
   }
 }

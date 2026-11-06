@@ -2330,6 +2330,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<int>("ConsecutiveFailures")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -2806,6 +2809,9 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<bool>("FromVisitor")
                         .HasColumnType("bit");
 
+                    b.Property<bool?>("Helpful")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Text")
                         .IsRequired()
                         .HasMaxLength(8000)
@@ -3243,6 +3249,11 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("WorkspaceAssistantDailyMessagesPerClient")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(200);
 
                     b.Property<int>("WorkspaceAssistantDailyTokens")
                         .ValueGeneratedOnAdd()
@@ -3915,7 +3926,13 @@ namespace ERP.Infrastructure.Persistence.Migrations
                     b.Property<bool>("FromUser")
                         .HasColumnType("bit");
 
+                    b.Property<bool?>("Helpful")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsNote")
                         .HasColumnType("bit");
 
                     b.Property<Guid>("OrgId")
@@ -4094,6 +4111,14 @@ namespace ERP.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.Property<Guid?>("LegalEntityId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("LinesJson")
                         .IsRequired()

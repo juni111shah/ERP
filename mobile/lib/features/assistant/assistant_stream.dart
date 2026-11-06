@@ -81,6 +81,12 @@ class AssistantActionEvent extends AssistantEvent {
   final AssistantActionCard card;
 }
 
+/// The id the reply is saved under, for rating it. The row exists once the stream has ended.
+class AssistantReplyEvent extends AssistantEvent {
+  const AssistantReplyEvent(this.id);
+  final String id;
+}
+
 class AssistantErrorEvent extends AssistantEvent {
   const AssistantErrorEvent(this.code, this.message);
   final String code;
@@ -131,6 +137,7 @@ class AssistantStreamParser {
       'delta' => AssistantDeltaEvent((body['text'] ?? '').toString()),
       'conversation' => AssistantConversationEvent((body['id'] ?? '').toString()),
       'action' => AssistantActionEvent(AssistantActionCard.fromJson(body)),
+      'reply' => AssistantReplyEvent((body['id'] ?? '').toString()),
       'error' => AssistantErrorEvent((body['code'] ?? '').toString(), (body['message'] ?? '').toString()),
       _ => null, // service and done mean nothing to this screen
     };

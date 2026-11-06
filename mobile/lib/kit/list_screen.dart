@@ -60,6 +60,7 @@ class _ListScreenState extends ConsumerState<ListScreen> {
               // padding above the system inset; lift the button by that difference so it clears the bar.
               padding: EdgeInsets.only(bottom: (MediaQuery.paddingOf(context).bottom - MediaQuery.viewPaddingOf(context).bottom).clamp(0.0, double.infinity)),
               child: FloatingActionButton.extended(
+                heroTag: this, // several of these live side by side in the home tabs
                 onPressed: () => openForm<Object?>(context, widget.create!(ref)),
                 icon: const Icon(Icons.add),
                 label: const Text('New'),

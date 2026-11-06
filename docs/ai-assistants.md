@@ -58,6 +58,22 @@ The phone app has the same assistant and uses the same API, including Confirm an
 
 `tools/assistant-eval/run.mjs` asks real questions through the public API and checks prices against the live price list, plus the refusals and the language. It uses real tokens, so run it after changing the prompt, the facts or the model. Automatic checks are a floor: have a person read the replies, and a native speaker read the Arabic, before launch.
 
+`tools/assistant-eval/run-workspace.mjs` does the same for the workspace assistant, with the questions in `workspace-cases.json`. It signs in with credentials from `ASSISTANT_EVAL_EMAIL` and `ASSISTANT_EVAL_PASSWORD`, and checks that the right tool ran (from the `status` events), that a change request yields a card and changes nothing, that an instruction to delete everything is refused with no card, that an HR question returns no employee data, and that an Arabic question gets an Arabic reply. It needs a workspace cleared for client data, because its records go to the AI service, and it spends tokens.
+
+## Answer feedback
+
+Each reply has a thumbs up and a thumbs down, in the workspace panel, the phone app and the public widget. Pressing the same thumb again takes the choice back. The buttons appear once the reply's stream has ended, because the server saves the reply then, and it sends the id ahead of `done` as a `reply` event. A reply stopped part way gets its buttons when the chat is next opened from history (workspace) or never (public).
+
+- **Workspace:** `POST /m/assistant/messages/{id}/feedback`, for your own replies only, and allowed in a view-only workspace because it changes nothing in the business. People with `assistant.usage.read` see how many replies were rated each way this month. Those are counts only, never words, and they fall when a chat is deleted or passes its retention period.
+- **Public:** `POST /public/assistant/messages/{id}/feedback` with the visitor's signed session token, under the same `assistant-public` rate limit as questions, so each rating uses up one of the visitor's questions for that hour. A chat with an answer marked not helpful is marked in the console's public chats, where a filter shows only those and the transcript shows which answer. It stays there until the chat is deleted, which happens after 30 days at the latest.
+
+The model never sees a rating.
+
+## Not built
+
+- **Digests, document questions, and approve and email actions.** The plan holds these until the first changes are proven in real use.
+- **HR data.** Left out on purpose. Staff and pay records stay away from the outside service, whatever a person may see on screen, so HR has no reader and is kept out of `search_records`, `get_overview` and `list_approvals`.
+
 ## Before going live
 
 1. Final prices, company details and the About text in the console.

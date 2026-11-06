@@ -20,6 +20,8 @@ public class AssistantChatMessage : OrgEntity, INotAudited
     /// <summary>What became of a suggestion, for the model's next turn. People see the card instead, so a note never appears in the chat.</summary>
     public bool IsNote { get; set; }
     public string Text { get; set; } = default!;
+    /// <summary>The person's thumbs up or down on a reply. Null until they choose.</summary>
+    public bool? Helpful { get; set; }
 }
 
 /// <summary>How many messages a person sent on a day. Kept apart from the chats, so deleting a chat cannot reset a limit. It holds no words.</summary>

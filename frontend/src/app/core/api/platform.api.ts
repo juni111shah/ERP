@@ -113,8 +113,8 @@ export interface AiProviderView {
 }
 export type BrandLeadStatus = 'new' | 'contacted' | 'won' | 'lost';
 export interface BrandLeadRow { id: string; createdAt: string; status: BrandLeadStatus; name: string; email: string; phone: string | null; company: string | null; need: string | null; conversationId: string | null; hasRegistered: boolean; }
-export interface BrandConversationRow { id: string; startedAt: string; lastMessageAt: string; visitorMessages: number; needsReview: boolean; firstMessage: string | null; }
-export interface BrandMessageRow { at: string; fromVisitor: boolean; text: string; }
+export interface BrandConversationRow { id: string; startedAt: string; lastMessageAt: string; visitorMessages: number; needsReview: boolean; notHelpful: boolean; firstMessage: string | null; }
+export interface BrandMessageRow { at: string; fromVisitor: boolean; text: string; helpful: boolean | null; }
 export type AssistantBot = 'brand' | 'workspace';
 export interface AssistantUsageRow { bot: AssistantBot; providerId: string; providerName: string; requests: number; failures: number; inputTokens: number; outputTokens: number; lastFailure: string | null; }
 export interface AssistantConsoleView {
@@ -141,6 +141,8 @@ export class PlatformApi {
   publicContent(): Observable<PublicContent> { return this.http.get<PublicContent>(`${this.base}/public/content`); }
   brandAssistantStatus(): Observable<{ visible: boolean; supportEmail: string | null }> { return this.http.get<{ visible: boolean; supportEmail: string | null }>(`${this.base}/public/assistant/status`); }
   askBrandAssistant(input: { token: string | null; text: string; website: string | null }): Observable<AssistantStreamEvent> { return this.assistantStream(`${this.base}/public/assistant/messages`, input); }
+  /** Null takes the choice back. The signed token is what shows the reply is this visitor's. */
+  brandFeedback(id: string, input: { token: string | null; helpful: boolean | null }): Observable<unknown> { return this.http.post(`${this.base}/public/assistant/messages/${id}/feedback`, input); }
   submitBrandLead(input: BrandLeadInput): Observable<unknown> { return this.http.post(`${this.base}/public/assistant/leads`, input); }
   legal(): Observable<LegalDocuments> { return this.http.get<LegalDocuments>(`${this.base}/public/legal`); }
   signupConfig(): Observable<SignupConfig> { return this.http.get<SignupConfig>(`${this.base}/public/signup-config`); }
