@@ -389,4 +389,69 @@ public class ManufacturingPlanToProduceTests(ApiFactory f) : IClassFixture<ApiFa
         var reactivate = new { name = "Test BOM", outputQuantity = 1m, uom = "pcs", version = "1.0", laborCostPerUnit = 0m, overheadCostPerUnit = 0m, isActive = true, components = (object?)null };
         Assert.Equal(HttpStatusCode.BadRequest, (await x.C.PutAsJsonAsync($"{Mfg}/boms/{(string)parked["id"]!}", reactivate)).StatusCode);
     }
+
+    [Fact]
+    public async Task Requirements_explode_through_sub_assemblies_and_net_against_stock_and_open_orders()
+    {
+        var x = await SetupAsync();
+        var bolt = await ItemAsync(x.C, "BOLT", 1m);
+        var frame = await ItemAsync(x.C, "FRAME");
+        var chair = await ItemAsync(x.C, "CHAIR");
+        await ReceiveAsync(x.C, x.Warehouse, bolt, 20, 1m, x.PayableAccount);
+        await ReceiveAsync(x.C, x.Warehouse, frame, 2, 30m, x.PayableAccount);
+
+        // A chair takes 2 frames; 2 frames come out of 6 bolts and 2 raw (scrap 50% on raw makes 3).
+        await Ok(await x.C.PostAsJsonAsync($"{Mfg}/boms", BomBody(x.Entity, frame, output: 2m, components: [Component(bolt, 6m, 1m), Component(x.Raw, 2m, 50m, scrap: 50m)])), HttpStatusCode.Created);
+        var chairBom = await Ok(await x.C.PostAsJsonAsync($"{Mfg}/boms", BomBody(x.Entity, chair, components: [Component(frame, 2m, 30m)])), HttpStatusCode.Created);
+
+        await NewOrderAsync(x, 5m, bomId: (string)chairBom["id"]!);
+
+        var query = $"{Mfg}/requirements?legalEntityId={x.Entity}&warehouseId={x.Warehouse}";
+        var report = await Ok(await x.C.GetAsync(query));
+        Assert.Equal(1, (int)report["openWorkOrders"]!);
+        Assert.False((bool)report["openPurchaseNetted"]!);
+        JsonNode Row(string item) => report["rows"]!.AsArray().First(r => (string)r!["itemId"]! == item)!;
+
+        // Frames: 5 chairs x 2 = 10 gross, 2 on hand, 8 to make, which is 4 lots of 2.
+        var frames = Row(frame);
+        Assert.Equal((10m, 2m, 8m), ((decimal)frames["grossRequired"]!, (decimal)frames["onHand"]!, (decimal)frames["netRequired"]!));
+        Assert.True((bool)frames["isManufactured"]!);
+        Assert.Equal(1, (int)frames["level"]!);
+
+        var bolts = Row(bolt);
+        Assert.Equal((24m, 20m, 4m), ((decimal)bolts["grossRequired"]!, (decimal)bolts["onHand"]!, (decimal)bolts["netRequired"]!));
+        Assert.Equal(2, (int)bolts["level"]!);
+
+        var raw = Row(x.Raw);
+        Assert.Equal((12m, 20m, 0m), ((decimal)raw["grossRequired"]!, (decimal)raw["onHand"]!, (decimal)raw["netRequired"]!));
+
+        var shortages = report["shortages"]!.AsArray().Select(r => (string)r!["itemId"]!).ToList();
+        Assert.Contains(bolt, shortages);
+        Assert.Contains(frame, shortages);
+        Assert.DoesNotContain(x.Raw, shortages);
+
+        // A what-if on top of the open order, for the finished product itself: 5 chairs are in production against 7 asked for.
+        var whatIf = await Ok(await x.C.GetAsync($"{query}&itemId={chair}&quantity=7"));
+        var chairs = whatIf["rows"]!.AsArray().First(r => (string)r!["itemId"]! == chair)!;
+        Assert.Equal((7m, 5m, 2m), ((decimal)chairs["grossRequired"]!, (decimal)chairs["inProduction"]!, (decimal)chairs["netRequired"]!));
+        Assert.Equal(0, (int)chairs["level"]!);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await x.C.GetAsync($"{query}&itemId={chair}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Issued_material_no_longer_counts_as_a_requirement()
+    {
+        var x = await SetupAsync();
+        var id = await ReleasedOrderAsync(x, 4m);
+        var query = $"{Mfg}/requirements?legalEntityId={x.Entity}&warehouseId={x.Warehouse}";
+        var raw = (await Ok(await x.C.GetAsync(query)))["rows"]!.AsArray().First(r => (string)r!["itemId"]! == x.Raw)!;
+        Assert.Equal(8m, (decimal)raw["grossRequired"]!);
+
+        await Ok(await x.C.PostAsJsonAsync($"{Mfg}/workorders/{id}/issue", new { lines = new[] { new { itemId = x.Raw, quantity = 3m } } }));
+
+        raw = (await Ok(await x.C.GetAsync(query)))["rows"]!.AsArray().First(r => (string)r!["itemId"]! == x.Raw)!;
+        Assert.Equal(5m, (decimal)raw["grossRequired"]!);
+        Assert.Equal(17m, (decimal)raw["onHand"]!);
+    }
 }

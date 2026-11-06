@@ -79,6 +79,10 @@ internal static class ManufacturingEndpoints
         orders.MapPost("/{id:guid}/reverse", (Guid id, ReverseWorkOrderBody body, ISender s, CancellationToken ct) =>
             s.Send(new ReverseWorkOrderCommand(id, body.Reason), ct)).RequirePermission(Permissions.WorkOrdersReverse);
 
+        // Material requirements
+        group.MapGet("/requirements", (Guid legalEntityId, Guid? warehouseId, Guid? itemId, decimal? quantity, ISender s, CancellationToken ct) =>
+            s.Send(new GetMaterialRequirementsQuery(legalEntityId, warehouseId, itemId, quantity), ct)).RequirePermission(Permissions.WorkOrdersRead);
+
         // Product Costing & Variance
         var costing = group.MapGroup("/costing");
         costing.MapGet("/rollup/{bomId:guid}", (Guid bomId, Guid? warehouseId, ISender s, CancellationToken ct) =>
