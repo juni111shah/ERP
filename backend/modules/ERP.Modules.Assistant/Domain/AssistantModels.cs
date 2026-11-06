@@ -20,6 +20,14 @@ public class AssistantChatMessage : OrgEntity, INotAudited
     public string Text { get; set; } = default!;
 }
 
+/// <summary>How many messages a person sent on a day. Kept apart from the chats, so deleting a chat cannot reset a limit. It holds no words.</summary>
+public class AssistantMessageCount : OrgEntity, INotAudited
+{
+    public Guid UserId { get; set; }
+    public DateOnly Day { get; set; }
+    public int Count { get; set; }
+}
+
 /// <summary>A change the assistant suggested, waiting for that person's click. The change itself, once made, is audited as usual.</summary>
 public class AssistantPendingAction : OrgEntity, INotAudited
 {

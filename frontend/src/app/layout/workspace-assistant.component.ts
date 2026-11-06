@@ -57,12 +57,14 @@ type Item =
 const WORDS = {
   en: {
     title: 'Assistant', close: 'Close the assistant', newChat: 'New chat', history: 'Past chats', back: 'Back to the chat', noHistory: 'No past chats yet.', remove: 'Delete this chat',
+    usage: (used: number, max: number | null) => max === null ? `Your workspace has used ${used} messages this month.` : `Your workspace has used ${used} of ${max} messages this month.`,
     notice: 'AI answers can be wrong, so check anything important. It only uses what you are allowed to see.', hello: 'Ask me about your records, or where to find something.', placeholder: 'Ask a question', send: 'Send', stop: 'Stop', working: 'Working',
     failed: 'Sorry, something went wrong. Please try again.', confirm: 'Confirm', cancel: 'Cancel', open: 'Open', cancelled: 'Cancelled', expired: 'Expired', check: 'Please check this before confirming.',
     suggestions: ['What needs my attention today?', 'Who owes us the most?', 'Where do I add a new customer?'],
   },
   ar: {
     title: 'المساعد', close: 'إغلاق المساعد', newChat: 'محادثة جديدة', history: 'المحادثات السابقة', back: 'العودة إلى المحادثة', noHistory: 'لا توجد محادثات سابقة بعد.', remove: 'حذف هذه المحادثة',
+    usage: (used: number, max: number | null) => max === null ? `استخدمت مساحة عملك ${used} رسالة هذا الشهر.` : `استخدمت مساحة عملك ${used} من أصل ${max} رسالة هذا الشهر.`,
     notice: 'قد تكون إجابات الذكاء الاصطناعي خاطئة، لذا تحقق من أي أمر مهم. لا يستخدم إلا ما يحق لك الاطلاع عليه.', hello: 'اسألني عن سجلاتك أو عن مكان أي شيء في النظام.', placeholder: 'اطرح سؤالاً', send: 'إرسال', stop: 'إيقاف', working: 'جارٍ العمل',
     failed: 'عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى.', confirm: 'تأكيد', cancel: 'إلغاء', open: 'فتح', cancelled: 'أُلغي', expired: 'انتهت صلاحيته', check: 'يرجى التحقق من هذا قبل التأكيد.',
     suggestions: ['ما الذي يحتاج إلى انتباهي اليوم؟', 'من أكثر من يدين لنا بالمال؟', 'أين أضيف عميلاً جديداً؟'],
@@ -118,6 +120,7 @@ const WORDS = {
           <button nz-button nzType="text" nzSize="small" type="button" [attr.aria-label]="w().close" (click)="state.open.set(false)" data-testid="workspace-assistant-close"><span nz-icon nzType="close"></span></button>
         </div>
         <div class="notice">{{ w().notice }}</div>
+        @if (usage(); as u) { <div class="notice" data-testid="workspace-assistant-usage">{{ w().usage(u.messagesThisMonth, u.monthlyAllowance) }}</div> }
 
         @if (showHistory()) {
           <div class="past" data-testid="workspace-assistant-past">
@@ -193,6 +196,7 @@ export class WorkspaceAssistantComponent {
   readonly past = signal<AssistantConversationRow[]>([]);
   private conversationId: string | null = null;
   private running?: Subscription;
+  readonly usage = signal<{ messagesThisMonth: number; monthlyAllowance: number | null } | null>(null);
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.running?.unsubscribe());
@@ -202,6 +206,11 @@ export class WorkspaceAssistantComponent {
       untracked(() => this.newChat());
     });
     effect(() => { if (this.state.open()) setTimeout(() => this.boxRef()?.nativeElement.focus()); });
+    // Administrators see how much the workspace has used. It is only a count, and a failure here must not get in the way of the chat.
+    effect(() => {
+      if (!this.state.open() || !this.session.hasPermission('assistant.usage.read')) { this.usage.set(null); return; }
+      untracked(() => this.api.usage().subscribe({ next: (u) => this.usage.set(u), error: () => this.usage.set(null) }));
+    });
   }
 
   enter(e: KeyboardEvent): void {

@@ -151,6 +151,11 @@ public sealed class RealEstateModule : ModuleBase
         services.AddScoped<LeaseExpiryProcessor>();
         services.AddScoped<ERP.Application.Reminders.IReminderSource, RealEstateReminders>();
         services.AddScoped<ERP.Application.Search.ISearchProvider, RealEstateSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, PropertiesAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, UnitsAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, LeasesAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, PropertyWorkOrdersAssistantReader>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(new ERP.Application.Assistant.AssistantHelpPack(Key, RealEstateAssistantHelp.Articles));
         services.AddScoped<ERP.Application.Finance.ICashForecastSource, FinancingForecastSource>();
         services.AddScoped<ERP.Application.Abstractions.IScheduledJob, LeaseExpiryJob>();
         services.AddScoped<ERP.Application.Imports.IImportDefinition, PropertyImport>();

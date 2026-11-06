@@ -49,6 +49,9 @@ public sealed class ServicesModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ISearchProvider, ServicesSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, EngagementsAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, RetainersAssistantReader>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(new ERP.Application.Assistant.AssistantHelpPack(Key, ServicesAssistantHelp.Articles));
         services.AddScoped<IDashboardContributor, ServicesDashboard>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<ServiceEngagement>(

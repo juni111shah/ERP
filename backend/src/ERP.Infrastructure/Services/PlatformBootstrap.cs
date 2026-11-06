@@ -55,12 +55,12 @@ public sealed class PlatformBootstrap(AppDbContext db, UserManager<AppUser> user
             db.SubscriptionPlans.AddRange(
                 new SubscriptionPlan
                 {
-                    Code = "starter", Name = "Starter", Description = "For small teams getting organised.", SortOrder = 10, MonthlyPrice = 49, AnnualPrice = 490, TrialDays = 14, MaxUsers = 5, MaxLegalEntities = 1,
+                    Code = "starter", Name = "Starter", Description = "For small teams getting organised.", SortOrder = 10, MonthlyPrice = 49, AnnualPrice = 490, TrialDays = 14, MaxUsers = 5, MaxLegalEntities = 1, AssistantMonthlyMessages = 500,
                     Features = "Up to 5 users\n1 legal entity\nEmail support",
                 },
                 new SubscriptionPlan
                 {
-                    Code = "business", Name = "Business", Description = "For growing companies with several departments.", SortOrder = 20, MonthlyPrice = 149, AnnualPrice = 1490, TrialDays = 14, MaxUsers = 25, MaxLegalEntities = 3, IsRecommended = true,
+                    Code = "business", Name = "Business", Description = "For growing companies with several departments.", SortOrder = 20, MonthlyPrice = 149, AnnualPrice = 1490, TrialDays = 14, MaxUsers = 25, MaxLegalEntities = 3, AssistantMonthlyMessages = 3000, IsRecommended = true,
                     Features = "Up to 25 users\n3 legal entities\nPriority support",
                 },
                 new SubscriptionPlan

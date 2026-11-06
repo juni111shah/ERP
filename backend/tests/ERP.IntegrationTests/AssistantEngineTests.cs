@@ -159,6 +159,28 @@ public class AssistantEngineTests(EngineApiFactory f) : IClassFixture<EngineApiF
     }
 
     [Fact]
+    public async Task With_no_other_service_a_short_limit_is_waited_out()
+    {
+        var founder = await ResetAsync();
+        await AddServiceAsync(founder, "Only", "https://only.example.com/v1");
+        f.Chat.Script("https://only.example.com/v1", _ => Fail(ChatFailureKind.RateLimited, "Limit.", TimeSpan.FromMilliseconds(50)), _ => Reply("After the wait"));
+
+        Assert.Equal("After the wait", Written(await ReadAsync(await founder.PostAsJsonAsync($"{Url}/try", Ask()))));
+    }
+
+    [Fact]
+    public async Task A_long_limit_is_not_waited_out()
+    {
+        var founder = await ResetAsync();
+        await AddServiceAsync(founder, "Only", "https://only.example.com/v1");
+        f.Chat.Script("https://only.example.com/v1", _ => Fail(ChatFailureKind.RateLimited, "Limit.", TimeSpan.FromMinutes(5)));
+
+        var events = await ReadAsync(await founder.PostAsJsonAsync($"{Url}/try", Ask()));
+        Assert.Equal("unavailable", (string)events.Last().Data["code"]!);
+        Assert.Single(f.Chat.Calls);
+    }
+
+    [Fact]
     public async Task A_failure_after_text_was_shown_is_reported_and_not_answered_twice()
     {
         var founder = await ResetAsync();

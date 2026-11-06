@@ -107,6 +107,9 @@ public sealed class ProjectsModule : ModuleBase
         services.AddScoped<ProjectFigures>();
         services.AddScoped<IDashboardContributor, ProjectsDashboard>();
         services.AddScoped<ISearchProvider, ProjectsSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, ProjectsAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, ProjectTasksAssistantReader>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(new ERP.Application.Assistant.AssistantHelpPack(Key, ProjectsAssistantHelp.Articles));
         services.AddScoped<ERP.Application.Reminders.IReminderSource, ProjectsReminders>();
         services.AddScoped<ERP.Application.Imports.IImportDefinition, ProjectTaskImport>();
         foreach (var (owner, read, manage) in new[] { ("projecttask", P.TasksRead, P.TasksManage), ("projectexpense", P.ExpensesRead, P.ExpensesManage) })

@@ -19,6 +19,8 @@ public sealed class AssistantRunner(
     public const int MaxToolCallsPerTurn = 3;
     private static readonly TimeSpan MaxTurnTime = TimeSpan.FromSeconds(120);
     private static readonly TimeSpan DefaultCooldown = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan MaxPatientWait = TimeSpan.FromSeconds(30);
+    private const int MaxPatientWaits = 2;
     private static readonly TimeSpan MaxCooldown = TimeSpan.FromHours(1);
 
     private static string CooldownKey(Guid providerId) => $"assistant-cooldown:{providerId}";
@@ -52,6 +54,7 @@ public sealed class AssistantRunner(
         var definitions = turn.Tools.Select(t => t.Definition).ToList();
         var index = 0;
         var toolCallsUsed = 0;
+        var patientWaits = 0;
         var shownText = false;
         var announced = false;
         var inputTotal = 0;
@@ -124,6 +127,14 @@ public sealed class AssistantRunner(
                 log.LogWarning("AI service {Service} failed: {Kind}", provider.Name, failure.Kind);
                 // A service that failed part way still spent tokens on what it had written.
                 await usage.RecordAsync(today, turn.Bot, provider.Id, provider.Name, roundText.Length > 0 ? Estimate(request) : 0, Estimate(roundText.Length), failure.Message, CancellationToken.None);
+                // A free plan's per-minute limit clears within seconds. With no other service to try, a short wait beats telling the person to come back.
+                if (failure is { Kind: ChatFailureKind.RateLimited, RetryAfter: { } shortWait } && shortWait <= MaxPatientWait && !shownText && index == candidates.Count - 1 && patientWaits < MaxPatientWaits)
+                {
+                    patientWaits++;
+                    try { await Task.Delay(shortWait < TimeSpan.Zero ? TimeSpan.Zero : shortWait, turnTime.Token); }
+                    catch (OperationCanceledException) { yield break; }
+                    continue;
+                }
                 if (failure.Kind == ChatFailureKind.RateLimited)
                     cache.Set(CooldownKey(provider.Id), true, failure.RetryAfter is { } wait && wait > TimeSpan.Zero ? (wait < MaxCooldown ? wait : MaxCooldown) : DefaultCooldown);
                 if (shownText)

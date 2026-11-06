@@ -75,6 +75,9 @@ public sealed class RetailModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, RetailDashboard>();
         services.AddScoped<ISearchProvider, RetailSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, StoresAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, PromotionsAssistantReader>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(new ERP.Application.Assistant.AssistantHelpPack(Key, RetailAssistantHelp.Articles));
     }
 
     public override void ConfigureModel(ModelBuilder mb)

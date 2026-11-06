@@ -63,6 +63,7 @@ import { PLATFORM_STYLES } from './platform-ui';
               <dt>Trial</dt><dd>{{ p.trialDays > 0 ? p.trialDays + ' days' : 'None' }}</dd>
               <dt>Users</dt><dd>{{ p.maxUsers ?? 'No limit' }}</dd>
               <dt>Legal entities</dt><dd>{{ p.maxLegalEntities ?? 'No limit' }}</dd>
+              <dt>Assistant messages a month</dt><dd>{{ p.assistantMonthlyMessages === 0 ? 'Not included' : p.assistantMonthlyMessages ?? 'No limit' }}</dd>
               <dt>Modules</dt><dd>{{ moduleText(p) }}</dd>
               <dt>Clients</dt><dd data-testid="plan-client-count">{{ p.clientCount }}</dd>
             </dl>
@@ -104,6 +105,7 @@ export class PlatformPlansPage {
     { key: 'sortOrder', label: 'Sort order', type: 'number', required: true, precision: 0, default: 100, hint: 'Lower numbers come first on the price list.' },
     { key: 'maxUsers', label: 'Maximum users', type: 'number', min: 1, precision: 0, hint: 'Leave empty for no limit.' },
     { key: 'maxLegalEntities', label: 'Maximum legal entities', type: 'number', min: 1, precision: 0, hint: 'Leave empty for no limit.' },
+    { key: 'assistantMonthlyMessages', label: 'AI assistant messages per month', type: 'number', min: 0, precision: 0, hint: 'For the whole workspace. Leave empty for no limit, or use 0 to leave the assistant out of this plan.' },
     { key: 'modules', label: 'Modules', type: 'multiselect', options: this.modules().map((m) => ({ value: m.key, label: m.name })), hint: 'Leave empty to include every module.' },
     { key: 'features', label: 'Features', type: 'textarea', maxLength: 2000, hint: 'One per line. These are the selling points on the pricing card.' },
     { key: 'isPublic', label: 'Public', type: 'switch', default: true, hint: 'Shown on the registration page.' },
@@ -140,7 +142,7 @@ export class PlatformPlansPage {
   save(v: Record<string, unknown>): void {
     const input: PlanInput = {
       code: v['code'] as string, name: v['name'] as string, description: v['description'] as string | null, isPublic: !!v['isPublic'], isRecommended: !!v['isRecommended'], sortOrder: (v['sortOrder'] as number) ?? 0,
-      monthlyPrice: (v['monthlyPrice'] as number) ?? 0, annualPrice: (v['annualPrice'] as number) ?? 0, trialDays: (v['trialDays'] as number) ?? 0, maxUsers: (v['maxUsers'] as number | null) ?? null, maxLegalEntities: (v['maxLegalEntities'] as number | null) ?? null,
+      monthlyPrice: (v['monthlyPrice'] as number) ?? 0, annualPrice: (v['annualPrice'] as number) ?? 0, trialDays: (v['trialDays'] as number) ?? 0, maxUsers: (v['maxUsers'] as number | null) ?? null, maxLegalEntities: (v['maxLegalEntities'] as number | null) ?? null, assistantMonthlyMessages: (v['assistantMonthlyMessages'] as number | null) ?? null,
       modules: (v['modules'] as string[] | null) ?? [], features: String(v['features'] ?? '').split('\n').map((f) => f.trim()).filter(Boolean),
     };
     const editing = this.editing();

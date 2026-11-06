@@ -35,7 +35,21 @@ Confirmed changes available today: `create_party`, `create_draft_quote` (Sales m
 
 ## Abuse and cost
 
-Public: 30 questions an hour per address (`RateLimiting:AssistantPerHour`), 20 questions per chat, 1,000 characters per question, a hidden honeypot field, and the daily token limit as the backstop. Workspace: 30 messages per person per day (`assistant.dailyMessagesPerUser`) and its own daily token limit.
+Public: 30 questions an hour per address (`RateLimiting:AssistantPerHour`), 20 questions per chat, 1,000 characters per question, a hidden honeypot field, and the daily token limit as the backstop.
+
+Workspace: 30 messages per person per day (`assistant.dailyMessagesPerUser`), a monthly allowance for the whole workspace set on each plan (`AssistantMonthlyMessages`: empty means no limit, 0 leaves the assistant out of the plan), and its own daily token limit. A workspace with no plan has no monthly limit. Messages are counted in `ast_MessageCounts`, apart from the chats, so deleting a chat cannot reset a limit. People with `assistant.usage.read` see the month's count in the panel. It is only a count: nobody can read another person's chats.
+
+## Help articles
+
+`search_help` answers how-to questions from short articles. Each module owns its own (`IAssistantHelp`, registered from `ConfigureServices`), and core has a pack for the screens every workspace has, so the core never holds an industry's words. An article is hidden when its module is off or the person lacks its permission. Search is by shared words; the model translates the question to English first. When a screen changes, change its article too.
+
+## Audit link
+
+The audit rows from a confirmed change carry `CorrelationId` = `assistant-conversation:<id>`, so a change can be traced to the chat it came from. The chat's words stay out of the trail.
+
+## Mobile
+
+The phone app has the same assistant and uses the same API, including Confirm and Cancel cards. See `mobile/README.md`.
 
 ## Checking quality
 

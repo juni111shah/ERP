@@ -52,6 +52,21 @@ internal sealed class SearchRecordsTool(ISender sender) : IAssistantTool
     }
 }
 
+internal sealed class SearchHelpTool(AssistantCatalog catalog) : IAssistantTool
+{
+    public ChatToolDefinition Definition { get; } = new("search_help", "Finds short how-to articles about using this system. Write the question in English, even when the person wrote in another language.",
+        """{"type":"object","properties":{"question":{"type":"string"}},"required":["question"]}""");
+    public string StatusText => "Checking the help articles";
+
+    public async Task<string> RunAsync(string argumentsJson, CancellationToken ct)
+    {
+        var question = ToolAnswers.ReadText(argumentsJson, "question");
+        if (question is null) return "Give the question to look up.";
+        var found = await catalog.FindHelpAsync(question, 3, ct);
+        return found.Count == 0 ? "No help article matches." : ToolAnswers.Serialize(found.Select(a => new { a.Title, a.Body, a.Link }));
+    }
+}
+
 internal sealed class ListRecordsTool(AssistantCatalog catalog) : IAssistantTool
 {
     private const int PageSize = 20;

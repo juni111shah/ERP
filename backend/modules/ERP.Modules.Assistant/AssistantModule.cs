@@ -18,13 +18,14 @@ public sealed class AssistantModule : ModuleBase
 {
     public const string Key = "assistant";
     public const string ChatsUse = "assistant.chats.use";
+    public const string UsageRead = "assistant.usage.read";
     public const string RetentionDaysSetting = "assistant.retentionDays";
     public const string DailyMessagesSetting = "assistant.dailyMessagesPerUser";
 
     public override ModuleManifest Manifest { get; } = new(Key, "AI assistant",
         "Ask questions about your business and get answers from your own records. Enabling it sends the information needed for each answer to an AI service provider.", "Horizontal");
 
-    public override IEnumerable<PermissionDefinition> Permissions => [PermissionDefinition.Of(ChatsUse, "Use the AI assistant")];
+    public override IEnumerable<PermissionDefinition> Permissions => [PermissionDefinition.Of(ChatsUse, "Use the AI assistant"), PermissionDefinition.Of(UsageRead, "See how much the workspace uses the AI assistant")];
 
     public override IEnumerable<SettingDefinition> Settings =>
     [
@@ -52,6 +53,12 @@ public sealed class AssistantModule : ModuleBase
             b.HasIndex(x => new { x.OrgId, x.ConversationId, x.At });
             b.HasIndex(x => new { x.OrgId, x.UserId, x.At });
         });
+        mb.Entity<AssistantMessageCount>(b =>
+        {
+            b.ToTable("ast_MessageCounts");
+            b.HasIndex(x => new { x.OrgId, x.UserId, x.Day });
+            b.HasIndex(x => new { x.OrgId, x.Day });
+        });
         mb.Entity<AssistantPendingAction>(b =>
         {
             b.ToTable("ast_PendingActions");
@@ -69,6 +76,7 @@ public sealed class AssistantModule : ModuleBase
     public override void MapEndpoints(RouteGroupBuilder group)
     {
         group.MapGet("/status", (ISender s, CancellationToken ct) => s.Send(new GetWorkspaceAssistantStatus(), ct)).RequirePermission(ChatsUse);
+        group.MapGet("/usage", (ISender s, CancellationToken ct) => s.Send(new GetAssistantUsage(), ct)).RequirePermission(UsageRead);
         group.MapGet("/conversations", (ISender s, CancellationToken ct) => s.Send(new ListAssistantConversations(), ct)).RequirePermission(ChatsUse);
         group.MapGet("/conversations/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetAssistantConversation(id), ct)).RequirePermission(ChatsUse);
         group.MapDelete("/conversations/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteAssistantConversation(id), ct); return Results.NoContent(); }).RequirePermission(ChatsUse);

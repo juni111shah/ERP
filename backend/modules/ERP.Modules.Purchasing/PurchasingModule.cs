@@ -75,6 +75,9 @@ public sealed class PurchasingModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, PurchasingDashboard>();
         services.AddScoped<ISearchProvider, PurchasingSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, PurchaseOrdersAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, RequisitionsAssistantReader>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(new ERP.Application.Assistant.AssistantHelpPack(Key, PurchasingAssistantHelp.Articles));
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<PurchaseOrder>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "purchaseorder", P.OrdersRead, P.OrdersManage));

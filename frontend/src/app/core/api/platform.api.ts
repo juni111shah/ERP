@@ -55,11 +55,11 @@ export interface BillingOverview {
 
 export interface PlanView {
   id: string; code: string; name: string; description: string | null; isPublic: boolean; isActive: boolean; isRecommended: boolean; sortOrder: number; monthlyPrice: number; annualPrice: number;
-  currency: string; trialDays: number; maxUsers: number | null; maxLegalEntities: number | null; modules: string[]; features: string[]; clientCount: number;
+  currency: string; trialDays: number; maxUsers: number | null; maxLegalEntities: number | null; modules: string[]; features: string[]; clientCount: number; assistantMonthlyMessages: number | null;
 }
 export interface PlanInput {
   code: string; name: string; description: string | null; isPublic: boolean; isRecommended: boolean; sortOrder: number; monthlyPrice: number; annualPrice: number; trialDays: number;
-  maxUsers: number | null; maxLegalEntities: number | null; modules: string[]; features: string[];
+  maxUsers: number | null; maxLegalEntities: number | null; modules: string[]; features: string[]; assistantMonthlyMessages: number | null;
 }
 export interface ClientRow {
   orgId: string; name: string; code: string; industryCode: string; countryCode: string; createdAt: string; planId: string | null; planName: string | null; status: SubscriptionStatus | null; access: AccessLevel;

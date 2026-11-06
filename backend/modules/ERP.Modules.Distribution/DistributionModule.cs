@@ -74,6 +74,9 @@ public sealed class DistributionModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, DistributionDashboard>();
         services.AddScoped<ISearchProvider, DistributionSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, RoutesAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, VanTripsAssistantReader>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(new ERP.Application.Assistant.AssistantHelpPack(Key, DistributionAssistantHelp.Articles));
     }
 
     public override void ConfigureModel(ModelBuilder mb)

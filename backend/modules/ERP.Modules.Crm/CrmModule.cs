@@ -48,6 +48,9 @@ public sealed class CrmModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ISearchProvider, CrmSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, LeadsAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, OpportunitiesAssistantReader>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(new ERP.Application.Assistant.AssistantHelpPack(Key, CrmAssistantHelp.Articles));
         services.AddScoped<ERP.Application.Assistant.IAssistantAction, LogNoteAssistantAction>();
         services.AddScoped<IDashboardContributor, CrmDashboard>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>

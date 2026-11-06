@@ -68,6 +68,9 @@ public sealed class InventoryModule : ModuleBase
     {
         services.AddScoped<ERP.Application.Dashboard.IDashboardContributor, InventoryDashboard>();
         services.AddScoped<ERP.Application.Search.ISearchProvider, InventorySearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, StockOnHandAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, StockCountsAssistantReader>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(new ERP.Application.Assistant.AssistantHelpPack(Key, InventoryAssistantHelp.Articles));
         services.AddScoped<ERP.Application.Reminders.IReminderSource, LowStockReminders>();
         services.AddScoped<IStockPostingService, InventoryStockPostingService>();
     }

@@ -15,7 +15,7 @@ namespace ERP.Infrastructure.Persistence;
 /// Stamps org/audit fields, turns deletes of soft-deletable rows into updates, blocks moving rows between
 /// workspaces, and writes an AuditEvent (before/after JSON) for every insert, update and delete.
 /// </summary>
-public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext org, IClock clock) : SaveChangesInterceptor
+public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext org, IClock clock, IAuditCorrelation? correlation = null) : SaveChangesInterceptor
 {
     private static readonly HashSet<string> SecretProperties = new(StringComparer.OrdinalIgnoreCase)
         { "PasswordHash", "SecurityStamp", "ConcurrencyStamp", "TokenHash", "RowVersion", "EncryptedApiKey" };
@@ -108,6 +108,7 @@ public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext o
                 Before = before,
                 After = entry.State == EntityState.Deleted ? null : Snapshot(entry, original: false),
                 IpAddress = user.IpAddress,
+                CorrelationId = correlation?.Id,
             });
         }
 

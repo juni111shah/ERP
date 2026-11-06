@@ -27,6 +27,19 @@ public interface IAssistantReader
     Task<object> ListAsync(string? search, int take, CancellationToken ct);
 }
 
+/// <summary>A short how-to, in plain words. <paramref name="Permission"/> hides it from people who could not use that screen anyway.</summary>
+public sealed record AssistantHelpArticle(string Title, string Body, string? Link = null, string? Permission = null);
+
+/// <summary>How-to articles a module owns, so the core never holds an industry's words. Register one from the module's ConfigureServices.</summary>
+public interface IAssistantHelp
+{
+    /// <summary>Module that must be enabled; null = core.</summary>
+    string? ModuleKey { get; }
+    IReadOnlyList<AssistantHelpArticle> Articles { get; }
+}
+
+public sealed record AssistantHelpPack(string? ModuleKey, IReadOnlyList<AssistantHelpArticle> Articles) : IAssistantHelp;
+
 public sealed record AssistantActionLine(string Label, string Value);
 public sealed record AssistantActionPreview(string Title, IReadOnlyList<AssistantActionLine> Lines);
 public sealed record AssistantActionResult(string Message, string? Link);
@@ -50,7 +63,7 @@ public interface IAssistantAction
 /// <summary>
 /// What this person may use right now. In-process calls skip the web layer's module and permission checks, so every reader and action goes through here.
 /// </summary>
-public sealed class AssistantCatalog(IEnumerable<IAssistantReader> readers, IEnumerable<IAssistantAction> actions, IModuleAccess modules, ICurrentUser user)
+public sealed class AssistantCatalog(IEnumerable<IAssistantReader> readers, IEnumerable<IAssistantAction> actions, IEnumerable<IAssistantHelp> help, IModuleAccess modules, ICurrentUser user)
 {
     private async Task<bool> AllowedAsync(string? moduleKey, string permission, CancellationToken ct)
         => user.HasPermission(permission) && (moduleKey is null || await modules.IsEnabledAsync(moduleKey, ct));
@@ -68,6 +81,32 @@ public sealed class AssistantCatalog(IEnumerable<IAssistantReader> readers, IEnu
         foreach (var a in actions.OrderBy(a => a.Key, StringComparer.Ordinal)) if (await AllowedAsync(a.ModuleKey, a.Permission, ct)) allowed.Add(a);
         return allowed;
     }
+
+    /// <summary>The articles that share the most words with the question, from modules this workspace uses and screens this person can open.</summary>
+    public async Task<IReadOnlyList<AssistantHelpArticle>> FindHelpAsync(string question, int take, CancellationToken ct)
+    {
+        var words = HelpWords(question);
+        if (words.Count == 0) return [];
+        var found = new List<(AssistantHelpArticle Article, int Score)>();
+        foreach (var pack in help)
+        {
+            if (pack.ModuleKey is not null && !await modules.IsEnabledAsync(pack.ModuleKey, ct)) continue;
+            foreach (var a in pack.Articles)
+            {
+                if (a.Permission is not null && !user.HasPermission(a.Permission)) continue;
+                var score = 3 * words.Intersect(HelpWords(a.Title)).Count() + words.Intersect(HelpWords(a.Body)).Count();
+                if (score > 0) found.Add((a, score));
+            }
+        }
+        return found.OrderByDescending(x => x.Score).Take(take).Select(x => x.Article).ToList();
+    }
+
+    private static readonly HashSet<string> CommonHelpWords = new(StringComparer.OrdinalIgnoreCase)
+        { "the", "and", "for", "how", "what", "can", "does", "you", "your", "are", "with", "that", "this", "have", "will", "there", "from", "about", "when", "any", "where", "who", "want", "need", "not", "use" };
+
+    private static HashSet<string> HelpWords(string text)
+        => System.Text.RegularExpressions.Regex.Matches(text.ToLowerInvariant(), @"[\p{L}\p{N}]+").Select(m => m.Value)
+            .Where(w => w.Length >= 3 && !CommonHelpWords.Contains(w)).Select(w => w.Length > 4 && w.EndsWith('s') && !w.EndsWith("ss", StringComparison.Ordinal) ? w[..^1] : w).ToHashSet();
 
     public async Task<IAssistantReader?> FindReaderAsync(string key, CancellationToken ct)
         => (await ReadersAsync(ct)).FirstOrDefault(r => string.Equals(r.Key, key, StringComparison.OrdinalIgnoreCase));

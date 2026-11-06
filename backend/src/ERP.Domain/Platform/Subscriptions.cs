@@ -33,6 +33,8 @@ public class SubscriptionPlan : Entity, IAuditable
     public int? MaxUsers { get; set; }
     /// <summary>Null means no limit.</summary>
     public int? MaxLegalEntities { get; set; }
+    /// <summary>Messages the whole workspace may send the AI assistant per calendar month (UTC). Null means no limit; 0 means it is not part of the plan.</summary>
+    public int? AssistantMonthlyMessages { get; set; }
     /// <summary>Comma-separated module keys the plan includes. Empty means every installed module.</summary>
     public string? ModuleKeys { get; set; }
     /// <summary>Selling points for the pricing cards, one per line.</summary>

@@ -404,6 +404,87 @@ public class WorkspaceAssistantTests(EngineApiFactory f) : IClassFixture<EngineA
         finally { (await admin.PutAsJsonAsync("/api/v1/settings", new Dictionary<string, int> { ["assistant.dailyMessagesPerUser"] = 30 })).EnsureSuccessStatusCode(); }
     }
 
+    /// <summary>A new client workspace on a plan with this assistant allowance, with the module enabled.</summary>
+    private async Task<HttpClient> ClientOnPlanAsync(int allowance)
+    {
+        var (founder, _) = await f.SignInAsync(ApiFactory.FounderEmail);
+        await ReadyAsync();
+        var settings = (await ApiFactory.Json(await founder.GetAsync("/api/v1/platform-admin/settings"))).AsObject();
+        settings["signupMode"] = "review";
+        settings["requireEmailVerification"] = false;
+        (await founder.PutAsJsonAsync("/api/v1/platform-admin/settings", settings)).EnsureSuccessStatusCode();
+        var tag = Tag();
+        var plan = await ApiFactory.Json(await founder.PostAsJsonAsync("/api/v1/platform-admin/plans", new { code = "p-" + tag, name = "Plan " + tag, description = "Test", isPublic = true, isRecommended = false, sortOrder = 50, monthlyPrice = 100, annualPrice = 1000, trialDays = 5, modules = (string[]?)null, features = new[] { "One" }, assistantMonthlyMessages = allowance }));
+        Assert.Equal(allowance, (int)plan["assistantMonthlyMessages"]!);
+        var email = $"owner+{tag}@example.test";
+        (await f.Client().PostAsJsonAsync("/api/v1/public/signups", new
+        {
+            businessName = "Client " + tag, signInKey = "c-" + tag, industry = "generic", countryCode = "AE", baseCurrency = "AED", timeZone = "Asia/Dubai", contactName = "Owner", email, phone = "+971500000000",
+            password = "Qa#Passw0rd1", planId = (string)plan["id"]!, cycle = "monthly", acceptTerms = true,
+        })).EnsureSuccessStatusCode();
+        var signup = (await ApiFactory.Json(await founder.GetAsync($"/api/v1/platform-admin/signups?status=pendingReview&search={tag}"))).AsArray().Single()!;
+        (await founder.PostAsync($"/api/v1/platform-admin/signups/{signup["id"]}/approve", null)).EnsureSuccessStatusCode();
+        var (client, _) = await f.SignInAsync(email, "Qa#Passw0rd1");
+        (await client.PostAsync("/api/v1/modules/assistant/enable", null)).EnsureSuccessStatusCode();
+        return (await f.SignInAsync(email, "Qa#Passw0rd1")).Client;
+    }
+
+    [Fact]
+    public async Task The_plans_monthly_allowance_holds_even_if_the_chat_is_deleted()
+    {
+        var client = await ClientOnPlanAsync(1);
+        f.Chat.Script(Service, _ => Reply("First answer."));
+        var first = await ReadAsync(await client.PostAsJsonAsync($"{Url}/messages", Ask("Hello")));
+        var id = (string)first.First(e => e.Name == "conversation").Data["id"]!;
+        (await client.DeleteAsync($"{Url}/conversations/{id}")).EnsureSuccessStatusCode();
+
+        var second = await ReadAsync(await client.PostAsJsonAsync($"{Url}/messages", Ask("Hello again")));
+        Assert.Equal("month-limit", (string)second.Single().Data["code"]!);
+        Assert.Single(f.Chat.Calls);
+
+        var usage = await ApiFactory.Json(await client.GetAsync($"{Url}/usage"));
+        Assert.Equal(1, (int)usage["messagesThisMonth"]!);
+        Assert.Equal(1, (int)usage["monthlyAllowance"]!);
+        Assert.Equal(1, (int)usage["peopleThisMonth"]!);
+    }
+
+    [Fact]
+    public async Task A_plan_without_the_assistant_hides_it()
+    {
+        var client = await ClientOnPlanAsync(0);
+        Assert.False((bool)(await ApiFactory.Json(await client.GetAsync($"{Url}/status")))["available"]!);
+        var events = await ReadAsync(await client.PostAsJsonAsync($"{Url}/messages", Ask("Hello")));
+        Assert.Equal("off", (string)events.Single().Data["code"]!);
+        Assert.Empty(f.Chat.Calls);
+    }
+
+    [Fact]
+    public async Task Usage_is_for_people_with_the_permission_and_holds_no_words()
+    {
+        var admin = await ReadyAsync();
+        var person = await UserWithAsync(admin, "assistant.chats.use");
+        Assert.Equal(HttpStatusCode.Forbidden, (await person.GetAsync($"{Url}/usage")).StatusCode);
+
+        f.Chat.Script(Service, _ => Reply("Private reply"));
+        await ReadAsync(await admin.PostAsJsonAsync($"{Url}/messages", Ask("Private question")));
+        var usage = await (await admin.GetAsync($"{Url}/usage")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Private", usage);
+        Assert.Null((await ApiFactory.Json(await admin.GetAsync($"{Url}/usage")))["monthlyAllowance"]);
+    }
+
+    [Fact]
+    public async Task A_confirmed_change_points_back_to_its_chat_in_the_audit_trail()
+    {
+        var admin = await ReadyAsync();
+        var (card, name) = await ProposeCustomerAsync(admin);
+        Assert.Equal("done", (string)(await ApiFactory.Json(await admin.PostAsync($"{Url}/actions/{card["id"]}/confirm", null)))["status"]!);
+
+        using var scope = f.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var audit = await db.AuditEvents.IgnoreQueryFilters().FirstAsync(a => a.RecordType == "Party" && a.After != null && a.After.Contains(name));
+        Assert.StartsWith("assistant-conversation:", audit.CorrelationId);
+    }
+
     [Fact]
     public async Task Chat_text_never_reaches_the_audit_trail()
     {

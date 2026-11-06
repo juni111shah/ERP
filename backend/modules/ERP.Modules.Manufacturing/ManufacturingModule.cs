@@ -72,6 +72,9 @@ public sealed class ManufacturingModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, ManufacturingDashboard>();
         services.AddScoped<ISearchProvider, ManufacturingSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, WorkOrdersAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, BomsAssistantReader>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(new ERP.Application.Assistant.AssistantHelpPack(Key, ManufacturingAssistantHelp.Articles));
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<WorkOrder>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "workorder", Manufacturing.Permissions.WorkOrdersRead, Manufacturing.Permissions.WorkOrdersManage));

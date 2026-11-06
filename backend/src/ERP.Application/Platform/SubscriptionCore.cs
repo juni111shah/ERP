@@ -34,6 +34,8 @@ public interface ISubscriptionLimits
     Task EnsureUserSlotAsync(CancellationToken ct = default);
     Task EnsureLegalEntitySlotAsync(CancellationToken ct = default);
     Task EnsureModuleAllowedAsync(string moduleKey, CancellationToken ct = default);
+    /// <summary>The plan's monthly assistant messages. Null means no limit, including a workspace with no plan.</summary>
+    Task<int?> AssistantMonthlyMessagesAsync(CancellationToken ct = default);
 }
 
 /// <summary>Sends platform email. Skipped quietly when email is off; a failure is logged and never stops the work.</summary>
@@ -183,6 +185,8 @@ internal sealed class SubscriptionLimits(
         if (await legalEntities.CountAsync(null, ct) >= max)
             throw new ConflictException($"Your {plan.Name} plan includes {max} legal entities. Upgrade the plan to add another.");
     }
+
+    public async Task<int?> AssistantMonthlyMessagesAsync(CancellationToken ct = default) => (await PlanAsync(ct))?.AssistantMonthlyMessages;
 
     public async Task EnsureModuleAllowedAsync(string moduleKey, CancellationToken ct = default)
     {

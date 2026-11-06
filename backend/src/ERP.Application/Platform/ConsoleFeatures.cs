@@ -12,11 +12,11 @@ namespace ERP.Application.Platform;
 
 public sealed record PlanView(
     Guid Id, string Code, string Name, string? Description, bool IsPublic, bool IsActive, bool IsRecommended, int SortOrder, decimal MonthlyPrice, decimal AnnualPrice,
-    string Currency, int TrialDays, int? MaxUsers, int? MaxLegalEntities, IReadOnlyList<string> Modules, IReadOnlyList<string> Features, int ClientCount);
+    string Currency, int TrialDays, int? MaxUsers, int? MaxLegalEntities, IReadOnlyList<string> Modules, IReadOnlyList<string> Features, int ClientCount, int? AssistantMonthlyMessages = null);
 
 public sealed record PlanInput(
     string Code, string Name, string? Description, bool IsPublic, bool IsRecommended, int SortOrder, decimal MonthlyPrice, decimal AnnualPrice, int TrialDays,
-    int? MaxUsers, int? MaxLegalEntities, IReadOnlyList<string>? Modules, IReadOnlyList<string>? Features);
+    int? MaxUsers, int? MaxLegalEntities, IReadOnlyList<string>? Modules, IReadOnlyList<string>? Features, int? AssistantMonthlyMessages = null);
 
 public sealed record ClientRow(
     Guid OrgId, string Name, string Code, string IndustryCode, string CountryCode, DateTime CreatedAt, Guid? PlanId, string? PlanName, SubscriptionStatus? Status, SubscriptionAccessLevel Access,
@@ -128,6 +128,7 @@ public sealed class PlanInputValidator : AbstractValidator<PlanInput>
         RuleFor(x => x.TrialDays).InclusiveBetween(0, 365).WithMessage("Use 0 to 365 days.");
         RuleFor(x => x.MaxUsers).GreaterThan(0).When(x => x.MaxUsers is not null).WithMessage("Leave empty for no limit, or use at least 1.");
         RuleFor(x => x.MaxLegalEntities).GreaterThan(0).When(x => x.MaxLegalEntities is not null).WithMessage("Leave empty for no limit, or use at least 1.");
+        RuleFor(x => x.AssistantMonthlyMessages).GreaterThanOrEqualTo(0).When(x => x.AssistantMonthlyMessages is not null).WithMessage("Leave empty for no limit, or use 0 to leave the assistant out of this plan.");
     }
 }
 public sealed class CreatePlanValidator : AbstractValidator<CreatePlan> { public CreatePlanValidator() => RuleFor(x => x.Input).SetValidator(new PlanInputValidator()); }
@@ -211,12 +212,12 @@ internal sealed class PlanHandlers(IRepository<SubscriptionPlan> plans, IReadRep
     }
 
     private static PlanView ToView(SubscriptionPlan p, string currency, int clients) => new(
-        p.Id, p.Code, p.Name, p.Description, p.IsPublic, p.IsActive, p.IsRecommended, p.SortOrder, p.MonthlyPrice, p.AnnualPrice, currency, p.TrialDays, p.MaxUsers, p.MaxLegalEntities, p.ModuleList(), p.FeatureList(), clients);
+        p.Id, p.Code, p.Name, p.Description, p.IsPublic, p.IsActive, p.IsRecommended, p.SortOrder, p.MonthlyPrice, p.AnnualPrice, currency, p.TrialDays, p.MaxUsers, p.MaxLegalEntities, p.ModuleList(), p.FeatureList(), clients, p.AssistantMonthlyMessages);
 
     private static void Apply(SubscriptionPlan p, PlanInput i)
     {
         p.Code = i.Code; p.Name = i.Name.Trim(); p.Description = i.Description?.Trim(); p.IsPublic = i.IsPublic; p.IsRecommended = i.IsRecommended; p.SortOrder = i.SortOrder;
-        p.MonthlyPrice = i.MonthlyPrice; p.AnnualPrice = i.AnnualPrice; p.TrialDays = i.TrialDays; p.MaxUsers = i.MaxUsers; p.MaxLegalEntities = i.MaxLegalEntities;
+        p.MonthlyPrice = i.MonthlyPrice; p.AnnualPrice = i.AnnualPrice; p.TrialDays = i.TrialDays; p.MaxUsers = i.MaxUsers; p.MaxLegalEntities = i.MaxLegalEntities; p.AssistantMonthlyMessages = i.AssistantMonthlyMessages;
         p.ModuleKeys = i.Modules is { Count: > 0 } m ? string.Join(",", m.Select(x => x.Trim()).Where(x => x.Length > 0).Distinct()) : null;
         p.Features = i.Features is { Count: > 0 } f ? string.Join("\n", f.Select(x => x.Trim()).Where(x => x.Length > 0)) : null;
     }

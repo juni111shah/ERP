@@ -58,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Platform.PlatformSettingsStore>();
         services.AddScoped<ERP.Application.Platform.IPlatformJob, ERP.Application.Platform.BrandConversationCleanupJob>();
         services.AddScoped<ERP.Application.Assistant.AssistantRunner>();
+        services.AddScoped<IAuditCorrelation, AuditCorrelation>();
         services.AddScoped<ERP.Application.Assistant.AssistantCatalog>();
         services.AddScoped<ERP.Application.Assistant.AssistantScope>();
         services.AddScoped<ERP.Application.Assistant.IAssistantReader, ERP.Application.Assistant.PartiesAssistantReader>();
@@ -65,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Assistant.IAssistantReader, ERP.Application.Assistant.BillsAssistantReader>();
         services.AddScoped<ERP.Application.Assistant.IAssistantReader, ERP.Application.Assistant.ItemsAssistantReader>();
         services.AddScoped<ERP.Application.Assistant.IAssistantAction, ERP.Application.Assistant.CreatePartyAssistantAction>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(ERP.Application.Assistant.CoreAssistantHelp.Pack);
         services.AddScoped<ERP.Application.Platform.SubscriptionInvoicing>();
         services.AddScoped<ERP.Application.Platform.ClientProvisioner>();
         services.AddScoped<IScheduledJob, ERP.Application.Common.IdempotencyCleanupJob>();

@@ -87,6 +87,9 @@ public sealed class PosModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, PosDashboard>();
         services.AddScoped<ISearchProvider, PosSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, RegistersAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, PosOrdersAssistantReader>();
+        services.AddSingleton<ERP.Application.Assistant.IAssistantHelp>(new ERP.Application.Assistant.AssistantHelpPack(Key, PosAssistantHelp.Articles));
         services.AddScoped<PosAccounts>();
         services.AddScoped<PosCalendar>();
     }

@@ -20,6 +20,8 @@ export class WorkspaceAssistantApi {
   private readonly base = `${inject(API_BASE_URL)}/m/assistant`;
 
   status(): Observable<{ available: boolean }> { return this.http.get<{ available: boolean }>(`${this.base}/status`); }
+  /** Counts only, for people with the usage permission. */
+  usage(): Observable<{ messagesThisMonth: number; monthlyAllowance: number | null; peopleThisMonth: number }> { return this.http.get<{ messagesThisMonth: number; monthlyAllowance: number | null; peopleThisMonth: number }>(`${this.base}/usage`); }
   conversations(): Observable<AssistantConversationRow[]> { return this.http.get<AssistantConversationRow[]>(`${this.base}/conversations`); }
   conversation(id: string): Observable<AssistantConversationDetail> { return this.http.get<AssistantConversationDetail>(`${this.base}/conversations/${id}`); }
   deleteConversation(id: string): Observable<unknown> { return this.http.delete(`${this.base}/conversations/${id}`); }
