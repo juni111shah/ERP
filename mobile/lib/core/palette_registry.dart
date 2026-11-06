@@ -55,6 +55,7 @@ typedef _Meta = ({String section, String subtitle, List<String> keywords});
 
 /// Plain-language subtitle, area and search words for every screen id in `allScreens`.
 const Map<String, _Meta> _screenMeta = {
+  'assistant': (section: 'Assistant', subtitle: 'Ask about your records, or where to find something', keywords: ['ai', 'chat', 'help', 'ask', 'question']),
   // Sales & receivables
   'vendors': (section: 'Purchasing', subtitle: 'Suppliers you buy from, with contacts and balances', keywords: ['suppliers', 'payee', 'parties']),
   'parties': (section: 'Finance', subtitle: 'Every customer and vendor in one list', keywords: ['contacts', 'customers', 'vendors', 'companies']),

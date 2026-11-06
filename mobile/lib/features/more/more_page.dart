@@ -6,6 +6,8 @@ import '../../kit/module_grid.dart';
 import '../../kit/registry.dart';
 import '../../screens/all_screens.dart';
 import '../../theme/app_theme.dart';
+import '../assistant/assistant_api.dart';
+import '../assistant/assistant_page.dart';
 import '../common/paged_list_view.dart';
 import 'package:erp_mobile/theme/tokens.dart';
 import '../../kit/skeleton.dart';
@@ -32,7 +34,10 @@ class MorePage extends ConsumerWidget {
         final items = [for (final g in groups) ...g.items];
         final available = items.where((i) => screenForMenuId(i.id) != null).length;
         return RefreshIndicator(
-          onRefresh: () async => ref.refresh(menuProvider.future),
+          onRefresh: () async {
+            ref.invalidate(assistantAvailableProvider);
+            return ref.refresh(menuProvider.future);
+          },
           child: ListView(
             padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 24),
             children: [
@@ -41,6 +46,7 @@ class MorePage extends ConsumerWidget {
                 child: Text('$available of ${items.length} areas are on the phone. The rest are marked "web".',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ErpTheme.of(context).muted)),
               ),
+              if (ref.watch(assistantAvailableProvider).asData?.value == true) const AssistantEntryCard(),
               ModuleGrid(groups: [
                 for (final g in groups)
                   ModuleGroup(title: g.label ?? 'General', tiles: [for (final item in g.items) _tile(context, item)]),

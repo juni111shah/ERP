@@ -7,8 +7,11 @@ import '../../core/session.dart';
 import '../../kit/bottom_nav.dart';
 import '../../kit/brand_mark.dart';
 import '../../kit/command_palette.dart';
+import '../../screens/all_screens.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
+import '../assistant/assistant_api.dart';
+import '../assistant/assistant_page.dart';
 import '../dashboard/dashboard_page.dart';
 import '../receivables/invoice_screens.dart';
 import '../receivables/party_screens.dart';
@@ -42,7 +45,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// Opens the command palette; tab entries switch this shell's tab, everything else navigates.
   Future<void> _openPalette() => showCommandPalette(
         context,
-        entries: buildPaletteEntries(),
+        entries: buildPaletteEntries(screens: [...allScreens, if (ref.read(assistantAvailableProvider).asData?.value == true) assistantScreen]),
         onSelect: (entry) => openPaletteEntry(context, ref, entry, selectTab: (i) => setState(() => _index = i)),
       );
 

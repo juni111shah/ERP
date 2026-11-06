@@ -98,6 +98,42 @@ class ApiClient {
   Future<ApiFile> getBytes(String path, {Map<String, dynamic>? query}) async =>
       await _send('GET', path, query: query, bytes: true) as ApiFile;
 
+  /// A POST whose answer is read as it arrives (server-sent events), with the same token and refresh as [post]. A failure before the
+  /// first byte comes as the normal JSON envelope and throws [ApiException]. Cancelling [cancelToken] closes the connection.
+  Future<Stream<List<int>>> postStream(String path, {Object? body, CancelToken? cancelToken, bool retry = true}) async {
+    try {
+      final res = await _dio.request<ResponseBody>(
+        path,
+        data: body,
+        cancelToken: cancelToken,
+        options: Options(
+          method: 'POST',
+          responseType: ResponseType.stream,
+          receiveTimeout: const Duration(minutes: 2), // the longest silence allowed; the server sends a keep-alive every 15 seconds
+          headers: {clientHeader: clientName, if (accessToken != null) 'Authorization': 'Bearer $accessToken'},
+        ),
+      );
+      await _captureCookie(res);
+      final status = res.statusCode ?? 0;
+      final bytes = res.data!.stream;
+      if (status >= 200 && status < 300) return bytes;
+      final text = await const Utf8Decoder(allowMalformed: true).bind(bytes).join();
+      if (status == 401 && retry) {
+        if (await refresh() != null) return await postStream(path, body: body, cancelToken: cancelToken, retry: false);
+        onSessionExpired?.call();
+      }
+      dynamic parsed;
+      try {
+        parsed = jsonDecode(text);
+      } on FormatException {
+        parsed = null;
+      }
+      throw ApiException.fromBody(status, parsed);
+    } on DioException catch (e) {
+      throw ApiException(0, _networkMessage(e));
+    }
+  }
+
   /// Calls that happen before there is a session (sign-in, workspace selection): no bearer token, no refresh attempt.
   Future<dynamic> postAnonymous(String path, {Object? body}) => _send('POST', path, body: body, auth: false);
 
