@@ -54,11 +54,12 @@ async function ensureWorkspace(org, log) {
   const f = await founderClient();
   const adminEmail = emailOf(org, 'owner');
   const clients = await f.get(`/platform/clients?search=${encodeURIComponent(org.code)}&pageSize=5`);
-  let row = (Array.isArray(clients) ? clients : clients?.items ?? []).find((c) => c.signInKey === org.code || c.code === org.code);
-  let orgId = row?.orgId ?? row?.id;
+  const row = (Array.isArray(clients) ? clients : clients?.items ?? []).find((c) => c.code === org.code);
+  let orgId = row?.orgId;
   if (!orgId) {
     const plans = await f.get('/platform/plans');
-    const plan = (Array.isArray(plans) ? plans : plans.items).filter((p) => p.isActive !== false && !(p.moduleKeys?.length)).sort((a, b) => (b.maxUsers ?? 1e9) - (a.maxUsers ?? 1e9) || b.sortOrder - a.sortOrder).find((p) => /enterprise/i.test(p.name)) ?? plans[0];
+    // The widest active plan: no module limit and the most users. Demo workspaces are complimentary, so it is never billed.
+    const plan = (Array.isArray(plans) ? plans : plans.items).filter((p) => p.isActive && !p.modules?.length).sort((a, b) => (b.maxUsers ?? 1e9) - (a.maxUsers ?? 1e9) || b.sortOrder - a.sortOrder)[0];
     const created = await f.post('/platform/clients', {
       workspaceName: org.name, signInKey: org.code, industry: org.industry, countryCode: org.country, baseCurrency: org.currency, timeZone: org.timeZone,
       adminName: `${org.name.replace('DEMO - ', '')} Owner`, adminEmail, phone: '+000 555 0100', planId: plan.id, cycle: 'monthly', startMode: 'complimentary',
