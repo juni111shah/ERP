@@ -6,6 +6,8 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { catchError, of } from 'rxjs';
 import { ITEM_TYPES, ItemDto, ItemsApi, TaxCodesApi, yesNo } from '../../core/api/admin.api';
 import { createPagedList } from '../../core/api/paged-list';
+import { SetupApi } from '../../core/api/setup.api';
+import { SessionStore } from '../../core/session/session.store';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { MasterDataState } from '../../shared/master-data-state';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
@@ -58,6 +60,9 @@ export class ItemsPage {
   readonly currency = this.currencyService.currency;
   private readonly api = inject(ItemsApi);
   private readonly taxes = toSignal(inject(TaxCodesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
+  /** The units and categories the business keeps in its setup; offered as suggestions, and anything else can still be typed. */
+  private readonly profile = toSignal(
+    inject(SessionStore).hasPermission('core.settings.read') ? inject(SetupApi).profile().pipe(catchError(() => of(null))) : of(null), { initialValue: null });
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'sku' });
   readonly state = new MasterDataState<ItemDto>({
     save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)),
@@ -67,6 +72,7 @@ export class ItemsPage {
     { key: 'sku', label: 'SKU', sortField: 'sku', width: '140px' },
     { key: 'name', label: 'Name', sortField: 'name' },
     { key: 'barcode', label: 'Barcode', width: '150px' },
+    { key: 'category', label: 'Category', width: '140px' },
     { key: 'type', label: 'Type', value: (i) => (i.type === 'product' ? 'Product' : 'Service') },
     { key: 'uom', label: 'UoM', width: '80px' },
     { key: 'salesPrice', label: 'Sales price', width: '140px', align: 'right' },
@@ -77,7 +83,8 @@ export class ItemsPage {
     { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 200 },
     { key: 'barcode', label: 'Barcode', type: 'text', maxLength: 64, hint: 'What a scanner reads at the till. Optional, and unique to one item.' },
     { key: 'type', label: 'Type', type: 'select', required: true, options: ITEM_TYPES, default: 'service' },
-    { key: 'uom', label: 'Unit of measure', type: 'text', required: true, maxLength: 20, default: 'each' },
+    { key: 'uom', label: 'Unit of measure', type: 'text', required: true, maxLength: 20, default: 'each', suggestions: this.profile()?.units },
+    { key: 'category', label: 'Category', type: 'text', maxLength: 100, suggestions: this.profile()?.itemCategories, hint: 'Optional. Pick one from your list or type a new one.' },
     { key: 'salesPrice', label: 'Sales price', type: 'number', min: 0 },
     { key: 'purchasePrice', label: 'Purchase price', type: 'number', min: 0 },
     { key: 'taxCodeId', label: 'Tax code', type: 'select', options: this.taxes().items.map((t) => ({ value: t.id, label: `${t.code} · ${t.name}` })) },
