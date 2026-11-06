@@ -13,6 +13,7 @@
     <ProjectReference Include="..\..\modules\ERP.Modules.Purchasing\ERP.Modules.Purchasing.csproj" />
     <ProjectReference Include="..\..\modules\ERP.Modules.Pos\ERP.Modules.Pos.csproj" />
     <ProjectReference Include="..\..\modules\ERP.Modules.Retail\ERP.Modules.Retail.csproj" />
+    <ProjectReference Include="..\..\modules\ERP.Modules.Assets\ERP.Modules.Assets.csproj" />
     <ProjectReference Include="..\..\modules\ERP.Modules.Distribution\ERP.Modules.Distribution.csproj" />
     <ProjectReference Include="..\..\modules\ERP.Modules.Manufacturing\ERP.Modules.Manufacturing.csproj" />
     <ProjectReference Include="..\..\modules\ERP.Modules.Crm\ERP.Modules.Crm.csproj" />
