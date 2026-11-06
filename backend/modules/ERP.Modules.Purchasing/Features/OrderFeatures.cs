@@ -179,6 +179,7 @@ internal sealed class PurchaseOrderHandlers(
     IRepository<PurchaseOrderBillLine> billLinks,
     IReadRepository<Bill> bills,
     IStockPostingService stock,
+    PurchasingApprovalGate approvalGate,
     ISender sender,
     ILegalEntityGuard guard,
     INumberingService numbers,
@@ -264,6 +265,10 @@ internal sealed class PurchaseOrderHandlers(
         order.DeliveryAddress = i.DeliveryAddress;
         order.Notes = i.Notes;
 
+        // What was approved is no longer what the order says.
+        await approvalGate.ReleaseAsync(order.ApprovalRequestId, ct);
+        order.ApprovalRequestId = null;
+
         // Lines are replaced through the line repository: new lines already carry keys, so adding them to the order's collection
         // would make EF treat them as existing rows (and the workspace guard then rejects the write).
         var fresh = BuildLinesAndTotals(order, i.Lines);
@@ -287,12 +292,15 @@ internal sealed class PurchaseOrderHandlers(
             throw new ConflictException("This purchase order has goods receipts and cannot be deleted.");
 
         await ReleaseRequisitionAsync(order, ct);
+        await approvalGate.ReleaseAsync(order.ApprovalRequestId, ct);
         orders.Remove(order);
         await orders.SaveChangesAsync(ct);
         return Unit.Value;
     }
 
-    public async Task<PurchaseOrderDto> Handle(ChangePurchaseOrderStatus cmd, CancellationToken ct)
+    public Task<PurchaseOrderDto> Handle(ChangePurchaseOrderStatus cmd, CancellationToken ct) => unitOfWork.InTransactionAsync(token => ChangeStatusAsync(cmd, token), ct);
+
+    private async Task<PurchaseOrderDto> ChangeStatusAsync(ChangePurchaseOrderStatus cmd, CancellationToken ct)
     {
         var order = await orders.Tracked(new Specification<PurchaseOrder>(x => x.Id == cmd.Id))
             .Include(x => x.Lines)
@@ -302,8 +310,22 @@ internal sealed class PurchaseOrderHandlers(
         if (cmd.Status == PurchaseOrderStatus.Cancelled && order.Lines.Any(l => l.BilledQuantity > 0))
             throw new ConflictException("This purchase order has bills. Void or delete them before cancelling it.");
 
-        order.Status = cmd.Status;
-        if (cmd.Status == PurchaseOrderStatus.Cancelled) await ReleaseRequisitionAsync(order, ct);
+        var target = cmd.Status;
+        if (target is PurchaseOrderStatus.Submitted or PurchaseOrderStatus.Approved)
+        {
+            var gate = await approvalGate.CheckAsync(Docs.PurchaseOrder, order.Id, $"Purchase order {order.Number} from {order.VendorName}", order.TotalAmount, order.LegalEntityId,
+                order.ApprovalRequestId, order.CreatedBy, approving: target == PurchaseOrderStatus.Approved, ct);
+            order.ApprovalRequestId = gate.RequestId;
+            if (!gate.MayApprove) target = PurchaseOrderStatus.Submitted;
+            else if (gate.AutoApproved) target = PurchaseOrderStatus.Approved;
+        }
+
+        order.Status = target;
+        if (cmd.Status == PurchaseOrderStatus.Cancelled)
+        {
+            await ReleaseRequisitionAsync(order, ct);
+            await approvalGate.ReleaseAsync(order.ApprovalRequestId, ct);
+        }
         await orders.SaveChangesAsync(ct);
         return await ToDtoAsync(order, fields, ct);
     }

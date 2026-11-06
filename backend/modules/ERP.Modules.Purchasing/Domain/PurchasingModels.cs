@@ -151,6 +151,9 @@ public class PurchaseRequisition : LegalEntityScopedEntity, IHasCustomFields
 
     public Guid? ConvertedPurchaseOrderId { get; set; }
 
+    /// <summary>The approval request this requisition went through, when a policy covers it.</summary>
+    public Guid? ApprovalRequestId { get; set; }
+
     public string? CustomFields { get; set; }
 
     public List<PurchaseRequisitionLine> Lines { get; set; } = [];
@@ -221,7 +224,11 @@ public class PurchaseOrder : LegalEntityScopedEntity, IHasCustomFields
 
     public string? Notes { get; set; }
 
+    /// <summary>The latest bill raised from this order. All of them are in <see cref="PurchaseOrderBillLine"/>.</summary>
     public Guid? InvoicedBillId { get; set; }
+
+    /// <summary>The approval request this order went through, when a policy covers it.</summary>
+    public Guid? ApprovalRequestId { get; set; }
 
     public string? CustomFields { get; set; }
 

@@ -18,7 +18,7 @@ public sealed record DeleteApprovalPolicy(Guid Id) : ICommand, IRequirePermissio
 public static class ApprovalDocumentTypes
 {
     /// <summary>Document types whose posting honours approval policies.</summary>
-    public static readonly string[] All = ["bill"];
+    public static readonly string[] All = ["bill", "purchase_order", "purchase_requisition"];
 }
 
 public sealed class SaveApprovalPolicyValidator : AbstractValidator<SaveApprovalPolicy>
