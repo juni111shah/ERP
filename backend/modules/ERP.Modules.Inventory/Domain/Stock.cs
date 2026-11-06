@@ -22,6 +22,8 @@ public class StockMovement : LegalEntityScopedEntity
     public Guid? JournalEntryId { get; set; }
     /// <summary>Ties the two sides of a transfer together.</summary>
     public Guid? TransferId { get; set; }
+    /// <summary>On a receipt that gives issued goods back: the reference of the issue, so each unit returned maps to one unit that left.</summary>
+    public string? ReturnOfReference { get; set; }
 }
 
 /// <summary>Reorder rule of an item: when stock (all warehouses) falls to the level, it shows up as low stock.</summary>

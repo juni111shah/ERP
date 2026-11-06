@@ -49,7 +49,10 @@ public record VanSalesTripDto(
     string? Notes,
     List<TripInventoryItemDto> InventoryItems,
     string? CustomFields,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? InvoiceId = null,
+    string? InvoiceNumber = null,
+    IReadOnlyList<string>? Warnings = null);
 
 public record VanSalesTripSummaryDto(
     Guid Id,
@@ -78,12 +81,16 @@ public record CreateTripCommand(
     List<TripInventoryInput> Items,
     string? CustomFields) : ICommand<VanSalesTripDto>;
 
+/// <param name="CustomerPartyId">When set, what was sold is invoiced to this customer at the trip's prices and the invoice is issued, posting revenue and the receivable.</param>
+/// <param name="AllowUnaccounted">Every loaded unit must be sold, returned or damaged unless this is set.</param>
 public record CompleteTripCommand(
     Guid TripId,
     decimal TotalSalesAmount,
     decimal TotalCollectionsAmount,
     List<RecordTripItemReconciliationInput> Items,
-    string? Notes) : ICommand<VanSalesTripDto>;
+    string? Notes,
+    Guid? CustomerPartyId = null,
+    bool AllowUnaccounted = false) : ICommand<VanSalesTripDto>;
 
 public record RecordTripItemReconciliationInput(
     Guid ItemId,
@@ -144,6 +151,8 @@ public class TripHandlers :
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILegalEntityGuard _guard;
     private readonly IReadRepository<Item> _catalog;
+    private readonly IInvoicingService _invoicing;
+    private readonly ICreditLimitService _creditLimits;
 
     public TripHandlers(
         IRepository<VanSalesTrip> trips,
@@ -152,8 +161,12 @@ public class TripHandlers :
         IStockPostingService stockPosting,
         IUnitOfWork unitOfWork,
         ILegalEntityGuard guard,
-        IReadRepository<Item> catalog)
+        IReadRepository<Item> catalog,
+        IInvoicingService invoicing,
+        ICreditLimitService creditLimits)
     {
+        _invoicing = invoicing;
+        _creditLimits = creditLimits;
         _guard = guard;
         _catalog = catalog;
         _unitOfWork = unitOfWork;
@@ -168,6 +181,7 @@ public class TripHandlers :
         await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var route = await _routes.FindAsync(request.RouteId, cancellationToken);
         if (route is null || route.LegalEntityId != request.LegalEntityId) throw new FieldValidationException("routeId", "Route not found in this legal entity.");
+        if (!await _stockPosting.IsWarehouseUsableAsync(request.WarehouseId, request.LegalEntityId, cancellationToken)) throw new FieldValidationException("warehouseId", "The warehouse was not found, is not active, or belongs to another legal entity.");
         var routeName = route.Name;
 
         var itemIds = request.Items.Select(i => i.ItemId).ToList();
@@ -241,6 +255,13 @@ public class TripHandlers :
             if (rec.SoldQuantity + rec.ReturnedQuantity + rec.DamagedQuantity > loaded.LoadedQuantity)
                 throw new FieldValidationException("items", $"{loaded.ItemCode}: sold, returned and damaged exceed the {loaded.LoadedQuantity} loaded.");
         }
+        if (!request.AllowUnaccounted)
+        {
+            var missing = trip.InventoryItems.FirstOrDefault(i =>
+                request.Items.Where(r => r.ItemId == i.ItemId).Sum(r => r.SoldQuantity + r.ReturnedQuantity + r.DamagedQuantity) < i.LoadedQuantity);
+            if (missing is not null)
+                throw new FieldValidationException("items", $"{missing.ItemCode}: {missing.LoadedQuantity} was loaded but not all of it is sold, returned or damaged. Account for every unit, or set allowUnaccounted.");
+        }
 
         trip.Status = TripStatus.Completed;
         trip.ReturnDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
@@ -276,11 +297,37 @@ public class TripHandlers :
                     trip.ReturnDate ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
                     trip.TripNumber,
                     $"Van sales trip {trip.TripNumber} sold/damaged ({item.ItemCode})",
-                    trip.WarehouseId != Guid.Empty ? trip.WarehouseId : null), cancellationToken);
+                    trip.WarehouseId != Guid.Empty ? trip.WarehouseId : null,
+                    EnforceAvailable: true), cancellationToken);
             }
         }
 
-        return Map(trip);
+        var warning = request.CustomerPartyId is { } customer ? await InvoiceSoldGoodsAsync(trip, customer, cancellationToken) : null;
+
+        return Map(trip) with { Warnings = warning is null ? null : [warning] };
+    }
+
+    /// <summary>One invoice per trip for what it sold: the stock issue above already posted the cost, this posts the revenue and the receivable.</summary>
+    private async Task<string?> InvoiceSoldGoodsAsync(VanSalesTrip trip, Guid customer, CancellationToken ct)
+    {
+        var sold = trip.InventoryItems.Where(i => i.SoldQuantity > 0).ToList();
+        if (sold.Count == 0) return null;
+
+        var itemIds = sold.Select(i => i.ItemId).ToList();
+        var taxCodes = await _catalog.Query(new Specification<Item>(i => itemIds.Contains(i.Id))).Select(i => new { i.Id, i.TaxCodeId }).ToDictionaryAsync(i => i.Id, i => i.TaxCodeId, ct);
+        var date = trip.ReturnDate ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
+        var invoice = await _invoicing.BuildAsync(new InvoiceDraft(trip.LegalEntityId, customer, date, null,
+            sold.Select(i => new InvoiceLineDraft($"{trip.TripNumber}: {i.ItemName}", i.SoldQuantity, i.UnitPrice, taxCodes.GetValueOrDefault(i.ItemId), ItemId: i.ItemId)).ToList(),
+            SourceType: "vansalestrip", SourceId: trip.Id, Notes: $"Van sales trip {trip.TripNumber}"), ct);
+        if (invoice.Total <= 0) throw new FieldValidationException("items", "What this trip sold has no value to invoice: set a unit price on the sold items.");
+
+        var warning = await _creditLimits.CheckAsync(customer, trip.LegalEntityId, invoice.Total, ct);
+        await _invoicing.IssueAsync(invoice, ct);
+        trip.InvoiceId = invoice.Id;
+        trip.InvoiceNumber = invoice.Number;
+        trip.TotalSalesAmount = invoice.Total;
+        await _trips.SaveChangesAsync(ct);
+        return warning;
     }
 
     public async Task<VanSalesTripDto?> Handle(GetTripByIdQuery request, CancellationToken cancellationToken)
@@ -321,5 +368,7 @@ public class TripHandlers :
             i.DamagedQuantity,
             i.UnitPrice)).ToList(),
         t.CustomFields,
-        t.CreatedAt);
+        t.CreatedAt,
+        t.InvoiceId,
+        t.InvoiceNumber);
 }

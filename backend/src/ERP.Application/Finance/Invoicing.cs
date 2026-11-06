@@ -25,6 +25,10 @@ public sealed record InvoiceVoided(Guid InvoiceId, string? SourceType, Guid? Sou
 /// <summary>Raised when a bill is deleted or voided, so the record it was generated from can be billed again.</summary>
 public sealed record BillReleased(Guid BillId) : INotification;
 
+/// <summary>Raised before a bill posts, so the record it was generated from can refuse it. A handler refuses by throwing.</summary>
+public sealed record BillPosting(Guid BillId, IReadOnlyList<BillPostingLine> Lines) : INotification;
+public sealed record BillPostingLine(Guid? AccountId, decimal Quantity);
+
 /// <summary>Builds, issues and voids sales invoices and credit notes. Shared by the invoice screens and by module billing runs.</summary>
 public interface IInvoicingService
 {
@@ -116,6 +120,10 @@ public sealed class InvoicingService(
     {
         if (invoice.Status is not DocumentStatus.Issued || invoice.Paid != 0) throw new ConflictException("Only an issued document with nothing paid or applied can be voided. Issue a credit note instead.");
         if (invoice.SourceType == LedgerSources.Opening) throw new ConflictException("This document comes from the opening entry. Reverse the opening entry instead.");
+        // Voiding under a live credit note would leave that credit in receivables with nothing behind it.
+        if (!invoice.IsCreditNote && await invoices.AnyAsync(i => i.IsCreditNote && i.Status != DocumentStatus.Voided
+                && (i.CreditNoteForId == invoice.Id || (i.SourceType == CreateCreditNoteFromInvoice.LinkType && i.SourceId == invoice.Id)), ct))
+            throw new ConflictException("This invoice has a credit note against it. Void or delete the credit note first.");
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == invoice.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
         var lockedTo = (await guard.RequireAsync(invoice.LegalEntityId, ct)).BooksLockedTo;
         await posting.ReverseTodayAsync(journal, VoidMemo.For(invoice.Number, reason), ct);

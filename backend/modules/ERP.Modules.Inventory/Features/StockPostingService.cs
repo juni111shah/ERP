@@ -15,7 +15,8 @@ public sealed class InventoryStockPostingService(
     IReadRepository<Item> items,
     IPostingService posting,
     IRepository<JournalEntry> journals,
-    IUnitOfWork unitOfWork) : IStockPostingService
+    IUnitOfWork unitOfWork,
+    ISettingsService settings) : IStockPostingService
 {
     public async Task<bool> IsInventoryEnabledAsync(CancellationToken ct = default)
         => await moduleAccess.IsEnabledAsync(InventoryModule.Key, ct);
@@ -35,7 +36,8 @@ public sealed class InventoryStockPostingService(
         if (item is null || item.Type != ItemType.Product) return null;
 
         var warehouse = await ResolveWarehouseAsync(request.WarehouseId, request.LegalEntityId, ct);
-        if (warehouse is null) return null;
+        if (warehouse is null)
+            return request.RequireWarehouse ? throw new ConflictException(NoWarehouseMessage(item)) : null;
 
         return await unitOfWork.InTransactionAsync(async token =>
         {
@@ -49,7 +51,8 @@ public sealed class InventoryStockPostingService(
                 Quantity = request.Quantity,
                 UnitCost = request.UnitCost,
                 Reference = request.Reference,
-                Memo = request.Memo ?? "Stock receipt"
+                Memo = request.Memo ?? "Stock receipt",
+                ReturnOfReference = request.ReturnOfReference
             };
 
             var value = Math.Round(request.Quantity * request.UnitCost, 2);
@@ -96,13 +99,15 @@ public sealed class InventoryStockPostingService(
         if (item is null || item.Type != ItemType.Product) return null;
 
         var warehouse = await ResolveWarehouseAsync(request.WarehouseId, request.LegalEntityId, ct);
-        if (warehouse is null) return null;
+        if (warehouse is null)
+            return request.EnforceAvailable ? throw new ConflictException(NoWarehouseMessage(item)) : null;
 
         return await unitOfWork.InTransactionAsync(async token =>
         {
-            var position = StockCosting.Replay(
-                await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == warehouse.Id && m.ItemId == request.ItemId))
-                    .ToListAsync(token));
+            var existing = await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == warehouse.Id && m.ItemId == request.ItemId))
+                .ToListAsync(token);
+            if (request.EnforceAvailable) await EnsureAvailableAsync(request, warehouse, item, existing, token);
+            var position = StockCosting.Replay(existing);
 
             var cost = position.AverageCost > 0 ? position.AverageCost : (item.PurchasePrice is > 0 ? item.PurchasePrice.Value : 0m);
             var m = new StockMovement
@@ -145,11 +150,25 @@ public sealed class InventoryStockPostingService(
         }, ct);
     }
 
+    /// <summary>The document-driven negative guard; the movements passed in are this item's in this warehouse.</summary>
+    private async Task EnsureAvailableAsync(StockIssueRequest request, Warehouse warehouse, Item item, List<StockMovement> existing, CancellationToken ct)
+    {
+        if (await settings.GetAsync<bool?>(InventoryModule.AllowNegativeStockSetting, warehouse.LegalEntityId, ct) ?? false) return;
+        var available = existing.Where(m => m.Date <= request.Date).Sum(m => m.Quantity);
+        if (available < request.Quantity)
+            throw new ConflictException($"Only {available:0.####} of {item.Sku} is in stock at {warehouse.Code} on {request.Date:yyyy-MM-dd}; cannot issue {request.Quantity:0.####}.");
+        var candidate = new StockMovement { Date = request.Date, Quantity = -request.Quantity };
+        if (StockCosting.FirstShortfall(existing, candidate) is { } day)
+            throw new ConflictException($"Issuing {request.Quantity:0.####} of {item.Sku} on {request.Date:yyyy-MM-dd} would leave stock negative on {day:yyyy-MM-dd}; later movements already use that stock.");
+    }
+
+    private static string NoWarehouseMessage(Item item) => $"There is no active warehouse in this legal entity to move {item.Sku} through. Add one or choose a warehouse.";
+
     public async Task<decimal> GetAverageCostAsync(Guid itemId, Guid? warehouseId = null, CancellationToken ct = default)
     {
         var item = await items.FindAsync(itemId, ct);
         if (item is null) return 0m;
-        var wh = await ResolveWarehouseAsync(warehouseId, Guid.Empty, ct);
+        var wh = await ResolveWarehouseAsync(warehouseId, Guid.Empty, ct, strict: false);
         if (wh is null) return item.PurchasePrice ?? 0m;
         var pos = StockCosting.Replay(
             await movements.Query(new Specification<StockMovement>(m => m.WarehouseId == wh.Id && m.ItemId == itemId))
@@ -218,7 +237,7 @@ public sealed class InventoryStockPostingService(
                 returnCost,
                 DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
                 reference,
-                $"POS void return {reference}",
+                $"Reversal of issue {reference}",
                 m.WarehouseId,
                 OffsetAccountId: cogsAccount,
                 SkipJournal: !m.JournalEntryId.HasValue), ct);
@@ -229,7 +248,7 @@ public sealed class InventoryStockPostingService(
     {
         var result = new Dictionary<Guid, decimal>();
         if (itemIds.Count == 0 || !await IsInventoryEnabledAsync(ct)) return result;
-        var warehouse = await ResolveWarehouseAsync(warehouseId, legalEntityId, ct);
+        var warehouse = await ResolveWarehouseAsync(warehouseId, legalEntityId, ct, strict: false);
         if (warehouse is null) return result;
 
         var ids = itemIds.ToList();
@@ -241,31 +260,56 @@ public sealed class InventoryStockPostingService(
         return result;
     }
 
+    /// <summary>
+    /// Newest issues give back first, each at the cost it left at, skipping units earlier returns of this reference already took,
+    /// so the cost of sales reversed can never exceed what was charged. Refuses more than is still out.
+    /// </summary>
     public async Task<Guid?> ReturnIssuedStockAsync(string issueReference, Guid itemId, decimal quantity, string returnReference, DateOnly date, CancellationToken ct = default)
     {
         if (quantity <= 0 || string.IsNullOrWhiteSpace(issueReference) || !await IsInventoryEnabledAsync(ct)) return null;
-        var issue = await movements.Query(new Specification<StockMovement>(m => m.Reference == issueReference && m.ItemId == itemId && m.Kind == MovementKind.Issue)).FirstOrDefaultAsync(ct);
-        if (issue is null) return null;
+        var issues = (await movements.Query(new Specification<StockMovement>(m => m.Reference == issueReference && m.ItemId == itemId && m.Kind == MovementKind.Issue)).ToListAsync(ct))
+            .OrderByDescending(m => m.Date).ThenByDescending(m => m.CreatedAt).ToList();
+        if (issues.Count == 0) return null;
+        var skip = (await movements.Query(new Specification<StockMovement>(m => m.ReturnOfReference == issueReference && m.ItemId == itemId && m.Kind == MovementKind.Receipt)).Select(m => m.Quantity).ToListAsync(ct)).Sum();
         var cogs = await posting.AccountForRoleAsync("cogs", ct);
-        return await ReceiveStockAsync(new StockReceiveRequest(issue.LegalEntityId, itemId, quantity, issue.UnitCost, date, returnReference, $"Customer return {returnReference} of {issueReference}", issue.WarehouseId,
-            OffsetAccountId: cogs, SkipJournal: !issue.JournalEntryId.HasValue), ct);
+        var left = quantity;
+        Guid? last = null;
+        foreach (var issue in issues)
+        {
+            var still = -issue.Quantity;
+            var skipped = Math.Min(skip, still);
+            skip -= skipped;
+            var take = Math.Min(left, still - skipped);
+            if (take <= 0) continue;
+            last = await ReceiveStockAsync(new StockReceiveRequest(issue.LegalEntityId, itemId, take, issue.UnitCost, date, returnReference, $"Customer return {returnReference} of {issueReference}", issue.WarehouseId,
+                OffsetAccountId: cogs, SkipJournal: !issue.JournalEntryId.HasValue, ReturnOfReference: issueReference), ct);
+            left -= take;
+            if (left <= 0) break;
+        }
+        if (left > 0) throw new ConflictException($"Only {quantity - left:0.####} of what {issueReference} issued is still out; cannot return {quantity:0.####}.");
+        return last;
     }
 
-    private async Task<Warehouse?> ResolveWarehouseAsync(Guid? warehouseId, Guid legalEntityId, CancellationToken ct)
+    public async Task<decimal> GetMovementValueAsync(Guid movementId, CancellationToken ct = default)
     {
-        if (warehouseId.HasValue)
+        var m = await movements.FindAsync(movementId, ct);
+        return m is null ? 0m : Math.Round(Math.Abs(m.Quantity) * m.UnitCost, 2);
+    }
+
+    /// <summary>
+    /// An explicit warehouse must exist, be active and belong to the legal entity: anything else is an error, never a silent switch (strict: false, for reads, returns null instead).
+    /// With no warehouse given, the legal entity's first active warehouse by code; never a warehouse of another legal entity.
+    /// </summary>
+    private async Task<Warehouse?> ResolveWarehouseAsync(Guid? warehouseId, Guid legalEntityId, CancellationToken ct, bool strict = true)
+    {
+        if (warehouseId is { } id && id != Guid.Empty)
         {
-            var wh = await warehouses.FindAsync(warehouseId.Value, ct);
-            if (wh != null && wh.IsActive && (legalEntityId == Guid.Empty || wh.LegalEntityId == legalEntityId)) return wh;
+            var wh = await warehouses.FindAsync(id, ct);
+            if (wh is not null && wh.IsActive && (legalEntityId == Guid.Empty || wh.LegalEntityId == legalEntityId)) return wh;
+            return strict ? throw new FieldValidationException("warehouseId", "The warehouse was not found, is not active, or belongs to another legal entity.") : null;
         }
 
-        if (legalEntityId != Guid.Empty)
-        {
-            var entityWh = await warehouses.Query(new Specification<Warehouse>(w => w.LegalEntityId == legalEntityId && w.IsActive))
-                .FirstOrDefaultAsync(ct);
-            if (entityWh != null) return entityWh;
-        }
-
-        return await warehouses.Query(new Specification<Warehouse>(w => w.IsActive)).FirstOrDefaultAsync(ct);
+        if (legalEntityId == Guid.Empty) return null;
+        return await warehouses.Query(new Specification<Warehouse>(w => w.LegalEntityId == legalEntityId && w.IsActive)).OrderBy(w => w.Code).FirstOrDefaultAsync(ct);
     }
 }

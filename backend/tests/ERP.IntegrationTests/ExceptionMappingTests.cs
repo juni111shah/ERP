@@ -333,6 +333,7 @@ public class ExceptionMappingTests(ApiFactory f) : IClassFixture<ApiFactory>
             tripId = Guid.Parse(tripId),
             totalSalesAmount = 0m,
             totalCollectionsAmount = 0m,
+            allowUnaccounted = true,
             items = Array.Empty<object>()
         });
         Assert.Equal(HttpStatusCode.OK, comp1.StatusCode);

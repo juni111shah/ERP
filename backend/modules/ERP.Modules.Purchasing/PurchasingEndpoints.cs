@@ -13,7 +13,8 @@ namespace ERP.Modules.Purchasing;
 public sealed record ChangePurchaseOrderStatusBody(PurchaseOrderStatus Status);
 public sealed record ChangeRequisitionStatusBody(PurchaseRequisitionStatus Status);
 public sealed record ConvertRequisitionBody(Guid? VendorPartyId, string VendorName);
-public sealed record ConvertToBillBody(Dictionary<Guid, decimal>? UnitPriceOverrides = null);
+public sealed record VoidPurchaseReturnBody(string? Reason);
+public sealed record ConvertToBillBody(Dictionary<Guid, decimal>? UnitPriceOverrides = null, List<BillOrderLineInput>? Lines = null, bool AllowUnreceived = false, string? VendorReference = null);
 
 internal static class PurchasingEndpoints
 {
@@ -39,11 +40,11 @@ internal static class PurchasingEndpoints
         orders.MapPost("/{id:guid}/convert-to-bill", async (Guid id, HttpRequest req, ISender s, CancellationToken ct) =>
         {
             ConvertToBillBody? body = null;
-            if (req.ContentLength > 0)
+            if (req.HasJsonContentType() && req.ContentLength != 0)
             {
                 body = await req.ReadFromJsonAsync<ConvertToBillBody>(cancellationToken: ct);
             }
-            var bill = await s.Send(new ConvertPurchaseOrderToBill(id, body?.UnitPriceOverrides), ct);
+            var bill = await s.Send(new ConvertPurchaseOrderToBill(id, body?.UnitPriceOverrides, body?.Lines, body?.AllowUnreceived ?? false, body?.VendorReference), ct);
             return Results.Ok(bill);
         }).RequirePermission(P.OrdersManage);
 
@@ -75,6 +76,21 @@ internal static class PurchasingEndpoints
             return Results.Created($"{Base}/receipts/{created.Id}", created);
         }).RequirePermission(P.ReceiptsManage);
         receipts.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteGoodsReceipt(id), ct); return Results.NoContent(); }).RequirePermission(P.ReceiptsManage);
+
+        var returns = group.MapGroup("/returns");
+        returns.MapPagedList<PurchaseReturn, PurchaseReturnSummaryDto>("", P.ReturnsRead,
+            r => new PurchaseReturnSummaryDto(
+                r.Id, r.Number, r.LegalEntityId, r.PurchaseOrderId, r.PurchaseOrderNumber, r.BillId, r.VendorPartyId, r.VendorName,
+                r.ReturnDate, r.Status, r.TotalAmount, r.StockValue, r.Lines.Count, r.CreatedAt));
+        returns.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetPurchaseReturn(id), ct)).RequirePermission(P.ReturnsRead);
+        returns.MapPost("", async (PurchaseReturnInput input, ISender s, CancellationToken ct) =>
+        {
+            var created = await s.Send(new CreatePurchaseReturn(input), ct);
+            return Results.Created($"{Base}/returns/{created.Id}", created);
+        }).RequirePermission(P.ReturnsManage);
+        returns.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeletePurchaseReturn(id), ct); return Results.NoContent(); }).RequirePermission(P.ReturnsManage);
+        returns.MapPost("/{id:guid}/post", (Guid id, ISender s, CancellationToken ct) => s.Send(new PostPurchaseReturn(id), ct)).RequirePermission(P.ReturnsManage);
+        returns.MapPost("/{id:guid}/void", (Guid id, VoidPurchaseReturnBody b, ISender s, CancellationToken ct) => s.Send(new VoidPurchaseReturn(id, b.Reason), ct)).RequirePermission(P.ReturnsManage);
 
         var kpis = group.MapGroup("/kpis");
         kpis.MapGet("", (ISender s, CancellationToken ct) => s.Send(new GetPurchasingKpiSummary(), ct)).RequirePermission(P.OrdersRead);

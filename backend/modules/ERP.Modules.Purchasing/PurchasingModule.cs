@@ -29,6 +29,8 @@ public sealed class PurchasingModule : ModuleBase
         PermissionDefinition.Of(P.RequisitionsManage, "Create, update, and convert purchase requisitions"),
         PermissionDefinition.Of(P.ReceiptsRead, "View goods receipt notes"),
         PermissionDefinition.Of(P.ReceiptsManage, "Record and manage goods receipts"),
+        PermissionDefinition.Of(P.ReturnsRead, "View purchase returns and debit notes"),
+        PermissionDefinition.Of(P.ReturnsManage, "Create, post and void purchase returns and debit notes"),
         PermissionDefinition.Of(P.AnalyticsRead, "View procurement reporting and spend analytics"),
     ];
 
@@ -60,13 +62,14 @@ public sealed class PurchasingModule : ModuleBase
             Roles:
             [
                 new("Procurement officer", "Purchase orders, goods receipt and requisitions",
-                    [P.OrdersRead, P.OrdersManage, P.RequisitionsRead, P.RequisitionsManage, P.ReceiptsRead, P.ReceiptsManage, P.AnalyticsRead, CorePermissions.BillsRead, CorePermissions.BillsWrite], Key),
+                    [P.OrdersRead, P.OrdersManage, P.RequisitionsRead, P.RequisitionsManage, P.ReceiptsRead, P.ReceiptsManage, P.ReturnsRead, P.ReturnsManage, P.AnalyticsRead, CorePermissions.BillsRead, CorePermissions.BillsWrite], Key),
             ],
             Sequences:
             [
                 new(Docs.PurchaseOrder, "PO", "{prefix}-{seq:4}", false),
                 new(Docs.PurchaseRequisition, "PR", "{prefix}-{seq:4}", false),
                 new(Docs.GoodsReceipt, "GRN", "{prefix}-{seq:4}", false),
+                new(Docs.PurchaseReturn, "PRT", "{prefix}-{seq:4}", false),
             ],
             SortOrder: 35),
     ];
@@ -76,6 +79,7 @@ public sealed class PurchasingModule : ModuleBase
         services.AddScoped<IDashboardContributor, PurchasingDashboard>();
         services.AddScoped<ERP.Application.Dashboard.IOwnerDashboardSection, Features.PurchasingOwnerSection>();
         services.AddScoped<ISearchProvider, PurchasingSearch>();
+        services.AddScoped<PurchasingApprovalGate>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<PurchaseOrder>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "purchaseorder", P.OrdersRead, P.OrdersManage));
@@ -117,12 +121,64 @@ public sealed class PurchasingModule : ModuleBase
             b.Property(x => x.Quantity).HasPrecision(18, 4);
             b.Property(x => x.ReceivedQuantity).HasPrecision(18, 4);
             b.Property(x => x.BilledQuantity).HasPrecision(18, 4);
+            b.Property(x => x.ReturnedQuantity).HasPrecision(18, 4);
             b.Property(x => x.UnitOfMeasure).HasMaxLength(20);
             b.Property(x => x.UnitPrice).HasPrecision(19, 4);
             b.Property(x => x.DiscountPercent).HasPrecision(5, 2);
             b.Property(x => x.TaxRate).HasPrecision(5, 2);
             b.Property(x => x.LineTotal).HasPrecision(19, 4);
             b.HasIndex(x => new { x.OrgId, x.OrderId });
+        });
+
+        mb.Entity<PurchaseOrderBillLine>(b =>
+        {
+            b.ToTable("pur_OrderBillLines");
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.ClearingQuantity).HasPrecision(18, 4);
+            b.Property(x => x.ReturnedQuantity).HasPrecision(18, 4);
+            b.Property(x => x.UnitPrice).HasPrecision(19, 4);
+            b.Property(x => x.TaxRate).HasPrecision(5, 2);
+            b.HasIndex(x => new { x.OrgId, x.OrderId });
+            b.HasIndex(x => new { x.OrgId, x.BillId });
+        });
+
+        mb.Entity<PurchaseReturn>(b =>
+        {
+            b.ToTable("pur_Returns");
+            b.Property(x => x.Number).HasMaxLength(30).IsRequired();
+            b.Property(x => x.PurchaseOrderNumber).HasMaxLength(30);
+            b.Property(x => x.VendorName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Notes).HasMaxLength(1000);
+            b.Property(x => x.VoidReason).HasMaxLength(500);
+            b.Property(x => x.SubTotal).HasPrecision(19, 4);
+            b.Property(x => x.TaxTotal).HasPrecision(19, 4);
+            b.Property(x => x.TotalAmount).HasPrecision(19, 4);
+            b.Property(x => x.StockValue).HasPrecision(19, 4);
+            b.HasIndex(x => new { x.OrgId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status });
+            b.HasIndex(x => new { x.OrgId, x.PurchaseOrderId });
+            b.HasIndex(x => new { x.OrgId, x.BillId });
+            b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.ReturnId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(x => x.BillShares).WithOne().HasForeignKey(x => x.ReturnId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        mb.Entity<PurchaseReturnLine>(b =>
+        {
+            b.ToTable("pur_ReturnLines");
+            b.Property(x => x.ItemCode).HasMaxLength(50);
+            b.Property(x => x.Description).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.HasIndex(x => new { x.OrgId, x.ReturnId });
+        });
+
+        mb.Entity<PurchaseReturnBillShare>(b =>
+        {
+            b.ToTable("pur_ReturnBillShares");
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.Amount).HasPrecision(19, 4);
+            b.Property(x => x.AppliedToBill).HasPrecision(19, 4);
+            b.HasIndex(x => new { x.OrgId, x.ReturnId });
         });
 
         mb.Entity<PurchaseRequisition>(b =>

@@ -19,6 +19,7 @@ public sealed class SettingsService(IRepository<Setting> settings, ISettingsCata
         new("core.invoiceTermsDays", "Default payment terms (days)", "15"),
         new("finance.chequeDueAlertDays", "Cheque due alert (days)", "7"),
         new("core.journalRequiresApproval", "Manual journals need approval", "false", "bool"),
+        new("core.creditLimitWarnOnly", "Warn instead of refusing when a customer goes over their credit limit", "false", "bool"),
         // Edited on the chart of accounts screen (mask editor), not as a plain setting; stored in the same key/value table.
         new("finance.coa.numbering", "Chart of accounts numbering", "{\"mode\":\"free\",\"segments\":[4,2,2],\"separator\":\"-\"}", "json"),
         // Edited on the business setup screen.

@@ -8,6 +8,9 @@ public static class P
     public const string OrdersRead = "sales.orders.read";
     public const string OrdersManage = "sales.orders.manage";
 
+    public const string ReturnsRead = "sales.returns.read";
+    public const string ReturnsManage = "sales.returns.manage";
+
     public const string AnalyticsRead = "sales.analytics.read";
 }
 
@@ -15,4 +18,5 @@ public static class Docs
 {
     public const string Quote = "sales_quote";
     public const string SalesOrder = "sales_order";
+    public const string SalesReturn = "sales_return";
 }

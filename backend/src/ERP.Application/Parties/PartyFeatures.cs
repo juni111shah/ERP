@@ -12,11 +12,11 @@ namespace ERP.Application.Parties;
 
 public sealed record PartyDto(
     Guid Id, string Code, string Name, string Kind, string[] Roles, string? Email, string? Phone, string? TaxNumber,
-    string? IdNumber, string? Iban, string? CurrencyCode, int? PaymentTermsDays, string? Address, bool IsActive, JsonObject CustomFields, Guid? PartyGroupId = null);
+    string? IdNumber, string? Iban, string? CurrencyCode, int? PaymentTermsDays, string? Address, bool IsActive, JsonObject CustomFields, Guid? PartyGroupId = null, decimal? CreditLimit = null);
 
 public sealed record PartyInput(
     string Name, PartyKind Kind, PartyRoles Roles, string? Email, string? Phone, string? TaxNumber, string? IdNumber,
-    string? Iban, string? CurrencyCode, int? PaymentTermsDays, string? Address, bool IsActive = true, JsonObject? CustomFields = null, Guid? PartyGroupId = null);
+    string? Iban, string? CurrencyCode, int? PaymentTermsDays, string? Address, bool IsActive = true, JsonObject? CustomFields = null, Guid? PartyGroupId = null, decimal? CreditLimit = null, bool ClearCreditLimit = false);
 
 public static class Masking
 {
@@ -60,6 +60,7 @@ public sealed class CreatePartyValidator : AbstractValidator<CreateParty>
         RuleFor(x => x.Input.Email).EmailAddress().When(x => !string.IsNullOrEmpty(x.Input.Email));
         RuleFor(x => x.Input.Roles).NotEqual(PartyRoles.None).WithMessage("Choose at least one role (customer, vendor...).");
         RuleFor(x => x.Input.CurrencyCode).Length(3).When(x => x.Input.CurrencyCode is not null);
+        RuleFor(x => x.Input.CreditLimit).Must(v => v is null || (v >= 0 && decimal.Round(v.Value, 2) == v)).WithMessage("The credit limit cannot be negative and can have at most 2 decimal places.");
         RuleFor(x => x.Input.Phone).MaximumLength(50);
         RuleFor(x => x.Input.TaxNumber).MaximumLength(50);
         RuleFor(x => x.Input.IdNumber).MaximumLength(50);
@@ -76,6 +77,7 @@ public sealed class UpdatePartyValidator : AbstractValidator<UpdateParty>
         RuleFor(x => x.Input.Email).EmailAddress().When(x => !string.IsNullOrEmpty(x.Input.Email));
         RuleFor(x => x.Input.Roles).NotEqual(PartyRoles.None);
         RuleFor(x => x.Input.CurrencyCode).Length(3).When(x => !string.IsNullOrWhiteSpace(x.Input.CurrencyCode));
+        RuleFor(x => x.Input.CreditLimit).Must(v => v is null || (v >= 0 && decimal.Round(v.Value, 2) == v)).WithMessage("The credit limit cannot be negative and can have at most 2 decimal places.");
         RuleFor(x => x.Input.Phone).MaximumLength(50);
         RuleFor(x => x.Input.TaxNumber).MaximumLength(50);
         RuleFor(x => x.Input.IdNumber).MaximumLength(50);
@@ -141,6 +143,8 @@ internal sealed class PartyHandlers(IRepository<Party> parties, IReadRepository<
         p.Name = i.Name.Trim(); p.Kind = i.Kind; p.Roles = i.Roles; p.Email = i.Email; p.Phone = i.Phone; p.TaxNumber = i.TaxNumber;
         p.IdNumber = i.IdNumber; p.Iban = i.Iban; p.CurrencyCode = string.IsNullOrWhiteSpace(i.CurrencyCode) ? null : i.CurrencyCode.Trim().ToUpperInvariant(); p.PaymentTermsDays = i.PaymentTermsDays;
         p.Address = i.Address; p.IsActive = i.IsActive; p.PartyGroupId = i.PartyGroupId;
+        // Left out means unchanged, so a client that does not know the field cannot drop a limit by saving the party.
+        p.CreditLimit = i.ClearCreditLimit ? null : i.CreditLimit ?? p.CreditLimit;
     }
 
     private async Task EnsureGroupAsync(Guid? groupId, CancellationToken ct)
@@ -154,6 +158,6 @@ internal sealed class PartyHandlers(IRepository<Party> parties, IReadRepository<
         var roles = Enum.GetValues<PartyRoles>().Where(r => r != PartyRoles.None && p.Roles.HasFlag(r)).Select(r => r.ToString()).ToArray();
         return new(p.Id, p.Code, p.Name, p.Kind.ToString(), roles, p.Email, p.Phone, p.TaxNumber,
             sensitive ? p.IdNumber : Masking.Mask(p.IdNumber), sensitive ? p.Iban : Masking.Mask(p.Iban),
-            p.CurrencyCode, p.PaymentTermsDays, p.Address, p.IsActive, cf, p.PartyGroupId);
+            p.CurrencyCode, p.PaymentTermsDays, p.Address, p.IsActive, cf, p.PartyGroupId, p.CreditLimit);
     }
 }

@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Customization;
+using ERP.Application.Finance;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
 using ERP.Modules.Sales.Domain;
@@ -131,7 +132,8 @@ internal sealed class QuoteHandlers(
     ILegalEntityGuard guard,
     INumberingService numbers,
     ICustomFieldService fields,
-    IReferenceCheck references) :
+    IReferenceCheck references,
+    ICreditLimitService creditLimits) :
     IRequestHandler<GetQuote, QuoteDto>,
     IRequestHandler<CreateQuote, QuoteDto>,
     IRequestHandler<UpdateQuote, QuoteDto>,
@@ -285,6 +287,7 @@ internal sealed class QuoteHandlers(
         order.TaxTotal = quote.TaxTotal;
         order.DiscountTotal = quote.DiscountTotal;
         order.TotalAmount = quote.TotalAmount;
+        var warning = await OrderHandlers.CheckCreditAsync(order, orders, creditLimits, ct); // a converted order starts confirmed
 
         orders.Add(order);
         quote.Status = SalesQuoteStatus.Converted;
@@ -293,7 +296,7 @@ internal sealed class QuoteHandlers(
         await quotes.SaveChangesAsync(ct);
         await orders.SaveChangesAsync(ct);
 
-        return await OrderHandlers.ToDtoAsync(order, fields, ct);
+        return await OrderHandlers.ToDtoAsync(order, fields, ct) with { Warnings = warning is null ? null : [warning] };
     }
 
     private static void PopulateLinesAndTotals(SalesQuote quote, List<QuoteLineInput> lines)

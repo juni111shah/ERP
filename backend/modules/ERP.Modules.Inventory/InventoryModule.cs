@@ -39,6 +39,8 @@ public sealed class InventoryModule : ModuleBase
     public const string StockWrite = "inventory.stock.write";
     public const string CountsRead = "inventory.counts.read";
     public const string CountsManage = "inventory.counts.manage";
+    public const string ReconciliationRead = "inventory.reconciliation.read";
+    public const string AllowNegativeStockSetting = "inventory.allowNegativeStock";
 
     public override ModuleManifest Manifest { get; } =
         new(Key, "Inventory", "Warehouses, stock on hand, receipts, issues, adjustments, transfers and valuation.", "Horizontal");
@@ -51,6 +53,12 @@ public sealed class InventoryModule : ModuleBase
         PermissionDefinition.Of(StockWrite, "Receive, issue, adjust and transfer stock; set reorder levels"),
         PermissionDefinition.Of(CountsRead, "View physical stock counts"),
         PermissionDefinition.Of(CountsManage, "Create, enter, post and cancel physical stock counts"),
+        PermissionDefinition.Of(ReconciliationRead, "Compare stock value with the inventory account in the ledger"),
+    ];
+
+    public override IEnumerable<SettingDefinition> Settings =>
+    [
+        new(AllowNegativeStockSetting, "Allow deliveries, trips and other documents to take stock below zero", "false", "bool"),
     ];
 
     public override IEnumerable<MenuItemDefinition> Menu =>
@@ -82,6 +90,7 @@ public sealed class InventoryModule : ModuleBase
             b.Property(x => x.UnitCost).HasPrecision(19, 4);
             b.Property(x => x.Reference).HasMaxLength(100);
             b.Property(x => x.Memo).HasMaxLength(500);
+            b.Property(x => x.ReturnOfReference).HasMaxLength(100);
             b.HasOne<Warehouse>().WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<ERP.Domain.Catalog.Item>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
             b.HasIndex(x => new { x.OrgId, x.WarehouseId, x.ItemId, x.Date });
@@ -150,6 +159,7 @@ public sealed class InventoryModule : ModuleBase
         reports.MapGet("/movement-summary", (DateOnly from, DateOnly to, ISender s, CancellationToken ct) => s.Send(new GetMovementSummary(from, to), ct)).RequirePermission(StockRead);
         reports.MapGet("/slow-moving", (DateOnly? asOf, int? days, ISender s, CancellationToken ct) => s.Send(new GetSlowMoving(asOf ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), days ?? 90), ct)).RequirePermission(StockRead);
         reports.MapGet("/reorder", (ISender s, CancellationToken ct) => s.Send(new GetReorderSuggestions(), ct)).RequirePermission(StockRead);
+        reports.MapGet("/stock-gl-reconciliation", (DateOnly? asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetStockGlReconciliation(asOf ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), legalEntityId), ct)).RequirePermission(ReconciliationRead);
 
         group.MapPost("/warehouses", async (WarehouseInput input, ISender sender, CancellationToken ct) =>
         {

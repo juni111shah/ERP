@@ -32,6 +32,8 @@ public class Party : OrgEntity, IHasCustomFields
     [Filterable]
     public string? CurrencyCode { get; set; }
     public int? PaymentTermsDays { get; set; }
+    /// <summary>The most this party may owe in one legal entity, in that entity's currency. Null means no limit.</summary>
+    public decimal? CreditLimit { get; set; }
     public string? Address { get; set; }
     [Filterable]
     public Guid? PartyGroupId { get; set; }

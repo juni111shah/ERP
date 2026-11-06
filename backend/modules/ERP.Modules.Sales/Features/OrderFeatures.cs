@@ -53,7 +53,8 @@ public sealed record OrderLineDto(
     decimal UnitPrice,
     decimal DiscountPercent,
     decimal TaxRate,
-    decimal LineTotal);
+    decimal LineTotal,
+    decimal ReturnedQuantity = 0);
 
 public sealed record OrderSummaryDto(
     Guid Id,
@@ -99,7 +100,8 @@ public sealed record OrderDto(
     Guid? InvoicedInvoiceId,
     IReadOnlyList<OrderLineDto> Lines,
     JsonObject CustomFields,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    IReadOnlyList<string>? Warnings = null);
 
 public sealed record OrderFulfillmentLineInput(Guid LineId, decimal DeliveredQuantity);
 
@@ -108,7 +110,8 @@ public sealed record CreateOrder(OrderInput Input) : ICommand<OrderDto>, IRequir
 public sealed record UpdateOrder(Guid Id, OrderInput Input) : ICommand<OrderDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 public sealed record DeleteOrder(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 public sealed record ChangeOrderStatus(Guid Id, SalesOrderStatus Status) : ICommand<OrderDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
-public sealed record UpdateOrderFulfillment(Guid Id, List<OrderFulfillmentLineInput> Lines) : ICommand<OrderDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
+/// <summary>DeliveredQuantity is cumulative. DeliveryDate defaults to today and WarehouseId to the legal entity's first active warehouse.</summary>
+public sealed record UpdateOrderFulfillment(Guid Id, List<OrderFulfillmentLineInput> Lines, DateOnly? DeliveryDate = null, Guid? WarehouseId = null) : ICommand<OrderDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 public sealed record ConvertOrderToInvoice(Guid Id) : ICommand<InvoiceDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 
 public sealed class OrderInputValidator : AbstractValidator<OrderInput>
@@ -152,6 +155,15 @@ internal static class SalesReferences
     }
 }
 
+public sealed class UpdateOrderFulfillmentValidator : AbstractValidator<UpdateOrderFulfillment>
+{
+    public UpdateOrderFulfillmentValidator()
+    {
+        RuleFor(x => x.DeliveryDate).MustBePlausibleDate();
+        RuleForEach(x => x.Lines).ChildRules(l => l.RuleFor(x => x.DeliveredQuantity).GreaterThanOrEqualTo(0).MustHaveAtMostDecimals(4));
+    }
+}
+
 internal sealed class OrderHandlers(
     IRepository<SalesOrder> orders,
     ISender sender,
@@ -161,7 +173,8 @@ internal sealed class OrderHandlers(
     IStockPostingService stockPosting,
     IReadRepository<TaxCode> taxCodes,
     IUnitOfWork uow,
-    IReferenceCheck references) :
+    IReferenceCheck references,
+    ICreditLimitService creditLimits) :
     IRequestHandler<GetOrder, OrderDto>,
     IRequestHandler<CreateOrder, OrderDto>,
     IRequestHandler<UpdateOrder, OrderDto>,
@@ -241,16 +254,21 @@ internal sealed class OrderHandlers(
 
         PopulateLinesAndTotals(order, i.Lines);
         await fields.ApplyAsync(Docs.SalesOrder, order, i.CustomFields, isCreate: false, ct);
+        var warning = order.Status == SalesOrderStatus.Confirmed ? await CheckCreditAsync(order, orders, creditLimits, ct) : null; // a confirmed order can grow past the limit
 
         await orders.SaveChangesAsync(ct);
-        return await ToDtoAsync(order, fields, ct);
+        return await ToDtoAsync(order, fields, ct) with { Warnings = warning is null ? null : [warning] };
     }
 
     public async Task<Unit> Handle(DeleteOrder cmd, CancellationToken ct)
     {
-        var order = await orders.GetForUpdateAsync(cmd.Id, ct);
+        var order = await orders.Tracked(new Specification<SalesOrder>(x => x.Id == cmd.Id))
+            .Include(x => x.Lines)
+            .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Sales order '{cmd.Id}' not found.");
         if (order.Status == SalesOrderStatus.Invoiced)
             throw new ConflictException("Cannot delete an invoiced sales order.");
+        if (order.Lines.Any(l => l.DeliveredQuantity > 0))
+            throw new ConflictException("This sales order has delivered goods: stock has left and its cost is posted, so it cannot be deleted. Record a sales return first.");
 
         orders.Remove(order);
         await orders.SaveChangesAsync(ct);
@@ -266,10 +284,23 @@ internal sealed class OrderHandlers(
         if (order.Status == SalesOrderStatus.Invoiced)
             throw new ConflictException("An invoiced sales order is reopened by voiding its invoice.");
         SalesTransitions.Order.Ensure(order.Status, cmd.Status, isSystem: false);
+        if (cmd.Status == SalesOrderStatus.Cancelled && order.Lines.Any(l => l.DeliveredQuantity > 0))
+            throw new ConflictException("This sales order has delivered goods: stock has left and its cost is posted, so it cannot be cancelled. Record a sales return first.");
+        var warning = cmd.Status == SalesOrderStatus.Confirmed ? await CheckCreditAsync(order, orders, creditLimits, ct) : null;
 
         order.Status = cmd.Status;
         await orders.SaveChangesAsync(ct);
-        return await ToDtoAsync(order, fields, ct);
+        return await ToDtoAsync(order, fields, ct) with { Warnings = warning is null ? null : [warning] };
+    }
+
+    /// <summary>A confirmed order counts toward the customer's credit together with their other confirmed orders not invoiced yet.</summary>
+    public static async Task<string?> CheckCreditAsync(SalesOrder order, IReadRepository<SalesOrder> orders, ICreditLimitService creditLimits, CancellationToken ct)
+    {
+        if (order.CustomerPartyId is not { } party) return null;
+        var open = await orders.Query(new Specification<SalesOrder>(o => o.CustomerPartyId == party && o.LegalEntityId == order.LegalEntityId && o.Id != order.Id
+                && (o.Status == SalesOrderStatus.Confirmed || o.Status == SalesOrderStatus.Processing || o.Status == SalesOrderStatus.Delivered)))
+            .Select(o => o.TotalAmount).ToListAsync(ct);
+        return await creditLimits.CheckAsync(party, order.LegalEntityId, order.TotalAmount + open.Sum(), ct);
     }
 
     // Stock issues, status and totals commit together: a failure part-way leaves no half-fulfilled order.
@@ -284,28 +315,30 @@ internal sealed class OrderHandlers(
         if (order.Status != SalesOrderStatus.Confirmed && order.Status != SalesOrderStatus.Processing)
             throw new ConflictException($"Cannot fulfill sales order in status '{order.Status}'. Only Confirmed or Processing orders can be fulfilled.");
 
+        var deliveryDate = cmd.DeliveryDate ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         foreach (var ful in cmd.Lines)
         {
-            var line = order.Lines.FirstOrDefault(l => l.Id == ful.LineId);
-            if (line != null)
-            {
-                if (ful.DeliveredQuantity < line.DeliveredQuantity)
-                    throw new FieldValidationException("deliveredQuantity", $"Delivered quantity ({ful.DeliveredQuantity}) cannot be less than current delivered quantity ({line.DeliveredQuantity}).");
+            var line = order.Lines.FirstOrDefault(l => l.Id == ful.LineId)
+                ?? throw new FieldValidationException("lines", $"Line '{ful.LineId}' is not on sales order '{order.Number}'.");
+            if (ful.DeliveredQuantity < line.DeliveredQuantity)
+                throw new FieldValidationException("deliveredQuantity", $"Delivered quantity ({ful.DeliveredQuantity}) cannot be less than current delivered quantity ({line.DeliveredQuantity}).");
+            if (ful.DeliveredQuantity > line.Quantity)
+                throw new FieldValidationException("deliveredQuantity", $"Delivered quantity ({ful.DeliveredQuantity}) cannot be more than the {line.Quantity} ordered on '{line.Description}'.");
 
-                var targetQty = Math.Min(line.Quantity, ful.DeliveredQuantity);
-                var delta = targetQty - line.DeliveredQuantity;
-                if (delta > 0 && line.ItemId.HasValue)
-                {
-                    await stockPosting.IssueStockAsync(new StockIssueRequest(
-                        order.LegalEntityId,
-                        line.ItemId.Value,
-                        delta,
-                        DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
-                        order.Number,
-                        $"Delivery for SO {order.Number} ({line.ItemCode})"), ct);
-                }
-                line.DeliveredQuantity = targetQty;
+            var delta = ful.DeliveredQuantity - line.DeliveredQuantity;
+            if (delta > 0 && line.ItemId.HasValue)
+            {
+                await stockPosting.IssueStockAsync(new StockIssueRequest(
+                    order.LegalEntityId,
+                    line.ItemId.Value,
+                    delta,
+                    deliveryDate,
+                    order.Number,
+                    $"Delivery for SO {order.Number} ({line.ItemCode})",
+                    cmd.WarehouseId,
+                    EnforceAvailable: true), ct);
             }
+            line.DeliveredQuantity = ful.DeliveredQuantity;
         }
 
         var allDelivered = order.Lines.All(l => l.DeliveredQuantity >= l.Quantity);
@@ -409,7 +442,9 @@ internal sealed class OrderHandlers(
                     undelivered,
                     DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
                     order.Number,
-                    $"Auto-fulfillment for Invoiced SO {order.Number} ({l.ItemCode})"), ct);
+                    $"Auto-fulfillment for Invoiced SO {order.Number} ({l.ItemCode})",
+                    EnforceAvailable: true), ct);
+                l.AutoDeliveredQuantity = undelivered;
                 l.DeliveredQuantity = l.Quantity;
             }
             l.InvoicedQuantity = l.Quantity;
@@ -487,7 +522,7 @@ internal sealed class OrderHandlers(
             o.InvoicedInvoiceId,
             o.Lines.Select(l => new OrderLineDto(
                 l.Id, l.ItemId, l.ItemCode, l.Description, l.Quantity, l.DeliveredQuantity,
-                l.InvoicedQuantity, l.UnitOfMeasure, l.UnitPrice, l.DiscountPercent, l.TaxRate, l.LineTotal)).ToList(),
+                l.InvoicedQuantity, l.UnitOfMeasure, l.UnitPrice, l.DiscountPercent, l.TaxRate, l.LineTotal, l.ReturnedQuantity)).ToList(),
             cf,
             o.CreatedAt);
     }
