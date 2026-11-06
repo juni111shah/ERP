@@ -22,20 +22,12 @@ interface ModuleView { key: string; name: string; description: string; category:
   imports: [StatePanelComponent, NzCardModule, NzGridModule, NzTagModule, NzButtonModule, HasPermissionDirective],
   styles: [`
     .module-card {
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 14px;
-      border: 1px solid var(--erp-color-border-subtle);
-      background: var(--erp-color-bg-surface);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       display: flex;
       flex-direction: column;
       padding: 20px;
       height: 100%;
-    }
-    .module-card:hover {
-      box-shadow: 0 10px 25px -5px rgba(16, 149, 93, 0.12);
-      border-color: var(--erp-color-primary, #10955d);
-      transform: translateY(-2px);
     }
     .head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:10px }
     .mod-title { font-size:16px; font-weight:700; color: var(--erp-color-text-primary); }

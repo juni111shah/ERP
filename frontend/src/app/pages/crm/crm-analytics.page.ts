@@ -63,7 +63,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
   `,
   styles: [`
     .analytics-toolbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 16px; }
-    .panel { margin-top: 16px; padding: 16px 20px; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: var(--erp-radius-card, 8px); }
+    .panel { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); margin-top: 16px; padding: 16px 20px; border-radius: var(--erp-radius-card, 8px); }
     .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
     h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--erp-color-text-primary); }
     .row { display: grid; grid-template-columns: 130px 1fr 48px 150px; align-items: center; gap: 12px; padding: 6px 0; }

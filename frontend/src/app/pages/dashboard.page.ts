@@ -182,7 +182,7 @@ interface KpiCluster {
       padding: 7px 12px;
       border-radius: 14px;
       border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+      box-shadow: var(--erp-card-shadow);
     }
     @media (max-width: 767px) {
       .dashboard-toolbar { flex-direction: column; align-items: stretch; }
@@ -396,7 +396,7 @@ interface KpiCluster {
       border-radius: 14px;
       border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
       margin-bottom: 20px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+      box-shadow: var(--erp-card-shadow);
     }
     .matrix-title-wrap {
       display: flex;
@@ -482,7 +482,7 @@ interface KpiCluster {
       border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
       border-radius: 14px;
       padding: 16px 18px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+      box-shadow: var(--erp-card-shadow);
     }
     .dept-block-header {
       margin-bottom: 14px;
@@ -573,11 +573,9 @@ interface KpiCluster {
     }
 
     .chart-panel {
-      background: var(--erp-color-bg-surface);
-      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 14px;
       padding: 20px 22px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
       display: flex;
       flex-direction: column;
       height: 100%;
@@ -683,11 +681,9 @@ interface KpiCluster {
 
     /* Alerts Panel */
     .alerts-panel {
-      background: var(--erp-color-bg-surface);
-      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 14px;
       padding: 20px 22px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
       display: flex;
       flex-direction: column;
       height: 100%;
@@ -779,11 +775,9 @@ interface KpiCluster {
       gap: 22px;
     }
     .cluster-card {
-      background: var(--erp-color-bg-surface);
-      border: 1px solid var(--erp-color-border-subtle, #e2e8f0);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 14px;
       padding: 18px 20px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
     }
     .cluster-header {
       display: flex;

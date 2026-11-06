@@ -13,7 +13,7 @@ export const PLATFORM_STYLES = `
   .pf-head p { margin: 0; color: var(--erp-color-text-muted); max-width: 720px; line-height: 1.5; }
   .pf-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .pf-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); margin-bottom: 16px; align-items: start; }
-  .pf-card { background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 12px; padding: 16px 18px; min-width: 0; box-sizing: border-box; }
+  .pf-card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius: 12px; padding: 16px 18px; min-width: 0; box-sizing: border-box; }
   .pf-card > h2, .pf-card-head h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; color: var(--erp-color-text-primary); }
   .pf-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
   .pf-card-head h2 { margin-bottom: 0; }

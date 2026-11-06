@@ -31,7 +31,7 @@ import { StatePanelComponent } from '../../shared/state-panel.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpLabelPipe, ErpDatePipe, StatusTagComponent, StatePanelComponent, FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
   styles: [`.bar { display:flex; margin-bottom:12px } .spacer { flex:1 } .num { text-align:end; font-variant-numeric:tabular-nums; white-space:nowrap } .nowrap { white-space:nowrap }
-    .card { background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-radius:12px; overflow:hidden; margin-top:12px }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius:12px; overflow:hidden; margin-top:12px }
     .subject { font-weight:600; color: var(--erp-color-text-primary) }`],
   template: `
     <h1 class="erp-page-title">Approvals</h1>

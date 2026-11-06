@@ -135,7 +135,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
               } @else {
                 <div class="tiles" data-testid="pos-catalog">
                   @for (item of catalog(); track item.id) {
-                    <button type="button" class="tile" [disabled]="item.price === null || outOfStockBlocked(item)" [attr.title]="item.name" (click)="addItem(item)" [attr.data-testid]="'pos-item-' + item.sku">
+                    <button type="button" class="tile erp-lift" [disabled]="item.price === null || outOfStockBlocked(item)" [attr.title]="item.name" (click)="addItem(item)" [attr.data-testid]="'pos-item-' + item.sku">
                       <span class="tile-name">{{ item.name }}</span>
                       <span class="tile-code">{{ item.sku }}</span>
                       <span class="tile-foot">
@@ -451,8 +451,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
     .scan-clear { width: 32px; height: 32px; color: var(--erp-color-text-muted); background: none; border: 0; border-radius: 6px; cursor: pointer; }
     .catalog { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; }
     .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 8px; align-content: start; }
-    .tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 96px; padding: 9px 10px; font: inherit; color: inherit; text-align: start; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 10px; cursor: pointer; user-select: none; }
-    .tile:hover:not(:disabled) { border-color: var(--erp-color-primary); background: var(--erp-color-bg-hover); }
+    .tile { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 96px; padding: 9px 10px; font: inherit; color: inherit; text-align: start; border-radius: 10px; cursor: pointer; user-select: none; }
     .tile:active:not(:disabled) { background: var(--erp-color-primary-subtle); }
     .tile:focus-visible { outline: 2px solid var(--erp-color-primary); outline-offset: 1px; }
     .tile:disabled { cursor: not-allowed; opacity: .6; }

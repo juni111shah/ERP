@@ -852,6 +852,16 @@ $erp-type-roles: (
   --erp-content-max-width: 1600px;
   --erp-focus-ring: 0 0 0 2px var(--erp-color-bg-surface), 0 0 0 4px var(--erp-color-focus-ring);
 
+  // Card surface, by what the card sits on (rules in _cards.scss). These are for the tinted page canvas.
+  --erp-card-bg: var(--erp-color-bg-surface);
+  --erp-card-bg-hover: var(--erp-color-bg-surface);
+  --erp-card-border: transparent;
+  --erp-card-border-hover: transparent;
+  --erp-card-border-on-surface: var(--erp-color-border-default);
+  --erp-card-shadow: var(--erp-shadow-1);
+  --erp-card-shadow-hover: var(--erp-shadow-2);
+  --erp-card-shadow-on-surface-hover: var(--erp-shadow-1);
+
   // ---- Bridge: ng-zorro variable theme (--ant-*) → semantic tokens ----------
   // `:root` beats ng-zorro's `html {}` block on specificity, so these win.
   --ant-primary-color: var(--erp-color-primary);
@@ -902,6 +912,15 @@ $erp-type-roles: (
   @include _emit('color-', $erp-semantic-dark);
   @include _emit-tones($erp-tones-dark);
   @include _emit-aliases;   // re-resolve aliases on the element that switches theme
+  // Dark mode: shadows go away, borders come back one step lighter than the surface, elevation becomes a surface tint.
+  --erp-card-bg: var(--erp-color-bg-surface);
+  --erp-card-bg-hover: var(--erp-color-bg-surface-raised);
+  --erp-card-border: var(--erp-color-border-subtle);
+  --erp-card-border-hover: var(--erp-color-border-default);
+  --erp-card-border-on-surface: var(--erp-color-border-subtle);
+  --erp-card-shadow: none;
+  --erp-card-shadow-hover: none;
+  --erp-card-shadow-on-surface-hover: none;
 }
 
 [data-theme='dark'] {
@@ -1026,7 +1045,7 @@ html {
   padding-inline: var(--erp-table-cell-px);
 }
 .ant-table { font-variant-numeric: tabular-nums; }
-.ant-card { border-radius: var(--erp-radius-card); border-color: var(--erp-color-border-subtle); }
+.ant-card { border-radius: var(--erp-radius-card); }
 .ant-modal-content,
 .ant-drawer-content,
 .ant-dropdown-menu,

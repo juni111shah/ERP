@@ -15,7 +15,7 @@ import { BrandLogoComponent } from '../shared/brand-logo.component';
   imports: [RouterLink, NzButtonModule, NzIconModule, BrandLogoComponent],
   styles: [`
     :host { display: grid; place-items: center; min-height: 100vh; padding: 24px; box-sizing: border-box; background: var(--erp-color-bg-canvas); overflow-y: auto; }
-    .card { width: 100%; max-width: 520px; padding: 32px; box-sizing: border-box; text-align: center; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 16px; box-shadow: 0 4px 20px -2px rgba(0,0,0,.05); }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); width: 100%; max-width: 520px; padding: 32px; box-sizing: border-box; text-align: center; border-radius: 16px; }
     .brand { display: flex; justify-content: center; margin-bottom: 20px; }
     .brand erp-brand-logo { width: auto; }
     .icon { width: 56px; height: 56px; margin: 0 auto 14px; display: grid; place-items: center; border-radius: 50%; font-size: 26px; background: var(--erp-color-error-bg); color: var(--erp-color-error-text); }

@@ -13,7 +13,7 @@ import { limitText, sellingPoints, yearlySaving } from '../core/format/subscript
   imports: [NzButtonModule, NzIconModule],
   styles: [`
     :host { display: block; min-width: 0; }
-    .plan { position: relative; display: flex; flex-direction: column; height: 100%; padding: 20px; border-radius: 14px; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+    .plan { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); position: relative; display: flex; flex-direction: column; height: 100%; padding: 20px; border-radius: 14px; }
     .plan.recommended { border: 2px solid var(--erp-color-primary); padding: 19px; }
     .plan.selected { box-shadow: 0 0 0 3px var(--erp-color-primary-subtle); border-color: var(--erp-color-primary); }
     .badge { position: absolute; top: -11px; inset-inline-start: 16px; background: var(--erp-color-primary); color: var(--erp-color-on-primary, #fff); font-size: 11px; font-weight: 700; letter-spacing: .03em; padding: 2px 10px; border-radius: 9999px; }

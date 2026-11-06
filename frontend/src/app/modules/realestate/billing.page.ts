@@ -21,7 +21,7 @@ import { BillingApi, BillingResult } from './realestate.api';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzAlertModule, NzModalModule, StatCardComponent, StatePanelComponent],
   styles: [`
-    .run-card { padding: 20px; margin-bottom: 16px; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: var(--erp-radius-card, 8px); }
+    .run-card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); padding: 20px; margin-bottom: 16px; border-radius: var(--erp-radius-card, 8px); }
     .run-card p { margin: 0 0 16px; color: var(--erp-color-text-secondary); max-width: 720px; }
     .run-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
     .run-row label { display: block; margin-bottom: 4px; font-size: 13px; color: var(--erp-color-text-secondary); }

@@ -333,10 +333,9 @@ const VIEW_KEY = 'erp.crm.pipeline.view';
     .col-count { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--erp-color-text-secondary); }
     .col-value { margin-top: 4px; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--erp-color-text-primary); }
     .list { min-height: 90px; max-height: calc(100vh - 380px); overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-    .card { background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 9px; padding: 9px; box-shadow: 0 1px 2px rgba(0,0,0,.04); cursor: grab; }
-    .card:hover { border-color: var(--erp-color-primary); }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius: 9px; padding: 9px; cursor: grab; }
     .card.cdk-drag-disabled { cursor: default; }
-    .card.cdk-drag-preview { box-shadow: 0 8px 20px rgba(0,0,0,.18); }
+    .card.cdk-drag-preview { --erp-card-shadow: var(--erp-shadow-3); }
     .cdk-drag-placeholder { opacity: .35; }
     .cdk-drop-list-receiving { outline: 2px dashed var(--erp-color-primary); outline-offset: 2px; border-radius: 8px; }
     .card-top { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--erp-color-text-muted); }

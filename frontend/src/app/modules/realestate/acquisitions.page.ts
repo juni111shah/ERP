@@ -43,11 +43,9 @@ import { ErpDatePipe } from '../../shared/display.pipes';
   styles: [`
     .fund { display:grid; grid-template-columns: 1.2fr 1.6fr 1.2fr .8fr .8fr auto; gap:8px; margin-bottom:8px; align-items:center }
     .funding-section-card {
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       margin-top: 24px;
-      background: var(--erp-color-bg-surface, #ffffff);
-      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
       border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
       overflow: hidden;
     }
     .funding-card-header {

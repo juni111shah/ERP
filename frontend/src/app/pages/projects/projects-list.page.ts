@@ -67,7 +67,7 @@ type View = 'live' | 'active' | 'planning' | 'onHold' | 'mine' | 'completed' | '
       </div>
       <div class="cards" data-testid="project-cards">
         @for (row of list.items(); track row.id) {
-          <article class="pcard" tabindex="0" (click)="openDetail(row)" (keydown.enter)="openDetail(row)">
+          <article class="pcard erp-lift" tabindex="0" (click)="openDetail(row)" (keydown.enter)="openDetail(row)">
             <div class="ptop"><span class="code">{{ row.number }}</span> <erp-prj-tag kind="project" [value]="row.status" /> @if (row.health && row.health !== 'closed') { <erp-prj-tag kind="health" [value]="row.health" /> }</div>
             <h3>{{ row.name }}</h3>
             <p class="prj-muted">{{ row.customerName || 'Internal' }} @if (row.managerName) { · {{ row.managerName }} }</p>
@@ -164,7 +164,7 @@ type View = 'live' | 'active' | 'planning' | 'onHold' | 'mine' | 'completed' | '
     .meter { display:flex; align-items:center; gap:8px; } .meter .prj-bar { flex:1; min-width:50px; } .meter span { font-size:12px; font-variant-numeric:tabular-nums; } .small { font-size:12px; white-space:nowrap; }
     .acts { display:flex; gap:2px; justify-content:flex-end; } .new-group { display:inline-flex; gap:8px; }
     .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px; }
-    .pcard { background:var(--erp-color-bg-surface,#fff); border:1px solid var(--erp-color-border-subtle,#e2e8f0); border-radius:12px; padding:14px; cursor:pointer; display:flex; flex-direction:column; gap:6px; } .pcard:hover { border-color:var(--erp-color-primary,#10955d); } .pcard:focus-visible { outline:2px solid var(--erp-color-primary,#10955d); }
+    .pcard { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:6px; } .pcard:focus-visible { outline:2px solid var(--erp-color-primary,#10955d); }
     .ptop { display:flex; align-items:center; gap:6px; flex-wrap:wrap; } .pcard h3 { margin:2px 0 0; font-size:14.5px; font-weight:600; color:var(--erp-color-text-primary,#0f172a); } .pcard p { margin:0 0 4px; }
     .metric { display:flex; justify-content:space-between; font-size:12px; color:var(--erp-color-text-secondary,#475569); margin-top:4px; } .foot { display:flex; justify-content:space-between; margin-top:6px; font-size:12px; }
     .form { display:flex; flex-direction:column; gap:10px; } .form label { display:flex; flex-direction:column; gap:4px; font-size:13px; } .form .check { flex-direction:row; align-items:center; gap:6px; }

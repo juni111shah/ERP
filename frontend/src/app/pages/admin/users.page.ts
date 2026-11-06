@@ -29,11 +29,9 @@ import { ErpDatePipe } from '../../shared/display.pipes';
   imports: [ErpDatePipe, StatePanelComponent, StatCardComponent, TranslatePipe, ReactiveFormsModule, FormsModule, HasPermissionDirective, RevealDirective, TableToolsComponent, NzToolTipModule, NzTableModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzSelectModule, NzTagModule, NzIconModule],
   styles: [`
     .user-table-card {
-      background: var(--erp-color-bg-surface, #ffffff);
-      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
       border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
       margin-top: 16px;
     }
     .user-cell { display: flex; align-items: center; gap: 10px; }

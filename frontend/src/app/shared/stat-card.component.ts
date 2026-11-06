@@ -84,7 +84,7 @@ function formatAnimatedString(template: string, progress: number): string {
   imports: [NgTemplateOutlet, RouterLink, NzSkeletonModule],
   template: `
     @if (link(); as l) {
-      <a class="erp-stat-card erp-stat-card--link" [class.erp-stat-card--compact]="compact()" [routerLink]="l" [attr.data-testid]="testId()"><ng-container *ngTemplateOutlet="body" /></a>
+      <a class="erp-stat-card erp-stat-card--link erp-lift" [class.erp-stat-card--compact]="compact()" [routerLink]="l" [attr.data-testid]="testId()"><ng-container *ngTemplateOutlet="body" /></a>
     } @else {
       <div class="erp-stat-card" [class.erp-stat-card--compact]="compact()" [attr.data-testid]="testId()"><ng-container *ngTemplateOutlet="body" /></div>
     }

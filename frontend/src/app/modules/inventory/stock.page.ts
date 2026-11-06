@@ -71,7 +71,7 @@ type Action = 'receive' | 'issue' | 'adjust' | 'transfer' | 'policy';
     @if (failed()) {
       <erp-state-panel kind="error" title="Stock could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
     } @else {
-    <div style="background:var(--erp-color-bg-surface, #ffffff);border:1px solid var(--erp-color-border-subtle, #edf2f7);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+    <div class="erp-card" style="overflow:hidden">
       <nz-table [nzData]="shown()" [nzLoading]="!data()" nzSize="middle" [nzFrontPagination]="false" [nzShowPagination]="false" [nzNoResult]="noStock" data-testid="stock-table">
         <thead><tr><th>SKU</th><th>Item</th><th>Warehouse</th><th style="text-align:end">Quantity</th><th style="text-align:end">Avg cost</th><th style="text-align:end">Value</th></tr></thead>
         <tbody>

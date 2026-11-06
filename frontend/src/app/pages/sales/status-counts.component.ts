@@ -23,7 +23,7 @@ export function countByStatus<T>(list: (q: ListQuery) => Observable<PagedResult<
   imports: [RouterModule, NzButtonModule, NzSkeletonModule, StatusTagComponent],
   styles: [`
     :host { display: block; height: 100%; }
-    .panel { height: 100%; padding: 16px 20px; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: var(--erp-radius-card, 8px); }
+    .panel { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); height: 100%; padding: 16px 20px; border-radius: var(--erp-radius-card, 8px); }
     .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
     h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--erp-color-text-primary); }
     .total { margin-inline-start: 6px; font-weight: 400; color: var(--erp-color-text-muted); }

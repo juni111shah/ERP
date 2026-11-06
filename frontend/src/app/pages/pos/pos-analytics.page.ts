@@ -164,7 +164,7 @@ const dayOffset = (isoDate: string, days: number): string => {
     .register { width: 200px; }
     .six { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
     .grid-row { margin-top: 16px; }
-    .panel { height: 100%; padding: 16px 20px; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: var(--erp-radius-card, 8px); }
+    .panel { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); height: 100%; padding: 16px 20px; border-radius: var(--erp-radius-card, 8px); }
     .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
     h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: var(--erp-color-text-primary); }
     .head h3 { margin: 0; }
