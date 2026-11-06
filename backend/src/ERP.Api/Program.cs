@@ -126,6 +126,10 @@ builder.Services.AddRateLimiter(o =>
     // Typing a workspace code calls this at every pause, so it allows more than a password attempt.
     o.AddPolicy("signup-check", http => RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1) }));
+    // The public assistant answers strangers, so each address gets a modest share. The daily token limit is the backstop.
+    var assistantPerHour = builder.Configuration.GetValue("RateLimiting:AssistantPerHour", 30);
+    o.AddPolicy("assistant-public", http => RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = assistantPerHour, Window = TimeSpan.FromHours(1) }));
     o.OnRejected = async (ctx, ct) =>
     {
         ctx.HttpContext.Response.Headers.RetryAfter = "60";
@@ -250,7 +254,7 @@ public static class CountryPackCatalog
 /// <summary>Installed modules. ERP_MODULES / Modules:Installed (comma list) narrows them; an empty value runs the core alone.</summary>
 public static class ModuleCatalog
 {
-    public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule(), new ERP.Modules.Projects.ProjectsModule(), new ERP.Modules.Sales.SalesModule(), new ERP.Modules.Purchasing.PurchasingModule(), new ERP.Modules.Pos.PosModule(), new ERP.Modules.Retail.RetailModule(), new ERP.Modules.Distribution.DistributionModule(), new ERP.Modules.Manufacturing.ManufacturingModule(), new ERP.Modules.Crm.CrmModule(), new ERP.Modules.Services.ServicesModule()];
+    public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule(), new ERP.Modules.Projects.ProjectsModule(), new ERP.Modules.Sales.SalesModule(), new ERP.Modules.Purchasing.PurchasingModule(), new ERP.Modules.Pos.PosModule(), new ERP.Modules.Retail.RetailModule(), new ERP.Modules.Distribution.DistributionModule(), new ERP.Modules.Manufacturing.ManufacturingModule(), new ERP.Modules.Crm.CrmModule(), new ERP.Modules.Services.ServicesModule(), new ERP.Modules.Assistant.AssistantModule()];
 
     public static IReadOnlyList<IModule> Select(IConfiguration config)
     {

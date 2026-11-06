@@ -1,3 +1,4 @@
+import { switchMap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -94,7 +95,8 @@ export class ModulesPage {
         this.busy.set(null);
         this.message.success(`${m.name} ${action}d`);
         this.load();
-        this.auth.loadMe().subscribe(); // refresh menu and module guards
+        // Permissions travel in the sign-in token, so a newly enabled module needs a fresh one before its calls are allowed.
+        this.auth.refresh().pipe(switchMap(() => this.auth.loadMe())).subscribe(); // refresh menu and module guards
       },
       error: (e) => { this.busy.set(null); this.message.error(asProblem(e)?.detail ?? 'Could not change the module'); },
     });

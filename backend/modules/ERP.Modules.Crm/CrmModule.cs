@@ -48,6 +48,7 @@ public sealed class CrmModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ISearchProvider, CrmSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantAction, LogNoteAssistantAction>();
         services.AddScoped<IDashboardContributor, CrmDashboard>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<CrmLead>(

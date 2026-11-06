@@ -56,6 +56,12 @@ public sealed class PlatformDirectory(AppDbContext db, UserManager<AppUser> user
     public Task<bool> IsPlatformAdminAsync(Guid userId, CancellationToken ct = default)
         => db.Users.AsNoTracking().AnyAsync(u => u.Id == userId && u.IsPlatformAdmin && u.IsActive, ct);
 
+    public async Task<bool> IsPlatformOwnerAsync(Guid userId, CancellationToken ct = default)
+    {
+        var owner = await db.PlatformSettings.AsNoTracking().OrderBy(s => s.CreatedAt).Select(s => s.OwnerUserId).FirstOrDefaultAsync(ct);
+        return owner == userId && await IsPlatformAdminAsync(userId, ct);
+    }
+
     public async Task<IReadOnlyDictionary<Guid, WorkspaceUsage>> UsageAsync(IReadOnlyCollection<Guid>? orgIds = null, CancellationToken ct = default)
     {
         var members = await db.OrganizationMembers.IgnoreQueryFilters().AsNoTracking()
@@ -177,6 +183,7 @@ public sealed class PlatformDirectory(AppDbContext db, UserManager<AppUser> user
     public async Task RemoveTeamMemberAsync(Guid userId, Guid actingUserId, CancellationToken ct = default)
     {
         if (userId == actingUserId) throw new ConflictException("You cannot remove yourself from the platform team.");
+        if (await IsPlatformOwnerAsync(userId, ct)) throw new ConflictException("The platform owner cannot be removed from the team.");
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new NotFoundException();
         user.IsPlatformAdmin = false;
         await users.UpdateAsync(user);

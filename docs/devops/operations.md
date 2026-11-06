@@ -103,3 +103,9 @@ The older `-AllowSelfSignup` switch still works, and starts the new workspace on
 .\init-secrets.ps1 -Environment production -Rotate   # everyone is signed out
 .\erp-env.ps1 restart -Environment production
 ```
+
+## Encryption keys for stored secrets
+
+AI service keys are encrypted with ASP.NET Data Protection. Its key files live in `<Storage:Root>\data-protection-keys` (override with `DataProtection:KeysPath`), so they survive deployments. On Windows they are protected for the machine with DPAPI.
+
+Back this folder up with the database. If you restore the database on another machine, or lose the folder, the console marks each AI service "Paste it again" and the owner enters its key once more. Nothing else stored long-term depends on these files, and sessions in progress may need to sign in again.

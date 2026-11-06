@@ -1,9 +1,10 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpDownloadProgressEvent, HttpEventType } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { SubscriptionSummary } from '../session/session.store';
 import { CountryDto, CurrencyOption } from './admin.api';
 import { API_BASE_URL } from './api-config';
+import { AssistantStreamEvent, AssistantStreamParser } from './assistant-stream';
 import { ListQuery, PagedResult } from './api.models';
 import { toHttpParams } from './crud-api.service';
 
@@ -29,6 +30,10 @@ export interface SignupInput {
 export interface SignupResult { status: SignupStatus; message: string; signInKey: string | null; }
 export interface SignInKeyAvailability { available: boolean; reason: string | null; }
 export interface PublicModule { key: string; name: string; description: string; category: string; isCore: boolean; requires: string[]; }
+export interface PublicFeature { icon: string; title: string; text: string; titleAr: string; textAr: string; }
+export interface PublicFaq { q: string; a: string; qAr: string; aAr: string; }
+export interface PublicContent { builtIn: PublicFeature[]; trust: PublicFeature[]; faqs: PublicFaq[]; about: string | null; }
+export interface BrandLeadInput { token: string | null; name: string; email: string; phone: string | null; company: string | null; need: string | null; consent: boolean; website: string | null; }
 export interface LegalDocuments { companyName: string; supportEmail: string | null; termsUrl: string | null; terms: string; privacy: string; updatedAt: string | null; }
 export interface IndustryOption { key: string; label: string; description: string; availability: string; suggestedModules: string[]; }
 
@@ -97,11 +102,27 @@ export interface LifecycleResult { trialsExpired: number; invoicesIssued: number
 export interface PlatformModule { key: string; name: string; description: string; category: string; isCore: boolean; requires: string[]; }
 export interface PlatformSettingsView {
   signupMode: SignupMode; requireEmailVerification: boolean; emailServerConfigured: boolean; defaultPlanId: string | null; currency: string; taxPercent: number; taxLabel: string; invoicePrefix: string; nextInvoiceNumber: number;
-  invoiceDueDays: number; renewalLeadDays: number; graceDays: number; suspendAfterDays: number; companyName: string; companyAddress: string | null; companyTaxNumber: string | null; supportEmail: string | null; termsUrl: string | null; paymentInstructions: string | null; termsText: string; privacyText: string; legalIsStarterText: boolean;
+  invoiceDueDays: number; renewalLeadDays: number; graceDays: number; suspendAfterDays: number; companyName: string; companyAddress: string | null; companyTaxNumber: string | null; supportEmail: string | null; termsUrl: string | null; paymentInstructions: string | null; termsText: string; privacyText: string; legalIsStarterText: boolean; aboutText: string | null;
 }
 export type PlatformSettingsInput = Omit<PlatformSettingsView, 'emailServerConfigured' | 'nextInvoiceNumber' | 'legalIsStarterText'>;
 export interface PlatformTeamMember { userId: string; email: string; fullName: string; lastSignInAt: string | null; twoFactorEnabled: boolean; }
 export interface NewTeamMember { member: PlatformTeamMember; temporaryPassword: string | null; }
+export interface AiProviderView {
+  id: string; name: string; baseUrl: string; model: string; keyHint: string; keyNeedsReentry: boolean; useForBrand: boolean; useForWorkspace: boolean;
+  lastTestedAt: string | null; lastTestOk: boolean | null; lastTestMessage: string | null;
+}
+export type BrandLeadStatus = 'new' | 'contacted' | 'won' | 'lost';
+export interface BrandLeadRow { id: string; createdAt: string; status: BrandLeadStatus; name: string; email: string; phone: string | null; company: string | null; need: string | null; conversationId: string | null; hasRegistered: boolean; }
+export interface BrandConversationRow { id: string; startedAt: string; lastMessageAt: string; visitorMessages: number; needsReview: boolean; firstMessage: string | null; }
+export interface BrandMessageRow { at: string; fromVisitor: boolean; text: string; }
+export type AssistantBot = 'brand' | 'workspace';
+export interface AssistantUsageRow { bot: AssistantBot; providerId: string; providerName: string; requests: number; failures: number; inputTokens: number; outputTokens: number; lastFailure: string | null; }
+export interface AssistantConsoleView {
+  brandEnabled: boolean; workspaceEnabled: boolean; canManage: boolean; providers: AiProviderView[];
+  brandDailyTokens: number; workspaceDailyTokens: number; usageToday: AssistantUsageRow[];
+}
+/** apiKey is write-only: leave it null when editing to keep the stored key. */
+export interface AiProviderInput { name: string; baseUrl: string; model: string; apiKey: string | null; useForBrand: boolean; useForWorkspace: boolean; }
 
 /** Registration, a client's own billing, and the founder's console. Every console route sits behind the server's platform-admin policy. */
 @Injectable({ providedIn: 'root' })
@@ -115,6 +136,10 @@ export class PlatformApi {
 
   // ---- Public --------------------------------------------------------------------------------------------------------
   publicModules(): Observable<PublicModule[]> { return this.http.get<PublicModule[]>(`${this.base}/public/modules`); }
+  publicContent(): Observable<PublicContent> { return this.http.get<PublicContent>(`${this.base}/public/content`); }
+  brandAssistantStatus(): Observable<{ visible: boolean; supportEmail: string | null }> { return this.http.get<{ visible: boolean; supportEmail: string | null }>(`${this.base}/public/assistant/status`); }
+  askBrandAssistant(input: { token: string | null; text: string; website: string | null }): Observable<AssistantStreamEvent> { return this.assistantStream(`${this.base}/public/assistant/messages`, input); }
+  submitBrandLead(input: BrandLeadInput): Observable<unknown> { return this.http.post(`${this.base}/public/assistant/leads`, input); }
   legal(): Observable<LegalDocuments> { return this.http.get<LegalDocuments>(`${this.base}/public/legal`); }
   signupConfig(): Observable<SignupConfig> { return this.http.get<SignupConfig>(`${this.base}/public/signup-config`); }
   signInKeyAvailable(key: string): Observable<SignInKeyAvailability> { return this.http.get<SignInKeyAvailability>(`${this.base}/public/sign-in-key-available`, { params: { key } }); }
@@ -176,4 +201,41 @@ export class PlatformApi {
   team(): Observable<PlatformTeamMember[]> { return this.http.get<PlatformTeamMember[]>(`${this.admin}/team`); }
   addTeamMember(input: { email: string; fullName: string }): Observable<NewTeamMember> { return this.http.post<NewTeamMember>(`${this.admin}/team`, input); }
   removeTeamMember(userId: string): Observable<unknown> { return this.http.delete(`${this.admin}/team/${userId}`); }
+
+  // ---- Console: leads and public chats --------------------------------------------------------------------------------
+  leads(q: ListQuery): Observable<PagedResult<BrandLeadRow>> { return this.http.get<PagedResult<BrandLeadRow>>(`${this.admin}/leads`, { params: toHttpParams(q) }); }
+  setLeadStatus(id: string, status: BrandLeadStatus): Observable<BrandLeadRow> { return this.http.put<BrandLeadRow>(`${this.admin}/leads/${id}/status/${status}`, {}); }
+  deleteLead(id: string): Observable<unknown> { return this.http.delete(`${this.admin}/leads/${id}`); }
+  brandConversations(q: ListQuery): Observable<PagedResult<BrandConversationRow>> { return this.http.get<PagedResult<BrandConversationRow>>(`${this.admin}/assistant/conversations`, { params: toHttpParams(q) }); }
+  brandConversation(id: string): Observable<BrandMessageRow[]> { return this.http.get<BrandMessageRow[]>(`${this.admin}/assistant/conversations/${id}`); }
+
+  // ---- Console: AI assistant ------------------------------------------------------------------------------------------
+  assistant(): Observable<AssistantConsoleView> { return this.http.get<AssistantConsoleView>(`${this.admin}/assistant`); }
+  setAssistantVisibility(input: { brandEnabled: boolean; workspaceEnabled: boolean }): Observable<AssistantConsoleView> { return this.http.put<AssistantConsoleView>(`${this.admin}/assistant/visibility`, input); }
+  setAssistantLimits(input: { brandDailyTokens: number; workspaceDailyTokens: number }): Observable<AssistantConsoleView> { return this.http.put<AssistantConsoleView>(`${this.admin}/assistant/limits`, input); }
+  tryAssistant(input: { bot: AssistantBot; messages: { role: 'user' | 'assistant'; text: string }[] }): Observable<AssistantStreamEvent> { return this.assistantStream(`${this.admin}/assistant/try`, input); }
+  /** Reads a reply as it is written. Unsubscribing cancels the request, which also stops the reply at the AI service. */
+  assistantStream(url: string, body: unknown): Observable<AssistantStreamEvent> {
+    return new Observable((subscriber) => {
+      const parser = new AssistantStreamParser();
+      let seen = 0;
+      const read = (text: string) => {
+        for (const event of parser.push(text.slice(seen))) subscriber.next(event);
+        seen = text.length;
+      };
+      return this.http.post(url, body, { observe: 'events', reportProgress: true, responseType: 'text' }).subscribe({
+        next: (e) => {
+          if (e.type === HttpEventType.DownloadProgress) read((e as HttpDownloadProgressEvent).partialText ?? '');
+          else if (e.type === HttpEventType.Response) read(e.body ?? '');
+        },
+        error: (e) => subscriber.error(e),
+        complete: () => subscriber.complete(),
+      });
+    });
+  }
+  createAiProvider(input: AiProviderInput): Observable<AssistantConsoleView> { return this.http.post<AssistantConsoleView>(`${this.admin}/assistant/providers`, input); }
+  updateAiProvider(id: string, input: AiProviderInput): Observable<AssistantConsoleView> { return this.http.put<AssistantConsoleView>(`${this.admin}/assistant/providers/${id}`, input); }
+  deleteAiProvider(id: string): Observable<AssistantConsoleView> { return this.http.delete<AssistantConsoleView>(`${this.admin}/assistant/providers/${id}`); }
+  reorderAiProviders(ids: string[]): Observable<AssistantConsoleView> { return this.http.put<AssistantConsoleView>(`${this.admin}/assistant/providers/order`, { ids }); }
+  testAiProvider(id: string): Observable<AssistantConsoleView> { return this.http.post<AssistantConsoleView>(`${this.admin}/assistant/providers/${id}/test`, {}); }
 }

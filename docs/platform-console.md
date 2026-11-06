@@ -74,3 +74,21 @@ Things it deliberately does not do yet:
 - `ERP.Infrastructure/Services/PlatformServices.cs`: everything that reads across workspaces. `PlatformBootstrap.cs`: startup.
 - `ERP.Api/Endpoints/PlatformAdminEndpoints.cs`: routes. The `platform-admin` policy sits on the whole group.
 - Tests: `tests/ERP.IntegrationTests/PlatformConsoleTests.cs`, `tests/ERP.UnitTests/SubscriptionRulesTests.cs`.
+
+## AI assistant settings
+
+`/platform/assistant` decides where the AI assistant appears and which AI services answer for it. Anyone on the platform team can look. Only the platform owner can change anything or run a test.
+
+- **Owner:** `PlatformSetting.OwnerUserId`. It is set at startup from `Platform:FounderEmail`, and is kept when later restarts leave that setting out. With no owner yet and exactly one platform admin, that admin becomes the owner. With several, restart once with `-FounderEmail`. The owner cannot be removed from the team.
+- **Services:** any service that uses the OpenAI-style `/chat/completions` format works by entering its address, model and key. The presets in `frontend/src/app/pages/platform/ai-providers.ts` are the one place in the code that names them.
+- **Keys:** encrypted in `AiProviders.EncryptedApiKey` and never returned to a browser, written to the audit trail or put in the activity log. Changing a service's address requires pasting the key again, and addresses must be public HTTPS. **Delete** removes the key for good.
+- **Order:** the top service answers first. A service answers for the public assistant or for client data only if its switch for that is on.
+
+The assistants themselves are built in later steps, so these settings have no visible effect on clients yet.
+
+### Trying it, limits and usage
+
+- **Try it** talks to the connected services directly, even with the assistants switched off, using `POST /platform-admin/assistant/try`. Replies arrive as server-sent events (`AssistantStreamResult`). Nothing is saved, and only the owner can use it.
+- **Moving between services:** `AssistantRunner` tries each service in order. It moves on only while nothing has been shown, so a reply is never answered twice. A service that reports its limit is skipped until the wait it asked for has passed (60 seconds if it does not say, one hour at most). This is held in memory, so a restart clears it.
+- **Daily limits** are in tokens per assistant, counted per UTC day in `AssistantUsageDays`, and include replies the person stopped early. A service that reports no usage is estimated at four characters a token. At the limit the assistant stops until the next day.
+- **Tools:** at most `AssistantRunner.MaxToolCallsPerTurn` per reply. Each tool must check for itself that the caller may see what it returns.

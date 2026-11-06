@@ -53,6 +53,8 @@ public sealed record NewTeamMember(PlatformTeamMember Member, string? TemporaryP
 public interface IPlatformDirectory
 {
     Task<bool> IsPlatformAdminAsync(Guid userId, CancellationToken ct = default);
+    /// <summary>The one account that may manage AI services and their keys.</summary>
+    Task<bool> IsPlatformOwnerAsync(Guid userId, CancellationToken ct = default);
     Task<IReadOnlyDictionary<Guid, WorkspaceUsage>> UsageAsync(IReadOnlyCollection<Guid>? orgIds = null, CancellationToken ct = default);
     Task<IReadOnlyList<WorkspaceMemberView>> MembersAsync(Guid orgId, CancellationToken ct = default);
     /// <summary>A registration's password: the hash for a new account, or null when the email has an account and this is its password. Throws a field error otherwise.</summary>

@@ -33,7 +33,7 @@ public sealed class SubscriptionGateMiddleware(RequestDelegate next)
                     $"https://erp.local/problems/{SubscriptionProblems.BlockedType}");
                 return;
             }
-            if (summary.Access == SubscriptionAccessLevel.ReadOnly && !HttpMethods.IsGet(http.Request.Method) && !HttpMethods.IsHead(http.Request.Method) && !HttpMethods.IsOptions(http.Request.Method))
+            if (summary.Access == SubscriptionAccessLevel.ReadOnly && http.GetEndpoint()?.Metadata.GetMetadata<AllowedInReadOnlyWorkspace>() is null && !HttpMethods.IsGet(http.Request.Method) && !HttpMethods.IsHead(http.Request.Method) && !HttpMethods.IsOptions(http.Request.Method))
             {
                 await ApiEnvelope.WriteErrorAsync(http, StatusCodes.Status402PaymentRequired, "Changes are paused",
                     "This workspace is view-only until its subscription is brought up to date. See Subscription and billing.",

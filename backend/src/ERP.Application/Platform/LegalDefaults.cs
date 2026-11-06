@@ -58,6 +58,9 @@ public static class LegalDefaults
         ## Who can see it
         People you give access to in your workspace, and our own team when running the service or helping you. Service providers that help us run it, such as hosting and email, handle data only for that purpose. We share information if the law requires it.
 
+        ## AI assistant
+        Our website and the software can include an AI assistant. What you type to it is sent to an AI service provider, which may process it outside your country, so that it can reply. Please do not enter passwords, payment details or other sensitive information. Chats on our public website are kept for 30 days to improve our answers. If you ask us to contact you, we keep the details you give until we have dealt with your request. Inside a workspace, the assistant is off until the workspace's administrator turns it on, and it can only use what the person asking is allowed to see.
+
         ## How long we keep it
         We keep your data while you have a workspace. If you cancel, your data is kept so that you can come back. Write to us if you want it deleted, and we will do so unless the law requires us to keep it. Registrations that are never completed are closed, and their stored passwords are removed.
 

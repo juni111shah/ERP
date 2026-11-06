@@ -69,6 +69,9 @@ public sealed class SalesModule : ModuleBase
     {
         services.AddScoped<IDashboardContributor, SalesDashboard>();
         services.AddScoped<ISearchProvider, SalesSearch>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, QuotesAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantReader, OrdersAssistantReader>();
+        services.AddScoped<ERP.Application.Assistant.IAssistantAction, CreateQuoteAssistantAction>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<SalesOrder>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "salesorder", P.OrdersRead, P.OrdersManage));

@@ -27,6 +27,9 @@ public interface ILegalEntityScoped
     Guid LegalEntityId { get; set; }
 }
 
+/// <summary>Rows that are never copied into the audit trail, because they hold conversation text the audit log must not keep forever.</summary>
+public interface INotAudited;
+
 /// <summary>Soft-deletable rows. Deletes become updates; a global filter hides deleted rows.</summary>
 public interface ISoftDelete
 {

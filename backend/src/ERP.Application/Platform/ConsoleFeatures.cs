@@ -56,10 +56,10 @@ public sealed record SignupRow(
 
 public sealed record PlatformSettingsView(
     SignupMode SignupMode, bool RequireEmailVerification, bool EmailServerConfigured, Guid? DefaultPlanId, string Currency, decimal TaxPercent, string TaxLabel, string InvoicePrefix, int NextInvoiceNumber, int InvoiceDueDays, int RenewalLeadDays, int GraceDays, int SuspendAfterDays,
-    string CompanyName, string? CompanyAddress, string? CompanyTaxNumber, string? SupportEmail, string? TermsUrl, string? PaymentInstructions, string TermsText, string PrivacyText, bool LegalIsStarterText);
+    string CompanyName, string? CompanyAddress, string? CompanyTaxNumber, string? SupportEmail, string? TermsUrl, string? PaymentInstructions, string TermsText, string PrivacyText, bool LegalIsStarterText, string? AboutText);
 public sealed record PlatformSettingsInput(
     SignupMode SignupMode, bool RequireEmailVerification, Guid? DefaultPlanId, string Currency, decimal TaxPercent, string TaxLabel, string InvoicePrefix, int InvoiceDueDays, int RenewalLeadDays, int GraceDays, int SuspendAfterDays,
-    string? CompanyName, string? CompanyAddress, string? CompanyTaxNumber, string? SupportEmail, string? TermsUrl, string? PaymentInstructions, string? TermsText = null, string? PrivacyText = null);
+    string? CompanyName, string? CompanyAddress, string? CompanyTaxNumber, string? SupportEmail, string? TermsUrl, string? PaymentInstructions, string? TermsText = null, string? PrivacyText = null, string? AboutText = null);
 public sealed record TeamMemberInput(string Email, string FullName);
 
 public sealed record GetPlatformDashboard : IQuery<PlatformDashboard>;
@@ -164,6 +164,7 @@ public sealed class UpdatePlatformSettingsValidator : AbstractValidator<UpdatePl
         RuleFor(x => x.Input.SuspendAfterDays).InclusiveBetween(1, 365).WithMessage("Use 1 to 365 days.");
         RuleFor(x => x.Input).Must(i => i.SuspendAfterDays > i.GraceDays).WithName("suspendAfterDays").WithMessage("Suspension must come after the grace period.");
         RuleFor(x => x.Input.PaymentInstructions).MaximumLength(2000);
+        RuleFor(x => x.Input.AboutText).MaximumLength(2000);
         RuleFor(x => x.Input.TermsText).MaximumLength(100_000);
         RuleFor(x => x.Input.PrivacyText).MaximumLength(100_000);
         RuleFor(x => x.Input.TermsUrl).Must(u => Uri.TryCreate(u, UriKind.Absolute, out var parsed) && parsed.Scheme is "http" or "https").When(x => !string.IsNullOrWhiteSpace(x.Input.TermsUrl)).WithMessage("Enter a full web address, starting with https://.");
@@ -721,7 +722,7 @@ internal sealed class PlatformSettingsHandlers(PlatformSettingsStore settingsSto
 {
     private PlatformSettingsView ToView(PlatformSetting s) => new(
         s.SignupMode, s.RequireEmailVerification, mailer.IsEnabled, s.DefaultPlanId, s.Currency, s.TaxPercent, s.TaxLabel, s.InvoicePrefix, s.NextInvoiceNumber, s.InvoiceDueDays, s.RenewalLeadDays, s.GraceDays, s.SuspendAfterDays,
-        s.CompanyName, s.CompanyAddress, s.CompanyTaxNumber, s.SupportEmail, s.TermsUrl, s.PaymentInstructions, s.TermsText ?? LegalDefaults.Terms, s.PrivacyText ?? LegalDefaults.Privacy, s.TermsText is null && s.PrivacyText is null);
+        s.CompanyName, s.CompanyAddress, s.CompanyTaxNumber, s.SupportEmail, s.TermsUrl, s.PaymentInstructions, s.TermsText ?? LegalDefaults.Terms, s.PrivacyText ?? LegalDefaults.Privacy, s.TermsText is null && s.PrivacyText is null, s.AboutText);
 
     public async Task<PlatformSettingsView> Handle(GetPlatformSettings q, CancellationToken ct) => ToView(await settingsStore.GetAsync(ct));
 
@@ -737,6 +738,7 @@ internal sealed class PlatformSettingsHandlers(PlatformSettingsStore settingsSto
         // Sending the starter wording back unchanged leaves it as the starter wording. Sending nothing (older callers) changes nothing.
         var terms = Clean(i.TermsText, LegalDefaults.Terms, s.TermsText);
         var privacy = Clean(i.PrivacyText, LegalDefaults.Privacy, s.PrivacyText);
+        if (i.AboutText is not null) s.AboutText = string.IsNullOrWhiteSpace(i.AboutText) ? null : i.AboutText.Trim();
         var legalChanged = terms != s.TermsText || privacy != s.PrivacyText;
         s.TermsText = terms;
         s.PrivacyText = privacy;

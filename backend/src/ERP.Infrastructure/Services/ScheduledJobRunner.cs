@@ -30,6 +30,12 @@ public sealed class ScheduledJobRunner(IServiceScopeFactory scopes, ILogger<Sche
             await billing.ServiceProvider.GetRequiredService<ERP.Application.Platform.ISubscriptionLifecycle>().RunAsync(today, ct);
         }
         catch (Exception e) when (e is not OperationCanceledException) { log.LogError(e, "The daily billing run failed"); }
+        try
+        {
+            using var platform = scopes.CreateScope();
+            foreach (var job in platform.ServiceProvider.GetServices<ERP.Application.Platform.IPlatformJob>()) await job.RunAsync(today, ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException) { log.LogError(e, "A platform job failed"); }
 
         List<Guid> orgIds;
         using (var scope = scopes.CreateScope())

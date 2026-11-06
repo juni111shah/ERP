@@ -78,6 +78,11 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
     public DbSet<SubscriptionInvoice> SubscriptionInvoices => Set<SubscriptionInvoice>();
     public DbSet<SignupRequest> SignupRequests => Set<SignupRequest>();
     public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
+    public DbSet<AiProvider> AiProviders => Set<AiProvider>();
+    public DbSet<AssistantUsageDay> AssistantUsageDays => Set<AssistantUsageDay>();
+    public DbSet<BrandConversation> BrandConversations => Set<BrandConversation>();
+    public DbSet<BrandMessage> BrandMessages => Set<BrandMessage>();
+    public DbSet<BrandLead> BrandLeads => Set<BrandLead>();
     public DbSet<PlatformActivity> PlatformActivities => Set<PlatformActivity>();
     public DbSet<CustomFieldDefinition> CustomFieldDefinitions => Set<CustomFieldDefinition>();
 
@@ -157,8 +162,42 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Property(x => x.VerificationTokenHash).HasMaxLength(64);
             b.HasOne<SubscriptionPlan>().WithMany().HasForeignKey(x => x.PlanId).OnDelete(DeleteBehavior.Restrict);
         });
+        mb.Entity<BrandConversation>(b => b.HasIndex(x => x.LastMessageAt));
+        mb.Entity<BrandMessage>(b =>
+        {
+            b.Property(x => x.Text).HasMaxLength(8000).IsRequired();
+            b.HasIndex(x => new { x.ConversationId, x.At });
+        });
+        mb.Entity<BrandLead>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Email).HasMaxLength(256).IsRequired();
+            b.Property(x => x.Phone).HasMaxLength(40);
+            b.Property(x => x.Company).HasMaxLength(200);
+            b.Property(x => x.Need).HasMaxLength(1000);
+            b.HasIndex(x => x.CreatedAt);
+        });
+        mb.Entity<AssistantUsageDay>(b =>
+        {
+            b.Property(x => x.Bot).HasMaxLength(20).IsRequired();
+            b.Property(x => x.ProviderName).HasMaxLength(80).IsRequired();
+            b.Property(x => x.LastFailure).HasMaxLength(200);
+            b.HasIndex(x => new { x.Day, x.Bot, x.ProviderId }).IsUnique();
+        });
+        mb.Entity<AiProvider>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(80).IsRequired();
+            b.Property(x => x.BaseUrl).HasMaxLength(300).IsRequired();
+            b.Property(x => x.Model).HasMaxLength(150).IsRequired();
+            b.Property(x => x.EncryptedApiKey).HasMaxLength(4000).IsRequired();
+            b.Property(x => x.ApiKeyHint).HasMaxLength(4).IsRequired();
+            b.Property(x => x.LastTestMessage).HasMaxLength(200);
+        });
         mb.Entity<PlatformSetting>(b =>
         {
+            b.Property(x => x.AboutText).HasMaxLength(2000);
+            b.Property(x => x.BrandAssistantDailyTokens).HasDefaultValue(150_000);
+            b.Property(x => x.WorkspaceAssistantDailyTokens).HasDefaultValue(50_000);
             b.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
             b.Property(x => x.TaxPercent).HasPrecision(5, 2);
             b.Property(x => x.PaymentInstructions).HasMaxLength(2000);

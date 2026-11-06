@@ -22,6 +22,29 @@ public sealed class PlatformBootstrap(AppDbContext db, UserManager<AppUser> user
     {
         await SeedPlansAndSettingsAsync(ct);
         await EnsureFounderAsync(ct);
+        await EnsureOwnerAsync(ct);
+    }
+
+    /// <summary>
+    /// Records who owns the platform, because Platform:FounderEmail is normally only passed on the restart that sets the founder up.
+    /// Without it, a deployment with a single platform admin makes that person the owner. With several, it waits for the setting.
+    /// </summary>
+    private async Task EnsureOwnerAsync(CancellationToken ct)
+    {
+        var settings = await db.PlatformSettings.OrderBy(s => s.CreatedAt).FirstOrDefaultAsync(ct);
+        if (settings is null) return;
+        var email = config["Platform:FounderEmail"]?.Trim();
+        var named = string.IsNullOrEmpty(email) ? null : await users.FindByEmailAsync(email);
+        Guid? owner = named is { IsPlatformAdmin: true } ? named.Id : null;
+        if (owner is null && settings.OwnerUserId is null)
+        {
+            var admins = await db.Users.AsNoTracking().Where(u => u.IsPlatformAdmin && u.IsActive).Select(u => u.Id).Take(2).ToListAsync(ct);
+            if (admins.Count == 1) owner = admins[0];
+            else if (admins.Count > 1) log.LogWarning("Several platform admins and no owner yet. Restart once with Platform:FounderEmail to choose who manages the AI assistant.");
+        }
+        if (owner is null || owner == settings.OwnerUserId) return;
+        settings.OwnerUserId = owner;
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>Placeholder prices for the founder to replace in the console; nothing is sold until registration is opened.</summary>

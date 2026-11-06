@@ -181,6 +181,18 @@ public class PlatformSetting : Entity, IAuditable
     public DateTime? LegalUpdatedAt { get; set; }
     /// <summary>Bank details and how to pay; shown to clients and printed on invoices.</summary>
     public string? PaymentInstructions { get; set; }
+    /// <summary>A few lines about the company, in the founder's words, for the public assistant to draw on.</summary>
+    public string? AboutText { get; set; }
+    /// <summary>The one account allowed to manage AI services and their keys. Set at startup from Platform:FounderEmail.</summary>
+    public Guid? OwnerUserId { get; set; }
+    /// <summary>Show the AI assistant on the public pages.</summary>
+    public bool BrandAssistantEnabled { get; set; }
+    /// <summary>Show the AI assistant inside workspaces.</summary>
+    public bool WorkspaceAssistantEnabled { get; set; }
+    /// <summary>Tokens the public assistant may use per day (UTC). This protects free allowances, and any bill once a paid key is used.</summary>
+    public int BrandAssistantDailyTokens { get; set; } = 150_000;
+    /// <summary>Tokens the workspace assistant may use per day (UTC).</summary>
+    public int WorkspaceAssistantDailyTokens { get; set; } = 50_000;
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
