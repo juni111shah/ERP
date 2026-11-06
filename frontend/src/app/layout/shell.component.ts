@@ -1,5 +1,6 @@
+import { CdkConnectedOverlay, CdkOverlayOrigin, ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal, DestroyRef } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, afterRenderEffect, computed, inject, linkedSignal, signal, viewChild, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -32,15 +33,17 @@ import { SubscriptionBannerComponent } from './subscription-banner.component';
 import { WorkspaceBlockedComponent } from './workspace-blocked.component';
 import { blockedPageApplies } from '../core/format/subscription';
 import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
+import { NavGroup, currentGroupId, groupIcon, nextFocusIndex, resolveOpenGroup, scrollDeltaToReveal } from './sidebar-nav';
 
-interface MenuGroup { id: string; label: string; order: number; items: { id: string; label: string; route: string; icon?: string; module: string }[]; }
+/** The category whose menu is showing beside the collapsed sidebar. A pinned flyout (click or keyboard) ignores the pointer leaving. */
+interface NavFlyout { id: string; origin: CdkOverlayOrigin; pinned: boolean; }
 
 /** App shell: white sidebar with the server-driven menu, header with workspace/entity switchers, notifications, theme and user menu. */
 @Component({
   selector: 'erp-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KeyboardClickDirective, Dir, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
+  imports: [KeyboardClickDirective, Dir, OverlayModule, TranslatePipe, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NzLayoutModule, NzMenuModule, NzIconModule, NzButtonModule,
     NzDropDownModule, NzAvatarModule, NzBadgeModule, NzTagModule, NzSelectModule, NzInputModule, NzToolTipModule, GlobalSearchComponent, NotificationDrawerComponent, BrandLogoComponent, SubscriptionBannerComponent, WorkspaceBlockedComponent],
   styles: [`
     :host { display: block; height: 100vh; }
@@ -800,43 +803,131 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
     .group-title {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 9px;
       width: 100%;
       border: 0;
       background: none;
       font: inherit;
       text-align: start;
       cursor: pointer;
-      padding: 14px 18px 4px;
+      padding: 8px 18px;
       font-size: 11px;
       font-weight: 600;
       color: var(--erp-color-text-tertiary);
       text-transform: uppercase;
       letter-spacing: .06em;
       white-space: nowrap;
-      overflow: hidden;
-      height: 32px;
+      height: 36px;
       line-height: 20px;
-      opacity: 1;
-      transform: translateX(0);
-      transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                  height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-                  padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-                  transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .group-title:hover { color: var(--erp-color-text-primary); }
+    .group-title:hover, .group-title[aria-expanded='true'] { color: var(--erp-color-text-primary); }
     .group-title:focus-visible { outline: 2px solid var(--erp-color-focus-ring); outline-offset: -2px; border-radius: 4px; }
-    .group-chevron { font-size: 10px; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .group-icon { font-size: 15px; flex-shrink: 0; color: var(--erp-color-nav-icon); }
+    .group-title[aria-expanded='true'] .group-icon { color: var(--erp-color-primary-text); }
+    .group-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .group-chevron { font-size: 10px; flex-shrink: 0; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
     .group-title[aria-expanded='true'] .group-chevron { transform: rotate(90deg); }
     :host-context([dir='rtl']) .group-title[aria-expanded='false'] .group-chevron { transform: rotate(180deg); }
-    .group-title.collapsed {
-      height: 0;
-      padding-top: 0;
-      padding-bottom: 0;
-      opacity: 0;
-      transform: translateX(-6px);
-      pointer-events: none;
+
+    /* Collapsed sidebar: one button per category. A scrollbar would push the icons off centre in so narrow a column. */
+    .nav-scroll-area.is-rail { scrollbar-width: none; }
+    .nav-rail {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding-top: 4px;
     }
+    .rail-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--erp-color-nav-icon);
+      font-size: 20px;
+      cursor: pointer;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+    .rail-btn:hover, .rail-btn.is-open {
+      background: rgba(16, 149, 93, 0.08);
+      color: var(--erp-color-primary-text);
+    }
+    .rail-btn.is-current {
+      background: var(--erp-color-primary-subtle);
+      border-color: var(--erp-color-primary-border);
+      color: var(--erp-color-primary-text);
+    }
+    .rail-btn:focus-visible { outline: 2px solid var(--erp-color-focus-ring); outline-offset: 1px; }
+
+    /* Category menu beside the rail. The wrapper's padding spans the gap, so the pointer can cross it. */
+    .nav-flyout-wrap {
+      display: flex;
+      max-height: calc(100vh - 16px);
+      padding-inline-start: 16px;
+    }
+    .nav-flyout {
+      display: flex;
+      flex-direction: column;
+      min-width: 220px;
+      max-width: 300px;
+      min-height: 0;
+      overflow: hidden;
+      border: 1px solid var(--erp-color-nav-border);
+      border-radius: 10px;
+      background: var(--erp-color-nav-bg);
+      box-shadow: var(--erp-shadow-3);
+    }
+    .nav-flyout-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      flex-shrink: 0;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--erp-color-border-subtle);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--erp-color-text-primary);
+    }
+    .nav-flyout-title .anticon { font-size: 16px; color: var(--erp-color-primary-text); }
+    .nav-flyout-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      margin: 0;
+      padding: 6px;
+      overflow-y: auto;
+      list-style: none;
+    }
+    .nav-flyout-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 38px;
+      padding: 6px 10px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--erp-color-nav-text);
+      font-size: 14px;
+      line-height: 1.3;
+      text-decoration: none;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    .nav-flyout-link .anticon { font-size: 16px; flex-shrink: 0; color: var(--erp-color-nav-icon); }
+    .nav-flyout-link:hover { background: rgba(16, 149, 93, 0.08); color: var(--erp-color-primary-text); }
+    .nav-flyout-link:hover .anticon { color: var(--erp-color-primary-text); }
+    .nav-flyout-link:focus-visible { outline: 2px solid var(--erp-color-focus-ring); outline-offset: -2px; }
+    .nav-flyout-link.is-active {
+      background: var(--erp-color-primary-subtle);
+      border-color: var(--erp-color-primary-border);
+      color: var(--erp-color-primary-text);
+      font-weight: 600;
+    }
+    .nav-flyout-link.is-active .anticon { color: var(--erp-color-primary-text); }
 
     /* Polished, Fluidly Animated Menu Items */
     .sider ::ng-deep {
@@ -844,84 +935,6 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
         background: transparent !important;
         border-inline-end: none !important;
         width: 100% !important;
-      }
-
-      /* Collapsed Menu Items: perfectly centered 44x44px pill with NO Ant Design left-padding offset */
-      .ant-menu-inline-collapsed {
-        width: 64px !important;
-
-        > .ant-menu-item {
-          width: 44px !important;
-          height: 44px !important;
-          line-height: 44px !important;
-          margin: 5px auto !important;
-          padding: 0 !important;
-          padding-left: 0 !important;
-          padding-right: 0 !important;
-          padding-inline: 0 !important;
-          border-radius: 12px !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          text-align: center !important;
-          overflow: visible !important;
-          transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
-
-          .ant-menu-title-content {
-            width: 100% !important;
-            height: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            overflow: visible !important;
-          }
-
-          .nav-item-inner {
-            width: 100% !important;
-            height: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            overflow: visible !important;
-          }
-
-          .nav-icon {
-            width: 44px !important;
-            min-width: 44px !important;
-            height: 44px !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: 20px !important;
-            line-height: 1 !important;
-            flex-shrink: 0 !important;
-
-            .anticon {
-              margin: 0 !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              font-size: 20px !important;
-              width: 20px !important;
-              height: 20px !important;
-            }
-          }
-
-          .nav-label {
-            display: none !important;
-            width: 0 !important;
-            height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            pointer-events: none !important;
-          }
-        }
       }
 
       .ant-menu-rtl .ant-menu-item .anticon,
@@ -1087,26 +1100,44 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
             </button>
           }
         </div>
-        <div class="nav-scroll-area">
-          @for (g of menu(); track g.id) {
-            <button type="button" class="group-title" [class.collapsed]="collapsed()" [attr.aria-expanded]="isGroupOpen(g)" [attr.tabindex]="collapsed() ? -1 : null" (click)="toggleGroup(g)" [attr.data-testid]="'nav-group-' + g.id">
-              <span>{{ i18n.t('menu.group.' + g.id, g.label) }}</span>
-              <span class="group-chevron" nz-icon nzType="right" aria-hidden="true"></span>
-            </button>
-            <ul nz-menu nzMode="inline" [nzInlineCollapsed]="collapsed()" [nzInlineIndent]="0" [hidden]="!isGroupOpen(g)">
-              @for (i of g.items; track i.id) {
-                <li nz-menu-item nz-tooltip [nzTooltipTitle]="collapsed() ? i.label : null" [nzTooltipPlacement]="i18n.dir() === 'rtl' ? 'left' : 'right'"
-                    [routerLink]="linkPath(i.route)" [queryParams]="linkQuery(i.route)" routerLinkActive="ant-menu-item-selected" [routerLinkActiveOptions]="{ exact: i.route === '/' }"
-                    [attr.data-testid]="'nav-' + i.id">
-                  <div class="nav-item-inner">
-                    <span nz-icon [nzType]="icon(i.icon)" class="nav-icon"></span>
-                    <span class="nav-label" [class.collapsed]="collapsed()">{{ i18n.t('menu.' + i.id, i.label) }}</span>
-                  </div>
-                </li>
+        <div class="nav-scroll-area" [class.is-rail]="collapsed()" #navScroll (scroll)="closeFlyout()">
+          @if (collapsed()) {
+            <div class="nav-rail" data-testid="nav-rail">
+              @for (g of rawMenu(); track g.id) {
+                <button type="button" class="rail-btn" cdkOverlayOrigin #railOrigin="cdkOverlayOrigin"
+                        [class.is-current]="currentGroup() === g.id" [class.is-open]="flyout()?.id === g.id"
+                        [attr.aria-label]="i18n.t('menu.group.' + g.id, g.label)"
+                        [attr.aria-expanded]="flyout()?.id === g.id"
+                        [attr.aria-controls]="flyout()?.id === g.id ? 'nav-flyout' : null"
+                        [attr.aria-current]="currentGroup() === g.id ? 'true' : null"
+                        (click)="onRailClick(g, railOrigin, $event)" (mouseenter)="onRailEnter(g, railOrigin)" (mouseleave)="scheduleFlyoutClose()"
+                        [attr.data-nav-group]="g.id" [attr.data-testid]="'nav-rail-' + g.id">
+                  <span nz-icon [nzType]="groupIcon(g.id)" aria-hidden="true"></span>
+                </button>
               }
-            </ul>
+            </div>
+          } @else {
+            @for (g of menu(); track g.id) {
+              <button type="button" class="group-title" [attr.aria-expanded]="isGroupOpen(g)" (click)="toggleGroup(g)" [attr.data-nav-group]="g.id" [attr.data-testid]="'nav-group-' + g.id">
+                <span class="group-icon" nz-icon [nzType]="groupIcon(g.id)" aria-hidden="true"></span>
+                <span class="group-label">{{ i18n.t('menu.group.' + g.id, g.label) }}</span>
+                <span class="group-chevron" nz-icon nzType="right" aria-hidden="true"></span>
+              </button>
+              <ul nz-menu nzMode="inline" [nzInlineIndent]="0" [hidden]="!isGroupOpen(g)">
+                @for (i of g.items; track i.id) {
+                  <li nz-menu-item
+                      [routerLink]="linkPath(i.route)" [queryParams]="linkQuery(i.route)" routerLinkActive="ant-menu-item-selected" [routerLinkActiveOptions]="{ exact: i.route === '/' }"
+                      [attr.data-testid]="'nav-' + i.id">
+                    <div class="nav-item-inner">
+                      <span nz-icon [nzType]="icon(i.icon)" class="nav-icon"></span>
+                      <span class="nav-label">{{ i18n.t('menu.' + i.id, i.label) }}</span>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
           }
-          @if (menuSearch().trim() && menu().length === 0) {
+          @if (!collapsed() && menuSearch().trim() && menu().length === 0) {
             <div class="sidebar-no-results" data-testid="sidebar-no-results">
               <span nz-icon nzType="frown" class="no-results-icon"></span>
               <div class="no-results-text">{{ 'shell.noMenuItems' | translate: 'No menu items found' }}</div>
@@ -1117,6 +1148,33 @@ interface MenuGroup { id: string; label: string; order: number; items: { id: str
           }
         </div>
       </nz-sider>
+      @if (flyoutGroup(); as g) {
+        <ng-template cdkConnectedOverlay [cdkConnectedOverlayOpen]="true" [cdkConnectedOverlayOrigin]="flyout()!.origin"
+                     [cdkConnectedOverlayPositions]="flyoutPositions" [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8"
+                     [cdkConnectedOverlayDisableClose]="true"
+                     (overlayKeydown)="onFlyoutOverlayKeydown($event)" (overlayOutsideClick)="onFlyoutOutsideClick($event)">
+          <div class="nav-flyout-wrap" (mouseenter)="keepFlyout()" (mouseleave)="scheduleFlyoutClose()">
+            <nav class="nav-flyout" id="nav-flyout" #flyoutPanel aria-labelledby="nav-flyout-title" (keydown)="onFlyoutKeydown($event)" data-testid="nav-flyout">
+              <div class="nav-flyout-title" id="nav-flyout-title">
+                <span nz-icon [nzType]="groupIcon(g.id)" aria-hidden="true"></span>
+                <span>{{ i18n.t('menu.group.' + g.id, g.label) }}</span>
+              </div>
+              <ul class="nav-flyout-list">
+                @for (i of g.items; track i.id) {
+                  <li>
+                    <a class="nav-flyout-link" [routerLink]="linkPath(i.route)" [queryParams]="linkQuery(i.route)"
+                       routerLinkActive="is-active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: i.route === '/' }"
+                       (click)="closeFlyout()" [attr.data-testid]="'nav-flyout-' + i.id">
+                      <span nz-icon [nzType]="icon(i.icon)" aria-hidden="true"></span>
+                      <span>{{ i18n.t('menu.' + i.id, i.label) }}</span>
+                    </a>
+                  </li>
+                }
+              </ul>
+            </nav>
+          </div>
+        </ng-template>
+      }
       @if (narrow() && drawerOpen()) { <div class="nav-backdrop" erpKeyboardClick aria-label="Close menu" (click)="drawerOpen.set(false)" data-testid="nav-backdrop"></div> }
       <nz-layout class="main-layout">
         <nz-header class="header">
@@ -1327,6 +1385,7 @@ export class ShellComponent {
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
   private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
 
   readonly collapsed = signal(false);
   /** Phone width: the sidebar is a drawer over the page rather than a column beside it. */
@@ -1334,6 +1393,7 @@ export class ShellComponent {
   readonly drawerOpen = signal(false);
 
   constructor() {
+    afterRenderEffect(() => this.revealActiveNav());
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const phone = window.matchMedia('(max-width: 767px)');
     const apply = () => {
@@ -1346,8 +1406,12 @@ export class ShellComponent {
     if (!phone.matches && window.matchMedia('(max-width: 1100px)').matches) this.collapsed.set(true);
     phone.addEventListener('change', apply);
     inject(DestroyRef).onDestroy(() => phone.removeEventListener('change', apply));
-    // Choosing a page closes the drawer.
-    this.router.events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => this.drawerOpen.set(false));
+    // Choosing a page closes the drawer and the flyout.
+    this.router.events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => {
+      this.drawerOpen.set(false);
+      this.closeFlyout();
+    });
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.flyoutTimer));
   }
   readonly notificationsOpen = signal(false);
   readonly refresh = signal(0);
@@ -1367,41 +1431,141 @@ export class ShellComponent {
 
   readonly menuSearch = signal('');
 
-  // ---------- sidebar groups: the user's choice is remembered, the first group starts open ----------
-  private readonly groupsKey = 'erp.nav.groups';
-  /** Group id -> open or closed, only for groups the user has toggled. */
-  private readonly groupChoices = signal<Record<string, boolean>>(this.readGroupChoices());
-  private readonly currentPath = toSignal(this.router.events.pipe(
+  // ---------- sidebar groups: one open at a time, the choice is remembered, the group of the current page always opens ----------
+  private readonly openGroupKey = 'erp.nav.openGroup';
+  private readonly currentUrl = toSignal(this.router.events.pipe(
     filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-    map((e) => e.urlAfterRedirects.split('?')[0]),
-    startWith(this.router.url.split('?')[0]),
+    map((e) => e.urlAfterRedirects),
+    startWith(this.router.url),
   ), { initialValue: '/' });
+  private readonly currentPath = computed(() => this.currentUrl().split('?')[0]);
 
   /** A suspended or cancelled workspace sees the blocked page everywhere but its billing page. */
   readonly blocked = computed(() => blockedPageApplies(this.session.me()?.subscription?.access, this.currentPath()));
 
-  /** A search, the icon-only sidebar and the group of the current page always show their items. */
-  isGroupOpen(g: MenuGroup): boolean {
-    if (this.collapsed() || this.menuSearch().trim() || this.holdsCurrentPage(g)) return true;
-    return this.groupChoices()[g.id] ?? g.id === this.rawMenu()[0]?.id;
+  readonly groupIcon = groupIcon;
+  /** The group holding the current page, marked on the icon rail. */
+  readonly currentGroup = computed(() => currentGroupId(this.rawMenu(), this.currentUrl()));
+  /** Worked out again on every navigation and menu load; between those, toggleGroup sets it. */
+  private readonly openGroupId = linkedSignal<{ url: string; groups: NavGroup[] }, string | null | undefined>({
+    source: () => ({ url: this.currentUrl(), groups: this.rawMenu() }),
+    computation: ({ url, groups }, previous) => resolveOpenGroup(groups, url, previous ? previous.value : this.readOpenGroup()),
+  });
+  private readonly navScroll = viewChild<ElementRef<HTMLElement>>('navScroll');
+
+  /** Keeps the open group in view (it can land past the end of the sidebar as the one above closes), or the current page's category on the rail. */
+  private revealActiveNav(): void {
+    const collapsed = this.collapsed();
+    const id = collapsed ? this.currentGroup() : this.openGroupId();
+    const area = this.navScroll()?.nativeElement;
+    this.rawMenu(); // nothing is drawn until the menu has loaded
+    if (!id || !area || (!collapsed && this.menuSearch().trim())) return;
+    const first = area.querySelector(`[data-nav-group="${CSS.escape(id)}"]`);
+    const last = collapsed ? first : first?.nextElementSibling;
+    if (!first || !last) return;
+    const view = area.getBoundingClientRect();
+    area.scrollTop += scrollDeltaToReveal(view.top, view.bottom, first.getBoundingClientRect().top, last.getBoundingClientRect().bottom);
   }
 
-  toggleGroup(g: MenuGroup): void {
-    const next = { ...this.groupChoices(), [g.id]: !this.isGroupOpen(g) };
-    this.groupChoices.set(next);
-    try { localStorage.setItem(this.groupsKey, JSON.stringify(next)); } catch { /* storage unavailable */ }
+  /** A search shows the items of every matching group. */
+  isGroupOpen(g: NavGroup): boolean {
+    return !!this.menuSearch().trim() || this.openGroupId() === g.id;
   }
 
-  private holdsCurrentPage(g: MenuGroup): boolean {
-    const path = this.currentPath();
-    return g.items.some((i) => {
-      const route = this.linkPath(i.route);
-      return route === '/' ? path === '/' : path === route || path.startsWith(route + '/');
-    });
+  toggleGroup(g: NavGroup): void {
+    if (this.menuSearch().trim()) return;
+    const next = this.openGroupId() === g.id ? null : g.id;
+    this.openGroupId.set(next);
+    try {
+      if (next) localStorage.setItem(this.openGroupKey, next);
+      else localStorage.removeItem(this.openGroupKey);
+    } catch { /* storage unavailable */ }
   }
 
-  private readGroupChoices(): Record<string, boolean> {
-    try { return JSON.parse(localStorage.getItem(this.groupsKey) ?? '{}') as Record<string, boolean>; } catch { return {}; }
+  private readOpenGroup(): string | undefined {
+    try { return localStorage.getItem(this.openGroupKey) ?? undefined; } catch { return undefined; }
+  }
+
+  // ---------- icon rail: hovering or clicking a category shows its menu beside the collapsed sidebar ----------
+  /** Start and end follow the language, so in Arabic the flyout opens on the left. */
+  readonly flyoutPositions: ConnectedPosition[] = [
+    { originX: 'end', originY: 'top', overlayX: 'start', overlayY: 'top' },
+    { originX: 'end', originY: 'bottom', overlayX: 'start', overlayY: 'bottom' },
+  ];
+  /** Back to closed whenever the sidebar is collapsed or expanded. */
+  readonly flyout = linkedSignal<boolean, NavFlyout | null>({ source: this.collapsed, computation: () => null });
+  readonly flyoutGroup = computed(() => {
+    const open = this.flyout();
+    return open && this.collapsed() ? this.rawMenu().find((g) => g.id === open.id) ?? null : null;
+  });
+  private readonly flyoutOverlay = viewChild(CdkConnectedOverlay);
+  private readonly flyoutPanel = viewChild<ElementRef<HTMLElement>>('flyoutPanel');
+  private flyoutTimer?: ReturnType<typeof setTimeout>;
+
+  onRailEnter(g: NavGroup, origin: CdkOverlayOrigin): void {
+    this.keepFlyout();
+    if (this.flyout()?.id === g.id) return;
+    this.flyoutTimer = setTimeout(() => this.showFlyout({ id: g.id, origin, pinned: false }), 100);
+  }
+
+  /** The first click pins a menu the pointer opened; a click on a pinned menu closes it. A click from the keyboard moves into the menu. */
+  onRailClick(g: NavGroup, origin: CdkOverlayOrigin, event: MouseEvent): void {
+    this.keepFlyout();
+    const open = this.flyout();
+    if (open?.id === g.id && open.pinned) { this.closeFlyout(); return; }
+    this.showFlyout({ id: g.id, origin, pinned: true }, event.detail === 0);
+  }
+
+  /** Cancels a pending open or close. */
+  keepFlyout(): void { clearTimeout(this.flyoutTimer); }
+
+  scheduleFlyoutClose(): void {
+    this.keepFlyout();
+    const open = this.flyout();
+    if (open && !open.pinned) this.flyoutTimer = setTimeout(() => this.closeFlyout(), 200);
+  }
+
+  /** Focus inside the menu goes back to its category button, so it is not lost with the menu. */
+  closeFlyout(): void {
+    this.keepFlyout();
+    const open = this.flyout();
+    if (!open) return;
+    if (this.flyoutPanel()?.nativeElement.contains(document.activeElement)) (open.origin.elementRef.nativeElement as HTMLElement).focus();
+    this.flyout.set(null);
+  }
+
+  onFlyoutOverlayKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') this.closeFlyout();
+  }
+
+  /** A click on another category switches the menu instead of closing it first. */
+  onFlyoutOutsideClick(event: MouseEvent): void {
+    if (!(event.target as Element | null)?.closest?.('.nav-rail')) this.closeFlyout();
+  }
+
+  /** The panel sits at the end of the page, so tabbing past either end returns to the category button. */
+  onFlyoutKeydown(event: KeyboardEvent): void {
+    const links = Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('a'));
+    const at = links.indexOf(document.activeElement as HTMLElement);
+    if (event.key === 'Tab') {
+      if (event.shiftKey ? at <= 0 : at === links.length - 1) { event.preventDefault(); this.closeFlyout(); }
+      return;
+    }
+    const next = nextFocusIndex(event.key, at, links.length);
+    if (next !== null) { event.preventDefault(); links[next].focus(); }
+  }
+
+  private showFlyout(next: NavFlyout, moveFocus = false): void {
+    this.flyout.set(next);
+    afterNextRender(() => {
+      this.flyoutOverlay()?.overlayRef?.updatePosition(); // the height changes with the category
+      if (!moveFocus) return;
+      // routerLinkActive marks the current page's link in a microtask.
+      queueMicrotask(() => {
+        const panel = this.flyoutPanel()?.nativeElement;
+        (panel?.querySelector<HTMLElement>('a.is-active') ?? panel?.querySelector<HTMLElement>('a'))?.focus();
+      });
+    }, { injector: this.injector });
   }
 
   onSearchInput(event: Event): void {
@@ -1423,8 +1587,8 @@ export class ShellComponent {
 
   // Menu reloads whenever the session changes (workspace switch, module enabled/disabled).
   readonly rawMenu = toSignal(toObservable(this.session.me).pipe(
-    switchMap((me) => (me ? this.http.get<MenuGroup[]>(`${this.base}/navigation/menu`).pipe(catchError(() => of([]))) : of([]))),
-  ), { initialValue: [] as MenuGroup[] });
+    switchMap((me) => (me ? this.http.get<NavGroup[]>(`${this.base}/navigation/menu`).pipe(catchError(() => of([]))) : of([]))),
+  ), { initialValue: [] as NavGroup[] });
 
   // Filtered menu based on menuSearch signal
   readonly menu = computed(() => {

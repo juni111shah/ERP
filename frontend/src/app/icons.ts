@@ -12,6 +12,7 @@ import {
   ArrowLeftOutline, BarcodeOutline, CalculatorOutline, CalendarOutline, CommentOutline, EyeOutline, FieldTimeOutline, FileDoneOutline, FlagOutline, HistoryOutline, InboxOutline, MoreOutline,
   PaperClipOutline, PauseCircleOutline, PlayCircleOutline, SaveOutline, ScheduleOutline, SendOutline, TableOutline, TagOutline, TransactionOutline, UserAddOutline, ZoomInOutline, ZoomOutOutline,
   AlertOutline, ArrowRightOutline, CarOutline, CheckCircleFill, CloseCircleFill, CloseCircleOutline, CloseOutline, CompassOutline, DesktopOutline, DownOutline, EnvironmentOutline, ExperimentOutline, EyeInvisibleOutline, FileSearchOutline, FilterFill, FrownOutline, GiftOutline, InfoCircleOutline, MinusCircleOutline, PhoneOutline, PoweroffOutline, ProfileOutline, SafetyCertificateFill, SafetyCertificateOutline, SolutionOutline, StepForwardOutline, SyncOutline, ThunderboltFill, TrophyOutline, UploadOutline,
+  ContactsOutline, CustomerServiceOutline, DatabaseOutline, IdcardOutline,
 } from '@ant-design/icons-angular/icons';
 
 /** Icons used by the shell and the server-driven menu (MenuItemDefinition.Icon). Unknown names fall back to "appstore". */
@@ -36,5 +37,7 @@ export const APP_ICONS = [
   ArrowLeftOutline, BarcodeOutline, CalculatorOutline, CalendarOutline, CommentOutline, EyeOutline, FieldTimeOutline, FileDoneOutline, FlagOutline, HistoryOutline, InboxOutline, MoreOutline,
   PaperClipOutline, PauseCircleOutline, PlayCircleOutline, SaveOutline, ScheduleOutline, SendOutline, TableOutline, TagOutline, TransactionOutline, UserAddOutline, ZoomInOutline, ZoomOutOutline,
   AlertOutline, ArrowRightOutline, CarOutline, CheckCircleFill, CloseCircleFill, CloseCircleOutline, CloseOutline, CompassOutline, DesktopOutline, DownOutline, EnvironmentOutline, ExperimentOutline, EyeInvisibleOutline, FileSearchOutline, FilterFill, FrownOutline, GiftOutline, InfoCircleOutline, MinusCircleOutline, PhoneOutline, PoweroffOutline, ProfileOutline, SafetyCertificateFill, SafetyCertificateOutline, SolutionOutline, StepForwardOutline, SyncOutline, ThunderboltFill, TrophyOutline, UploadOutline,
+  // Sidebar category icons (see layout/sidebar-nav.ts).
+  ContactsOutline, CustomerServiceOutline, DatabaseOutline, IdcardOutline,
 ];
 export const KNOWN_ICONS = new Set(APP_ICONS.map((i) => i.name));
