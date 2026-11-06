@@ -50,6 +50,40 @@ public class AttachmentAuthorizationTests(ApiFactory f) : IClassFixture<ApiFacto
     }
 
     [Fact]
+    public async Task The_vault_lists_only_documents_whose_owner_the_caller_may_read()
+    {
+        var (admin, _) = await f.SignInAsync(ApiFactory.AdminEmail);
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var partyId = Guid.Parse((string)(await ApiFactory.Json(await admin.PostAsJsonAsync("/api/v1/parties", new { name = "Vault Owner " + tag, kind = "Company", roles = "Customer" })))["id"]!);
+        var itemId = Guid.Parse((string)(await ApiFactory.Json(await admin.PostAsJsonAsync("/api/v1/items", new { sku = "V" + tag, name = "Vault Item", type = "product", uom = "EA", isActive = true })))["id"]!);
+        var (partyFile, partyFileMixedCase, itemFile) = ($"party-{tag}.pdf", $"partymixed-{tag}.pdf", $"item-{tag}.pdf");
+        Assert.Equal(HttpStatusCode.Created, (await admin.PostAsync("/api/v1/attachments", CreateForm("party", partyId, partyFile, "x", "application/pdf"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await admin.PostAsync("/api/v1/attachments", CreateForm("Party", partyId, partyFileMixedCase, "x", "application/pdf"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await admin.PostAsync("/api/v1/attachments", CreateForm("item", itemId, itemFile, "x", "application/pdf"))).StatusCode);
+
+        async Task<HttpClient> UserAsync(params string[] permissions)
+        {
+            var role = await admin.PostAsJsonAsync("/api/v1/roles", new RoleInput("Vault_" + Guid.NewGuid().ToString("N")[..8], null, permissions));
+            var email = $"vault_{Guid.NewGuid():N}@demo.local";
+            (await admin.PostAsJsonAsync("/api/v1/users", new { email, fullName = "Vault User", temporaryPassword = "Temp#Passw0rd", roleIds = new[] { (string)(await ApiFactory.Json(role))["id"]! } })).EnsureSuccessStatusCode();
+            return (await f.SignInAsync(email, "Temp#Passw0rd")).Client;
+        }
+        async Task<List<string>> VaultAsync(HttpClient c)
+        {
+            var res = await c.GetAsync($"/api/v1/attachments/vault?search={tag}&pageSize=50");
+            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+            return (await ApiFactory.Json(res)).AsArray().Select(r => (string)r!["fileName"]!).ToList();
+        }
+
+        Assert.Equal([itemFile, partyFile, partyFileMixedCase], (await VaultAsync(admin)).Order());
+
+        var parties = await VaultAsync(await UserAsync(CorePermissions.AttachmentsRead, CorePermissions.PartiesRead));
+        Assert.Equal([partyFile, partyFileMixedCase], parties.Order());
+
+        Assert.Empty(await VaultAsync(await UserAsync(CorePermissions.AttachmentsRead)));
+    }
+
+    [Fact]
     public async Task Upload_with_unknown_owner_type_returns_400()
     {
         var (admin, _) = await f.SignInAsync(ApiFactory.AdminEmail);
