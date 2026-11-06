@@ -100,7 +100,7 @@ public sealed class ApplyCreditNoteValidator : AbstractValidator<ApplyCreditNote
 
 internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository<InvoiceLine> lineRows, IInvoicingService invoicing, IClock clock,
     IRepository<AuditEvent> audit, ICurrentUser user, IRepository<CreditApplication> creditApplications, IPublisher publisher,
-    IReadRepository<ERP.Domain.Organizations.LegalEntity> legalEntities, IReadRepository<ERP.Domain.Parties.Party> parties, ERP.Application.Templates.CountryPackRegistry countryPacks) :
+    IReadRepository<ERP.Domain.Organizations.LegalEntity> legalEntities, IReadRepository<ERP.Domain.Parties.Party> parties, ERP.Application.Templates.CountryPackRegistry countryPacks, IUnitOfWork uow) :
     IRequestHandler<GetInvoice, InvoiceDto>,
     IRequestHandler<CreateInvoice, InvoiceDto>,
     IRequestHandler<UpdateInvoice, InvoiceDto>,
@@ -140,7 +140,10 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         return InvoiceDto.From(invoice);
     }
 
-    public async Task<Unit> Handle(DeleteInvoice cmd, CancellationToken ct)
+    // The handlers of InvoiceVoided may move stock and post: they commit with the invoice or not at all.
+    public Task<Unit> Handle(DeleteInvoice cmd, CancellationToken ct) => uow.InTransactionAsync(token => DeleteAsync(cmd, token), ct);
+
+    private async Task<Unit> DeleteAsync(DeleteInvoice cmd, CancellationToken ct)
     {
         var invoice = await LoadAsync(cmd.Id, ct);
         if (invoice.Status != DocumentStatus.Draft) throw new ConflictException("Only a draft can be deleted.");
@@ -169,7 +172,9 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         return InvoiceRequirements.Warnings(countryPacks.Find(entity.CountryCode), entity, customer, invoice);
     }
 
-    public async Task<InvoiceDto> Handle(VoidInvoice cmd, CancellationToken ct)
+    public Task<InvoiceDto> Handle(VoidInvoice cmd, CancellationToken ct) => uow.InTransactionAsync(token => VoidAsync(cmd, token), ct);
+
+    private async Task<InvoiceDto> VoidAsync(VoidInvoice cmd, CancellationToken ct)
     {
         var invoice = await LoadAsync(cmd.Id, ct);
         await invoicing.VoidAsync(invoice, cmd.Reason, ct);

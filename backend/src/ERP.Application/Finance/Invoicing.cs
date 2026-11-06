@@ -119,6 +119,10 @@ public sealed class InvoicingService(
     public async Task VoidAsync(Invoice invoice, string? reason = null, CancellationToken ct = default)
     {
         if (invoice.Status is not DocumentStatus.Issued || invoice.Paid != 0) throw new ConflictException("Only an issued document with nothing paid or applied can be voided. Issue a credit note instead.");
+        // Voiding under a live credit note would leave that credit in receivables with nothing behind it.
+        if (!invoice.IsCreditNote && await invoices.AnyAsync(i => i.IsCreditNote && i.Status != DocumentStatus.Voided
+                && (i.CreditNoteForId == invoice.Id || (i.SourceType == CreateCreditNoteFromInvoice.LinkType && i.SourceId == invoice.Id)), ct))
+            throw new ConflictException("This invoice has a credit note against it. Void or delete the credit note first.");
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == invoice.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
         await posting.ReverseTodayAsync(journal, VoidMemo.For(invoice.Number, reason), ct);
         invoice.Status = DocumentStatus.Voided;

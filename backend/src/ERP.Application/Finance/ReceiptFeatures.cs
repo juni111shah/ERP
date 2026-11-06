@@ -66,7 +66,7 @@ internal sealed class ReceiptHandlers(
 {
     public async Task<ReceiptDto> Handle(GetReceipt q, CancellationToken ct)
     {
-        var s = await settlements.Query(new Specification<Settlement>(x => x.Id == q.Id).Include(x => x.Allocations)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
+        var s = await settlements.Query(new Specification<Settlement>(x => x.Id == q.Id && x.Direction == InstrumentDirection.Received).Include(x => x.Allocations)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
         return await ToDtoAsync(s, ct);
     }
 
@@ -112,6 +112,7 @@ internal sealed class ReceiptHandlers(
     {
         var s = await LoadAsync(cmd.Id, ct);
         if (s.Status != DocumentStatus.Issued) throw new ConflictException("This receipt is already voided.");
+        if (s.PaymentInstrumentId is not null) throw new ConflictException("This receipt belongs to a cheque in the register. Cancel or bounce the cheque there instead.");
         await settlementService.ReverseAsync(s, VoidMemo.For(s.Number, cmd.Reason), ct);
         s.Status = DocumentStatus.Voided; s.Unallocated = 0;
         VoidMemo.Stamp(s, cmd.Reason, clock, user);
@@ -121,7 +122,7 @@ internal sealed class ReceiptHandlers(
     }
 
     private async Task<Settlement> LoadAsync(Guid id, CancellationToken ct)
-        => await settlements.Tracked(new Specification<Settlement>(x => x.Id == id).Include(x => x.Allocations)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
+        => await settlements.Tracked(new Specification<Settlement>(x => x.Id == id && x.Direction == InstrumentDirection.Received).Include(x => x.Allocations)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
 
     private async Task<ReceiptDto> ToDtoAsync(Settlement s, CancellationToken ct, IReadOnlyCollection<SettlementAllocation>? allocations = null)
     {
