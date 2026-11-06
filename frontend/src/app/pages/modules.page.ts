@@ -1,6 +1,6 @@
 import { switchMap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzGridModule } from 'ng-zorro-antd/grid';
@@ -32,16 +32,20 @@ interface ModuleView { key: string; name: string; description: string; category:
     .head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:10px }
     .mod-title { font-size:16px; font-weight:700; color: var(--erp-color-text-primary); }
     .mod-desc { color: var(--erp-color-text-muted); font-size:13.5px; line-height:1.5; flex:1; min-height: 44px; margin-bottom:16px }
+    .group-title { font-size: 15px; font-weight: 600; margin: 24px 0 12px; color: var(--erp-color-text-primary); }
+    .mod-requires { margin: -8px 0 12px; font-size: 12.5px; color: var(--erp-color-text-muted); }
     .action-row { margin-top: auto; display: flex; align-items: center; justify-content: space-between; }
   `],
   template: `
     <h1 class="erp-page-title">Modules</h1>
-    <p style="color:var(--erp-color-text-muted); margin-top:-8px; margin-bottom:20px;">Extend your workspace with industry-specific modules and functional packs.</p>
+    <p style="color:var(--erp-color-text-muted); margin-top:-8px; margin-bottom:20px;">Turn on the parts of the system your business needs. Each module shows what it needs switched on first.</p>
     @if (failed()) {
       <erp-state-panel kind="error" title="Could not load the modules" hint="The server did not return the list." actionLabel="Try again" (action)="load()" />
     }
-    <div nz-row [nzGutter]="[16, 16]">
-      @for (m of modules(); track m.key) {
+    @for (g of groups(); track g.category) {
+      <h2 class="group-title" [attr.data-testid]="'module-group-' + g.category">{{ g.category }}</h2>
+      <div nz-row [nzGutter]="[16, 16]" class="group-row">
+      @for (m of g.modules; track m.key) {
         <div nz-col [nzXs]="24" [nzMd]="12" [nzXl]="8" [attr.data-testid]="'module-row-' + m.key">
           <div class="module-card">
             <div class="head">
@@ -51,17 +55,21 @@ interface ModuleView { key: string; name: string; description: string; category:
               </nz-tag>
             </div>
             <p class="mod-desc">{{ m.description }}</p>
+            @if (m.requires.length) {
+              <p class="mod-requires" [attr.data-testid]="'module-requires-' + m.key">Needs: {{ requiredNames(m) }}</p>
+            }
             <div class="action-row">
               <span style="font-size:12px; color:var(--erp-color-text-muted); font-weight:500;">v{{ m.version || '1.0' }}</span>
               @if (!m.isCore && m.state !== 'unavailable') {
-                <button *erpHasPermission="'core.settings.write'" nz-button [nzType]="m.state === 'enabled' ? 'default' : 'primary'" [nzLoading]="busy() === m.key"
+                <button *erpHasPermission="'core.modules.manage'" nz-button [nzType]="m.state === 'enabled' ? 'default' : 'primary'" [nzLoading]="busy() === m.key"
                         (click)="toggle(m)" [attr.data-testid]="'module-toggle-' + m.key">{{ m.state === 'enabled' ? 'Disable' : 'Enable module' }}</button>
               }
             </div>
           </div>
         </div>
       }
-    </div>`,
+      </div>
+    }`,
 })
 export class ModulesPage {
   private readonly http = inject(HttpClient);
@@ -69,6 +77,16 @@ export class ModulesPage {
   private readonly auth = inject(AuthService);
   private readonly message = inject(NzMessageService);
   readonly modules = signal<ModuleView[]>([]);
+  /** The modules under their category, in the order the server lists them. */
+  readonly groups = computed(() => {
+    const byCategory = new Map<string, ModuleView[]>();
+    for (const m of this.modules()) byCategory.set(m.category || 'Other', [...(byCategory.get(m.category || 'Other') ?? []), m]);
+    return [...byCategory].map(([category, modules]) => ({ category, modules }));
+  });
+  /** The names of the modules a module needs switched on first. */
+  requiredNames(m: ModuleView): string {
+    return m.requires.map((key) => this.modules().find((x) => x.key === key)?.name ?? key).join(', ');
+  }
   readonly busy = signal<string | null>(null);
   readonly failed = signal(false);
 

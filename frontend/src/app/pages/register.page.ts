@@ -13,7 +13,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { catchError, debounceTime, of, switchMap, tap } from 'rxjs';
 import { CountryDto, CurrencyOption } from '../core/api/admin.api';
-import { BillingCycle, IndustryOption, PlatformApi, PublicPlan, SignupConfig, SignupResult } from '../core/api/platform.api';
+import { BillingCycle, IndustryOption, PlatformApi, groupIndustries, PublicPlan, SignupConfig, SignupResult } from '../core/api/platform.api';
 import { displayMoney } from '../core/format/display';
 import { suggestWorkspaceCode, yearlySaving } from '../core/format/subscription';
 import { applyProblemDetailsToForm, asProblem, controlError } from '../core/http/problem-details';
@@ -148,8 +148,12 @@ const FIELD_MESSAGES: Record<string, string> = {
                 <nz-form-label nzRequired nzFor="reg-industry">Industry</nz-form-label>
                 <nz-form-control [nzErrorTip]="err('industry')">
                   <nz-select nzId="reg-industry" formControlName="industry" nzShowSearch nzPlaceHolder="Choose an industry" data-testid="register-industry">
-                    @for (i of industries(); track i.key) {
-                      <nz-option [nzValue]="i.key" [nzLabel]="i.label + (isAvailable(i) ? '' : ' (coming soon)')" [nzDisabled]="!isAvailable(i)"></nz-option>
+                    @for (g of groupedIndustries(); track g.group) {
+                      <nz-option-group [nzLabel]="g.group">
+                        @for (i of g.items; track i.key) {
+                          <nz-option [nzValue]="i.key" [nzLabel]="i.label"></nz-option>
+                        }
+                      </nz-option-group>
                     }
                   </nz-select>
                 </nz-form-control>
@@ -319,7 +323,8 @@ export class RegisterPage {
     });
   }
 
-  isAvailable(i: IndustryOption): boolean { return (i.availability ?? '').toLowerCase() === 'available'; }
+  /** The business types a new workspace can start with, grouped by sector. */
+  readonly groupedIndustries = computed(() => groupIndustries(this.industries()));
   err(name: string): string {
     const control = this.form.get(name);
     return control?.errors?.['server'] ?? FIELD_MESSAGES[name] ?? controlError(control);
