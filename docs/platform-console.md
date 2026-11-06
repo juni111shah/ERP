@@ -83,12 +83,17 @@ Things it deliberately does not do yet:
 - **Services:** any service that uses the OpenAI-style `/chat/completions` format works by entering its address, model and key. The presets in `frontend/src/app/pages/platform/ai-providers.ts` are the one place in the code that names them.
 - **Keys:** encrypted in `AiProviders.EncryptedApiKey` and never returned to a browser, written to the audit trail or put in the activity log. Changing a service's address requires pasting the key again, and addresses must be public HTTPS. **Delete** removes the key for good.
 - **Order:** the top service answers first. A service answers for the public assistant or for client data only if its switch for that is on.
-
-The assistants themselves are built in later steps, so these settings have no visible effect on clients yet.
+- **Coming into use:** a new service starts with both switches off, and they can only be turned on once a test has passed. Changing its key, address or model turns them off again until the next test passes, because the clearance was given to the old connection.
+- **When a service fails:** a rejected key marks the service as failed at once, and three failed replies in a row do the same. A reported limit does not count. The console then shows the reason at the top of the page. A passing test or a real answer clears it.
 
 ### Trying it, limits and usage
 
 - **Try it** talks to the connected services directly, even with the assistants switched off, using `POST /platform-admin/assistant/try`. Replies arrive as server-sent events (`AssistantStreamResult`). Nothing is saved, and only the owner can use it.
 - **Moving between services:** `AssistantRunner` tries each service in order. It moves on only while nothing has been shown, so a reply is never answered twice. A service that reports its limit is skipped until the wait it asked for has passed (60 seconds if it does not say, one hour at most). This is held in memory, so a restart clears it.
-- **Daily limits** are in tokens per assistant, counted per UTC day in `AssistantUsageDays`, and include replies the person stopped early. A service that reports no usage is estimated at four characters a token. At the limit the assistant stops until the next day.
+- **Daily limits** are in tokens per assistant, counted per UTC day in `AssistantUsageDays`, and include replies the person stopped early. A service that reports no usage is estimated at four characters a token. At the limit the assistant stops until the next day. The last 30 days are added up per assistant and service on the same page.
+- **Per client:** `PlatformSetting.WorkspaceAssistantDailyMessagesPerClient` (200 by default) is the most messages one client's workspace may send the workspace assistant in a day, so one client cannot use up the shared tokens.
 - **Tools:** at most `AssistantRunner.MaxToolCallsPerTurn` per reply. Each tool must check for itself that the caller may see what it returns.
+
+### Leads and public chats
+
+`/platform/leads` lists leads with a status filter, search and paging. Leads still marked New are counted on the Leads menu item and on the dashboard, so a lead is seen even with no email server or support address. Email goes as well when both are set. A chat flagged for a price that matches no plan stays flagged until the owner marks it reviewed, and the owner can delete a chat. A later unknown price flags it again.

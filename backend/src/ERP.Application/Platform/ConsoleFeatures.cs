@@ -33,7 +33,7 @@ public sealed record MonthAmount(string Month, decimal Amount);
 public sealed record ExpiringTrial(Guid OrgId, string Name, DateOnly TrialEndsOn, int DaysLeft);
 public sealed record PlatformDashboard(
     string Currency, decimal MonthlyRecurring, decimal AnnualRecurring, int TotalClients, int Trialing, int Active, int PastDue, int Expired, int Suspended, int Cancelled, int WithoutPlan,
-    decimal Outstanding, decimal Overdue, decimal CollectedThisMonth, decimal CollectedTotal, int PendingSignups, int NewClients30Days, int PlanRequests,
+    decimal Outstanding, decimal Overdue, decimal CollectedThisMonth, decimal CollectedTotal, int PendingSignups, int NewClients30Days, int PlanRequests, int NewLeads,
     IReadOnlyList<PlanCount> ByPlan, IReadOnlyList<MonthAmount> Collected, IReadOnlyList<ExpiringTrial> TrialsEnding, IReadOnlyList<ActivityRow> RecentActivity);
 
 public sealed record CreateClientInput(
@@ -256,7 +256,7 @@ internal sealed class PlanHandlers(IRepository<SubscriptionPlan> plans, IReadRep
 
 internal sealed class ClientHandlers(
     IRepository<WorkspaceSubscription> subscriptions, IReadRepository<SubscriptionPlan> plans, IRepository<SubscriptionInvoice> invoices, IReadRepository<Organization> organizations, IReadRepository<PlatformActivity> activity,
-    IRepository<SignupRequest> signups, IOnboardingService onboarding, IPlatformDirectory directory, ISubscriptionAccess access, ClientProvisioner provisioner, SubscriptionInvoicing invoicing, PlatformSettingsStore settingsStore,
+    IRepository<SignupRequest> signups, IReadRepository<BrandLead> leads, IOnboardingService onboarding, IPlatformDirectory directory, ISubscriptionAccess access, ClientProvisioner provisioner, SubscriptionInvoicing invoicing, PlatformSettingsStore settingsStore,
     PlatformLog log, IPlatformMailer mailer, IClock clock, ICurrentUser user, ERP.Application.Auth.IAuthService auth) :
     IRequestHandler<GetPlatformDashboard, PlatformDashboard>,
     IRequestHandler<ListClients, PagedResult<ClientRow>>,
@@ -324,7 +324,7 @@ internal sealed class ClientHandlers(
             settings.Currency, mrr, mrr * 12, rows.Count, rows.Count(r => r.Status == SubscriptionStatus.Trialing), rows.Count(r => r.Status == SubscriptionStatus.Active), rows.Count(r => r.Status == SubscriptionStatus.PastDue),
             rows.Count(r => r.Status == SubscriptionStatus.Expired), rows.Count(r => r.Status == SubscriptionStatus.Suspended), rows.Count(r => r.Status == SubscriptionStatus.Cancelled), rows.Count(r => r.Status is null),
             open.Sum(i => i.Total), open.Where(i => i.DueOn < today).Sum(i => i.Total), paid.Where(i => i.PaidOn!.Value.Year == today.Year && i.PaidOn!.Value.Month == today.Month).Sum(i => i.Total), paid.Sum(i => i.Total),
-            await signups.CountAsync(r => r.Status == SignupStatus.PendingReview, ct), rows.Count(r => r.CreatedAt >= since), rows.Count(r => r.HasPlanRequest),
+            await signups.CountAsync(r => r.Status == SignupStatus.PendingReview, ct), rows.Count(r => r.CreatedAt >= since), rows.Count(r => r.HasPlanRequest), await leads.CountAsync(l => l.Status == BrandLeadStatus.New, ct),
             rows.Where(r => r.PlanId is not null && r.Status != SubscriptionStatus.Cancelled).GroupBy(r => r.PlanId!.Value).Select(g => new PlanCount(g.Key, planNames.GetValueOrDefault(g.Key, "Plan"), g.Count(), g.Where(Paying).Sum(r => r.MonthlyValue))).OrderByDescending(p => p.Clients).ToList(),
             months.Select(m => new MonthAmount(m.ToString("yyyy-MM"), paid.Where(i => i.PaidOn!.Value.Year == m.Year && i.PaidOn!.Value.Month == m.Month).Sum(i => i.Total))).ToList(),
             rows.Where(r => r.Status == SubscriptionStatus.Trialing && r.TrialEndsOn is { } e && e.DayNumber - today.DayNumber <= 7).OrderBy(r => r.TrialEndsOn).Take(10).Select(r => new ExpiringTrial(r.OrgId, r.Name, r.TrialEndsOn!.Value, r.TrialEndsOn!.Value.DayNumber - today.DayNumber)).ToList(),

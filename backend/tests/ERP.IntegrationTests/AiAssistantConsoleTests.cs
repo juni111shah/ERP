@@ -62,10 +62,19 @@ public class AiAssistantConsoleTests(AssistantApiFactory f) : IClassFixture<Assi
 
     private Task<(HttpClient Client, JsonObject Session)> FounderAsync() => f.SignInAsync(ApiFactory.FounderEmail);
 
+    private static JsonNode Row(JsonNode view, string name) => view["providers"]!.AsArray().Single(p => (string)p!["name"]! == name)!;
+
+    /// <summary>The way the founder brings a service into use: added, tested, then turned on.</summary>
     private async Task<(JsonNode Provider, JsonNode View)> AddAsync(HttpClient founder, string name, string? key = SecretKey, bool brand = true, bool workspace = false)
     {
-        var view = await Ok(await founder.PostAsJsonAsync($"{Url}/providers", Input(name, key, brand: brand, workspace: workspace)));
-        return (view["providers"]!.AsArray().Single(p => (string)p!["name"]! == name)!, view);
+        var view = await Ok(await founder.PostAsJsonAsync($"{Url}/providers", Input(name, key, brand: false, workspace: false)));
+        if (brand || workspace)
+        {
+            var id = (string)Row(view, name)["id"]!;
+            await Ok(await founder.PostAsync($"{Url}/providers/{id}/test", null));
+            view = await Ok(await founder.PutAsJsonAsync($"{Url}/providers/{id}", Input(name, null, brand: brand, workspace: workspace)));
+        }
+        return (Row(view, name), view);
     }
 
     private async Task<HttpClient> TeamMemberAsync(HttpClient founder)
@@ -239,6 +248,104 @@ public class AiAssistantConsoleTests(AssistantApiFactory f) : IClassFixture<Assi
         Assert.DoesNotContain(left["providers"]!.AsArray(), p => (string)p!["id"]! == id);
         using var scope = f.Services.CreateScope();
         Assert.False(await scope.ServiceProvider.GetRequiredService<AppDbContext>().AiProviders.AnyAsync(p => p.Id == Guid.Parse(id)));
+    }
+
+    [Fact]
+    public async Task A_new_service_stays_out_of_use_until_a_test_has_passed()
+    {
+        var (founder, _) = await FounderAsync();
+        var name = "Untested " + Tag();
+        var added = Row(await Ok(await founder.PostAsJsonAsync($"{Url}/providers", Input(name, brand: true, workspace: true))), name);
+        var id = (string)added["id"]!;
+        Assert.False((bool)added["useForBrand"]!);
+        Assert.False((bool)added["useForWorkspace"]!);
+        Assert.Null(added["lastTestOk"]);
+
+        var early = await founder.PutAsJsonAsync($"{Url}/providers/{id}", Input(name, null, brand: true));
+        Assert.Equal(HttpStatusCode.BadRequest, early.StatusCode);
+        Assert.Contains("useForBrand", await early.Content.ReadAsStringAsync());
+
+        f.Tester.Result = new(false, "The service rejected the key.");
+        await Ok(await founder.PostAsync($"{Url}/providers/{id}/test", null));
+        var failed = await founder.PutAsJsonAsync($"{Url}/providers/{id}", Input(name, null, brand: false, workspace: true));
+        f.Tester.Result = new(true, "Connected. The model answered.");
+        Assert.Equal(HttpStatusCode.BadRequest, failed.StatusCode);
+        Assert.Contains("useForWorkspace", await failed.Content.ReadAsStringAsync());
+
+        await Ok(await founder.PostAsync($"{Url}/providers/{id}/test", null));
+        var on = Row(await Ok(await founder.PutAsJsonAsync($"{Url}/providers/{id}", Input(name, null, brand: true, workspace: true))), name);
+        Assert.True((bool)on["useForBrand"]!);
+        Assert.True((bool)on["useForWorkspace"]!);
+    }
+
+    [Fact]
+    public async Task Changing_the_connection_takes_a_service_out_of_use_until_it_is_tested_again()
+    {
+        var (founder, _) = await FounderAsync();
+        var name = "Moved " + Tag();
+        var (provider, _) = await AddAsync(founder, name, workspace: true);
+        var id = (string)provider["id"]!;
+
+        // Renaming changes nothing about where data goes.
+        var renamed = await Ok(await founder.PutAsJsonAsync($"{Url}/providers/{id}", Input(name, null, brand: true, workspace: true)));
+        Assert.True((bool)Row(renamed, name)["useForWorkspace"]!);
+
+        var moved = Row(await Ok(await founder.PutAsJsonAsync($"{Url}/providers/{id}", Input(name, "replacement-key-1234", baseUrl: "https://other.example.com/v1", brand: true, workspace: true))), name);
+        Assert.False((bool)moved["useForBrand"]!);
+        Assert.False((bool)moved["useForWorkspace"]!);
+        Assert.Null(moved["lastTestOk"]);
+    }
+
+    [Fact]
+    public async Task The_per_client_message_limit_is_set_by_the_owner_within_sensible_bounds()
+    {
+        var (founder, _) = await FounderAsync();
+        Assert.Equal(200, new PlatformSetting().WorkspaceAssistantDailyMessagesPerClient);
+        object Limits(int perClient) => new { brandDailyTokens = 150_000, workspaceDailyTokens = 50_000, workspaceDailyMessagesPerClient = perClient };
+
+        Assert.Equal(350, (int)(await Ok(await founder.PutAsJsonAsync($"{Url}/limits", Limits(350))))["workspaceDailyMessagesPerClient"]!);
+        Assert.Equal(350, (int)(await Ok(await founder.GetAsync(Url)))["workspaceDailyMessagesPerClient"]!);
+
+        foreach (var bad in new[] { 0, -1, 1_000_001 })
+        {
+            var refused = await founder.PutAsJsonAsync($"{Url}/limits", Limits(bad));
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            Assert.Contains("WorkspaceDailyMessagesPerClient", await refused.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        var manager = await TeamMemberAsync(founder);
+        Assert.Equal(HttpStatusCode.Forbidden, (await manager.PutAsJsonAsync($"{Url}/limits", Limits(500))).StatusCode);
+        await Ok(await founder.PutAsJsonAsync($"{Url}/limits", Limits(200)));
+    }
+
+    [Fact]
+    public async Task The_console_adds_up_the_last_30_days_per_assistant_and_service()
+    {
+        var (founder, _) = await FounderAsync();
+        var service = Guid.NewGuid();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        using (var scope = f.Services.CreateScope())
+        {
+            var usage = scope.ServiceProvider.GetRequiredService<ERP.Application.Assistant.IAssistantUsageStore>();
+            await usage.RecordAsync(today, ERP.Application.Assistant.AssistantBot.Brand, service, "New name", 10, 5, null);
+            await usage.RecordAsync(today.AddDays(-29), ERP.Application.Assistant.AssistantBot.Brand, service, "Old name", 20, 5, null);
+            await usage.RecordAsync(today.AddDays(-29), ERP.Application.Assistant.AssistantBot.Brand, service, "Old name", 0, 0, "It failed.");
+            await usage.RecordAsync(today.AddDays(-30), ERP.Application.Assistant.AssistantBot.Brand, service, "Too old", 1000, 1000, null);
+            await usage.RecordAsync(today.AddDays(-3), ERP.Application.Assistant.AssistantBot.Workspace, service, "New name", 7, 0, null);
+        }
+
+        var view = await Ok(await founder.GetAsync(Url));
+        var rows = view["usageLast30Days"]!.AsArray().Where(u => (string)u!["providerId"]! == service.ToString()).ToList();
+
+        Assert.Equal(2, rows.Count);
+        var brand = rows.Single(u => (string)u!["bot"]! == "brand")!;
+        Assert.Equal("New name", (string)brand["providerName"]!);
+        Assert.Equal(2, (int)brand["requests"]!);
+        Assert.Equal(1, (int)brand["failures"]!);
+        Assert.Equal(30, (int)brand["inputTokens"]!);
+        Assert.Equal(10, (int)brand["outputTokens"]!);
+        Assert.Equal(7, (int)rows.Single(u => (string)u!["bot"]! == "workspace")!["inputTokens"]!);
+        Assert.Single(view["usageToday"]!.AsArray(), u => (string)u!["providerId"]! == service.ToString());
     }
 
     [Fact]

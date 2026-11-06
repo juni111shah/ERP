@@ -35,7 +35,7 @@ Confirmed changes available today: `create_party`, `create_draft_quote` (Sales m
 
 ## Abuse and cost
 
-Public: 30 questions an hour per address (`RateLimiting:AssistantPerHour`), 20 questions per chat, 1,000 characters per question, a hidden honeypot field, and the daily token limit as the backstop. Workspace: 30 messages per person per day (`assistant.dailyMessagesPerUser`) and its own daily token limit.
+Public: 30 questions an hour per address (`RateLimiting:AssistantPerHour`), 20 questions per chat, 1,000 characters per question, a hidden honeypot field, and the daily token limit as the backstop. Workspace: 30 messages per person per day (`assistant.dailyMessagesPerUser`), a daily message limit per client (`PlatformSetting.WorkspaceAssistantDailyMessagesPerClient`) and its own daily token limit.
 
 ## Checking quality
 

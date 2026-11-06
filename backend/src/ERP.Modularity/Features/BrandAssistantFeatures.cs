@@ -108,6 +108,10 @@ public static class BrandAssistant
             && (legalEntities is null || p.MaxLegalEntities is null || p.MaxLegalEntities >= legalEntities)
             && (p.Modules.Count == 0 || modules.All(m => p.Modules.Contains(m, StringComparer.OrdinalIgnoreCase))));
 
+    /// <summary>The model is shown module names but plans list keys, so it may send either. Anything unknown stays as it is, and only a plan with every module can fit it.</summary>
+    public static IReadOnlyList<string> ModuleKeys(IReadOnlyCollection<PlatformModuleView> catalog, IEnumerable<string> asked)
+        => asked.Select(a => a.Trim()).Select(a => catalog.FirstOrDefault(m => a.Equals(m.Key, StringComparison.OrdinalIgnoreCase) || a.Equals(m.Name, StringComparison.OrdinalIgnoreCase))?.Key ?? a).ToList();
+
     public static string Describe(PublicPlan p)
     {
         var saving = p.MonthlyPrice > 0 && p.AnnualPrice > 0 && p.AnnualPrice < p.MonthlyPrice * 12 ? (int)Math.Round((1 - p.AnnualPrice / (p.MonthlyPrice * 12)) * 100) : 0;
@@ -151,7 +155,10 @@ public static class BrandAssistant
         return s.ToString();
     }
 
-    private static readonly Regex Amount = new(@"\b[A-Z]{3}\s?(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s?[A-Z]{3}\b", RegexOptions.Compiled);
+    // Digits may be Arabic-Indic, with the Arabic thousands (066C) and decimal (066B) signs. A currency is a code, a symbol or a word, and Arabic has no code in common use.
+    private const string AmountNumber = @"\d[\d,٬]*(?:[.٫]\d+)?";
+    private const string CurrencyWord = @"(?:dollars?|euros?|pounds?)\b|دولار|يورو|جنيه|ريال|درهم|دينار|د\.إ|ر\.س";
+    private static readonly Regex Amount = new($@"(?:\b[A-Z]{{3}}|\p{{Sc}})\s?({AmountNumber})|({AmountNumber})\s?(?:[A-Z]{{3}}\b|\p{{Sc}}|{CurrencyWord})", RegexOptions.Compiled);
 
     /// <summary>A currency amount in a reply that matches no price on the list. It is shown as written, and a person is asked to read the conversation.</summary>
     public static bool QuotesUnknownPrice(string reply, IReadOnlyList<PublicPlan> plans)
@@ -159,14 +166,15 @@ public static class BrandAssistant
         var known = plans.SelectMany(p => new[] { p.MonthlyPrice, p.AnnualPrice }).ToHashSet();
         foreach (Match m in Amount.Matches(reply))
         {
-            var text = (m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value).Replace(",", "");
-            if (decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) && !known.Contains(value)) return true;
+            var text = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+            var plain = new string(text.Where(c => c is not (',' or '٬')).Select(c => c == '٫' ? '.' : char.IsDigit(c) ? (char)('0' + CharUnicodeInfo.GetDecimalDigitValue(c)) : c).ToArray());
+            if (decimal.TryParse(plain, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) && !known.Contains(value)) return true;
         }
         return false;
     }
 }
 
-internal sealed class RecommendPlanTool(IReadOnlyList<PublicPlan> plans) : IAssistantTool
+internal sealed class RecommendPlanTool(IReadOnlyList<PublicPlan> plans, IReadOnlyCollection<PlatformModuleView> catalog) : IAssistantTool
 {
     public ChatToolDefinition Definition { get; } = new("recommend_plan",
         "Finds the cheapest plan that fits a business. Use it whenever someone asks which plan they need.",
@@ -187,7 +195,7 @@ internal sealed class RecommendPlanTool(IReadOnlyList<PublicPlan> plans) : IAssi
         }
         catch (JsonException) { return Task.FromResult("The request could not be read. Ask how many users and companies they have."); }
 
-        var plan = BrandAssistant.Recommend(plans, users, entities, modules);
+        var plan = BrandAssistant.Recommend(plans, users, entities, BrandAssistant.ModuleKeys(catalog, modules));
         return Task.FromResult(plan is null ? "No published plan fits this. Suggest they contact the team, who can help with larger needs." : "Recommended:\n" + BrandAssistant.Describe(plan));
     }
 }
@@ -264,7 +272,7 @@ internal sealed class AskBrandAssistantHandler(
         var countries = await sender.Send(new ListCountries(), ct);
         var matches = BrandAssistant.FindFaqs(content.Faqs, text, 3);
         var system = BrandAssistant.Rules + "\n\n" + BrandAssistant.FactSheet(config, legal, content, modules, industries, countries, matches);
-        IAssistantTool[] tools = [new RecommendPlanTool(config.Plans), new ReadPolicyTool(legal)];
+        IAssistantTool[] tools = [new RecommendPlanTool(config.Plans, modules), new ReadPolicyTool(legal)];
 
         var reply = new StringBuilder();
         var fallback = false;

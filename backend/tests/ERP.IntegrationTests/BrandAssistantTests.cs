@@ -44,8 +44,8 @@ public class BrandAssistantTests(EngineApiFactory f) : IClassFixture<EngineApiFa
         f.Chat.Calls.Clear();
         if (addService)
         {
-            var res = await founder.PostAsJsonAsync($"{Admin}/assistant/providers", new { name = "Brand", baseUrl = Service, model = "m", apiKey = "test-key-abcdef-1234", useForBrand = true, useForWorkspace = false });
-            Assert.True(res.IsSuccessStatusCode, await res.Content.ReadAsStringAsync());
+            f.Tester.Result = new(true, "Connected. The model answered.");
+            await EngineApiFactoryBase.AddLiveServiceAsync(founder, "Brand", Service);
             if (show) (await founder.PutAsJsonAsync($"{Admin}/assistant/visibility", new { brandEnabled = true, workspaceEnabled = false })).EnsureSuccessStatusCode();
         }
         return founder;
@@ -208,7 +208,7 @@ public class BrandAssistantTests(EngineApiFactory f) : IClassFixture<EngineApiFa
     public async Task At_the_daily_limit_it_answers_in_arabic_from_the_written_answers_without_calling_a_service()
     {
         var founder = await ResetAsync();
-        (await founder.PutAsJsonAsync($"{Admin}/assistant/limits", new { brandDailyTokens = 1000, workspaceDailyTokens = 1000 })).EnsureSuccessStatusCode();
+        (await founder.PutAsJsonAsync($"{Admin}/assistant/limits", new { brandDailyTokens = 1000, workspaceDailyTokens = 1000, workspaceDailyMessagesPerClient = 200 })).EnsureSuccessStatusCode();
         using (var scope = f.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<IAssistantUsageStore>().RecordAsync(DateOnly.FromDateTime(DateTime.UtcNow), AssistantBot.Brand, Guid.NewGuid(), "Used", 2000, 0, null);
         var calls = f.Chat.Calls.Count;
@@ -250,6 +250,125 @@ public class BrandAssistantTests(EngineApiFactory f) : IClassFixture<EngineApiFa
         Assert.Equal("Tell me something", (string)row["firstMessage"]!);
         var transcript = (await ApiFactory.Json(await founder.GetAsync($"{Admin}/assistant/conversations/{row["id"]}"))).AsArray();
         Assert.Equal(2, transcript.Count);
+    }
+
+    private async Task<HttpClient> TeamMemberAsync(HttpClient founder)
+    {
+        var added = await ApiFactory.Json(await founder.PostAsJsonAsync($"{Admin}/team", new { email = $"team+{Guid.NewGuid():N}@example.test", fullName = "Team" }));
+        return (await f.SignInAsync((string)added["member"]!["email"]!, (string)added["temporaryPassword"]!)).Client;
+    }
+
+    [Fact]
+    public async Task A_flagged_chat_can_be_marked_reviewed_and_deleted_by_the_owner_only()
+    {
+        var founder = await ResetAsync();
+        var manager = await TeamMemberAsync(founder);
+        f.Chat.Script(Service, _ => Reply("A special price of $99."));
+        await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Any deals?")));
+        (await f.Client().PostAsJsonAsync($"{Public}/leads", new { name = "Keep", email = "keep@example.test", consent = true })).EnsureSuccessStatusCode();
+        var chats = $"{Admin}/assistant/conversations";
+        var id = (string)(await ApiFactory.Json(await founder.GetAsync(chats))).AsArray().Single()!["id"]!;
+        Assert.True((bool)(await ApiFactory.Json(await manager.GetAsync(chats))).AsArray().Single()!["needsReview"]!);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await manager.PostAsync($"{chats}/{id}/reviewed", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await manager.DeleteAsync($"{chats}/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await f.Client().PostAsync($"{chats}/{id}/reviewed", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await founder.PostAsync($"{chats}/{Guid.NewGuid()}/reviewed", null)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await founder.PostAsync($"{chats}/{id}/reviewed", null)).StatusCode);
+        Assert.False((bool)(await ApiFactory.Json(await founder.GetAsync(chats))).AsArray().Single()!["needsReview"]!);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await founder.DeleteAsync($"{chats}/{id}")).StatusCode);
+        Assert.Empty((await ApiFactory.Json(await founder.GetAsync(chats))).AsArray());
+        Assert.Empty((await ApiFactory.Json(await founder.GetAsync($"{chats}/{id}"))).AsArray());
+        Assert.Single((await ApiFactory.Json(await founder.GetAsync($"{Admin}/leads"))).AsArray());
+    }
+
+    [Fact]
+    public async Task New_leads_are_counted_for_the_console_until_someone_handles_them()
+    {
+        var founder = await ResetAsync();
+        Assert.Equal(0, (int)(await ApiFactory.Json(await founder.GetAsync($"{Admin}/dashboard")))["newLeads"]!);
+        (await f.Client().PostAsJsonAsync($"{Public}/leads", new { name = "One", email = "one@example.test", consent = true })).EnsureSuccessStatusCode();
+        (await f.Client().PostAsJsonAsync($"{Public}/leads", new { name = "Two", email = "two@example.test", consent = true })).EnsureSuccessStatusCode();
+        Assert.Equal(2, (int)(await ApiFactory.Json(await founder.GetAsync($"{Admin}/dashboard")))["newLeads"]!);
+
+        var id = (await ApiFactory.Json(await founder.GetAsync($"{Admin}/leads"))).AsArray()[0]!["id"];
+        (await founder.PutAsync($"{Admin}/leads/{id}/status/contacted", null)).EnsureSuccessStatusCode();
+        Assert.Equal(1, (int)(await ApiFactory.Json(await founder.GetAsync($"{Admin}/dashboard")))["newLeads"]!);
+    }
+
+    [Fact]
+    public async Task Leads_can_be_filtered_searched_and_paged()
+    {
+        var founder = await ResetAsync();
+        foreach (var name in new[] { "Amal", "Badr", "Carim" })
+            (await f.Client().PostAsJsonAsync($"{Public}/leads", new { name, email = $"{name.ToLowerInvariant()}@example.test", consent = true })).EnsureSuccessStatusCode();
+        async Task<List<string>> Names(string query) => (await ApiFactory.Json(await founder.GetAsync($"{Admin}/leads?{query}"))).AsArray().Select(l => (string)l!["name"]!).ToList();
+
+        var badr = (await ApiFactory.Json(await founder.GetAsync($"{Admin}/leads?search=badr"))).AsArray().Single()!;
+        (await founder.PutAsync($"{Admin}/leads/{badr["id"]}/status/won", null)).EnsureSuccessStatusCode();
+
+        Assert.Equal(["Badr"], await Names("status=won"));
+        Assert.Equal(2, (await Names("status=new")).Count);
+        Assert.Equal(["Amal"], await Names("status=new&search=amal"));
+        Assert.Empty(await Names("status=won&search=amal"));
+
+        var pages = (await Names("page=1&pageSize=2")).Concat(await Names("page=2&pageSize=2")).ToList();
+        Assert.Equal(3, pages.Count);
+        Assert.Equal(3, pages.Distinct().Count());
+    }
+
+    private async Task<JsonNode> ServiceAsync(HttpClient founder) => (await ApiFactory.Json(await founder.GetAsync($"{Admin}/assistant")))["providers"]!.AsArray().Single()!;
+    private static Func<ChatRequest, IEnumerable<ChatStreamEvent>> Failing(ChatFailureKind kind, string message) => _ => throw new ChatServiceException(kind, message);
+
+    [Fact]
+    public async Task A_rejected_key_shows_as_failed_at_once_until_a_test_passes()
+    {
+        var founder = await ResetAsync();
+        Assert.True((bool)(await ServiceAsync(founder))["lastTestOk"]!);
+        f.Chat.Script(Service, Failing(ChatFailureKind.KeyRejected, "The service rejected the key."));
+
+        await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Hello")));
+
+        var service = await ServiceAsync(founder);
+        Assert.False((bool)service["lastTestOk"]!);
+        Assert.Equal("The service rejected the key.", (string)service["lastTestMessage"]!);
+        Assert.True((bool)service["useForBrand"]!); // still in use: the visitor falls back to written answers, and the founder decides
+
+        var passed = await ApiFactory.Json(await founder.PostAsync($"{Admin}/assistant/providers/{service["id"]}/test", null));
+        Assert.True((bool)passed["providers"]![0]!["lastTestOk"]!);
+    }
+
+    [Fact]
+    public async Task Failing_again_and_again_shows_as_failed_and_a_real_answer_clears_it()
+    {
+        var founder = await ResetAsync();
+        var down = Failing(ChatFailureKind.Unavailable, "Could not reach the service.");
+        f.Chat.Script(Service, down, down, down, _ => Reply("Back again"));
+        async Task AskOnce() => await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Hello")));
+
+        await AskOnce();
+        await AskOnce();
+        Assert.True((bool)(await ServiceAsync(founder))["lastTestOk"]!); // two in a row can be bad luck
+        await AskOnce();
+        var failed = await ServiceAsync(founder);
+        Assert.False((bool)failed["lastTestOk"]!);
+        Assert.Equal("Could not reach the service.", (string)failed["lastTestMessage"]!);
+
+        await AskOnce();
+        Assert.True((bool)(await ServiceAsync(founder))["lastTestOk"]!);
+    }
+
+    [Fact]
+    public async Task A_service_at_its_reported_limit_does_not_show_as_failed()
+    {
+        var founder = await ResetAsync();
+        f.Chat.Script(Service, Failing(ChatFailureKind.RateLimited, "Limit."));
+
+        await ReadAsync(await f.Client().PostAsJsonAsync($"{Public}/messages", Ask("Hello")));
+
+        Assert.True((bool)(await ServiceAsync(founder))["lastTestOk"]!);
     }
 
     [Fact]
@@ -361,7 +480,7 @@ public class BrandAssistantRateLimitTests
     {
         await using var f = new LimitedFactory();
         var (founder, _) = await f.SignInAsync(ApiFactory.FounderEmail);
-        (await founder.PostAsJsonAsync("/api/v1/platform-admin/assistant/providers", new { name = "Limited", baseUrl = "https://limited.example.com/v1", model = "m", apiKey = "test-key-abcdef-1234", useForBrand = true, useForWorkspace = false })).EnsureSuccessStatusCode();
+        await EngineApiFactoryBase.AddLiveServiceAsync(founder, "Limited", "https://limited.example.com/v1");
         (await founder.PutAsJsonAsync("/api/v1/platform-admin/assistant/visibility", new { brandEnabled = true, workspaceEnabled = false })).EnsureSuccessStatusCode();
         IEnumerable<ChatStreamEvent> Reply(ChatRequest _) => [new ChatTextDelta("Hi")];
         f.Chat.Script("https://limited.example.com/v1", Reply, Reply, Reply);

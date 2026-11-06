@@ -22,6 +22,8 @@ public class AiProvider : Entity, IAuditable
     public DateTime? LastTestedAt { get; set; }
     public bool? LastTestOk { get; set; }
     public string? LastTestMessage { get; set; }
+    /// <summary>Real replies that failed in a row, leaving out reported limits. Enough of them marks the service as failed.</summary>
+    public int ConsecutiveFailures { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }

@@ -19,7 +19,7 @@ import { SessionStore } from '../core/session/session.store';
 import { BrandLogoComponent } from '../shared/brand-logo.component';
 import { KeyboardClickDirective } from '../shared/keyboard-click.directive';
 
-interface ConsoleLink { path: string; label: string; icon: string; exact?: boolean; testId: string; badge?: boolean; }
+interface ConsoleLink { path: string; label: string; icon: string; exact?: boolean; testId: string; badge?: () => number; badgeWord?: string; badgeTestId?: string; }
 
 /** The founder's console: its own navigation, separate from the ERP shell a client works in. */
 @Component({
@@ -68,7 +68,7 @@ interface ConsoleLink { path: string; label: string; icon: string; exact?: boole
             <a [routerLink]="l.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: !!l.exact }" [attr.data-testid]="l.testId" (click)="drawerOpen.set(false)">
               <span class="icon" nz-icon [nzType]="l.icon" aria-hidden="true"></span>
               <span class="label">{{ l.label }}</span>
-              @if (l.badge && api.pendingSignups() > 0) { <nz-badge [nzCount]="api.pendingSignups()" [attr.aria-label]="api.pendingSignups() + ' waiting'" data-testid="platform-signups-badge"></nz-badge> }
+              @if (l.badge && l.badge() > 0) { <nz-badge [nzCount]="l.badge()" [attr.aria-label]="l.badge() + ' ' + l.badgeWord" [attr.data-testid]="l.badgeTestId"></nz-badge> }
             </a>
           }
         </nav>
@@ -126,8 +126,8 @@ export class PlatformShellComponent {
   readonly links: ConsoleLink[] = [
     { path: '/platform', label: 'Dashboard', icon: 'dashboard', exact: true, testId: 'platform-nav-dashboard' },
     { path: '/platform/clients', label: 'Clients', icon: 'team', testId: 'platform-nav-clients' },
-    { path: '/platform/signups', label: 'Registrations', icon: 'user-add', testId: 'platform-nav-signups', badge: true },
-    { path: '/platform/leads', label: 'Leads', icon: 'contacts', testId: 'platform-nav-leads' },
+    { path: '/platform/signups', label: 'Registrations', icon: 'user-add', testId: 'platform-nav-signups', badge: this.api.pendingSignups, badgeWord: 'waiting', badgeTestId: 'platform-signups-badge' },
+    { path: '/platform/leads', label: 'Leads', icon: 'contacts', testId: 'platform-nav-leads', badge: this.api.newLeads, badgeWord: 'new', badgeTestId: 'platform-leads-badge' },
     { path: '/platform/plans', label: 'Plans and pricing', icon: 'tag', testId: 'platform-nav-plans' },
     { path: '/platform/invoices', label: 'Invoices', icon: 'file-text', testId: 'platform-nav-invoices' },
     { path: '/platform/activity', label: 'Activity', icon: 'history', testId: 'platform-nav-activity' },
@@ -137,7 +137,7 @@ export class PlatformShellComponent {
   ];
 
   constructor() {
-    // The badge needs the count on every console page, not only the dashboard.
+    // The badges need their counts on every console page, not only the dashboard.
     this.api.dashboard().subscribe({ error: () => undefined });
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => this.drawerOpen.set(false));
     if (typeof window === 'undefined' || !window.matchMedia) return;

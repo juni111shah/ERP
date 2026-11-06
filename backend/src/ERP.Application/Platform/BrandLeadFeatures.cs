@@ -29,6 +29,8 @@ public sealed record BrandConversationRow(Guid Id, DateTime StartedAt, DateTime 
 public sealed record ListBrandConversations : PagedQuery, IQuery<PagedResult<BrandConversationRow>>;
 public sealed record BrandMessageRow(DateTime At, bool FromVisitor, string Text);
 public sealed record GetBrandConversation(Guid Id) : IQuery<IReadOnlyList<BrandMessageRow>>;
+public sealed record MarkBrandConversationReviewed(Guid Id) : ICommand;
+public sealed record DeleteBrandConversation(Guid Id) : ICommand;
 
 public sealed record BrandAssistantStatus(bool Visible, string? SupportEmail);
 public sealed record GetBrandAssistantStatus : IQuery<BrandAssistantStatus>;
@@ -47,16 +49,23 @@ public sealed class SubmitBrandLeadValidator : AbstractValidator<SubmitBrandLead
 }
 
 internal sealed class BrandLeadHandlers(
-    IRepository<BrandLead> leads, IReadRepository<BrandConversation> conversations, IReadRepository<BrandMessage> messages, IReadRepository<SignupRequest> signups,
-    PlatformSettingsStore settingsStore, IBrandSessionTokens tokens, PlatformLog log, IPlatformMailer mailer) :
+    IRepository<BrandLead> leads, IRepository<BrandConversation> conversations, IRepository<BrandMessage> messages, IReadRepository<SignupRequest> signups,
+    PlatformSettingsStore settingsStore, IBrandSessionTokens tokens, PlatformLog log, IPlatformMailer mailer, IPlatformDirectory directory, ICurrentUser user) :
     IRequestHandler<SubmitBrandLead, Unit>,
     IRequestHandler<ListBrandLeads, PagedResult<BrandLeadRow>>,
     IRequestHandler<SetBrandLeadStatus, BrandLeadRow>,
     IRequestHandler<DeleteBrandLead, Unit>,
     IRequestHandler<ListBrandConversations, PagedResult<BrandConversationRow>>,
     IRequestHandler<GetBrandConversation, IReadOnlyList<BrandMessageRow>>,
+    IRequestHandler<MarkBrandConversationReviewed, Unit>,
+    IRequestHandler<DeleteBrandConversation, Unit>,
     IRequestHandler<GetBrandAssistantStatus, BrandAssistantStatus>
 {
+    private async Task RequireOwnerAsync(CancellationToken ct)
+    {
+        if (user.UserId is not { } id || !await directory.IsPlatformOwnerAsync(id, ct)) throw new ForbiddenException("Only the platform owner can change public chats.");
+    }
+
     public async Task<Unit> Handle(SubmitBrandLead cmd, CancellationToken ct)
     {
         var i = cmd.Input;
@@ -121,6 +130,27 @@ internal sealed class BrandLeadHandlers(
 
     public async Task<IReadOnlyList<BrandMessageRow>> Handle(GetBrandConversation q, CancellationToken ct)
         => await messages.Query().Where(m => m.ConversationId == q.Id).OrderBy(m => m.At).Select(m => new BrandMessageRow(m.At, m.FromVisitor, m.Text)).ToListAsync(ct);
+
+    public async Task<Unit> Handle(MarkBrandConversationReviewed cmd, CancellationToken ct)
+    {
+        await RequireOwnerAsync(ct);
+        var conversation = await conversations.GetForUpdateAsync(cmd.Id, ct);
+        conversation.NeedsReview = false;
+        log.Add("Public chat marked as reviewed", null, null);
+        await conversations.SaveChangesAsync(ct);
+        return Unit.Value;
+    }
+
+    public async Task<Unit> Handle(DeleteBrandConversation cmd, CancellationToken ct)
+    {
+        await RequireOwnerAsync(ct);
+        var conversation = await conversations.GetForUpdateAsync(cmd.Id, ct);
+        foreach (var m in await messages.Tracked().Where(m => m.ConversationId == cmd.Id).ToListAsync(ct)) messages.Remove(m);
+        conversations.Remove(conversation);
+        log.Add("Public chat deleted", null, null);
+        await conversations.SaveChangesAsync(ct);
+        return Unit.Value;
+    }
 
     public async Task<BrandAssistantStatus> Handle(GetBrandAssistantStatus q, CancellationToken ct)
     {

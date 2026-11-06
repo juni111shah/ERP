@@ -95,7 +95,7 @@ export interface MonthAmount { month: string; amount: number; }
 export interface ExpiringTrial { orgId: string; name: string; trialEndsOn: string; daysLeft: number; }
 export interface PlatformDashboard {
   currency: string; monthlyRecurring: number; annualRecurring: number; totalClients: number; trialing: number; active: number; pastDue: number; expired: number; suspended: number; cancelled: number; withoutPlan: number;
-  outstanding: number; overdue: number; collectedThisMonth: number; collectedTotal: number; pendingSignups: number; newClients30Days: number; planRequests: number;
+  outstanding: number; overdue: number; collectedThisMonth: number; collectedTotal: number; pendingSignups: number; newClients30Days: number; planRequests: number; newLeads: number;
   byPlan: PlanCount[]; collected: MonthAmount[]; trialsEnding: ExpiringTrial[]; recentActivity: ActivityRow[];
 }
 export interface LifecycleResult { trialsExpired: number; invoicesIssued: number; markedPastDue: number; suspended: number; remindersSent: number; signupsExpired: number; }
@@ -119,7 +119,7 @@ export type AssistantBot = 'brand' | 'workspace';
 export interface AssistantUsageRow { bot: AssistantBot; providerId: string; providerName: string; requests: number; failures: number; inputTokens: number; outputTokens: number; lastFailure: string | null; }
 export interface AssistantConsoleView {
   brandEnabled: boolean; workspaceEnabled: boolean; canManage: boolean; providers: AiProviderView[];
-  brandDailyTokens: number; workspaceDailyTokens: number; usageToday: AssistantUsageRow[];
+  brandDailyTokens: number; workspaceDailyTokens: number; workspaceDailyMessagesPerClient: number; usageToday: AssistantUsageRow[]; usageLast30Days: AssistantUsageRow[];
 }
 /** apiKey is write-only: leave it null when editing to keep the stored key. */
 export interface AiProviderInput { name: string; baseUrl: string; model: string; apiKey: string | null; useForBrand: boolean; useForWorkspace: boolean; }
@@ -133,6 +133,8 @@ export class PlatformApi {
 
   /** Registrations waiting for review: the badge in the console's menu. */
   readonly pendingSignups = signal(0);
+  /** Leads nobody has handled yet: the other badge in the console's menu. */
+  readonly newLeads = signal(0);
 
   // ---- Public --------------------------------------------------------------------------------------------------------
   publicModules(): Observable<PublicModule[]> { return this.http.get<PublicModule[]>(`${this.base}/public/modules`); }
@@ -156,7 +158,7 @@ export class PlatformApi {
   withdrawPlanChange(): Observable<BillingOverview> { return this.http.delete<BillingOverview>(`${this.base}/billing/change-request`); }
 
   // ---- Console: dashboard ---------------------------------------------------------------------------------------------
-  dashboard(): Observable<PlatformDashboard> { return this.http.get<PlatformDashboard>(`${this.admin}/dashboard`).pipe(tap((d) => this.pendingSignups.set(d.pendingSignups))); }
+  dashboard(): Observable<PlatformDashboard> { return this.http.get<PlatformDashboard>(`${this.admin}/dashboard`).pipe(tap((d) => { this.pendingSignups.set(d.pendingSignups); this.newLeads.set(d.newLeads); })); }
   runBilling(): Observable<LifecycleResult> { return this.http.post<LifecycleResult>(`${this.admin}/billing-run`, {}); }
   modules(): Observable<PlatformModule[]> { return this.http.get<PlatformModule[]>(`${this.admin}/modules`); }
 
@@ -208,11 +210,13 @@ export class PlatformApi {
   deleteLead(id: string): Observable<unknown> { return this.http.delete(`${this.admin}/leads/${id}`); }
   brandConversations(q: ListQuery): Observable<PagedResult<BrandConversationRow>> { return this.http.get<PagedResult<BrandConversationRow>>(`${this.admin}/assistant/conversations`, { params: toHttpParams(q) }); }
   brandConversation(id: string): Observable<BrandMessageRow[]> { return this.http.get<BrandMessageRow[]>(`${this.admin}/assistant/conversations/${id}`); }
+  markConversationReviewed(id: string): Observable<unknown> { return this.http.post(`${this.admin}/assistant/conversations/${id}/reviewed`, {}); }
+  deleteConversation(id: string): Observable<unknown> { return this.http.delete(`${this.admin}/assistant/conversations/${id}`); }
 
   // ---- Console: AI assistant ------------------------------------------------------------------------------------------
   assistant(): Observable<AssistantConsoleView> { return this.http.get<AssistantConsoleView>(`${this.admin}/assistant`); }
   setAssistantVisibility(input: { brandEnabled: boolean; workspaceEnabled: boolean }): Observable<AssistantConsoleView> { return this.http.put<AssistantConsoleView>(`${this.admin}/assistant/visibility`, input); }
-  setAssistantLimits(input: { brandDailyTokens: number; workspaceDailyTokens: number }): Observable<AssistantConsoleView> { return this.http.put<AssistantConsoleView>(`${this.admin}/assistant/limits`, input); }
+  setAssistantLimits(input: { brandDailyTokens: number; workspaceDailyTokens: number; workspaceDailyMessagesPerClient: number }): Observable<AssistantConsoleView> { return this.http.put<AssistantConsoleView>(`${this.admin}/assistant/limits`, input); }
   tryAssistant(input: { bot: AssistantBot; messages: { role: 'user' | 'assistant'; text: string }[] }): Observable<AssistantStreamEvent> { return this.assistantStream(`${this.admin}/assistant/try`, input); }
   /** Reads a reply as it is written. Unsubscribing cancels the request, which also stops the reply at the AI service. */
   assistantStream(url: string, body: unknown): Observable<AssistantStreamEvent> {

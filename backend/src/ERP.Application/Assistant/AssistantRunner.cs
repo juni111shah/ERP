@@ -69,6 +69,7 @@ public sealed class AssistantRunner(
             if (key is null)
             {
                 await usage.RecordAsync(today, turn.Bot, provider.Id, provider.Name, 0, 0, "The stored key can no longer be read.", CancellationToken.None);
+                await usage.ServiceFailedAsync(provider.Id, "The stored key can no longer be read. Paste it again.", true, clock.UtcNow, CancellationToken.None);
                 index++;
                 continue;
             }
@@ -126,6 +127,8 @@ public sealed class AssistantRunner(
                 await usage.RecordAsync(today, turn.Bot, provider.Id, provider.Name, roundText.Length > 0 ? Estimate(request) : 0, Estimate(roundText.Length), failure.Message, CancellationToken.None);
                 if (failure.Kind == ChatFailureKind.RateLimited)
                     cache.Set(CooldownKey(provider.Id), true, failure.RetryAfter is { } wait && wait > TimeSpan.Zero ? (wait < MaxCooldown ? wait : MaxCooldown) : DefaultCooldown);
+                // A reported limit passes by itself, so it says nothing about the service's health. A rejected key will not fix itself, so the founder is told at once.
+                else await usage.ServiceFailedAsync(provider.Id, failure.Message, failure.Kind == ChatFailureKind.KeyRejected, clock.UtcNow, CancellationToken.None);
                 if (shownText)
                 {
                     yield return new AssistantError("interrupted", "The reply was interrupted. Please try again.");
@@ -141,6 +144,7 @@ public sealed class AssistantRunner(
             outputTotal += output;
             await usage.RecordAsync(today, turn.Bot, provider.Id, provider.Name, input, output, null, CancellationToken.None);
             if (cancelled) yield break;
+            if (provider.ConsecutiveFailures > 0 || provider.LastTestOk == false) await usage.ServiceWorkedAsync(provider.Id, clock.UtcNow, CancellationToken.None);
 
             if (calls.Count == 0)
             {

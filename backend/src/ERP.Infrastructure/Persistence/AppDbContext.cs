@@ -198,6 +198,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
             b.Property(x => x.AboutText).HasMaxLength(2000);
             b.Property(x => x.BrandAssistantDailyTokens).HasDefaultValue(150_000);
             b.Property(x => x.WorkspaceAssistantDailyTokens).HasDefaultValue(50_000);
+            b.Property(x => x.WorkspaceAssistantDailyMessagesPerClient).HasDefaultValue(200);
             b.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
             b.Property(x => x.TaxPercent).HasPrecision(5, 2);
             b.Property(x => x.PaymentInstructions).HasMaxLength(2000);

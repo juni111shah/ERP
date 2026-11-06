@@ -37,7 +37,7 @@ public class WorkspaceAssistantTests(EngineApiFactory f) : IClassFixture<EngineA
         if (f.Services.GetRequiredService<IMemoryCache>() is MemoryCache cache) cache.Clear();
         f.Chat.Scripts.Clear();
         f.Chat.Calls.Clear();
-        (await founder.PostAsJsonAsync("/api/v1/platform-admin/assistant/providers", new { name = "Client data", baseUrl = Service, model = "m", apiKey = "test-key-abcdef-1234", useForBrand = false, useForWorkspace = true })).EnsureSuccessStatusCode();
+        await EngineApiFactoryBase.AddLiveServiceAsync(founder, "Client data", Service, brand: false, workspace: true);
         (await founder.PutAsJsonAsync("/api/v1/platform-admin/assistant/visibility", new { brandEnabled = false, workspaceEnabled = true })).EnsureSuccessStatusCode();
         var (admin, _) = await f.SignInAsync(ApiFactory.AdminEmail);
         var enabled = await admin.PostAsync("/api/v1/modules/assistant/enable", null);
@@ -97,7 +97,7 @@ public class WorkspaceAssistantTests(EngineApiFactory f) : IClassFixture<EngineA
         var (founder, _) = await f.SignInAsync(ApiFactory.FounderEmail);
         var view = await ApiFactory.Json(await founder.GetAsync("/api/v1/platform-admin/assistant"));
         foreach (var p in view["providers"]!.AsArray()) await founder.DeleteAsync($"/api/v1/platform-admin/assistant/providers/{p!["id"]}");
-        (await founder.PostAsJsonAsync("/api/v1/platform-admin/assistant/providers", new { name = "Public only", baseUrl = "https://public.example.com/v1", model = "m", apiKey = "test-key-abcdef-1234", useForBrand = true, useForWorkspace = false })).EnsureSuccessStatusCode();
+        await EngineApiFactoryBase.AddLiveServiceAsync(founder, "Public only", "https://public.example.com/v1");
 
         Assert.False((bool)(await ApiFactory.Json(await admin.GetAsync($"{Url}/status")))["available"]!);
         await ReadAsync(await admin.PostAsJsonAsync($"{Url}/messages", Ask("Hello")));

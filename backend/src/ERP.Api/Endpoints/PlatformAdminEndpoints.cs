@@ -86,6 +86,8 @@ public static class PlatformAdminEndpoints
         g.MapDelete("/leads/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteBrandLead(id), ct); return Results.NoContent(); });
         g.MapGet("/assistant/conversations", ([AsParameters] ListBrandConversations q, ISender s, CancellationToken ct) => s.Send(q, ct));
         g.MapGet("/assistant/conversations/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetBrandConversation(id), ct));
+        g.MapPost("/assistant/conversations/{id:guid}/reviewed", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new MarkBrandConversationReviewed(id), ct); return Results.NoContent(); });
+        g.MapDelete("/assistant/conversations/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteBrandConversation(id), ct); return Results.NoContent(); });
         g.MapGet("/assistant", (ISender s, CancellationToken ct) => s.Send(new GetAssistantConsole(), ct));
         g.MapPut("/assistant/visibility", (AssistantVisibilityInput input, ISender s, CancellationToken ct) => s.Send(new SetAssistantVisibility(input), ct));
         g.MapPut("/assistant/limits", (AssistantLimitsInput input, ISender s, CancellationToken ct) => s.Send(new SetAssistantLimits(input), ct));
