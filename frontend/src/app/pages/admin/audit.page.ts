@@ -10,14 +10,13 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSegmentedModule } from 'ng-zorro-antd/segmented';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
-import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { AuditApi, AuditEvent, AuditEventDetail, AuditFacets, AuditFieldDiff } from '../../core/api/admin.api';
 import { FilterCriterion } from '../../core/api/api.models';
 import { createPagedList } from '../../core/api/paged-list';
-import { auditFieldLabel, auditSummary, auditTone, auditValue, initials, relativeTime } from '../../core/format/audit-format';
+import { auditFieldLabel, auditIsCode, auditIsId, auditIsPrimary, auditRecordType, auditSummary, auditTone, auditValue, initials, relativeTime } from '../../core/format/audit-format';
 import { displayDate, displayLabel } from '../../core/format/display';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -32,12 +31,13 @@ type RangeKey = 'all' | 'today' | '7' | '30';
 const EXPORT_PAGE = 200;
 const EXPORT_LIMIT = 5000;
 const MANY_FIELDS = 12;
+const SAME_SAVE_SHOWN = 5;
 
 @Component({
   selector: 'erp-audit',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, ErpLabelPipe, FormsModule, NzButtonModule, NzDrawerModule, NzIconModule, NzInputModule, NzSegmentedModule, NzSkeletonModule, NzSwitchModule, NzTabsModule, NzTagModule, NzToolTipModule,
+  imports: [ErpDatePipe, ErpLabelPipe, FormsModule, NzButtonModule, NzDrawerModule, NzIconModule, NzInputModule, NzSegmentedModule, NzSkeletonModule, NzTabsModule, NzTagModule, NzToolTipModule,
     PagedTableComponent, RouterLink, StatCardComponent, StatePanelComponent, TranslatePipe],
   providers: [provideNzIconsPatch([CopyOutline, DownOutline, DownloadOutline, ExportOutline, HistoryOutline, UpOutline])],
   styles: [`
@@ -51,30 +51,49 @@ const MANY_FIELDS = 12;
     .record-type { color: var(--erp-color-text-muted); }
     .mono { font-family: var(--erp-font-family-mono); font-size: 12px; }
     .muted { color: var(--erp-color-text-muted); }
-    .head-title { margin: 0 0 4px; font-size: var(--erp-font-size-title-sm); line-height: var(--erp-line-height-title-sm); font-weight: 600; color: var(--erp-color-text-primary); overflow-wrap: anywhere; }
-    .head-sub { margin: 0; color: var(--erp-color-text-muted); }
-    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 24px; margin: 16px 0; padding: 12px 0; border-block: 1px solid var(--erp-color-border-subtle); }
-    .facts dt { font-size: 12px; color: var(--erp-color-text-muted); }
-    .facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-    .facts .copy { margin-inline-start: 4px; }
-    .tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-block-end: 8px; }
-    .tools label { display: inline-flex; align-items: center; gap: 8px; color: var(--erp-color-text-secondary); }
-    .tools input { max-width: 220px; }
-    table.diff { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    table.diff th { padding: 6px 8px; text-align: start; font-size: 12px; font-weight: 500; color: var(--erp-color-text-muted); border-block-end: 1px solid var(--erp-color-border-default); }
-    table.diff td { padding: 8px; vertical-align: top; border-block-end: 1px solid var(--erp-color-border-subtle); overflow-wrap: anywhere; }
-    table.diff .field { width: 30%; color: var(--erp-color-text-secondary); }
-    table.diff tr.same td { color: var(--erp-color-text-muted); }
-    .val { display: inline-block; max-width: 100%; padding: 1px 6px; border-radius: var(--erp-radius-sm); white-space: pre-wrap; }
+    .title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .title-row nz-tag { flex: none; margin: 0; }
+    .title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--erp-color-text-primary); }
+    .title-name { font-weight: 400; color: var(--erp-color-text-secondary); }
+    .position { margin-inline-end: 4px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--erp-color-text-muted); white-space: nowrap; }
+    .summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-block-end: 16px; margin-block-end: 8px; border-block-end: 1px solid var(--erp-color-border-subtle); }
+    .avatar.large { width: 36px; height: 36px; font-size: 13px; }
+    .summary-main { flex: 1 1 240px; min-width: 0; }
+    .summary-who { font-weight: 600; color: var(--erp-color-text-primary); overflow-wrap: anywhere; }
+    .summary-when { font-size: var(--erp-font-size-body-sm); line-height: var(--erp-line-height-body-sm); color: var(--erp-color-text-muted); }
+    .summary-id { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+    .summary-id-label { font-size: 12px; color: var(--erp-color-text-muted); }
+    table.diff { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
+    table.diff th { padding: 8px; text-align: start; font-size: 12px; font-weight: 500; color: var(--erp-color-text-muted); border-block-end: 1px solid var(--erp-color-border-default); }
+    table.diff td { padding: 10px 8px; vertical-align: top; border-block-end: 1px solid var(--erp-color-border-subtle); overflow-wrap: anywhere; }
+    table.diff .field { width: 34%; color: var(--erp-color-text-secondary); }
+    table.diff.rest { margin-block-start: 4px; }
+    table.diff.rest td { padding-block: 8px; color: var(--erp-color-text-muted); }
+    table.diff.rest .field { color: var(--erp-color-text-muted); }
+    .val { display: inline-block; max-width: 100%; max-height: 240px; overflow: auto; padding: 1px 6px; border-radius: var(--erp-radius-sm); white-space: pre-wrap; }
     .val.old { background: var(--erp-color-error-bg); color: var(--erp-color-error-text); text-decoration: line-through; text-decoration-thickness: 1px; }
     .val.new { background: var(--erp-color-success-bg); color: var(--erp-color-success-text); }
     .val.empty { padding-inline: 0; color: var(--erp-color-text-muted); }
+    .more-toggle { display: inline-flex; align-items: center; gap: 6px; margin-block-start: 12px; padding: 4px 0; border: 0; background: none; font: inherit; color: var(--erp-color-primary-text); cursor: pointer; }
+    .more-toggle:hover { text-decoration: underline; }
+    .more-toggle .count { color: var(--erp-color-text-muted); }
+    .find { display: block; max-width: 240px; margin-block: 8px 4px; }
+    @container erp-drawer (max-width: 480px) {
+      table.diff, table.diff tbody, table.diff tr, table.diff td { display: block; width: auto; }
+      table.diff thead { display: none; }
+      table.diff tr { padding-block: 8px; border-block-end: 1px solid var(--erp-color-border-subtle); }
+      table.diff td { padding: 2px 0; border: 0; }
+      table.diff .field { width: auto; font-weight: 500; }
+      table.diff td[data-label]::before { content: attr(data-label); display: inline-block; min-width: 56px; font-size: 12px; color: var(--erp-color-text-muted); }
+      .summary-id { flex-basis: 100%; }
+    }
     pre.raw { margin: 0 0 12px; padding: 12px; max-height: 320px; overflow: auto; border-radius: var(--erp-radius-control); background: var(--erp-color-bg-subtle); border: 1px solid var(--erp-color-border-subtle); color: var(--erp-color-text-primary); font-size: 12px; direction: ltr; text-align: start; }
     h4.sub { margin: 20px 0 8px; font-size: 13px; font-weight: 600; color: var(--erp-color-text-secondary); }
     ul.related { margin: 0; padding: 0; list-style: none; }
     ul.related li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-block-end: 1px solid var(--erp-color-border-subtle); min-width: 0; }
     ul.related button { padding-inline: 0; text-align: start; }
-    .drawer-nav { display: inline-flex; gap: 4px; }
+    .drawer-nav { display: inline-flex; align-items: center; gap: 4px; }
+    @media (max-width: 480px) { .position { display: none; } }
   `],
   template: `
     <h1 class="erp-page-title">{{ 'ui.audit.title' | translate: 'Audit log' }}</h1>
@@ -91,7 +110,7 @@ const MANY_FIELDS = 12;
     <div class="scope" data-testid="audit-scope">
       <nz-segmented [nzOptions]="ranges()" [ngModel]="range()" (ngModelChange)="setRange($event)" data-testid="audit-range"></nz-segmented>
       @if (recordScope(); as s) {
-        <nz-tag class="erp-tone chip" data-tone="info" nzMode="closeable" (nzOnClose)="clearRecordScope()" data-testid="audit-record-scope">{{ s.recordType | erpLabel }} {{ s.label }}</nz-tag>
+        <nz-tag class="erp-tone chip" data-tone="info" nzMode="closeable" (nzOnClose)="clearRecordScope()" data-testid="audit-record-scope">{{ s.typeLabel }} {{ s.label }}</nz-tag>
       }
     </div>
 
@@ -106,7 +125,7 @@ const MANY_FIELDS = 12;
           }
           @case ('action') { <nz-tag class="erp-tone" [attr.data-tone]="tone(row.action)">{{ row.action | erpLabel }}</nz-tag> }
           @case ('record') {
-            <span class="record erp-truncate"><span class="record-type">{{ row.recordType | erpLabel }}</span> {{ row.recordLabel || shortId(row.recordId) }}</span>
+            <span class="record erp-truncate"><span class="record-type">{{ typeOf(row) }}</span> {{ row.recordLabel || shortId(row.recordId) }}</span>
           }
           @case ('changedFields') { <span class="erp-truncate">{{ changeOf(row) }}</span> }
           @case ('actions') {
@@ -120,33 +139,46 @@ const MANY_FIELDS = 12;
       </ng-template>
     </erp-paged-table>
 
-    <nz-drawer [nzVisible]="!!selected()" [nzTitle]="'ui.audit.event' | translate: 'Audit event'" [nzExtra]="navigation" nzWidth="720px" (nzOnClose)="close()" data-testid="audit-drawer">
+    <nz-drawer [nzVisible]="!!selected()" [nzTitle]="drawerTitle" [nzExtra]="navigation" [nzFooter]="hasFooter() ? drawerFooter : undefined" nzWidth="720px" (nzOnClose)="close()" data-testid="audit-drawer">
+      <ng-template #drawerTitle>
+        @if (selected(); as e) {
+          <span class="title-row" data-testid="audit-headline">
+            <nz-tag class="erp-tone" [attr.data-tone]="tone(e.action)">{{ e.action | erpLabel }}</nz-tag>
+            <span class="title-text"><span>{{ typeOf(e) }}</span>&ngsp;@if (e.recordLabel) { <span class="title-name">{{ e.recordLabel }}</span> }</span>
+          </span>
+        }
+      </ng-template>
       <ng-template #navigation>
         <span class="drawer-nav">
+          @if (position(); as p) { <span class="position" data-testid="audit-position"><bdi dir="ltr">{{ p }}</bdi></span> }
           <button nz-button type="button" nzSize="small" [disabled]="!hasPrevious()" (click)="step(-1)" nz-tooltip [nzTooltipTitle]="'ui.audit.newer' | translate: 'Newer event'" [attr.aria-label]="'ui.audit.newer' | translate: 'Newer event'" data-testid="audit-newer"><span nz-icon nzType="up"></span></button>
           <button nz-button type="button" nzSize="small" [disabled]="!hasNext()" (click)="step(1)" nz-tooltip [nzTooltipTitle]="'ui.audit.older' | translate: 'Older event'" [attr.aria-label]="'ui.audit.older' | translate: 'Older event'" data-testid="audit-older"><span nz-icon nzType="down"></span></button>
         </span>
       </ng-template>
+      <ng-template #drawerFooter>
+        @if (selected(); as e) {
+          @if ((detail()?.recordEventCount ?? 0) > 1) {
+            <button nz-button type="button" (click)="scopeToRecord(e); close()" data-testid="audit-record-history"><span nz-icon nzType="history"></span> {{ 'ui.audit.seeAll' | translate: 'See all' }} {{ detail()?.recordEventCount }} {{ 'ui.audit.changes' | translate: 'changes' }}</button>
+          }
+          @if (linkOf(e); as link) {
+            <a nz-button nzType="primary" [routerLink]="link" data-testid="audit-open-record"><span nz-icon nzType="export"></span> {{ 'ui.audit.openRecord' | translate: 'Open record' }}</a>
+          }
+        }
+      </ng-template>
       <ng-container *nzDrawerContent>
         @if (selected(); as e) {
-          <p class="head-title" data-testid="audit-headline">{{ headline(e) }}</p>
-          <p class="head-sub"><span>{{ e.occurredAt | erpDate }}</span> · <span>{{ relative(e.occurredAt) }}</span></p>
-
-          <dl class="facts">
-            <div><dt>{{ 'ui.audit.by' | translate: 'By' }}</dt><dd><span class="who"><span class="avatar" [class.system]="!e.userId" aria-hidden="true">{{ initialsOf(e) }}</span>{{ whoOf(e) }}</span></dd></div>
-            <div>
-              <dt>{{ 'ui.audit.record' | translate: 'Record' }}</dt>
-              <dd>
-                {{ e.recordType | erpLabel }} @if (e.recordLabel) { {{ e.recordLabel }} }
-                @if (linkOf(e); as link) { <div><a [routerLink]="link" data-testid="audit-open-record">{{ 'ui.audit.openRecord' | translate: 'Open record' }}</a></div> }
-              </dd>
+          <div class="summary" data-testid="audit-summary-block">
+            <span class="avatar large" [class.system]="!e.userId" aria-hidden="true">{{ initialsOf(e) }}</span>
+            <div class="summary-main">
+              <div class="summary-who">{{ whoOf(e) }}</div>
+              <div class="summary-when">{{ e.occurredAt | erpDate }} · {{ relative(e.occurredAt) }}@if (e.ipAddress) { · <bdi dir="ltr">IP {{ e.ipAddress }}</bdi> }</div>
             </div>
-            <div>
-              <dt>{{ 'ui.audit.recordId' | translate: 'Record ID' }}</dt>
-              <dd><bdi class="mono" dir="ltr">{{ e.recordId }}</bdi><button class="copy" nz-button nzType="text" nzSize="small" type="button" (click)="copy(e.recordId)" nz-tooltip [nzTooltipTitle]="'ui.audit.copy' | translate: 'Copy'" [attr.aria-label]="'ui.audit.copy' | translate: 'Copy'" data-testid="audit-copy-id"><span nz-icon nzType="copy"></span></button></dd>
+            <div class="summary-id">
+              <span class="summary-id-label">{{ 'ui.audit.recordId' | translate: 'Record ID' }}</span>
+              <bdi class="mono" dir="ltr" nz-tooltip [nzTooltipTitle]="e.recordId" data-testid="audit-record-id">{{ shortId(e.recordId) }}</bdi>
+              <button nz-button nzType="text" nzSize="small" type="button" (click)="copy(e.recordId)" nz-tooltip [nzTooltipTitle]="'ui.audit.copy' | translate: 'Copy'" [attr.aria-label]="'ui.audit.copy' | translate: 'Copy'" data-testid="audit-copy-id"><span nz-icon nzType="copy"></span></button>
             </div>
-            <div><dt>{{ 'ui.audit.ipAddress' | translate: 'IP address' }}</dt><dd><bdi dir="ltr">{{ e.ipAddress || '—' }}</bdi></dd></div>
-          </dl>
+          </div>
 
           @if (detailLoading()) {
             <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 5 }" data-testid="audit-detail-loading"></nz-skeleton>
@@ -155,28 +187,24 @@ const MANY_FIELDS = 12;
           } @else if (detail(); as d) {
             <nz-tabset nzSize="small">
               <nz-tab [nzTitle]="changesTab(d)">
-                <div class="tools">
-                  @if (unchangedCount(d)) {
-                    <label><nz-switch nzSize="small" [ngModel]="showUnchanged()" (ngModelChange)="showUnchanged.set($event)" data-testid="audit-show-unchanged"></nz-switch>{{ 'ui.audit.showUnchanged' | translate: 'Show unchanged fields' }} ({{ unchangedCount(d) }})</label>
-                  } @else { <span></span> }
-                  @if (d.fields.length > manyFields) {
-                    <input nz-input nzSize="small" [attr.aria-label]="'ui.audit.findField' | translate: 'Find a field'" [placeholder]="'ui.audit.findField' | translate: 'Find a field'" [ngModel]="fieldSearch()" (ngModelChange)="fieldSearch.set($event)" data-testid="audit-find-field" />
-                  }
-                </div>
-                @if (visibleFields(d); as rows) {
+                @if (primaryFields(d); as rows) {
                   @if (rows.length) {
                     <table class="diff" data-testid="audit-diff">
                       <thead><tr>
                         <th class="field">{{ 'ui.audit.field' | translate: 'Field' }}</th>
-                        @if (e.action !== 'Created') { <th>{{ 'ui.audit.before' | translate: 'Before' }}</th> }
-                        @if (e.action !== 'Deleted') { <th>{{ 'ui.audit.after' | translate: 'After' }}</th> }
+                        @if (e.action !== 'Created') { <th>{{ (e.action === 'Updated' ? 'ui.audit.before' : 'ui.audit.value') | translate: (e.action === 'Updated' ? 'Before' : 'Value') }}</th> }
+                        @if (e.action !== 'Deleted') { <th>{{ (e.action === 'Updated' ? 'ui.audit.after' : 'ui.audit.value') | translate: (e.action === 'Updated' ? 'After' : 'Value') }}</th> }
                       </tr></thead>
                       <tbody>
                         @for (f of rows; track f.field) {
-                          <tr [class.same]="!f.changed" [attr.data-testid]="f.changed ? 'audit-diff-changed' : 'audit-diff-same'">
+                          <tr data-testid="audit-diff-changed">
                             <td class="field">{{ fieldLabel(f.field) }}</td>
-                            @if (e.action !== 'Created') { <td><span class="val" [class.old]="f.changed && !!f.old" [class.empty]="!f.old" dir="auto">{{ shown(f.old) }}</span></td> }
-                            @if (e.action !== 'Deleted') { <td><span class="val" [class.new]="f.changed && !!f.new" [class.empty]="!f.new" dir="auto">{{ shown(f.new) }}</span></td> }
+                            @if (e.action !== 'Created') {
+                              <td [attr.data-label]="e.action === 'Updated' ? ('ui.audit.before' | translate: 'Before') : null"><span class="val" [class.old]="e.action === 'Updated' && !!f.old" [class.empty]="!f.old" [class.mono]="isCode(f.old)" nz-tooltip [nzTooltipTitle]="isId(f.old) ? f.old : null" dir="auto">{{ valueText(f.old) }}</span></td>
+                            }
+                            @if (e.action !== 'Deleted') {
+                              <td [attr.data-label]="e.action === 'Updated' ? ('ui.audit.after' | translate: 'After') : null"><span class="val" [class.new]="e.action === 'Updated' && !!f.new" [class.empty]="!f.new" [class.mono]="isCode(f.new)" nz-tooltip [nzTooltipTitle]="isId(f.new) ? f.new : null" dir="auto">{{ valueText(f.new) }}</span></td>
+                            }
                           </tr>
                         }
                       </tbody>
@@ -186,21 +214,44 @@ const MANY_FIELDS = 12;
                   }
                 }
 
+                @if (restFields(d).length; as restCount) {
+                  <button class="more-toggle" type="button" [attr.aria-expanded]="showUnchanged()" (click)="showUnchanged.set(!showUnchanged())" data-testid="audit-show-unchanged">
+                    <span nz-icon [nzType]="showUnchanged() ? 'up' : 'down'"></span>
+                    @if (e.action === 'Updated') { {{ 'ui.audit.unchangedFields' | translate: 'Unchanged fields' }} } @else { {{ 'ui.audit.emptyFields' | translate: 'Empty fields' }} }
+                    <span class="count">({{ restCount }})</span>
+                  </button>
+                  @if (showUnchanged()) {
+                    @if (restCount > manyFields) {
+                      <input class="find" nz-input nzSize="small" [attr.aria-label]="'ui.audit.findField' | translate: 'Find a field'" [placeholder]="'ui.audit.findField' | translate: 'Find a field'" [ngModel]="fieldSearch()" (ngModelChange)="fieldSearch.set($event)" data-testid="audit-find-field" />
+                    }
+                    <table class="diff rest" data-testid="audit-diff-rest">
+                      <tbody>
+                        @for (f of matchingRest(d); track f.field) {
+                          <tr data-testid="audit-diff-same">
+                            <td class="field">{{ fieldLabel(f.field) }}</td>
+                            <td><span class="val" [class.empty]="!(f.new ?? f.old)" [class.mono]="isCode(f.new ?? f.old)" nz-tooltip [nzTooltipTitle]="isId(f.new ?? f.old) ? (f.new ?? f.old) : null" dir="auto">{{ valueText(f.new ?? f.old) }}</span></td>
+                          </tr>
+                        } @empty {
+                          <tr><td class="muted" data-testid="audit-no-field-match">{{ 'ui.audit.noFieldMatch' | translate: 'No field matches that.' }}</td></tr>
+                        }
+                      </tbody>
+                    </table>
+                  }
+                }
+
                 @if (d.sameSave.length) {
                   <h4 class="sub">{{ 'ui.audit.sameSave' | translate: 'Saved at the same moment' }} ({{ d.sameSave.length }})</h4>
                   <ul class="related" data-testid="audit-same-save">
-                    @for (r of d.sameSave; track r.id) {
+                    @for (r of visibleSameSave(d); track r.id) {
                       <li>
                         <nz-tag class="erp-tone" [attr.data-tone]="tone(r.action)">{{ r.action | erpLabel }}</nz-tag>
-                        <button nz-button nzType="link" nzSize="small" type="button" (click)="open(r)" data-testid="audit-related-open">{{ r.recordType | erpLabel }} {{ r.recordLabel || shortId(r.recordId) }}</button>
+                        <button nz-button nzType="link" nzSize="small" type="button" (click)="open(r)" data-testid="audit-related-open">{{ typeOf(r) }} {{ r.recordLabel || shortId(r.recordId) }}</button>
                       </li>
                     }
                   </ul>
-                }
-
-                @if (d.recordEventCount > 1) {
-                  <h4 class="sub">{{ 'ui.audit.moreOnRecord' | translate: 'More on this record' }}</h4>
-                  <button nz-button type="button" (click)="scopeToRecord(e); close()" data-testid="audit-record-history"><span nz-icon nzType="history"></span> {{ 'ui.audit.seeAll' | translate: 'See all' }} {{ d.recordEventCount }} {{ 'ui.audit.changes' | translate: 'changes' }}</button>
+                  @if (!sameSaveOpen() && d.sameSave.length > sameSaveShown) {
+                    <button class="more-toggle" type="button" (click)="sameSaveOpen.set(true)" data-testid="audit-same-save-more"><span nz-icon nzType="down"></span>{{ 'ui.audit.seeAll' | translate: 'See all' }} {{ d.sameSave.length }}</button>
+                  }
                 }
               </nz-tab>
               <nz-tab [nzTitle]="'ui.audit.rawData' | translate: 'Raw data'">
@@ -231,7 +282,7 @@ export class AuditPage implements OnInit {
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-occurredAt' });
   readonly facets = signal<AuditFacets | null>(null);
   readonly range = signal<RangeKey>('all');
-  readonly recordScope = signal<{ recordType: string; recordId: string; label: string } | null>(null);
+  readonly recordScope = signal<{ recordType: string; recordId: string; typeLabel: string; label: string } | null>(null);
   readonly exporting = signal(false);
 
   readonly selected = signal<AuditEvent | null>(null);
@@ -240,6 +291,8 @@ export class AuditPage implements OnInit {
   readonly detailFailed = signal(false);
   readonly showUnchanged = signal(false);
   readonly fieldSearch = signal('');
+  readonly sameSaveOpen = signal(false);
+  readonly sameSaveShown = SAME_SAVE_SHOWN;
 
   readonly ranges = computed(() => {
     const t = (key: string, fallback: string) => this.i18n.t(key, fallback);
@@ -257,7 +310,7 @@ export class AuditPage implements OnInit {
       { key: 'occurredAt', label: 'When', sortField: 'occurredAt', width: '170px', value: (e) => displayDate(e.occurredAt), filter: 'date', filterField: 'occurredAt', filterValue: (e) => e.occurredAt },
       { key: 'userId', label: 'By', width: '200px', value: (e) => this.whoOf(e), filter: 'select', filterField: 'userId', filterValue: (e) => e.userId, filterOptions: f?.users.map((u) => ({ value: u.id, label: u.name })) },
       { key: 'action', label: 'Action', width: '110px', filter: 'select', filterField: 'action', filterOptions: f?.actions.map((a) => ({ value: a, label: displayLabel(a) })) },
-      { key: 'record', label: 'Record', sortField: 'recordType', value: (e) => `${displayLabel(e.recordType)} ${e.recordLabel ?? e.recordId}`, filter: 'select', filterField: 'recordType', filterValue: (e) => e.recordType, filterOptions: f?.recordTypes.map((t) => ({ value: t, label: displayLabel(t) })) },
+      { key: 'record', label: 'Record', sortField: 'recordType', value: (e) => `${this.typeOf(e)} ${e.recordLabel ?? e.recordId}`, filter: 'select', filterField: 'recordType', filterValue: (e) => e.recordType, filterOptions: f?.recordTypes.map((t) => ({ value: t, label: auditRecordType(t) })) },
       { key: 'changedFields', label: 'What changed', value: (e) => this.changeOf(e), filter: false },
       { key: 'ipAddress', label: 'IP address', width: '140px', hidden: true, filter: 'text', filterField: 'ipAddress' },
       { key: 'actions', label: '', width: '96px', filter: false, value: () => '' },
@@ -269,7 +322,7 @@ export class AuditPage implements OnInit {
     // `?recordType=&recordId=` opens the log scoped to one record, for links from other screens.
     const q = this.route.snapshot.queryParamMap;
     const recordType = q.get('recordType'), recordId = q.get('recordId');
-    if (recordType && recordId) this.recordScope.set({ recordType, recordId, label: q.get('label') ?? this.shortId(recordId) });
+    if (recordType && recordId) this.recordScope.set({ recordType, recordId, typeLabel: auditRecordType(recordType), label: q.get('label') ?? this.shortId(recordId) });
     if (recordType && recordId) this.applyScope();
   }
 
@@ -280,7 +333,7 @@ export class AuditPage implements OnInit {
   }
 
   scopeToRecord(e: AuditEvent): void {
-    this.recordScope.set({ recordType: e.recordType, recordId: e.recordId, label: e.recordLabel ?? this.shortId(e.recordId) });
+    this.recordScope.set({ recordType: e.recordType, recordId: e.recordId, typeLabel: this.typeOf(e), label: e.recordLabel ?? this.shortId(e.recordId) });
     this.range.set('all');
     this.applyScope();
   }
@@ -314,21 +367,22 @@ export class AuditPage implements OnInit {
   whoOf(e: AuditEvent): string { return e.userId ? e.userName ?? this.i18n.t('ui.audit.unknownUser', 'Unknown user') : this.i18n.t('history.system', 'System'); }
   initialsOf(e: AuditEvent): string { return e.userId ? initials(e.userName) : 'S'; }
   tone = auditTone;
+  typeOf(e: AuditEvent): string { return auditRecordType(e.recordType, e.recordKind); }
   fieldLabel = auditFieldLabel;
   relative = relativeTime;
-  shown = auditValue;
+  isId = auditIsId;
+  isCode = auditIsCode;
+  /** A stored value in words, with a long id shortened (the tooltip has it in full). */
+  valueText(value: string | null | undefined): string { return auditIsId(value) ? this.shortId(value!) : auditValue(value); }
   shortId(id: string): string { return id.length > 12 ? `${id.slice(0, 8)}…` : id; }
   linkOf(e: AuditEvent): unknown[] | null { return recordLink(e.recordType, e.recordId, e.recordKind); }
   changeOf(e: AuditEvent): string { return auditSummary(e, (key, fallback) => this.i18n.t(key, fallback)); }
-  headline(e: AuditEvent): string {
-    const record = `${displayLabel(e.recordType)}${e.recordLabel ? ` ${e.recordLabel}` : ''}`;
-    return this.i18n.lang() === 'ar' ? `${this.whoOf(e)}: ${displayLabel(e.action)} ${record}` : `${this.whoOf(e)} ${e.action.toLowerCase()} ${record}`;
-  }
 
   // ---------- drawer ----------
   open(row: AuditEvent): void {
     this.selected.set(row);
     this.showUnchanged.set(false);
+    this.sameSaveOpen.set(false);
     this.fieldSearch.set('');
     this.load(row);
   }
@@ -362,20 +416,33 @@ export class AuditPage implements OnInit {
     e.preventDefault();
   }
 
-  unchangedCount(d: AuditEventDetail): number { return d.event.action === 'Updated' ? d.fields.filter((f) => !f.changed).length : 0; }
-  changesTab(d: AuditEventDetail): string {
-    const count = d.fields.filter((f) => f.changed).length;
-    return `${d.event.action === 'Updated' ? this.i18n.t('ui.audit.changesTab', 'Changes') : this.i18n.t('ui.audit.valuesTab', 'Values')} (${count})`;
+  hasFooter(): boolean {
+    const e = this.selected();
+    return !!e && (!!this.linkOf(e) || (this.detail()?.recordEventCount ?? 0) > 1);
   }
 
-  visibleFields(d: AuditEventDetail): AuditFieldDiff[] {
+  position(): string | null {
+    const i = this.indexOfSelected();
+    return i < 0 ? null : `${i + 1} / ${this.list.items().length}`;
+  }
+
+  /** What the event is about: the fields it changed, or for a new or removed record the values it held. */
+  primaryFields(d: AuditEventDetail): AuditFieldDiff[] { return d.fields.filter((f) => auditIsPrimary(d.event.action, f)); }
+  /** Everything else, folded away: fields left alone, or fields with no value. */
+  restFields(d: AuditEventDetail): AuditFieldDiff[] { return d.fields.filter((f) => !auditIsPrimary(d.event.action, f)); }
+
+  visibleSameSave(d: AuditEventDetail): AuditEvent[] { return this.sameSaveOpen() ? d.sameSave : d.sameSave.slice(0, SAME_SAVE_SHOWN); }
+
+  matchingRest(d: AuditEventDetail): AuditFieldDiff[] {
     const term = this.fieldSearch().trim().toLowerCase();
-    const showAll = d.event.action !== 'Updated' || this.showUnchanged();
-    return d.fields.filter((f) => (showAll || f.changed) && (!term || this.fieldLabel(f.field).toLowerCase().includes(term)));
+    return this.restFields(d).filter((f) => !term || this.fieldLabel(f.field).toLowerCase().includes(term));
+  }
+
+  changesTab(d: AuditEventDetail): string {
+    return `${d.event.action === 'Updated' ? this.i18n.t('ui.audit.changesTab', 'Changes') : this.i18n.t('ui.audit.valuesTab', 'Values')} (${this.primaryFields(d).length})`;
   }
 
   noFieldsText(e: AuditEvent): string {
-    if (this.fieldSearch().trim()) return this.i18n.t('ui.audit.noFieldMatch', 'No field matches that.');
     return e.action === 'Updated' ? this.i18n.t('ui.audit.onlyBookkeeping', 'Only bookkeeping values such as the last-updated time changed.') : this.i18n.t('ui.audit.noSnapshot', 'No field values were kept for this event.');
   }
 

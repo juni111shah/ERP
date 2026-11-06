@@ -85,7 +85,8 @@ public class RecordHistoryAndAgeingTests(ApiFactory f) : IClassFixture<ApiFactor
         Assert.Equal(name, (string)changedName["old"]!);
         Assert.StartsWith("*", (string)fields.Single(x => (string)x!["field"]! == "Iban")!["old"]!);
         Assert.Contains(fields, x => !(bool)x!["changed"]!); // the unchanged fields come too, for "show unchanged"
-        Assert.DoesNotContain(fields, x => (string)x!["field"]! is "UpdatedAt" or "RowVersion");
+        Assert.DoesNotContain(fields, x => (string)x!["field"]! is "Id" or "UpdatedAt" or "RowVersion");
+        Assert.Equal("Company", (string)fields.Single(x => (string)x!["field"]! == "Kind")!["new"]!); // enums read as words
         Assert.Equal(2, (int)detail["recordEventCount"]!);
         Assert.Equal("Updated", (string)detail["event"]!["action"]!);
 

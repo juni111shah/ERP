@@ -104,7 +104,7 @@ internal static class AuditSnapshot
     /// <summary>Fields shown masked (last characters only), consistent with how parties are displayed.</summary>
     private static readonly HashSet<string> Sensitive = new(StringComparer.OrdinalIgnoreCase) { "Iban", "IdNumber", "TaxNumber", "AccountNumber", "LabourCardNumber" };
     /// <summary>Bookkeeping columns that add noise to a history.</summary>
-    private static readonly HashSet<string> Noise = new(StringComparer.OrdinalIgnoreCase) { "UpdatedAt", "UpdatedBy", "CreatedAt", "CreatedBy", "RowVersion", "OrgId", "IsDeleted", "DeletedAt", "DeletedBy" };
+    private static readonly HashSet<string> Noise = new(StringComparer.OrdinalIgnoreCase) { "Id", "UpdatedAt", "UpdatedBy", "CreatedAt", "CreatedBy", "RowVersion", "OrgId", "IsDeleted", "DeletedAt", "DeletedBy" };
     /// <summary>The fields that name a record, best first.</summary>
     private static readonly string[] LabelFields = ["Number", "Name", "FullName", "Title", "Subject", "Code", "Email", "Reference"];
 

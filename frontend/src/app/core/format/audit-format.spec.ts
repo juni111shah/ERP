@@ -1,4 +1,4 @@
-import { auditFieldLabel, auditSummary, auditTone, auditValue, initials, relativeTime } from './audit-format';
+import { auditFieldLabel, auditIsCode, auditIsId, auditIsPrimary, auditRecordType, auditSummary, auditTone, auditValue, initials, relativeTime } from './audit-format';
 
 describe('audit format', () => {
   const t = (_: string, fallback: string) => fallback;
@@ -36,6 +36,33 @@ describe('audit format', () => {
     expect(auditSummary({ action: 'Updated', changedFields: ['Name'] }, t)).toBe('Name');
     expect(auditSummary({ action: 'Updated', changedFields: ['A', 'B', 'C', 'D', 'E'] }, t)).toBe('A, B, C +2');
     expect(auditSummary({ action: 'Updated', changedFields: [] }, t)).toBe('');
+  });
+
+  it('puts first what the event is about', () => {
+    expect(auditIsPrimary('Updated', { old: 'a', new: 'b', changed: true })).toBeTrue();
+    expect(auditIsPrimary('Updated', { old: 'a', new: 'a', changed: false })).toBeFalse();
+    expect(auditIsPrimary('Created', { old: null, new: 'b', changed: true })).toBeTrue();
+    expect(auditIsPrimary('Created', { old: null, new: null, changed: false })).toBeFalse();
+    // A soft delete writes the same values back, so nothing reads as changed; its values still matter.
+    expect(auditIsPrimary('Deleted', { old: 'a', new: 'a', changed: false })).toBeTrue();
+    expect(auditIsPrimary('Deleted', { old: null, new: null, changed: false })).toBeFalse();
+  });
+
+  it('recognises ids and stored JSON', () => {
+    expect(auditIsId('388c744f-5dc3-4214-b09b-b65aa12a6a78')).toBeTrue();
+    expect(auditIsId('Northwind')).toBeFalse();
+    expect(auditIsId(null)).toBeFalse();
+    expect(auditIsCode('{"a":1}')).toBeTrue();
+    expect(auditIsCode('Northwind')).toBeFalse();
+  });
+
+  it('names a record type as people call it', () => {
+    expect(auditRecordType('Settlement', 'Received')).toBe('Receipt');
+    expect(auditRecordType('Settlement', '0')).toBe('Receipt');
+    expect(auditRecordType('Settlement', 'Issued')).toBe('Payment');
+    expect(auditRecordType('Settlement', '1')).toBe('Payment');
+    expect(auditRecordType('Settlement')).toBe('Receipt or payment');
+    expect(auditRecordType('PlatformSetting')).toBe('Platform setting');
   });
 
   it('makes initials from a name', () => {

@@ -1,5 +1,5 @@
 import { displayDate, displayLabel, isIsoDate } from './display';
-import { currentLang } from '../i18n/translate-now';
+import { currentLang, phraseNow } from '../i18n/translate-now';
 
 const SHOWN_FIELDS = 3;
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,6 +25,29 @@ export function auditValue(value: string | null | undefined): string {
   if (isIsoDate(value)) return displayDate(value);
   if (GUID.test(value)) return value;
   return looksLikeJson(value) ? prettyJson(value) : value;
+}
+
+/** A record type as people call it. One table holds money in and money out, and the event's kind says which. */
+export function auditRecordType(type: string, kind?: string | null): string {
+  if (type !== 'Settlement') return displayLabel(type);
+  if (kind === '1' || kind === 'Issued') return phraseNow('Payment');
+  if (kind === '0' || kind === 'Received') return phraseNow('Receipt');
+  return phraseNow('Receipt or payment');
+}
+
+export function auditIsId(value: string | null | undefined): boolean { return !!value && GUID.test(value); }
+
+/** Ids and stored JSON read better in a fixed-width font. */
+export function auditIsCode(value: string | null | undefined): boolean { return auditIsId(value) || (!!value && looksLikeJson(value)); }
+
+/**
+ * Whether a field is what the event is about. An update is about what moved. A new or removed record is about the values it held, so empty
+ * fields fold away; a soft delete keeps every value the same, which is why its old values are shown rather than its changes.
+ */
+export function auditIsPrimary(action: string, f: { old?: string | null; new?: string | null; changed: boolean }): boolean {
+  if (action === 'Created') return !!f.new;
+  if (action === 'Deleted') return !!f.old;
+  return f.changed;
 }
 
 function looksLikeJson(value: string): boolean {

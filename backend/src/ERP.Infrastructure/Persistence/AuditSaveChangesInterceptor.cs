@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using ERP.Application.Abstractions;
 using ERP.Domain.Common;
 using ERP.Domain.Identity;
@@ -19,6 +20,9 @@ public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext o
 {
     private static readonly HashSet<string> SecretProperties = new(StringComparer.OrdinalIgnoreCase)
         { "PasswordHash", "SecurityStamp", "ConcurrencyStamp", "TokenHash", "RowVersion", "EncryptedApiKey" };
+
+    /// <summary>Enums are stored by name, so an event still reads properly if the enum's numbers ever change.</summary>
+    private static readonly JsonSerializerOptions SnapshotJson = new() { Converters = { new JsonStringEnumConverter() } };
 
     private static readonly HashSet<Type> NotAudited = [typeof(AiProvider), typeof(AssistantUsageDay), typeof(BrandConversation), typeof(BrandMessage), typeof(SignupRequest), typeof(PlatformActivity), typeof(AuditEvent), typeof(RefreshToken), typeof(PasswordResetToken), typeof(Notification), typeof(MessageLog), typeof(PortalOtp)];
 
@@ -123,6 +127,6 @@ public sealed class AuditSaveChangesInterceptor(ICurrentUser user, IOrgContext o
             if (entry.Entity is AppUser && p.Metadata.Name is nameof(AppUser.PhoneNumber)) continue;
             dict[p.Metadata.Name] = original ? p.OriginalValue : p.CurrentValue;
         }
-        return JsonSerializer.Serialize(dict);
+        return JsonSerializer.Serialize(dict, SnapshotJson);
     }
 }

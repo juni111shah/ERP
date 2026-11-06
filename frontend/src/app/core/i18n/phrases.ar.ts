@@ -4,6 +4,7 @@
  * Missing strings simply stay in English.
  */
 const PAIRS: [string, string][] = [
+  ['Receipt or payment', 'سند قبض أو دفع'],
   ['Changes today', 'التغييرات اليوم'], ['Changes in 7 days', 'التغييرات في 7 أيام'], ['Deletions in 7 days', 'عمليات الحذف في 7 أيام'], ['People active in 7 days', 'الأشخاص النشطون في 7 أيام'], ['When', 'متى'], ['By', 'بواسطة'], ['What changed', 'ما الذي تغير'], ['Search record, field or IP address', 'ابحث عن سجل أو حقل أو عنوان IP'], ['No changes have been recorded yet', 'لم تُسجَّل أي تغييرات بعد'], ['Could not load this event', 'تعذر تحميل هذا الحدث'], ['The list is still up to date.', 'القائمة ما زالت محدثة.'], ['Print receipt', 'طباعة الإيصال'], ['Email receipt', 'إرسال الإيصال بالبريد'], ['Record another', 'تسجيل آخر'], ['Print payment', 'طباعة الدفعة'], ['Email to vendor', 'إرسال إلى المورد'], ['Send to customer', 'إرسال إلى العميل'], ['Create another', 'إنشاء آخر'], ['Send again', 'إرسال مرة أخرى'], ['Open draft', 'فتح المسودة'], ['View order', 'عرض الطلب'],
   // generic actions and words
   ['Save', 'حفظ'], ['Cancel', 'إلغاء'], ['Delete', 'حذف'], ['Edit', 'تعديل'], ['Close', 'إغلاق'], ['Back', 'رجوع'], ['Run', 'تشغيل'], ['Search', 'بحث'], ['Upload', 'رفع'], ['Import', 'استيراد'],
