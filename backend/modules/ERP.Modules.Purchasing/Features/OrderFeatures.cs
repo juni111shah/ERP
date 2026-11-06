@@ -167,7 +167,8 @@ internal sealed class PurchaseOrderHandlers(
     ILegalEntityGuard guard,
     INumberingService numbers,
     IUnitOfWork unitOfWork,
-    ICustomFieldService fields) :
+    ICustomFieldService fields,
+    IReferenceCheck references) :
     IRequestHandler<GetPurchaseOrder, PurchaseOrderDto>,
     IRequestHandler<CreatePurchaseOrder, PurchaseOrderDto>,
     IRequestHandler<UpdatePurchaseOrder, PurchaseOrderDto>,
@@ -302,6 +303,8 @@ internal sealed class PurchaseOrderHandlers(
     /// <summary>Vendor, currency and name checks shared by create and update; returns the vendor name to store (the party's own name when a party is chosen).</summary>
     private async Task<string> ValidateHeaderAsync(PurchaseOrderInput i, string baseCurrency, CancellationToken ct)
     {
+        if (!await references.AllExistAsync<Item>(i.Lines.Where(l => l.ItemId.HasValue).Select(l => l.ItemId!.Value).Distinct().ToList(), ct))
+            throw new FieldValidationException("lines", "An item was not found.");
         if (!string.Equals(i.Currency.Trim(), baseCurrency, StringComparison.OrdinalIgnoreCase))
             throw new FieldValidationException("currency", $"The currency must be the legal entity's currency ({baseCurrency}).");
         if (i.VendorPartyId is not { } partyId) return i.VendorName.Trim();

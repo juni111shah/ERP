@@ -126,6 +126,7 @@ public class PriceListHandlers :
 
     public async Task<RetailPriceListDto> Handle(CreatePriceListCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var code = request.Code.Trim();
         var exists = await _priceLists.Query(new Specification<RetailPriceList>(x => x.Code == code))
             .AnyAsync(cancellationToken);

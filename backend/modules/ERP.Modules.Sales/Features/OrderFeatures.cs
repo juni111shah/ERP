@@ -5,7 +5,9 @@ using ERP.Application.Customization;
 using ERP.Application.Finance;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
+using ERP.Domain.Catalog;
 using ERP.Domain.Finance;
+using ERP.Domain.Parties;
 using ERP.Modules.Sales.Domain;
 using FluentValidation;
 using MediatR;
@@ -138,6 +140,18 @@ public sealed class UpdateOrderValidator : AbstractValidator<UpdateOrder>
     public UpdateOrderValidator() => RuleFor(x => x.Input).SetValidator(new OrderInputValidator());
 }
 
+/// <summary>The customer and items a quote or order points at must exist in this workspace (the database cannot tell, its foreign keys ignore the workspace).</summary>
+internal static class SalesReferences
+{
+    public static async Task EnsureAsync(IReferenceCheck references, Guid? customerPartyId, IEnumerable<Guid?> itemIds, CancellationToken ct)
+    {
+        if (customerPartyId is { } party && !await references.AllExistAsync<Party>([party], ct))
+            throw new FieldValidationException("customerPartyId", "Customer not found.");
+        if (!await references.AllExistAsync<Item>(itemIds.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList(), ct))
+            throw new FieldValidationException("lines", "An item was not found.");
+    }
+}
+
 internal sealed class OrderHandlers(
     IRepository<SalesOrder> orders,
     ISender sender,
@@ -146,7 +160,8 @@ internal sealed class OrderHandlers(
     ICustomFieldService fields,
     IStockPostingService stockPosting,
     IReadRepository<TaxCode> taxCodes,
-    IUnitOfWork uow) :
+    IUnitOfWork uow,
+    IReferenceCheck references) :
     IRequestHandler<GetOrder, OrderDto>,
     IRequestHandler<CreateOrder, OrderDto>,
     IRequestHandler<UpdateOrder, OrderDto>,
@@ -167,6 +182,9 @@ internal sealed class OrderHandlers(
     {
         var i = cmd.Input;
         var entity = await guard.RequireAsync(i.LegalEntityId, ct);
+        await SalesReferences.EnsureAsync(references, i.CustomerPartyId, i.Lines.Select(l => l.ItemId), ct);
+        if (i.QuoteId is { } quoteId && !await references.AllExistAsync<SalesQuote>([quoteId], ct))
+            throw new FieldValidationException("quoteId", "Quote not found.");
         var order = new SalesOrder
         {
             LegalEntityId = entity.Id,
@@ -210,6 +228,7 @@ internal sealed class OrderHandlers(
             throw new ConflictException($"Cannot edit sales order in status '{order.Status}'" + (order.Lines.Any(l => l.DeliveredQuantity > 0) ? " with delivered quantities." : "."));
 
         var i = cmd.Input;
+        await SalesReferences.EnsureAsync(references, i.CustomerPartyId, i.Lines.Select(l => l.ItemId), ct);
         order.CustomerPartyId = i.CustomerPartyId;
         order.CustomerName = i.CustomerName.Trim();
         order.CustomerReference = i.CustomerReference?.Trim();

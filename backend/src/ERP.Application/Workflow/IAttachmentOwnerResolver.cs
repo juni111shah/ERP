@@ -8,6 +8,8 @@ public sealed record AttachmentOwnerDescriptor(string ReadPermission, string Wri
 public interface IAttachmentOwnerResolver
 {
     string OwnerType { get; }
+    /// <summary>Needed to see attachments of this owner type at all (empty means no extra permission).</summary>
+    string ReadPermission { get; }
     Task<AttachmentOwnerDescriptor?> ResolveAsync(Guid ownerId, CancellationToken ct = default);
 }
 
@@ -19,6 +21,7 @@ public sealed class EntityAttachmentOwnerResolver<TEntity>(
     Func<TEntity, bool>? predicate = null) : IAttachmentOwnerResolver where TEntity : Entity
 {
     public string OwnerType => ownerType;
+    public string ReadPermission => readPermission;
 
     public async Task<AttachmentOwnerDescriptor?> ResolveAsync(Guid ownerId, CancellationToken ct = default)
     {

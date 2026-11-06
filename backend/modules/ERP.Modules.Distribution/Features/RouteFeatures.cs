@@ -1,5 +1,7 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
+using ERP.Domain.Parties;
 using ERP.Modules.Distribution.Domain;
 using FluentValidation;
 using MediatR;
@@ -115,14 +117,35 @@ public class RouteHandlers :
     IRequestHandler<GetRouteByIdQuery, DistributionRouteDto?>
 {
     private readonly IRepository<DistributionRoute> _routes;
+    private readonly ILegalEntityGuard _guard;
+    private readonly IReferenceCheck _references;
+    private readonly IStockPostingService _stock;
 
-    public RouteHandlers(IRepository<DistributionRoute> routes)
+    public RouteHandlers(IRepository<DistributionRoute> routes, ILegalEntityGuard guard, IReferenceCheck references, IStockPostingService stock)
     {
         _routes = routes;
+        _guard = guard;
+        _references = references;
+        _stock = stock;
+    }
+
+    private async Task EnsureWarehouseAsync(Guid? warehouseId, Guid legalEntityId, CancellationToken ct)
+    {
+        if (warehouseId is { } w && !await _stock.IsWarehouseUsableAsync(w, legalEntityId, ct))
+            throw new FieldValidationException("warehouseId", "Choose an active warehouse of this legal entity.");
+    }
+
+    private async Task EnsureStopCustomersAsync(List<DeliveryStopInput>? stops, CancellationToken ct)
+    {
+        if (stops is { Count: > 0 } && !await _references.AllExistAsync<Party>(stops.Select(s => s.CustomerPartyId).ToList(), ct))
+            throw new FieldValidationException("stops", "A stop's customer was not found.");
     }
 
     public async Task<DistributionRouteDto> Handle(CreateRouteCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
+        await EnsureWarehouseAsync(request.WarehouseId, request.LegalEntityId, cancellationToken);
+        await EnsureStopCustomersAsync(request.Stops, cancellationToken);
         var route = new DistributionRoute
         {
             LegalEntityId = request.LegalEntityId,
@@ -169,6 +192,8 @@ public class RouteHandlers :
             .Include(r => r.Stops)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Route {request.Id} not found.");
+        if (request.WarehouseId != route.WarehouseId) await EnsureWarehouseAsync(request.WarehouseId, route.LegalEntityId, cancellationToken);
+        await EnsureStopCustomersAsync(request.Stops, cancellationToken);
 
         route.Name = request.Name.Trim();
         route.Description = request.Description?.Trim();

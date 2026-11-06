@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Services.Domain;
 using FluentValidation;
 using MediatR;
@@ -91,15 +92,18 @@ public class RetainerHandlers :
 {
     private readonly IRepository<RetainerContract> _repo;
     private readonly INumberingService _numbering;
+    private readonly ILegalEntityGuard _guard;
 
-    public RetainerHandlers(IRepository<RetainerContract> repo, INumberingService numbering)
+    public RetainerHandlers(IRepository<RetainerContract> repo, INumberingService numbering, ILegalEntityGuard guard)
     {
         _repo = repo;
         _numbering = numbering;
+        _guard = guard;
     }
 
     public async Task<RetainerDto> Handle(CreateRetainerCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var number = await _numbering.NextAsync("RET", request.LegalEntityId, request.StartDate, cancellationToken);
         var contract = new RetainerContract
         {

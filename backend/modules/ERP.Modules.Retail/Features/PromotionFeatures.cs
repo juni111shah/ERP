@@ -114,6 +114,7 @@ public class PromotionHandlers :
 
     public async Task<RetailPromotionDto> Handle(CreatePromotionCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var promo = new RetailPromotion
         {
             LegalEntityId = request.LegalEntityId,

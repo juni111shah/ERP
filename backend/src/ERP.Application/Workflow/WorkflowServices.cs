@@ -29,6 +29,7 @@ public sealed class ApprovalService(
     {
         var request = await requests.GetForUpdateAsync(requestId, ct);
         if (!user.HasPermission(CorePermissions.ApprovalsDecide)) throw new ForbiddenException();
+        if (request.LegalEntityId is { } entityId && user.AllowedLegalEntityIds is { } allowed && !allowed.Contains(entityId)) throw new NotFoundException();
         request.Decide(user.UserId!.Value, approve, comment, clock.UtcNow);
         await requests.SaveChangesAsync(ct);
         await notifier.NotifyUserAsync(request.RequestedBy, $"Request {(approve ? "approved" : "rejected")}", request.Subject, "/approvals", approve ? "success" : "warning", ct);

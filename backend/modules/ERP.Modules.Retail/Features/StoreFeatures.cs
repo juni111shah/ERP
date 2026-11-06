@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Retail.Domain;
 using FluentValidation;
 using MediatR;
@@ -73,10 +74,20 @@ public class StoreHandlers :
     IRequestHandler<GetStoreByIdQuery, RetailStoreDto?>
 {
     private readonly IRepository<RetailStore> _stores;
+    private readonly ILegalEntityGuard _guard;
+    private readonly IStockPostingService _stock;
 
-    public StoreHandlers(IRepository<RetailStore> stores)
+    public StoreHandlers(IRepository<RetailStore> stores, ILegalEntityGuard guard, IStockPostingService stock)
     {
         _stores = stores;
+        _guard = guard;
+        _stock = stock;
+    }
+
+    private async Task EnsureWarehouseAsync(Guid? warehouseId, Guid legalEntityId, CancellationToken ct)
+    {
+        if (warehouseId is { } w && !await _stock.IsWarehouseUsableAsync(w, legalEntityId, ct))
+            throw new FieldValidationException("warehouseId", "Choose an active warehouse of this legal entity.");
     }
 
     public async Task<RetailStoreDto?> Handle(GetStoreByIdQuery request, CancellationToken cancellationToken)
@@ -87,6 +98,8 @@ public class StoreHandlers :
 
     public async Task<RetailStoreDto> Handle(CreateStoreCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
+        await EnsureWarehouseAsync(request.WarehouseId, request.LegalEntityId, cancellationToken);
         var store = new RetailStore
         {
             LegalEntityId = request.LegalEntityId,
@@ -109,6 +122,7 @@ public class StoreHandlers :
     public async Task<RetailStoreDto> Handle(UpdateStoreCommand request, CancellationToken cancellationToken)
     {
         var store = await _stores.GetForUpdateAsync(request.Id, cancellationToken);
+        if (request.WarehouseId != store.WarehouseId) await EnsureWarehouseAsync(request.WarehouseId, store.LegalEntityId, cancellationToken);
 
         store.Name = request.Name.Trim();
         store.WarehouseId = request.WarehouseId;

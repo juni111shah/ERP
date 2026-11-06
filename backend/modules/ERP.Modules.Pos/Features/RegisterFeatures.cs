@@ -93,13 +93,16 @@ public class RegisterHandlers :
     private readonly IReadRepository<Account> _ledgerAccounts;
     private readonly IStockPostingService _stock;
 
-    public RegisterHandlers(IRepository<PosRegister> registers, IRepository<PosSession> sessions, IReadRepository<Account> ledgerAccounts, IStockPostingService stock)
+    public RegisterHandlers(IRepository<PosRegister> registers, IRepository<PosSession> sessions, IReadRepository<Account> ledgerAccounts, IStockPostingService stock, ERP.Application.Organizations.ILegalEntityGuard guard)
     {
+        _guard = guard;
         _registers = registers;
         _sessions = sessions;
         _ledgerAccounts = ledgerAccounts;
         _stock = stock;
     }
+
+    private readonly ERP.Application.Organizations.ILegalEntityGuard _guard;
 
     private async Task EnsureNoOpenSessionAsync(Guid registerId, string action, CancellationToken ct)
     {
@@ -135,6 +138,7 @@ public class RegisterHandlers :
 
     public async Task<PosRegisterDto> Handle(CreateRegisterCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var code = request.Code.Trim();
         if (await _registers.AnyAsync(r => r.Code == code, cancellationToken)) throw new ConflictException($"A register with code {code} already exists.");
         await EnsureSetupAsync(request.LegalEntityId, request.WarehouseId, request.DefaultCashAccountId, request.CardAccountId, request.VarianceAccountId, request.ExpenseAccountId, cancellationToken);

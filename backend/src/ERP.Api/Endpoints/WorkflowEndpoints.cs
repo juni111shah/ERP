@@ -53,7 +53,7 @@ public static class WorkflowEndpoints
         }).RequireAuthorization();
 
         var attachments = api.MapGroup("/attachments").WithTags("Workflow");
-        attachments.MapPagedList<Attachment, VaultRow>("/vault", CorePermissions.AttachmentsRead, a => new VaultRow(a.Id, a.OwnerType, a.OwnerId, a.FileName, a.Category, a.Description, a.ExpiresOn, a.CreatedAt));
+        attachments.MapGet("/vault", ([AsParameters] ListAttachmentVault query, ISender sender, CancellationToken ct) => sender.Send(query, ct)).RequirePermission(CorePermissions.AttachmentsRead);
         attachments.MapGet("", (string ownerType, Guid ownerId, ISender sender, CancellationToken ct) => sender.Send(new ListAttachments(ownerType, ownerId), ct))
             .RequirePermission(CorePermissions.AttachmentsRead);
         attachments.MapPost("", async (HttpRequest request, ISender sender, CancellationToken ct) =>

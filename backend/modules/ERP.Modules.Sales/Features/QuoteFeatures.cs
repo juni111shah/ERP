@@ -130,7 +130,8 @@ internal sealed class QuoteHandlers(
     IRepository<SalesOrder> orders,
     ILegalEntityGuard guard,
     INumberingService numbers,
-    ICustomFieldService fields) :
+    ICustomFieldService fields,
+    IReferenceCheck references) :
     IRequestHandler<GetQuote, QuoteDto>,
     IRequestHandler<CreateQuote, QuoteDto>,
     IRequestHandler<UpdateQuote, QuoteDto>,
@@ -150,6 +151,7 @@ internal sealed class QuoteHandlers(
     {
         var i = cmd.Input;
         var entity = await guard.RequireAsync(i.LegalEntityId, ct);
+        await SalesReferences.EnsureAsync(references, i.CustomerPartyId, i.Lines.Select(l => l.ItemId), ct);
         var quote = new SalesQuote
         {
             LegalEntityId = entity.Id,
@@ -190,6 +192,7 @@ internal sealed class QuoteHandlers(
             throw new ConflictException("Cannot edit a converted quote.");
 
         var i = cmd.Input;
+        await SalesReferences.EnsureAsync(references, i.CustomerPartyId, i.Lines.Select(l => l.ItemId), ct);
         quote.CustomerPartyId = i.CustomerPartyId;
         quote.CustomerName = i.CustomerName.Trim();
         quote.CustomerEmail = i.CustomerEmail?.Trim();
