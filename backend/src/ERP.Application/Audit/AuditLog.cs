@@ -106,7 +106,7 @@ internal static class AuditSnapshot
     /// <summary>Bookkeeping columns that add noise to a history.</summary>
     private static readonly HashSet<string> Noise = new(StringComparer.OrdinalIgnoreCase) { "UpdatedAt", "UpdatedBy", "CreatedAt", "CreatedBy", "RowVersion", "OrgId", "IsDeleted", "DeletedAt", "DeletedBy" };
     /// <summary>The fields that name a record, best first.</summary>
-    private static readonly string[] LabelFields = ["Number", "Code", "Name", "FullName", "Title", "Subject", "Email", "Reference"];
+    private static readonly string[] LabelFields = ["Number", "Name", "FullName", "Title", "Subject", "Code", "Email", "Reference"];
 
     /// <summary>The fields an event changed, without the bookkeeping columns. A soft delete writes only those, so it lists none.</summary>
     public static IReadOnlyList<string> ChangedFields(AuditEvent a) =>
