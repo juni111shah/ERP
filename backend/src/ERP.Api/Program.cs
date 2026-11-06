@@ -143,7 +143,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = builder.Configuration["Product:Name"] ?? "ERP", Version = "v1" });
-    c.CustomSchemaIds(t => t.FullName?.Replace("+", "."));
+    // Anonymous types are numbered per assembly, so two modules can each have "<>f__AnonymousType7`1[Int32]": qualify them by assembly.
+    c.CustomSchemaIds(t => (t.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false) ? t.Assembly.GetName().Name + "." : "") + t.FullName?.Replace("+", "."));
     c.AddSecurityDefinition("Bearer", new() { Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http, Scheme = "bearer", BearerFormat = "JWT" });
     c.AddSecurityRequirement(new() { { new() { Reference = new() { Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme, Id = "Bearer" } }, [] } });
 });
