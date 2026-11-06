@@ -53,10 +53,16 @@ internal sealed class CashReportHandlers(
     public async Task<TaxSummaryDto> Handle(GetTaxSummary q, CancellationToken ct)
     {
         var entity = q.LegalEntityId;
-        var sales = await invoices.Query(new Specification<Invoice>(i => i.InvoiceDate >= q.From && i.InvoiceDate <= q.To && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.Voided && (entity == null || i.LegalEntityId == entity)))
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
+        // A document voided after its period was locked stays in that period and comes back negative in the period of the void.
+        var sales = await invoices.Query(new Specification<Invoice>(i => i.InvoiceDate >= q.From && i.InvoiceDate <= q.To && i.Status != DocumentStatus.Draft && (i.Status != DocumentStatus.Voided || i.VoidPostedOn != null) && (entity == null || i.LegalEntityId == entity)))
             .SelectMany(i => i.Lines, (i, l) => new { i.IsCreditNote, l.TaxCodeId, l.Net, l.TaxAmount }).ToListAsync(ct);
-        var purchases = await bills.Query(new Specification<Bill>(b => b.BillDate >= q.From && b.BillDate <= q.To && (b.Status == DocumentStatus.Issued || b.Status == DocumentStatus.PartlyPaid || b.Status == DocumentStatus.Paid) && (entity == null || b.LegalEntityId == entity)))
+        sales.AddRange(await invoices.Query(new Specification<Invoice>(i => i.Status == DocumentStatus.Voided && i.VoidPostedOn >= q.From && i.VoidPostedOn <= q.To && (entity == null || i.LegalEntityId == entity)))
+            .SelectMany(i => i.Lines, (i, l) => new { IsCreditNote = !i.IsCreditNote, l.TaxCodeId, l.Net, l.TaxAmount }).ToListAsync(ct));
+        var purchases = await bills.Query(new Specification<Bill>(b => b.BillDate >= q.From && b.BillDate <= q.To && (b.Status == DocumentStatus.Issued || b.Status == DocumentStatus.PartlyPaid || b.Status == DocumentStatus.Paid || (b.Status == DocumentStatus.Voided && b.VoidPostedOn != null)) && (entity == null || b.LegalEntityId == entity)))
             .SelectMany(b => b.Lines, (b, l) => new { l.TaxCodeId, l.Net, l.TaxAmount, l.TaxRecoverable }).ToListAsync(ct);
+        purchases.AddRange(await bills.Query(new Specification<Bill>(b => b.Status == DocumentStatus.Voided && b.VoidPostedOn >= q.From && b.VoidPostedOn <= q.To && (entity == null || b.LegalEntityId == entity)))
+            .SelectMany(b => b.Lines, (b, l) => new { l.TaxCodeId, Net = -l.Net, TaxAmount = -l.TaxAmount, l.TaxRecoverable }).ToListAsync(ct));
         var codes = await taxCodes.Query().Select(t => new { t.Id, t.Code, t.Name, t.Rate }).ToDictionaryAsync(t => t.Id, ct);
 
         TaxSummaryRow Row(string section, Guid? id, decimal net, decimal tax)

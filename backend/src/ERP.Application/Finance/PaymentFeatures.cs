@@ -150,7 +150,9 @@ internal sealed class PaymentHandlers(
             if (cheque?.Status == InstrumentStatus.Cleared) throw new ConflictException("The cheque has already cleared the bank, so the payment cannot be voided.");
         }
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == s.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
+        var lockedTo = (await guard.RequireAsync(s.LegalEntityId, ct)).BooksLockedTo;
         await posting.ReverseTodayAsync(journal, VoidMemo.For(s.Number, cmd.Reason), ct);
+        VoidMemo.MarkIfLocked(s, s.Date, lockedTo, clock);
         var ids = s.Allocations.Select(a => a.BillId!.Value).ToList();
         foreach (var bill in await bills.Tracked(new Specification<Bill>(b => ids.Contains(b.Id))).ToListAsync(ct))
         {

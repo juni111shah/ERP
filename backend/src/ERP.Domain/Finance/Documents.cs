@@ -7,8 +7,9 @@ public enum SettlementMethod { Cash, BankTransfer, Card, Instrument, Other }
 
 /// <summary>Sales invoice or credit note (core receivables). Schema only in sprint 0; modules link via SourceType/SourceId.</summary>
 [DefaultSort("-invoiceDate")]
-public class Invoice : LegalEntityScopedEntity, IHasCustomFields, IVoidable
+public class Invoice : LegalEntityScopedEntity, IHasCustomFields, IVoidable, IVoidedAfterLock
 {
+    public DateOnly? VoidPostedOn { get; set; }
     [Searchable, Sortable]
     public string Number { get; set; } = default!;
     [Filterable]
@@ -66,8 +67,9 @@ public class InvoiceLine : Entity
 
 /// <summary>Vendor bill (core payables). Schema only in sprint 0.</summary>
 [DefaultSort("-billDate")]
-public class Bill : LegalEntityScopedEntity, IHasCustomFields, IVoidable
+public class Bill : LegalEntityScopedEntity, IHasCustomFields, IVoidable, IVoidedAfterLock
 {
+    public DateOnly? VoidPostedOn { get; set; }
     [Searchable, Sortable]
     public string Number { get; set; } = default!;
     [Filterable]
@@ -120,8 +122,13 @@ public class BillLine : Entity
 
 /// <summary>Money received from (Direction=Received) or paid to (Issued) a party, allocated to invoices or bills. Schema only.</summary>
 [DefaultSort("-date")]
-public class Settlement : LegalEntityScopedEntity, IVoidable
+public class Settlement : LegalEntityScopedEntity, IVoidable, IVoidedAfterLock
 {
+    public DateOnly? VoidPostedOn { get; set; }
+    /// <summary>The approval request of a payment that needs one. Until it is approved and posted the row holds no journal, no number and no allocations.</summary>
+    public Guid? ApprovalRequestId { get; set; }
+    /// <summary>JSON of what was asked for while the payment waits for approval (allocations, cheque details); cleared when it posts.</summary>
+    public string? PendingInput { get; set; }
     [Searchable, Sortable]
     public string Number { get; set; } = default!;
     [Filterable]
