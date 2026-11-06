@@ -163,6 +163,7 @@ public class PurchasingFlowTests(ApiFactory f) : IClassFixture<ApiFactory>
         var orderNum = (string)poRes["number"]!;
         Assert.Equal("draft", (string)poRes["status"]!, ignoreCase: true);
         Assert.Equal(reqId, (string)poRes["requisitionId"]!);
+        Assert.Equal("AED", (string)poRes["currency"]!); // the legal entity's base currency
         Assert.Equal(800m, (decimal)poRes["totalAmount"]!);
 
         // Verify requisition status changed to Ordered and points to PO

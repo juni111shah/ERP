@@ -204,7 +204,7 @@ public class PurchaseOrder : LegalEntityScopedEntity, IHasCustomFields
     [Sortable, Filterable]
     public DateOnly? ExpectedDeliveryDate { get; set; }
 
-    public string Currency { get; set; } = "QAR";
+    public string Currency { get; set; } = string.Empty;
 
     [Filterable]
     public PurchaseOrderStatus Status { get; set; } = PurchaseOrderStatus.Draft;

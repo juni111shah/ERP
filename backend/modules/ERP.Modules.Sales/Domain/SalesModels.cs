@@ -125,7 +125,7 @@ public class SalesQuote : LegalEntityScopedEntity, IHasCustomFields
     [Sortable, Filterable]
     public DateOnly? ValidUntil { get; set; }
 
-    public string Currency { get; set; } = "QAR";
+    public string Currency { get; set; } = string.Empty;
 
     [Filterable]
     public SalesQuoteStatus Status { get; set; } = SalesQuoteStatus.Draft;
@@ -201,7 +201,7 @@ public class SalesOrder : LegalEntityScopedEntity, IHasCustomFields
     [Sortable, Filterable]
     public DateOnly? ExpectedDeliveryDate { get; set; }
 
-    public string Currency { get; set; } = "QAR";
+    public string Currency { get; set; } = string.Empty;
 
     [Filterable]
     public SalesOrderStatus Status { get; set; } = SalesOrderStatus.Draft;

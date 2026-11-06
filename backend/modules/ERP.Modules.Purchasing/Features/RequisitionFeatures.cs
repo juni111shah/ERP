@@ -235,6 +235,7 @@ internal sealed class RequisitionHandlers(
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Requisition '{cmd.Id}' not found.");
 
         PurchasingTransitions.Requisition.Ensure(req.Status, PurchaseRequisitionStatus.Ordered, isSystem: true);
+        var entity = await guard.RequireAsync(req.LegalEntityId, ct);
 
         var order = new PurchaseOrder
         {
@@ -244,7 +245,7 @@ internal sealed class RequisitionHandlers(
             VendorName = string.IsNullOrWhiteSpace(cmd.VendorName) ? "Unassigned Vendor" : cmd.VendorName.Trim(),
             OrderDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
             ExpectedDeliveryDate = req.RequiredDate,
-            Currency = "QAR",
+            Currency = entity.BaseCurrency,
             Status = PurchaseOrderStatus.Draft,
             Notes = req.Reason,
             Number = await numbers.NextAsync(Docs.PurchaseOrder, req.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), ct),
