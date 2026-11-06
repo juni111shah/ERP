@@ -87,7 +87,8 @@ class ApiClient {
 
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) => _send('GET', path, query: query);
 
-  Future<dynamic> post(String path, {Object? body}) => _send('POST', path, body: body);
+  /// [headers] travel with this call only, for example an `Idempotency-Key`.
+  Future<dynamic> post(String path, {Object? body, Map<String, String>? headers}) => _send('POST', path, body: body, headers: headers);
 
   Future<dynamic> put(String path, {Object? body}) => _send('PUT', path, body: body);
 
@@ -100,7 +101,7 @@ class ApiClient {
   /// Calls that happen before there is a session (sign-in, workspace selection): no bearer token, no refresh attempt.
   Future<dynamic> postAnonymous(String path, {Object? body}) => _send('POST', path, body: body, auth: false);
 
-  Future<dynamic> _send(String method, String path, {Map<String, dynamic>? query, Object? body, bool auth = true, bool retry = true, bool bytes = false}) async {
+  Future<dynamic> _send(String method, String path, {Map<String, dynamic>? query, Object? body, bool auth = true, bool retry = true, bool bytes = false, Map<String, String>? headers}) async {
     final Response<dynamic> res;
     try {
       res = await _dio.request<dynamic>(
@@ -110,6 +111,7 @@ class ApiClient {
         options: Options(method: method, responseType: bytes ? ResponseType.bytes : null, headers: {
           clientHeader: clientName,
           if (auth && accessToken != null) 'Authorization': 'Bearer $accessToken',
+          ...?headers,
         }),
       );
     } on DioException catch (e) {
@@ -117,7 +119,7 @@ class ApiClient {
     }
     await _captureCookie(res);
     if (res.statusCode == 401 && auth && retry) {
-      if (await refresh() != null) return _send(method, path, query: query, body: body, auth: auth, retry: false, bytes: bytes);
+      if (await refresh() != null) return _send(method, path, query: query, body: body, auth: auth, retry: false, bytes: bytes, headers: headers);
       onSessionExpired?.call();
     }
     if (bytes) return _file(res);

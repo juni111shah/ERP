@@ -5,6 +5,7 @@ import 'package:erp_mobile/core/me.dart';
 import 'package:erp_mobile/core/session.dart';
 import 'package:erp_mobile/features/ops/inventory_screens.dart';
 import 'package:erp_mobile/features/ops/manufacturing_screens.dart';
+import 'package:erp_mobile/features/ops/pos_cart.dart';
 import 'package:erp_mobile/features/ops/pos_screens.dart';
 import 'package:erp_mobile/features/ops/screens.dart';
 import 'package:erp_mobile/kit/field.dart';
@@ -32,22 +33,16 @@ Widget host(FakeAdapter adapter, Widget child) {
 void main() {
   test('registers a screen for every menu entry built', () {
     final ids = opsScreens.expand((s) => s.menuIds).toSet();
-    expect(ids, containsAll(['pos.terminal', 'pos.sessions', 'pos.orders', 'pos.registers', 'pos.analytics', 'inventory.stock', 'inventory.movements', 'inventory.counts', 'inventory.warehouses', 'manufacturing.boms', 'manufacturing.workorders', 'manufacturing.costing', 'manufacturing.analytics']));
+    expect(ids, containsAll(['pos.terminal', 'pos.sessions', 'pos.orders', 'pos.returns', 'pos.registers', 'pos.analytics', 'inventory.stock', 'inventory.movements', 'inventory.counts', 'inventory.warehouses', 'manufacturing.boms', 'manufacturing.workorders', 'manufacturing.costing', 'manufacturing.analytics']));
   });
 
   group('forms', () {
-    test('sale form needs an item and a quantity, and sends no price', () {
-      final spec = saleForm({'id': 's', 'registerId': 'r', 'legalEntityId': 'l'});
-      final values = FormEngine.start(spec.fields);
-      final errors = FormEngine.validate(spec.fields, values);
-      expect(errors.keys, contains('lines[0].itemId'));
-      final body = saleBody({'id': 's', 'registerId': 'r', 'legalEntityId': 'l'}, {
-        'lines': [
-          {'itemId': 'i1', 'price': '850', 'quantity': 2, 'discountPercent': 10}
-        ],
-        'paymentMethod': 'cash',
-        'tendered': 2000,
-      }, 1530);
+    test('a sale sends no price, and the change comes off the cash', () {
+      final body = saleBody(
+        {'id': 's', 'registerId': 'r', 'legalEntityId': 'l'},
+        lines: const [CartLine(key: 'i1', itemId: 'i1', itemCode: 'A', description: 'A', quantity: 2, unitPrice: 850, listPrice: 850, discountPercent: 10)],
+        tenders: const [Tender('cash', 2000)],
+      );
       final line = (body['lines'] as List).single as Map;
       expect(line.containsKey('unitPrice'), isFalse);
       expect(line['discountPercent'], 10);
