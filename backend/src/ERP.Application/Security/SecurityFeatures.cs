@@ -221,7 +221,7 @@ internal sealed partial class SecurityHandlers(
             legalEntityAccess.AddRange(entityIds.Select(e => new UserLegalEntityAccess { UserId = account.Id, LegalEntityId = e }));
         }
         await unitOfWork.SaveChangesAsync(ct);
-        return account;
+        return account with { FullName = i.FullName.Trim() }; // accounts are global: an invite must not read back the name on an existing one
     }
 }
 
