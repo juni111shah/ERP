@@ -112,6 +112,7 @@ public sealed class DistributionModule : ModuleBase
             b.Property(x => x.TotalSalesAmount).HasPrecision(19, 4);
             b.Property(x => x.TotalCollectionsAmount).HasPrecision(19, 4);
             b.Property(x => x.Notes).HasMaxLength(1000);
+            b.Property(x => x.InvoiceNumber).HasMaxLength(50);
             b.HasIndex(x => new { x.OrgId, x.TripNumber }).IsUnique().HasFilter("[IsDeleted] = 0");
             b.HasMany(x => x.InventoryItems).WithOne(i => i.Trip).HasForeignKey(i => i.TripId).OnDelete(DeleteBehavior.Cascade);
         });
