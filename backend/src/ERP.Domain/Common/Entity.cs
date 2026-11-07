@@ -39,7 +39,7 @@ public interface ISoftDelete
 }
 
 /// <summary>
-/// Entities that accept user-defined fields (Odoo-Studio style). Values live in a JSON object column
+/// Entities that accept user-defined fields. Values live in a JSON object column
 /// keyed by <c>CustomFieldDefinition.Key</c>; definitions describe type and validation.
 /// </summary>
 public interface IHasCustomFields
