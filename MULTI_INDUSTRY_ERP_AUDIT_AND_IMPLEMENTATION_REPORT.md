@@ -390,7 +390,7 @@ PENDING
 - **Owner dashboard:** branch comparison depends on documents carrying a branch. POS sales, payroll and stock cost do not, so they appear as "without a branch", and the screen says so.
 - **Purchase return, sales return and owner payout accounting** are new and tested, but have no real-world use yet.
 - **`main`'s model snapshot was stale** before this branch: it lacked the assistant tables. This branch's migration leaves those out and its snapshot includes them. Merging `claude/platform-console` will conflict in the snapshot, and its two extra migrations need ordering. Regenerate the snapshot when merging.
-- **Hand-kept SQL scripts** in `database/scripts` were not updated. EF migrations are the source for this work.
+- **SQL script numbering:** this migration is `0087_MultiIndustryErp.sql`, leaving `0085` and `0086` free for the assistant migrations on `claude/platform-console`.
 - **AI:** see section 19.
 
 ---
@@ -1908,7 +1908,7 @@ Checked each path; none leaks the key today.
 2. **D2 (medium) No money cost tracking or ceiling.** Tokens only; a paid key can burn spend with no figure in the console and no spend cap. Add input and output price per provider, a cost column, and a monthly spend limit.
 3. **D3 (low, latent) Records print the secret.** `AiServiceConnection(…, string ApiKey)` (`ChatContracts.cs:14`) and `AiProviderInput(…, ApiKey, …)` (`AssistantFeatures.cs:22`) are positional records, so `ToString()` includes the key. Nothing logs them today, but one `{@Request}` log or exception message would. Override `ToString` or use a redacting wrapper. Also, in Development/Testing the 500 handler returns `ex.ToString()` (`Middleware.cs:57`).
 4. **D4 (medium, main only) Workspace tools may send HR and payroll data to the outside service.** The HR exclusion (`PrivateModules`, `PrivateApprovalTypes`) exists only on the branch; on main, search, overview and approvals tools return whatever the user may see, including HR. Docs claim HR has no reader (that is true), but the other tools bypass that. Merge the branch change.
-5. **D5 (medium) Only one vendor protocol.** vendors with only a native protocol are not supported; chat-completions-compatible endpoints for both vary on tool calls and streaming usage. Add a vendor field and an adapter per protocol before promising "Gemini, Grok, Anthropic, OpenAI".
+5. **D5 (medium) Only one vendor protocol.** vendors with only a native protocol are not supported; chat-completions-compatible endpoints for both vary on tool calls and streaming usage. Add a vendor field and an adapter per protocol before promising "a named vendor, a named vendor, a named vendor, a named vendor".
 6. **D6 (low) No per-tenant control.** Providers, model and daily token pool are global. On main a single workspace can exhaust the shared pool for everyone; the per-workspace daily cap and plan monthly cap only exist on the branch.
 7. **D7 (low) Estimated usage and in-memory state.** Token counts are estimated when the vendor reports none, and the 429 cooldown is `IMemoryCache` (`AssistantRunner.cs:24,39`), so it resets per instance and per restart.
 8. **D8 (low) No distinct "disabled" provider state** and the first provider silently acts as default; the console shows order only.
