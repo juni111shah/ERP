@@ -1112,6 +1112,23 @@ const PAIRS: [string, string][] = [
   ['Asset', 'الأصل'], ['Accumulated after', 'المجمع بعد'], ['Nothing was due in this period.', 'لا شيء مستحق في هذه الفترة.'], ['Could not load this run', 'تعذر تحميل هذا التشغيل'],
   ['As of', 'حتى تاريخ'], ['Show report', 'عرض التقرير'], ['All', 'الكل'], ['Could not load the report', 'تعذر تحميل التقرير'], ['The report could not be loaded', 'تعذر تحميل التقرير'],
   ['No assets on the books at this date', 'لا توجد أصول في الدفاتر في هذا التاريخ'], ['Capitalise an asset, or choose a later date.', 'رسمل أصلاً، أو اختر تاريخاً لاحقاً.'], ['In service', 'قيد الخدمة'],
+  // finance: year-end, opening balances, cash flow, approval chains
+  ['Year-end close', 'إقفال نهاية السنة'], ['Close a year', 'إقفال سنة'], ['Close a fiscal year', 'إقفال سنة مالية'], ['Close year', 'إقفال السنة'], ['Reopen', 'إعادة فتح'], ['Reopen year', 'إعادة فتح السنة'],
+  ['Reopen a fiscal year', 'إعادة فتح سنة مالية'], ['Fiscal year', 'السنة المالية'], ['Net result', 'صافي النتيجة'], ['Closed on', 'تاريخ الإقفال'], ['Closing entry', 'قيد الإقفال'], ['Open entry', 'فتح القيد'], ['Reopened', 'أُعيد فتحه'],
+  ['No year has been closed yet.', 'لم تُقفل أي سنة بعد.'], ['3 to 500 characters. It is kept in the audit log.', 'من 3 إلى 500 حرفاً. يُحفظ في سجل التدقيق.'],
+  ['Closing a year posts one entry that moves all income and expense balances to retained earnings and locks the books up to the year end. Only the latest closed year can be reopened.', 'يُرحّل الإقفال قيداً واحداً ينقل أرصدة الإيرادات والمصروفات إلى الأرباح المحتجزة ويقفل الدفاتر حتى نهاية السنة. لا يمكن إعادة فتح إلا آخر سنة مقفلة.'],
+  ['Named for the calendar year it ends in. A year that is still running cannot be closed.', 'تُسمّى باسم السنة الميلادية التي تنتهي فيها. لا يمكن إقفال سنة ما زالت جارية.'],
+  ['Opening balances', 'الأرصدة الافتتاحية'], ['Enter opening balances', 'إدخال الأرصدة الافتتاحية'], ['Post opening balances', 'ترحيل الأرصدة الافتتاحية'], ['As of date', 'بتاريخ'], ['Memo', 'مذكرة'], ['Account', 'الحساب'],
+  ['Debit', 'مدين'], ['Credit', 'دائن'], ['Party', 'الطرف'], ['Due date', 'تاريخ الاستحقاق'], ['Add line', 'إضافة بند'], ['Remove', 'إزالة'], ['Reverse', 'عكس'], ['Optional', 'اختياري'], ['Required', 'مطلوب'],
+  ['No opening balances have been entered.', 'لم تُدخل أي أرصدة افتتاحية.'], ['Reverse the opening balances?', 'عكس الأرصدة الافتتاحية؟'], ['As of', 'بتاريخ'],
+  ['Enter the balances you start the books with. Lines on the receivables account become open customer invoices and lines on the payables account become open vendor bills, so ageing and payments work from day one. The difference goes to the opening equity account.', 'أدخل الأرصدة التي تبدأ بها الدفاتر. تتحول بنود حساب الذمم المدينة إلى فواتير عملاء مفتوحة وبنود حساب الذمم الدائنة إلى فواتير موردين مفتوحة، فتعمل أعمار الديون والمدفوعات من اليوم الأول. يذهب الفرق إلى حساب حقوق الملكية الافتتاحية.'],
+  ['Do not add the opening equity account or any income or expense account. The difference is posted to opening equity for you.', 'لا تضف حساب حقوق الملكية الافتتاحية ولا أي حساب إيرادات أو مصروفات. يُرحَّل الفرق إلى حقوق الملكية الافتتاحية تلقائياً.'],
+  ['Cash flow', 'التدفقات النقدية'], ['Cash from operating activities', 'النقد من الأنشطة التشغيلية'], ['Cash from investing activities', 'النقد من الأنشطة الاستثمارية'], ['Cash from financing activities', 'النقد من الأنشطة التمويلية'],
+  ['Opening cash and bank', 'النقد والبنك أول الفترة'], ['Closing cash and bank', 'النقد والبنك آخر الفترة'], ['Net change in cash', 'صافي التغير في النقد'], ['Nothing in this period.', 'لا شيء في هذه الفترة.'],
+  ['Approval steps', 'خطوات الموافقة'], ['Steps', 'الخطوات'], ['Level', 'المستوى'], ['Approver permission', 'صلاحية المعتمد'], ['Needs permission', 'تتطلب صلاحية'], ['Decided', 'تاريخ القرار'], ['Comment', 'تعليق'],
+  ['From amount', 'من مبلغ'], ['Vendor bill', 'فاتورة مورد'], ['Manual journal', 'قيد يدوي'], ['Payment', 'دفعة'], ['Purchase order', 'أمر شراء'], ['Purchase requisition', 'طلب شراء'],
+  ['This request has one decision and no steps were recorded.', 'لهذا الطلب قرار واحد ولم تُسجَّل خطوات.'], ['Credit limit', 'حد الائتمان'],
+  ['The most this party may owe at once. Leave empty for no limit.', 'أقصى مبلغ يجوز أن يكون مستحقاً على هذا الطرف دفعة واحدة. اتركه فارغاً لعدم وجود حد.'],
   // next batch
 ];
 

@@ -106,6 +106,8 @@ export const routes: Routes = [
       { path: 'finance/journals', canMatch: [permissionGuard('finance.journals.read')], loadComponent: () => import('./pages/admin/journals.page').then((m) => m.JournalsPage) },
       { path: 'finance/journals/:id', canMatch: [permissionGuard('finance.journals.read')], loadComponent: () => import('./pages/admin/journal-detail.page').then((m) => m.JournalDetailPage) },
       { path: 'finance/reports', canMatch: [permissionGuard('finance.reports.read')], loadComponent: () => import('./pages/admin/ledger-reports.page').then((m) => m.LedgerReportsPage) },
+      { path: 'finance/year-end', canMatch: [anyPermissionGuard('finance.yearend.close', 'finance.yearend.reopen')], loadComponent: () => import('./pages/admin/year-end.page').then((m) => m.YearEndPage) },
+      { path: 'finance/opening-balances', canMatch: [permissionGuard('finance.journals.read')], loadComponent: () => import('./pages/admin/opening-balances.page').then((m) => m.OpeningBalancesPage) },
       { path: 'finance/invoices', canMatch: [permissionGuard('finance.invoices.read')], loadComponent: () => import('./pages/admin/invoices.page').then((m) => m.InvoicesPage) },
       { path: 'finance/invoices/:id', canMatch: [permissionGuard('finance.invoices.read')], loadComponent: () => import('./pages/admin/invoice-detail.page').then((m) => m.InvoiceDetailPage) },
       { path: 'finance/receipts', canMatch: [permissionGuard('finance.receipts.read')], loadComponent: () => import('./pages/admin/receipts.page').then((m) => m.ReceiptsPage) },

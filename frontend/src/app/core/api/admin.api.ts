@@ -205,9 +205,17 @@ export interface LedgerLine { journalId: string; number: string; date: string; m
 export interface GeneralLedger { accountId: string; code: string; name: string; opening: number; lines: LedgerLine[]; closing: number; }
 export interface StatementLine { group: string; code: string; name: string; amount: number; }
 export interface IncomeStatement { from: string; to: string; income: StatementLine[]; expenses: StatementLine[]; totalIncome: number; totalExpenses: number; netProfit: number; }
+export interface CashFlowLine { group: string; code: string; name: string; inflows: number; outflows: number; net: number; }
+export interface CashFlowSection { category: 'operating' | 'investing' | 'financing'; inflows: number; outflows: number; net: number; lines: CashFlowLine[]; }
+export interface CashFlowStatement {
+  from: string; to: string; legalEntityId?: string | null; currencyCode: string; openingBalance: number; sections: CashFlowSection[]; netChange: number; closingBalance: number;
+  ledgerClosingBalance: number; tiesOut: boolean; internalTransfers: number;
+}
 export interface BalanceSheet {
   asOf: string; assets: StatementLine[]; liabilities: StatementLine[]; equity: StatementLine[]; totalAssets: number; totalLiabilities: number; totalEquity: number;
-  currentEarnings: number; balanced: boolean;
+  currentEarnings: number; 
+  /** Unclosed years after the last year-end close (0 when the entity never closed a year). */
+  priorOpenEarnings?: number; balanced: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -229,6 +237,7 @@ export class LedgerReportsApi {
   generalLedger(p: { accountId: string; from?: string; to: string; legalEntityId?: string }): Observable<GeneralLedger> { return this.http.get<GeneralLedger>(`${this.base}/general-ledger`, { params: this.params(p) }); }
   incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
   balanceSheet(p: { asOf: string; legalEntityId?: string }): Observable<BalanceSheet> { return this.http.get<BalanceSheet>(`${this.base}/balance-sheet`, { params: this.params(p) }); }
+  cashFlow(p: { from: string; to: string; legalEntityId?: string }): Observable<CashFlowStatement> { return this.http.get<CashFlowStatement>(`${this.base}/cash-flow`, { params: this.params(p) }); }
   arAgeing(p: { asOf: string; legalEntityId?: string; businessUnitId?: string; sourceType?: string; groupBy?: string; partyGroupId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
   apAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ap-ageing`, { params: this.params(p) }); }
 }

@@ -9,7 +9,7 @@ export interface ActionFormDeps<T = unknown> {
   /** the call the form makes; receives the form values and the record the form was opened for */
   run: (payload: Record<string, unknown>, target: T | null) => Observable<unknown>;
   /** the success message; also called with the response */
-  success: (response: unknown, payload: Record<string, unknown>) => string;
+  success: (response: unknown, payload: Record<string, unknown>, target: T | null) => string;
   /** runs after a success (reload the list or detail) */
   done: (response: unknown) => void;
   message: NzMessageService;
@@ -40,11 +40,12 @@ export class ActionFormState<T = unknown> {
   submit(payload: Record<string, unknown>): void {
     this.saving.set(true);
     this.errors.set(null);
-    this.deps.run(payload, this.target()).subscribe({
+    const target = this.target();
+    this.deps.run(payload, target).subscribe({
       next: (response) => {
         this.saving.set(false);
         this.open.set(false);
-        this.deps.message.success(this.deps.success(response, payload));
+        this.deps.message.success(this.deps.success(response, payload, target));
         this.deps.done(response);
       },
       error: (e) => {

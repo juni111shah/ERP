@@ -9,12 +9,12 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { AdminApi, ApprovalDto } from '../../core/api/admin.api';
 import { applyProblemDetailsToForm, asProblem, problemMessage, controlError } from '../../core/http/problem-details';
-import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { RevealDirective } from '../../shared/reveal.directive';
 import { matchText, TableToolsComponent } from '../../shared/table-tools.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
@@ -30,10 +30,10 @@ import { StatePanelComponent } from '../../shared/state-panel.component';
   selector: 'erp-approvals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, ErpDatePipe, StatusTagComponent, StatePanelComponent, FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
+  imports: [NzModalModule, ErpLabelPipe, ErpDatePipe, StatusTagComponent, StatePanelComponent, FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
   styles: [`.bar { display:flex; margin-bottom:12px } .spacer { flex:1 } .num { text-align:end; font-variant-numeric:tabular-nums; white-space:nowrap } .nowrap { white-space:nowrap }
     .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius:12px; overflow:hidden; margin-top:12px }
-    .subject { font-weight:600; color: var(--erp-color-text-primary) }`],
+    .subject { font-weight:600; color: var(--erp-color-text-primary) } .level { font-size:12px; color: var(--erp-color-text-muted); margin-top:2px }`],
   template: `
     <h1 class="erp-page-title">Approvals</h1>
     <div class="bar"><span class="spacer"></span>
@@ -57,13 +57,20 @@ import { StatePanelComponent } from '../../shared/state-panel.component';
             <tr>
               <td><span class="subject">{{ a.subject }}</span> @if (a.justification) { <div style="color:var(--erp-color-text-secondary); font-size:12px; margin-top:2px;">{{ a.justification }}</div> }</td>
               <td><nz-tag>{{ a.documentType | erpLabel }}</nz-tag></td><td class="num"><strong>{{ a.amount != null ? (a.amount | number:'1.2-2') : '—' }}</strong></td><td class="nowrap">{{ a.requestedAt | erpDate }}</td>
-              <td><erp-status [value]="a.status" /></td>
+              <td>
+                <erp-status [value]="a.status" />
+                @if (a.status === 'pending' && a.currentLevel) {
+                  <div class="level" data-testid="approval-level">Level {{ a.currentLevel }}@if (levels(a) > 1) { of {{ levels(a) }} }</div>
+                }
+              </td>
               <td class="nowrap">
                 @if (a.status === 'pending') {
                   @if (tab() === 0) {
-                    <span *erpHasPermission="'core.approvals.decide'"><button nz-button nzType="primary" nzSize="small" type="button" (click)="decide(a, true)" data-testid="approve">Approve</button> <button nz-button nzDanger nzSize="small" type="button" (click)="decide(a, false)" data-testid="reject">Reject</button></span>
+                    <!-- The list holds only what this person can decide now; the server checks the permission of the level. -->
+                    <button nz-button nzType="primary" nzSize="small" type="button" (click)="decide(a, true)" data-testid="approve">Approve</button> <button nz-button nzDanger nzSize="small" type="button" (click)="decide(a, false)" data-testid="reject">Reject</button>
                   } @else { <button nz-button nzSize="small" type="button" (click)="withdraw(a)" data-testid="withdraw">Withdraw</button> }
                 }
+                <button nz-button nzType="link" nzSize="small" type="button" (click)="showSteps(a)" data-testid="approval-steps">Steps</button>
               </td>
             </tr>
           }
@@ -80,6 +87,23 @@ import { StatePanelComponent } from '../../shared/state-panel.component';
         </form>
       </ng-container>
     </nz-drawer>
+    <nz-modal [nzVisible]="!!detail()" nzTitle="Approval steps" [nzFooter]="null" [nzWidth]="640" (nzOnCancel)="detail.set(null)">
+      <ng-container *nzModalContent>
+        @if (detail(); as d) {
+          <p><b>{{ d.subject }}</b></p>
+          @if (d.steps?.length) {
+            <nz-table [nzData]="d.steps!" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="approval-steps-table">
+              <thead><tr><th>Level</th><th>Needs permission</th><th>Status</th><th>Decided</th><th>Comment</th></tr></thead>
+              <tbody>
+                @for (s of d.steps!; track s.id) {
+                  <tr><td>{{ s.level }}</td><td><code>{{ s.approverPermission }}</code></td><td><erp-status [value]="s.status" /></td><td class="nowrap">{{ s.decidedAt ? (s.decidedAt | erpDate) : '—' }}</td><td>{{ s.comment || '—' }}</td></tr>
+                }
+              </tbody>
+            </nz-table>
+          } @else { <p>This request has one decision and no steps were recorded.</p> }
+        }
+      </ng-container>
+    </nz-modal>
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Cancel</button>
       <button nz-button nzType="primary" [nzLoading]="saving()" (click)="submit()" style="margin-inline-start:8px" data-testid="approval-save">Submit</button>
@@ -101,7 +125,17 @@ export class ApprovalsPage {
   readonly saving = signal(false);
   readonly form = this.fb.group({ subject: ['', [Validators.required, Validators.maxLength(300)]], justification: [''], amount: [null as number | null] });
 
+  readonly detail = signal<ApprovalDto | null>(null);
+
   constructor() { this.load(); }
+
+  /** How many levels the request has (steps that were cancelled or never reached still count). */
+  levels(a: ApprovalDto): number { return a.steps?.length ?? 0; }
+
+  showSteps(a: ApprovalDto): void {
+    this.detail.set(a);
+    this.api.approval(a.id).subscribe({ next: (full) => this.detail.set(full), error: () => undefined });
+  }
 
   err(name: string): string { return controlError(this.form.get(name)); }
 
