@@ -9,7 +9,7 @@ public static class ImportEndpoints
 {
     public static void MapImports(this RouteGroupBuilder api)
     {
-        var g = api.MapGroup("/imports").WithTags("Imports");
+        var g = api.MapGroup("/imports").WithTags("Imports").WithMetadata(new ERP.Modularity.CapabilityGateMetadata("import"));
         g.MapGet("", (ISender s, CancellationToken ct) => s.Send(new ListImports(), ct)).RequireAuthorization();
         g.MapGet("/{key}/template", async (string key, ISender s, CancellationToken ct) => Results.Text(await s.Send(new GetImportTemplate(key), ct), "text/csv")).RequireAuthorization();
         g.MapPost("/{key}", async (string key, bool? dryRun, HttpRequest request, ISender s, CancellationToken ct) =>

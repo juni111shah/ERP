@@ -97,6 +97,7 @@ internal sealed class RunReportTool(ISender sender, ICurrentUser user, IClock cl
             return result is null ? "There is no report with that name." : ToolAnswers.Serialize(result);
         }
         catch (ForbiddenException) { return ToolAnswers.NotAllowed; }
+        catch (FieldValidationException ex) { return string.Join(" ", ex.Errors.SelectMany(e => e.Value)); } // for example a scope that mixes base currencies
     }
 }
 

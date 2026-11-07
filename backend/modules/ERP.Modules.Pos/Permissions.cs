@@ -14,6 +14,7 @@ public static class Permissions
     public const string OrdersRefund = "pos.orders.refund";
     public const string OrdersDiscountOverride = "pos.orders.discount-override";
     public const string OrdersOnAccount = "pos.orders.on-account";
+    public const string OrdersRefundOverride = "pos.orders.refund-override";
 
     public static readonly string[] All =
     [
@@ -28,6 +29,7 @@ public static class Permissions
         OrdersOverridePrice,
         OrdersRefund,
         OrdersDiscountOverride,
-        OrdersOnAccount
+        OrdersOnAccount,
+        OrdersRefundOverride
     ];
 }

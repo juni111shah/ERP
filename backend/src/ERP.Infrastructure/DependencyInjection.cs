@@ -105,6 +105,7 @@ public static class DependencyInjection
         services.AddSingleton<IPermissionCatalog, PermissionCatalog>();
         services.AddSingleton<ICustomizableEntityRegistry, CustomizableEntityRegistry>();
         services.AddScoped<IModuleAccess, ModuleAccess>();
+        services.AddScoped<ICapabilityAccess, CapabilityAccess>();
         services.AddSingleton<ERP.Application.Common.ISequenceDefaults, ModuleSequenceDefaults>();
         services.AddSingleton<ISettingsCatalog, SettingsCatalog>();
         services.AddSingleton<INotificationPusher, NullNotificationPusher>();

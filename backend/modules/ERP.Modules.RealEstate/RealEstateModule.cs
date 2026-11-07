@@ -66,6 +66,8 @@ public sealed class RealEstateModule : ModuleBase
         PermissionDefinition.Of(P.CrmRead, "View listings and leads"),
         PermissionDefinition.Of(P.CrmManage, "Create and edit listings and leads, move and convert leads"),
         PermissionDefinition.Of(P.SettingsWrite, "Change real estate settings"),
+        PermissionDefinition.Of(P.OwnerPayoutsRead, "View owner payouts"),
+        PermissionDefinition.Of(P.OwnerPayoutsManage, "Pay owners and void owner payouts"),
     ];
 
     public override IEnumerable<MenuItemDefinition> Menu =>
@@ -108,6 +110,9 @@ public sealed class RealEstateModule : ModuleBase
             Accounts:
             [
                 new("4010", "Leasing income", AccountType.Income, "realestate.income.leasing", ReportingGroup: "Revenue"),
+                new("4020", "Management fee income", AccountType.Income, OwnerAccounts.FeeIncomeRole, ReportingGroup: "Revenue"),
+                new("4030", "Maintenance recharged to owners", AccountType.Income, OwnerAccounts.RechargeRole, ReportingGroup: "Other income"),
+                new("2210", "Owner funds payable", AccountType.Liability, OwnerAccounts.PayableRole, ReportingGroup: "Current liabilities"),
                 new("4200", "Brokerage commission income", AccountType.Income, "realestate.income.brokerage", ReportingGroup: "Revenue"),
                 new("4950", "Forfeited deposits and damages recovered", AccountType.Income, "realestate.income.damages", ReportingGroup: "Other income"),
                 new("6510", "Brokerage commission expense", AccountType.Expense, "realestate.expense.commission", ReportingGroup: "Operating expenses"),
@@ -140,6 +145,7 @@ public sealed class RealEstateModule : ModuleBase
                 new(Docs.WorkOrder, "WO"),
                 new(Docs.Deal, "DEAL"),
                 new(Docs.Acquisition, "ACQ"),
+                new(Docs.OwnerPayout, "OWP"),
             ],
             SortOrder: 10),
     ];
@@ -147,6 +153,8 @@ public sealed class RealEstateModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<LeaseDtoFactory>();
+        services.AddScoped<OwnerStatementBuilder>();
+        services.AddScoped<OwnerAccounts>();
         services.AddScoped<ERP.Application.Dashboard.IDashboardContributor, RealEstateDashboard>();
         services.AddScoped<LeaseExpiryProcessor>();
         services.AddScoped<ERP.Application.Reminders.IReminderSource, RealEstateReminders>();

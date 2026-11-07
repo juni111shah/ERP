@@ -35,7 +35,7 @@ public sealed class FinanceDashboard(
             var overdue = open.Where(i => i.DueDate < scope.Today).Sum(i => sign(i.IsCreditNote) * (i.Total - i.Paid));
             kpis.Add(new("receivables", "Receivables", receivable, "money", $"overdue {overdue:N0}", 30, "/finance/invoices"));
 
-            var billed = await invoices.Query(new Specification<Invoice>(i => i.InvoiceDate >= from && i.InvoiceDate <= to && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.Voided && (entity == null || i.LegalEntityId == entity)))
+            var billed = await invoices.Query(new Specification<Invoice>(i => i.InvoiceDate >= from && i.InvoiceDate <= to && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.Voided && i.SourceType != ERP.Application.Finance.LedgerSources.Opening && (entity == null || i.LegalEntityId == entity)))
                 .Select(i => new { i.InvoiceDate, i.IsCreditNote, i.Net }).ToListAsync(ct);
             var collected = canSee(CorePermissions.ReceiptsRead)
                 ? await settlements.Query(new Specification<Settlement>(s => s.Direction == InstrumentDirection.Received && s.Status == DocumentStatus.Issued && s.Date >= from && s.Date <= to && (entity == null || s.LegalEntityId == entity)))
@@ -90,7 +90,7 @@ public sealed class FinanceDashboard(
 
         if (canSee(CorePermissions.ReportsRead))
         {
-            var lines = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date >= from && j.Date <= to && (entity == null || j.LegalEntityId == entity)))
+            var lines = await journals.Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.SourceType != ERP.Application.Finance.LedgerSources.YearEnd && j.Date >= from && j.Date <= to && (entity == null || j.LegalEntityId == entity)))
                 .SelectMany(j => j.Lines, (j, l) => new Line(l.AccountId, j.Date, l.Debit, l.Credit)).ToListAsync(ct);
             var info = await accounts.Query(new Specification<Account>(a => a.Type == AccountType.Income || a.Type == AccountType.Expense)).Select(a => new { a.Id, a.Type, a.ReportingGroup, a.Name }).ToListAsync(ct);
             var income = 0m; var expense = 0m; var byGroup = new Dictionary<string, decimal>();

@@ -108,7 +108,9 @@ internal sealed class RequisitionHandlers(
     IRepository<PurchaseOrder> orders,
     ILegalEntityGuard guard,
     INumberingService numbers,
-    ICustomFieldService fields) :
+    ICustomFieldService fields,
+    PurchasingApprovalGate approvalGate,
+    IUnitOfWork unitOfWork) :
     IRequestHandler<GetRequisition, RequisitionDto>,
     IRequestHandler<CreateRequisition, RequisitionDto>,
     IRequestHandler<UpdateRequisition, RequisitionDto>,
@@ -170,6 +172,14 @@ internal sealed class RequisitionHandlers(
         req.RequiredDate = i.RequiredDate;
         req.Reason = i.Reason;
 
+        // What was approved is no longer what the requisition says.
+        if (req.ApprovalRequestId is not null)
+        {
+            await approvalGate.ReleaseAsync(req.ApprovalRequestId, ct);
+            req.ApprovalRequestId = null;
+            if (req.Status is PurchaseRequisitionStatus.PendingApproval or PurchaseRequisitionStatus.Approved) req.Status = PurchaseRequisitionStatus.Draft;
+        }
+
         PopulateLinesAndTotals(req, i.Lines);
         await fields.ApplyAsync(Docs.PurchaseRequisition, req, i.CustomFields, isCreate: false, ct);
 
@@ -183,12 +193,15 @@ internal sealed class RequisitionHandlers(
         if (req.Status == PurchaseRequisitionStatus.Ordered)
             throw new ConflictException("Cannot delete an ordered requisition.");
 
+        await approvalGate.ReleaseAsync(req.ApprovalRequestId, ct);
         requisitions.Remove(req);
         await requisitions.SaveChangesAsync(ct);
         return Unit.Value;
     }
 
-    public async Task<RequisitionDto> Handle(ChangeRequisitionStatus cmd, CancellationToken ct)
+    public Task<RequisitionDto> Handle(ChangeRequisitionStatus cmd, CancellationToken ct) => unitOfWork.InTransactionAsync(token => ChangeStatusAsync(cmd, token), ct);
+
+    private async Task<RequisitionDto> ChangeStatusAsync(ChangeRequisitionStatus cmd, CancellationToken ct)
     {
         var req = await requisitions.Tracked(new Specification<PurchaseRequisition>(x => x.Id == cmd.Id))
             .Include(x => x.Lines)
@@ -196,7 +209,21 @@ internal sealed class RequisitionHandlers(
 
         PurchasingTransitions.Requisition.Ensure(req.Status, cmd.Status, isSystem: false);
 
-        req.Status = cmd.Status;
+        var target = cmd.Status;
+        if (target is PurchaseRequisitionStatus.PendingApproval or PurchaseRequisitionStatus.Approved)
+        {
+            var gate = await approvalGate.CheckAsync(Docs.PurchaseRequisition, req.Id, $"Requisition {req.Number} by {req.RequesterName}", req.EstimatedTotal, req.LegalEntityId,
+                req.ApprovalRequestId, req.CreatedBy, approving: target == PurchaseRequisitionStatus.Approved, ct);
+            req.ApprovalRequestId = gate.RequestId;
+            if (!gate.MayApprove) target = PurchaseRequisitionStatus.PendingApproval;
+        }
+        else
+        {
+            await approvalGate.ReleaseAsync(req.ApprovalRequestId, ct);
+            req.ApprovalRequestId = null;
+        }
+
+        req.Status = target;
         await requisitions.SaveChangesAsync(ct);
         return await ToDtoAsync(req, ct);
     }
@@ -208,6 +235,7 @@ internal sealed class RequisitionHandlers(
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Requisition '{cmd.Id}' not found.");
 
         PurchasingTransitions.Requisition.Ensure(req.Status, PurchaseRequisitionStatus.Ordered, isSystem: true);
+        var entity = await guard.RequireAsync(req.LegalEntityId, ct);
 
         var order = new PurchaseOrder
         {
@@ -215,12 +243,12 @@ internal sealed class RequisitionHandlers(
             RequisitionId = req.Id,
             VendorPartyId = cmd.VendorPartyId,
             VendorName = string.IsNullOrWhiteSpace(cmd.VendorName) ? "Unassigned Vendor" : cmd.VendorName.Trim(),
-            OrderDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            OrderDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
             ExpectedDeliveryDate = req.RequiredDate,
-            Currency = "QAR",
+            Currency = entity.BaseCurrency,
             Status = PurchaseOrderStatus.Draft,
             Notes = req.Reason,
-            Number = await numbers.NextAsync(Docs.PurchaseOrder, req.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), ct),
+            Number = await numbers.NextAsync(Docs.PurchaseOrder, req.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), ct),
         };
 
         decimal subtotal = 0;

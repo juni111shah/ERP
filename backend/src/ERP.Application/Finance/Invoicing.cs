@@ -25,6 +25,10 @@ public sealed record InvoiceVoided(Guid InvoiceId, string? SourceType, Guid? Sou
 /// <summary>Raised when a bill is deleted or voided, so the record it was generated from can be billed again.</summary>
 public sealed record BillReleased(Guid BillId) : INotification;
 
+/// <summary>Raised before a bill posts, so the record it was generated from can refuse it. A handler refuses by throwing.</summary>
+public sealed record BillPosting(Guid BillId, IReadOnlyList<BillPostingLine> Lines) : INotification;
+public sealed record BillPostingLine(Guid? AccountId, decimal Quantity);
+
 /// <summary>Builds, issues and voids sales invoices and credit notes. Shared by the invoice screens and by module billing runs.</summary>
 public interface IInvoicingService
 {
@@ -103,7 +107,7 @@ public sealed class InvoicingService(
 
         var lines = new List<PostingLine> { Line(ar, sign * invoice.Total, memo, invoice.PartyId) };
         foreach (var g in invoice.Lines.GroupBy(l => l.AccountId!.Value))
-            lines.Add(Line(g.Key, -sign * g.Sum(l => l.Net), memo, null));
+            lines.Add(Line(g.Key, -sign * g.Sum(l => l.Net), memo, null) with { BusinessUnitId = invoice.BusinessUnitId });
         if (invoice.Tax > 0) lines.Add(Line(await posting.AccountForRoleAsync(SystemRoles.TaxOutput, ct), -sign * invoice.Tax, memo, null));
 
         lines.RemoveAll(l => l.Debit == 0 && l.Credit == 0);
@@ -115,10 +119,17 @@ public sealed class InvoicingService(
     public async Task VoidAsync(Invoice invoice, string? reason = null, CancellationToken ct = default)
     {
         if (invoice.Status is not DocumentStatus.Issued || invoice.Paid != 0) throw new ConflictException("Only an issued document with nothing paid or applied can be voided. Issue a credit note instead.");
+        if (invoice.SourceType == LedgerSources.Opening) throw new ConflictException("This document comes from the opening entry. Reverse the opening entry instead.");
+        // Voiding under a live credit note would leave that credit in receivables with nothing behind it.
+        if (!invoice.IsCreditNote && await invoices.AnyAsync(i => i.IsCreditNote && i.Status != DocumentStatus.Voided
+                && (i.CreditNoteForId == invoice.Id || (i.SourceType == CreateCreditNoteFromInvoice.LinkType && i.SourceId == invoice.Id)), ct))
+            throw new ConflictException("This invoice has a credit note against it. Void or delete the credit note first.");
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == invoice.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
+        var lockedTo = (await guard.RequireAsync(invoice.LegalEntityId, ct)).BooksLockedTo;
         await posting.ReverseTodayAsync(journal, VoidMemo.For(invoice.Number, reason), ct);
         invoice.Status = DocumentStatus.Voided;
         VoidMemo.Stamp(invoice, reason, clock, user);
+        VoidMemo.MarkIfLocked(invoice, invoice.InvoiceDate, lockedTo, clock);
         await publisher.Publish(new InvoiceVoided(invoice.Id, invoice.SourceType, invoice.SourceId), ct);
     }
 
@@ -161,6 +172,18 @@ public static class VoidMemo
         doc.VoidReason = string.IsNullOrEmpty(r) ? null : r.Length <= MaxReason ? r : r[..MaxReason];
         doc.VoidedAt = clock.UtcNow;
         doc.VoidedBy = user.UserId;
+    }
+
+    /// <summary>
+    /// A document voided after its period was locked keeps counting in that period, so what the locked period reported never changes; document-based reports
+    /// show the void as an adjustment on the reversal date instead (the same date <see cref="IPostingService.ReverseTodayAsync"/> uses). Voids in an open period
+    /// are not marked: the document simply leaves its period, as it always has.
+    /// </summary>
+    public static void MarkIfLocked(ERP.Domain.Common.IVoidedAfterLock doc, DateOnly documentDate, DateOnly? lockedTo, IClock clock)
+    {
+        if (lockedTo is not { } locked || documentDate > locked) return;
+        var today = DateOnly.FromDateTime(clock.UtcNow);
+        doc.VoidPostedOn = today > documentDate ? today : documentDate;
     }
 
     /// <summary>Adds the void's audit event; saved with the void in the same SaveChanges.</summary>

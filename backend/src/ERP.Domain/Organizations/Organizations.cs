@@ -18,6 +18,8 @@ public class Organization : Entity, IAuditable
     public bool IsActive { get; set; } = true;
     /// <summary>The platform owner's own workspace: not a client, never billed and never listed as one.</summary>
     public bool IsInternal { get; set; }
+    /// <summary>Synthetic demonstration data, clearly labelled in the UI. Never billed and never mixed with a real workspace.</summary>
+    public bool IsDemo { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -58,6 +60,9 @@ public class BusinessUnit : LegalEntityScopedEntity, IHasCustomFields
     public string Code { get; set; } = default!;
     [Listable]
     public string Name { get; set; } = default!;
+    /// <summary>Branch, store, site, department and so on; free text so each business uses its own words.</summary>
+    [Filterable, Sortable]
+    public string Kind { get; set; } = "branch";
     public string? Address { get; set; }
     [Filterable]
     public bool IsActive { get; set; } = true;

@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace ERP.Infrastructure.Services;
 
-public sealed class SystemClock : IClock { public DateTime UtcNow => DateTime.UtcNow; }
+public sealed class SystemClock : IClock { public DateTime UtcNow => ERP.Domain.Common.AppClock.UtcNow; }
 
 /// <summary>Caller identity from the JWT. Permissions come from "perm" claims; entities from "ents".</summary>
 public sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentUser

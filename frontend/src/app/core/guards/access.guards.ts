@@ -33,6 +33,18 @@ export function moduleEnabledGuard(moduleKey: string): CanMatchFn {
   };
 }
 
+/**
+ * For /industry/:module/:type[/:id]: any module key works, so the key is read from the address. The module must be enabled for the
+ * workspace, and the person must be allowed to read that record type (`{module}.{type}.read`).
+ */
+export const industryRecordGuard: CanMatchFn = (route, segments) => {
+  const [, module, type] = segments.map((s) => s.path);
+  if (!module || !type) return inject(Router).createUrlTree(['/']);
+  const enabled = moduleEnabledGuard(module)(route, segments);
+  if (enabled !== true) return enabled;
+  return permissionGuard(`${module}.${type}.read`)(route, segments);
+};
+
 /** Signed-in guard: redirects to the login page and keeps a safe return URL. */
 export const authGuard: CanMatchFn = (_route, segments) => {
   if (inject(SessionStore).isAuthenticated()) return true;

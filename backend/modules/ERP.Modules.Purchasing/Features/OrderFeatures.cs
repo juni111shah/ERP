@@ -55,7 +55,8 @@ public sealed record PurchaseOrderLineDto(
     decimal UnitPrice,
     decimal DiscountPercent,
     decimal TaxRate,
-    decimal LineTotal);
+    decimal LineTotal,
+    decimal ReturnedQuantity = 0);
 
 public sealed record PurchaseOrderSummaryDto(
     Guid Id,
@@ -99,14 +100,22 @@ public sealed record PurchaseOrderDto(
     Guid? InvoicedBillId,
     IReadOnlyList<PurchaseOrderLineDto> Lines,
     JsonObject CustomFields,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    IReadOnlyList<Guid>? BillIds = null);
+
+/// <summary>How much of an order line to put on this bill.</summary>
+public sealed record BillOrderLineInput(Guid LineId, decimal Quantity);
 
 public sealed record GetPurchaseOrder(Guid Id) : IQuery<PurchaseOrderDto>, IRequirePermission { public string RequiredPermission => P.OrdersRead; }
 public sealed record CreatePurchaseOrder(PurchaseOrderInput Input) : ICommand<PurchaseOrderDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 public sealed record UpdatePurchaseOrder(Guid Id, PurchaseOrderInput Input) : ICommand<PurchaseOrderDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 public sealed record DeletePurchaseOrder(Guid Id) : ICommand, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 public sealed record ChangePurchaseOrderStatus(Guid Id, PurchaseOrderStatus Status) : ICommand<PurchaseOrderDto>, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
-public sealed record ConvertPurchaseOrderToBill(Guid Id, IReadOnlyDictionary<Guid, decimal>? UnitPriceOverrides = null) : ICommand<BillDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
+/// <summary>
+/// Raises one draft bill for part of the order. With no lines given it takes everything billable: received and not yet billed on a stocked line, ordered and not yet billed on any other line.
+/// AllowUnreceived lets a stocked line be billed ahead of its goods: the debit waits on goods-received clearing until they arrive.
+/// </summary>
+public sealed record ConvertPurchaseOrderToBill(Guid Id, IReadOnlyDictionary<Guid, decimal>? UnitPriceOverrides = null, IReadOnlyList<BillOrderLineInput>? Lines = null, bool AllowUnreceived = false, string? VendorReference = null) : ICommand<BillDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => P.OrdersManage; }
 
 public static class PurchaseOrderBillRules
 {
@@ -118,7 +127,11 @@ public static class PurchaseOrderBillRules
 public sealed class ConvertPurchaseOrderToBillValidator : AbstractValidator<ConvertPurchaseOrderToBill>
 {
     public ConvertPurchaseOrderToBillValidator()
-        => RuleFor(x => x.UnitPriceOverrides).Must(PurchaseOrderBillRules.AreValidOverrides).WithMessage("Override prices cannot be negative and can have at most 4 decimal places.");
+    {
+        RuleFor(x => x.UnitPriceOverrides).Must(PurchaseOrderBillRules.AreValidOverrides).WithMessage("Override prices cannot be negative and can have at most 4 decimal places.");
+        RuleFor(x => x.VendorReference).MaximumLength(100);
+        RuleForEach(x => x.Lines).ChildRules(l => l.RuleFor(x => x.Quantity).GreaterThan(0).MustHaveAtMostDecimals(4));
+    }
 }
 
 public sealed class PurchaseOrderInputValidator : AbstractValidator<PurchaseOrderInput>
@@ -163,11 +176,16 @@ internal sealed class PurchaseOrderHandlers(
     IReadRepository<Item> items,
     IReadRepository<Party> parties,
     IReadRepository<TaxCode> taxCodes,
+    IRepository<PurchaseOrderBillLine> billLinks,
+    IReadRepository<Bill> bills,
+    IStockPostingService stock,
+    PurchasingApprovalGate approvalGate,
     ISender sender,
     ILegalEntityGuard guard,
     INumberingService numbers,
     IUnitOfWork unitOfWork,
-    ICustomFieldService fields) :
+    ICustomFieldService fields,
+    IReferenceCheck references) :
     IRequestHandler<GetPurchaseOrder, PurchaseOrderDto>,
     IRequestHandler<CreatePurchaseOrder, PurchaseOrderDto>,
     IRequestHandler<UpdatePurchaseOrder, PurchaseOrderDto>,
@@ -180,7 +198,8 @@ internal sealed class PurchaseOrderHandlers(
         var order = await orders.Tracked(new Specification<PurchaseOrder>(x => x.Id == q.Id))
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Purchase order '{q.Id}' not found.");
-        return await ToDtoAsync(order, fields, ct);
+        var billIds = await billLinks.Query(new Specification<PurchaseOrderBillLine>(r => r.OrderId == order.Id)).OrderBy(r => r.CreatedAt).Select(r => r.BillId).Distinct().ToListAsync(ct);
+        return await ToDtoAsync(order, fields, ct) with { BillIds = billIds };
     }
 
     public async Task<PurchaseOrderDto> Handle(CreatePurchaseOrder cmd, CancellationToken ct)
@@ -247,6 +266,10 @@ internal sealed class PurchaseOrderHandlers(
         order.DeliveryAddress = i.DeliveryAddress;
         order.Notes = i.Notes;
 
+        // What was approved is no longer what the order says.
+        await approvalGate.ReleaseAsync(order.ApprovalRequestId, ct);
+        order.ApprovalRequestId = null;
+
         // Lines are replaced through the line repository: new lines already carry keys, so adding them to the order's collection
         // would make EF treat them as existing rows (and the workspace guard then rejects the write).
         var fresh = BuildLinesAndTotals(order, i.Lines);
@@ -270,21 +293,40 @@ internal sealed class PurchaseOrderHandlers(
             throw new ConflictException("This purchase order has goods receipts and cannot be deleted.");
 
         await ReleaseRequisitionAsync(order, ct);
+        await approvalGate.ReleaseAsync(order.ApprovalRequestId, ct);
         orders.Remove(order);
         await orders.SaveChangesAsync(ct);
         return Unit.Value;
     }
 
-    public async Task<PurchaseOrderDto> Handle(ChangePurchaseOrderStatus cmd, CancellationToken ct)
+    public Task<PurchaseOrderDto> Handle(ChangePurchaseOrderStatus cmd, CancellationToken ct) => unitOfWork.InTransactionAsync(token => ChangeStatusAsync(cmd, token), ct);
+
+    private async Task<PurchaseOrderDto> ChangeStatusAsync(ChangePurchaseOrderStatus cmd, CancellationToken ct)
     {
         var order = await orders.Tracked(new Specification<PurchaseOrder>(x => x.Id == cmd.Id))
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Purchase order '{cmd.Id}' not found.");
 
         PurchasingTransitions.Order.Ensure(order.Status, cmd.Status, isSystem: false);
+        if (cmd.Status == PurchaseOrderStatus.Cancelled && order.Lines.Any(l => l.BilledQuantity > 0))
+            throw new ConflictException("This purchase order has bills. Void or delete them before cancelling it.");
 
-        order.Status = cmd.Status;
-        if (cmd.Status == PurchaseOrderStatus.Cancelled) await ReleaseRequisitionAsync(order, ct);
+        var target = cmd.Status;
+        if (target is PurchaseOrderStatus.Submitted or PurchaseOrderStatus.Approved)
+        {
+            var gate = await approvalGate.CheckAsync(Docs.PurchaseOrder, order.Id, $"Purchase order {order.Number} from {order.VendorName}", order.TotalAmount, order.LegalEntityId,
+                order.ApprovalRequestId, order.CreatedBy, approving: target == PurchaseOrderStatus.Approved, ct);
+            order.ApprovalRequestId = gate.RequestId;
+            if (!gate.MayApprove) target = PurchaseOrderStatus.Submitted;
+            else if (gate.AutoApproved) target = PurchaseOrderStatus.Approved;
+        }
+
+        order.Status = target;
+        if (cmd.Status == PurchaseOrderStatus.Cancelled)
+        {
+            await ReleaseRequisitionAsync(order, ct);
+            await approvalGate.ReleaseAsync(order.ApprovalRequestId, ct);
+        }
         await orders.SaveChangesAsync(ct);
         return await ToDtoAsync(order, fields, ct);
     }
@@ -302,6 +344,8 @@ internal sealed class PurchaseOrderHandlers(
     /// <summary>Vendor, currency and name checks shared by create and update; returns the vendor name to store (the party's own name when a party is chosen).</summary>
     private async Task<string> ValidateHeaderAsync(PurchaseOrderInput i, string baseCurrency, CancellationToken ct)
     {
+        if (!await references.AllExistAsync<Item>(i.Lines.Where(l => l.ItemId.HasValue).Select(l => l.ItemId!.Value).Distinct().ToList(), ct))
+            throw new FieldValidationException("lines", "An item was not found.");
         if (!string.Equals(i.Currency.Trim(), baseCurrency, StringComparison.OrdinalIgnoreCase))
             throw new FieldValidationException("currency", $"The currency must be the legal entity's currency ({baseCurrency}).");
         if (i.VendorPartyId is not { } partyId) return i.VendorName.Trim();
@@ -320,9 +364,10 @@ internal sealed class PurchaseOrderHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Purchase order '{cmd.Id}' not found.");
 
-        if (order.InvoicedBillId.HasValue)
+        // Nothing is left to bill, so asking again returns the last bill instead of raising another.
+        if (order.Status == PurchaseOrderStatus.Billed && order.InvoicedBillId is { } lastBill)
         {
-            return await sender.Send(new GetBill(order.InvoicedBillId.Value), ct);
+            return await sender.Send(new GetBill(lastBill), ct);
         }
 
         PurchasingTransitions.Order.Ensure(order.Status, PurchaseOrderStatus.Billed, isSystem: true);
@@ -343,13 +388,13 @@ internal sealed class PurchaseOrderHandlers(
         var expenseAccount = await RoleAccountAsync(SystemRoles.PurchasesExpense);
         Account? varianceAccount = null;
 
-        var taxByRate = new Dictionary<decimal, Guid>();
+        var taxByRate = new Dictionary<decimal, (Guid Id, bool Recoverable)>();
         foreach (var rate in order.Lines.Select(l => l.TaxRate).Where(r => r > 0).Distinct())
         {
             var code = await taxCodes.Query(new Specification<TaxCode>(t => t.Rate == rate && t.IsActive && (t.LegalEntityId == null || t.LegalEntityId == order.LegalEntityId)))
                 .OrderByDescending(t => t.IsRecoverable).ThenByDescending(t => t.IsDefault).ThenBy(t => t.Code)
                 .FirstOrDefaultAsync(ct) ?? throw new ConflictException($"No active tax code with rate {rate:0.####}% exists.");
-            taxByRate[rate] = code.Id;
+            taxByRate[rate] = (code.Id, code.IsRecoverable);
         }
 
         var itemIds = order.Lines.Where(l => l.ItemId.HasValue).Select(l => l.ItemId!.Value).Distinct().ToList();
@@ -357,10 +402,29 @@ internal sealed class PurchaseOrderHandlers(
             .Select(x => x.Id)
             .ToListAsync(ct)).ToHashSet();
 
+        var inventoryOn = await stock.IsInventoryEnabledAsync(ct);
+        var receivedLines = await goodsReceipts.Query(new Specification<GoodsReceipt>(g => g.PurchaseOrderId == order.Id)).SelectMany(g => g.Lines)
+            .Select(l => new { l.PurchaseOrderLineId, l.QuantityReceived, l.NoStockMoved }).ToListAsync(ct);
+
+        if (cmd.Lines is { } wanted && wanted.FirstOrDefault(w => order.Lines.All(l => l.Id != w.LineId)) is { } unknown)
+            throw new FieldValidationException("lines", $"Line '{unknown.LineId}' is not on purchase order '{order.Number}'.");
+        var requested = cmd.Lines?.GroupBy(w => w.LineId).ToDictionary(g => g.Key, g => g.Sum(w => w.Quantity));
+
         var billLines = new List<BillLineInput>();
+        var links = new List<PurchaseOrderBillLine>();
         foreach (var l in order.Lines)
         {
             var isProduct = l.ItemId.HasValue && productItemIds.Contains(l.ItemId.Value);
+            var stockExpected = isProduct && inventoryOn;
+            var billable = (stockExpected && !cmd.AllowUnreceived ? l.ReceivedQuantity : Math.Max(l.Quantity, l.ReceivedQuantity)) - l.BilledQuantity;
+            if (requested is not null && !requested.ContainsKey(l.Id)) continue;
+            var billQty = requested?[l.Id] ?? Math.Max(billable, 0m);
+            if (billQty > billable)
+                throw new ConflictException(stockExpected && !cmd.AllowUnreceived
+                    ? $"'{l.Description}': only {Math.Max(billable, 0m):0.####} is received and not yet billed; cannot bill {billQty:0.####}. Receive the goods first, or set allowUnreceived to bill ahead of them."
+                    : $"'{l.Description}': only {Math.Max(billable, 0m):0.####} is left to bill; cannot bill {billQty:0.####}.");
+            if (billQty <= 0) continue;
+
             var poNetPrice = Math.Round(l.UnitPrice * (1m - (l.DiscountPercent / 100m)), 4);
             var targetPrice = poNetPrice;
             if (cmd.UnitPriceOverrides != null && cmd.UnitPriceOverrides.TryGetValue(l.Id, out var overridePrice))
@@ -368,55 +432,64 @@ internal sealed class PurchaseOrderHandlers(
                 targetPrice = overridePrice;
             }
 
-            var billQty = Math.Max(l.Quantity, l.ReceivedQuantity);
-            var receivedQty = isProduct ? Math.Min(billQty, l.ReceivedQuantity) : 0m;
-            var unreceivedQty = billQty - receivedQty;
-            Guid? taxCodeId = l.TaxRate > 0 ? taxByRate[l.TaxRate] : null;
+            var mine = receivedLines.Where(r => r.PurchaseOrderLineId == l.Id).ToList();
+            var stockedReceived = isProduct ? Math.Min(mine.Where(r => !r.NoStockMoved).Sum(r => r.QuantityReceived), l.ReceivedQuantity) : 0m;
+            var (clearingQty, expenseQty) = Split(l.BilledQuantity, billQty, stockedReceived, l.ReceivedQuantity - stockedReceived, stockExpected);
+            (Guid Id, bool Recoverable)? tax = l.TaxRate > 0 ? taxByRate[l.TaxRate] : null;
 
-            if (receivedQty > 0)
+            if (clearingQty > 0)
             {
                 billLines.Add(new BillLineInput(
                     Description: $"{order.Number}: {l.Description}",
-                    Quantity: receivedQty,
+                    Quantity: clearingQty,
                     Price: poNetPrice,
                     AccountId: clearingAccount.Id,
-                    TaxCodeId: taxCodeId,
+                    TaxCodeId: tax?.Id,
                     ItemId: l.ItemId
                 ));
 
+                // The vendor's price differs from the price the goods were received at: clearing still clears at the receipt price and the difference, up or down, goes to variance.
                 var priceDiff = targetPrice - poNetPrice;
                 if (priceDiff != 0)
                 {
                     varianceAccount ??= await RoleAccountAsync(SystemRoles.PurchaseVariance);
                     billLines.Add(new BillLineInput(
                         Description: $"{order.Number}: Purchase price variance for {l.Description}",
-                        Quantity: receivedQty,
+                        Quantity: clearingQty,
                         Price: priceDiff,
                         AccountId: varianceAccount.Id,
-                        TaxCodeId: taxCodeId,
+                        TaxCodeId: tax?.Id,
                         ItemId: l.ItemId
                     ));
                 }
             }
 
-            if (unreceivedQty > 0)
+            if (expenseQty > 0)
             {
                 billLines.Add(new BillLineInput(
-                    Description: $"{order.Number}: {l.Description}" + (receivedQty > 0 ? " (Pending)" : ""),
-                    Quantity: unreceivedQty,
+                    Description: $"{order.Number}: {l.Description}",
+                    Quantity: expenseQty,
                     Price: targetPrice,
                     AccountId: expenseAccount.Id,
-                    TaxCodeId: taxCodeId,
+                    TaxCodeId: tax?.Id,
                     ItemId: l.ItemId
                 ));
             }
+
+            links.Add(new PurchaseOrderBillLine
+            {
+                OrderId = order.Id, OrderLineId = l.Id, Quantity = billQty, ClearingQuantity = clearingQty, UnitPrice = targetPrice, TaxRate = l.TaxRate, TaxRecoverable = tax?.Recoverable ?? true,
+            });
         }
 
-        var billDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (links.Count == 0)
+            throw new ConflictException("There is nothing to bill on this purchase order: everything received is already billed. Receive the goods first, or set allowUnreceived to bill ahead of them.");
+
+        var billDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var bill = await sender.Send(new CreateBill(new BillInput(
             LegalEntityId: order.LegalEntityId,
             PartyId: order.VendorPartyId.Value,
-            VendorReference: order.VendorReference ?? order.Number,
+            VendorReference: cmd.VendorReference?.Trim() is { Length: > 0 } reference ? reference : await NextBillReferenceAsync(order, ct),
             BillDate: billDate,
             // Vendor payment terms apply unless the expected delivery date is a usable due date (not before the bill date).
             DueDate: order.ExpectedDeliveryDate is { } due && due >= billDate ? due : null,
@@ -424,16 +497,43 @@ internal sealed class PurchaseOrderHandlers(
             Notes: $"Generated from Purchase Order {order.Number}"
         )), ct);
 
-        foreach (var l in order.Lines)
+        foreach (var link in links)
         {
-            l.BilledQuantity = Math.Max(l.Quantity, l.ReceivedQuantity);
+            link.BillId = bill.Id;
+            order.Lines.First(l => l.Id == link.OrderLineId).BilledQuantity += link.Quantity;
         }
+        billLinks.AddRange(links);
 
-        order.Status = PurchaseOrderStatus.Billed;
         order.InvoicedBillId = bill.Id;
+        await PurchaseOrderProgress.RefreshAsync(order, items, stock, ct);
         await orders.SaveChangesAsync(ct);
 
         return bill;
+    }
+
+    /// <summary>
+    /// Which part of this bill's quantity goes to clearing and which to expense. Units count from the start of the line: first what was received into stock (it credited clearing),
+    /// then what was received without moving stock (nothing to clear), then what has not arrived, which waits on clearing only if stock will move when it does.
+    /// </summary>
+    private static (decimal Clearing, decimal Expense) Split(decimal alreadyBilled, decimal quantity, decimal stockedReceived, decimal unstockedReceived, bool stockExpected)
+    {
+        decimal Overlap(decimal from, decimal to) => Math.Max(0m, Math.Min(alreadyBilled + quantity, to) - Math.Max(alreadyBilled, from));
+        var clearing = Overlap(0m, stockedReceived);
+        var expense = Overlap(stockedReceived, stockedReceived + unstockedReceived);
+        var ahead = quantity - clearing - expense;
+        return stockExpected ? (clearing + ahead, expense) : (clearing, expense + ahead);
+    }
+
+    /// <summary>The order's reference for its first bill, then the same with -2, -3...: a vendor reference is unique among the vendor's bills.</summary>
+    private async Task<string> NextBillReferenceAsync(PurchaseOrder order, CancellationToken ct)
+    {
+        var baseReference = order.VendorReference ?? order.Number;
+        var count = (await billLinks.Query(new Specification<PurchaseOrderBillLine>(r => r.OrderId == order.Id)).Select(r => r.BillId).Distinct().ToListAsync(ct)).Count;
+        for (var n = count + 1; ; n++)
+        {
+            var candidate = n == 1 ? baseReference : $"{baseReference}-{n}";
+            if (!await bills.AnyAsync(b => b.PartyId == order.VendorPartyId && b.VendorReference == candidate && b.Status != DocumentStatus.Voided, ct)) return candidate;
+        }
     }
 
     /// <summary>Builds the order's lines from the input and sets its totals; the caller attaches the lines.</summary>
@@ -504,7 +604,7 @@ internal sealed class PurchaseOrderHandlers(
             o.InvoicedBillId,
             o.Lines.Select(l => new PurchaseOrderLineDto(
                 l.Id, l.ItemId, l.ItemCode, l.Description, l.Quantity, l.ReceivedQuantity,
-                l.BilledQuantity, l.UnitOfMeasure, l.UnitPrice, l.DiscountPercent, l.TaxRate, l.LineTotal)).ToList(),
+                l.BilledQuantity, l.UnitOfMeasure, l.UnitPrice, l.DiscountPercent, l.TaxRate, l.LineTotal, l.ReturnedQuantity)).ToList(),
             cf,
             o.CreatedAt);
     }

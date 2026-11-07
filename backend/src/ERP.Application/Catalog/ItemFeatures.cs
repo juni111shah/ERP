@@ -11,13 +11,13 @@ namespace ERP.Application.Catalog;
 
 public sealed record ItemInput(
     string Sku, string Name, ItemType Type, string Uom, decimal? SalesPrice, decimal? PurchasePrice, Guid? TaxCodeId,
-    bool IsActive = true, JsonObject? CustomFields = null, string? Barcode = null);
+    bool IsActive = true, JsonObject? CustomFields = null, string? Barcode = null, string? Category = null);
 
 public sealed record ItemDto(
     Guid Id, string Sku, string Name, ItemType Type, string Uom, decimal? SalesPrice, decimal? PurchasePrice, Guid? TaxCodeId,
-    bool IsActive, JsonObject CustomFields, string? Barcode = null)
+    bool IsActive, JsonObject CustomFields, string? Barcode = null, string? Category = null)
 {
-    public static ItemDto From(Item i, JsonObject customFields) => new(i.Id, i.Sku, i.Name, i.Type, i.Uom, i.SalesPrice, i.PurchasePrice, i.TaxCodeId, i.IsActive, customFields, i.Barcode);
+    public static ItemDto From(Item i, JsonObject customFields) => new(i.Id, i.Sku, i.Name, i.Type, i.Uom, i.SalesPrice, i.PurchasePrice, i.TaxCodeId, i.IsActive, customFields, i.Barcode, i.Category);
 }
 
 public sealed record CreateItem(ItemInput Input) : ICommand<ItemDto>, IRequirePermission
@@ -76,6 +76,8 @@ internal sealed class ItemHandlers(IRepository<Item> items, ICustomFieldService 
         if (sku != item.Sku && await items.AnyAsync(x => x.Sku == sku, ct)) throw new ConflictException("An item with that SKU exists.");
         item.Sku = sku; item.Name = i.Name.Trim(); item.Type = i.Type; item.Uom = i.Uom; item.SalesPrice = i.SalesPrice;
         item.PurchasePrice = i.PurchasePrice; item.TaxCodeId = i.TaxCodeId; item.IsActive = i.IsActive;
+        // Null leaves it alone, like the barcode.
+        if (i.Category is not null) item.Category = i.Category.Trim() is { Length: > 0 } category ? category : null;
         // Null leaves it alone (callers that do not know about barcodes); an empty string clears it.
         if (i.Barcode is not null) item.Barcode = await CheckedBarcodeAsync(i.Barcode, item.Id, ct);
         await fields.ApplyAsync(EntityType, item, i.CustomFields, isCreate: false, ct);
@@ -88,7 +90,7 @@ internal sealed class ItemHandlers(IRepository<Item> items, ICustomFieldService 
         var i = cmd.Input;
         var sku = i.Sku.Trim();
         if (await items.AnyAsync(x => x.Sku == sku, ct)) throw new ConflictException("An item with that SKU exists.");
-        var item = new Item { Sku = sku, Name = i.Name.Trim(), Type = i.Type, Uom = i.Uom, SalesPrice = i.SalesPrice, PurchasePrice = i.PurchasePrice, TaxCodeId = i.TaxCodeId, IsActive = i.IsActive };
+        var item = new Item { Sku = sku, Name = i.Name.Trim(), Type = i.Type, Uom = i.Uom, SalesPrice = i.SalesPrice, PurchasePrice = i.PurchasePrice, TaxCodeId = i.TaxCodeId, IsActive = i.IsActive, Category = string.IsNullOrWhiteSpace(i.Category) ? null : i.Category.Trim() };
         item.Barcode = await CheckedBarcodeAsync(i.Barcode, item.Id, ct);
         await fields.ApplyAsync(EntityType, item, i.CustomFields, isCreate: true, ct);
         items.Add(item);

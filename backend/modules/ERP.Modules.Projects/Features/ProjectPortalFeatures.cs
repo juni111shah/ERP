@@ -71,7 +71,7 @@ internal sealed class AcceptanceHandlers(
         if (p.CustomerId is null) throw new ConflictException("The project has no customer to sign it off.");
         if (i.MilestoneId is { } mid && !await milestones.AnyAsync(m => m.Id == mid && m.ProjectId == p.Id, ct)) throw new FieldValidationException("milestoneId", "Milestone not found in this project.");
         if (await acceptances.AnyAsync(a => a.ProjectId == p.Id && a.MilestoneId == i.MilestoneId && a.Status == AcceptanceStatus.Pending, ct)) throw new ConflictException("A sign-off is already waiting for the customer.");
-        var a = new ProjectAcceptance { ProjectId = p.Id, MilestoneId = i.MilestoneId, Title = i.Title.Trim(), RequestedAt = DateTime.UtcNow, RequestedByName = await people.NameAsync(user.UserId, ct) };
+        var a = new ProjectAcceptance { ProjectId = p.Id, MilestoneId = i.MilestoneId, Title = i.Title.Trim(), RequestedAt = ERP.Domain.Common.AppClock.UtcNow, RequestedByName = await people.NameAsync(user.UserId, ct) };
         acceptances.Add(a);
         await acceptances.SaveChangesAsync(ct);
         return new AcceptanceDto(a.Id, p.Id, p.Name, a.MilestoneId, a.Title, a.Status, a.RequestedAt, null, null, null);
@@ -121,14 +121,14 @@ internal sealed class AcceptanceHandlers(
         if (a.Status != AcceptanceStatus.Pending) throw new ConflictException("This sign-off has already been answered.");
         var i = cmd.Input;
         a.Status = i.Accept ? AcceptanceStatus.Signed : AcceptanceStatus.Declined;
-        a.SignedByName = i.SignedByName.Trim(); a.Signature = i.Accept ? i.Signature?.Trim() : null; a.Comment = i.Comment?.Trim(); a.SignedAt = DateTime.UtcNow;
+        a.SignedByName = i.SignedByName.Trim(); a.Signature = i.Accept ? i.Signature?.Trim() : null; a.Comment = i.Comment?.Trim(); a.SignedAt = ERP.Domain.Common.AppClock.UtcNow;
         a.SignatureImage = i.Accept ? i.SignatureImage : null;
         a.SignedIp = http.HttpContext?.Connection.RemoteIpAddress?.ToString();
         a.EvidenceHash = Evidence.Hash(a);
         if (i.Accept && a.MilestoneId is { } mid)
         {
             var m = await milestones.GetForUpdateAsync(mid, ct);
-            if (m.Status == MilestoneStatus.Pending) { m.Status = MilestoneStatus.Achieved; m.AchievedDate = DateOnly.FromDateTime(DateTime.UtcNow); await milestones.SaveChangesAsync(ct); }
+            if (m.Status == MilestoneStatus.Pending) { m.Status = MilestoneStatus.Achieved; m.AchievedDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow); await milestones.SaveChangesAsync(ct); }
         }
         await acceptances.SaveChangesAsync(ct);
         return Portal(a, p.Name);

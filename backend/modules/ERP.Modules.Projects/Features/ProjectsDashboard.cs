@@ -30,7 +30,7 @@ public sealed class ProjectsDashboard(
         {
             var pendingTasks = await tasks.CountAsync(t => (t.Status == ProjectTaskStatus.Todo || t.Status == ProjectTaskStatus.InProgress), ct);
             kpis.Add(new("pending-tasks", "Open Tasks", pendingTasks, "number", "tasks to complete", 135, "/projects/tasks"));
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
             var overdue = await tasks.CountAsync(t => t.DueDate != null && t.DueDate < today && t.Status != ProjectTaskStatus.Done && t.Status != ProjectTaskStatus.Cancelled, ct);
             if (overdue > 0) kpis.Add(new("overdue-tasks", "Overdue Tasks", overdue, "number", "past their due date", 136, "/projects/tasks"));
 

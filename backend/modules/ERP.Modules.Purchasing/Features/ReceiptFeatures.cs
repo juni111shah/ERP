@@ -5,6 +5,7 @@ using ERP.Application.Customization;
 using ERP.Application.Finance;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
+using ERP.Domain.Catalog;
 using ERP.Modules.Purchasing.Domain;
 using FluentValidation;
 using MediatR;
@@ -29,7 +30,8 @@ public sealed record GoodsReceiptInput(
     string? DeliveryNoteNumber,
     string? Notes,
     List<GoodsReceiptLineInput> Lines,
-    JsonObject? CustomFields = null);
+    JsonObject? CustomFields = null,
+    Guid? WarehouseId = null);
 
 public sealed record GoodsReceiptLineDto(
     Guid Id,
@@ -66,7 +68,8 @@ public sealed record GoodsReceiptDto(
     string? Notes,
     IReadOnlyList<GoodsReceiptLineDto> Lines,
     JsonObject CustomFields,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    Guid? WarehouseId = null);
 
 public sealed record GetGoodsReceipt(Guid Id) : IQuery<GoodsReceiptDto>, IRequirePermission { public string RequiredPermission => P.ReceiptsRead; }
 public sealed record CreateGoodsReceipt(GoodsReceiptInput Input) : ICommand<GoodsReceiptDto>, IRetryOnConcurrency, IRequirePermission { public string RequiredPermission => P.ReceiptsManage; }
@@ -102,7 +105,8 @@ internal sealed class ReceiptHandlers(
     ICustomFieldService fields,
     IStockPostingService stockPosting,
     ISettingsService settings,
-    IUnitOfWork unitOfWork) :
+    IUnitOfWork unitOfWork,
+    IReadRepository<Item> items) :
     IRequestHandler<GetGoodsReceipt, GoodsReceiptDto>,
     IRequestHandler<CreateGoodsReceipt, GoodsReceiptDto>,
     IRequestHandler<DeleteGoodsReceipt, Unit>
@@ -123,7 +127,7 @@ internal sealed class ReceiptHandlers(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException($"Purchase order '{i.PurchaseOrderId}' not found.");
 
-        if (order.Status == PurchaseOrderStatus.Billed || order.InvoicedBillId.HasValue)
+        if (order.Status == PurchaseOrderStatus.Billed)
         {
             throw new ConflictException("Cannot create a goods receipt for an already billed purchase order.");
         }
@@ -132,6 +136,8 @@ internal sealed class ReceiptHandlers(
             throw new ConflictException("Only an approved purchase order can be received.");
         if (order.LegalEntityId != i.LegalEntityId)
             throw new FieldValidationException("legalEntityId", "The goods receipt must be for the legal entity of the purchase order.");
+        if (i.WarehouseId is { } warehouseId && !await stockPosting.IsWarehouseUsableAsync(warehouseId, entity.Id, ct))
+            throw new FieldValidationException("warehouseId", "The warehouse was not found, is not active, or belongs to another legal entity.");
         foreach (var l in i.Lines)
         {
             var match = order.Lines.FirstOrDefault(x => x.Id == l.PurchaseOrderLineId);
@@ -181,6 +187,7 @@ internal sealed class ReceiptHandlers(
                 ReceiptDate = i.ReceiptDate,
                 DeliveryNoteNumber = i.DeliveryNoteNumber?.Trim(),
                 Notes = i.Notes,
+                WarehouseId = i.WarehouseId,
             };
 
             grn.Number = string.IsNullOrWhiteSpace(i.Number)
@@ -190,6 +197,24 @@ internal sealed class ReceiptHandlers(
             foreach (var l in i.Lines)
             {
                 var poLine = order.Lines.First(x => x.Id == l.PurchaseOrderLineId); // validated above
+                poLine.ReceivedQuantity += l.QuantityReceived;
+
+                Guid? moved = null;
+                if (poLine.ItemId.HasValue && l.QuantityReceived > 0)
+                {
+                    var unitCost = Math.Round(poLine.UnitPrice * (1m - (poLine.DiscountPercent / 100m)), 4);
+                    moved = await stockPosting.ReceiveStockAsync(new StockReceiveRequest(
+                        entity.Id,
+                        poLine.ItemId.Value,
+                        l.QuantityReceived,
+                        unitCost,
+                        i.ReceiptDate,
+                        grn.Number,
+                        $"GRN {grn.Number} (PO {order.Number})",
+                        i.WarehouseId,
+                        RequireWarehouse: true), token);
+                }
+
                 // Item, code, description and unit come from the order line, never from the request.
                 grn.Lines.Add(new GoodsReceiptLine
                 {
@@ -198,36 +223,12 @@ internal sealed class ReceiptHandlers(
                     ItemCode = poLine.ItemCode,
                     Description = poLine.Description,
                     QuantityReceived = l.QuantityReceived,
-                    UnitOfMeasure = string.IsNullOrWhiteSpace(poLine.UnitOfMeasure) ? "EA" : poLine.UnitOfMeasure
+                    UnitOfMeasure = string.IsNullOrWhiteSpace(poLine.UnitOfMeasure) ? "EA" : poLine.UnitOfMeasure,
+                    NoStockMoved = moved is null,
                 });
-
-                poLine.ReceivedQuantity += l.QuantityReceived;
-
-                if (poLine.ItemId.HasValue && l.QuantityReceived > 0)
-                {
-                    var unitCost = Math.Round(poLine.UnitPrice * (1m - (poLine.DiscountPercent / 100m)), 4);
-                    await stockPosting.ReceiveStockAsync(new StockReceiveRequest(
-                        entity.Id,
-                        poLine.ItemId.Value,
-                        l.QuantityReceived,
-                        unitCost,
-                        i.ReceiptDate,
-                        grn.Number,
-                        $"GRN {grn.Number} (PO {order.Number})"), token);
-                }
             }
 
-            var allReceived = order.Lines.All(l => l.ReceivedQuantity >= l.Quantity);
-            var anyReceived = order.Lines.Any(l => l.ReceivedQuantity > 0);
-
-            if (allReceived && order.Status != PurchaseOrderStatus.Billed)
-            {
-                order.Status = PurchaseOrderStatus.Received;
-            }
-            else if (anyReceived && order.Status != PurchaseOrderStatus.Billed)
-            {
-                order.Status = PurchaseOrderStatus.PartiallyReceived;
-            }
+            await PurchaseOrderProgress.RefreshAsync(order, items, stockPosting, token);
 
             await fields.ApplyAsync(Docs.GoodsReceipt, grn, i.CustomFields, isCreate: true, token);
 
@@ -251,9 +252,10 @@ internal sealed class ReceiptHandlers(
                 .Include(x => x.Lines)
                 .FirstOrDefaultAsync(token);
 
-            if (order != null && (order.Status == PurchaseOrderStatus.Billed || order.InvoicedBillId.HasValue))
+            if (order != null && (order.Status == PurchaseOrderStatus.Billed
+                || grn.Lines.Any(l => order.Lines.FirstOrDefault(x => x.Id == l.PurchaseOrderLineId) is { } line && line.ReceivedQuantity - l.QuantityReceived < line.BilledQuantity)))
             {
-                throw new ConflictException("Cannot delete a goods receipt for an already billed purchase order.");
+                throw new ConflictException("Cannot delete a goods receipt for quantity that has already been billed. Void or delete the bill first.");
             }
 
             if (order != null)
@@ -266,14 +268,7 @@ internal sealed class ReceiptHandlers(
                         poLine.ReceivedQuantity = Math.Max(0, poLine.ReceivedQuantity - l.QuantityReceived);
                     }
                 }
-                if (order.Lines.All(l => l.ReceivedQuantity == 0) && order.Status != PurchaseOrderStatus.Billed)
-                {
-                    order.Status = PurchaseOrderStatus.Approved;
-                }
-                else if (order.Lines.Any(l => l.ReceivedQuantity > 0) && order.Status != PurchaseOrderStatus.Billed)
-                {
-                    order.Status = PurchaseOrderStatus.PartiallyReceived;
-                }
+                await PurchaseOrderProgress.RefreshAsync(order, items, stockPosting, token);
                 await orders.SaveChangesAsync(token);
             }
 
@@ -302,6 +297,7 @@ internal sealed class ReceiptHandlers(
             g.Lines.Select(l => new GoodsReceiptLineDto(
                 l.Id, l.PurchaseOrderLineId, l.ItemId, l.ItemCode, l.Description, l.QuantityReceived, l.UnitOfMeasure)).ToList(),
             cf,
-            g.CreatedAt);
+            g.CreatedAt,
+            g.WarehouseId);
     }
 }

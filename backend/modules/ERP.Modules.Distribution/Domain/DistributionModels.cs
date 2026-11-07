@@ -72,6 +72,9 @@ public class VanSalesTrip : LegalEntityScopedEntity, IHasCustomFields
     public decimal TotalCollectionsAmount { get; set; }
     public string? Notes { get; set; }
     public string? CustomFields { get; set; }
+    /// <summary>The invoice raised for what this trip sold, when completion named a customer.</summary>
+    public Guid? InvoiceId { get; set; }
+    public string? InvoiceNumber { get; set; }
 
     public ICollection<TripInventoryItem> InventoryItems { get; set; } = new List<TripInventoryItem>();
 }

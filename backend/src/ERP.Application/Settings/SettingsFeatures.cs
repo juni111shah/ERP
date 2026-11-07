@@ -19,8 +19,16 @@ public sealed class SettingsService(IRepository<Setting> settings, ISettingsCata
         new("core.invoiceTermsDays", "Default payment terms (days)", "15"),
         new("finance.chequeDueAlertDays", "Cheque due alert (days)", "7"),
         new("core.journalRequiresApproval", "Manual journals need approval", "false", "bool"),
+        new("core.creditLimitWarnOnly", "Warn instead of refusing when a customer goes over their credit limit", "false", "bool"),
         // Edited on the chart of accounts screen (mask editor), not as a plain setting; stored in the same key/value table.
         new("finance.coa.numbering", "Chart of accounts numbering", "{\"mode\":\"free\",\"segments\":[4,2,2],\"separator\":\"-\"}", "json"),
+        // Edited on the business setup screen.
+        new("core.uoms", "Measures for items", "[]", "json"),
+        new("core.itemCategories", "Item categories", "[]", "json"),
+        new("core.disabledCapabilities", "Core areas switched off", "[]", "json"),
+        new("core.dashboardFocus", "Owner dashboard order", "[]", "json"),
+        // Which steps of the demo data seeder have finished, so a re-run skips them. Empty outside demo workspaces.
+        new("core.demoSeedCheckpoints", "Demo data progress", "[]", "json"),
     ];
 
     public async Task<string?> GetRawAsync(string key, Guid? legalEntityId = null, CancellationToken ct = default)

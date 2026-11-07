@@ -95,6 +95,8 @@ public class JournalEntry : LegalEntityScopedEntity
     public DateTime? PostedAt { get; set; }
     public Guid? PostedBy { get; set; }
     public Guid? ReversalOfId { get; set; }
+    /// <summary>The approval request of a manual journal that needs one. The journal stays a draft (and out of every report) until it is approved and posted.</summary>
+    public Guid? ApprovalRequestId { get; set; }
     public List<JournalLine> Lines { get; set; } = new();
 
     public decimal TotalDebit => Lines.Sum(l => l.Debit);
@@ -137,6 +139,33 @@ public class JournalLine : Entity
     public Guid? BusinessUnitId { get; set; }
     /// <summary>Free analytic dimensions (JSON: {"project":"...","costCenter":"..."}); modules add their own keys.</summary>
     public string? Dimensions { get; set; }
+}
+
+/// <summary>
+/// The close of one fiscal year of a legal entity. Income and expense balances moved to retained earnings by <see cref="JournalEntryId"/>,
+/// dated <see cref="YearEnd"/>, and the books were locked to that date. A reopened close keeps its row (with the reversal) as history.
+/// </summary>
+[DefaultSort("-yearEnd")]
+public class FiscalYearClose : LegalEntityScopedEntity
+{
+    /// <summary>A fiscal year is named for the calendar year it ends in.</summary>
+    [Filterable, Sortable]
+    public int FiscalYear { get; set; }
+    public DateOnly YearStart { get; set; }
+    [Sortable]
+    public DateOnly YearEnd { get; set; }
+    /// <summary>Null when income and expense were already at zero, so there was nothing to move.</summary>
+    public Guid? JournalEntryId { get; set; }
+    /// <summary>Amount moved to retained earnings: positive = profit. Includes earlier years that were never closed.</summary>
+    public decimal NetResult { get; set; }
+    /// <summary>The books lock before this close, restored when the year is reopened.</summary>
+    public DateOnly? PreviousBooksLockedTo { get; set; }
+    public DateTime ClosedAt { get; set; }
+    public Guid? ClosedBy { get; set; }
+    public DateTime? ReopenedAt { get; set; }
+    public Guid? ReopenedBy { get; set; }
+    public string? ReopenReason { get; set; }
+    public Guid? ReversalJournalId { get; set; }
 }
 
 public enum InstrumentKind { Cheque, PostDatedCheque, BankDraft, PromissoryNote }

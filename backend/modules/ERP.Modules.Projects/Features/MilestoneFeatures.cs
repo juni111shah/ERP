@@ -132,8 +132,8 @@ internal sealed class MilestoneHandlers(
         ProjectRules.EnsureOpen(await projects.GetAsync(m.ProjectId, ct));
         await access.EnsureProjectAsync(m.ProjectId, ct);
         ProjectsTransitions.Milestone.Ensure(m.Status, MilestoneStatus.Achieved, isSystem: false);
-        var achieved = cmd.AchievedDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
-        if (achieved > DateOnly.FromDateTime(DateTime.UtcNow)) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");
+        var achieved = cmd.AchievedDate ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
+        if (achieved > DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow)) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");
         m.Status = MilestoneStatus.Achieved;
         m.AchievedDate = achieved;
         await milestones.SaveChangesAsync(ct);
@@ -144,17 +144,17 @@ internal sealed class MilestoneHandlers(
     private static DateOnly? AchievedDateFor(MilestoneInput i)
     {
         if (i.Status is MilestoneStatus.Pending or MilestoneStatus.Cancelled) return null;
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var date = i.AchievedDate ?? today;
         if (date > today) throw new FieldValidationException("achievedDate", "The achieved date cannot be in the future.");
         return date;
     }
 
-    /// <summary>On a fixed-fee project the milestones together cannot ask for more than the fee (budget plus approved change orders).</summary>
+    /// <summary>On a fixed-fee project the milestones together cannot ask for more than the fee (contract value, or the budget when none is set, plus approved change orders).</summary>
     private async Task EnsureWithinFeeAsync(Project p, Guid? exceptId, MilestoneInput i, CancellationToken ct)
     {
-        if (p.BillingType != ProjectBillingType.FixedFee || p.BudgetAmount <= 0 || i.Status == MilestoneStatus.Cancelled) return;
-        var fee = ProjectMath.EffectiveBudget(p.BudgetAmount, await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == p.Id)).ToListAsync(ct));
+        if (p.BillingType != ProjectBillingType.FixedFee || ProjectMath.ContractBase(p) <= 0 || i.Status == MilestoneStatus.Cancelled) return;
+        var fee = ProjectMath.Fee(p, await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == p.Id)).ToListAsync(ct));
         var others = await milestones.Query(new Specification<ProjectMilestone>(x => x.ProjectId == p.Id && x.Status != MilestoneStatus.Cancelled && (exceptId == null || x.Id != exceptId))).SumDecimalAsync(x => x.Amount, ct);
         if (others + i.Amount > fee) throw new FieldValidationException("amount", $"The milestones would add up to {others + i.Amount:N2}, more than the fixed fee of {fee:N2}.");
     }

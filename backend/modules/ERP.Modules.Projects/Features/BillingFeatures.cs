@@ -175,7 +175,7 @@ internal sealed class BillingHandlers(
         var titles = taskIds.Count == 0 ? new Dictionary<Guid, string>() : await tasks.Query(new Specification<ProjectTask>(t => taskIds.Contains(t.Id))).ToDictionaryAsync(t => t.Id, t => t.Title, ct);
         var costs = await expenses.Query(new Specification<ProjectExpense>(x => x.ProjectId == id && x.IsBillable && !x.IsBilled && !x.WrittenOff && x.Status == ExpenseStatus.Approved)).OrderBy(x => x.Date).ToListAsync(ct);
         var ms = await milestones.Query(new Specification<ProjectMilestone>(x => x.ProjectId == id && x.Status == MilestoneStatus.Achieved)).OrderBy(x => x.DueDate).ToListAsync(ct);
-        var fee = ProjectMath.EffectiveBudget(p.BudgetAmount, await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == id)).ToListAsync(ct));
+        var fee = ProjectMath.Fee(p, await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == id)).ToListAsync(ct));
         var billed = await progressRows.Query(new Specification<ProjectProgressBilling>(x => x.ProjectId == id && !x.Released)).SumDecimalAsync(x => x.Amount, ct)
             + await milestones.Query(new Specification<ProjectMilestone>(x => x.ProjectId == id && x.Status == MilestoneStatus.Invoiced)).SumDecimalAsync(x => x.Amount, ct);
         var remaining = p.BillingType == ProjectBillingType.FixedFee ? Math.Max(0m, fee - billed - ms.Sum(m => m.Amount)) : 0m;
@@ -231,7 +231,7 @@ internal sealed class BillingHandlers(
             .GroupBy(x => x.ProjectId).ToDictionary(g => g.Key, g => g.Sum(BillingLines.Charge));
         var billable = unbilled.Keys.Concat(achieved.Keys).Concat(costs.Keys).ToHashSet();
         var allProjects = await projects.Query(new Specification<Project>(p => !p.IsTemplate && !p.IsArchived && (p.Status == ProjectStatus.Active || billable.Contains(p.Id))))
-            .OrderBy(p => p.Name).Select(p => new { p.Id, p.Number, p.Name, p.BillingType, p.Status, p.BudgetAmount }).ToListAsync(ct);
+            .OrderBy(p => p.Name).Select(p => new { p.Id, p.Number, p.Name, p.BillingType, p.Status, p.BudgetAmount, p.ContractValue }).ToListAsync(ct);
         var billedFixed = (await progressRows.Query(new Specification<ProjectProgressBilling>(x => !x.Released)).ToListAsync(ct)).GroupBy(x => x.ProjectId).ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
         var invoicedMs = (await milestones.Query(new Specification<ProjectMilestone>(x => x.Status == MilestoneStatus.Invoiced)).Select(x => new { x.ProjectId, x.Amount }).ToListAsync(ct)).GroupBy(x => x.ProjectId).ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
         var changes = (await changeOrders.Query(new Specification<ProjectChangeOrder>(x => x.Status == ChangeOrderStatus.Approved)).ToListAsync(ct)).GroupBy(x => x.ProjectId).ToDictionary(g => g.Key, g => g.Sum(x => x.AmountChange));
@@ -243,7 +243,7 @@ internal sealed class BillingHandlers(
             var (msCount, msAmount) = achieved.GetValueOrDefault(p.Id);
             var expenseAmount = costs.GetValueOrDefault(p.Id);
             var remaining = p.BillingType == ProjectBillingType.FixedFee
-                ? Math.Max(0m, p.BudgetAmount + changes.GetValueOrDefault(p.Id) - billedFixed.GetValueOrDefault(p.Id) - invoicedMs.GetValueOrDefault(p.Id) - msAmount) : 0m;
+                ? Math.Max(0m, (p.ContractValue ?? p.BudgetAmount) + changes.GetValueOrDefault(p.Id) - billedFixed.GetValueOrDefault(p.Id) - invoicedMs.GetValueOrDefault(p.Id) - msAmount) : 0m;
             var total = hoursAmount + msAmount + expenseAmount;
             if (total > 0 || p.Status == ProjectStatus.Active)
                 list.Add(new ProjectBillingSummaryDto(p.Id, p.Number, p.Name, p.BillingType, hours, hoursAmount, msCount, msAmount, total, expenseAmount, p.BillingType == ProjectBillingType.FixedFee ? 0m : waiting.GetValueOrDefault(p.Id), remaining));
@@ -270,7 +270,7 @@ internal sealed class BillingHandlers(
         {
             var notes = string.IsNullOrWhiteSpace(i.Notes) ? $"Generated for Project {p.Number}: {p.Name}" : $"{i.Notes.Trim()} (Project {p.Number}: {p.Name})";
             var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
-                LegalEntityId: p.LegalEntityId, PartyId: p.CustomerId!.Value, InvoiceDate: DateOnly.FromDateTime(DateTime.UtcNow), DueDate: i.DueDate, Lines: invoiceLines,
+                LegalEntityId: p.LegalEntityId, PartyId: p.CustomerId!.Value, InvoiceDate: DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), DueDate: i.DueDate, Lines: invoiceLines,
                 Notes: notes, SourceType: "projects.project", SourceId: p.Id)), transactionCt);
             foreach (var ts in plan.Time) { ts.IsBilled = true; ts.InvoiceId = invoice.Id; }
             foreach (var e in plan.Expenses) { e.IsBilled = true; e.InvoiceId = invoice.Id; }
@@ -289,7 +289,7 @@ internal sealed class BillingHandlers(
                 foreach (var e in releaseCosts) e.WipReleaseJournalId = journal.Id;
             }
             if (plan.ProgressAmount > 0)
-                progressRows.Add(new ProjectProgressBilling { ProjectId = p.Id, Date = DateOnly.FromDateTime(DateTime.UtcNow), Percent = i.ProgressPercent ?? 0m, Amount = plan.ProgressAmount, InvoiceId = invoice.Id });
+                progressRows.Add(new ProjectProgressBilling { ProjectId = p.Id, Date = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), Percent = i.ProgressPercent ?? 0m, Amount = plan.ProgressAmount, InvoiceId = invoice.Id });
             await timesheets.SaveChangesAsync(transactionCt);
             await expenses.SaveChangesAsync(transactionCt);
             await milestones.SaveChangesAsync(transactionCt);
@@ -342,7 +342,7 @@ internal sealed class BillingHandlers(
         decimal progressAmount = 0m;
         if (i.ProgressPercent is { } pct)
         {
-            var fee = ProjectMath.EffectiveBudget(p.BudgetAmount, await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == p.Id)).ToListAsync(ct));
+            var fee = ProjectMath.Fee(p, await changeOrders.Query(new Specification<ProjectChangeOrder>(c => c.ProjectId == p.Id)).ToListAsync(ct));
             if (fee <= 0) throw new ConflictException("The project has no fixed fee to bill a percentage of.");
             var already = await progressRows.Query(new Specification<ProjectProgressBilling>(x => x.ProjectId == p.Id && !x.Released)).SumDecimalAsync(x => x.Amount, ct);
             var invoicedMilestones = await milestones.Query(new Specification<ProjectMilestone>(x => x.ProjectId == p.Id && x.Status == MilestoneStatus.Invoiced)).SumDecimalAsync(x => x.Amount, ct);
@@ -365,7 +365,7 @@ internal sealed class BillingHandlers(
 }
 
 /// <summary>Voiding a project invoice puts its work back: the time, expenses, milestones and fixed-fee percentage can be billed again, and the cost goes back into work in progress.</summary>
-public sealed class ProjectInvoiceVoidedHandler(IRepository<ProjectTimesheet> timesheets, IRepository<ProjectExpense> expenses, IRepository<ProjectMilestone> milestones, IRepository<ProjectProgressBilling> progress, IRepository<JournalEntry> journals, IPostingService posting)
+public sealed class ProjectInvoiceVoidedHandler(IRepository<ProjectTimesheet> timesheets, IRepository<ProjectExpense> expenses, IRepository<ProjectMilestone> milestones, IRepository<ProjectProgressBilling> progress, IRepository<JournalEntry> journals, IReadRepository<Project> projects, IPostingService posting)
     : INotificationHandler<InvoiceVoided>
 {
     public const string SourceType = "projects.project";
@@ -376,12 +376,15 @@ public sealed class ProjectInvoiceVoidedHandler(IRepository<ProjectTimesheet> ti
         var invoiceId = n.InvoiceId;
         var time = await timesheets.Tracked(new Specification<ProjectTimesheet>(x => x.InvoiceId == invoiceId)).ToListAsync(ct);
         var costs = await expenses.Tracked(new Specification<ProjectExpense>(x => x.InvoiceId == invoiceId)).ToListAsync(ct);
-        var releases = time.Where(t => t.WipReleaseJournalId != null).Select(t => t.WipReleaseJournalId!.Value).Concat(costs.Where(e => e.WipReleaseJournalId != null).Select(e => e.WipReleaseJournalId!.Value)).Distinct().ToList();
+        // a closed project has no way to release work in progress a second time, so its cost stays in cost of sales
+        var project = n.SourceId is { } projectId ? await projects.FindAsync(projectId, ct) : null;
+        var closed = project?.Status is ProjectStatus.Completed or ProjectStatus.Cancelled;
+        var releases = closed ? [] : time.Where(t => t.WipReleaseJournalId != null).Select(t => t.WipReleaseJournalId!.Value).Concat(costs.Where(e => e.WipReleaseJournalId != null).Select(e => e.WipReleaseJournalId!.Value)).Distinct().ToList();
         if (releases.Count > 0)
             foreach (var journal in await journals.Tracked(new Specification<JournalEntry>(j => releases.Contains(j.Id)).Include(j => j.Lines)).ToListAsync(ct))
                 if (journal.Status == JournalStatus.Posted) await posting.ReverseTodayAsync(journal, $"Project invoice voided, cost back to work in progress", ct);
-        foreach (var t in time) { t.IsBilled = false; t.InvoiceId = null; t.WipReleaseJournalId = null; }
-        foreach (var e in costs) { e.IsBilled = false; e.InvoiceId = null; e.WipReleaseJournalId = null; }
+        foreach (var t in time) { t.IsBilled = false; t.InvoiceId = null; if (!closed) t.WipReleaseJournalId = null; }
+        foreach (var e in costs) { e.IsBilled = false; e.InvoiceId = null; if (!closed) e.WipReleaseJournalId = null; }
         foreach (var m in await milestones.Tracked(new Specification<ProjectMilestone>(x => x.InvoiceId == invoiceId)).ToListAsync(ct))
         {
             m.Status = MilestoneStatus.Achieved; m.InvoiceId = null; // a system step: only a void puts an invoiced milestone back

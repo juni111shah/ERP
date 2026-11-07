@@ -42,7 +42,8 @@ public record CreatePosOrderCommand(
     string? CustomFields = null,
     Guid? CashierUserId = null,
     string? CashierName = null,
-    Guid? ParkedOrderId = null) : ICommand<PosOrderDto>
+    Guid? ParkedOrderId = null,
+    string? PromoCode = null) : ICommand<PosOrderDto>
 {
     // Backwards-compatible constructor for existing tests/callers specifying CashierUserId and CashierName
     public CreatePosOrderCommand(
@@ -61,6 +62,34 @@ public record CreatePosOrderCommand(
     {
     }
 }
+
+/// <summary>What the server would charge for these lines right now, without saving anything. The till needs this to show the amount to collect once price lists or a code apply.</summary>
+public record QuotePosOrderQuery(
+    Guid LegalEntityId,
+    Guid? CustomerPartyId,
+    List<PosOrderLineInput> Lines,
+    string? PromoCode = null) : IQuery<PosOrderQuoteDto>;
+
+public record PosOrderQuoteLineDto(
+    Guid? ItemId,
+    string ItemCode,
+    string Description,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal DiscountPercent,
+    decimal PromoDiscount,
+    decimal TaxRate,
+    decimal LineTotal);
+
+public record PosOrderQuoteDto(
+    decimal SubTotal,
+    decimal TaxTotal,
+    decimal DiscountTotal,
+    decimal TotalAmount,
+    string? PromoCode,
+    string? PromoName,
+    decimal PromoDiscount,
+    List<PosOrderQuoteLineDto> Lines);
 
 public record VoidPosOrderCommand(
     Guid OrderId,
@@ -92,7 +121,8 @@ public record PosOrderLineDto(
     decimal TaxRate,
     decimal LineTotal,
     decimal ReturnedQuantity = 0,
-    decimal ReturnedAmount = 0);
+    decimal ReturnedAmount = 0,
+    decimal PromoDiscount = 0);
 
 public record PosPaymentDto(
     Guid Id,
@@ -150,7 +180,9 @@ public record PosOrderDto(
     Guid? InvoiceId = null,
     string? InvoiceNumber = null,
     decimal MoneyLeftToRefund = 0,
-    decimal OnAccountLeft = 0);
+    decimal OnAccountLeft = 0,
+    string? PromoCode = null,
+    decimal PromoDiscount = 0);
 
 public class VoidPosOrderValidator : AbstractValidator<VoidPosOrderCommand>
 {
@@ -192,12 +224,24 @@ public class CreatePosOrderValidator : AbstractValidator<CreatePosOrderCommand>
         RuleFor(x => x.SessionId).NotEmpty();
         RuleFor(x => x.Lines).NotEmpty().WithMessage("At least one item is required.");
         RuleForEach(x => x.Lines).ChildRules(PosLineRules.Lines);
+        RuleFor(x => x.PromoCode).MaximumLength(50);
         RuleFor(x => x.Payments).NotEmpty().WithMessage("At least one payment tender is required.");
         RuleForEach(x => x.Payments).ChildRules(p =>
         {
             p.RuleFor(x => x.Amount).GreaterThan(0);
             p.RuleFor(x => x.Method).IsInEnum();
         });
+    }
+}
+
+public class QuotePosOrderValidator : AbstractValidator<QuotePosOrderQuery>
+{
+    public QuotePosOrderValidator()
+    {
+        RuleFor(x => x.LegalEntityId).NotEmpty();
+        RuleFor(x => x.Lines).NotEmpty().WithMessage("At least one item is required.");
+        RuleForEach(x => x.Lines).ChildRules(PosLineRules.Lines);
+        RuleFor(x => x.PromoCode).MaximumLength(50);
     }
 }
 
@@ -218,7 +262,8 @@ public class OrderHandlers :
     IRequestHandler<ParkPosOrderCommand, PosOrderDto>,
     IRequestHandler<DiscardParkedOrderCommand, Unit>,
     IRequestHandler<GetPosOrderByIdQuery, PosOrderDto>,
-    IRequestHandler<GetPosOrderByNumberQuery, PosOrderDto>
+    IRequestHandler<GetPosOrderByNumberQuery, PosOrderDto>,
+    IRequestHandler<QuotePosOrderQuery, PosOrderQuoteDto>
 {
     private readonly IRepository<PosOrder> _orders;
     private readonly IRepository<PosSession> _sessions;
@@ -238,6 +283,7 @@ public class OrderHandlers :
     private readonly IInvoicingService _invoicing;
     private readonly PosAccounts _accounts;
     private readonly IReadRepository<PosReturn> _returns;
+    private readonly IPriceResolver? _priceResolver;
     private const string PosJournalSource = "pos";
 
     public OrderHandlers(
@@ -258,8 +304,10 @@ public class OrderHandlers :
         IRepository<Invoice> invoices,
         IInvoicingService invoicing,
         PosAccounts accounts,
-        IReadRepository<PosReturn> returns)
+        IReadRepository<PosReturn> returns,
+        IEnumerable<IPriceResolver> priceResolvers)
     {
+        _priceResolver = priceResolvers.FirstOrDefault();
         _returns = returns;
         _journals = journals;
         _orders = orders;
@@ -280,13 +328,49 @@ public class OrderHandlers :
         _accounts = accounts;
     }
 
-    private sealed record PricedLines(List<PosOrderLine> Lines, decimal SubTotal, decimal TaxTotal, decimal DiscountTotal)
+    private sealed record PricedLines(List<PosOrderLine> Lines, decimal SubTotal, decimal TaxTotal, decimal DiscountTotal, DiscountCodeResult? Promo = null)
     {
         public decimal Total => SubTotal + TaxTotal;
     }
 
+    private static DateOnly Today => DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
+
+    /// <summary>Takes a discount code off the priced lines, before tax, sharing it across them by value with the last line taking the rounding. Nothing is used up here.</summary>
+    private async Task<PricedLines> ApplyPromoAsync(Guid legalEntityId, PricedLines priced, string? code, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return priced;
+        if (_priceResolver is null) throw new FieldValidationException("promoCode", "Discount codes are not available here.");
+
+        var promo = await _priceResolver.QuoteDiscountAsync(new DiscountCodeQuery(legalEntityId, Today, code, priced.SubTotal, priced.Total), ct);
+        var amount = Math.Min(promo.Amount, priced.SubTotal);
+        decimal shared = 0, subtotal = 0, tax = 0;
+        var discounted = priced.Lines.Where(l => PosMath.Line(l).Net > 0).ToList();
+        foreach (var line in discounted)
+        {
+            var share = ReferenceEquals(line, discounted[^1]) ? amount - shared : Money.Round(amount * PosMath.Line(line).Net / priced.SubTotal);
+            line.PromoDiscount = share;
+            shared += share;
+        }
+        foreach (var line in priced.Lines)
+        {
+            var a = PosMath.Line(line);
+            line.LineTotal = a.Total;
+            subtotal += a.Net;
+            tax += a.Tax;
+        }
+        return new PricedLines(priced.Lines, subtotal, tax, priced.DiscountTotal + amount, promo with { Amount = amount });
+    }
+
+    public async Task<PosOrderQuoteDto> Handle(QuotePosOrderQuery request, CancellationToken cancellationToken)
+    {
+        var (customerId, _) = await CustomerAsync(request.CustomerPartyId, null, cancellationToken);
+        var priced = await ApplyPromoAsync(request.LegalEntityId, await PriceAsync(request.LegalEntityId, customerId, request.Lines, cancellationToken), request.PromoCode, cancellationToken);
+        return new PosOrderQuoteDto(priced.SubTotal, priced.TaxTotal, priced.DiscountTotal, priced.Total, priced.Promo?.Code, priced.Promo?.Name, priced.Promo?.Amount ?? 0m,
+            priced.Lines.Select(l => new PosOrderQuoteLineDto(l.ItemId, l.ItemCode, l.Description, l.Quantity, l.UnitPrice, l.DiscountPercent, l.PromoDiscount, l.TaxRate, l.LineTotal)).ToList());
+    }
+
     /// <summary>The server's own prices, tax and discount limits. Sales and held tickets both go through here, so a resumed ticket is priced again at payment.</summary>
-    private async Task<PricedLines> PriceAsync(Guid legalEntityId, IReadOnlyList<PosOrderLineInput> input, CancellationToken ct)
+    private async Task<PricedLines> PriceAsync(Guid legalEntityId, Guid? customerId, IReadOnlyList<PosOrderLineInput> input, CancellationToken ct)
     {
         var maxDiscount = await _settings.GetAsync<decimal?>("pos.maxDiscountPercent", legalEntityId, ct) ?? 100m;
         var cashierLimit = await _settings.GetAsync<decimal?>("pos.cashierDiscountPercent", legalEntityId, ct);
@@ -302,6 +386,12 @@ public class OrderHandlers :
         var taxCodes = taxCodeIds.Count > 0
             ? await _taxCodes.Query(new Specification<TaxCode>(t => taxCodeIds.Contains(t.Id))).ToDictionaryAsync(t => t.Id, ct)
             : new Dictionary<Guid, TaxCode>();
+
+        // A price list, where one applies, replaces the catalogue price as the price the till charges and the floor for anyone who cannot override.
+        var listPrices = _priceResolver is null || itemIds.Count == 0
+            ? new Dictionary<Guid, decimal>()
+            : await _priceResolver.GetPricesAsync(new PriceQuery(legalEntityId, Today, customerId,
+                input.Where(l => l.ItemId.HasValue).GroupBy(l => l.ItemId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity))), ct);
 
         decimal subtotal = 0, taxTotal = 0, discountTotal = 0;
         var lines = new List<PosOrderLine>();
@@ -336,11 +426,12 @@ public class OrderHandlers :
                 itemCode = string.IsNullOrWhiteSpace(itemCode) ? item.Sku : itemCode;
                 description = string.IsNullOrWhiteSpace(description) ? item.Name : description;
 
-                if (item.SalesPrice is null && !(canOverridePrice && l.UnitPrice.HasValue))
+                var hasListPrice = listPrices.TryGetValue(item.Id, out var listPrice);
+                if (item.SalesPrice is null && !hasListPrice && !(canOverridePrice && l.UnitPrice.HasValue))
                 {
                     throw new FieldValidationException("unitPrice", $"{item.Name} has no sales price.");
                 }
-                var catalogPrice = item.SalesPrice ?? 0m;
+                var catalogPrice = hasListPrice ? listPrice : item.SalesPrice ?? 0m;
 
                 if (l.UnitPrice.HasValue)
                 {
@@ -440,7 +531,7 @@ public class OrderHandlers :
             var (cashierName, cashierId) = await CashierAsync(request.CashierUserId, request.CashierName, token);
             var (customerId, customerName) = await CustomerAsync(request.CustomerPartyId, request.CustomerName, token);
             var allowPartial = await _settings.GetAsync<bool?>("pos.allowPartialPayment", request.LegalEntityId, token) ?? false;
-            var priced = await PriceAsync(request.LegalEntityId, request.Lines, token);
+            var priced = await ApplyPromoAsync(request.LegalEntityId, await PriceAsync(request.LegalEntityId, customerId, request.Lines, token), request.PromoCode, token);
             var totalAmount = priced.Total;
 
             // Payments validation
@@ -542,12 +633,18 @@ public class OrderHandlers :
                 CashierName = cashierName,
                 Notes = request.Notes,
                 CustomFields = request.CustomFields,
+                PromoCode = priced.Promo?.Code,
+                PromotionId = priced.Promo?.DiscountId,
+                PromoDiscount = priced.Promo?.Amount ?? 0m,
                 Lines = priced.Lines,
                 Payments = payments
             };
 
             _orders.Add(order);
             await _orders.SaveChangesAsync(token);
+
+            // Counted with the sale, so a sale that fails later leaves the use unspent and two tills cannot both take the last one.
+            if (priced.Promo is { } promo) await _priceResolver!.RedeemDiscountAsync(promo.DiscountId, token);
 
             var cashPaid = payments.Where(p => p.Method == PosPaymentMethod.Cash).Sum(p => p.Amount);
 
@@ -615,7 +712,7 @@ public class OrderHandlers :
                         order.LegalEntityId,
                         l.ItemId.Value,
                         l.Quantity,
-                        DateOnly.FromDateTime(DateTime.UtcNow),
+                        DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
                         order.Number,
                         $"POS sale {order.Number} ({l.ItemCode})",
                         register.WarehouseId), token);
@@ -651,7 +748,7 @@ public class OrderHandlers :
 
         var (cashierName, cashierId) = await CashierAsync(null, null, cancellationToken);
         var (customerId, customerName) = await CustomerAsync(request.CustomerPartyId, request.CustomerName, cancellationToken);
-        var priced = await PriceAsync(session.LegalEntityId, request.Lines, cancellationToken);
+        var priced = await PriceAsync(session.LegalEntityId, customerId, request.Lines, cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
         var order = new PosOrder
@@ -749,6 +846,8 @@ public class OrderHandlers :
 
             await _orders.SaveChangesAsync(token);
 
+            if (order.PromotionId is { } promotionId && _priceResolver is not null) await _priceResolver.ReleaseDiscountAsync(promotionId, token);
+
             await _stockPosting.ReverseIssueAsync(order.Number, token);
 
             var journal = await _journals.Tracked(new Specification<JournalEntry>(j => j.SourceType == PosJournalSource && j.SourceId == order.Id && j.Status == JournalStatus.Posted).Include(j => j.Lines))
@@ -828,7 +927,8 @@ public class OrderHandlers :
             l.TaxRate,
             l.LineTotal,
             l.ReturnedQuantity,
-            l.ReturnedAmount)).ToList(),
+            l.ReturnedAmount,
+            l.PromoDiscount)).ToList(),
         o.Payments.Select(p => new PosPaymentDto(
             p.Id,
             p.Method,
@@ -840,5 +940,7 @@ public class OrderHandlers :
         o.CreatedAt,
         o.ReturnedTotal,
         o.InvoiceId,
-        o.InvoiceNumber);
+        o.InvoiceNumber,
+        PromoCode: o.PromoCode,
+        PromoDiscount: o.PromoDiscount);
 }

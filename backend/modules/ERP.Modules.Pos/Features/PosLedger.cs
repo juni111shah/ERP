@@ -13,16 +13,16 @@ public static class PosMath
 {
     public readonly record struct Amounts(decimal Gross, decimal Discount, decimal Net, decimal Tax, decimal Total);
 
-    public static Amounts Line(decimal quantity, decimal unitPrice, decimal discountPercent, decimal taxRate)
+    public static Amounts Line(decimal quantity, decimal unitPrice, decimal discountPercent, decimal taxRate, decimal promoDiscount = 0m)
     {
         var gross = Money.Round(quantity * unitPrice);
-        var discount = Money.Round(gross * (discountPercent / 100m));
+        var discount = Money.Round(gross * (discountPercent / 100m)) + promoDiscount;
         var net = gross - discount;
         var tax = Money.Round(net * (taxRate / 100m));
         return new Amounts(gross, discount, net, tax, net + tax);
     }
 
-    public static Amounts Line(PosOrderLine l) => Line(l.Quantity, l.UnitPrice, l.DiscountPercent, l.TaxRate);
+    public static Amounts Line(PosOrderLine l) => Line(l.Quantity, l.UnitPrice, l.DiscountPercent, l.TaxRate, l.PromoDiscount);
 
     /// <summary>A debit and a credit on one account become one line, and lines that cancel out disappear, so the journal reads as what really moved.</summary>
     public static List<PostingLine> Consolidate(IEnumerable<PostingLine> lines)
@@ -73,6 +73,9 @@ public sealed class PosAccounts(IPostingService posting, IReadRepository<Item> i
 
     public async Task<Guid> DrawerOffsetAsync(PosRegister register, CancellationToken ct)
         => register.ExpenseAccountId ?? await RoleOrFallbackAsync("pos.cash-misc", SystemRoles.PurchasesExpense, ct);
+
+    /// <summary>Takes the cost of goods that came back and cannot be sold again.</summary>
+    public Task<Guid> StockWriteOffAsync(CancellationToken ct) => RoleOrFallbackAsync("pos.stock-writeoff", SystemRoles.PurchasesExpense, ct);
 
     public Task<Guid> SalesAsync(CancellationToken ct) => posting.AccountForRoleAsync("income.sales", ct);
 

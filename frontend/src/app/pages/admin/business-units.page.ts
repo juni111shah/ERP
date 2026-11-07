@@ -12,6 +12,9 @@ import { RevealDirective } from '../../shared/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
+/** What a business unit can be; any other word can be typed. */
+const BUSINESS_UNIT_KINDS = ['branch', 'store', 'site', 'department', 'warehouse'];
+
 @Component({
   selector: 'erp-business-units',
   standalone: true,
@@ -37,6 +40,7 @@ export class BusinessUnitsPage {
   readonly columns: TableColumn<BusinessUnitDto>[] = [
     { key: 'code', label: 'Code', sortField: 'code', width: '140px' },
     { key: 'name', label: 'Name', sortField: 'name' },
+    { key: 'kind', label: 'Kind', width: '140px' },
     { key: 'address', label: 'Address' },
     { key: 'isActive', label: 'Active', value: (b) => yesNo(b.isActive) },
   ];
@@ -44,6 +48,7 @@ export class BusinessUnitsPage {
     { key: 'legalEntityId', label: 'Legal entity', type: 'lookup', required: true, readonlyOnEdit: true, lookup: this.entities.lookup, currentLabel: (r) => String(r['legalEntityId']) },
     { key: 'code', label: 'Code', type: 'text', required: true, maxLength: 30 },
     { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 150 },
+    { key: 'kind', label: 'Kind', type: 'text', maxLength: 30, default: 'branch', suggestions: BUSINESS_UNIT_KINDS, hint: 'What this unit is: pick one or type your own.' },
     { key: 'address', label: 'Address', type: 'textarea', maxLength: 500 },
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ];

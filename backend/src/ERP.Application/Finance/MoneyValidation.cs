@@ -26,8 +26,8 @@ public static class MoneyValidation
 
     /// <summary>Document dates must fall after 2000-01-01 and no more than one year ahead (a missing date binds to 0001-01-01).</summary>
     public static IRuleBuilderOptions<T, DateOnly> MustBePlausibleDate<T>(this IRuleBuilder<T, DateOnly> rule)
-        => rule.Must(d => IsPlausibleDate(d, DateOnly.FromDateTime(DateTime.UtcNow))).WithMessage("Enter a valid date (after 2000, at most one year ahead).");
+        => rule.Must(d => IsPlausibleDate(d, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow))).WithMessage("Enter a valid date (after 2000, at most one year ahead).");
 
     public static IRuleBuilderOptions<T, DateOnly?> MustBePlausibleDate<T>(this IRuleBuilder<T, DateOnly?> rule)
-        => rule.Must(d => d is null || IsPlausibleDate(d.Value, DateOnly.FromDateTime(DateTime.UtcNow))).WithMessage("Enter a valid date (after 2000, at most one year ahead).");
+        => rule.Must(d => d is null || IsPlausibleDate(d.Value, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow))).WithMessage("Enter a valid date (after 2000, at most one year ahead).");
 }

@@ -22,7 +22,10 @@ public interface IPostingService
     Task<JournalEntry> PostAsync(PostingRequest request, CancellationToken ct = default);
     /// <summary>Posts the opposite entry and marks the original reversed.</summary>
     Task<JournalEntry> ReverseAsync(JournalEntry original, DateOnly date, string? memo, CancellationToken ct = default);
-    /// <summary>Reverses dated today (never before the original), so voids still work after the original period is locked.</summary>
+    /// <summary>
+    /// Reverses dated today (never before the original), so voids still work after the original period is locked. Both entries keep their dates, so ledger reports of the
+    /// locked period do not change. Reports built from documents need <see cref="VoidMemo.MarkIfLocked"/> for the same guarantee.
+    /// </summary>
     Task<JournalEntry> ReverseTodayAsync(JournalEntry original, string? memo, CancellationToken ct = default);
     /// <summary>The account that carries a system role (for example "ar.control") in this workspace.</summary>
     Task<Guid> AccountForRoleAsync(string systemRole, CancellationToken ct = default);
@@ -40,6 +43,17 @@ public static class SystemRoles
     public const string PurchaseVariance = "purchase.variance";
     /// <summary>Expense account that bills raised from purchase orders use for lines that are not (yet) received into stock.</summary>
     public const string PurchasesExpense = "purchases.expense";
+    public const string RetainedEarnings = "equity.retained";
+    public const string OpeningEquity = "equity.opening";
+}
+
+/// <summary>Ledger source types with their own rules: reports treat them differently from day-to-day entries, and only their own flows undo them.</summary>
+public static class LedgerSources
+{
+    /// <summary>A year-end closing entry and its reversal. Income statements and budgets leave them out: moving a result to equity is not income or expense.</summary>
+    public const string YearEnd = "yearend";
+    /// <summary>The opening entry of a legal entity and its reversal. Its cash is opening cash, not a cash flow.</summary>
+    public const string Opening = "opening";
 }
 
 public sealed class PostingService(

@@ -8,7 +8,8 @@ namespace ERP.Modules.Projects.Features;
 /// <summary>The figures of one project. Every screen reads them from here, so "unbilled" and "cost" mean the same thing everywhere.</summary>
 public sealed record ProjectFigureRow(
     decimal LoggedHours, decimal BilledHours, decimal LabourCost, decimal ExpenseCost, decimal BillableValue, decimal Billed, decimal Unbilled,
-    decimal Budget, decimal ApprovedChanges, decimal BudgetHours, decimal PercentComplete, string Health, int TotalTasks, int CompletedTasks, int OpenTasks, int OverdueTasks, int TotalMilestones, int AchievedMilestones)
+    decimal Budget, decimal ApprovedChanges, decimal BudgetHours, decimal PercentComplete, string Health, int TotalTasks, int CompletedTasks, int OpenTasks, int OverdueTasks, int TotalMilestones, int AchievedMilestones,
+    decimal WipBalance = 0m)
 {
     public decimal Cost => LabourCost + ExpenseCost;
 }
@@ -31,7 +32,7 @@ public sealed class ProjectFigures(
         var ex = (await expenses.Query(new Specification<ProjectExpense>(x => ids.Contains(x.ProjectId))).ToListAsync(ct)).ToLookup(x => x.ProjectId);
         var co = (await changeOrders.Query(new Specification<ProjectChangeOrder>(x => ids.Contains(x.ProjectId))).ToListAsync(ct)).ToLookup(x => x.ProjectId);
         var pr = (await progress.Query(new Specification<ProjectProgressBilling>(x => ids.Contains(x.ProjectId) && !x.Released)).ToListAsync(ct)).ToLookup(x => x.ProjectId);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         return list.ToDictionary(p => p.Id, p => Compute(p, ts[p.Id].ToList(), tk[p.Id].ToList(), ms[p.Id].ToList(), ex[p.Id].ToList(), co[p.Id].ToList(), pr[p.Id].ToList(), today));
     }
 
@@ -53,6 +54,7 @@ public sealed class ProjectFigures(
         return new ProjectFigureRow(
             ts.Sum(x => x.Hours), ts.Where(x => x.IsBilled).Sum(x => x.Hours), labour, expense, ts.Where(x => x.IsBillable && !x.WrittenOff).Sum(x => x.TotalAmount), billed, unbilled,
             budget, budget - p.BudgetAmount, ProjectMath.EffectiveBudgetHours(p.BudgetHours, co), ProjectMath.PercentComplete(tk), ProjectMath.Health(p, budget, labour + expense, overdue, open, today),
-            tk.Count, tk.Count(x => x.Status == ProjectTaskStatus.Done), open, overdue, ms.Count(x => x.Status != MilestoneStatus.Cancelled), ms.Count(x => x.Status is MilestoneStatus.Achieved or MilestoneStatus.Invoiced));
+            tk.Count, tk.Count(x => x.Status == ProjectTaskStatus.Done), open, overdue, ms.Count(x => x.Status != MilestoneStatus.Cancelled), ms.Count(x => x.Status is MilestoneStatus.Achieved or MilestoneStatus.Invoiced),
+            ts.Where(x => x.CostJournalId != null && x.WipReleaseJournalId == null).Sum(x => x.CostAmount) + ex.Where(x => x.CostJournalId != null && x.WipReleaseJournalId == null).Sum(x => x.Amount));
     }
 }

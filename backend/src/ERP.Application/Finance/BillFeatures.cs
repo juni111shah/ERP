@@ -61,7 +61,7 @@ public sealed class BillInputValidator : AbstractValidator<BillInput>
         {
             l.RuleFor(x => x.Description).NotEmpty().MaximumLength(400);
             l.RuleFor(x => x.Quantity).GreaterThan(0).MustHaveAtMostDecimals(4);
-            l.RuleFor(x => x.Price).GreaterThanOrEqualTo(0).MustHaveAtMostDecimals(4);
+            l.RuleFor(x => x.Price).MustHaveAtMostDecimals(4); // negative only on a purchase variance line, checked with the accounts in ApplyAsync
             l.RuleFor(x => x.AccountId).NotEmpty().WithMessage("Choose the expense account.");
         });
     }
@@ -139,6 +139,7 @@ internal sealed class BillHandlers(
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status is not (DocumentStatus.Draft or DocumentStatus.PendingApproval)) throw new ConflictException("Only a draft bill can be posted.");
         if (bill.Total <= 0) throw new ConflictException("A bill with a zero total cannot be posted.");
+        await publisher.Publish(new BillPosting(bill.Id, bill.Lines.Select(l => new BillPostingLine(l.AccountId, l.Quantity)).ToList()), ct);
 
         if (await approvals.RequiresApprovalAsync("bill", bill.Total, ct))
         {
@@ -158,7 +159,10 @@ internal sealed class BillHandlers(
         var memo = $"Bill {bill.VendorReference} {bill.PartyName}".Trim();
         var lines = new List<PostingLine>();
         foreach (var g in bill.Lines.GroupBy(l => l.AccountId!.Value))
-            lines.Add(new PostingLine(g.Key, g.Sum(l => l.Net + (l.TaxRecoverable ? 0 : l.TaxAmount)), 0, memo)); // tax that cannot be recovered is part of the cost
+        {
+            var amount = g.Sum(l => l.Net + (l.TaxRecoverable ? 0 : l.TaxAmount)); // tax that cannot be recovered is part of the cost
+            lines.Add(amount >= 0 ? new PostingLine(g.Key, amount, 0, memo, BusinessUnitId: bill.BusinessUnitId) : new PostingLine(g.Key, 0, -amount, memo, BusinessUnitId: bill.BusinessUnitId)); // a purchase variance in the buyer's favour is a credit
+        }
         var recoverable = bill.Lines.Where(l => l.TaxRecoverable).Sum(l => l.TaxAmount);
         if (recoverable > 0) lines.Add(new PostingLine(await posting.AccountForRoleAsync(SystemRoles.TaxInput, ct), recoverable, 0, memo));
         lines.Add(new PostingLine(ap, 0, bill.Total, memo, bill.PartyId));
@@ -177,10 +181,13 @@ internal sealed class BillHandlers(
     {
         var bill = await LoadAsync(cmd.Id, ct);
         if (bill.Status != DocumentStatus.Issued || bill.Paid != 0) throw new ConflictException("Only a posted bill with nothing paid can be voided.");
+        if (bill.SourceType == LedgerSources.Opening) throw new ConflictException("This document comes from the opening entry. Reverse the opening entry instead.");
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == bill.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
+        var lockedTo = (await guard.RequireAsync(bill.LegalEntityId, ct)).BooksLockedTo;
         await posting.ReverseTodayAsync(journal, VoidMemo.For(bill.Number, cmd.Reason), ct);
         bill.Status = DocumentStatus.Voided;
         VoidMemo.Stamp(bill, cmd.Reason, clock, user);
+        VoidMemo.MarkIfLocked(bill, bill.BillDate, lockedTo, clock);
         VoidMemo.Audit(audit, user, clock, nameof(Bill), bill.Id, bill.Number, cmd.Reason!);
         await publisher.Publish(new BillReleased(bill.Id), ct);
         await bills.SaveChangesAsync(ct);
@@ -213,8 +220,10 @@ internal sealed class BillHandlers(
             throw new ConflictException(DuplicateReferenceMessage(reference));
 
         var accountIds = i.Lines.Select(l => l.AccountId).Distinct().ToList();
-        var found = await accounts.Query(new Specification<Account>(a => accountIds.Contains(a.Id) && a.IsPostable && a.IsActive)).Select(a => a.Id).ToListAsync(ct);
+        var found = await accounts.Query(new Specification<Account>(a => accountIds.Contains(a.Id) && a.IsPostable && a.IsActive)).Select(a => new { a.Id, a.SystemRole }).ToListAsync(ct);
         if (found.Count != accountIds.Count) throw new FieldValidationException("lines", "An account was not found or cannot be posted to.");
+        if (i.Lines.Any(l => l.Price < 0 && found.First(a => a.Id == l.AccountId).SystemRole != SystemRoles.PurchaseVariance))
+            throw new FieldValidationException("lines", "A price cannot be negative, except on a purchase price variance line.");
         var taxIds = i.Lines.Where(l => l.TaxCodeId is not null).Select(l => l.TaxCodeId!.Value).Distinct().ToList();
         var taxes = await taxCodes.Query(new Specification<TaxCode>(t => taxIds.Contains(t.Id) && t.IsActive)).Select(t => new { t.Id, t.Rate, t.IsRecoverable }).ToDictionaryAsync(t => t.Id, ct);
         if (taxes.Count != taxIds.Count) throw new FieldValidationException("lines", "A tax code was not found or is no longer active.");

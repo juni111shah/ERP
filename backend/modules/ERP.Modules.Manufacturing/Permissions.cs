@@ -7,6 +7,7 @@ public static class Permissions
 
     public const string WorkOrdersRead = "manufacturing.workorders.read";
     public const string WorkOrdersManage = "manufacturing.workorders.manage";
+    public const string WorkOrdersReverse = "manufacturing.workorders.reverse";
 
     public const string CostingRead = "manufacturing.costing.read";
     public const string AnalyticsRead = "manufacturing.analytics.read";
@@ -17,6 +18,7 @@ public static class Permissions
         BomsManage,
         WorkOrdersRead,
         WorkOrdersManage,
+        WorkOrdersReverse,
         CostingRead,
         AnalyticsRead
     ];

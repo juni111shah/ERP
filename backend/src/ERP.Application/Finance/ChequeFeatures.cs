@@ -103,6 +103,7 @@ internal sealed class ChequeHandlers(
         await settlementService.ReverseAsync(s, $"Cancel {c.Number}", ct);
         s.Status = DocumentStatus.Voided;
         VoidMemo.Stamp(s, $"Cheque {c.InstrumentNo} cancelled", clock, user);
+        VoidMemo.MarkIfLocked(s, s.Date, (await guard.RequireAsync(s.LegalEntityId, ct)).BooksLockedTo, clock);
         c.Status = InstrumentStatus.Cancelled;
         await instruments.SaveChangesAsync(ct);
         return await ToDtoAsync(c, ct);
@@ -141,6 +142,7 @@ internal sealed class ChequeHandlers(
         s.Status = DocumentStatus.Voided;
         c.Status = InstrumentStatus.Bounced; c.BounceReason = cmd.Reason.Trim(); c.BouncedOn = cmd.Date;
         VoidMemo.Stamp(s, $"Cheque {c.InstrumentNo} bounced: {c.BounceReason}", clock, user);
+        VoidMemo.MarkIfLocked(s, s.Date, (await guard.RequireAsync(s.LegalEntityId, ct)).BooksLockedTo, clock);
         await instruments.SaveChangesAsync(ct);
         // Follow-up: the people who handle cheques are told once, right away; a reminder nags later if nobody logs a follow-up (see CoreReminderSource).
         foreach (var userId in await audience.UsersWithAsync(CorePermissions.ChequesApprove, ct))
@@ -196,7 +198,7 @@ internal sealed class ChequeHandlers(
                 && x.Status != InstrumentStatus.Cancelled && x.Status != InstrumentStatus.Replaced && x.Status != InstrumentStatus.Bounced, ct))
             throw new ConflictException($"Cheque {no} from this customer is already registered.");
 
-        var received = i.ReceivedOn ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var received = i.ReceivedOn ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var cheque = new PaymentInstrument
         {
             LegalEntityId = entity.Id, Kind = i.Kind, Direction = InstrumentDirection.Received, InstrumentNo = no, BankName = bank, Amount = i.Amount, CurrencyCode = entity.BaseCurrency,

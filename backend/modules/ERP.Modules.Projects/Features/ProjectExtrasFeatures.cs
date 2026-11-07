@@ -259,7 +259,7 @@ internal sealed class ExtrasHandlers(
         if (c.Status != ChangeOrderStatus.Draft) throw new ConflictException("This change order has already been decided.");
         ProjectRules.EnsureOpen(await projects.GetAsync(c.ProjectId, ct));
         c.Status = cmd.Approve ? ChangeOrderStatus.Approved : ChangeOrderStatus.Rejected;
-        c.DecidedAt = DateTime.UtcNow; c.DecisionNote = cmd.Note?.Trim();
+        c.DecidedAt = ERP.Domain.Common.AppClock.UtcNow; c.DecisionNote = cmd.Note?.Trim();
         await changeOrders.SaveChangesAsync(ct);
         return ChangeOf(c);
     }

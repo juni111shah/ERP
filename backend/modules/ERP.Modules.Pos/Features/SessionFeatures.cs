@@ -323,7 +323,7 @@ public class SessionHandlers :
             var cash = await _accounts.CashAsync(register, token);
             var cashComesIn = request.Type is CashMovementType.FloatIn or CashMovementType.PayIn;
             var memo = $"Drawer {request.Type} - {session.RegisterName}: {reason}";
-            await _posting.PostAsync(new PostingRequest(session.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), JournalSource, session.Id, memo.Length > 250 ? memo[..250] : memo, session.RegisterName,
+            await _posting.PostAsync(new PostingRequest(session.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), JournalSource, session.Id, memo.Length > 250 ? memo[..250] : memo, session.RegisterName,
                 cashComesIn
                     ? [new PostingLine(cash, amount, 0, reason), new PostingLine(other, 0, amount, reason)]
                     : [new PostingLine(other, amount, 0, reason), new PostingLine(cash, 0, amount, reason)]), token);

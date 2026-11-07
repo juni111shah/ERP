@@ -15,16 +15,17 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace ERP.Infrastructure.Auth;
 
-/// <summary>Password reset delivery (email in production; logged in development; captured in tests).</summary>
+/// <summary>Password reset delivery (email when it is on; logged only in the Development environment; captured in tests).</summary>
 public interface IPasswordResetSender { Task SendAsync(string email, string token, CancellationToken ct = default); }
 
-public sealed class LoggingPasswordResetSender(ILogger<LoggingPasswordResetSender> log, IEmailSender email, IOptions<EmailOptions> options) : IPasswordResetSender
+public sealed class LoggingPasswordResetSender(ILogger<LoggingPasswordResetSender> log, IEmailSender email, IOptions<EmailOptions> options, IHostEnvironment environment) : IPasswordResetSender
 {
     public async Task SendAsync(string to, string token, CancellationToken ct = default)
     {
@@ -38,7 +39,9 @@ public sealed class LoggingPasswordResetSender(ILogger<LoggingPasswordResetSende
             catch (Exception e) when (e is not OperationCanceledException) { log.LogError(e, "Could not email the password reset link to {Email}", to); } // never reveal failures to the caller
             return;
         }
-        log.LogInformation("Password reset requested for {Email}. Dev-only link: {Link}", to, link);
+        // The link is a live credential: anywhere but a developer's machine it must never reach the logs.
+        if (environment.IsDevelopment()) log.LogInformation("Password reset requested for {Email}. Dev-only link: {Link}", to, link);
+        else log.LogWarning("A password reset was requested but email is off, so no link was sent.");
     }
 }
 

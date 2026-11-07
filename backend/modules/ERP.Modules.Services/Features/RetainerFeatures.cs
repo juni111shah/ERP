@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Services.Domain;
 using FluentValidation;
 using MediatR;
@@ -91,15 +92,30 @@ public class RetainerHandlers :
 {
     private readonly IRepository<RetainerContract> _repo;
     private readonly INumberingService _numbering;
+    private readonly IReadRepository<ServiceEngagement> _engagements;
+    private readonly ClientReferences _clients;
+    private readonly ILegalEntityGuard _guard;
 
-    public RetainerHandlers(IRepository<RetainerContract> repo, INumberingService numbering)
+    public RetainerHandlers(IRepository<RetainerContract> repo, INumberingService numbering, IReadRepository<ServiceEngagement> engagements, ClientReferences clients, ILegalEntityGuard guard)
     {
         _repo = repo;
         _numbering = numbering;
+        _engagements = engagements;
+        _clients = clients;
+        _guard = guard;
     }
 
     public async Task<RetainerDto> Handle(CreateRetainerCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
+        var engagement = await _engagements.FindAsync(request.EngagementId, cancellationToken)
+            ?? throw new FieldValidationException("engagementId", "Engagement not found.");
+        if (engagement.LegalEntityId != request.LegalEntityId) throw new FieldValidationException("engagementId", "The engagement belongs to another legal entity.");
+        if (engagement.Status == EngagementStatus.Cancelled) throw new ConflictException($"Engagement {engagement.EngagementCode} is cancelled.");
+        if (engagement.ClientId != request.ClientId) throw new FieldValidationException("clientId", "The client must be the client of the engagement.");
+        var clientName = await _clients.RequireNameAsync(request.ClientId, cancellationToken);
+        if (request.EndDate is { } end && end < request.StartDate) throw new FieldValidationException("endDate", "The end date cannot be before the start date.");
+
         var number = await _numbering.NextAsync("RET", request.LegalEntityId, request.StartDate, cancellationToken);
         var contract = new RetainerContract
         {
@@ -107,7 +123,7 @@ public class RetainerHandlers :
             RetainerNumber = number,
             EngagementId = request.EngagementId,
             ClientId = request.ClientId,
-            ClientName = request.ClientName.Trim(),
+            ClientName = clientName,
             Title = request.Title.Trim(),
             Cycle = request.Cycle,
             Status = RetainerStatus.Active,

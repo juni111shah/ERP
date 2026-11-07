@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Distribution.Domain;
 using FluentValidation;
 using MediatR;
@@ -83,14 +84,17 @@ public class WholesaleHandlers :
     IRequestHandler<CalculateWholesaleRateQuery, WholesaleRateCalculationDto>
 {
     private readonly IRepository<WholesalePriceMatrix> _matrix;
+    private readonly ILegalEntityGuard _guard;
 
-    public WholesaleHandlers(IRepository<WholesalePriceMatrix> matrix)
+    public WholesaleHandlers(IRepository<WholesalePriceMatrix> matrix, ILegalEntityGuard guard)
     {
         _matrix = matrix;
+        _guard = guard;
     }
 
     public async Task<WholesalePriceMatrixDto> Handle(CreateWholesalePriceCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
         var price = new WholesalePriceMatrix
         {
             LegalEntityId = request.LegalEntityId,

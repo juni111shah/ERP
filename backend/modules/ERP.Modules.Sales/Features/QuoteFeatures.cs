@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Customization;
+using ERP.Application.Finance;
 using ERP.Application.Organizations;
 using ERP.Application.Security;
 using ERP.Modules.Sales.Domain;
@@ -130,7 +131,9 @@ internal sealed class QuoteHandlers(
     IRepository<SalesOrder> orders,
     ILegalEntityGuard guard,
     INumberingService numbers,
-    ICustomFieldService fields) :
+    ICustomFieldService fields,
+    IReferenceCheck references,
+    ICreditLimitService creditLimits) :
     IRequestHandler<GetQuote, QuoteDto>,
     IRequestHandler<CreateQuote, QuoteDto>,
     IRequestHandler<UpdateQuote, QuoteDto>,
@@ -150,6 +153,7 @@ internal sealed class QuoteHandlers(
     {
         var i = cmd.Input;
         var entity = await guard.RequireAsync(i.LegalEntityId, ct);
+        await SalesReferences.EnsureAsync(references, i.CustomerPartyId, i.Lines.Select(l => l.ItemId), ct);
         var quote = new SalesQuote
         {
             LegalEntityId = entity.Id,
@@ -190,6 +194,7 @@ internal sealed class QuoteHandlers(
             throw new ConflictException("Cannot edit a converted quote.");
 
         var i = cmd.Input;
+        await SalesReferences.EnsureAsync(references, i.CustomerPartyId, i.Lines.Select(l => l.ItemId), ct);
         quote.CustomerPartyId = i.CustomerPartyId;
         quote.CustomerName = i.CustomerName.Trim();
         quote.CustomerEmail = i.CustomerEmail?.Trim();
@@ -254,12 +259,12 @@ internal sealed class QuoteHandlers(
             QuoteNumber = quote.Number,
             CustomerPartyId = quote.CustomerPartyId,
             CustomerName = quote.CustomerName,
-            OrderDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            OrderDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
             Currency = quote.Currency,
             Status = SalesOrderStatus.Confirmed,
             PaymentTerms = quote.Terms,
             Notes = quote.Notes,
-            Number = await numbers.NextAsync(Docs.SalesOrder, quote.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), ct),
+            Number = await numbers.NextAsync(Docs.SalesOrder, quote.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), ct),
         };
 
         foreach (var l in quote.Lines)
@@ -282,6 +287,7 @@ internal sealed class QuoteHandlers(
         order.TaxTotal = quote.TaxTotal;
         order.DiscountTotal = quote.DiscountTotal;
         order.TotalAmount = quote.TotalAmount;
+        var warning = await OrderHandlers.CheckCreditAsync(order, orders, creditLimits, ct); // a converted order starts confirmed
 
         orders.Add(order);
         quote.Status = SalesQuoteStatus.Converted;
@@ -290,7 +296,7 @@ internal sealed class QuoteHandlers(
         await quotes.SaveChangesAsync(ct);
         await orders.SaveChangesAsync(ct);
 
-        return await OrderHandlers.ToDtoAsync(order, fields, ct);
+        return await OrderHandlers.ToDtoAsync(order, fields, ct) with { Warnings = warning is null ? null : [warning] };
     }
 
     private static void PopulateLinesAndTotals(SalesQuote quote, List<QuoteLineInput> lines)

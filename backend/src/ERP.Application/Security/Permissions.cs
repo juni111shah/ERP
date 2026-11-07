@@ -60,6 +60,8 @@ public static class CorePermissions
     public const string CurrenciesRead = "finance.currencies.read";
     public const string CurrenciesWrite = "finance.currencies.write";
     public const string ReportsRead = "finance.reports.read";
+    public const string YearEndClose = "finance.yearend.close";
+    public const string YearEndReopen = "finance.yearend.reopen";
     public const string BudgetsRead = "finance.budgets.read";
     public const string BudgetsWrite = "finance.budgets.write";
     public const string BankRead = "finance.bank.read";
@@ -123,6 +125,8 @@ public static class CorePermissions
         PermissionDefinition.Of(CurrenciesRead, "View currencies and exchange rates"),
         PermissionDefinition.Of(CurrenciesWrite, "Edit exchange rates"),
         PermissionDefinition.Of(ReportsRead, "View financial reports"),
+        PermissionDefinition.Of(YearEndClose, "Close a fiscal year and lock its books"),
+        PermissionDefinition.Of(YearEndReopen, "Reopen a closed fiscal year (reverses the closing entry)"),
         PermissionDefinition.Of(BudgetsRead, "View budgets and the budget-vs-actual report"),
         PermissionDefinition.Of(BudgetsWrite, "Create and edit budgets"),
         PermissionDefinition.Of(BankRead, "View bank balances and reconciliations"),

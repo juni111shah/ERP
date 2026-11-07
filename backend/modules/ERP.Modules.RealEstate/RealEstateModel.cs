@@ -85,6 +85,18 @@ internal static class RealEstateModel
             b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status, x.EndDate });
         });
 
+        mb.Entity<OwnerPayout>(b =>
+        {
+            b.ToTable("re_OwnerPayouts");
+            b.Property(x => x.Number).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.Property(x => x.VoidReason).HasMaxLength(500);
+            foreach (var m in new[] { nameof(OwnerPayout.RentCollected), nameof(OwnerPayout.ManagementFee), nameof(OwnerPayout.MaintenanceCosts), nameof(OwnerPayout.Amount) }) b.Property(m).HasPrecision(19, 4);
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Number }).IsUnique().HasFilter(Live);
+            b.HasIndex(x => new { x.OrgId, x.OwnerPartyId, x.PeriodFrom });
+            b.HasIndex(x => new { x.OrgId, x.BillId }).HasFilter("[BillId] IS NOT NULL");
+        });
+
         mb.Entity<RentInstalment>(b =>
         {
             b.ToTable("re_RentInstalments", t => t.HasCheckConstraint("CK_re_RentInstalments_Period", "[PeriodTo] >= [PeriodFrom] AND [Amount] >= 0"));

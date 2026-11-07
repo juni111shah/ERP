@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
+using ERP.Application.Organizations;
 using ERP.Modules.Services.Domain;
 using FluentValidation;
 using MediatR;
@@ -96,15 +97,25 @@ public class EngagementHandlers :
 {
     private readonly IRepository<ServiceEngagement> _repo;
     private readonly INumberingService _numbering;
+    private readonly ClientReferences _clients;
+    private readonly ILegalEntityGuard _guard;
+    private readonly IUserDirectory _users;
 
-    public EngagementHandlers(IRepository<ServiceEngagement> repo, INumberingService numbering)
+    public EngagementHandlers(IRepository<ServiceEngagement> repo, INumberingService numbering, ClientReferences clients, ILegalEntityGuard guard, IUserDirectory users)
     {
         _repo = repo;
         _numbering = numbering;
+        _clients = clients;
+        _guard = guard;
+        _users = users;
     }
 
     public async Task<EngagementDto> Handle(CreateEngagementCommand request, CancellationToken cancellationToken)
     {
+        await _guard.RequireAsync(request.LegalEntityId, cancellationToken);
+        var clientName = await _clients.RequireNameAsync(request.ClientId, cancellationToken);
+        if (request.LeadConsultantUserId is { } lead && (await _users.ListMembersAsync([lead], cancellationToken)).Count == 0)
+            throw new FieldValidationException("leadConsultantUserId", "That user is not a member of this workspace.");
         var code = await _numbering.NextAsync("ENG", request.LegalEntityId, request.StartDate, cancellationToken);
         var engagement = new ServiceEngagement
         {
@@ -112,7 +123,7 @@ public class EngagementHandlers :
             EngagementCode = code,
             Title = request.Title.Trim(),
             ClientId = request.ClientId,
-            ClientName = request.ClientName.Trim(),
+            ClientName = clientName,
             Type = request.Type,
             Status = EngagementStatus.Active,
             ContractValue = request.ContractValue,
@@ -143,7 +154,7 @@ public class EngagementHandlers :
         engagement.Status = request.Status;
         if (request.Status == EngagementStatus.Completed && engagement.ActualEndDate is null)
         {
-            engagement.ActualEndDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            engagement.ActualEndDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         }
 
         await _repo.SaveChangesAsync(cancellationToken);

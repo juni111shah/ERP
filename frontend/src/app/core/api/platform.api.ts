@@ -35,7 +35,17 @@ export interface PublicFaq { q: string; a: string; qAr: string; aAr: string; }
 export interface PublicContent { builtIn: PublicFeature[]; trust: PublicFeature[]; faqs: PublicFaq[]; about: string | null; }
 export interface BrandLeadInput { token: string | null; name: string; email: string; phone: string | null; company: string | null; need: string | null; consent: boolean; website: string | null; }
 export interface LegalDocuments { companyName: string; supportEmail: string | null; termsUrl: string | null; terms: string; privacy: string; updatedAt: string | null; }
-export interface IndustryOption { key: string; label: string; description: string; availability: string; suggestedModules: string[]; }
+export interface IndustryOption { key: string; label: string; description: string; availability: string; suggestedModules: string[]; installedModules?: string[]; sortOrder?: number; group?: string | null; }
+
+/** The business types a person can pick: the ones that are available, grouped by their `group` in the order the server gives. */
+export function groupIndustries(list: readonly IndustryOption[]): { group: string; items: IndustryOption[] }[] {
+  const groups = new Map<string, IndustryOption[]>();
+  for (const i of [...list].filter((x) => (x.availability ?? '').toLowerCase() === 'available').sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))) {
+    const key = i.group || 'General';
+    groups.set(key, [...(groups.get(key) ?? []), i]);
+  }
+  return [...groups].map(([group, items]) => ({ group, items }));
+}
 
 // ---- A client's own billing ----------------------------------------------------------------------------------------------
 

@@ -11,7 +11,7 @@ public static class BudgetEndpoints
 {
     public static void MapBudgets(this RouteGroupBuilder api)
     {
-        var g = api.MapGroup("/finance/budgets").WithTags("Budgets");
+        var g = api.MapGroup("/finance/budgets").WithTags("Budgets").WithMetadata(new ERP.Modularity.CapabilityGateMetadata("budgets"));
         g.MapPagedList<Budget, BudgetSummaryDto>("", CorePermissions.BudgetsRead, b => new BudgetSummaryDto(b.Id, b.LegalEntityId, b.Name, b.FiscalYear, b.IsActive));
         g.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetBudget(id), ct)).RequirePermission(CorePermissions.BudgetsRead);
         g.MapPost("", async (BudgetInput input, ISender s, CancellationToken ct) =>

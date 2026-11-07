@@ -85,7 +85,9 @@ public class ApprovalPolicy : OrgEntity
 {
     public string DocumentType { get; set; } = default!;
     public decimal? MinAmount { get; set; }
-    public string ApproverPermission { get; set; } = "approvals.decide";
+    public string ApproverPermission { get; set; } = "core.approvals.decide";
+    /// <summary>The position of this rule in a sequential chain: level N decides only after level N-1 approved. Rows of one document type and level are amount tiers (the highest one reached applies).</summary>
+    public int Level { get; set; } = 1;
     public bool IsActive { get; set; } = true;
 }
 
@@ -104,16 +106,31 @@ public class ApprovalRequest : OrgEntity
     public Guid? DecidedBy { get; set; }
     public DateTime? DecidedAt { get; set; }
     public string? DecisionComment { get; set; }
+    /// <summary>The chain, copied from the policies when the request was made (later policy edits do not touch a request in flight), and its decision history.</summary>
+    public List<ApprovalStep> Steps { get; set; } = new();
 
-    /// <summary>Segregation of duties: the requester can never decide their own request.</summary>
+    /// <summary>The step waiting for a decision; null once decided, and for requests made before chains existed.</summary>
+    public ApprovalStep? CurrentStep => Steps.Where(s => s.Status == ApprovalStepStatus.Pending).OrderBy(s => s.Level).FirstOrDefault();
+
+    /// <summary>Segregation of duties: the requester can never decide their own request, and nobody decides two levels of one request.</summary>
     public void Decide(Guid deciderId, bool approve, string? comment, DateTime now)
     {
         if (Status != ApprovalStatus.Pending) throw new DomainException("This request has already been decided.");
         if (deciderId == RequestedBy) throw new DomainException("Approvers can never approve their own requests.");
+        if (Steps.Any(s => s.DecidedBy == deciderId)) throw new DomainException("You have already decided an earlier level of this request. Another approver must decide this one.");
+        if (CurrentStep is { } step)
+        {
+            step.Status = approve ? ApprovalStepStatus.Approved : ApprovalStepStatus.Rejected;
+            step.DecidedBy = deciderId;
+            step.DecidedAt = now;
+            step.Comment = comment;
+            if (approve && CurrentStep is not null) return; // the next level decides now
+        }
         Status = approve ? ApprovalStatus.Approved : ApprovalStatus.Rejected;
         DecidedBy = deciderId;
         DecidedAt = now;
         DecisionComment = comment;
+        CancelOpenSteps();
     }
 
     public void Withdraw(Guid userId)
@@ -121,7 +138,27 @@ public class ApprovalRequest : OrgEntity
         if (Status != ApprovalStatus.Pending) throw new DomainException("Only pending requests can be withdrawn.");
         if (userId != RequestedBy) throw new DomainException("Only the requester can withdraw a request.");
         Status = ApprovalStatus.Withdrawn;
+        CancelOpenSteps();
     }
+
+    private void CancelOpenSteps()
+    {
+        foreach (var s in Steps.Where(s => s.Status == ApprovalStepStatus.Pending)) s.Status = ApprovalStepStatus.Cancelled;
+    }
+}
+
+public enum ApprovalStepStatus { Pending, Approved, Rejected, Cancelled }
+
+/// <summary>One level of a request: who may decide it, and the decision. Together the steps are the request's full decision history.</summary>
+public class ApprovalStep : OrgEntity
+{
+    public Guid ApprovalRequestId { get; set; }
+    public int Level { get; set; }
+    public string ApproverPermission { get; set; } = default!;
+    public ApprovalStepStatus Status { get; set; } = ApprovalStepStatus.Pending;
+    public Guid? DecidedBy { get; set; }
+    public DateTime? DecidedAt { get; set; }
+    public string? Comment { get; set; }
 }
 
 public enum MessageStatus { Sent = 1, Failed = 2 }

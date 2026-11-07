@@ -16,7 +16,7 @@ public static class BankEndpoints
 {
     public static void MapBank(this RouteGroupBuilder api)
     {
-        var g = api.MapGroup("/finance/bank").WithTags("Bank and cash");
+        var g = api.MapGroup("/finance/bank").WithTags("Bank and cash").WithMetadata(new ERP.Modularity.CapabilityGateMetadata("banking"));
         g.MapGet("/position", (DateOnly asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetCashPosition(asOf, legalEntityId), ct)).RequirePermission(CorePermissions.BankRead);
         g.MapPagedList<BankStatementLine, StatementLineDto>("/statement-lines", CorePermissions.BankRead, l => new StatementLineDto(l.Id, l.AccountId, l.Date, l.Description, l.Reference, l.Amount, l.Status, l.MatchedJournalLineId));
         g.MapGet("/accounts/{accountId:guid}/reconciliation", (Guid accountId, DateOnly asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetReconciliation(accountId, legalEntityId, asOf), ct)).RequirePermission(CorePermissions.BankRead);

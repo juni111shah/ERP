@@ -38,6 +38,8 @@ public static class PayablesEndpoints
         }).RequirePermission(CorePermissions.PaymentsWrite);
         payments.MapPost("/{id:guid}/allocate", (Guid id, AllocatePaymentBody b, ISender s, CancellationToken ct) => s.Send(new AllocatePayment(id, b.Allocations), ct)).RequirePermission(CorePermissions.PaymentsWrite);
         payments.MapPost("/{id:guid}/void", (Guid id, VoidBody? body, ISender s, CancellationToken ct) => s.Send(new VoidPayment(id, body?.Reason), ct)).RequirePermission(CorePermissions.PaymentsWrite);
+        payments.MapPost("/{id:guid}/post", (Guid id, ISender s, CancellationToken ct) => s.Send(new PostPayment(id), ct)).RequirePermission(CorePermissions.PaymentsWrite);
+        payments.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeletePayment(id), ct); return Results.NoContent(); }).RequirePermission(CorePermissions.PaymentsWrite);
         api.MapPost("/finance/cheques/{id:guid}/clear-issued", (Guid id, ClearBody b, ISender s, CancellationToken ct) => s.Send(new ClearIssuedCheque(id, b.Date), ct)).WithTags("Cheques").RequirePermission(CorePermissions.ChequesApprove);
 
         var reports = api.MapGroup("/finance/reports").WithTags("Finance reports");

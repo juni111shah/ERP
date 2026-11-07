@@ -124,6 +124,7 @@ public sealed class HrModule : ModuleBase
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<LeaveRequest>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), LeavePolicyService.AttachmentOwnerType, P.LeaveRead, P.LeaveRequest));
         services.AddScoped<IDashboardContributor, HrDashboard>();
+        services.AddScoped<IOwnerDashboardSection, HrOwnerSection>();
         services.AddScoped<ERP.Application.Reminders.IReminderSource, EmployeeDocumentReminders>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<EmployeeDocument>(
@@ -133,6 +134,9 @@ public sealed class HrModule : ModuleBase
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<Employee>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "employee", P.EmployeesRead, P.EmployeesManage));
+        // Pay and personal details are copied into the audit trail: reading them there takes the same permission as in the HR screens.
+        foreach (var recordType in new[] { nameof(Employee), nameof(EmployeeHistoryEntry), nameof(EmployeeLoan), nameof(Candidate), nameof(PayrollRun), nameof(PayrollLine), nameof(PayrollLineStatutory), nameof(PayrollLoanRecovery) })
+            services.AddSingleton<ERP.Application.Audit.IAuditFieldPolicy>(new ERP.Application.Audit.AuditFieldPolicy(recordType, P.SalaryRead));
     }
 
     public override void ConfigureModel(ModelBuilder mb)

@@ -18,7 +18,7 @@ public sealed record CustomerStatementDto(Guid PartyId, string? PartyName, DateO
 public sealed record GetArAgeing(DateOnly AsOf, Guid? LegalEntityId, Guid? BusinessUnitId = null, string? SourceType = null, string? GroupBy = null, Guid? PartyGroupId = null) : IQuery<ArAgeingDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 public sealed record GetCustomerStatement(Guid PartyId, DateOnly AsOf, Guid? LegalEntityId) : IQuery<CustomerStatementDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 
-internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadRepository<Settlement> settlements, IReadRepository<CreditApplication> creditApplications, IReadRepository<ERP.Domain.Organizations.BusinessUnit> businessUnits, IReadRepository<Party> parties, IReadRepository<PartyGroup> partyGroups) :
+internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadRepository<Settlement> settlements, IReadRepository<CreditApplication> creditApplications, IReadRepository<ERP.Domain.Organizations.BusinessUnit> businessUnits, IReadRepository<Party> parties, IReadRepository<PartyGroup> partyGroups, IReportCurrencyGuard currencies) :
     IRequestHandler<GetArAgeing, ArAgeingDto>,
     IRequestHandler<GetCustomerStatement, CustomerStatementDto>
 {
@@ -26,6 +26,7 @@ internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadR
 
     public async Task<ArAgeingDto> Handle(GetArAgeing q, CancellationToken ct)
     {
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
         var mode = (q.GroupBy ?? "customer").ToLowerInvariant();
         if (mode is not ("customer" or "businessunit" or "sourcetype" or "partygroup")) throw new FieldValidationException("groupBy", "Group by customer, businessUnit, sourceType or partyGroup.");
         // Party -> group lookup (only what the report needs).
@@ -87,6 +88,7 @@ internal sealed class ArReportHandlers(IReadRepository<Invoice> invoices, IReadR
 
     public async Task<CustomerStatementDto> Handle(GetCustomerStatement q, CancellationToken ct)
     {
+        await currencies.EnsureSingleCurrencyAsync(q.LegalEntityId, ct);
         var open = await OpenAsync(q.AsOf, q.LegalEntityId, q.PartyId, ct);
         var unallocated = (await UnallocatedAsync(q.AsOf, q.LegalEntityId, q.PartyId, ct)).Sum(u => u.Amount);
         var items = open.OrderBy(o => o.DueDate).Select(o => new AgeingItem(o.Id, o.Number, o.IsCreditNote, o.InvoiceDate, o.DueDate, Math.Max(0, q.AsOf.DayNumber - o.DueDate.DayNumber), o.Total - o.Paid)).ToList();

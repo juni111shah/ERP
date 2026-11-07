@@ -27,6 +27,8 @@ public sealed class SalesModule : ModuleBase
         PermissionDefinition.Of(P.QuotesManage, "Create, edit, and convert sales quotes"),
         PermissionDefinition.Of(P.OrdersRead, "View sales orders"),
         PermissionDefinition.Of(P.OrdersManage, "Create, edit, fulfill, and invoice sales orders"),
+        PermissionDefinition.Of(P.ReturnsRead, "View sales returns"),
+        PermissionDefinition.Of(P.ReturnsManage, "Create, post and void sales returns"),
         PermissionDefinition.Of(P.AnalyticsRead, "View sales analytics and KPI reporting"),
     ];
 
@@ -55,12 +57,13 @@ public sealed class SalesModule : ModuleBase
             Roles:
             [
                 new("Sales manager", "Quotes, orders, and sales performance",
-                    [P.QuotesRead, P.QuotesManage, P.OrdersRead, P.OrdersManage, P.AnalyticsRead, CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite], Key),
+                    [P.QuotesRead, P.QuotesManage, P.OrdersRead, P.OrdersManage, P.ReturnsRead, P.ReturnsManage, P.AnalyticsRead, CorePermissions.InvoicesRead, CorePermissions.InvoicesWrite, CorePermissions.InvoicesCredit, CorePermissions.InvoicesIssue, CorePermissions.InvoicesVoid], Key),
             ],
             Sequences:
             [
                 new(Docs.Quote, "QT", "{prefix}-{seq:4}", false),
                 new(Docs.SalesOrder, "SO", "{prefix}-{seq:4}", false),
+                new(Docs.SalesReturn, "SR", "{prefix}-{seq:4}", false),
             ],
             SortOrder: 30),
     ];
@@ -68,6 +71,7 @@ public sealed class SalesModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IDashboardContributor, SalesDashboard>();
+        services.AddScoped<ERP.Application.Dashboard.IOwnerDashboardSection, Features.SalesOwnerSection>();
         services.AddScoped<ISearchProvider, SalesSearch>();
         services.AddScoped<ERP.Application.Assistant.IAssistantReader, QuotesAssistantReader>();
         services.AddScoped<ERP.Application.Assistant.IAssistantReader, OrdersAssistantReader>();
@@ -138,6 +142,36 @@ public sealed class SalesModule : ModuleBase
             b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        mb.Entity<SalesReturn>(b =>
+        {
+            b.ToTable("sls_Returns");
+            b.Property(x => x.Number).HasMaxLength(30).IsRequired();
+            b.Property(x => x.OrderNumber).HasMaxLength(30);
+            b.Property(x => x.InvoiceNumber).HasMaxLength(50);
+            b.Property(x => x.CreditNoteNumber).HasMaxLength(50);
+            b.Property(x => x.CustomerName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Notes).HasMaxLength(1000);
+            b.Property(x => x.VoidReason).HasMaxLength(500);
+            b.Property(x => x.SubTotal).HasPrecision(19, 4);
+            b.Property(x => x.TaxTotal).HasPrecision(19, 4);
+            b.Property(x => x.TotalAmount).HasPrecision(19, 4);
+            b.HasIndex(x => new { x.OrgId, x.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
+            b.HasIndex(x => new { x.OrgId, x.LegalEntityId, x.Status });
+            b.HasIndex(x => new { x.OrgId, x.SalesOrderId });
+            b.HasIndex(x => new { x.OrgId, x.InvoiceId });
+            b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.ReturnId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        mb.Entity<SalesReturnLine>(b =>
+        {
+            b.ToTable("sls_ReturnLines");
+            b.Property(x => x.ItemCode).HasMaxLength(50);
+            b.Property(x => x.Description).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.HasIndex(x => new { x.OrgId, x.ReturnId });
+        });
+
         mb.Entity<SalesOrderLine>(b =>
         {
             b.ToTable("sls_OrderLines");
@@ -146,6 +180,8 @@ public sealed class SalesModule : ModuleBase
             b.Property(x => x.Quantity).HasPrecision(18, 4);
             b.Property(x => x.DeliveredQuantity).HasPrecision(18, 4);
             b.Property(x => x.InvoicedQuantity).HasPrecision(18, 4);
+            b.Property(x => x.AutoDeliveredQuantity).HasPrecision(18, 4);
+            b.Property(x => x.ReturnedQuantity).HasPrecision(18, 4);
             b.Property(x => x.UnitOfMeasure).HasMaxLength(20);
             b.Property(x => x.UnitPrice).HasPrecision(19, 4);
             b.Property(x => x.DiscountPercent).HasPrecision(5, 2);

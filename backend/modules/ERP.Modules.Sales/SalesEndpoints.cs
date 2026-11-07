@@ -12,7 +12,8 @@ namespace ERP.Modules.Sales;
 
 public sealed record ChangeQuoteStatusBody(SalesQuoteStatus Status);
 public sealed record ChangeOrderStatusBody(SalesOrderStatus Status);
-public sealed record UpdateFulfillmentBody(List<OrderFulfillmentLineInput> Lines);
+public sealed record VoidSalesReturnBody(string? Reason);
+public sealed record UpdateFulfillmentBody(List<OrderFulfillmentLineInput> Lines, DateOnly? DeliveryDate = null, Guid? WarehouseId = null);
 
 internal static class SalesEndpoints
 {
@@ -52,8 +53,23 @@ internal static class SalesEndpoints
         orders.MapPut("/{id:guid}", (Guid id, OrderInput input, ISender s, CancellationToken ct) => s.Send(new UpdateOrder(id, input), ct)).RequirePermission(P.OrdersManage);
         orders.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteOrder(id), ct); return Results.NoContent(); }).RequirePermission(P.OrdersManage);
         orders.MapPut("/{id:guid}/status", (Guid id, ChangeOrderStatusBody b, ISender s, CancellationToken ct) => s.Send(new ChangeOrderStatus(id, b.Status), ct)).RequirePermission(P.OrdersManage);
-        orders.MapPut("/{id:guid}/fulfillment", (Guid id, UpdateFulfillmentBody b, ISender s, CancellationToken ct) => s.Send(new UpdateOrderFulfillment(id, b.Lines), ct)).RequirePermission(P.OrdersManage);
+        orders.MapPut("/{id:guid}/fulfillment", (Guid id, UpdateFulfillmentBody b, ISender s, CancellationToken ct) => s.Send(new UpdateOrderFulfillment(id, b.Lines, b.DeliveryDate, b.WarehouseId), ct)).RequirePermission(P.OrdersManage);
         orders.MapPost("/{id:guid}/convert-to-invoice", (Guid id, ISender s, CancellationToken ct) => s.Send(new ConvertOrderToInvoice(id), ct)).RequirePermission(P.OrdersManage);
+
+        var returns = group.MapGroup("/returns");
+        returns.MapPagedList<SalesReturn, SalesReturnSummaryDto>("", P.ReturnsRead,
+            r => new SalesReturnSummaryDto(
+                r.Id, r.Number, r.LegalEntityId, r.SalesOrderId, r.OrderNumber, r.InvoiceId, r.InvoiceNumber, r.CustomerPartyId, r.CustomerName,
+                r.ReturnDate, r.Status, r.CreditNoteId, r.CreditNoteNumber, r.TotalAmount, r.Lines.Count, r.CreatedAt));
+        returns.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetSalesReturn(id), ct)).RequirePermission(P.ReturnsRead);
+        returns.MapPost("", async (SalesReturnInput input, ISender s, CancellationToken ct) =>
+        {
+            var created = await s.Send(new CreateSalesReturn(input), ct);
+            return Results.Created($"{Base}/returns/{created.Id}", created);
+        }).RequirePermission(P.ReturnsManage);
+        returns.MapDelete("/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteSalesReturn(id), ct); return Results.NoContent(); }).RequirePermission(P.ReturnsManage);
+        returns.MapPost("/{id:guid}/post", (Guid id, ISender s, CancellationToken ct) => s.Send(new PostSalesReturn(id), ct)).RequirePermission(P.ReturnsManage);
+        returns.MapPost("/{id:guid}/void", (Guid id, VoidSalesReturnBody b, ISender s, CancellationToken ct) => s.Send(new VoidSalesReturn(id, b.Reason), ct)).RequirePermission(P.ReturnsManage);
 
         var kpis = group.MapGroup("/kpis");
         kpis.MapGet("", (ISender s, CancellationToken ct) => s.Send(new GetSalesKpiSummary(), ct)).RequirePermission(P.OrdersRead);

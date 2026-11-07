@@ -40,11 +40,14 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Search.ISearchProvider, ERP.Application.Search.CoreSearchProvider>();
         services.AddScoped<ERP.Application.Finance.IPostingService, ERP.Application.Finance.PostingService>();
         services.AddScoped<ERP.Application.Finance.IInvoicingService, ERP.Application.Finance.InvoicingService>();
+        services.AddScoped<ERP.Application.Finance.ICreditLimitService, ERP.Application.Finance.CreditLimitService>();
         services.AddScoped<ERP.Application.Finance.ISettlementService, ERP.Application.Finance.SettlementService>();
         services.AddScoped<ILegalEntityGuard, LegalEntityGuard>();
+        services.AddScoped<ERP.Application.Audit.AuditFieldAccess>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<INotifier, Notifier>();
         services.AddScoped<ERP.Application.Finance.TaxLineReader>();
+        services.AddScoped<ERP.Application.Finance.IReportCurrencyGuard, ERP.Application.Finance.ReportCurrencyGuard>();
         services.AddScoped<ERP.Application.Imports.IImportDefinition, ERP.Application.Imports.PartyImport>();
         services.AddScoped<ERP.Application.Imports.IImportDefinition, ERP.Application.Imports.ItemImport>();
         services.AddScoped<ERP.Application.Reminders.ReminderDispatcher>();

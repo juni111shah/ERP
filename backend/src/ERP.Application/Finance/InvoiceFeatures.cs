@@ -12,7 +12,7 @@ namespace ERP.Application.Finance;
 public sealed record InvoiceLineInput(string Description, decimal Quantity, decimal Price, Guid? TaxCodeId = null, Guid? AccountId = null, Guid? ItemId = null);
 /// <summary>SourceType and SourceId are set only by module billing code; they are never read from a request body.</summary>
 public sealed record InvoiceInput(Guid LegalEntityId, Guid PartyId, DateOnly InvoiceDate, DateOnly? DueDate, List<InvoiceLineInput> Lines, bool IsCreditNote = false, string? Notes = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] string? SourceType = null, [property: System.Text.Json.Serialization.JsonIgnore] Guid? SourceId = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] string? SourceType = null, [property: System.Text.Json.Serialization.JsonIgnore] Guid? SourceId = null, Guid? BusinessUnitId = null);
 
 public sealed record InvoiceLineDto(Guid Id, int Seq, Guid? ItemId, string Description, decimal Quantity, decimal Price, Guid? TaxCodeId, decimal TaxAmount, decimal Net, Guid? AccountId);
 public sealed record InvoiceDto(
@@ -100,7 +100,7 @@ public sealed class ApplyCreditNoteValidator : AbstractValidator<ApplyCreditNote
 
 internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository<InvoiceLine> lineRows, IInvoicingService invoicing, IClock clock,
     IRepository<AuditEvent> audit, ICurrentUser user, IRepository<CreditApplication> creditApplications, IPublisher publisher,
-    IReadRepository<ERP.Domain.Organizations.LegalEntity> legalEntities, IReadRepository<ERP.Domain.Parties.Party> parties, ERP.Application.Templates.CountryPackRegistry countryPacks) :
+    IReadRepository<ERP.Domain.Organizations.LegalEntity> legalEntities, IReadRepository<ERP.Domain.Parties.Party> parties, ERP.Application.Templates.CountryPackRegistry countryPacks, IUnitOfWork uow, ICreditLimitService creditLimits) :
     IRequestHandler<GetInvoice, InvoiceDto>,
     IRequestHandler<CreateInvoice, InvoiceDto>,
     IRequestHandler<UpdateInvoice, InvoiceDto>,
@@ -140,7 +140,10 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         return InvoiceDto.From(invoice);
     }
 
-    public async Task<Unit> Handle(DeleteInvoice cmd, CancellationToken ct)
+    // The handlers of InvoiceVoided may move stock and post: they commit with the invoice or not at all.
+    public Task<Unit> Handle(DeleteInvoice cmd, CancellationToken ct) => uow.InTransactionAsync(token => DeleteAsync(cmd, token), ct);
+
+    private async Task<Unit> DeleteAsync(DeleteInvoice cmd, CancellationToken ct)
     {
         var invoice = await LoadAsync(cmd.Id, ct);
         if (invoice.Status != DocumentStatus.Draft) throw new ConflictException("Only a draft can be deleted.");
@@ -155,9 +158,11 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
     {
         var invoice = await LoadAsync(cmd.Id, ct);
         await EnsureWithinUncreditedAsync(invoice, ct);
+        var creditWarning = !invoice.IsCreditNote && invoice.Status == DocumentStatus.Draft ? await creditLimits.CheckAsync(invoice.PartyId, invoice.LegalEntityId, invoice.Total, ct) : null;
         await invoicing.IssueAsync(invoice, ct);
         await invoices.SaveChangesAsync(ct);
-        return InvoiceDto.From(invoice) with { Warnings = await RequirementWarningsAsync(invoice, ct) };
+        var warnings = await RequirementWarningsAsync(invoice, ct);
+        return InvoiceDto.From(invoice) with { Warnings = creditWarning is null ? warnings : [creditWarning, .. warnings] };
     }
 
     /// <summary>What the country pack expects on a tax invoice and is missing; informational only.</summary>
@@ -169,7 +174,9 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         return InvoiceRequirements.Warnings(countryPacks.Find(entity.CountryCode), entity, customer, invoice);
     }
 
-    public async Task<InvoiceDto> Handle(VoidInvoice cmd, CancellationToken ct)
+    public Task<InvoiceDto> Handle(VoidInvoice cmd, CancellationToken ct) => uow.InTransactionAsync(token => VoidAsync(cmd, token), ct);
+
+    private async Task<InvoiceDto> VoidAsync(VoidInvoice cmd, CancellationToken ct)
     {
         var invoice = await LoadAsync(cmd.Id, ct);
         await invoicing.VoidAsync(invoice, cmd.Reason, ct);
@@ -279,7 +286,7 @@ internal sealed class InvoiceHandlers(IRepository<Invoice> invoices, IRepository
         => await invoices.Tracked(new Specification<Invoice>(i => i.Id == id).Include(i => i.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
 
     private static InvoiceDraft ToDraft(InvoiceInput i)
-        => new(i.LegalEntityId, i.PartyId, i.InvoiceDate, i.DueDate, i.Lines.Select(l => new InvoiceLineDraft(l.Description.Trim(), l.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId)).ToList(), i.IsCreditNote, SourceType: i.SourceType, SourceId: i.SourceId, Notes: i.Notes);
+        => new(i.LegalEntityId, i.PartyId, i.InvoiceDate, i.DueDate, i.Lines.Select(l => new InvoiceLineDraft(l.Description.Trim(), l.Quantity, l.Price, l.TaxCodeId, l.AccountId, l.ItemId)).ToList(), i.IsCreditNote, SourceType: i.SourceType, SourceId: i.SourceId, BusinessUnitId: i.BusinessUnitId, Notes: i.Notes);
 }
 
 public static class SettlementStatus

@@ -34,7 +34,7 @@ public sealed record SetStockPolicy(StockPolicyInput Input) : ICommand, IRequire
 internal static class StockRules
 {
     public static IRuleBuilderOptions<T, DateOnly> ValidStockDate<T>(this IRuleBuilder<T, DateOnly> rule)
-        => rule.Must(d => d != default && d >= DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-10) && d <= DateOnly.FromDateTime(DateTime.UtcNow).AddYears(10))
+        => rule.Must(d => d != default && d >= DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow).AddYears(-10) && d <= DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow).AddYears(10))
             .WithMessage("Enter a valid date.");
 
     public static IRuleBuilderOptions<T, decimal> FourDecimals<T>(this IRuleBuilder<T, decimal> rule)

@@ -128,7 +128,7 @@ internal sealed class PayrollHandlers(
         var run = await LoadDraftAsync(cmd.RunId, ct);
         await WithdrawPendingAsync(run, ct);
         var line = run.Lines.FirstOrDefault(l => l.Id == cmd.LineId) ?? throw new NotFoundException();
-        var (gross, net) = PayrollMath.WithAdjustment(line.Basic, line.Allowances, line.Overtime, line.Absence, cmd.Adjustment, line.Deductions);
+        var (gross, net) = PayrollMath.WithAdjustment(line.Basic, line.Allowances, line.Overtime, line.Absence, cmd.Adjustment, line.Deductions, line.LeaveEncashment + line.EndOfService);
         if (gross < 0 || net < 0) throw new FieldValidationException("adjustment", "The adjustment would make the pay negative.");
         line.Adjustment = cmd.Adjustment; line.AdjustmentNote = cmd.Note?.Trim(); line.GrossEarnings = gross; line.NetPay = net;
         Totals(run); run.Status = PayrollStatus.Draft; run.ApprovalRequestId = null; separation.StampAdjusted(run);
@@ -153,6 +153,7 @@ internal sealed class PayrollHandlers(
     {
         var run = await LoadAsync(cmd.Id, ct);
         if (run.Status is not (PayrollStatus.Draft or PayrollStatus.PendingApproval)) throw new ConflictException("Only a draft payroll can be posted.");
+        Totals(run); // the header follows the lines: a total saved earlier cannot unbalance the entry or the approval amount
         if (run.NetPay <= 0) throw new ConflictException("A payroll with no net pay cannot be posted.");
         await separation.RequireCanPostAsync(run, ct);
 
@@ -172,8 +173,11 @@ internal sealed class PayrollHandlers(
         var expense = await posting.AccountForRoleAsync("payroll.expense", ct);
         var payable = await posting.AccountForRoleAsync("payroll.accrued", ct);
         var memo = run.Kind == PayrollKind.FinalSettlement ? $"Final settlement {run.Number}" : $"Payroll accrual {run.Year}-{run.Month:00}";
+        // debits and credits both come from the lines
         var loanTotal = run.Lines.Sum(l => l.LoanRecovery);
         var endOfService = run.Lines.Sum(l => l.EndOfService);
+        var netPay = run.Lines.Sum(l => l.NetPay);
+        var deductions = run.Lines.Sum(l => l.Deductions);
         var lines = new List<PostingLine>();
         // the expense is split by business unit (the unit of the employee's department); people without one stay on the plain line
         var unitByEmployee = await BusinessUnitsAsync(run.Lines.Select(l => l.EmployeeId).ToList(), ct);
@@ -181,18 +185,19 @@ internal sealed class PayrollHandlers(
         {
             var amount = g.Sum(l => l.GrossEarnings - l.EndOfService);
             if (amount > 0) lines.Add(new PostingLine(expense, amount, 0, memo, null, g.Key));
+            else if (amount < 0) lines.Add(new PostingLine(expense, 0, -amount, memo, null, g.Key)); // a unit whose adjustments outweigh its pay reduces the expense; skipping it would unbalance the entry
         }
         if (endOfService > 0)
         {
             // end of service is paid out of the provision first; whatever the provision does not cover is expensed now
             var provisionAccount = await posting.AccountForRoleAsync("payroll.gratuity.provision", ct);
-            var available = Math.Max(0m, await provisions.BalanceAsync(run.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), ct));
+            var available = Math.Max(0m, await provisions.BalanceAsync(run.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), ct));
             var fromProvision = Math.Min(endOfService, available);
             if (fromProvision > 0) lines.Add(new PostingLine(provisionAccount, fromProvision, 0, memo));
             if (endOfService - fromProvision > 0) lines.Add(new PostingLine(await posting.AccountForRoleAsync("payroll.gratuity.expense", ct), endOfService - fromProvision, 0, memo));
         }
-        lines.Add(new PostingLine(payable, 0, run.NetPay, memo));
-        if (run.Deductions - loanTotal > 0) lines.Add(new PostingLine(await DeductionsAccountAsync(ct), 0, run.Deductions - loanTotal, memo));
+        lines.Add(new PostingLine(payable, 0, netPay, memo));
+        if (deductions - loanTotal > 0) lines.Add(new PostingLine(await DeductionsAccountAsync(ct), 0, deductions - loanTotal, memo));
         if (loanTotal > 0) lines.Add(new PostingLine(await posting.AccountForRoleAsync("payroll.advances", ct), 0, loanTotal, memo));
         var employerCost = run.Lines.Sum(l => l.EmployerCost);
         if (employerCost > 0)
@@ -239,7 +244,7 @@ internal sealed class PayrollHandlers(
         var s = await ReadSettingsAsync(run.LegalEntityId, ct);
         var leave = await leaveFeed.MonthAsync(run.Year, run.Month, ids, ct);
         var openLoans = run.Kind != PayrollKind.Regular ? new Dictionary<Guid, List<EmployeeLoan>>()
-            : (await loanRows.Query(new Specification<EmployeeLoan>(l => l.LegalEntityId == run.LegalEntityId && l.Status == LoanStatus.Active && l.Remaining > 0 && ids.Contains(l.EmployeeId))).ToListAsync(ct))
+            : (await loanRows.Query(new Specification<EmployeeLoan>(l => l.LegalEntityId == run.LegalEntityId && l.Status == LoanStatus.Active && l.Remaining > 0 && l.DisbursedOn != null && ids.Contains(l.EmployeeId))).ToListAsync(ct))
                 .Where(l => LoanMath.Started(l, run.Year, run.Month)).GroupBy(l => l.EmployeeId).ToDictionary(g => g.Key, g => g.OrderBy(l => l.StartYear).ThenBy(l => l.StartMonth).ToList());
         var recs = new List<PayrollLoanRecovery>();
         var stats = new List<PayrollLineStatutory>();
@@ -269,7 +274,7 @@ internal sealed class PayrollHandlers(
                 foreach (var r in results)
                     stats.Add(new PayrollLineStatutory { PayrollRunId = run.Id, PayrollLineId = line.Id, EmployeeId = e.Id, RuleId = r.RuleId, Code = r.Code, Name = r.Name, Kind = r.Kind, BaseAmount = r.BaseAmount, Amount = r.Amount });
             }
-            // loan instalments come out last and never take the net pay below zero (the rest waits for the next month)
+            // loan instalments come out last and never take the net pay below zero (the rest waits for the next month); only money actually paid out is recovered
             if (openLoans.TryGetValue(e.Id, out var mine))
                 foreach (var loan in mine)
                 {

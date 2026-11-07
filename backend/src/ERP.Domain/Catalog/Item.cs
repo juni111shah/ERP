@@ -18,6 +18,8 @@ public class Item : OrgEntity, IHasCustomFields
     [Filterable, Sortable]
     public ItemType Type { get; set; }
     public string Uom { get; set; } = "ea";
+    [Listable]
+    public string? Category { get; set; }
     [Sortable, Filterable]
     public decimal? SalesPrice { get; set; }
     public decimal? PurchasePrice { get; set; }

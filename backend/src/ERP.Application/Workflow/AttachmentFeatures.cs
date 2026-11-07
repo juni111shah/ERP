@@ -18,6 +18,12 @@ public sealed record ListAttachments(string OwnerType, Guid OwnerId) : IQuery<IR
     public string RequiredPermission => CorePermissions.AttachmentsRead;
 }
 
+/// <summary>The document vault: tracked documents across owners, only of owner types whose records the caller may read.</summary>
+public sealed record ListAttachmentVault : PagedQuery, IQuery<PagedResult<VaultRow>>, IRequirePermission
+{
+    public string RequiredPermission => CorePermissions.AttachmentsRead;
+}
+
 /// <summary>The HTTP layer hands over the file as a plain stream; size and type rules are enforced here.</summary>
 public sealed record UploadAttachment(string OwnerType, Guid OwnerId, string FileName, string ContentType, long Length, Stream Content, string? Category = null, string? Description = null, DateOnly? ExpiresOn = null)
     : ICommand<AttachmentDto>, IRequirePermission
@@ -64,6 +70,7 @@ internal sealed class AttachmentHandlers(
     ICurrentUser user,
     IEnumerable<IAttachmentOwnerResolver> resolvers) :
     IRequestHandler<ListAttachments, IReadOnlyList<AttachmentDto>>,
+    IRequestHandler<ListAttachmentVault, PagedResult<VaultRow>>,
     IRequestHandler<UploadAttachment, AttachmentDto>,
     IRequestHandler<DownloadAttachment, AttachmentDownload>,
     IRequestHandler<DeleteAttachment, Unit>
@@ -122,6 +129,16 @@ internal sealed class AttachmentHandlers(
         await ResolveAndAuthorizeAsync(q.OwnerType, q.OwnerId, isWrite: false, ct);
         return await attachments.Query(new Specification<Attachment>(x => x.OwnerType.ToLower() == q.OwnerType.ToLower() && x.OwnerId == q.OwnerId))
             .Select(x => new AttachmentDto(x.Id, x.FileName, x.ContentType, x.SizeBytes, x.CreatedAt, x.Category, x.Description, x.ExpiresOn)).ToListAsync(ct);
+    }
+
+    public Task<PagedResult<VaultRow>> Handle(ListAttachmentVault q, CancellationToken ct)
+    {
+        // Same rule as download: the owner's read permission decides. An owner type nobody resolves stays hidden.
+        var readable = resolvers.DistinctBy(r => r.OwnerType, StringComparer.OrdinalIgnoreCase)
+            .Where(r => string.IsNullOrEmpty(r.ReadPermission) || user.HasPermission(r.ReadPermission))
+            .Select(r => r.OwnerType.ToLowerInvariant()).ToList();
+        return attachments.PageAsync(q, a => new VaultRow(a.Id, a.OwnerType, a.OwnerId, a.FileName, a.Category, a.Description, a.ExpiresOn, a.CreatedAt),
+            new Specification<Attachment>(a => readable.Contains(a.OwnerType.ToLower())), ct);
     }
 
     public async Task<AttachmentDto> Handle(UploadAttachment cmd, CancellationToken ct)

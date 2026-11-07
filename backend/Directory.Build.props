@@ -3,7 +3,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>latest</LangVersion>
+    <!-- Pinned to what the .NET 8 SDK in global.json supports. A newer SDK defaults to C# 14, which binds array.Contains to a span overload inside expression trees that EF Core 8 cannot translate (500 on those queries). -->
+    <LangVersion>12.0</LangVersion>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>

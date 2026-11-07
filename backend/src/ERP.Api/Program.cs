@@ -204,10 +204,24 @@ if (serveSpa)
     app.UseDefaultFiles();
     app.UseStaticFiles();
 }
+// Demo seeding only (tools/seed-demo-orgs): lets the seeder date documents in the past through the real handlers. Needs Development and an explicit flag,
+// and is not mapped otherwise, so no shared or production host can ever honour the header.
+if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Seed:AllowDemoClock"))
+{
+    app.Use(async (http, next) =>
+    {
+        if (http.Request.Headers.TryGetValue("X-Demo-Clock", out var pinned) && DateTime.TryParse(pinned, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var at))
+        {
+            using (ERP.Domain.Common.AppClock.Use(at)) await next(http);
+        }
+        else await next(http);
+    });
+}
 app.UseCors("web");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<ModuleGateMiddleware>();
+app.UseMiddleware<CapabilityGateMiddleware>();
 app.UseMiddleware<ERP.Api.Infrastructure.SubscriptionGateMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<LegalEntityScopeMiddleware>();
@@ -254,7 +268,10 @@ public static class CountryPackCatalog
 /// <summary>Installed modules. ERP_MODULES / Modules:Installed (comma list) narrows them; an empty value runs the core alone.</summary>
 public static class ModuleCatalog
 {
-    public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule(), new ERP.Modules.Projects.ProjectsModule(), new ERP.Modules.Sales.SalesModule(), new ERP.Modules.Purchasing.PurchasingModule(), new ERP.Modules.Pos.PosModule(), new ERP.Modules.Retail.RetailModule(), new ERP.Modules.Distribution.DistributionModule(), new ERP.Modules.Manufacturing.ManufacturingModule(), new ERP.Modules.Crm.CrmModule(), new ERP.Modules.Services.ServicesModule(), new ERP.Modules.Assistant.AssistantModule()];
+    public static IReadOnlyList<IModule> All() => [new RealEstateModule(), new InventoryModule(), new ERP.Modules.Hr.HrModule(), new ERP.Modules.Projects.ProjectsModule(), new ERP.Modules.Sales.SalesModule(), new ERP.Modules.Purchasing.PurchasingModule(), new ERP.Modules.Pos.PosModule(), new ERP.Modules.Retail.RetailModule(), new ERP.Modules.Distribution.DistributionModule(), new ERP.Modules.Manufacturing.ManufacturingModule(), new ERP.Modules.Crm.CrmModule(), new ERP.Modules.Services.ServicesModule(), new ERP.Modules.Assistant.AssistantModule(),
+        new ERP.Modules.Assets.AssetsModule(), new ERP.Modules.IndustryPacks.Packs.BusinessTypesModule(), new ERP.Modules.IndustryPacks.Packs.ContractsModule(), new ERP.Modules.IndustryPacks.Packs.ExpensesModule(), new ERP.Modules.IndustryPacks.Packs.QualityModule(),
+        new ERP.Modules.IndustryPacks.Packs.HealthcareModule(), new ERP.Modules.IndustryPacks.Packs.EducationModule(), new ERP.Modules.IndustryPacks.Packs.HospitalityModule(), new ERP.Modules.IndustryPacks.Packs.LogisticsModule(),
+        new ERP.Modules.IndustryPacks.Packs.TradeModule(), new ERP.Modules.IndustryPacks.Packs.AgricultureModule(), new ERP.Modules.IndustryPacks.Packs.ConstructionModule(), new ERP.Modules.IndustryPacks.Packs.PropertySalesModule()];
 
     public static IReadOnlyList<IModule> Select(IConfiguration config)
     {

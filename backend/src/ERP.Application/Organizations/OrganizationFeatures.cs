@@ -23,11 +23,11 @@ public sealed record LegalEntityDto(
         e.Address, e.Email, e.Phone, e.BooksLockedTo, e.IsActive, customFields);
 }
 
-public sealed record BusinessUnitInput(Guid LegalEntityId, string Code, string Name, string? Address, bool IsActive = true, JsonObject? CustomFields = null);
+public sealed record BusinessUnitInput(Guid LegalEntityId, string Code, string Name, string? Address, bool IsActive = true, JsonObject? CustomFields = null, string? Kind = null);
 
-public sealed record BusinessUnitDto(Guid Id, Guid LegalEntityId, string Code, string Name, string? Address, bool IsActive, JsonObject CustomFields)
+public sealed record BusinessUnitDto(Guid Id, Guid LegalEntityId, string Code, string Name, string? Address, bool IsActive, JsonObject CustomFields, string Kind = "branch")
 {
-    public static BusinessUnitDto From(BusinessUnit b, JsonObject customFields) => new(b.Id, b.LegalEntityId, b.Code, b.Name, b.Address, b.IsActive, customFields);
+    public static BusinessUnitDto From(BusinessUnit b, JsonObject customFields) => new(b.Id, b.LegalEntityId, b.Code, b.Name, b.Address, b.IsActive, customFields, b.Kind);
 }
 
 public sealed record CreateLegalEntity(LegalEntityInput Input) : ICommand<LegalEntityDto>, IRequirePermission
@@ -125,7 +125,7 @@ internal sealed class OrganizationHandlers(
     {
         var i = cmd.Input;
         await legalEntityGuard.RequireAsync(i.LegalEntityId, ct);
-        var unit = new BusinessUnit { LegalEntityId = i.LegalEntityId, Code = i.Code.Trim(), Name = i.Name.Trim(), Address = i.Address, IsActive = i.IsActive };
+        var unit = new BusinessUnit { LegalEntityId = i.LegalEntityId, Code = i.Code.Trim(), Name = i.Name.Trim(), Address = i.Address, IsActive = i.IsActive, Kind = string.IsNullOrWhiteSpace(i.Kind) ? "branch" : i.Kind.Trim().ToLowerInvariant() };
         await fields.ApplyAsync(BusinessUnitType, unit, i.CustomFields, isCreate: true, ct);
         businessUnits.Add(unit);
         await businessUnits.SaveChangesAsync(ct);
@@ -140,7 +140,7 @@ internal sealed class OrganizationHandlers(
         var code = i.Code.Trim();
         if (code != unit.Code && await businessUnits.AnyAsync(b => b.LegalEntityId == unit.LegalEntityId && b.Code == code, ct))
             throw new ConflictException($"A business unit with code '{code}' exists in this legal entity.");
-        unit.Code = code; unit.Name = i.Name.Trim(); unit.Address = i.Address; unit.IsActive = i.IsActive;
+        unit.Code = code; unit.Name = i.Name.Trim(); unit.Address = i.Address; unit.IsActive = i.IsActive; if (!string.IsNullOrWhiteSpace(i.Kind)) unit.Kind = i.Kind.Trim().ToLowerInvariant();
         await fields.ApplyAsync(BusinessUnitType, unit, i.CustomFields, isCreate: false, ct);
         await businessUnits.SaveChangesAsync(ct);
         return BusinessUnitDto.From(unit, await fields.ReadAsync(BusinessUnitType, unit, ct));

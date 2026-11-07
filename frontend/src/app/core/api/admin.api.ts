@@ -10,7 +10,7 @@ type CustomFields = Record<string, unknown>;
 
 // ---- Models (mirror the ERP.Application DTOs; enums are camelCase strings) -------------------------------------------
 
-export interface ItemDto { id: string; sku: string; barcode?: string | null; name: string; type: string; uom: string; salesPrice?: number; purchasePrice?: number; taxCodeId?: string; isActive: boolean; customFields: CustomFields; }
+export interface ItemDto { id: string; sku: string; barcode?: string | null; category?: string | null; name: string; type: string; uom: string; salesPrice?: number; purchasePrice?: number; taxCodeId?: string; isActive: boolean; customFields: CustomFields; }
 export interface AccountDto {
   id: string; code: string; name: string; type: string; reportingGroup?: string; systemRole?: string; isBank: boolean; isSystem: boolean; isActive: boolean;
   parentId?: string; isPostable: boolean; currencyCode?: string; customFields: CustomFields;
@@ -34,7 +34,7 @@ export interface LegalEntityDto {
   registrationNo?: string; address?: string; email?: string; phone?: string; booksLockedTo?: string; isActive: boolean; customFields: CustomFields;
 }
 export interface PartyGroupDto { id: string; code: string; name: string; isActive: boolean; }
-export interface BusinessUnitDto { id: string; legalEntityId: string; code: string; name: string; address?: string; isActive: boolean; customFields: CustomFields; }
+export interface BusinessUnitDto { id: string; legalEntityId: string; code: string; name: string; kind?: string; address?: string; isActive: boolean; customFields: CustomFields; }
 export interface RoleDto { id: string; name: string; description?: string; isBuiltIn: boolean; moduleKey?: string; permissions: string[]; }
 export interface PermissionDefinition { key: string; module: string; resource: string; action: string; description: string; }
 export interface UserSummary { id: string; email: string; fullName: string; isActive: boolean; lastSignInAt?: string; roles: string[]; roleIds: string[]; }

@@ -138,7 +138,7 @@ public class OpportunityHandlers :
             throw new FieldValidationException("stage", "A new opportunity starts open. Close it with the close action.");
         if (request.CustomerPartyId is { } partyId && !await _parties.AnyAsync(p => p.Id == partyId, cancellationToken))
             throw new FieldValidationException("customerPartyId", "Customer not found.");
-        var number = await _numbering.NextAsync("OPP", request.LegalEntityId, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+        var number = await _numbering.NextAsync("OPP", request.LegalEntityId, DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), cancellationToken);
 
         var opp = new CrmOpportunity
         {
@@ -175,12 +175,12 @@ public class OpportunityHandlers :
 
         if (request.Stage == OpportunityStage.ClosedWon)
         {
-            opp.ActualCloseDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            opp.ActualCloseDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
             opp.ActualRevenue = opp.ExpectedRevenue;
         }
         else if (request.Stage == OpportunityStage.ClosedLost)
         {
-            opp.ActualCloseDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            opp.ActualCloseDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
             opp.ActualRevenue = 0;
         }
         else if (wasClosed)
@@ -209,7 +209,7 @@ public class OpportunityHandlers :
         CrmTransitions.Opportunity.Ensure(opp.Stage, target, isSystem: false); // a deal is won only from Negotiation
         opp.Stage = target;
         opp.ActualRevenue = request.IsWon ? request.ActualRevenue : 0;
-        opp.ActualCloseDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        opp.ActualCloseDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         opp.CloseReason = request.CloseReason;
         opp.ProbabilityPercent = request.IsWon ? 100 : 0;
 
