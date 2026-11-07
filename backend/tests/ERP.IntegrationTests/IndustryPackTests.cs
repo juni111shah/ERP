@@ -299,6 +299,23 @@ public class IndustryPackTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Enabling_a_module_later_brings_the_accounts_and_roles_it_needs()
+    {
+        var (c, _, _) = await WorkspaceAsync("generic");
+        await Data(await c.PostAsync("/api/v1/modules/realestate/enable", null));
+        Assert.NotEqual(Guid.Empty, await SysAccountAsync(c, "realestate.income.leasing"));
+        await Data(await c.PostAsync("/api/v1/modules/inventory/enable", null));
+        await Data(await c.PostAsync("/api/v1/modules/projects/enable", null));
+        await Data(await c.PostAsync("/api/v1/modules/construction/enable", null));
+        var roles = await Data(await c.GetAsync("/api/v1/roles"));
+        Assert.Contains((roles.ValueKind == JsonValueKind.Array ? roles : roles.GetProperty("items")).EnumerateArray(), r => r.GetProperty("name").GetString() == "Construction manager");
+
+        // A module that needs another one says so.
+        var (d, _, _) = await WorkspaceAsync("generic");
+        Assert.Equal(HttpStatusCode.Conflict, (await d.PostAsync("/api/v1/modules/construction/enable", null)).StatusCode);
+    }
+
+    [Fact]
     public async Task The_owner_dashboard_comes_from_the_ledger_and_splits_by_branch()
     {
         var (c, entity, _) = await WorkspaceAsync("svc-consulting");

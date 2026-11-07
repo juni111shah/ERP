@@ -101,6 +101,9 @@ internal sealed class SetupHandlers(
         var template = Templates.LastOrDefault(t => t.Key == cmd.Input.Industry && !t.Hidden) ?? throw new FieldValidationException("industry", "Choose a business type from the list.");
         var org = await organizations.GetForUpdateAsync(user.OrgId ?? throw new ForbiddenException(), ct);
 
+        var rolesBefore = await roles.Query().Select(r => r.Name).ToListAsync(ct);
+        var codesBefore = await accounts.Query().Select(a => a.Code).ToListAsync(ct);
+
         // Enable first: a module the plan does not allow is reported, not forced.
         var wanted = ModuleDependencies.Resolve(template.SuggestedModules, modules.Find, null);
         var enabledNow = await access.EnabledModulesAsync(ct);
@@ -113,7 +116,7 @@ internal sealed class SetupHandlers(
         }
 
         var existingRoles = await roles.Query().Select(r => r.Name).ToListAsync(ct);
-        var moduleTemplates = wanted.SelectMany(m => modules.Find(m)!.IndustryTemplates).Where(t => t.Hidden);
+        var moduleTemplates = wanted.SelectMany(m => modules.Find(m)!.IndustryTemplates).ToList();
         var newRoles = (template.Roles ?? []).Concat(moduleTemplates.SelectMany(t => t.Roles ?? [])).DistinctBy(r => r.Name).Where(r => !existingRoles.Contains(r.Name)).ToList();
         foreach (var rt in newRoles)
         {
@@ -123,7 +126,7 @@ internal sealed class SetupHandlers(
         }
 
         var existingCodes = await accounts.Query().Select(a => a.Code).ToListAsync(ct);
-        var newAccounts = (template.Accounts ?? []).Where(a => !existingCodes.Contains(a.Code)).ToList();
+        var newAccounts = (template.Accounts ?? []).Concat(moduleTemplates.SelectMany(t => t.Accounts ?? [])).DistinctBy(a => a.Code).Where(a => !existingCodes.Contains(a.Code)).ToList();
         foreach (var a in newAccounts)
             accounts.Add(new Account { Code = a.Code, Name = a.Name, Type = a.Type, SystemRole = a.SystemRole, IsBank = a.IsBank, IsSystem = a.SystemRole is not null, ReportingGroup = a.ReportingGroup });
 
@@ -132,7 +135,9 @@ internal sealed class SetupHandlers(
 
         org.IndustryCode = template.Key;
         await unitOfWork.SaveChangesAsync(ct);
-        return new(template.Key, added, newRoles.Select(r => r.Name).ToList(), newAccounts.Select(a => a.Code).ToList(), refused);
+        var rolesNow = await roles.Query().Select(r => r.Name).ToListAsync(ct);
+        var codesNow = await accounts.Query().Select(a => a.Code).ToListAsync(ct);
+        return new(template.Key, added, rolesNow.Except(rolesBefore).ToList(), codesNow.Except(codesBefore).ToList(), refused);
     }
 
     public async Task<IReadOnlyList<NumberSequenceView>> Handle(ListNumberSequences q, CancellationToken ct)

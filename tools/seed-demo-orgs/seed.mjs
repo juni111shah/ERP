@@ -21,25 +21,27 @@ async function seedOrg(org) {
   const scenario = SCENARIOS[org.scenario];
   if (scenario) await scenario(ctx);
 
-  if (org.trading) {
-    const volume = org.volume ?? 4;
-    const purchaseEnd = ['paid', 'paid', 'paid', 'part-paid', 'billed', 'received', 'partial', 'approved', 'cancelled', 'draft'];
-    const salesEnd = ['paid', 'paid', 'paid', 'paid', 'part-paid', 'overdue', 'partial', 'open', 'cancelled', 'voided', 'quote-lost', 'quote-open', 'draft'];
-    for (const first of months(5)) {
+  const volume = org.volume ?? 3;
+  const purchaseEnd = org.trading ? ['paid', 'paid', 'paid', 'part-paid', 'billed', 'received', 'partial', 'approved', 'cancelled', 'draft'] : ['paid', 'paid', 'paid', 'part-paid', 'billed', 'cancelled'];
+  const salesEnd = ['paid', 'paid', 'paid', 'paid', 'part-paid', 'overdue', 'partial', 'open', 'cancelled', 'voided', 'quote-lost', 'quote-open', 'draft'];
+  const buys = (org.trading || org.boms || org.scenario === 'construction' || org.scenario === 'healthcare') && ctx.modules.has('purchasing') && ctx.stockItems.length > 0;
+  for (const first of months(5)) {
+    // A month in business order, so stock is there when it is needed.
+    ctx.band = [1, 5];
+    if (buys) {
       await ctx.run(`purchases-${first.slice(0, 7)}`, async () => {
-        for (let n = 1; n <= volume + 2; n++) await purchaseCycle(ctx, first, n, first === months(5)[5] ? purchaseEnd[(n + 3) % purchaseEnd.length] : purchaseEnd[n % purchaseEnd.length]);
+        for (let n = 1; n <= volume + 2; n++) await purchaseCycle(ctx, first, n, purchaseEnd[(n + months(5).indexOf(first)) % purchaseEnd.length]);
       });
+    }
+    ctx.band = [12, 18];
+    if (ctx.monthly) await ctx.monthly(first);
+    ctx.band = [22, 26];
+    if (org.trading) {
       await ctx.run(`sales-${first.slice(0, 7)}`, async () => {
         for (let n = 1; n <= volume * 2; n++) await salesCycle(ctx, first, n, salesEnd[(n + months(5).indexOf(first)) % salesEnd.length]);
       });
     }
-  } else if (ctx.modules.has('purchasing') && ctx.stockItems.length > 0) {
-    for (const first of months(5)) {
-      await ctx.run(`purchases-${first.slice(0, 7)}`, async () => {
-        const end = ['paid', 'paid', 'part-paid', 'billed', 'cancelled'];
-        for (let n = 1; n <= (org.volume ?? 3) + 1; n++) await purchaseCycle(ctx, first, n, end[n % end.length]);
-      });
-    }
+    ctx.band = null;
   }
 
   for (const first of months(5)) await ctx.run(`expenses-${first.slice(0, 7)}`, async () => { await monthlyExpenses(ctx, first, org.salaryBase); for (let n = 0; n < 3; n++) await expenseClaims(ctx, first, n + months(5).indexOf(first)); });

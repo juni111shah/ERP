@@ -14,6 +14,12 @@ async function settle(ctx, invoiceId, date, share = 1) {
   await finance.post('/finance/receipts', { legalEntityId: ctx.entity, partyId: invoice.partyId, date, method: 'BankTransfer', bankAccountId: ctx.bank, amount, reference: `RCV-${invoice.number}`, allocations: [{ invoiceId, amount }] });
 }
 
+async function issueIfDraft(ctx, invoiceId) {
+  const finance = ctx.people.finance ?? ctx.owner;
+  const row = await finance.get(`/finance/invoices/${invoiceId}`);
+  return row.status === 'draft' ? finance.post(`/finance/invoices/${invoiceId}/issue`, {}) : row;
+}
+
 async function paySome(ctx, billId, date) {
   const finance = ctx.people.finance ?? ctx.owner;
   const bill = await finance.get(`/finance/bills/${billId}`);
@@ -75,9 +81,9 @@ async function productionRun(ctx, month, n, outcome = 'completed') {
   const result = await ops.post(`/m/manufacturing/workorders/${order.id}/complete`, { completedQuantity: planned - scrapped, scrappedQuantity: scrapped, actualTotalCost: 0, completionDate: done, notes: 'Batch finished' });
   if (ctx.modules.has('quality')) {
     const fail = ctx.random.chance(0.12);
-    const inspection = await record(ctx, 'quality', 'inspections', { title: `Final check ${order.number}`, recordDate: done, data: { stage: 'Final', sourceRef: order.number, product: bom.producedItemName, sampleSize: 20, defects: fail ? 4 : ctx.random.int(0, 1), inspector: ctx.org.employees[3] } });
+    const inspection = await record(ctx, 'quality', 'inspections', { title: `Final check ${(order.workOrderNumber ?? order.number)}`, recordDate: done, data: { stage: 'Final', sourceRef: (order.workOrderNumber ?? order.number), product: bom.producedItemName, sampleSize: 20, defects: fail ? 4 : ctx.random.int(0, 1), inspector: ctx.org.employees[3] } });
     await move(ctx, 'quality', 'inspections', inspection.id, fail ? ['failed', 'Defect rate above the limit'] : 'passed');
-    if (fail) await record(ctx, 'quality', 'nonconformances', { title: `Defects in ${order.number}`, recordDate: done, data: { severity: 'Major', sourceRef: order.number, rootCause: 'Machine setting drift', correctiveAction: 'Recalibrate and re-inspect' } }, ['investigating']);
+    if (fail) await record(ctx, 'quality', 'nonconformances', { title: `Defects in ${(order.workOrderNumber ?? order.number)}`, recordDate: done, data: { severity: 'Major', sourceRef: (order.workOrderNumber ?? order.number), rootCause: 'Machine setting drift', correctiveAction: 'Recalibrate and re-inspect' } }, ['investigating']);
   }
   return result;
 }
@@ -96,11 +102,11 @@ export async function manufacturing(ctx) {
       await record(ctx, 'quality', 'plans', { title: `Plan ${first.slice(0, 7)}`, recordDate: date, data: { period: first.slice(0, 7), plant: ctx.org.branches[0] }, lines }, first < monthStart(0) ? ['released', 'completed'] : ['released']);
     }
   });
-  for (const first of months(5)) {
+  ctx.monthly = async (first) => {
     await ctx.run(`production-${first.slice(0, 7)}`, async () => {
       for (let n = 1; n <= 7; n++) await productionRun(ctx, first, n, n === 6 && first === monthStart(1) ? 'cancelled' : (first === monthStart(0) && n > 3 ? (n % 2 ? 'inprogress' : 'planned') : 'completed'));
     });
-  }
+  };
 }
 
 // ---- Retail and restaurants: tills -----------------------------------------------------------------------------------------------------------
@@ -180,7 +186,22 @@ export async function retail(ctx) {
     }
     inv.at(null);
   });
-  for (const first of months(5)) await ctx.run(`pos-${first.slice(0, 7)}`, () => posDays(ctx, first, 6, sellable));
+  ctx.monthly = async (first) => {
+    await ctx.run(`restock-${first.slice(0, 7)}`, async () => {
+      const inv = ctx.people.inventory ?? ctx.owner;
+      const date = clampToToday(addDays(first, 8));
+      inv.at(date);
+      for (const wh of ctx.warehouses.slice(1)) {
+        for (const it of ctx.stockItems) {
+          const onHand = (await inv.get(`/m/inventory/stock?warehouseId=${ctx.warehouse}&itemId=${it.id}`)).rows?.[0]?.quantity ?? 0;
+          const quantity = Math.floor(onHand * 0.08);
+          if (quantity > 0) await inv.post('/m/inventory/stock/transfer', { fromWarehouseId: ctx.warehouse, toWarehouseId: wh.id, itemId: it.id, quantity, date, reference: `TR-${first.slice(2, 7)}-${wh.code}-${it.sku}`, memo: 'Monthly store replenishment' });
+        }
+      }
+      inv.at(null);
+    });
+    await ctx.run(`pos-${first.slice(0, 7)}`, () => posDays(ctx, first, 6, sellable));
+  };
 }
 
 export async function restaurant(ctx) {
@@ -194,7 +215,7 @@ export async function restaurant(ctx) {
     for (const [title, kind, rate] of [['Table 1', 'Table', 0], ['Table 2', 'Table', 0], ['Terrace', 'Hall', 900], ['Private dining room', 'Hall', 1500]])
       await record(ctx, 'hospitality', 'rooms', { title, recordDate: monthStart(6), data: { kind, floor: 'Ground', rate, capacity: kind === 'Table' ? 4 : 24 } });
   });
-  for (const first of months(5)) {
+  ctx.monthly = async (first) => {
     await ctx.run(`kitchen-${first.slice(0, 7)}`, async () => {
       for (let n = 1; n <= 5; n++) await productionRun(ctx, first, n, 'completed');
       const inv = ctx.people.inventory ?? ctx.owner;
@@ -216,7 +237,7 @@ export async function restaurant(ctx) {
       const done = await (ctx.people.ops ?? ctx.owner).post(`/m/hospitality/records/events/${event.id}/invoice`, { date, taxCodeId: taxId(ctx) });
       await settleByAge(ctx, done.invoiceId, date, first);
     });
-  }
+  };
 }
 
 // ---- Real estate ---------------------------------------------------------------------------------------------------------------------------------
@@ -251,12 +272,12 @@ export async function realEstate(ctx) {
       try {
         const annualRent = Math.round(rent / 100) * 100;
         const lease = await owner.post('/m/realestate/leases', { unitId: unit.id, lesseePartyId: tenants[i++ % tenants.length].id, startDate: start, annualRent, paymentFrequency: ctx.random.pick([4, 12, 12]), securityDepositAmount: Math.round(annualRent / 12), graceDays: 5, activateNow: true });
-        await (ctx.people.finance ?? owner).at(start).post(`/m/realestate/leases/${lease.id}/deposit`, { bankAccountId: ctx.bank, date: start, amount: Math.round(annualRent / 12) }).catch((e) => ctx.log(`      deposit skipped: ${e.message.slice(0, 100)}`));
+        await owner.at(start).post(`/m/realestate/leases/${lease.id}/deposit`, { bankAccountId: ctx.bank, date: start, amount: Math.round(annualRent / 12) }).catch((e) => ctx.log(`      deposit skipped: ${e.message.slice(0, 100)}`));
       } catch (e) { ctx.log(`      lease skipped: ${e.message.slice(0, 120)}`); }
     }
     owner.at(null);
   });
-  for (const first of months(5)) {
+  ctx.monthly = async (first) => {
     await ctx.run(`rent-${first.slice(0, 7)}`, async () => {
       const asOf = addDays(first, 5) > today ? today : addDays(first, 5);
       ctx.on(asOf);
@@ -279,7 +300,7 @@ export async function realEstate(ctx) {
         }
       }
     });
-  }
+  };
   await ctx.run('commissions', async () => {
     const client = ctx.customers[4];
     for (let n = 0; n < 4; n++) {
@@ -349,7 +370,7 @@ export async function construction(ctx) {
     await move(ctx, 'construction', 'sites', draft.id, ['cancelled', 'Tender lost to a competitor'], ctx.owner);
   });
   const sites = (await ctx.owner.list('/m/construction/records/sites')).filter((s) => s.status === 'active');
-  for (const first of months(5)) {
+  ctx.monthly = async (first) => {
     await ctx.run(`site-work-${first.slice(0, 7)}`, async () => {
       for (const site of sites) {
         const date = dayIn(ctx, first);
@@ -382,7 +403,7 @@ export async function construction(ctx) {
         await settleByAge(ctx, invoiced.invoiceId, clampToToday(addDays(date, 3)), first);
       }
     });
-  }
+  };
 }
 
 // ---- Healthcare --------------------------------------------------------------------------------------------------------------------------------
@@ -407,7 +428,7 @@ export async function healthcare(ctx) {
   const patients = await ctx.owner.list('/m/healthcare/records/patients');
   const departments = ctx.org.departments.slice(0, 4);
   const doctors = ctx.org.employees.slice(0, 3);
-  for (const first of months(5)) {
+  ctx.monthly = async (first) => {
     await ctx.run(`clinic-${first.slice(0, 7)}`, async () => {
       for (let n = 0; n < 14; n++) {
         const date = dayIn(ctx, first);
@@ -453,7 +474,7 @@ export async function healthcare(ctx) {
         await settleByAge(ctx, invoiced.invoiceId, clampToToday(addDays(date, 10)), first);
       }
     });
-  }
+  };
 }
 
 // ---- Logistics ------------------------------------------------------------------------------------------------------------------------------------
@@ -475,7 +496,7 @@ export async function logistics(ctx) {
   const tyres = ctx.party('Tyre Plus Qatar');
   const tolls = ctx.party('Gulf Toll Services');
   const port = ctx.party('Hamad Port Handling');
-  for (const first of months(5)) {
+  ctx.monthly = async (first) => {
     await ctx.run(`shipments-${first.slice(0, 7)}`, async () => {
       for (let n = 0; n < 16; n++) {
         const date = dayIn(ctx, first);
@@ -533,7 +554,7 @@ export async function logistics(ctx) {
         await staff.post(`/m/logistics/records/deliveryexpenses/${e.id}/bill`, { date, vendorReference: `DEX-${e.number}` });
       }
     });
-  }
+  };
 }
 
 // ---- Software and IT services -----------------------------------------------------------------------------------------------------------------------
@@ -574,7 +595,7 @@ export async function software(ctx) {
   });
   const projects = await pm.list('/m/projects/projects');
   const people = ctx.org.employees.slice(1, 7);
-  for (const first of months(5)) {
+  ctx.monthly = async (first) => {
     await ctx.run(`timesheets-${first.slice(0, 7)}`, async () => {
       for (const project of projects) {
         for (let n = 0; n < 12; n++) {
@@ -595,7 +616,7 @@ export async function software(ctx) {
         await pm.post('/m/projects/billing/post-costs', { projectId: project.id });
         if (project.billingType === 'timeAndMaterials') {
           const invoice = await pm.post('/m/projects/billing/bill', { projectId: project.id, grouping: 'person', discountPercent: 0, dueDate: addDays(end, 30) });
-          const issued = invoice.status === 'issued' ? invoice : await (ctx.people.finance ?? owner).post(`/finance/invoices/${invoice.id}/issue`, {});
+          const issued = await issueIfDraft(ctx, invoice.invoiceId);
           await settleByAge(ctx, issued.id, end, first);
         }
         if (project.billingType === 'fixedFee') {
@@ -603,13 +624,13 @@ export async function software(ctx) {
           for (const m of milestones) {
             await pm.post(`/m/projects/milestones/${m.id}/achieve`, { achievedDate: m.dueDate });
             const invoice = await pm.post('/m/projects/billing/bill', { projectId: project.id, milestoneIds: [m.id], grouping: 'detailed', discountPercent: 0, dueDate: addDays(end, 30) });
-            const issued = invoice.status === 'issued' ? invoice : await (ctx.people.finance ?? owner).post(`/finance/invoices/${invoice.id}/issue`, {});
+            const issued = await issueIfDraft(ctx, invoice.invoiceId);
             await settleByAge(ctx, issued.id, end, first);
           }
         }
       }
     });
-  }
+  };
   await ctx.run('retainers', async () => {
     const start = monthStart(5);
     ctx.on(start);
@@ -721,7 +742,7 @@ export async function dairy(ctx) {
   const conc = ctx.item('FED-CON'); const silage = ctx.item('FED-SIL'); const minerals = ctx.item('FED-MIN');
   const vet = ctx.party('Anand Vet Services');
   const inv = ctx.people.inventory ?? ctx.owner;
-  for (const first of months(5)) {
+  ctx.monthly = async (first) => {
     await ctx.run(`farm-${first.slice(0, 7)}`, async () => {
       for (const herd of herds.slice(0, 3)) {
         for (let week = 0; week < 4; week++) {
@@ -749,7 +770,7 @@ export async function dairy(ctx) {
       const billed = await staff.post(`/m/agriculture/records/vetcare/${visit.id}/bill`, { date, taxCodeId: taxId(ctx) });
       if (first < monthStart(1)) await paySome(ctx, billed.billId, clampToToday(addDays(date, 18)));
     });
-  }
+  };
   const crops = (await ctx.owner.list('/m/agriculture/records/crops')).filter((c) => c.status === 'harvested');
   await ctx.run('harvests', async () => {
     for (const c of crops) await record(ctx, 'agriculture', 'harvests', { title: `${c.title} lot 1`, recordDate: monthStart(1), parentId: c.id, data: { quantityKg: ctx.random.int(40000, 90000), grade: 'A' } });
@@ -761,7 +782,7 @@ export async function dairy(ctx) {
 export async function trade(ctx) {
   const staff = ctx.people.ops ?? ctx.owner;
   const brokers = ctx.org.brokers.map((n) => ctx.party(n));
-  for (const first of months(5)) {
+  ctx.monthly = async (first) => {
     await ctx.run(`trade-${first.slice(0, 7)}`, async () => {
       const date = dayIn(ctx, first);
       ctx.on(date);
@@ -787,7 +808,7 @@ export async function trade(ctx) {
       const invoiced = await staff.post(`/m/trade/records/exports/${exportOrder.id}/invoice`, { date: clampToToday(addDays(date, 2)), taxCodeId: ctx.taxes.find((t) => t.rate === 0)?.id ?? taxId(ctx) });
       await settleByAge(ctx, invoiced.invoiceId, clampToToday(addDays(date, 2)), first);
     });
-  }
+  };
 }
 
 export const SCENARIOS = { realestate: realEstate, manufacturing, retail, restaurant, construction, healthcare, logistics, software, education, dairy, trade, distribution: null };

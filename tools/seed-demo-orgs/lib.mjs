@@ -116,7 +116,7 @@ export class Checkpoints {
     await fn();
     this.admin.clock = clock;
     this.done.add(name);
-    await this.admin.at(null).put('/settings', { values: { 'core.demoSeedCheckpoints': [...this.done] } });
+    await this.admin.at(null).put('/settings', { 'core.demoSeedCheckpoints': [...this.done] });
     log(`    ${name} (${((Date.now() - started) / 1000).toFixed(1)}s)`);
     return true;
   }

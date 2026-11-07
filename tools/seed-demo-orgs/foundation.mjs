@@ -24,6 +24,10 @@ const ROLE_RULES = {
     label: 'Inventory manager', description: 'Warehouses, stock movements and counts',
     match: (k) => /^inventory\./.test(k) || /^purchasing\.receipts\./.test(k) || /^purchasing\.orders\.read$/.test(k) || /^sales\.orders\./.test(k) || /^core\.items\./.test(k),
   },
+  ops: {
+    label: 'Operations billing', description: 'Raises invoices and bills from operational records',
+    match: (k) => /^finance\.(invoices|bills)\.(read|write|issue|post|submit)$/.test(k) || /^core\.(parties|items)\.read$/.test(k) || /^inventory\.(stock|warehouses)\.read$/.test(k) || /^(projects|manufacturing|pos|retail|realestate|services)\./.test(k),
+  },
   hr: {
     label: 'HR manager', description: 'Employees, attendance, leave and payroll',
     match: (k) => /^hr\./.test(k),
@@ -47,20 +51,20 @@ function rolesFor(key, org, allRoles) {
   const name = PEOPLE.find((p) => p[0] === key)[2];
   if (name) return allRoles.filter((r) => r.name === name);
   // Operational staff: the manager role of each industry module, plus their module's own operating roles.
-  return allRoles.filter((r) => r.isBuiltIn && r.moduleKey && / manager$/i.test(r.name) && !['Finance manager', 'Sales manager', 'Purchase manager', 'Inventory manager', 'HR manager'].includes(r.name));
+  return allRoles.filter((r) => r.name === 'Operations billing' || (r.isBuiltIn && r.moduleKey && / manager$/i.test(r.name) && !['Finance manager', 'Sales manager', 'Purchase manager', 'Inventory manager', 'HR manager'].includes(r.name)));
 }
 
 async function ensureWorkspace(org, log) {
   const f = await founderClient();
   const adminEmail = emailOf(org, 'owner');
-  const clients = await f.get(`/platform/clients?search=${encodeURIComponent(org.code)}&pageSize=5`);
+  const clients = await f.get(`/platform-admin/clients?search=${encodeURIComponent(org.code)}&pageSize=5`);
   const row = (Array.isArray(clients) ? clients : clients?.items ?? []).find((c) => c.code === org.code);
   let orgId = row?.orgId;
   if (!orgId) {
-    const plans = await f.get('/platform/plans');
+    const plans = await f.get('/platform-admin/plans');
     // The widest active plan: no module limit and the most users. Demo workspaces are complimentary, so it is never billed.
     const plan = (Array.isArray(plans) ? plans : plans.items).filter((p) => p.isActive && !p.modules?.length).sort((a, b) => (b.maxUsers ?? 1e9) - (a.maxUsers ?? 1e9) || b.sortOrder - a.sortOrder)[0];
-    const created = await f.post('/platform/clients', {
+    const created = await f.post('/platform-admin/clients', {
       workspaceName: org.name, signInKey: org.code, industry: org.industry, countryCode: org.country, baseCurrency: org.currency, timeZone: org.timeZone,
       adminName: `${org.name.replace('DEMO - ', '')} Owner`, adminEmail, phone: '+000 555 0100', planId: plan.id, cycle: 'monthly', startMode: 'complimentary',
       notes: 'Synthetic demonstration workspace. All records are invented.',
@@ -71,7 +75,7 @@ async function ensureWorkspace(org, log) {
     await admin.signIn(org.code);
     await admin.post('/auth/change-password', { currentPassword: created.temporaryPassword, newPassword: PASSWORD });
   }
-  await f.put(`/platform/clients/${orgId}/demo`, { isDemo: true });
+  await f.put(`/platform-admin/clients/${orgId}/demo`, { isDemo: true });
   return orgId;
 }
 

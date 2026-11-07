@@ -144,4 +144,7 @@ export const ORGS = [
   },
 ];
 
+// A suffix keeps trial runs apart on a scratch database.
+if (process.env.SEED_SUFFIX) for (const org of ORGS) org.code += process.env.SEED_SUFFIX;
+
 export const emailOf = (org, person) => `${person}@${org.code}.example.test`;

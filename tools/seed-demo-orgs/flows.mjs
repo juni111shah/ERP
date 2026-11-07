@@ -3,7 +3,8 @@ import { addDays, clampToToday, monthStart, round2, today } from './lib.mjs';
 
 const lastDayOf = (first) => { const d = new Date(first + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return d.toISOString().slice(0, 10); };
 export const months = (count = 5) => Array.from({ length: count + 1 }, (_, i) => monthStart(count - i)).filter((m) => m <= today);
-export const dayIn = (ctx, first) => clampToToday(addDays(first, ctx.random.int(1, 26)));
+/** A day of the month, inside the current phase: goods are bought before they are made, and made before they are sold. */
+export const dayIn = (ctx, first) => clampToToday(addDays(first, ctx.random.int(...(ctx.band ?? [1, 26]))));
 
 const taxOf = (ctx) => ctx.taxRate;
 const unit = (ctx) => ctx.units[ctx.random.int(0, ctx.units.length - 1)];
@@ -64,7 +65,7 @@ export async function purchaseCycle(ctx, month, n, outcome = 'paid', chosen) {
   const billDate = clampToToday(addDays(receiptDate, random.int(1, 4)));
   ctx.on(billDate);
   const finance = people.finance ?? people.owner;
-  const bill = await finance.post(`/m/purchasing/orders/${order.id}/convert-to-bill`, {});
+  const bill = await buyer.post(`/m/purchasing/orders/${order.id}/convert-to-bill`, {});
   const posted = await finance.post(`/finance/bills/${bill.id}/post`, {});
   if (outcome === 'overdue' || outcome === 'billed') return posted;
   const payDate = clampToToday(addDays(billDate, random.int(5, 25)));
@@ -299,9 +300,9 @@ export async function peopleAndPayroll(ctx) {
     const types = await hr.list('/m/hr/leave-types');
     if (types[0]) {
       const from = addDays(monthStart(1), 8);
-      const req = await hr.post('/m/hr/leave', { employeeId: employees[1].id, leaveTypeId: types[0].id, fromDate: from, toDate: addDays(from, 2), submit: true });
+      const req = await hr.post('/m/hr/leave', { employeeId: employees[1].id, leaveTypeId: types[0].id, fromDate: from, toDate: addDays(from, 4), submit: true });
       await ctx.owner.post(`/m/hr/leave/${req.id}/approve`, {});
-      const req2 = await hr.post('/m/hr/leave', { employeeId: employees[2].id, leaveTypeId: types[0].id, fromDate: addDays(from, 15), toDate: addDays(from, 16), submit: true });
+      const req2 = await hr.post('/m/hr/leave', { employeeId: employees[2].id, leaveTypeId: types[0].id, fromDate: addDays(from, 15), toDate: addDays(from, 19), submit: true });
       await ctx.owner.post(`/m/hr/leave/${req2.id}/reject`, { reason: 'Peak period, please choose other dates' });
     }
   });

@@ -112,7 +112,10 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
                 if (!await db.Currencies.AnyAsync(x => x.Code == c.Code, ct) && !db.Currencies.Local.Any(x => x.Code == c.Code))
                     db.Currencies.Add(new Currency { Code = c.Code, Name = c.Name, Symbol = c.Symbol, Decimals = c.Decimals });
 
-            foreach (var a in CoreTemplates.ChartOfAccounts.Concat(industry.Accounts ?? []).DistinctBy(a => a.Code))
+            // A module's own templates hold the accounts its postings need, whichever business type brought it in.
+            var neededAccounts = CoreTemplates.ChartOfAccounts.Concat(industry.Accounts ?? [])
+                .Concat(ModuleDependencies.Resolve(industry.SuggestedModules, modules.Find, options?.AllowedModules).SelectMany(m => modules.Find(m)!.IndustryTemplates).SelectMany(t => t.Accounts ?? []));
+            foreach (var a in neededAccounts.DistinctBy(a => a.Code))
                 db.Accounts.Add(new Account { Code = a.Code, Name = a.Name, Type = a.Type, SystemRole = a.SystemRole, IsBank = a.IsBank, IsSystem = a.SystemRole is not null, ReportingGroup = a.ReportingGroup });
 
             var pack = countryPacks.Find(organization.CountryCode);
@@ -130,7 +133,7 @@ public sealed class OnboardingService(AppDbContext db, UserManager<AppUser> user
 
             // What the chosen modules bring with them: their roles, numbering and any modules they need.
             var enabled = ModuleDependencies.Resolve(industry.SuggestedModules, modules.Find, options?.AllowedModules);
-            var moduleTemplates = enabled.SelectMany(m => modules.Find(m)!.IndustryTemplates).Where(t => t.Hidden).ToList();
+            var moduleTemplates = enabled.SelectMany(m => modules.Find(m)!.IndustryTemplates).ToList();
 
             foreach (var s in CoreTemplates.Sequences.Concat(industry.Sequences ?? []).Concat(moduleTemplates.SelectMany(t => t.Sequences ?? [])).DistinctBy(s => s.DocumentType))
                 db.NumberSequences.Add(new NumberSequence { DocumentType = s.DocumentType, Prefix = s.Prefix, Pattern = s.Pattern, ResetYearly = s.ResetYearly, Year = 0, NextValue = 1 });
