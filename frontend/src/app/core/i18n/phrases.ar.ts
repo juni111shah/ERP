@@ -1129,6 +1129,21 @@ const PAIRS: [string, string][] = [
   ['From amount', 'من مبلغ'], ['Vendor bill', 'فاتورة مورد'], ['Manual journal', 'قيد يدوي'], ['Payment', 'دفعة'], ['Purchase order', 'أمر شراء'], ['Purchase requisition', 'طلب شراء'],
   ['This request has one decision and no steps were recorded.', 'لهذا الطلب قرار واحد ولم تُسجَّل خطوات.'], ['Credit limit', 'حد الائتمان'],
   ['The most this party may owe at once. Leave empty for no limit.', 'أقصى مبلغ يجوز أن يكون مستحقاً على هذا الطرف دفعة واحدة. اتركه فارغاً لعدم وجود حد.'],
+  // returns, purchase order bill, delivery, approval state
+  ['Sales returns', 'مرتجعات المبيعات'], ['Purchase returns', 'مرتجعات المشتريات'], ['Sales return', 'مرتجع مبيعات'], ['Purchase return', 'مرتجع مشتريات'], ['New return', 'مرتجع جديد'], ['Return goods', 'إرجاع البضاعة'],
+  ['No sales returns yet.', 'لا توجد مرتجعات مبيعات بعد.'], ['No purchase returns yet.', 'لا توجد مرتجعات مشتريات بعد.'], ['Return against', 'مرتجع مقابل'], ['Sales order', 'أمر بيع'], ['Invoice', 'فاتورة'],
+  ['Document', 'المستند'], ['Continue', 'متابعة'], ['Choose what comes back', 'اختر ما يعود'], ['Against', 'مقابل'], ['Void return', 'إلغاء المرتجع'], ['Void this return?', 'إلغاء هذا المرتجع؟'],
+  ['Delete this draft return?', 'حذف مسودة المرتجع هذه؟'], ['Return date', 'تاريخ المرتجع'], ['Warehouse the goods leave', 'المستودع الذي تخرج منه البضاعة'], ['Where the order was received', 'حيث استُلم الأمر'],
+  ['Can come back', 'يمكن إرجاعه'], ['Back on the shelf', 'يعود إلى الرف'], ['Create return', 'إنشاء المرتجع'], ['Restocked', 'أُعيد للمخزون'], ['Nothing on this document can be returned.', 'لا يمكن إرجاع أي شيء من هذا المستند.'],
+  ['Goods that are not restocked (damaged, for example) stay at cost in the books and are not added back to the shelf.', 'البضاعة التي لا تعود إلى المخزون (التالفة مثلاً) تبقى بتكلفتها في الدفاتر ولا تُضاف إلى الرف.'],
+  ['This reverses its entries and puts stock and balances back as they were. It is refused once the credit note is applied or the goods have been used.', 'يعكس هذا قيوده ويعيد المخزون والأرصدة كما كانت. يُرفض بعد تطبيق إشعار الدائن أو استخدام البضاعة.'],
+  ['Stock versus ledger', 'المخزون مقابل الدفتر'], ['Stock value', 'قيمة المخزون'], ['Inventory account', 'حساب المخزون'], ['Difference', 'الفرق'],
+  ['Generate vendor bill', 'إنشاء فاتورة مورد'], ['Create bill', 'إنشاء الفاتورة'], ['Bill now', 'فوترة الآن'], ['Ordered', 'المطلوب'], ['Received', 'المستلم'], ['Billed', 'المفوتر'], ['Unit price', 'سعر الوحدة'],
+  ['Bill goods that have not been received yet', 'فوترة بضاعة لم تُستلم بعد'], ['Vendor reference', 'مرجع المورد'], ["The vendor's invoice number", 'رقم فاتورة المورد'],
+  ['Off by default. A stocked order with nothing received is refused unless you tick this.', 'متوقف افتراضياً. يُرفض أمر مخزني لم يُستلم منه شيء ما لم تفعّل هذا الخيار.'],
+  ['Choose how much of each line to bill. Bill what has been received, or tick the box below to bill goods that have not arrived yet. A different price creates a variance entry.', 'اختر الكمية المراد فوترتها من كل بند. افوتر ما استُلم، أو فعّل الخيار أدناه لفوترة بضاعة لم تصل بعد. السعر المختلف ينشئ قيد فروقات.'],
+  ['Delivery date', 'تاريخ التسليم'], ['Default warehouse', 'المستودع الافتراضي'], ['Warehouse', 'المستودع'], ['Where the goods are stored. Left empty, the default warehouse of the legal entity is used.', 'مكان تخزين البضاعة. إن تُرك فارغاً يُستخدم المستودع الافتراضي للكيان القانوني.'],
+  ['Waiting for approval', 'بانتظار الموافقة'], ['Approval granted', 'تمت الموافقة'], ['Approval rejected', 'رُفضت الموافقة'], ['Approval withdrawn', 'سُحبت الموافقة'], ['Open approvals', 'فتح الموافقات'],
   // next batch
 ];
 

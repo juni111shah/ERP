@@ -13,6 +13,10 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
+import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
+import { NzSelectModule } from 'ng-zorro-antd/select';
+import { toIsoDate } from '../../core/custom-fields/custom-field-form';
+import { WarehouseRow, WarehousesApi } from '../../modules/inventory/inventory.api';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
@@ -44,6 +48,8 @@ import { displayLabel } from '../../core/format/display';
     NzModalModule,
     NzInputNumberModule,
     NzPopconfirmModule,
+    NzDatePickerModule,
+    NzSelectModule,
     HasPermissionDirective,
   ],
   template: `
@@ -89,6 +95,11 @@ import { displayLabel } from '../../core/format/display';
                   <span nz-icon nzType="file-done"></span>Generate Invoice
                 </button>
               </span>
+            }
+            @if (hasDelivered()) {
+              <a *erpHasPermission="'sales.returns.manage'" [routerLink]="['/sales/returns']" [queryParams]="{ order: o.id }" nz-button data-testid="order-return">
+                <span nz-icon nzType="rollback"></span>Return goods
+              </a>
             }
             @if (o.invoicedInvoiceId) {
               <a [routerLink]="['/finance/invoices', o.invoicedInvoiceId]" nz-button nzType="dashed">
@@ -195,7 +206,7 @@ import { displayLabel } from '../../core/format/display';
                       {{ item.deliveredQuantity | number:'1.0-2' }}
                     </span>
                   </td>
-                  <td style="text-align: end;">{{ item.invoicedQuantity | number:'1.0-2' }}</td>
+                  <td style="text-align: end;">{{ item.invoicedQuantity | number:'1.0-2' }}@if (item.returnedQuantity) { <span title="Returned"> (returned {{ item.returnedQuantity | number:'1.0-2' }})</span> }</td>
                   <td style="text-align: end;">{{ item.unitPrice | number:'1.2-2' }}</td>
                   <td style="text-align: end;">{{ item.discountPercent }}%</td>
                   <td style="text-align: end;">{{ item.taxRate }}%</td>
@@ -216,6 +227,18 @@ import { displayLabel } from '../../core/format/display';
           (nzOnOk)="saveFulfillment()">
           <ng-container *nzModalContent>
             <p style="color: var(--erp-color-text-muted); margin-bottom: 16px;">Enter the total delivered so far for each item.</p>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+              <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--erp-color-text-muted)">Delivery date
+                <nz-date-picker [ngModel]="deliveryDate()" (ngModelChange)="deliveryDate.set($event)" [nzAllowClear]="false" data-testid="delivery-date" />
+              </div>
+              @if (warehouses().length) {
+                <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--erp-color-text-muted);flex:1;min-width:200px">Warehouse the goods leave
+                  <nz-select [ngModel]="warehouseId()" (ngModelChange)="warehouseId.set($event)" nzAllowClear nzPlaceHolder="Default warehouse" data-testid="delivery-warehouse">
+                    @for (w of warehouses(); track w.id) { <nz-option [nzValue]="w.id" [nzLabel]="w.code + ' · ' + w.name" /> }
+                  </nz-select>
+                </div>
+              }
+            </div>
             <table class="modal-fulfillment-table">
               <thead>
                 <tr>
@@ -280,10 +303,16 @@ export class OrderDetailPage {
 
   readonly order = signal<OrderDto | null>(null);
   readonly fulfillmentModalVisible = signal(false);
+  readonly deliveryDate = signal<Date>(new Date());
+  readonly warehouseId = signal<string | null>(null);
+  readonly warehouses = signal<WarehouseRow[]>([]);
   readonly fulfillmentDraft = signal<{ lineId: string; description: string; quantity: number; alreadyDelivered: number; deliveredQuantity: number }[]>([]);
   readonly failed = signal(false);
   readonly saving = signal(false);
   private orderId: string | null = null;
+
+  /** Something has been delivered and not all of it has come back. */
+  readonly hasDelivered = () => (this.order()?.lines ?? []).some((l) => l.deliveredQuantity - (l.returnedQuantity ?? 0) > 0);
 
   readonly fulfillmentPercentage = () => {
     const o = this.order();
@@ -295,6 +324,7 @@ export class OrderDetailPage {
   };
 
   constructor() {
+    inject(WarehousesApi).list({ page: 1, pageSize: 100, sort: 'code' }).subscribe({ next: (r) => this.warehouses.set(r.items.filter((w) => w.isActive)), error: () => undefined });
     this.route.paramMap.subscribe((params) => {
       const id = params.get('id');
       if (id) this.loadOrder(id);
@@ -338,6 +368,8 @@ export class OrderDetailPage {
         deliveredQuantity: l.quantity,
       }))
     );
+    this.deliveryDate.set(new Date());
+    this.warehouseId.set(null);
     this.fulfillmentModalVisible.set(true);
   }
 
@@ -349,7 +381,7 @@ export class OrderDetailPage {
       deliveredQuantity: d.deliveredQuantity,
     }));
     this.saving.set(true);
-    this.ordersApi.updateFulfillment(o.id, lines).subscribe({
+    this.ordersApi.updateFulfillment(o.id, lines, { deliveryDate: toIsoDate(this.deliveryDate()), warehouseId: this.warehouseId() }).subscribe({
       next: (updated) => {
         this.saving.set(false);
         this.order.set(updated);

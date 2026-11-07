@@ -20,7 +20,10 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { SessionStore } from '../../core/session/session.store';
-import { GoodsReceiptInput, GoodsReceiptsApi, PurchaseOrderDto, PurchaseOrdersApi, PurchaseOrderStatus } from '../../core/api/purchasing.api';
+import { ConvertToBillInput, GoodsReceiptInput, GoodsReceiptsApi, PurchaseOrderDto, PurchaseOrdersApi, PurchaseOrderStatus } from '../../core/api/purchasing.api';
+import { WarehouseRow, WarehousesApi } from '../../modules/inventory/inventory.api';
+import { ApprovalStateComponent } from '../../shared/approval-state.component';
+import { NzSelectModule } from 'ng-zorro-antd/select';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { ErpDatePipe } from '../../shared/display.pipes';
 import { StatePanelComponent } from '../../shared/state-panel.component';
@@ -31,7 +34,7 @@ import { displayLabel } from '../../core/format/display';
   selector: 'erp-purchase-order-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatePanelComponent, StatusTagComponent, NzSkeletonModule, NzToolTipModule,
+  imports: [ApprovalStateComponent, NzSelectModule, ErpDatePipe, StatePanelComponent, StatusTagComponent, NzSkeletonModule, NzToolTipModule,
     CommonModule,
     DecimalPipe,
     FormsModule,
@@ -66,6 +69,7 @@ import { displayLabel } from '../../core/format/display';
             <div class="number-tag">
               <h1 class="po-number">{{ o.number }}</h1>
               <erp-status [value]="o.status" />
+              <erp-approval-state documentType="purchase_order" [documentId]="o.id" [active]="o.status === 'submitted'" />
             </div>
             <p class="vendor-subtitle">Vendor / Supplier: <strong>{{ o.vendorName }}</strong></p>
           </div>
@@ -91,14 +95,24 @@ import { displayLabel } from '../../core/format/display';
                 <span nz-icon nzType="download"></span>Receive Goods (GRN)
               </button>
             }
-            @if (!o.invoicedBillId && (o.status === 'approved' || o.status === 'partiallyReceived' || o.status === 'received')) {
+            @if (canBill()) {
               <span nz-tooltip [nzTooltipTitle]="o.vendorPartyId ? null : 'Link this order to a vendor record to bill it.'">
-                <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="primary" [disabled]="!o.vendorPartyId" (click)="convertToBill()" data-testid="po-bill">
+                <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="primary" [disabled]="!o.vendorPartyId" (click)="openBillModal()" data-testid="po-bill">
                   <span nz-icon nzType="file-done"></span>Generate Vendor Bill
                 </button>
               </span>
             }
-            @if (o.invoicedBillId) {
+            @for (billId of o.billIds ?? []; track billId; let n = $index) {
+              <a [routerLink]="['/finance/bills', billId]" nz-button nzType="dashed" data-testid="po-bill-link">
+                <span nz-icon nzType="file-text"></span>Bill {{ n + 1 }}
+              </a>
+            }
+            @if (hasReceived()) {
+              <a *erpHasPermission="'purchasing.returns.manage'" [routerLink]="['/purchasing/returns']" [queryParams]="{ order: o.id }" nz-button data-testid="po-return">
+                <span nz-icon nzType="rollback"></span>Return goods
+              </a>
+            }
+            @if (o.invoicedBillId && !(o.billIds?.length)) {
               <a [routerLink]="['/finance/bills', o.invoicedBillId]" nz-button nzType="dashed">
                 <span nz-icon nzType="file-text"></span>View Vendor Bill
               </a>
@@ -207,6 +221,28 @@ import { displayLabel } from '../../core/format/display';
           </nz-table>
         </nz-card>
 
+        <!-- Vendor bill modal: what to bill, at what price, and whether goods not yet received may be billed -->
+        <nz-modal [nzVisible]="billModalVisible()" nzTitle="Generate vendor bill" nzOkText="Create bill" [nzWidth]="780" [nzOkLoading]="saving()" (nzOnCancel)="billModalVisible.set(false)" (nzOnOk)="saveBill()">
+          <ng-container *nzModalContent>
+            <p style="color: var(--erp-color-text-muted)">Choose how much of each line to bill. Bill what has been received, or tick the box below to bill goods that have not arrived yet. A different price creates a variance entry.</p>
+            <table class="receipt-lines-table" data-testid="po-bill-lines">
+              <thead><tr><th>Item</th><th style="width:80px">Ordered</th><th style="width:80px">Received</th><th style="width:80px">Billed</th><th style="width:120px">Bill now</th><th style="width:130px">Unit price</th></tr></thead>
+              <tbody>
+                @for (l of billDraft(); track l.lineId; let i = $index) {
+                  <tr>
+                    <td>{{ l.description }}</td><td>{{ l.ordered }}</td><td>{{ l.received }}</td><td>{{ l.billed }}</td>
+                    <td><nz-input-number [ngModel]="l.quantity" (ngModelChange)="setBill(i, 'quantity', $event)" [nzMin]="0" [nzPrecision]="2" style="width:100%" [attr.aria-label]="'Quantity to bill for ' + l.description" /></td>
+                    <td><nz-input-number [ngModel]="l.price" (ngModelChange)="setBill(i, 'price', $event)" [nzMin]="0" [nzPrecision]="2" style="width:100%" [attr.aria-label]="'Unit price for ' + l.description" /></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            <div style="margin-top:12px"><label><input type="checkbox" [ngModel]="allowUnreceived()" (ngModelChange)="allowUnreceived.set($event)" data-testid="po-allow-unreceived" /> Bill goods that have not been received yet</label>
+              <div style="font-size:12px;color:var(--erp-color-text-muted)">Off by default. A stocked order with nothing received is refused unless you tick this.</div></div>
+            <div style="margin-top:12px"><label for="vref">Vendor reference</label> <input nz-input id="vref" [ngModel]="billReference()" (ngModelChange)="billReference.set($event)" placeholder="The vendor's invoice number" /></div>
+          </ng-container>
+        </nz-modal>
+
         <!-- Goods Receipt Modal -->
         <nz-modal
           [(nzVisible)]="receiptModalVisible"
@@ -227,6 +263,18 @@ import { displayLabel } from '../../core/format/display';
                     </nz-form-control>
                   </nz-form-item>
                 </div>
+                @if (warehouses().length) {
+                  <div nz-col [nzSpan]="24">
+                    <nz-form-item>
+                      <nz-form-label>Warehouse</nz-form-label>
+                      <nz-form-control nzExtra="Where the goods are stored. Left empty, the default warehouse of the legal entity is used.">
+                        <nz-select formControlName="warehouseId" nzAllowClear nzPlaceHolder="Default warehouse" data-testid="receipt-warehouse">
+                          @for (w of warehouses(); track w.id) { <nz-option [nzValue]="w.id" [nzLabel]="w.code + ' · ' + w.name" /> }
+                        </nz-select>
+                      </nz-form-control>
+                    </nz-form-item>
+                  </div>
+                }
                 <div nz-col [nzSpan]="12">
                   <nz-form-item>
                     <nz-form-label>Delivery Note / Waybill #</nz-form-label>
@@ -311,16 +359,25 @@ export class PurchaseOrderDetailPage {
   readonly saving = signal(false);
   private orderId: string | null = null;
   readonly receiptModalVisible = signal(false);
+  readonly billModalVisible = signal(false);
+  readonly billDraft = signal<{ lineId: string; description: string; ordered: number; received: number; billed: number; orderPrice: number; quantity: number; price: number }[]>([]);
+  readonly allowUnreceived = signal(false);
+  readonly billReference = signal('');
+  readonly warehouses = signal<WarehouseRow[]>([]);
 
   readonly receiptForm: FormGroup = this.fb.group({
     receivedBy: ['', Validators.required],
     deliveryNoteNumber: [''],
+    warehouseId: [null as string | null],
     lines: this.fb.array([]),
   });
 
   get receiptLinesArray(): FormArray {
     return this.receiptForm.get('lines') as FormArray;
   }
+
+  /** Something has been received and not all of it has gone back. */
+  readonly hasReceived = () => (this.order()?.lines ?? []).some((l) => l.receivedQuantity - (l.returnedQuantity ?? 0) > 0);
 
   readonly receivingPercentage = () => {
     const o = this.order();
@@ -332,6 +389,8 @@ export class PurchaseOrderDetailPage {
   };
 
   constructor() {
+    // The warehouse picker is a convenience: without the inventory permission the entity's default warehouse is used.
+    inject(WarehousesApi).list({ page: 1, pageSize: 100, sort: 'code' }).subscribe({ next: (r) => this.warehouses.set(r.items.filter((w) => w.isActive)), error: () => undefined });
     this.route.paramMap.subscribe((params) => {
       const id = params.get('id');
       if (id) this.loadOrder(id);
@@ -357,7 +416,9 @@ export class PurchaseOrderDetailPage {
     this.ordersApi.setStatus(o.id, status).subscribe({
       next: (updated) => {
         this.order.set(updated);
-        this.message.success(`${o.number} is now ${displayLabel(status).toLowerCase()}.`);
+        // With an approval rule the order stays submitted until someone else approves it.
+        if (status === 'approved' && updated.status !== 'approved') this.message.info(`${o.number} was sent for approval. It becomes approved when the approver decides.`);
+        else this.message.success(`${o.number} is now ${displayLabel(status).toLowerCase()}.`);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to update status')),
     });
@@ -403,6 +464,7 @@ export class PurchaseOrderDetailPage {
       receivedBy: raw.receivedBy,
       receiptDate: new Date().toISOString().split('T')[0],
       deliveryNoteNumber: raw.deliveryNoteNumber || null,
+      warehouseId: raw.warehouseId || null,
       lines: receivedLines.map((l: any) => ({
         purchaseOrderLineId: l.purchaseOrderLineId,
         itemId: l.itemId,
@@ -428,15 +490,60 @@ export class PurchaseOrderDetailPage {
     });
   }
 
-  convertToBill(): void {
+  /** More can be billed: something is not yet billed and the order is past approval. */
+  canBill(): boolean {
+    const o = this.order();
+    return !!o && (o.status === 'approved' || o.status === 'partiallyReceived' || o.status === 'received' || o.status === 'billed') && o.lines.some((l) => l.billedQuantity < l.quantity);
+  }
+
+  openBillModal(): void {
     const o = this.order();
     if (!o) return;
-    this.ordersApi.convertToBill(o.id).subscribe({
+    this.billDraft.set(o.lines.map((l) => ({
+      lineId: l.id, description: l.description, ordered: l.quantity, received: l.receivedQuantity, billed: l.billedQuantity, orderPrice: l.unitPrice,
+      // What is billable: received and not yet billed. Nothing is offered for goods that have not arrived unless that is chosen below.
+      quantity: Math.max(0, l.receivedQuantity - l.billedQuantity), price: l.unitPrice,
+    })));
+    this.allowUnreceived.set(false);
+    this.billReference.set('');
+    this.billModalVisible.set(true);
+  }
+
+  setBill(i: number, key: 'quantity' | 'price', value: number | null): void {
+    this.billDraft.update((rows) => rows.map((r, n) => (n === i ? { ...r, [key]: value ?? 0 } : r)));
+  }
+
+  /** The request body: only lines with a quantity, only prices that differ from the order. */
+  billRequest(): ConvertToBillInput {
+    const rows = this.billDraft();
+    const overrides: Record<string, number> = {};
+    for (const r of rows) if (r.quantity > 0 && r.price !== r.orderPrice) overrides[r.lineId] = r.price;
+    const body: ConvertToBillInput = { lines: rows.filter((r) => r.quantity > 0).map((r) => ({ lineId: r.lineId, quantity: r.quantity })), allowUnreceived: this.allowUnreceived() };
+    if (Object.keys(overrides).length) body.unitPriceOverrides = overrides;
+    if (this.billReference().trim()) body.vendorReference = this.billReference().trim();
+    return body;
+  }
+
+  saveBill(): void {
+    const o = this.order();
+    if (!o) return;
+    const body = this.billRequest();
+    if (!body.lines?.length && !this.allowUnreceived()) {
+      this.message.warning('Enter a quantity to bill for at least one item, or choose to bill goods not yet received.');
+      return;
+    }
+    this.saving.set(true);
+    this.ordersApi.convertToBill(o.id, body).subscribe({
       next: () => {
+        this.saving.set(false);
+        this.billModalVisible.set(false);
         this.message.success(`Vendor bill created from order ${o.number}`);
         this.loadOrder(o.id);
       },
-      error: (err) => this.message.error(problemMessage(err, 'Failed to generate vendor bill')),
+      error: (err) => {
+        this.saving.set(false);
+        this.message.error(problemMessage(err, 'Failed to generate vendor bill'));
+      },
     });
   }
 

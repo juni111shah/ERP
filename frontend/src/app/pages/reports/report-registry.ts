@@ -158,7 +158,20 @@ export const REPORTS: ReportDef[] = [
     summary: (x) => (x.rule ? [{ label: 'Rule', value: x.rule }] : [{ label: 'Rule', value: 'No end-of-service rule for this country' }]),
     action: { label: 'Post provision', path: 'm/hr/reports/gratuity/provision', permission: 'hr.payroll.post', done: 'Provision posted' },
   },
+  {
+    slug: 'stock-gl-reconciliation', title: 'Stock versus ledger', subtitle: 'The value of the stock on hand against the inventory account in the ledger, per legal entity. A difference means stock moved without a matching entry, or the other way round.', module: 'inventory',
+    endpoint: 'm/inventory/reports/stock-gl-reconciliation', filters: ['asOf'],
+    columns: () => [t('legalEntity', 'Legal entity'), t('currencyCode', 'Currency'), m('stockValue', 'Stock value'), m('inventoryAccountBalance', 'Inventory account'), m('difference', 'Difference')],
+    rows: (x) => x.rows,
+    totals: (x) => ({ legalEntity: 'Total', currencyCode: '', stockValue: sumOf(x.rows, 'stockValue'), inventoryAccountBalance: sumOf(x.rows, 'inventoryAccountBalance'), difference: sumOf(x.rows, 'difference') }),
+    summary: (x) => [{ label: 'Result', value: x.reconciled ? 'Stock and ledger agree' : 'Stock and ledger differ' }],
+  },
 ];
+
+/** The sum of one numeric column over rows of a report. */
+function sumOf(rows: Record<string, number>[], key: string): number {
+  return Math.round(rows.reduce((s, r) => s + (r[key] ?? 0), 0) * 100) / 100;
+}
 
 /** Reports that live on the ledger reports page (tabs) rather than a generic page. */
 export const LEDGER_REPORT_LINKS = [

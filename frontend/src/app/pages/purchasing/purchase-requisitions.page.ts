@@ -26,6 +26,7 @@ import { PurchaseRequisitionStatus, PurchaseRequisitionsApi, RequisitionDto, Req
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { WorkspaceCurrencyService } from '../../core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { ApprovalStateComponent } from '../../shared/approval-state.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { PartiesApi } from '../parties.page';
 import { ErpDatePipe } from '../../shared/display.pipes';
@@ -34,7 +35,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
   selector: 'erp-purchase-requisitions',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatusTagComponent, ErpDatePipe, NzToolTipModule,
+  imports: [ApprovalStateComponent, StatusTagComponent, ErpDatePipe, NzToolTipModule,
     CommonModule,
     DecimalPipe,
     FormsModule,
@@ -81,7 +82,7 @@ import { ErpDatePipe } from '../../shared/display.pipes';
             } @else if (column.key === 'estimatedTotal') {
               <strong class="amount">{{ currency() }} {{ row.estimatedTotal | number:'1.2-2' }}</strong>
             } @else if (column.key === 'status') {
-              <erp-status [value]="row.status" />
+              <erp-status [value]="row.status" />@if (row.status === 'pendingApproval') { <erp-approval-state documentType="purchase_requisition" [documentId]="row.id" /> }
             } @else if (column.key === 'actions') {
               <div class="action-buttons" (click)="$event.stopPropagation()">
                 @if (row.status === 'draft') {
