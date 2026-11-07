@@ -79,7 +79,7 @@ const manage = (kind: ReturnKind) => (kind === 'sales' ? 'sales.returns.manage' 
           <p><erp-status [value]="d.status" /> &nbsp; {{ displayDate(d.returnDate) }} &middot; {{ partyName(d) }}</p>
           <p><b>Reason:</b> {{ d.reason }}</p>
           @if (d.voidReason) { <p><b>Voided:</b> {{ d.voidReason }}</p> }
-          <nz-table [nzData]="d.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="return-detail-lines">
+          <nz-table [nzData]="$any(d.lines)"[nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="return-detail-lines">
             <thead><tr><th>Item</th><th class="r">Quantity</th>@if (kind === 'sales') { <th>Restocked</th> }</tr></thead>
             <tbody>
               @for (l of d.lines; track l.id) {

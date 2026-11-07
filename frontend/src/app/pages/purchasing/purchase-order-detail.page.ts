@@ -239,7 +239,7 @@ import { displayLabel } from '../../core/format/display';
             </table>
             <div style="margin-top:12px"><label><input type="checkbox" [ngModel]="allowUnreceived()" (ngModelChange)="allowUnreceived.set($event)" data-testid="po-allow-unreceived" /> Bill goods that have not been received yet</label>
               <div style="font-size:12px;color:var(--erp-color-text-muted)">Off by default. A stocked order with nothing received is refused unless you tick this.</div></div>
-            <div style="margin-top:12px"><label for="vref">Vendor reference</label> <input nz-input id="vref" [ngModel]="billReference()" (ngModelChange)="billReference.set($event)" placeholder="The vendor's invoice number" /></div>
+            <div style="margin-top:12px"><label for="vref">Vendor reference</label> <input nz-input id="vref" aria-label="Vendor reference" [ngModel]="billReference()" (ngModelChange)="billReference.set($event)" placeholder="The vendor's invoice number" /></div>
           </ng-container>
         </nz-modal>
 
