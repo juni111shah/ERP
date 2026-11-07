@@ -80,6 +80,9 @@ const CYCLE_PERIOD: Record<RetainerCycle, string> = { monthly: 'month', quarterl
           @case ('actions') {
             <div class="table-actions" *erpHasPermission="'services.retainers.manage'">
               @if (row.status === 'active') {
+                <button nz-button nzType="link" nzSize="small" (click)="invoicePeriod(row)" data-testid="retainer-invoice">
+                  <span nz-icon nzType="file-text"></span> Invoice this period
+                </button>
                 <button nz-button nzType="link" nzSize="small" (click)="setStatus(row, 'paused')">
                   <span nz-icon nzType="pause-circle"></span> Pause
                 </button>
@@ -261,6 +264,20 @@ export class RetainersPage implements OnInit {
       terms: '',
     });
     this.drawerVisible.set(true);
+  }
+
+  /** Raises a draft invoice for the current period: the fee, plus hours beyond the allowance. Asking again for the same period returns the same invoice. */
+  invoicePeriod(row: RetainerSummaryDto): void {
+    this.api.invoicePeriod(row.id).subscribe({
+      next: (r) => {
+        const note = r.unapprovedHours > 0 ? ` ${r.unapprovedHours} hours are not approved yet and are not counted.` : '';
+        this.msg.success(r.alreadyInvoiced
+          ? `This period was already invoiced as ${r.invoiceNumber}.`
+          : `Draft invoice ${r.invoiceNumber} created for ${row.retainerNumber}, ${r.periodStart} to ${r.periodEnd}. Issue it from Invoices.${note}`);
+        this.list.reload();
+      },
+      error: (err) => this.msg.error(problemMessage(err, 'The period could not be invoiced')),
+    });
   }
 
   setStatus(row: RetainerSummaryDto, status: RetainerStatus): void {

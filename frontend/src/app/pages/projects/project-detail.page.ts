@@ -214,6 +214,7 @@ export class ProjectDetailPage {
     { key: 'managerUserId', label: 'Project manager', type: 'select', options: this.users().map((u) => ({ value: u.id, label: u.fullName })), hint: this.project()?.managerName && !this.project()?.managerUserId ? `Typed name: ${this.project()!.managerName}. Choose a person to link an account.` : undefined },
     { key: 'billingType', label: 'Billing model', type: 'select', required: true, options: filterOptions(BILLING_TYPES) },
     { key: 'budgetAmount', label: `Budget or fixed fee (${this.currency()})`, type: 'number', min: 0 },
+    { key: 'contractValue', label: `Contract value (${this.currency()})`, type: 'number', min: 0, hint: 'What the customer agreed to pay, when it differs from the cost budget. Left empty, the budget is the fee.' },
     { key: 'budgetHours', label: 'Budgeted hours', type: 'number', min: 0 },
     { key: 'startDate', label: 'Start date', type: 'date' },
     { key: 'endDate', label: 'Target end date', type: 'date' },

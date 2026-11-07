@@ -1163,6 +1163,16 @@ const PAIRS: [string, string][] = [
   ['The code no longer gives a discount on this ticket, so it was removed.', 'لم يعد الرمز يعطي خصماً على هذه الفاتورة فأُزيل.'], ['Give the money back as', 'إرجاع المبلغ بواسطة'],
   ['Money goes back the way it came: each way of paying can be refunded what it took, less earlier refunds.', 'يعود المال بالطريقة التي جاء بها: يمكن رد ما تلقّته كل طريقة دفع مطروحاً منه المبالغ المردودة سابقاً.'],
   ["Sending it another way needs a manager's refund override.", 'إرساله بطريقة أخرى يتطلب تصريح استرداد من المدير.'], ['This sale was paid with', 'دُفعت هذه البيعة بواسطة'],
+  // services, projects, real estate, distribution
+  ['Invoice this period', 'فوترة هذه الفترة'], ['Invoice approved time', 'فوترة الوقت المعتمد'], ['Log time', 'تسجيل وقت'], ['Time logged', 'الوقت المسجَّل'], ['Edit time entry', 'تعديل قيد الوقت'],
+  ['What was done', 'ما تم إنجازه'], ['Hourly rate', 'سعر الساعة'], ['Billable', 'قابل للفوترة'], ['Not billable', 'غير قابل للفوترة'], ['Delete this time entry?', 'حذف قيد الوقت هذا؟'], ['Time entry', 'قيد وقت'],
+  ['No time has been logged against this engagement.', 'لم يُسجَّل أي وقت على هذه المهمة.'], ['Approve', 'اعتماد'], ['Hours', 'الساعات'],
+  ['Contract value', 'قيمة العقد'], ['Work in progress', 'أعمال قيد التنفيذ'], [' cost not yet released', ' تكلفة لم تُحرَّر بعد'],
+  ['What the customer agreed to pay, when it differs from the cost budget. Left empty, the budget is the fee.', 'ما اتفق العميل على دفعه إذا اختلف عن ميزانية التكلفة. إن تُرك فارغاً فالميزانية هي الأتعاب.'],
+  ['Owner payouts', 'مدفوعات الملاك'], ['Pay an owner', 'دفع لمالك'], ['Rent is credited to', 'يُقيَّد الإيجار لصالح'], ['The owner (owner funds payable)', 'المالك (أموال الملاك المستحقة)'], ['Company income', 'إيراد الشركة'],
+  ['Owner payout', 'دفعة مالك'], ['Paid to owner', 'المدفوع للمالك'], ['Rent collected', 'الإيجار المحصَّل'], ['Management fee', 'رسوم الإدارة'], ['Maintenance', 'الصيانة'], ['Bank payment', 'دفع من البنك'],
+  ['Bill to the owner', 'فاتورة إلى المالك'], ['Pay by', 'الدفع بواسطة'], ['Pay from', 'الدفع من'], ['Period from', 'الفترة من'], ['Period to', 'الفترة إلى'], ['Payout date', 'تاريخ الدفع'], ['No owner has been paid yet.', 'لم يُدفع لأي مالك بعد.'],
+  ['Customer to invoice', 'العميل المراد فوترته'], ['No invoice', 'بدون فاتورة'], ['Complete even if some loaded stock is not accounted for', 'إتمام الرحلة حتى لو كان جزء من المخزون المحمَّل غير محسوب'],
   // next batch
 ];
 

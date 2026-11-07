@@ -15,6 +15,8 @@ export interface UnitTypeDto { id: string; code: string; name: string; defaultUs
 
 export interface PropertyDto {
   id: string; code: string; name: string; legalEntityId: string; propertyType: string; ownershipType: string; ownerPartyId?: string; managementFeePercent?: number; region?: string;
+  /** Empty follows ownership: rent of a property managed for an owner is credited to the owner. false keeps it on company income. */
+  creditRentToOwner?: boolean | null; rentCreditsOwner?: boolean;
   community?: string; plotNumber?: string; yearBuilt?: number; totalUnits: number; indicativeValue: number; isActive: boolean; notes?: string; customFields: CustomFields;
 }
 export interface PropertySummary {
@@ -280,4 +282,16 @@ export class LeadsApi extends CrudApiService<LeadDto, unknown> {
   pipeline(): Observable<LeadPipeline> { return this.http.get<LeadPipeline>(`${this.url}/pipeline`); }
   moveStage(id: string, stage: string, lostReason?: string | null): Observable<LeadDto> { return this.http.post<LeadDto>(`${this.url}/${id}/stage`, { stage, lostReason }); }
   convert(id: string, body: { dealType?: string | null; commissionRatePercent?: number | null; dealValue?: number | null }): Observable<LeadDto> { return this.http.post<LeadDto>(`${this.url}/${id}/convert`, body); }
+}
+
+/** What an owner is paid for a period: the rent collected less the management fee and the maintenance recharged. The amount comes from the statement. */
+export interface OwnerPayoutDto {
+  id: string; number: string; legalEntityId: string; ownerPartyId: string; periodFrom: string; periodTo: string; date: string; method: 'payment' | 'bill'; status: 'posted' | 'voided' | string;
+  rentCollected: number; managementFee: number; maintenanceCosts: number; amount: number; bankAccountId?: string | null; billId?: string | null; journalEntryId?: string | null;
+  notes?: string | null; voidReason?: string | null; voidedAt?: string | null;
+}
+@Injectable({ providedIn: 'root' })
+export class OwnerPayoutsApi extends CrudApiService<OwnerPayoutDto, unknown> {
+  protected readonly resource = `${BASE}/owner-payouts`;
+  void(id: string, reason: string): Observable<OwnerPayoutDto> { return this.http.post<OwnerPayoutDto>(`${this.url}/${id}/void`, { reason }); }
 }

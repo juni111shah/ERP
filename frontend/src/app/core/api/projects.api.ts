@@ -22,6 +22,8 @@ export interface ProjectSummaryDto {
   status: ProjectStatus;
   billingType: ProjectBillingType;
   budgetAmount: number;
+  /** The agreed fee when it differs from the cost budget. Null when not set: the budget is then the fee. */
+  contractValue?: number | null;
   startDate?: string | null;
   endDate?: string | null;
   createdAt: string;
@@ -38,6 +40,8 @@ export interface ProjectSummaryDto {
 }
 
 export interface ProjectDto extends ProjectSummaryDto {
+  /** Cost posted to work in progress and not yet released. */
+  wipBalance?: number;
   description?: string | null;
   totalLoggedHours: number;
   totalBilledHours: number;
@@ -77,6 +81,7 @@ export interface ProjectInput {
   status: ProjectStatus;
   billingType: ProjectBillingType;
   budgetAmount: number;
+  contractValue?: number | null;
   startDate?: string | null;
   endDate?: string | null;
   customFields?: Record<string, unknown> | null;

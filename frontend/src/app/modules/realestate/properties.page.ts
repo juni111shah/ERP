@@ -23,6 +23,7 @@ export function propertyFields(lookups: RealEstateLookups): FieldSpec[] {
     { key: 'ownershipType', label: 'Ownership', type: 'select', required: true, options: OWNERSHIPS, default: 'owned' },
     { key: 'managementFeePercent', label: 'Management fee %', type: 'number', min: 0, max: 100, default: 0, hidden: (v) => v['ownershipType'] !== 'managedForOwner', hint: 'Charged on rent collected; used in the owner statement.' },
     { key: 'ownerPartyId', label: 'Owner', type: 'lookup', lookup: lookups.party('other'), hidden: (v) => v['ownershipType'] !== 'managedForOwner', required: true },
+    { key: 'creditRentToOwner', label: 'Rent is credited to', type: 'select', options: [{ value: true, label: 'The owner (owner funds payable)' }, { value: false, label: 'Company income' }], hidden: (v) => v['ownershipType'] !== 'managedForOwner', hint: 'Left empty, rent of a property managed for an owner is credited to the owner and paid out from the owner payouts screen. Choose company income to keep it as revenue of the company.' },
     { key: 'region', label: 'Region / emirate', type: 'text', maxLength: 100 },
     { key: 'community', label: 'Community / area', type: 'text', maxLength: 100 },
     { key: 'plotNumber', label: 'Plot number', type: 'text', maxLength: 50 },

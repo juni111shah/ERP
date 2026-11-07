@@ -133,6 +133,10 @@ export interface VanSalesTripDto {
   totalCollectionsAmount: number;
   notes?: string | null;
   inventoryItems: TripInventoryItemDto[];
+  /** The invoice raised when the trip was completed with a customer. */
+  invoiceId?: string | null;
+  invoiceNumber?: string | null;
+  warnings?: string[] | null;
   customFields?: string | null;
   createdAt: string;
 }
@@ -162,6 +166,10 @@ export interface CompleteTripInput {
   totalSalesAmount: number;
   totalCollectionsAmount: number;
   items: RecordTripItemReconciliationInput[];
+  /** The customer to invoice what was sold at the trip's prices. Left out, no invoice is raised. */
+  customerPartyId?: string | null;
+  /** Complete even when some of what was loaded is not sold, returned or damaged. Off by default: the server refuses. */
+  allowUnaccounted?: boolean;
   notes?: string | null;
 }
 

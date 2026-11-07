@@ -177,6 +177,8 @@ export interface TimeEntryDto {
 }
 
 export interface TimeEntrySummaryDto {
+  /** Set once the entry is on an invoice. */
+  invoiceId?: string | null;
   id: string;
   legalEntityId: string;
   engagementId: string;
@@ -204,6 +206,11 @@ export interface TimeEntryInput {
   customFields?: string | null;
 }
 
+export interface RetainerInvoiceResult {
+  retainerId: string; periodStart: string; periodEnd: string; recurringFee: number; includedHours: number; billableHours: number; overageHours: number; overageHourlyRate: number; overageAmount: number;
+  invoiceId: string; invoiceNumber: string; net: number; tax: number; total: number; alreadyInvoiced: boolean; unapprovedHours: number;
+}
+
 export interface ServicesKpisDto {
   activeEngagements: number;
   totalContractValue: number;
@@ -223,6 +230,11 @@ export class ServicesEngagementsApi extends CrudApiService<EngagementSummaryDto,
     return this.http.get<EngagementDto>(`${this.url}/${id}`);
   }
 
+  /** Draft invoice of the approved, billable, not yet invoiced time of a time-and-materials engagement. */
+  invoiceTime(id: string, body: { timeEntryIds?: string[]; from?: string | null; to?: string | null; invoiceDate?: string | null } = {}): Observable<{ id: string; number: string; total: number }> {
+    return this.http.post<{ id: string; number: string; total: number }>(`${this.url}/${id}/invoice-time`, body);
+  }
+
   updateStatus(id: string, status: EngagementStatus): Observable<EngagementDto> {
     return this.http.post<EngagementDto>(`${this.url}/${id}/status`, { id, status });
   }
@@ -234,6 +246,11 @@ export class ServicesRetainersApi extends CrudApiService<RetainerSummaryDto, Ret
 
   getRetainer(id: string): Observable<RetainerDto> {
     return this.http.get<RetainerDto>(`${this.url}/${id}`);
+  }
+
+  /** Invoices the period (default: the current one) as a draft: the fee and the hours beyond the allowance. The same period twice gives back the same invoice. */
+  invoicePeriod(id: string, body: { periodDate?: string | null; invoiceDate?: string | null } = {}): Observable<RetainerInvoiceResult> {
+    return this.http.post<RetainerInvoiceResult>(`${this.url}/${id}/invoice`, body);
   }
 
   updateStatus(id: string, status: RetainerStatus): Observable<RetainerDto> {
@@ -258,8 +275,9 @@ export class ServicesMilestonesApi extends CrudApiService<MilestoneSummaryDto, M
 export class ServicesTimeEntriesApi extends CrudApiService<TimeEntrySummaryDto, TimeEntryInput> {
   protected readonly resource = 'm/services/time-entries';
 
-  approve(id: string, approvedByUserId: string): Observable<TimeEntryDto> {
-    return this.http.post<TimeEntryDto>(`${this.url}/${id}/approve`, { id, approvedByUserId });
+  /** The approver is the signed-in person (never the consultant); no approver is chosen or sent. */
+  approve(id: string): Observable<TimeEntryDto> {
+    return this.http.post<TimeEntryDto>(`${this.url}/${id}/approve`, {});
   }
 }
 
