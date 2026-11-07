@@ -36,6 +36,7 @@ public sealed class SalesModule : ModuleBase
     [
         new("sales.quotes", "Quotes", "/sales/quotes", "file-text", P.QuotesRead, 10, "sales", "Sales", 300),
         new("sales.orders", "Sales orders", "/sales/orders", "shopping-cart", P.OrdersRead, 20, "sales", "Sales", 300),
+        new("sales.returns", "Sales returns", "/sales/returns", "rollback", P.ReturnsRead, 25, "sales", "Sales", 300),
         new("sales.analytics", "Sales analytics", "/sales/analytics", "line-chart", P.AnalyticsRead, 30, "sales", "Sales", 300),
     ];
 

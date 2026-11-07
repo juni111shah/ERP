@@ -44,6 +44,7 @@ export interface PurchaseOrderLineDto {
   quantity: number;
   receivedQuantity: number;
   billedQuantity: number;
+  returnedQuantity?: number;
   unitOfMeasure: string;
   unitPrice: number;
   discountPercent: number;
@@ -68,6 +69,8 @@ export interface PurchaseOrderSummaryDto {
   totalAmount: number;
   lineCount: number;
   invoicedBillId?: string | null;
+  /** Every bill raised from the order (on the single-order read only). */
+  billIds?: string[] | null;
   createdAt: string;
 }
 
@@ -144,12 +147,21 @@ export interface GoodsReceiptLineInput {
   unitOfMeasure: string;
 }
 
+/** Optional pieces of a convert-to-bill call. Left empty, everything billable is billed at the order prices. */
+export interface ConvertToBillInput {
+  lines?: { lineId: string; quantity: number }[];
+  unitPriceOverrides?: Record<string, number>;
+  allowUnreceived?: boolean;
+  vendorReference?: string | null;
+}
+
 export interface GoodsReceiptInput {
   legalEntityId: string;
   number?: string | null;
   purchaseOrderId: string;
   receivedBy: string;
   receiptDate: string;
+  warehouseId?: string | null;
   deliveryNoteNumber?: string | null;
   notes?: string | null;
   lines: GoodsReceiptLineInput[];
@@ -174,6 +186,7 @@ export interface GoodsReceiptSummaryDto {
   purchaseOrderNumber: string;
   vendorName: string;
   receiptDate: string;
+  warehouseId?: string | null;
   receivedBy: string;
   deliveryNoteNumber?: string | null;
   lineCount: number;
@@ -207,8 +220,8 @@ export class PurchaseOrdersApi extends CrudApiService<PurchaseOrderSummaryDto, P
     return this.http.put<PurchaseOrderDto>(`${this.url}/${id}/status`, { status });
   }
 
-  convertToBill(id: string): Observable<unknown> {
-    return this.http.post<unknown>(`${this.url}/${id}/convert-to-bill`, {});
+  convertToBill(id: string, body: ConvertToBillInput = {}): Observable<unknown> {
+    return this.http.post<unknown>(`${this.url}/${id}/convert-to-bill`, body);
   }
 }
 

@@ -30,6 +30,7 @@ import { SessionStore } from '../../core/session/session.store';
 import { ErpDatePipe, ErpLabelPipe } from '../../shared/display.pipes';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
+import { EngagementTimeComponent } from './engagement-time.component';
 import { StatusTagComponent } from '../../shared/status-tag.component';
 import { PartiesApi, PartyDto } from '../parties.page';
 
@@ -71,6 +72,7 @@ const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErr
     PagedTableComponent,
     HasPermissionDirective,
     StatusTagComponent,
+    EngagementTimeComponent,
   ],
   template: `
     <!-- The server allows no search or sorting on engagements yet, so neither is offered. -->
@@ -230,7 +232,7 @@ const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErr
     </nz-modal>
 
     <!-- Details Drawer -->
-    <nz-drawer [nzVisible]="detailsVisible()" [nzTitle]="selectedDetails()?.engagementCode ?? 'Engagement'" [nzWidth]="480" (nzOnClose)="detailsVisible.set(false)">
+    <nz-drawer [nzVisible]="detailsVisible()" [nzTitle]="selectedDetails()?.engagementCode ?? 'Engagement'" [nzWidth]="640" (nzOnClose)="detailsVisible.set(false)">
       <ng-container *nzDrawerContent>
         @if (selectedDetails(); as eng) {
           <div class="detail">
@@ -250,6 +252,12 @@ const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErr
                 <div><dt>Hours used</dt><dd class="num">{{ eng.consumedHours | number:'1.0-1' }} h</dd></div>
               </dl>
             </nz-card>
+
+            <ng-container *erpHasPermission="'services.timeentries.read'">
+              <nz-card nzSize="small" nzTitle="Time logged" data-testid="engagement-time">
+                <erp-engagement-time [engagement]="eng" (changed)="list.reload()" />
+              </nz-card>
+            </ng-container>
 
             <nz-card nzSize="small" nzTitle="Schedule">
               <dl class="facts">

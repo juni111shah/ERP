@@ -1,7 +1,8 @@
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { FormsModule } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -14,7 +15,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { catchError, of } from 'rxjs';
 import {
-  AccountDto, AccountsApi, ArAgeing, BusinessUnitDto, BusinessUnitsApi, BalanceSheet, GeneralLedger, IncomeStatement, LedgerReportsApi, LegalEntitiesApi, PartyGroupDto, PartyGroupsApi, LegalEntityDto, TrialBalance,
+  AccountDto, AccountsApi, ArAgeing, CashFlowStatement, BusinessUnitDto, BusinessUnitsApi, BalanceSheet, GeneralLedger, IncomeStatement, LedgerReportsApi, LegalEntitiesApi, PartyGroupDto, PartyGroupsApi, LegalEntityDto, TrialBalance,
 } from '../../core/api/admin.api';
 import { toIsoDate } from '../../core/custom-fields/custom-field-form';
 import { problemMessage } from '../../core/http/problem-details';
@@ -28,17 +29,21 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
   selector: 'erp-ledger-reports',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatePanelComponent, NzSpinModule, TranslatePipe, FormsModule, DecimalPipe, NgTemplateOutlet, NzTabsModule, NzTableModule, NzInputModule, NzSelectModule, NzDatePickerModule, NzButtonModule, NzAlertModule],
+  imports: [RouterLink, HasPermissionDirective, ErpDatePipe, StatePanelComponent, NzSpinModule, TranslatePipe, FormsModule, DecimalPipe, NgTemplateOutlet, NzTabsModule, NzTableModule, NzInputModule, NzSelectModule, NzDatePickerModule, NzButtonModule, NzAlertModule],
   styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end }
     .field { display:flex; flex-direction:column; gap:4px; font-size:12px; color: var(--erp-color-text-muted) }
     .num { text-align:end; font-variant-numeric: tabular-nums; white-space:nowrap }
     .total td { font-weight:700; background: var(--erp-color-bg-subtle) } h4 { margin: 16px 0 8px; font-size:15px; font-weight:700; color: var(--erp-color-text-primary) }
     .name { font-weight:600; color: var(--erp-color-text-primary) }
     .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); border-radius:12px; overflow:hidden; margin-top:12px }
-    .check { margin-top:12px } .loading { text-align:center; padding:48px }
+    .links { display:flex; gap:16px; margin: -8px 0 12px } .group { color: var(--erp-color-text-muted); font-size:12px } .check { margin-top:12px } .loading { text-align:center; padding:48px }
     .result { display:flex; justify-content:space-between; gap:16px; margin-top:16px; padding:14px 16px; border-radius:12px; font-size:16px; font-weight:700; background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); color: var(--erp-color-text-primary) }`],
   template: `
     <h1 class="erp-page-title">Financial reports</h1>
+    <p class="links">
+      <a *erpHasPermission="'finance.yearend.close'" routerLink="/finance/year-end" data-testid="link-year-end">Year-end close</a>
+      <a *erpHasPermission="'finance.journals.post'" routerLink="/finance/opening-balances" data-testid="link-opening">Opening balances</a>
+    </p>
     <div class="bar">
       <div class="field">Legal entity
         <nz-select [(ngModel)]="entityId" nzAllowClear nzPlaceHolder="All legal entities" style="width:240px" data-testid="rep-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
@@ -66,7 +71,7 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
       <button nz-button nzType="primary" [nzLoading]="loading()" (click)="run()" data-testid="rep-run">Run report</button>
     </div>
     <nz-tabset [nzSelectedIndex]="tab()" (nzSelectedIndexChange)="selectTab($event)">
-      <nz-tab nzTitle="Trial balance"></nz-tab><nz-tab nzTitle="General ledger"></nz-tab><nz-tab nzTitle="Income statement"></nz-tab><nz-tab nzTitle="Balance sheet"></nz-tab><nz-tab nzTitle="Receivables ageing"></nz-tab><nz-tab nzTitle="Payables ageing"></nz-tab>
+      <nz-tab nzTitle="Trial balance"></nz-tab><nz-tab nzTitle="General ledger"></nz-tab><nz-tab nzTitle="Income statement"></nz-tab><nz-tab nzTitle="Balance sheet"></nz-tab><nz-tab nzTitle="Receivables ageing"></nz-tab><nz-tab nzTitle="Payables ageing"></nz-tab><nz-tab nzTitle="Cash flow"></nz-tab>
     </nz-tabset>
 
     @if (failed(); as msg) {
@@ -122,19 +127,40 @@ import { WorkspaceCurrencyService } from '../../core/services/workspace-currency
         @case (3) {
           @if (bs(); as b) {
             @if (b.balanced) { <nz-alert class="check" nzType="success" nzShowIcon data-testid="bs-balanced" [nzMessage]="'Balanced. Assets equal liabilities plus equity: ' + money(b.totalAssets) + '.'"></nz-alert> }
-            @else { <nz-alert class="check" nzType="error" nzShowIcon [nzMessage]="'Does not balance. Assets ' + money(b.totalAssets) + ', liabilities plus equity ' + money(b.totalLiabilities + b.totalEquity + b.currentEarnings) + '.'"></nz-alert> }
+            @else { <nz-alert class="check" nzType="error" nzShowIcon [nzMessage]="'Does not balance. Assets ' + money(b.totalAssets) + ', liabilities plus equity ' + money(b.totalLiabilities + b.totalEquity + b.currentEarnings + (b.priorOpenEarnings ?? 0)) + '.'"></nz-alert> }
             <h4>Assets</h4>
             <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.assets, total: b.totalAssets, label: 'Total assets' }" />
             <h4>Liabilities</h4>
             <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.liabilities, total: b.totalLiabilities, label: 'Total liabilities' }" />
             <h4>Equity</h4>
-            <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.equity, total: b.totalEquity + b.currentEarnings, label: 'Total equity, including current earnings of ' + (b.currentEarnings | number: '1.2-2') }" />
+            <ng-container *ngTemplateOutlet="lines; context: { $implicit: b.equity, total: b.totalEquity + b.currentEarnings + (b.priorOpenEarnings ?? 0), label: 'Total equity, including current earnings of ' + (b.currentEarnings | number: '1.2-2') + ((b.priorOpenEarnings ?? 0) ? ' and earnings of years not yet closed of ' + (b.priorOpenEarnings! | number: '1.2-2') : '') }" />
           }
         }
         @case (4) {
           @if (ar(); as a) {
             @if (a.rows.length) { <ng-container *ngTemplateOutlet="ageing; context: { $implicit: a, name: groupBy === 'businessUnit' ? 'Business unit' : groupBy === 'sourceType' ? 'Source' : groupBy === 'partyGroup' ? 'Party group' : 'Customer', id: 'ar-table' }" /> }
             @else { <erp-state-panel title="Nothing to collect" hint="No customer owes money at this date." icon="check-circle" /> }
+          }
+        }
+        @case (6) {
+          @if (cf(); as c) {
+            @if (c.tiesOut) { <nz-alert class="check" nzType="success" nzShowIcon data-testid="cf-ties" [nzMessage]="'The statement agrees with the bank and cash balance in the ledger: ' + money(c.ledgerClosingBalance) + '.'"></nz-alert> }
+            @else { <nz-alert class="check" nzType="warning" nzShowIcon data-testid="cf-differs" [nzMessage]="'The statement closes at ' + money(c.closingBalance) + ' but the ledger holds ' + money(c.ledgerClosingBalance) + ' in bank and cash accounts. Check for entries dated outside the period.'"></nz-alert> }
+            <div class="card">
+              <nz-table [nzData]="c.sections" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="cf-table">
+                <tbody>
+                  <tr class="total"><td colspan="2">Opening cash and bank</td><td class="num">{{ c.openingBalance | number: '1.2-2' }}</td></tr>
+                  @for (s of c.sections; track s.category) {
+                    <tr class="total"><td colspan="2">{{ cfTitle(s.category) }}</td><td class="num">{{ s.net | number: '1.2-2' }}</td></tr>
+                    @for (l of s.lines; track l.code) { <tr><td style="width:120px"><span class="code-pill">{{ l.code }}</span></td><td>{{ l.name }}<span class="group"> {{ l.group }}</span></td><td class="num">{{ l.net | number: '1.2-2' }}</td></tr> }
+                    @if (!s.lines.length) { <tr><td colspan="3" class="group">Nothing in this period.</td></tr> }
+                  }
+                  <tr class="total"><td colspan="2">Net change in cash</td><td class="num">{{ c.netChange | number: '1.2-2' }}</td></tr>
+                  <tr class="total"><td colspan="2">Closing cash and bank</td><td class="num">{{ c.closingBalance | number: '1.2-2' }}</td></tr>
+                </tbody>
+              </nz-table>
+            </div>
+            @if (c.internalTransfers) { <p class="group" style="margin-top:8px">Transfers between your own bank and cash accounts ({{ c.internalTransfers | number: '1.2-2' }}) are left out, as they do not change total cash.</p> }
           }
         }
         @case (5) {
@@ -182,10 +208,10 @@ export class LedgerReportsPage {
   readonly loading = signal(false);
   readonly failed = signal<string | null>(null);
   /** Balance sheet and ageing are a position at one date; the rest cover a period. */
-  readonly usesFrom = computed(() => this.tab() < 3);
+  readonly usesFrom = computed(() => this.tab() < 3 || this.tab() === 6);
   readonly chosenAccount = signal<string | null>(null);
   readonly needsAccount = computed(() => this.tab() === 1 && !this.chosenAccount());
-  readonly hasResult = computed(() => !![this.tb(), this.gl(), this.pl(), this.bs(), this.ar(), this.ap()][this.tab()]);
+  readonly hasResult = computed(() => !![this.tb(), this.gl(), this.pl(), this.bs(), this.ar(), this.ap(), this.cf()][this.tab()]);
   entityId: string | null = null;
   accountId: string | null = null;
   from: Date | null = new Date(new Date().getFullYear(), 0, 1);
@@ -201,6 +227,7 @@ export class LedgerReportsPage {
   readonly units = () => this.unitPage().items.filter((b) => !this.entityId || b.legalEntityId === this.entityId);
   readonly ar = signal<ArAgeing | null>(null);
   readonly ap = signal<ArAgeing | null>(null);
+  readonly cf = signal<CashFlowStatement | null>(null);
 
   constructor() { this.run(); }
 
@@ -208,6 +235,10 @@ export class LedgerReportsPage {
     if (index === this.tab()) return;
     this.tab.set(index);
     this.run();
+  }
+
+  cfTitle(category: string): string {
+    return category === 'operating' ? 'Cash from operating activities' : category === 'investing' ? 'Cash from investing activities' : 'Cash from financing activities';
   }
 
   money(v: number): string { return `${this.currency.currency()} ${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
@@ -224,7 +255,7 @@ export class LedgerReportsPage {
     const to = toIsoDate(this.to);
     const from = this.from ? toIsoDate(this.from) : undefined;
     const legalEntityId = this.entityId ?? undefined;
-    const done = <T>(set: (v: T) => void) => ({ next: (v: T) => { this.loading.set(false); set(v); }, error: (e: unknown) => { this.loading.set(false); this.failed.set(problemMessage(e, 'The server did not return the report.')); } });
+    const done = <T>(set: (v: T) => void) => ({ next: (v: T) => { this.loading.set(false); set(v); }, error: (e: unknown) => { this.loading.set(false); this.failed.set(problemMessage(e, 'The server did not return the report.', 'legalEntityId')); } });
     this.loading.set(true);
     switch (this.tab()) {
       case 0: this.api.trialBalance({ from, to, legalEntityId }).subscribe(done((v) => this.tb.set(v))); break;
@@ -236,7 +267,10 @@ export class LedgerReportsPage {
         this.api.incomeStatement({ from, to, legalEntityId }).subscribe(done((v) => this.pl.set(v))); break;
       case 3: this.api.balanceSheet({ asOf: to, legalEntityId }).subscribe(done((v) => this.bs.set(v))); break;
       case 4: this.api.arAgeing({ asOf: to, legalEntityId, businessUnitId: this.businessUnitId ?? undefined, partyGroupId: this.partyGroupId ?? undefined, sourceType: this.sourceType.trim() || undefined, groupBy: this.groupBy === 'customer' ? undefined : this.groupBy }).subscribe(done((v) => this.ar.set(v))); break;
-      default: this.api.apAgeing({ asOf: to, legalEntityId }).subscribe(done((v) => this.ap.set(v)));
+      case 5: this.api.apAgeing({ asOf: to, legalEntityId }).subscribe(done((v) => this.ap.set(v))); break;
+      default:
+        if (!from) { this.loading.set(false); this.message.warning('Choose the date to report from'); return; }
+        this.api.cashFlow({ from, to, legalEntityId }).subscribe(done((v) => this.cf.set(v)));
     }
   }
 }

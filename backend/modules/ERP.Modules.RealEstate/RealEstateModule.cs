@@ -78,6 +78,7 @@ public sealed class RealEstateModule : ModuleBase
         new("realestate.leases", "Leases", "/real-estate/leases", "file-text", P.LeasesRead, 30, "realestate", "Real estate", 200),
         new("realestate.acquisitions", "Acquisitions", "/real-estate/acquisitions", "bank", P.AcquisitionsRead, 15, "realestate", "Real estate", 200),
         new("realestate.billing", "Rent billing", "/real-estate/billing", "dollar", P.BillingRun, 35, "realestate", "Real estate", 200),
+        new("realestate.ownerpayouts", "Owner payouts", "/real-estate/owner-payouts", "dollar", P.OwnerPayoutsRead, 36, "realestate", "Real estate", 200),
         new("realestate.workorders", "Work orders", "/real-estate/work-orders", "tool", P.WorkOrdersRead, 40, "realestate", "Real estate", 200),
         new("realestate.renewals", "Lease renewals", "/real-estate/renewals", "file-text", P.LeasesRenew, 38, "realestate", "Real estate", 200),
         new("realestate.pm", "Preventive maintenance", "/real-estate/preventive-maintenance", "tool", P.PmRead, 45, "realestate", "Real estate", 200),

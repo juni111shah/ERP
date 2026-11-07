@@ -4,6 +4,7 @@ import { SuccessPanelComponent } from '../../shared/success-panel.component';
 import { tNow } from '../../core/i18n/translate-now';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { NzButtonModule as NzButtonModuleForPanel } from 'ng-zorro-antd/button';
+import { SessionStore } from '../../core/session/session.store';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -139,6 +140,7 @@ export class InvoiceDetailPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly session = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly apiBase = inject(API_BASE_URL);
@@ -216,6 +218,13 @@ export class InvoiceDetailPage implements OnInit {
         icon: 'check-square',
         visible: inv.status === 'pendingApproval',
         handler: () => this.router.navigate(['/approvals'])
+      },
+      {
+        label: 'Return goods',
+        icon: 'rollback',
+        permission: 'sales.returns.manage',
+        visible: this.session.isModuleEnabled('sales') && !inv.isCreditNote && (inv.status === 'issued' || inv.status === 'partlyPaid' || inv.status === 'paid'),
+        handler: () => this.router.navigate(['/sales/returns'], { queryParams: { invoice: inv.id } })
       },
       {
         label: 'Credit Note',

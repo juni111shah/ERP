@@ -34,11 +34,12 @@ public class SalesModuleTests
     {
         var module = new SalesModule();
         var menu = module.Menu.ToList();
-        Assert.Equal(3, menu.Count);
+        Assert.Equal(4, menu.Count);
 
         var routes = menu.Select(m => m.Route).ToList();
         Assert.Contains("/sales/quotes", routes);
         Assert.Contains("/sales/orders", routes);
+        Assert.Contains("/sales/returns", routes);
         Assert.Contains("/sales/analytics", routes);
 
         foreach (var m in menu)

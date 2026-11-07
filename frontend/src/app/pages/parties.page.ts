@@ -35,7 +35,7 @@ import { StatCardComponent } from '../shared/stat-card.component';
 export interface PartyDto {
   id: string; code: string; name: string; kind: string; roles: string[]; email?: string; phone?: string; taxNumber?: string;
   idNumber?: string; iban?: string; currencyCode?: string; paymentTermsDays?: number; address?: string; isActive: boolean;
-  customFields: Record<string, unknown>; partyGroupId?: string | null;
+  customFields: Record<string, unknown>; partyGroupId?: string | null; creditLimit?: number | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -127,6 +127,7 @@ const groupFilter = (id: string | null) => (id ? [{ field: 'partyGroupId', op: '
           <nz-form-item><nz-form-label>Address</nz-form-label><nz-form-control><textarea nz-input rows="2" formControlName="address" data-testid="party-address"></textarea></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Currency</nz-form-label><nz-form-control><input nz-input formControlName="currencyCode" maxlength="3" placeholder="e.g. QAR" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Payment terms (days)</nz-form-label><nz-form-control><input nz-input type="number" min="0" formControlName="paymentTermsDays" /></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Credit limit</nz-form-label><nz-form-control [nzErrorTip]="err('creditLimit')" nzExtra="The most this party may owe at once. Leave empty for no limit."><input nz-input type="number" min="0" step="0.01" formControlName="creditLimit" data-testid="party-credit-limit" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>ID number</nz-form-label><nz-form-control [nzExtra]="sensitiveLocked() ? restrictedHint : ''"><input nz-input formControlName="idNumber" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>IBAN</nz-form-label><nz-form-control [nzExtra]="sensitiveLocked() ? restrictedHint : ''"><input nz-input formControlName="iban" /></nz-form-control></nz-form-item>
           <nz-form-item><nz-form-label>Party group</nz-form-label><nz-form-control><nz-select formControlName="partyGroupId" nzAllowClear nzPlaceHolder="No group" data-testid="party-group">@for (g of groups(); track g.id) { <nz-option [nzValue]="g.id" [nzLabel]="g.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
@@ -280,7 +281,7 @@ export class PartiesPage implements OnInit {
     const v = this.form.getRawValue();
     // Never send the masked ID number / IBAN back; the API keeps the stored values for users without core.sensitive.read.
     if (this.sensitiveLocked()) { delete v.idNumber; delete v.iban; }
-    const body = { ...v, currencyCode: v.currencyCode || null, paymentTermsDays: v.paymentTermsDays === '' || v.paymentTermsDays === null ? null : Number(v.paymentTermsDays), address: v.address || null, ...(this.sensitiveLocked() ? {} : { idNumber: v.idNumber || null, iban: v.iban || null }), roles: (v.roles as string[]).join(', '), customFields: toApiValues(this.sections(), (v.customFields ?? {}) as Record<string, unknown>) };
+    const body = { ...v, currencyCode: v.currencyCode || null, paymentTermsDays: v.paymentTermsDays === '' || v.paymentTermsDays === null ? null : Number(v.paymentTermsDays), creditLimit: v.creditLimit === '' || v.creditLimit === null ? null : Number(v.creditLimit), clearCreditLimit: (v.creditLimit === '' || v.creditLimit === null) && (this.editing()?.creditLimit ?? null) !== null, address: v.address || null, ...(this.sensitiveLocked() ? {} : { idNumber: v.idNumber || null, iban: v.iban || null }), roles: (v.roles as string[]).join(', '), customFields: toApiValues(this.sections(), (v.customFields ?? {}) as Record<string, unknown>) };
     const p = this.editing();
     this.saving.set(true);
     (p ? this.api.update(p.id, body) : this.api.create(body)).subscribe({
@@ -307,6 +308,7 @@ export class PartiesPage implements OnInit {
       address: [p?.address ?? ''],
       currencyCode: [p?.currencyCode ?? '', Validators.maxLength(3)],
       paymentTermsDays: [p?.paymentTermsDays ?? null, Validators.min(0)],
+      creditLimit: [p?.creditLimit ?? null, Validators.min(0)],
       idNumber: [{ value: p?.idNumber ?? '', disabled: locked }],
       iban: [{ value: p?.iban ?? '', disabled: locked }],
       partyGroupId: [p?.partyGroupId ?? null],

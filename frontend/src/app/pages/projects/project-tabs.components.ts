@@ -73,6 +73,8 @@ const SUBTABS = `
             <div><dt>Start</dt><dd>{{ (project().startDate | erpDate) || 'Not set' }}</dd></div>
             <div><dt>Target end</dt><dd>{{ (project().endDate | erpDate) || 'Not set' }}</dd></div>
             <div><dt>Budget</dt><dd>{{ currency() }} {{ project().budgetAmount | number: '1.0-0' }}@if (project().approvedChanges) { <span class="prj-muted"> + {{ project().approvedChanges | number: '1.0-0' }} from change orders</span> }</dd></div>
+            @if (project().contractValue !== null && project().contractValue !== undefined) { <div><dt>Contract value</dt><dd data-testid="project-contract-value">{{ currency() }} {{ project().contractValue | number: '1.0-0' }}</dd></div> }
+            @if (project().wipBalance !== undefined) { <div><dt>Work in progress</dt><dd data-testid="project-wip">{{ currency() }} {{ project().wipBalance | number: '1.2-2' }}<span class="prj-muted"> cost not yet released</span></dd></div> }
             @if (project().budgetHours) { <div><dt>Budgeted hours</dt><dd>{{ project().effectiveBudgetHours | number: '1.0-0' }}</dd></div> }
             @if (sourceLabel()) { <div><dt>Started from</dt><dd>{{ sourceLabel() }}</dd></div> }
           </dl>
