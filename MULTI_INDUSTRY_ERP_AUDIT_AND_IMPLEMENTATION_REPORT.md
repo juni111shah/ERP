@@ -363,7 +363,20 @@ Example: `finance@demo-logistics.example.test`. Do not reuse these accounts or `
 
 ## 14. Test results
 
-PENDING
+Run on this machine in the CI order, in Release, from `backend/` with the .NET 8 SDK (8.0.427) that `global.json` selects.
+
+| Step | Result |
+|---|---|
+| `dotnet build ERP.sln -c Release` | 0 errors |
+| Unit tests (`ERP.UnitTests`) | **630 passed**, 0 failed |
+| Integration tests (`ERP.IntegrationTests`) | **861 passed**, 0 failed, 8 skipped (the SQL Server race tests, skipped locally as before), 869 in total |
+| `npm run lint:a11y` | ok |
+| `npx ng build` | ok |
+| `npx ng test` (headless) | **273 passed**, 0 failed |
+
+The integration run is from the last commit, `b8c5c5e`. The frontend steps ran on the commit before it, which changed only backend routing.
+
+**Test duration.** On the same machine, the integration suite takes 8 min 40 s for 869 tests, against 3 min 16 s for the 666 tests at the base commit. Most of that is the extra tests and the longer flows, such as owner dashboards, returns and industry records. Each test host also starts about 2 to 3 seconds slower, because there are more modules and endpoints to build on first request. Collapsing the industry routes to one set per pack (commit `b8c5c5e`) cut the run from about 10 minutes. If CI time matters, the next step is sharing one host across more test classes.
 
 ### Major workflows
 
@@ -391,6 +404,7 @@ PENDING
 - **Purchase return, sales return and owner payout accounting** are new and tested, but have no real-world use yet.
 - **`main`'s model snapshot was stale** before this branch: it lacked the assistant tables. This branch's migration leaves those out and its snapshot includes them. Merging `claude/platform-console` will conflict in the snapshot, and its two extra migrations need ordering. Regenerate the snapshot when merging.
 - **SQL script numbering:** this migration is `0087_MultiIndustryErp.sql`, leaving `0085` and `0086` free for the assistant migrations on `claude/platform-console`.
+- **Test suite duration** has grown from about 3 to about 9 minutes locally (see section 14).
 - **AI:** see section 19.
 
 ---
