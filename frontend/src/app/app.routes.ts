@@ -244,6 +244,18 @@ export const routes: Routes = [
         ],
       },
       {
+        path: 'assets',
+        canMatch: [moduleEnabledGuard('assets')],
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'register' },
+          { path: 'register', canMatch: [permissionGuard('assets.register.read')], loadComponent: () => import('./pages/assets/asset-register.page').then((m) => m.AssetRegisterPage) },
+          { path: 'register/:id', canMatch: [permissionGuard('assets.register.read')], loadComponent: () => import('./pages/assets/asset-detail.page').then((m) => m.AssetDetailPage) },
+          { path: 'categories', canMatch: [permissionGuard('assets.categories.read')], loadComponent: () => import('./pages/assets/asset-categories.page').then((m) => m.AssetCategoriesPage) },
+          { path: 'depreciation', canMatch: [permissionGuard('assets.depreciation.read')], loadComponent: () => import('./pages/assets/depreciation.page').then((m) => m.DepreciationPage) },
+          { path: 'reports', canMatch: [permissionGuard('assets.reports.read')], loadComponent: () => import('./pages/assets/asset-reports.page').then((m) => m.AssetReportsPage) },
+        ],
+      },
+      {
         path: 'crm',
         canMatch: [moduleEnabledGuard('crm')],
         children: [

@@ -50,9 +50,12 @@ export interface AuditEvent {
 export interface AuditFieldDiff { field: string; old?: string | null; new?: string | null; changed: boolean; }
 export interface AuditEventDetail { event: AuditEvent; fields: AuditFieldDiff[]; before?: string | null; after?: string | null; sameSave: AuditEvent[]; recordEventCount: number; }
 export interface AuditFacets { recordTypes: string[]; actions: string[]; users: { id: string; name: string }[]; today: number; last7Days: number; deletionsLast7Days: number; activeUsersLast7Days: number; }
+export interface ApprovalStepDto { id: string; level: number; approverPermission: string; status: 'pending' | 'approved' | 'rejected' | 'cancelled'; decidedBy?: string | null; decidedAt?: string | null; comment?: string | null; }
 export interface ApprovalDto {
   id: string; legalEntityId?: string; documentType: string; documentId?: string; subject: string; justification?: string; amount?: number; currencyCode?: string;
   requestedBy: string; requestedAt: string; status: string; decidedBy?: string; decidedAt?: string; decisionComment?: string;
+  /** Which level of a chain is waiting, and the permission that level needs; null once decided. */
+  currentLevel?: number | null; currentApproverPermission?: string | null; steps?: ApprovalStepDto[] | null;
 }
 export interface CountryDto { code: string; name: string; defaultCurrency: string; defaultTimeZone: string; hasPack: boolean; }
 export interface CurrencyOption { code: string; name: string; symbol?: string; decimals: number; }
@@ -81,6 +84,10 @@ export interface CoaNumbering { mode: 'free' | 'hierarchical'; segments: number[
 @Injectable({ providedIn: 'root' })
 export class AccountsApi extends CrudApiService<AccountDto, unknown> {
   protected readonly resource = 'finance/accounts';
+
+  /** Postable accounts matching a typed term, as picker options (code and name). */
+  lookup = (term: string): Observable<LookupOption[]> =>
+    this.list({ page: 1, pageSize: 20, search: term }).pipe(map((r) => r.items.filter((a) => a.isPostable && a.isActive).map((a) => ({ value: a.id, label: `${a.code} · ${a.name}` }))));
 
   // ---- Step-by-step chart of accounts: one level per request -------------------------------------------------------------
   /** The five account categories with counts (and natural-side balances when asked and the user may read reports). */
@@ -178,6 +185,7 @@ export class AdminApi {
     return this.http.post<ApprovalDto>(`${this.base}/approvals/${id}/${approve ? 'approve' : 'reject'}`, { comment: comment ?? null });
   }
   withdraw(id: string): Observable<ApprovalDto> { return this.http.post<ApprovalDto>(`${this.base}/approvals/${id}/withdraw`, {}); }
+  approval(id: string): Observable<ApprovalDto> { return this.http.get<ApprovalDto>(`${this.base}/approvals/${id}`); }
 
   countries(): Observable<CountryDto[]> { return this.http.get<CountryDto[]>(`${this.base}/platform/countries`); }
   currencies(): Observable<CurrencyOption[]> { return this.http.get<CurrencyOption[]>(`${this.base}/platform/currencies`); }
@@ -326,7 +334,7 @@ export interface BillSummary { id: string; number: string; partyId: string; part
 export interface BillDto extends BillSummary { legalEntityId: string; net: number; tax: number; approvalRequestId?: string; journalEntryId?: string; notes?: string; lines: BillLine[]; }
 export interface PaymentSummary { id: string; number: string; partyId: string; partyName?: string; date: string; method: string; amount: number; unallocated: number; status: string; currencyCode: string; }
 export interface PaymentDto extends PaymentSummary { legalEntityId: string; bankAccountId?: string; reference?: string; paymentInstrumentId?: string; allocations: { id: string; billId: string; billNumber: string; amount: number }[]; }
-export interface ApprovalPolicy { id: string; documentType: string; minAmount?: number; approverPermission: string; isActive: boolean; }
+export interface ApprovalPolicy { id: string; documentType: string; minAmount?: number; approverPermission: string; isActive: boolean; level: number; }
 export const PAYMENT_METHODS = [...SETTLEMENT_METHODS, { value: 'instrument', label: 'Cheque issued' }];
 
 @Injectable({ providedIn: 'root' })
