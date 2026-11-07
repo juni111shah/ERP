@@ -11,6 +11,7 @@ import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { PosOrderDto, PosOrderLineDto, PosOrdersApi, PosPaymentMethod, PosReturnDto, PosReturnsApi } from '../../core/api/pos.api';
 import { problemMessage } from '../../core/http/problem-details';
 import { ErpDatePipe } from '../../shared/display.pipes';
+import { SessionStore } from '../../core/session/session.store';
 import { returnAmount, round2, roundQty, splitRefund, TENDER_LABELS } from './pos-cart';
 
 interface ReturnRow {
@@ -76,6 +77,12 @@ interface ReturnRow {
 
               <div>
                 <span class="field">Give the money back as</span>
+                <p class="split" data-testid="pos-return-tenders">
+                  This sale was paid with
+                  @for (t of tenders(); track t.method; let last = $last) { {{ label(t.method) }} {{ currency() }} {{ t.amount | number:'1.2-2' }}@if (!last) { , } }.
+                  Money goes back the way it came: each way of paying can be refunded what it took, less earlier refunds.
+                  @if (!canOverride()) { Sending it another way needs a manager's refund override. }
+                </p>
                 <div class="methods" role="group" aria-label="Refund method">
                   @for (m of methods(); track m) {
                     <button type="button" class="method" [class.on]="method() === m" [attr.aria-pressed]="method() === m" [attr.data-testid]="'pos-refund-' + m" (click)="method.set(m)">{{ label(m) }}</button>
@@ -86,6 +93,9 @@ interface ReturnRow {
                 }
               </div>
 
+              @if (overTender() !== null) {
+                <nz-alert nzType="warning" nzShowIcon data-testid="pos-return-over" [nzMessage]="label(method()) + ' took only ' + currency() + ' ' + (overTender()! | number:'1.2-2') + ' on this sale, so it cannot be refunded more than that without a manager. Return less, or ask a manager.'"></nz-alert>
+              }
               <div class="total" data-testid="pos-return-total">
                 <span>To give back</span>
                 <strong>{{ currency() }} {{ total() | number:'1.2-2' }}</strong>
@@ -140,6 +150,9 @@ export class PosReturnDialogComponent {
   private readonly orders = inject(PosOrdersApi);
   private readonly returns = inject(PosReturnsApi);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
+  /** Without this permission money goes back only the way it came: each tender refunds what it took, less earlier refunds. */
+  readonly canOverride = computed(() => this.session.hasPermission('pos.orders.refund-override'));
   private readonly numberBox = viewChild<ElementRef<HTMLInputElement>>('numberBox');
 
   readonly open = input(false);
@@ -163,14 +176,28 @@ export class PosReturnDialogComponent {
 
   readonly nothingLeft = computed(() => this.rows().every((r) => r.left <= 0));
   readonly total = computed(() => round2(this.rows().reduce((sum, r) => sum + this.amountOf(r), 0)));
-  /** Offers cash and card always, plus how this sale was actually paid. */
+  /** What each way of paying took on this sale (change given back already taken off the cash). */
+  readonly tenders = computed(() => {
+    const taken = new Map<PosPaymentMethod, number>();
+    for (const p of this.order()?.payments ?? []) taken.set(p.method, round2((taken.get(p.method) ?? 0) + p.amount));
+    return [...taken].map(([method, amount]) => ({ method, amount }));
+  });
+  /** The ways this sale was paid, plus (for someone with the override) cash and card. Anyone else can only send money back the way it came. */
   readonly methods = computed<PosPaymentMethod[]>(() => {
     const o = this.order();
     const paid = (o?.payments ?? []).map((p) => p.method).filter((m) => m !== 'giftCard');
-    const set = new Set<PosPaymentMethod>(['cash', 'card', ...paid]);
+    const set = new Set<PosPaymentMethod>(paid);
+    if (this.canOverride()) { set.add('cash'); set.add('card'); }
+    if (!set.size) set.add('cash');
     if (o?.invoiceId) set.add('account');
     else set.delete('account');
     return [...set];
+  });
+  /** The chosen way took less than is being refunded, and the person cannot override: the server would refuse with 403. */
+  readonly overTender = computed(() => {
+    if (this.canOverride() || this.method() === 'account') return null;
+    const took = this.tenders().find((t) => t.method === this.method())?.amount ?? 0;
+    return this.total() > took ? took : null;
   });
   /** The first way this sale was paid other than on account, for the part of a refund the account cannot take. */
   private readonly moneyMethod = computed<PosPaymentMethod>(() => {
@@ -182,7 +209,7 @@ export class PosReturnDialogComponent {
     if (!o || this.total() <= 0) return [];
     return splitRefund(this.total(), this.method(), o.moneyLeftToRefund, o.invoiceId ? o.onAccountLeft : 0, this.moneyMethod(), this.reference().trim() || null);
   });
-  readonly canSubmit = computed(() => !this.busy() && !!this.sessionId() && this.total() > 0 && !!this.reason().trim() && this.order()?.status === 'completed');
+  readonly canSubmit = computed(() => !this.busy() && !!this.sessionId() && this.total() > 0 && !!this.reason().trim() && this.order()?.status === 'completed' && this.overTender() === null);
 
   constructor() {
     effect(() => {

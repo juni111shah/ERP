@@ -123,6 +123,12 @@ export interface PosPaymentInput {
   reference?: string | null;
 }
 
+/** What a ticket would cost with a promo code and quantity breaks, worked out by the server. Nothing is saved or used up. */
+export interface PosQuoteDto {
+  subTotal: number; taxTotal: number; discountTotal: number; totalAmount: number; promoCode: string | null; promoName: string | null; promoDiscount: number;
+  lines: { itemId?: string | null; itemCode: string; description: string; quantity: number; unitPrice: number; discountPercent: number; promoDiscount: number; taxRate: number; lineTotal: number }[];
+}
+
 export interface CreatePosOrderCommand {
   legalEntityId: string;
   registerId: string;
@@ -136,6 +142,8 @@ export interface CreatePosOrderCommand {
   notes?: string | null;
   customFields?: string | null;
   parkedOrderId?: string | null;
+  /** A discount code the customer gave. The server checks it again; a bad code is refused. */
+  promoCode?: string | null;
 }
 
 export interface ParkPosOrderCommand {
@@ -158,6 +166,8 @@ export interface PosOrderLineDto {
   lineTotal: number;
   returnedQuantity: number;
   returnedAmount: number;
+  /** This line's share of a promo code discount. */
+  promoDiscount?: number;
 }
 
 export interface PosPaymentDto {
@@ -193,6 +203,9 @@ export interface PosOrderSummaryDto {
 }
 
 export interface PosOrderDto extends PosOrderSummaryDto {
+  /** The discount code used on the sale and what it took off. */
+  promoCode?: string | null;
+  promoDiscount?: number;
   cashierUserId: string;
   notes?: string | null;
   customFields?: string | null;
@@ -449,6 +462,10 @@ export class PosOrdersApi extends CrudApiService<PosOrderSummaryDto, CreatePosOr
 
   discardParked(id: string): Observable<void> {
     return this.http.delete<void>(`${this.url}/${id}/park`);
+  }
+
+  quote(cmd: { legalEntityId: string; customerPartyId?: string | null; lines: PosOrderLineInput[]; promoCode?: string | null }): Observable<PosQuoteDto> {
+    return this.http.post<PosQuoteDto>(`${this.url}/quote`, cmd);
   }
 
   voidOrder(id: string, reason: string): Observable<PosOrderDto> {

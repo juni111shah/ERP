@@ -8,7 +8,7 @@ function line(over: Partial<CartLine> = {}): CartLine {
 describe('POS cart', () => {
   describe('line amounts', () => {
     it('takes the discount before tax', () => {
-      expect(lineAmounts(line({ quantity: 2, discountPercent: 10, taxRate: 5 }))).toEqual({ gross: 200, discount: 20, net: 180, tax: 9, total: 189 });
+      expect(lineAmounts(line({ quantity: 2, discountPercent: 10, taxRate: 5 }))).toEqual({ gross: 200, discount: 20, promo: 0, net: 180, tax: 9, total: 189 });
     });
 
     it('rounds each step to cents as the server does', () => {
@@ -37,6 +37,33 @@ describe('POS cart', () => {
     it('charges what the server charges on the amounts that used to differ', () => {
       expect(lineAmounts(line({ unitPrice: 14.5, taxRate: 15 })).total).toBe(16.68);
       expect(lineAmounts(line({ unitPrice: 80.3, taxRate: 5 })).total).toBe(84.32);
+    });
+  });
+
+  describe('promo code discount', () => {
+    it('comes off after the manual discount and before tax, as the server prices it', () => {
+      const a = lineAmounts(line({ quantity: 2, discountPercent: 10, taxRate: 5, promoDiscount: 18 }));
+      expect(a).toEqual({ gross: 200, discount: 20, promo: 18, net: 162, tax: 8.1, total: 170.1 });
+    });
+
+    it('is summed over the ticket so the amount to collect equals the server total', () => {
+      const t = cartTotals([line({ key: 'a', unitPrice: 50, taxRate: 10, promoDiscount: 5 }), line({ key: 'b', unitPrice: 30, taxRate: 10, promoDiscount: 3 })]);
+      expect(t.promo).toBe(8);
+      expect(t.net).toBe(72);
+      expect(t.tax).toBe(7.2);
+      expect(t.total).toBe(79.2);
+    });
+
+    it('is the same as before when no code is applied', () => {
+      expect(lineAmounts(line({ taxRate: 5 })).total).toBe(105);
+    });
+
+    it('is refunded in proportion: a return gives back what the line really charged', () => {
+      const charged = lineAmounts({ quantity: 2, unitPrice: 50, discountPercent: 0, taxRate: 10, promoDiscount: 10 });
+      expect(charged.total).toBe(99);
+      const sold = { quantity: 2, unitPrice: 50, discountPercent: 0, taxRate: 10, promoDiscount: 10, lineTotal: charged.total, returnedQuantity: 0, returnedAmount: 0 };
+      expect(returnAmount(sold, 1)).toBe(49.5);
+      expect(returnAmount(sold, 2)).toBe(99);
     });
   });
 

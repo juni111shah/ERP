@@ -1158,6 +1158,11 @@ const PAIRS: [string, string][] = [
   ['What the open work orders need, level by level through the bills of materials, against what is on hand and in production. Add a quantity of one product to see what making it would need as well.', 'ما تحتاجه أوامر الإنتاج المفتوحة، مستوى بمستوى عبر قوائم المواد، مقابل المتوفر والجاري إنتاجه. أضف كمية من منتج لمعرفة ما يحتاجه إنتاجه أيضاً.'],
   ['What-if product', 'منتج افتراضي'], ['Show requirements', 'عرض المتطلبات'], ['Required', 'المطلوب'], ['On hand', 'المتوفر'], ['On order', 'قيد الطلب'], ['In production', 'قيد الإنتاج'], ['To make or buy', 'للتصنيع أو الشراء'],
   ['Level', 'المستوى'], ['Make', 'تصنيع'], ['Buy', 'شراء'], ['Nothing short', 'لا نقص'], ['Nothing is required', 'لا شيء مطلوب'], ['Could not work out the requirements', 'تعذر حساب المتطلبات'],
+  // till promo code and refunds
+  ['Discount code', 'رمز الخصم'], ['Apply', 'تطبيق'], ['That code does not give a discount on this ticket.', 'هذا الرمز لا يعطي خصماً على هذه الفاتورة.'], ['The code could not be checked.', 'تعذر التحقق من الرمز.'],
+  ['The code no longer gives a discount on this ticket, so it was removed.', 'لم يعد الرمز يعطي خصماً على هذه الفاتورة فأُزيل.'], ['Give the money back as', 'إرجاع المبلغ بواسطة'],
+  ['Money goes back the way it came: each way of paying can be refunded what it took, less earlier refunds.', 'يعود المال بالطريقة التي جاء بها: يمكن رد ما تلقّته كل طريقة دفع مطروحاً منه المبالغ المردودة سابقاً.'],
+  ["Sending it another way needs a manager's refund override.", 'إرساله بطريقة أخرى يتطلب تصريح استرداد من المدير.'], ['This sale was paid with', 'دُفعت هذه البيعة بواسطة'],
   // next batch
 ];
 
