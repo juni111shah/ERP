@@ -1,5 +1,6 @@
 import { doneText } from '../../core/format/done-text';
 import { EmailDocumentDrawerComponent } from '../../shared/email-document-drawer.component';
+import { SessionStore } from '../../core/session/session.store';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -149,6 +150,7 @@ export class BillDetailPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly session = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly apiBase = inject(API_BASE_URL);
@@ -205,6 +207,13 @@ export class BillDetailPage implements OnInit {
         permission: 'finance.bills.write',
         visible: bil.status === 'draft' || bil.status === 'pendingApproval',
         handler: () => this.deleteBill()
+      },
+      {
+        label: 'Return goods',
+        icon: 'rollback',
+        permission: 'purchasing.returns.manage',
+        visible: this.session.isModuleEnabled('purchasing') && (bil.status === 'issued' || bil.status === 'partlyPaid' || bil.status === 'paid'),
+        handler: () => this.router.navigate(['/purchasing/returns'], { queryParams: { bill: bil.id } })
       },
       {
         label: 'Void',

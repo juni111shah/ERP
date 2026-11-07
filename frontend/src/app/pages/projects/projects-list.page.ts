@@ -227,6 +227,7 @@ export class ProjectsListPage {
       ...(editing ? [] : [{ key: 'status', label: 'Status', type: 'select' as const, required: true, options: filterOptions(PROJECT_STATUSES).slice(0, 2), default: 'planning' }]),
       { key: 'billingType', label: 'Billing model', type: 'select', required: true, options: filterOptions(BILLING_TYPES), default: 'timeAndMaterials' },
       { key: 'budgetAmount', label: `Budget or fixed fee (${this.currency()})`, type: 'number', min: 0, default: 0 },
+      { key: 'contractValue', label: `Contract value (${this.currency()})`, type: 'number', min: 0, hint: 'What the customer agreed to pay, when it differs from the cost budget. Left empty, the budget is the fee.' },
       { key: 'budgetHours', label: 'Budgeted hours', type: 'number', min: 0, default: 0 },
       { key: 'startDate', label: 'Start date', type: 'date' },
       { key: 'endDate', label: 'Target end date', type: 'date' },

@@ -36,6 +36,7 @@ public sealed class ManufacturingModule : ModuleBase
     [
         new("manufacturing.boms", "Bills of materials", "/manufacturing/boms", "profile", Manufacturing.Permissions.BomsRead, 10, "manufacturing", "Manufacturing", 350),
         new("manufacturing.workorders", "Work orders", "/manufacturing/workorders", "tool", Manufacturing.Permissions.WorkOrdersRead, 20, "manufacturing", "Manufacturing", 350),
+        new("manufacturing.requirements", "Material requirements", "/manufacturing/requirements", "table", Manufacturing.Permissions.WorkOrdersRead, 25, "manufacturing", "Manufacturing", 350),
         new("manufacturing.costing", "Product costing", "/manufacturing/costing", "calculator", Manufacturing.Permissions.CostingRead, 30, "manufacturing", "Manufacturing", 350),
         new("manufacturing.analytics", "Manufacturing analytics", "/manufacturing/analytics", "pie-chart", Manufacturing.Permissions.AnalyticsRead, 40, "manufacturing", "Manufacturing", 350),
     ];

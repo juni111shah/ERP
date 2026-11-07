@@ -16,9 +16,10 @@ public class ManufacturingModuleTests
         Assert.Equal("Horizontal", module.Manifest.Category);
 
         var menu = module.Menu.ToList();
-        Assert.Equal(4, menu.Count);
+        Assert.Equal(5, menu.Count);
         Assert.Contains(menu, item => item.Route == "/manufacturing/boms");
         Assert.Contains(menu, item => item.Route == "/manufacturing/workorders");
+        Assert.Contains(menu, item => item.Route == "/manufacturing/requirements");
         Assert.Contains(menu, item => item.Route == "/manufacturing/costing");
         Assert.Contains(menu, item => item.Route == "/manufacturing/analytics");
     }

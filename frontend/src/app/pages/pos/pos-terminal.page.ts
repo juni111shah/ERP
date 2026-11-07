@@ -1,6 +1,6 @@
 import { DecimalPipe, formatNumber } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, HostListener, inject, OnDestroy, signal, viewChild } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, effect, ElementRef, HostListener, inject, OnDestroy, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
@@ -35,7 +35,7 @@ import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { KeyboardClickDirective } from '../../shared/keyboard-click.directive';
 import { StatePanelComponent } from '../../shared/state-panel.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '../../shared/thermal-receipt.component';
-import { CartLine, cartTotals, fromHeldOrder, lineAmounts, parseScan, repriceHeld, round2, roundQty, Tender, toOrderLine, toPayments } from './pos-cart';
+import { AppliedPromo, cartSignature, CartLine, cartTotals, fromHeldOrder, lineAmounts, parseScan, repriceHeld, round2, roundQty, Tender, toOrderLine, toPayments } from './pos-cart';
 import { CashDialogShift, PosCashDialogComponent } from './pos-cash-dialog.component';
 import { PosPaymentDialogComponent } from './pos-payment-dialog.component';
 import { returnReceipt, saleReceipt } from './pos-receipt';
@@ -193,7 +193,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
             </div>
 
             <div class="lines" #linesBox>
-              @for (line of cart(); track line.key; let i = $index) {
+              @for (line of priced(); track line.key; let i = $index) {
                 <div class="line" [class.selected]="i === selected()" erpKeyboardClick erpKeyboardClickRole="" [attr.aria-label]="line.description" [attr.aria-current]="i === selected() ? 'true' : null" (click)="selected.set(i)" [attr.data-testid]="'pos-line-' + i">
                   <div class="line-main">
                     <span class="line-name" [attr.title]="line.description">{{ line.description }}</span>
@@ -226,13 +226,22 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
                 <button nz-button nzType="link" nzSize="small" nzDanger type="button" [disabled]="!cart().length" (click)="clearCart()" data-testid="pos-clear">Clear ticket</button></div>
               <div class="sum-row"><span>Subtotal</span><span class="num">{{ currency() }} {{ totals().gross | number:'1.2-2' }}</span></div>
               @if (totals().discount) { <div class="sum-row off" data-testid="pos-discount-total"><span>Discount</span><span class="num">-{{ currency() }} {{ totals().discount | number:'1.2-2' }}</span></div> }
+              @if (promo(); as p) {
+                <div class="sum-row off" data-testid="pos-promo-total"><span>Code {{ p.code }}@if (p.name) { · {{ p.name }} } <button nz-button nzType="link" nzSize="small" type="button" (click)="removePromo()" data-testid="pos-promo-remove">Remove</button></span><span class="num">-{{ currency() }} {{ totals().promo | number:'1.2-2' }}</span></div>
+              } @else if (cart().length) {
+                <div class="sum-row" data-testid="pos-promo">
+                  <input nz-input nzSize="small" [ngModel]="promoInput()" (ngModelChange)="promoInput.set($event)" (keydown.enter)="applyPromo()" placeholder="Discount code" aria-label="Discount code" style="max-width:150px" data-testid="pos-promo-input" />
+                  <button nz-button nzSize="small" type="button" [nzLoading]="promoBusy()" [disabled]="!promoInput().trim()" (click)="applyPromo()" data-testid="pos-promo-apply">Apply</button>
+                </div>
+                @if (promoError()) { <p class="hint" role="alert" data-testid="pos-promo-error">{{ promoError() }}</p> }
+              }
               <div class="sum-row"><span>Tax</span><span class="num" data-testid="pos-tax-total">{{ currency() }} {{ totals().tax | number:'1.2-2' }}</span></div>
               <div class="grand"><span>Total</span><span class="num" data-testid="pos-total">{{ currency() }} {{ totals().total | number:'1.2-2' }}</span></div>
               <div class="sum-actions">
                 <button nz-button nzSize="large" type="button" [disabled]="!cart().length" (click)="startDiscount()" data-testid="pos-discount"><span nz-icon nzType="percentage"></span>Discount</button>
                 <button nz-button nzSize="large" type="button" [disabled]="!cart().length || !session() || holding()" (click)="holdSale()" data-testid="pos-hold"><span nz-icon nzType="pause-circle"></span>Hold</button>
               </div>
-              <button *erpHasPermission="'pos.orders.create'" nz-button nzType="primary" nzBlock nzSize="large" class="pay" type="button" data-testid="pos-pay" [disabled]="!cart().length || !session()" (click)="startPayment()">
+              <button *erpHasPermission="'pos.orders.create'" nz-button nzType="primary" nzBlock nzSize="large" class="pay" type="button" data-testid="pos-pay" [disabled]="!cart().length || !session() || promoStale() || promoBusy()" (click)="startPayment()">
                 <span nz-icon nzType="credit-card"></span> Pay {{ currency() }} {{ totals().total | number:'1.2-2' }} <kbd>F9</kbd>
               </button>
               @if (!session() && cart().length) { <p class="hint" data-testid="pos-pay-hint">Open a shift to take payment.</p> }
@@ -590,7 +599,27 @@ export class PosTerminalPage implements OnDestroy {
   readonly selected = signal(-1);
   readonly customerId = signal<string | null>(null);
   readonly customerName = signal(WALK_IN);
-  readonly totals = computed(() => cartTotals(this.cart()));
+  /** The ticket as the server prices it once a promo code is applied: its share of the discount on each line, so the total matches. */
+  readonly priced = computed(() => {
+    const p = this.promo();
+    const lines = this.cart();
+    if (!p || p.sig !== cartSignature(lines)) return lines;
+    return lines.map((l, i) => ({ ...l, ...(p.lines[i] ?? {}) }));
+  });
+  readonly totals = computed(() => cartTotals(this.priced()));
+  readonly promoInput = signal('');
+  readonly promo = signal<AppliedPromo | null>(null);
+  readonly promoBusy = signal(false);
+  readonly promoError = signal<string | null>(null);
+  /** The ticket changed after the code was applied: the discount is worked out again before payment. */
+  readonly promoStale = computed(() => { const p = this.promo(); return !!p && p.sig !== cartSignature(this.cart()); });
+  private readonly promoSync = effect(() => {
+    const p = this.promo();
+    const lines = this.cart();
+    if (!p) return;
+    if (!lines.length) { untracked(() => this.promo.set(null)); return; }
+    if (p.sig !== cartSignature(lines)) untracked(() => this.requote(p.code, false));
+  });
 
   readonly paymentOpen = signal(false);
   readonly paying = signal(false);
@@ -943,8 +972,51 @@ export class PosTerminalPage implements OnDestroy {
 
   private setCart(lines: CartLine[]): void {
     this.cart.set(lines);
+    if (!lines.length) { this.promo.set(null); this.promoInput.set(''); this.promoError.set(null); }
     this.idempotencyKey = crypto.randomUUID(); // a different ticket is a different sale
     if (!lines.length) this.parkedOrderId = null; // the held copy stays on hold: it was not sold
+  }
+
+  /** Asks the server what the ticket costs with this code. Nothing is used up until the sale is paid. */
+  applyPromo(): void {
+    const code = this.promoInput().trim();
+    if (code) this.requote(code, true);
+  }
+
+  removePromo(): void {
+    this.promo.set(null);
+    this.promoInput.set('');
+    this.promoError.set(null);
+  }
+
+  /** `explicit` is the cashier typing a code: a refusal is shown. After a ticket change the code is simply tried again, and dropped with a note if it no longer applies. */
+  private requote(code: string, explicit: boolean): void {
+    const s = this.session();
+    const lines = this.cart();
+    if (!s || !lines.length) return;
+    const sig = cartSignature(lines);
+    this.promoBusy.set(true);
+    this.promoError.set(null);
+    this.orders.quote({ legalEntityId: s.legalEntityId, customerPartyId: this.customerId(), lines: lines.map(toOrderLine), promoCode: code }).subscribe({
+      next: (q) => {
+        this.promoBusy.set(false);
+        if (!q.promoCode || !(q.promoDiscount > 0)) {
+          this.promo.set(null);
+          this.promoError.set(explicit ? 'That code does not give a discount on this ticket.' : 'The code no longer gives a discount on this ticket, so it was removed.');
+          return;
+        }
+        this.promoInput.set('');
+        this.promo.set({
+          code: q.promoCode, name: q.promoName, discount: q.promoDiscount, sig,
+          lines: q.lines.map((l) => ({ unitPrice: l.unitPrice, discountPercent: l.discountPercent, taxRate: l.taxRate, promoDiscount: l.promoDiscount })),
+        });
+      },
+      error: (err) => {
+        this.promoBusy.set(false);
+        this.promo.set(null);
+        this.promoError.set(problemMessage(err, 'The code could not be checked.', 'promoCode'));
+      },
+    });
   }
 
   amount(line: CartLine): number {
@@ -1201,6 +1273,7 @@ export class PosTerminalPage implements OnDestroy {
       lines: this.cart().map(toOrderLine),
       payments: toPayments(total, tenders),
       parkedOrderId: this.parkedOrderId,
+      promoCode: this.promoStale() ? null : this.promo()?.code ?? null,
     }, this.idempotencyKey).subscribe({
       next: (order) => {
         this.paying.set(false);

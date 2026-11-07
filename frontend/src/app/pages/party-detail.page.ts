@@ -324,6 +324,10 @@ export class PartyDetailPage implements OnInit {
       );
     }
 
+    if (p.creditLimit !== undefined && p.creditLimit !== null) {
+      cards.push({ title: 'Credit limit', value: p.creditLimit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
+    }
+
     if (p.paymentTermsDays) {
       cards.push({
         title: 'Payment Terms',

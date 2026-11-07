@@ -36,12 +36,13 @@ public class PurchasingModuleTests
     {
         var module = new PurchasingModule();
         var menu = module.Menu.ToList();
-        Assert.Equal(4, menu.Count);
+        Assert.Equal(5, menu.Count);
 
         var routes = menu.Select(m => m.Route).ToList();
         Assert.Contains("/purchasing/orders", routes);
         Assert.Contains("/purchasing/requisitions", routes);
         Assert.Contains("/purchasing/receipts", routes);
+        Assert.Contains("/purchasing/returns", routes);
         Assert.Contains("/purchasing/analytics", routes);
 
         foreach (var m in menu)

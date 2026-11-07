@@ -111,6 +111,7 @@ export interface OrderLineDto {
   quantity: number;
   deliveredQuantity: number;
   invoicedQuantity: number;
+  returnedQuantity?: number;
   unitOfMeasure: string;
   unitPrice: number;
   discountPercent: number;
@@ -144,6 +145,7 @@ export interface OrderDto extends OrderSummaryDto {
   paymentTerms?: string | null;
   shippingAddress?: string | null;
   notes?: string | null;
+  warnings?: string[] | null;
   lines: OrderLineDto[];
   customFields?: Record<string, unknown> | null;
 }
@@ -193,8 +195,8 @@ export class SalesOrdersApi extends CrudApiService<OrderSummaryDto, OrderInput> 
     return this.http.put<OrderDto>(`${this.url}/${id}/status`, { status });
   }
 
-  updateFulfillment(id: string, lines: OrderFulfillmentLineInput[]): Observable<OrderDto> {
-    return this.http.put<OrderDto>(`${this.url}/${id}/fulfillment`, { lines });
+  updateFulfillment(id: string, lines: OrderFulfillmentLineInput[], extra: { deliveryDate?: string | null; warehouseId?: string | null } = {}): Observable<OrderDto> {
+    return this.http.put<OrderDto>(`${this.url}/${id}/fulfillment`, { lines, ...extra });
   }
 
   convertToInvoice(id: string): Observable<unknown> {

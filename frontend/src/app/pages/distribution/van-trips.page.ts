@@ -31,6 +31,7 @@ import {
   VanSalesTripSummaryDto
 } from '../../core/api/distribution.api';
 import { WarehousesApi } from '../../modules/inventory/inventory.api';
+import { PartiesApi } from '../parties.page';
 import { HasPermissionDirective } from '../../shared/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '../../shared/paged-table.component';
 import { ErpDatePipe } from '../../shared/display.pipes';
@@ -257,6 +258,15 @@ import { problemMessage } from '../../core/http/problem-details';
                 <nz-input-number nzId="trip-collected" [(ngModel)]="reconcileCollections" [nzMin]="0" style="width: 180px"></nz-input-number>
               </div>
             </div>
+            <div style="margin-top: 16px">
+              <label for="trip-customer">Customer to invoice</label>
+              <nz-select id="trip-customer" [(ngModel)]="reconcileCustomer" nzShowSearch nzServerSearch nzAllowClear nzPlaceHolder="No invoice" (nzOnSearch)="searchCustomers($event)" style="width: 100%" data-testid="trip-customer">
+                @for (c of customers(); track c.id) { <nz-option [nzValue]="c.id" [nzLabel]="c.name"></nz-option> }
+              </nz-select>
+              <div class="text-secondary">One invoice is issued to this customer for what was sold, at the trip's prices and each item's tax code. Leave empty to complete the trip without an invoice.</div>
+            </div>
+            <label style="display: block; margin-top: 12px"><input type="checkbox" [(ngModel)]="reconcileAllowUnaccounted" data-testid="trip-allow-unaccounted" /> Complete even if some loaded stock is not accounted for</label>
+            <div class="text-secondary">Off by default: everything loaded must be sold, returned or damaged. Stock not accounted for stays out of the van count.</div>
           </div>
         </ng-container>
       </nz-modal>
@@ -437,8 +447,17 @@ export class VanTripsPageComponent implements OnInit {
 
   readonly isSaving = signal(false);
   readonly isSavingReconcile = signal(false);
-
   readonly isDispatchModalVisible = signal(false);
+
+  reconcileCollections = 0;
+  reconcileCustomer: string | null = null;
+  reconcileAllowUnaccounted = false;
+  readonly customers = signal<{ id: string; name: string }[]>([]);
+  private readonly partiesApi = inject(PartiesApi);
+
+  searchCustomers(term: string): void {
+    this.partiesApi.list({ page: 1, pageSize: 20, search: term, extra: { role: 'Customer' } }).subscribe({ next: (r) => this.customers.set(r.items.map((p) => ({ id: p.id, name: p.name }))), error: () => undefined });
+  }
   readonly isReconcileModalVisible = signal(false);
   readonly isDrawerVisible = signal(false);
 
@@ -447,7 +466,6 @@ export class VanTripsPageComponent implements OnInit {
 
   reconcileLines: { itemId: string; itemName: string; loadedQuantity: number; soldQuantity: number; returnedQuantity: number; damagedQuantity: number; unitPrice: number }[] = [];
   calcTotalSales = 0;
-  reconcileCollections = 0;
 
   readonly list = createPagedList<VanSalesTripSummaryDto>((q) => this.tripsApi.list(q), { sort: '-createdAt' });
 
@@ -638,6 +656,9 @@ export class VanTripsPageComponent implements OnInit {
         // A trip with no lines keeps the sales it already has, rather than dropping them to zero.
         if (this.reconcileLines.length === 0) this.calcTotalSales = detail.totalSalesAmount;
         this.reconcileCollections = detail.totalCollectionsAmount || this.calcTotalSales;
+        this.reconcileCustomer = null;
+        this.reconcileAllowUnaccounted = false;
+        this.searchCustomers('');
         this.isReconcileModalVisible.set(true);
       },
       error: (err) => this.msg.error(problemMessage(err, 'The trip could not be loaded'))
@@ -669,12 +690,15 @@ export class VanTripsPageComponent implements OnInit {
         returnedQuantity: l.returnedQuantity,
         damagedQuantity: l.damagedQuantity
       })),
+      customerPartyId: this.reconcileCustomer,
+      allowUnaccounted: this.reconcileAllowUnaccounted,
       notes: 'End of day field van reconciliation'
     };
 
     this.tripsApi.completeTrip(trip.id, input).subscribe({
-      next: () => {
-        this.msg.success(`Trip ${trip.tripNumber} reconciled and completed`);
+      next: (done) => {
+        this.msg.success(done.invoiceNumber ? `Trip ${trip.tripNumber} completed and invoice ${done.invoiceNumber} issued` : `Trip ${trip.tripNumber} reconciled and completed`);
+        for (const w of done.warnings ?? []) this.msg.warning(w);
         this.isSavingReconcile.set(false);
         this.isReconcileModalVisible.set(false);
         this.list.reload();

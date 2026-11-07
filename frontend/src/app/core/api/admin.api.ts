@@ -50,9 +50,12 @@ export interface AuditEvent {
 export interface AuditFieldDiff { field: string; old?: string | null; new?: string | null; changed: boolean; }
 export interface AuditEventDetail { event: AuditEvent; fields: AuditFieldDiff[]; before?: string | null; after?: string | null; sameSave: AuditEvent[]; recordEventCount: number; }
 export interface AuditFacets { recordTypes: string[]; actions: string[]; users: { id: string; name: string }[]; today: number; last7Days: number; deletionsLast7Days: number; activeUsersLast7Days: number; }
+export interface ApprovalStepDto { id: string; level: number; approverPermission: string; status: 'pending' | 'approved' | 'rejected' | 'cancelled'; decidedBy?: string | null; decidedAt?: string | null; comment?: string | null; }
 export interface ApprovalDto {
   id: string; legalEntityId?: string; documentType: string; documentId?: string; subject: string; justification?: string; amount?: number; currencyCode?: string;
   requestedBy: string; requestedAt: string; status: string; decidedBy?: string; decidedAt?: string; decisionComment?: string;
+  /** Which level of a chain is waiting, and the permission that level needs; null once decided. */
+  currentLevel?: number | null; currentApproverPermission?: string | null; steps?: ApprovalStepDto[] | null;
 }
 export interface CountryDto { code: string; name: string; defaultCurrency: string; defaultTimeZone: string; hasPack: boolean; }
 export interface CurrencyOption { code: string; name: string; symbol?: string; decimals: number; }
@@ -81,6 +84,10 @@ export interface CoaNumbering { mode: 'free' | 'hierarchical'; segments: number[
 @Injectable({ providedIn: 'root' })
 export class AccountsApi extends CrudApiService<AccountDto, unknown> {
   protected readonly resource = 'finance/accounts';
+
+  /** Postable accounts matching a typed term, as picker options (code and name). */
+  lookup = (term: string): Observable<LookupOption[]> =>
+    this.list({ page: 1, pageSize: 20, search: term }).pipe(map((r) => r.items.filter((a) => a.isPostable && a.isActive).map((a) => ({ value: a.id, label: `${a.code} · ${a.name}` }))));
 
   // ---- Step-by-step chart of accounts: one level per request -------------------------------------------------------------
   /** The five account categories with counts (and natural-side balances when asked and the user may read reports). */
@@ -178,6 +185,7 @@ export class AdminApi {
     return this.http.post<ApprovalDto>(`${this.base}/approvals/${id}/${approve ? 'approve' : 'reject'}`, { comment: comment ?? null });
   }
   withdraw(id: string): Observable<ApprovalDto> { return this.http.post<ApprovalDto>(`${this.base}/approvals/${id}/withdraw`, {}); }
+  approval(id: string): Observable<ApprovalDto> { return this.http.get<ApprovalDto>(`${this.base}/approvals/${id}`); }
 
   countries(): Observable<CountryDto[]> { return this.http.get<CountryDto[]>(`${this.base}/platform/countries`); }
   currencies(): Observable<CurrencyOption[]> { return this.http.get<CurrencyOption[]>(`${this.base}/platform/currencies`); }
@@ -197,9 +205,17 @@ export interface LedgerLine { journalId: string; number: string; date: string; m
 export interface GeneralLedger { accountId: string; code: string; name: string; opening: number; lines: LedgerLine[]; closing: number; }
 export interface StatementLine { group: string; code: string; name: string; amount: number; }
 export interface IncomeStatement { from: string; to: string; income: StatementLine[]; expenses: StatementLine[]; totalIncome: number; totalExpenses: number; netProfit: number; }
+export interface CashFlowLine { group: string; code: string; name: string; inflows: number; outflows: number; net: number; }
+export interface CashFlowSection { category: 'operating' | 'investing' | 'financing'; inflows: number; outflows: number; net: number; lines: CashFlowLine[]; }
+export interface CashFlowStatement {
+  from: string; to: string; legalEntityId?: string | null; currencyCode: string; openingBalance: number; sections: CashFlowSection[]; netChange: number; closingBalance: number;
+  ledgerClosingBalance: number; tiesOut: boolean; internalTransfers: number;
+}
 export interface BalanceSheet {
   asOf: string; assets: StatementLine[]; liabilities: StatementLine[]; equity: StatementLine[]; totalAssets: number; totalLiabilities: number; totalEquity: number;
-  currentEarnings: number; balanced: boolean;
+  currentEarnings: number; 
+  /** Unclosed years after the last year-end close (0 when the entity never closed a year). */
+  priorOpenEarnings?: number; balanced: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -221,6 +237,7 @@ export class LedgerReportsApi {
   generalLedger(p: { accountId: string; from?: string; to: string; legalEntityId?: string }): Observable<GeneralLedger> { return this.http.get<GeneralLedger>(`${this.base}/general-ledger`, { params: this.params(p) }); }
   incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
   balanceSheet(p: { asOf: string; legalEntityId?: string }): Observable<BalanceSheet> { return this.http.get<BalanceSheet>(`${this.base}/balance-sheet`, { params: this.params(p) }); }
+  cashFlow(p: { from: string; to: string; legalEntityId?: string }): Observable<CashFlowStatement> { return this.http.get<CashFlowStatement>(`${this.base}/cash-flow`, { params: this.params(p) }); }
   arAgeing(p: { asOf: string; legalEntityId?: string; businessUnitId?: string; sourceType?: string; groupBy?: string; partyGroupId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ar-ageing`, { params: this.params(p) }); }
   apAgeing(p: { asOf: string; legalEntityId?: string }): Observable<ArAgeing> { return this.http.get<ArAgeing>(`${this.base}/ap-ageing`, { params: this.params(p) }); }
 }
@@ -326,7 +343,7 @@ export interface BillSummary { id: string; number: string; partyId: string; part
 export interface BillDto extends BillSummary { legalEntityId: string; net: number; tax: number; approvalRequestId?: string; journalEntryId?: string; notes?: string; lines: BillLine[]; }
 export interface PaymentSummary { id: string; number: string; partyId: string; partyName?: string; date: string; method: string; amount: number; unallocated: number; status: string; currencyCode: string; }
 export interface PaymentDto extends PaymentSummary { legalEntityId: string; bankAccountId?: string; reference?: string; paymentInstrumentId?: string; allocations: { id: string; billId: string; billNumber: string; amount: number }[]; }
-export interface ApprovalPolicy { id: string; documentType: string; minAmount?: number; approverPermission: string; isActive: boolean; }
+export interface ApprovalPolicy { id: string; documentType: string; minAmount?: number; approverPermission: string; isActive: boolean; level: number; }
 export const PAYMENT_METHODS = [...SETTLEMENT_METHODS, { value: 'instrument', label: 'Cheque issued' }];
 
 @Injectable({ providedIn: 'root' })

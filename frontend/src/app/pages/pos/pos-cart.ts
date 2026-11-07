@@ -25,9 +25,13 @@ export interface CartLine {
   discountPercent: number;
   taxRate: number;
   onHand: number | null;
+  /** Part of a promo code's discount shared onto this line by the server quote. It comes off before tax, after the manual discount. */
+  promoDiscount?: number;
 }
 
 export interface LineAmounts {
+  /** the line's share of a promo code discount */
+  promo: number;
   gross: number;
   discount: number;
   net: number;
@@ -36,15 +40,17 @@ export interface LineAmounts {
 }
 
 /** Rounded exactly as the server does it, line by line, so the amount sent always equals the order total. */
-export function lineAmounts(l: Pick<CartLine, 'quantity' | 'unitPrice' | 'discountPercent' | 'taxRate'>): LineAmounts {
+export function lineAmounts(l: Pick<CartLine, 'quantity' | 'unitPrice' | 'discountPercent' | 'taxRate'> & { promoDiscount?: number }): LineAmounts {
   const gross = round2(l.quantity * l.unitPrice);
   const discount = round2(gross * (l.discountPercent / 100));
-  const net = round2(gross - discount);
+  const promo = round2(l.promoDiscount ?? 0);
+  const net = round2(gross - discount - promo);
   const tax = round2(net * (l.taxRate / 100));
-  return { gross, discount, net, tax, total: round2(net + tax) };
+  return { gross, discount, promo, net, tax, total: round2(net + tax) };
 }
 
 export interface CartTotals {
+  promo: number;
   gross: number;
   discount: number;
   net: number;
@@ -54,17 +60,19 @@ export interface CartTotals {
 }
 
 export function cartTotals(lines: readonly CartLine[]): CartTotals {
-  const t: CartTotals = { gross: 0, discount: 0, net: 0, tax: 0, total: 0, units: 0 };
+  const t: CartTotals = { gross: 0, discount: 0, promo: 0, net: 0, tax: 0, total: 0, units: 0 };
   for (const l of lines) {
     const a = lineAmounts(l);
     t.gross += a.gross;
     t.discount += a.discount;
+    t.promo += a.promo;
     t.net += a.net;
     t.tax += a.tax;
     t.units += l.quantity;
   }
   t.gross = round2(t.gross);
   t.discount = round2(t.discount);
+  t.promo = round2(t.promo);
   t.net = round2(t.net);
   t.tax = round2(t.tax);
   t.total = round2(t.net + t.tax);
@@ -115,7 +123,7 @@ export function repriceHeld(line: CartLine, item: PosCatalogItemDto | null, canO
  * What a return of this quantity gives back: its running share of what the line charged, less what earlier returns took.
  * The same arithmetic as the server (ReturnFeatures), so the refund it asks for is always the one the server accepts.
  */
-export function returnAmount(line: Pick<PosOrderLineDto, 'quantity' | 'unitPrice' | 'discountPercent' | 'taxRate' | 'lineTotal' | 'returnedQuantity' | 'returnedAmount'>, quantity: number): number {
+export function returnAmount(line: Pick<PosOrderLineDto, 'quantity' | 'unitPrice' | 'discountPercent' | 'taxRate' | 'lineTotal' | 'returnedQuantity' | 'returnedAmount'> & { promoDiscount?: number }, quantity: number): number {
   if (quantity <= 0) return 0;
   const net = lineAmounts(line).net;
   const tax = round2(line.lineTotal - net);
@@ -196,6 +204,21 @@ export function toPayments(total: number, tenders: readonly Tender[]): PosPaymen
     change = round2(change - given);
     return { method: 'cash', amount: round2(t.amount - given), tenderedAmount: t.amount, changeAmount: given, reference: null };
   }).filter((p) => p.amount > 0);
+}
+
+/** A promo code the server accepted for the ticket as it was when asked: what to put on each line so the totals match its quote. */
+export interface AppliedPromo {
+  code: string;
+  name: string | null;
+  discount: number;
+  /** the ticket the quote was for; when the ticket changes the quote is out of date */
+  sig: string;
+  lines: Pick<CartLine, 'unitPrice' | 'discountPercent' | 'taxRate' | 'promoDiscount'>[];
+}
+
+/** Identifies a ticket by what the server prices: item, quantity, price and manual discount of each line, in order. */
+export function cartSignature(lines: readonly CartLine[]): string {
+  return lines.map((l) => `${l.key}|${l.quantity}|${l.unitPrice}|${l.discountPercent}`).join(';');
 }
 
 export const TENDER_LABELS: Record<PosPaymentMethod, string> = {
