@@ -40,7 +40,7 @@ internal sealed class ModuleHandlers(ModuleRegistry modules, IModuleAccess acces
     public async Task<IReadOnlyList<ModuleView>> Handle(ListModules q, CancellationToken ct)
     {
         var enabled = await access.EnabledModulesAsync(ct);
-        var installed = modules.Modules.Select(m => new ModuleView(m.Manifest.Key, m.Manifest.Name, m.Manifest.Description, m.Manifest.Category,
+        var installed = modules.Modules.Where(m => !m.Manifest.Hidden).Select(m => new ModuleView(m.Manifest.Key, m.Manifest.Name, m.Manifest.Description, m.Manifest.Category,
             m.Manifest.Version, m.Manifest.IsCore, m.Manifest.Requires ?? [], m.Manifest.UiRoute,
             m.Manifest.IsCore || enabled.Contains(m.Manifest.Key) ? "enabled" : "disabled"));
         var planned = ModuleRegistry.Planned.Where(p => !modules.IsInstalled(p.Key)).Select(p => new ModuleView(p.Key, p.Name, p.Description, p.Category,
@@ -49,7 +49,7 @@ internal sealed class ModuleHandlers(ModuleRegistry modules, IModuleAccess acces
     }
 
     public Task<IReadOnlyList<PlatformModuleView>> Handle(ListPlatformModules q, CancellationToken ct)
-        => Task.FromResult<IReadOnlyList<PlatformModuleView>>(modules.Modules.Select(m => new PlatformModuleView(m.Manifest.Key, m.Manifest.Name, m.Manifest.Description, m.Manifest.Category, m.Manifest.IsCore, m.Manifest.Requires ?? [])).OrderBy(m => m.Name).ToList());
+        => Task.FromResult<IReadOnlyList<PlatformModuleView>>(modules.Modules.Where(m => !m.Manifest.Hidden).Select(m => new PlatformModuleView(m.Manifest.Key, m.Manifest.Name, m.Manifest.Description, m.Manifest.Category, m.Manifest.IsCore, m.Manifest.Requires ?? [])).OrderBy(m => m.Name).ToList());
 
     public async Task<ModuleState> Handle(SetClientModule cmd, CancellationToken ct)
     {

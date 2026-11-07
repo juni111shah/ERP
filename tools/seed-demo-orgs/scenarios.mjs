@@ -55,10 +55,12 @@ async function createBoms(ctx) {
 async function productionRun(ctx, month, n, outcome = 'completed') {
   const ops = ctx.people.ops ?? ctx.owner;
   const boms = await ops.list('/m/manufacturing/boms');
-  const bom = ctx.random.pick(boms);
-  const start = dayIn(ctx, month);
+  // Lower levels first and on earlier days, so each batch has what the previous one made.
+  const ordered = ctx.org.boms.map((b) => boms.find((x) => x.code === b.code));
+  const bom = ordered[(n - 1) % ordered.length];
+  const start = clampToToday(addDays(month, 5 + n * 2));
   ctx.on(start);
-  const factor = bom.outputQuantity > 50 ? ctx.random.int(2, 5) : ctx.random.int(1, 3);
+  const factor = ctx.org.scenario === 'restaurant' ? ctx.random.int(8, 14) : (bom.outputQuantity > 50 ? ctx.random.int(2, 5) : ctx.random.int(1, 3)) * (ctx.org.scale ?? 1);
   const planned = bom.outputQuantity * factor;
   const order = await ops.post('/m/manufacturing/workorders', {
     legalEntityId: ctx.entity, bomId: bom.id, plannedQuantity: planned, warehouseId: ctx.warehouse, startDate: start, dueDate: addDays(start, 5), notes: `Batch ${month.slice(2, 7)}-${n}`,
@@ -75,7 +77,7 @@ async function productionRun(ctx, month, n, outcome = 'completed') {
     return order;
   }
   if (outcome === 'inprogress') return order;
-  const done = clampToToday(addDays(start, ctx.random.int(2, 5)));
+  const done = clampToToday(addDays(start, 1));
   ctx.on(done);
   const scrapped = Math.round(planned * ctx.random.pick([0, 0.01, 0.02, 0.03]));
   const result = await ops.post(`/m/manufacturing/workorders/${order.id}/complete`, { completedQuantity: planned - scrapped, scrappedQuantity: scrapped, actualTotalCost: 0, completionDate: done, notes: 'Batch finished' });
@@ -114,20 +116,25 @@ export async function manufacturing(ctx) {
 async function posDays(ctx, first, perDay, sellable) {
   const ops = ctx.people.ops ?? ctx.owner;
   const registers = await ops.list('/m/pos/registers');
-  const days = [3, 9, 15, 22].map((d) => addDays(first, d)).filter((d) => d <= today);
+  const days = (ctx.org.scenario === 'restaurant' ? [23, 24, 25, 26, 27, 28] : [9, 11, 13, 15, 17, 19, 21, 23, 25, 26]).map((d) => addDays(first, d)).filter((d) => d <= today);
   let returnsDone = 0;
   for (const day of days) {
     ctx.on(day);
     for (const register of registers) {
+      const shelf = {};
+      for (const row of (await ops.get(`/m/inventory/stock?warehouseId=${register.warehouseId}`)).rows ?? []) shelf[row.itemId] = (shelf[row.itemId] ?? 0) + row.quantity;
       const session = await ops.post('/m/pos/sessions/open', { legalEntityId: ctx.entity, registerId: register.id, openingCash: ctx.org.salaryBase / 10, notes: 'Morning float' });
       let cash = ctx.org.salaryBase / 10;
       const made = [];
       for (let n = 0; n < perDay; n++) {
-        const lines = Array.from({ length: ctx.random.int(1, 4) }, () => ctx.random.pick(sellable)).filter((it, i, all) => all.indexOf(it) === i).map((it) => ({ itemId: it.id, quantity: it.uom === 'kg' ? ctx.random.int(1, 3) : ctx.random.int(1, 4), discountPercent: ctx.random.chance(0.12) ? 5 : 0 }));
-        const quote = await ops.post('/m/pos/orders/quote', { legalEntityId: ctx.entity, lines });
+        const lines = Array.from({ length: ctx.random.int(1, 4) }, () => ctx.random.pick(sellable)).filter((it, i, all) => all.indexOf(it) === i).map((it) => ({ itemId: it.id, quantity: Math.min(shelf[it.id] ?? 0, it.uom === 'kg' ? ctx.random.int(1, 3) : ctx.random.int(1, ctx.org.scenario === 'restaurant' ? 6 : 5)), discountPercent: ctx.random.chance(0.12) ? 5 : 0 })).filter((l) => l.quantity >= 1);
+        if (lines.length === 0) continue;
+        for (const l of lines) shelf[l.itemId] -= l.quantity;
+        const promoCode = ctx.org.scenario === 'retail' && ctx.random.chance(0.1) ? 'SAVE10' : undefined;
+        const quote = await ops.post('/m/pos/orders/quote', { legalEntityId: ctx.entity, lines, promoCode });
         const byCard = ctx.random.chance(0.45);
         const order = await ops.post('/m/pos/orders', {
-          legalEntityId: ctx.entity, registerId: register.id, sessionId: session.id, customerName: 'Walk-in customer', lines,
+          legalEntityId: ctx.entity, registerId: register.id, sessionId: session.id, customerName: 'Walk-in customer', lines, promoCode,
           payments: [{ method: byCard ? 'Card' : 'Cash', amount: quote.totalAmount, tenderedAmount: quote.totalAmount, changeAmount: 0, reference: byCard ? `CARD-${day}-${n}` : undefined }],
         });
         if (!byCard) cash += quote.totalAmount;
@@ -137,11 +144,19 @@ async function posDays(ctx, first, perDay, sellable) {
       if (candidate && returnsDone < 2 && ctx.random.chance(0.4)) {
         const detail = await ops.get(`/m/pos/orders/${candidate.order.id}`);
         const line = detail.lines[0];
-        const preview = round2((line.lineTotal ?? line.total ?? 0) / line.quantity);
+        let preview = round2((line.lineTotal ?? line.total ?? 0) / line.quantity);
         if (preview > 0) {
-          await ctx.owner.at(day).post('/m/pos/returns', { orderId: candidate.order.id, sessionId: session.id, reason: ctx.random.pick(['Customer changed mind', 'Damaged packaging', 'Wrong item scanned']), lines: [{ orderLineId: line.id, quantity: 1, restock: true }], refunds: [{ method: candidate.byCard ? 'Card' : 'Cash', amount: preview, reference: `REF-${day}` }] })
-            .then(() => { returnsDone++; if (!candidate.byCard) cash -= preview; })
-            .catch((e) => ctx.log(`      return skipped: ${e.message.slice(0, 120)}`));
+          const send = (amount) => ctx.owner.at(day).post('/m/pos/returns', { orderId: candidate.order.id, sessionId: session.id, reason: ctx.random.pick(['Customer changed mind', 'Damaged packaging', 'Wrong item scanned']), lines: [{ orderLineId: line.id, quantity: 1, restock: true }], refunds: [{ method: candidate.byCard ? 'Card' : 'Cash', amount, reference: `REF-${day}` }] });
+          try { await send(preview); }
+          catch (e) {
+            // The server rounds tax per line; it says what the refund must be.
+            const exact = /return total \(([\d.]+)\)/.exec(e.message);
+            if (!exact) throw e;
+            preview = Number(exact[1]);
+            await send(preview);
+          }
+          returnsDone++;
+          if (!candidate.byCard) cash -= preview;
         }
       }
       const variance = ctx.random.chance(0.2) ? ctx.random.pick([-2, -1, 1]) : 0;
@@ -200,7 +215,7 @@ export async function retail(ctx) {
       }
       inv.at(null);
     });
-    await ctx.run(`pos-${first.slice(0, 7)}`, () => posDays(ctx, first, 6, sellable));
+    await ctx.run(`pos-${first.slice(0, 7)}`, () => posDays(ctx, first, 9, sellable));
   };
 }
 
@@ -221,10 +236,19 @@ export async function restaurant(ctx) {
       const inv = ctx.people.inventory ?? ctx.owner;
       const date = dayIn(ctx, first);
       ctx.on(date);
-      await inv.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: ctx.item('BEV-TEA').id, quantity: 300, unitCost: ctx.item('BEV-TEA').cost, date, offsetAccountId: ctx.account('purchases.expense'), reference: `BAR-${first.slice(2, 7)}-T`, memo: 'Bar preparation' });
-      await inv.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: ctx.item('BEV-LSI').id, quantity: 150, unitCost: ctx.item('BEV-LSI').cost, date, offsetAccountId: ctx.account('purchases.expense'), reference: `BAR-${first.slice(2, 7)}-L`, memo: 'Bar preparation' });
+      await inv.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: ctx.item('BEV-TEA').id, quantity: 500, unitCost: ctx.item('BEV-TEA').cost, date, offsetAccountId: ctx.account('cogs'), reference: `BAR-${first.slice(2, 7)}-T`, memo: 'Bar preparation' });
+      await inv.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: ctx.item('BEV-LSI').id, quantity: 300, unitCost: ctx.item('BEV-LSI').cost, date, offsetAccountId: ctx.account('cogs'), reference: `BAR-${first.slice(2, 7)}-L`, memo: 'Bar preparation' });
+      const outlet = ctx.warehouses[1];
+      const moveOn = clampToToday(addDays(first, 22));
+      inv.at(moveOn);
+      for (const it of sellable) {
+        const onHand = (await inv.get(`/m/inventory/stock?warehouseId=${ctx.warehouse}&itemId=${it.id}`)).rows?.[0]?.quantity ?? 0;
+        const quantity = Math.floor(onHand * 0.4);
+        if (quantity > 0) await inv.post('/m/inventory/stock/transfer', { fromWarehouseId: ctx.warehouse, toWarehouseId: outlet.id, itemId: it.id, quantity, date: moveOn, reference: `TR-${first.slice(2, 7)}-${it.sku}`, memo: 'To second outlet' });
+      }
+      inv.at(null);
     });
-    await ctx.run(`pos-${first.slice(0, 7)}`, async () => posDays(ctx, first, 8, sellable));
+    await ctx.run(`pos-${first.slice(0, 7)}`, async () => posDays(ctx, first, 14, sellable));
     await ctx.run(`waste-${first.slice(0, 7)}`, async () => {
       const date = dayIn(ctx, first);
       ctx.on(date);
@@ -282,7 +306,7 @@ export async function realEstate(ctx) {
       const asOf = addDays(first, 5) > today ? today : addDays(first, 5);
       ctx.on(asOf);
       await owner.post('/m/realestate/billing/run', { asOf, legalEntityId: ctx.entity });
-      const invoices = (await owner.list(`/finance/invoices?filter=invoiceDate:ge:${first}&filter=invoiceDate:le:${asOf}`)).filter((i) => i.status === 'issued');
+      const invoices = (await owner.list(`/finance/invoices?filter=invoiceDate:gte:${first}&filter=invoiceDate:lte:${asOf}`)).filter((i) => i.status === 'issued');
       for (const inv of invoices) await settleByAge(ctx, inv.id, asOf, first);
     });
     await ctx.run(`maintenance-${first.slice(0, 7)}`, async () => {
@@ -309,7 +333,8 @@ export async function realEstate(ctx) {
       const deal = await ops.post('/m/realestate/deals', { legalEntityId: ctx.entity, dealType: n % 2 ? 'sale' : 'lease', clientName: client.name, clientPartyId: client.id, dealDate: date, dealValue: ctx.random.money(120000, 900000, 5000), commissionRatePercent: 2, agentName: ctx.org.employees[3], agentCommissionPercent: 50 });
       await ops.post(`/m/realestate/deals/${deal.id}/stage`, { stage: 'negotiation' }).catch(() => {});
       await ops.post(`/m/realestate/deals/${deal.id}/stage`, { stage: 'agreed' }).catch((e) => ctx.log(`      deal stage: ${e.message.slice(0, 100)}`));
-      await (ctx.people.finance ?? owner).at(date).post(`/m/realestate/deals/${deal.id}/invoice-commission`, {}).catch((e) => ctx.log(`      commission: ${e.message.slice(0, 120)}`));
+      const billed = await owner.at(date).post(`/m/realestate/deals/${deal.id}/invoice-commission`, {}).catch((e) => ctx.log(`      commission: ${e.message.slice(0, 120)}`));
+      if (billed?.invoiceId && n < 2) await settle(ctx, billed.invoiceId, clampToToday(addDays(date, 12)));
     }
     owner.at(null);
   });
@@ -378,7 +403,7 @@ export async function construction(ctx) {
         const pickMats = ctx.stockItems.slice(0, 4);
         const issue = await record(ctx, 'construction', 'materialissues', {
           title: `Materials ${first.slice(0, 7)}`, recordDate: date, parentId: site.id, data: { issuedTo: ctx.org.employees[3], workArea: 'Structure' },
-          lines: pickMats.map((m) => ({ description: m.name, itemId: m.id, unitOfMeasure: m.uom, quantity: m.cost > 1000 ? ctx.random.int(1, 3) : ctx.random.int(10, 40), unitPrice: m.cost })),
+          lines: pickMats.map((m) => ({ description: m.name, itemId: m.id, unitOfMeasure: m.uom, quantity: m.cost > 1000 ? ctx.random.int(8, 20) : ctx.random.int(120, 400), unitPrice: m.cost })),
         });
         try {
           await (ctx.people.ops ?? ctx.owner).post(`/m/construction/records/materialissues/${issue.id}/consume`, { date, warehouseId: ctx.warehouse });
@@ -391,7 +416,7 @@ export async function construction(ctx) {
 
         // Subcontractor certificate, then the valuation to the client.
         const subName = ctx.org.subcontractors[ctx.random.int(0, 1)];
-        const cert = await record(ctx, 'construction', 'subcontractorpayments', { title: `Certificate ${first.slice(0, 7)}`, recordDate: date, parentId: site.id, partyId: ctx.party(subName).id, data: { subcontractRef: `${site.title} MEP works`, periodNumber: months(5).indexOf(first) + 1 }, lines: [{ description: 'MEP first fix this period', quantity: 1, unitPrice: ctx.random.money(45000, 120000, 500) }] }, ['submitted']);
+        const cert = await record(ctx, 'construction', 'subcontractorpayments', { title: `Certificate ${first.slice(0, 7)}`, recordDate: date, parentId: site.id, partyId: ctx.party(subName).id, data: { subcontractRef: `${site.title} MEP works`, periodNumber: months(5).indexOf(first) + 1 }, lines: [{ description: 'MEP first fix this period', quantity: 1, unitPrice: ctx.random.money(120000, 280000, 500) }] }, ['submitted']);
         const approved = await move(ctx, 'construction', 'subcontractorpayments', cert.id, 'approved', ctx.owner);
         const certBilled = await ctx.owner.post(`/m/construction/records/subcontractorpayments/${approved.id}/bill`, { date, taxCodeId: taxId(ctx) });
         if (first < monthStart(1)) await paySome(ctx, certBilled.billId, clampToToday(addDays(date, 20)));
@@ -430,7 +455,7 @@ export async function healthcare(ctx) {
   const doctors = ctx.org.employees.slice(0, 3);
   ctx.monthly = async (first) => {
     await ctx.run(`clinic-${first.slice(0, 7)}`, async () => {
-      for (let n = 0; n < 14; n++) {
+      for (let n = 0; n < 40; n++) {
         const date = dayIn(ctx, first);
         ctx.on(date);
         const patient = ctx.random.pick(patients);
@@ -460,12 +485,12 @@ export async function healthcare(ctx) {
         }
       }
       // Insurance claims: most approved, some rejected or waiting.
-      for (let n = 0; n < 3; n++) {
+      for (let n = 0; n < 9; n++) {
         const date = dayIn(ctx, first);
         ctx.on(date);
         const insurer = ctx.random.pick(insurers);
         const patient = ctx.random.pick(patients);
-        const claim = await record(ctx, 'healthcare', 'claims', { title: `Treatment claim ${date}`, recordDate: date, parentId: patient.id, partyId: insurer.id, dueDate: addDays(date, 45), amount: ctx.random.money(400, 6500, 25), data: { authorizationCode: `AUTH-${date.replace(/-/g, '')}-${n}` } }, ['submitted']);
+        const claim = await record(ctx, 'healthcare', 'claims', { title: `Treatment claim ${date}`, recordDate: date, parentId: patient.id, partyId: insurer.id, dueDate: addDays(date, 45), amount: ctx.random.money(1500, 18000, 25), data: { authorizationCode: `AUTH-${date.replace(/-/g, '')}-${n}` } }, ['submitted']);
         const roll = ctx.random.next();
         if (roll < 0.15) { await move(ctx, 'healthcare', 'claims', claim.id, ['rejected', 'Treatment not covered by the policy'], ctx.owner); continue; }
         if (roll < 0.3 || first === monthStart(0)) continue;
@@ -498,7 +523,7 @@ export async function logistics(ctx) {
   const port = ctx.party('Hamad Port Handling');
   ctx.monthly = async (first) => {
     await ctx.run(`shipments-${first.slice(0, 7)}`, async () => {
-      for (let n = 0; n < 16; n++) {
+      for (let n = 0; n < 26; n++) {
         const date = dayIn(ctx, first);
         ctx.on(date);
         const customer = ctx.random.pick(ctx.customers);
@@ -562,15 +587,6 @@ export async function logistics(ctx) {
 export async function software(ctx) {
   const pm = ctx.people.ops ?? ctx.owner;
   const owner = ctx.owner;
-  await ctx.run('crm', async () => {
-    if (!ctx.modules.has('crm')) return;
-    let n = 0;
-    for (const [fullName, companyName, status] of [['Hannah Cole', 'Cobalt Fintech', 'qualified'], ['Lewis Boyd', 'Oakline Logistics', 'contacted'], ['Zara Sheikh', 'Bright Retail', 'new'], ['Peter Vance', 'Summit Education', 'unqualified'], ['Lara Quinn', 'Harbour Retail Group', 'qualified']]) {
-      ctx.on(addDays(monthStart(5), ++n * 12));
-      const lead = await owner.post('/m/crm/leads', { legalEntityId: ctx.entity, fullName, companyName, email: `lead${n}@${ctx.org.code}.example.test`, source: 'website', estimatedValue: ctx.random.money(15000, 90000, 1000), assignedUserName: 'Project manager' });
-      await owner.put(`/m/crm/leads/${lead.id}`, { legalEntityId: ctx.entity, fullName, companyName, source: 'website', estimatedValue: lead.estimatedValue, status }).catch(() => {});
-    }
-  });
   const portfolio = [
     ['Harbour customer portal', 0, 'timeAndMaterials', 180000], ['Northwind claims platform', 1, 'fixedFee', 240000], ['Greenfield analytics', 2, 'timeAndMaterials', 95000],
     ['Cobalt mobile app', 3, 'fixedFee', 130000], ['Internal tooling', null, 'nonBillable', 40000],
@@ -601,7 +617,13 @@ export async function software(ctx) {
         for (let n = 0; n < 12; n++) {
           const date = dayIn(ctx, first);
           ctx.on(date);
-          await pm.post('/m/projects/timesheets', { projectId: project.id, date, workerName: ctx.random.pick(people), hours: ctx.random.int(3, 8), hourlyRate: 95, costRate: 48, description: ctx.random.pick(['Feature work', 'Code review', 'Client workshop', 'Bug fixing', 'Release support']), isBillable: project.billingType !== 'nonBillable' });
+          const hours = ctx.random.int(3, 8);
+          // People keep to a working day, as the product insists.
+          ctx.booked ??= {};
+          const workerName = people.find((p) => (ctx.booked[p + date] ?? 0) + hours <= 10);
+          if (!workerName) continue;
+          ctx.booked[workerName + date] = (ctx.booked[workerName + date] ?? 0) + hours;
+          await pm.post('/m/projects/timesheets', { projectId: project.id, date, workerName, hours, hourlyRate: 95, costRate: 48, description: ctx.random.pick(['Feature work', 'Code review', 'Client workshop', 'Bug fixing', 'Release support']), isBillable: project.billingType !== 'nonBillable' });
         }
         if (ctx.random.chance(0.5)) {
           const date = dayIn(ctx, first);
@@ -743,23 +765,27 @@ export async function dairy(ctx) {
   const vet = ctx.party('Anand Vet Services');
   const inv = ctx.people.inventory ?? ctx.owner;
   ctx.monthly = async (first) => {
+    await ctx.run(`feed-buy-${first.slice(0, 7)}`, async () => {
+      ctx.band = [1, 2];
+      await purchaseCycle(ctx, first, 800, 'paid', [{ it: conc, quantity: 130 }, { it: silage, quantity: 3200 }, { it: minerals, quantity: 70 }]);
+      ctx.band = [12, 18];
+    });
     await ctx.run(`farm-${first.slice(0, 7)}`, async () => {
       for (const herd of herds.slice(0, 3)) {
         for (let week = 0; week < 4; week++) {
-          const date = addDays(first, week * 7 + 1);
+          const date = addDays(first, 12 + week * 3);
           if (date > today) continue;
           ctx.on(date);
           const milk = Math.round(herd.data.headCount * ctx.random.int(9, 13) * 7);
           await record(ctx, 'agriculture', 'production', { title: `Week ${week + 1} milk`, recordDate: date, parentId: herd.id, data: { product: 'Milk (litres)', quantity: milk, fatPercent: ctx.random.int(35, 48) / 10, mortality: ctx.random.chance(0.05) ? 1 : 0 } });
           // The week's milk enters stock at its production cost, with feed and labour already expensed in the ledger.
-          await inv.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: ctx.item('MLK-RAW').id, quantity: milk, unitCost: ctx.item('MLK-RAW').cost, date, offsetAccountId: ctx.account('purchases.expense'), reference: `MILK-${herd.number}-${date}`, memo: 'Milk produced' });
-          const feed = await record(ctx, 'agriculture', 'feed', { title: `Feed week ${week + 1}`, recordDate: date, parentId: herd.id, data: { ration: 'Lactation ration', issuedBy: ctx.org.employees[2] }, lines: [{ description: conc.name, itemId: conc.id, unitOfMeasure: conc.uom, quantity: Math.ceil(herd.data.headCount / 6), unitPrice: conc.cost }, { description: silage.name, itemId: silage.id, unitOfMeasure: silage.uom, quantity: herd.data.headCount * 30, unitPrice: silage.cost }, { description: minerals.name, itemId: minerals.id, unitOfMeasure: minerals.uom, quantity: Math.ceil(herd.data.headCount / 10), unitPrice: minerals.cost }] });
+          await inv.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: ctx.item('MLK-RAW').id, quantity: milk, unitCost: ctx.item('MLK-RAW').cost, date, offsetAccountId: ctx.account('cogs'), reference: `MILK-${herd.number}-${date}`, memo: 'Milk produced' });
+          const feed = await record(ctx, 'agriculture', 'feed', { title: `Feed week ${week + 1}`, recordDate: date, parentId: herd.id, data: { ration: 'Lactation ration', issuedBy: ctx.org.employees[2] }, lines: [{ description: conc.name, itemId: conc.id, unitOfMeasure: conc.uom, quantity: Math.ceil(herd.data.headCount / 6), unitPrice: conc.cost }, { description: silage.name, itemId: silage.id, unitOfMeasure: silage.uom, quantity: herd.data.headCount * 3, unitPrice: silage.cost }, { description: minerals.name, itemId: minerals.id, unitOfMeasure: minerals.uom, quantity: Math.ceil(herd.data.headCount / 10), unitPrice: minerals.cost }] });
           try {
             await staff.post(`/m/agriculture/records/feed/${feed.id}/consume`, { date, warehouseId: ctx.warehouse });
             await move(ctx, 'agriculture', 'feed', feed.id, 'issued');
           } catch (e) {
             if (e.status !== 409) throw e;
-            await purchaseCycle(ctx, first, 900 + week, 'paid', [{ it: conc, quantity: 60 }, { it: silage, quantity: 9000 }, { it: minerals, quantity: 60 }]);
             await move(ctx, 'agriculture', 'feed', feed.id, ['cancelled', 'Feed short on the day, issued from the next delivery']);
           }
         }
@@ -800,7 +826,7 @@ export async function trade(ctx) {
 
       const buyer = ctx.random.pick(ctx.customers);
       const goods = ctx.items.filter((i) => i.category === 'Export goods');
-      const lines = goods.map((g) => ({ description: g.name, itemId: g.id, unitOfMeasure: g.uom, quantity: ctx.random.int(20, 120), unitPrice: g.price }));
+      const lines = goods.map((g) => ({ description: g.name, itemId: g.id, unitOfMeasure: g.uom, quantity: ctx.random.int(60, 320), unitPrice: g.price }));
       const exportOrder = await record(ctx, 'trade', 'exports', { title: `Export to ${buyer.name}`, recordDate: date, partyId: buyer.id, data: { destinationCountry: buyer.name.split(' ').pop(), incoterm: ctx.random.pick(['FOB', 'CIF', 'CFR']), portOfLoading: 'Jebel Ali', billOfLading: `EX-${date.replace(/-/g, '')}`, salesOrderRef: `SO ref ${first.slice(5, 7)}` }, lines }, ['confirmed']);
       const roll = ctx.random.next();
       if (roll < 0.1) { await move(ctx, 'trade', 'exports', exportOrder.id, ['cancelled', 'Buyer cancelled before shipment']); return; }
@@ -811,4 +837,44 @@ export async function trade(ctx) {
   };
 }
 
-export const SCENARIOS = { realestate: realEstate, manufacturing, retail, restaurant, construction, healthcare, logistics, software, education, dairy, trade, distribution: null };
+// ---- Wholesale distribution: routes and van trips ------------------------------------------------------------------------------------------------
+
+export async function distribution(ctx) {
+  const ops = ctx.people.ops ?? ctx.owner;
+  await ctx.run('routes', async () => {
+    ctx.on(monthStart(5));
+    let n = 0;
+    for (const [name, from, to] of [['Karachi South route', 0, 4], ['Karachi East route', 4, 8], ['Interior Sindh route', 8, 12]]) {
+      await ops.post('/m/distribution/routes', { legalEntityId: ctx.entity, code: `RT-${++n}`, name, isActive: true, stops: ctx.customers.slice(from, to).map((c, i) => ({ customerPartyId: c.id, customerName: c.name, sequenceOrder: i + 1 })) });
+    }
+    for (const it of ctx.stockItems.slice(0, 4)) {
+      for (const [tier, minQuantity, discount] of [['silver', 10, 2], ['gold', 50, 4]]) await ops.post('/m/distribution/wholesale', { legalEntityId: ctx.entity, itemId: it.id, itemCode: it.sku, itemName: it.name, tier, minQuantity, wholesaleUnitPrice: round2(it.price * (1 - discount / 100)), isActive: true, discountPercentage: discount });
+    }
+  });
+  const routes = await ops.list('/m/distribution/routes');
+  const me = await ops.get('/me');
+  ctx.monthly = async (first) => {
+    await ctx.run(`trips-${first.slice(0, 7)}`, async () => {
+      for (const route of routes) {
+        const date = dayIn(ctx, first);
+        ctx.on(date);
+        const stock = (await ops.get(`/m/inventory/stock?warehouseId=${ctx.warehouse}`)).rows ?? [];
+        const load = ctx.stockItems.slice(0, 5).map((it) => ({ it, loaded: Math.floor((stock.find((r) => r.itemId === it.id)?.quantity ?? 0) * 0.05) })).filter((l) => l.loaded >= 4);
+        if (load.length === 0) continue;
+        const trip = await ops.post('/m/distribution/trips', {
+          legalEntityId: ctx.entity, routeId: route.id, driverUserId: me.user.id, driverName: ctx.random.pick(ctx.org.employees), vehicleNumber: `KHI-${ctx.random.int(1000, 9999)}`, warehouseId: ctx.warehouse, departureDate: date,
+          items: load.map(({ it, loaded }) => ({ itemId: it.id, itemCode: it.sku, itemName: it.name, uom: it.uom, loadedQuantity: loaded, unitPrice: it.price })),
+        });
+        if (first === monthStart(0) && ctx.random.chance(0.5)) continue;
+        const buyer = ctx.customers.find((c) => c.id === route.stops?.[0]?.customerPartyId) ?? ctx.random.pick(ctx.customers);
+        const finished = await ops.post(`/m/distribution/trips/${trip.id}/complete`, {
+          totalSalesAmount: 0, totalCollectionsAmount: 0, customerPartyId: buyer.id, notes: 'Route completed',
+          items: load.map(({ it, loaded }) => { const damaged = ctx.random.chance(0.1) ? 1 : 0; const returned = Math.floor(loaded * 0.15); return { itemId: it.id, soldQuantity: loaded - returned - damaged, returnedQuantity: returned, damagedQuantity: damaged }; }),
+        });
+        if (finished.invoiceId) await settleByAge(ctx, finished.invoiceId, date, first);
+      }
+    });
+  };
+}
+
+export const SCENARIOS = { realestate: realEstate, manufacturing, retail, restaurant, construction, healthcare, logistics, software, education, dairy, trade, distribution };

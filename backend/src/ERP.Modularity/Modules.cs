@@ -15,7 +15,9 @@ public enum ModuleStatus { Available, Planned }
 
 public sealed record ModuleManifest(
     string Key, string Name, string Description, string Category, string Version = "0.1.0",
-    bool IsCore = false, IReadOnlyList<string>? Requires = null, ModuleStatus Status = ModuleStatus.Available, string? RoutePrefix = null)
+    bool IsCore = false, IReadOnlyList<string>? Requires = null, ModuleStatus Status = ModuleStatus.Available, string? RoutePrefix = null,
+    /// <summary>Supplies data only, such as business types: never listed or switched, and it has no screens.</summary>
+    bool Hidden = false)
 {
     /// <summary>UI route prefix, e.g. "real-estate" for key "realestate".</summary>
     public string UiRoute => RoutePrefix ?? Key;

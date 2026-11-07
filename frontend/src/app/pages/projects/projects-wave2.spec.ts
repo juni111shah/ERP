@@ -135,6 +135,8 @@ describe('approvals inbox', () => {
 
 describe('timesheets', () => {
   it('offers Submit on drafts and locks approved time while approval is on', () => {
+    // Row actions go behind a menu without a hover pointer, as in a headless browser. This is about which actions a row offers.
+    spyOn(window, 'matchMedia').and.returnValue({ matches: true, addEventListener() {}, removeEventListener() {} } as unknown as MediaQueryList);
     const http = setup();
     const fixture = TestBed.createComponent(ProjectTimesheetsPage);
     fixture.detectChanges();

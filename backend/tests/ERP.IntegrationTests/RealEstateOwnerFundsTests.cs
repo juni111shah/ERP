@@ -87,13 +87,13 @@ public class RealEstateOwnerFundsTests(ApiFactory f) : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task A_workspace_created_before_the_owner_payable_gets_the_account_on_first_use()
+    public async Task A_workspace_that_enables_the_module_later_has_the_owner_payable()
     {
-        // the admin workspace was not created from the real estate template, so it has none of the module's accounts
+        // the admin workspace was not created from the real estate template: enabling the module brings its accounts
         var (c0, _) = await f.SignInAsync(ApiFactory.AdminEmail);
         await c0.PostAsync("/api/v1/modules/realestate/enable", null);
         var (c, _) = await f.SignInAsync(ApiFactory.AdminEmail);
-        Assert.DoesNotContain((await Ok(await c.GetAsync($"{Fin}/accounts?pageSize=300"))).AsArray(), a => (string?)a!["systemRole"] == Payable);
+        Assert.Contains((await Ok(await c.GetAsync($"{Fin}/accounts?pageSize=300"))).AsArray(), a => (string?)a!["systemRole"] == Payable);
         var entity = (string)(await Ok(await c.PostAsJsonAsync("/api/v1/legal-entities", new { name = U("Mgr "), countryCode = "AE", baseCurrency = "AED", isTaxRegistered = false }), HttpStatusCode.Created))["id"]!;
         var x = new Ctx(c, entity, "", "", []);
         var owner = await PartyAsync(x, "Vendor"); var tenant = await PartyAsync(x, "Customer");

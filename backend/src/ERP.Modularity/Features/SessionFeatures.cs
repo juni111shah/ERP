@@ -48,7 +48,7 @@ internal sealed class SessionHandlers(
             permissions.OrderBy(p => p).ToList(),
             entities,
             allowedEntities is null,
-            modules.Modules.Where(m => m.Manifest.IsCore || enabled.Contains(m.Manifest.Key)).Select(m => new MeModule(m.Manifest.Key, m.Manifest.UiRoute)).ToList(),
+            modules.Modules.Where(m => !m.Manifest.Hidden && (m.Manifest.IsCore || enabled.Contains(m.Manifest.Key))).Select(m => new MeModule(m.Manifest.Key, m.Manifest.UiRoute)).ToList(),
             await platform.IsPlatformAdminAsync(userId, ct), await subscription.GetAsync(org.Id, ct), org.IsInternal);
     }
 

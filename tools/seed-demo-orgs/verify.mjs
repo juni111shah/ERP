@@ -92,7 +92,7 @@ for (const org of chosen) {
   for (const [label, table] of Object.entries(COUNTS)) {
     try { const n = one(`select count(*) from ${table} where OrgId='${orgId}'`); if (n) counts[label] = n; } catch { /* the table is not in this database */ }
   }
-  const owner = await c.get(`/dashboard/owner?from=${dates?.[0]}&to=${today}&legalEntityId=${entity}`);
+  const owner = await c.get(`/dashboard/owner?from=${/^\d/.test(dates?.[0]) ? dates[0] : today}&to=${today}&legalEntityId=${entity}`);
   const cards = Object.fromEntries(owner.sections.flatMap((s) => s.cards.map((x) => [x.key, x.value])));
   results.push({ org: org.code, name: org.name, industry: org.industry, currency: org.currency, checks, counts, figures: { revenue: cards.revenue, grossProfit: cards['gross-profit'], netProfit: cards['net-profit'], closingCash: cards['cash-closing'], receivables: cards.receivables, payables: cards.payables, inventory: cards['inventory-value'] }, sections: owner.sections.map((s) => s.key) });
   const bad = checks.filter((x) => !x.ok);

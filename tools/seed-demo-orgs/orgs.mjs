@@ -17,7 +17,7 @@ export const ORGS = [
   },
   {
     key: 'wholesale', code: 'demo-wholesale', name: 'DEMO - Al Baraka Wholesale Distributors', industry: 'wholesale-fmcg', scenario: 'distribution',
-    country: 'PK', currency: 'PKR', timeZone: 'Asia/Karachi', salaryBase: 85000, trading: true, volume: 7,
+    country: 'PK', currency: 'PKR', timeZone: 'Asia/Karachi', salaryBase: 60000, trading: true, volume: 7, scale: 9,
     branches: ['Karachi Head Depot', 'Lahore Depot', 'Multan Depot'], departments: ['Sales', 'Warehouse', 'Procurement', 'Accounts'],
     customers: ['Saddar Cash and Carry', 'Gulshan Mini Mart', 'Clifton Super Store', 'Korangi Retailers', 'Defence General Store', 'Nazimabad Traders', 'Malir Provision House', 'Tariq Road Bazaar', 'Hyderabad Grocers', 'Sukkur Trading Company', 'Lahore Town Mart', 'Multan Family Store'],
     suppliers: ['National Beverages Limited', 'Crescent Foods Pvt Ltd', 'Sunrise Soap Works', 'Pak Dairy Products', 'Indus Snacks Company', 'Green Leaf Tea Traders'],
@@ -27,7 +27,7 @@ export const ORGS = [
   },
   {
     key: 'manufacturing', code: 'demo-manufacturing', name: 'DEMO - Indus Textile Mills', industry: 'mfg-textile', scenario: 'manufacturing',
-    country: 'PK', currency: 'PKR', timeZone: 'Asia/Karachi', salaryBase: 78000, trading: true, volume: 5,
+    country: 'PK', currency: 'PKR', timeZone: 'Asia/Karachi', salaryBase: 52000, trading: true, volume: 5, scale: 12,
     branches: ['Faisalabad Plant', 'Karachi Sales Office'], departments: ['Spinning', 'Weaving', 'Quality', 'Stores', 'Accounts'],
     customers: ['Metro Garments Ltd', 'Sapphire Apparel', 'Royal Home Textiles', 'Eastern Fabrics Export', 'Lyallpur Cloth House', 'Crescent Uniforms', 'Bano Linens', 'Golden Thread Traders'],
     suppliers: ['Punjab Cotton Ginners', 'Colour Chem Dyes', 'Sadiq Yarn Agents', 'Packwell Cartons', 'Faisal Spares Traders', 'Delta Power Supplies'],
@@ -44,7 +44,7 @@ export const ORGS = [
   },
   {
     key: 'supermarket', code: 'demo-supermarket', name: 'DEMO - FreshMart Supermarkets', industry: 'retail-supermarket', scenario: 'retail',
-    country: 'AE', currency: 'AED', timeZone: 'Asia/Dubai', salaryBase: 5200, trading: true, volume: 2,
+    country: 'AE', currency: 'AED', timeZone: 'Asia/Dubai', salaryBase: 2800, trading: true, volume: 2, scale: 4,
     branches: ['Deira Store', 'Al Barsha Store', 'Sharjah Store'], departments: ['Store Operations', 'Buying', 'Warehouse', 'Accounts'],
     customers: ['Al Noor Canteen', 'Palm Staff Catering', 'Creek Hotel Apartments', 'Sunrise Nursery'],
     suppliers: ['Emirates Dairy Farms', 'Fresh Fields Produce', 'Gulf Foods Trading', 'Arabian Household Supplies', 'Oasis Water Company', 'Desert Bakery'],
@@ -66,7 +66,7 @@ export const ORGS = [
   },
   {
     key: 'healthcare', code: 'demo-healthcare', name: 'DEMO - CareBridge Medical Centre', industry: 'health-hospital', scenario: 'healthcare',
-    country: 'AE', currency: 'AED', timeZone: 'Asia/Dubai', salaryBase: 12000, trading: false, volume: 2,
+    country: 'AE', currency: 'AED', timeZone: 'Asia/Dubai', salaryBase: 7000, trading: false, volume: 2,
     branches: ['Main Hospital', 'Jumeirah Clinic'], departments: ['General Medicine', 'Pediatrics', 'Cardiology', 'Laboratory', 'Pharmacy', 'Billing'],
     customers: ['Self Pay Patients', 'Emirates Care Insurance', 'Gulf Shield Health', 'Falcon Corporate Medical'],
     suppliers: ['Medline Pharma Distributors', 'LabCore Reagents', 'SurgiTrust Supplies', 'CleanCare Hospital Services', 'Oxygen Gas Company'],
@@ -76,7 +76,7 @@ export const ORGS = [
   },
   {
     key: 'logistics', code: 'demo-logistics', name: 'DEMO - SwiftHaul Cargo', industry: 'log-cargo', scenario: 'logistics',
-    country: 'QA', currency: 'QAR', timeZone: 'Asia/Qatar', salaryBase: 6200, trading: false,
+    country: 'QA', currency: 'QAR', timeZone: 'Asia/Qatar', salaryBase: 4500, trading: false,
     branches: ['Doha Hub', 'Mesaieed Depot', 'Al Khor Depot'], departments: ['Dispatch', 'Fleet', 'Customer Service', 'Accounts'],
     customers: ['Qatar Building Supplies', 'Peninsula Foods', 'Al Rayyan Furniture', 'Lusail Electronics', 'Corniche Pharma', 'Hamad Port Traders', 'Dukhan Oilfield Services', 'Wakra Packaging'],
     suppliers: ['Woqod Fuel Accounts', 'Al Attiya Motors Workshop', 'Tyre Plus Qatar', 'Gulf Toll Services', 'Hamad Port Handling'],
@@ -96,7 +96,7 @@ export const ORGS = [
   },
   {
     key: 'education', code: 'demo-education', name: 'DEMO - Bright Future School', industry: 'edu-school', scenario: 'education',
-    country: 'PK', currency: 'PKR', timeZone: 'Asia/Karachi', salaryBase: 72000, trading: false,
+    country: 'PK', currency: 'PKR', timeZone: 'Asia/Karachi', salaryBase: 42000, trading: false,
     branches: ['Gulberg Campus', 'Johar Town Campus'], departments: ['Primary', 'Secondary', 'Admissions', 'Accounts'],
     customers: ['Fee Payer Ahmad Family', 'Fee Payer Siddiqui Family', 'Fee Payer Rehman Family', 'Fee Payer Chaudhry Family', 'Fee Payer Mirza Family', 'Fee Payer Baig Family', 'Fee Payer Sheikh Family', 'Fee Payer Abbasi Family', 'Fee Payer Lodhi Family', 'Fee Payer Kazmi Family'],
     suppliers: ['City Book Depot', 'Lahore Uniform House', 'EduTech Devices', 'Safe Ride Transport', 'Campus Facilities Services'],
@@ -106,7 +106,7 @@ export const ORGS = [
   },
   {
     key: 'restaurant', code: 'demo-restaurant', name: 'DEMO - Saffron Table Restaurants', industry: 'food-restaurant', scenario: 'restaurant',
-    country: 'AE', currency: 'AED', timeZone: 'Asia/Dubai', salaryBase: 4800, trading: false, volume: 2,
+    country: 'AE', currency: 'AED', timeZone: 'Asia/Dubai', salaryBase: 2400, trading: false, volume: 2, scale: 3,
     branches: ['Marina Restaurant', 'Downtown Cafe'], departments: ['Kitchen', 'Service', 'Purchasing', 'Accounts'],
     customers: ['Walk-in Guests', 'Marina Tech Offices', 'Skyline Events', 'Al Safa Corporate Lunch'],
     suppliers: ['Prime Meats Trading', 'Spice Route Foods', 'Green Basket Vegetables', 'Hotel Pack Supplies', 'Blue Gas Company'],
@@ -122,7 +122,7 @@ export const ORGS = [
   },
   {
     key: 'dairy', code: 'demo-dairy', name: 'DEMO - Green Valley Dairy Farm', industry: 'agri-dairy', scenario: 'dairy',
-    country: 'IN', currency: 'INR', timeZone: 'Asia/Kolkata', salaryBase: 42000, trading: true, volume: 3,
+    country: 'IN', currency: 'INR', timeZone: 'Asia/Kolkata', salaryBase: 34000, trading: true, volume: 4, scale: 8,
     branches: ['Anand Farm', 'Pune Collection Centre'], departments: ['Herd Management', 'Milk Processing', 'Sales', 'Accounts'],
     customers: ['Amul Road Dairy Booth', 'Shree Sweets', 'Hotel Sagar', 'Pune Fresh Mart', 'Kothari Caterers', 'Nandini Milk Parlour', 'City Bakers', 'Annapurna Foods'],
     suppliers: ['Godavari Feeds', 'Vet Care Pharma', 'Kisan Fodder Traders', 'Cold Chain Packaging', 'Anand Vet Services'],
@@ -133,7 +133,7 @@ export const ORGS = [
   },
   {
     key: 'tradeco', code: 'demo-tradeco', name: 'DEMO - Meridian Import Export', industry: 'trade-import-export', scenario: 'trade',
-    country: 'AE', currency: 'AED', timeZone: 'Asia/Dubai', salaryBase: 9500, trading: true, volume: 4,
+    country: 'AE', currency: 'AED', timeZone: 'Asia/Dubai', salaryBase: 5000, trading: true, volume: 4, scale: 6,
     branches: ['Jebel Ali Office', 'Dubai Creek Office'], departments: ['Imports', 'Exports', 'Documentation', 'Accounts'],
     customers: ['Nile Trading Egypt', 'Kampala Wholesale', 'Muscat Hardware', 'Karachi Commodities', 'Lagos Consumer Goods', 'Bahrain Building Mart', 'Dhaka Garments Supply', 'Colombo Food Importers'],
     suppliers: ['Guangzhou Hardware Factory', 'Shandong Ceramics', 'Gujarat Spices Exports', 'Istanbul Textile Mills', 'Maersk Style Forwarders', 'Jebel Ali Customs Brokers', 'Emirates Marine Insurance'],

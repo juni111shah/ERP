@@ -12,7 +12,7 @@ public class ManufacturingPlanToProduceTests(ApiFactory f) : IClassFixture<ApiFa
     private const string Fin = "/api/v1/finance";
     private const string Inv = "/api/v1/m/inventory";
     private const string Mfg = "/api/v1/m/manufacturing";
-    private const string Inventory = "1300", Wip = "1350", Cogs = "5000", GeneralExpense = "6900";
+    private const string Inventory = "1300", Wip = "1350", Cogs = "5000", Absorption = "5060", Scrap = "5070";
 
     private static async Task<JsonNode> Ok(HttpResponseMessage res, HttpStatusCode expected = HttpStatusCode.OK)
     {
@@ -116,7 +116,7 @@ public class ManufacturingPlanToProduceTests(ApiFactory f) : IClassFixture<ApiFa
         var end = await LedgerAsync(x);
         Assert.Equal(0m, Delta(start, end, Wip));                       // WIP clears
         Assert.Equal(15m, Delta(start, end, Inventory));                // -150 material, +165 finished goods
-        Assert.Equal(-15m, Delta(start, end, GeneralExpense));          // conversion credited to absorption (falls back here without its own account)
+        Assert.Equal(-15m, Delta(start, end, Absorption));          // conversion credited to absorption
         Assert.Equal(0m, Delta(start, end, Cogs));
         Assert.Equal(17m, await StockAsync(x, x.Raw));                  // nothing more backflushed: 3 is already past the BOM's 2
         Assert.Equal(1m, await StockAsync(x, x.Finished));
@@ -206,9 +206,9 @@ public class ManufacturingPlanToProduceTests(ApiFactory f) : IClassFixture<ApiFa
         Assert.Equal(115m, (decimal)done["scrapCost"]!);
 
         var end = await LedgerAsync(x);
-        Assert.Equal(115m, Delta(start, end, Cogs));
+        Assert.Equal(115m, Delta(start, end, Scrap));
         Assert.Equal(-85m, Delta(start, end, Inventory));      // -200 material, +115 finished
-        Assert.Equal(-30m, Delta(start, end, GeneralExpense));
+        Assert.Equal(-30m, Delta(start, end, Absorption));
         Assert.Equal(0m, Delta(start, end, Wip));
         Assert.Equal(1m, await StockAsync(x, x.Finished));
         Assert.Equal(16m, await StockAsync(x, x.Raw));
@@ -253,7 +253,7 @@ public class ManufacturingPlanToProduceTests(ApiFactory f) : IClassFixture<ApiFa
 
         var done = await Ok(await CompleteAsync(x, id, 1m));
         Assert.Equal(60m, (decimal)done["conversionCost"]!); // 3 x 20, not the 2 planned nor the BOM's 15
-        Assert.Equal(-60m, Delta(start, await LedgerAsync(x), GeneralExpense));
+        Assert.Equal(-60m, Delta(start, await LedgerAsync(x), Absorption));
     }
 
     [Fact]
@@ -275,7 +275,7 @@ public class ManufacturingPlanToProduceTests(ApiFactory f) : IClassFixture<ApiFa
         Assert.Equal(20m, await StockAsync(x, x.Raw));
         Assert.Equal(0m, await StockAsync(x, x.Finished));
         var end = await LedgerAsync(x);
-        foreach (var code in new[] { Inventory, Wip, Cogs, GeneralExpense }) Assert.Equal(0m, Delta(start, end, code));
+        foreach (var code in new[] { Inventory, Wip, Cogs, Absorption, Scrap }) Assert.Equal(0m, Delta(start, end, code));
 
         var events = (await Ok(await x.C.GetAsync($"/api/v1/audit?filter=recordType:eq:WorkOrder&filter=recordId:eq:{id}"))).AsArray();
         var trail = events.First(e => (string?)e!["action"] == "Reversed")!;
@@ -340,7 +340,7 @@ public class ManufacturingPlanToProduceTests(ApiFactory f) : IClassFixture<ApiFa
             Assert.Empty(done["materialIssues"]!.AsArray());
 
             var end = await LedgerAsync(x with { C = off });
-            foreach (var code in new[] { Inventory, Wip, Cogs, GeneralExpense }) Assert.Equal(0m, Delta(start, end, code));
+            foreach (var code in new[] { Inventory, Wip, Cogs, Absorption, Scrap }) Assert.Equal(0m, Delta(start, end, code));
         }
         finally { (await x.C.PostAsync("/api/v1/modules/inventory/enable", null)).EnsureSuccessStatusCode(); }
     }

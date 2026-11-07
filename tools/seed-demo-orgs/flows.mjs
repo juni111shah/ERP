@@ -21,6 +21,23 @@ async function refreshStock(ctx) {
   for (const row of stock.rows ?? []) ctx.onHand[row.itemId] = (ctx.onHand[row.itemId] ?? 0) + row.quantity;
 }
 
+// ---- Approvals --------------------------------------------------------------------------------------------------------------------------
+
+/** Posts a bill. Where a policy holds it, the owner decides: most pass, some wait, some are refused. Returns the posted bill, or null if it did not post. */
+export async function postBill(ctx, billId, poster) {
+  const posted = await poster.post(`/finance/bills/${billId}/post`, {});
+  if (posted.status !== 'pendingApproval') return posted;
+  const roll = ctx.random.next();
+  if (roll < 0.12) return null;
+  const decide = ctx.owner.at(poster.clock);
+  if (roll < 0.25) {
+    await decide.post(`/approvals/${posted.approvalRequestId}/reject`, { comment: 'Please check the price against the quotation' });
+    return null;
+  }
+  await decide.post(`/approvals/${posted.approvalRequestId}/approve`, { comment: 'Checked against the order' });
+  return poster.post(`/finance/bills/${billId}/post`, {});
+}
+
 // ---- Procure to Pay --------------------------------------------------------------------------------------------------------------------
 
 export async function purchaseCycle(ctx, month, n, outcome = 'paid', chosen) {
@@ -29,7 +46,7 @@ export async function purchaseCycle(ctx, month, n, outcome = 'paid', chosen) {
   const date = dayIn(ctx, month);
   ctx.on(date);
   const supplier = random.pick(ctx.suppliers.slice(0, Math.max(1, ctx.suppliers.length - 1)));
-  const goods = chosen ?? Array.from(new Set(Array.from({ length: random.int(1, 3) }, () => random.pick(ctx.buyable())))).map((it) => ({ it, quantity: Math.max(1, Math.round(random.int(4, 12) * (ctx.stockFactor?.(it) ?? 1))) }));
+  const goods = chosen ?? Array.from(new Set(Array.from({ length: random.int(1, 3) }, () => random.pick(ctx.buyable())))).map((it) => ({ it, quantity: Math.max(1, Math.round(random.int(4, 12) * (ctx.stockFactor?.(it) ?? 1) * (ctx.org.scale ?? 1))) }));
   const requisition = outcome !== 'draft' && random.chance(0.4);
   let requisitionId;
   const lines = goods.map(({ it, quantity }) => ({ itemId: it.id, itemCode: it.sku, description: it.name, quantity, unitOfMeasure: it.uom, unitPrice: it.cost, estimatedUnitPrice: it.cost, discountPercent: 0, taxRate: taxOf(ctx) }));
@@ -66,7 +83,18 @@ export async function purchaseCycle(ctx, month, n, outcome = 'paid', chosen) {
   ctx.on(billDate);
   const finance = people.finance ?? people.owner;
   const bill = await buyer.post(`/m/purchasing/orders/${order.id}/convert-to-bill`, {});
-  const posted = await finance.post(`/finance/bills/${bill.id}/post`, {});
+  const posted = await postBill(ctx, bill.id, finance);
+  if (!posted) return null;
+  if (outcome === 'returned') {
+    // Faulty goods go back: stock and payables both come down.
+    const buyerOrder = await buyer.get(`/m/purchasing/orders/${order.id}`);
+    const line = buyerOrder.lines[0];
+    if (line.quantity >= 2) {
+      const back = await ctx.owner.at(billDate).post('/m/purchasing/returns', { purchaseOrderId: order.id, returnDate: billDate, reason: 'Faulty goods returned to the supplier', warehouseId: ctx.warehouse, lines: [{ orderLineId: line.id, quantity: 1 }] });
+      await ctx.owner.post(`/m/purchasing/returns/${back.id}/post`, {});
+    }
+    return posted;
+  }
   if (outcome === 'overdue' || outcome === 'billed') return posted;
   const payDate = clampToToday(addDays(billDate, random.int(5, 25)));
   ctx.on(payDate);
@@ -89,7 +117,7 @@ function chooseSale(ctx) {
   for (let i = 0; i < lines; i++) {
     const it = random.pick(sellable);
     const onHand = ctx.onHand?.[it.id] ?? 0;
-    const want = Math.max(1, Math.round(random.int(1, 8) * (ctx.stockFactor?.(it) ?? 1)));
+    const want = Math.max(1, Math.round(random.int(1, 8) * (ctx.stockFactor?.(it) ?? 1) * (ctx.org.scale ?? 1)));
     const quantity = it.service ? want : Math.min(want, Math.floor(onHand * 0.4));
     if (quantity > 0 && !chosen.has(it.id)) chosen.set(it.id, { it, quantity });
   }
@@ -140,6 +168,17 @@ export async function salesCycle(ctx, month, n, outcome = 'paid') {
   const issued = await finance.post(`/finance/invoices/${invoice.id}/issue`, {});
   if (outcome === 'invoiced' || outcome === 'overdue') return issued;
   if (outcome === 'voided') { await finance.post(`/finance/invoices/${invoice.id}/void`, { reason: 'Issued against the wrong customer account' }); return issued; }
+  if (outcome === 'returned') {
+    // A customer sends one back: stock returns at its cost, cost of sales reverses and the credit note reduces what is owed.
+    const line = detail.lines[0];
+    const back = await ctx.owner.at(invoiceDate).post('/m/sales/returns', { salesOrderId: order.id, returnDate: invoiceDate, reason: 'Damaged in transit', lines: [{ orderLineId: line.id, quantity: 1, restock: true }] });
+    const done = await ctx.owner.post(`/m/sales/returns/${back.id}/post`, {});
+    if (done.creditNoteId) {
+      const credit = await ctx.owner.get(`/finance/invoices/${done.creditNoteId}`);
+      await ctx.owner.post(`/finance/invoices/${done.creditNoteId}/apply-credit`, { invoiceId: issued.id, amount: credit.total });
+    }
+    return issued;
+  }
   const payDate = clampToToday(addDays(invoiceDate, random.int(4, 28)));
   ctx.on(payDate);
   const amount = outcome === 'part-paid' ? round2(issued.total * 0.5) : issued.total;
@@ -162,8 +201,8 @@ export async function monthlyExpenses(ctx, month, scale) {
       legalEntityId: entity, partyId: utilityVendor.id, vendorReference: `EXP-${month.slice(2, 7)}-${accountId.slice(0, 4)}`, billDate: date, dueDate: addDays(date, 15), businessUnitId: unitId,
       lines: [{ description: `${label} ${month.slice(0, 7)}`, quantity: 1, price: random.money(amount * 0.9, amount * 1.1, 10), accountId }],
     });
-    const posted = await finance.post(`/finance/bills/${bill.id}/post`, {});
-    if (month !== monthStart(0)) {
+    const posted = await postBill(ctx, bill.id, finance);
+    if (posted && month !== monthStart(0)) {
       const payOn = clampToToday(addDays(date, random.int(3, 12)));
       ctx.on(payOn);
       await finance.post('/finance/payments', { legalEntityId: entity, partyId: utilityVendor.id, date: payOn, method: 'BankTransfer', bankAccountId: ctx.bank, amount: posted.total, reference: `UTL-${posted.number}`, allocations: [{ billId: posted.id, amount: posted.total }] });
@@ -273,14 +312,27 @@ export async function peopleAndPayroll(ctx) {
     const end = lastDayOf(first);
     await ctx.run(`payroll-${first.slice(0, 7)}`, async () => {
       ctx.on(end);
+      const lastMonth = first === finished[finished.length - 1];
+      const leaver = employees[employees.length - 1];
       for (const e of employees) {
+        if (lastMonth && e === leaver) continue;
         const absent = random.chance(0.12) ? 1 : 0;
         const leave = random.chance(0.2) ? random.int(1, 3) : 0;
         await hr.put('/m/hr/attendance', { employeeId: e.id, year, month, workingDays: 26, daysPresent: 26 - absent - leave, unpaidAbsentDays: absent, paidLeaveDays: leave, overtimeHours: random.chance(0.3) ? random.int(2, 12) : 0 });
       }
-      const run = await hr.post('/m/hr/payroll', { legalEntityId: entity, year, month, plannedPayDate: end });
+      const run = await hr.post('/m/hr/payroll', { legalEntityId: entity, year, month, plannedPayDate: end, employeeIds: lastMonth ? employees.filter((e) => e !== leaver).map((e) => e.id) : undefined });
       const posted = await hr.post(`/m/hr/payroll/${run.id}/post`, {});
-      if (first !== finished[finished.length - 1]) await (hr).post(`/m/hr/payroll/${posted.id ?? run.id}/pay`, { bankAccountId: ctx.bank, date: end });
+      if (!lastMonth) await hr.post(`/m/hr/payroll/${posted.id ?? run.id}/pay`, { bankAccountId: ctx.bank, date: end });
+      if (lastMonth) {
+        // Hire to retire: someone leaves, and the final settlement goes through payroll.
+        const left = addDays(first, 19);
+        ctx.on(left);
+        await hr.post(`/m/hr/employees/${leaver.id}/terminate`, { terminationDate: left, lastWorkingDay: left, noticeGivenOn: addDays(left, -30), reason: 'Resigned for personal reasons' });
+        const settlement = await hr.post(`/m/hr/employees/${leaver.id}/final-settlement`, {});
+        ctx.on(end);
+        const settled = await hr.post(`/m/hr/payroll/${settlement.id}/post`, {}).catch((e) => ctx.log(`      settlement not posted: ${e.message.slice(0, 120)}`));
+        if (settled) await hr.post(`/m/hr/payroll/${settled.id ?? settlement.id}/pay`, { bankAccountId: ctx.bank, date: end });
+      }
     });
   }
 
@@ -297,6 +349,8 @@ export async function peopleAndPayroll(ctx) {
     const b = await hr.post('/m/hr/candidates', { openingId: opening.id, fullName: 'Applicant Two (demo)', email: `applicant2@${org.code}.example.test` });
     await hr.post(`/m/hr/candidates/${a.id}/move`, { stage: 3 });
     await hr.post(`/m/hr/candidates/${b.id}/move`, { stage: 6, reason: 'Experience does not match the role' });
+    await hr.post(`/m/hr/candidates/${a.id}/move`, { stage: 4 });
+    await hr.post(`/m/hr/candidates/${a.id}/hire`, { legalEntityId: entity, joinDate: monthStart(1), designation: org.opsRole, basicSalary: round2(org.salaryBase * 0.7) }).catch((e) => ctx.log(`      hire skipped: ${e.message.slice(0, 120)}`));
     const types = await hr.list('/m/hr/leave-types');
     if (types[0]) {
       const from = addDays(monthStart(1), 8);
@@ -306,6 +360,29 @@ export async function peopleAndPayroll(ctx) {
       await ctx.owner.post(`/m/hr/leave/${req2.id}/reject`, { reason: 'Peak period, please choose other dates' });
     }
   });
+  ctx.on(null);
+}
+
+// ---- Pipeline ----------------------------------------------------------------------------------------------------------------------------------
+
+export async function crmPipeline(ctx) {
+  if (!ctx.modules.has('crm')) return;
+  const { owner, random, entity, org } = ctx;
+  const stages = [['Hannah Cole', 'qualified'], ['Lewis Boyd', 'qualified'], ['Zara Sheikh', 'contacted'], ['Peter Vance', 'unqualified'], ['Lara Quinn', 'new'], ['Tom Reyes', 'qualified']];
+  let n = 0;
+  for (const [fullName, status] of stages) {
+    const date = addDays(monthStart(5), ++n * 20);
+    ctx.on(date);
+    const body = { fullName, companyName: `${fullName.split(' ')[1]} Holdings (demo)`, email: `lead${n}@${org.code}.example.test`, source: random.int(1, 5), estimatedValue: random.money(org.salaryBase * 3, org.salaryBase * 12, 100), assignedUserName: 'Sales Manager' };
+    const lead = await owner.post('/m/crm/leads', { ...body, legalEntityId: entity });
+    await owner.put(`/m/crm/leads/${lead.id}`, { ...body, id: lead.id, status });
+    if (status === 'qualified') {
+      const opp = await owner.post(`/m/crm/leads/${lead.id}/convert`, { id: lead.id, opportunityTitle: `${body.companyName} first order`, expectedRevenue: body.estimatedValue, expectedCloseDate: addDays(date, 40) });
+      const id = opp.opportunityId ?? opp.id ?? opp;
+      if (n === 1) await owner.post(`/m/crm/opportunities/${id}/close`, { id, isWon: true, actualRevenue: body.estimatedValue, closeReason: 'Best delivery terms' }).catch((e) => ctx.log(`      close: ${e.message.slice(0, 100)}`));
+      if (n === 2) await owner.post(`/m/crm/opportunities/${id}/close`, { id, isWon: false, actualRevenue: 0, closeReason: 'Lost on price' }).catch((e) => ctx.log(`      close: ${e.message.slice(0, 100)}`));
+    }
+  }
   ctx.on(null);
 }
 

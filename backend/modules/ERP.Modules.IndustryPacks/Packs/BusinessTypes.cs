@@ -12,7 +12,7 @@ public sealed class BusinessTypesModule : ModuleBase
 {
     public const string Key = "businesstypes";
 
-    public override ModuleManifest Manifest { get; } = new(Key, "Business types", "Industry templates offered when a workspace is set up.", "System", IsCore: true);
+    public override ModuleManifest Manifest { get; } = new(Key, "Business types", "Industry templates offered when a workspace is set up.", "System", IsCore: true, Hidden: true);
 
     public override IEnumerable<IndustryTemplate> IndustryTemplates => All;
 

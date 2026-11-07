@@ -13,7 +13,16 @@ public sealed record VendorStatementDto(Guid PartyId, string? PartyName, DateOnl
 public sealed record GetApAgeing(DateOnly AsOf, Guid? LegalEntityId) : IQuery<ArAgeingDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 public sealed record GetVendorStatement(Guid PartyId, DateOnly AsOf, Guid? LegalEntityId) : IQuery<VendorStatementDto>, IRequirePermission { public string RequiredPermission => CorePermissions.ReportsRead; }
 
-internal sealed class ApReportHandlers(IReadRepository<Bill> bills, IReadRepository<Settlement> settlements, IReportCurrencyGuard currencies) :
+/// <summary>A reduction of what is owed to a vendor that is not a payment. With no bill it is credit held against the vendor.</summary>
+public sealed record BillAdjustment(Guid PartyId, string? PartyName, Guid? BillId, decimal Amount);
+
+/// <summary>Lets a module report what it took off payables, such as a purchase return, so ageing agrees with the ledger.</summary>
+public interface IBillAdjustmentSource
+{
+    Task<IReadOnlyList<BillAdjustment>> AsOfAsync(DateOnly asOf, Guid? legalEntityId, Guid? partyId, CancellationToken ct);
+}
+
+internal sealed class ApReportHandlers(IReadRepository<Bill> bills, IReadRepository<Settlement> settlements, IReportCurrencyGuard currencies, IEnumerable<IBillAdjustmentSource> adjustmentSources) :
     IRequestHandler<GetApAgeing, ArAgeingDto>,
     IRequestHandler<GetVendorStatement, VendorStatementDto>
 {
@@ -51,7 +60,8 @@ internal sealed class ApReportHandlers(IReadRepository<Bill> bills, IReadReposit
         if (rows.Count == 0) return rows;
         var paid = (await Issued(asOf, entityId, partyId).SelectMany(s => s.Allocations).Select(a => new { a.BillId, a.Amount }).ToListAsync(ct))
             .Where(a => a.BillId != null).GroupBy(a => a.BillId!.Value).ToDictionary(g => g.Key, g => g.Sum(a => a.Amount));
-        return rows.Select(o => o with { Paid = paid.GetValueOrDefault(o.Id) }).Where(o => o.Total - o.Paid > 0).ToList();
+        var adjusted = (await AdjustmentsAsync(asOf, entityId, partyId, ct)).Where(a => a.BillId != null).GroupBy(a => a.BillId!.Value).ToDictionary(g => g.Key, g => g.Sum(a => a.Amount));
+        return rows.Select(o => o with { Paid = paid.GetValueOrDefault(o.Id) + adjusted.GetValueOrDefault(o.Id) }).Where(o => o.Total - o.Paid > 0).ToList();
     }
 
     private async Task<List<(Guid Party, string? Name, decimal Amount)>> AdvancesAsync(DateOnly asOf, Guid? entityId, Guid? partyId, CancellationToken ct)
@@ -59,8 +69,16 @@ internal sealed class ApReportHandlers(IReadRepository<Bill> bills, IReadReposit
         var payments = await Issued(asOf, entityId, partyId).Select(s => new { s.Id, s.PartyId, s.PartyName, s.Amount }).ToListAsync(ct);
         var allocated = (await Issued(asOf, entityId, partyId).SelectMany(s => s.Allocations).Select(a => new { a.SettlementId, a.Amount }).ToListAsync(ct))
             .GroupBy(a => a.SettlementId).ToDictionary(g => g.Key, g => g.Sum(a => a.Amount));
-        return payments.Select(p => (p.PartyId, p.PartyName, Open: p.Amount - allocated.GetValueOrDefault(p.Id))).Where(p => p.Open > 0)
-            .GroupBy(p => p.PartyId).Select(g => (g.Key, g.First().PartyName, g.Sum(p => p.Open))).ToList();
+        var open = payments.Select(p => (p.PartyId, p.PartyName, Open: p.Amount - allocated.GetValueOrDefault(p.Id))).Where(p => p.Open > 0).ToList();
+        open.AddRange((await AdjustmentsAsync(asOf, entityId, partyId, ct)).Where(a => a.BillId == null).Select(a => (a.PartyId, a.PartyName, a.Amount)));
+        return open.GroupBy(p => p.PartyId).Select(g => (g.Key, g.First().PartyName, g.Sum(p => p.Item3))).ToList();
+    }
+
+    private async Task<List<BillAdjustment>> AdjustmentsAsync(DateOnly asOf, Guid? entityId, Guid? partyId, CancellationToken ct)
+    {
+        var all = new List<BillAdjustment>();
+        foreach (var source in adjustmentSources) all.AddRange(await source.AsOfAsync(asOf, entityId, partyId, ct));
+        return all;
     }
 
     /// <summary>Payments dated on or before the date that were not voided by the end of that day.</summary>

@@ -4,7 +4,7 @@
 import { ORGS } from './orgs.mjs';
 import { counters, API } from './lib.mjs';
 import { buildFoundation, stockLevel } from './foundation.mjs';
-import { months, purchaseCycle, salesCycle, monthlyExpenses, expenseClaims, budget, fixedAssets, peopleAndPayroll } from './flows.mjs';
+import { months, purchaseCycle, salesCycle, monthlyExpenses, expenseClaims, budget, fixedAssets, peopleAndPayroll, crmPipeline } from './flows.mjs';
 import { SCENARIOS } from './scenarios.mjs';
 
 const only = process.argv.slice(2);
@@ -16,14 +16,14 @@ async function seedOrg(org) {
   const ctx = await buildFoundation(org, log);
   ctx.buyable = () => ctx.stockItems;
   ctx.sellable = () => ctx.items.filter((i) => i.price > 0);
-  ctx.stockFactor = (it) => stockLevel(it) / 30;
+  ctx.stockFactor = (it) => (it.sku === 'MLK-RAW' ? 40 : stockLevel(it) / 30);
 
   const scenario = SCENARIOS[org.scenario];
   if (scenario) await scenario(ctx);
 
   const volume = org.volume ?? 3;
-  const purchaseEnd = org.trading ? ['paid', 'paid', 'paid', 'part-paid', 'billed', 'received', 'partial', 'approved', 'cancelled', 'draft'] : ['paid', 'paid', 'paid', 'part-paid', 'billed', 'cancelled'];
-  const salesEnd = ['paid', 'paid', 'paid', 'paid', 'part-paid', 'overdue', 'partial', 'open', 'cancelled', 'voided', 'quote-lost', 'quote-open', 'draft'];
+  const purchaseEnd = org.trading ? ['paid', 'paid', 'paid', 'part-paid', 'billed', 'received', 'returned', 'partial', 'approved', 'cancelled', 'draft'] : ['paid', 'paid', 'paid', 'part-paid', 'billed', 'cancelled'];
+  const salesEnd = ['paid', 'paid', 'paid', 'paid', 'part-paid', 'overdue', 'returned', 'partial', 'open', 'cancelled', 'voided', 'quote-lost', 'quote-open', 'draft'];
   const buys = (org.trading || org.boms || org.scenario === 'construction' || org.scenario === 'healthcare') && ctx.modules.has('purchasing') && ctx.stockItems.length > 0;
   for (const first of months(5)) {
     // A month in business order, so stock is there when it is needed.
@@ -47,6 +47,7 @@ async function seedOrg(org) {
   for (const first of months(5)) await ctx.run(`expenses-${first.slice(0, 7)}`, async () => { await monthlyExpenses(ctx, first, org.salaryBase); for (let n = 0; n < 3; n++) await expenseClaims(ctx, first, n + months(5).indexOf(first)); });
   await peopleAndPayroll(ctx);
   await ctx.run('budget', () => budget(ctx, org.salaryBase * org.employees.length * 3));
+  await ctx.run('crm', () => crmPipeline(ctx));
   await ctx.run('fixed-assets', () => fixedAssets(ctx, [['Delivery vehicle', org.salaryBase * 12, org.employees[1]], ['Office equipment', org.salaryBase * 4, org.employees[2]], ['IT equipment', org.salaryBase * 3, org.employees[3]]]));
   await ctx.run('contracts', async () => {
     if (!ctx.modules.has('contracts')) return;

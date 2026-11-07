@@ -80,6 +80,7 @@ public sealed class PurchasingModule : ModuleBase
         services.AddScoped<ERP.Application.Dashboard.IOwnerDashboardSection, Features.PurchasingOwnerSection>();
         services.AddScoped<ISearchProvider, PurchasingSearch>();
         services.AddScoped<PurchasingApprovalGate>();
+        services.AddScoped<ERP.Application.Finance.IBillAdjustmentSource, ReturnBillAdjustments>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<PurchaseOrder>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "purchaseorder", P.OrdersRead, P.OrdersManage));

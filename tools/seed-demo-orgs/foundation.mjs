@@ -13,15 +13,15 @@ async function founderClient() {
 
 const ROLE_RULES = {
   sales: {
-    label: 'Sales manager', description: 'Customers, quotations, orders and delivery',
+    label: 'Sales management', description: 'Customers, quotations, orders and delivery',
     match: (k) => /^(sales|crm|distribution|retail)\./.test(k) || /^pos\.(orders|analytics|terminal)/.test(k) || /^core\.(parties|items)\./.test(k) || /^finance\.invoices\.(read|write)$/.test(k) || k === 'core.attachments.read',
   },
   purchase: {
-    label: 'Purchase manager', description: 'Suppliers, requisitions, orders and receipts',
+    label: 'Purchase management', description: 'Suppliers, requisitions, orders and receipts',
     match: (k) => /^purchasing\./.test(k) || /^core\.(parties|items)\./.test(k) || /^finance\.bills\.(read|write)$/.test(k) || k === 'core.attachments.read',
   },
   inventory: {
-    label: 'Inventory manager', description: 'Warehouses, stock movements and counts',
+    label: 'Inventory management', description: 'Warehouses, stock movements and counts',
     match: (k) => /^inventory\./.test(k) || /^purchasing\.receipts\./.test(k) || /^purchasing\.orders\.read$/.test(k) || /^sales\.orders\./.test(k) || /^core\.items\./.test(k),
   },
   ops: {
@@ -29,7 +29,7 @@ const ROLE_RULES = {
     match: (k) => /^finance\.(invoices|bills)\.(read|write|issue|post|submit)$/.test(k) || /^core\.(parties|items)\.read$/.test(k) || /^inventory\.(stock|warehouses)\.read$/.test(k) || /^(projects|manufacturing|pos|retail|realestate|services)\./.test(k),
   },
   hr: {
-    label: 'HR manager', description: 'Employees, attendance, leave and payroll',
+    label: 'HR management', description: 'Employees, attendance, leave and payroll',
     match: (k) => /^hr\./.test(k),
   },
 };
@@ -39,10 +39,10 @@ const PEOPLE = [
   ['admin', 'Administrator', 'Org admin'],
   ['finance', 'Finance Manager', 'Finance manager'],
   ['accountant', 'Accountant', 'Accountant'],
-  ['sales', 'Sales Manager', 'Sales manager'],
-  ['purchase', 'Purchase Manager', 'Purchase manager'],
-  ['inventory', 'Inventory Manager', 'Inventory manager'],
-  ['hr', 'HR Manager', 'HR manager'],
+  ['sales', 'Sales Manager', 'Sales management'],
+  ['purchase', 'Purchase Manager', 'Purchase management'],
+  ['inventory', 'Inventory Manager', 'Inventory management'],
+  ['hr', 'HR Manager', 'HR management'],
   ['ops', 'Operations', null],
 ];
 
@@ -51,7 +51,7 @@ function rolesFor(key, org, allRoles) {
   const name = PEOPLE.find((p) => p[0] === key)[2];
   if (name) return allRoles.filter((r) => r.name === name);
   // Operational staff: the manager role of each industry module, plus their module's own operating roles.
-  return allRoles.filter((r) => r.name === 'Operations billing' || (r.isBuiltIn && r.moduleKey && / manager$/i.test(r.name) && !['Finance manager', 'Sales manager', 'Purchase manager', 'Inventory manager', 'HR manager'].includes(r.name)));
+  return allRoles.filter((r) => r.name === 'Operations billing' || (r.isBuiltIn && r.moduleKey && / manager$/i.test(r.name)));
 }
 
 async function ensureWorkspace(org, log) {
@@ -178,7 +178,7 @@ export async function buildFoundation(org, log) {
     await ctx.run('warehouses', async () => {
       let n = 0;
       for (const name of org.branches) await owner.post('/m/inventory/warehouses', { legalEntityId: entity, code: `WH-${++n}`, name: `${name} store` });
-      for (const it of ctx.stockItems) await owner.put('/m/inventory/stock/policy', { itemId: it.id, reorderLevel: stockLevel(it), reorderQuantity: stockLevel(it) * 2 });
+      for (const it of ctx.stockItems) await owner.put('/m/inventory/stock/policy', { itemId: it.id, reorderLevel: stockLevel(it) * (org.scale ?? 1), reorderQuantity: stockLevel(it) * 2 * (org.scale ?? 1) });
     });
     ctx.warehouses = await owner.list('/m/inventory/warehouses');
     ctx.warehouse = ctx.warehouses[0]?.id;
@@ -196,13 +196,18 @@ export async function buildFoundation(org, log) {
     owner.at(null);
   });
 
+  await ctx.run('approval-rules', async () => {
+    // Larger vendor bills wait for a decision, so inboxes and histories have something real in them.
+    await owner.post('/approval-policies', { documentType: 'bill', minAmount: org.salaryBase * 4, isActive: true });
+  });
+
   if (ctx.modules.has('inventory') && ctx.stockItems.length > 0) {
     await ctx.run('opening-stock', async () => {
       const opening = monthStart(6);
       const equity = ctx.account('equity.opening');
       owner.at(opening);
       for (const it of ctx.stockItems) {
-        const quantity = stockLevel(it) * random.int(6, 10);
+        const quantity = stockLevel(it) * random.int(6, 10) * (org.scale ?? 1);
         await owner.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: it.id, quantity, unitCost: it.cost, date: opening, offsetAccountId: equity, reference: `OPEN-${it.sku}`, memo: 'Opening stock' });
       }
       owner.at(null);
