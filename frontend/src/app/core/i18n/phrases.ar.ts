@@ -1144,6 +1144,20 @@ const PAIRS: [string, string][] = [
   ['Choose how much of each line to bill. Bill what has been received, or tick the box below to bill goods that have not arrived yet. A different price creates a variance entry.', 'اختر الكمية المراد فوترتها من كل بند. افوتر ما استُلم، أو فعّل الخيار أدناه لفوترة بضاعة لم تصل بعد. السعر المختلف ينشئ قيد فروقات.'],
   ['Delivery date', 'تاريخ التسليم'], ['Default warehouse', 'المستودع الافتراضي'], ['Warehouse', 'المستودع'], ['Where the goods are stored. Left empty, the default warehouse of the legal entity is used.', 'مكان تخزين البضاعة. إن تُرك فارغاً يُستخدم المستودع الافتراضي للكيان القانوني.'],
   ['Waiting for approval', 'بانتظار الموافقة'], ['Approval granted', 'تمت الموافقة'], ['Approval rejected', 'رُفضت الموافقة'], ['Approval withdrawn', 'سُحبت الموافقة'], ['Open approvals', 'فتح الموافقات'],
+  // manufacturing
+  ['Reversed', 'معكوس'], ['Work orders', 'أوامر الإنتاج'], ['Material requirements', 'متطلبات المواد'], ['Back to Work orders', 'العودة إلى أوامر الإنتاج'], ['Could not load this work order', 'تعذر تحميل أمر الإنتاج هذا'],
+  ['Issue material', 'صرف مواد'], ['Return material', 'إرجاع مواد'], ['Material to return', 'المواد المراد إرجاعها'], ['Material issued', 'المواد المصروفة'], ['Operations', 'العمليات'], ['Complete work order', 'إتمام أمر الإنتاج'],
+  ['Reverse work order', 'عكس أمر الإنتاج'], ['Material cost', 'تكلفة المواد'], ['Conversion cost', 'تكلفة التحويل'], ['Scrap cost', 'تكلفة التالف'], ['Estimated cost', 'التكلفة التقديرية'], ['Produced', 'المنتَج'],
+  ['No material has been issued yet.', 'لم تُصرف أي مواد بعد.'], ['This order has no operations.', 'ليس لهذا الأمر عمليات.'], ['Planned hours', 'الساعات المخططة'], ['Actual hours', 'الساعات الفعلية'], ['Save hours', 'حفظ الساعات'],
+  ['Work centre', 'مركز العمل'], ['Operation', 'العملية'], ['Returned', 'مُرجع'], ['Issued', 'مصروف'], ['Taken at completion', 'مأخوذ عند الإتمام'], ['Completion date', 'تاريخ الإتمام'], ['Quantity produced', 'الكمية المنتجة'], ['Quantity scrapped', 'الكمية التالفة'],
+  ['The day the goods came out of production. Left empty, today. It cannot be in the future.', 'يوم خروج البضاعة من الإنتاج. إن تُرك فارغاً فاليوم. لا يمكن أن يكون في المستقبل.'],
+  ['The day the goods came out of production. It dates the stock and the entries. It cannot be in the future.', 'يوم خروج البضاعة من الإنتاج. يحدد تاريخ المخزون والقيود. لا يمكن أن يكون في المستقبل.'],
+  ['Leave empty to issue what the bill of materials still needs for the planned quantity.', 'اتركه فارغاً لصرف ما تحتاجه قائمة المواد للكمية المخططة.'],
+  ['Material goes back to stock at the cost it was issued at, and no more than is on the order can be returned.', 'تعود المواد إلى المخزون بالتكلفة التي صُرفت بها، ولا يمكن إرجاع أكثر مما على الأمر.'],
+  ['Left empty, today. It cannot be in the future.', 'إن تُرك فارغاً فاليوم. لا يمكن أن يكون في المستقبل.'],
+  ['What the open work orders need, level by level through the bills of materials, against what is on hand and in production. Add a quantity of one product to see what making it would need as well.', 'ما تحتاجه أوامر الإنتاج المفتوحة، مستوى بمستوى عبر قوائم المواد، مقابل المتوفر والجاري إنتاجه. أضف كمية من منتج لمعرفة ما يحتاجه إنتاجه أيضاً.'],
+  ['What-if product', 'منتج افتراضي'], ['Show requirements', 'عرض المتطلبات'], ['Required', 'المطلوب'], ['On hand', 'المتوفر'], ['On order', 'قيد الطلب'], ['In production', 'قيد الإنتاج'], ['To make or buy', 'للتصنيع أو الشراء'],
+  ['Level', 'المستوى'], ['Make', 'تصنيع'], ['Buy', 'شراء'], ['Nothing short', 'لا نقص'], ['Nothing is required', 'لا شيء مطلوب'], ['Could not work out the requirements', 'تعذر حساب المتطلبات'],
   // next batch
 ];
 

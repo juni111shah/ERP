@@ -1,5 +1,6 @@
 import { doneText } from '../../core/format/done-text';
 import { DecimalPipe } from '@angular/common';
+import { Router } from '@angular/router';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -56,7 +57,7 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
     StatusTagComponent,
   ],
   template: `
-    <erp-paged-table [list]="list" [columns]="columns" [clickable]="false" searchPlaceholder="Search by number" emptyText="No work orders yet. Schedule one to start production.">
+    <erp-paged-table [list]="list" [columns]="columns" (rowClick)="open($event)" searchPlaceholder="Search by number" emptyText="No work orders yet. Schedule one to start production.">
       <button toolbar *erpHasPermission="'manufacturing.workorders.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="work-order-new">
         <span nz-icon nzType="plus"></span> New Work Order
       </button>
@@ -204,6 +205,12 @@ import { StatusTagComponent } from '../../shared/status-tag.component';
             </nz-form-item>
           </div>
           <nz-form-item>
+            <nz-form-label>Completion date</nz-form-label>
+            <nz-form-control nzExtra="The day the goods came out of production. It dates the stock and the entries. It cannot be in the future.">
+              <nz-date-picker formControlName="completionDate" class="full" [nzDisabledDate]="notFuture" data-testid="complete-date"></nz-date-picker>
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
             <nz-form-label>Notes</nz-form-label>
             <nz-form-control>
               <textarea nz-input formControlName="notes" rows="2"></textarea>
@@ -235,6 +242,7 @@ export class WorkOrdersPageComponent implements OnInit {
   private readonly session = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
+  private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
 
   readonly currency = inject(WorkspaceCurrencyService).currency;
@@ -265,6 +273,7 @@ export class WorkOrdersPageComponent implements OnInit {
   readonly completeForm: FormGroup = this.fb.group({
     completedQuantity: [0, [Validators.required, Validators.min(0)]],
     scrappedQuantity: [0],
+    completionDate: [new Date() as Date | null],
     notes: [''],
   });
 
@@ -273,7 +282,7 @@ export class WorkOrdersPageComponent implements OnInit {
     { key: 'producedItemName', label: 'Product' },
     { key: 'plannedQuantity', label: 'Planned', align: 'right', value: (r) => `${r.plannedQuantity} ${r.uom}` },
     { key: 'completedQuantity', label: 'Produced', align: 'right' },
-    { key: 'status', label: 'Status' },
+    { key: 'status', label: 'Status', filterField: 'status', filterOptions: ['draft', 'planned', 'inProgress', 'completed', 'cancelled', 'reversed'] },
     { key: 'dueDate', label: 'Due date' },
     { key: 'estimatedTotalCost', label: 'Estimated cost', align: 'right' },
     { key: 'actualTotalCost', label: 'Actual cost', align: 'right' },
@@ -292,7 +301,11 @@ export class WorkOrdersPageComponent implements OnInit {
     });
   }
 
+  open(row: WorkOrderSummaryDto): void { void this.router.navigate(['/manufacturing/workorders', row.id]); }
+
   /** Cancelling is refused once something was produced. */
+  readonly notFuture = (d: Date): boolean => d.getTime() > Date.now();
+
   canCancel(row: WorkOrderSummaryDto): boolean {
     return (row.status === 'draft' || row.status === 'planned' || row.status === 'inProgress') && row.completedQuantity === 0;
   }
@@ -370,7 +383,7 @@ export class WorkOrdersPageComponent implements OnInit {
 
   openCompleteModal(row: WorkOrderSummaryDto): void {
     this.selectedOrder.set(row);
-    this.completeForm.reset({ completedQuantity: row.plannedQuantity, scrappedQuantity: 0, notes: '' });
+    this.completeForm.reset({ completedQuantity: row.plannedQuantity, scrappedQuantity: 0, completionDate: new Date(), notes: '' });
     this.completeModalVisible.set(true);
   }
 
@@ -383,6 +396,7 @@ export class WorkOrdersPageComponent implements OnInit {
       completedQuantity: v.completedQuantity,
       scrappedQuantity: v.scrappedQuantity || 0,
       actualTotalCost: order.estimatedTotalCost,
+      completionDate: v.completionDate ? toIsoDate(v.completionDate) : null,
       notes: v.notes || null,
     }).subscribe({
       next: () => {

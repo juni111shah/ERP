@@ -61,7 +61,7 @@ const tone = (t: StatusTone, ...names: string[]) => names.forEach((n) => { TONES
 tone('success', 'active', 'approved', 'completed', 'done', 'paid', 'posted', 'delivered', 'accepted', 'closedwon', 'won', 'received', 'achieved', 'converted', 'cleared', 'matched', 'published', 'present', 'operational', 'qualified', 'hired', 'occupied', 'settled', 'closed', 'ontrack', 'yes', 'provisioned', 'full');
 tone('info', 'confirmed', 'sent', 'submitted', 'issued', 'processing', 'inprogress', 'released', 'open', 'contacted', 'proposal', 'negotiation', 'qualification', 'scheduled', 'planned', 'readytoinvoice', 'invoiced', 'billed', 'review', 'new', 'normal', 'reserved', 'ordered', 'trialing');
 tone('warning', 'draft', 'pending', 'pendingapproval', 'partlypaid', 'partiallypaid', 'partiallyreceived', 'partial', 'onhold', 'paused', 'parked', 'atrisk', 'holdingover', 'todo', 'expiring', 'medium', 'pastdue', 'expired', 'pendingemail', 'pendingreview', 'readonly');
-tone('orange', 'high', 'overbudget', 'expiringsoon');
+tone('orange', 'high', 'overbudget', 'expiringsoon', 'reversed');
 tone('error', 'overdue', 'cancelled', 'canceled', 'closedlost', 'lost', 'void', 'voided', 'rejected', 'declined', 'terminated', 'failed', 'offtrack', 'critical', 'urgent', 'unqualified', 'refunded', 'bounced', 'absent', 'no', 'suspended', 'blocked');
 tone('plain', 'inactive', 'low', 'archived', 'unavailable', 'vacant', 'writtenoff');
 

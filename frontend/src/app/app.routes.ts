@@ -243,6 +243,8 @@ export const routes: Routes = [
           { path: '', pathMatch: 'full', redirectTo: 'boms' },
           { path: 'boms', canMatch: [permissionGuard('manufacturing.boms.read')], loadComponent: () => import('./pages/manufacturing/boms-list.page').then((m) => m.BomsListPageComponent) },
           { path: 'workorders', canMatch: [permissionGuard('manufacturing.workorders.read')], loadComponent: () => import('./pages/manufacturing/work-orders.page').then((m) => m.WorkOrdersPageComponent) },
+          { path: 'workorders/:id', canMatch: [permissionGuard('manufacturing.workorders.read')], loadComponent: () => import('./pages/manufacturing/work-order-detail.page').then((m) => m.WorkOrderDetailPage) },
+          { path: 'requirements', canMatch: [permissionGuard('manufacturing.workorders.read')], loadComponent: () => import('./pages/manufacturing/requirements.page').then((m) => m.RequirementsPage) },
           { path: 'costing', canMatch: [permissionGuard('manufacturing.costing.read')], loadComponent: () => import('./pages/manufacturing/costing.page').then((m) => m.ManufacturingCostingPageComponent) },
           { path: 'analytics', canMatch: [permissionGuard('manufacturing.analytics.read')], loadComponent: () => import('./pages/manufacturing/manufacturing-analytics.page').then((m) => m.ManufacturingAnalyticsPageComponent) },
         ],
