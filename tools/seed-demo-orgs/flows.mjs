@@ -29,7 +29,8 @@ export async function postBill(ctx, billId, poster) {
   if (posted.status !== 'pendingApproval') return posted;
   const roll = ctx.random.next();
   if (roll < 0.12) return null;
-  const decide = ctx.owner.at(poster.clock);
+  // Nobody decides their own request.
+  const decide = (poster === ctx.owner ? ctx.people.admin : ctx.owner).at(poster.clock);
   if (roll < 0.25) {
     await decide.post(`/approvals/${posted.approvalRequestId}/reject`, { comment: 'Please check the price against the quotation' });
     return null;
@@ -117,7 +118,7 @@ function chooseSale(ctx) {
   for (let i = 0; i < lines; i++) {
     const it = random.pick(sellable);
     const onHand = ctx.onHand?.[it.id] ?? 0;
-    const want = Math.max(1, Math.round(random.int(1, 8) * (ctx.stockFactor?.(it) ?? 1) * (ctx.org.scale ?? 1)));
+    const want = Math.max(1, Math.round(random.int(1, 8) * (ctx.stockFactor?.(it) ?? 1) * (ctx.org.scale ?? 1) * (ctx.org.saleBoost ?? 1)));
     const quantity = it.service ? want : Math.min(want, Math.floor(onHand * 0.4));
     if (quantity > 0 && !chosen.has(it.id)) chosen.set(it.id, { it, quantity });
   }
@@ -315,7 +316,7 @@ export async function peopleAndPayroll(ctx) {
       const lastMonth = first === finished[finished.length - 1];
       const leaver = employees[employees.length - 1];
       for (const e of employees) {
-        if (lastMonth && e === leaver) continue;
+        if (lastMonth && e === leaver) { await hr.put('/m/hr/attendance', { employeeId: e.id, year, month, workingDays: 26, daysPresent: 17, unpaidAbsentDays: 0, paidLeaveDays: 0, overtimeHours: 0 }); continue; }
         const absent = random.chance(0.12) ? 1 : 0;
         const leave = random.chance(0.2) ? random.int(1, 3) : 0;
         await hr.put('/m/hr/attendance', { employeeId: e.id, year, month, workingDays: 26, daysPresent: 26 - absent - leave, unpaidAbsentDays: absent, paidLeaveDays: leave, overtimeHours: random.chance(0.3) ? random.int(2, 12) : 0 });
@@ -330,8 +331,17 @@ export async function peopleAndPayroll(ctx) {
         await hr.post(`/m/hr/employees/${leaver.id}/terminate`, { terminationDate: left, lastWorkingDay: left, noticeGivenOn: addDays(left, -30), reason: 'Resigned for personal reasons' });
         const settlement = await hr.post(`/m/hr/employees/${leaver.id}/final-settlement`, {});
         ctx.on(end);
-        const settled = await hr.post(`/m/hr/payroll/${settlement.id}/post`, {}).catch((e) => ctx.log(`      settlement not posted: ${e.message.slice(0, 120)}`));
+        const settled = await hr.post(`/m/hr/payroll/${settlement.id}/post`, {}).catch((e) => ctx.log(`      settlement left in draft: ${e.message.slice(0, 120)}`));
         if (settled) await hr.post(`/m/hr/payroll/${settled.id ?? settlement.id}/pay`, { bankAccountId: ctx.bank, date: end });
+        else {
+          // Where no end-of-service rule applies the settlement is empty: drop it and pay the final month's salary off cycle.
+          await hr.call('DELETE', `/m/hr/payroll/${settlement.id}`).catch((e) => ctx.log(`      empty settlement kept: ${e.message.slice(0, 100)}`));
+          const finalPay = await hr.post('/m/hr/payroll', { legalEntityId: entity, year, month, plannedPayDate: end, kind: 'offCycle', notes: 'Final salary for a leaver', employeeIds: [leaver.id], includeSalary: true }).catch((e) => ctx.log(`      final pay skipped: ${e.message.slice(0, 140)}`));
+          if (finalPay) {
+            const paid = await hr.post(`/m/hr/payroll/${finalPay.id}/post`, {}).catch((e) => ctx.log(`      final pay not posted: ${e.message.slice(0, 140)}`));
+            if (paid) await hr.post(`/m/hr/payroll/${paid.id ?? finalPay.id}/pay`, { bankAccountId: ctx.bank, date: end });
+          }
+        }
       }
     });
   }
@@ -379,6 +389,8 @@ export async function crmPipeline(ctx) {
     if (status === 'qualified') {
       const opp = await owner.post(`/m/crm/leads/${lead.id}/convert`, { id: lead.id, opportunityTitle: `${body.companyName} first order`, expectedRevenue: body.estimatedValue, expectedCloseDate: addDays(date, 40) });
       const id = opp.opportunityId ?? opp.id ?? opp;
+      await owner.post(`/m/crm/opportunities/${id}/stage`, { id, stage: 'proposal', probabilityPercent: 50 }).catch(() => {});
+      await owner.post(`/m/crm/opportunities/${id}/stage`, { id, stage: 'negotiation', probabilityPercent: 70 }).catch(() => {});
       if (n === 1) await owner.post(`/m/crm/opportunities/${id}/close`, { id, isWon: true, actualRevenue: body.estimatedValue, closeReason: 'Best delivery terms' }).catch((e) => ctx.log(`      close: ${e.message.slice(0, 100)}`));
       if (n === 2) await owner.post(`/m/crm/opportunities/${id}/close`, { id, isWon: false, actualRevenue: 0, closeReason: 'Lost on price' }).catch((e) => ctx.log(`      close: ${e.message.slice(0, 100)}`));
     }

@@ -65,6 +65,11 @@ export class Client {
       await this.signIn();
       ({ res, json } = await this.raw(method, path, body));
     }
+    // A database timeout rolled the request back, so sending it again is safe.
+    for (let attempt = 0; attempt < 3 && res.status === 500 && /Timeout Expired/.test(JSON.stringify(json)); attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      ({ res, json } = await this.raw(method, path, body));
+    }
     if (!res.ok) throw new ApiError(method, path, res.status, json);
     return unwrap(json);
   }

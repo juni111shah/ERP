@@ -164,13 +164,13 @@ export async function buildFoundation(org, log) {
     for (const it of org.items) {
       await owner.post('/items', {
         sku: it.sku, name: it.name, type: it.service ? 'Service' : 'Product', uom: it.uom, category: it.category,
-        salesPrice: it.price || null, purchasePrice: it.cost || null, taxCodeId: ctx.tax?.id ?? null,
+        salesPrice: it.price ? Math.round(it.price * (org.priceUplift ?? 1) * 100) / 100 : null, purchasePrice: it.cost || null, taxCodeId: ctx.tax?.id ?? null,
         barcode: org.barcodes && !it.service ? String(barcode++) : undefined,
       });
     }
   });
   const items = await owner.list('/items');
-  ctx.items = org.items.map((it) => ({ ...it, id: items.find((x) => x.sku === it.sku)?.id }));
+  ctx.items = org.items.map((it) => ({ ...it, price: it.price ? Math.round(it.price * (org.priceUplift ?? 1) * 100) / 100 : it.price, id: items.find((x) => x.sku === it.sku)?.id }));
   ctx.item = (sku) => ctx.items.find((i) => i.sku === sku);
   ctx.stockItems = ctx.items.filter((i) => !i.service);
 

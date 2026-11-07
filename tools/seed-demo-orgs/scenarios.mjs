@@ -14,6 +14,17 @@ async function settle(ctx, invoiceId, date, share = 1) {
   await finance.post('/finance/receipts', { legalEntityId: ctx.entity, partyId: invoice.partyId, date, method: 'BankTransfer', bankAccountId: ctx.bank, amount, reference: `RCV-${invoice.number}`, allocations: [{ invoiceId, amount }] });
 }
 
+/** A bill held by the approval policy: the owner approves it and it posts, so the cost is in the ledger. */
+async function clearApproval(ctx, billId) {
+  const finance = ctx.people.finance ?? ctx.owner;
+  const bill = await finance.get(`/finance/bills/${billId}`);
+  if (bill.status !== 'pendingApproval') return bill;
+  // Whoever raised it cannot decide it.
+  const decide = async (who) => who.at(finance.clock).post(`/approvals/${bill.approvalRequestId}/approve`, { comment: 'Checked against the record' });
+  await decide(ctx.owner).catch((e) => { if (e.status === 409) return decide(ctx.people.admin); throw e; });
+  return finance.post(`/finance/bills/${billId}/post`, {});
+}
+
 async function issueIfDraft(ctx, invoiceId) {
   const finance = ctx.people.finance ?? ctx.owner;
   const row = await finance.get(`/finance/invoices/${invoiceId}`);
@@ -22,7 +33,7 @@ async function issueIfDraft(ctx, invoiceId) {
 
 async function paySome(ctx, billId, date) {
   const finance = ctx.people.finance ?? ctx.owner;
-  const bill = await finance.get(`/finance/bills/${billId}`);
+  const bill = await clearApproval(ctx, billId);
   const amount = round2(bill.total - bill.paid);
   if (amount <= 0 || bill.status !== 'issued') return;
   finance.at(date);
@@ -60,7 +71,7 @@ async function productionRun(ctx, month, n, outcome = 'completed') {
   const bom = ordered[(n - 1) % ordered.length];
   const start = clampToToday(addDays(month, 5 + n * 2));
   ctx.on(start);
-  const factor = ctx.org.scenario === 'restaurant' ? ctx.random.int(8, 14) : (bom.outputQuantity > 50 ? ctx.random.int(2, 5) : ctx.random.int(1, 3)) * (ctx.org.scale ?? 1);
+  const factor = ctx.org.scenario === 'restaurant' ? ctx.random.int(5, 9) : (bom.outputQuantity > 50 ? ctx.random.int(2, 5) : ctx.random.int(1, 3)) * (ctx.org.scale ?? 1);
   const planned = bom.outputQuantity * factor;
   const order = await ops.post('/m/manufacturing/workorders', {
     legalEntityId: ctx.entity, bomId: bom.id, plannedQuantity: planned, warehouseId: ctx.warehouse, startDate: start, dueDate: addDays(start, 5), notes: `Batch ${month.slice(2, 7)}-${n}`,
@@ -215,7 +226,7 @@ export async function retail(ctx) {
       }
       inv.at(null);
     });
-    await ctx.run(`pos-${first.slice(0, 7)}`, () => posDays(ctx, first, 9, sellable));
+    await ctx.run(`pos-${first.slice(0, 7)}`, () => posDays(ctx, first, 14, sellable));
   };
 }
 
@@ -236,8 +247,8 @@ export async function restaurant(ctx) {
       const inv = ctx.people.inventory ?? ctx.owner;
       const date = dayIn(ctx, first);
       ctx.on(date);
-      await inv.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: ctx.item('BEV-TEA').id, quantity: 500, unitCost: ctx.item('BEV-TEA').cost, date, offsetAccountId: ctx.account('cogs'), reference: `BAR-${first.slice(2, 7)}-T`, memo: 'Bar preparation' });
-      await inv.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: ctx.item('BEV-LSI').id, quantity: 300, unitCost: ctx.item('BEV-LSI').cost, date, offsetAccountId: ctx.account('cogs'), reference: `BAR-${first.slice(2, 7)}-L`, memo: 'Bar preparation' });
+      await inv.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: ctx.item('BEV-TEA').id, quantity: 180, unitCost: ctx.item('BEV-TEA').cost, date, offsetAccountId: ctx.account('cogs'), reference: `BAR-${first.slice(2, 7)}-T`, memo: 'Bar preparation' });
+      await inv.post('/m/inventory/stock/receive', { warehouseId: ctx.warehouse, itemId: ctx.item('BEV-LSI').id, quantity: 110, unitCost: ctx.item('BEV-LSI').cost, date, offsetAccountId: ctx.account('cogs'), reference: `BAR-${first.slice(2, 7)}-L`, memo: 'Bar preparation' });
       const outlet = ctx.warehouses[1];
       const moveOn = clampToToday(addDays(first, 22));
       inv.at(moveOn);
@@ -411,6 +422,7 @@ export async function construction(ctx) {
         } catch (e) { if (e.status !== 409) throw e; ctx.log(`      materials short: ${e.message.slice(0, 80)}`); }
         const eq = await record(ctx, 'construction', 'equipment', { title: `Crane hire ${first.slice(0, 7)}`, recordDate: date, parentId: site.id, partyId: ctx.party('Heavy Lift Equipment Rental').id, amount: ctx.random.money(18000, 42000, 500), data: { equipmentName: '40 tonne mobile crane', hours: ctx.random.int(60, 160), ownership: 'Hired' } }, ['approved']);
         const billed = await (ctx.people.ops ?? ctx.owner).post(`/m/construction/records/equipment/${eq.id}/bill`, { date, taxCodeId: taxId(ctx) });
+        await clearApproval(ctx, billed.billId);
         if (first < monthStart(1)) await paySome(ctx, billed.billId, clampToToday(addDays(date, 15)));
         await record(ctx, 'construction', 'sitereports', { title: `Site report ${date}`, recordDate: date, parentId: site.id, data: { workers: ctx.random.int(35, 120), weather: ctx.random.pick(['Clear', 'Hot', 'Windy']), workDone: 'Structure works on schedule.', issues: ctx.random.chance(0.2) ? 'Late delivery of rebar' : undefined } });
 
@@ -419,6 +431,7 @@ export async function construction(ctx) {
         const cert = await record(ctx, 'construction', 'subcontractorpayments', { title: `Certificate ${first.slice(0, 7)}`, recordDate: date, parentId: site.id, partyId: ctx.party(subName).id, data: { subcontractRef: `${site.title} MEP works`, periodNumber: months(5).indexOf(first) + 1 }, lines: [{ description: 'MEP first fix this period', quantity: 1, unitPrice: ctx.random.money(120000, 280000, 500) }] }, ['submitted']);
         const approved = await move(ctx, 'construction', 'subcontractorpayments', cert.id, 'approved', ctx.owner);
         const certBilled = await ctx.owner.post(`/m/construction/records/subcontractorpayments/${approved.id}/bill`, { date, taxCodeId: taxId(ctx) });
+        await clearApproval(ctx, certBilled.billId);
         if (first < monthStart(1)) await paySome(ctx, certBilled.billId, clampToToday(addDays(date, 20)));
 
         const valuation = await record(ctx, 'construction', 'valuations', { title: `Valuation ${first.slice(0, 7)}`, recordDate: date, partyId: site.partyId, parentId: site.id, dueDate: addDays(date, 30), data: { periodNumber: months(5).indexOf(first) + 1, retentionPercent: 10, certifiedPercent: 10 + months(5).indexOf(first) * 10, certifiedBy: 'Client engineer' }, lines: [{ description: 'Structure works this period', quantity: 1, unitPrice: ctx.random.money(220000, 620000, 1000) }, { description: 'Finishes this period', quantity: 1, unitPrice: ctx.random.money(40000, 160000, 1000) }] }, ['submitted']);
@@ -485,12 +498,12 @@ export async function healthcare(ctx) {
         }
       }
       // Insurance claims: most approved, some rejected or waiting.
-      for (let n = 0; n < 9; n++) {
+      for (let n = 0; n < 16; n++) {
         const date = dayIn(ctx, first);
         ctx.on(date);
         const insurer = ctx.random.pick(insurers);
         const patient = ctx.random.pick(patients);
-        const claim = await record(ctx, 'healthcare', 'claims', { title: `Treatment claim ${date}`, recordDate: date, parentId: patient.id, partyId: insurer.id, dueDate: addDays(date, 45), amount: ctx.random.money(1500, 18000, 25), data: { authorizationCode: `AUTH-${date.replace(/-/g, '')}-${n}` } }, ['submitted']);
+        const claim = await record(ctx, 'healthcare', 'claims', { title: `Treatment claim ${date}`, recordDate: date, parentId: patient.id, partyId: insurer.id, dueDate: addDays(date, 45), amount: ctx.random.money(2500, 24000, 25), data: { authorizationCode: `AUTH-${date.replace(/-/g, '')}-${n}` } }, ['submitted']);
         const roll = ctx.random.next();
         if (roll < 0.15) { await move(ctx, 'healthcare', 'claims', claim.id, ['rejected', 'Treatment not covered by the policy'], ctx.owner); continue; }
         if (roll < 0.3 || first === monthStart(0)) continue;
@@ -563,6 +576,7 @@ export async function logistics(ctx) {
           if (n === 1 && ctx.random.chance(0.1)) { await move(ctx, 'logistics', 'fuel', log.id, ['rejected', 'Odometer reading does not match']); continue; }
           await move(ctx, 'logistics', 'fuel', log.id, 'approved');
           const done = await staff.post(`/m/logistics/records/fuel/${log.id}/bill`, { date });
+          await clearApproval(ctx, done.billId);
           if (first < monthStart(1)) await paySome(ctx, done.billId, clampToToday(addDays(date, 12)));
         }
       }
@@ -573,10 +587,12 @@ export async function logistics(ctx) {
       if (first === monthStart(0)) return;
       await move(ctx, 'logistics', 'maintenance', job.id, 'completed');
       const billedJob = await staff.post(`/m/logistics/records/maintenance/${job.id}/bill`, { date, taxCodeId: taxId(ctx) });
+      await clearApproval(ctx, billedJob.billId);
       await paySome(ctx, billedJob.billId, clampToToday(addDays(date, 20)));
       for (const [kind, vendor, amount] of [['Tolls', tolls, ctx.random.money(300, 900, 10)], ['Port charges', port, ctx.random.money(600, 2500, 50)], ['Driver allowance', tolls, ctx.random.money(400, 900, 10)]]) {
         const e = await record(ctx, 'logistics', 'deliveryexpenses', { title: `${kind} ${first.slice(0, 7)}`, recordDate: date, partyId: vendor.id, amount, data: { kind } }, ['approved']);
-        await staff.post(`/m/logistics/records/deliveryexpenses/${e.id}/bill`, { date, vendorReference: `DEX-${e.number}` });
+        const dex = await staff.post(`/m/logistics/records/deliveryexpenses/${e.id}/bill`, { date, vendorReference: `DEX-${e.number}` });
+        await clearApproval(ctx, dex.billId);
       }
     });
   };
@@ -754,7 +770,7 @@ export async function dairy(ctx) {
   ctx.sellable = () => ctx.items.filter((i) => stockIds.has(i.sku));
   await ctx.run('herds', async () => {
     ctx.on(monthStart(5));
-    for (const [title, species, headCount, location] of [['Holstein herd A', 'Dairy cattle', 64, 'Shed 1'], ['Holstein herd B', 'Dairy cattle', 48, 'Shed 2'], ['Murrah buffalo group', 'Buffalo', 36, 'Shed 3'], ['Heifer group', 'Dairy cattle', 22, 'Paddock 2']])
+    for (const [title, species, headCount, location] of [['Holstein herd A', 'Dairy cattle', 26, 'Shed 1'], ['Holstein herd B', 'Dairy cattle', 20, 'Shed 2'], ['Murrah buffalo group', 'Buffalo', 14, 'Shed 3'], ['Heifer group', 'Dairy cattle', 10, 'Paddock 2']])
       await record(ctx, 'agriculture', 'herds', { title, recordDate: monthStart(5), data: { species, headCount, location } });
     for (const [title, crop, areaHectares, field, status] of [['Maize for silage', 'Maize', 18, 'North field', ['planted', 'harvested']], ['Lucerne fodder', 'Lucerne', 9, 'East field', ['planted']], ['Oats winter fodder', 'Oats', 12, 'South field', []]])
       await record(ctx, 'agriculture', 'crops', { title, recordDate: monthStart(4), data: { crop, areaHectares, field, plantedOn: monthStart(4), expectedHarvest: addDays(monthStart(4), 110) } }, status);
@@ -794,6 +810,7 @@ export async function dairy(ctx) {
       ctx.on(date);
       const visit = await record(ctx, 'agriculture', 'vetcare', { title: `${ctx.random.pick(['FMD vaccination', 'Pregnancy checks', 'Mastitis treatment'])} ${first.slice(0, 7)}`, recordDate: date, parentId: ctx.random.pick(herds).id, partyId: vet.id, amount: ctx.random.money(6000, 28000, 500), data: { kind: 'Vaccination', animalsTreated: ctx.random.int(15, 60), veterinarian: 'Dr. Demo Vet' } }, ['done']);
       const billed = await staff.post(`/m/agriculture/records/vetcare/${visit.id}/bill`, { date, taxCodeId: taxId(ctx) });
+      await clearApproval(ctx, billed.billId);
       if (first < monthStart(1)) await paySome(ctx, billed.billId, clampToToday(addDays(date, 18)));
     });
   };
@@ -822,6 +839,7 @@ export async function trade(ctx) {
       if (first === monthStart(0)) { await move(ctx, 'trade', 'imports', consignment.id, 'onwater'); return; }
       for (const step of ['onwater', 'atport', 'cleared']) await move(ctx, 'trade', 'imports', consignment.id, step);
       const billed = await staff.post(`/m/trade/records/imports/${consignment.id}/bill`, { date: clampToToday(addDays(date, 22)), taxCodeId: taxId(ctx), vendorReference: `IMP-${consignment.number}` });
+      await clearApproval(ctx, billed.billId);
       if (first < monthStart(1)) await paySome(ctx, billed.billId, clampToToday(addDays(date, 40)));
 
       const buyer = ctx.random.pick(ctx.customers);

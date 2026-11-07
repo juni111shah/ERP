@@ -16,7 +16,7 @@ async function seedOrg(org) {
   const ctx = await buildFoundation(org, log);
   ctx.buyable = () => ctx.stockItems;
   ctx.sellable = () => ctx.items.filter((i) => i.price > 0);
-  ctx.stockFactor = (it) => (it.sku === 'MLK-RAW' ? 40 : stockLevel(it) / 30);
+  ctx.stockFactor = (it) => (it.sku === 'MLK-RAW' ? 80 : stockLevel(it) / 30);
 
   const scenario = SCENARIOS[org.scenario];
   if (scenario) await scenario(ctx);
@@ -38,7 +38,7 @@ async function seedOrg(org) {
     ctx.band = [22, 26];
     if (org.trading) {
       await ctx.run(`sales-${first.slice(0, 7)}`, async () => {
-        for (let n = 1; n <= volume * 2; n++) await salesCycle(ctx, first, n, salesEnd[(n + months(5).indexOf(first)) % salesEnd.length]);
+        for (let n = 1; n <= (org.salesVolume ?? volume * 2); n++) await salesCycle(ctx, first, n, salesEnd[(n + months(5).indexOf(first)) % salesEnd.length]);
       });
     }
     ctx.band = null;
