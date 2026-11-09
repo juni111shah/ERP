@@ -3,6 +3,7 @@ using ERP.Modularity;
 using ERP.Modularity.Web;
 using ERP.Modules.Crm.Features;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ERP.Modules.Crm.Controllers;
@@ -22,7 +23,7 @@ public sealed class OpportunitiesController(ISender mediator) : ApiControllerBas
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var opp = await Mediator.Send(new GetOpportunityByIdQuery(id), ct);
-        return opp is null ? NotFound() : Ok(opp);
+        return opp is null ? EmptyError(StatusCodes.Status404NotFound) : Ok(opp);
     }
 
     [HttpPost]
@@ -37,7 +38,7 @@ public sealed class OpportunitiesController(ISender mediator) : ApiControllerBas
     [RequirePermission(Permissions.OpportunitiesManage)]
     public async Task<IActionResult> UpdateStage(Guid id, UpdateOpportunityStageCommand command, CancellationToken ct)
     {
-        if (id != command.Id) return BadRequest();
+        if (id != command.Id) return EmptyError(StatusCodes.Status400BadRequest);
         return Ok(await Mediator.Send(command, ct));
     }
 
@@ -45,7 +46,7 @@ public sealed class OpportunitiesController(ISender mediator) : ApiControllerBas
     [RequirePermission(Permissions.OpportunitiesManage)]
     public async Task<IActionResult> Close(Guid id, CloseOpportunityCommand command, CancellationToken ct)
     {
-        if (id != command.Id) return BadRequest();
+        if (id != command.Id) return EmptyError(StatusCodes.Status400BadRequest);
         return Ok(await Mediator.Send(command, ct));
     }
 
@@ -53,4 +54,7 @@ public sealed class OpportunitiesController(ISender mediator) : ApiControllerBas
     [RequirePermission(Permissions.OpportunitiesRead)]
     public Task<List<PipelineStageSummaryDto>> PipelineSummary(Guid? legalEntityId, CancellationToken ct)
         => Mediator.Send(new GetPipelineSummaryQuery(legalEntityId), ct);
+
+    /// <summary>A bare 404/400 with no title or detail, as the minimal endpoints answered (the envelope fills in the defaults).</summary>
+    private static ObjectResult EmptyError(int status) => new(new ProblemDetails { Status = status }) { StatusCode = status };
 }

@@ -45,6 +45,9 @@ public interface IBillRepository : IRepository<Bill>
 
     /// <summary>Every issued or partly paid bill, of one legal entity or (null) all of them.</summary>
     Task<List<BillOpenBalance>> ListOpenBalancesAsync(Guid? legalEntityId, CancellationToken ct);
+
+    /// <summary>The bill with its lines, read-only, when it belongs to the legal entity; otherwise null.</summary>
+    Task<Bill?> FindWithLinesInEntityAsync(Guid id, Guid legalEntityId, CancellationToken ct);
 }
 
 /// <summary>An open bill on a vendor's statement.</summary>
