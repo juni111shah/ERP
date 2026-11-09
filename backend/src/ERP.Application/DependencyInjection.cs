@@ -76,6 +76,17 @@ public static class DependencyInjection
         services.AddScoped<IReminderSource, CoreReminderSource>();
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<ERP.Application.Finance.AccountNumbering>();
+        services.AddScoped<ERP.Application.Finance.JournalDrafts>();
+        services.AddScoped<ERP.Application.Finance.JournalDtoBuilder>();
+        services.AddScoped<ERP.Application.Finance.TrialBalanceBuilder>();
+        services.AddScoped<ERP.Application.Finance.CashMovementsCalculator>();
+        services.AddScoped<ERP.Application.Finance.TaxSummaryLineReader>();
+        services.AddScoped<ERP.Application.Finance.OpeningBalanceDocuments>();
+        services.AddScoped<ERP.Application.Finance.YearEndScope>();
+        services.AddScoped<ERP.Application.Finance.BudgetMapper>();
+        services.AddScoped<ERP.Application.Finance.TaxCodeEditing>();
+        services.AddScoped<ERP.Application.Finance.AccountEditing>();
+        services.AddScoped<ERP.Application.Finance.AccountTreeBalances>();
 
         services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Parties.Party>(sp.GetRequiredService<IEntityStore>(), "party", Security.CorePermissions.PartiesRead, Security.CorePermissions.PartiesWrite));
         services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Finance.Invoice>(sp.GetRequiredService<IEntityStore>(), "invoice", Security.CorePermissions.InvoicesRead, Security.CorePermissions.InvoicesWrite));

@@ -87,11 +87,11 @@ internal sealed class RunReportTool(ISender sender, ICurrentUser user, IClock cl
             {
                 "receivables_ageing" => await sender.Send(new GetArAgeing(to, entity), ct),
                 "payables_ageing" => await sender.Send(new GetApAgeing(to, entity), ct),
-                "income_statement" => await sender.Send(new GetIncomeStatement(from, to, entity), ct),
-                "balance_sheet" => await sender.Send(new GetBalanceSheet(to, entity), ct),
-                "trial_balance" => await sender.Send(new GetTrialBalance(from, to, entity), ct),
-                "cash_movements" => await sender.Send(new GetCashMovements(from, to, entity), ct),
-                "tax_summary" => await sender.Send(new GetTaxSummary(from, to, entity), ct),
+                "income_statement" => await sender.Send(new GetIncomeStatementQuery(from, to, entity), ct),
+                "balance_sheet" => await sender.Send(new GetBalanceSheetQuery(to, entity), ct),
+                "trial_balance" => await sender.Send(new GetTrialBalanceQuery(from, to, entity), ct),
+                "cash_movements" => await sender.Send(new GetCashMovementsQuery(from, to, entity), ct),
+                "tax_summary" => await sender.Send(new GetTaxSummaryQuery(from, to, entity), ct),
                 _ => null,
             };
             return result is null ? "There is no report with that name." : ToolAnswers.Serialize(result);

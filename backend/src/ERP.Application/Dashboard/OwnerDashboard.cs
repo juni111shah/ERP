@@ -128,7 +128,7 @@ internal sealed class OwnerDashboardHandler(
             var budget = await budgets.Query(new Specification<Budget>(b => b.IsActive && b.FiscalYear == to.Year && (entity == null || b.LegalEntityId == entity))).OrderBy(b => b.Name).Select(b => new { b.Id }).FirstOrDefaultAsync(ct);
             if (budget is not null)
             {
-                var report = await sender.Send(new ERP.Application.Finance.GetBudgetVsActual(budget.Id, from.Year == to.Year ? from.Month : 1, to.Month), ct);
+                var report = await sender.Send(new ERP.Application.Finance.GetBudgetVsActualQuery(budget.Id, from.Year == to.Year ? from.Month : 1, to.Month), ct);
                 var worst = report.Rows.Where(r => r.Budget != 0).OrderBy(r => r.Variance).Take(6).ToList();
                 sections.Add(new("budget", "Budget against actual",
                     [new("budget-income", "Income budget", report.Rows.Where(r => r.Type == AccountType.Income).Sum(r => r.Budget)), new("actual-income", "Income actual", report.Rows.Where(r => r.Type == AccountType.Income).Sum(r => r.Actual)),

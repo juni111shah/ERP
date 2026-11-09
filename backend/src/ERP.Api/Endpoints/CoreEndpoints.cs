@@ -18,9 +18,6 @@ public static class CoreEndpoints
         api.MapOrganization();
         api.MapSecurity();
         api.MapMasterData();
-        api.MapFinance();
-        api.MapLedger();
-        api.MapBudgets();
         api.MapReceivables();
         api.MapCheques();
         api.MapBank();
