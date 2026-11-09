@@ -17,6 +17,9 @@ public interface ITaxCodeRepository : IRepository<TaxCode>
 
     /// <summary>Rate and recoverability of those of the tax codes that are active, by id.</summary>
     Task<Dictionary<Guid, TaxCodeRate>> ActiveRatesAsync(List<Guid> ids, CancellationToken ct);
+
+    /// <summary>The id of an active default tax code of the legal entity or of all entities; null when there is none.</summary>
+    Task<Guid?> FindDefaultIdAsync(Guid legalEntityId, CancellationToken ct);
 }
 
 /// <summary>A tax code's rate (percent) and whether the tax can be recovered.</summary>
