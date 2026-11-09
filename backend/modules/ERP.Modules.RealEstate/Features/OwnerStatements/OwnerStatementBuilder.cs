@@ -1,0 +1,87 @@
+using ERP.Application.Abstractions;
+using ERP.Application.Common;
+using ERP.Application.Finance;
+using ERP.Domain.Finance;
+using ERP.Domain.Parties;
+using ERP.Modules.RealEstate.Domain;
+using Microsoft.EntityFrameworkCore;
+
+namespace ERP.Modules.RealEstate.Features;
+
+/// <summary>Works out the owner statement. With <c>ownerFundsOnly</c> it counts only what the ledger holds for the owner: properties crediting the owner payable and the rent invoices that did credit it, which is what a payout can clear.</summary>
+internal sealed class OwnerStatementBuilder(IReadRepository<Property> properties, IReadRepository<Party> parties, IReadRepository<Lease> leases, IReadRepository<RentInstalment> instalments,
+    IReadRepository<Settlement> settlements, IReadRepository<WorkOrder> workOrders, IReadRepository<Bill> bills, IReadRepository<Invoice> invoices, IReadRepository<OwnerPayout> payouts)
+{
+    public async Task<OwnerStatementDto> BuildAsync(Guid ownerPartyId, DateOnly from, DateOnly to, Guid? legalEntityId, bool ownerFundsOnly, CancellationToken ct)
+    {
+        var owner = await parties.GetAsync(ownerPartyId, ct);
+        var props = (await properties.Query(new Specification<Property>(p => p.OwnerPartyId == ownerPartyId && p.OwnershipType == OwnershipType.ManagedForOwner && (legalEntityId == null || p.LegalEntityId == legalEntityId))).OrderBy(p => p.Name).ToListAsync(ct))
+            .Where(p => !ownerFundsOnly || p.RentCreditsOwner).ToList();
+        var propIds = props.Select(p => p.Id).ToList();
+        var leaseProp = await leases.Query(new Specification<Lease>(l => propIds.Contains(l.PropertyId))).Select(l => new { l.Id, l.PropertyId }).ToDictionaryAsync(l => l.Id, l => l.PropertyId, ct);
+        var leaseIds = leaseProp.Keys.ToList();
+        var instalmentInvoice = await instalments.Query(new Specification<RentInstalment>(i => leaseIds.Contains(i.LeaseId) && i.InvoiceId != null && (!ownerFundsOnly || i.CreditedToOwner)))
+            .Select(i => new { i.LeaseId, InvoiceId = i.InvoiceId!.Value }).ToListAsync(ct);
+        var invoiceProperty = instalmentInvoice.ToDictionary(i => i.InvoiceId, i => leaseProp[i.LeaseId]);
+        var invoiceIds = invoiceProperty.Keys.ToList();
+
+        // Receipts in the period, with the part of each that went to the owner's rent invoices (summed on the client: SQLite cannot add decimals).
+        var allocations = await settlements.Query(new Specification<Settlement>(s => s.Direction == InstrumentDirection.Received && s.Status == DocumentStatus.Issued && s.Date >= from && s.Date <= to))
+            .SelectMany(s => s.Allocations, (s, a) => new { a.InvoiceId, a.Amount }).ToListAsync(ct);
+        // A receipt covers rent and the tax on it; only the rent belongs to the owner and carries the fee.
+        var money = await invoices.Query(new Specification<Invoice>(i => invoiceIds.Contains(i.Id))).Select(i => new { i.Id, i.Net, i.Total }).ToDictionaryAsync(i => i.Id, ct);
+        var received = allocations.Where(a => a.InvoiceId is { } id && invoiceProperty.ContainsKey(id)).GroupBy(a => a.InvoiceId!.Value)
+            .Select(g => new { Property = invoiceProperty[g.Key], Gross = g.Sum(a => a.Amount), Net = RentInReceipts.NetPart(g.Sum(a => a.Amount), money[g.Key].Net, money[g.Key].Total) }).ToList();
+        var collected = received.GroupBy(r => r.Property).ToDictionary(g => g.Key, g => (Net: g.Sum(r => r.Net), Gross: g.Sum(r => r.Gross)));
+
+        var orders = await workOrders.Query(new Specification<WorkOrder>(w => propIds.Contains(w.PropertyId) && (w.Status == WorkOrderStatus.Completed || w.Status == WorkOrderStatus.Closed) && w.CompletedOn >= from && w.CompletedOn <= to))
+            .Select(w => new { w.Id, w.Number, w.Issue, w.PropertyId, w.CompletedOn, Basis = w.ActualCost ?? w.EstimatedCost, HasActual = w.ActualCost != null, w.ChargeableTo, w.OwnerSharePercent, w.BillId }).ToListAsync(ct);
+
+        // A linked bill pays for all the work orders linked to it (any period): its net amount is split by their own cost figures (equally when they are all zero).
+        var billIds = orders.Where(o => o.BillId != null).Select(o => o.BillId!.Value).Distinct().ToList();
+        var billNet = billIds.Count == 0 ? [] : await bills.Query(new Specification<Bill>(b => billIds.Contains(b.Id))).Select(b => new { b.Id, b.Net }).ToDictionaryAsync(b => b.Id, b => b.Net, ct);
+        var siblings = billIds.Count == 0 ? [] : (await workOrders.Query(new Specification<WorkOrder>(w => w.BillId != null && billIds.Contains(w.BillId.Value)))
+            .Select(w => new { w.Id, BillId = w.BillId!.Value, Basis = w.ActualCost ?? w.EstimatedCost }).ToListAsync(ct)).GroupBy(w => w.BillId).ToDictionary(g => g.Key, g => g.ToList());
+        var propName = props.ToDictionary(p => p.Id, p => p.Name);
+
+        var lines = new List<OwnerStatementLine>();
+        var ownerCost = new List<(Guid PropertyId, OwnerStatementLine Line)>();
+        foreach (var o in orders.OrderBy(o => o.CompletedOn).ThenBy(o => o.Number))
+        {
+            decimal cost; string source;
+            if (o.BillId is { } bid && billNet.TryGetValue(bid, out var net) && siblings.TryGetValue(bid, out var group))
+            {
+                var total = group.Sum(g => g.Basis);
+                cost = Math.Round(total > 0 ? net * o.Basis / total : net / group.Count, 2);
+                source = "bill";
+            }
+            else { cost = o.Basis; source = o.HasActual ? "actual" : "estimate"; }
+            var ownerShare = o.ChargeableTo switch { CostResponsibility.Company or CostResponsibility.Tenant => 0m, CostResponsibility.Shared => o.OwnerSharePercent, _ => 100m };
+            var ownerAmount = Math.Round(cost * ownerShare / 100m, 2);
+            var tenantAmount = o.ChargeableTo == CostResponsibility.Tenant ? cost : 0m;
+            var borneBy = o.ChargeableTo switch { CostResponsibility.Company => "Company", CostResponsibility.Tenant => "Tenant", CostResponsibility.Shared => $"Shared ({ownerShare:0.##}% owner)", _ => "Owner" };
+            var line = new OwnerStatementLine(o.Id, o.Number, propName[o.PropertyId], o.Issue, o.CompletedOn, cost, source, borneBy, ownerAmount, tenantAmount);
+            lines.Add(line);
+            ownerCost.Add((o.PropertyId, line));
+        }
+
+        var rows = props.Select(p =>
+        {
+            var (rent, gross) = collected.GetValueOrDefault(p.Id);
+            var fee = Math.Round(rent * p.ManagementFeePercent / 100m, 2);
+            var cost = ownerCost.Where(x => x.PropertyId == p.Id).Sum(x => x.Line.OwnerAmount);
+            var tenant = ownerCost.Where(x => x.PropertyId == p.Id).Sum(x => x.Line.TenantAmount);
+            return new OwnerStatementRow(p.Id, p.Name, p.ManagementFeePercent, rent, fee, cost, rent - fee - cost, tenant, gross - rent);
+        }).ToList();
+        var paid = (await payouts.Query(new Specification<OwnerPayout>(x => x.OwnerPartyId == ownerPartyId && x.Status == OwnerPayoutStatus.Posted && x.PeriodFrom <= to && x.PeriodTo >= from && (legalEntityId == null || x.LegalEntityId == legalEntityId))).Select(x => x.Amount).ToListAsync(ct)).Sum();
+        return new(owner.Id, owner.Name, from, to, rows, rows.Sum(r => r.RentCollected), rows.Sum(r => r.ManagementFee), rows.Sum(r => r.MaintenanceCosts), rows.Sum(r => r.NetToOwner), lines, rows.Sum(r => r.ChargedToTenant), rows.Sum(r => r.TaxCollected), paid);
+    }
+}
+
+/// <summary>Splits money received on an invoice between the amount before tax and the tax; no I/O.</summary>
+public static class RentInReceipts
+{
+    /// <summary>The share of a receipt that is the invoice's net amount. An invoice without tax is all net.</summary>
+    public static decimal NetPart(decimal received, decimal invoiceNet, decimal invoiceTotal)
+        => invoiceTotal <= 0 || invoiceNet == invoiceTotal ? received : Money.Round(received * invoiceNet / invoiceTotal);
+}
