@@ -1,48 +1,17 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
-using ERP.Domain.Catalog;
 using ERP.Modules.Manufacturing.Domain;
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+using ERP.Modules.Manufacturing.Repositories;
 
 namespace ERP.Modules.Manufacturing.Features;
 
-/// <summary>
-/// One item's position. GrossRequired is what open orders (and any what-if quantity) need; NetRequired is what is left after on-hand, on-order and in-production,
-/// and is to be made when IsManufactured, otherwise bought. Level 0 is what is being produced; deeper levels are its components.
-/// </summary>
-public record MaterialRequirementDto(
-    Guid ItemId,
-    string ItemCode,
-    string ItemName,
-    string Uom,
-    int Level,
-    bool IsManufactured,
-    decimal GrossRequired,
-    decimal OnHand,
-    decimal OnOrder,
-    decimal InProduction,
-    decimal NetRequired);
-
-/// <summary>OpenPurchaseNetted is false until something exposes open purchase quantities to this module: OnOrder is then zero and shortages may be overstated.</summary>
-public record MaterialRequirementsDto(
-    Guid LegalEntityId,
-    Guid? WarehouseId,
-    int OpenWorkOrders,
-    bool OpenPurchaseNetted,
-    List<MaterialRequirementDto> Rows,
-    List<MaterialRequirementDto> Shortages);
-
-/// <summary>ItemId with Quantity adds a what-if demand for that many of an item through its active BOM, on top of the open orders.</summary>
-public record GetMaterialRequirementsQuery(Guid LegalEntityId, Guid? WarehouseId = null, Guid? ItemId = null, decimal? Quantity = null) : IQuery<MaterialRequirementsDto>;
-
-public class RequirementsHandlers(
-    IReadRepository<WorkOrder> workOrders,
-    IReadRepository<BillOfMaterials> boms,
-    IReadRepository<Item> items,
+internal sealed class GetMaterialRequirementsHandler(
+    IWorkOrderRepository workOrders,
+    IBillOfMaterialsRepository boms,
+    IItemRepository items,
     IStockPostingService stock,
     ERP.Application.Organizations.ILegalEntityGuard guard) :
-    IRequestHandler<GetMaterialRequirementsQuery, MaterialRequirementsDto>
+    IQueryHandler<GetMaterialRequirementsQuery, MaterialRequirementsDto>
 {
     public async Task<MaterialRequirementsDto> Handle(GetMaterialRequirementsQuery request, CancellationToken ct)
     {
@@ -52,16 +21,12 @@ public class RequirementsHandlers(
 
         var entity = request.LegalEntityId;
         var warehouse = request.WarehouseId;
-        var open = await workOrders.Query(new Specification<WorkOrder>(w => w.LegalEntityId == entity
-                && (w.Status == WorkOrderStatus.Draft || w.Status == WorkOrderStatus.Planned || w.Status == WorkOrderStatus.InProgress)
-                && (warehouse == null || w.WarehouseId == warehouse)))
-            .Include(w => w.MaterialIssues).ToListAsync(ct);
+        var open = await workOrders.ListOpenWithIssuesAsync(entity, warehouse, ct);
         open = open.Where(w => Remaining(w) > 0).ToList();
 
         // An order explodes through the BOM it was raised from, even if that BOM has since been deactivated; sub-assemblies through their active BOM.
         var orderBomIds = open.Select(w => w.BomId).Distinct().ToList();
-        var loaded = await boms.Query(new Specification<BillOfMaterials>(b => b.LegalEntityId == entity && (b.IsActive || orderBomIds.Contains(b.Id))))
-            .Include(b => b.Components).ToListAsync(ct);
+        var loaded = await boms.ListActiveOrNamedWithComponentsAsync(entity, orderBomIds, ct);
         var bomById = loaded.ToDictionary(b => b.Id);
         var activeByItem = loaded.Where(b => b.IsActive).GroupBy(b => b.ProducedItemId).ToDictionary(g => g.Key, g => g.OrderByDescending(b => b.CreatedAt).First());
 
@@ -113,7 +78,7 @@ public class RequirementsHandlers(
         }
 
         var ids = rows.Select(r => r.Item).ToList();
-        var catalog = await items.Query(new Specification<Item>(i => ids.Contains(i.Id))).Select(i => new { i.Id, i.Sku, i.Name, i.Uom }).ToDictionaryAsync(i => i.Id, ct);
+        var catalog = await items.GetLabelsAsync(ids, ct);
         var result = rows.Select(r =>
         {
             catalog.TryGetValue(r.Item, out var item);

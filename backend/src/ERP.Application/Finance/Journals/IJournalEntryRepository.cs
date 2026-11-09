@@ -56,6 +56,9 @@ public interface IJournalEntryRepository : IRepository<JournalEntry>
 
     /// <summary>Every line of the non-draft entries dated on or before <paramref name="to"/>, of one legal entity or (null) all of them.</summary>
     Task<List<PostedJournalLine>> ListPostedLinesUpToAsync(DateOnly to, Guid? legalEntityId, CancellationToken ct);
+
+    /// <summary>The posted journals raised by one source document, with their lines, tracked for changes (to reverse them).</summary>
+    Task<List<JournalEntry>> ListPostedOfSourceForUpdateAsync(string sourceType, Guid sourceId, CancellationToken ct);
 }
 
 /// <summary>One ledger line on a bank or cash account, with its journal (bank reconciliation and bank ledger).</summary>
