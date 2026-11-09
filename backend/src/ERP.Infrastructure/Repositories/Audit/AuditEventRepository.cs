@@ -21,4 +21,7 @@ internal sealed class AuditEventRepository(IRepository<AuditEvent> audits) : Rep
 
     public Task<List<AuditEvent>> ListPageForRecordAsync(string recordType, string recordId, int page, int pageSize, CancellationToken ct)
         => Query(new Specification<AuditEvent>(a => a.RecordType == recordType && a.RecordId == recordId)).OrderByDescending(a => a.OccurredAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+
+    public Task<List<AuditEvent>> ListLatestForRecordsAsync(List<string> recordIds, int take, CancellationToken ct)
+        => Query(new Specification<AuditEvent>(a => recordIds.Contains(a.RecordId))).OrderByDescending(a => a.OccurredAt).Take(take).ToListAsync(ct);
 }

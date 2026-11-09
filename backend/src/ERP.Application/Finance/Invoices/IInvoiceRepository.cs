@@ -58,6 +58,9 @@ public interface IInvoiceRepository : IRepository<Invoice>
 
     /// <summary>Every issued or partly paid invoice and credit note, of one legal entity or (null) all of them.</summary>
     Task<List<InvoiceOpenBalance>> ListOpenBalancesAsync(Guid? legalEntityId, CancellationToken ct);
+
+    /// <summary>The invoices raised from one source document (a project, an order...), read-only.</summary>
+    Task<List<Invoice>> ListForSourceAsync(string sourceType, Guid sourceId, CancellationToken ct);
 }
 
 /// <summary>An open invoice or credit note on a party's statement.</summary>

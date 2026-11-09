@@ -23,4 +23,7 @@ public interface IAuditEventRepository : IRepository<AuditEvent>
 
     /// <summary>One page of a record's events, newest first.</summary>
     Task<List<AuditEvent>> ListPageForRecordAsync(string recordType, string recordId, int page, int pageSize, CancellationToken ct);
+
+    /// <summary>The latest <paramref name="take"/> events of any of the records, newest first.</summary>
+    Task<List<AuditEvent>> ListLatestForRecordsAsync(List<string> recordIds, int take, CancellationToken ct);
 }

@@ -12,7 +12,7 @@ public sealed class ProjectsOwnerSection(ISender sender, ICurrentUser user) : IO
     public async Task<IReadOnlyList<OwnerSection>> BuildAsync(OwnerScope scope, CancellationToken ct)
     {
         if (!user.HasPermission(P.ReportsRead)) return [];
-        var rows = await sender.Send(new GetProfitabilityReport(scope.From, scope.To, null), ct);
+        var rows = await sender.Send(new GetProfitabilityReportQuery(scope.From, scope.To, null), ct);
         var billed = rows.Sum(r => r.Billed);
         var margin = rows.Sum(r => r.Margin);
         var ordered = rows.OrderByDescending(r => r.Billed + r.Cost).Take(8).ToList();
