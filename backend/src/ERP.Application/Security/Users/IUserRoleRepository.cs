@@ -14,4 +14,7 @@ public interface IUserRoleRepository : IRepository<UserRole>
 
     /// <summary>The users other than <paramref name="exceptUserId"/> who hold one of <paramref name="roleIds"/>.</summary>
     Task<List<Guid>> ListOtherHoldersAsync(List<Guid> roleIds, Guid exceptUserId, CancellationToken ct);
+
+    /// <summary>The distinct users holding a role that grants <paramref name="permission"/> (or every permission).</summary>
+    Task<List<Guid>> ListUsersWithPermissionAsync(string permission, CancellationToken ct);
 }

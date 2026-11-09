@@ -125,4 +125,7 @@ internal sealed class AccountRepository(IRepository<Account> accounts) : Reposit
 
     public Task<List<Guid>> ListIdsWithSystemRoleAsync(string systemRole, CancellationToken ct)
         => Query(new Specification<Account>(a => a.SystemRole == systemRole)).Select(a => a.Id).ToListAsync(ct);
+
+    public Task<Guid?> FindActiveIdForRoleAsync(string systemRole, CancellationToken ct)
+        => Query(new Specification<Account>(a => a.SystemRole == systemRole && a.IsActive)).Select(a => (Guid?)a.Id).FirstOrDefaultAsync(ct);
 }
