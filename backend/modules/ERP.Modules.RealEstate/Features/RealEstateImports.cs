@@ -24,7 +24,7 @@ internal sealed class PropertyImport(ISender sender, IReadRepository<LegalEntity
     public async Task ImportRowAsync(ImportRow r, CancellationToken ct)
     {
         var entity = await ResolveEntityAsync(r, ct);
-        await sender.Send(new CreateProperty(new PropertyInput(entity, r.Require("name"), r.Enum<PropertyType>("propertyType"), OwnershipType.Owned, null, r.Get("region"), r.Get("community"), null, null,
+        await sender.Send(new CreatePropertyCommand(new PropertyInput(entity, r.Require("name"), r.Enum<PropertyType>("propertyType"), OwnershipType.Owned, null, r.Get("region"), r.Get("community"), null, null,
             r.Int("totalUnits") ?? 0, r.Decimal("indicativeValue") ?? 0)), ct);
     }
 
@@ -58,6 +58,6 @@ internal sealed class UnitImport(ISender sender, IReadRepository<Property> prope
         var typeCode = r.Require("unitType").ToUpperInvariant();
         var type = await unitTypes.Query(new Specification<UnitType>(t => t.Code == typeCode)).Select(t => t.Id).FirstOrDefaultAsync(ct);
         if (type == Guid.Empty) throw new ImportRowException($"Unit type '{typeCode}' not found.");
-        await sender.Send(new CreateUnit(new UnitInput(property, r.Require("unitNumber"), type, null, r.Get("floor"), r.Int("bedrooms"), r.Decimal("areaSqft") ?? 0, r.Decimal("askingRent") ?? 0)), ct);
+        await sender.Send(new CreateUnitCommand(new UnitInput(property, r.Require("unitNumber"), type, null, r.Get("floor"), r.Int("bedrooms"), r.Decimal("areaSqft") ?? 0, r.Decimal("askingRent") ?? 0)), ct);
     }
 }

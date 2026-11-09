@@ -6,7 +6,6 @@ using ERP.Domain.Finance;
 using ERP.Modularity;
 using ERP.Modules.RealEstate.Domain;
 using ERP.Modules.RealEstate.Features;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -153,6 +152,23 @@ public sealed class RealEstateModule : ModuleBase
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
+        // helpers shared by the handlers of one feature
+        services.AddScoped<PropertyInputRules>();
+        services.AddScoped<UnitBookkeeping>();
+        services.AddScoped<LeaseInputRules>();
+        services.AddScoped<LeaseActivation>();
+        services.AddScoped<SecurityDepositLedger>();
+        services.AddScoped<RentInvoicer>();
+        services.AddScoped<WorkOrderInputRules>();
+        services.AddScoped<PmScheduleInputRules>();
+        services.AddScoped<InspectionInputRules>();
+        services.AddScoped<InspectionDtoFactory>();
+        services.AddScoped<DealInputRules>();
+        services.AddScoped<ListingInputRules>();
+        services.AddScoped<LeadInputRules>();
+        services.AddScoped<AcquisitionInputRules>();
+        services.AddScoped<AcquisitionDtoFactory>();
+        services.AddScoped<OwnerPayoutRelease>();
         services.AddScoped<LeaseDtoFactory>();
         services.AddScoped<OwnerStatementBuilder>();
         services.AddScoped<OwnerAccounts>();
@@ -174,6 +190,4 @@ public sealed class RealEstateModule : ModuleBase
     }
 
     public override void ConfigureModel(ModelBuilder mb) => RealEstateModel.Configure(mb);
-
-    public override void MapEndpoints(RouteGroupBuilder group) => RealEstateEndpoints.Map(group);
 }
