@@ -18,13 +18,12 @@ public sealed class RegistersController(ISender mediator) : ApiControllerBase(me
     public Task<PagedResult<PosRegisterDto>> List([FromQuery] PagedQuery query, CancellationToken ct)
         => PagedList(query, PosRegisterDto.Projection, Permissions.RegistersRead, ct);
 
-    /// <summary>A missing register answers a bare 404 (the error envelope comes from the status-code pages).</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permissions.RegistersRead)]
-    public async Task<object> GetById(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var register = await Mediator.Send(new GetRegisterByIdQuery(id), ct);
-        return register is null ? Results.NotFound() : register;
+        return register is null ? NotFound() : Ok(register);
     }
 
     [HttpPost]

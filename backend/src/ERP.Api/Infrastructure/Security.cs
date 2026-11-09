@@ -17,10 +17,10 @@ public sealed class PermissionPolicyProvider(IOptions<AuthorizationOptions> opti
 {
     public override async Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
     {
-        if (policyName.StartsWith(PermissionEndpointExtensions.PolicyPrefix, StringComparison.Ordinal))
+        if (policyName.StartsWith(PermissionPolicies.PolicyPrefix, StringComparison.Ordinal))
             return new AuthorizationPolicyBuilder().RequireAuthenticatedUser()
                 .RequireAssertion(ctx => !ctx.User.HasClaim(c => c.Type == "portal_party"))
-                .AddRequirements(new PermissionRequirement(policyName[PermissionEndpointExtensions.PolicyPrefix.Length..])).Build();
+                .AddRequirements(new PermissionRequirement(policyName[PermissionPolicies.PolicyPrefix.Length..])).Build();
         return await base.GetPolicyAsync(policyName);
     }
 }

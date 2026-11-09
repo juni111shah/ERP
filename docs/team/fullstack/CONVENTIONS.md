@@ -21,7 +21,7 @@ backend/
       Domain/<Feature>/              entities, enums, rules
       Application/<Feature>/         Commands, Queries, Dtos, Validators, Mapper   (one folder per feature)
       Infrastructure/<Feature>/      EF configurations (schema per module, e.g. "re"), integrations
-      Api/<Feature>/                 endpoint mapping (IModule.MapEndpoints) or controllers
+      Controllers/<Resource>Controller.cs   [ModuleGate("key")] controllers, routes under /api/v1/m/{key}
       <Name>Module.cs                IModule: manifest, permissions, menu, settings, customizable entities, DI, model, endpoints
   tests/ERP.UnitTests · ERP.Application.Tests · ERP.Api.IntegrationTests (Testcontainers SQL Server)
 frontend/src/app/
@@ -56,7 +56,7 @@ Rules
 
 ## 3. API style
 
-- **Must** base path `/api/v1` (URL segment). Core endpoints flat: `/api/v1/<resource>` (`/api/v1/users`, `/api/v1/custom-fields`); module endpoints: `/api/v1/m/{moduleKey}/<resource>` (`/api/v1/m/realestate/unit-types`), mapped in `IModule.MapEndpoints` (or controllers with `[RequireModule(key)]`) and gated by `ModuleEnabledFilter` → 403 `type: …/module-disabled`, data kept. `Asp.Versioning` with `ApiVersion(1.0)`, `ReportApiVersions = true`; a breaking change ⇒ `v2` route kept side by side for one release.
+- **Must** base path `/api/v1` (URL segment). Core endpoints flat: `/api/v1/<resource>` (`/api/v1/users`, `/api/v1/custom-fields`); module endpoints: `/api/v1/m/{moduleKey}/<resource>` (`/api/v1/m/realestate/unit-types`), served by module controllers with `[ModuleGate(key)]` and gated by `ModuleGateMiddleware` → 403 `type: …/module-disabled`, data kept. `Asp.Versioning` with `ApiVersion(1.0)`, `ReportApiVersions = true`; a breaking change ⇒ `v2` route kept side by side for one release.
 - **Must** JSON camelCase; enums as camelCase strings (`JsonStringEnumConverter(JsonNamingPolicy.CamelCase)`); dates `yyyy-MM-dd`; timestamps UTC ISO-8601 with `Z`; money `decimal(18,2)` serialized as JSON numbers.
 - **Must** resources are plural kebab-case nouns (`/unit-types`, `/payroll-runs`); actions are `POST /{id}/<verb>` (spec §12).
 - **Must** status codes: 200 GET/PUT, 201 + `Location` POST, 204 DELETE/actions without body, 400 validation, 401, 403 (permission or module disabled — `type: .../module-disabled`), 404, 409 business conflict/duplicate, 412 stale `If-Match`, 422 not used.
