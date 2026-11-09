@@ -8,15 +8,6 @@ public static class CoreEndpoints
 {
     public static void MapCore(this RouteGroupBuilder api)
     {
-        api.MapSetup();
-        api.MapSession();
-        api.MapPlatform();
-        api.MapRegistration();
-        api.MapBilling();
-        api.MapPlatformAdmin();
-        api.MapModules();
-        api.MapOrganization();
-        api.MapSecurity();
         api.MapMasterData();
         api.MapFinance();
         api.MapLedger();

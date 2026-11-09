@@ -231,7 +231,6 @@ app.UseMiddleware<IdempotencyMiddleware>();
 // Every /api/v1 endpoint (core and modules) returns the standard ApiResponse envelope.
 var api = app.MapGroup("/api/v1");
 api.AddEndpointFilter<ApiEnvelopeFilter>();
-api.MapAuth();
 api.MapCore();
 
 // Module endpoints: /api/v1/m/{key}/..., authenticated and gated per workspace (403 module-disabled).
