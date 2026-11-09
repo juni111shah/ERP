@@ -188,7 +188,7 @@ public class MilestoneHandlers :
         var invoiceDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
         var dueDate = milestone.DueDate > invoiceDate ? milestone.DueDate : invoiceDate;
 
-        var invoice = await _sender.Send(new CreateInvoice(new InvoiceInput(
+        var invoice = await _sender.Send(new CreateInvoiceCommand(new InvoiceInput(
             LegalEntityId: milestone.LegalEntityId,
             PartyId: engagement.ClientId,
             InvoiceDate: invoiceDate,

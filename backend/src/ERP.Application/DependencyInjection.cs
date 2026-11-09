@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Search.ISearchProvider, ERP.Application.Search.CoreSearchProvider>();
         services.AddScoped<ERP.Application.Finance.IPostingService, ERP.Application.Finance.PostingService>();
         services.AddScoped<ERP.Application.Finance.IInvoicingService, ERP.Application.Finance.InvoicingService>();
+        services.AddScoped<ERP.Application.Finance.InvoiceCreditCaps>();
         services.AddScoped<ERP.Application.Finance.ICreditLimitService, ERP.Application.Finance.CreditLimitService>();
         services.AddScoped<ERP.Application.Finance.ISettlementService, ERP.Application.Finance.SettlementService>();
         services.AddScoped<ILegalEntityGuard, LegalEntityGuard>();

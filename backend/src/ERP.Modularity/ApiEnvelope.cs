@@ -54,21 +54,26 @@ public static class ApiEnvelope
         }
     }
 
-    private static object Body(object? value, int status, string traceId) => value switch
+    public const string ProblemContentType = "application/problem+json";
+
+    /// <summary>The success envelope for a value: a page gets <see cref="ApiPagedResponse{T}"/>, an envelope passes through unchanged.</summary>
+    public static object Body(object? value, int status, string traceId) => value switch
     {
         ApiResponse<object?> already => already,
         IPagedResult page => ApiResponses.Paged(page, status, traceId),
         _ => ApiResponses.Ok(value, status, traceId),
     };
 
-    private static IResult ProblemResult(ProblemDetails p, HttpContext http)
+    /// <summary>The error envelope for a <see cref="ProblemDetails"/> (validation errors and extensions kept).</summary>
+    public static object ProblemBody(ProblemDetails p, HttpContext http)
     {
-        var status = p.Status ?? 500;
         var errors = p is HttpValidationProblemDetails v ? v.Errors : null;
         var ext = p.Extensions.Where(kv => kv.Key != "traceId").ToDictionary(kv => kv.Key, kv => kv.Value);
-        return Results.Json(ApiResponses.Error(status, p.Title, p.Detail, http.TraceIdentifier, errors, p.Type, ext),
-            statusCode: status, contentType: "application/problem+json");
+        return ApiResponses.Error(p.Status ?? 500, p.Title, p.Detail, http.TraceIdentifier, errors, p.Type, ext);
     }
+
+    private static IResult ProblemResult(ProblemDetails p, HttpContext http)
+        => Results.Json(ProblemBody(p, http), statusCode: p.Status ?? 500, contentType: ProblemContentType);
 
     /// <summary>Writes an error envelope from middleware (module gate, entity scope, status-code pages, exception handler).</summary>
     public static Task WriteErrorAsync(HttpContext http, int status, string? title, string? detail, string? type = null,
@@ -76,7 +81,7 @@ public static class ApiEnvelope
     {
         http.Response.StatusCode = status;
         return http.Response.WriteAsJsonAsync(ApiResponses.Error(status, title, detail, http.TraceIdentifier, errors, type, extensions),
-            options: null, contentType: "application/problem+json", cancellationToken: http.RequestAborted);
+            options: null, contentType: ProblemContentType, cancellationToken: http.RequestAborted);
     }
 }
 

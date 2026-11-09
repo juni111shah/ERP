@@ -135,9 +135,9 @@ internal sealed class SalesReturnHandlers(
 
         if (invoice is not null)
         {
-            var draft = await sender.Send(new CreateCreditNoteFromInvoice(invoice.Id, ret.ReturnDate, ret.Lines.Select(l =>
+            var draft = await sender.Send(new CreateCreditNoteFromInvoiceCommand(invoice.Id, ret.ReturnDate, ret.Lines.Select(l =>
                 new CreditNoteLineInput(l.InvoiceLineId ?? Match(order, invoice, l.OrderLineId, null).InvoiceLine!.Id, l.Quantity)).ToList(), $"Sales return {ret.Number}"), ct);
-            var note = await sender.Send(new IssueInvoice(draft.Id), ct);
+            var note = await sender.Send(new IssueInvoiceCommand(draft.Id), ct);
             ret.CreditNoteId = note.Id; ret.CreditNoteNumber = note.Number; ret.InvoiceId = invoice.Id; ret.InvoiceNumber = invoice.Number;
             ret.SubTotal = note.Net; ret.TaxTotal = note.Tax; ret.TotalAmount = note.Total;
         }
@@ -166,7 +166,7 @@ internal sealed class SalesReturnHandlers(
         var ret = await LoadAsync(cmd.Id, ct);
         if (ret.Status != SalesReturnStatus.Posted) throw new ConflictException("Only a posted return can be voided.");
 
-        if (ret.CreditNoteId is { } note) await sender.Send(new VoidInvoice(note, cmd.Reason), ct);
+        if (ret.CreditNoteId is { } note) await sender.Send(new VoidInvoiceCommand(note, cmd.Reason), ct);
         await stock.ReverseReceiptAsync(ret.Number, ct);
 
         if (ret.SalesOrderId is { } orderId)

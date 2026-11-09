@@ -82,4 +82,5 @@ public sealed class AssistantStreamResult(IAsyncEnumerable<AssistantEvent> event
 }
 
 /// <summary>Marks an endpoint that changes nothing in the business, so a view-only workspace can still use it even though it is a POST.</summary>
-public sealed record AllowedInReadOnlyWorkspace;
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class AllowedInReadOnlyWorkspaceAttribute : Attribute;

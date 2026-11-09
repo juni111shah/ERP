@@ -311,9 +311,9 @@ internal sealed class RecordHandlers(
 
         return await unitOfWork.InTransactionAsync(async _ =>
         {
-            var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(record.LegalEntityId, partyId, date, due is { } d && d >= date ? d : date, lines,
+            var invoice = await sender.Send(new CreateInvoiceCommand(new InvoiceInput(record.LegalEntityId, partyId, date, due is { } d && d >= date ? d : date, lines,
                 Notes: $"{def.Singular} {record.Number}: {record.Title}", SourceType: RecordInvoiceVoidedHandler.SourceType, SourceId: record.Id, BusinessUnitId: record.BusinessUnitId)), ct);
-            await sender.Send(new IssueInvoice(invoice.Id), ct);
+            await sender.Send(new IssueInvoiceCommand(invoice.Id), ct);
             if (def.Billing.PerLine) foreach (var line in chosen) line.InvoiceId = invoice.Id;
             else record.InvoiceId = invoice.Id;
             MoveAfterBilling(record, def);

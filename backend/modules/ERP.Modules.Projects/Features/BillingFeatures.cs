@@ -269,7 +269,7 @@ internal sealed class BillingHandlers(
         return await uow.InTransactionAsync(async transactionCt =>
         {
             var notes = string.IsNullOrWhiteSpace(i.Notes) ? $"Generated for Project {p.Number}: {p.Name}" : $"{i.Notes.Trim()} (Project {p.Number}: {p.Name})";
-            var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
+            var invoice = await sender.Send(new CreateInvoiceCommand(new InvoiceInput(
                 LegalEntityId: p.LegalEntityId, PartyId: p.CustomerId!.Value, InvoiceDate: DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), DueDate: i.DueDate, Lines: invoiceLines,
                 Notes: notes, SourceType: "projects.project", SourceId: p.Id)), transactionCt);
             foreach (var ts in plan.Time) { ts.IsBilled = true; ts.InvoiceId = invoice.Id; }

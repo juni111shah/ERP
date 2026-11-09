@@ -54,17 +54,83 @@ public class ArchitectureTests
         Assert.True(Types.InAssembly(typeof(ERP.Modules.Pos.PosModule).Assembly).ShouldNot().HaveDependencyOnAny("ERP.Modules.RealEstate", "ERP.Modules.Inventory", "ERP.Modules.Hr", "ERP.Modules.Projects", "ERP.Modules.Sales", "ERP.Modules.Purchasing", "ERP.Modules.Retail").GetResult().IsSuccessful);
     }
 
-    // ---- Endpoint -> MediatR (CQRS) -> Repository -> DB --------------------------------------------------------------
+    // ---- Controller -> Command/Query handler -> Repository -> Database ------------------------------------------------
 
-    private static readonly System.Reflection.Assembly ApiAssembly = typeof(ERP.Api.Endpoints.CoreEndpoints).Assembly;
+    private static readonly System.Reflection.Assembly ApiAssembly = typeof(ERP.Api.Infrastructure.ControllerSetup).Assembly;
+
+    private static readonly System.Reflection.Assembly[] ModuleAssemblies =
+    [
+        typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly, typeof(ERP.Modules.Hr.HrModule).Assembly, typeof(ERP.Modules.Projects.ProjectsModule).Assembly,
+        typeof(ERP.Modules.Sales.SalesModule).Assembly, typeof(ERP.Modules.Purchasing.PurchasingModule).Assembly, typeof(ERP.Modules.Pos.PosModule).Assembly,
+        typeof(ERP.Modules.Retail.RetailModule).Assembly, typeof(ERP.Modules.Distribution.DistributionModule).Assembly, typeof(ERP.Modules.Manufacturing.ManufacturingModule).Assembly,
+        typeof(ERP.Modules.Crm.CrmModule).Assembly, typeof(ERP.Modules.Services.ServicesModule).Assembly, typeof(ERP.Modules.Assets.AssetsModule).Assembly,
+        typeof(ERP.Modules.Assistant.AssistantModule).Assembly, typeof(ERP.Modules.IndustryPacks.Packs.ContractsModule).Assembly,
+    ];
+
+    /// <summary>Every assembly that holds commands, queries and their handlers.</summary>
+    private static readonly System.Reflection.Assembly[] CqrsAssemblies = [typeof(CorePermissions).Assembly, typeof(ModuleRegistry).Assembly, .. ModuleAssemblies];
+
+    private static IEnumerable<Type> Controllers() => new[] { ApiAssembly }.Concat(ModuleAssemblies).SelectMany(a => a.GetTypes())
+        .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(Microsoft.AspNetCore.Mvc.ControllerBase).IsAssignableFrom(t));
 
     [Fact]
-    public void Endpoints_only_talk_to_the_mediator()
+    public void Controllers_only_talk_to_the_mediator()
     {
-        // No repositories, services, DbContext or EF in an endpoint: it binds the request, sends one command/query and shapes the HTTP result.
-        var result = Types.InAssembly(ApiAssembly).That().ResideInNamespace("ERP.Api.Endpoints").ShouldNot()
+        // No repositories, services, DbContext or EF in a controller: it binds the request, sends one command/query and shapes the HTTP result.
+        var result = Types.InAssemblies([ApiAssembly, .. ModuleAssemblies]).That().Inherit(typeof(Microsoft.AspNetCore.Mvc.ControllerBase)).ShouldNot()
             .HaveDependencyOnAny("ERP.Infrastructure", "Microsoft.EntityFrameworkCore", "ERP.Application.Abstractions").GetResult();
-        Assert.True(result.IsSuccessful, "Endpoints must only use MediatR: " + string.Join(", ", result.FailingTypeNames ?? []));
+        Assert.True(result.IsSuccessful, "Controllers must only use MediatR: " + string.Join(", ", result.FailingTypeNames ?? []));
+    }
+
+    [Fact]
+    public void Controllers_derive_from_the_api_base_and_live_in_a_controllers_namespace()
+    {
+        var wrong = Controllers()
+            .Where(t => !typeof(ERP.Modularity.Web.ApiControllerBase).IsAssignableFrom(t) || !t.Name.EndsWith("Controller", StringComparison.Ordinal)
+                || t.Namespace?.Contains(".Controllers", StringComparison.Ordinal) != true)
+            .Select(t => t.FullName);
+        Assert.Empty(wrong);
+    }
+
+    [Fact]
+    public void Module_controllers_are_gated_by_their_module_and_mounted_under_its_prefix()
+    {
+        foreach (var controller in Controllers().Where(t => ModuleAssemblies.Contains(t.Assembly)))
+        {
+            var gate = controller.GetCustomAttributes(typeof(ModuleGateAttribute), true).Cast<ModuleGateAttribute>().SingleOrDefault();
+            Assert.True(gate is not null, $"{controller.FullName} needs [ModuleGate(\"<module key>\")].");
+            var route = controller.GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.RouteAttribute), true).Cast<Microsoft.AspNetCore.Mvc.RouteAttribute>().Single().Template;
+            Assert.True(route == $"api/v1/m/{gate.ModuleKey}" || route.StartsWith($"api/v1/m/{gate.ModuleKey}/", StringComparison.Ordinal),
+                $"{controller.FullName}: route '{route}' must start with api/v1/m/{gate.ModuleKey}.");
+        }
+    }
+
+    [Fact]
+    public void Every_request_is_a_command_or_a_query_and_named_so()
+    {
+        static bool Implements(Type t, Type openGeneric) => t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == openGeneric);
+        var wrong = CqrsAssemblies.SelectMany(a => a.GetTypes())
+            .Where(t => t is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false } && Implements(t, typeof(MediatR.IRequest<>)))
+            .Where(t => !Implements(t, typeof(ERP.Application.Common.IListRequest<>)))
+            .Where(t => Implements(t, typeof(ERP.Application.Common.ICommand<>)) ? !t.Name.EndsWith("Command", StringComparison.Ordinal)
+                : !Implements(t, typeof(ERP.Application.Common.IQuery<>)) || !t.Name.EndsWith("Query", StringComparison.Ordinal))
+            .Select(t => t.FullName);
+        Assert.Empty(wrong);
+    }
+
+    [Fact]
+    public void Every_handler_handles_exactly_one_request_and_is_named_after_it()
+    {
+        var wrong = CqrsAssemblies.SelectMany(a => a.GetTypes())
+            .Where(t => t is { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false })
+            .Select(t => (Type: t, Requests: t.GetInterfaces().Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(MediatR.IRequestHandler<,>)).Select(i => i.GetGenericArguments()[0]).ToList()))
+            .Where(h => h.Requests.Count > 0)
+            .Where(h => h.Requests.Count != 1 || h.Type.Name != StripSuffix(h.Requests[0].Name) + "Handler")
+            .Select(h => $"{h.Type.FullName} handles {string.Join(", ", h.Requests.Select(r => r.Name))}");
+        Assert.Empty(wrong);
+
+        static string StripSuffix(string name) => name.EndsWith("Command", StringComparison.Ordinal) ? name[..^"Command".Length]
+            : name.EndsWith("Query", StringComparison.Ordinal) ? name[..^"Query".Length] : name;
     }
 
     [Fact]
@@ -84,21 +150,38 @@ public class ArchitectureTests
     }
 
     [Fact]
-    public void Module_code_outside_handlers_never_touches_repositories()
+    public void Module_code_outside_handlers_and_repositories_never_touches_repositories()
     {
-        foreach (var assembly in new[] { typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly, typeof(ERP.Modules.Hr.HrModule).Assembly, typeof(ERP.Modules.Projects.ProjectsModule).Assembly, typeof(ERP.Modules.Sales.SalesModule).Assembly, typeof(ERP.Modules.Purchasing.PurchasingModule).Assembly, typeof(ERP.Modules.Pos.PosModule).Assembly, typeof(ERP.Modules.Retail.RetailModule).Assembly, typeof(ERP.Modules.Distribution.DistributionModule).Assembly, typeof(ERP.Modules.Manufacturing.ManufacturingModule).Assembly, typeof(ERP.Modules.Crm.CrmModule).Assembly, typeof(ERP.Modules.Services.ServicesModule).Assembly, typeof(ERP.Modules.Assets.AssetsModule).Assembly })
+        foreach (var assembly in ModuleAssemblies)
         {
-            var result = Types.InAssembly(assembly).That().DoNotHaveNameEndingWith("Handlers").And().DoNotResideInNamespaceContaining(".Features")
+            var result = Types.InAssembly(assembly).That().DoNotHaveNameEndingWith("Handler").And().DoNotResideInNamespaceContaining(".Features")
+                .And().DoNotResideInNamespaceContaining(".Repositories")
                 .ShouldNot().HaveDependencyOnAny("ERP.Application.Abstractions.IRepository`1", "ERP.Application.Abstractions.IReadRepository`1").GetResult();
-            Assert.True(result.IsSuccessful, "Module endpoints must send MediatR requests: " + string.Join(", ", result.FailingTypeNames ?? []));
+            Assert.True(result.IsSuccessful, "Module controllers must send MediatR requests: " + string.Join(", ", result.FailingTypeNames ?? []));
         }
+    }
+
+    [Fact]
+    public void Repository_implementations_live_in_infrastructure_or_a_module_repositories_namespace()
+    {
+        static bool IsRepository(Type t)
+        {
+            for (var b = t.BaseType; b is not null; b = b.BaseType)
+                if (b.IsGenericType && b.GetGenericTypeDefinition() == typeof(ERP.Application.Abstractions.RepositoryBase<>)) return true;
+            return false;
+        }
+        var wrong = new[] { typeof(CorePermissions).Assembly, typeof(AppDbContext).Assembly }.Concat(ModuleAssemblies).SelectMany(a => a.GetTypes())
+            .Where(t => t is { IsClass: true, IsAbstract: false } && IsRepository(t))
+            .Where(t => t.Namespace?.Contains(".Repositories", StringComparison.Ordinal) != true || !t.Name.EndsWith("Repository", StringComparison.Ordinal))
+            .Select(t => t.FullName);
+        Assert.Empty(wrong);
     }
 
     [Fact]
     public void Every_mediator_request_has_a_handler()
     {
         // Catches a request type that was added without a handler (it would only fail at runtime on first use).
-        var assemblies = new[] { typeof(CorePermissions).Assembly, typeof(ModuleRegistry).Assembly, typeof(InventoryModule).Assembly, typeof(RealEstateModule).Assembly, typeof(ERP.Modules.Hr.HrModule).Assembly, typeof(ERP.Modules.Projects.ProjectsModule).Assembly, typeof(ERP.Modules.Sales.SalesModule).Assembly, typeof(ERP.Modules.Purchasing.PurchasingModule).Assembly, typeof(ERP.Modules.Pos.PosModule).Assembly, typeof(ERP.Modules.Retail.RetailModule).Assembly, typeof(ERP.Modules.Distribution.DistributionModule).Assembly, typeof(ERP.Modules.Manufacturing.ManufacturingModule).Assembly, typeof(ERP.Modules.Crm.CrmModule).Assembly, typeof(ERP.Modules.Services.ServicesModule).Assembly, typeof(ERP.Modules.Assets.AssetsModule).Assembly };
+        var assemblies = CqrsAssemblies;
         var handled = assemblies.SelectMany(a => a.GetTypes())
             .SelectMany(t => t.GetInterfaces()).Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(MediatR.IRequestHandler<,>))
             .Select(i => i.GetGenericArguments()[0]).ToHashSet();

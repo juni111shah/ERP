@@ -74,8 +74,8 @@ public sealed class AssistantModule : ModuleBase
         group.MapDelete("/conversations/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteAssistantConversation(id), ct); return Results.NoContent(); }).RequirePermission(ChatsUse);
         // Asking changes nothing in the business, so a view-only workspace can still ask. Confirming a change stays blocked there.
         group.MapPost("/messages", (WorkspaceMessageInput input, ISender s, CancellationToken ct) => new AssistantStreamResult(s.CreateStream(new AskWorkspaceAssistant(input), ct)))
-            .RequirePermission(ChatsUse).WithMetadata(new AllowedInReadOnlyWorkspace());
+            .RequirePermission(ChatsUse).WithMetadata(new AllowedInReadOnlyWorkspaceAttribute());
         group.MapPost("/actions/{id:guid}/confirm", (Guid id, ISender s, CancellationToken ct) => s.Send(new ConfirmAssistantAction(id), ct)).RequirePermission(ChatsUse);
-        group.MapPost("/actions/{id:guid}/cancel", (Guid id, ISender s, CancellationToken ct) => s.Send(new CancelAssistantAction(id), ct)).RequirePermission(ChatsUse).WithMetadata(new AllowedInReadOnlyWorkspace());
+        group.MapPost("/actions/{id:guid}/cancel", (Guid id, ISender s, CancellationToken ct) => s.Send(new CancelAssistantAction(id), ct)).RequirePermission(ChatsUse).WithMetadata(new AllowedInReadOnlyWorkspaceAttribute());
     }
 }

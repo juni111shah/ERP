@@ -9,8 +9,8 @@ backend/
   src/ERP.Domain          entities, enums, domain rules, list attributes. No dependencies.
   src/ERP.Application     use cases (MediatR commands/queries + handlers), validation, abstractions (IRepository<T>, IEntityStore, IUserDirectory...), paging, ApiResponse
   src/ERP.Infrastructure  EF Core (SQL Server only; tests use an in-memory SQLite harness), Identity, auth, generic EfRepository<T>, services
-  src/ERP.Modularity      IModule contract, registry, module gate, API envelope filter, one-line list endpoints
-  src/ERP.Api             composition root, minimal-API endpoints, middleware, SignalR hub
+  src/ERP.Modularity      IModule contract, registry, module/capability gates, ApiControllerBase, API envelope filter
+  src/ERP.Api             composition root, API controllers (Controllers/<Area>), middleware, SignalR hub
   modules/ERP.Modules.*   pluggable modules (RealEstate, Inventory sample)
   countrypacks/ERP.CountryPacks.*  country rules (tax codes, country-specific custom fields); referenced only by the host
   tests/                  unit (domain, paging, custom fields, architecture rules) and integration (WebApplicationFactory)
@@ -21,19 +21,41 @@ deploy/                   docker-compose for local SQL Server + API
 
 Dependency rule: Domain ← Application ← Infrastructure ← Api. Modules reference Application + Modularity only. NetArchTest rules enforce: core never references a module or country pack, modules never reference each other, Domain references nothing.
 
-## Request flow: Endpoint → MediatR (CQRS) → Repository → DB
+## Request flow: Controller → Command/Query → Repository → Database
 ```
-HTTP  →  Endpoint (ERP.Api.Endpoints)        binds the request, sends ONE command/query, shapes the HTTP result
-      →  MediatR pipeline                    AuthorizationBehavior (IRequirePermission) → ValidationBehavior (FluentValidation)
-      →  Handler (ERP.Application)           business rules; orchestrates repositories and application services
-      →  IRepository<T> / IReadRepository<T> generic EfRepository<T> (Infrastructure), tenant / legal-entity / soft-delete filters
-      →  DbContext → database
+HTTP  →  1. Controller          ERP.Api/Controllers/<Area>/  or  modules/<Module>/Controllers/
+                                binds the request, sends ONE command or query, shapes the HTTP result. No rules, no data access.
+      →  MediatR pipeline       AuthorizationBehavior (IRequirePermission) → ValidationBehavior (FluentValidation) → concurrency retry
+      →  2. Handler (CQRS)      one class per command/query; the business rules, written as numbered steps
+      →  3. Repository          I<Entity>Repository: named data methods (GetWithLinesAsync, TotalCreditedAsync...); all LINQ lives here
+      →  4. Database            EF Core DbContext (tenant, legal-entity and soft-delete filters always apply) → SQL Server
 ```
-- Queries (`IQuery<T>`) read through `IReadRepository<T>`; commands (`ICommand<T>`, `ICommand`) write through `IRepository<T>` / `IUnitOfWork`.
-- **Endpoints never touch repositories, services, `DbContext` or EF.** Cookies, headers, files and the client IP are HTTP concerns: the endpoint reads them and passes plain values into the request.
-- **Application never sees the `DbContext`.** Infrastructure services that genuinely talk to a store (Identity, JWT/refresh tokens, onboarding) sit behind Application interfaces (`IAuthService`, `IUserDirectory`, `IOnboardingService`, `IEntityStore`).
-- Lists need no handler: `MapPagedList<T, TDto>` sends a `ListQuery<T, TDto>` that one open-generic `ListRequestHandler` executes.
-- Enforced by `ArchitectureTests`: endpoints depend only on MediatR + request/DTO types, the API host references Infrastructure only in `Program.cs`, Application has no `DbContext`/`DbSet` dependency, module code outside handlers has no repository dependency, and every request type has a handler.
+
+### Where things go (core)
+```
+src/ERP.Api/Controllers/Finance/InvoicesController.cs           routes of one resource; one small method per route
+src/ERP.Application/Finance/Invoices/                           one folder per feature (namespace stays ERP.Application.Finance)
+    Commands/CreateInvoice/CreateInvoiceCommand.cs              the request: a record, ICommand<TResult>, its permission
+    Commands/CreateInvoice/CreateInvoiceValidator.cs            FluentValidation rules for the request (when it has input)
+    Commands/CreateInvoice/CreateInvoiceHandler.cs              ICommandHandler<CreateInvoiceCommand, InvoiceDto>
+    Queries/GetInvoiceById/GetInvoiceByIdQuery.cs               IQuery<TResult>
+    Queries/GetInvoiceById/GetInvoiceByIdHandler.cs             IQueryHandler<GetInvoiceByIdQuery, InvoiceDto>
+    Dtos/                                                       request bodies (InvoiceInput) and responses (InvoiceDto)
+    Validators/                                                 validators shared by several commands (InvoiceInputValidator)
+    IInvoiceRepository.cs                                       the data methods the handlers need
+    InvoiceCreditCaps.cs                                        rules shared by several handlers of the feature (a service, not a base class)
+src/ERP.Infrastructure/Repositories/Finance/InvoiceRepository.cs the implementation: RepositoryBase<Invoice> + the named queries
+```
+Modules use the same shape inside the module project: `Controllers/`, `Features/<Feature>/{Commands,Queries,Dtos}` and `Repositories/` (interface and implementation).
+
+### Rules
+- **Names:** a request is `<Verb><Thing>Command` or `<Verb><Thing>Query`; its handler is `<Verb><Thing>Handler` and handles only that request; its validator is `<Verb><Thing>Validator`.
+- **Controllers** derive from `ApiControllerBase`, carry `[Route("api/v1/...")]`, one `[Http...]` + `[RequirePermission(...)]` (or `[Authorize]`/`[AllowAnonymous]`) per action, and return the value, `Created(...)` or `NoContent()`. The `ApiResponse<T>` envelope is added by `ApiEnvelopeResultFilter`. Module controllers add `[ModuleGate("<key>")]` and route under `api/v1/m/<key>/`; optional core areas add `[CapabilityGate("<key>")]`.
+- **Controllers never touch repositories, services, `DbContext` or EF.** Cookies, headers, files and the client IP are HTTP concerns: the controller reads them and passes plain values into the request.
+- **Handlers** depend on repositories and application services, never on `AppDbContext`. Plain loads and saves can use the generic `IRepository<T>`; any query with more than a simple filter goes into a named method of the entity repository. Rules shared by several handlers go into a small service of the feature.
+- **Repositories** derive from `RepositoryBase<T>` (which wraps the generic repository, so every filter still applies) and are registered automatically.
+- Lists need no handler: a controller action calls `PagedList(query, SomeDto.Projection, permission, ct)`, which sends a `ListQuery<T, TDto>` that one open-generic `ListRequestHandler` executes.
+- Enforced by `ArchitectureTests` (controllers only use MediatR, module controllers are gated, every request is a named command/query with exactly one handler named after it, repositories live in `Repositories`, Application has no `DbContext`) and by `ApiRouteSnapshotTests` (every route, permission, gate and rate limit matches `api-routes.snapshot.txt`, and every route is a controller action).
 
 ## Country packs
 `ICountryPack` (Application) supplies a country's tax codes and country-specific custom fields. A pack is its own project under `backend/countrypacks`, registered only by the host, and applied by onboarding when a workspace is created with that country code; countries without a pack get the neutral core defaults. `ERP.CountryPacks.AE` provides VAT 5%/0%/exempt and the party fields TRN, Emirates ID, trade licence number and licensing authority. Pack fields are ordinary custom fields afterwards (editable, validated, searchable).
@@ -45,8 +67,9 @@ HTTP  →  Endpoint (ERP.Api.Endpoints)        binds the request, sends ONE comm
 - Soft delete (`ISoftDelete`) is a global filter; audit stamps and the audit trail are written by `AuditSaveChangesInterceptor`.
 - Keys are sequential GUIDs (`SequentialGuid`) to keep clustered indexes append-only.
 
-## Data access: generic repository
-- `IReadRepository<T>` / `IRepository<T>` (Application) with `ISpecification<T>` / `Specification<T>` for criteria and includes; implemented once by `EfRepository<T>` (Infrastructure) and registered as open generics. No per-entity repositories.
+## Data access: repositories
+- `IReadRepository<T>` / `IRepository<T>` (Application) with `ISpecification<T>` / `Specification<T>` for criteria and includes; implemented once by `EfRepository<T>` (Infrastructure) and registered as open generics.
+- Entity repositories (`IInvoiceRepository : IRepository<Invoice>`) add named queries on top. Their implementations derive from `RepositoryBase<T>`, live in `ERP.Infrastructure/Repositories/<Area>/` (core) or `<Module>/Repositories/` (modules) and are registered by `AddRepositories`.
 - The request's `DbContext` is the unit of work (`IUnitOfWork`, `IRepository<T>.SaveChangesAsync`).
 - Handlers depend on abstractions (`IRepository<T>`, `IUnitOfWork`, `IEntityStore` for metadata-driven access by CLR type), never on `AppDbContext`. `IAppDbContext` is internal to Infrastructure.
 
@@ -55,17 +78,19 @@ HTTP  →  Endpoint (ERP.Api.Endpoints)        binds the request, sends ONE comm
   Filter ops: `eq ne gt gte lt lte contains startsWith in (a|b) has (flags) isNull isNotNull`. Page size is clamped to 1..200.
 - Whitelist by attribute on the entity: `[Searchable]`, `[Sortable]`, `[Filterable]`, `[Listable]` (= all three), `[DefaultSort("code")]`. Anything not annotated is rejected with 400 (e.g. sensitive fields can never be sorted or filtered).
 - `IQueryable` extensions: `ApplySearch`, `ApplyFilters`, `ApplySort` (always ends with `Id` for stable paging), `ApplyPaging`, `ToPagedResultAsync` (with optional server-side projection). Values are sent as SQL parameters.
-- A new table gets a full list endpoint in one line:
+- A new table gets a full list endpoint in one controller action:
   ```csharp
-  group.MapPagedList<Warehouse, WarehouseDto>("/warehouses", WarehousesRead, w => new WarehouseDto(...));
+  [HttpGet("warehouses")] [RequirePermission(WarehousesRead)]
+  public Task<PagedResult<WarehouseDto>> ListWarehouses([FromQuery] PagedQuery query, CancellationToken ct)
+      => PagedList(query, WarehouseDto.Projection, WarehousesRead, ct);
   // with custom fields:
-  group.MapPagedList<Item, object>("", CorePermissions.ItemsRead, "item", (i, cf) => new { i.Id, i.Name, customFields = cf });
+  => PagedList<Item, ItemDto>(query, "item", ItemDto.From, CorePermissions.ItemsRead, ct);
   ```
 - Frontend: `CrudApiService<TDto, TInput>` (one line per resource), `createPagedList(source)` state, and the `<erp-paged-table>` component (search box, server sort, paging, empty/loading states).
 
 ## API conventions
 - Versioned under `/api/v1`; module APIs under `/api/v1/m/{moduleKey}/...`. A disabled module returns 403 with type `.../module-disabled`; its data is kept.
-- **Response envelope** on every endpoint (applied by `ApiEnvelopeFilter` on the `/api/v1` group; endpoints return plain values / `Results.Ok` / `Results.Created`):
+- **Response envelope** on every endpoint (applied by `ApiEnvelopeResultFilter` to every controller; actions return plain values / `Created(...)` / `NoContent()`):
   ```json
   { "success": true, "statusCode": 200, "message": "OK", "data": { }, "traceId": "..." }
   { "success": true, "statusCode": 200, "message": "OK", "data": [ ], "meta": { "page": 1, "pageSize": 25, "total": 3, "totalPages": 1, "hasNext": false, "hasPrevious": false }, "traceId": "..." }

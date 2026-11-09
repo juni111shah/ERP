@@ -143,6 +143,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddSignalR();
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
+builder.Services.AddApiControllers(modules);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -238,10 +239,13 @@ var registry = app.Services.GetRequiredService<ModuleRegistry>();
 foreach (var module in registry.Modules)
 {
     var group = api.MapGroup($"/m/{module.Manifest.Key}")
-        .WithMetadata(new ModuleGateMetadata(module.Manifest.Key))
+        .WithMetadata(new ModuleGateAttribute(module.Manifest.Key))
         .WithTags($"Module: {module.Manifest.Name}");
     module.MapEndpoints(group);
 }
+
+// API controllers (core: ERP.Api/Controllers, modules: ERP.Modules.*/Controllers).
+app.MapControllers();
 
 app.MapHub<NotificationsHub>("/hubs/notifications");
 app.MapHealthChecks("/health").AllowAnonymous();

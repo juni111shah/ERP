@@ -16,7 +16,7 @@ public static class ChequeEndpoints
 {
     public static void MapCheques(this RouteGroupBuilder api)
     {
-        var g = api.MapGroup("/finance/cheques").WithTags("Cheques").WithMetadata(new ERP.Modularity.CapabilityGateMetadata("cheques"));
+        var g = api.MapGroup("/finance/cheques").WithTags("Cheques").WithMetadata(new ERP.Modularity.CapabilityGateAttribute("cheques"));
         g.MapPagedList<PaymentInstrument, ChequeSummaryRow>("", CorePermissions.ChequesRead,
             c => new ChequeSummaryRow(c.Id, c.Number, c.Kind, c.Direction, c.InstrumentNo, c.BankName, c.PartyId, c.PartyName, c.Amount, c.InstrumentDate, c.Status, c.CurrencyCode, c.BouncedOn, c.FollowUpOn));
         g.MapGet("/summary", (DateOnly? asOf, ISender s, CancellationToken ct) => s.Send(new GetChequeSummary(asOf ?? DateOnly.FromDateTime(DateTime.UtcNow)), ct)).RequirePermission(CorePermissions.ChequesRead);

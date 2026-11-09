@@ -1,0 +1,1312 @@
+DELETE api/v1/approval-policies/{id:guid} | auth=perm:core.settings.write
+DELETE api/v1/attachments/{id:guid} | auth=perm:core.attachments.write
+DELETE api/v1/billing/change-request | auth=perm:core.billing.manage
+DELETE api/v1/custom-fields/{id:guid} | auth=perm:core.customfields.manage
+DELETE api/v1/finance/bills/{id:guid} | auth=perm:finance.bills.write
+DELETE api/v1/finance/budgets/{id:guid} | auth=perm:finance.budgets.write | capability=budgets
+DELETE api/v1/finance/invoices/{id:guid} | auth=perm:finance.invoices.write
+DELETE api/v1/finance/journals/{id:guid} | auth=perm:finance.journals.write
+DELETE api/v1/finance/payments/{id:guid} | auth=perm:finance.payments.write
+DELETE api/v1/m/agriculture/records/crops/{id:guid} | auth=perm:agriculture.crops.manage | module=agriculture
+DELETE api/v1/m/agriculture/records/feed/{id:guid} | auth=perm:agriculture.feed.manage | module=agriculture
+DELETE api/v1/m/agriculture/records/harvests/{id:guid} | auth=perm:agriculture.harvests.manage | module=agriculture
+DELETE api/v1/m/agriculture/records/herds/{id:guid} | auth=perm:agriculture.herds.manage | module=agriculture
+DELETE api/v1/m/agriculture/records/production/{id:guid} | auth=perm:agriculture.production.manage | module=agriculture
+DELETE api/v1/m/agriculture/records/vetcare/{id:guid} | auth=perm:agriculture.vetcare.manage | module=agriculture
+DELETE api/v1/m/assets/categories/{id:guid} | auth=perm:assets.categories.manage | module=assets
+DELETE api/v1/m/assets/register/{id:guid} | auth=perm:assets.register.manage | module=assets
+DELETE api/v1/m/assistant/conversations/{id:guid} | auth=perm:assistant.chats.use | module=assistant
+DELETE api/v1/m/construction/records/boqs/{id:guid} | auth=perm:construction.boqs.manage | module=construction
+DELETE api/v1/m/construction/records/equipment/{id:guid} | auth=perm:construction.equipment.manage | module=construction
+DELETE api/v1/m/construction/records/materialissues/{id:guid} | auth=perm:construction.materialissues.manage | module=construction
+DELETE api/v1/m/construction/records/sitereports/{id:guid} | auth=perm:construction.sitereports.manage | module=construction
+DELETE api/v1/m/construction/records/sites/{id:guid} | auth=perm:construction.sites.manage | module=construction
+DELETE api/v1/m/construction/records/subcontractorpayments/{id:guid} | auth=perm:construction.subcontractorpayments.manage | module=construction
+DELETE api/v1/m/construction/records/subcontracts/{id:guid} | auth=perm:construction.subcontracts.manage | module=construction
+DELETE api/v1/m/construction/records/valuations/{id:guid} | auth=perm:construction.valuations.manage | module=construction
+DELETE api/v1/m/contracts/records/agreements/{id:guid} | auth=perm:contracts.agreements.manage | module=contracts
+DELETE api/v1/m/distribution/routes/{id:guid} | auth=perm:distribution.routes.manage | module=distribution
+DELETE api/v1/m/distribution/wholesale/{id:guid} | auth=perm:distribution.pricing.manage | module=distribution
+DELETE api/v1/m/education/records/admissions/{id:guid} | auth=perm:education.admissions.manage | module=education
+DELETE api/v1/m/education/records/classes/{id:guid} | auth=perm:education.classes.manage | module=education
+DELETE api/v1/m/education/records/exams/{id:guid} | auth=perm:education.exams.manage | module=education
+DELETE api/v1/m/education/records/fees/{id:guid} | auth=perm:education.fees.manage | module=education
+DELETE api/v1/m/education/records/results/{id:guid} | auth=perm:education.results.manage | module=education
+DELETE api/v1/m/education/records/sessions/{id:guid} | auth=perm:education.sessions.manage | module=education
+DELETE api/v1/m/education/records/students/{id:guid} | auth=perm:education.students.manage | module=education
+DELETE api/v1/m/expenses/records/claims/{id:guid} | auth=perm:expenses.claims.manage | module=expenses
+DELETE api/v1/m/healthcare/records/appointments/{id:guid} | auth=perm:healthcare.appointments.manage | module=healthcare
+DELETE api/v1/m/healthcare/records/claims/{id:guid} | auth=perm:healthcare.claims.manage | module=healthcare
+DELETE api/v1/m/healthcare/records/dispensings/{id:guid} | auth=perm:healthcare.dispensings.manage | module=healthcare
+DELETE api/v1/m/healthcare/records/labtests/{id:guid} | auth=perm:healthcare.labtests.manage | module=healthcare
+DELETE api/v1/m/healthcare/records/medicalbills/{id:guid} | auth=perm:healthcare.medicalbills.manage | module=healthcare
+DELETE api/v1/m/healthcare/records/patients/{id:guid} | auth=perm:healthcare.patients.manage | module=healthcare
+DELETE api/v1/m/hospitality/records/events/{id:guid} | auth=perm:hospitality.events.manage | module=hospitality
+DELETE api/v1/m/hospitality/records/reservations/{id:guid} | auth=perm:hospitality.reservations.manage | module=hospitality
+DELETE api/v1/m/hospitality/records/rooms/{id:guid} | auth=perm:hospitality.rooms.manage | module=hospitality
+DELETE api/v1/m/hospitality/records/waste/{id:guid} | auth=perm:hospitality.waste.manage | module=hospitality
+DELETE api/v1/m/hr/attendance/daily/{id:guid} | auth=perm:hr.attendance.manage | module=hr
+DELETE api/v1/m/hr/attendance/{id:guid} | auth=perm:hr.attendance.manage | module=hr
+DELETE api/v1/m/hr/checklists/{id:guid} | auth=perm:hr.employees.manage | module=hr
+DELETE api/v1/m/hr/departments/{id:guid} | auth=perm:hr.employees.manage | module=hr
+DELETE api/v1/m/hr/documents/{id:guid} | auth=perm:hr.employees.manage | module=hr
+DELETE api/v1/m/hr/employees/{id:guid} | auth=perm:hr.employees.manage | module=hr
+DELETE api/v1/m/hr/holidays/{id:guid} | auth=perm:hr.leave.approve | module=hr
+DELETE api/v1/m/hr/openings/{id:guid} | auth=perm:hr.recruitment.manage | module=hr
+DELETE api/v1/m/hr/payroll/{id:guid} | auth=perm:hr.payroll.manage | module=hr
+DELETE api/v1/m/hr/positions/{id:guid} | auth=perm:hr.employees.manage | module=hr
+DELETE api/v1/m/hr/reviews/{id:guid} | auth=perm:hr.reviews.manage | module=hr
+DELETE api/v1/m/hr/shifts/roster/{id:guid} | auth=perm:hr.attendance.manage | module=hr
+DELETE api/v1/m/hr/shifts/{id:guid} | auth=perm:hr.attendance.manage | module=hr
+DELETE api/v1/m/hr/statutory-rules/{id:guid} | auth=perm:hr.payroll.manage | module=hr
+DELETE api/v1/m/hr/tasks/{id:guid} | auth=perm:hr.employees.manage | module=hr
+DELETE api/v1/m/logistics/records/deliveryexpenses/{id:guid} | auth=perm:logistics.deliveryexpenses.manage | module=logistics
+DELETE api/v1/m/logistics/records/drivers/{id:guid} | auth=perm:logistics.drivers.manage | module=logistics
+DELETE api/v1/m/logistics/records/fuel/{id:guid} | auth=perm:logistics.fuel.manage | module=logistics
+DELETE api/v1/m/logistics/records/maintenance/{id:guid} | auth=perm:logistics.maintenance.manage | module=logistics
+DELETE api/v1/m/logistics/records/shipments/{id:guid} | auth=perm:logistics.shipments.manage | module=logistics
+DELETE api/v1/m/logistics/records/vehicles/{id:guid} | auth=perm:logistics.vehicles.manage | module=logistics
+DELETE api/v1/m/manufacturing/boms/{id:guid} | auth=perm:manufacturing.boms.manage | module=manufacturing
+DELETE api/v1/m/pos/orders/{id:guid}/park | auth=perm:pos.orders.create | module=pos
+DELETE api/v1/m/pos/registers/{id:guid} | auth=perm:pos.registers.manage | module=pos
+DELETE api/v1/m/projects/allocations/{id:guid} | auth=perm:projects.team.manage | module=projects
+DELETE api/v1/m/projects/budget-lines/{id:guid} | auth=perm:projects.projects.manage | module=projects
+DELETE api/v1/m/projects/change-orders/{id:guid} | auth=perm:projects.changeorders.manage | module=projects
+DELETE api/v1/m/projects/comments/{id:guid} | auth=perm:projects.projects.read | module=projects
+DELETE api/v1/m/projects/expenses/{id:guid} | auth=perm:projects.expenses.manage | module=projects
+DELETE api/v1/m/projects/milestones/{id:guid} | auth=perm:projects.milestones.manage | module=projects
+DELETE api/v1/m/projects/projects/members/{memberid:guid} | auth=perm:projects.team.manage | module=projects
+DELETE api/v1/m/projects/projects/{id:guid} | auth=perm:projects.projects.manage | module=projects
+DELETE api/v1/m/projects/rates/{id:guid} | auth=perm:projects.rates.manage | module=projects
+DELETE api/v1/m/projects/risks/{id:guid} | auth=perm:projects.risks.manage | module=projects
+DELETE api/v1/m/projects/tasks/{id:guid} | auth=perm:projects.tasks.manage | module=projects
+DELETE api/v1/m/projects/timesheets/{id:guid} | auth=perm:projects.timesheets.manage | module=projects
+DELETE api/v1/m/propertysales/records/allotments/{id:guid} | auth=perm:propertysales.allotments.manage | module=propertysales
+DELETE api/v1/m/propertysales/records/salecontracts/{id:guid} | auth=perm:propertysales.salecontracts.manage | module=propertysales
+DELETE api/v1/m/propertysales/records/valuations/{id:guid} | auth=perm:propertysales.valuations.manage | module=propertysales
+DELETE api/v1/m/purchasing/orders/{id:guid} | auth=perm:purchasing.orders.manage | module=purchasing
+DELETE api/v1/m/purchasing/receipts/{id:guid} | auth=perm:purchasing.receipts.manage | module=purchasing
+DELETE api/v1/m/purchasing/requisitions/{id:guid} | auth=perm:purchasing.requisitions.manage | module=purchasing
+DELETE api/v1/m/purchasing/returns/{id:guid} | auth=perm:purchasing.returns.manage | module=purchasing
+DELETE api/v1/m/quality/records/inspections/{id:guid} | auth=perm:quality.inspections.manage | module=quality
+DELETE api/v1/m/quality/records/nonconformances/{id:guid} | auth=perm:quality.nonconformances.manage | module=quality
+DELETE api/v1/m/quality/records/plans/{id:guid} | auth=perm:quality.plans.manage | module=quality
+DELETE api/v1/m/retail/pricelists/{id:guid} | auth=perm:retail.pricelists.manage | module=retail
+DELETE api/v1/m/retail/promotions/{id:guid} | auth=perm:retail.promotions.manage | module=retail
+DELETE api/v1/m/retail/stores/{id:guid} | auth=perm:retail.stores.manage | module=retail
+DELETE api/v1/m/sales/orders/{id:guid} | auth=perm:sales.orders.manage | module=sales
+DELETE api/v1/m/sales/quotes/{id:guid} | auth=perm:sales.quotes.manage | module=sales
+DELETE api/v1/m/sales/returns/{id:guid} | auth=perm:sales.returns.manage | module=sales
+DELETE api/v1/m/services/time-entries/{id:guid} | auth=perm:services.timeentries.manage | module=services
+DELETE api/v1/m/trade/records/exports/{id:guid} | auth=perm:trade.exports.manage | module=trade
+DELETE api/v1/m/trade/records/imports/{id:guid} | auth=perm:trade.imports.manage | module=trade
+DELETE api/v1/m/trade/records/lettersofcredit/{id:guid} | auth=perm:trade.lettersofcredit.manage | module=trade
+DELETE api/v1/party-groups/{id:guid} | auth=perm:core.partygroups.write
+DELETE api/v1/platform-admin/assistant/providers/{id:guid} | auth=platform-admin
+DELETE api/v1/platform-admin/leads/{id:guid} | auth=platform-admin
+DELETE api/v1/platform-admin/team/{userid:guid} | auth=platform-admin
+GET api/v1/approval-policies | auth=perm:core.settings.read
+GET api/v1/approvals | auth=authenticated
+GET api/v1/approvals/{id:guid} | auth=authenticated
+GET api/v1/attachments | auth=perm:core.attachments.read
+GET api/v1/attachments/vault | auth=perm:core.attachments.read
+GET api/v1/attachments/{id:guid}/download | auth=perm:core.attachments.read
+GET api/v1/audit | auth=perm:core.audit.read
+GET api/v1/audit/facets | auth=perm:core.audit.read
+GET api/v1/audit/record | auth=perm:core.audit.read
+GET api/v1/audit/{id:guid} | auth=perm:core.audit.read
+GET api/v1/auth/2fa | auth=authenticated
+GET api/v1/billing/invoices/{id:guid} | auth=perm:core.billing.read
+GET api/v1/billing/subscription | auth=perm:core.billing.read
+GET api/v1/business-units | auth=perm:core.businessunits.read
+GET api/v1/custom-fields | auth=perm:core.customfields.read
+GET api/v1/custom-fields/entity-types | auth=perm:core.customfields.read
+GET api/v1/custom-fields/form/{entitytype} | auth=authenticated
+GET api/v1/custom-fields/values/{entitytype}/{id:guid} | auth=authenticated
+GET api/v1/dashboard | auth=authenticated
+GET api/v1/dashboard/owner | auth=perm:finance.reports.read
+GET api/v1/finance/accounts | auth=perm:finance.accounts.read
+GET api/v1/finance/accounts/next-code | auth=perm:finance.accounts.write
+GET api/v1/finance/accounts/tree/categories | auth=perm:finance.accounts.read
+GET api/v1/finance/accounts/tree/categories/{type}/accounts | auth=perm:finance.accounts.read
+GET api/v1/finance/accounts/tree/categories/{type}/subcategories | auth=perm:finance.accounts.read
+GET api/v1/finance/accounts/tree/categories/{type}/subcategories/{key}/accounts | auth=perm:finance.accounts.read
+GET api/v1/finance/accounts/{id:guid} | auth=perm:finance.accounts.read
+GET api/v1/finance/accounts/{id:guid}/children | auth=perm:finance.accounts.read
+GET api/v1/finance/accounts/{id:guid}/path | auth=perm:finance.accounts.read
+GET api/v1/finance/bank/accounts/{accountid:guid}/reconciliation | auth=perm:finance.bank.read | capability=banking
+GET api/v1/finance/bank/position | auth=perm:finance.bank.read | capability=banking
+GET api/v1/finance/bank/statement-lines | auth=perm:finance.bank.read | capability=banking
+GET api/v1/finance/bills | auth=perm:finance.bills.read
+GET api/v1/finance/bills/{id:guid} | auth=perm:finance.bills.read
+GET api/v1/finance/budgets | auth=perm:finance.budgets.read | capability=budgets
+GET api/v1/finance/budgets/{id:guid} | auth=perm:finance.budgets.read | capability=budgets
+GET api/v1/finance/budgets/{id:guid}/vs-actual | auth=perm:finance.budgets.read | capability=budgets
+GET api/v1/finance/cheques | auth=perm:finance.cheques.read | capability=cheques
+GET api/v1/finance/cheques/summary | auth=perm:finance.cheques.read | capability=cheques
+GET api/v1/finance/cheques/{id:guid} | auth=perm:finance.cheques.read | capability=cheques
+GET api/v1/finance/coa-numbering | auth=perm:finance.accounts.read
+GET api/v1/finance/currencies | auth=perm:finance.currencies.read
+GET api/v1/finance/invoices | auth=perm:finance.invoices.read
+GET api/v1/finance/invoices/{id:guid} | auth=perm:finance.invoices.read
+GET api/v1/finance/invoices/{id:guid}/allocations | auth=perm:finance.invoices.read
+GET api/v1/finance/journals | auth=perm:finance.journals.read
+GET api/v1/finance/journals/{id:guid} | auth=perm:finance.journals.read
+GET api/v1/finance/payments | auth=perm:finance.payments.read
+GET api/v1/finance/payments/{id:guid} | auth=perm:finance.payments.read
+GET api/v1/finance/receipts | auth=perm:finance.receipts.read
+GET api/v1/finance/receipts/{id:guid} | auth=perm:finance.receipts.read
+GET api/v1/finance/reports/ap-ageing | auth=perm:finance.reports.read
+GET api/v1/finance/reports/ar-ageing | auth=perm:finance.reports.read
+GET api/v1/finance/reports/balance-sheet | auth=perm:finance.reports.read
+GET api/v1/finance/reports/cash-flow | auth=perm:finance.reports.read
+GET api/v1/finance/reports/cash-forecast | auth=perm:finance.reports.read
+GET api/v1/finance/reports/cash-movements | auth=perm:finance.reports.read
+GET api/v1/finance/reports/customer-ledger | auth=perm:finance.reports.read
+GET api/v1/finance/reports/customer-statement | auth=perm:finance.reports.read
+GET api/v1/finance/reports/general-ledger | auth=perm:finance.reports.read
+GET api/v1/finance/reports/income-statement | auth=perm:finance.reports.read
+GET api/v1/finance/reports/tax-return | auth=perm:finance.reports.read
+GET api/v1/finance/reports/tax-summary | auth=perm:finance.reports.read
+GET api/v1/finance/reports/trial-balance | auth=perm:finance.reports.read
+GET api/v1/finance/reports/vendor-ledger | auth=perm:finance.reports.read
+GET api/v1/finance/reports/vendor-statement | auth=perm:finance.reports.read
+GET api/v1/finance/tax-codes | auth=perm:finance.tax.read
+GET api/v1/finance/year-end | auth=perm:finance.reports.read
+GET api/v1/imports | auth=authenticated | capability=import
+GET api/v1/imports/{key}/template | auth=authenticated | capability=import
+GET api/v1/items | auth=perm:core.items.read
+GET api/v1/items/{id:guid} | auth=perm:core.items.read
+GET api/v1/legal-entities | auth=perm:core.entities.read
+GET api/v1/m/agriculture/definitions | auth=authenticated | module=agriculture
+GET api/v1/m/agriculture/records/crops | auth=perm:agriculture.crops.read | module=agriculture
+GET api/v1/m/agriculture/records/crops/{id:guid} | auth=perm:agriculture.crops.read | module=agriculture
+GET api/v1/m/agriculture/records/feed | auth=perm:agriculture.feed.read | module=agriculture
+GET api/v1/m/agriculture/records/feed/{id:guid} | auth=perm:agriculture.feed.read | module=agriculture
+GET api/v1/m/agriculture/records/harvests | auth=perm:agriculture.harvests.read | module=agriculture
+GET api/v1/m/agriculture/records/harvests/{id:guid} | auth=perm:agriculture.harvests.read | module=agriculture
+GET api/v1/m/agriculture/records/herds | auth=perm:agriculture.herds.read | module=agriculture
+GET api/v1/m/agriculture/records/herds/{id:guid} | auth=perm:agriculture.herds.read | module=agriculture
+GET api/v1/m/agriculture/records/production | auth=perm:agriculture.production.read | module=agriculture
+GET api/v1/m/agriculture/records/production/{id:guid} | auth=perm:agriculture.production.read | module=agriculture
+GET api/v1/m/agriculture/records/vetcare | auth=perm:agriculture.vetcare.read | module=agriculture
+GET api/v1/m/agriculture/records/vetcare/{id:guid} | auth=perm:agriculture.vetcare.read | module=agriculture
+GET api/v1/m/agriculture/summary | auth=authenticated | module=agriculture
+GET api/v1/m/assets/categories | auth=perm:assets.categories.read | module=assets
+GET api/v1/m/assets/categories/{id:guid} | auth=perm:assets.categories.read | module=assets
+GET api/v1/m/assets/depreciation-runs | auth=perm:assets.depreciation.read | module=assets
+GET api/v1/m/assets/depreciation-runs/{id:guid} | auth=perm:assets.depreciation.read | module=assets
+GET api/v1/m/assets/register | auth=perm:assets.register.read | module=assets
+GET api/v1/m/assets/register/{id:guid} | auth=perm:assets.register.read | module=assets
+GET api/v1/m/assets/register/{id:guid}/schedule | auth=perm:assets.reports.read | module=assets
+GET api/v1/m/assets/reports/register | auth=perm:assets.reports.read | module=assets
+GET api/v1/m/assets/reports/schedule | auth=perm:assets.reports.read | module=assets
+GET api/v1/m/assistant/conversations | auth=perm:assistant.chats.use | module=assistant
+GET api/v1/m/assistant/conversations/{id:guid} | auth=perm:assistant.chats.use | module=assistant
+GET api/v1/m/assistant/status | auth=perm:assistant.chats.use | module=assistant
+GET api/v1/m/construction/definitions | auth=authenticated | module=construction
+GET api/v1/m/construction/records/boqs | auth=perm:construction.boqs.read | module=construction
+GET api/v1/m/construction/records/boqs/{id:guid} | auth=perm:construction.boqs.read | module=construction
+GET api/v1/m/construction/records/equipment | auth=perm:construction.equipment.read | module=construction
+GET api/v1/m/construction/records/equipment/{id:guid} | auth=perm:construction.equipment.read | module=construction
+GET api/v1/m/construction/records/materialissues | auth=perm:construction.materialissues.read | module=construction
+GET api/v1/m/construction/records/materialissues/{id:guid} | auth=perm:construction.materialissues.read | module=construction
+GET api/v1/m/construction/records/sitereports | auth=perm:construction.sitereports.read | module=construction
+GET api/v1/m/construction/records/sitereports/{id:guid} | auth=perm:construction.sitereports.read | module=construction
+GET api/v1/m/construction/records/sites | auth=perm:construction.sites.read | module=construction
+GET api/v1/m/construction/records/sites/{id:guid} | auth=perm:construction.sites.read | module=construction
+GET api/v1/m/construction/records/subcontractorpayments | auth=perm:construction.subcontractorpayments.read | module=construction
+GET api/v1/m/construction/records/subcontractorpayments/{id:guid} | auth=perm:construction.subcontractorpayments.read | module=construction
+GET api/v1/m/construction/records/subcontracts | auth=perm:construction.subcontracts.read | module=construction
+GET api/v1/m/construction/records/subcontracts/{id:guid} | auth=perm:construction.subcontracts.read | module=construction
+GET api/v1/m/construction/records/valuations | auth=perm:construction.valuations.read | module=construction
+GET api/v1/m/construction/records/valuations/{id:guid} | auth=perm:construction.valuations.read | module=construction
+GET api/v1/m/construction/summary | auth=authenticated | module=construction
+GET api/v1/m/contracts/definitions | auth=authenticated | module=contracts
+GET api/v1/m/contracts/records/agreements | auth=perm:contracts.agreements.read | module=contracts
+GET api/v1/m/contracts/records/agreements/{id:guid} | auth=perm:contracts.agreements.read | module=contracts
+GET api/v1/m/contracts/summary | auth=authenticated | module=contracts
+GET api/v1/m/crm/analytics/kpis | auth=perm:crm.analytics.read | module=crm
+GET api/v1/m/crm/interactions | auth=perm:crm.interactions.read | module=crm
+GET api/v1/m/crm/interactions/by-entity | auth=perm:crm.interactions.read | module=crm
+GET api/v1/m/crm/leads | auth=perm:crm.leads.read | module=crm
+GET api/v1/m/crm/leads/{id:guid} | auth=perm:crm.leads.read | module=crm
+GET api/v1/m/crm/opportunities | auth=perm:crm.opportunities.read | module=crm
+GET api/v1/m/crm/opportunities/pipeline-summary | auth=perm:crm.opportunities.read | module=crm
+GET api/v1/m/crm/opportunities/{id:guid} | auth=perm:crm.opportunities.read | module=crm
+GET api/v1/m/distribution/kpis | auth=perm:distribution.analytics.read | module=distribution
+GET api/v1/m/distribution/routes | auth=perm:distribution.routes.read | module=distribution
+GET api/v1/m/distribution/routes/{id:guid} | auth=perm:distribution.routes.read | module=distribution
+GET api/v1/m/distribution/trips | auth=perm:distribution.trips.read | module=distribution
+GET api/v1/m/distribution/trips/{id:guid} | auth=perm:distribution.trips.read | module=distribution
+GET api/v1/m/distribution/wholesale | auth=perm:distribution.pricing.read | module=distribution
+GET api/v1/m/distribution/wholesale/{id:guid} | auth=perm:distribution.pricing.read | module=distribution
+GET api/v1/m/education/definitions | auth=authenticated | module=education
+GET api/v1/m/education/records/admissions | auth=perm:education.admissions.read | module=education
+GET api/v1/m/education/records/admissions/{id:guid} | auth=perm:education.admissions.read | module=education
+GET api/v1/m/education/records/classes | auth=perm:education.classes.read | module=education
+GET api/v1/m/education/records/classes/{id:guid} | auth=perm:education.classes.read | module=education
+GET api/v1/m/education/records/exams | auth=perm:education.exams.read | module=education
+GET api/v1/m/education/records/exams/{id:guid} | auth=perm:education.exams.read | module=education
+GET api/v1/m/education/records/fees | auth=perm:education.fees.read | module=education
+GET api/v1/m/education/records/fees/{id:guid} | auth=perm:education.fees.read | module=education
+GET api/v1/m/education/records/results | auth=perm:education.results.read | module=education
+GET api/v1/m/education/records/results/{id:guid} | auth=perm:education.results.read | module=education
+GET api/v1/m/education/records/sessions | auth=perm:education.sessions.read | module=education
+GET api/v1/m/education/records/sessions/{id:guid} | auth=perm:education.sessions.read | module=education
+GET api/v1/m/education/records/students | auth=perm:education.students.read | module=education
+GET api/v1/m/education/records/students/{id:guid} | auth=perm:education.students.read | module=education
+GET api/v1/m/education/summary | auth=authenticated | module=education
+GET api/v1/m/expenses/definitions | auth=authenticated | module=expenses
+GET api/v1/m/expenses/records/claims | auth=perm:expenses.claims.read | module=expenses
+GET api/v1/m/expenses/records/claims/{id:guid} | auth=perm:expenses.claims.read | module=expenses
+GET api/v1/m/expenses/summary | auth=authenticated | module=expenses
+GET api/v1/m/healthcare/definitions | auth=authenticated | module=healthcare
+GET api/v1/m/healthcare/records/appointments | auth=perm:healthcare.appointments.read | module=healthcare
+GET api/v1/m/healthcare/records/appointments/{id:guid} | auth=perm:healthcare.appointments.read | module=healthcare
+GET api/v1/m/healthcare/records/claims | auth=perm:healthcare.claims.read | module=healthcare
+GET api/v1/m/healthcare/records/claims/{id:guid} | auth=perm:healthcare.claims.read | module=healthcare
+GET api/v1/m/healthcare/records/dispensings | auth=perm:healthcare.dispensings.read | module=healthcare
+GET api/v1/m/healthcare/records/dispensings/{id:guid} | auth=perm:healthcare.dispensings.read | module=healthcare
+GET api/v1/m/healthcare/records/labtests | auth=perm:healthcare.labtests.read | module=healthcare
+GET api/v1/m/healthcare/records/labtests/{id:guid} | auth=perm:healthcare.labtests.read | module=healthcare
+GET api/v1/m/healthcare/records/medicalbills | auth=perm:healthcare.medicalbills.read | module=healthcare
+GET api/v1/m/healthcare/records/medicalbills/{id:guid} | auth=perm:healthcare.medicalbills.read | module=healthcare
+GET api/v1/m/healthcare/records/patients | auth=perm:healthcare.patients.read | module=healthcare
+GET api/v1/m/healthcare/records/patients/{id:guid} | auth=perm:healthcare.patients.read | module=healthcare
+GET api/v1/m/healthcare/summary | auth=authenticated | module=healthcare
+GET api/v1/m/hospitality/definitions | auth=authenticated | module=hospitality
+GET api/v1/m/hospitality/records/events | auth=perm:hospitality.events.read | module=hospitality
+GET api/v1/m/hospitality/records/events/{id:guid} | auth=perm:hospitality.events.read | module=hospitality
+GET api/v1/m/hospitality/records/reservations | auth=perm:hospitality.reservations.read | module=hospitality
+GET api/v1/m/hospitality/records/reservations/{id:guid} | auth=perm:hospitality.reservations.read | module=hospitality
+GET api/v1/m/hospitality/records/rooms | auth=perm:hospitality.rooms.read | module=hospitality
+GET api/v1/m/hospitality/records/rooms/{id:guid} | auth=perm:hospitality.rooms.read | module=hospitality
+GET api/v1/m/hospitality/records/waste | auth=perm:hospitality.waste.read | module=hospitality
+GET api/v1/m/hospitality/records/waste/{id:guid} | auth=perm:hospitality.waste.read | module=hospitality
+GET api/v1/m/hospitality/summary | auth=authenticated | module=hospitality
+GET api/v1/m/hr/attendance | auth=perm:hr.attendance.read | module=hr
+GET api/v1/m/hr/attendance/daily | auth=perm:hr.attendance.read | module=hr
+GET api/v1/m/hr/candidates | auth=perm:hr.recruitment.read | module=hr
+GET api/v1/m/hr/candidates/{id:guid} | auth=perm:hr.recruitment.read | module=hr
+GET api/v1/m/hr/checklists | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/checklists/{id:guid} | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/departments | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/documents | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/documents/expiring | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/documents/{id:guid} | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/employees | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/employees/{id:guid} | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/employees/{id:guid}/history | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/employees/{id:guid}/settlement-preview | auth=perm:hr.payroll.read | module=hr
+GET api/v1/m/hr/employees/{id:guid}/tasks | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/holidays | auth=perm:hr.leave.read | module=hr
+GET api/v1/m/hr/leave | auth=perm:hr.leave.read | module=hr
+GET api/v1/m/hr/leave-types | auth=perm:hr.leave.read | module=hr
+GET api/v1/m/hr/leave/balances | auth=perm:hr.leave.read | module=hr
+GET api/v1/m/hr/leave/days | auth=perm:hr.leave.read | module=hr
+GET api/v1/m/hr/leave/{id:guid} | auth=perm:hr.leave.read | module=hr
+GET api/v1/m/hr/loans | auth=perm:hr.payroll.read | module=hr
+GET api/v1/m/hr/loans/{id:guid} | auth=perm:hr.payroll.read | module=hr
+GET api/v1/m/hr/me | auth=authenticated | module=hr
+GET api/v1/m/hr/me/balances | auth=authenticated | module=hr
+GET api/v1/m/hr/me/leave | auth=authenticated | module=hr
+GET api/v1/m/hr/me/payslips | auth=authenticated | module=hr
+GET api/v1/m/hr/me/payslips/{lineid:guid} | auth=authenticated | module=hr
+GET api/v1/m/hr/me/team/leave | auth=authenticated | module=hr
+GET api/v1/m/hr/openings | auth=perm:hr.recruitment.read | module=hr
+GET api/v1/m/hr/openings/{id:guid} | auth=perm:hr.recruitment.read | module=hr
+GET api/v1/m/hr/org-chart | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/payroll | auth=perm:hr.payroll.read | module=hr
+GET api/v1/m/hr/payroll/{id:guid} | auth=perm:hr.payroll.read | module=hr
+GET api/v1/m/hr/payroll/{id:guid}/bank-file | auth=perm:hr.payroll.pay | module=hr
+GET api/v1/m/hr/payroll/{id:guid}/payslips/{lineid:guid} | auth=perm:hr.payroll.read | module=hr
+GET api/v1/m/hr/payroll/{id:guid}/payslips/{lineid:guid}/payslip.pdf | auth=perm:hr.payroll.read | module=hr
+GET api/v1/m/hr/payroll/{id:guid}/statutory | auth=perm:hr.payroll.read | module=hr
+GET api/v1/m/hr/payroll/{id:guid}/wps-sif | auth=perm:hr.payroll.pay | module=hr
+GET api/v1/m/hr/positions | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/reports/birthdays-anniversaries | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/reports/gratuity | auth=perm:finance.reports.read | module=hr
+GET api/v1/m/hr/reports/summary | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/hr/review-cycles | auth=perm:hr.reviews.read | module=hr
+GET api/v1/m/hr/reviews | auth=perm:hr.reviews.read | module=hr
+GET api/v1/m/hr/reviews/{id:guid} | auth=perm:hr.reviews.read | module=hr
+GET api/v1/m/hr/shifts | auth=perm:hr.attendance.read | module=hr
+GET api/v1/m/hr/shifts/roster | auth=perm:hr.attendance.read | module=hr
+GET api/v1/m/hr/statutory-rules | auth=perm:hr.payroll.read | module=hr
+GET api/v1/m/hr/statutory-rules/{id:guid} | auth=perm:hr.payroll.read | module=hr
+GET api/v1/m/hr/tasks/open | auth=perm:hr.employees.read | module=hr
+GET api/v1/m/inventory/counts | auth=perm:inventory.counts.read | module=inventory
+GET api/v1/m/inventory/counts/{id:guid} | auth=perm:inventory.counts.read | module=inventory
+GET api/v1/m/inventory/movements | auth=perm:inventory.stock.read | module=inventory
+GET api/v1/m/inventory/reports/movement-summary | auth=perm:inventory.stock.read | module=inventory
+GET api/v1/m/inventory/reports/reorder | auth=perm:inventory.stock.read | module=inventory
+GET api/v1/m/inventory/reports/slow-moving | auth=perm:inventory.stock.read | module=inventory
+GET api/v1/m/inventory/reports/stock-gl-reconciliation | auth=perm:inventory.reconciliation.read | module=inventory
+GET api/v1/m/inventory/reports/valuation | auth=perm:inventory.stock.read | module=inventory
+GET api/v1/m/inventory/stock | auth=perm:inventory.stock.read | module=inventory
+GET api/v1/m/inventory/stock/low | auth=perm:inventory.stock.read | module=inventory
+GET api/v1/m/inventory/warehouses | auth=perm:inventory.warehouses.read | module=inventory
+GET api/v1/m/logistics/definitions | auth=authenticated | module=logistics
+GET api/v1/m/logistics/records/deliveryexpenses | auth=perm:logistics.deliveryexpenses.read | module=logistics
+GET api/v1/m/logistics/records/deliveryexpenses/{id:guid} | auth=perm:logistics.deliveryexpenses.read | module=logistics
+GET api/v1/m/logistics/records/drivers | auth=perm:logistics.drivers.read | module=logistics
+GET api/v1/m/logistics/records/drivers/{id:guid} | auth=perm:logistics.drivers.read | module=logistics
+GET api/v1/m/logistics/records/fuel | auth=perm:logistics.fuel.read | module=logistics
+GET api/v1/m/logistics/records/fuel/{id:guid} | auth=perm:logistics.fuel.read | module=logistics
+GET api/v1/m/logistics/records/maintenance | auth=perm:logistics.maintenance.read | module=logistics
+GET api/v1/m/logistics/records/maintenance/{id:guid} | auth=perm:logistics.maintenance.read | module=logistics
+GET api/v1/m/logistics/records/shipments | auth=perm:logistics.shipments.read | module=logistics
+GET api/v1/m/logistics/records/shipments/{id:guid} | auth=perm:logistics.shipments.read | module=logistics
+GET api/v1/m/logistics/records/vehicles | auth=perm:logistics.vehicles.read | module=logistics
+GET api/v1/m/logistics/records/vehicles/{id:guid} | auth=perm:logistics.vehicles.read | module=logistics
+GET api/v1/m/logistics/summary | auth=authenticated | module=logistics
+GET api/v1/m/manufacturing/boms | auth=perm:manufacturing.boms.read | module=manufacturing
+GET api/v1/m/manufacturing/boms/{id:guid} | auth=perm:manufacturing.boms.read | module=manufacturing
+GET api/v1/m/manufacturing/costing/rollup/{bomid:guid} | auth=perm:manufacturing.costing.read | module=manufacturing
+GET api/v1/m/manufacturing/costing/variance | auth=perm:manufacturing.costing.read | module=manufacturing
+GET api/v1/m/manufacturing/kpis | auth=perm:manufacturing.analytics.read | module=manufacturing
+GET api/v1/m/manufacturing/requirements | auth=perm:manufacturing.workorders.read | module=manufacturing
+GET api/v1/m/manufacturing/workorders | auth=perm:manufacturing.workorders.read | module=manufacturing
+GET api/v1/m/manufacturing/workorders/{id:guid} | auth=perm:manufacturing.workorders.read | module=manufacturing
+GET api/v1/m/pos/kpis | auth=perm:pos.analytics.read | module=pos
+GET api/v1/m/pos/orders | auth=perm:pos.orders.read | module=pos
+GET api/v1/m/pos/orders/by-number/{number} | auth=perm:pos.orders.read | module=pos
+GET api/v1/m/pos/orders/{id:guid} | auth=perm:pos.orders.read | module=pos
+GET api/v1/m/pos/registers | auth=perm:pos.registers.read | module=pos
+GET api/v1/m/pos/registers/{id:guid} | auth=perm:pos.registers.read | module=pos
+GET api/v1/m/pos/reports/sales | auth=perm:pos.analytics.read | module=pos
+GET api/v1/m/pos/returns | auth=perm:pos.orders.read | module=pos
+GET api/v1/m/pos/returns/{id:guid} | auth=perm:pos.orders.read | module=pos
+GET api/v1/m/pos/sessions | auth=perm:pos.sessions.read | module=pos
+GET api/v1/m/pos/sessions/current | auth=perm:pos.sessions.read | module=pos
+GET api/v1/m/pos/sessions/{id:guid}/report | auth=perm:pos.sessions.read | module=pos
+GET api/v1/m/pos/terminal | auth=perm:pos.orders.create | module=pos
+GET api/v1/m/pos/terminal/catalog | auth=perm:pos.orders.create | module=pos
+GET api/v1/m/pos/terminal/customers | auth=perm:pos.orders.create | module=pos
+GET api/v1/m/pos/terminal/held | auth=perm:pos.orders.create | module=pos
+GET api/v1/m/pos/terminal/session | auth=perm:pos.orders.create | module=pos
+GET api/v1/m/projects/acceptances | auth=perm:projects.milestones.read | module=projects
+GET api/v1/m/projects/allocations | auth=perm:projects.projects.read | module=projects
+GET api/v1/m/projects/billing/overview | auth=perm:projects.billing.read | module=projects
+GET api/v1/m/projects/billing/{projectid:guid}/billable | auth=perm:projects.billing.read | module=projects
+GET api/v1/m/projects/billing/{projectid:guid}/invoices | auth=perm:projects.billing.read | module=projects
+GET api/v1/m/projects/change-orders | auth=perm:projects.changeorders.read | module=projects
+GET api/v1/m/projects/comments | auth=perm:projects.projects.read | module=projects
+GET api/v1/m/projects/config | auth=authenticated | module=projects
+GET api/v1/m/projects/expenses | auth=perm:projects.expenses.read | module=projects
+GET api/v1/m/projects/expenses/{id:guid} | auth=perm:projects.expenses.read | module=projects
+GET api/v1/m/projects/milestones | auth=perm:projects.milestones.read | module=projects
+GET api/v1/m/projects/milestones/{id:guid} | auth=perm:projects.milestones.read | module=projects
+GET api/v1/m/projects/portal/acceptances | auth=portal.customer | module=projects
+GET api/v1/m/projects/portal/projects | auth=portal.customer | module=projects
+GET api/v1/m/projects/projects | auth=perm:projects.projects.read | module=projects
+GET api/v1/m/projects/projects/kpis | auth=perm:projects.projects.read | module=projects
+GET api/v1/m/projects/projects/{id:guid} | auth=perm:projects.projects.read | module=projects
+GET api/v1/m/projects/projects/{id:guid}/activity | auth=perm:projects.projects.read | module=projects
+GET api/v1/m/projects/projects/{id:guid}/budget-lines | auth=perm:projects.projects.read | module=projects
+GET api/v1/m/projects/projects/{id:guid}/members | auth=perm:projects.projects.read | module=projects
+GET api/v1/m/projects/projects/{id:guid}/schedule | auth=perm:projects.tasks.read | module=projects
+GET api/v1/m/projects/rates | auth=perm:projects.rates.read | module=projects
+GET api/v1/m/projects/reports/budget | auth=perm:projects.reports.read | module=projects
+GET api/v1/m/projects/reports/hours | auth=perm:projects.reports.read | module=projects
+GET api/v1/m/projects/reports/profitability | auth=perm:projects.reports.read | module=projects
+GET api/v1/m/projects/reports/unbilled-ageing | auth=perm:projects.reports.read | module=projects
+GET api/v1/m/projects/reports/utilisation | auth=perm:projects.reports.read | module=projects
+GET api/v1/m/projects/risks | auth=perm:projects.risks.read | module=projects
+GET api/v1/m/projects/tasks | auth=perm:projects.tasks.read | module=projects
+GET api/v1/m/projects/tasks/{id:guid} | auth=perm:projects.tasks.read | module=projects
+GET api/v1/m/projects/timesheets | auth=perm:projects.timesheets.read | module=projects
+GET api/v1/m/projects/timesheets/{id:guid} | auth=perm:projects.timesheets.read | module=projects
+GET api/v1/m/propertysales/definitions | auth=authenticated | module=propertysales
+GET api/v1/m/propertysales/records/allotments | auth=perm:propertysales.allotments.read | module=propertysales
+GET api/v1/m/propertysales/records/allotments/{id:guid} | auth=perm:propertysales.allotments.read | module=propertysales
+GET api/v1/m/propertysales/records/salecontracts | auth=perm:propertysales.salecontracts.read | module=propertysales
+GET api/v1/m/propertysales/records/salecontracts/{id:guid} | auth=perm:propertysales.salecontracts.read | module=propertysales
+GET api/v1/m/propertysales/records/valuations | auth=perm:propertysales.valuations.read | module=propertysales
+GET api/v1/m/propertysales/records/valuations/{id:guid} | auth=perm:propertysales.valuations.read | module=propertysales
+GET api/v1/m/propertysales/summary | auth=authenticated | module=propertysales
+GET api/v1/m/purchasing/kpis | auth=perm:purchasing.orders.read | module=purchasing
+GET api/v1/m/purchasing/orders | auth=perm:purchasing.orders.read | module=purchasing
+GET api/v1/m/purchasing/orders/{id:guid} | auth=perm:purchasing.orders.read | module=purchasing
+GET api/v1/m/purchasing/receipts | auth=perm:purchasing.receipts.read | module=purchasing
+GET api/v1/m/purchasing/receipts/{id:guid} | auth=perm:purchasing.receipts.read | module=purchasing
+GET api/v1/m/purchasing/requisitions | auth=perm:purchasing.requisitions.read | module=purchasing
+GET api/v1/m/purchasing/requisitions/{id:guid} | auth=perm:purchasing.requisitions.read | module=purchasing
+GET api/v1/m/purchasing/returns | auth=perm:purchasing.returns.read | module=purchasing
+GET api/v1/m/purchasing/returns/{id:guid} | auth=perm:purchasing.returns.read | module=purchasing
+GET api/v1/m/quality/definitions | auth=authenticated | module=quality
+GET api/v1/m/quality/records/inspections | auth=perm:quality.inspections.read | module=quality
+GET api/v1/m/quality/records/inspections/{id:guid} | auth=perm:quality.inspections.read | module=quality
+GET api/v1/m/quality/records/nonconformances | auth=perm:quality.nonconformances.read | module=quality
+GET api/v1/m/quality/records/nonconformances/{id:guid} | auth=perm:quality.nonconformances.read | module=quality
+GET api/v1/m/quality/records/plans | auth=perm:quality.plans.read | module=quality
+GET api/v1/m/quality/records/plans/{id:guid} | auth=perm:quality.plans.read | module=quality
+GET api/v1/m/quality/summary | auth=authenticated | module=quality
+GET api/v1/m/realestate/acquisitions | auth=perm:realestate.acquisitions.read | module=realestate
+GET api/v1/m/realestate/acquisitions/funding | auth=perm:realestate.acquisitions.read | module=realestate
+GET api/v1/m/realestate/acquisitions/overview | auth=perm:realestate.acquisitions.read | module=realestate
+GET api/v1/m/realestate/acquisitions/{id:guid} | auth=perm:realestate.acquisitions.read | module=realestate
+GET api/v1/m/realestate/billing/invoice-links | auth=perm:realestate.leases.read | module=realestate
+GET api/v1/m/realestate/deals | auth=perm:realestate.deals.read | module=realestate
+GET api/v1/m/realestate/deals/{id:guid} | auth=perm:realestate.deals.read | module=realestate
+GET api/v1/m/realestate/inspections | auth=perm:realestate.inspections.read | module=realestate
+GET api/v1/m/realestate/inspections/{id:guid} | auth=perm:realestate.inspections.read | module=realestate
+GET api/v1/m/realestate/leads | auth=perm:realestate.crm.read | module=realestate
+GET api/v1/m/realestate/leads/pipeline | auth=perm:realestate.crm.read | module=realestate
+GET api/v1/m/realestate/leads/{id:guid} | auth=perm:realestate.crm.read | module=realestate
+GET api/v1/m/realestate/leases | auth=perm:realestate.leases.read | module=realestate
+GET api/v1/m/realestate/leases/{id:guid} | auth=perm:realestate.leases.read | module=realestate
+GET api/v1/m/realestate/leases/{id:guid}/deposit | auth=perm:realestate.leases.read | module=realestate
+GET api/v1/m/realestate/leases/{id:guid}/schedule | auth=perm:realestate.leases.read | module=realestate
+GET api/v1/m/realestate/listings | auth=perm:realestate.crm.read | module=realestate
+GET api/v1/m/realestate/listings/{id:guid} | auth=perm:realestate.crm.read | module=realestate
+GET api/v1/m/realestate/owner-payouts | auth=perm:realestate.ownerpayouts.read | module=realestate
+GET api/v1/m/realestate/owner-payouts/{id:guid} | auth=perm:realestate.ownerpayouts.read | module=realestate
+GET api/v1/m/realestate/pm-schedules | auth=perm:realestate.pm.read | module=realestate
+GET api/v1/m/realestate/portal/leases | auth=portal.customer | module=realestate
+GET api/v1/m/realestate/portal/requests | auth=portal.customer | module=realestate
+GET api/v1/m/realestate/portal/vendor/work-orders | auth=portal.vendor | module=realestate
+GET api/v1/m/realestate/properties | auth=perm:realestate.properties.read | module=realestate
+GET api/v1/m/realestate/properties/{id:guid} | auth=perm:realestate.properties.read | module=realestate
+GET api/v1/m/realestate/renewals | auth=perm:realestate.leases.renew | module=realestate
+GET api/v1/m/realestate/reports/commissions | auth=perm:finance.reports.read | module=realestate
+GET api/v1/m/realestate/reports/lease-expiries | auth=perm:finance.reports.read | module=realestate
+GET api/v1/m/realestate/reports/maintenance-costs | auth=perm:finance.reports.read | module=realestate
+GET api/v1/m/realestate/reports/occupancy | auth=perm:finance.reports.read | module=realestate
+GET api/v1/m/realestate/reports/owner-statement | auth=perm:finance.reports.read | module=realestate
+GET api/v1/m/realestate/reports/portfolio-performance | auth=perm:finance.reports.read | module=realestate
+GET api/v1/m/realestate/reports/rent-roll | auth=perm:finance.reports.read | module=realestate
+GET api/v1/m/realestate/status | auth=perm:realestate.properties.read | module=realestate
+GET api/v1/m/realestate/unit-types | auth=perm:realestate.unittypes.read | module=realestate
+GET api/v1/m/realestate/units | auth=perm:realestate.units.read | module=realestate
+GET api/v1/m/realestate/units/{id:guid} | auth=perm:realestate.units.read | module=realestate
+GET api/v1/m/realestate/units/{id:guid}/rent-history | auth=perm:realestate.units.read | module=realestate
+GET api/v1/m/realestate/work-orders | auth=perm:realestate.workorders.read | module=realestate
+GET api/v1/m/realestate/work-orders/{id:guid} | auth=perm:realestate.workorders.read | module=realestate
+GET api/v1/m/retail/kpis | auth=perm:retail.analytics.read | module=retail
+GET api/v1/m/retail/pricelists | auth=perm:retail.pricelists.read | module=retail
+GET api/v1/m/retail/pricelists/{id:guid} | auth=perm:retail.pricelists.read | module=retail
+GET api/v1/m/retail/promotions | auth=perm:retail.promotions.read | module=retail
+GET api/v1/m/retail/promotions/{id:guid} | auth=perm:retail.promotions.read | module=retail
+GET api/v1/m/retail/stores | auth=perm:retail.stores.read | module=retail
+GET api/v1/m/retail/stores/{id:guid} | auth=perm:retail.stores.read | module=retail
+GET api/v1/m/sales/kpis | auth=perm:sales.orders.read | module=sales
+GET api/v1/m/sales/orders | auth=perm:sales.orders.read | module=sales
+GET api/v1/m/sales/orders/{id:guid} | auth=perm:sales.orders.read | module=sales
+GET api/v1/m/sales/quotes | auth=perm:sales.quotes.read | module=sales
+GET api/v1/m/sales/quotes/{id:guid} | auth=perm:sales.quotes.read | module=sales
+GET api/v1/m/sales/returns | auth=perm:sales.returns.read | module=sales
+GET api/v1/m/sales/returns/{id:guid} | auth=perm:sales.returns.read | module=sales
+GET api/v1/m/services/analytics/kpis | auth=perm:services.analytics.read | module=services
+GET api/v1/m/services/engagements | auth=perm:services.engagements.read | module=services
+GET api/v1/m/services/engagements/{id:guid} | auth=perm:services.engagements.read | module=services
+GET api/v1/m/services/milestones | auth=perm:services.milestones.read | module=services
+GET api/v1/m/services/milestones/{id:guid} | auth=perm:services.milestones.read | module=services
+GET api/v1/m/services/retainers | auth=perm:services.retainers.read | module=services
+GET api/v1/m/services/retainers/{id:guid} | auth=perm:services.retainers.read | module=services
+GET api/v1/m/services/time-entries | auth=perm:services.timeentries.read | module=services
+GET api/v1/m/trade/definitions | auth=authenticated | module=trade
+GET api/v1/m/trade/records/exports | auth=perm:trade.exports.read | module=trade
+GET api/v1/m/trade/records/exports/{id:guid} | auth=perm:trade.exports.read | module=trade
+GET api/v1/m/trade/records/imports | auth=perm:trade.imports.read | module=trade
+GET api/v1/m/trade/records/imports/{id:guid} | auth=perm:trade.imports.read | module=trade
+GET api/v1/m/trade/records/lettersofcredit | auth=perm:trade.lettersofcredit.read | module=trade
+GET api/v1/m/trade/records/lettersofcredit/{id:guid} | auth=perm:trade.lettersofcredit.read | module=trade
+GET api/v1/m/trade/summary | auth=authenticated | module=trade
+GET api/v1/me | auth=authenticated
+GET api/v1/messages | auth=perm:core.settings.read
+GET api/v1/modules | auth=perm:core.settings.read
+GET api/v1/navigation/menu | auth=authenticated
+GET api/v1/notifications | auth=authenticated
+GET api/v1/parties | auth=perm:core.parties.read
+GET api/v1/parties/{id:guid} | auth=perm:core.parties.read
+GET api/v1/party-groups | auth=perm:core.partygroups.read
+GET api/v1/permissions | auth=perm:core.roles.read
+GET api/v1/platform-admin/activity | auth=platform-admin
+GET api/v1/platform-admin/assistant | auth=platform-admin
+GET api/v1/platform-admin/assistant/conversations | auth=platform-admin
+GET api/v1/platform-admin/assistant/conversations/{id:guid} | auth=platform-admin
+GET api/v1/platform-admin/clients | auth=platform-admin
+GET api/v1/platform-admin/clients/{orgid:guid} | auth=platform-admin
+GET api/v1/platform-admin/dashboard | auth=platform-admin
+GET api/v1/platform-admin/invoices | auth=platform-admin
+GET api/v1/platform-admin/invoices/{id:guid} | auth=platform-admin
+GET api/v1/platform-admin/leads | auth=platform-admin
+GET api/v1/platform-admin/modules | auth=platform-admin
+GET api/v1/platform-admin/plans | auth=platform-admin
+GET api/v1/platform-admin/settings | auth=platform-admin
+GET api/v1/platform-admin/signups | auth=platform-admin
+GET api/v1/platform-admin/team | auth=platform-admin
+GET api/v1/platform/countries | auth= | anonymous
+GET api/v1/platform/currencies | auth= | anonymous
+GET api/v1/platform/industries | auth= | anonymous
+GET api/v1/portal/invoices | auth=portal.customer
+GET api/v1/portal/me | auth=portal
+GET api/v1/portal/receipts | auth=portal.customer
+GET api/v1/portal/statement | auth=portal.customer
+GET api/v1/portal/vendor/bills | auth=portal.vendor
+GET api/v1/portal/vendor/payments | auth=portal.vendor
+GET api/v1/portal/vendor/statement | auth=portal.vendor
+GET api/v1/print/bill/{id:guid} | auth=perm:finance.bills.read
+GET api/v1/print/bill/{id:guid}/pdf | auth=perm:finance.bills.read
+GET api/v1/print/invoice/{id:guid} | auth=perm:finance.invoices.read
+GET api/v1/print/invoice/{id:guid}/pdf | auth=perm:finance.invoices.read
+GET api/v1/print/journal/{id:guid} | auth=perm:finance.journals.read
+GET api/v1/print/journal/{id:guid}/pdf | auth=perm:finance.journals.read
+GET api/v1/print/payment/{id:guid} | auth=perm:finance.payments.read
+GET api/v1/print/payment/{id:guid}/pdf | auth=perm:finance.payments.read
+GET api/v1/print/receipt/{id:guid} | auth=perm:finance.receipts.read
+GET api/v1/print/receipt/{id:guid}/pdf | auth=perm:finance.receipts.read
+GET api/v1/public/assistant/status | auth= | anonymous
+GET api/v1/public/content | auth= | anonymous
+GET api/v1/public/legal | auth= | anonymous
+GET api/v1/public/modules | auth= | anonymous
+GET api/v1/public/sign-in-key-available | auth= | anonymous | rate=signup-check
+GET api/v1/public/signup-config | auth= | anonymous
+GET api/v1/roles | auth=perm:core.roles.read
+GET api/v1/search | auth=authenticated
+GET api/v1/settings | auth=perm:core.settings.read
+GET api/v1/setup/profile | auth=perm:core.settings.read
+GET api/v1/setup/sequences | auth=perm:core.settings.read
+GET api/v1/users | auth=perm:core.users.read
+POST api/v1/approval-policies | auth=perm:core.settings.write
+POST api/v1/approvals | auth=authenticated
+POST api/v1/approvals/{id:guid}/approve | auth=authenticated
+POST api/v1/approvals/{id:guid}/reject | auth=authenticated
+POST api/v1/approvals/{id:guid}/withdraw | auth=authenticated
+POST api/v1/attachments | auth=perm:core.attachments.write
+POST api/v1/auth/2fa/disable | auth=authenticated | rate=login
+POST api/v1/auth/2fa/enable | auth=authenticated | rate=login
+POST api/v1/auth/2fa/setup | auth=authenticated | rate=login
+POST api/v1/auth/change-password | auth=authenticated | rate=login
+POST api/v1/auth/forgot-password | auth= | anonymous | rate=login
+POST api/v1/auth/login | auth= | anonymous | rate=login
+POST api/v1/auth/login/2fa/setup | auth= | anonymous | rate=login
+POST api/v1/auth/login/2fa/verify | auth= | anonymous | rate=login
+POST api/v1/auth/logout | auth= | anonymous
+POST api/v1/auth/refresh | auth= | anonymous
+POST api/v1/auth/reset-password | auth= | anonymous | rate=login
+POST api/v1/auth/select-workspace | auth= | anonymous | rate=login
+POST api/v1/auth/switch-workspace | auth=authenticated
+POST api/v1/billing/change-request | auth=perm:core.billing.manage
+POST api/v1/business-units | auth=perm:core.businessunits.write
+POST api/v1/custom-fields | auth=perm:core.customfields.manage
+POST api/v1/finance/accounts | auth=perm:finance.accounts.write
+POST api/v1/finance/bank/accounts/{accountid:guid}/auto-match | auth=perm:finance.bank.write | capability=banking
+POST api/v1/finance/bank/accounts/{accountid:guid}/import | auth=perm:finance.bank.write | capability=banking
+POST api/v1/finance/bank/statement-lines/{id:guid}/book | auth=perm:finance.bank.write | capability=banking
+POST api/v1/finance/bank/statement-lines/{id:guid}/match | auth=perm:finance.bank.write | capability=banking
+POST api/v1/finance/bank/statement-lines/{id:guid}/unmatch | auth=perm:finance.bank.write | capability=banking
+POST api/v1/finance/bank/transfers | auth=perm:finance.bank.write | capability=banking
+POST api/v1/finance/bills | auth=perm:finance.bills.write
+POST api/v1/finance/bills/{id:guid}/email | auth=perm:core.email.send
+POST api/v1/finance/bills/{id:guid}/post | auth=perm:finance.bills.post
+POST api/v1/finance/bills/{id:guid}/void | auth=perm:finance.bills.void
+POST api/v1/finance/budgets | auth=perm:finance.budgets.write | capability=budgets
+POST api/v1/finance/cheques | auth=perm:finance.cheques.write | capability=cheques
+POST api/v1/finance/cheques/{id:guid}/bounce | auth=perm:finance.cheques.approve | capability=cheques
+POST api/v1/finance/cheques/{id:guid}/cancel | auth=perm:finance.cheques.write | capability=cheques
+POST api/v1/finance/cheques/{id:guid}/clear | auth=perm:finance.cheques.approve | capability=cheques
+POST api/v1/finance/cheques/{id:guid}/clear-issued | auth=perm:finance.cheques.approve
+POST api/v1/finance/cheques/{id:guid}/deposit | auth=perm:finance.cheques.approve | capability=cheques
+POST api/v1/finance/cheques/{id:guid}/follow-up | auth=perm:finance.cheques.write | capability=cheques
+POST api/v1/finance/cheques/{id:guid}/replace | auth=perm:finance.cheques.approve | capability=cheques
+POST api/v1/finance/invoices | auth=perm:finance.invoices.write
+POST api/v1/finance/invoices/{id:guid}/apply-credit | auth=perm:finance.invoices.credit
+POST api/v1/finance/invoices/{id:guid}/credit-note | auth=perm:finance.invoices.credit
+POST api/v1/finance/invoices/{id:guid}/email | auth=perm:core.email.send
+POST api/v1/finance/invoices/{id:guid}/issue | auth=perm:finance.invoices.issue
+POST api/v1/finance/invoices/{id:guid}/void | auth=perm:finance.invoices.void
+POST api/v1/finance/journals | auth=perm:finance.journals.write
+POST api/v1/finance/journals/{id:guid}/post | auth=perm:finance.journals.post
+POST api/v1/finance/journals/{id:guid}/reverse | auth=perm:finance.journals.reverse
+POST api/v1/finance/opening-balances | auth=perm:finance.journals.post
+POST api/v1/finance/opening-balances/{journalid:guid}/reverse | auth=perm:finance.journals.reverse
+POST api/v1/finance/payments | auth=perm:finance.payments.write
+POST api/v1/finance/payments/{id:guid}/allocate | auth=perm:finance.payments.write
+POST api/v1/finance/payments/{id:guid}/email | auth=perm:core.email.send
+POST api/v1/finance/payments/{id:guid}/post | auth=perm:finance.payments.write
+POST api/v1/finance/payments/{id:guid}/void | auth=perm:finance.payments.write
+POST api/v1/finance/receipts | auth=perm:finance.receipts.write
+POST api/v1/finance/receipts/{id:guid}/allocate | auth=perm:finance.receipts.write
+POST api/v1/finance/receipts/{id:guid}/email | auth=perm:core.email.send
+POST api/v1/finance/receipts/{id:guid}/void | auth=perm:finance.receipts.write
+POST api/v1/finance/tax-codes | auth=perm:finance.tax.write
+POST api/v1/finance/year-end/close | auth=perm:finance.yearend.close
+POST api/v1/finance/year-end/reopen | auth=perm:finance.yearend.reopen
+POST api/v1/imports/{key} | auth=authenticated | capability=import
+POST api/v1/items | auth=perm:core.items.write
+POST api/v1/legal-entities | auth=perm:core.entities.write
+POST api/v1/m/agriculture/records/crops | auth=perm:agriculture.crops.manage | module=agriculture
+POST api/v1/m/agriculture/records/crops/{id:guid}/bill | auth=perm:agriculture.crops.manage | module=agriculture
+POST api/v1/m/agriculture/records/crops/{id:guid}/consume | auth=perm:agriculture.crops.manage | module=agriculture
+POST api/v1/m/agriculture/records/crops/{id:guid}/invoice | auth=perm:agriculture.crops.manage | module=agriculture
+POST api/v1/m/agriculture/records/crops/{id:guid}/progress | auth=perm:agriculture.crops.manage | module=agriculture
+POST api/v1/m/agriculture/records/crops/{id:guid}/transition | auth=perm:agriculture.crops.manage | module=agriculture
+POST api/v1/m/agriculture/records/feed | auth=perm:agriculture.feed.manage | module=agriculture
+POST api/v1/m/agriculture/records/feed/{id:guid}/bill | auth=perm:agriculture.feed.manage | module=agriculture
+POST api/v1/m/agriculture/records/feed/{id:guid}/consume | auth=perm:agriculture.feed.manage | module=agriculture
+POST api/v1/m/agriculture/records/feed/{id:guid}/invoice | auth=perm:agriculture.feed.manage | module=agriculture
+POST api/v1/m/agriculture/records/feed/{id:guid}/progress | auth=perm:agriculture.feed.manage | module=agriculture
+POST api/v1/m/agriculture/records/feed/{id:guid}/transition | auth=perm:agriculture.feed.manage | module=agriculture
+POST api/v1/m/agriculture/records/harvests | auth=perm:agriculture.harvests.manage | module=agriculture
+POST api/v1/m/agriculture/records/harvests/{id:guid}/bill | auth=perm:agriculture.harvests.manage | module=agriculture
+POST api/v1/m/agriculture/records/harvests/{id:guid}/consume | auth=perm:agriculture.harvests.manage | module=agriculture
+POST api/v1/m/agriculture/records/harvests/{id:guid}/invoice | auth=perm:agriculture.harvests.manage | module=agriculture
+POST api/v1/m/agriculture/records/harvests/{id:guid}/progress | auth=perm:agriculture.harvests.manage | module=agriculture
+POST api/v1/m/agriculture/records/harvests/{id:guid}/transition | auth=perm:agriculture.harvests.manage | module=agriculture
+POST api/v1/m/agriculture/records/herds | auth=perm:agriculture.herds.manage | module=agriculture
+POST api/v1/m/agriculture/records/herds/{id:guid}/bill | auth=perm:agriculture.herds.manage | module=agriculture
+POST api/v1/m/agriculture/records/herds/{id:guid}/consume | auth=perm:agriculture.herds.manage | module=agriculture
+POST api/v1/m/agriculture/records/herds/{id:guid}/invoice | auth=perm:agriculture.herds.manage | module=agriculture
+POST api/v1/m/agriculture/records/herds/{id:guid}/progress | auth=perm:agriculture.herds.manage | module=agriculture
+POST api/v1/m/agriculture/records/herds/{id:guid}/transition | auth=perm:agriculture.herds.manage | module=agriculture
+POST api/v1/m/agriculture/records/production | auth=perm:agriculture.production.manage | module=agriculture
+POST api/v1/m/agriculture/records/production/{id:guid}/bill | auth=perm:agriculture.production.manage | module=agriculture
+POST api/v1/m/agriculture/records/production/{id:guid}/consume | auth=perm:agriculture.production.manage | module=agriculture
+POST api/v1/m/agriculture/records/production/{id:guid}/invoice | auth=perm:agriculture.production.manage | module=agriculture
+POST api/v1/m/agriculture/records/production/{id:guid}/progress | auth=perm:agriculture.production.manage | module=agriculture
+POST api/v1/m/agriculture/records/production/{id:guid}/transition | auth=perm:agriculture.production.manage | module=agriculture
+POST api/v1/m/agriculture/records/vetcare | auth=perm:agriculture.vetcare.manage | module=agriculture
+POST api/v1/m/agriculture/records/vetcare/{id:guid}/bill | auth=perm:agriculture.vetcare.manage | module=agriculture
+POST api/v1/m/agriculture/records/vetcare/{id:guid}/consume | auth=perm:agriculture.vetcare.manage | module=agriculture
+POST api/v1/m/agriculture/records/vetcare/{id:guid}/invoice | auth=perm:agriculture.vetcare.manage | module=agriculture
+POST api/v1/m/agriculture/records/vetcare/{id:guid}/progress | auth=perm:agriculture.vetcare.manage | module=agriculture
+POST api/v1/m/agriculture/records/vetcare/{id:guid}/transition | auth=perm:agriculture.vetcare.manage | module=agriculture
+POST api/v1/m/assets/categories | auth=perm:assets.categories.manage | module=assets
+POST api/v1/m/assets/depreciation-runs | auth=perm:assets.depreciation.run | module=assets
+POST api/v1/m/assets/register | auth=perm:assets.register.manage | module=assets
+POST api/v1/m/assets/register/{id:guid}/capitalise | auth=perm:assets.register.capitalise | module=assets
+POST api/v1/m/assets/register/{id:guid}/dispose | auth=perm:assets.register.dispose | module=assets
+POST api/v1/m/assistant/actions/{id:guid}/cancel | auth=perm:assistant.chats.use | module=assistant | read-only-ok
+POST api/v1/m/assistant/actions/{id:guid}/confirm | auth=perm:assistant.chats.use | module=assistant
+POST api/v1/m/assistant/messages | auth=perm:assistant.chats.use | module=assistant | read-only-ok
+POST api/v1/m/construction/records/boqs | auth=perm:construction.boqs.manage | module=construction
+POST api/v1/m/construction/records/boqs/{id:guid}/bill | auth=perm:construction.boqs.manage | module=construction
+POST api/v1/m/construction/records/boqs/{id:guid}/consume | auth=perm:construction.boqs.manage | module=construction
+POST api/v1/m/construction/records/boqs/{id:guid}/invoice | auth=perm:construction.boqs.manage | module=construction
+POST api/v1/m/construction/records/boqs/{id:guid}/progress | auth=perm:construction.boqs.manage | module=construction
+POST api/v1/m/construction/records/boqs/{id:guid}/transition | auth=perm:construction.boqs.manage | module=construction
+POST api/v1/m/construction/records/equipment | auth=perm:construction.equipment.manage | module=construction
+POST api/v1/m/construction/records/equipment/{id:guid}/bill | auth=perm:construction.equipment.manage | module=construction
+POST api/v1/m/construction/records/equipment/{id:guid}/consume | auth=perm:construction.equipment.manage | module=construction
+POST api/v1/m/construction/records/equipment/{id:guid}/invoice | auth=perm:construction.equipment.manage | module=construction
+POST api/v1/m/construction/records/equipment/{id:guid}/progress | auth=perm:construction.equipment.manage | module=construction
+POST api/v1/m/construction/records/equipment/{id:guid}/transition | auth=perm:construction.equipment.manage | module=construction
+POST api/v1/m/construction/records/materialissues | auth=perm:construction.materialissues.manage | module=construction
+POST api/v1/m/construction/records/materialissues/{id:guid}/bill | auth=perm:construction.materialissues.manage | module=construction
+POST api/v1/m/construction/records/materialissues/{id:guid}/consume | auth=perm:construction.materialissues.manage | module=construction
+POST api/v1/m/construction/records/materialissues/{id:guid}/invoice | auth=perm:construction.materialissues.manage | module=construction
+POST api/v1/m/construction/records/materialissues/{id:guid}/progress | auth=perm:construction.materialissues.manage | module=construction
+POST api/v1/m/construction/records/materialissues/{id:guid}/transition | auth=perm:construction.materialissues.manage | module=construction
+POST api/v1/m/construction/records/sitereports | auth=perm:construction.sitereports.manage | module=construction
+POST api/v1/m/construction/records/sitereports/{id:guid}/bill | auth=perm:construction.sitereports.manage | module=construction
+POST api/v1/m/construction/records/sitereports/{id:guid}/consume | auth=perm:construction.sitereports.manage | module=construction
+POST api/v1/m/construction/records/sitereports/{id:guid}/invoice | auth=perm:construction.sitereports.manage | module=construction
+POST api/v1/m/construction/records/sitereports/{id:guid}/progress | auth=perm:construction.sitereports.manage | module=construction
+POST api/v1/m/construction/records/sitereports/{id:guid}/transition | auth=perm:construction.sitereports.manage | module=construction
+POST api/v1/m/construction/records/sites | auth=perm:construction.sites.manage | module=construction
+POST api/v1/m/construction/records/sites/{id:guid}/bill | auth=perm:construction.sites.manage | module=construction
+POST api/v1/m/construction/records/sites/{id:guid}/consume | auth=perm:construction.sites.manage | module=construction
+POST api/v1/m/construction/records/sites/{id:guid}/invoice | auth=perm:construction.sites.manage | module=construction
+POST api/v1/m/construction/records/sites/{id:guid}/progress | auth=perm:construction.sites.manage | module=construction
+POST api/v1/m/construction/records/sites/{id:guid}/transition | auth=perm:construction.sites.manage | module=construction
+POST api/v1/m/construction/records/subcontractorpayments | auth=perm:construction.subcontractorpayments.manage | module=construction
+POST api/v1/m/construction/records/subcontractorpayments/{id:guid}/bill | auth=perm:construction.subcontractorpayments.manage | module=construction
+POST api/v1/m/construction/records/subcontractorpayments/{id:guid}/consume | auth=perm:construction.subcontractorpayments.manage | module=construction
+POST api/v1/m/construction/records/subcontractorpayments/{id:guid}/invoice | auth=perm:construction.subcontractorpayments.manage | module=construction
+POST api/v1/m/construction/records/subcontractorpayments/{id:guid}/progress | auth=perm:construction.subcontractorpayments.manage | module=construction
+POST api/v1/m/construction/records/subcontractorpayments/{id:guid}/transition | auth=perm:construction.subcontractorpayments.manage | module=construction
+POST api/v1/m/construction/records/subcontracts | auth=perm:construction.subcontracts.manage | module=construction
+POST api/v1/m/construction/records/subcontracts/{id:guid}/bill | auth=perm:construction.subcontracts.manage | module=construction
+POST api/v1/m/construction/records/subcontracts/{id:guid}/consume | auth=perm:construction.subcontracts.manage | module=construction
+POST api/v1/m/construction/records/subcontracts/{id:guid}/invoice | auth=perm:construction.subcontracts.manage | module=construction
+POST api/v1/m/construction/records/subcontracts/{id:guid}/progress | auth=perm:construction.subcontracts.manage | module=construction
+POST api/v1/m/construction/records/subcontracts/{id:guid}/transition | auth=perm:construction.subcontracts.manage | module=construction
+POST api/v1/m/construction/records/valuations | auth=perm:construction.valuations.manage | module=construction
+POST api/v1/m/construction/records/valuations/{id:guid}/bill | auth=perm:construction.valuations.manage | module=construction
+POST api/v1/m/construction/records/valuations/{id:guid}/consume | auth=perm:construction.valuations.manage | module=construction
+POST api/v1/m/construction/records/valuations/{id:guid}/invoice | auth=perm:construction.valuations.manage | module=construction
+POST api/v1/m/construction/records/valuations/{id:guid}/progress | auth=perm:construction.valuations.manage | module=construction
+POST api/v1/m/construction/records/valuations/{id:guid}/transition | auth=perm:construction.valuations.manage | module=construction
+POST api/v1/m/contracts/records/agreements | auth=perm:contracts.agreements.manage | module=contracts
+POST api/v1/m/contracts/records/agreements/{id:guid}/bill | auth=perm:contracts.agreements.manage | module=contracts
+POST api/v1/m/contracts/records/agreements/{id:guid}/consume | auth=perm:contracts.agreements.manage | module=contracts
+POST api/v1/m/contracts/records/agreements/{id:guid}/invoice | auth=perm:contracts.agreements.manage | module=contracts
+POST api/v1/m/contracts/records/agreements/{id:guid}/progress | auth=perm:contracts.agreements.manage | module=contracts
+POST api/v1/m/contracts/records/agreements/{id:guid}/transition | auth=perm:contracts.agreements.manage | module=contracts
+POST api/v1/m/crm/interactions | auth=perm:crm.interactions.manage | module=crm
+POST api/v1/m/crm/interactions/{id:guid}/resolve | auth=perm:crm.interactions.manage | module=crm
+POST api/v1/m/crm/leads | auth=perm:crm.leads.manage | module=crm
+POST api/v1/m/crm/leads/{id:guid}/convert | auth=perm:crm.leads.manage | module=crm
+POST api/v1/m/crm/opportunities | auth=perm:crm.opportunities.manage | module=crm
+POST api/v1/m/crm/opportunities/{id:guid}/close | auth=perm:crm.opportunities.manage | module=crm
+POST api/v1/m/crm/opportunities/{id:guid}/stage | auth=perm:crm.opportunities.manage | module=crm
+POST api/v1/m/distribution/routes | auth=perm:distribution.routes.manage | module=distribution
+POST api/v1/m/distribution/trips | auth=perm:distribution.trips.manage | module=distribution
+POST api/v1/m/distribution/trips/{id:guid}/complete | auth=perm:distribution.trips.manage | module=distribution
+POST api/v1/m/distribution/wholesale | auth=perm:distribution.pricing.manage | module=distribution
+POST api/v1/m/distribution/wholesale/calculate-rate | auth=perm:distribution.pricing.read | module=distribution
+POST api/v1/m/education/records/admissions | auth=perm:education.admissions.manage | module=education
+POST api/v1/m/education/records/admissions/{id:guid}/bill | auth=perm:education.admissions.manage | module=education
+POST api/v1/m/education/records/admissions/{id:guid}/consume | auth=perm:education.admissions.manage | module=education
+POST api/v1/m/education/records/admissions/{id:guid}/invoice | auth=perm:education.admissions.manage | module=education
+POST api/v1/m/education/records/admissions/{id:guid}/progress | auth=perm:education.admissions.manage | module=education
+POST api/v1/m/education/records/admissions/{id:guid}/transition | auth=perm:education.admissions.manage | module=education
+POST api/v1/m/education/records/classes | auth=perm:education.classes.manage | module=education
+POST api/v1/m/education/records/classes/{id:guid}/bill | auth=perm:education.classes.manage | module=education
+POST api/v1/m/education/records/classes/{id:guid}/consume | auth=perm:education.classes.manage | module=education
+POST api/v1/m/education/records/classes/{id:guid}/invoice | auth=perm:education.classes.manage | module=education
+POST api/v1/m/education/records/classes/{id:guid}/progress | auth=perm:education.classes.manage | module=education
+POST api/v1/m/education/records/classes/{id:guid}/transition | auth=perm:education.classes.manage | module=education
+POST api/v1/m/education/records/exams | auth=perm:education.exams.manage | module=education
+POST api/v1/m/education/records/exams/{id:guid}/bill | auth=perm:education.exams.manage | module=education
+POST api/v1/m/education/records/exams/{id:guid}/consume | auth=perm:education.exams.manage | module=education
+POST api/v1/m/education/records/exams/{id:guid}/invoice | auth=perm:education.exams.manage | module=education
+POST api/v1/m/education/records/exams/{id:guid}/progress | auth=perm:education.exams.manage | module=education
+POST api/v1/m/education/records/exams/{id:guid}/transition | auth=perm:education.exams.manage | module=education
+POST api/v1/m/education/records/fees | auth=perm:education.fees.manage | module=education
+POST api/v1/m/education/records/fees/{id:guid}/bill | auth=perm:education.fees.manage | module=education
+POST api/v1/m/education/records/fees/{id:guid}/consume | auth=perm:education.fees.manage | module=education
+POST api/v1/m/education/records/fees/{id:guid}/invoice | auth=perm:education.fees.manage | module=education
+POST api/v1/m/education/records/fees/{id:guid}/progress | auth=perm:education.fees.manage | module=education
+POST api/v1/m/education/records/fees/{id:guid}/transition | auth=perm:education.fees.manage | module=education
+POST api/v1/m/education/records/results | auth=perm:education.results.manage | module=education
+POST api/v1/m/education/records/results/{id:guid}/bill | auth=perm:education.results.manage | module=education
+POST api/v1/m/education/records/results/{id:guid}/consume | auth=perm:education.results.manage | module=education
+POST api/v1/m/education/records/results/{id:guid}/invoice | auth=perm:education.results.manage | module=education
+POST api/v1/m/education/records/results/{id:guid}/progress | auth=perm:education.results.manage | module=education
+POST api/v1/m/education/records/results/{id:guid}/transition | auth=perm:education.results.manage | module=education
+POST api/v1/m/education/records/sessions | auth=perm:education.sessions.manage | module=education
+POST api/v1/m/education/records/sessions/{id:guid}/bill | auth=perm:education.sessions.manage | module=education
+POST api/v1/m/education/records/sessions/{id:guid}/consume | auth=perm:education.sessions.manage | module=education
+POST api/v1/m/education/records/sessions/{id:guid}/invoice | auth=perm:education.sessions.manage | module=education
+POST api/v1/m/education/records/sessions/{id:guid}/progress | auth=perm:education.sessions.manage | module=education
+POST api/v1/m/education/records/sessions/{id:guid}/transition | auth=perm:education.sessions.manage | module=education
+POST api/v1/m/education/records/students | auth=perm:education.students.manage | module=education
+POST api/v1/m/education/records/students/{id:guid}/bill | auth=perm:education.students.manage | module=education
+POST api/v1/m/education/records/students/{id:guid}/consume | auth=perm:education.students.manage | module=education
+POST api/v1/m/education/records/students/{id:guid}/invoice | auth=perm:education.students.manage | module=education
+POST api/v1/m/education/records/students/{id:guid}/progress | auth=perm:education.students.manage | module=education
+POST api/v1/m/education/records/students/{id:guid}/transition | auth=perm:education.students.manage | module=education
+POST api/v1/m/expenses/records/claims | auth=perm:expenses.claims.manage | module=expenses
+POST api/v1/m/expenses/records/claims/{id:guid}/bill | auth=perm:expenses.claims.manage | module=expenses
+POST api/v1/m/expenses/records/claims/{id:guid}/consume | auth=perm:expenses.claims.manage | module=expenses
+POST api/v1/m/expenses/records/claims/{id:guid}/invoice | auth=perm:expenses.claims.manage | module=expenses
+POST api/v1/m/expenses/records/claims/{id:guid}/progress | auth=perm:expenses.claims.manage | module=expenses
+POST api/v1/m/expenses/records/claims/{id:guid}/transition | auth=perm:expenses.claims.manage | module=expenses
+POST api/v1/m/healthcare/records/appointments | auth=perm:healthcare.appointments.manage | module=healthcare
+POST api/v1/m/healthcare/records/appointments/{id:guid}/bill | auth=perm:healthcare.appointments.manage | module=healthcare
+POST api/v1/m/healthcare/records/appointments/{id:guid}/consume | auth=perm:healthcare.appointments.manage | module=healthcare
+POST api/v1/m/healthcare/records/appointments/{id:guid}/invoice | auth=perm:healthcare.appointments.manage | module=healthcare
+POST api/v1/m/healthcare/records/appointments/{id:guid}/progress | auth=perm:healthcare.appointments.manage | module=healthcare
+POST api/v1/m/healthcare/records/appointments/{id:guid}/transition | auth=perm:healthcare.appointments.manage | module=healthcare
+POST api/v1/m/healthcare/records/claims | auth=perm:healthcare.claims.manage | module=healthcare
+POST api/v1/m/healthcare/records/claims/{id:guid}/bill | auth=perm:healthcare.claims.manage | module=healthcare
+POST api/v1/m/healthcare/records/claims/{id:guid}/consume | auth=perm:healthcare.claims.manage | module=healthcare
+POST api/v1/m/healthcare/records/claims/{id:guid}/invoice | auth=perm:healthcare.claims.manage | module=healthcare
+POST api/v1/m/healthcare/records/claims/{id:guid}/progress | auth=perm:healthcare.claims.manage | module=healthcare
+POST api/v1/m/healthcare/records/claims/{id:guid}/transition | auth=perm:healthcare.claims.manage | module=healthcare
+POST api/v1/m/healthcare/records/dispensings | auth=perm:healthcare.dispensings.manage | module=healthcare
+POST api/v1/m/healthcare/records/dispensings/{id:guid}/bill | auth=perm:healthcare.dispensings.manage | module=healthcare
+POST api/v1/m/healthcare/records/dispensings/{id:guid}/consume | auth=perm:healthcare.dispensings.manage | module=healthcare
+POST api/v1/m/healthcare/records/dispensings/{id:guid}/invoice | auth=perm:healthcare.dispensings.manage | module=healthcare
+POST api/v1/m/healthcare/records/dispensings/{id:guid}/progress | auth=perm:healthcare.dispensings.manage | module=healthcare
+POST api/v1/m/healthcare/records/dispensings/{id:guid}/transition | auth=perm:healthcare.dispensings.manage | module=healthcare
+POST api/v1/m/healthcare/records/labtests | auth=perm:healthcare.labtests.manage | module=healthcare
+POST api/v1/m/healthcare/records/labtests/{id:guid}/bill | auth=perm:healthcare.labtests.manage | module=healthcare
+POST api/v1/m/healthcare/records/labtests/{id:guid}/consume | auth=perm:healthcare.labtests.manage | module=healthcare
+POST api/v1/m/healthcare/records/labtests/{id:guid}/invoice | auth=perm:healthcare.labtests.manage | module=healthcare
+POST api/v1/m/healthcare/records/labtests/{id:guid}/progress | auth=perm:healthcare.labtests.manage | module=healthcare
+POST api/v1/m/healthcare/records/labtests/{id:guid}/transition | auth=perm:healthcare.labtests.manage | module=healthcare
+POST api/v1/m/healthcare/records/medicalbills | auth=perm:healthcare.medicalbills.manage | module=healthcare
+POST api/v1/m/healthcare/records/medicalbills/{id:guid}/bill | auth=perm:healthcare.medicalbills.manage | module=healthcare
+POST api/v1/m/healthcare/records/medicalbills/{id:guid}/consume | auth=perm:healthcare.medicalbills.manage | module=healthcare
+POST api/v1/m/healthcare/records/medicalbills/{id:guid}/invoice | auth=perm:healthcare.medicalbills.manage | module=healthcare
+POST api/v1/m/healthcare/records/medicalbills/{id:guid}/progress | auth=perm:healthcare.medicalbills.manage | module=healthcare
+POST api/v1/m/healthcare/records/medicalbills/{id:guid}/transition | auth=perm:healthcare.medicalbills.manage | module=healthcare
+POST api/v1/m/healthcare/records/patients | auth=perm:healthcare.patients.manage | module=healthcare
+POST api/v1/m/healthcare/records/patients/{id:guid}/bill | auth=perm:healthcare.patients.manage | module=healthcare
+POST api/v1/m/healthcare/records/patients/{id:guid}/consume | auth=perm:healthcare.patients.manage | module=healthcare
+POST api/v1/m/healthcare/records/patients/{id:guid}/invoice | auth=perm:healthcare.patients.manage | module=healthcare
+POST api/v1/m/healthcare/records/patients/{id:guid}/progress | auth=perm:healthcare.patients.manage | module=healthcare
+POST api/v1/m/healthcare/records/patients/{id:guid}/transition | auth=perm:healthcare.patients.manage | module=healthcare
+POST api/v1/m/hospitality/records/events | auth=perm:hospitality.events.manage | module=hospitality
+POST api/v1/m/hospitality/records/events/{id:guid}/bill | auth=perm:hospitality.events.manage | module=hospitality
+POST api/v1/m/hospitality/records/events/{id:guid}/consume | auth=perm:hospitality.events.manage | module=hospitality
+POST api/v1/m/hospitality/records/events/{id:guid}/invoice | auth=perm:hospitality.events.manage | module=hospitality
+POST api/v1/m/hospitality/records/events/{id:guid}/progress | auth=perm:hospitality.events.manage | module=hospitality
+POST api/v1/m/hospitality/records/events/{id:guid}/transition | auth=perm:hospitality.events.manage | module=hospitality
+POST api/v1/m/hospitality/records/reservations | auth=perm:hospitality.reservations.manage | module=hospitality
+POST api/v1/m/hospitality/records/reservations/{id:guid}/bill | auth=perm:hospitality.reservations.manage | module=hospitality
+POST api/v1/m/hospitality/records/reservations/{id:guid}/consume | auth=perm:hospitality.reservations.manage | module=hospitality
+POST api/v1/m/hospitality/records/reservations/{id:guid}/invoice | auth=perm:hospitality.reservations.manage | module=hospitality
+POST api/v1/m/hospitality/records/reservations/{id:guid}/progress | auth=perm:hospitality.reservations.manage | module=hospitality
+POST api/v1/m/hospitality/records/reservations/{id:guid}/transition | auth=perm:hospitality.reservations.manage | module=hospitality
+POST api/v1/m/hospitality/records/rooms | auth=perm:hospitality.rooms.manage | module=hospitality
+POST api/v1/m/hospitality/records/rooms/{id:guid}/bill | auth=perm:hospitality.rooms.manage | module=hospitality
+POST api/v1/m/hospitality/records/rooms/{id:guid}/consume | auth=perm:hospitality.rooms.manage | module=hospitality
+POST api/v1/m/hospitality/records/rooms/{id:guid}/invoice | auth=perm:hospitality.rooms.manage | module=hospitality
+POST api/v1/m/hospitality/records/rooms/{id:guid}/progress | auth=perm:hospitality.rooms.manage | module=hospitality
+POST api/v1/m/hospitality/records/rooms/{id:guid}/transition | auth=perm:hospitality.rooms.manage | module=hospitality
+POST api/v1/m/hospitality/records/waste | auth=perm:hospitality.waste.manage | module=hospitality
+POST api/v1/m/hospitality/records/waste/{id:guid}/bill | auth=perm:hospitality.waste.manage | module=hospitality
+POST api/v1/m/hospitality/records/waste/{id:guid}/consume | auth=perm:hospitality.waste.manage | module=hospitality
+POST api/v1/m/hospitality/records/waste/{id:guid}/invoice | auth=perm:hospitality.waste.manage | module=hospitality
+POST api/v1/m/hospitality/records/waste/{id:guid}/progress | auth=perm:hospitality.waste.manage | module=hospitality
+POST api/v1/m/hospitality/records/waste/{id:guid}/transition | auth=perm:hospitality.waste.manage | module=hospitality
+POST api/v1/m/hr/attendance/daily/bulk | auth=perm:hr.attendance.manage | module=hr
+POST api/v1/m/hr/attendance/daily/roll-up | auth=perm:hr.attendance.manage | module=hr
+POST api/v1/m/hr/attendance/punch | auth=perm:hr.attendance.manage | module=hr
+POST api/v1/m/hr/candidates | auth=perm:hr.recruitment.manage | module=hr
+POST api/v1/m/hr/candidates/{id:guid}/hire | auth=perm:hr.recruitment.manage | module=hr
+POST api/v1/m/hr/candidates/{id:guid}/move | auth=perm:hr.recruitment.manage | module=hr
+POST api/v1/m/hr/checklists | auth=perm:hr.employees.manage | module=hr
+POST api/v1/m/hr/departments | auth=perm:hr.employees.manage | module=hr
+POST api/v1/m/hr/documents | auth=perm:hr.employees.manage | module=hr
+POST api/v1/m/hr/employees | auth=perm:hr.employees.manage | module=hr
+POST api/v1/m/hr/employees/{id:guid}/checklists/{templateid:guid} | auth=perm:hr.employees.manage | module=hr
+POST api/v1/m/hr/employees/{id:guid}/final-settlement | auth=perm:hr.payroll.manage | module=hr
+POST api/v1/m/hr/employees/{id:guid}/history | auth=perm:hr.employees.manage | module=hr
+POST api/v1/m/hr/employees/{id:guid}/tasks | auth=perm:hr.employees.manage | module=hr
+POST api/v1/m/hr/employees/{id:guid}/terminate | auth=perm:hr.employees.manage | module=hr
+POST api/v1/m/hr/holidays | auth=perm:hr.leave.approve | module=hr
+POST api/v1/m/hr/leave | auth=perm:hr.leave.request | module=hr
+POST api/v1/m/hr/leave-types | auth=perm:hr.leave.approve | module=hr
+POST api/v1/m/hr/leave/apply-country-defaults | auth=perm:hr.leave.approve | module=hr
+POST api/v1/m/hr/leave/{id:guid}/approve | auth=authenticated | module=hr
+POST api/v1/m/hr/leave/{id:guid}/cancel | auth=perm:hr.leave.request | module=hr
+POST api/v1/m/hr/leave/{id:guid}/reject | auth=authenticated | module=hr
+POST api/v1/m/hr/leave/{id:guid}/submit | auth=perm:hr.leave.request | module=hr
+POST api/v1/m/hr/loans | auth=perm:hr.payroll.manage | module=hr
+POST api/v1/m/hr/loans/{id:guid}/cancel | auth=perm:hr.payroll.manage | module=hr
+POST api/v1/m/hr/loans/{id:guid}/disburse | auth=perm:hr.payroll.pay | module=hr
+POST api/v1/m/hr/me/leave | auth=authenticated | module=hr
+POST api/v1/m/hr/me/leave/{id:guid}/cancel | auth=authenticated | module=hr
+POST api/v1/m/hr/me/leave/{id:guid}/submit | auth=authenticated | module=hr
+POST api/v1/m/hr/openings | auth=perm:hr.recruitment.manage | module=hr
+POST api/v1/m/hr/payroll | auth=perm:hr.payroll.manage | module=hr
+POST api/v1/m/hr/payroll/{id:guid}/email-payslips | auth=perm:hr.payroll.read | module=hr
+POST api/v1/m/hr/payroll/{id:guid}/pay | auth=perm:hr.payroll.pay | module=hr
+POST api/v1/m/hr/payroll/{id:guid}/payslips/{lineid:guid}/email | auth=perm:hr.payroll.read | module=hr
+POST api/v1/m/hr/payroll/{id:guid}/post | auth=perm:hr.payroll.post | module=hr
+POST api/v1/m/hr/payroll/{id:guid}/recalculate | auth=perm:hr.payroll.manage | module=hr
+POST api/v1/m/hr/payroll/{id:guid}/void | auth=perm:hr.payroll.post | module=hr
+POST api/v1/m/hr/positions | auth=perm:hr.employees.manage | module=hr
+POST api/v1/m/hr/reports/gratuity/provision | auth=perm:hr.payroll.post | module=hr
+POST api/v1/m/hr/review-cycles | auth=perm:hr.reviews.manage | module=hr
+POST api/v1/m/hr/reviews | auth=perm:hr.reviews.manage | module=hr
+POST api/v1/m/hr/reviews/{id:guid}/acknowledge | auth=perm:hr.reviews.manage | module=hr
+POST api/v1/m/hr/reviews/{id:guid}/submit | auth=perm:hr.reviews.manage | module=hr
+POST api/v1/m/hr/shifts | auth=perm:hr.attendance.manage | module=hr
+POST api/v1/m/hr/shifts/unassign | auth=perm:hr.attendance.manage | module=hr
+POST api/v1/m/hr/shifts/{id:guid}/assign | auth=perm:hr.attendance.manage | module=hr
+POST api/v1/m/hr/shifts/{id:guid}/roster | auth=perm:hr.attendance.manage | module=hr
+POST api/v1/m/hr/statutory-rules | auth=perm:hr.payroll.manage | module=hr
+POST api/v1/m/hr/tasks/{id:guid}/done | auth=perm:hr.employees.manage | module=hr
+POST api/v1/m/inventory/counts | auth=perm:inventory.counts.manage | module=inventory
+POST api/v1/m/inventory/counts/{id:guid}/cancel | auth=perm:inventory.counts.manage | module=inventory
+POST api/v1/m/inventory/counts/{id:guid}/post | auth=perm:inventory.counts.manage | module=inventory
+POST api/v1/m/inventory/stock/adjust | auth=perm:inventory.stock.write | module=inventory
+POST api/v1/m/inventory/stock/issue | auth=perm:inventory.stock.write | module=inventory
+POST api/v1/m/inventory/stock/receive | auth=perm:inventory.stock.write | module=inventory
+POST api/v1/m/inventory/stock/transfer | auth=perm:inventory.stock.write | module=inventory
+POST api/v1/m/inventory/warehouses | auth=perm:inventory.warehouses.write | module=inventory
+POST api/v1/m/logistics/records/deliveryexpenses | auth=perm:logistics.deliveryexpenses.manage | module=logistics
+POST api/v1/m/logistics/records/deliveryexpenses/{id:guid}/bill | auth=perm:logistics.deliveryexpenses.manage | module=logistics
+POST api/v1/m/logistics/records/deliveryexpenses/{id:guid}/consume | auth=perm:logistics.deliveryexpenses.manage | module=logistics
+POST api/v1/m/logistics/records/deliveryexpenses/{id:guid}/invoice | auth=perm:logistics.deliveryexpenses.manage | module=logistics
+POST api/v1/m/logistics/records/deliveryexpenses/{id:guid}/progress | auth=perm:logistics.deliveryexpenses.manage | module=logistics
+POST api/v1/m/logistics/records/deliveryexpenses/{id:guid}/transition | auth=perm:logistics.deliveryexpenses.manage | module=logistics
+POST api/v1/m/logistics/records/drivers | auth=perm:logistics.drivers.manage | module=logistics
+POST api/v1/m/logistics/records/drivers/{id:guid}/bill | auth=perm:logistics.drivers.manage | module=logistics
+POST api/v1/m/logistics/records/drivers/{id:guid}/consume | auth=perm:logistics.drivers.manage | module=logistics
+POST api/v1/m/logistics/records/drivers/{id:guid}/invoice | auth=perm:logistics.drivers.manage | module=logistics
+POST api/v1/m/logistics/records/drivers/{id:guid}/progress | auth=perm:logistics.drivers.manage | module=logistics
+POST api/v1/m/logistics/records/drivers/{id:guid}/transition | auth=perm:logistics.drivers.manage | module=logistics
+POST api/v1/m/logistics/records/fuel | auth=perm:logistics.fuel.manage | module=logistics
+POST api/v1/m/logistics/records/fuel/{id:guid}/bill | auth=perm:logistics.fuel.manage | module=logistics
+POST api/v1/m/logistics/records/fuel/{id:guid}/consume | auth=perm:logistics.fuel.manage | module=logistics
+POST api/v1/m/logistics/records/fuel/{id:guid}/invoice | auth=perm:logistics.fuel.manage | module=logistics
+POST api/v1/m/logistics/records/fuel/{id:guid}/progress | auth=perm:logistics.fuel.manage | module=logistics
+POST api/v1/m/logistics/records/fuel/{id:guid}/transition | auth=perm:logistics.fuel.manage | module=logistics
+POST api/v1/m/logistics/records/maintenance | auth=perm:logistics.maintenance.manage | module=logistics
+POST api/v1/m/logistics/records/maintenance/{id:guid}/bill | auth=perm:logistics.maintenance.manage | module=logistics
+POST api/v1/m/logistics/records/maintenance/{id:guid}/consume | auth=perm:logistics.maintenance.manage | module=logistics
+POST api/v1/m/logistics/records/maintenance/{id:guid}/invoice | auth=perm:logistics.maintenance.manage | module=logistics
+POST api/v1/m/logistics/records/maintenance/{id:guid}/progress | auth=perm:logistics.maintenance.manage | module=logistics
+POST api/v1/m/logistics/records/maintenance/{id:guid}/transition | auth=perm:logistics.maintenance.manage | module=logistics
+POST api/v1/m/logistics/records/shipments | auth=perm:logistics.shipments.manage | module=logistics
+POST api/v1/m/logistics/records/shipments/{id:guid}/bill | auth=perm:logistics.shipments.manage | module=logistics
+POST api/v1/m/logistics/records/shipments/{id:guid}/consume | auth=perm:logistics.shipments.manage | module=logistics
+POST api/v1/m/logistics/records/shipments/{id:guid}/invoice | auth=perm:logistics.shipments.manage | module=logistics
+POST api/v1/m/logistics/records/shipments/{id:guid}/progress | auth=perm:logistics.shipments.manage | module=logistics
+POST api/v1/m/logistics/records/shipments/{id:guid}/transition | auth=perm:logistics.shipments.manage | module=logistics
+POST api/v1/m/logistics/records/vehicles | auth=perm:logistics.vehicles.manage | module=logistics
+POST api/v1/m/logistics/records/vehicles/{id:guid}/bill | auth=perm:logistics.vehicles.manage | module=logistics
+POST api/v1/m/logistics/records/vehicles/{id:guid}/consume | auth=perm:logistics.vehicles.manage | module=logistics
+POST api/v1/m/logistics/records/vehicles/{id:guid}/invoice | auth=perm:logistics.vehicles.manage | module=logistics
+POST api/v1/m/logistics/records/vehicles/{id:guid}/progress | auth=perm:logistics.vehicles.manage | module=logistics
+POST api/v1/m/logistics/records/vehicles/{id:guid}/transition | auth=perm:logistics.vehicles.manage | module=logistics
+POST api/v1/m/manufacturing/boms | auth=perm:manufacturing.boms.manage | module=manufacturing
+POST api/v1/m/manufacturing/workorders | auth=perm:manufacturing.workorders.manage | module=manufacturing
+POST api/v1/m/manufacturing/workorders/{id:guid}/cancel | auth=perm:manufacturing.workorders.manage | module=manufacturing
+POST api/v1/m/manufacturing/workorders/{id:guid}/complete | auth=perm:manufacturing.workorders.manage | module=manufacturing
+POST api/v1/m/manufacturing/workorders/{id:guid}/issue | auth=perm:manufacturing.workorders.manage | module=manufacturing
+POST api/v1/m/manufacturing/workorders/{id:guid}/release | auth=perm:manufacturing.workorders.manage | module=manufacturing
+POST api/v1/m/manufacturing/workorders/{id:guid}/return-materials | auth=perm:manufacturing.workorders.manage | module=manufacturing
+POST api/v1/m/manufacturing/workorders/{id:guid}/reverse | auth=perm:manufacturing.workorders.reverse | module=manufacturing
+POST api/v1/m/pos/orders | auth=perm:pos.orders.create | module=pos
+POST api/v1/m/pos/orders/park | auth=perm:pos.orders.create | module=pos
+POST api/v1/m/pos/orders/quote | auth=perm:pos.orders.create | module=pos
+POST api/v1/m/pos/orders/{id:guid}/void | auth=perm:pos.orders.void | module=pos
+POST api/v1/m/pos/registers | auth=perm:pos.registers.manage | module=pos
+POST api/v1/m/pos/returns | auth=perm:pos.orders.refund | module=pos
+POST api/v1/m/pos/sessions/open | auth=perm:pos.sessions.manage | module=pos
+POST api/v1/m/pos/sessions/{id:guid}/close | auth=perm:pos.sessions.manage | module=pos
+POST api/v1/m/pos/sessions/{id:guid}/drawer-transaction | auth=perm:pos.sessions.manage | module=pos
+POST api/v1/m/projects/acceptances | auth=perm:projects.milestones.manage | module=projects
+POST api/v1/m/projects/allocations | auth=perm:projects.team.manage | module=projects
+POST api/v1/m/projects/billing/bill | auth=perm:projects.billing.manage | module=projects
+POST api/v1/m/projects/billing/post-costs | auth=perm:projects.billing.manage | module=projects
+POST api/v1/m/projects/billing/preview | auth=perm:projects.billing.read | module=projects
+POST api/v1/m/projects/billing/write-off | auth=perm:projects.billing.manage | module=projects
+POST api/v1/m/projects/budget-lines | auth=perm:projects.projects.manage | module=projects
+POST api/v1/m/projects/change-orders | auth=perm:projects.changeorders.manage | module=projects
+POST api/v1/m/projects/change-orders/{id:guid}/decide | auth=perm:projects.changeorders.manage | module=projects
+POST api/v1/m/projects/comments | auth=perm:projects.projects.read | module=projects
+POST api/v1/m/projects/expenses | auth=perm:projects.expenses.manage | module=projects
+POST api/v1/m/projects/expenses/decide | auth=perm:projects.expenses.approve | module=projects
+POST api/v1/m/projects/expenses/submit | auth=perm:projects.expenses.manage | module=projects
+POST api/v1/m/projects/expenses/write-off | auth=perm:projects.billing.manage | module=projects
+POST api/v1/m/projects/milestones | auth=perm:projects.milestones.manage | module=projects
+POST api/v1/m/projects/milestones/{id:guid}/achieve | auth=perm:projects.milestones.manage | module=projects
+POST api/v1/m/projects/portal/acceptances/{id:guid}/sign | auth=portal.customer | module=projects
+POST api/v1/m/projects/projects | auth=perm:projects.projects.manage | module=projects
+POST api/v1/m/projects/projects/{id:guid}/archive | auth=perm:projects.projects.manage | module=projects
+POST api/v1/m/projects/projects/{id:guid}/baseline | auth=perm:projects.tasks.manage | module=projects
+POST api/v1/m/projects/projects/{id:guid}/clone | auth=perm:projects.projects.manage | module=projects
+POST api/v1/m/projects/projects/{id:guid}/members | auth=perm:projects.team.manage | module=projects
+POST api/v1/m/projects/rates | auth=perm:projects.rates.manage | module=projects
+POST api/v1/m/projects/risks | auth=perm:projects.risks.manage | module=projects
+POST api/v1/m/projects/tasks | auth=perm:projects.tasks.manage | module=projects
+POST api/v1/m/projects/timesheets | auth=perm:projects.timesheets.manage | module=projects
+POST api/v1/m/projects/timesheets/decide | auth=perm:projects.timesheets.approve | module=projects
+POST api/v1/m/projects/timesheets/submit | auth=perm:projects.timesheets.manage | module=projects
+POST api/v1/m/projects/timesheets/week | auth=perm:projects.timesheets.manage | module=projects
+POST api/v1/m/projects/timesheets/write-off | auth=perm:projects.billing.manage | module=projects
+POST api/v1/m/propertysales/records/allotments | auth=perm:propertysales.allotments.manage | module=propertysales
+POST api/v1/m/propertysales/records/allotments/{id:guid}/bill | auth=perm:propertysales.allotments.manage | module=propertysales
+POST api/v1/m/propertysales/records/allotments/{id:guid}/consume | auth=perm:propertysales.allotments.manage | module=propertysales
+POST api/v1/m/propertysales/records/allotments/{id:guid}/invoice | auth=perm:propertysales.allotments.manage | module=propertysales
+POST api/v1/m/propertysales/records/allotments/{id:guid}/progress | auth=perm:propertysales.allotments.manage | module=propertysales
+POST api/v1/m/propertysales/records/allotments/{id:guid}/transition | auth=perm:propertysales.allotments.manage | module=propertysales
+POST api/v1/m/propertysales/records/salecontracts | auth=perm:propertysales.salecontracts.manage | module=propertysales
+POST api/v1/m/propertysales/records/salecontracts/{id:guid}/bill | auth=perm:propertysales.salecontracts.manage | module=propertysales
+POST api/v1/m/propertysales/records/salecontracts/{id:guid}/consume | auth=perm:propertysales.salecontracts.manage | module=propertysales
+POST api/v1/m/propertysales/records/salecontracts/{id:guid}/invoice | auth=perm:propertysales.salecontracts.manage | module=propertysales
+POST api/v1/m/propertysales/records/salecontracts/{id:guid}/progress | auth=perm:propertysales.salecontracts.manage | module=propertysales
+POST api/v1/m/propertysales/records/salecontracts/{id:guid}/transition | auth=perm:propertysales.salecontracts.manage | module=propertysales
+POST api/v1/m/propertysales/records/valuations | auth=perm:propertysales.valuations.manage | module=propertysales
+POST api/v1/m/propertysales/records/valuations/{id:guid}/bill | auth=perm:propertysales.valuations.manage | module=propertysales
+POST api/v1/m/propertysales/records/valuations/{id:guid}/consume | auth=perm:propertysales.valuations.manage | module=propertysales
+POST api/v1/m/propertysales/records/valuations/{id:guid}/invoice | auth=perm:propertysales.valuations.manage | module=propertysales
+POST api/v1/m/propertysales/records/valuations/{id:guid}/progress | auth=perm:propertysales.valuations.manage | module=propertysales
+POST api/v1/m/propertysales/records/valuations/{id:guid}/transition | auth=perm:propertysales.valuations.manage | module=propertysales
+POST api/v1/m/purchasing/orders | auth=perm:purchasing.orders.manage | module=purchasing
+POST api/v1/m/purchasing/orders/{id:guid}/convert-to-bill | auth=perm:purchasing.orders.manage | module=purchasing
+POST api/v1/m/purchasing/receipts | auth=perm:purchasing.receipts.manage | module=purchasing
+POST api/v1/m/purchasing/requisitions | auth=perm:purchasing.requisitions.manage | module=purchasing
+POST api/v1/m/purchasing/requisitions/{id:guid}/convert-to-order | auth=perm:purchasing.orders.manage | module=purchasing
+POST api/v1/m/purchasing/returns | auth=perm:purchasing.returns.manage | module=purchasing
+POST api/v1/m/purchasing/returns/{id:guid}/post | auth=perm:purchasing.returns.manage | module=purchasing
+POST api/v1/m/purchasing/returns/{id:guid}/void | auth=perm:purchasing.returns.manage | module=purchasing
+POST api/v1/m/quality/records/inspections | auth=perm:quality.inspections.manage | module=quality
+POST api/v1/m/quality/records/inspections/{id:guid}/bill | auth=perm:quality.inspections.manage | module=quality
+POST api/v1/m/quality/records/inspections/{id:guid}/consume | auth=perm:quality.inspections.manage | module=quality
+POST api/v1/m/quality/records/inspections/{id:guid}/invoice | auth=perm:quality.inspections.manage | module=quality
+POST api/v1/m/quality/records/inspections/{id:guid}/progress | auth=perm:quality.inspections.manage | module=quality
+POST api/v1/m/quality/records/inspections/{id:guid}/transition | auth=perm:quality.inspections.manage | module=quality
+POST api/v1/m/quality/records/nonconformances | auth=perm:quality.nonconformances.manage | module=quality
+POST api/v1/m/quality/records/nonconformances/{id:guid}/bill | auth=perm:quality.nonconformances.manage | module=quality
+POST api/v1/m/quality/records/nonconformances/{id:guid}/consume | auth=perm:quality.nonconformances.manage | module=quality
+POST api/v1/m/quality/records/nonconformances/{id:guid}/invoice | auth=perm:quality.nonconformances.manage | module=quality
+POST api/v1/m/quality/records/nonconformances/{id:guid}/progress | auth=perm:quality.nonconformances.manage | module=quality
+POST api/v1/m/quality/records/nonconformances/{id:guid}/transition | auth=perm:quality.nonconformances.manage | module=quality
+POST api/v1/m/quality/records/plans | auth=perm:quality.plans.manage | module=quality
+POST api/v1/m/quality/records/plans/{id:guid}/bill | auth=perm:quality.plans.manage | module=quality
+POST api/v1/m/quality/records/plans/{id:guid}/consume | auth=perm:quality.plans.manage | module=quality
+POST api/v1/m/quality/records/plans/{id:guid}/invoice | auth=perm:quality.plans.manage | module=quality
+POST api/v1/m/quality/records/plans/{id:guid}/progress | auth=perm:quality.plans.manage | module=quality
+POST api/v1/m/quality/records/plans/{id:guid}/transition | auth=perm:quality.plans.manage | module=quality
+POST api/v1/m/realestate/acquisitions | auth=perm:realestate.acquisitions.manage | module=realestate
+POST api/v1/m/realestate/acquisitions/instalments/{id:guid}/pay | auth=perm:realestate.funding.pay | module=realestate
+POST api/v1/m/realestate/acquisitions/{id:guid}/cancel | auth=perm:realestate.acquisitions.manage | module=realestate
+POST api/v1/m/realestate/acquisitions/{id:guid}/complete | auth=perm:realestate.acquisitions.complete | module=realestate
+POST api/v1/m/realestate/billing/instalments/{id:guid}/invoice | auth=perm:realestate.billing.run | module=realestate
+POST api/v1/m/realestate/billing/run | auth=perm:realestate.billing.run | module=realestate
+POST api/v1/m/realestate/deals | auth=perm:realestate.deals.create | module=realestate
+POST api/v1/m/realestate/deals/{id:guid}/invoice-commission | auth=perm:realestate.deals.invoice | module=realestate
+POST api/v1/m/realestate/deals/{id:guid}/pay-agent | auth=perm:realestate.deals.payagent | module=realestate
+POST api/v1/m/realestate/deals/{id:guid}/stage | auth=authenticated | module=realestate
+POST api/v1/m/realestate/inspections | auth=perm:realestate.inspections.manage | module=realestate
+POST api/v1/m/realestate/inspections/{id:guid}/complete | auth=perm:realestate.inspections.manage | module=realestate
+POST api/v1/m/realestate/leads | auth=perm:realestate.crm.manage | module=realestate
+POST api/v1/m/realestate/leads/{id:guid}/convert | auth=perm:realestate.crm.manage | module=realestate
+POST api/v1/m/realestate/leads/{id:guid}/stage | auth=perm:realestate.crm.manage | module=realestate
+POST api/v1/m/realestate/leases | auth=authenticated | module=realestate
+POST api/v1/m/realestate/leases/process-expiries | auth=perm:realestate.leases.activate | module=realestate
+POST api/v1/m/realestate/leases/{id:guid}/activate | auth=perm:realestate.leases.activate | module=realestate
+POST api/v1/m/realestate/leases/{id:guid}/cancel | auth=perm:realestate.leases.edit | module=realestate
+POST api/v1/m/realestate/leases/{id:guid}/deposit | auth=perm:realestate.deposits.manage | module=realestate
+POST api/v1/m/realestate/leases/{id:guid}/deposit/settle | auth=perm:realestate.deposits.manage | module=realestate
+POST api/v1/m/realestate/leases/{id:guid}/deposit/transfer | auth=perm:realestate.deposits.manage | module=realestate
+POST api/v1/m/realestate/leases/{id:guid}/holding-over | auth=perm:realestate.leases.edit | module=realestate
+POST api/v1/m/realestate/leases/{id:guid}/move-out | auth=perm:realestate.leases.terminate | module=realestate
+POST api/v1/m/realestate/leases/{id:guid}/renew | auth=perm:realestate.leases.renew | module=realestate
+POST api/v1/m/realestate/leases/{id:guid}/terminate | auth=perm:realestate.leases.terminate | module=realestate
+POST api/v1/m/realestate/leases/{id:guid}/termination-credits | auth=perm:realestate.leases.terminate | module=realestate
+POST api/v1/m/realestate/listings | auth=perm:realestate.crm.manage | module=realestate
+POST api/v1/m/realestate/listings/{id:guid}/status | auth=perm:realestate.crm.manage | module=realestate
+POST api/v1/m/realestate/owner-payouts | auth=perm:realestate.ownerpayouts.manage | module=realestate
+POST api/v1/m/realestate/owner-payouts/{id:guid}/void | auth=perm:realestate.ownerpayouts.manage | module=realestate
+POST api/v1/m/realestate/pm-schedules | auth=perm:realestate.pm.manage | module=realestate
+POST api/v1/m/realestate/pm-schedules/run | auth=perm:realestate.pm.manage | module=realestate
+POST api/v1/m/realestate/portal/requests | auth=portal.customer | module=realestate
+POST api/v1/m/realestate/portal/vendor/work-orders/{id:guid}/update | auth=portal.vendor | module=realestate
+POST api/v1/m/realestate/properties | auth=perm:realestate.properties.manage | module=realestate
+POST api/v1/m/realestate/renewals/drafts | auth=perm:realestate.leases.renew | module=realestate
+POST api/v1/m/realestate/unit-types | auth=perm:realestate.unittypes.manage | module=realestate
+POST api/v1/m/realestate/units | auth=perm:realestate.units.manage | module=realestate
+POST api/v1/m/realestate/units/bulk | auth=perm:realestate.units.manage | module=realestate
+POST api/v1/m/realestate/units/{id:guid}/status | auth=authenticated | module=realestate
+POST api/v1/m/realestate/work-orders | auth=perm:realestate.workorders.create | module=realestate
+POST api/v1/m/realestate/work-orders/{id:guid}/status | auth=authenticated | module=realestate
+POST api/v1/m/retail/pricelists | auth=perm:retail.pricelists.manage | module=retail
+POST api/v1/m/retail/promotions | auth=perm:retail.promotions.manage | module=retail
+POST api/v1/m/retail/promotions/validate | auth=perm:retail.promotions.read | module=retail
+POST api/v1/m/retail/stores | auth=perm:retail.stores.manage | module=retail
+POST api/v1/m/sales/orders | auth=perm:sales.orders.manage | module=sales
+POST api/v1/m/sales/orders/{id:guid}/convert-to-invoice | auth=perm:sales.orders.manage | module=sales
+POST api/v1/m/sales/quotes | auth=perm:sales.quotes.manage | module=sales
+POST api/v1/m/sales/quotes/{id:guid}/convert-to-order | auth=perm:sales.orders.manage | module=sales
+POST api/v1/m/sales/returns | auth=perm:sales.returns.manage | module=sales
+POST api/v1/m/sales/returns/{id:guid}/post | auth=perm:sales.returns.manage | module=sales
+POST api/v1/m/sales/returns/{id:guid}/void | auth=perm:sales.returns.manage | module=sales
+POST api/v1/m/services/engagements | auth=perm:services.engagements.manage | module=services
+POST api/v1/m/services/engagements/{id:guid}/invoice-time | auth=perm:services.engagements.manage | module=services
+POST api/v1/m/services/engagements/{id:guid}/status | auth=perm:services.engagements.manage | module=services
+POST api/v1/m/services/milestones | auth=perm:services.milestones.manage | module=services
+POST api/v1/m/services/milestones/{id:guid}/invoice | auth=perm:services.milestones.manage | module=services
+POST api/v1/m/services/milestones/{id:guid}/status | auth=perm:services.milestones.manage | module=services
+POST api/v1/m/services/retainers | auth=perm:services.retainers.manage | module=services
+POST api/v1/m/services/retainers/{id:guid}/invoice | auth=perm:services.retainers.manage | module=services
+POST api/v1/m/services/retainers/{id:guid}/status | auth=perm:services.retainers.manage | module=services
+POST api/v1/m/services/time-entries | auth=perm:services.timeentries.manage | module=services
+POST api/v1/m/services/time-entries/{id:guid}/approve | auth=perm:services.timeentries.manage | module=services
+POST api/v1/m/trade/records/exports | auth=perm:trade.exports.manage | module=trade
+POST api/v1/m/trade/records/exports/{id:guid}/bill | auth=perm:trade.exports.manage | module=trade
+POST api/v1/m/trade/records/exports/{id:guid}/consume | auth=perm:trade.exports.manage | module=trade
+POST api/v1/m/trade/records/exports/{id:guid}/invoice | auth=perm:trade.exports.manage | module=trade
+POST api/v1/m/trade/records/exports/{id:guid}/progress | auth=perm:trade.exports.manage | module=trade
+POST api/v1/m/trade/records/exports/{id:guid}/transition | auth=perm:trade.exports.manage | module=trade
+POST api/v1/m/trade/records/imports | auth=perm:trade.imports.manage | module=trade
+POST api/v1/m/trade/records/imports/{id:guid}/bill | auth=perm:trade.imports.manage | module=trade
+POST api/v1/m/trade/records/imports/{id:guid}/consume | auth=perm:trade.imports.manage | module=trade
+POST api/v1/m/trade/records/imports/{id:guid}/invoice | auth=perm:trade.imports.manage | module=trade
+POST api/v1/m/trade/records/imports/{id:guid}/progress | auth=perm:trade.imports.manage | module=trade
+POST api/v1/m/trade/records/imports/{id:guid}/transition | auth=perm:trade.imports.manage | module=trade
+POST api/v1/m/trade/records/lettersofcredit | auth=perm:trade.lettersofcredit.manage | module=trade
+POST api/v1/m/trade/records/lettersofcredit/{id:guid}/bill | auth=perm:trade.lettersofcredit.manage | module=trade
+POST api/v1/m/trade/records/lettersofcredit/{id:guid}/consume | auth=perm:trade.lettersofcredit.manage | module=trade
+POST api/v1/m/trade/records/lettersofcredit/{id:guid}/invoice | auth=perm:trade.lettersofcredit.manage | module=trade
+POST api/v1/m/trade/records/lettersofcredit/{id:guid}/progress | auth=perm:trade.lettersofcredit.manage | module=trade
+POST api/v1/m/trade/records/lettersofcredit/{id:guid}/transition | auth=perm:trade.lettersofcredit.manage | module=trade
+POST api/v1/messages/send-reminders | auth=perm:core.settings.write
+POST api/v1/messages/test-email | auth=perm:core.settings.write
+POST api/v1/modules/{key}/{action:regex(^(enable|disable)$)} | auth=perm:core.modules.manage
+POST api/v1/notifications/read-all | auth=authenticated
+POST api/v1/notifications/{id:guid}/read | auth=authenticated
+POST api/v1/parties | auth=perm:core.parties.write
+POST api/v1/parties/{id:guid}/statement/email | auth=perm:core.email.send
+POST api/v1/party-groups | auth=perm:core.partygroups.write
+POST api/v1/platform-admin/assistant/providers | auth=platform-admin
+POST api/v1/platform-admin/assistant/providers/{id:guid}/test | auth=platform-admin
+POST api/v1/platform-admin/assistant/try | auth=platform-admin
+POST api/v1/platform-admin/billing-run | auth=platform-admin
+POST api/v1/platform-admin/clients | auth=platform-admin
+POST api/v1/platform-admin/clients/{orgid:guid}/activate | auth=platform-admin
+POST api/v1/platform-admin/clients/{orgid:guid}/cancel | auth=platform-admin
+POST api/v1/platform-admin/clients/{orgid:guid}/decline-plan-request | auth=platform-admin
+POST api/v1/platform-admin/clients/{orgid:guid}/extend-trial | auth=platform-admin
+POST api/v1/platform-admin/clients/{orgid:guid}/invoices | auth=platform-admin
+POST api/v1/platform-admin/clients/{orgid:guid}/modules/{key}/{action:regex(^(enable|disable)$)} | auth=platform-admin
+POST api/v1/platform-admin/clients/{orgid:guid}/reactivate | auth=platform-admin
+POST api/v1/platform-admin/clients/{orgid:guid}/suspend | auth=platform-admin
+POST api/v1/platform-admin/clients/{orgid:guid}/users/{userid:guid}/temporary-password | auth=platform-admin
+POST api/v1/platform-admin/invoices/{id:guid}/payment | auth=platform-admin
+POST api/v1/platform-admin/invoices/{id:guid}/reopen | auth=platform-admin
+POST api/v1/platform-admin/invoices/{id:guid}/void | auth=platform-admin
+POST api/v1/platform-admin/plans | auth=platform-admin
+POST api/v1/platform-admin/plans/{id:guid}/{action:regex(^(archive|restore)$)} | auth=platform-admin
+POST api/v1/platform-admin/signups/{id:guid}/approve | auth=platform-admin
+POST api/v1/platform-admin/signups/{id:guid}/reject | auth=platform-admin
+POST api/v1/platform-admin/team | auth=platform-admin
+POST api/v1/platform/onboarding | auth= | anonymous | rate=login
+POST api/v1/portal/auth/request-code | auth= | anonymous | rate=login
+POST api/v1/portal/auth/verify | auth= | anonymous | rate=login
+POST api/v1/public/assistant/leads | auth= | anonymous | rate=login
+POST api/v1/public/assistant/messages | auth= | anonymous | rate=assistant-public
+POST api/v1/public/signups | auth= | anonymous | rate=login
+POST api/v1/public/signups/verify | auth= | anonymous | rate=login
+POST api/v1/roles | auth=perm:core.roles.write
+POST api/v1/setup/industry | auth=perm:core.modules.manage
+POST api/v1/users | auth=perm:core.users.write
+POST api/v1/users/{id:guid}/active | auth=perm:core.users.write
+PUT api/v1/approval-policies/{id:guid} | auth=perm:core.settings.write
+PUT api/v1/business-units/{id:guid} | auth=perm:core.businessunits.write
+PUT api/v1/custom-fields/values/{entitytype}/{id:guid} | auth=authenticated
+PUT api/v1/custom-fields/{id:guid} | auth=perm:core.customfields.manage
+PUT api/v1/finance/accounts/{id:guid} | auth=perm:finance.accounts.write
+PUT api/v1/finance/bills/{id:guid} | auth=perm:finance.bills.write
+PUT api/v1/finance/budgets/{id:guid} | auth=perm:finance.budgets.write | capability=budgets
+PUT api/v1/finance/coa-numbering | auth=perm:core.settings.write
+PUT api/v1/finance/invoices/{id:guid} | auth=perm:finance.invoices.write
+PUT api/v1/finance/journals/{id:guid} | auth=perm:finance.journals.write
+PUT api/v1/finance/tax-codes/{id:guid} | auth=perm:finance.tax.write
+PUT api/v1/items/{id:guid} | auth=perm:core.items.write
+PUT api/v1/legal-entities/{id:guid} | auth=perm:core.entities.write
+PUT api/v1/legal-entities/{id:guid}/books-lock | auth=perm:core.entities.write
+PUT api/v1/m/agriculture/records/crops/{id:guid} | auth=perm:agriculture.crops.manage | module=agriculture
+PUT api/v1/m/agriculture/records/feed/{id:guid} | auth=perm:agriculture.feed.manage | module=agriculture
+PUT api/v1/m/agriculture/records/harvests/{id:guid} | auth=perm:agriculture.harvests.manage | module=agriculture
+PUT api/v1/m/agriculture/records/herds/{id:guid} | auth=perm:agriculture.herds.manage | module=agriculture
+PUT api/v1/m/agriculture/records/production/{id:guid} | auth=perm:agriculture.production.manage | module=agriculture
+PUT api/v1/m/agriculture/records/vetcare/{id:guid} | auth=perm:agriculture.vetcare.manage | module=agriculture
+PUT api/v1/m/assets/categories/{id:guid} | auth=perm:assets.categories.manage | module=assets
+PUT api/v1/m/assets/register/{id:guid} | auth=perm:assets.register.manage | module=assets
+PUT api/v1/m/construction/records/boqs/{id:guid} | auth=perm:construction.boqs.manage | module=construction
+PUT api/v1/m/construction/records/equipment/{id:guid} | auth=perm:construction.equipment.manage | module=construction
+PUT api/v1/m/construction/records/materialissues/{id:guid} | auth=perm:construction.materialissues.manage | module=construction
+PUT api/v1/m/construction/records/sitereports/{id:guid} | auth=perm:construction.sitereports.manage | module=construction
+PUT api/v1/m/construction/records/sites/{id:guid} | auth=perm:construction.sites.manage | module=construction
+PUT api/v1/m/construction/records/subcontractorpayments/{id:guid} | auth=perm:construction.subcontractorpayments.manage | module=construction
+PUT api/v1/m/construction/records/subcontracts/{id:guid} | auth=perm:construction.subcontracts.manage | module=construction
+PUT api/v1/m/construction/records/valuations/{id:guid} | auth=perm:construction.valuations.manage | module=construction
+PUT api/v1/m/contracts/records/agreements/{id:guid} | auth=perm:contracts.agreements.manage | module=contracts
+PUT api/v1/m/crm/leads/{id:guid} | auth=perm:crm.leads.manage | module=crm
+PUT api/v1/m/distribution/routes/{id:guid} | auth=perm:distribution.routes.manage | module=distribution
+PUT api/v1/m/distribution/wholesale/{id:guid} | auth=perm:distribution.pricing.manage | module=distribution
+PUT api/v1/m/education/records/admissions/{id:guid} | auth=perm:education.admissions.manage | module=education
+PUT api/v1/m/education/records/classes/{id:guid} | auth=perm:education.classes.manage | module=education
+PUT api/v1/m/education/records/exams/{id:guid} | auth=perm:education.exams.manage | module=education
+PUT api/v1/m/education/records/fees/{id:guid} | auth=perm:education.fees.manage | module=education
+PUT api/v1/m/education/records/results/{id:guid} | auth=perm:education.results.manage | module=education
+PUT api/v1/m/education/records/sessions/{id:guid} | auth=perm:education.sessions.manage | module=education
+PUT api/v1/m/education/records/students/{id:guid} | auth=perm:education.students.manage | module=education
+PUT api/v1/m/expenses/records/claims/{id:guid} | auth=perm:expenses.claims.manage | module=expenses
+PUT api/v1/m/healthcare/records/appointments/{id:guid} | auth=perm:healthcare.appointments.manage | module=healthcare
+PUT api/v1/m/healthcare/records/claims/{id:guid} | auth=perm:healthcare.claims.manage | module=healthcare
+PUT api/v1/m/healthcare/records/dispensings/{id:guid} | auth=perm:healthcare.dispensings.manage | module=healthcare
+PUT api/v1/m/healthcare/records/labtests/{id:guid} | auth=perm:healthcare.labtests.manage | module=healthcare
+PUT api/v1/m/healthcare/records/medicalbills/{id:guid} | auth=perm:healthcare.medicalbills.manage | module=healthcare
+PUT api/v1/m/healthcare/records/patients/{id:guid} | auth=perm:healthcare.patients.manage | module=healthcare
+PUT api/v1/m/hospitality/records/events/{id:guid} | auth=perm:hospitality.events.manage | module=hospitality
+PUT api/v1/m/hospitality/records/reservations/{id:guid} | auth=perm:hospitality.reservations.manage | module=hospitality
+PUT api/v1/m/hospitality/records/rooms/{id:guid} | auth=perm:hospitality.rooms.manage | module=hospitality
+PUT api/v1/m/hospitality/records/waste/{id:guid} | auth=perm:hospitality.waste.manage | module=hospitality
+PUT api/v1/m/hr/attendance | auth=perm:hr.attendance.manage | module=hr
+PUT api/v1/m/hr/attendance/daily | auth=perm:hr.attendance.manage | module=hr
+PUT api/v1/m/hr/candidates/{id:guid} | auth=perm:hr.recruitment.manage | module=hr
+PUT api/v1/m/hr/checklists/{id:guid} | auth=perm:hr.employees.manage | module=hr
+PUT api/v1/m/hr/departments/{id:guid} | auth=perm:hr.employees.manage | module=hr
+PUT api/v1/m/hr/documents/{id:guid} | auth=perm:hr.employees.manage | module=hr
+PUT api/v1/m/hr/employees/{id:guid} | auth=perm:hr.employees.manage | module=hr
+PUT api/v1/m/hr/holidays/{id:guid} | auth=perm:hr.leave.approve | module=hr
+PUT api/v1/m/hr/leave-types/{id:guid} | auth=perm:hr.leave.approve | module=hr
+PUT api/v1/m/hr/leave/{id:guid} | auth=perm:hr.leave.request | module=hr
+PUT api/v1/m/hr/openings/{id:guid} | auth=perm:hr.recruitment.manage | module=hr
+PUT api/v1/m/hr/payroll/{id:guid}/lines/{lineid:guid} | auth=perm:hr.payroll.manage | module=hr
+PUT api/v1/m/hr/positions/{id:guid} | auth=perm:hr.employees.manage | module=hr
+PUT api/v1/m/hr/review-cycles/{id:guid} | auth=perm:hr.reviews.manage | module=hr
+PUT api/v1/m/hr/reviews/{id:guid} | auth=perm:hr.reviews.manage | module=hr
+PUT api/v1/m/hr/shifts/{id:guid} | auth=perm:hr.attendance.manage | module=hr
+PUT api/v1/m/hr/statutory-rules/{id:guid} | auth=perm:hr.payroll.manage | module=hr
+PUT api/v1/m/inventory/counts/{id:guid}/lines | auth=perm:inventory.counts.manage | module=inventory
+PUT api/v1/m/inventory/stock/policy | auth=perm:inventory.stock.write | module=inventory
+PUT api/v1/m/inventory/warehouses/{id:guid} | auth=perm:inventory.warehouses.write | module=inventory
+PUT api/v1/m/logistics/records/deliveryexpenses/{id:guid} | auth=perm:logistics.deliveryexpenses.manage | module=logistics
+PUT api/v1/m/logistics/records/drivers/{id:guid} | auth=perm:logistics.drivers.manage | module=logistics
+PUT api/v1/m/logistics/records/fuel/{id:guid} | auth=perm:logistics.fuel.manage | module=logistics
+PUT api/v1/m/logistics/records/maintenance/{id:guid} | auth=perm:logistics.maintenance.manage | module=logistics
+PUT api/v1/m/logistics/records/shipments/{id:guid} | auth=perm:logistics.shipments.manage | module=logistics
+PUT api/v1/m/logistics/records/vehicles/{id:guid} | auth=perm:logistics.vehicles.manage | module=logistics
+PUT api/v1/m/manufacturing/boms/{id:guid} | auth=perm:manufacturing.boms.manage | module=manufacturing
+PUT api/v1/m/manufacturing/workorders/{id:guid}/operations/{operationid:guid}/hours | auth=perm:manufacturing.workorders.manage | module=manufacturing
+PUT api/v1/m/pos/registers/{id:guid} | auth=perm:pos.registers.manage | module=pos
+PUT api/v1/m/projects/allocations/{id:guid} | auth=perm:projects.team.manage | module=projects
+PUT api/v1/m/projects/budget-lines/{id:guid} | auth=perm:projects.projects.manage | module=projects
+PUT api/v1/m/projects/change-orders/{id:guid} | auth=perm:projects.changeorders.manage | module=projects
+PUT api/v1/m/projects/expenses/{id:guid} | auth=perm:projects.expenses.manage | module=projects
+PUT api/v1/m/projects/milestones/{id:guid} | auth=perm:projects.milestones.manage | module=projects
+PUT api/v1/m/projects/projects/{id:guid} | auth=perm:projects.projects.manage | module=projects
+PUT api/v1/m/projects/projects/{id:guid}/status | auth=perm:projects.projects.manage | module=projects
+PUT api/v1/m/projects/rates/{id:guid} | auth=perm:projects.rates.manage | module=projects
+PUT api/v1/m/projects/risks/{id:guid} | auth=perm:projects.risks.manage | module=projects
+PUT api/v1/m/projects/tasks/{id:guid} | auth=perm:projects.tasks.manage | module=projects
+PUT api/v1/m/projects/tasks/{id:guid}/dependencies | auth=perm:projects.tasks.manage | module=projects
+PUT api/v1/m/projects/tasks/{id:guid}/status | auth=perm:projects.tasks.manage | module=projects
+PUT api/v1/m/projects/timesheets/{id:guid} | auth=perm:projects.timesheets.manage | module=projects
+PUT api/v1/m/propertysales/records/allotments/{id:guid} | auth=perm:propertysales.allotments.manage | module=propertysales
+PUT api/v1/m/propertysales/records/salecontracts/{id:guid} | auth=perm:propertysales.salecontracts.manage | module=propertysales
+PUT api/v1/m/propertysales/records/valuations/{id:guid} | auth=perm:propertysales.valuations.manage | module=propertysales
+PUT api/v1/m/purchasing/orders/{id:guid} | auth=perm:purchasing.orders.manage | module=purchasing
+PUT api/v1/m/purchasing/orders/{id:guid}/status | auth=perm:purchasing.orders.manage | module=purchasing
+PUT api/v1/m/purchasing/requisitions/{id:guid} | auth=perm:purchasing.requisitions.manage | module=purchasing
+PUT api/v1/m/purchasing/requisitions/{id:guid}/status | auth=perm:purchasing.requisitions.manage | module=purchasing
+PUT api/v1/m/quality/records/inspections/{id:guid} | auth=perm:quality.inspections.manage | module=quality
+PUT api/v1/m/quality/records/nonconformances/{id:guid} | auth=perm:quality.nonconformances.manage | module=quality
+PUT api/v1/m/quality/records/plans/{id:guid} | auth=perm:quality.plans.manage | module=quality
+PUT api/v1/m/realestate/acquisitions/{id:guid} | auth=perm:realestate.acquisitions.manage | module=realestate
+PUT api/v1/m/realestate/deals/{id:guid} | auth=perm:realestate.deals.edit | module=realestate
+PUT api/v1/m/realestate/inspections/{id:guid} | auth=perm:realestate.inspections.manage | module=realestate
+PUT api/v1/m/realestate/leads/{id:guid} | auth=perm:realestate.crm.manage | module=realestate
+PUT api/v1/m/realestate/leases/{id:guid} | auth=perm:realestate.leases.edit | module=realestate
+PUT api/v1/m/realestate/listings/{id:guid} | auth=perm:realestate.crm.manage | module=realestate
+PUT api/v1/m/realestate/pm-schedules/{id:guid} | auth=perm:realestate.pm.manage | module=realestate
+PUT api/v1/m/realestate/properties/{id:guid} | auth=perm:realestate.properties.manage | module=realestate
+PUT api/v1/m/realestate/unit-types/{id:guid} | auth=perm:realestate.unittypes.manage | module=realestate
+PUT api/v1/m/realestate/units/{id:guid} | auth=perm:realestate.units.manage | module=realestate
+PUT api/v1/m/realestate/work-orders/{id:guid} | auth=perm:realestate.workorders.edit | module=realestate
+PUT api/v1/m/realestate/work-orders/{id:guid}/cost-basis | auth=perm:realestate.workorders.edit | module=realestate
+PUT api/v1/m/retail/pricelists/{id:guid} | auth=perm:retail.pricelists.manage | module=retail
+PUT api/v1/m/retail/promotions/{id:guid} | auth=perm:retail.promotions.manage | module=retail
+PUT api/v1/m/retail/stores/{id:guid} | auth=perm:retail.stores.manage | module=retail
+PUT api/v1/m/sales/orders/{id:guid} | auth=perm:sales.orders.manage | module=sales
+PUT api/v1/m/sales/orders/{id:guid}/fulfillment | auth=perm:sales.orders.manage | module=sales
+PUT api/v1/m/sales/orders/{id:guid}/status | auth=perm:sales.orders.manage | module=sales
+PUT api/v1/m/sales/quotes/{id:guid} | auth=perm:sales.quotes.manage | module=sales
+PUT api/v1/m/sales/quotes/{id:guid}/status | auth=perm:sales.quotes.manage | module=sales
+PUT api/v1/m/services/time-entries/{id:guid} | auth=perm:services.timeentries.manage | module=services
+PUT api/v1/m/trade/records/exports/{id:guid} | auth=perm:trade.exports.manage | module=trade
+PUT api/v1/m/trade/records/imports/{id:guid} | auth=perm:trade.imports.manage | module=trade
+PUT api/v1/m/trade/records/lettersofcredit/{id:guid} | auth=perm:trade.lettersofcredit.manage | module=trade
+PUT api/v1/parties/{id:guid} | auth=perm:core.parties.write
+PUT api/v1/party-groups/{id:guid} | auth=perm:core.partygroups.write
+PUT api/v1/platform-admin/assistant/limits | auth=platform-admin
+PUT api/v1/platform-admin/assistant/providers/order | auth=platform-admin
+PUT api/v1/platform-admin/assistant/providers/{id:guid} | auth=platform-admin
+PUT api/v1/platform-admin/assistant/visibility | auth=platform-admin
+PUT api/v1/platform-admin/clients/{orgid:guid}/demo | auth=platform-admin
+PUT api/v1/platform-admin/clients/{orgid:guid}/details | auth=platform-admin
+PUT api/v1/platform-admin/clients/{orgid:guid}/plan | auth=platform-admin
+PUT api/v1/platform-admin/leads/{id:guid}/status/{status:regex(^(new|contacted|won|lost)$)} | auth=platform-admin
+PUT api/v1/platform-admin/plans/{id:guid} | auth=platform-admin
+PUT api/v1/platform-admin/settings | auth=platform-admin
+PUT api/v1/roles/{id:guid} | auth=perm:core.roles.write
+PUT api/v1/settings | auth=authenticated
+PUT api/v1/setup/capabilities | auth=perm:core.settings.write
+PUT api/v1/setup/lists | auth=perm:core.settings.write
+PUT api/v1/setup/sequences/{documenttype} | auth=perm:core.settings.write
+PUT api/v1/users/{id:guid}/roles | auth=perm:core.users.write

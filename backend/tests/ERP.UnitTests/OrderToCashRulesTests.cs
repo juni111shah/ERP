@@ -41,11 +41,11 @@ public class OrderToCashRulesTests
     }
 
     [Theory]
-    [InlineData(typeof(CreateInvoice))]
-    [InlineData(typeof(UpdateInvoice))]
-    [InlineData(typeof(IssueInvoice))]
-    [InlineData(typeof(VoidInvoice))]
-    [InlineData(typeof(ApplyCreditNote))]
+    [InlineData(typeof(CreateInvoiceCommand))]
+    [InlineData(typeof(UpdateInvoiceCommand))]
+    [InlineData(typeof(IssueInvoiceCommand))]
+    [InlineData(typeof(VoidInvoiceCommand))]
+    [InlineData(typeof(ApplyCreditNoteCommand))]
     [InlineData(typeof(CreateReceipt))]
     [InlineData(typeof(AllocateReceipt))]
     [InlineData(typeof(VoidReceipt))]

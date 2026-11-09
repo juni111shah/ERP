@@ -114,7 +114,7 @@ internal sealed class PrintHandlers(
         var partyAddress = party?.Address ?? string.Empty;
         // Credit note raised from an invoice (linked via SourceType "invoice" + SourceId): print the original invoice.
         string? originalNumber = null;
-        if (invoice.IsCreditNote && invoice.SourceType == CreateCreditNoteFromInvoice.LinkType && invoice.SourceId is { } srcId)
+        if (invoice.IsCreditNote && invoice.SourceType == InvoiceCreditCaps.LinkType && invoice.SourceId is { } srcId)
             originalNumber = await invoices.Query(new Specification<Invoice>(i => i.Id == srcId)).Select(i => i.Number).FirstOrDefaultAsync(ct);
         
         return new PrintInvoiceDto(

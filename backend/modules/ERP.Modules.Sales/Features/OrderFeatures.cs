@@ -368,7 +368,7 @@ internal sealed class OrderHandlers(
 
         if (order.InvoicedInvoiceId.HasValue)
         {
-            return await sender.Send(new GetInvoice(order.InvoicedInvoiceId.Value), ct);
+            return await sender.Send(new GetInvoiceByIdQuery(order.InvoicedInvoiceId.Value), ct);
         }
 
         SalesTransitions.Order.Ensure(order.Status, SalesOrderStatus.Invoiced, isSystem: true);
@@ -413,7 +413,7 @@ internal sealed class OrderHandlers(
             ));
         }
 
-        var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
+        var invoice = await sender.Send(new CreateInvoiceCommand(new InvoiceInput(
             LegalEntityId: order.LegalEntityId,
             PartyId: order.CustomerPartyId.Value,
             InvoiceDate: DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow),
@@ -427,7 +427,7 @@ internal sealed class OrderHandlers(
         var maxAllowedDiff = 0.01m * Math.Max(1, order.Lines.Count);
         if (Math.Abs(invoice.Total - order.TotalAmount) > maxAllowedDiff)
         {
-            await sender.Send(new DeleteInvoice(invoice.Id), ct);
+            await sender.Send(new DeleteInvoiceCommand(invoice.Id), ct);
             throw new ConflictException($"Invoice total {invoice.Total} does not match sales order total {order.TotalAmount}.");
         }
 

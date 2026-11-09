@@ -32,6 +32,8 @@ public static class DependencyInjection
         services.AddSingleton<CountryPackRegistry>(); // packs (ICountryPack) are registered by the host
         foreach (var m in modules) m.ConfigureServices(services, config);
         services.AddApplication(modules.Select(m => m.GetType().Assembly).Append(typeof(ModuleRegistry).Assembly).ToArray());
+        // Entity repositories (RepositoryBase<T>): core ones in ERP.Infrastructure/Repositories, module ones in each module.
+        services.AddRepositories(modules.Select(m => m.GetType().Assembly).Append(typeof(EfRepository<>).Assembly).ToArray());
 
         services.AddHttpContextAccessor();
         services.AddMemoryCache();

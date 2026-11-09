@@ -122,7 +122,7 @@ internal sealed class ServiceBillingHandlers(
             LegalEntityId = r.LegalEntityId, RetainerId = r.Id, PeriodStart = period.Start, PeriodEnd = period.End, RecurringFee = r.RecurringFee, IncludedHours = r.IncludedHours,
             BillableHours = hours, OverageHours = overage, OverageHourlyRate = r.OverageHourlyRate, OverageAmount = overageAmount,
         };
-        var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
+        var invoice = await sender.Send(new CreateInvoiceCommand(new InvoiceInput(
             LegalEntityId: r.LegalEntityId, PartyId: r.ClientId, InvoiceDate: cmd.InvoiceDate ?? today, DueDate: cmd.DueDate, Lines: lines,
             Notes: string.IsNullOrWhiteSpace(cmd.Notes) ? $"Retainer {r.RetainerNumber}, {label}" : cmd.Notes.Trim(),
             SourceType: RetainerSourceType, SourceId: row.Id)), token);
@@ -150,7 +150,7 @@ internal sealed class ServiceBillingHandlers(
         var taxId = await TaxCodeAsync(cmd.TaxCodeId, e.LegalEntityId, token);
         var lines = rows.Where(t => t.TotalAmount > 0)
             .Select(t => new InvoiceLineInput($"{e.EngagementCode}: {t.ConsultantName}, {t.ActivityDate:dd MMM yyyy}, {t.TaskDescription}", t.Hours, t.HourlyRate, TaxCodeId: taxId)).ToList();
-        var invoice = await sender.Send(new CreateInvoice(new InvoiceInput(
+        var invoice = await sender.Send(new CreateInvoiceCommand(new InvoiceInput(
             LegalEntityId: e.LegalEntityId, PartyId: e.ClientId, InvoiceDate: cmd.InvoiceDate ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), DueDate: cmd.DueDate, Lines: lines,
             Notes: string.IsNullOrWhiteSpace(cmd.Notes) ? $"Time billing for {e.EngagementCode}: {e.Title}" : cmd.Notes.Trim(),
             SourceType: TimeSourceType, SourceId: e.Id)), token);

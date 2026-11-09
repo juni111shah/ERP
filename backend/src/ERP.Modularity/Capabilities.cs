@@ -8,7 +8,7 @@ namespace ERP.Modularity;
 
 /// <summary>
 /// An optional area of the core a business can switch off. Modules are switched on and off per workspace; these are the same idea for what
-/// ships in the core. Switching one off hides its menu entries and, where <see cref="CapabilityGateMetadata"/> is set, closes its API.
+/// ships in the core. Switching one off hides its menu entries and, where <see cref="CapabilityGateAttribute"/> is set, closes its API.
 /// The ledger underneath always keeps working, because other documents post to it.
 /// </summary>
 public sealed record CoreCapability(string Key, string Label, string Description, IReadOnlyList<string> MenuItems);
@@ -62,15 +62,19 @@ public sealed class CapabilityAccess(ISettingsService settings) : ICapabilityAcc
     }
 }
 
-/// <summary>Endpoint metadata marking a core endpoint group as belonging to an optional capability.</summary>
-public sealed record CapabilityGateMetadata(string Capability);
+/// <summary>Marks a core controller as part of an optional capability: <c>[CapabilityGate("banking")]</c>. 403 while the capability is switched off.</summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = true)]
+public sealed class CapabilityGateAttribute(string capability) : Attribute
+{
+    public string Capability { get; } = capability;
+}
 
 /// <summary>Same contract as the module gate: 403 when the area is switched off for the workspace, and its data is kept.</summary>
 public sealed class CapabilityGateMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext http)
     {
-        var gate = http.GetEndpoint()?.Metadata.GetMetadata<CapabilityGateMetadata>();
+        var gate = http.GetEndpoint()?.Metadata.GetMetadata<CapabilityGateAttribute>();
         if (gate is not null && http.User.Identity?.IsAuthenticated == true)
         {
             var access = http.RequestServices.GetRequiredService<ICapabilityAccess>();

@@ -133,8 +133,12 @@ public static class ModuleProblems
     public const string ModuleDisabledType = "https://erp.local/problems/module-disabled";
 }
 
-/// <summary>Endpoint metadata marking an endpoint as owned by a module.</summary>
-public sealed record ModuleGateMetadata(string ModuleKey);
+/// <summary>Marks a controller (or endpoint) as owned by a module: <c>[ModuleGate("sales")]</c>. The module gate answers 403 module-disabled while the module is off.</summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = true)]
+public sealed class ModuleGateAttribute(string moduleKey) : Attribute
+{
+    public string ModuleKey { get; } = moduleKey;
+}
 
 /// <summary>
 /// Runs after authentication and before authorization: authenticated calls to a module endpoint get 403
@@ -145,7 +149,7 @@ public sealed class ModuleGateMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext http)
     {
-        var gate = http.GetEndpoint()?.Metadata.GetMetadata<ModuleGateMetadata>();
+        var gate = http.GetEndpoint()?.Metadata.GetMetadata<ModuleGateAttribute>();
         if (gate is not null && http.User.Identity?.IsAuthenticated == true)
         {
             var access = http.RequestServices.GetRequiredService<IModuleAccess>();
