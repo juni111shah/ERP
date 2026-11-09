@@ -9,7 +9,7 @@ namespace ERP.Application.Common;
 
 /// <summary>
 /// Standard list request: <c>?page=1&amp;pageSize=25&amp;sort=name,-createdAt&amp;search=acme&amp;filter=isActive:eq:true</c>.
-/// Derive from it for lists with extra parameters (<c>record ListParties : PagedQuery</c>).
+/// Derive from it for lists with extra parameters (<c>record ListPartiesQuery : PagedQuery</c>).
 /// </summary>
 public record PagedQuery
 {

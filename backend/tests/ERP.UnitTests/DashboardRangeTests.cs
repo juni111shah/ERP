@@ -103,16 +103,16 @@ public class DashboardRangeTests
     public void The_validator_accepts_open_and_ordered_periods_up_to_5_years_and_rejects_the_rest()
     {
         var v = Validator();
-        v.TestValidate(new GetDashboard(null)).ShouldNotHaveAnyValidationErrors();
-        v.TestValidate(new GetDashboard(null, Today.AddMonths(-3), Today)).ShouldNotHaveAnyValidationErrors();
-        v.TestValidate(new GetDashboard(null, Today, Today)).ShouldNotHaveAnyValidationErrors();
-        v.TestValidate(new GetDashboard(null, DashboardRange.StartFor(Today, 60), Today)).ShouldNotHaveAnyValidationErrors(); // exactly 5 years
-        v.TestValidate(new GetDashboard(null, Today.AddMonths(-1), Today.AddDays(1))).ShouldNotHaveAnyValidationErrors(); // a client ahead of UTC
-        Assert.False(v.Validate(new GetDashboard(null, Today, Today.AddDays(-1))).IsValid);
-        Assert.False(v.Validate(new GetDashboard(null, Today.AddYears(-5), Today)).IsValid); // 5 years and a day
-        Assert.False(v.Validate(new GetDashboard(null, Today.AddYears(-11), Today)).IsValid);
-        Assert.False(v.Validate(new GetDashboard(null, Today.AddYears(-6), null)).IsValid);   // missing "to" means today
-        Assert.False(v.Validate(new GetDashboard(null, Today, Today.AddDays(2))).IsValid);    // future end date
-        Assert.False(v.Validate(new GetDashboard(null, default(DateOnly), Today)).IsValid);
+        v.TestValidate(new GetDashboardQuery(null)).ShouldNotHaveAnyValidationErrors();
+        v.TestValidate(new GetDashboardQuery(null, Today.AddMonths(-3), Today)).ShouldNotHaveAnyValidationErrors();
+        v.TestValidate(new GetDashboardQuery(null, Today, Today)).ShouldNotHaveAnyValidationErrors();
+        v.TestValidate(new GetDashboardQuery(null, DashboardRange.StartFor(Today, 60), Today)).ShouldNotHaveAnyValidationErrors(); // exactly 5 years
+        v.TestValidate(new GetDashboardQuery(null, Today.AddMonths(-1), Today.AddDays(1))).ShouldNotHaveAnyValidationErrors(); // a client ahead of UTC
+        Assert.False(v.Validate(new GetDashboardQuery(null, Today, Today.AddDays(-1))).IsValid);
+        Assert.False(v.Validate(new GetDashboardQuery(null, Today.AddYears(-5), Today)).IsValid); // 5 years and a day
+        Assert.False(v.Validate(new GetDashboardQuery(null, Today.AddYears(-11), Today)).IsValid);
+        Assert.False(v.Validate(new GetDashboardQuery(null, Today.AddYears(-6), null)).IsValid);   // missing "to" means today
+        Assert.False(v.Validate(new GetDashboardQuery(null, Today, Today.AddDays(2))).IsValid);    // future end date
+        Assert.False(v.Validate(new GetDashboardQuery(null, default(DateOnly), Today)).IsValid);
     }
 }

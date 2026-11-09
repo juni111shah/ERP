@@ -28,6 +28,12 @@ public static class DependencyInjection
         // One constrained open-generic handler serves every list request (no per-table list handlers).
         services.AddTransient(typeof(IRequestHandler<,>), typeof(ListRequestHandler<,>));
         services.AddScoped<ICustomFieldService, CustomFieldService>();
+        services.AddScoped<CustomizableRecordLoader>();
+        services.AddScoped<ERP.Application.Parties.PartyMapping>();
+        services.AddScoped<AttachmentOwnerAccess>();
+        services.AddScoped<ERP.Application.Printing.PrintLookups>();
+        services.AddScoped<ERP.Application.Printing.DocumentEmailSender>();
+        services.AddScoped<ERP.Application.Imports.ImportDefinitions>();
         // Chart-of-accounts sub-categories: generic default; a module or country pack registered later replaces it.
         services.AddSingleton<ERP.Application.Finance.IAccountSubcategoryRules, ERP.Application.Finance.StandardAccountSubcategoryRules>();
         services.AddScoped<INumberingService, NumberingService>();

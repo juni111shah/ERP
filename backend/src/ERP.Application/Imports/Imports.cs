@@ -1,9 +1,5 @@
 using System.Text;
-using ERP.Application.Abstractions;
 using ERP.Application.Common;
-using ERP.Application.Security;
-using FluentValidation;
-using MediatR;
 
 namespace ERP.Application.Imports;
 
@@ -76,86 +72,4 @@ public static class Csv
     }
 
     public static string Escape(string v) => v.Contains(',') || v.Contains('"') || v.Contains('\n') ? "\"" + v.Replace("\"", "\"\"") + "\"" : v;
-}
-
-public sealed record ListImports : IQuery<IReadOnlyList<ImportDefinitionDto>>;
-public sealed record GetImportTemplate(string Key) : IQuery<string>;
-/// <summary>DryRun checks the file (columns, required values, types, and the rules of every row up to the point of saving) without keeping anything.</summary>
-public sealed record RunImport(string Key, string Csv, bool DryRun) : ICommand<ImportResultDto>;
-
-public sealed class RunImportValidator : AbstractValidator<RunImport>
-{
-    public RunImportValidator()
-    {
-        RuleFor(x => x.Key).NotEmpty();
-        RuleFor(x => x.Csv).NotEmpty().WithMessage("The file is empty.").MaximumLength(5_000_000).WithMessage("The file is too large (5 MB maximum).");
-    }
-}
-
-internal sealed class ImportHandlers(IEnumerable<IImportDefinition> definitions, IModuleAccess modules, ICurrentUser user, IUnitOfWork unitOfWork) :
-    IRequestHandler<ListImports, IReadOnlyList<ImportDefinitionDto>>,
-    IRequestHandler<GetImportTemplate, string>,
-    IRequestHandler<RunImport, ImportResultDto>
-{
-    public const int MaxRows = 2000;
-
-    public async Task<IReadOnlyList<ImportDefinitionDto>> Handle(ListImports q, CancellationToken ct)
-    {
-        var list = new List<ImportDefinitionDto>();
-        foreach (var d in definitions)
-        {
-            if (!user.HasPermission(d.Permission) || (d.ModuleKey is { } m && !await modules.IsEnabledAsync(m, ct))) continue;
-            list.Add(new(d.Key, d.Label, d.ModuleKey, d.Columns));
-        }
-        return list.OrderBy(d => d.Label).ToList();
-    }
-
-    public async Task<string> Handle(GetImportTemplate q, CancellationToken ct)
-    {
-        var d = await FindAsync(q.Key, ct);
-        return string.Join(",", d.Columns.Select(c => Csv.Escape(c.Name))) + "\n" + string.Join(",", d.Columns.Select(c => Csv.Escape(c.Example))) + "\n";
-    }
-
-    public async Task<ImportResultDto> Handle(RunImport cmd, CancellationToken ct)
-    {
-        var d = await FindAsync(cmd.Key, ct);
-        var (header, rows) = Csv.Parse(cmd.Csv);
-        var missing = d.Columns.Where(c => c.Required && !header.Contains(c.Name, StringComparer.OrdinalIgnoreCase)).Select(c => c.Name).ToList();
-        if (missing.Count > 0) throw new FieldValidationException("file", $"Missing column(s): {string.Join(", ", missing)}. Download the template for the exact headings.");
-        if (rows.Count > MaxRows) throw new FieldValidationException("file", $"At most {MaxRows} rows per file.");
-
-        var errors = new List<ImportError>();
-        var created = 0;
-        // A dry run executes every row inside one transaction that is rolled back, so the real rules (duplicates, lookups) are checked and nothing is kept.
-        try
-        {
-            await unitOfWork.InTransactionAsync(async token =>
-            {
-                for (var i = 0; i < rows.Count; i++)
-                {
-                    var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    for (var c = 0; c < header.Count; c++) values[header[c]] = c < rows[i].Count ? rows[i][c] : "";
-                    try { await d.ImportRowAsync(new ImportRow(i + 1, values), token); created++; }
-                    catch (Exception e) when (e is ImportRowException or FieldValidationException or ConflictException or NotFoundException or ERP.Domain.Common.DomainException or ValidationException)
-                    {
-                        errors.Add(new(i + 1, e is ValidationException v ? string.Join("; ", v.Errors.Select(x => x.ErrorMessage)) : e.Message));
-                    }
-                }
-                if (cmd.DryRun) throw new DryRunRollback();
-                return 0;
-            }, ct);
-        }
-        catch (DryRunRollback) { /* the transaction was rolled back on purpose */ }
-        return new(d.Key, rows.Count, created, errors, cmd.DryRun);
-    }
-
-    private async Task<IImportDefinition> FindAsync(string key, CancellationToken ct)
-    {
-        var d = definitions.FirstOrDefault(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase)) ?? throw new NotFoundException();
-        if (!user.HasPermission(d.Permission)) throw new ForbiddenException();
-        if (d.ModuleKey is { } m && !await modules.IsEnabledAsync(m, ct)) throw new NotFoundException();
-        return d;
-    }
-
-    private sealed class DryRunRollback : Exception;
 }

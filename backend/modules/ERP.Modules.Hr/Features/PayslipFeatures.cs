@@ -74,7 +74,7 @@ internal sealed class PayslipHandlers(
     }
 
     private async Task<EmailSentDto> SendAsync(PayrollRun run, PayslipDto p, string to, string? message, CancellationToken ct)
-        => await sender.Send(new EmailGenericDocument("payslip", p.LineId.ToString(), await ToDocumentAsync(run, p, ct), to.Trim(), message), ct);
+        => await sender.Send(new EmailGenericDocumentCommand("payslip", p.LineId.ToString(), await ToDocumentAsync(run, p, ct), to.Trim(), message), ct);
 
     private void EnsureEmailConfigured()
     {

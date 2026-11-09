@@ -96,8 +96,9 @@ public class PrintPdfTests(ApiFactory f) : IClassFixture<ApiFactory>
         static string Policies(RouteEndpoint e) => string.Join(",", e.Metadata.GetOrderedMetadata<IAuthorizeData>().Select(a => a.Policy ?? "").Order());
         foreach (var kind in Kinds)
         {
-            var data = endpoints.Single(e => e.RoutePattern.RawText == $"/api/v1/print/{kind}/{{id:guid}}");
-            var pdf = endpoints.Single(e => e.RoutePattern.RawText == $"/api/v1/print/{kind}/{{id:guid}}/pdf");
+            // Controller routes have no leading slash in their raw template.
+            var data = endpoints.Single(e => e.RoutePattern.RawText?.TrimStart('/') == $"api/v1/print/{kind}/{{id:guid}}");
+            var pdf = endpoints.Single(e => e.RoutePattern.RawText?.TrimStart('/') == $"api/v1/print/{kind}/{{id:guid}}/pdf");
             Assert.NotEmpty(Policies(pdf));
             Assert.Equal(Policies(data), Policies(pdf));
         }

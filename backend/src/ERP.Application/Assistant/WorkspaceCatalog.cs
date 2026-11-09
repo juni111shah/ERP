@@ -172,7 +172,7 @@ internal sealed class ItemsAssistantReader(IReadRepository<Item> items) : IAssis
 }
 
 /// <summary>Adds a customer or supplier. It sends the same command as the Parties screen.</summary>
-internal sealed class CreatePartyAssistantAction(ISender sender, IValidator<CreateParty> validator) : IAssistantAction
+internal sealed class CreatePartyAssistantAction(ISender sender, IValidator<CreatePartyCommand> validator) : IAssistantAction
 {
     public string Key => "create_party";
     public string Description => "Add a new customer or supplier.";
@@ -180,11 +180,11 @@ internal sealed class CreatePartyAssistantAction(ISender sender, IValidator<Crea
     public string? ModuleKey => null;
     public string Permission => CorePermissions.PartiesWrite;
 
-    private static CreateParty Build(JsonElement a)
+    private static CreatePartyCommand Build(JsonElement a)
     {
         var role = a.Text("role")?.ToLowerInvariant() switch { "customer" => PartyRoles.Customer, "supplier" or "vendor" => PartyRoles.Vendor, _ => PartyRoles.None };
         var kind = string.Equals(a.Text("kind"), "individual", StringComparison.OrdinalIgnoreCase) ? PartyKind.Individual : PartyKind.Company;
-        return new CreateParty(new PartyInput(a.Text("name") ?? "", kind, role, null, null, null, null, null, null, null, null));
+        return new CreatePartyCommand(new PartyInput(a.Text("name") ?? "", kind, role, null, null, null, null, null, null, null, null));
     }
 
     public async Task<AssistantActionPreview> PreviewAsync(JsonElement arguments, CancellationToken ct)

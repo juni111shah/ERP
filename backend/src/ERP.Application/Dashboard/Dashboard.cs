@@ -1,8 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Application.Finance;
-using FluentValidation;
-using MediatR;
 
 namespace ERP.Application.Dashboard;
 
@@ -136,41 +134,4 @@ public interface IDashboardContributor
 {
     string ModuleKey { get; }
     Task<DashboardContribution> BuildAsync(DashboardScope scope, CancellationToken ct);
-}
-
-/// <summary><c>From</c>/<c>To</c> are optional; missing values default to the last year ending today.</summary>
-public sealed record GetDashboard(Guid? LegalEntityId, DateOnly? From = null, DateOnly? To = null) : IQuery<DashboardDto>;
-
-public sealed class GetDashboardValidator : AbstractValidator<GetDashboard>
-{
-    public GetDashboardValidator(IClock clock)
-    {
-        // "today" in UTC; one extra day lets clients ahead of UTC (e.g. Asia/Qatar, Asia/Karachi just after midnight) send their own today.
-        DateOnly Today() => DateOnly.FromDateTime(clock.UtcNow);
-        RuleFor(x => x.From).Must(f => f is null || f.Value != default).WithMessage("Enter a valid start date.");
-        RuleFor(x => x.To).Must(t => t is null || t.Value != default).WithMessage("Enter a valid end date.");
-        RuleFor(x => x).Must(x => x.From is not { } f || x.To is not { } t || f <= t).WithName("To").WithMessage("The end date must be on or after the start date.");
-        RuleFor(x => x.To).Must(t => t is null || t.Value == default || t.Value <= Today().AddDays(1)).WithMessage("The end date can't be in the future.");
-        RuleFor(x => x).Must(x => x.From is not { } f || f == default || DashboardRange.WithinMax(f, x.To ?? Today()))
-            .WithName("From").WithMessage("The date range can be at most 5 years.");
-    }
-}
-
-internal sealed class DashboardHandler(IEnumerable<IDashboardContributor> contributors, IModuleAccess modules, IClock clock) : IRequestHandler<GetDashboard, DashboardDto>
-{
-    public async Task<DashboardDto> Handle(GetDashboard q, CancellationToken ct)
-    {
-        var today = DateOnly.FromDateTime(clock.UtcNow);
-        var (from, to) = DashboardRange.Resolve(q.From, q.To, today);
-        var scope = new DashboardScope(q.LegalEntityId, today) { From = from, To = to };
-        var kpis = new List<KpiCard>(); var charts = new List<DashboardChart>(); var alerts = new List<DashboardAlert>();
-        foreach (var c in contributors)
-        {
-            if (c.ModuleKey != "core" && !await modules.IsEnabledAsync(c.ModuleKey, ct)) continue;
-            var part = await c.BuildAsync(scope, ct);
-            kpis.AddRange(part.Kpis); charts.AddRange(part.Charts); alerts.AddRange(part.Alerts);
-        }
-        return new DashboardDto(scope.Today, kpis.OrderBy(k => k.Order).ToList(), charts.OrderBy(c => c.Order).ToList(),
-            alerts.OrderBy(a => a.Urgency == "action" ? 0 : a.Urgency == "upcoming" ? 1 : 2).ThenBy(a => a.Rank).ToList(), scope.From, scope.To);
-    }
 }
