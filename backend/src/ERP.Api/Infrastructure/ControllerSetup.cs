@@ -37,7 +37,12 @@ public static class ControllerSetup
                 o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
                 o.JsonSerializerOptions.MaxDepth = 16;
             })
-            .ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = InvalidRequest)
+            .ConfigureApiBehaviorOptions(o =>
+            {
+                o.InvalidModelStateResponseFactory = InvalidRequest;
+                // NotFound()/BadRequest() stay empty-bodied, so the status-code pages write the same error envelope the minimal endpoints got.
+                o.SuppressMapClientErrors = true;
+            })
             .ConfigureApplicationPartManager(parts =>
             {
                 // Module controllers live in the module assemblies. Only installed modules are mounted.
