@@ -73,7 +73,7 @@ internal sealed class CreateQuoteAssistantAction(ISender sender, IValidator<Quot
 
     public async Task<AssistantActionResult> ExecuteAsync(JsonElement arguments, CancellationToken ct)
     {
-        var quote = await sender.Send(new CreateQuote(await BuildAsync(arguments, ct)), ct);
+        var quote = await sender.Send(new CreateQuoteCommand(await BuildAsync(arguments, ct)), ct);
         return new($"Draft quote {quote.Number} was created. Nothing has been sent to the customer.", $"/sales/quotes/{quote.Id}");
     }
 }

@@ -7,8 +7,6 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Sales.Domain;
 using ERP.Modules.Sales.Features;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,6 +72,8 @@ public sealed class SalesModule : ModuleBase
         services.AddScoped<IDashboardContributor, SalesDashboard>();
         services.AddScoped<ERP.Application.Dashboard.IOwnerDashboardSection, Features.SalesOwnerSection>();
         services.AddScoped<ISearchProvider, SalesSearch>();
+        services.AddScoped<SalesOrderCredit>();
+        services.AddScoped<SalesReturnSources>();
         services.AddScoped<ERP.Application.Assistant.IAssistantReader, QuotesAssistantReader>();
         services.AddScoped<ERP.Application.Assistant.IAssistantReader, OrdersAssistantReader>();
         services.AddScoped<ERP.Application.Assistant.IAssistantAction, CreateQuoteAssistantAction>();
@@ -191,6 +191,4 @@ public sealed class SalesModule : ModuleBase
             b.HasIndex(x => new { x.OrgId, x.OrderId });
         });
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => SalesEndpoints.Map(group);
 }
