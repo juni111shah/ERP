@@ -1,7 +1,6 @@
 using ERP.Application.Abstractions;
 using System.Text;
 using System.Threading.RateLimiting;
-using ERP.Api.Endpoints;
 using ERP.Api.Infrastructure;
 using ERP.Infrastructure;
 using ERP.Application.Auth;
@@ -231,8 +230,6 @@ app.UseMiddleware<IdempotencyMiddleware>();
 // Every /api/v1 endpoint (core and modules) returns the standard ApiResponse envelope.
 var api = app.MapGroup("/api/v1");
 api.AddEndpointFilter<ApiEnvelopeFilter>();
-api.MapAuth();
-api.MapCore();
 
 // Module endpoints: /api/v1/m/{key}/..., authenticated and gated per workspace (403 module-disabled).
 var registry = app.Services.GetRequiredService<ModuleRegistry>();

@@ -88,6 +88,15 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Assistant.IAssistantAction, ERP.Application.Assistant.CreatePartyAssistantAction>();
         services.AddScoped<ERP.Application.Platform.SubscriptionInvoicing>();
         services.AddScoped<ERP.Application.Platform.ClientProvisioner>();
+        services.AddScoped<ERP.Application.Platform.SignupWorkflow>();
+        services.AddScoped<ERP.Application.Platform.PlanViews>();
+        services.AddScoped<ERP.Application.Platform.ClientReader>();
+        services.AddScoped<ERP.Application.Platform.ClientSubscriptions>();
+        services.AddScoped<ERP.Application.Platform.PlatformInvoiceDocuments>();
+        services.AddScoped<ERP.Application.Platform.BillingOverviews>();
+        services.AddScoped<ERP.Application.Platform.AssistantConsole>();
+        services.AddScoped<ERP.Application.Security.PermissionGrants>();
+        services.AddScoped<ERP.Application.Audit.AuditRows>();
         services.AddScoped<IScheduledJob, ERP.Application.Common.IdempotencyCleanupJob>();
         services.AddScoped<ERP.Application.Common.IdempotencyService>();
         services.AddScoped<IReminderSource, CoreReminderSource>();

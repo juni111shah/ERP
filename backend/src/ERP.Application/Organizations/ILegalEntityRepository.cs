@@ -8,4 +8,10 @@ public interface ILegalEntityRepository : IRepository<LegalEntity>
 {
     /// <summary>The distinct base currencies of one legal entity or (null) all of them.</summary>
     Task<List<string>> ListBaseCurrenciesAsync(Guid? legalEntityId, CancellationToken ct);
+
+    /// <summary>The legal entities in <paramref name="allowed"/> (all of them when null), by code.</summary>
+    Task<List<LegalEntity>> ListAllowedAsync(IReadOnlyList<Guid>? allowed, CancellationToken ct);
+
+    /// <summary>Which of <paramref name="ids"/> are legal entities of this workspace.</summary>
+    Task<List<Guid>> ListExistingIdsAsync(Guid[] ids, CancellationToken ct);
 }

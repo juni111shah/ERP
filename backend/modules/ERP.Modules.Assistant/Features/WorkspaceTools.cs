@@ -133,7 +133,7 @@ internal sealed class FindScreenTool(ISender sender) : IAssistantTool
 
     public async Task<string> RunAsync(string argumentsJson, CancellationToken ct)
     {
-        var menu = await sender.Send(new GetNavigationMenu(), ct);
+        var menu = await sender.Send(new GetNavigationMenuQuery(), ct);
         var words = (ToolAnswers.ReadText(argumentsJson, "query") ?? "").ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var hits = menu.SelectMany(g => g.Items.Select(i => new { Group = g.Label, i.Label, Link = i.Route }))
             .Where(i => words.Any(w => i.Label.Contains(w, StringComparison.OrdinalIgnoreCase) || (i.Group?.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false))).Take(10).ToList();

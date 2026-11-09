@@ -88,6 +88,12 @@ public interface IAccountRepository : IRepository<Account>
 
     /// <summary>How every account is classified (type, system role, bank flag, reporting group).</summary>
     Task<List<AccountClassification>> ListClassificationsAsync(CancellationToken ct);
+
+    /// <summary>The code of every account.</summary>
+    Task<List<string>> ListCodesAsync(CancellationToken ct);
+
+    /// <summary>The system roles held by accounts (each account that has one).</summary>
+    Task<List<string>> ListSystemRolesAsync(CancellationToken ct);
 }
 
 /// <summary>An account and its system role.</summary>

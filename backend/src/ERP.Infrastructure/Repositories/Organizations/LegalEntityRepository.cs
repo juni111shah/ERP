@@ -9,4 +9,10 @@ internal sealed class LegalEntityRepository(IRepository<LegalEntity> legalEntiti
 {
     public Task<List<string>> ListBaseCurrenciesAsync(Guid? legalEntityId, CancellationToken ct)
         => Query().Where(e => legalEntityId == null || e.Id == legalEntityId).Select(e => e.BaseCurrency).Distinct().ToListAsync(ct);
+
+    public Task<List<LegalEntity>> ListAllowedAsync(IReadOnlyList<Guid>? allowed, CancellationToken ct)
+        => Query().Where(e => allowed == null || allowed.Contains(e.Id)).OrderBy(e => e.Code).ToListAsync(ct);
+
+    public Task<List<Guid>> ListExistingIdsAsync(Guid[] ids, CancellationToken ct)
+        => Query(new Specification<LegalEntity>(e => ids.Contains(e.Id))).Select(e => e.Id).ToListAsync(ct);
 }

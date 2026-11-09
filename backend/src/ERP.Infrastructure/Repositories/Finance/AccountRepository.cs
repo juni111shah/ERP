@@ -115,4 +115,8 @@ internal sealed class AccountRepository(IRepository<Account> accounts) : Reposit
 
     public Task<List<AccountClassification>> ListClassificationsAsync(CancellationToken ct)
         => Query().Select(a => new AccountClassification(a.Id, a.Type, a.SystemRole, a.IsBank, a.ReportingGroup)).ToListAsync(ct);
+
+    public Task<List<string>> ListCodesAsync(CancellationToken ct) => Query().Select(a => a.Code).ToListAsync(ct);
+
+    public Task<List<string>> ListSystemRolesAsync(CancellationToken ct) => Query().Where(a => a.SystemRole != null).Select(a => a.SystemRole!).ToListAsync(ct);
 }
