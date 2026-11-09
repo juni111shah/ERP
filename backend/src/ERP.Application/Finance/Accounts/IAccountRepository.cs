@@ -94,6 +94,9 @@ public interface IAccountRepository : IRepository<Account>
 
     /// <summary>The system roles held by accounts (each account that has one).</summary>
     Task<List<string>> ListSystemRolesAsync(CancellationToken ct);
+
+    /// <summary>The id of an active account holding the system role; null when there is none.</summary>
+    Task<Guid?> FindActiveIdWithRoleAsync(string systemRole, CancellationToken ct);
 }
 
 /// <summary>An account and its system role.</summary>

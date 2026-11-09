@@ -96,4 +96,7 @@ internal sealed class InvoiceRepository(IRepository<Invoice> invoices) : Reposit
     public Task<List<InvoiceOpenBalance>> ListOpenBalancesAsync(Guid? legalEntityId, CancellationToken ct)
         => Query(new Specification<Invoice>(i => (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid) && (legalEntityId == null || i.LegalEntityId == legalEntityId)))
             .Select(i => new InvoiceOpenBalance(i.PartyName, i.IsCreditNote, i.Total, i.Paid, i.DueDate)).ToListAsync(ct);
+
+    public Task<List<Invoice>> ListForSourceAsync(string sourceType, Guid sourceId, CancellationToken ct)
+        => Query(new Specification<Invoice>(x => x.SourceType == sourceType && x.SourceId == sourceId)).ToListAsync(ct);
 }

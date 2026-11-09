@@ -7,8 +7,6 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Projects.Domain;
 using ERP.Modules.Projects.Features;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -105,6 +103,18 @@ public sealed class ProjectsModule : ModuleBase
         services.AddScoped<RateResolver>();
         services.AddScoped<ProjectAccess>();
         services.AddScoped<ProjectFigures>();
+        services.AddScoped<ProjectDtoBuilder>();
+        services.AddScoped<ProjectChecks>();
+        services.AddScoped<ProjectScheduleBuilder>();
+        services.AddScoped<TaskRules>();
+        services.AddScoped<TaskDtoBuilder>();
+        services.AddScoped<MilestoneRules>();
+        services.AddScoped<MilestoneDtoBuilder>();
+        services.AddScoped<TimesheetEntries>();
+        services.AddScoped<TimesheetDtoBuilder>();
+        services.AddScoped<ExpenseRules>();
+        services.AddScoped<ExpenseDtoBuilder>();
+        services.AddScoped<BillingPlanner>();
         services.AddScoped<IDashboardContributor, ProjectsDashboard>();
         services.AddScoped<IOwnerDashboardSection, ProjectsOwnerSection>();
         services.AddScoped<ISearchProvider, ProjectsSearch>();
@@ -275,6 +285,4 @@ public sealed class ProjectsModule : ModuleBase
             b.HasIndex(x => new { x.OrgId, x.ProjectId });
         });
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => ProjectsEndpoints.Map(group);
 }
