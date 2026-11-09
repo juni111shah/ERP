@@ -15,4 +15,7 @@ internal sealed class UserRoleRepository(IRepository<UserRole> userRoles) : Repo
 
     public Task<List<Guid>> ListOtherHoldersAsync(List<Guid> roleIds, Guid exceptUserId, CancellationToken ct)
         => Query(new Specification<UserRole>(ur => roleIds.Contains(ur.RoleId) && ur.UserId != exceptUserId)).Select(ur => ur.UserId).Distinct().ToListAsync(ct);
+
+    public Task<List<Guid>> ListUsersWithPermissionAsync(string permission, CancellationToken ct)
+        => Query(new Specification<UserRole>(ur => ur.Role!.Permissions.Any(p => p.Permission == permission || p.Permission == "*"))).Select(ur => ur.UserId).Distinct().ToListAsync(ct);
 }

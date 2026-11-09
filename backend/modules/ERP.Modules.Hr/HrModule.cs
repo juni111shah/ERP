@@ -7,8 +7,6 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Hr.Domain;
 using ERP.Modules.Hr.Features;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -110,6 +108,19 @@ public sealed class HrModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddHrPeople();
+        // Rules shared by several handlers of a feature.
+        services.AddScoped<DepartmentRules>();
+        services.AddScoped<SettlementCalculator>();
+        services.AddScoped<PayrollRunRules>();
+        services.AddScoped<PayrollLineBuilder>();
+        services.AddScoped<GratuityLiability>();
+        services.AddScoped<PayslipDocuments>();
+        services.AddScoped<MyEmployee>();
+        services.AddScoped<AttendancePeriodGuard>();
+        services.AddScoped<DailyAttendanceRecorder>();
+        services.AddScoped<ShiftAssignments>();
+        services.AddScoped<ReviewRules>();
+        services.AddTransient<LeaveRequestWorkflow>(); // keeps the balance rows it creates: one instance per handler, as before
         services.AddScoped<ERP.Modules.Hr.Wps.IWpsFileBuilder, ERP.Modules.Hr.Wps.UaeWpsFileBuilder>();
         services.AddScoped<ERP.Modules.Hr.Wps.IWpsFileBuilder, ERP.Modules.Hr.Wps.QatarWpsFileBuilder>();
         services.AddScoped<GratuityCalculator>();
@@ -393,6 +404,4 @@ public sealed class HrModule : ModuleBase
             b.Property(x => x.OvertimeHours).HasPrecision(9, 2);
         });
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => HrEndpoints.Map(group);
 }
