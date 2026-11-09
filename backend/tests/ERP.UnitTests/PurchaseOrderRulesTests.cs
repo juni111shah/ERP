@@ -16,14 +16,14 @@ public class PurchaseOrderRulesTests
 
     [Fact]
     public void Converting_a_purchase_order_is_retryable_on_concurrency_conflicts()
-        => Assert.True(typeof(IRetryOnConcurrency).IsAssignableFrom(typeof(ConvertPurchaseOrderToBill)));
+        => Assert.True(typeof(IRetryOnConcurrency).IsAssignableFrom(typeof(ConvertPurchaseOrderToBillCommand)));
 
     [Fact]
     public void The_convert_validator_rejects_bad_overrides_on_the_unit_price_overrides_key()
     {
-        var result = new ConvertPurchaseOrderToBillValidator().Validate(new ConvertPurchaseOrderToBill(Guid.NewGuid(), new Dictionary<Guid, decimal> { [Line] = -5m }));
+        var result = new ConvertPurchaseOrderToBillValidator().Validate(new ConvertPurchaseOrderToBillCommand(Guid.NewGuid(), new Dictionary<Guid, decimal> { [Line] = -5m }));
         Assert.Contains(result.Errors, e => e.PropertyName == "UnitPriceOverrides");
-        Assert.True(new ConvertPurchaseOrderToBillValidator().Validate(new ConvertPurchaseOrderToBill(Guid.NewGuid())).IsValid);
+        Assert.True(new ConvertPurchaseOrderToBillValidator().Validate(new ConvertPurchaseOrderToBillCommand(Guid.NewGuid())).IsValid);
     }
 
     private static PurchaseOrderInput Input(string orderDate = "2026-05-01", string? delivery = null, decimal quantity = 1m, decimal price = 10m)

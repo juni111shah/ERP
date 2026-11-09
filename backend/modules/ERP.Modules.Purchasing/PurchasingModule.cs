@@ -7,8 +7,6 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Purchasing.Domain;
 using ERP.Modules.Purchasing.Features;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -81,6 +79,8 @@ public sealed class PurchasingModule : ModuleBase
         services.AddScoped<ERP.Application.Dashboard.IOwnerDashboardSection, Features.PurchasingOwnerSection>();
         services.AddScoped<ISearchProvider, PurchasingSearch>();
         services.AddScoped<PurchasingApprovalGate>();
+        services.AddScoped<PurchaseOrderRules>();
+        services.AddScoped<PurchaseReturnSources>();
         services.AddScoped<ERP.Application.Finance.IBillAdjustmentSource, ReturnBillAdjustments>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<PurchaseOrder>(
@@ -232,6 +232,4 @@ public sealed class PurchasingModule : ModuleBase
             b.HasIndex(x => new { x.OrgId, x.GoodsReceiptId });
         });
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => PurchasingEndpoints.Map(group);
 }
