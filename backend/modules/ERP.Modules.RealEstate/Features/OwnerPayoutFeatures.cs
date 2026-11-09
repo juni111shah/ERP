@@ -128,10 +128,10 @@ internal sealed class OwnerPayoutHandlers(
                 payout.JournalEntryId = (await posting.PostAsync(new PostingRequest(entity.Id, i.Date, SourceType, payout.Id, memo, number, lines), token)).Id;
             }
             // the bill debits the payable and credits accounts payable, so the owner is paid and aged like any vendor
-            var bill = await sender.Send(new CreateBill(new BillInput(entity.Id, owner.Id, number, i.Date, i.DueDate,
+            var bill = await sender.Send(new CreateBillCommand(new BillInput(entity.Id, owner.Id, number, i.Date, i.DueDate,
                 [new BillLineInput($"Owner payout {number}, {i.From:dd MMM yyyy} to {i.To:dd MMM yyyy}", 1, net, payable)], i.Notes?.Trim())), token);
             payout.BillId = bill.Id;
-            await sender.Send(new PostBill(bill.Id), token);
+            await sender.Send(new PostBillCommand(bill.Id), token);
         }
         await payouts.SaveChangesAsync(token);
         return ToDto(payout);
@@ -145,8 +145,8 @@ internal sealed class OwnerPayoutHandlers(
         {
             // voiding or deleting the bill raises BillReleased, which reverses the rest of the payout below
             var bill = await bills.FindAsync(billId, token);
-            if (bill?.Status is DocumentStatus.Draft or DocumentStatus.PendingApproval) await sender.Send(new DeleteBill(billId), token);
-            else await sender.Send(new VoidBill(billId, cmd.Reason), token);
+            if (bill?.Status is DocumentStatus.Draft or DocumentStatus.PendingApproval) await sender.Send(new DeleteBillCommand(billId), token);
+            else await sender.Send(new VoidBillCommand(billId, cmd.Reason), token);
         }
         else await ReleaseAsync(payout, token);
         VoidMemo.Stamp(payout, cmd.Reason, clock, user);

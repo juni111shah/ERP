@@ -21,10 +21,6 @@ public static class CoreEndpoints
         api.MapFinance();
         api.MapLedger();
         api.MapBudgets();
-        api.MapReceivables();
-        api.MapCheques();
-        api.MapBank();
-        api.MapPayables();
         api.MapDashboard();
         api.MapCustomFields();
         api.MapWorkflow();

@@ -85,8 +85,8 @@ internal sealed class RunReportTool(ISender sender, ICurrentUser user, IClock cl
             // Each of these requests carries its own permission, which the mediator pipeline enforces.
             object? result = ToolAnswers.ReadText(argumentsJson, "report") switch
             {
-                "receivables_ageing" => await sender.Send(new GetArAgeing(to, entity), ct),
-                "payables_ageing" => await sender.Send(new GetApAgeing(to, entity), ct),
+                "receivables_ageing" => await sender.Send(new GetArAgeingQuery(to, entity), ct),
+                "payables_ageing" => await sender.Send(new GetApAgeingQuery(to, entity), ct),
                 "income_statement" => await sender.Send(new GetIncomeStatement(from, to, entity), ct),
                 "balance_sheet" => await sender.Send(new GetBalanceSheet(to, entity), ct),
                 "trial_balance" => await sender.Send(new GetTrialBalance(from, to, entity), ct),
