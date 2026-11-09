@@ -7,8 +7,6 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Distribution.Domain;
 using ERP.Modules.Distribution.Features;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -72,6 +70,7 @@ public sealed class DistributionModule : ModuleBase
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<RouteReferences>();
         services.AddScoped<IDashboardContributor, DistributionDashboard>();
         services.AddScoped<ISearchProvider, DistributionSearch>();
     }
@@ -144,6 +143,4 @@ public sealed class DistributionModule : ModuleBase
             b.HasIndex(x => new { x.OrgId, x.ItemId, x.Tier, x.MinQuantity });
         });
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => DistributionEndpoints.Map(group);
 }

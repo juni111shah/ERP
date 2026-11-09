@@ -20,6 +20,9 @@ public interface ITaxCodeRepository : IRepository<TaxCode>
 
     /// <summary>An active default tax code of the legal entity or of every entity; null when there is none.</summary>
     Task<TaxCode?> FindActiveDefaultAsync(Guid legalEntityId, CancellationToken ct);
+
+    /// <summary>The id of an active default tax code of the legal entity or of all entities; null when there is none.</summary>
+    Task<Guid?> FindDefaultIdAsync(Guid legalEntityId, CancellationToken ct);
 }
 
 /// <summary>A tax code's rate (percent) and whether the tax can be recovered.</summary>

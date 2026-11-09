@@ -7,8 +7,6 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Retail.Domain;
 using ERP.Modules.Retail.Features;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -73,6 +71,8 @@ public sealed class RetailModule : ModuleBase
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<StoreWarehouses>();
+        services.AddScoped<PriceListCurrencies>();
         services.AddScoped<IDashboardContributor, RetailDashboard>();
         services.AddScoped<ISearchProvider, RetailSearch>();
         services.AddScoped<IPriceResolver, RetailPriceResolver>();
@@ -125,6 +125,4 @@ public sealed class RetailModule : ModuleBase
             b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
         });
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => RetailEndpoints.Map(group);
 }

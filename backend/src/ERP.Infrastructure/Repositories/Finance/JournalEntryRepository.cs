@@ -80,4 +80,7 @@ internal sealed class JournalEntryRepository(IRepository<JournalEntry> journals)
     public Task<List<EntityLineAmounts>> ListPostedEntityAmountsAsync(List<Guid> accountIds, DateOnly asOf, Guid? legalEntityId, CancellationToken ct)
         => Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= asOf && (legalEntityId == null || j.LegalEntityId == legalEntityId)))
             .SelectMany(j => j.Lines.Where(l => accountIds.Contains(l.AccountId)), (j, l) => new EntityLineAmounts(j.LegalEntityId, l.Debit, l.Credit)).ToListAsync(ct);
+
+    public Task<List<JournalEntry>> ListPostedOfSourceForUpdateAsync(string sourceType, Guid sourceId, CancellationToken ct)
+        => Tracked(new Specification<JournalEntry>(j => j.SourceType == sourceType && j.SourceId == sourceId && j.Status == JournalStatus.Posted).Include(j => j.Lines)).ToListAsync(ct);
 }

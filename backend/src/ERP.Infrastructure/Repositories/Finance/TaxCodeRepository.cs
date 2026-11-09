@@ -17,4 +17,7 @@ internal sealed class TaxCodeRepository(IRepository<TaxCode> taxCodes) : Reposit
 
     public Task<TaxCode?> FindActiveDefaultAsync(Guid legalEntityId, CancellationToken ct)
         => Query(new Specification<TaxCode>(t => t.IsActive && t.IsDefault && (t.LegalEntityId == null || t.LegalEntityId == legalEntityId))).FirstOrDefaultAsync(ct);
+
+    public async Task<Guid?> FindDefaultIdAsync(Guid legalEntityId, CancellationToken ct)
+        => (await Query(new Specification<TaxCode>(t => t.IsActive && t.IsDefault && (t.LegalEntityId == null || t.LegalEntityId == legalEntityId))).FirstOrDefaultAsync(ct))?.Id;
 }
