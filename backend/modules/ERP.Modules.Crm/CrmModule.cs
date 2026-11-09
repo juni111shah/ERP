@@ -6,7 +6,6 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Crm.Domain;
 using ERP.Modules.Crm.Features;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,8 +56,6 @@ public sealed class CrmModule : ModuleBase
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<CrmOpportunity>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "opportunity", Crm.Permissions.OpportunitiesRead, Crm.Permissions.OpportunitiesManage));
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => CrmEndpoints.Map(group);
 
     public override void ConfigureModel(ModelBuilder modelBuilder)
     {

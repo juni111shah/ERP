@@ -3,10 +3,6 @@ using ERP.Application.Security;
 using ERP.Modularity;
 using ERP.Modules.Assistant.Domain;
 using ERP.Modules.Assistant.Features;
-using MediatR;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -64,18 +60,5 @@ public sealed class AssistantModule : ModuleBase
             b.Property(x => x.Link).HasMaxLength(300);
             b.HasIndex(x => new { x.OrgId, x.ConversationId });
         });
-    }
-
-    public override void MapEndpoints(RouteGroupBuilder group)
-    {
-        group.MapGet("/status", (ISender s, CancellationToken ct) => s.Send(new GetWorkspaceAssistantStatus(), ct)).RequirePermission(ChatsUse);
-        group.MapGet("/conversations", (ISender s, CancellationToken ct) => s.Send(new ListAssistantConversations(), ct)).RequirePermission(ChatsUse);
-        group.MapGet("/conversations/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetAssistantConversation(id), ct)).RequirePermission(ChatsUse);
-        group.MapDelete("/conversations/{id:guid}", async (Guid id, ISender s, CancellationToken ct) => { await s.Send(new DeleteAssistantConversation(id), ct); return Results.NoContent(); }).RequirePermission(ChatsUse);
-        // Asking changes nothing in the business, so a view-only workspace can still ask. Confirming a change stays blocked there.
-        group.MapPost("/messages", (WorkspaceMessageInput input, ISender s, CancellationToken ct) => new AssistantStreamResult(s.CreateStream(new AskWorkspaceAssistant(input), ct)))
-            .RequirePermission(ChatsUse).WithMetadata(new AllowedInReadOnlyWorkspaceAttribute());
-        group.MapPost("/actions/{id:guid}/confirm", (Guid id, ISender s, CancellationToken ct) => s.Send(new ConfirmAssistantAction(id), ct)).RequirePermission(ChatsUse);
-        group.MapPost("/actions/{id:guid}/cancel", (Guid id, ISender s, CancellationToken ct) => s.Send(new CancelAssistantAction(id), ct)).RequirePermission(ChatsUse).WithMetadata(new AllowedInReadOnlyWorkspaceAttribute());
     }
 }

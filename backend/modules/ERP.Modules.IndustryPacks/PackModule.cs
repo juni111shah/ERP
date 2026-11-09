@@ -7,11 +7,10 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.IndustryPacks.Domain;
 using ERP.Modules.IndustryPacks.Features;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ERP.Modules.IndustryPacks;
 
@@ -80,11 +79,13 @@ public abstract class PackModule : ModuleBase
         PackCatalog.Register(this);
         services.AddScoped<IDashboardContributor>(sp => ActivatorUtilities.CreateInstance<PackDashboard>(sp, this));
         services.AddScoped<ISearchProvider>(sp => ActivatorUtilities.CreateInstance<PackSearch>(sp, this));
+        // The record handlers are shared by every pack: their helpers are registered once.
+        services.TryAddScoped<RecordDtoBuilder>();
+        services.TryAddScoped<RecordEvents>();
+        services.TryAddScoped<RecordInputApplier>();
     }
 
     public override void ConfigureModel(ModelBuilder mb) => PackModel.Configure(mb);
-
-    public override void MapEndpoints(RouteGroupBuilder group) => PackEndpoints.Map(group, this);
 }
 
 /// <summary>The definitions of every installed pack, for the shared handlers.</summary>

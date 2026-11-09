@@ -64,4 +64,7 @@ internal sealed class BillRepository(IRepository<Bill> bills) : RepositoryBase<B
     public Task<List<BillOpenBalance>> ListOpenBalancesAsync(Guid? legalEntityId, CancellationToken ct)
         => Query(new Specification<Bill>(b => (b.Status == DocumentStatus.Issued || b.Status == DocumentStatus.PartlyPaid) && (legalEntityId == null || b.LegalEntityId == legalEntityId)))
             .Select(b => new BillOpenBalance(b.PartyName, b.Total, b.Paid, b.DueDate)).ToListAsync(ct);
+
+    public Task<Bill?> FindWithLinesInEntityAsync(Guid id, Guid legalEntityId, CancellationToken ct)
+        => Query(new Specification<Bill>(b => b.Id == id && b.LegalEntityId == legalEntityId).Include(b => b.Lines)).FirstOrDefaultAsync(ct);
 }

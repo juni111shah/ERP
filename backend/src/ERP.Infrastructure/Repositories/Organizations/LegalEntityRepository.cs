@@ -15,4 +15,7 @@ internal sealed class LegalEntityRepository(IRepository<LegalEntity> legalEntiti
 
     public Task<List<Guid>> ListExistingIdsAsync(Guid[] ids, CancellationToken ct)
         => Query(new Specification<LegalEntity>(e => ids.Contains(e.Id))).Select(e => e.Id).ToListAsync(ct);
+
+    public Task<Dictionary<Guid, LegalEntityNameAndCurrency>> MapNamesAndCurrenciesAsync(List<Guid> ids, CancellationToken ct)
+        => Query(new Specification<LegalEntity>(e => ids.Contains(e.Id))).Select(e => new LegalEntityNameAndCurrency(e.Id, e.Name, e.BaseCurrency)).ToDictionaryAsync(e => e.Id, ct);
 }

@@ -7,8 +7,6 @@ using ERP.Domain.Finance;
 using ERP.Modularity;
 using ERP.Modules.Assets.Domain;
 using ERP.Modules.Assets.Features;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +63,8 @@ public sealed class AssetsModule : ModuleBase
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IDashboardContributor, AssetsDashboard>();
+        services.AddScoped<FixedAssetChecks>();
+        services.AddScoped<AssetCategoryRules>();
     }
 
     public override void ConfigureModel(ModelBuilder mb)
@@ -118,6 +118,4 @@ public sealed class AssetsModule : ModuleBase
             b.HasOne<DepreciationRun>().WithMany().HasForeignKey(x => x.RunId).OnDelete(DeleteBehavior.NoAction);
         });
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => AssetsEndpoints.Map(group);
 }
