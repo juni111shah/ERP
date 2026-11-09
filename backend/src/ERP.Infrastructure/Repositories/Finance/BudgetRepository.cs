@@ -15,4 +15,8 @@ internal sealed class BudgetRepository(IRepository<Budget> budgets) : Repository
         => await Tracked(WithLines(id)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
 
     private static Specification<Budget> WithLines(Guid id) => new Specification<Budget>(b => b.Id == id).Include(b => b.Lines);
+
+    public Task<Guid?> FindFirstActiveIdAsync(int fiscalYear, Guid? legalEntityId, CancellationToken ct)
+        => Query(new Specification<Budget>(b => b.IsActive && b.FiscalYear == fiscalYear && (legalEntityId == null || b.LegalEntityId == legalEntityId)))
+            .OrderBy(b => b.Name).Select(b => (Guid?)b.Id).FirstOrDefaultAsync(ct);
 }

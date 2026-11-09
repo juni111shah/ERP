@@ -108,4 +108,11 @@ internal sealed class AccountRepository(IRepository<Account> accounts) : Reposit
     public Task<List<CashAccount>> ListCashAndBankAsync(CancellationToken ct)
         => Query(new Specification<Account>(a => a.IsActive && a.Type == AccountType.Asset && (a.IsBank || a.SystemRole == "cash" || a.SystemRole == "bank"))).OrderBy(a => a.Code)
             .Select(a => new CashAccount(a.Id, a.Code, a.Name, a.IsBank)).ToListAsync(ct);
+
+    public Task<Dictionary<Guid, AccountLabel>> GetLabelsAsync(List<Guid> ids, CancellationToken ct)
+        => Query(new Specification<Account>(a => ids.Contains(a.Id)))
+            .Select(a => new AccountLabel(a.Id, a.Code, a.Name)).ToDictionaryAsync(a => a.Id, ct);
+
+    public Task<List<AccountClassification>> ListClassificationsAsync(CancellationToken ct)
+        => Query().Select(a => new AccountClassification(a.Id, a.Type, a.SystemRole, a.IsBank, a.ReportingGroup)).ToListAsync(ct);
 }

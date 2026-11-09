@@ -4,6 +4,7 @@ using ERP.Application.Common;
 using ERP.Application.Finance;
 using ERP.Domain.Finance;
 using Microsoft.EntityFrameworkCore;
+using ERP.Application.Portal;
 
 namespace ERP.Infrastructure.Repositories.Finance;
 
@@ -73,4 +74,18 @@ internal sealed class SettlementRepository(IRepository<Settlement> settlements) 
     private IQueryable<Settlement> OnStatement(InstrumentDirection direction, Guid partyId, DateOnly to, Guid? entityId)
         => Query(new Specification<Settlement>(s => s.Direction == direction && s.PartyId == partyId && s.Date <= to
             && (s.Status == DocumentStatus.Issued || (s.Status == DocumentStatus.Voided && s.VoidPostedOn != null)) && (entityId == null || s.LegalEntityId == entityId)));
+
+    public Task<List<PortalReceiptDto>> ListIssuedReceiptsForPortalAsync(Guid partyId, CancellationToken ct)
+        => Query(new Specification<Settlement>(s => s.PartyId == partyId && s.Direction == InstrumentDirection.Received && s.Status == DocumentStatus.Issued))
+            .OrderByDescending(s => s.Date).Take(200)
+            .Select(s => new PortalReceiptDto(s.Id, s.Number, s.Date, s.Method, s.CurrencyCode, s.Amount, s.Reference)).ToListAsync(ct);
+
+    public Task<List<decimal>> ListUnallocatedReceiptAmountsAsync(Guid partyId, CancellationToken ct)
+        => Query(new Specification<Settlement>(s => s.PartyId == partyId && s.Direction == InstrumentDirection.Received && s.Status == DocumentStatus.Issued && s.Unallocated > 0))
+            .Select(s => s.Unallocated).ToListAsync(ct);
+
+    public Task<List<PortalPaymentDto>> ListIssuedPaymentsForPortalAsync(Guid partyId, CancellationToken ct)
+        => Query(new Specification<Settlement>(s => s.PartyId == partyId && s.Direction == InstrumentDirection.Issued && s.Status == DocumentStatus.Issued))
+            .OrderByDescending(s => s.Date).Take(200)
+            .Select(s => new PortalPaymentDto(s.Id, s.Number, s.Date, s.Method, s.CurrencyCode, s.Amount, s.Reference)).ToListAsync(ct);
 }

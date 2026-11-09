@@ -47,7 +47,7 @@ internal sealed class SearchRecordsTool(ISender sender) : IAssistantTool
     {
         var query = ToolAnswers.ReadText(argumentsJson, "query");
         if (query is null) return "Give some words to search for.";
-        var result = await sender.Send(new GlobalSearch(query), ct);
+        var result = await sender.Send(new GlobalSearchQuery(query), ct);
         return result.Hits.Count == 0 ? "Nothing matches." : ToolAnswers.Serialize(result.Hits.Take(20));
     }
 }
@@ -108,7 +108,7 @@ internal sealed class GetOverviewTool(ISender sender, ICurrentUser user) : IAssi
 
     public async Task<string> RunAsync(string argumentsJson, CancellationToken ct)
     {
-        var d = await sender.Send(new GetDashboard(user.LegalEntityId), ct);
+        var d = await sender.Send(new GetDashboardQuery(user.LegalEntityId), ct);
         return ToolAnswers.Serialize(new { d.AsOf, Figures = d.Kpis.Select(k => new { k.Label, k.Value, k.Caption, k.Link }), NeedsAttention = d.Alerts.Select(a => new { a.Category, a.Urgency, a.Message, a.Link }) });
     }
 }
@@ -120,7 +120,7 @@ internal sealed class ListApprovalsTool(ISender sender) : IAssistantTool
 
     public async Task<string> RunAsync(string argumentsJson, CancellationToken ct)
     {
-        var list = await sender.Send(new ListApprovals(null), ct);
+        var list = await sender.Send(new ListApprovalsQuery(null), ct);
         return list.Count == 0 ? "There is nothing waiting." : ToolAnswers.Serialize(new { Link = "/approvals", Items = list.Take(20).Select(a => new { a.Subject, a.Amount, Status = a.Status.ToString(), a.RequestedAt }) });
     }
 }

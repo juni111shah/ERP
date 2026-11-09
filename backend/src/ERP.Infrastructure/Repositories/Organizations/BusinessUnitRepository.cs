@@ -9,4 +9,7 @@ internal sealed class BusinessUnitRepository(IRepository<BusinessUnit> businessU
 {
     public Task<Dictionary<Guid, string>> NamesAsync(CancellationToken ct)
         => Query().Select(b => new { b.Id, b.Name }).ToDictionaryAsync(b => b.Id, b => b.Name, ct);
+
+    public Task<Dictionary<Guid, string>> GetNamesAsync(List<Guid> ids, CancellationToken ct)
+        => Query(new Specification<BusinessUnit>(u => ids.Contains(u.Id))).ToDictionaryAsync(u => u.Id, u => u.Name, ct);
 }

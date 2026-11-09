@@ -8,4 +8,7 @@ public interface IBusinessUnitRepository : IRepository<BusinessUnit>
 {
     /// <summary>The name of every business unit, by id.</summary>
     Task<Dictionary<Guid, string>> NamesAsync(CancellationToken ct);
+
+    /// <summary>Business unit names by id, for the ids that exist.</summary>
+    Task<Dictionary<Guid, string>> GetNamesAsync(List<Guid> ids, CancellationToken ct);
 }

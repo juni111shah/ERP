@@ -53,7 +53,13 @@ public interface IJournalEntryRepository : IRepository<JournalEntry>
 
     /// <summary>Debit and credit of every non-draft ledger line on the accounts dated on or before <paramref name="asOf"/>.</summary>
     Task<List<AccountMovement>> ListMovementsAsync(List<Guid> accountIds, DateOnly asOf, Guid? entityId, CancellationToken ct);
+
+    /// <summary>Every line of the non-draft entries dated on or before <paramref name="to"/>, of one legal entity or (null) all of them.</summary>
+    Task<List<PostedJournalLine>> ListPostedLinesUpToAsync(DateOnly to, Guid? legalEntityId, CancellationToken ct);
 }
 
 /// <summary>One ledger line on a bank or cash account, with its journal (bank reconciliation and bank ledger).</summary>
 public sealed record BankLedgerLine(Guid JournalLineId, Guid JournalId, string Number, DateOnly Date, string? Description, decimal Debit, decimal Credit);
+
+/// <summary>One posted journal line with its entry's date.</summary>
+public sealed record PostedJournalLine(Guid AccountId, DateOnly Date, decimal Debit, decimal Credit, Guid? BusinessUnitId);

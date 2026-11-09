@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using ERP.Application.Abstractions;
 using ERP.Application.Common;
 using ERP.Domain.Finance;
+using ERP.Application.Portal;
 
 namespace ERP.Application.Finance;
 
@@ -49,4 +50,13 @@ public interface ISettlementRepository : IRepository<Settlement>
 
     /// <summary>The party's settlements voided after their period was locked, the void posted on or before <paramref name="to"/>.</summary>
     Task<List<VoidedSettlement>> ListVoidedAfterLockAsync(InstrumentDirection direction, Guid partyId, DateOnly to, Guid? entityId, CancellationToken ct);
+
+    /// <summary>The latest 200 issued receipts from a portal customer, newest first.</summary>
+    Task<List<PortalReceiptDto>> ListIssuedReceiptsForPortalAsync(Guid partyId, CancellationToken ct);
+
+    /// <summary>The unallocated amounts of the party's issued receipts that still have some.</summary>
+    Task<List<decimal>> ListUnallocatedReceiptAmountsAsync(Guid partyId, CancellationToken ct);
+
+    /// <summary>The latest 200 issued payments to a portal vendor, newest first.</summary>
+    Task<List<PortalPaymentDto>> ListIssuedPaymentsForPortalAsync(Guid partyId, CancellationToken ct);
 }

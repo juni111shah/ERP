@@ -72,4 +72,8 @@ internal sealed class JournalEntryRepository(IRepository<JournalEntry> journals)
     public Task<List<AccountMovement>> ListMovementsAsync(List<Guid> accountIds, DateOnly asOf, Guid? entityId, CancellationToken ct)
         => Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= asOf && (entityId == null || j.LegalEntityId == entityId)))
             .SelectMany(j => j.Lines.Where(l => accountIds.Contains(l.AccountId)), (j, l) => new AccountMovement(l.AccountId, l.Debit, l.Credit)).ToListAsync(ct);
+
+    public Task<List<PostedJournalLine>> ListPostedLinesUpToAsync(DateOnly to, Guid? legalEntityId, CancellationToken ct)
+        => Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= to && (legalEntityId == null || j.LegalEntityId == legalEntityId)))
+            .SelectMany(j => j.Lines, (j, l) => new PostedJournalLine(l.AccountId, j.Date, l.Debit, l.Credit, l.BusinessUnitId)).ToListAsync(ct);
 }

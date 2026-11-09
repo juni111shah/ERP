@@ -11,4 +11,7 @@ public interface IBudgetRepository : IRepository<Budget>
 
     /// <summary>The budget with its lines, tracked for changes. Throws NotFoundException.</summary>
     Task<Budget> GetWithLinesForUpdateAsync(Guid id, CancellationToken ct);
+
+    /// <summary>The id of the first (by name) active budget of <paramref name="fiscalYear"/>, of one legal entity or (null) any; null when there is none.</summary>
+    Task<Guid?> FindFirstActiveIdAsync(int fiscalYear, Guid? legalEntityId, CancellationToken ct);
 }

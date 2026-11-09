@@ -17,13 +17,5 @@ public static class CoreEndpoints
         api.MapModules();
         api.MapOrganization();
         api.MapSecurity();
-        api.MapMasterData();
-        api.MapDashboard();
-        api.MapCustomFields();
-        api.MapWorkflow();
-        api.MapDocumentEmail();
-        api.MapImports();
-        api.MapPortal();
-        api.MapPrint();
     }
 }

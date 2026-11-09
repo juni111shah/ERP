@@ -82,6 +82,12 @@ public interface IAccountRepository : IRepository<Account>
 
     /// <summary>The active bank and cash accounts (asset accounts flagged as bank, or with the "cash" or "bank" role), by code.</summary>
     Task<List<CashAccount>> ListCashAndBankAsync(CancellationToken ct);
+
+    /// <summary>Code and name by account id, for the ids that exist.</summary>
+    Task<Dictionary<Guid, AccountLabel>> GetLabelsAsync(List<Guid> ids, CancellationToken ct);
+
+    /// <summary>How every account is classified (type, system role, bank flag, reporting group).</summary>
+    Task<List<AccountClassification>> ListClassificationsAsync(CancellationToken ct);
 }
 
 /// <summary>An account and its system role.</summary>
@@ -89,3 +95,5 @@ public sealed record AccountRole(Guid Id, string? SystemRole);
 
 /// <summary>A bank or cash account.</summary>
 public sealed record CashAccount(Guid Id, string Code, string Name, bool IsBank);
+
+public sealed record AccountClassification(Guid Id, AccountType Type, string? SystemRole, bool IsBank, string? ReportingGroup);

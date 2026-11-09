@@ -3,6 +3,7 @@ using ERP.Application.Common;
 using ERP.Application.Finance;
 using ERP.Domain.Finance;
 using Microsoft.EntityFrameworkCore;
+using ERP.Application.Portal;
 
 namespace ERP.Infrastructure.Repositories.Finance;
 
@@ -76,4 +77,23 @@ internal sealed class InvoiceRepository(IRepository<Invoice> invoices) : Reposit
     /// <summary>The non-voided credit notes raised from <paramref name="invoiceId"/>.</summary>
     private IQueryable<Invoice> LinkedCreditNotes(Guid invoiceId, Guid? excludeCreditNoteId) => Query().Where(i =>
         i.IsCreditNote && i.SourceType == InvoiceCreditCaps.LinkType && i.SourceId == invoiceId && i.Id != excludeCreditNoteId && i.Status != DocumentStatus.Voided);
+
+    public Task<string?> GetNumberAsync(Guid id, CancellationToken ct)
+        => Query(new Specification<Invoice>(i => i.Id == id)).Select(i => i.Number).FirstOrDefaultAsync(ct);
+
+    public Task<Dictionary<Guid, string>> GetNumbersAsync(List<Guid> ids, CancellationToken ct)
+        => Query(new Specification<Invoice>(i => ids.Contains(i.Id))).Select(i => new { i.Id, i.Number }).ToDictionaryAsync(i => i.Id, i => i.Number, ct);
+
+    public Task<List<PortalInvoiceDto>> ListForPortalAsync(Guid partyId, CancellationToken ct)
+        => Query(new Specification<Invoice>(i => i.PartyId == partyId && i.Status != DocumentStatus.Draft && i.Status != DocumentStatus.PendingApproval && i.Status != DocumentStatus.Voided))
+            .OrderByDescending(i => i.InvoiceDate).Take(200)
+            .Select(i => new PortalInvoiceDto(i.Id, i.Number, i.IsCreditNote, i.InvoiceDate, i.DueDate, i.CurrencyCode, i.Total, i.Paid, i.Total - i.Paid, i.Status)).ToListAsync(ct);
+
+    public Task<List<InvoiceOpenItem>> ListOpenForPartyAsync(Guid partyId, DateOnly asOf, CancellationToken ct)
+        => Query(new Specification<Invoice>(i => i.PartyId == partyId && (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid) && i.InvoiceDate <= asOf))
+            .Select(i => new InvoiceOpenItem(i.Number, i.IsCreditNote, i.InvoiceDate, i.DueDate, i.Total, i.Paid)).ToListAsync(ct);
+
+    public Task<List<InvoiceOpenBalance>> ListOpenBalancesAsync(Guid? legalEntityId, CancellationToken ct)
+        => Query(new Specification<Invoice>(i => (i.Status == DocumentStatus.Issued || i.Status == DocumentStatus.PartlyPaid) && (legalEntityId == null || i.LegalEntityId == legalEntityId)))
+            .Select(i => new InvoiceOpenBalance(i.PartyName, i.IsCreditNote, i.Total, i.Paid, i.DueDate)).ToListAsync(ct);
 }
