@@ -102,4 +102,10 @@ internal sealed class AccountRepository(IRepository<Account> accounts) : Reposit
     private static Expression<Func<Account, AccountNodeDto>> NodeProjection(IQueryable<Account> all) => a => new AccountNodeDto(
         a.Id, a.Code, a.Name, a.Type, a.ParentId, a.ReportingGroup, a.SystemRole, a.IsPostable, a.IsBank, a.IsSystem, a.IsActive, a.CurrencyCode,
         all.Count(c => c.ParentId == a.Id), all.Any(c => c.ParentId == a.Id), null, null);
+    public Task<List<AccountRole>> ListPostableRolesAsync(List<Guid> ids, CancellationToken ct)
+        => Query(new Specification<Account>(a => ids.Contains(a.Id) && a.IsPostable && a.IsActive)).Select(a => new AccountRole(a.Id, a.SystemRole)).ToListAsync(ct);
+
+    public Task<List<CashAccount>> ListCashAndBankAsync(CancellationToken ct)
+        => Query(new Specification<Account>(a => a.IsActive && a.Type == AccountType.Asset && (a.IsBank || a.SystemRole == "cash" || a.SystemRole == "bank"))).OrderBy(a => a.Code)
+            .Select(a => new CashAccount(a.Id, a.Code, a.Name, a.IsBank)).ToListAsync(ct);
 }

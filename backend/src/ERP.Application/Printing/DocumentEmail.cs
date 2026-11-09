@@ -127,8 +127,8 @@ internal sealed class DocumentEmailHandlers(ISender sender, IEmailSender email, 
         var asOf = cmd.AsOf ?? DateOnly.FromDateTime(clock.UtcNow);
         var customer = (party.Roles & Domain.Parties.PartyRoles.Customer) != 0;
         IReadOnlyList<AgeingItem> items; decimal unapplied, balance; string name;
-        if (customer) { var s = await sender.Send(new GetCustomerStatement(cmd.PartyId, asOf, null), ct); items = s.Items; unapplied = s.UnallocatedReceipts; balance = s.Balance; name = s.PartyName ?? party.Name; }
-        else { var s = await sender.Send(new GetVendorStatement(cmd.PartyId, asOf, null), ct); items = s.Items; unapplied = s.UnallocatedPayments; balance = s.Balance; name = s.PartyName ?? party.Name; }
+        if (customer) { var s = await sender.Send(new GetCustomerStatementQuery(cmd.PartyId, asOf, null), ct); items = s.Items; unapplied = s.UnallocatedReceipts; balance = s.Balance; name = s.PartyName ?? party.Name; }
+        else { var s = await sender.Send(new GetVendorStatementQuery(cmd.PartyId, asOf, null), ct); items = s.Items; unapplied = s.UnallocatedPayments; balance = s.Balance; name = s.PartyName ?? party.Name; }
         var company = await CompanyNameAsync(ct);
         var doc = new EmailDoc($"Statement of account as of {asOf:yyyy-MM-dd}", company, "", [("Account", name), ("As of", asOf.ToString("yyyy-MM-dd"))],
             items.Select(i => ($"{i.Number}{(i.IsCreditNote ? " (credit note)" : "")}, due {i.DueDate:yyyy-MM-dd}" + (i.DaysOverdue > 0 ? $", {i.DaysOverdue} days overdue" : ""), "", "", i.Outstanding.ToString("N2", CultureInfo.InvariantCulture))).ToList(),

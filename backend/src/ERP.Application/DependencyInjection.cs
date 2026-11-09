@@ -43,6 +43,17 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Finance.InvoiceCreditCaps>();
         services.AddScoped<ERP.Application.Finance.ICreditLimitService, ERP.Application.Finance.CreditLimitService>();
         services.AddScoped<ERP.Application.Finance.ISettlementService, ERP.Application.Finance.SettlementService>();
+        // Rules shared by several handlers of a finance feature (receipts, payments, bills, cheques, bank, receivables / payables reports).
+        services.AddScoped<ERP.Application.Finance.ReceiptDtoBuilder>();
+        services.AddScoped<ERP.Application.Finance.PaymentDtoBuilder>();
+        services.AddScoped<ERP.Application.Finance.PaymentIssuing>();
+        services.AddScoped<ERP.Application.Finance.BillDrafts>();
+        services.AddScoped<ERP.Application.Finance.ChequeDtoBuilder>();
+        services.AddScoped<ERP.Application.Finance.ChequeRegistration>();
+        services.AddScoped<ERP.Application.Finance.BankLedger>();
+        services.AddScoped<ERP.Application.Finance.CashAccountGuard>();
+        services.AddScoped<ERP.Application.Finance.ReceivablesAsOf>();
+        services.AddScoped<ERP.Application.Finance.PayablesAsOf>();
         services.AddScoped<ILegalEntityGuard, LegalEntityGuard>();
         services.AddScoped<ERP.Application.Audit.AuditFieldAccess>();
         services.AddScoped<IApprovalService, ApprovalService>();

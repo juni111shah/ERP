@@ -18,10 +18,6 @@ public static class CoreEndpoints
         api.MapOrganization();
         api.MapSecurity();
         api.MapMasterData();
-        api.MapReceivables();
-        api.MapCheques();
-        api.MapBank();
-        api.MapPayables();
         api.MapDashboard();
         api.MapCustomFields();
         api.MapWorkflow();

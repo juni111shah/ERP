@@ -77,4 +77,15 @@ public interface IAccountRepository : IRepository<Account>
 
     /// <summary>The direct children of the given accounts.</summary>
     Task<List<AccountChildLink>> ListChildLinksAsync(List<Guid> parentIds, CancellationToken ct);
+    /// <summary>Those of the accounts that are active and postable, with their system role.</summary>
+    Task<List<AccountRole>> ListPostableRolesAsync(List<Guid> ids, CancellationToken ct);
+
+    /// <summary>The active bank and cash accounts (asset accounts flagged as bank, or with the "cash" or "bank" role), by code.</summary>
+    Task<List<CashAccount>> ListCashAndBankAsync(CancellationToken ct);
 }
+
+/// <summary>An account and its system role.</summary>
+public sealed record AccountRole(Guid Id, string? SystemRole);
+
+/// <summary>A bank or cash account.</summary>
+public sealed record CashAccount(Guid Id, string Code, string Name, bool IsBank);

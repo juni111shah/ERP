@@ -44,4 +44,16 @@ public interface IJournalEntryRepository : IRepository<JournalEntry>
 
     /// <summary>The lines on the given accounts of non-draft journals dated on or before <paramref name="to"/>, with their account.</summary>
     Task<List<CashAccountLine>> ListPostedCashAccountLinesAsync(List<Guid> accountIds, DateOnly to, Guid? entityId, CancellationToken ct);
+
+    /// <summary>The journal with its lines, tracked for changes (to reverse it); a null id throws NotFoundException like a missing one.</summary>
+    Task<JournalEntry> GetWithLinesForUpdateAsync(Guid? id, CancellationToken ct);
+
+    /// <summary>Every non-draft ledger line on <paramref name="accountId"/> dated on or before <paramref name="asOf"/> (all legal entities when <paramref name="entityId"/> is null), for the bank views.</summary>
+    Task<List<BankLedgerLine>> ListAccountLinesAsync(Guid accountId, Guid? entityId, DateOnly asOf, CancellationToken ct);
+
+    /// <summary>Debit and credit of every non-draft ledger line on the accounts dated on or before <paramref name="asOf"/>.</summary>
+    Task<List<AccountMovement>> ListMovementsAsync(List<Guid> accountIds, DateOnly asOf, Guid? entityId, CancellationToken ct);
 }
+
+/// <summary>One ledger line on a bank or cash account, with its journal (bank reconciliation and bank ledger).</summary>
+public sealed record BankLedgerLine(Guid JournalLineId, Guid JournalId, string Number, DateOnly Date, string? Description, decimal Debit, decimal Credit);

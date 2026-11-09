@@ -337,9 +337,9 @@ internal sealed class RecordHandlers(
             : [new BillLineInput($"{record.Number} {record.Title}", 1, record.Amount, account, cmd.TaxCodeId)];
         return await unitOfWork.InTransactionAsync(async _ =>
         {
-            var bill = await sender.Send(new CreateBill(new BillInput(record.LegalEntityId, partyId, cmd.VendorReference ?? record.Number, date, record.DueDate is { } d && d >= date ? d : date, lines,
+            var bill = await sender.Send(new CreateBillCommand(new BillInput(record.LegalEntityId, partyId, cmd.VendorReference ?? record.Number, date, record.DueDate is { } d && d >= date ? d : date, lines,
                 $"{def.Singular} {record.Number}: {record.Title}", record.BusinessUnitId)), ct);
-            await sender.Send(new PostBill(bill.Id), ct);
+            await sender.Send(new PostBillCommand(bill.Id), ct);
             record.BillId = bill.Id;
             MoveAfterBilling(record, def);
             await records.SaveChangesAsync(ct);

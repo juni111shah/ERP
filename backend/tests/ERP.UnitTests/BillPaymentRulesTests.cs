@@ -80,12 +80,12 @@ public class BillPaymentRulesTests
     [InlineData("2099-01-01", false)]
     [InlineData("2026-06-10", true)]
     public void The_clearing_date_must_be_plausible(string date, bool accepted)
-        => Assert.Equal(accepted, new ClearIssuedChequeValidator().TestValidate(new ClearIssuedCheque(Guid.NewGuid(), DateOnly.Parse(date))).IsValid);
+        => Assert.Equal(accepted, new ClearIssuedChequeValidator().TestValidate(new ClearIssuedChequeCommand(Guid.NewGuid(), DateOnly.Parse(date))).IsValid);
 
     [Theory]
-    [InlineData(typeof(UpdateBill), true)]
-    [InlineData(typeof(DeleteBill), true)]
-    [InlineData(typeof(PostBill), true)]
+    [InlineData(typeof(UpdateBillCommand), true)]
+    [InlineData(typeof(DeleteBillCommand), true)]
+    [InlineData(typeof(PostBillCommand), true)]
     public void Bill_commands_that_change_state_retry_on_a_concurrency_conflict(Type command, bool retryable)
         => Assert.Equal(retryable, typeof(IRetryOnConcurrency).IsAssignableFrom(command));
 }

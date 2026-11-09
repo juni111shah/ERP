@@ -62,4 +62,14 @@ internal sealed class JournalEntryRepository(IRepository<JournalEntry> journals)
     public Task<List<CashAccountLine>> ListPostedCashAccountLinesAsync(List<Guid> accountIds, DateOnly to, Guid? entityId, CancellationToken ct)
         => Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= to && (entityId == null || j.LegalEntityId == entityId)))
             .SelectMany(j => j.Lines.Where(l => accountIds.Contains(l.AccountId)), (j, l) => new CashAccountLine(l.AccountId, j.Date, j.SourceType, l.Debit, l.Credit)).ToListAsync(ct);
+    public async Task<JournalEntry> GetWithLinesForUpdateAsync(Guid? id, CancellationToken ct)
+        => await Tracked(new Specification<JournalEntry>(j => j.Id == id).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
+
+    public Task<List<BankLedgerLine>> ListAccountLinesAsync(Guid accountId, Guid? entityId, DateOnly asOf, CancellationToken ct)
+        => Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= asOf && (entityId == null || j.LegalEntityId == entityId)))
+            .SelectMany(j => j.Lines.Where(l => l.AccountId == accountId), (j, l) => new BankLedgerLine(l.Id, j.Id, j.Number, j.Date, l.Description ?? j.Memo, l.Debit, l.Credit)).ToListAsync(ct);
+
+    public Task<List<AccountMovement>> ListMovementsAsync(List<Guid> accountIds, DateOnly asOf, Guid? entityId, CancellationToken ct)
+        => Query(new Specification<JournalEntry>(j => j.Status != JournalStatus.Draft && j.Date <= asOf && (entityId == null || j.LegalEntityId == entityId)))
+            .SelectMany(j => j.Lines.Where(l => accountIds.Contains(l.AccountId)), (j, l) => new AccountMovement(l.AccountId, l.Debit, l.Credit)).ToListAsync(ct);
 }

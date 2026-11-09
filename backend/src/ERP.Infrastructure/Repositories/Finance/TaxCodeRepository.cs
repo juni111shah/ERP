@@ -12,4 +12,6 @@ internal sealed class TaxCodeRepository(IRepository<TaxCode> taxCodes) : Reposit
 
     public Task<List<TaxCode>> ListOtherDefaultsForUpdateAsync(Guid exceptId, CancellationToken ct)
         => Tracked(new Specification<TaxCode>(t => t.IsDefault && t.Id != exceptId)).ToListAsync(ct);
+    public Task<Dictionary<Guid, TaxCodeRate>> ActiveRatesAsync(List<Guid> ids, CancellationToken ct)
+        => Query(new Specification<TaxCode>(t => ids.Contains(t.Id) && t.IsActive)).Select(t => new TaxCodeRate(t.Id, t.Rate, t.IsRecoverable)).ToDictionaryAsync(t => t.Id, ct);
 }

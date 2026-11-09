@@ -367,7 +367,7 @@ internal sealed class PurchaseOrderHandlers(
         // Nothing is left to bill, so asking again returns the last bill instead of raising another.
         if (order.Status == PurchaseOrderStatus.Billed && order.InvoicedBillId is { } lastBill)
         {
-            return await sender.Send(new GetBill(lastBill), ct);
+            return await sender.Send(new GetBillByIdQuery(lastBill), ct);
         }
 
         PurchasingTransitions.Order.Ensure(order.Status, PurchaseOrderStatus.Billed, isSystem: true);
@@ -486,7 +486,7 @@ internal sealed class PurchaseOrderHandlers(
             throw new ConflictException("There is nothing to bill on this purchase order: everything received is already billed. Receive the goods first, or set allowUnreceived to bill ahead of them.");
 
         var billDate = DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow);
-        var bill = await sender.Send(new CreateBill(new BillInput(
+        var bill = await sender.Send(new CreateBillCommand(new BillInput(
             LegalEntityId: order.LegalEntityId,
             PartyId: order.VendorPartyId.Value,
             VendorReference: cmd.VendorReference?.Trim() is { Length: > 0 } reference ? reference : await NextBillReferenceAsync(order, ct),

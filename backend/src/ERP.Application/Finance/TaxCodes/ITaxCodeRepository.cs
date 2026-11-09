@@ -14,4 +14,10 @@ public interface ITaxCodeRepository : IRepository<TaxCode>
 
     /// <summary>The other tax codes flagged as the default, tracked for changes.</summary>
     Task<List<TaxCode>> ListOtherDefaultsForUpdateAsync(Guid exceptId, CancellationToken ct);
+
+    /// <summary>Rate and recoverability of those of the tax codes that are active, by id.</summary>
+    Task<Dictionary<Guid, TaxCodeRate>> ActiveRatesAsync(List<Guid> ids, CancellationToken ct);
 }
+
+/// <summary>A tax code's rate (percent) and whether the tax can be recovered.</summary>
+public sealed record TaxCodeRate(Guid Id, decimal Rate, bool IsRecoverable);
