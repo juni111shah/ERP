@@ -14,4 +14,10 @@ public interface ILegalEntityRepository : IRepository<LegalEntity>
 
     /// <summary>Which of <paramref name="ids"/> are legal entities of this workspace.</summary>
     Task<List<Guid>> ListExistingIdsAsync(Guid[] ids, CancellationToken ct);
+
+    /// <summary>Name and base currency of each of the legal entities that exists, by id.</summary>
+    Task<Dictionary<Guid, LegalEntityNameAndCurrency>> MapNamesAndCurrenciesAsync(List<Guid> ids, CancellationToken ct);
 }
+
+/// <summary>Name and base currency of a legal entity.</summary>
+public sealed record LegalEntityNameAndCurrency(Guid Id, string Name, string BaseCurrency);

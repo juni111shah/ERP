@@ -7,10 +7,6 @@ using ERP.Modules.Inventory.Domain;
 using ERP.Modules.Inventory.Features;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using MediatR;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Modules.Inventory;
@@ -25,9 +21,6 @@ public class Warehouse : LegalEntityScopedEntity, IHasCustomFields
     [Filterable] public bool IsActive { get; set; } = true;
     public string? CustomFields { get; set; }
 }
-
-public sealed record WarehouseInput(string Code, string Name, Guid LegalEntityId, string? Address);
-public sealed record CountedLinesBody(List<CountedLineInput> Lines);
 
 /// <summary>Sample horizontal module (stock). Sprint 0 ships warehouses only, to prove the module mechanism end to end.</summary>
 public sealed class InventoryModule : ModuleBase
@@ -79,6 +72,9 @@ public sealed class InventoryModule : ModuleBase
         services.AddScoped<ERP.Application.Search.ISearchProvider, InventorySearch>();
         services.AddScoped<ERP.Application.Reminders.IReminderSource, LowStockReminders>();
         services.AddScoped<IStockPostingService, InventoryStockPostingService>();
+        services.AddScoped<StockMovementChecks>();
+        services.AddScoped<StockCountDtoBuilder>();
+        services.AddScoped<InventoryReportLookups>();
     }
 
     public override void ConfigureModel(ModelBuilder modelBuilder)
@@ -128,43 +124,5 @@ public sealed class InventoryModule : ModuleBase
             b.Property(x => x.Name).HasMaxLength(200).IsRequired();
             b.HasIndex(x => new { x.OrgId, x.Code }).IsUnique();
         });
-    }
-
-    public override void MapEndpoints(RouteGroupBuilder group)
-    {
-        // One line: paged list with search / filter / sort from the [Listable]/[Filterable] attributes.
-        group.MapPagedList<Warehouse, object>("/warehouses", WarehousesRead, "inventory.warehouse",
-            (w, cf) => new { w.Id, w.Code, w.Name, w.LegalEntityId, w.Address, w.IsActive, customFields = cf });
-
-        group.MapPagedList<StockMovement, MovementDto>("/movements", StockRead, m => new MovementDto(m.Id, m.WarehouseId, m.ItemId, m.Date, m.Kind, m.Quantity, m.UnitCost, m.Reference, m.Memo, m.JournalEntryId));
-        group.MapGet("/stock", (Guid? warehouseId, Guid? itemId, ISender s, CancellationToken ct) => s.Send(new GetStockOnHand(warehouseId, itemId), ct)).RequirePermission(StockRead);
-        group.MapGet("/stock/low", (ISender s, CancellationToken ct) => s.Send(new GetLowStock(), ct)).RequirePermission(StockRead);
-        group.MapPost("/stock/receive", async (ReceiveStockInput i, ISender s, CancellationToken ct) => Results.Created("/api/v1/m/inventory/movements", await s.Send(new ReceiveStock(i), ct))).RequirePermission(StockWrite);
-        group.MapPost("/stock/issue", async (IssueStockInput i, ISender s, CancellationToken ct) => Results.Created("/api/v1/m/inventory/movements", await s.Send(new IssueStock(i), ct))).RequirePermission(StockWrite);
-        group.MapPost("/stock/adjust", async (AdjustStockInput i, ISender s, CancellationToken ct) => Results.Created("/api/v1/m/inventory/movements", await s.Send(new AdjustStock(i), ct))).RequirePermission(StockWrite);
-        group.MapPost("/stock/transfer", async (TransferStockInput i, ISender s, CancellationToken ct) => Results.Created("/api/v1/m/inventory/movements", await s.Send(new TransferStock(i), ct))).RequirePermission(StockWrite);
-        group.MapPut("/stock/policy", async (StockPolicyInput i, ISender s, CancellationToken ct) => { await s.Send(new SetStockPolicy(i), ct); return Results.NoContent(); }).RequirePermission(StockWrite);
-        group.MapPut("/warehouses/{id:guid}", (Guid id, WarehouseUpdateInput input, ISender s, CancellationToken ct) => s.Send(new UpdateWarehouse(id, input), ct)).RequirePermission(WarehousesWrite);
-
-        var counts = group.MapGroup("/counts");
-        counts.MapPagedList<StockCount, StockCountRow>("", CountsRead, c => new StockCountRow(c.Id, c.Number, c.WarehouseId, c.CountDate, c.Status, c.Lines.Count, c.Memo));
-        counts.MapGet("/{id:guid}", (Guid id, ISender s, CancellationToken ct) => s.Send(new GetStockCount(id), ct)).RequirePermission(CountsRead);
-        counts.MapPost("", async (StockCountInput i, ISender s, CancellationToken ct) => { var c = await s.Send(new CreateStockCount(i), ct); return Results.Created($"/api/v1/m/inventory/counts/{c.Id}", c); }).RequirePermission(CountsManage);
-        counts.MapPut("/{id:guid}/lines", (Guid id, CountedLinesBody body, ISender s, CancellationToken ct) => s.Send(new SaveCountedQuantities(id, body.Lines), ct)).RequirePermission(CountsManage);
-        counts.MapPost("/{id:guid}/post", (Guid id, ISender s, CancellationToken ct) => s.Send(new PostStockCount(id), ct)).RequirePermission(CountsManage);
-        counts.MapPost("/{id:guid}/cancel", (Guid id, ISender s, CancellationToken ct) => s.Send(new CancelStockCount(id), ct)).RequirePermission(CountsManage);
-
-        var reports = group.MapGroup("/reports");
-        reports.MapGet("/valuation", (DateOnly? asOf, ISender s, CancellationToken ct) => s.Send(new GetStockValuation(asOf ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow)), ct)).RequirePermission(StockRead);
-        reports.MapGet("/movement-summary", (DateOnly from, DateOnly to, ISender s, CancellationToken ct) => s.Send(new GetMovementSummary(from, to), ct)).RequirePermission(StockRead);
-        reports.MapGet("/slow-moving", (DateOnly? asOf, int? days, ISender s, CancellationToken ct) => s.Send(new GetSlowMoving(asOf ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), days ?? 90), ct)).RequirePermission(StockRead);
-        reports.MapGet("/reorder", (ISender s, CancellationToken ct) => s.Send(new GetReorderSuggestions(), ct)).RequirePermission(StockRead);
-        reports.MapGet("/stock-gl-reconciliation", (DateOnly? asOf, Guid? legalEntityId, ISender s, CancellationToken ct) => s.Send(new GetStockGlReconciliation(asOf ?? DateOnly.FromDateTime(ERP.Domain.Common.AppClock.UtcNow), legalEntityId), ct)).RequirePermission(ReconciliationRead);
-
-        group.MapPost("/warehouses", async (WarehouseInput input, ISender sender, CancellationToken ct) =>
-        {
-            var created = await sender.Send(new CreateWarehouse(input), ct);
-            return Results.Created($"/api/v1/m/inventory/warehouses/{created.Id}", created);
-        }).RequirePermission(WarehousesWrite);
     }
 }

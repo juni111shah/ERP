@@ -14,9 +14,9 @@ public sealed class InventoryOwnerSection(ISender sender, ICurrentUser user) : I
     public async Task<IReadOnlyList<OwnerSection>> BuildAsync(OwnerScope scope, CancellationToken ct)
     {
         if (!user.HasPermission(InventoryModule.StockRead)) return [];
-        var valuation = await sender.Send(new GetStockValuation(scope.To), ct);
-        var slow = await sender.Send(new GetSlowMoving(scope.To, SlowAfterDays), ct);
-        var reorder = await sender.Send(new GetReorderSuggestions(), ct);
+        var valuation = await sender.Send(new GetStockValuationQuery(scope.To), ct);
+        var slow = await sender.Send(new GetSlowMovingQuery(scope.To, SlowAfterDays), ct);
+        var reorder = await sender.Send(new GetReorderSuggestionsQuery(), ct);
         return
         [
             new("inventory", "Inventory", [new("inventory-value", "Inventory valuation", valuation.TotalValue, Link: "/inventory/stock"), new("inventory-lines", "Stock lines", valuation.Rows.Count, "number")]),
