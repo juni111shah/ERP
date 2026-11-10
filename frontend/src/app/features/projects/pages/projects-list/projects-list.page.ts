@@ -1,4 +1,3 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -12,23 +11,28 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { catchError, map, of } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 import { LegalEntitiesApi } from '@core/api/admin.api';
 import { FilterCriterion } from '@core/api/api.models';
 import { createPagedList } from '@core/api/paged-list';
+import { PartiesApi } from '@core/api/parties.api';
+import { ProjectsExtraApi } from '@core/api/projects-extra.api';
 import { ProjectDto, ProjectInput, ProjectKpiDto, ProjectsApi, ProjectSummaryDto } from '@core/api/projects.api';
-import { ProjectsExtraApi, UserOption } from '@core/api/projects-extra.api';
 import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
-import { PartiesApi } from '@core/api/parties.api';
-import { BILLING_TYPES, errorText, filterOptions, PRJ_STYLES, PROJECT_ACTIONS, PROJECT_STATUSES, ProjectTagComponent } from '../../projects-ui';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { loadOrFallback } from '@shared/utils/load-or-fallback';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
+import { injectProjectUsers, userOptions } from '../../projects-lookups';
+import { mergeProjectInput } from '../../projects-mappers';
+import { BILLING_TYPES, errorText, filterOptions, PRJ_STYLES, PROJECT_ACTIONS, PROJECT_STATUSES } from '../../projects-ui';
 
 /** An older project can name a manager without an account; the name is kept until a person is chosen. */
 const typedManager = (p: ProjectSummaryDto | null): string | undefined => (p?.managerName && !p.managerUserId ? `Typed name: ${p.managerName}. Choose a person to link an account.` : undefined);
@@ -65,7 +69,7 @@ export class ProjectsListPage {
   readonly currency = inject(WorkspaceCurrencyService).currency;
 
   private readonly entities = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
-  private readonly users = toSignal(this.extra.users().pipe(catchError(() => of([] as UserOption[]))), { initialValue: [] as UserOption[] });
+  private readonly users = injectProjectUsers();
   readonly kpis = signal<ProjectKpiDto | null>(null);
 
   readonly views: { key: View; label: string }[] = [
@@ -106,7 +110,7 @@ export class ProjectsListPage {
       { key: 'number', label: 'Project code (blank creates one)', type: 'text', maxLength: 30 },
       { key: 'legalEntityId', label: 'Legal entity', type: 'select', required: true, options: this.entities().items.map((e) => ({ value: e.id, label: `${e.code} · ${e.name}` })), default: this.entities().items.length === 1 ? this.entities().items[0].id : undefined },
       { key: 'customerId', label: 'Customer', type: 'lookup', lookup: (term) => this.customerLookup(term), currentLabel: (r) => (r['customerName'] as string) ?? undefined },
-      { key: 'managerUserId', label: 'Project manager', type: 'select', options: this.users().map((u) => ({ value: u.id, label: u.fullName })), hint: typedManager(this.state.editing()) },
+      { key: 'managerUserId', label: 'Project manager', type: 'select', options: userOptions(this.users()), hint: typedManager(this.state.editing()) },
       ...(editing ? [] : [{ key: 'status', label: 'Status', type: 'select' as const, required: true, options: filterOptions(PROJECT_STATUSES).slice(0, 2), default: 'planning' }]),
       { key: 'billingType', label: 'Billing model', type: 'select', required: true, options: filterOptions(BILLING_TYPES), default: 'timeAndMaterials' },
       { key: 'budgetAmount', label: `Budget or fixed fee (${this.currency()})`, type: 'number', min: 0, default: 0 },
@@ -159,22 +163,20 @@ export class ProjectsListPage {
     this.api.get(row.id).subscribe({ next: (p) => this.state.edit(p), error: (e) => this.msg.error(errorText(e, 'Could not open the project.')) });
   }
 
-  private saveProject(id: string | null, body: Partial<ProjectInput>) {
+  /** Creates a project, or updates one over the fields of the saved project the form does not show. */
+  private saveProject(id: string | null, body: Partial<ProjectInput>): Observable<ProjectSummaryDto> {
     const current = this.state.editing() as ProjectDto | null;
     if (!id || !current) return this.api.create(body as ProjectInput);
-    const merged = { legalEntityId: current.legalEntityId, status: current.status, taxCodeId: current.taxCodeId ?? null, sourceType: current.sourceType ?? null, sourceId: current.sourceId ?? null, isTemplate: current.isTemplate, customFields: current.customFields ?? null, ...body } as ProjectInput;
-    // the typed manager name goes with the chosen account; without one the old typed name stays
-    if (!merged.managerUserId) merged.managerName = current.managerUserId ? null : current.managerName ?? null;
-    return this.api.update(id, merged);
+    return this.api.update(id, mergeProjectInput(current, body));
   }
 
   private refresh(): void { this.list.reload(); this.reloadKpis(); }
-  private reloadKpis(): void { this.api.getKpis().pipe(catchError(() => of(null))).subscribe((k) => this.kpis.set(k)); }
+  private reloadKpis(): void { loadOrFallback(this.kpis, this.api.getKpis(), null); }
 
-  private customerLookup(term: string) {
+  private customerLookup(term: string): Observable<{ value: string; label: string }[]> {
     return this.parties.list({ page: 1, pageSize: 20, search: term, extra: { role: 'Customer' } }).pipe(map((r) => r.items.map((p) => ({ value: p.id, label: p.name }))));
   }
-  searchCustomers(term: string): void { this.customerLookup(term).pipe(catchError(() => of([]))).subscribe((c) => this.customers.set(c)); }
+  searchCustomers(term: string): void { loadOrFallback(this.customers, this.customerLookup(term), []); }
 
   changeStatus(row: ProjectSummaryDto, status: ProjectSummaryDto['status']): void {
     const go = () => this.api.setStatus(row.id, status).subscribe({ next: () => { this.msg.success(`${row.number} is now ${String(status).replace(/_/g, ' ')}`); this.refresh(); }, error: (e) => this.msg.error(errorText(e, 'Could not change the status.')) });

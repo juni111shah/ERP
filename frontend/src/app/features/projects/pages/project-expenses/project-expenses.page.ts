@@ -1,25 +1,24 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { catchError, of } from 'rxjs';
 import { createPagedList } from '@core/api/paged-list';
-import { ProjectsApi } from '@core/api/projects.api';
-import { EXPENSE_CATEGORIES, ExpenseDto, ProjectExpensesApi, ProjectsConfig, ProjectsExtraApi, UserOption } from '@core/api/projects-extra.api';
-import { toIsoDate } from '@core/format/dates';
+import { EXPENSE_CATEGORIES, ExpenseDto, ExpenseInput, ProjectExpensesApi } from '@core/api/projects-extra.api';
+import { doneText } from '@core/format/done-text';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { AttachmentsComponent } from '@shared/components/attachments/attachments.component';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { APPROVAL_STATUSES, errorText, filterOptions, PRJ_STYLES, ProjectTagComponent } from '../../projects-ui';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
+import { injectOpenProjects, injectProjectsConfig, injectProjectUsers, projectOptions, userOptions } from '../../projects-lookups';
+import { withIsoDates } from '../../projects-mappers';
+import { APPROVAL_STATUSES, errorText, filterOptions, PRJ_STYLES } from '../../projects-ui';
 
 /** Money spent for a project: record it, send it for approval, and charge it to the customer (with a mark-up) when it is billed. */
 @Component({
@@ -35,41 +34,39 @@ export class ProjectExpensesPage {
   readonly projectId = input<string | null>(null);
 
   private readonly api = inject(ProjectExpensesApi);
-  private readonly projectsApi = inject(ProjectsApi);
-  private readonly extra = inject(ProjectsExtraApi);
   private readonly msg = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   readonly currency = inject(WorkspaceCurrencyService).currency;
-  readonly config = toSignal(this.extra.config().pipe(catchError(() => of(null as ProjectsConfig | null))), { initialValue: null });
+  readonly config = injectProjectsConfig();
 
   readonly list = createPagedList((q) => {
     const id = this.projectId();
     return this.api.list(id ? { ...q, filters: [...(q.filters ?? []), { field: 'projectId', op: 'eq', value: id }] } : { ...q, extra: { ...(q.extra ?? {}), live: true } });
   }, { sort: '-date' });
   readonly receipts = signal<ExpenseDto | null>(null);
-  private readonly projects = toSignal(this.projectsApi.open().pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
-  private readonly users = toSignal(this.extra.users().pipe(catchError(() => of([] as UserOption[]))), { initialValue: [] as UserOption[] });
+  private readonly projects = injectOpenProjects();
+  private readonly users = injectProjectUsers();
 
   readonly state: MasterDataState<ExpenseDto> = new MasterDataState<ExpenseDto>({
     save: (id, body) => {
-      const b = { ...(body as Record<string, unknown>) } as Record<string, unknown>;
-      if (b['date'] instanceof Date) b['date'] = toIsoDate(b['date']);
+      const b = withIsoDates(body, 'date');
       if (this.projectId()) b['projectId'] = this.projectId();
       else if (id) b['projectId'] = this.state.editing()?.projectId;
-      return id ? this.api.update(id, b as never) : this.api.create(b as never);
+      const input = b as unknown as ExpenseInput;
+      return id ? this.api.update(id, input) : this.api.create(input);
     },
     reload: () => this.list.reload(), message: this.msg, entityName: 'Expense',
   });
 
   readonly fields = computed<FieldSpec[]>(() => [
-    ...(this.projectId() ? [] : [{ key: 'projectId', label: 'Project', type: 'select' as const, required: true, readonlyOnEdit: true, options: this.projects().items.map((p) => ({ value: p.id, label: `${p.number} · ${p.name}` })) }]),
+    ...(this.projectId() ? [] : [{ key: 'projectId', label: 'Project', type: 'select' as const, required: true, readonlyOnEdit: true, options: projectOptions(this.projects().items) }]),
     { key: 'date', label: 'Date', type: 'date', required: true, default: new Date() },
     { key: 'category', label: 'Category', type: 'select', required: true, options: EXPENSE_CATEGORIES, default: 'Travel' },
     { key: 'description', label: 'What was it for', type: 'text', required: true, maxLength: 500 },
     { key: 'amount', label: `Amount, what it cost (${this.currency()})`, type: 'number', required: true, min: 0.01, precision: 2 },
     { key: 'isBillable', label: 'Charge to the customer', type: 'switch', default: true },
     { key: 'markupPercent', label: 'Mark-up %', type: 'number', min: 0, max: 500, default: 0, hint: 'Added to the amount on the invoice.', hidden: (v) => v['isBillable'] === false },
-    { key: 'workerUserId', label: 'Paid by', type: 'select', options: this.users().map((u) => ({ value: u.id, label: u.fullName })) },
+    { key: 'workerUserId', label: 'Paid by', type: 'select', options: userOptions(this.users()) },
     { key: 'workerName', label: 'Or a name', type: 'text', maxLength: 100, hidden: (v) => !!v['workerUserId'] },
   ]);
 

@@ -8,12 +8,13 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { catchError, of } from 'rxjs';
 import { ProjectsExtraApi, UserOption } from '@core/api/projects-extra.api';
-import { ProjectsApi, ProjectSummaryDto, ProjectTasksApi, ProjectTimesheetsApi, TaskDto, TimesheetDto } from '@core/api/projects.api';
+import { ProjectsApi, ProjectSummaryDto, ProjectTasksApi, ProjectTimesheetsApi, TaskDto, TimesheetDto, TimesheetInput } from '@core/api/projects.api';
 import { toIsoDate } from '@core/format/dates';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
+import { revealErrors } from '@shared/forms/form-validation';
+import { loadOrFallback } from '@shared/utils/load-or-fallback';
 import { errorText } from '../../projects-ui';
 
 /**
@@ -81,21 +82,23 @@ export class LogTimeComponent {
   }
 
   private loadPickers(projectKnown: boolean): void {
-    if (!this.users().length) this.extra.users().pipe(catchError(() => of([] as UserOption[]))).subscribe((u) => this.users.set(u));
-    if (!projectKnown && !this.projects().length) this.projectsApi.open().pipe(catchError(() => of({ items: [] as ProjectSummaryDto[] }))).subscribe((r) => this.projects.set(r.items));
+    if (!this.users().length) loadOrFallback(this.users, this.extra.users(), []);
+    if (!projectKnown && !this.projects().length) loadOrFallback(this.projects, this.projectsApi.open(), [], (r) => r.items);
   }
 
+  /** The tasks of the chosen project that can still take time. */
   loadTasks(projectId: string | null): void {
     if (!projectId) { this.tasks.set([]); return; }
-    this.tasksApi.list({ page: 1, pageSize: 200, sort: 'number', filters: [{ field: 'projectId', op: 'eq', value: projectId }] }).pipe(catchError(() => of({ items: [] as TaskDto[] })))
-      .subscribe((r) => this.tasks.set(r.items.filter((t) => t.status !== 'cancelled')));
+    const tasks$ = this.tasksApi.list({ page: 1, pageSize: 200, sort: 'number', filters: [{ field: 'projectId', op: 'eq', value: projectId }] });
+    loadOrFallback(this.tasks, tasks$, [], (r) => r.items.filter((t) => t.status !== 'cancelled'));
   }
 
+  /** Saves the entry; returns false so the modal stays open until the save succeeds. */
   save(): boolean {
+    if (this.form.invalid) { revealErrors(this.form); return false; }
     const v = this.form.getRawValue();
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return false; }
     if (!v.workerUserId && !(v.workerName ?? '').trim()) { this.msg.warning('Choose who did the work.'); return false; }
-    const body = {
+    const body: TimesheetInput = {
       projectId: v.projectId!, taskId: v.taskId || null, workerUserId: v.workerUserId || null, workerName: v.workerUserId ? null : (v.workerName ?? '').trim(),
       date: toIsoDate(v.date ?? new Date()), hours: v.hours!, hourlyRate: v.hourlyRate ?? null, description: v.description?.trim() || null, isBillable: v.isBillable ?? true,
     };

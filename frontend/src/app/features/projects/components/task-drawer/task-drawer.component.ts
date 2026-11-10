@@ -1,4 +1,3 @@
-import { doneText } from '@core/format/done-text';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -12,16 +11,20 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { catchError, of } from 'rxjs';
 import { CommentDto, ProjectsExtraApi, UserOption } from '@core/api/projects-extra.api';
 import { MilestoneDto, ProjectMilestonesApi, ProjectsApi, ProjectSummaryDto, ProjectTaskStatus, ProjectTasksApi, TaskDto, TaskInput, TaskPriority } from '@core/api/projects.api';
 import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
 import { SessionStore } from '@core/session/session.store';
 import { AttachmentsComponent } from '@shared/components/attachments/attachments.component';
-import { errorText, PRJ_STYLES, ProjectTagComponent, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from '../../projects-ui';
+import { revealErrors } from '@shared/forms/form-validation';
+import { loadOrFallback } from '@shared/utils/load-or-fallback';
+import { localDate, splitLabels } from '../../projects-format';
+import { errorText, PRJ_STYLES, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from '../../projects-ui';
+import { ProjectTagComponent } from '../project-tag/project-tag.component';
 
+/** A date picker value (or a date string) as an API date, or null when empty. */
 const iso = (d: unknown): string | null => (d ? toIsoDate(d instanceof Date ? d : new Date(String(d))) : null);
-const toDate = (s?: string | null): Date | null => { if (!s) return null; const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
 
 /** One task from start to finish: details, subtasks, what it waits for, discussion and files. Open it with open(id) or create(defaults). */
 @Component({
@@ -100,7 +103,7 @@ export class TaskDrawerComponent {
     this.form.reset({ projectId: defaults.projectId ?? '', title: '', status: defaults.status ?? 'todo', priority: 'medium', assignedUserId: defaults.assignedUserId ?? null, estimatedHours: 0, startDate: null, dueDate: null, milestoneId: null, parentTaskId: defaults.parentTaskId ?? null, labels: [], description: '' });
     this.form.enable();
     this.loadProjectLists(defaults.projectId ?? null);
-    if (!defaults.projectId) this.projectsApi.open().pipe(catchError(() => of({ items: [] as ProjectSummaryDto[] }))).subscribe((r) => this.projects.set(r.items));
+    if (!defaults.projectId) loadOrFallback(this.projects, this.projectsApi.open(), [], (r) => r.items);
     this.visible.set(true);
   }
 
@@ -119,13 +122,13 @@ export class TaskDrawerComponent {
 
   private prepare(): void {
     this.newSubtask = ''; this.newComment = '';
-    if (!this.users().length) this.extra.users().pipe(catchError(() => of([] as UserOption[]))).subscribe((u) => this.users.set(u));
+    if (!this.users().length) loadOrFallback(this.users, this.extra.users(), []);
   }
 
   private show(t: TaskDto): void {
     this.task.set(t);
     this.fixedProject.set(true);
-    this.form.reset({ projectId: t.projectId, title: t.title, status: t.status, priority: t.priority, assignedUserId: t.assignedUserId ?? null, estimatedHours: t.estimatedHours, startDate: toDate(t.startDate), dueDate: toDate(t.dueDate), milestoneId: t.milestoneId ?? null, parentTaskId: t.parentTaskId ?? null, labels: (t.labels ?? '').split(',').map((x) => x.trim()).filter(Boolean), description: t.description ?? '' });
+    this.form.reset({ projectId: t.projectId, title: t.title, status: t.status, priority: t.priority, assignedUserId: t.assignedUserId ?? null, estimatedHours: t.estimatedHours, startDate: localDate(t.startDate), dueDate: localDate(t.dueDate), milestoneId: t.milestoneId ?? null, parentTaskId: t.parentTaskId ?? null, labels: splitLabels(t.labels), description: t.description ?? '' });
     if (this.canManage()) this.form.enable(); else this.form.disable();
     this.loadProjectLists(t.projectId);
     this.loadComments(t.id);
@@ -133,15 +136,16 @@ export class TaskDrawerComponent {
 
   projectChanged(id: string | null): void { this.loadProjectLists(id); }
 
+  /** The milestones and tasks of the project, for the milestone, parent and dependency pickers. */
   private loadProjectLists(projectId: string | null): void {
     if (!projectId) { this.milestones.set([]); this.siblingTasks.set([]); return; }
     const filters = [{ field: 'projectId', op: 'eq' as const, value: projectId }];
-    this.milestonesApi.list({ page: 1, pageSize: 100, filters }).pipe(catchError(() => of({ items: [] as MilestoneDto[] }))).subscribe((r) => this.milestones.set(r.items.filter((m) => m.status !== 'cancelled')));
-    this.tasksApi.list({ page: 1, pageSize: 200, filters }).pipe(catchError(() => of({ items: [] as TaskDto[] }))).subscribe((r) => this.siblingTasks.set(r.items));
+    loadOrFallback(this.milestones, this.milestonesApi.list({ page: 1, pageSize: 100, filters }), [], (r) => r.items.filter((m) => m.status !== 'cancelled'));
+    loadOrFallback(this.siblingTasks, this.tasksApi.list({ page: 1, pageSize: 200, filters }), [], (r) => r.items);
   }
 
   private loadComments(id: string): void {
-    this.extra.comments('task', id).pipe(catchError(() => of([] as CommentDto[]))).subscribe((c) => this.comments.set(c));
+    loadOrFallback(this.comments, this.extra.comments('task', id), []);
   }
 
   private body(): TaskInput {
@@ -153,7 +157,7 @@ export class TaskDrawerComponent {
   }
 
   save(): void {
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { revealErrors(this.form); return; }
     const current = this.task();
     const body = this.body();
     // keep the typed name of an assignee who has no account, unless someone was chosen

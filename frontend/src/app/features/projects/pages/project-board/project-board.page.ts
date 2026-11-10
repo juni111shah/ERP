@@ -1,6 +1,5 @@
 import { CdkDrag, CdkDragDrop, CdkDropList, DragDropModule } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, viewChild } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -8,13 +7,14 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { catchError, of } from 'rxjs';
-import { ProjectTaskStatus, ProjectTasksApi, ProjectsApi, TaskDto } from '@core/api/projects.api';
-import { toIsoDate } from '@core/format/dates';
+import { ProjectTaskStatus, ProjectTasksApi, TaskDto } from '@core/api/projects.api';
 import { SessionStore } from '@core/session/session.store';
-import { errorText, PRJ_STYLES, ProjectTagComponent, statusLabel, TASK_MOVES, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from '../../projects-ui';
-import { TaskDrawerComponent } from '../../components/task-drawer/task-drawer.component';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
+import { TaskDrawerComponent } from '../../components/task-drawer/task-drawer.component';
+import { initials, isoToday, splitLabels } from '../../projects-format';
+import { injectOpenProjects } from '../../projects-lookups';
+import { errorText, PRJ_STYLES, statusLabel, TASK_MOVES, TASK_PRIORITIES, TASK_STATUSES, taskOptions, StatusOption } from '../../projects-ui';
 
 const BOARD: ProjectTaskStatus[] = ['todo', 'inProgress', 'review', 'blocked', 'done'];
 type Group = 'none' | 'assignee' | 'priority' | 'project';
@@ -48,12 +48,11 @@ export class ProjectBoardPage {
   readonly projectId = input<string | null>(null);
 
   private readonly tasksApi = inject(ProjectTasksApi);
-  private readonly projectsApi = inject(ProjectsApi);
   private readonly msg = inject(NzMessageService);
   private readonly session = inject(SessionStore);
   readonly drawer = viewChild(TaskDrawerComponent);
   readonly columns = TASK_STATUSES.filter((s) => BOARD.includes(s.value as ProjectTaskStatus));
-  readonly projects = toSignal(this.projectsApi.open().pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
+  readonly projects = injectOpenProjects();
   readonly pickedProject = signal<string | null>(null);
   readonly who = signal<string | null>(null);
   readonly term = signal('');
@@ -93,10 +92,10 @@ export class ProjectBoardPage {
   pickProject(id: string | null): void { this.pickedProject.set(id); this.load(); }
   inColumn(tasks: TaskDto[], s: string): TaskDto[] { return tasks.filter((t) => t.status === s); }
   countOf(s: string): number { return this.visible().filter((t) => t.status === s).length; }
-  moves(t: TaskDto) { return taskOptions(t.status); }
-  labels(t: TaskDto): string[] { return (t.labels ?? '').split(',').map((x) => x.trim()).filter(Boolean); }
-  initials(name: string): string { return name.split(/\s+/).map((n) => n[0]).slice(0, 2).join('').toUpperCase(); }
-  isLate(t: TaskDto): boolean { return !!t.dueDate && t.dueDate < toIsoDate(new Date()) && t.status !== 'done'; }
+  moves(t: TaskDto): StatusOption[] { return taskOptions(t.status); }
+  labels(t: TaskDto): string[] { return splitLabels(t.labels); }
+  initials(name: string): string { return initials(name); }
+  isLate(t: TaskDto): boolean { return !!t.dueDate && t.dueDate < isoToday() && t.status !== 'done'; }
 
   /** A card can only be dropped where the status flow allows, so the column shows that before the drop. */
   readonly canEnter = (drag: CdkDrag<TaskDto>, drop: CdkDropList<ProjectTaskStatus>): boolean => {

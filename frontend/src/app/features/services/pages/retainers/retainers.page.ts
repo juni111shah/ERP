@@ -1,7 +1,6 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -13,30 +12,20 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { createPagedList } from '@core/api/paged-list';
-import {
-  EngagementSummaryDto,
-  RetainerCycle,
-  RetainerStatus,
-  RetainerSummaryDto,
-  ServicesEngagementsApi,
-  ServicesRetainersApi,
-} from '@core/api/services.api';
+import { EngagementSummaryDto, RetainerCycle, RetainerStatus, RetainerSummaryDto, ServicesEngagementsApi, ServicesRetainersApi } from '@core/api/services.api';
 import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { ErpLabelPipe } from '@shared/pipes/display.pipes';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-
-/** The end date field must not fall before the start date field of the same form. */
-const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErrors | null => {
-  const start = c.parent?.get(startKey)?.value;
-  return start && c.value && toIsoDate(new Date(c.value)) < toIsoDate(new Date(start)) ? { beforeStart: true } : null;
-};
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { RetainerFormValue, notBeforeStart, openEngagements } from '../../services-forms';
 
 const CYCLE_PERIOD: Record<RetainerCycle, string> = { monthly: 'month', quarterly: 'quarter', annual: 'year' };
 
+/** Retainers: the paged list, a new-retainer drawer, invoicing a period and pausing, resuming or ending one. */
 @Component({
   selector: 'erp-retainers-page',
   standalone: true,
@@ -69,7 +58,7 @@ export class RetainersPage implements OnInit {
 
   readonly list = createPagedList<RetainerSummaryDto>((q) => this.api.list(q));
   private readonly engagements = signal<EngagementSummaryDto[]>([]);
-  readonly openEngagements = computed(() => this.engagements().filter((e) => e.status === 'draft' || e.status === 'active' || e.status === 'onHold'));
+  readonly openEngagements = computed(() => openEngagements(this.engagements()));
   private readonly engagementId = signal<string | null>(null);
   readonly selectedEngagement = computed(() => this.engagements().find((e) => e.id === this.engagementId()) ?? null);
   readonly drawerVisible = signal(false);
@@ -154,7 +143,7 @@ export class RetainersPage implements OnInit {
     if (this.form.invalid || !engagement) return;
 
     this.isSubmitting.set(true);
-    const val = this.form.value;
+    const val = this.form.value as RetainerFormValue;
     this.api.create({
       legalEntityId: engagement.legalEntityId,
       engagementId: engagement.id,

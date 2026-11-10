@@ -62,8 +62,13 @@ export interface WeekEntry { id?: string; projectId: string; taskId?: string | n
 export interface ActivityDto { at: string; who?: string | null; action: string; kind: string; title: string; fields: string[]; }
 export interface ProjectsConfig { timesheetApproval: boolean; expenseApproval: boolean; allowSelfApproval: boolean; maxHoursPerDay: number; weeklyCapacityHours: number; workDays: number[]; defaultHourlyRate: number; }
 export interface BudgetLineDto { id?: string | null; category: string; amount: number; hours: number; actual: number; actualHours: number; }
+/** A copy of a project: its new name and start, and whether the team comes along or it becomes a template. */
+export interface CloneProjectInput { name: string; startDate?: string | null; customerId?: string | null; includeTeam?: boolean; asTemplate?: boolean; }
+/** What posting a project's costs to work in progress did. */
+export interface PostCostsResult { projectId: string; entries: number; amount: number; journalId?: string; journalNumber?: string; }
 export interface BudgetLineInput { projectId: string; category: string; amount: number; hours?: number; }
 
+/** Project expenses: the list and edit resource, plus submitting, deciding and writing off. */
 @Injectable({ providedIn: 'root' })
 export class ProjectExpensesApi extends CrudApiService<ExpenseDto, ExpenseInput> {
   protected readonly resource = 'm/projects/expenses';
@@ -87,13 +92,13 @@ export class ProjectsExtraApi {
   setBaseline(projectId: string, clear: boolean): Observable<ScheduleDto> { return this.http.post<ScheduleDto>(`${this.m}/projects/${projectId}/baseline`, { clear }); }
   setDependencies(taskId: string, dependsOn: string[]): Observable<TaskDto> { return this.http.put<TaskDto>(`${this.m}/tasks/${taskId}/dependencies`, { dependsOn }); }
   task(id: string): Observable<TaskDto> { return this.http.get<TaskDto>(`${this.m}/tasks/${id}`); }
-  clone(projectId: string, body: { name: string; startDate?: string | null; customerId?: string | null; includeTeam?: boolean; asTemplate?: boolean }): Observable<ProjectDto> { return this.http.post<ProjectDto>(`${this.m}/projects/${projectId}/clone`, body); }
+  clone(projectId: string, body: CloneProjectInput): Observable<ProjectDto> { return this.http.post<ProjectDto>(`${this.m}/projects/${projectId}/clone`, body); }
   archive(projectId: string, archive: boolean): Observable<ProjectDto> { return this.http.post<ProjectDto>(`${this.m}/projects/${projectId}/archive`, { archive }); }
   activity(projectId: string): Observable<ActivityDto[]> { return this.http.get<ActivityDto[]>(`${this.m}/projects/${projectId}/activity`); }
 
   acceptances(projectId: string): Observable<AcceptanceDto[]> { return this.http.get<AcceptanceDto[]>(`${this.m}/acceptances`, { params: { projectId } }); }
   requestAcceptance(body: { projectId: string; milestoneId?: string | null; title: string }): Observable<AcceptanceDto> { return this.http.post<AcceptanceDto>(`${this.m}/acceptances`, body); }
-  postCosts(projectId: string): Observable<{ projectId: string; entries: number; amount: number; journalId?: string; journalNumber?: string }> { return this.http.post<{ projectId: string; entries: number; amount: number; journalId?: string; journalNumber?: string }>(`${this.m}/billing/post-costs`, { projectId }); }
+  postCosts(projectId: string): Observable<PostCostsResult> { return this.http.post<PostCostsResult>(`${this.m}/billing/post-costs`, { projectId }); }
 
   // time
   saveWeek(items: WeekEntry[]): Observable<TimesheetDto[]> { return this.http.post<TimesheetDto[]>(`${this.m}/timesheets/week`, { items }); }

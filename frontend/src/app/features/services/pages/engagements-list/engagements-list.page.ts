@@ -1,7 +1,6 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { AbstractControl, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
@@ -16,23 +15,19 @@ import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { LegalEntitiesApi } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
-import {
-  EngagementDto,
-  EngagementStatus,
-  EngagementSummaryDto,
-  EngagementType,
-  ServicesEngagementsApi,
-} from '@core/api/services.api';
+import { PartiesApi, PartyDto } from '@core/api/parties.api';
+import { EngagementDto, EngagementStatus, EngagementSummaryDto, EngagementType, ServicesEngagementsApi } from '@core/api/services.api';
 import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { EngagementTimeComponent } from '../../components/engagement-time/engagement-time.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { PartiesApi, PartyDto } from '@core/api/parties.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { EngagementTimeComponent } from '../../components/engagement-time/engagement-time.component';
+import { EngagementFormValue, notBeforeStart } from '../../services-forms';
 
 /** The moves the server allows from each status. */
 const NEXT_STATUS: Record<EngagementStatus, EngagementStatus[]> = {
@@ -43,12 +38,7 @@ const NEXT_STATUS: Record<EngagementStatus, EngagementStatus[]> = {
   cancelled: [],
 };
 
-/** The end date field must not fall before the start date field of the same form. */
-const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErrors | null => {
-  const start = c.parent?.get(startKey)?.value;
-  return start && c.value && toIsoDate(new Date(c.value)) < toIsoDate(new Date(start)) ? { beforeStart: true } : null;
-};
-
+/** Client engagements: the paged list, a new-engagement drawer, status changes and the details drawer with the time logged. */
 @Component({
   selector: 'erp-engagements-list-page',
   standalone: true,
@@ -209,7 +199,7 @@ export class EngagementsListPage implements OnInit {
     if (this.form.invalid) return;
 
     this.isSubmitting.set(true);
-    const val = this.form.value;
+    const val = this.form.value as EngagementFormValue;
     this.api.create({
       legalEntityId: val.legalEntityId,
       title: val.title,

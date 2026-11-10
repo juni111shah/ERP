@@ -1,22 +1,22 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, viewChild } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { catchError, of } from 'rxjs';
 import { createPagedList } from '@core/api/paged-list';
-import { ProjectsExtraApi, ProjectsConfig } from '@core/api/projects-extra.api';
+import { ProjectsExtraApi } from '@core/api/projects-extra.api';
 import { ProjectTimesheetsApi, TimesheetDto } from '@core/api/projects.api';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { LogTimeComponent } from '../../components/log-time/log-time.component';
-import { APPROVAL_STATUSES, errorText, filterOptions, PRJ_STYLES, ProjectTagComponent } from '../../projects-ui';
+import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
+import { injectProjectsConfig } from '../../projects-lookups';
+import { APPROVAL_STATUSES, errorText, filterOptions, PRJ_STYLES } from '../../projects-ui';
 
 /** Time entries of everyone, or of one project when projectId is given. */
 @Component({
@@ -38,7 +38,7 @@ export class ProjectTimesheetsPage {
   private readonly session = inject(SessionStore);
   readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly logTime = viewChild(LogTimeComponent);
-  readonly config = toSignal(this.extra.config().pipe(catchError(() => of(null as ProjectsConfig | null))), { initialValue: null });
+  readonly config = injectProjectsConfig();
 
   readonly list = createPagedList((q) => {
     const id = this.projectId();

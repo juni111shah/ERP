@@ -7,13 +7,14 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { createPagedList } from '@core/api/paged-list';
 import { ProjectTasksApi, ProjectTaskStatus, TaskDto } from '@core/api/projects.api';
-import { toIsoDate } from '@core/format/dates';
 import { SessionStore } from '@core/session/session.store';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { errorText, filterOptions, PRJ_STYLES, ProjectTagComponent, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from '../../projects-ui';
-import { TaskDrawerComponent } from '../../components/task-drawer/task-drawer.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
+import { TaskDrawerComponent } from '../../components/task-drawer/task-drawer.component';
+import { isoToday } from '../../projects-format';
+import { errorText, filterOptions, PRJ_STYLES, TASK_PRIORITIES, TASK_STATUSES, taskOptions, StatusOption } from '../../projects-ui';
 
 /** Tasks of every project, or of one when projectId is given. Click a row to open it. */
 @Component({
@@ -41,7 +42,7 @@ export class ProjectTasksPage {
     const filters = [...(q.filters ?? []), ...(id ? [{ field: 'projectId', op: 'eq' as const, value: id }] : [])];
     const view = this.view();
     if (view === 'open' || view === 'overdue') filters.push({ field: 'status', op: 'in', value: ['todo', 'inProgress', 'review', 'blocked'] });
-    if (view === 'overdue') filters.push({ field: 'dueDate', op: 'lt', value: toIsoDate(new Date()) });
+    if (view === 'overdue') filters.push({ field: 'dueDate', op: 'lt', value: isoToday() });
     if (view === 'mine') { filters.push({ field: 'assignedUserId', op: 'eq', value: this.session.me()?.user?.id ?? '' }); filters.push({ field: 'status', op: 'in', value: ['todo', 'inProgress', 'review', 'blocked'] }); }
     return this.tasksApi.list({ ...q, filters, ...(id ? {} : { extra: { ...(q.extra ?? {}), live: true } }) });
   }, { sort: 'dueDate' });
@@ -64,8 +65,8 @@ export class ProjectTasksPage {
 
   setView(key: string): void { this.view.set(key); this.list.setPage(1); }
   canManage(): boolean { return this.session.hasPermission('projects.tasks.manage'); }
-  moves(t: TaskDto) { return taskOptions(t.status); }
-  isLate(t: TaskDto): boolean { return !!t.dueDate && t.dueDate < toIsoDate(new Date()) && t.status !== 'done' && t.status !== 'cancelled'; }
+  moves(t: TaskDto): StatusOption[] { return taskOptions(t.status); }
+  isLate(t: TaskDto): boolean { return !!t.dueDate && t.dueDate < isoToday() && t.status !== 'done' && t.status !== 'cancelled'; }
 
   updateStatus(t: TaskDto, status: ProjectTaskStatus): void {
     if (t.status === status) return;

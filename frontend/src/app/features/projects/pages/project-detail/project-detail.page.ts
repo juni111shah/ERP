@@ -1,7 +1,5 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, viewChild } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -10,20 +8,31 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { catchError, map, of } from 'rxjs';
+import { map } from 'rxjs';
+import { PartiesApi } from '@core/api/parties.api';
+import { ProjectsExtraApi } from '@core/api/projects-extra.api';
 import { ProjectDto, ProjectInput, ProjectsApi, ProjectStatus } from '@core/api/projects.api';
-import { ProjectsExtraApi, UserOption } from '@core/api/projects-extra.api';
 import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { PartiesApi } from '@core/api/parties.api';
-import { LogTimeComponent } from '../../components/log-time/log-time.component';
-import { ProjectControlComponent, ProjectMilestonesComponent, ProjectMoneyComponent, ProjectNotesComponent, ProjectOverviewComponent, ProjectTeamComponent, ProjectTimeComponent, ProjectWorkComponent } from '../../project-tabs.components';
-import { BILLING_TYPES, errorText, filterOptions, PRJ_STYLES, PROJECT_ACTIONS, ProjectTagComponent } from '../../projects-ui';
-import { TaskDrawerComponent } from '../../components/task-drawer/task-drawer.component';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { LogTimeComponent } from '../../components/log-time/log-time.component';
+import { ProjectControlComponent } from '../../components/project-control/project-control.component';
+import { ProjectMilestonesComponent } from '../../components/project-milestones/project-milestones.component';
+import { ProjectMoneyComponent } from '../../components/project-money/project-money.component';
+import { ProjectNotesComponent } from '../../components/project-notes/project-notes.component';
+import { ProjectOverviewComponent } from '../../components/project-overview/project-overview.component';
+import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
+import { ProjectTeamComponent } from '../../components/project-team/project-team.component';
+import { ProjectTimeComponent } from '../../components/project-time/project-time.component';
+import { ProjectWorkComponent } from '../../components/project-work/project-work.component';
+import { TaskDrawerComponent } from '../../components/task-drawer/task-drawer.component';
+import { injectProjectUsers, userOptions } from '../../projects-lookups';
+import { mergeProjectInput } from '../../projects-mappers';
+import { BILLING_TYPES, errorText, filterOptions, PRJ_STYLES, PROJECT_ACTIONS } from '../../projects-ui';
 
 interface TabDef { key: string; label: string; permission?: string | string[]; }
 const TABS: TabDef[] = [
@@ -80,7 +89,7 @@ export class ProjectDetailPage {
   readonly project = signal<ProjectDto | null>(null);
   readonly failed = signal<string | null>(null);
   readonly cloneOpen = signal(false);
-  private readonly users = toSignal(this.extra.users().pipe(catchError(() => of([] as UserOption[]))), { initialValue: [] as UserOption[] });
+  private readonly users = injectProjectUsers();
   cloneName = ''; cloneStart = toIsoDate(new Date()); cloneTeam = false; cloneTemplate = false;
 
   readonly tabs = computed(() => TABS.filter((t) => !t.permission || (Array.isArray(t.permission) ? t.permission : [t.permission]).some((x) => this.session.hasPermission(x))));
@@ -92,19 +101,14 @@ export class ProjectDetailPage {
   readonly hoursUsed = computed(() => { const p = this.project(); return p && p.effectiveBudgetHours > 0 ? (p.totalLoggedHours / p.effectiveBudgetHours) * 100 : 0; });
 
   readonly state: MasterDataState<ProjectDto> = new MasterDataState<ProjectDto>({
-    save: (id, body) => {
-      const p = this.project()!;
-      const merged = { legalEntityId: p.legalEntityId, status: p.status, taxCodeId: p.taxCodeId ?? null, sourceType: p.sourceType ?? null, sourceId: p.sourceId ?? null, isTemplate: p.isTemplate, customFields: p.customFields ?? null, ...(body as Partial<ProjectInput>) } as ProjectInput;
-      if (!merged.managerUserId) merged.managerName = p.managerUserId ? null : p.managerName ?? null;
-      return this.projectsApi.update(id!, merged);
-    },
+    save: (id, body) => this.projectsApi.update(id!, mergeProjectInput(this.project()!, body as Partial<ProjectInput>)),
     reload: () => this.reload(), message: inject(NzMessageService), entityName: 'Project',
   });
   readonly fields = computed<FieldSpec[]>(() => [
     { key: 'name', label: 'Project name', type: 'text', required: true, maxLength: 200 },
     { key: 'number', label: 'Project code', type: 'text', maxLength: 30 },
     { key: 'customerId', label: 'Customer', type: 'lookup', lookup: (term) => this.parties.list({ page: 1, pageSize: 20, search: term, extra: { role: 'Customer' } }).pipe(map((r) => r.items.map((c) => ({ value: c.id, label: c.name })))), currentLabel: (r) => (r['customerName'] as string) ?? undefined },
-    { key: 'managerUserId', label: 'Project manager', type: 'select', options: this.users().map((u) => ({ value: u.id, label: u.fullName })), hint: this.project()?.managerName && !this.project()?.managerUserId ? `Typed name: ${this.project()!.managerName}. Choose a person to link an account.` : undefined },
+    { key: 'managerUserId', label: 'Project manager', type: 'select', options: userOptions(this.users()), hint: this.project()?.managerName && !this.project()?.managerUserId ? `Typed name: ${this.project()!.managerName}. Choose a person to link an account.` : undefined },
     { key: 'billingType', label: 'Billing model', type: 'select', required: true, options: filterOptions(BILLING_TYPES) },
     { key: 'budgetAmount', label: `Budget or fixed fee (${this.currency()})`, type: 'number', min: 0 },
     { key: 'contractValue', label: `Contract value (${this.currency()})`, type: 'number', min: 0, hint: 'What the customer agreed to pay, when it differs from the cost budget. Left empty, the budget is the fee.' },

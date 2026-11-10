@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, WritableSignal, computed, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -12,8 +12,8 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { BillableWork, BillInput, BillPreviewDto, ProjectsExtraApi } from '@core/api/projects-extra.api';
 import { toIsoDate } from '@core/format/dates';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { errorText, PRJ_STYLES } from '../../projects-ui';
 import { ErpLabelPipe, ErpDatePipe } from '@shared/pipes/display.pipes';
+import { errorText, PRJ_STYLES } from '../../projects-ui';
 
 /**
  * Raising an invoice for a project: pick the lines, choose how they are grouped, see exactly what the invoice will say, then create it.
@@ -76,11 +76,13 @@ export class BillModalComponent {
 
   close(): void { this.projectId.set(null); }
 
-  toggle(target: ReturnType<typeof signal<Set<string>>>, id: string, on: boolean): void {
+  /** Ticks or unticks one line, then refreshes the preview. */
+  toggle(target: WritableSignal<Set<string>>, id: string, on: boolean): void {
     const next = new Set(target()); if (on) next.add(id); else next.delete(id); target.set(next);
     this.preview();
   }
-  all(target: ReturnType<typeof signal<Set<string>>>, rows: { id: string }[], on: boolean): void {
+  /** Ticks or unticks every line of one kind, then refreshes the preview. */
+  all(target: WritableSignal<Set<string>>, rows: { id: string }[], on: boolean): void {
     target.set(new Set(on ? rows.map((r) => r.id) : []));
     this.preview();
   }

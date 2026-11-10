@@ -1,0 +1,11 @@
+
+    <div class="seg" role="group" aria-label="View">
+      @for (v of views; track v.key) { <button type="button" [class.on]="view() === v.key" (click)="setView(v.key)" [attr.data-testid]="'work-' + v.key">{{ v.label }}</button> }
+    </div>
+    @switch (view()) {
+      @case ('list') { <erp-project-tasks [projectId]="project().id" /> }
+      @case ('board') { <erp-project-board [projectId]="project().id" /> }
+      @case ('timeline') { <erp-project-gantt [projectId]="project().id" (opened)="drawer()?.open($event)" (changed)="changed.emit()" /> }
+    }
+    <erp-task-drawer (changed)="reloadGantt(); changed.emit()" />
+  

@@ -1,0 +1,52 @@
+
+    <div class="prj-toolbar">
+      <span class="prj-muted" data-testid="milestones-summary">{{ summary() }}</span>
+      <span class="prj-spacer"></span>
+      <button *erpHasPermission="'projects.milestones.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="milestone-new"><span nz-icon nzType="plus"></span> Add milestone</button>
+    </div>
+    <div class="prj-card prj-table-wrap">
+      <table class="plain" data-testid="milestones-table">
+        <thead><tr><th>Milestone</th><th>Due</th><th class="prj-num">Amount</th><th>Status</th><th>Reached</th><th>Sign-off</th><th></th></tr></thead>
+        <tbody>
+          @for (m of rows(); track m.id) {
+            <tr>
+              <td class="prj-strong">{{ m.title }}</td><td [class.prj-danger]="m.status === 'pending' && m.dueDate < todayIso">{{ m.dueDate | erpDate }}</td><td class="prj-num">{{ currency() }} {{ m.amount | number: '1.2-2' }}</td>
+              <td><erp-prj-tag kind="milestone" [value]="m.status" /></td><td>{{ (m.achievedDate | erpDate) || '' }}</td>
+              <td>@if (signOf(m.id); as a) { <erp-prj-tag kind="acceptance" [value]="a.status" /> }</td>
+              <td class="prj-num acts">
+                <ng-container *erpHasPermission="'projects.milestones.manage'">
+                  @if (m.status === 'pending') { <button nz-button nzSize="small" nzType="primary" (click)="achieve(m)" [attr.data-testid]="'milestone-achieve-' + $index"><span nz-icon nzType="check"></span> Mark achieved</button> }
+                  @if (m.status === 'achieved') { <button nz-button nzSize="small" (click)="setStatus(m, 'pending')">Back to pending</button> }
+                  @if (m.status === 'pending' && hasCustomer() && !waiting(m.id)) { <button nz-button nzSize="small" (click)="askSignOff(m)" [attr.data-testid]="'milestone-signoff-' + $index">Ask to sign off</button> }
+                  @if (m.status === 'pending' || m.status === 'achieved') { <button nz-button nzSize="small" (click)="state.edit(m)" [attr.data-testid]="'milestone-edit-' + $index">Edit</button> }
+                  @if (m.status === 'pending' || m.status === 'achieved') { <button nz-button nzSize="small" (click)="setStatus(m, 'cancelled')">Cancel</button> }
+                  @if (m.status === 'cancelled') { <button nz-button nzSize="small" (click)="setStatus(m, 'pending')">Restore</button> }
+                  @if (m.status !== 'invoiced') { <button nz-button nzSize="small" nzDanger nzType="text" (click)="remove(m)" aria-label="Delete milestone"><span nz-icon nzType="delete"></span></button> }
+                </ng-container>
+              </td>
+            </tr>
+          } @empty { <tr><td colspan="7" class="prj-empty">No milestones yet. Add the points where work is delivered or billed.</td></tr> }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prj-card signoffs" data-testid="signoffs">
+      <div class="prj-toolbar">
+        <h3 style="margin:0">Customer sign-offs</h3><span class="prj-spacer"></span>
+        @if (hasCustomer()) { <button *erpHasPermission="'projects.milestones.manage'" nz-button nzSize="small" (click)="askProjectSignOff()" data-testid="plan-signoff"><span nz-icon nzType="edit"></span> Ask to sign off the whole project</button> }
+      </div>
+      @if (!hasCustomer()) { <p class="prj-muted">Add a customer to the project to ask them to sign off in their portal.</p> }
+      <div class="prj-table-wrap">
+        <table class="plain">
+          <thead><tr><th>What</th><th>Asked</th><th>Status</th><th>Answered by</th><th>When</th><th>Evidence</th></tr></thead>
+          <tbody>
+            @for (a of acceptances(); track a.id) {
+              <tr><td>{{ a.title }}@if (a.comment) { <div class="prj-muted">{{ a.comment }}</div> }</td><td>{{ a.requestedAt | date: 'mediumDate' }}</td><td><erp-prj-tag kind="acceptance" [value]="a.status" /></td><td>{{ a.signedByName }}</td><td>{{ a.signedAt | date: 'medium' }}</td>
+                <td class="prj-muted evidence" [title]="a.evidenceHash || ''">@if (a.evidenceHash) { {{ a.drawnSignature ? 'Drawn signature' : 'Typed name' }}, {{ a.signedIp }}, {{ a.evidenceHash.slice(0, 10) }}… }</td></tr>
+            } @empty { <tr><td colspan="6" class="prj-empty">No sign-offs asked for yet.</td></tr> }
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <erp-record-drawer [title]="state.editing() ? 'Edit milestone' : 'Add milestone'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" [saving]="state.saving()" [errors]="state.errors()" testId="milestone-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+  

@@ -1,23 +1,24 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { catchError, of } from 'rxjs';
-import { ProjectsApi } from '@core/api/projects.api';
-import { AllocationDto, ProjectsConfig, ProjectsExtraApi, RateDto, UserOption } from '@core/api/projects-extra.api';
-import { toIsoDate } from '@core/format/dates';
+import { AllocationDto, AllocationInput, ProjectsExtraApi, RateDto, RateInput } from '@core/api/projects-extra.api';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { errorText, PRJ_STYLES } from '../../projects-ui';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { loadOrFallback } from '@shared/utils/load-or-fallback';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { injectProjectsConfig, injectProjectUsers, injectRealProjects, projectNameIn, projectOptions, userOptions } from '../../projects-lookups';
+import { withIsoDates } from '../../projects-mappers';
+import { errorText, PRJ_STYLES } from '../../projects-ui';
+import { capacityHeat, planWeeks } from '../../projects-view';
+import { firstWeekDay } from '../../projects-week';
 
 type Tab = 'capacity' | 'allocations' | 'rates';
 const WEEKS = 12;
@@ -39,7 +40,6 @@ const WEEKS = 12;
 })
 export class ProjectResourcesPage {
   private readonly api = inject(ProjectsExtraApi);
-  private readonly projectsApi = inject(ProjectsApi);
   private readonly msg = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly session = inject(SessionStore);
@@ -47,9 +47,9 @@ export class ProjectResourcesPage {
   readonly rates = signal<RateDto[]>([]);
   readonly allocations = signal<AllocationDto[]>([]);
   readonly offset = signal(0);
-  private readonly config = toSignal(this.api.config().pipe(catchError(() => of(null as ProjectsConfig | null))), { initialValue: null });
-  private readonly projects = toSignal(this.projectsApi.list({ page: 1, pageSize: 200, sort: 'name', filters: [{ field: 'isTemplate', op: 'eq', value: false }] }).pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
-  private readonly users = toSignal(this.api.users().pipe(catchError(() => of([] as UserOption[]))), { initialValue: [] as UserOption[] });
+  private readonly config = injectProjectsConfig();
+  private readonly projects = injectRealProjects();
+  private readonly users = injectProjectUsers();
 
   readonly canTeam = computed(() => this.session.hasPermission('projects.team.manage') || this.session.hasPermission('projects.projects.read'));
   readonly canRates = computed(() => this.session.hasPermission('projects.rates.read'));
@@ -58,55 +58,27 @@ export class ProjectResourcesPage {
   readonly capacity = computed(() => this.config()?.weeklyCapacityHours ?? 40);
 
   /** The weeks on screen, Monday (or the workspace's first day) first. */
-  readonly weeks = computed(() => {
-    const now = new Date(); const first = this.config()?.workDays?.includes(0) && !this.config()?.workDays?.includes(6) ? 0 : 1;
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()); start.setDate(start.getDate() - ((start.getDay() - first + 7) % 7) + this.offset() * 7);
-    return Array.from({ length: WEEKS }, (_, i) => {
-      const from = new Date(start); from.setDate(from.getDate() + i * 7);
-      const to = new Date(from); to.setDate(to.getDate() + 6);
-      return { key: toIsoDate(from), from: toIsoDate(from), to: toIsoDate(to), label: from.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) };
-    });
-  });
+  readonly weeks = computed(() => planWeeks(firstWeekDay(this.config()?.workDays), this.offset(), WEEKS));
 
   /** Everyone with an allocation, and what is planned for them each week. An allocation counts in a week by the share of its days that fall in it. */
-  readonly heat = computed(() => {
-    const capacity = this.capacity();
-    const byUser = new Map<string, AllocationDto[]>();
-    for (const a of this.allocations()) byUser.set(a.userId, [...(byUser.get(a.userId) ?? []), a]);
-    return [...byUser.entries()].map(([userId, rows]) => ({
-      userId, name: rows[0].userName,
-      cells: this.weeks().map((w) => {
-        const hits = rows.filter((a) => a.fromDate <= w.to && a.toDate >= w.from);
-        const hours = hits.reduce((sum, a) => {
-          const from = a.fromDate > w.from ? a.fromDate : w.from; const to = a.toDate < w.to ? a.toDate : w.to;
-          const days = Math.round((new Date(to).getTime() - new Date(from).getTime()) / 864e5) + 1;
-          return sum + (a.hoursPerWeek * Math.min(days, 7)) / 7;
-        }, 0);
-        return { key: w.key, hours, ratio: capacity ? hours / capacity : 0, hint: hits.map((a) => `${this.projectName(a.projectId)}: ${a.hoursPerWeek} h/week`).join('\n') };
-      }),
-    })).sort((a, b) => a.name.localeCompare(b.name));
-  });
+  readonly heat = computed(() => capacityHeat(this.allocations(), this.weeks(), this.capacity(), (id) => this.projectName(id)));
 
-  readonly rateState = new MasterDataState<RateDto>({ save: (id, body) => this.api.saveRate(id, body as never), reload: () => this.load(), message: this.msg, entityName: 'Rate' });
+  readonly rateState = new MasterDataState<RateDto>({ save: (id, body) => this.api.saveRate(id, body as RateInput), reload: () => this.load(), message: this.msg, entityName: 'Rate' });
   readonly allocState = new MasterDataState<AllocationDto>({
-    save: (id, body) => {
-      const b = { ...(body as Record<string, unknown>) };
-      for (const k of ['fromDate', 'toDate']) if (b[k] instanceof Date) b[k] = toIsoDate(b[k] as Date);
-      return this.api.saveAllocation(id, b as never);
-    },
+    save: (id, body) => this.api.saveAllocation(id, withIsoDates(body, 'fromDate', 'toDate') as unknown as AllocationInput),
     reload: () => this.load(), message: this.msg, entityName: 'Allocation',
   });
 
   readonly rateFields = computed<FieldSpec[]>(() => [
-    { key: 'projectId', label: 'Project (blank = every project)', type: 'select', options: this.projects().items.map((p) => ({ value: p.id, label: `${p.number} · ${p.name}` })) },
-    { key: 'userId', label: 'Person', type: 'select', options: this.users().map((u) => ({ value: u.id, label: u.fullName })) },
+    { key: 'projectId', label: 'Project (blank = every project)', type: 'select', options: projectOptions(this.projects().items) },
+    { key: 'userId', label: 'Person', type: 'select', options: userOptions(this.users()) },
     { key: 'role', label: 'Or a role', type: 'text', maxLength: 100, hint: 'For example Senior consultant. A rate is for a person or a role, not both.', hidden: (v) => !!v['userId'] },
     { key: 'billRate', label: `Bill rate per hour (${this.currency()})`, type: 'number', required: true, min: 0, precision: 2 },
     { key: 'costRate', label: `Cost rate per hour (${this.currency()})`, type: 'number', required: true, min: 0, precision: 2 },
   ]);
   readonly allocFields = computed<FieldSpec[]>(() => [
-    { key: 'projectId', label: 'Project', type: 'select', required: true, options: this.projects().items.map((p) => ({ value: p.id, label: `${p.number} · ${p.name}` })) },
-    { key: 'userId', label: 'Person', type: 'select', required: true, options: this.users().map((u) => ({ value: u.id, label: u.fullName })) },
+    { key: 'projectId', label: 'Project', type: 'select', required: true, options: projectOptions(this.projects().items) },
+    { key: 'userId', label: 'Person', type: 'select', required: true, options: userOptions(this.users()) },
     { key: 'fromDate', label: 'From', type: 'date', required: true, default: new Date() },
     { key: 'toDate', label: 'To', type: 'date', required: true, default: new Date(Date.now() + 30 * 864e5) },
     { key: 'hoursPerWeek', label: 'Hours per week', type: 'number', required: true, min: 1, max: 168, default: 20 },
@@ -117,10 +89,10 @@ export class ProjectResourcesPage {
   shift(weeks: number): void { this.offset.update((o) => o + weeks); }
 
   load(): void {
-    if (this.canRates()) this.api.rates().pipe(catchError(() => of([] as RateDto[]))).subscribe((r) => this.rates.set(r));
-    this.api.allocations().pipe(catchError(() => of([] as AllocationDto[]))).subscribe((r) => this.allocations.set(r));
+    if (this.canRates()) loadOrFallback(this.rates, this.api.rates(), []);
+    loadOrFallback(this.allocations, this.api.allocations(), []);
   }
-  projectName(id?: string | null): string { if (!id) return 'All projects'; const p = this.projects().items.find((x) => x.id === id); return p ? `${p.number} · ${p.name}` : 'Project'; }
+  projectName(id?: string | null): string { return id ? projectNameIn(this.projects().items, id, 'Project') : 'All projects'; }
   removeRate(r: RateDto): void {
     this.modal.confirm({ nzTitle: 'Delete this rate?', nzContent: 'New time will use the next most specific rate. Time already logged keeps its rate.', nzOkText: 'Delete', nzOkDanger: true, nzOnOk: () => this.api.deleteRate(r.id).subscribe({ next: () => this.load(), error: (e) => this.msg.error(errorText(e, 'Could not delete.')) }) });
   }
