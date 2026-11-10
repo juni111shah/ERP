@@ -41,4 +41,6 @@ export const APP_ICONS = [
   // Sidebar category icons (see layout/sidebar-nav.ts).
   ContactsOutline, CustomerServiceOutline, DatabaseOutline, IdcardOutline, ExportOutline, BugOutline, FileProtectOutline, GoldOutline, ImportOutline, MedicineBoxOutline, ReadOutline, StockOutline,
 ];
-export const KNOWN_ICONS = new Set(APP_ICONS.map((i) => i.name));
+
+/** Names of the registered icons, so a server-sent icon name can be checked before it is drawn. */
+export const KNOWN_ICONS: ReadonlySet<string> = new Set(APP_ICONS.map((i) => i.name));

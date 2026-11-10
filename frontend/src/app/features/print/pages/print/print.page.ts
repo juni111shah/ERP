@@ -148,7 +148,7 @@ export class PrintPage implements OnInit {
       next: (res) => {
         const header = res.headers.get('content-disposition') ?? '';
         const name = /filename="?([^";]+)"?/i.exec(header)?.[1] ?? `${type}-${id}.pdf`;
-        saveBlob(res.body as Blob, name);
+        saveBlob(res.body as Blob, name, 1000);
         this.pdfBusy.set(false);
       },
       error: () => {

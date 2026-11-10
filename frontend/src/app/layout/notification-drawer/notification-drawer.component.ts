@@ -1,22 +1,12 @@
-import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { DatePipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, input, output, signal, effect, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { API_BASE_URL } from '@core/api/api-config';
+import { NotificationDto, NotificationsApi } from '@core/api/notifications.api';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { KeyboardClickDirective } from '@shared/directives/keyboard-click.directive';
-
-interface NotificationDto {
-  id: string;
-  title: string;
-  body?: string;
-  link?: string;
-  severity: string;
-  createdAt: string;
-  readAt?: string;
-}
+import { notificationAge, notificationIcon } from './notification-format';
 
 /** Notification dropdown menu: opens directly under bell icon, displays latest notifications, mark read, or quick links. */
 @Component({
@@ -28,8 +18,7 @@ interface NotificationDto {
   templateUrl: './notification-drawer.component.html',
 })
 export class NotificationDrawerComponent {
-  private readonly http = inject(HttpClient);
-  private readonly base = inject(API_BASE_URL);
+  private readonly notificationsApi = inject(NotificationsApi);
   private readonly router = inject(Router);
 
   readonly open = input.required<boolean>();
@@ -45,22 +34,16 @@ export class NotificationDrawerComponent {
     });
   }
 
-  private load(): void {
-    this.http.get<{ items: NotificationDto[] }>(`${this.base}/notifications`).subscribe({
-      next: (r) => this.items.set(r.items || []),
-      error: () => this.items.set([])
-    });
-  }
-
   markAll(): void {
-    this.http.post(`${this.base}/notifications/read-all`, {}).subscribe({
+    this.notificationsApi.markAllRead().subscribe({
       next: () => {
         this.load();
         this.changed.emit();
-      }
+      },
     });
   }
 
+  /** Marks an unread notification read (whatever the answer), then closes the menu and follows its link. */
   openItem(n: NotificationDto): void {
     const go = () => {
       this.closed.emit();
@@ -70,39 +53,22 @@ export class NotificationDrawerComponent {
       go();
       return;
     }
-    this.http.post(`${this.base}/notifications/${n.id}/read`, {}).subscribe({
+    this.notificationsApi.markRead(n.id).subscribe({
       next: () => {
         this.changed.emit();
         go();
       },
-      error: go
+      error: go,
     });
   }
 
-  getIcon(severity?: string): string {
-    switch ((severity || '').toLowerCase()) {
-      case 'success': return 'check-circle';
-      case 'warning': return 'exclamation-circle';
-      case 'error':
-      case 'danger': return 'close-circle';
-      default: return 'bell';
-    }
-  }
+  getIcon(severity?: string): string { return notificationIcon(severity); }
+  formatTime(dateStr: string): string { return notificationAge(dateStr); }
 
-  formatTime(dateStr: string): string {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMin / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMin < 1) return 'Just now';
-    if (diffMin < 60) return `${diffMin}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  private load(): void {
+    this.notificationsApi.inbox().subscribe({
+      next: (r) => this.items.set(r.items || []),
+      error: () => this.items.set([]),
+    });
   }
 }

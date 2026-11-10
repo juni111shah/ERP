@@ -1,8 +1,13 @@
 import { Routes } from '@angular/router';
-import { authGuard, founderLandingGuard, guestOnlyGuard, industryRecordGuard, moduleEnabledGuard, permissionGuard, anyPermissionGuard, platformAdminGuard, signedOutGuard } from '@core/guards/access.guards';
+import { anyPermissionGuard, authGuard, founderLandingGuard, guestOnlyGuard, industryRecordGuard, moduleEnabledGuard, permissionGuard, platformAdminGuard, signedOutGuard } from '@core/guards/access.guards';
 
+/** A route to the placeholder page with its title. */
 const placeholder = (title: string) => ({ loadComponent: () => import('@features/common/pages/placeholder/placeholder.page').then((m) => m.PlaceholderPage), data: { title } });
 
+/**
+ * Every route of the app: sign-in and portal pages, the public site, print views, the founder console and, behind sign-in, the
+ * workspace shell with the core pages, legacy aliases and one lazy section per module (guarded by the module being on).
+ */
 export const routes: Routes = [
   {
     path: 'auth',

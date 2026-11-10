@@ -1,4 +1,3 @@
-import { doneText } from '@core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -8,8 +7,14 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { ProjectBillingType, ProjectsApi } from '@core/api/projects.api';
+import { ProjectBillingType, ProjectInput, ProjectsApi } from '@core/api/projects.api';
+import { doneText } from '@core/format/done-text';
 import { SessionStore } from '@core/session/session.store';
+
+/** The server's explanation of a failed create, if it sent one. */
+function serverMessage(e: { error?: { detail?: string; message?: string } } | null | undefined): string | undefined {
+  return e?.error?.detail ?? e?.error?.message;
+}
 
 /**
  * "Create project" for a record of another module (a sales order, an opportunity ...): opens a small form, creates the project with the
@@ -47,12 +52,17 @@ export class CreateProjectButtonComponent {
     const name = (this.name || this.defaultName()).trim();
     if (!name) { this.msg.warning('Give the project a name.'); return; }
     this.busy.set(true);
-    this.api.create({
+    this.api.create(this.projectInput(name)).subscribe({
+      next: (p) => { this.busy.set(false); this.open.set(false); this.msg.success(doneText('created', 'Project', p.number)); void this.router.navigate(['/projects', p.id]); },
+      error: (e) => { this.busy.set(false); this.msg.error(serverMessage(e) ?? 'Could not create the project.'); },
+    });
+  }
+
+  /** A planned project with the record as its source, its customer and its amount as the budget. */
+  private projectInput(name: string): ProjectInput {
+    return {
       legalEntityId: this.legalEntityId(), name, status: 'planning', billingType: this.billingType, budgetAmount: this.amount() || 0,
       customerId: this.customerId() ?? null, sourceType: this.sourceType(), sourceId: this.sourceId(),
-    }).subscribe({
-      next: (p) => { this.busy.set(false); this.open.set(false); this.msg.success(doneText('created', 'Project', (p as { number?: string }).number)); void this.router.navigate(['/projects', (p as { id: string }).id]); },
-      error: (e) => { this.busy.set(false); this.msg.error(e?.error?.detail ?? e?.error?.message ?? 'Could not create the project.'); },
-    });
+    };
   }
 }

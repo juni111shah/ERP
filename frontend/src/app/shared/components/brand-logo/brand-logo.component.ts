@@ -1,11 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMenuModule } from 'ng-zorro-antd/menu';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { I18nService } from '@core/i18n/i18n.service';
 
+/** The product logo and name (in the current language), with an optional workspace switcher when the person has several. */
 @Component({
   selector: 'erp-brand-logo',
   standalone: true,
