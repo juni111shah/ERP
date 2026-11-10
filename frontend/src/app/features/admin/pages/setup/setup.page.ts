@@ -18,18 +18,9 @@ import { AuthService } from '@core/auth/auth.service';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
-
-/** The text a number series produces: `{prefix}`, `{yyyy}`, `{yy}` and `{seq:N}` (the next number, padded to N digits) filled in. */
-export function sequenceExample(pattern: string, prefix: string, next: number, today = new Date()): string {
-  const year = String(today.getFullYear());
-  return pattern
-    .replace(/\{prefix\}/g, prefix).replace(/\{yyyy\}/g, year).replace(/\{yy\}/g, year.slice(2))
-    .replace(/\{seq:(\d+)\}/g, (_, digits: string) => String(next).padStart(Number(digits), '0'));
-}
-
-interface SequenceRow extends NumberSequenceView { saved: NumberSequenceView; saving: boolean; error: string | null; }
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { SequenceRow, capabilitiesChanged, isSequenceDirty, listsChanged, sequenceExample, sequenceRow, updateSequenceRow } from '../../admin-setup';
 
 /** What kind of business this is, which optional core areas it uses, its lists of units and item categories, and its document numbering. */
 @Component({
@@ -62,24 +53,18 @@ export class SetupPage {
   readonly saving = signal<'capabilities' | 'lists' | null>(null);
 
   readonly canWrite = computed(() => this.session.hasPermission('core.settings.write'));
-  readonly capabilitiesDirty = computed(() => {
-    const was = new Set(this.profile()?.capabilities.filter((c) => !c.enabled).map((c) => c.key));
-    const now = new Set(this.disabled());
-    return was.size !== now.size || [...now].some((k) => !was.has(k));
-  });
-  readonly listsDirty = computed(() => {
-    const p = this.profile();
-    return !!p && (JSON.stringify(this.units()) !== JSON.stringify(p.units) || JSON.stringify(this.categories()) !== JSON.stringify(p.itemCategories));
-  });
+  readonly capabilitiesDirty = computed(() => capabilitiesChanged(this.profile(), this.disabled()));
+  readonly listsDirty = computed(() => listsChanged(this.profile(), this.units(), this.categories()));
 
   constructor() { this.load(); }
 
   load(): void {
     this.failed.set(false);
     this.api.profile().subscribe({ next: (p) => this.apply(p), error: () => this.failed.set(true) });
-    this.api.sequences().pipe(catchError(() => of([] as NumberSequenceView[]))).subscribe((rows) => this.sequences.set(rows.map((s) => ({ ...s, saved: s, saving: false, error: null }))));
+    this.api.sequences().pipe(catchError(() => of([] as NumberSequenceView[]))).subscribe((rows) => this.sequences.set(rows.map(sequenceRow)));
   }
 
+  /** Shows a saved profile: the business type, the switched-off capabilities and editable copies of the lists. */
   private apply(p: BusinessProfile): void {
     this.profile.set(p);
     this.industry.set(p.industryCode);
@@ -129,19 +114,19 @@ export class SetupPage {
   }
 
   edit(documentType: string, change: Partial<Pick<NumberSequenceView, 'prefix' | 'pattern' | 'resetYearly'>>): void {
-    this.sequences.update((rows) => rows.map((r) => (r.documentType === documentType ? { ...r, ...change, error: null } : r)));
+    this.sequences.update((rows) => updateSequenceRow(rows, documentType, (r) => ({ ...r, ...change, error: null })));
   }
   exampleOf(s: SequenceRow): string { return sequenceExample(s.pattern, s.prefix, s.nextValue); }
-  sequenceDirty(s: SequenceRow): boolean { return s.prefix !== s.saved.prefix || s.pattern !== s.saved.pattern || s.resetYearly !== s.saved.resetYearly; }
+  sequenceDirty(s: SequenceRow): boolean { return isSequenceDirty(s); }
 
   saveSequence(s: SequenceRow): void {
-    this.sequences.update((rows) => rows.map((r) => (r.documentType === s.documentType ? { ...r, saving: true, error: null } : r)));
+    this.sequences.update((rows) => updateSequenceRow(rows, s.documentType, (r) => ({ ...r, saving: true, error: null })));
     this.api.saveSequence(s.documentType, { prefix: s.prefix, pattern: s.pattern, resetYearly: s.resetYearly }).subscribe({
       next: (saved) => {
-        this.sequences.update((rows) => rows.map((r) => (r.documentType === s.documentType ? { ...saved, saved, saving: false, error: null } : r)));
+        this.sequences.update((rows) => updateSequenceRow(rows, s.documentType, () => sequenceRow(saved)));
         this.message.success(doneText('saved', 'Numbering', s.documentType));
       },
-      error: (e) => this.sequences.update((rows) => rows.map((r) => (r.documentType === s.documentType ? { ...r, saving: false, error: problemMessage(e, 'Could not save this numbering.', 'pattern') } : r))),
+      error: (e) => this.sequences.update((rows) => updateSequenceRow(rows, s.documentType, (r) => ({ ...r, saving: false, error: problemMessage(e, 'Could not save this numbering.', 'pattern') }))),
     });
   }
 }

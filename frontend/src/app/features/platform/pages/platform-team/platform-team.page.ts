@@ -6,14 +6,17 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { ProblemDetails } from '@core/api/api.models';
 import { PlatformApi, PlatformTeamMember } from '@core/api/platform.api';
-import { asProblem, problemMessage } from '@core/http/problem-details';
+import { problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { RowActionsComponent } from '@shared/components/row-actions/row-actions.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { OneTimePasswordComponent, OneTimeSecret, PLATFORM_STYLES } from '../../platform-ui';
-import { RowActionsComponent } from '@shared/components/row-actions/row-actions.component';
+import { showDrawerSaveError } from '@shared/forms/save-errors';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { OneTimePasswordComponent, OneTimeSecret } from '../../components/one-time-password/one-time-password.component';
+import { DrawerValue } from '../../platform-forms';
+import { PLATFORM_STYLES } from '../../platform-ui';
 
 /** Who can open this console. */
 @Component({
@@ -53,7 +56,8 @@ export class PlatformTeamPage {
     });
   }
 
-  add(v: Record<string, unknown>): void {
+  /** Adds a member and shows their temporary password once. */
+  add(v: DrawerValue): void {
     this.saving.set(true);
     this.errors.set(null);
     this.api.addTeamMember({ fullName: v['fullName'] as string, email: v['email'] as string }).subscribe({
@@ -66,9 +70,7 @@ export class PlatformTeamPage {
       },
       error: (e) => {
         this.saving.set(false);
-        const problem = asProblem(e);
-        this.errors.set(problem);
-        if (!problem?.errors) this.message.error(problemMessage(e, 'Could not add this person'));
+        showDrawerSaveError(e, this.errors, this.message, 'Could not add this person');
       },
     });
   }

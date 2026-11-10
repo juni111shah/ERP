@@ -2,8 +2,8 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { createPagedList } from '@core/api/paged-list';
 import { ActivityRow, PlatformApi } from '@core/api/platform.api';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { PLATFORM_STYLES } from '../../platform-ui';
 
 /** Everything the platform team and the billing run have done, newest first. */

@@ -1,20 +1,18 @@
-import { doneText } from '@core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { AdminApi, SettingView } from '@core/api/admin.api';
-import { displayLabel } from '@core/format/display';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
-import { asProblem, problemMessage } from '@core/http/problem-details';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { CoaNumberingEditorComponent } from '@features/finance/coa/components/coa-numbering-editor/coa-numbering-editor.component';
-
-const MODULE_NAMES: Record<string, string> = { hr: 'HR and payroll', realestate: 'Real estate', crm: 'CRM', pos: 'Point of sale' };
+import { changedValues, groupSettings, settingsModuleName } from '../../admin-settings';
 
 /** Workspace settings grouped by module. Every setting is declared by core or a module; this page only renders them by type. */
 @Component({
@@ -34,22 +32,17 @@ export class SettingsPage {
   readonly loading = signal(true);
   readonly failed = signal(false);
   private readonly original = signal<Record<string, unknown>>({});
-  readonly groups = computed(() => {
-    const byModule = new Map<string, SettingView[]>();
-    for (const s of this.settings().filter((x) => x.type !== 'json')) byModule.set(s.module, [...(byModule.get(s.module) ?? []), s]);
-    return [...byModule].map(([module, items]) => ({ module, items }));
-  });
+  readonly groups = computed(() => groupSettings(this.settings()));
   readonly dirty = computed(() => Object.keys(this.draft()).some((k) => this.draft()[k] !== this.original()[k]));
 
   constructor() { this.load(); }
 
   set(key: string, value: unknown): void { this.draft.update((d) => ({ ...d, [key]: value })); }
 
+  /** Saves only the settings that were changed. */
   save(): void {
-    const changed: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(this.draft())) if (v !== this.original()[k]) changed[k] = v;
     this.saving.set(true);
-    this.api.saveSettings(changed).subscribe({
+    this.api.saveSettings(changedValues(this.draft(), this.original())).subscribe({
       next: () => { this.saving.set(false); this.message.success(doneText('saved', 'Workspace settings')); this.load(); },
       error: (e) => { this.saving.set(false); this.message.error(problemMessage(e, 'Could not save the settings')); },
     });
@@ -70,7 +63,5 @@ export class SettingsPage {
     });
   }
 
-  moduleName(module: string): string {
-    return module === 'core' ? 'General' : MODULE_NAMES[module] ?? displayLabel(module);
-  }
+  moduleName(module: string): string { return settingsModuleName(module); }
 }

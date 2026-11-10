@@ -1,4 +1,3 @@
-import { doneText } from '@core/format/done-text';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -15,8 +14,11 @@ import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { forkJoin } from 'rxjs';
 import { CurrencyOption } from '@core/api/admin.api';
 import { PlanView, PlatformApi, PlatformSettingsView, SignupMode } from '@core/api/platform.api';
+import { doneText } from '@core/format/done-text';
 import { applyProblemDetailsToForm, asProblem, controlError, problemMessage } from '@core/http/problem-details';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { revealErrors } from '@shared/forms/form-validation';
+import { SIGNUP_MODES, toPlatformSettingsInput } from '../../platform-forms';
 import { PLATFORM_STYLES } from '../../platform-ui';
 
 /** How the business runs: who may register, how billing behaves, and what clients see on their invoices. */
@@ -42,11 +44,7 @@ export class PlatformSettingsPage {
   private readonly api = inject(PlatformApi);
   private readonly message = inject(NzMessageService);
 
-  readonly modes: { value: SignupMode; label: string; hint: string }[] = [
-    { value: 'open', label: 'Open', hint: 'Anyone gets a workspace straight away.' },
-    { value: 'review', label: 'Review', hint: 'You approve each one before a workspace is created.' },
-    { value: 'closed', label: 'Closed', hint: 'The registration page says registration is closed and shows your support email.' },
-  ];
+  readonly modes = SIGNUP_MODES;
   readonly settings = signal<PlatformSettingsView | null>(null);
   readonly nextNumber = signal(1);
   readonly plans = signal<PlanView[]>([]);
@@ -80,6 +78,7 @@ export class PlatformSettingsPage {
 
   err(name: string): string { return controlError(this.form.get(name)); }
 
+  /** Shows saved settings: the form takes every value the server lets this page change. */
   private show(s: PlatformSettingsView): void {
     this.settings.set(s);
     this.nextNumber.set(s.nextInvoiceNumber);
@@ -97,16 +96,11 @@ export class PlatformSettingsPage {
 
   save(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); });
+      revealErrors(this.form);
       return;
     }
-    const v = this.form.getRawValue();
     this.saving.set(true);
-    this.api.saveSettings({
-      signupMode: v.signupMode!, requireEmailVerification: !!v.requireEmailVerification, defaultPlanId: v.defaultPlanId, currency: v.currency!, taxPercent: v.taxPercent ?? 0, taxLabel: v.taxLabel!, invoicePrefix: v.invoicePrefix!,
-      invoiceDueDays: v.invoiceDueDays ?? 0, renewalLeadDays: v.renewalLeadDays ?? 0, graceDays: v.graceDays ?? 0, suspendAfterDays: v.suspendAfterDays ?? 1,
-      companyName: v.companyName ?? '', companyAddress: v.companyAddress || null, companyTaxNumber: v.companyTaxNumber || null, supportEmail: v.supportEmail || null, termsUrl: v.termsUrl || null, paymentInstructions: v.paymentInstructions || null, aboutText: v.aboutText ?? '', termsText: v.termsText ?? '', privacyText: v.privacyText ?? '',
-    }).subscribe({
+    this.api.saveSettings(toPlatformSettingsInput(this.form.getRawValue())).subscribe({
       next: (s) => { this.saving.set(false); this.show(s); this.message.success(doneText('saved', 'Platform settings')); },
       error: (e) => {
         this.saving.set(false);

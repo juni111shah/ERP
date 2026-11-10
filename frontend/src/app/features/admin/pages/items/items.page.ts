@@ -1,30 +1,28 @@
+import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { catchError, of } from 'rxjs';
 import { ITEM_TYPES, ItemDto, ItemsApi, TaxCodesApi, yesNo } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
 import { SetupApi } from '@core/api/setup.api';
+import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
 
-import { DecimalPipe } from '@angular/common';
-import { NzTagModule } from 'ng-zorro-antd/tag';
-import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-
+/** The item catalogue (products and services): the paged list and the edit drawer, with the business's units and categories as suggestions. */
 @Component({
   selector: 'erp-items',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, NzTagModule, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [DecimalPipe, NzTagModule, NzToolTipModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   templateUrl: './items.page.html',
 })
 export class ItemsPage {

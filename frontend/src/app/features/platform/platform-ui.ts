@@ -1,8 +1,3 @@
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
-import { NzAlertModule } from 'ng-zorro-antd/alert';
-import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzModalModule } from 'ng-zorro-antd/modal';
 import { BillingCycle, ClientStartMode, InvoiceStatus, PlanView } from '@core/api/platform.api';
 import { SelectOption } from '@shared/components/record-drawer/record-drawer.component';
 
@@ -43,6 +38,7 @@ export const PLATFORM_STYLES = `
   }
 `;
 
+/** The client-list filter: every subscription status, plus clients waiting on a plan change. */
 export const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: 'planRequest', label: 'Asked for a plan change' },
   { value: 'trialing', label: 'On trial' }, { value: 'active', label: 'Active' }, { value: 'pastDue', label: 'Payment overdue' }, { value: 'expired', label: 'Trial ended' },
@@ -50,69 +46,22 @@ export const STATUS_FILTERS: { value: string; label: string }[] = [
 ];
 
 export { statusWords } from '@core/format/subscription';
+
+/** What a client can do in its workspace, in words. */
 export const ACCESS_WORDS: Record<string, string> = { full: 'Full access', readOnly: 'View only', blocked: 'Blocked' };
+
+/** A billing cycle in words ('' when there is none). */
 export function cycleWords(cycle: BillingCycle | null | undefined): string { return cycle === 'annual' ? 'Annual' : cycle === 'monthly' ? 'Monthly' : ''; }
+
+/** The status tag of an invoice: an overdue invoice shows as overdue. */
 export function invoiceTone(invoice: { status: InvoiceStatus; isOverdue: boolean }): string { return invoice.isOverdue ? 'overdue' : invoice.status; }
 
+/** The billing cycles a plan is sold on. */
 export const CYCLE_OPTIONS: SelectOption[] = [{ value: 'monthly', label: 'Monthly' }, { value: 'annual', label: 'Annual' }];
+/** How a subscription starts when a plan is assigned. */
 export const START_OPTIONS: { value: ClientStartMode; label: string }[] = [{ value: 'trial', label: 'Trial' }, { value: 'active', label: 'Active (paid from today)' }, { value: 'complimentary', label: 'Free of charge' }];
 
 /** Plans to offer when assigning: active ones, plus the current one when it has since been archived. */
 export function planOptions(plans: PlanView[], keep?: string | null): SelectOption[] {
   return plans.filter((p) => p.isActive || p.id === keep).map((p) => ({ value: p.id, label: p.name + (p.isActive ? '' : ' (archived)') + (p.isPublic ? '' : ' (private)') }));
-}
-
-export interface OneTimeSecret {
-  title: string;
-  /** Who or what the password is for. */
-  facts: { label: string; value: string }[];
-  /** null: the email already has an account, which keeps its own password. */
-  password: string | null;
-}
-
-/** A temporary password is shown once. There is no second chance to read it, and the dialog says so. */
-@Component({
-  selector: 'erp-one-time-password',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzAlertModule, NzButtonModule, NzIconModule, NzModalModule],
-  styleUrl: './platform-ui.scss',
-  templateUrl: './platform-ui.html',
-})
-export class OneTimePasswordComponent {
-  readonly secret = input<OneTimeSecret | null>(null);
-  readonly actionLabel = input('Done');
-  readonly closed = output<void>();
-  readonly copied = signal(false);
-  readonly copyFailed = signal(false);
-
-  close(): void {
-    this.copied.set(false);
-    this.copyFailed.set(false);
-    this.closed.emit();
-  }
-
-  copy(text: string): void {
-    this.copyFailed.set(false);
-    const done = () => this.copied.set(true);
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).then(done, () => this.copyFallback(text, done));
-    } else {
-      this.copyFallback(text, done);
-    }
-  }
-
-  /** Older browsers and pages not served over HTTPS have no clipboard API. If this fails too, the person copies it by hand. */
-  private copyFallback(text: string, done: () => void): void {
-    const area = document.createElement('textarea');
-    area.value = text;
-    area.setAttribute('readonly', '');
-    area.style.position = 'fixed';
-    area.style.opacity = '0';
-    document.body.appendChild(area);
-    area.select();
-    if (document.execCommand('copy')) done();
-    else this.copyFailed.set(true);
-    area.remove();
-  }
 }

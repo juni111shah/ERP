@@ -8,8 +8,10 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { AuthService } from '@core/auth/auth.service';
 import { asProblem } from '@core/http/problem-details';
 import { BrandLogoComponent } from '@shared/components/brand-logo/brand-logo.component';
+import { revealErrors } from '@shared/forms/form-validation';
 import { AUTH_STYLES, PASSWORD_HINT, PASSWORD_RULE } from '../../auth-layout';
 
+/** Sets a new password from the link in the reset email. */
 @Component({
   selector: 'erp-reset-password',
   standalone: true,
@@ -28,7 +30,7 @@ export class ResetPasswordPage {
   readonly error = signal<string | null>(null);
 
   submit(): void {
-    if (this.form.invalid) { this.form.controls.password.markAsDirty(); this.form.controls.password.updateValueAndValidity(); return; }
+    if (this.form.invalid) { revealErrors(this.form); return; }
     this.busy.set(true);
     this.auth.resetPassword(this.token(), this.form.getRawValue().password).subscribe({
       next: () => this.done.set(true),

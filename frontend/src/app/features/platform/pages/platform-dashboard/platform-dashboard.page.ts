@@ -10,13 +10,12 @@ import { LifecycleResult, PlatformApi, PlatformDashboard } from '@core/api/platf
 import { displayMoney } from '@core/format/display';
 import { problemMessage } from '@core/http/problem-details';
 import { ApexChartComponent } from '@shared/components/apex-chart/apex-chart.component';
-import { ErpDatePipe, ErpMoneyPipe } from '@shared/pipes/display.pipes';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { PLATFORM_STYLES, statusWords } from '../../platform-ui';
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+import { ErpDatePipe, ErpMoneyPipe } from '@shared/pipes/display.pipes';
+import { StatusCount, collectedChart, statusCounts } from '../../platform-dashboard-view';
+import { PLATFORM_STYLES } from '../../platform-ui';
 
 /** How the business stands today, and what needs doing first. */
 @Component({
@@ -51,18 +50,11 @@ export class PlatformDashboardPage {
 
   readonly chart = computed<DashboardChart | null>(() => {
     const d = this.data();
-    if (!d) return null;
-    return {
-      key: 'platform-collected', title: 'Collected', kind: 'bar', order: 0, singleColor: true,
-      categories: d.collected.map((m) => { const [y, mm] = m.month.split('-'); return `${MONTHS[+mm - 1]} ${y}`; }),
-      series: [{ name: 'Collected', values: d.collected.map((m) => m.amount) }],
-    };
+    return d ? collectedChart(d) : null;
   });
-  readonly statuses = computed(() => {
+  readonly statuses = computed((): StatusCount[] => {
     const d = this.data();
-    if (!d) return [];
-    const row = (key: 'trialing' | 'active' | 'pastDue' | 'expired' | 'suspended' | 'cancelled', count: number) => ({ key, tone: key, label: statusWords(key), count });
-    return [row('active', d.active), row('trialing', d.trialing), row('pastDue', d.pastDue), row('expired', d.expired), row('suspended', d.suspended), row('cancelled', d.cancelled), { key: 'none', tone: 'inactive', label: 'No plan', count: d.withoutPlan }];
+    return d ? statusCounts(d) : [];
   });
 
   constructor() { this.load(); }

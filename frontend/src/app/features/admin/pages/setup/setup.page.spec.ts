@@ -9,7 +9,8 @@ import { AuthService } from '@core/auth/auth.service';
 import { SessionStore } from '@core/session/session.store';
 import { APP_ICONS } from '../../../../icons';
 import { meWith } from '@features/industry/industry.fixtures.spec';
-import { SetupPage, sequenceExample } from './setup.page';
+import { sequenceExample } from '../../admin-setup';
+import { SetupPage } from './setup.page';
 
 const PROFILE: BusinessProfile = {
   industryCode: 'log-cargo', industryLabel: 'Freight and cargo', industryGroup: 'Logistics', suggestedModules: ['logistics'], missingModules: [],

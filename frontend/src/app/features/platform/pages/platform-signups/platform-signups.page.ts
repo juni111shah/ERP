@@ -8,13 +8,17 @@ import { createPagedList } from '@core/api/paged-list';
 import { IndustryOption, PlatformApi, SignupRow, SignupStatus } from '@core/api/platform.api';
 import { displayLabel } from '@core/format/display';
 import { problemMessage } from '@core/http/problem-details';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { askReason } from '@shared/utils/reason-prompt';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
+import { askReason } from '@shared/utils/reason-prompt';
 import { PLATFORM_STYLES, cycleWords } from '../../platform-ui';
 
-const TABS: { status: SignupStatus; label: string; empty: string; hint: string }[] = [
+/** One tab of registrations: the status it lists and what it says. */
+interface SignupTab { status: SignupStatus; label: string; empty: string; hint: string; }
+
+const TABS: SignupTab[] = [
   { status: 'pendingReview', label: 'Waiting for review', empty: 'No registrations are waiting for you', hint: 'Approving creates the workspace and starts its trial. They sign in with the password they chose.' },
   { status: 'pendingEmail', label: 'Email not confirmed', empty: 'Nobody is waiting on a confirmation email', hint: 'They have not opened the link yet. You can approve anyway if you know them.' },
   { status: 'provisioned', label: 'Created', empty: 'No workspace has been created from a registration yet', hint: '' },
@@ -58,7 +62,7 @@ export class PlatformSignupsPage {
   private readonly industries = signal<IndustryOption[]>([]);
 
   constructor() {
-    this.api.industries().subscribe({ next: (i) => this.industries.set(i), error: () => undefined });
+    loadInto(this.industries, this.api.industries());
   }
 
   industryName(key: string): string { return this.industries().find((i) => i.key === key)?.label ?? displayLabel(key); }
@@ -68,6 +72,7 @@ export class PlatformSignupsPage {
     this.list.setExtra({ status: TABS[index].status });
   }
 
+  /** After a decision: say so, reload the list and refresh the menu's waiting count (which the dashboard call updates). */
   private changed(text: string): void {
     this.message.success(text);
     this.list.reload();

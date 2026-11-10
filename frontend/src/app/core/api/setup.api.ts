@@ -35,6 +35,7 @@ export interface OwnerChart { categories: string[]; series: { name: string; valu
 export interface OwnerSection { key: string; title: string; cards: OwnerCard[]; table?: OwnerTable | null; chart?: OwnerChart | null; note?: string | null; }
 export interface OwnerDashboardDto { from: string; to: string; currency?: string | null; sections: OwnerSection[]; }
 
+/** The owner dashboard: the sections of key figures for a period and, optionally, one legal entity. */
 @Injectable({ providedIn: 'root' })
 export class OwnerDashboardApi {
   private readonly http = inject(HttpClient);

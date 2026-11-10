@@ -5,11 +5,14 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { ProblemDetails } from '@core/api/api.models';
 import { InvoiceStatus, PlatformApi } from '@core/api/platform.api';
 import { displayMoney } from '@core/format/display';
-import { asProblem, problemMessage } from '@core/http/problem-details';
-import { askReason } from '@shared/utils/reason-prompt';
+import { problemMessage } from '@core/http/problem-details';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { showDrawerSaveError } from '@shared/forms/save-errors';
+import { askReason } from '@shared/utils/reason-prompt';
+import { DrawerValue, paymentFields, toPaymentInput } from '../../platform-forms';
 
-const PAYMENT_METHODS = ['Bank transfer', 'Cash', 'Cheque', 'Other'];
+/** The invoice the actions are for. */
+export interface InvoiceActionTarget { id: string; number: string; status: InvoiceStatus; total: number; currency: string; }
 
 /** What can be done with one invoice: an open one takes a payment or is voided, a paid one can have its payment taken back. */
 @Component({
@@ -25,7 +28,7 @@ export class InvoiceActionsComponent {
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
 
-  readonly invoice = input.required<{ id: string; number: string; status: InvoiceStatus; total: number; currency: string }>();
+  readonly invoice = input.required<InvoiceActionTarget>();
   readonly clientName = input('the client');
   readonly changed = output<void>();
 
@@ -33,18 +36,14 @@ export class InvoiceActionsComponent {
   readonly saving = signal(false);
   readonly errors = signal<ProblemDetails | null>(null);
   readonly amount = computed(() => displayMoney(this.invoice().total, this.invoice().currency));
-  readonly fields: FieldSpec[] = [
-    { key: 'paidOn', label: 'Paid on', type: 'date', required: true, default: new Date() },
-    { key: 'method', label: 'Method', type: 'select', default: PAYMENT_METHODS[0], options: PAYMENT_METHODS.map((m) => ({ value: m, label: m })) },
-    { key: 'reference', label: 'Reference', type: 'text', maxLength: 200, hint: 'For example the bank transfer number.' },
-  ];
+  readonly fields: FieldSpec[] = paymentFields();
 
-  pay(value: Record<string, unknown>): void {
+  pay(value: DrawerValue): void {
     this.saving.set(true);
     this.errors.set(null);
-    this.api.recordPayment(this.invoice().id, { paidOn: value['paidOn'] as string, method: value['method'] as string | null, reference: value['reference'] as string | null }).subscribe({
+    this.api.recordPayment(this.invoice().id, toPaymentInput(value)).subscribe({
       next: () => { this.saving.set(false); this.open.set(false); this.message.success(`Payment recorded on ${this.invoice().number}`); this.changed.emit(); },
-      error: (e) => { this.saving.set(false); this.errors.set(asProblem(e)); if (!asProblem(e)?.errors) this.message.error(problemMessage(e, 'Could not record the payment')); },
+      error: (e) => { this.saving.set(false); showDrawerSaveError(e, this.errors, this.message, 'Could not record the payment'); },
     });
   }
 

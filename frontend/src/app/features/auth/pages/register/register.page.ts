@@ -13,22 +13,17 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { catchError, debounceTime, of, switchMap, tap } from 'rxjs';
 import { CountryDto, CurrencyOption } from '@core/api/admin.api';
-import { BillingCycle, IndustryOption, PlatformApi, groupIndustries, PublicPlan, SignupConfig, SignupResult } from '@core/api/platform.api';
-import { displayMoney } from '@core/format/display';
-import { suggestWorkspaceCode, yearlySaving } from '@core/format/subscription';
+import { BillingCycle, IndustryOption, PlatformApi, PublicPlan, SignupConfig, SignupResult, groupIndustries } from '@core/api/platform.api';
+import { suggestWorkspaceCode } from '@core/format/subscription';
 import { applyProblemDetailsToForm, asProblem, controlError } from '@core/http/problem-details';
 import { BrandAssistantComponent } from '@shared/components/brand-assistant/brand-assistant.component';
 import { BrandLogoComponent } from '@shared/components/brand-logo/brand-logo.component';
 import { PlanCardComponent } from '@shared/components/plan-card/plan-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { revealErrors } from '@shared/forms/form-validation';
 import { PASSWORD_HINT, PASSWORD_RULE } from '../../auth-layout';
+import { CODE_RULE, FIELD_MESSAGES, bestYearlySaving, planPriceText, registrationFailureText, toSignupInput } from '../../auth-register';
 import { RegisterResultComponent } from '../../components/register-result/register-result.component';
-
-const CODE_RULE = /^[a-zA-Z0-9][a-zA-Z0-9-]{1,48}$/;
-const FIELD_MESSAGES: Record<string, string> = {
-  businessName: 'Enter the business name.', signInKey: 'Use 2-49 letters, digits or dashes.', industry: 'Choose an industry.', countryCode: 'Choose a country.', baseCurrency: 'Choose a currency.',
-  contactName: 'Enter your name.', email: 'Enter a valid email address.', password: PASSWORD_HINT, acceptTerms: 'Please accept the terms to continue.',
-};
 
 /** The public way in: a business picks a plan and registers. What happens next depends on the founder's registration mode. */
 @Component({
@@ -77,46 +72,23 @@ export class RegisterPage {
     website: [''],
   });
 
-  readonly bestSaving = computed(() => {
-    const percents = (this.config()?.plans ?? []).map((p) => yearlySaving(p.monthlyPrice, p.annualPrice)?.percent ?? 0);
-    const best = Math.max(0, ...percents);
-    return best > 0 ? best : null;
-  });
+  readonly bestSaving = computed(() => bestYearlySaving(this.config()?.plans ?? []));
   readonly chosenPrice = computed(() => {
     const p = this.plan();
     if (!p) return '';
-    return this.cycle() === 'annual' ? `${displayMoney(p.annualPrice, p.currency)} a year` : `${displayMoney(p.monthlyPrice, p.currency)} a month`;
+    return planPriceText(p, this.cycle());
   });
+  /** The business types a new workspace can start with, grouped by sector. */
+  readonly groupedIndustries = computed(() => groupIndustries(this.industries()));
 
   /** time zone suggested by the chosen country; falls back to the browser's */
   private suggestedZone: string | null = null;
   private suggestedCurrency: string | null = null;
 
   constructor() {
-    const controls = this.form.controls;
-    controls.businessName.valueChanges.pipe(takeUntilDestroyed()).subscribe((name) => {
-      if (!this.codeEdited()) controls.signInKey.setValue(suggestWorkspaceCode(name));
-    });
-    controls.countryCode.valueChanges.pipe(takeUntilDestroyed()).subscribe((code) => {
-      const c = this.countries().find((x) => x.code === code);
-      if (!c) return;
-      this.suggestedZone = c.defaultTimeZone;
-      // Follows the country until the person picks a different currency.
-      const current = controls.baseCurrency.value;
-      if (!current || current === this.suggestedCurrency) controls.baseCurrency.setValue(c.defaultCurrency);
-      this.suggestedCurrency = c.defaultCurrency;
-    });
-    controls.signInKey.valueChanges.pipe(
-      tap((key) => { this.codeState.set(CODE_RULE.test(key.trim()) ? 'checking' : 'idle'); this.codeReason.set(null); }),
-      debounceTime(400),
-      // A failed check (a rate limit, a dropped connection) says nothing: the server checks again on submit.
-      switchMap((key) => (CODE_RULE.test(key.trim()) ? this.api.signInKeyAvailable(key.trim()).pipe(catchError(() => of(null))) : of(null))),
-      takeUntilDestroyed(this.destroyRef),
-    ).subscribe((r) => {
-      if (!r) { this.codeState.set('idle'); return; }
-      this.codeState.set(r.available ? 'free' : 'taken');
-      this.codeReason.set(r.reason);
-    });
+    this.followBusinessName();
+    this.followCountry();
+    this.checkCodeAvailability();
     this.load();
   }
 
@@ -136,8 +108,6 @@ export class RegisterPage {
     });
   }
 
-  /** The business types a new workspace can start with, grouped by sector. */
-  readonly groupedIndustries = computed(() => groupIndustries(this.industries()));
   err(name: string): string {
     const control = this.form.get(name);
     return control?.errors?.['server'] ?? FIELD_MESSAGES[name] ?? controlError(control);
@@ -152,27 +122,58 @@ export class RegisterPage {
   submit(): void {
     const form = this.form;
     if (form.invalid) {
-      Object.values(form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); });
+      revealErrors(form);
       return;
     }
-    const v = form.getRawValue();
+    const timeZone = this.suggestedZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
     this.busy.set(true);
     this.error.set(null);
-    this.api.register({
-      businessName: v.businessName.trim(), signInKey: v.signInKey.trim(), industry: v.industry, countryCode: v.countryCode, baseCurrency: v.baseCurrency,
-      timeZone: this.suggestedZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone, contactName: v.contactName.trim(), email: v.email.trim(), phone: v.phone.trim() || null, password: v.password,
-      planId: this.plan()?.id ?? null, cycle: this.cycle(), acceptTerms: v.acceptTerms, website: v.website || null,
-    }).subscribe({
+    this.api.register(toSignupInput(form.getRawValue(), timeZone, this.plan()?.id ?? null, this.cycle())).subscribe({
       next: (r) => { this.busy.set(false); this.form.controls.password.reset(''); this.result.set(r); },
       error: (e) => {
         this.busy.set(false);
         const p = asProblem(e);
         const rest = p ? applyProblemDetailsToForm(form, p) : [];
-        if (p?.status === 429) this.error.set('Too many attempts. Please wait a minute and try again.');
-        else if (p?.errors && !rest.length) this.error.set(null);
-        else this.error.set(rest[0] ?? p?.detail ?? p?.title ?? 'Could not create the workspace. Please try again.');
+        this.error.set(registrationFailureText(p, rest));
         if (form.controls.signInKey.errors?.['server']) this.codeState.set('idle');
       },
+    });
+  }
+
+  /** The workspace code follows the business name until the person edits it. */
+  private followBusinessName(): void {
+    const controls = this.form.controls;
+    controls.businessName.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((name) => {
+      if (!this.codeEdited()) controls.signInKey.setValue(suggestWorkspaceCode(name));
+    });
+  }
+
+  /** The chosen country suggests the time zone and the currency. */
+  private followCountry(): void {
+    const controls = this.form.controls;
+    controls.countryCode.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((code) => {
+      const c = this.countries().find((x) => x.code === code);
+      if (!c) return;
+      this.suggestedZone = c.defaultTimeZone;
+      // Follows the country until the person picks a different currency.
+      const current = controls.baseCurrency.value;
+      if (!current || current === this.suggestedCurrency) controls.baseCurrency.setValue(c.defaultCurrency);
+      this.suggestedCurrency = c.defaultCurrency;
+    });
+  }
+
+  /** Asks the server whether a well-formed workspace code is free, a moment after the person stops typing. */
+  private checkCodeAvailability(): void {
+    this.form.controls.signInKey.valueChanges.pipe(
+      tap((key) => { this.codeState.set(CODE_RULE.test(key.trim()) ? 'checking' : 'idle'); this.codeReason.set(null); }),
+      debounceTime(400),
+      // A failed check (a rate limit, a dropped connection) says nothing: the server checks again on submit.
+      switchMap((key) => (CODE_RULE.test(key.trim()) ? this.api.signInKeyAvailable(key.trim()).pipe(catchError(() => of(null))) : of(null))),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((r) => {
+      if (!r) { this.codeState.set('idle'); return; }
+      this.codeState.set(r.available ? 'free' : 'taken');
+      this.codeReason.set(r.reason);
     });
   }
 }

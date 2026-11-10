@@ -1,4 +1,3 @@
-import { doneText } from '@core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -12,14 +11,19 @@ import { forkJoin } from 'rxjs';
 import { CountryDto, CurrencyOption } from '@core/api/admin.api';
 import { ProblemDetails } from '@core/api/api.models';
 import { createPagedList } from '@core/api/paged-list';
-import { BillingCycle, ClientRow, ClientStartMode, IndustryOption, PlanView, PlatformApi, groupIndustries } from '@core/api/platform.api';
-import { suggestWorkspaceCode } from '@core/format/subscription';
-import { asProblem, problemMessage } from '@core/http/problem-details';
-import { ErpDatePipe, ErpMoneyPipe } from '@shared/pipes/display.pipes';
+import { BillingCycle, ClientRow, IndustryOption, PlanView, PlatformApi } from '@core/api/platform.api';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { CYCLE_OPTIONS, OneTimePasswordComponent, OneTimeSecret, PLATFORM_STYLES, START_OPTIONS, STATUS_FILTERS, cycleWords, planOptions, statusWords } from '../../platform-ui';
+import { showDrawerSaveError } from '@shared/forms/save-errors';
+import { ErpDatePipe, ErpMoneyPipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
+import { OneTimePasswordComponent, OneTimeSecret } from '../../components/one-time-password/one-time-password.component';
+import { newClientFields } from '../../platform-client-dialogs';
+import { DrawerValue, toCreateClientInput } from '../../platform-forms';
+import { PLATFORM_STYLES, STATUS_FILTERS, cycleWords, statusWords } from '../../platform-ui';
 
 /** Everyone who uses the ERP, how they stand, and a way to add one by hand. */
 @Component({
@@ -70,37 +74,14 @@ export class PlatformClientsPage {
   readonly secret = signal<OneTimeSecret | null>(null);
   private createdId: string | null = null;
 
-  readonly fields = computed<FieldSpec[]>(() => {
-    const countries = this.countries();
-    return [
-      { key: 'workspaceName', label: 'Business name', type: 'text', required: true, maxLength: 200, onChange: (v, form, prev) => {
-        const typed = form['signInKey'] as string | null;
-        return !typed || typed === suggestWorkspaceCode(prev['workspaceName'] as string) ? { signInKey: suggestWorkspaceCode(v as string) } : null;
-      } },
-      { key: 'signInKey', label: 'Workspace code', type: 'text', required: true, maxLength: 49, hint: 'What they use to reach this workspace. Letters, digits and dashes.' },
-      { key: 'industry', label: 'Industry', type: 'select', required: true, searchable: true, options: groupIndustries(this.industries()).flatMap((g) => g.items.map((i) => ({ value: i.key, label: i.label, group: g.group }))) },
-      { key: 'countryCode', label: 'Country', type: 'select', required: true, searchable: true, options: countries.map((c) => ({ value: c.code, label: c.name })), onChange: (v, form, prev) => {
-        const next = countries.find((c) => c.code === v)?.defaultCurrency;
-        const before = countries.find((c) => c.code === prev['countryCode'])?.defaultCurrency;
-        return next && (!form['baseCurrency'] || form['baseCurrency'] === before) ? { baseCurrency: next } : null;
-      } },
-      { key: 'baseCurrency', label: 'Currency', type: 'select', required: true, searchable: true, options: this.currencies().map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` })) },
-      { key: 'adminName', label: 'Administrator name', type: 'text', required: true, maxLength: 200 },
-      { key: 'adminEmail', label: 'Administrator email', type: 'text', required: true, maxLength: 256 },
-      { key: 'phone', label: 'Phone', type: 'text', maxLength: 40 },
-      { key: 'planId', label: 'Plan', type: 'select', required: true, options: planOptions(this.plans()) },
-      { key: 'cycle', label: 'Billing cycle', type: 'select', required: true, default: 'monthly', options: CYCLE_OPTIONS },
-      { key: 'startMode', label: 'How it starts', type: 'select', required: true, default: 'trial', options: START_OPTIONS, hint: 'Starting as active issues the first invoice straight away.' },
-      { key: 'trialDays', label: 'Trial days', type: 'number', min: 1, max: 365, precision: 0, hint: 'Leave empty to use the plan\'s trial.', hidden: (v) => v['startMode'] !== 'trial' },
-      { key: 'customPrice', label: 'Custom price per cycle', type: 'number', min: 0, hint: 'Leave empty to use the plan\'s price.', hidden: (v) => v['startMode'] === 'complimentary' },
-      { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 2000, hint: 'For your team only.' },
-    ];
-  });
+  readonly fields = computed<FieldSpec[]>(() =>
+    newClientFields({ countries: this.countries(), industries: this.industries(), currencies: this.currencies(), plans: this.plans() }));
 
   constructor() {
-    this.api.plans().pipe(takeUntilDestroyed()).subscribe({ next: (p) => this.plans.set(p), error: () => undefined });
+    loadInto(this.plans, this.api.plans().pipe(takeUntilDestroyed()));
   }
 
+  /** The list's query parameters: the status and plan filters that are set. */
   private extra(): Record<string, string> {
     const extra: Record<string, string> = {};
     if (this.status()) extra['status'] = this.status()!;
@@ -114,6 +95,7 @@ export class PlatformClientsPage {
   cycleText(cycle: BillingCycle | null): string { return cycleWords(cycle).toLowerCase(); }
   open(row: ClientRow): void { void this.router.navigate(['/platform/clients', row.orgId]); }
 
+  /** Opens the new-client drawer, loading its pick lists the first time. */
   newClient(): void {
     this.errors.set(null);
     if (this.countries().length) { this.drawerOpen.set(true); return; }
@@ -128,16 +110,10 @@ export class PlatformClientsPage {
     });
   }
 
-  save(v: Record<string, unknown>): void {
+  save(v: DrawerValue): void {
     this.saving.set(true);
     this.errors.set(null);
-    const startMode = v['startMode'] as ClientStartMode;
-    this.api.createClient({
-      workspaceName: v['workspaceName'] as string, signInKey: v['signInKey'] as string, industry: v['industry'] as string, countryCode: v['countryCode'] as string, baseCurrency: v['baseCurrency'] as string,
-      timeZone: this.countries().find((c) => c.code === v['countryCode'])?.defaultTimeZone ?? null, adminName: v['adminName'] as string, adminEmail: v['adminEmail'] as string, phone: v['phone'] as string | null,
-      planId: v['planId'] as string, cycle: v['cycle'] as BillingCycle, startMode, trialDays: startMode === 'trial' ? (v['trialDays'] as number | null) ?? null : null,
-      customPrice: startMode === 'complimentary' ? null : (v['customPrice'] as number | null) ?? null, notes: v['notes'] as string | null,
-    }).subscribe({
+    this.api.createClient(toCreateClientInput(v, this.countries())).subscribe({
       next: (created) => {
         this.saving.set(false);
         this.drawerOpen.set(false);
@@ -148,13 +124,12 @@ export class PlatformClientsPage {
       },
       error: (e) => {
         this.saving.set(false);
-        const problem = asProblem(e);
-        this.errors.set(problem);
-        if (!problem?.errors) this.message.error(problemMessage(e, 'Could not create the client'));
+        showDrawerSaveError(e, this.errors, this.message, 'Could not create the client');
       },
     });
   }
 
+  /** Closing the "client created" dialog opens the new client. */
   afterCreated(): void {
     this.secret.set(null);
     if (this.createdId) void this.router.navigate(['/platform/clients', this.createdId]);

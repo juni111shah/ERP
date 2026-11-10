@@ -3,23 +3,22 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { catchError, of } from 'rxjs';
 import { AdminApi, LegalEntitiesApi, LegalEntityDto, yesNo } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
+import { I18nService } from '@core/i18n/i18n.service';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { I18nService } from '@core/i18n/i18n.service';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
 
+/** The workspace's legal entities: the paged list and the edit drawer, with country, currency and tax registration. */
 @Component({
   selector: 'erp-legal-entities',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [NzToolTipModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Legal entities</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No legal entities yet" (rowClick)="state.edit($event)">

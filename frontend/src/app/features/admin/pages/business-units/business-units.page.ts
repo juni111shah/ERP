@@ -2,24 +2,23 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { BusinessUnitDto, BusinessUnitsApi, LegalEntitiesApi, yesNo } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
 
 /** What a business unit can be; any other word can be typed. */
 const BUSINESS_UNIT_KINDS = ['branch', 'store', 'site', 'department', 'warehouse'];
 
+/** Business units (branches, stores, sites...) of each legal entity: the paged list and the edit drawer. */
 @Component({
   selector: 'erp-business-units',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [NzToolTipModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Business units</h1>
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No business units yet" (rowClick)="state.edit($event)">

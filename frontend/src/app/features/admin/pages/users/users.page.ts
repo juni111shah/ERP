@@ -9,24 +9,25 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { AdminApi, RoleDto, RolesApi, UserSummary } from '@core/api/admin.api';
-import { applyProblemDetailsToForm, asProblem, problemMessage, controlError } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { matchText, TableToolsComponent } from '@shared/components/table-tools/table-tools.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { AdminApi, RoleDto, RolesApi, UserSummary } from '@core/api/admin.api';
+import { controlError, problemMessage } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
-
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { TableToolsComponent, matchText } from '@shared/components/table-tools/table-tools.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
+import { showFormSaveError } from '@shared/forms/save-errors';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { userInitials, userStats } from '../../admin-access';
 
 /** Users: invite, change roles, deactivate / reactivate. The server refuses to deactivate yourself or the last administrator. */
 @Component({
   selector: 'erp-users',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatePanelComponent, StatCardComponent, TranslatePipe, ReactiveFormsModule, FormsModule, HasPermissionDirective, RevealDirective, TableToolsComponent, NzToolTipModule, NzTableModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzSelectModule, NzTagModule, NzIconModule],
+  imports: [ErpDatePipe, StatePanelComponent, StatCardComponent, TranslatePipe, ReactiveFormsModule, FormsModule, HasPermissionDirective, TableToolsComponent, NzToolTipModule, NzTableModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzSelectModule, NzTagModule, NzIconModule],
   styleUrl: './users.page.scss',
   templateUrl: './users.page.html',
 })
@@ -41,18 +42,7 @@ export class UsersPage {
   readonly status = signal<'active' | 'inactive' | null>(null);
   /** Client-side filter: GET /admin/users takes no query parameters. */
   readonly shown = computed(() => this.users().filter((u) => matchText(this.q(), u.fullName, u.email, u.roles.join(' ')) && (!this.status() || u.isActive === (this.status() === 'active'))));
-
-  readonly stats = computed(() => {
-    const list = this.users();
-    const active = list.filter((u) => u.isActive).length;
-    const admins = list.filter((u) => u.roles.some((r) => r.toLowerCase().includes('admin'))).length;
-    const recent = list.filter((u) => !!u.lastSignInAt).length;
-    return { active, admins, recent, total: list.length };
-  });
-
-  initials(name?: string): string {
-    return (name || '').split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase() || 'U';
-  }
+  readonly stats = computed(() => userStats(this.users()));
 
   readonly loading = signal(false);
   readonly failed = signal(false);
@@ -68,6 +58,7 @@ export class UsersPage {
     this.rolesApi.list({ page: 1, pageSize: 100, sort: 'name' }).subscribe((r) => this.roles.set(r.items));
   }
 
+  initials(name?: string): string { return userInitials(name); }
   err(name: string): string { return controlError(this.form.get(name)); }
 
   load(): void {
@@ -76,6 +67,7 @@ export class UsersPage {
     this.api.users().subscribe({ next: (u) => { this.users.set(u); this.loading.set(false); }, error: () => { this.failed.set(true); this.loading.set(false); } });
   }
 
+  /** Opens the drawer: inviting needs a name and a valid email, editing only changes the roles. */
   open(user: UserSummary | null): void {
     this.editing.set(user);
     this.form.reset({ fullName: '', email: '', temporaryPassword: '', roleIds: user?.roleIds ?? [] });
@@ -94,7 +86,7 @@ export class UsersPage {
   }
 
   save(): void {
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { revealErrors(this.form); return; }
     const v = this.form.getRawValue();
     const user = this.editing();
     this.saving.set(true);
@@ -104,9 +96,7 @@ export class UsersPage {
       next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(user ? `Roles updated for ${user.fullName}` : `User ${v.fullName} invited`); this.load(); },
       error: (e) => {
         this.saving.set(false);
-        const p = asProblem(e);
-        const rest = p ? applyProblemDetailsToForm(this.form, p) : [];
-        this.message.error(rest[0] ?? p?.detail ?? p?.title ?? 'Could not save the user');
+        showFormSaveError(this.form, e, this.message, 'Could not save the user');
       },
     });
   }

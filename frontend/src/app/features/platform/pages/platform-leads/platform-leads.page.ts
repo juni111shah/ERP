@@ -9,13 +9,14 @@ import { forkJoin } from 'rxjs';
 import { BrandConversationRow, BrandLeadRow, BrandLeadStatus, BrandMessageRow, PlatformApi } from '@core/api/platform.api';
 import { problemMessage } from '@core/http/problem-details';
 import { AssistantTextComponent } from '@shared/components/assistant-text/assistant-text.component';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { RowActionsComponent } from '@shared/components/row-actions/row-actions.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { PLATFORM_STYLES } from '../../platform-ui';
-import { RowActionsComponent } from '@shared/components/row-actions/row-actions.component';
 
 const PAGE_SIZE = 100;
+const LEAD_STATUSES: { value: BrandLeadStatus; label: string }[] = [{ value: 'new', label: 'New' }, { value: 'contacted', label: 'Contacted' }, { value: 'won', label: 'Won' }, { value: 'lost', label: 'Lost' }];
 
 /** People who asked the public assistant to be contacted, and the public chats themselves. */
 @Component({
@@ -40,7 +41,7 @@ export class PlatformLeadsPage {
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
 
-  readonly statuses: { value: BrandLeadStatus; label: string }[] = [{ value: 'new', label: 'New' }, { value: 'contacted', label: 'Contacted' }, { value: 'won', label: 'Won' }, { value: 'lost', label: 'Lost' }];
+  readonly statuses = LEAD_STATUSES;
   readonly leads = signal<BrandLeadRow[]>([]);
   readonly conversations = signal<BrandConversationRow[]>([]);
   readonly chat = signal<BrandMessageRow[] | null>(null);

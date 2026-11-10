@@ -28,5 +28,7 @@ export const AUTH_STYLES = `
   a:hover { text-decoration: underline; color: #0c7648; }
 `;
 
+/** A password: at least 10 characters with an upper-case letter, a lower-case letter and a digit. */
 export const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{10,}$/;
+/** The password rule in words, shown under the field. */
 export const PASSWORD_HINT = 'At least 10 characters with an upper-case letter, a lower-case letter and a digit.';
