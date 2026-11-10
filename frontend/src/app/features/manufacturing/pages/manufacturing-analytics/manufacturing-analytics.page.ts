@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -6,6 +6,7 @@ import { ManufacturingKpiApi, ManufacturingKpisDto } from '@core/api/manufacturi
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 
+/** Manufacturing analytics: the month's work orders, output, yield and cost KPIs. */
 @Component({
   selector: 'erp-manufacturing-analytics-page',
   standalone: true,

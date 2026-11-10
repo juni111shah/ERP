@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { of, switchMap } from 'rxjs';
@@ -8,18 +8,14 @@ import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTableModule } from 'ng-zorro-antd/table';
+import { BomSummaryDto, CostRollupDto, CostVarianceDto, ManufacturingBomsApi, ManufacturingCostingApi } from '@core/api/manufacturing.api';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import {
-  BomSummaryDto,
-  CostRollupDto,
-  CostVarianceDto,
-  ManufacturingBomsApi,
-  ManufacturingCostingApi,
-} from '@core/api/manufacturing.api';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { varianceLabel, varianceTone } from '../../manufacturing-costing';
 
+/** Costing: a BOM's standard cost roll-up and how actual production cost compares with it. */
 @Component({
   selector: 'erp-manufacturing-costing-page',
   standalone: true,
@@ -49,14 +45,8 @@ export class ManufacturingCostingPageComponent implements OnInit {
   readonly batchUom = computed(() => this.selectedBom()?.uom ?? '');
 
   /** A dearer actual cost is unfavourable, a cheaper one favourable. */
-  readonly varianceLabel = computed(() => {
-    const amount = this.variance()?.varianceAmount ?? 0;
-    return amount === 0 ? 'On standard' : amount > 0 ? 'Over standard' : 'Under standard';
-  });
-  readonly varianceTone = computed(() => {
-    const amount = this.variance()?.varianceAmount ?? 0;
-    return amount === 0 ? 'normal' : amount > 0 ? 'overbudget' : 'ontrack';
-  });
+  readonly varianceLabel = computed(() => varianceLabel(this.variance()?.varianceAmount ?? 0));
+  readonly varianceTone = computed(() => varianceTone(this.variance()?.varianceAmount ?? 0));
 
   ngOnInit(): void {
     this.loadBoms();

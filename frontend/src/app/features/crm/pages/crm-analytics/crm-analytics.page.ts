@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzGridModule } from 'ng-zorro-antd/grid';
@@ -11,10 +11,11 @@ import { StatCardComponent } from '@shared/components/stat-card/stat-card.compon
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 
+/** CRM analytics: lead and deal KPIs and the expected value sitting in each pipeline stage. */
 @Component({
   selector: 'erp-crm-analytics-page',
   standalone: true,
-  imports: [DecimalPipe, RouterModule, NzGridModule, NzIconModule, NzButtonModule, NzSkeletonModule, StatCardComponent, StatePanelComponent, StatusTagComponent],
+  imports: [DecimalPipe, RouterModule, NzButtonModule, NzGridModule, NzIconModule, NzSkeletonModule, StatCardComponent, StatePanelComponent, StatusTagComponent],
   templateUrl: './crm-analytics.page.html',
   styleUrl: './crm-analytics.page.scss'
 })

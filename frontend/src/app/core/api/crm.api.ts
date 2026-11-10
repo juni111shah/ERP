@@ -170,6 +170,7 @@ export interface CrmKpisDto {
   winRatePercentage: number;
 }
 
+/** Leads: CRUD, status changes and conversion to a deal. */
 @Injectable({ providedIn: 'root' })
 export class CrmLeadsApi extends CrudApiService<LeadSummaryDto, Partial<LeadInput>> {
   protected readonly resource = 'm/crm/leads';
@@ -189,6 +190,7 @@ export class CrmLeadsApi extends CrudApiService<LeadSummaryDto, Partial<LeadInpu
   }
 }
 
+/** Deals (opportunities): CRUD, stage moves, closing and the pipeline summary. */
 @Injectable({ providedIn: 'root' })
 export class CrmOpportunitiesApi extends CrudApiService<OpportunitySummaryDto, Partial<OpportunityInput>> {
   protected readonly resource = 'm/crm/opportunities';
@@ -211,6 +213,7 @@ export class CrmOpportunitiesApi extends CrudApiService<OpportunitySummaryDto, P
   }
 }
 
+/** Customer activities (calls, meetings, emails...) and resolving them. */
 @Injectable({ providedIn: 'root' })
 export class CrmInteractionsApi extends CrudApiService<CustomerInteractionDto, Partial<CustomerInteractionInput>> {
   protected readonly resource = 'm/crm/interactions';
@@ -224,6 +227,7 @@ export class CrmInteractionsApi extends CrudApiService<CustomerInteractionDto, P
   }
 }
 
+/** The CRM KPI summary. */
 @Injectable({ providedIn: 'root' })
 export class CrmKpiApi {
   private readonly http = inject(HttpClient);

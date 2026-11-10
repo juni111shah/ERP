@@ -1,7 +1,5 @@
-import { doneText } from '@core/format/done-text';
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { problemMessage } from '@core/http/problem-details';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -19,67 +17,87 @@ import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { ItemDto, ItemsApi, LegalEntitiesApi } from '@core/api/admin.api';
-import { displayLabel } from '@core/format/display';
 import { createPagedList } from '@core/api/paged-list';
 import { PurchaseRequisitionStatus, PurchaseRequisitionsApi, RequisitionDto, RequisitionInput, RequisitionSummaryDto } from '@core/api/purchasing.api';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { toUtcIsoDate } from '@core/format/dates';
+import { displayLabel } from '@core/format/display';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { ApprovalStateComponent } from '@shared/components/approval-state/approval-state.component';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { PartiesApi } from '@core/api/parties.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { RequisitionLineValue, fillRequisitionLineFromItem, newRequisitionLine } from '../../purchasing-lines';
+import { PurchasingLookups } from '../../purchasing-lookups';
 
+/** The requisition form's raw value. */
+interface RequisitionFormValue {
+  legalEntityId: string;
+  number: string;
+  requesterName: string;
+  department: string;
+  requisitionDate: Date;
+  requiredDate: Date | null;
+  reason: string;
+  lines: RequisitionLineValue[];
+}
+
+/** Purchase requisitions: the paged list, the new-requisition drawer, approval moves and conversion to a purchase order. */
 @Component({
   selector: 'erp-purchase-requisitions',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ApprovalStateComponent, StatusTagComponent, ErpDatePipe, NzToolTipModule,
+  imports: [
     CommonModule,
     DecimalPipe,
     FormsModule,
     ReactiveFormsModule,
     RouterModule,
-    NzGridModule,
-    NzCardModule,
     NzButtonModule,
-    NzIconModule,
+    NzCardModule,
+    NzDatePickerModule,
     NzDrawerModule,
-    NzModalModule,
     NzFormModule,
+    NzGridModule,
+    NzIconModule,
     NzInputModule,
     NzInputNumberModule,
-    NzSelectModule,
-    NzDatePickerModule,
-    NzTableModule,
+    NzModalModule,
     NzPopconfirmModule,
-    PagedTableComponent,
+    NzSelectModule,
+    NzTableModule,
+    NzToolTipModule,
+    ApprovalStateComponent,
+    ErpDatePipe,
     HasPermissionDirective,
+    PagedTableComponent,
+    StatusTagComponent,
   ],
+  providers: [PurchasingLookups],
   templateUrl: './purchase-requisitions.page.html',
   styleUrl: './purchase-requisitions.page.scss',
 })
 export class PurchaseRequisitionsPage {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
-  private readonly reqsApi = inject(PurchaseRequisitionsApi);
-  private readonly entitiesApi = inject(LegalEntitiesApi);
   private readonly message = inject(NzMessageService);
+  private readonly reqsApi = inject(PurchaseRequisitionsApi);
+  private readonly lookups = inject(PurchasingLookups);
   private readonly currencyService = inject(WorkspaceCurrencyService);
-  private readonly partiesApi = inject(PartiesApi);
-  private readonly itemsApi = inject(ItemsApi);
 
   readonly currency = this.currencyService.currency;
   readonly list = createPagedList((q) => this.reqsApi.list(q), { sort: 'number' });
-  readonly entities = signal<{ id: string; name: string }[]>([]);
+  readonly entities = this.lookups.entities;
+  readonly vendors = this.lookups.vendors;
+  readonly items = this.lookups.items;
   readonly drawerVisible = signal(false);
   readonly isSubmitting = signal(false);
 
   readonly convertModalVisible = signal(false);
   readonly selectedReq = signal<RequisitionSummaryDto | null>(null);
-  readonly items = signal<ItemDto[]>([]);
-  readonly vendors = signal<{ id: string; name: string }[]>([]);
   readonly vendorId = signal<string | null>(null);
   readonly converting = signal(false);
   readonly itemsModalVisible = signal(false);
@@ -111,38 +129,12 @@ export class PurchaseRequisitionsPage {
   ];
 
   constructor() {
-    this.loadEntities();
-    this.loadVendors();
-    this.itemsApi.list({ page: 1, pageSize: 200, filters: [{ field: 'isActive', op: 'eq', value: true }] }).subscribe({
-      next: (res) => this.items.set(res.items),
-      error: () => {},
-    });
+    this.lookups.loadForRequisitions();
   }
 
   /** A line linked to an item keeps the link on the purchase order, so receiving it moves stock. */
   onItemSelected(index: number, itemId: string | null): void {
-    const it = this.items().find((x) => x.id === itemId);
-    const line = this.linesArray.at(index);
-    if (!it) {
-      line.patchValue({ itemCode: '' });
-      return;
-    }
-    line.patchValue({
-      itemCode: it.sku,
-      description: it.name,
-      unitOfMeasure: it.uom || 'EA',
-      estimatedUnitPrice: it.purchasePrice ?? line.value.estimatedUnitPrice ?? 0,
-    });
-  }
-
-  private loadVendors(): void {
-    this.partiesApi.list({ page: 1, pageSize: 200 }).subscribe({
-      next: (res) => {
-        const vendors = res.items.filter((p) => p.roles?.some((r) => r.toLowerCase() === 'vendor' || r.toLowerCase() === 'supplier'));
-        this.vendors.set(vendors.map((p) => ({ id: p.id, name: p.name })));
-      },
-      error: () => {},
-    });
+    fillRequisitionLineFromItem(this.linesArray.at(index), this.lookups.item(itemId));
   }
 
   viewItems(row: RequisitionSummaryDto): void {
@@ -152,13 +144,6 @@ export class PurchaseRequisitionsPage {
         this.itemsModalVisible.set(true);
       },
       error: () => this.message.error('Could not load the requested items.'),
-    });
-  }
-
-  loadEntities(): void {
-    this.entitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: (res) => this.entities.set(res.items.map((x) => ({ id: x.id, name: x.name }))),
-      error: () => {},
     });
   }
 
@@ -178,16 +163,7 @@ export class PurchaseRequisitionsPage {
   }
 
   addLine(): void {
-    this.linesArray.push(
-      this.fb.group({
-        itemId: [null],
-        itemCode: [''],
-        description: ['', Validators.required],
-        quantity: [1, [Validators.required, Validators.min(0.01)]],
-        unitOfMeasure: ['EA'],
-        estimatedUnitPrice: [0, [Validators.required, Validators.min(0)]],
-      })
-    );
+    this.linesArray.push(newRequisitionLine(this.fb));
   }
 
   removeLine(index: number): void {
@@ -196,27 +172,12 @@ export class PurchaseRequisitionsPage {
 
   submitForm(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach((c) => {
-        c.markAsDirty();
-        c.updateValueAndValidity({ onlySelf: true });
-      });
+      revealErrors(this.form, { onlySelf: true });
       return;
     }
 
     this.isSubmitting.set(true);
-    const raw = this.form.value;
-    const input: RequisitionInput = {
-      legalEntityId: raw.legalEntityId,
-      number: raw.number || null,
-      requesterName: raw.requesterName,
-      department: raw.department || null,
-      requisitionDate: new Date(raw.requisitionDate).toISOString().split('T')[0],
-      requiredDate: raw.requiredDate ? new Date(raw.requiredDate).toISOString().split('T')[0] : null,
-      reason: raw.reason || null,
-      lines: raw.lines,
-    };
-
-    this.reqsApi.create(input).subscribe({
+    this.reqsApi.create(this.toInput(this.form.value as RequisitionFormValue)).subscribe({
       next: (created) => {
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
@@ -248,7 +209,7 @@ export class PurchaseRequisitionsPage {
 
   submitConvertToOrder(): void {
     const req = this.selectedReq();
-    const vendor = this.vendors().find((v) => v.id === this.vendorId());
+    const vendor = this.lookups.vendor(this.vendorId());
     if (!req || !vendor) return;
     this.converting.set(true);
     this.reqsApi.convertToOrder(req.id, vendor.id, vendor.name).subscribe({
@@ -274,5 +235,19 @@ export class PurchaseRequisitionsPage {
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to delete')),
     });
+  }
+
+  /** The form as the API takes it (dates as their UTC day); the lines go as entered. */
+  private toInput(raw: RequisitionFormValue): RequisitionInput {
+    return {
+      legalEntityId: raw.legalEntityId,
+      number: raw.number || null,
+      requesterName: raw.requesterName,
+      department: raw.department || null,
+      requisitionDate: toUtcIsoDate(raw.requisitionDate),
+      requiredDate: raw.requiredDate ? toUtcIsoDate(raw.requiredDate) : null,
+      reason: raw.reason || null,
+      lines: raw.lines,
+    };
   }
 }

@@ -1,7 +1,5 @@
-import { doneText } from '@core/format/done-text';
 import { CommonModule } from '@angular/common';
-import { problemMessage } from '@core/http/problem-details';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -14,70 +12,76 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { LegalEntitiesApi } from '@core/api/admin.api';
-import {
-  CrmInteractionsApi,
-  CrmLeadsApi,
-  CrmOpportunitiesApi,
-  CustomerInteractionDto,
-  InteractionType
-} from '@core/api/crm.api';
-import { PartiesApi } from '@core/api/parties.api';
+import { CrmInteractionsApi, CrmLeadsApi, CrmOpportunitiesApi, CustomerInteractionDto, InteractionType } from '@core/api/crm.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { PartiesApi } from '@core/api/parties.api';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
 import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
+import { InteractionFormValue, interactionColor, interactionIcon, toInteractionInput } from '../../crm-interactions';
+import { CrmLookups, NamedOption, daysFromNow, leadOption, opportunityOption, partyOption } from '../../crm-lookups';
 
+/** Customer activities (calls, meetings, emails...): the paged list, logging one against a lead, deal or customer, and resolving it. */
 @Component({
   selector: 'erp-interactions-page',
   standalone: true,
-  imports: [ErpLabelPipe, ErpDatePipe,
+  imports: [
     CommonModule,
     ReactiveFormsModule,
-    NzCardModule,
-    NzButtonModule,
-    NzIconModule,
-    NzTagModule,
     NzBadgeModule,
+    NzButtonModule,
+    NzCardModule,
+    NzDatePickerModule,
     NzDrawerModule,
     NzFormModule,
+    NzIconModule,
     NzInputModule,
-    NzDatePickerModule,
     NzSelectModule,
-    PagedTableComponent,
+    NzTagModule,
+    ErpDatePipe,
+    ErpLabelPipe,
     HasPermissionDirective,
+    PagedTableComponent,
   ],
+  providers: [CrmLookups],
   templateUrl: './interactions.page.html',
   styleUrl: './interactions.page.scss'
 })
 export class InteractionsPageComponent implements OnInit {
   private readonly api = inject(CrmInteractionsApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly leadsApi = inject(CrmLeadsApi);
   private readonly oppsApi = inject(CrmOpportunitiesApi);
   private readonly partiesApi = inject(PartiesApi);
+  private readonly lookups = inject(CrmLookups);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
 
-  readonly list = createPagedList<CustomerInteractionDto>((q: any) => this.api.list(q));
-  readonly entities = signal<{ id: string; name: string }[]>([]);
-  readonly leads = signal<{ id: string; name: string }[]>([]);
-  readonly opportunities = signal<{ id: string; name: string }[]>([]);
-  readonly customers = signal<{ id: string; name: string }[]>([]);
+  readonly list = createPagedList<CustomerInteractionDto>((q) => this.api.list(q));
+  readonly entities = this.lookups.entities;
+  readonly leads = signal<NamedOption[]>([]);
+  readonly opportunities = signal<NamedOption[]>([]);
+  readonly customers = signal<NamedOption[]>([]);
 
   readonly currentRelatedKind = signal<string>('Lead');
-  readonly relatedOptions = computed(() => {
-    const kind = this.currentRelatedKind();
-    if (kind === 'Lead') return this.leads();
-    if (kind === 'Opportunity') return this.opportunities();
-    if (kind === 'Customer') return this.customers();
-    return [];
-  });
+  readonly relatedOptions = computed(() => this.optionsOf(this.currentRelatedKind()));
 
   readonly createVisible = signal(false);
   readonly isSubmitting = signal(false);
 
-  activityForm!: FormGroup;
+  readonly activityForm: FormGroup = this.fb.group({
+    legalEntityId: ['', [Validators.required]],
+    relatedEntityKind: ['Lead', [Validators.required]],
+    relatedEntityId: ['', [Validators.required]],
+    type: ['call', [Validators.required]],
+    subject: ['', [Validators.required]],
+    details: [''],
+    interactionDate: [new Date()],
+    followUpDate: [daysFromNow(3)]
+  });
 
   readonly columns: TableColumn<CustomerInteractionDto>[] = [
     { key: 'type', label: 'Activity Type', sortField: 'type', width: '130px', filterField: 'type', filterOptions: ['call', 'meeting', 'email', 'note', 'task'] },
@@ -91,73 +95,8 @@ export class InteractionsPageComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.initForm();
-    this.loadEntities();
+    this.lookups.loadEntities(this.activityForm);
     this.loadRelatedData();
-  }
-
-  private initForm(): void {
-    this.activityForm = this.fb.group({
-      legalEntityId: ['', [Validators.required]],
-      relatedEntityKind: ['Lead', [Validators.required]],
-      relatedEntityId: ['', [Validators.required]],
-      type: ['call', [Validators.required]],
-      subject: ['', [Validators.required]],
-      details: [''],
-      interactionDate: [new Date()],
-      followUpDate: [new Date(Date.now() + 3 * 86400000)]
-    });
-  }
-
-  private loadEntities(): void {
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => {
-        if (res.items) {
-          this.entities.set(res.items.map(e => ({ id: e.id, name: e.name })));
-          if (res.items.length > 0) {
-            this.activityForm.patchValue({ legalEntityId: res.items[0].id });
-          }
-        }
-      }
-    });
-  }
-
-  private loadRelatedData(): void {
-    this.leadsApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: (res) => {
-        const items = (res.items || []).map((l: any) => ({
-          id: l.id,
-          name: l.fullName || l.companyName || l.leadNumber || l.id,
-        }));
-        this.leads.set(items);
-        if (items.length > 0 && !this.activityForm.get('relatedEntityId')?.value) {
-          this.activityForm.patchValue({ relatedEntityId: items[0].id });
-        }
-      },
-      error: () => {},
-    });
-
-    this.oppsApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: (res) => {
-        const items = (res.items || []).map((o: any) => ({
-          id: o.id,
-          name: o.title || o.opportunityNumber || o.id,
-        }));
-        this.opportunities.set(items);
-      },
-      error: () => {},
-    });
-
-    this.partiesApi.list({ page: 1, pageSize: 100, extra: { type: 'customer' } }).subscribe({
-      next: (res) => {
-        const items = (res.items || []).map((p: any) => ({
-          id: p.id,
-          name: p.name || p.id,
-        }));
-        this.customers.set(items);
-      },
-      error: () => {},
-    });
   }
 
   /** The kind, with the name of the record when it is one of those loaded for the form. */
@@ -169,45 +108,26 @@ export class InteractionsPageComponent implements OnInit {
 
   onRelatedKindChange(kind: string): void {
     this.currentRelatedKind.set(kind);
-    let defaultId = '';
-    if (kind === 'Lead') defaultId = this.leads()[0]?.id || '';
-    else if (kind === 'Opportunity') defaultId = this.opportunities()[0]?.id || '';
-    else if (kind === 'Customer') defaultId = this.customers()[0]?.id || '';
-    this.activityForm.patchValue({ relatedEntityId: defaultId });
+    this.activityForm.patchValue({ relatedEntityId: this.optionsOf(kind)[0]?.id || '' });
   }
 
   getTypeColor(type: InteractionType): string {
-    switch (type) {
-      case 'call': return 'blue';
-      case 'meeting': return 'purple';
-      case 'email': return 'orange';
-      case 'note': return 'cyan';
-      case 'task': return 'geekblue';
-      default: return 'default';
-    }
+    return interactionColor(type);
   }
 
   getTypeIcon(type: InteractionType): string {
-    switch (type) {
-      case 'call': return 'phone';
-      case 'meeting': return 'team';
-      case 'email': return 'mail';
-      case 'note': return 'file-text';
-      case 'task': return 'check-square';
-      default: return 'message';
-    }
+    return interactionIcon(type);
   }
 
   openCreateDrawer(): void {
     this.currentRelatedKind.set('Lead');
-    const defaultLeadId = this.leads()[0]?.id || '';
     this.activityForm.reset({
       legalEntityId: this.entities()[0]?.id || '',
       relatedEntityKind: 'Lead',
-      relatedEntityId: defaultLeadId,
+      relatedEntityId: this.leads()[0]?.id || '',
       type: 'call',
       interactionDate: new Date(),
-      followUpDate: new Date(Date.now() + 3 * 86400000)
+      followUpDate: daysFromNow(3)
     });
     this.createVisible.set(true);
   }
@@ -224,29 +144,17 @@ export class InteractionsPageComponent implements OnInit {
 
   saveActivity(): void {
     if (this.activityForm.invalid) {
-      Object.values(this.activityForm.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      revealErrors(this.activityForm, { onlySelf: true });
       return;
     }
-    const v = this.activityForm.value;
+    const v = this.activityForm.value as InteractionFormValue;
     if (!v.relatedEntityId) {
       this.message.error('Please select a related record.');
       return;
     }
     this.isSubmitting.set(true);
 
-    const payload = {
-      legalEntityId: v.legalEntityId,
-      relatedEntityKind: v.relatedEntityKind,
-      relatedEntityId: v.relatedEntityId,
-      type: v.type,
-      subject: v.subject,
-      details: v.details,
-      interactionDate: v.interactionDate ? new Date(v.interactionDate).toISOString() : new Date().toISOString(),
-      followUpDate: v.followUpDate ? new Date(v.followUpDate).toISOString() : null,
-      isResolved: false
-    };
-
-    this.api.create(payload as any).subscribe({
+    this.api.create(toInteractionInput(v)).subscribe({
       next: () => {
         this.message.success(doneText('recorded', 'Activity', v.subject));
         this.createVisible.set(false);
@@ -258,5 +166,29 @@ export class InteractionsPageComponent implements OnInit {
         this.isSubmitting.set(false);
       }
     });
+  }
+
+  /** The records an activity of this kind can be logged against. */
+  private optionsOf(kind: string): NamedOption[] {
+    if (kind === 'Lead') return this.leads();
+    if (kind === 'Opportunity') return this.opportunities();
+    if (kind === 'Customer') return this.customers();
+    return [];
+  }
+
+  /** The leads (the first becomes the default related record), deals and customers an activity can be logged against. */
+  private loadRelatedData(): void {
+    this.leadsApi.list({ page: 1, pageSize: 100 }).subscribe({
+      next: (res) => {
+        const items = (res.items || []).map(leadOption);
+        this.leads.set(items);
+        if (items.length > 0 && !this.activityForm.get('relatedEntityId')?.value) {
+          this.activityForm.patchValue({ relatedEntityId: items[0].id });
+        }
+      },
+      error: () => {},
+    });
+    loadInto(this.opportunities, this.oppsApi.list({ page: 1, pageSize: 100 }), (res) => (res.items || []).map(opportunityOption));
+    loadInto(this.customers, this.partiesApi.list({ page: 1, pageSize: 100, extra: { type: 'customer' } }), (res) => (res.items || []).map(partyOption));
   }
 }

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
@@ -17,95 +17,109 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { ItemsApi, LegalEntitiesApi } from '@core/api/admin.api';
-import { SessionStore } from '@core/session/session.store';
-import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { createPagedList } from '@core/api/paged-list';
+import { ItemsApi } from '@core/api/admin.api';
 import {
-  CompleteTripInput,
   CreateTripInput,
-  DistributionRoutesApi,
   DistributionRouteSummaryDto,
+  DistributionRoutesApi,
   DistributionTripsApi,
   VanSalesTripDto,
-  VanSalesTripSummaryDto
+  VanSalesTripSummaryDto,
 } from '@core/api/distribution.api';
-import { WarehousesApi } from '@core/api/inventory.api';
+import { createPagedList } from '@core/api/paged-list';
 import { PartiesApi } from '@core/api/parties.api';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { toIsoDate } from '@core/format/dates';
 import { problemMessage } from '@core/http/problem-details';
+import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { SessionStore } from '@core/session/session.store';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
+import { DistributionLookups, NamedOption } from '../../distribution-lookups';
+import {
+  LoadedItem,
+  ReconcileLine,
+  TripCatalogItem,
+  TripFormValue,
+  addToLoad,
+  overAccountedLine,
+  toCompleteTripInput,
+  toReconcileLines,
+  toTripItems,
+  tripSalesTotal,
+  vanProducts,
+} from '../../distribution-trips';
 
+/** Van sales trips: the paged list, dispatching a loaded van, a trip's detail, and the end-of-day reconciliation. */
 @Component({
   selector: 'erp-van-trips-page',
   standalone: true,
-  imports: [ErpDatePipe, StatusTagComponent, NzToolTipModule, 
+  imports: [
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
-    NzCardModule,
-    NzButtonModule,
-    NzIconModule,
-    NzTagModule,
     NzBadgeModule,
-    NzModalModule,
+    NzButtonModule,
+    NzCardModule,
+    NzDatePickerModule,
+    NzDividerModule,
     NzDrawerModule,
     NzFormModule,
+    NzIconModule,
     NzInputModule,
     NzInputNumberModule,
-    NzDatePickerModule,
+    NzModalModule,
     NzSelectModule,
     NzTableModule,
-    NzDividerModule,
-    PagedTableComponent,
+    NzTagModule,
+    NzToolTipModule,
+    ErpDatePipe,
     HasPermissionDirective,
+    PagedTableComponent,
+    StatusTagComponent,
   ],
+  providers: [DistributionLookups],
   templateUrl: './van-trips.page.html',
   styleUrl: './van-trips.page.scss'
 })
 export class VanTripsPageComponent implements OnInit {
   private readonly tripsApi = inject(DistributionTripsApi);
   private readonly routesApi = inject(DistributionRoutesApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
-  private readonly warehousesApi = inject(WarehousesApi);
   private readonly itemsApi = inject(ItemsApi);
+  private readonly partiesApi = inject(PartiesApi);
+  private readonly lookups = inject(DistributionLookups);
   private readonly sessionStore = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
   private readonly currencyService = inject(WorkspaceCurrencyService);
 
   readonly currency = this.currencyService.currency;
-  readonly entities = signal<{ id: string; name: string }[]>([]);
-  readonly warehouses = signal<{ id: string; name: string }[]>([]);
+  readonly entities = this.lookups.entities;
+  readonly warehouses = this.lookups.warehouses;
   readonly routesList = signal<DistributionRouteSummaryDto[]>([]);
-  readonly catalogItems = signal<{ id: string; name: string; sku: string; uom: string; salesPrice?: number }[]>([]);
-  readonly loadedItems = signal<{ itemId: string; itemCode: string; itemName: string; uom: string; loadedQuantity: number; unitPrice: number }[]>([]);
+  readonly catalogItems = signal<TripCatalogItem[]>([]);
+  readonly loadedItems = signal<LoadedItem[]>([]);
   readonly selectedTrip = signal<VanSalesTripDto | null>(null);
   readonly reconcileTrip = signal<VanSalesTripDto | null>(null);
 
   readonly isSaving = signal(false);
   readonly isSavingReconcile = signal(false);
   readonly isDispatchModalVisible = signal(false);
+  readonly isReconcileModalVisible = signal(false);
+  readonly isDrawerVisible = signal(false);
 
   reconcileCollections = 0;
   reconcileCustomer: string | null = null;
   reconcileAllowUnaccounted = false;
-  readonly customers = signal<{ id: string; name: string }[]>([]);
-  private readonly partiesApi = inject(PartiesApi);
-
-  searchCustomers(term: string): void {
-    this.partiesApi.list({ page: 1, pageSize: 20, search: term, extra: { role: 'Customer' } }).subscribe({ next: (r) => this.customers.set(r.items.map((p) => ({ id: p.id, name: p.name }))), error: () => undefined });
-  }
-  readonly isReconcileModalVisible = signal(false);
-  readonly isDrawerVisible = signal(false);
+  readonly customers = signal<NamedOption[]>([]);
 
   selectedAddItemId: string | null = null;
   selectedAddQty = 1;
 
-  reconcileLines: { itemId: string; itemName: string; loadedQuantity: number; soldQuantity: number; returnedQuantity: number; damagedQuantity: number; unitPrice: number }[] = [];
+  reconcileLines: ReconcileLine[] = [];
   calcTotalSales = 0;
 
   readonly list = createPagedList<VanSalesTripSummaryDto>((q) => this.tripsApi.list(q), { sort: '-createdAt' });
@@ -133,29 +147,29 @@ export class VanTripsPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => this.entities.set(res.items)
-    });
-    this.warehousesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => this.warehouses.set(res.items)
-    });
+    this.lookups.loadEntities();
+    this.lookups.loadWarehouses();
     this.routesApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: res => this.routesList.set(res.items)
+      next: (res) => this.routesList.set(res.items)
     });
     this.itemsApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: res => this.catalogItems.set(res.items.filter(i => i.type === 'product' && i.isActive))
+      next: (res) => this.catalogItems.set(vanProducts(res.items))
     });
   }
 
+  searchCustomers(term: string): void {
+    loadInto(this.customers, this.partiesApi.list({ page: 1, pageSize: 20, search: term, extra: { role: 'Customer' } }), (r) =>
+      r.items.map((p) => ({ id: p.id, name: p.name })));
+  }
+
   onRouteSelected(routeId: string): void {
-    const route = this.routesList().find(r => r.id === routeId);
-    if (route) {
-      this.form.patchValue({
-        driverName: route.driverName || '',
-        vehicleNumber: route.vehicleNumber || '',
-        warehouseId: route.warehouseId || this.warehouses()[0]?.id || ''
-      });
-    }
+    const route = this.routesList().find((r) => r.id === routeId);
+    if (!route) return;
+    this.form.patchValue({
+      driverName: route.driverName || '',
+      vehicleNumber: route.vehicleNumber || '',
+      warehouseId: route.warehouseId || this.warehouses()[0]?.id || ''
+    });
   }
 
   openDispatchModal(): void {
@@ -170,14 +184,15 @@ export class VanTripsPageComponent implements OnInit {
       return;
     }
 
+    const firstRoute = this.routesList()[0];
     this.loadedItems.set([]);
     this.form.reset({
       legalEntityId,
-      routeId: this.routesList()[0]?.id || '',
+      routeId: firstRoute?.id || '',
       driverUserId: user.id,
-      driverName: this.routesList()[0]?.driverName || user.fullName || '',
-      vehicleNumber: this.routesList()[0]?.vehicleNumber || '',
-      warehouseId: this.routesList()[0]?.warehouseId || this.warehouses()[0]?.id || '',
+      driverName: firstRoute?.driverName || user.fullName || '',
+      vehicleNumber: firstRoute?.vehicleNumber || '',
+      warehouseId: firstRoute?.warehouseId || this.warehouses()[0]?.id || '',
       departureDate: new Date()
     });
     this.isDispatchModalVisible.set(true);
@@ -185,27 +200,9 @@ export class VanTripsPageComponent implements OnInit {
 
   addLoadedItem(): void {
     if (!this.selectedAddItemId || this.selectedAddQty <= 0) return;
-    const item = this.catalogItems().find(i => i.id === this.selectedAddItemId);
+    const item = this.catalogItems().find((i) => i.id === this.selectedAddItemId);
     if (!item) return;
-
-    const current = this.loadedItems();
-    const existingIdx = current.findIndex(i => i.itemId === item.id);
-    if (existingIdx >= 0) {
-      current[existingIdx].loadedQuantity += this.selectedAddQty;
-      this.loadedItems.set([...current]);
-    } else {
-      this.loadedItems.set([
-        ...current,
-        {
-          itemId: item.id,
-          itemCode: item.sku,
-          itemName: item.name,
-          uom: item.uom || 'PCS',
-          loadedQuantity: this.selectedAddQty,
-          unitPrice: item.salesPrice ?? 0
-        }
-      ]);
-    }
+    this.loadedItems.set(addToLoad(this.loadedItems(), item, this.selectedAddQty));
   }
 
   removeLoadedItem(idx: number): void {
@@ -216,7 +213,7 @@ export class VanTripsPageComponent implements OnInit {
 
   saveTrip(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      revealErrors(this.form, { onlySelf: true });
       return;
     }
     if (this.loadedItems().length === 0) {
@@ -225,7 +222,7 @@ export class VanTripsPageComponent implements OnInit {
     }
 
     this.isSaving.set(true);
-    const val = this.form.value;
+    const val = this.form.value as TripFormValue;
     const user = this.sessionStore.me()?.user;
     const driverUserId = val.driverUserId || user?.id;
     if (!driverUserId) {
@@ -246,14 +243,7 @@ export class VanTripsPageComponent implements OnInit {
       vehicleNumber: val.vehicleNumber,
       warehouseId: val.warehouseId,
       departureDate: toIsoDate(new Date(val.departureDate)),
-      items: this.loadedItems().map(i => ({
-        itemId: i.itemId,
-        itemCode: i.itemCode,
-        itemName: i.itemName,
-        uom: i.uom,
-        loadedQuantity: i.loadedQuantity,
-        unitPrice: i.unitPrice
-      }))
+      items: toTripItems(this.loadedItems())
     };
 
     this.tripsApi.create(input).subscribe({
@@ -272,7 +262,7 @@ export class VanTripsPageComponent implements OnInit {
 
   viewDetail(row: VanSalesTripSummaryDto): void {
     this.tripsApi.getDetail(row.id).subscribe({
-      next: detail => {
+      next: (detail) => {
         this.selectedTrip.set(detail);
         this.isDrawerVisible.set(true);
       },
@@ -282,17 +272,9 @@ export class VanTripsPageComponent implements OnInit {
 
   openReconcileModal(row: VanSalesTripSummaryDto): void {
     this.tripsApi.getDetail(row.id).subscribe({
-      next: detail => {
+      next: (detail) => {
         this.reconcileTrip.set(detail);
-        this.reconcileLines = detail.inventoryItems.map(i => ({
-          itemId: i.itemId,
-          itemName: i.itemName,
-          loadedQuantity: i.loadedQuantity,
-          soldQuantity: i.soldQuantity || i.loadedQuantity,
-          returnedQuantity: i.returnedQuantity || 0,
-          damagedQuantity: i.damagedQuantity || 0,
-          unitPrice: i.unitPrice
-        }));
+        this.reconcileLines = toReconcileLines(detail);
         this.calculateTripTotals();
         // A trip with no lines keeps the sales it already has, rather than dropping them to zero.
         if (this.reconcileLines.length === 0) this.calcTotalSales = detail.totalSalesAmount;
@@ -307,34 +289,26 @@ export class VanTripsPageComponent implements OnInit {
   }
 
   calculateTripTotals(): void {
-    // Rounded to cents: the server refuses amounts with more decimals.
-    this.calcTotalSales = Math.round(this.reconcileLines.reduce((acc, curr) => acc + (curr.soldQuantity * curr.unitPrice), 0) * 100) / 100;
+    this.calcTotalSales = tripSalesTotal(this.reconcileLines);
   }
 
   saveReconciliation(): void {
     const trip = this.reconcileTrip();
     if (!trip) return;
-    const over = this.reconcileLines.find(l => l.soldQuantity + l.returnedQuantity + l.damagedQuantity > l.loadedQuantity);
+    const over = overAccountedLine(this.reconcileLines);
     if (over) {
       this.msg.warning(`${over.itemName}: sold, returned and damaged are more than the ${over.loadedQuantity} loaded.`);
       return;
     }
 
     this.isSavingReconcile.set(true);
-    const input: CompleteTripInput = {
-      tripId: trip.id,
-      totalSalesAmount: this.calcTotalSales,
-      totalCollectionsAmount: this.reconcileCollections,
-      items: this.reconcileLines.map(l => ({
-        itemId: l.itemId,
-        soldQuantity: l.soldQuantity,
-        returnedQuantity: l.returnedQuantity,
-        damagedQuantity: l.damagedQuantity
-      })),
-      customerPartyId: this.reconcileCustomer,
-      allowUnaccounted: this.reconcileAllowUnaccounted,
-      notes: 'End of day field van reconciliation'
-    };
+    const input = toCompleteTripInput(
+      trip.id,
+      this.reconcileLines,
+      { sales: this.calcTotalSales, collections: this.reconcileCollections },
+      this.reconcileCustomer,
+      this.reconcileAllowUnaccounted,
+    );
 
     this.tripsApi.completeTrip(trip.id, input).subscribe({
       next: (done) => {

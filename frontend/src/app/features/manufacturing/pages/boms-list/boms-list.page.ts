@@ -1,6 +1,5 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -14,16 +13,29 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { ItemDto, ItemsApi, LegalEntitiesApi } from '@core/api/admin.api';
-import { BomDto, BomInput, BomSummaryDto, ManufacturingBomsApi } from '@core/api/manufacturing.api';
+import { ItemDto, ItemsApi } from '@core/api/admin.api';
+import { BomComponentDto, BomDto, BomSummaryDto, ManufacturingBomsApi } from '@core/api/manufacturing.api';
 import { createPagedList } from '@core/api/paged-list';
+import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { setControlsEnabled } from '@shared/forms/set-controls-enabled';
+import {
+  BOM_CREATE_ONLY_FIELDS,
+  BomFormValue,
+  bomComponentGroup,
+  bomEditValues,
+  emptyBomForm,
+  revealLeafErrors,
+  toBomInput,
+} from '../../manufacturing-boms';
+import { ManufacturingLookups } from '../../manufacturing-lookups';
 
+/** Bills of materials: the paged list, a BOM's components, and the create / edit drawer with its component rows. */
 @Component({
   selector: 'erp-boms-list-page',
   standalone: true,
@@ -31,34 +43,35 @@ import { StatusTagComponent } from '@shared/components/status-tag/status-tag.com
     DecimalPipe,
     ReactiveFormsModule,
     NzButtonModule,
-    NzIconModule,
-    NzSwitchModule,
     NzDrawerModule,
     NzFormModule,
+    NzIconModule,
     NzInputModule,
     NzInputNumberModule,
     NzPopconfirmModule,
     NzSelectModule,
+    NzSwitchModule,
     NzTableModule,
     NzToolTipModule,
-    PagedTableComponent,
     HasPermissionDirective,
+    PagedTableComponent,
     StatusTagComponent,
   ],
+  providers: [ManufacturingLookups],
   templateUrl: './boms-list.page.html',
   styleUrl: './boms-list.page.scss',
 })
 export class BomsListPageComponent implements OnInit {
   private readonly api = inject(ManufacturingBomsApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly itemsApi = inject(ItemsApi);
+  private readonly lookups = inject(ManufacturingLookups);
   private readonly session = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
 
   readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly list = createPagedList<BomSummaryDto>((q) => this.api.list(q), { sort: '-createdAt' });
-  readonly legalEntities = signal<{ id: string; name: string }[]>([]);
+  readonly legalEntities = this.lookups.legalEntities;
   private readonly items = signal<ItemDto[]>([]);
   /** The server only takes product items, both to produce and as components. */
   readonly products = computed(() => this.items().filter((i) => i.type === 'product' && i.isActive));
@@ -105,13 +118,11 @@ export class BomsListPageComponent implements OnInit {
     this.itemsApi.list({ page: 1, pageSize: 200 }).subscribe({
       next: (res) => this.items.set(res.items ?? []),
     });
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: (res) => this.legalEntities.set(res.items.map((e) => ({ id: e.id, name: e.name }))),
-    });
+    this.lookups.loadEntities();
   }
 
   onProducedItemSelected(itemId: string): void {
-    const it = this.items().find((x) => x.id === itemId);
+    const it = this.item(itemId);
     if (!it) return;
     this.bomForm.patchValue({
       producedItemCode: it.sku,
@@ -122,7 +133,7 @@ export class BomsListPageComponent implements OnInit {
   }
 
   onComponentItemSelected(index: number, itemId: string): void {
-    const it = this.items().find((x) => x.id === itemId);
+    const it = this.item(itemId);
     if (!it) return;
     const row = this.componentsArray.at(index);
     row.patchValue({
@@ -131,19 +142,6 @@ export class BomsListPageComponent implements OnInit {
       uom: it.uom || 'PCS',
       // A cost already typed is kept; the catalog only fills an empty one.
       unitCost: row.value.unitCost || it.purchasePrice || 0,
-    });
-  }
-
-  private componentGroup(c?: Partial<BomDto['components'][number]>): FormGroup {
-    return this.fb.group({
-      componentItemId: [c?.componentItemId ?? null, Validators.required],
-      componentItemCode: [c?.componentItemCode ?? ''],
-      componentItemName: [c?.componentItemName ?? ''],
-      quantityRequired: [c?.quantityRequired ?? 1, [Validators.required, Validators.min(0.0001)]],
-      uom: [c?.uom ?? 'PCS'],
-      scrapPercentage: [c?.scrapPercentage ?? 0, [Validators.min(0), Validators.max(100)]],
-      unitCost: [c?.unitCost ?? 0, [Validators.required, Validators.min(0)]],
-      notes: [c?.notes ?? null],
     });
   }
 
@@ -160,35 +158,12 @@ export class BomsListPageComponent implements OnInit {
     this.componentsArray.removeAt(index);
   }
 
-  /** Legal entity, code and product cannot change on an existing BOM, so they are not validated when editing. */
-  private setCreateFieldsEnabled(enabled: boolean): void {
-    for (const key of ['legalEntityId', 'code', 'producedItemId']) {
-      const control = this.bomForm.get(key)!;
-      if (enabled) control.enable({ emitEvent: false });
-      else control.disable({ emitEvent: false });
-    }
-  }
-
   openCreateDrawer(): void {
     this.editingBom.set(null);
-    this.setCreateFieldsEnabled(true);
+    setControlsEnabled(this.bomForm, BOM_CREATE_ONLY_FIELDS, true);
     this.componentsArray.clear();
-    const entity = this.legalEntities().find((e) => e.id === this.session.currentEntityId()) ?? this.legalEntities()[0];
-    this.bomForm.reset({
-      legalEntityId: entity?.id ?? '',
-      code: '',
-      producedItemId: null,
-      producedItemCode: '',
-      producedItemName: '',
-      name: '',
-      outputQuantity: 1,
-      uom: 'PCS',
-      version: '1.0',
-      laborCostPerUnit: 0,
-      overheadCostPerUnit: 0,
-      isActive: true,
-      description: '',
-    });
+    const entity = this.lookups.defaultEntity(this.session.currentEntityId());
+    this.bomForm.reset(emptyBomForm(entity?.id ?? ''));
     this.addComponent();
     this.createVisible.set(true);
   }
@@ -197,19 +172,10 @@ export class BomsListPageComponent implements OnInit {
     this.api.getDetail(row.id).subscribe({
       next: (bom) => {
         this.editingBom.set(bom);
-        this.setCreateFieldsEnabled(false);
+        setControlsEnabled(this.bomForm, BOM_CREATE_ONLY_FIELDS, false);
         this.componentsArray.clear();
         bom.components.forEach((c) => this.componentsArray.push(this.componentGroup(c)));
-        this.bomForm.patchValue({
-          name: bom.name,
-          outputQuantity: bom.outputQuantity,
-          uom: bom.uom,
-          version: bom.version,
-          laborCostPerUnit: bom.laborCostPerUnit,
-          overheadCostPerUnit: bom.overheadCostPerUnit,
-          isActive: bom.isActive,
-          description: bom.description ?? '',
-        });
+        this.bomForm.patchValue(bomEditValues(bom));
         this.createVisible.set(true);
       },
       error: (err) => this.message.error(problemMessage(err, 'The bill of materials could not be loaded')),
@@ -228,34 +194,13 @@ export class BomsListPageComponent implements OnInit {
 
   saveBom(): void {
     if (this.bomForm.invalid) {
-      const mark = (group: FormGroup | FormArray) => Object.values(group.controls).forEach((c) => {
-        if (c instanceof FormGroup || c instanceof FormArray) mark(c);
-        else { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); }
-      });
-      mark(this.bomForm);
+      revealLeafErrors(this.bomForm);
       this.message.warning('Fill in the highlighted fields, including every component');
       return;
     }
     this.isSubmitting.set(true);
-    const v = this.bomForm.getRawValue();
     const editing = this.editingBom();
-    const payload: BomInput = {
-      legalEntityId: v.legalEntityId,
-      code: v.code,
-      name: v.name,
-      producedItemId: v.producedItemId,
-      producedItemCode: v.producedItemCode,
-      producedItemName: v.producedItemName,
-      outputQuantity: v.outputQuantity,
-      uom: v.uom,
-      version: v.version,
-      laborCostPerUnit: v.laborCostPerUnit ?? 0,
-      overheadCostPerUnit: v.overheadCostPerUnit ?? 0,
-      isActive: v.isActive,
-      description: v.description || null,
-      components: v.components.map((c: BomInput['components'][number]) => ({ ...c, scrapPercentage: c.scrapPercentage ?? 0 })),
-      customFields: editing?.customFields ?? null,
-    };
+    const payload = toBomInput(this.bomForm.getRawValue() as BomFormValue, editing);
     const request = editing ? this.api.update(editing.id, payload) : this.api.create(payload);
     request.subscribe({
       next: () => {
@@ -279,5 +224,13 @@ export class BomsListPageComponent implements OnInit {
       },
       error: (err) => this.message.error(problemMessage(err, 'The bill of materials could not be deleted')),
     });
+  }
+
+  private item(id: string): ItemDto | undefined {
+    return this.items().find((x) => x.id === id);
+  }
+
+  private componentGroup(c?: Partial<BomComponentDto>): FormGroup {
+    return bomComponentGroup(this.fb, c);
   }
 }

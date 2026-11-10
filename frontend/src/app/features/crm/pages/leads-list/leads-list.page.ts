@@ -1,13 +1,12 @@
-import { doneText } from '@core/format/done-text';
 import { CommonModule } from '@angular/common';
-import { problemMessage } from '@core/http/problem-details';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
+import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
@@ -15,56 +14,69 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { LegalEntitiesApi } from '@core/api/admin.api';
-import {
-  CrmLeadsApi,
-  LeadStatus,
-  LeadSummaryDto
-} from '@core/api/crm.api';
+import { CrmLeadsApi, LeadInput, LeadStatus, LeadSummaryDto } from '@core/api/crm.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { toUtcIsoDate } from '@core/format/dates';
+import { displayLabel } from '@core/format/display';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
+import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { displayLabel } from '@core/format/display';
-import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
+import { CrmLookups, daysFromNow } from '../../crm-lookups';
 
 /** A lead becomes Converted only through the convert action. */
 const STATUSES: LeadStatus[] = ['new', 'contacted', 'qualified', 'unqualified'];
 
+/** The lead form's raw value, as the API takes it. */
+type LeadFormValue = Pick<LeadInput, 'legalEntityId' | 'fullName' | 'companyName' | 'jobTitle' | 'email' | 'phone' | 'source' | 'estimatedValue' | 'notes'>;
+
+/** The convert-lead form's raw value. */
+interface ConvertLeadFormValue {
+  opportunityTitle: string;
+  expectedRevenue: number;
+  expectedCloseDate: Date | null;
+}
+
+/** Leads: the paged list, the new-lead drawer, status moves and converting a lead into a deal. */
 @Component({
   selector: 'erp-leads-list-page',
   standalone: true,
-  imports: [StatusTagComponent, NzDropDownModule,
+  imports: [
     CommonModule,
     ReactiveFormsModule,
-    NzCardModule,
-    NzButtonModule,
-    NzIconModule,
     NzBadgeModule,
-    NzModalModule,
+    NzButtonModule,
+    NzCardModule,
+    NzDatePickerModule,
     NzDrawerModule,
+    NzDropDownModule,
     NzFormModule,
+    NzIconModule,
     NzInputModule,
     NzInputNumberModule,
-    NzDatePickerModule,
+    NzModalModule,
     NzSelectModule,
-    PagedTableComponent,
     HasPermissionDirective,
+    PagedTableComponent,
+    StatusTagComponent,
   ],
+  providers: [CrmLookups],
   templateUrl: './leads-list.page.html',
   styleUrl: './leads-list.page.scss'
 })
 export class LeadsListPageComponent implements OnInit {
   private readonly api = inject(CrmLeadsApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly lookups = inject(CrmLookups);
   private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
 
   readonly currency = this.currencyService.currency;
-  readonly list = createPagedList<LeadSummaryDto>((q: any) => this.api.list(q));
-  readonly entities = signal<{ id: string; name: string }[]>([]);
+  readonly list = createPagedList<LeadSummaryDto>((q) => this.api.list(q));
+  readonly entities = this.lookups.entities;
 
   readonly createVisible = signal(false);
   readonly convertModalVisible = signal(false);
@@ -73,8 +85,23 @@ export class LeadsListPageComponent implements OnInit {
   readonly isConverting = signal(false);
   readonly selectedLead = signal<LeadSummaryDto | null>(null);
 
-  leadForm!: FormGroup;
-  convertForm!: FormGroup;
+  readonly leadForm: FormGroup = this.fb.group({
+    legalEntityId: ['', [Validators.required]],
+    fullName: ['', [Validators.required]],
+    companyName: [''],
+    jobTitle: [''],
+    email: ['', [Validators.email]],
+    phone: [''],
+    source: ['website'],
+    estimatedValue: [0, [Validators.required, Validators.min(0)]],
+    notes: ['']
+  });
+
+  readonly convertForm: FormGroup = this.fb.group({
+    opportunityTitle: ['', [Validators.required]],
+    expectedRevenue: [0, [Validators.required, Validators.min(0)]],
+    expectedCloseDate: [daysFromNow(30)]
+  });
 
   // The CRM list endpoints accept no sort, filter or search fields yet, so the table offers none of those from the server (the header filters work on the loaded page).
   readonly columns: TableColumn<LeadSummaryDto>[] = [
@@ -91,41 +118,7 @@ export class LeadsListPageComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.initForms();
-    this.loadEntities();
-  }
-
-  private initForms(): void {
-    this.leadForm = this.fb.group({
-      legalEntityId: ['', [Validators.required]],
-      fullName: ['', [Validators.required]],
-      companyName: [''],
-      jobTitle: [''],
-      email: ['', [Validators.email]],
-      phone: [''],
-      source: ['website'],
-      estimatedValue: [0, [Validators.required, Validators.min(0)]],
-      notes: ['']
-    });
-
-    this.convertForm = this.fb.group({
-      opportunityTitle: ['', [Validators.required]],
-      expectedRevenue: [0, [Validators.required, Validators.min(0)]],
-      expectedCloseDate: [new Date(Date.now() + 30 * 86400000)]
-    });
-  }
-
-  private loadEntities(): void {
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => {
-        if (res.items) {
-          this.entities.set(res.items.map(e => ({ id: e.id, name: e.name })));
-          if (res.items.length > 0) {
-            this.leadForm.patchValue({ legalEntityId: res.items[0].id });
-          }
-        }
-      }
-    });
+    this.lookups.loadEntities(this.leadForm);
   }
 
   label(value: string): string { return displayLabel(value); }
@@ -163,18 +156,18 @@ export class LeadsListPageComponent implements OnInit {
     this.convertForm.patchValue({
       opportunityTitle: `${row.companyName || row.fullName} - Deal`,
       expectedRevenue: row.estimatedValue,
-      expectedCloseDate: new Date(Date.now() + 30 * 86400000)
+      expectedCloseDate: daysFromNow(30)
     });
     this.convertModalVisible.set(true);
   }
 
   saveLead(): void {
     if (this.leadForm.invalid) {
-      Object.values(this.leadForm.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      revealErrors(this.leadForm, { onlySelf: true });
       return;
     }
     this.isSubmitting.set(true);
-    const v = this.leadForm.value;
+    const v = this.leadForm.value as LeadFormValue;
 
     this.api.create(v).subscribe({
       next: () => {
@@ -196,13 +189,12 @@ export class LeadsListPageComponent implements OnInit {
     if (!lead) return;
 
     this.isConverting.set(true);
-    const v = this.convertForm.value;
-    const closeDate = v.expectedCloseDate ? new Date(v.expectedCloseDate).toISOString().slice(0, 10) : undefined;
+    const v = this.convertForm.value as ConvertLeadFormValue;
 
     this.api.convert(lead.id, {
       opportunityTitle: v.opportunityTitle,
       expectedRevenue: v.expectedRevenue,
-      expectedCloseDate: closeDate
+      expectedCloseDate: v.expectedCloseDate ? toUtcIsoDate(v.expectedCloseDate) : undefined
     }).subscribe({
       next: () => {
         this.message.success(`${lead.leadNumber} converted. Deal ${v.opportunityTitle} is in the pipeline.`);
