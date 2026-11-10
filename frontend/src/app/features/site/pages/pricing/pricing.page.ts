@@ -17,7 +17,8 @@ import { BrandLogoComponent } from '@shared/components/brand-logo/brand-logo.com
 import { PlanCardComponent } from '@shared/components/plan-card/plan-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { FitDirective, InViewDirective, TiltDirective } from '../../pricing-fx';
-import { PhoneComponent, PricingMobileComponent } from '../../components/pricing-mobile/pricing-mobile.component';
+import { PhoneComponent } from '../../components/phone/phone.component';
+import { PricingMobileComponent } from '../../components/pricing-mobile/pricing-mobile.component';
 import { WebDashComponent } from '../../components/pricing-web-dash/pricing-web-dash.component';
 import { PRICING_STYLES } from '../../pricing.styles';
 
@@ -33,7 +34,7 @@ const SALES_STEPS = ['Quote', 'Order', 'Delivery', 'Invoice', 'Payment'];
   templateUrl: './pricing.page.html',
 })
 export class PricingPage {
-  private readonly api = inject(PlatformApi);
+  private readonly platformApi = inject(PlatformApi);
   private readonly router = inject(Router);
   private readonly session = inject(SessionStore);
 
@@ -49,11 +50,11 @@ export class PricingPage {
   readonly cycle = signal<BillingCycle>('monthly');
 
   // The page still makes sense without any of these, so a failed call only hides its section.
-  private readonly content = toSignal(this.api.publicContent().pipe(catchError(() => of(null as PublicContent | null))), { initialValue: null as PublicContent | null });
-  private readonly allModules = toSignal(this.api.publicModules().pipe(catchError(() => of([] as PublicModule[]))), { initialValue: [] as PublicModule[] });
-  private readonly allIndustries = toSignal(this.api.industries().pipe(catchError(() => of([] as IndustryOption[]))), { initialValue: [] as IndustryOption[] });
-  private readonly countries = toSignal(this.api.countries().pipe(catchError(() => of([] as CountryDto[]))), { initialValue: [] as CountryDto[] });
-  private readonly legal = toSignal(this.api.legal().pipe(catchError(() => of(null as LegalDocuments | null))), { initialValue: null as LegalDocuments | null });
+  private readonly content = toSignal(this.platformApi.publicContent().pipe(catchError(() => of(null as PublicContent | null))), { initialValue: null as PublicContent | null });
+  private readonly allModules = toSignal(this.platformApi.publicModules().pipe(catchError(() => of([] as PublicModule[]))), { initialValue: [] as PublicModule[] });
+  private readonly allIndustries = toSignal(this.platformApi.industries().pipe(catchError(() => of([] as IndustryOption[]))), { initialValue: [] as IndustryOption[] });
+  private readonly countries = toSignal(this.platformApi.countries().pipe(catchError(() => of([] as CountryDto[]))), { initialValue: [] as CountryDto[] });
+  private readonly legal = toSignal(this.platformApi.legal().pipe(catchError(() => of(null as LegalDocuments | null))), { initialValue: null as LegalDocuments | null });
 
   readonly builtIn = computed(() => this.content()?.builtIn ?? []);
   readonly trust = computed(() => this.content()?.trust ?? []);
@@ -89,7 +90,7 @@ export class PricingPage {
   load(): void {
     this.loading.set(true);
     this.failed.set(false);
-    this.api.signupConfig().subscribe({
+    this.platformApi.signupConfig().subscribe({
       next: (c) => { this.config.set(c); this.loading.set(false); },
       error: () => { this.loading.set(false); this.failed.set(true); },
     });

@@ -1,4 +1,4 @@
-import { carouselOffset, lastMonths } from './pricing-mobile.component';
+import { carouselOffset, lastMonths } from './pricing-mockups';
 
 describe('lastMonths', () => {
   const now = new Date(2026, 10, 15); // November 2026

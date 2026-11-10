@@ -1,132 +1,41 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerComponent, NzDatePickerModule } from 'ng-zorro-antd/date-picker';
+import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { DashboardAlert, DashboardApi, DashboardChart, DashboardDto, KpiCard } from '@core/api/admin.api';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { SessionStore } from '@core/session/session.store';
 import { ApexChartComponent } from '@shared/components/apex-chart/apex-chart.component';
-import { RevealDirective } from '@shared/directives/reveal.directive';
 import { StatCardComponent, StatFormat } from '@shared/components/stat-card/stat-card.component';
+import { RevealDirective } from '@shared/directives/reveal.directive';
 import { ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { UrgencyTag, alertsFor, readableAlert, urgencyTag } from '../../dashboard-alerts';
+import {
+  DomainCategory, FINANCE_CHARTS, KpiCluster, MATRIX_CLUSTER_TITLES, OPS_CHARTS, OVERVIEW_CLUSTER_TITLES, SALES_CHARTS,
+  categoryCharts, categoryKpis, categoryTitle, chartsIn, classifyKpi, heroKpis, kpiClusters, pickChart, searchKpis, withoutHeroes,
+} from '../../dashboard-categories';
+import { CaptionPart, browserTimezone, captionParts, formatIsoDate, isolate, latn, localizeChart, localizeKpi } from '../../dashboard-locale';
+import {
+  DEFAULT_PRESET, DashboardRange, RANGE_PRESETS, RangePreset, blockedDay, initialRange, isoDate, parseIso, presetRange, rangeFromParams,
+  rangeParams, rememberRange, sameRange, storedRange, validRange,
+} from '../../dashboard-range';
 
-/** Overview period presets, shortest first, offered in the range dropdown next to `custom` (a picked date range). */
-export type RangePreset = '1m' | '3m' | '6m' | '1y' | '2y' | '3y' | 'custom';
-export interface DashboardRange { preset: RangePreset; from: string; to: string; }
-export const RANGE_PRESETS: { key: Exclude<RangePreset, 'custom'>; months: number; labelKey: string; label: string }[] = [
-  { key: '1m', months: 1, labelKey: 'ui.overview.range.preset.1m', label: 'Last month' },
-  { key: '3m', months: 3, labelKey: 'ui.overview.range.preset.3m', label: 'Last 3 months' },
-  { key: '6m', months: 6, labelKey: 'ui.overview.range.preset.6m', label: 'Last 6 months' },
-  // "Last year" is the trailing 12 months ending today, not the previous calendar year
-  { key: '1y', months: 12, labelKey: 'ui.overview.range.preset.1y', label: 'Last year' },
-  { key: '2y', months: 24, labelKey: 'ui.overview.range.preset.2y', label: 'Last 2 years' },
-  { key: '3y', months: 36, labelKey: 'ui.overview.range.preset.3y', label: 'Last 3 years' },
-];
-/** Longest period the overview accepts (the API enforces the same 5-year limit). */
-export const MAX_RANGE_MONTHS = 60;
-export const RANGE_KEY = 'erp.overview.range';
-const DEFAULT_PRESET = '1y' as const;
-const pad = (n: number) => String(n).padStart(2, '0');
-export const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-export const parseIso = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
-const startOfToday = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
-const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
-/** Same day n months earlier, clamped to the month's last day (31 Mar minus 1 month = 28/29 Feb), like the server's AddMonths. */
-export function minusMonths(d: Date, n: number): Date {
-  const t = new Date(d.getFullYear(), d.getMonth() - n, 1);
-  t.setDate(Math.min(d.getDate(), new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate()));
-  return t;
-}
-/** First day of an n-month period ending on `end` inclusive: one day after the same day n months back (1Y = 31 Oct 2025 – 30 Oct 2026). */
-export const periodStart = (end: Date, months: number) => addDays(minusMonths(end, months), 1);
-export function presetRange(preset: Exclude<RangePreset, 'custom'>, end = startOfToday()): DashboardRange {
-  const months = RANGE_PRESETS.find((p) => p.key === preset)!.months;
-  return { preset, from: isoDate(periodStart(end, months)), to: isoDate(end) };
-}
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
-/** A real calendar date in yyyy-MM-dd (rejects 2026-02-31). */
-/**
- * Alerts arrive from the API as "1 employee document(s) have expired." This writes them as a person would:
- * "1 employee document has expired." and "3 employee documents have expired."
- */
-export function readableAlert(message: string): string {
-  const match = /(\d[\d,]*)\s+[^()]*?\(s\)/.exec(message);
-  if (!match) return message;
-  const end = match.index + match[0].length;
-  if (match[1] !== '1') return message.replace('(s)', 's');
-  const singular: Record<string, string> = { have: 'has', are: 'is', were: 'was', expire: 'expires', need: 'needs', require: 'requires' };
-  const rest = message.slice(end).replace(/\b(have|are|were|expire|need|require)\b/, (verb) => singular[verb]);
-  return message.slice(0, end).replace('(s)', '') + rest;
-}
-
-export const isRealDate = (s: unknown): s is string => typeof s === 'string' && ISO.test(s) && isoDate(parseIso(s)) === s;
-/** A usable period: real dates, from ≤ to, to not after today, and at most 5 years long. */
-export function validRange(from: unknown, to: unknown, today = startOfToday()): boolean {
-  if (!isRealDate(from) || !isRealDate(to) || from > to || to > isoDate(today)) return false;
-  return from >= isoDate(periodStart(parseIso(to), MAX_RANGE_MONTHS));
-}
-/** A period from query params: `?range=1y`, or `?from=2025-10-31&to=2026-10-30` for a custom period. Invalid params give null. */
-export function rangeFromParams(p: ParamMap, today = startOfToday()): DashboardRange | null {
-  const preset = p.get('range');
-  if (preset && RANGE_PRESETS.some((x) => x.key === preset)) return presetRange(preset as Exclude<RangePreset, 'custom'>, today);
-  const from = p.get('from'), to = p.get('to');
-  if (validRange(from, to, today)) return { preset: 'custom', from: from!, to: to! };
-  return null;
-}
-export const hasRangeParams = (p: ParamMap) => p.has('range') || p.has('from') || p.has('to');
-/** The last choice in this browser; relative presets are recomputed against today, custom periods are re-validated. */
-export function storedRange(today = startOfToday()): DashboardRange | null {
-  try {
-    const saved = JSON.parse(localStorage.getItem(RANGE_KEY) ?? 'null') as DashboardRange | null;
-    if (saved?.preset === 'custom' && validRange(saved.from, saved.to, today)) return { preset: 'custom', from: saved.from, to: saved.to };
-    if (saved && RANGE_PRESETS.some((p) => p.key === saved.preset)) return presetRange(saved.preset as Exclude<RangePreset, 'custom'>, today);
-  } catch { /* storage unavailable or corrupt */ }
-  return null;
-}
-export const sameRange = (a: DashboardRange, b: DashboardRange) => a.preset === b.preset && a.from === b.from && a.to === b.to;
-const rangeParams = (r: DashboardRange) => (r.preset === 'custom' ? { range: null, from: r.from, to: r.to } : { range: r.preset, from: null, to: null });
-/** Latin digits in both languages (matches the rest of the app's figures). */
-const latn = (locale: string) => `${locale}-u-nu-latn`;
-const FSI = '\u2068', PDI = '\u2069';
-
-const URGENCY: Record<string, { label: string; tone: string }> = {
-  action: { label: 'Action needed', tone: 'error' },
-  upcoming: { label: 'Upcoming', tone: 'warning' },
-  info: { label: 'For information', tone: 'info' },
-};
-
-export type DomainCategory =
-  | 'all'
-  | 'finance'
-  | 'sales-crm'
-  | 'supply-operations'
-  | 'projects-services'
-  | 'real-estate'
-  | 'hr';
-
-interface KpiCluster {
-  id: string;
-  title: string;
-  icon: string;
-  category: DomainCategory;
-  kpis: KpiCard[];
-}
-
+/** The Overview: one period for every card and chart, the hero KPIs, and domain tabs with their KPIs, charts and alerts. */
 @Component({
   selector: 'erp-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, 
+  imports: [ErpLabelPipe,
     TranslatePipe,
     RouterLink,
     FormsModule,
@@ -147,18 +56,19 @@ interface KpiCluster {
 })
 export class DashboardPage {
   readonly session = inject(SessionStore);
-  private readonly api = inject(DashboardApi);
+  private readonly dashboardApi = inject(DashboardApi);
   private readonly i18n = inject(I18nService);
-
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+
+  /* ---- Period ---- */
 
   /**
    * One shared period for every card and chart: URL (?range= or ?from=&to=) wins over the browser's last choice, then the "Last year"
    * default (the trailing 12 months). Picked from one dropdown; "Custom" shows a date-range picker, a preset hides it again.
    */
   readonly presets = RANGE_PRESETS;
-  readonly range = signal<DashboardRange>(rangeFromParams(this.route.snapshot.queryParamMap) ?? storedRange() ?? presetRange(DEFAULT_PRESET));
+  readonly range = signal<DashboardRange>(initialRange(this.route.snapshot.queryParamMap));
   /** "Custom" chosen in the dropdown but no dates picked yet: the picker shows (and opens) while the figures keep the current period. */
   readonly customPending = signal(false);
   readonly showPicker = computed(() => this.range().preset === 'custom' || this.customPending());
@@ -174,48 +84,45 @@ export class DashboardPage {
   readonly rangePlaceholders = computed(() => [this.i18n.t('ui.overview.range.from', 'Start date'), this.i18n.t('ui.overview.range.to', 'End date')]);
   readonly maxSpanHint = computed(() => this.i18n.t('ui.overview.range.maxSpan', 'Pick a range of 5 years or less, ending today or earlier'));
   /** No future dates, and once a first date is picked nothing that would make the period longer than 5 years. */
-  readonly disabledDate = (d: Date): boolean => {
-    const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const today = startOfToday();
-    if (day > today) return true;
-    const a = this.calendarAnchor();
-    if (!a) return false;
-    const [f, t] = day < a ? [day, a] : [a, day];
-    return !validRange(isoDate(f), isoDate(t), today);
-  };
+  readonly disabledDate = (d: Date): boolean => blockedDay(d, this.calendarAnchor());
   /** "30 Oct 2025 – 30 Oct 2026" / "من 31 أكتوبر 2025 إلى 30 أكتوبر 2026", with each date bidi-isolated. */
-  readonly captionParts = computed<{ text: string; bdi: boolean }[]>(() => {
+  readonly captionParts = computed<CaptionPart[]>(() => {
     const r = this.range();
-    const locale = latn(this.i18n.locale());
-    const values: Record<string, string> = { '{from}': this.fmtDate(r.from, locale), '{to}': this.fmtDate(r.to, locale) };
-    return this.i18n.t('ui.overview.range.caption', '{from} – {to}').split(/(\{from\}|\{to\})/).filter((x) => x !== '')
-      .map((x) => (x in values ? { text: values[x], bdi: true } : { text: x, bdi: false }));
+    return captionParts(this.i18n.t('ui.overview.range.caption', '{from} – {to}'), r.from, r.to, this.locale());
   });
+  readonly canShowLonger = computed(() => this.range().from > presetRange('3y').from);
+  readonly timezoneLabel = computed(() => browserTimezone());
+
+  /* ---- Figures ---- */
 
   /** The API response as received; `data` is the same with captions and chart axis labels in the user's language. */
   private readonly raw = signal<DashboardDto | null>(null);
   readonly loadError = signal(false);
+  readonly loading = signal(false);
   readonly data = computed<DashboardDto | null>(() => {
     const d = this.raw();
     if (!d) return null;
-    const locale = latn(this.i18n.locale());
-    return { ...d, kpis: d.kpis.map((k) => this.localizeKpi(k, locale)), charts: d.charts.map((c) => this.localizeChart(c, locale)) };
+    const locale = this.locale();
+    const translate = (key: string) => this.i18n.t(key, '');
+    return { ...d, kpis: d.kpis.map((k) => localizeKpi(k, locale, translate)), charts: d.charts.map((c) => localizeChart(c, locale)) };
   });
   /** Screen-reader announcement once the figures for a period have loaded. */
   readonly announcement = computed(() => {
     const d = this.raw();
     if (!d?.from || !d.to) return '';
-    const locale = latn(this.i18n.locale());
+    const locale = this.locale();
     return this.i18n.t('ui.overview.range.showing', 'Showing {from} – {to}')
-      .replace('{from}', FSI + this.fmtDate(d.from, locale) + PDI).replace('{to}', FSI + this.fmtDate(d.to, locale) + PDI);
+      .replace('{from}', isolate(formatIsoDate(d.from, locale))).replace('{to}', isolate(formatIsoDate(d.to, locale)));
   });
   /** Nothing billed or collected in the period: say so instead of showing an empty chart without explanation. */
   readonly periodEmpty = computed(() => {
     const c = this.raw()?.charts.find((x) => x.key === 'billed-collected');
     return !!c && c.series.every((s) => s.values.every((v) => v === 0));
   });
-  readonly canShowLonger = computed(() => this.range().from > presetRange('3y').from);
-  readonly loading = signal(false);
+  readonly alertText = readableAlert;
+
+  /* ---- Domain tabs, KPIs and charts ---- */
+
   readonly activeCategory = signal<DomainCategory>('all');
   readonly viewMode = signal<'curated' | 'all'>('curated');
   readonly selectedChartKey = signal<string | null>(null);
@@ -225,74 +132,35 @@ export class DashboardPage {
   readonly selectedDomainChartKey = signal<string | null>(null);
   readonly metricSearchQuery = signal<string>('');
 
-  readonly activeCategoryKpis = computed<KpiCard[]>(() => {
-    return this.getCategoryKpis(this.activeCategory());
-  });
+  private readonly kpis = computed<KpiCard[]>(() => this.data()?.kpis ?? []);
+  private readonly charts = computed<DashboardChart[]>(() => this.data()?.charts ?? []);
 
-  readonly filteredMatrixKpis = computed<KpiCard[]>(() => {
-    const list = this.activeCategoryKpis();
-    const q = this.metricSearchQuery().trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((k) =>
-      k.label.toLowerCase().includes(q) ||
-      k.key.toLowerCase().includes(q) ||
-      (k.caption && k.caption.toLowerCase().includes(q))
-    );
-  });
+  readonly activeCategoryKpis = computed<KpiCard[]>(() => this.getCategoryKpis(this.activeCategory()));
+  readonly filteredMatrixKpis = computed<KpiCard[]>(() => searchKpis(this.activeCategoryKpis(), this.metricSearchQuery()));
+  readonly allMatrixClusters = computed<KpiCluster[]>(() => kpiClusters(this.kpis(), MATRIX_CLUSTER_TITLES));
+  readonly activeCategoryTitle = computed(() => categoryTitle(this.activeCategory()));
+  /** 4 Hero Highlights for All Overview */
+  readonly heroKpis = computed<KpiCard[]>(() => heroKpis(this.kpis()));
+  /** Hero KPIs depending on selected category tab */
+  readonly activeHeroKpis = computed<KpiCard[]>(() =>
+    this.activeCategory() === 'all' ? this.heroKpis() : this.getCategoryKpis(this.activeCategory()).slice(0, 4));
+  /** Remaining KPIs for single domain category */
+  readonly activeRemainingKpis = computed<KpiCard[]>(() => withoutHeroes(this.getCategoryKpis(this.activeCategory()), this.activeHeroKpis()));
+  /** Clean Departmental Clusters for All Overview mode; the heroes are left out so they are not shown twice. */
+  readonly clusters = computed<KpiCluster[]>(() => kpiClusters(withoutHeroes(this.kpis(), this.heroKpis()), OVERVIEW_CLUSTER_TITLES));
 
-  readonly allMatrixClusters = computed<KpiCluster[]>(() => {
-    const all = this.data()?.kpis ?? [];
-    return [
-      {
-        id: 'treasury',
-        title: 'Finance, Treasury & Liquidity',
-        icon: 'wallet',
-        category: 'finance',
-        kpis: all.filter((k) => this.classifyKpi(k.key) === 'finance'),
-      },
-      {
-        id: 'commercial',
-        title: 'Commercial, Retail & Sales Pipeline',
-        icon: 'shopping-cart',
-        category: 'sales-crm',
-        kpis: all.filter((k) => this.classifyKpi(k.key) === 'sales-crm'),
-      },
-      {
-        id: 'operations',
-        title: 'Supply Chain, Procurement & Production',
-        icon: 'shop',
-        category: 'supply-operations',
-        kpis: all.filter((k) => this.classifyKpi(k.key) === 'supply-operations'),
-      },
-      {
-        id: 'services',
-        title: 'Workforce, Projects & Client Services',
-        icon: 'solution',
-        category: 'projects-services',
-        kpis: all.filter((k) => ['projects-services', 'hr'].includes(this.classifyKpi(k.key))),
-      },
-      {
-        id: 'realestate',
-        title: 'Real Estate & Facilities Management',
-        icon: 'home',
-        category: 'real-estate',
-        kpis: all.filter((k) => this.classifyKpi(k.key) === 'real-estate'),
-      },
-    ];
-  });
+  readonly visibleCharts = computed<DashboardChart[]>(() => this.getCategoryCharts(this.activeCategory()));
+  readonly financeCharts = computed<DashboardChart[]>(() => chartsIn(this.charts(), FINANCE_CHARTS));
+  readonly currentFinanceChart = computed<DashboardChart | null>(() => pickChart(this.financeCharts(), this.selectedFinanceChartKey()));
+  readonly salesCharts = computed<DashboardChart[]>(() => chartsIn(this.charts(), SALES_CHARTS));
+  readonly currentSalesChart = computed<DashboardChart | null>(() => pickChart(this.salesCharts(), this.selectedSalesChartKey()));
+  readonly opsCharts = computed<DashboardChart[]>(() => chartsIn(this.charts(), OPS_CHARTS));
+  readonly currentOpsChart = computed<DashboardChart | null>(() => pickChart(this.opsCharts(), this.selectedOpsChartKey()));
+  readonly currentDomainChart = computed<DashboardChart | null>(() => pickChart(this.visibleCharts(), this.selectedDomainChartKey()));
+  readonly currentChart = computed<DashboardChart | null>(() => pickChart(this.visibleCharts(), this.selectedChartKey()));
+  readonly activeDomainAlerts = computed<DashboardAlert[]>(() => alertsFor(this.data()?.alerts ?? [], this.activeCategory()));
 
-  readonly timezoneLabel = computed(() => {
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const offsetMin = -new Date().getTimezoneOffset();
-      const sign = offsetMin >= 0 ? '+' : '-';
-      const hours = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, '0');
-      const mins = String(Math.abs(offsetMin) % 60).padStart(2, '0');
-      return `GMT${sign}${hours}:${mins} (${tz.replace('_', ' ')})`;
-    } catch {
-      return 'GMT+03:00 (Standard Time)';
-    }
-  });
+  private pending?: Subscription;
 
   constructor() {
     effect(() => {
@@ -353,45 +221,6 @@ export class DashboardPage {
     this.saveRange({ preset: 'custom', from, to });
   }
 
-  private saveRange(r: DashboardRange): void {
-    try { localStorage.setItem(RANGE_KEY, JSON.stringify(r)); } catch { /* storage unavailable */ }
-    if (sameRange(r, this.range())) return;
-    this.range.set(r);
-    void this.router.navigate([], { relativeTo: this.route, queryParams: rangeParams(r), queryParamsHandling: 'merge' });
-  }
-
-  private fmtDate(iso: string, locale: string, options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }): string {
-    return isRealDate(iso) ? new Intl.DateTimeFormat(locale, options).format(parseIso(iso)) : iso;
-  }
-
-  /** A caption the API sends as a key with {name} args (e.g. the cash card's "at {date}") is translated here, dates in the user's locale. */
-  private localizeKpi(k: KpiCard, locale: string): KpiCard {
-    if (!k.captionKey) return k;
-    const template = this.i18n.t(k.captionKey, '');
-    if (!template) return k;
-    const caption = template.replace(/\{(\w+)\}/g, (m: string, name: string) => {
-      const v = k.captionArgs?.[name];
-      if (v == null) return m;
-      return isRealDate(v) ? FSI + this.fmtDate(v, locale) + PDI : v;
-    });
-    return { ...k, caption };
-  }
-
-  /** Axis labels for time-series charts from their buckets: weeks by start day, months by name, quarters as "Nov – Jan 26". */
-  private localizeChart(c: DashboardChart, locale: string): DashboardChart {
-    if (!c.buckets?.length || c.buckets.length !== c.categories.length) return c;
-    const categories = c.buckets.map((b) => {
-      const from = parseIso(b.from), to = parseIso(b.to);
-      if (c.granularity === 'week') return this.fmtDate(b.from, locale, { day: 'numeric', month: 'short' });
-      if (c.granularity === 'quarter') {
-        return `${new Intl.DateTimeFormat(locale, { month: 'short' }).format(addDays(from, 14))} – ${new Intl.DateTimeFormat(locale, { month: 'short', year: '2-digit' }).format(addDays(to, -14))}`;
-      }
-      const mid = addDays(from, Math.floor((to.getTime() - from.getTime()) / 86_400_000 / 2));
-      return new Intl.DateTimeFormat(locale, { month: 'short', year: '2-digit' }).format(mid);
-    });
-    return { ...c, categories };
-  }
-
   /** "by week" / "by month" / "by quarter" under a time-series chart. */
   bucketLabel(c: DashboardChart | null | undefined): string {
     const g = c?.granularity;
@@ -427,267 +256,61 @@ export class DashboardPage {
     this.selectedChartKey.set(key);
   }
 
-  urgency(u: string): { label: string; tone: string } {
-    return URGENCY[u] ?? URGENCY['info'];
+  urgency(u: string): UrgencyTag {
+    return urgencyTag(u);
   }
 
   statFormat(k: KpiCard): StatFormat {
     return k.format === 'percent' ? 'percent' : k.format === 'number' ? 'number' : 'money';
   }
 
-  /* ---- DOMAIN CLASSIFIERS ---- */
-  private classifyKpi(key: string): DomainCategory {
-    const k = key.toLowerCase();
-    // Real Estate
-    if (['portfolio', 'occupancy', 'contracted-rent', 'expiring', 'work-orders'].includes(k) || k.startsWith('re-')) {
-      return 'real-estate';
-    }
-    // HR
-    if (['employees', 'payroll-runs', 'payroll-open', 'reviews', 'reviews-pending'].includes(k) || k.startsWith('hr-')) {
-      return 'hr';
-    }
-    // Sales & CRM
-    if (k.includes('sales') || k.includes('quote') || k.includes('lead') || k.includes('deal') || k.startsWith('crm-')) {
-      return 'sales-crm';
-    }
-    // Projects & Services
-    if (k.includes('project') || k.includes('task') || k.includes('timesheet') || k.includes('unbilled') || k.includes('engagement') || k.includes('milestone') || k.startsWith('svc-') || k.startsWith('prj-')) {
-      return 'projects-services';
-    }
-    // Supply, Operations, POS, Retail, Distribution, Manufacturing, Inventory, Procurement
-    if (k.includes('stock') || k.includes('inventory') || k.includes('purchase') || k.includes('requisition') || k.includes('procurement') || k.includes('pos') || k.includes('retail') || k.includes('route') || k.includes('trip') || k.includes('bom') || k.includes('work-order') || k.startsWith('mfg-') || k.startsWith('dist-')) {
-      return 'supply-operations';
-    }
-    // Finance
-    return 'finance';
-  }
-
-  private classifyChart(key: string): DomainCategory {
-    const k = key.toLowerCase();
-    if (['occupancy', 'lease-expiries'].includes(k) || k.startsWith('re-')) return 'real-estate';
-    if (k.includes('sales') || k.includes('crm') || k.includes('funnel') || k.includes('quote')) return 'sales-crm';
-    if (k.includes('purchas') || k.includes('procure') || k.includes('mfg') || k.includes('production') || k.includes('stock')) return 'supply-operations';
-    if (k.includes('project') || k.includes('task') || k.includes('service')) return 'projects-services';
-    if (k.includes('hr') || k.includes('headcount') || k.includes('employee') || k.includes('people')) return 'hr';
-    return 'finance';
-  }
-
   hasCategory(cat: DomainCategory): boolean {
-    const kpis = this.data()?.kpis ?? [];
-    return kpis.some((k) => this.classifyKpi(k.key) === cat);
+    return this.kpis().some((k) => classifyKpi(k.key) === cat);
   }
 
   getCategoryKpis(cat: DomainCategory): KpiCard[] {
-    const kpis = this.data()?.kpis ?? [];
-    if (cat === 'all') return kpis;
-    return kpis.filter((k) => this.classifyKpi(k.key) === cat);
+    return categoryKpis(this.kpis(), cat);
   }
 
   getCategoryCharts(cat: DomainCategory): DashboardChart[] {
-    const charts = this.data()?.charts ?? [];
-    if (cat === 'all') return charts;
-    const filtered = charts.filter((c) => this.classifyChart(c.key) === cat);
-    return filtered.length > 0 ? filtered : charts;
+    return categoryCharts(this.charts(), cat);
   }
 
-  readonly activeCategoryTitle = computed(() => {
-    switch (this.activeCategory()) {
-      case 'finance': return 'Finance & Treasury';
-      case 'sales-crm': return 'Sales & Commercial';
-      case 'supply-operations': return 'Supply Chain & Operations';
-      case 'projects-services': return 'Projects & Services';
-      case 'real-estate': return 'Real Estate Portfolio';
-      case 'hr': return 'HR & Workforce';
-      default: return 'Overview';
-    }
-  });
+  private locale(): string {
+    return latn(this.i18n.locale());
+  }
 
-  /** 4 Hero Highlights for All Overview */
-  readonly heroKpis = computed<KpiCard[]>(() => {
-    const all = this.data()?.kpis ?? [];
-    if (all.length <= 4) return all;
-
-    const priorityKeys = ['portfolio', 'occupancy', 'receivables', 'net-result', 'cash', 'collected'];
-    const chosen: KpiCard[] = [];
-
-    for (const pk of priorityKeys) {
-      const match = all.find((k) => k.key === pk);
-      if (match && !chosen.includes(match)) {
-        chosen.push(match);
-      }
-      if (chosen.length === 4) break;
-    }
-
-    for (const k of all) {
-      if (chosen.length >= 4) break;
-      if (!chosen.includes(k)) chosen.push(k);
-    }
-    return chosen;
-  });
-
-  /** Hero KPIs depending on selected category tab */
-  readonly activeHeroKpis = computed<KpiCard[]>(() => {
-    if (this.activeCategory() === 'all') {
-      return this.heroKpis();
-    }
-    const catKpis = this.getCategoryKpis(this.activeCategory());
-    return catKpis.slice(0, 4);
-  });
-
-  /** Remaining KPIs for single domain category */
-  readonly activeRemainingKpis = computed<KpiCard[]>(() => {
-    const catKpis = this.getCategoryKpis(this.activeCategory());
-    const heroes = this.activeHeroKpis();
-    return catKpis.filter((k) => !heroes.some((h) => h.key === k.key));
-  });
-
-  /** Clean Departmental Clusters for All Overview mode */
-  readonly clusters = computed<KpiCluster[]>(() => {
-    const all = this.data()?.kpis ?? [];
-    const heroes = this.heroKpis();
-    // Exclude heroes so they aren't redundantly displayed twice
-    const pool = all.filter((k) => !heroes.some((h) => h.key === k.key));
-
-    return [
-      {
-        id: 'treasury',
-        title: 'Treasury & Liquidity',
-        icon: 'wallet',
-        category: 'finance',
-        kpis: pool.filter((k) => this.classifyKpi(k.key) === 'finance'),
-      },
-      {
-        id: 'commercial',
-        title: 'Commercial & Sales Pipeline',
-        icon: 'shopping-cart',
-        category: 'sales-crm',
-        kpis: pool.filter((k) => this.classifyKpi(k.key) === 'sales-crm'),
-      },
-      {
-        id: 'operations',
-        title: 'Supply Chain, Retail & Production',
-        icon: 'shop',
-        category: 'supply-operations',
-        kpis: pool.filter((k) => this.classifyKpi(k.key) === 'supply-operations'),
-      },
-      {
-        id: 'services',
-        title: 'Workforce, Projects & Client Services',
-        icon: 'solution',
-        category: 'projects-services',
-        kpis: pool.filter((k) => ['projects-services', 'hr'].includes(this.classifyKpi(k.key))),
-      },
-      {
-        id: 'realestate',
-        title: 'Real Estate & Facilities',
-        icon: 'home',
-        category: 'real-estate',
-        kpis: pool.filter((k) => this.classifyKpi(k.key) === 'real-estate'),
-      },
-    ];
-  });
-
-  readonly visibleCharts = computed<DashboardChart[]>(() => {
-    return this.getCategoryCharts(this.activeCategory());
-  });
-
-  readonly financeCharts = computed<DashboardChart[]>(() => {
-    return (this.data()?.charts ?? []).filter((c) => this.classifyChart(c.key) === 'finance');
-  });
-
-  readonly currentFinanceChart = computed<DashboardChart | null>(() => {
-    const list = this.financeCharts();
-    if (list.length === 0) return null;
-    return list.find((c) => c.key === this.selectedFinanceChartKey()) ?? list[0];
-  });
-
-  readonly salesCharts = computed<DashboardChart[]>(() => {
-    return (this.data()?.charts ?? []).filter((c) => this.classifyChart(c.key) === 'sales-crm');
-  });
-
-  readonly currentSalesChart = computed<DashboardChart | null>(() => {
-    const list = this.salesCharts();
-    if (list.length === 0) return null;
-    return list.find((c) => c.key === this.selectedSalesChartKey()) ?? list[0];
-  });
-
-  readonly opsCharts = computed<DashboardChart[]>(() => {
-    return (this.data()?.charts ?? []).filter((c) =>
-      ['supply-operations', 'projects-services', 'real-estate', 'hr'].includes(this.classifyChart(c.key))
-    );
-  });
-
-  readonly currentOpsChart = computed<DashboardChart | null>(() => {
-    const list = this.opsCharts();
-    if (list.length === 0) return null;
-    return list.find((c) => c.key === this.selectedOpsChartKey()) ?? list[0];
-  });
-
-  readonly currentDomainChart = computed<DashboardChart | null>(() => {
-    const charts = this.visibleCharts();
-    if (charts.length === 0) return null;
-    const selected = this.selectedDomainChartKey();
-    if (selected) {
-      const match = charts.find((c) => c.key === selected);
-      if (match) return match;
-    }
-    return charts[0];
-  });
-
-  readonly activeDomainAlerts = computed<DashboardAlert[]>(() => {
-    const alerts = this.data()?.alerts ?? [];
-    if (this.activeCategory() === 'all') return alerts;
-    const cat = this.activeCategory();
-    const filtered = alerts.filter((a) => {
-      const c = a.category.toLowerCase();
-      if (cat === 'real-estate') return c.includes('lease') || c.includes('maintenance') || c.includes('unit') || c.includes('property');
-      if (cat === 'finance') return c.includes('cheque') || c.includes('bill') || c.includes('invoice') || c.includes('payment');
-      if (cat === 'sales-crm') return c.includes('sales') || c.includes('lead') || c.includes('deal') || c.includes('order');
-      if (cat === 'supply-operations') return c.includes('inventory') || c.includes('stock') || c.includes('purchase') || c.includes('production');
-      if (cat === 'projects-services') return c.includes('project') || c.includes('task') || c.includes('service');
-      if (cat === 'hr') return c.includes('hr') || c.includes('payroll') || c.includes('employee');
-      return true;
-    });
-    return filtered;
-  });
-
-  readonly alertText = readableAlert;
-
-  readonly currentChart = computed<DashboardChart | null>(() => {
-    const charts = this.visibleCharts();
-    if (charts.length === 0) return null;
-    const selectedKey = this.selectedChartKey();
-    if (selectedKey) {
-      const match = charts.find((c) => c.key === selectedKey);
-      if (match) return match;
-    }
-    return charts[0];
-  });
-
-  private pending?: Subscription;
+  private saveRange(r: DashboardRange): void {
+    rememberRange(r);
+    if (sameRange(r, this.range())) return;
+    this.range.set(r);
+    void this.router.navigate([], { relativeTo: this.route, queryParams: rangeParams(r), queryParamsHandling: 'merge' });
+  }
 
   private load(range: DashboardRange = this.range()): void {
     this.loading.set(true);
     this.loadError.set(false);
     this.pending?.unsubscribe(); // cancels the stale request when the period or entity changes again
-    this.pending = this.api.get({ from: range.from, to: range.to }).subscribe({
+    this.pending = this.dashboardApi.get({ from: range.from, to: range.to }).subscribe({
       next: (d) => {
         this.raw.set(d);
-        if (d.charts.length > 0) {
-          if (!this.selectedChartKey()) {
-            this.selectedChartKey.set(d.charts[0].key);
-          }
-          const fin = d.charts.find((c) => this.classifyChart(c.key) === 'finance');
-          if (fin) this.selectedFinanceChartKey.set(fin.key);
-          const sales = d.charts.find((c) => this.classifyChart(c.key) === 'sales-crm');
-          if (sales) this.selectedSalesChartKey.set(sales.key);
-          const ops = d.charts.find((c) => ['supply-operations', 'projects-services', 'real-estate', 'hr'].includes(this.classifyChart(c.key)));
-          if (ops) this.selectedOpsChartKey.set(ops.key);
-        }
+        this.selectFirstCharts(d.charts);
         this.loading.set(false);
       },
       // no endless skeleton and no figures from the previous period: show the error with a Retry instead
       error: () => { this.raw.set(null); this.loadError.set(true); this.loading.set(false); },
     });
+  }
+
+  /** After a load: the first chart overall (unless one is chosen already) and the first chart of each group. */
+  private selectFirstCharts(charts: DashboardChart[]): void {
+    if (charts.length === 0) return;
+    if (!this.selectedChartKey()) this.selectedChartKey.set(charts[0].key);
+    const fin = chartsIn(charts, FINANCE_CHARTS)[0];
+    if (fin) this.selectedFinanceChartKey.set(fin.key);
+    const sales = chartsIn(charts, SALES_CHARTS)[0];
+    if (sales) this.selectedSalesChartKey.set(sales.key);
+    const ops = chartsIn(charts, OPS_CHARTS)[0];
+    if (ops) this.selectedOpsChartKey.set(ops.key);
   }
 }

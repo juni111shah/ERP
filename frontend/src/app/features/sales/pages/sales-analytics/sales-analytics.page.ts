@@ -1,15 +1,15 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, WritableSignal, computed, inject, signal } from '@angular/core';
+import { Observable } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { SalesKpiApi, SalesKpiDto, SalesOrdersApi, SalesQuotesApi } from '@core/api/sales.api';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
-import { countByStatus, StatusCount, StatusCountsComponent } from '../../components/status-counts/status-counts.component';
+import { StatusCount, StatusCountsComponent, countByStatus } from '../../components/status-counts/status-counts.component';
+import { ORDER_STATUSES, QUOTE_STATUSES } from '../../sales-status';
 
-const QUOTE_STATUSES = ['draft', 'sent', 'accepted', 'declined', 'expired', 'converted'];
-const ORDER_STATUSES = ['draft', 'confirmed', 'processing', 'delivered', 'invoiced', 'cancelled'];
-
+/** Sales at a glance: the KPI cards and how many quotes and orders are in each status. */
 @Component({
   selector: 'erp-sales-analytics',
   standalone: true,
@@ -58,12 +58,14 @@ export class SalesAnalyticsPage {
 
   loadCounts(): void {
     this.countsFailed.set(false);
-    countByStatus((q) => this.quotesApi.list(q), QUOTE_STATUSES).subscribe((rows) => {
-      this.quotes.set(rows);
-      if (!rows) this.countsFailed.set(true);
-    });
-    countByStatus((q) => this.ordersApi.list(q), ORDER_STATUSES).subscribe((rows) => {
-      this.orders.set(rows);
+    this.fillCounts(this.quotes, countByStatus((q) => this.quotesApi.list(q), QUOTE_STATUSES));
+    this.fillCounts(this.orders, countByStatus((q) => this.ordersApi.list(q), ORDER_STATUSES));
+  }
+
+  /** Shows the counts; when they could not be loaded the panels say so. */
+  private fillCounts(target: WritableSignal<StatusCount[] | null>, counts$: Observable<StatusCount[] | null>): void {
+    counts$.subscribe((rows) => {
+      target.set(rows);
       if (!rows) this.countsFailed.set(true);
     });
   }

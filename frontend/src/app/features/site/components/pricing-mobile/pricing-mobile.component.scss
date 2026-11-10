@@ -1,0 +1,44 @@
+
+    :host { display: block; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 40px; align-items: center; }
+    .eyebrow { display: inline-block; padding: 4px 12px; border-radius: 9999px; background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .25); font-size: 13px; font-weight: 600; margin-bottom: 16px; color: #d7f5e6; }
+    h2 { font-size: 32px; font-weight: 800; letter-spacing: -.02em; line-height: 1.18; margin: 0 0 12px; color: #fff; }
+    .lead { color: #cfe6da; font-size: 16px; line-height: 1.55; margin: 0 0 22px; }
+    .list { display: flex; flex-direction: column; gap: 6px; }
+    .item { display: flex; gap: 12px; width: 100%; text-align: start; padding: 11px 12px; border-radius: 12px; border: 1px solid transparent; background: none; color: inherit; cursor: pointer; font: inherit; transition: background .25s ease, border-color .25s ease, transform .25s ease; }
+    .item:hover { background: rgba(255, 255, 255, .06); }
+    .item:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    .item.on { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .28); transform: translateX(4px); }
+    .ico { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px; background: rgba(255, 255, 255, .12); color: #9de8c4; flex-shrink: 0; font-size: 16px; }
+    .item.on .ico { background: #fff; color: #0f6b47; }
+    .item strong { display: block; color: #fff; font-size: 14.5px; font-weight: 700; }
+    .item span.text { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s ease; color: #cfe6da; font-size: 13.5px; line-height: 1.45; }
+    .item span.text > span { overflow: hidden; }
+    .item.on span.text { grid-template-rows: 1fr; }
+
+    /* Faded at the edges, so phones leaving the stage melt away instead of being cut off. */
+    .stage { position: relative; height: 560px; perspective: 1300px; --tilt-x: 0deg; --tilt-y: 0deg; touch-action: pan-y; overflow: hidden;
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, #000 90%, transparent);
+      -webkit-mask-composite: source-in;
+      mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, #000 90%, transparent);
+      mask-composite: intersect; }
+    .turntable { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(calc(3deg + var(--tilt-x))) rotateY(var(--tilt-y)); transition: transform .35s ease-out; }
+    .floor { position: absolute; left: 50%; bottom: 8px; width: 380px; height: 70px; margin-left: -190px; border-radius: 50%; background: radial-gradient(closest-side, rgba(157, 232, 196, .45), transparent); }
+    .slot { position: absolute; left: 50%; top: 24px; width: 236px; margin-left: -118px; transform-style: preserve-3d; cursor: pointer; transition: transform .8s cubic-bezier(.22, .9, .25, 1), opacity .6s ease; }
+    .slot .bob { position: relative; transform-style: preserve-3d; }
+    /* Phones further back sit in shade rather than turning see-through, which would show the phone behind them. */
+    .slot .bob::after { content: ''; position: absolute; inset: 0; border-radius: 36px; background: #04231a; opacity: var(--dim, 0); transform: translateZ(3px); transition: opacity .7s ease; pointer-events: none; }
+    .slot.front { cursor: default; }
+    .slot:focus-visible { outline: 2px solid #fff; outline-offset: 4px; border-radius: 36px; }
+    .slot.front .bob { animation: bob 5s ease-in-out infinite; }
+    .fx-wait .slot { opacity: 0 !important; }
+    .note { margin: 14px 0 0; font-size: 12px; color: #a9c9b9; }
+    @keyframes bob { 0%, 100% { transform: translateY(0) rotateY(-3deg); } 50% { transform: translateY(-10px) rotateY(3deg); } }
+    @media (max-width: 1023px) { .grid { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+    @media (max-width: 767px) {
+      h2 { font-size: 25px; }
+      .stage { height: 520px; }
+      .floor { width: 280px; margin-left: -140px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .slot, .item, .item span.text, .turntable { transition: none; } .slot.front .bob { animation: none; } }
+  

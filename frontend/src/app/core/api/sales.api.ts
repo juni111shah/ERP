@@ -1,13 +1,16 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api-config';
 import { CrudApiService } from './crud-api.service';
 
+/** The sales module's quotes, sales orders and KPIs. */
+
 export type SalesQuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired' | 'converted';
 export type SalesOrderStatus = 'draft' | 'confirmed' | 'processing' | 'delivered' | 'invoiced' | 'cancelled';
 
-export interface QuoteLineInput {
+/** A quote or sales-order line as the API takes it. */
+export interface SalesLineInput {
   itemId?: string | null;
   itemCode: string;
   description: string;
@@ -17,6 +20,8 @@ export interface QuoteLineInput {
   discountPercent: number;
   taxRate: number;
 }
+
+export type QuoteLineInput = SalesLineInput;
 
 export interface QuoteInput {
   legalEntityId: string;
@@ -75,16 +80,7 @@ export interface QuoteDto extends QuoteSummaryDto {
   customFields?: Record<string, unknown> | null;
 }
 
-export interface OrderLineInput {
-  itemId?: string | null;
-  itemCode: string;
-  description: string;
-  quantity: number;
-  unitOfMeasure: string;
-  unitPrice: number;
-  discountPercent: number;
-  taxRate: number;
-}
+export type OrderLineInput = SalesLineInput;
 
 export interface OrderInput {
   legalEntityId: string;
@@ -166,6 +162,7 @@ export interface SalesKpiDto {
   totalOrdersCount: number;
 }
 
+/** Sales quotes: CRUD, status changes and converting a quote into a sales order. */
 @Injectable({ providedIn: 'root' })
 export class SalesQuotesApi extends CrudApiService<QuoteSummaryDto, QuoteInput> {
   protected readonly resource = 'm/sales/quotes';
@@ -183,6 +180,7 @@ export class SalesQuotesApi extends CrudApiService<QuoteSummaryDto, QuoteInput> 
   }
 }
 
+/** Sales orders: CRUD, status changes, recording deliveries and invoicing. */
 @Injectable({ providedIn: 'root' })
 export class SalesOrdersApi extends CrudApiService<OrderSummaryDto, OrderInput> {
   protected readonly resource = 'm/sales/orders';
@@ -204,6 +202,7 @@ export class SalesOrdersApi extends CrudApiService<OrderSummaryDto, OrderInput> 
   }
 }
 
+/** The sales KPI summary (totals, open quotes and orders, conversion rate). */
 @Injectable({ providedIn: 'root' })
 export class SalesKpiApi {
   private readonly http = inject(HttpClient);

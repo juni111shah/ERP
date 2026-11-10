@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { BrandLogoComponent } from '@shared/components/brand-logo/brand-logo.component';
-import { lastMonths } from '../pricing-mobile/pricing-mobile.component';
+import { lastMonths } from '../../pricing-mockups';
 
 const GROUPS = ['Sales', 'Purchases', 'Finance & Accounting', 'Master Data', 'CRM', 'Services', 'Inventory', 'Point of Sale', 'Retail', 'Distribution', 'Projects', 'Manufacturing', 'HR and Payroll', 'Setup'];
 
