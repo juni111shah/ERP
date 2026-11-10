@@ -28,7 +28,8 @@ import { StatusTagComponent } from '@shared/components/status-tag/status-tag.com
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { revealErrors } from '@shared/forms/form-validation';
 import { loadInto } from '@shared/utils/load-into';
-import { DocumentTotals, PricedLine, SalesLineValue, documentTotals, fillLineFromItem, lineTotal, newSalesLine, toLineInputs } from '../../sales-lines';
+import { DocumentTotals, PricedLine, documentTotals, lineTotal } from '@shared/forms/line-totals';
+import { SalesLineValue, fillLineFromItem, newSalesLine, toLineInputs } from '../../sales-lines';
 import { SalesLookups } from '../../sales-lookups';
 
 /** The quote form's raw value. */
