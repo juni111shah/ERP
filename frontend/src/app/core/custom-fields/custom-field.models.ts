@@ -2,6 +2,7 @@
 export type CustomFieldDataType =
   | 'text' | 'number' | 'decimal' | 'date' | 'dateTime' | 'bool' | 'select' | 'multiSelect' | 'lookup';
 
+/** The data types a custom field can have, with their names for the definition editor. */
 export const CUSTOM_FIELD_TYPES: { value: CustomFieldDataType; label: string }[] = [
   { value: 'text', label: 'Text' }, { value: 'number', label: 'Whole number' }, { value: 'decimal', label: 'Decimal' },
   { value: 'date', label: 'Date' }, { value: 'dateTime', label: 'Date and time' }, { value: 'bool', label: 'Yes / no' },
@@ -55,13 +56,23 @@ export function toSections(defs: readonly CustomFieldDefinition[]): FormSectionM
   const sections = new Map<string, FormSectionMeta>();
   for (const d of [...defs].filter((x) => x.isActive).sort((a, b) => a.order - b.order)) {
     const label = d.section?.trim() || 'Additional information';
-    if (!sections.has(label)) sections.set(label, { key: label.toLowerCase().replace(/\W+/g, '-'), label, order: sections.size, fields: [] });
-    sections.get(label)!.fields.push({
-      key: d.key, label: d.label, dataType: d.dataType, required: d.required, defaultValue: d.defaultValue,
-      min: d.options?.min ?? null, max: d.options?.max ?? null, minLength: d.options?.minLength ?? null, maxLength: d.options?.maxLength ?? null,
-      pattern: d.options?.pattern ?? null, helpText: d.helpText, options: (d.options?.choices ?? []).filter((c) => c.isActive !== false),
-      lookupEntityType: d.options?.target ?? null, order: d.order, scale: d.options?.scale ?? null, showInList: d.showInList,
-    });
+    let section = sections.get(label);
+    if (!section) {
+      section = { key: label.toLowerCase().replace(/\W+/g, '-'), label, order: sections.size, fields: [] };
+      sections.set(label, section);
+    }
+    section.fields.push(toFieldMeta(d));
   }
   return [...sections.values()];
+}
+
+/** One definition as the renderer's field metadata; inactive choices are left out. */
+function toFieldMeta(d: CustomFieldDefinition): FormFieldMeta {
+  const o = d.options;
+  return {
+    key: d.key, label: d.label, dataType: d.dataType, required: d.required, defaultValue: d.defaultValue,
+    min: o?.min ?? null, max: o?.max ?? null, minLength: o?.minLength ?? null, maxLength: o?.maxLength ?? null,
+    pattern: o?.pattern ?? null, helpText: d.helpText, options: (o?.choices ?? []).filter((c) => c.isActive !== false),
+    lookupEntityType: o?.target ?? null, order: d.order, scale: o?.scale ?? null, showInList: d.showInList,
+  };
 }

@@ -1,8 +1,17 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { AbstractControl, FormGroup } from '@angular/forms';
+import { AbstractControl, FormGroup, ValidationErrors } from '@angular/forms';
 import { ProblemDetails } from '../api/api.models';
 import { tNow } from '../i18n/translate-now';
 
+/** What a failed call's JSON body can carry: the RFC 7807 members and the envelope's message. */
+export type ErrorBody = ProblemDetails & { message?: string };
+
+/** The body of a failed call when the server sent an object (the error envelope), else null. */
+export function errorBody(err: HttpErrorResponse): ErrorBody | null {
+  return err.error && typeof err.error === 'object' ? (err.error as ErrorBody) : null;
+}
+
+/** A failed call as ProblemDetails (status always set), or null when it was not an HTTP error. */
 export function asProblem(err: unknown): ProblemDetails | null {
   if (err instanceof HttpErrorResponse && err.error && typeof err.error === 'object') {
     const problem: ProblemDetails = { status: err.status, ...(err.error as ProblemDetails) };
@@ -43,16 +52,21 @@ export function applyProblemDetailsToForm(form: FormGroup, problem: ProblemDetai
   return unmatched;
 }
 
+/** The error objects Angular's built-in validators set. */
+interface LengthError { requiredLength: number; }
+interface MinError { min: number; }
+interface MaxError { max: number; }
+
 /** Human message for the first error on a control (used by nz-form-control [nzErrorTip]). */
 export function controlError(control: AbstractControl | null): string {
-  const e = control?.errors;
+  const e: ValidationErrors | null | undefined = control?.errors;
   if (!e) return '';
-  if (e['server']) return e['server'];
+  if (e['server']) return e['server'] as string;
   if (e['required']) return tNow('ui.valid.required', 'Required');
-  if (e['maxlength']) return tNow('ui.valid.maxLength', 'Max {n} characters', { n: e['maxlength'].requiredLength });
-  if (e['minlength']) return tNow('ui.valid.minLength', 'Min {n} characters', { n: e['minlength'].requiredLength });
-  if (e['min']) return tNow('ui.valid.min', 'Must be ≥ {n}', { n: e['min'].min });
-  if (e['max']) return tNow('ui.valid.max', 'Must be ≤ {n}', { n: e['max'].max });
+  if (e['maxlength']) return tNow('ui.valid.maxLength', 'Max {n} characters', { n: (e['maxlength'] as LengthError).requiredLength });
+  if (e['minlength']) return tNow('ui.valid.minLength', 'Min {n} characters', { n: (e['minlength'] as LengthError).requiredLength });
+  if (e['min']) return tNow('ui.valid.min', 'Must be ≥ {n}', { n: (e['min'] as MinError).min });
+  if (e['max']) return tNow('ui.valid.max', 'Must be ≤ {n}', { n: (e['max'] as MaxError).max });
   if (e['pattern']) return tNow('ui.valid.pattern', 'Invalid format');
   return tNow('ui.valid.invalid', 'Invalid value');
 }

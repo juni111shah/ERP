@@ -33,6 +33,12 @@ export interface MeResponse {
 const ENTITY_KEY = 'erp.entity';
 const STAY_IN_WORKSPACE_KEY = 'erp.stayInWorkspace';
 
+/** Stores a value in this tab's session storage, or removes it when there is none. */
+function keepInTab(key: string, value: string | null): void {
+  if (value) sessionStorage.setItem(key, value);
+  else sessionStorage.removeItem(key);
+}
+
 /** Global session state (signals). The access token lives in memory only; the refresh token is an HttpOnly cookie. */
 @Injectable({ providedIn: 'root' })
 export class SessionStore {
@@ -55,16 +61,15 @@ export class SessionStore {
     return moduleKey === 'core' || this.enabledModules().has(moduleKey);
   }
 
+  /** Selects one legal entity, or all of them with null; kept for this browser tab. */
   setEntity(id: string | null): void {
     this.currentEntityId.set(id);
-    if (id) sessionStorage.setItem(ENTITY_KEY, id);
-    else sessionStorage.removeItem(ENTITY_KEY);
+    keepInTab(ENTITY_KEY, id);
   }
 
   setStayInWorkspace(stay: boolean): void {
     this.stayInWorkspace.set(stay);
-    if (stay) sessionStorage.setItem(STAY_IN_WORKSPACE_KEY, '1');
-    else sessionStorage.removeItem(STAY_IN_WORKSPACE_KEY);
+    keepInTab(STAY_IN_WORKSPACE_KEY, stay ? '1' : null);
   }
 
   clear(): void {

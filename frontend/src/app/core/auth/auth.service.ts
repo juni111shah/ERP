@@ -1,55 +1,39 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, catchError, finalize, map, of, shareReplay, switchMap, tap } from 'rxjs';
-import { API_BASE_URL } from '../api/api-config';
-import { MeResponse, SessionStore, Workspace } from '../session/session.store';
+import { AuthSessionApi, LoginResponse, SessionResponse, TwoFactorChallengeSetup } from '../api/auth-session.api';
+import { MeResponse, SessionStore } from '../session/session.store';
 
-export interface SessionResponse { accessToken: string; expiresIn: number; workspace: Workspace; workspaces: Workspace[]; persistent: boolean; }
-export interface LoginResponse extends Partial<SessionResponse> {
-  requiresWorkspaceSelection?: boolean; selectionToken?: string; workspaces: Workspace[];
-  /** Two-factor still to do: no session yet, only a short-lived challenge for the next step. */
-  requiresTwoFactor?: boolean; twoFactorRequired?: boolean; twoFactorSetupRequired?: boolean; challengeToken?: string; challengeExpiresIn?: number;
-  /** One-time recovery codes, returned once when a first-sign-in authenticator setup is confirmed. */
-  recoveryCodes?: string[];
-}
+export type { LoginResponse, SessionResponse, TwoFactorChallengeSetup } from '../api/auth-session.api';
 
-/** First-sign-in authenticator setup: the QR image of the otpauth:// link and the key for typing in by hand. */
-export interface TwoFactorChallengeSetup { otpAuthUri: string; secret: string; qrCodeDataUri: string; issuer: string; account: string; digits: number; period: number; }
-
+/** Signs people in and out and keeps the session store in step: the access token, the signed-in person and the legal entity. */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly http = inject(HttpClient);
-  private readonly base = inject(API_BASE_URL);
+  private readonly authApi = inject(AuthSessionApi);
   private readonly session = inject(SessionStore);
   private readonly router = inject(Router);
   private refreshInFlight: Observable<string | null> | null = null;
 
   login(email: string, password: string, rememberMe: boolean, twoFactorCode?: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.base}/auth/login`, { email, password, rememberMe, twoFactorCode }).pipe(
-      switchMap((r) => (r.accessToken ? this.startSession(r as SessionResponse).pipe(map(() => r)) : of(r))),
-    );
+    return this.authApi.login({ email, password, rememberMe, twoFactorCode }).pipe(switchMap((r) => this.startSessionIfIssued(r)));
   }
 
   /** Setup step of a login challenge: creates the authenticator key and returns the QR / manual key. */
   beginTwoFactorSetup(challengeToken: string): Observable<TwoFactorChallengeSetup> {
-    return this.http.post<TwoFactorChallengeSetup>(`${this.base}/auth/login/2fa/setup`, { challengeToken });
+    return this.authApi.beginTwoFactorSetup(challengeToken);
   }
 
   /** Confirms a login challenge with a code (first code of a new setup, or a code / recovery code) and starts the session. */
   verifyTwoFactor(challengeToken: string, code: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.base}/auth/login/2fa/verify`, { challengeToken, code }).pipe(
-      switchMap((r) => (r.accessToken ? this.startSession(r as SessionResponse).pipe(map(() => r)) : of(r))),
-    );
+    return this.authApi.verifyTwoFactor(challengeToken, code).pipe(switchMap((r) => this.startSessionIfIssued(r)));
   }
 
   selectWorkspace(selectionToken: string, workspaceId: string): Observable<SessionResponse> {
-    return this.http.post<SessionResponse>(`${this.base}/auth/select-workspace`, { selectionToken, workspaceId })
-      .pipe(switchMap((s) => this.startSession(s).pipe(map(() => s))));
+    return this.authApi.selectWorkspace(selectionToken, workspaceId).pipe(switchMap((s) => this.startSession(s).pipe(map(() => s))));
   }
 
   switchWorkspace(workspaceId: string): Observable<SessionResponse> {
-    return this.http.post<SessionResponse>(`${this.base}/auth/switch-workspace`, { workspaceId }).pipe(
+    return this.authApi.switchWorkspace(workspaceId).pipe(
       tap(() => this.session.setEntity(null)),
       switchMap((s) => this.startSession(s).pipe(map(() => s))),
     );
@@ -58,7 +42,7 @@ export class AuthService {
   /** Single-flight silent refresh: concurrent 401s share one /auth/refresh call. */
   refresh(): Observable<string | null> {
     if (!this.refreshInFlight) {
-      this.refreshInFlight = this.http.post<SessionResponse>(`${this.base}/auth/refresh`, {}).pipe(
+      this.refreshInFlight = this.authApi.refresh().pipe(
         switchMap((s) => this.startSession(s).pipe(map(() => s.accessToken))),
         catchError(() => { this.session.clear(); return of(null); }),
         finalize(() => (this.refreshInFlight = null)),
@@ -73,32 +57,44 @@ export class AuthService {
     return this.refresh();
   }
 
+  /** Ends the session on the server (a failure is ignored), clears it here and goes to the sign-in page. */
   logout(): void {
-    this.http.post(`${this.base}/auth/logout`, {}).pipe(catchError(() => of(null))).subscribe(() => {
+    this.authApi.logout().pipe(catchError(() => of(null))).subscribe(() => {
       this.session.clear();
       void this.router.navigateByUrl('/auth/login');
     });
   }
 
   forgotPassword(email: string): Observable<unknown> {
-    return this.http.post(`${this.base}/auth/forgot-password`, { email });
+    return this.authApi.forgotPassword(email);
   }
 
   resetPassword(token: string, newPassword: string): Observable<unknown> {
-    return this.http.post(`${this.base}/auth/reset-password`, { token, newPassword });
+    return this.authApi.resetPassword(token, newPassword);
   }
 
+  /** Loads the signed-in person and keeps the selected legal entity valid for them. */
   loadMe(): Observable<MeResponse> {
-    return this.http.get<MeResponse>(`${this.base}/me`).pipe(tap((me) => {
+    return this.authApi.me().pipe(tap((me) => {
       this.session.me.set(me);
-      const current = this.session.currentEntityId();
-      if (current && !me.legalEntities.some((e) => e.id === current)) this.session.setEntity(null);
-      if (!me.allLegalEntities && !this.session.currentEntityId() && me.legalEntities.length) this.session.setEntity(me.legalEntities[0].id);
+      this.keepEntityValid(me);
     }));
+  }
+
+  /** A login answer that already carries a token starts the session; one that asks for another step comes back as it is. */
+  private startSessionIfIssued(r: LoginResponse): Observable<LoginResponse> {
+    return r.accessToken ? this.startSession(r as SessionResponse).pipe(map(() => r)) : of(r);
   }
 
   private startSession(s: SessionResponse): Observable<MeResponse> {
     this.session.accessToken.set(s.accessToken);
     return this.loadMe();
+  }
+
+  /** Drops a legal entity the person may no longer use; someone limited to some entities starts on the first of them. */
+  private keepEntityValid(me: MeResponse): void {
+    const current = this.session.currentEntityId();
+    if (current && !me.legalEntities.some((e) => e.id === current)) this.session.setEntity(null);
+    if (!me.allLegalEntities && !this.session.currentEntityId() && me.legalEntities.length) this.session.setEntity(me.legalEntities[0].id);
   }
 }

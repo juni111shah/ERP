@@ -8,11 +8,15 @@ import { SessionStore } from '../session/session.store';
 
 const AUTH_PATHS = ['/auth/login', '/auth/refresh', '/auth/select-workspace', '/auth/logout'];
 
+/** A call to this API on behalf of signed-in staff. Tenant-portal calls carry their own token (see PortalService) and stay out. */
+function isStaffApiCall(url: string, base: string): boolean {
+  return url.startsWith(base) && !url.includes('/portal/') && !url.includes('/m/realestate/portal');
+}
+
 /** Adds the bearer token, the CSRF client header and credentials; on 401 refreshes once and retries. */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const base = inject(API_BASE_URL);
-  // Tenant-portal calls carry their own token (see PortalService) and must never trigger the staff refresh/redirect flow.
-  if (!req.url.startsWith(base) || req.url.includes('/portal/') || req.url.includes('/m/realestate/portal')) return next(req);
+  // Portal calls must never trigger the staff refresh/redirect flow.
+  if (!isStaffApiCall(req.url, inject(API_BASE_URL))) return next(req);
   const session = inject(SessionStore);
   const auth = inject(AuthService);
   const router = inject(Router);

@@ -51,6 +51,7 @@ export function displayMoney(value: number | null | undefined, currency?: string
   return currency ? `${currency} ${amount}` : amount;
 }
 
+/** Whether a value is an ISO date ("2026-11-05") or timestamp ("2026-11-05T09:30…"). */
 export function isIsoDate(value: unknown): boolean {
   return typeof value === 'string' && (ISO_DATE.test(value) || ISO_DATE_TIME.test(value));
 }

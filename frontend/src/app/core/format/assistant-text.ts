@@ -1,4 +1,6 @@
+/** A run of reply text: plain, bold, or a link to a page of this site. */
 export type AssistantInline = { text: string; bold?: boolean; link?: string };
+/** A paragraph or a list of a reply, as the chat panel renders it. */
 export type AssistantBlock = { kind: 'paragraph'; parts: AssistantInline[] } | { kind: 'list'; ordered: boolean; items: AssistantInline[][] };
 
 const INLINE = /\*\*(.+?)\*\*|\[([^\]]+)\]\(([^)\s]+)\)/g;
@@ -12,6 +14,7 @@ export function isInternalLink(href: string): boolean {
   return /^\/(?![/\\])/.test(href) && !href.includes('\\');
 }
 
+/** One line split into plain, bold and link runs. */
 function inline(line: string): AssistantInline[] {
   const parts: AssistantInline[] = [];
   let at = 0;

@@ -7,11 +7,13 @@ const PATTERNS: Record<string, string> = {
   Z: 'nwwnwnnnn', '-': 'nwnnnnwnw', '.': 'wwnnnnwnn', ' ': 'nwwnnnwnn', $: 'nwnwnwnnn', '/': 'nwnwnnnwn', '+': 'nwnnnwnwn', '%': 'nnnwnwnwn', '*': 'nwnnwnwnn',
 };
 
+/** One black bar: where it starts and how wide it is, in narrow-element units. */
 export interface BarcodeBar {
   x: number;
   width: number;
 }
 
+/** The bars of a whole barcode and its total width, in narrow-element units. */
 export interface BarcodeImage {
   bars: BarcodeBar[];
   width: number;

@@ -12,6 +12,7 @@ export interface ApiResponse<T> {
   type?: string; title?: string; status?: number; detail?: string;
 }
 
+/** Where a page sits in a paged list. */
 export interface PageMeta { page: number; pageSize: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean; }
 
 /** What services receive for paged endpoints after unwrapping: items + page meta. */
