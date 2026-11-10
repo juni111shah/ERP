@@ -1,15 +1,14 @@
 import { DatePipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { API_BASE_URL } from '@core/api/api-config';
-import { PagedResult } from '@core/api/api.models';
+import { HistoryEntry, RecordHistoryApi } from '@core/api/record-history.api';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 
-interface FieldChange { field: string; old?: string | null; new?: string | null; }
-interface HistoryEntry { id: string; occurredAt: string; userId?: string; userName?: string; action: string; changes: FieldChange[]; }
+/** Entries fetched per "more" click. */
+const PAGE_SIZE = 20;
+const ACTION_LABELS: Record<string, string> = { Created: 'Created', Updated: 'Updated', Deleted: 'Deleted' };
 
 /**
  * Who changed a record and when, with each field from old to new (from the audit trail, newest first).
@@ -28,8 +27,7 @@ export class RecordHistoryComponent {
   /** The record class name used by the audit trail, for example "Invoice", "Bill", "Party", "Lease", "Property". */
   readonly recordType = input.required<string>();
   readonly recordId = input.required<string>();
-  private readonly http = inject(HttpClient);
-  private readonly base = inject(API_BASE_URL);
+  private readonly historyApi = inject(RecordHistoryApi);
   readonly entries = signal<HistoryEntry[]>([]);
   readonly loading = signal(false);
   readonly hasMore = signal(false);
@@ -41,19 +39,17 @@ export class RecordHistoryComponent {
 
   more(): void { this.page++; this.load(); }
 
-  label(action: string): string {
-    const map: Record<string, string> = { Created: 'Created', Updated: 'Updated', Deleted: 'Deleted' };
-    return map[action] ?? action;
-  }
+  label(action: string): string { return ACTION_LABELS[action] ?? action; }
 
+  /** "legalEntityId" becomes "legal Entity": the field name split into words, without a trailing "Id". */
   humanize(field: string): string { return field.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/Id$/, '').trim(); }
 
   private load(): void {
     const id = this.recordId();
     if (!id) return;
     this.loading.set(true);
-    this.http.get<PagedResult<HistoryEntry>>(`${this.base}/audit/record`, { params: { recordType: this.recordType(), recordId: id, page: this.page, pageSize: 20 } }).subscribe({
-      next: (r) => { this.entries.update((all) => [...all, ...r.items]); this.hasMore.set(this.page < Math.ceil(r.total / 20)); this.loading.set(false); },
+    this.historyApi.list(this.recordType(), id, this.page, PAGE_SIZE).subscribe({
+      next: (r) => { this.entries.update((all) => [...all, ...r.items]); this.hasMore.set(this.page < Math.ceil(r.total / PAGE_SIZE)); this.loading.set(false); },
       error: () => { this.loading.set(false); this.hasMore.set(false); },
     });
   }

@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, TemplateRef, afterEveryRender, computed, contentChild, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
 import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, TemplateRef, afterEveryRender, computed, contentChild, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ClearOutline, ColumnHeightOutline, FilterFill, HolderOutline, UndoOutline, VerticalLeftOutline, VerticalRightOutline } from '@ant-design/icons-angular/icons';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
@@ -13,80 +13,28 @@ import { NzIconModule, provideNzIconsPatch } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMenuModule } from 'ng-zorro-antd/menu';
+import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopoverModule } from 'ng-zorro-antd/popover';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule, NzTableQueryParams } from 'ng-zorro-antd/table';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { NzMessageService } from 'ng-zorro-antd/message';
-import { FilterCriterion } from '@core/api/api.models';
 import { PagedList } from '@core/api/paged-list';
 import { I18nService } from '@core/i18n/i18n.service';
 import { CsvExportService } from '@core/services/csv-export.service';
 import { TABLE_DENSITIES, TableDensityService } from '@core/services/table-density.service';
-import { displayDate, displayLabel, isIsoDate } from '@core/format/display';
-import { StatusTagComponent } from '../status-tag/status-tag.component';
+import { KeyboardClickDirective } from '../../directives/keyboard-click.directive';
+import { RevealDirective } from '../../directives/reveal.directive';
 import { ExpandSearchComponent } from '../expand-search/expand-search.component';
 import { PageChange, PaginationBarComponent } from '../pagination-bar/pagination-bar.component';
-import { RevealDirective } from '../../directives/reveal.directive';
 import { RowActionsComponent } from '../row-actions/row-actions.component';
-import { KeyboardClickDirective } from '../../directives/keyboard-click.directive';
+import { StatusTagComponent } from '../status-tag/status-tag.component';
+import { StickyScrollbar } from './sticky-scrollbar';
+import { ColumnFilterKind, ColumnPin, FilterOption, TableColumn, configuredOptions, displayCell, filterKindOf, inferredAlign, isStatusColumn, readCell } from './table-column';
+import { FilterState, collectSeenOptions, isFilterSet, rowMatches, serverCriteria } from './table-filters';
+import { ColumnView, EMPTY_LAYOUT, TableLayout, layoutColumns, readLayout, renderedColumns, withVisibility, writeLayout } from './table-layout';
 
-export type ColumnFilterKind = 'text' | 'select' | 'date' | 'number';
-export type ColumnPin = 'left' | 'right';
-
-export interface TableColumn<T> {
-  key: string;
-  label: string;
-  /** server sort field ([Sortable] on the entity); omit to disable sorting */
-  sortField?: string;
-  width?: string;
-  /** 'right' for amounts. When omitted, a column holding numbers or formatted amounts is right-aligned and any other column follows the text direction. */
-  align?: 'left' | 'right';
-  /** cell text; defaults to row[key] */
-  value?: (row: T) => unknown;
-  /** Header filter kind. Inferred from the key and the loaded values when omitted; `false` turns the filter off. */
-  filter?: ColumnFilterKind | false;
-  /**
-   * Server filter field ([Filterable] on the entity). When set the filter is sent as `filter=field:op:value` (select → eq/in,
-   * date → gte/lte, number → gte/lte, text → contains); otherwise the column filters the rows already loaded on the current page.
-   */
-  filterField?: string;
-  /** Options for a select filter (raw values, optionally with labels). Defaults to the values seen in the loaded rows. */
-  filterOptions?: readonly (string | { value: string; label: string })[];
-  /** Raw value used for filtering; defaults to row[key], else value(row). */
-  filterValue?: (row: T) => unknown;
-  /** Pinned by default (users can change it; the first column is pinned to the start by default when the table scrolls sideways). */
-  sticky?: ColumnPin;
-  /** Hidden until the user turns it on in the Columns panel. */
-  hidden?: boolean;
-}
-
-interface FilterState { text?: string; values?: string[]; range?: (Date | null)[] | null; min?: number | null; max?: number | null; }
-interface Layout { order: string[]; hidden: string[]; shown: string[]; pins: Record<string, ColumnPin | 'none'>; }
-interface ColumnView<T> { col: TableColumn<T>; key: string; pin: ColumnPin | null; hidden: boolean; }
-interface Option { value: string; label: string; }
-
-const EMPTY_LAYOUT: Layout = { order: [], hidden: [], shown: [], pins: {} };
-const ENUM_KEY = /^(status|stage|kind|type|usage|priority|category|source|sourceType|direction|method|action|roles?|isActive|isCreditNote|currency|currencyCode|dealType|channel|entityType|recordType)$/i;
-const STATUS_KEY = /^(status|stage|state|paymentStatus|approvalStatus)$/;
-const DATE_KEY = /(date|Date|On|At|Ends)$/;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
-/** Identifiers made of digits read as text, so they stay at the start of the cell. */
-const IDENTIFIER_KEY = /(code|number|no|phone|mobile|year|id|ref|reference)$/i;
-/** A formatted amount: optional currency code, grouped digits, optional decimals or percent. Plain digits alone could be a code. */
-const AMOUNT_TEXT = /^(-?[A-Z]{3}\s)?-?\d[\d,]*(\.\d+|,\d{3})\s?%?$|^-?\d+(\.\d+)?\s?%$/;
-/** What a blank cell shows, so a missing value is not mistaken for zero or for a row still loading. */
-export const EMPTY_CELL = '—';
-
-function isoDate(d: Date | null | undefined): string | null {
-  if (!d) return null;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-function humanizeValue(v: string): string {
-  const s = v.replace(/[._-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim().toLowerCase();
-  return s ? s[0].toUpperCase() + s.slice(1) : v;
-}
+export { EMPTY_CELL } from './table-column';
+export type { ColumnFilterKind, ColumnPin, TableColumn } from './table-column';
 
 /**
  * Generic server-side table for any PagedList: search box, sortable headers, paging, empty/loading states, plus per-column
@@ -137,78 +85,35 @@ export class PagedTableComponent<T> {
 
   // ---------- layout (order / visibility / pinning), persisted per table ----------
   private readonly routePath = (this.route?.snapshot.pathFromRoot ?? []).map((r) => r.routeConfig?.path ?? '').filter(Boolean).join('/') || 'root';
-  readonly storageKey = computed(() => `erp.table.layout:${this.tableId() ?? `${this.routePath}:${this.tableName()}`}`);
+  private readonly tableKey = computed(() => this.tableId() ?? `${this.routePath}:${this.tableName()}`);
+  readonly storageKey = computed(() => `erp.table.layout:${this.tableKey()}`);
   /** Remembered page size, per table. */
-  readonly pageSizeKey = computed(() => `erp.table.pageSize:${this.tableId() ?? `${this.routePath}:${this.tableName()}`}`);
-  readonly layout = signal<Layout>(EMPTY_LAYOUT);
+  readonly pageSizeKey = computed(() => `erp.table.pageSize:${this.tableKey()}`);
+  readonly layout = signal<TableLayout>(EMPTY_LAYOUT);
   private readonly loadLayout = effect(() => {
     const key = this.storageKey();
-    untracked(() => this.layout.set(this.readLayout(key)));
+    untracked(() => this.layout.set(readLayout(key)));
   });
 
   /** Every column in the user's order, with its pin and visibility. */
-  readonly allColumns = computed((): ColumnView<T>[] => {
-    const cols = this.columns();
-    const l = this.layout();
-    const keys = cols.map((c) => c.key);
-    const order = l.order.filter((k) => keys.includes(k));
-    keys.forEach((k, i) => {
-      if (order.includes(k)) return;
-      const prev = keys.slice(0, i).reverse().find((p) => order.includes(p));
-      order.splice(prev ? order.indexOf(prev) + 1 : 0, 0, k);
-    });
-    const byKey = new Map(cols.map((c) => [c.key, c]));
-    const isHidden = (k: string) => l.hidden.includes(k) || (!!byKey.get(k)!.hidden && !l.shown.includes(k));
-    const first = order.find((k) => !isHidden(k));
-    return order.map((k) => {
-      const col = byKey.get(k)!;
-      const saved = l.pins[k];
-      const pin: ColumnPin | null = saved === 'none' ? null : saved ?? this.defaultPin(col, k === first);
-      return { col, key: k, pin, hidden: isHidden(k) };
-    });
-  });
+  readonly allColumns = computed((): ColumnView<T>[] => layoutColumns(this.columns(), this.layout()));
   /** Rendered columns: start-pinned first, then free, then end-pinned (sticky cells must sit at the edges). */
-  readonly visibleColumns = computed(() => {
-    let v = this.allColumns().filter((c) => !c.hidden);
-    if (!v.length) v = this.allColumns().slice(0, 1);
-    return [...v.filter((c) => c.pin === 'left'), ...v.filter((c) => !c.pin), ...v.filter((c) => c.pin === 'right')];
-  });
+  readonly visibleColumns = computed(() => renderedColumns(this.allColumns()));
   readonly visibleCount = computed(() => this.allColumns().filter((c) => !c.hidden).length);
   /** Every table can scroll sideways, so its pinned columns hold when a narrow screen or a long value makes it wider than the page. */
   readonly scroll = computed(() => ({ x: this.scrollX() ?? 'max-content' }));
-
-  private defaultPin(c: TableColumn<T>, first: boolean): ColumnPin | null {
-    if (c.sticky) return c.sticky;
-    if (c.key === 'actions') return 'right';
-    return first ? 'left' : null;
-  }
 
   /** Numbers and amounts line up at the end of the cell; everything else follows the text. */
   readonly aligns = computed((): Record<string, 'left' | 'right' | null> => {
     const out: Record<string, 'left' | 'right' | null> = {};
     const items = this.list().items();
-    for (const c of this.columns()) out[c.key] = c.align ?? this.inferredAlign(c, items);
+    for (const c of this.columns()) out[c.key] = c.align ?? inferredAlign(c, items);
     return out;
   });
 
-  private inferredAlign(c: TableColumn<T>, items: T[]): 'right' | null {
-    if (c.key === 'actions') return 'right';
-    if (IDENTIFIER_KEY.test(c.key)) return null;
-    for (const row of items) {
-      const shown = this.read(row, c);
-      if (shown === '' || shown === null || shown === undefined) continue;
-      return typeof shown === 'number' || (typeof shown === 'string' && AMOUNT_TEXT.test(shown.trim())) ? 'right' : null;
-    }
-    return null;
-  }
-
   setVisible(key: string, visible: boolean): void {
     if (!visible && this.visibleCount() <= 1) return;
-    this.saveLayout((l) => ({
-      ...l,
-      hidden: visible ? l.hidden.filter((k) => k !== key) : [...l.hidden.filter((k) => k !== key), key],
-      shown: visible ? [...l.shown.filter((k) => k !== key), key] : l.shown.filter((k) => k !== key),
-    }));
+    this.saveLayout((l) => withVisibility(l, key, visible));
   }
   setPin(key: string, pin: ColumnPin | null): void { this.saveLayout((l) => ({ ...l, pins: { ...l.pins, [key]: pin ?? 'none' } })); }
   drop(e: CdkDragDrop<unknown>): void {
@@ -218,21 +123,12 @@ export class PagedTableComponent<T> {
   }
   resetLayout(): void {
     this.layout.set(EMPTY_LAYOUT);
-    try { localStorage.removeItem(this.storageKey()); } catch { /* storage unavailable */ }
+    writeLayout(this.storageKey(), null);
   }
-  private saveLayout(f: (l: Layout) => Layout): void {
+  private saveLayout(f: (l: TableLayout) => TableLayout): void {
     const next = f(this.layout());
     this.layout.set(next);
-    try { localStorage.setItem(this.storageKey(), JSON.stringify(next)); } catch { /* storage unavailable */ }
-  }
-  private readLayout(key: string): Layout {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return EMPTY_LAYOUT;
-      const p = JSON.parse(raw) as Partial<Layout>;
-      const arr = (a: unknown) => (Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : []);
-      return { order: arr(p.order), hidden: arr(p.hidden), shown: arr(p.shown), pins: p.pins && typeof p.pins === 'object' ? p.pins : {} };
-    } catch { return EMPTY_LAYOUT; }
+    writeLayout(this.storageKey(), next);
   }
 
   // ---------- column filters ----------
@@ -240,30 +136,16 @@ export class PagedTableComponent<T> {
   readonly openKey = signal<string | null>(null);
   /** working copy edited in the open filter dropdown */
   draft: FilterState = {};
-  private readonly seen = signal<Record<string, Option[]>>({});
+  private readonly seen = signal<Record<string, FilterOption[]>>({});
 
   /** filter kind per column key (null = no filter) */
   readonly kinds = computed((): Record<string, ColumnFilterKind | null> => {
     const out: Record<string, ColumnFilterKind | null> = {};
     const items = this.list().items();
     const on = this.filterable();
-    for (const c of this.columns()) out[c.key] = on ? this.kindOf(c, items) : null;
+    for (const c of this.columns()) out[c.key] = on ? filterKindOf(c, items) : null;
     return out;
   });
-
-  private kindOf(c: TableColumn<T>, items: T[]): ColumnFilterKind | null {
-    if (c.filter === false || c.key === 'actions') return null;
-    if (c.filter) return c.filter;
-    if (c.filterOptions) return 'select';
-    if (ENUM_KEY.test(c.key)) return 'select';
-    if (DATE_KEY.test(c.key)) return 'date';
-    const sample = items.map((r) => this.raw(r, c)).find((v) => v !== null && v !== undefined && v !== '');
-    if (typeof sample === 'boolean') return 'select';
-    if (typeof sample === 'number') return 'number';
-    if (typeof sample === 'string' && ISO_DATE.test(sample)) return 'date';
-    if (c.align === 'right') return 'number';
-    return 'text';
-  }
 
   /** remembers select values seen on loaded pages, so options survive server-side filtering */
   private readonly collect = effect(() => {
@@ -271,41 +153,22 @@ export class PagedTableComponent<T> {
     const cols = this.columns();
     const kinds = this.kinds();
     untracked(() => {
-      const next = { ...this.seen() };
-      let changed = false;
-      for (const c of cols) {
-        if (kinds[c.key] !== 'select' || c.filterOptions) continue;
-        const known = new Map((next[c.key] ?? []).map((o) => [o.value, o]));
-        const before = known.size;
-        for (const r of items) {
-          const raw = this.raw(r, c);
-          const vals = Array.isArray(raw) ? raw : [raw];
-          for (const v of vals) {
-            if (v === null || v === undefined || v === '') continue;
-            const value = String(v);
-            if (known.has(value)) continue;
-            const shown = Array.isArray(raw) ? value : this.read(r, c);
-            const label = typeof v === 'boolean' ? (v ? 'Yes' : 'No') : shown !== '' && String(shown) !== value ? String(shown) : humanizeValue(value);
-            known.set(value, { value, label });
-          }
-        }
-        if (known.size !== before) { next[c.key] = [...known.values()].sort((a, b) => a.label.localeCompare(b.label)); changed = true; }
-      }
-      if (changed) this.seen.set(next);
+      const next = collectSeenOptions(this.seen(), items, cols, kinds);
+      if (next) this.seen.set(next);
     });
   });
-  readonly options = computed((): Record<string, Option[] | undefined> => {
-    const out: Record<string, Option[] | undefined> = { ...this.seen() };
+  readonly options = computed((): Record<string, FilterOption[] | undefined> => {
+    const out: Record<string, FilterOption[] | undefined> = { ...this.seen() };
     for (const c of this.columns()) {
-      if (c.filterOptions) out[c.key] = c.filterOptions.map((o) => (typeof o === 'string' ? { value: o, label: humanizeValue(o) } : o));
+      if (c.filterOptions) out[c.key] = configuredOptions(c);
     }
     return out;
   });
 
-  readonly activeCount = computed(() => Object.keys(this.filters()).filter((k) => this.isSet(this.filters()[k])).length);
+  readonly activeCount = computed(() => Object.keys(this.filters()).filter((k) => isFilterSet(this.filters()[k])).length);
   private readonly clientFilters = computed(() => {
     const f = this.filters();
-    return this.columns().filter((c) => !c.filterField && this.isSet(f[c.key]) && this.kinds()[c.key]);
+    return this.columns().filter((c) => !c.filterField && isFilterSet(f[c.key]) && this.kinds()[c.key]);
   });
   readonly clientFiltered = computed(() => this.clientFilters().length > 0);
   /** loaded page minus rows rejected by client-side column filters */
@@ -314,15 +177,11 @@ export class PagedTableComponent<T> {
     const active = this.clientFilters();
     if (!active.length) return items;
     const f = this.filters();
-    return items.filter((r) => active.every((c) => this.matches(r, c, f[c.key], this.kinds()[c.key]!)));
+    return items.filter((r) => active.every((c) => rowMatches(r, c, f[c.key], this.kinds()[c.key]!)));
   });
   readonly hasRows = computed(() => this.rows().length > 0);
 
-  isActive(key: string): boolean { return this.isSet(this.filters()[key]); }
-  private isSet(f: FilterState | undefined): boolean {
-    if (!f) return false;
-    return !!f.text?.trim() || !!f.values?.length || !!(f.range && (f.range[0] || f.range[1])) || f.min != null || f.max != null;
-  }
+  isActive(key: string): boolean { return isFilterSet(this.filters()[key]); }
 
   onFilterOpen(key: string, open: boolean): void {
     if (open) {
@@ -333,7 +192,7 @@ export class PagedTableComponent<T> {
   }
   apply(key: string): void {
     const next = { ...this.filters(), [key]: { ...this.draft } };
-    if (!this.isSet(next[key])) delete next[key];
+    if (!isFilterSet(next[key])) delete next[key];
     this.setFilters(next);
     this.openKey.set(null);
   }
@@ -346,87 +205,25 @@ export class PagedTableComponent<T> {
   }
   clearFilters(): void { this.setFilters({}); }
 
+  /** Sets the filters; the list asks the server again only when the server-side criteria changed. */
   private setFilters(next: Record<string, FilterState>): void {
-    const prevServer = JSON.stringify(this.serverCriteria(this.filters()));
+    const prevServer = JSON.stringify(serverCriteria(this.columns(), this.kinds(), this.filters()));
     this.filters.set(next);
-    const server = this.serverCriteria(next);
+    const server = serverCriteria(this.columns(), this.kinds(), next);
     if (JSON.stringify(server) !== prevServer) this.list().setColumnFilters(server);
   }
 
-  private serverCriteria(f: Record<string, FilterState>): FilterCriterion[] {
-    const out: FilterCriterion[] = [];
-    for (const c of this.columns()) {
-      const s = f[c.key];
-      const field = c.filterField;
-      if (!field || !this.isSet(s)) continue;
-      switch (this.kinds()[c.key]) {
-        case 'text': out.push({ field, op: 'contains', value: s.text!.trim() }); break;
-        case 'select': out.push(s.values!.length === 1 ? { field, op: 'eq', value: s.values![0] } : { field, op: 'in', value: s.values! }); break;
-        case 'date': {
-          const from = isoDate(s.range?.[0]); const to = s.range?.[1];
-          if (from) out.push({ field, op: 'gte', value: from });
-          // Before the next day, so the end date counts in full for fields that also hold a time.
-          if (to) out.push({ field, op: 'lt', value: isoDate(new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1))! });
-          break;
-        }
-        case 'number':
-          if (s.min != null) out.push({ field, op: 'gte', value: s.min });
-          if (s.max != null) out.push({ field, op: 'lte', value: s.max });
-          break;
-      }
-    }
-    return out;
-  }
-
-  private matches(row: T, c: TableColumn<T>, f: FilterState, kind: ColumnFilterKind): boolean {
-    const raw = this.raw(row, c);
-    switch (kind) {
-      case 'text': {
-        const q = f.text!.trim().toLowerCase();
-        return String(this.read(row, c)).toLowerCase().includes(q) || (raw != null && typeof raw !== 'object' && String(raw).toLowerCase().includes(q));
-      }
-      case 'select': {
-        const vals = (Array.isArray(raw) ? raw : [raw]).filter((v) => v !== null && v !== undefined).map((v) => String(v));
-        return !f.values?.length || vals.some((v) => f.values!.includes(v));
-      }
-      case 'date': {
-        const d = raw == null ? '' : raw instanceof Date ? isoDate(raw) ?? '' : String(raw).slice(0, 10);
-        const from = isoDate(f.range?.[0]); const to = isoDate(f.range?.[1]);
-        if (!d) return !from && !to;
-        return (!from || d >= from) && (!to || d <= to);
-      }
-      case 'number': {
-        const n = typeof raw === 'number' ? raw : parseFloat(String(this.read(row, c)).replace(/[^0-9.\-]/g, ''));
-        if (Number.isNaN(n)) return f.min == null && f.max == null;
-        return (f.min == null || n >= f.min) && (f.max == null || n <= f.max);
-      }
-    }
-  }
-
-  private raw(row: T, c: TableColumn<T>): unknown {
-    if (c.filterValue) return c.filterValue(row);
-    const v = (row as Record<string, unknown>)[c.key];
-    return v !== undefined ? v : c.value ? c.value(row) : undefined;
-  }
-
-  // ---------- existing behaviour ----------
+  // ---------- cells ----------
   t(key: string, fallback: string): string { return this.i18n.t(key, fallback); }
 
-  read(row: T, c: TableColumn<T>): unknown {
-    const v = c.value ? c.value(row) : (row as Record<string, unknown>)[c.key];
-    return Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : (v ?? '');
-  }
+  read(row: T, c: TableColumn<T>): unknown { return readCell(row, c); }
 
   /** What a cell shows: dates in the shared format and API values in words. Sorting, filtering and exports keep the raw value. */
-  display(row: T, c: TableColumn<T>): unknown {
-    const v = this.read(row, c);
-    if (v === '' || v === null || v === undefined) return c.key === 'actions' ? '' : EMPTY_CELL;
-    if (isIsoDate(v)) return displayDate(v);
-    return ENUM_KEY.test(c.key) && !c.value ? displayLabel(v) : v;
-  }
+  display(row: T, c: TableColumn<T>): unknown { return displayCell(row, c); }
 
-  isStatusColumn(c: TableColumn<T>): boolean { return !c.value && STATUS_KEY.test(c.key); }
+  isStatusColumn(c: TableColumn<T>): boolean { return isStatusColumn(c); }
 
+  // ---------- search, paging and sorting ----------
   onSearch(term: string): void {
     clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => this.list().setSearch(term), 300);
@@ -435,90 +232,6 @@ export class PagedTableComponent<T> {
   onPage(e: PageChange): void {
     const q = this.list().query();
     if (e.page !== q.page || e.pageSize !== q.pageSize) this.list().setPage(e.page, e.pageSize);
-  }
-
-  // ---------- keyboard + sticky horizontal scrollbar ----------
-  private readonly zone = inject(NgZone);
-  private readonly grid = viewChild<ElementRef<HTMLElement>>('grid');
-  private readonly hscroll = viewChild<ElementRef<HTMLElement>>('hscroll');
-  private readonly pager = viewChild(PaginationBarComponent);
-  /** body scrolls sideways (the sticky scrollbar is shown) */
-  readonly overflowX = signal(false);
-  readonly scrollWidth = signal(0);
-  /** negative padding-bottom of the page's scroll container, so the sticky footer sits flush with the viewport edge */
-  readonly stickyBottom = signal(0);
-  private body: HTMLElement | null = null;
-  private proxy: HTMLElement | null = null;
-  private resize?: ResizeObserver;
-  private readonly onBodyScroll = () => this.sync(this.body, this.proxy);
-  private readonly onProxyScroll = () => this.sync(this.proxy, this.body);
-
-  private readonly bindScroll = afterEveryRender(() => this.attach());
-  private readonly cleanup = inject(DestroyRef).onDestroy(() => this.detach());
-
-  /** Finds nz-table's scrolling element (it is re-created when the scroll config changes) and keeps the proxy bar in step with it. */
-  private attach(): void {
-    const root = this.grid()?.nativeElement;
-    const proxy = this.hscroll()?.nativeElement ?? null;
-    const body = root?.querySelector<HTMLElement>('.ant-table-body, .ant-table-content') ?? null;
-    if (body === this.body && proxy === this.proxy) { this.measure(); return; }
-    this.detach();
-    this.body = body; this.proxy = proxy;
-    if (!body || !proxy) return;
-    this.stickyBottom.set(-this.scrollerPadding(root!));
-    this.zone.runOutsideAngular(() => {
-      body.addEventListener('scroll', this.onBodyScroll, { passive: true });
-      proxy.addEventListener('scroll', this.onProxyScroll, { passive: true });
-      if (typeof ResizeObserver !== 'undefined') {
-        this.resize = new ResizeObserver(() => this.zone.run(() => this.measure()));
-        this.resize.observe(body);
-        const table = body.querySelector('table');
-        if (table) this.resize.observe(table);
-        if (proxy) this.resize.observe(proxy);
-      }
-    });
-    this.measure();
-  }
-  private scrollerPadding(el: HTMLElement): number {
-    for (let e = el.parentElement; e; e = e.parentElement) {
-      const cs = getComputedStyle(e);
-      if (/(auto|scroll)/.test(cs.overflowY)) return parseFloat(cs.paddingBottom) || 0;
-    }
-    return 0;
-  }
-  private detach(): void {
-    this.body?.removeEventListener('scroll', this.onBodyScroll);
-    this.proxy?.removeEventListener('scroll', this.onProxyScroll);
-    this.resize?.disconnect();
-    this.resize = undefined;
-    this.body = this.proxy = null;
-  }
-  private measure(): void {
-    const b = this.body;
-    const over = !!b && b.scrollWidth - b.clientWidth > 1;
-    if (over !== this.overflowX()) this.overflowX.set(over);
-    // the proxy can be narrower than the body (e.g. a vertical scrollbar), so match the scroll range, not the raw width
-    const w = b ? b.scrollWidth - b.clientWidth + (this.proxy?.clientWidth || b.clientWidth) : 0;
-    if (w !== this.scrollWidth()) this.scrollWidth.set(w);
-    if (over) this.sync(b, this.proxy);
-  }
-  /** Copies the raw scrollLeft (both elements share the same direction, so this is RTL-safe); equal values stop the echo. */
-  private sync(from: HTMLElement | null, to: HTMLElement | null): void {
-    if (!from || !to || Math.abs(from.scrollLeft - to.scrollLeft) < 1) return;
-    to.scrollLeft = from.scrollLeft;
-  }
-
-  /** Table region keys: PageUp/PageDown and ←/→ page (mirrored in RTL), Ctrl+Home/End first/last page, Shift+←/→ scroll sideways. */
-  onGridKey(e: KeyboardEvent): void {
-    const target = e.target as HTMLElement;
-    if (target.closest('input, textarea, select, button, a, [contenteditable], .ant-select, .ant-dropdown, .ant-picker')) return;
-    if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-      if (!this.body) return;
-      this.body.scrollBy({ left: e.key === 'ArrowRight' ? 160 : -160, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-      e.preventDefault();
-      return;
-    }
-    if (this.pager()?.handleKey(e, { arrows: true, homeEnd: 'ctrl' })) e.preventDefault();
   }
 
   /** The sort chosen in the column headers; until the user picks one, the list keeps the order the page asked for. */
@@ -534,6 +247,30 @@ export class PagedTableComponent<T> {
     } else if (p.pageIndex !== q.page || p.pageSize !== q.pageSize) this.list().setPage(p.pageIndex, p.pageSize);
   }
 
+  // ---------- keyboard + sticky horizontal scrollbar ----------
+  private readonly grid = viewChild<ElementRef<HTMLElement>>('grid');
+  private readonly hscroll = viewChild<ElementRef<HTMLElement>>('hscroll');
+  private readonly pager = viewChild(PaginationBarComponent);
+  private readonly scrollbar = new StickyScrollbar(inject(NgZone));
+  /** body scrolls sideways (the sticky scrollbar is shown) */
+  readonly overflowX = this.scrollbar.overflowX;
+  readonly scrollWidth = this.scrollbar.scrollWidth;
+  /** negative padding-bottom of the page's scroll container, so the sticky footer sits flush with the viewport edge */
+  readonly stickyBottom = this.scrollbar.stickyBottom;
+  private readonly bindScroll = afterEveryRender(() => this.scrollbar.attach(this.grid()?.nativeElement, this.hscroll()?.nativeElement ?? null));
+  private readonly cleanup = inject(DestroyRef).onDestroy(() => this.scrollbar.detach());
+
+  /** Table region keys: PageUp/PageDown and ←/→ page (mirrored in RTL), Ctrl+Home/End first/last page, Shift+←/→ scroll sideways. */
+  onGridKey(e: KeyboardEvent): void {
+    const target = e.target as HTMLElement;
+    if (target.closest('input, textarea, select, button, a, [contenteditable], .ant-select, .ant-dropdown, .ant-picker')) return;
+    if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      if (this.scrollbar.scrollBy(e.key === 'ArrowRight' ? 160 : -160)) e.preventDefault();
+      return;
+    }
+    if (this.pager()?.handleKey(e, { arrows: true, homeEnd: 'ctrl' })) e.preventDefault();
+  }
+
   /** Exports the visible columns, in the on-screen order, of the rows shown (client-side column filters applied). */
   exportCsv(): void {
     const items = this.rows();
@@ -545,10 +282,10 @@ export class PagedTableComponent<T> {
     const cols = visible.map((c) => ({ field: c.key, header: c.label }));
     const data = items.map((row) => {
       const obj: Record<string, unknown> = {};
-      visible.forEach((c) => { obj[c.key] = this.read(row, c); });
+      visible.forEach((c) => { obj[c.key] = readCell(row, c); });
       return obj;
     });
-    this.csvService.exportToCsv(data as Record<string, any>[], this.exportFilename(), cols);
+    this.csvService.exportToCsv(data, this.exportFilename(), cols);
     this.message.success(`${this.exportFilename()}.csv: ${items.length} ${this.t('table.rowsExported', 'rows exported')}`);
   }
 }

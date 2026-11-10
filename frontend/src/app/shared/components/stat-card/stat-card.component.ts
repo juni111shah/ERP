@@ -1,73 +1,16 @@
 import { NgTemplateOutlet } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  OnDestroy,
-  computed,
-  effect,
-  inject,
-  input,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, computed, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { I18nService } from '@core/i18n/i18n.service';
 import { SessionStore } from '@core/session/session.store';
+import { StatFormat, StatTone, easeOutCubic, formatAnimatedString, statColors } from './stat-card-format';
 
-export type StatFormat = 'money' | 'number' | 'percent' | 'text';
-export type StatTone = number | 'danger' | 'success' | 'warning' | 'neutral';
+export { STAT_PALETTES } from './stat-card-format';
+export type { StatFormat, StatTone } from './stat-card-format';
 
-/** Palette of the Overview "Executive Highlights" cards: stripe colour + value colour, picked by index. */
-export const STAT_PALETTES = [
-  { stripe: '#10955d', text: 'var(--erp-color-stat-text-1)' }, // Emerald brand green
-  { stripe: '#2563eb', text: 'var(--erp-color-stat-text-2)' }, // Indigo blue
-  { stripe: '#0ea5e9', text: 'var(--erp-color-stat-text-3)' }, // Cyan
-  { stripe: '#f59e0b', text: 'var(--erp-color-stat-text-4)' }, // Amber
-  { stripe: '#8b5cf6', text: 'var(--erp-color-stat-text-5)' }, // Purple
-  { stripe: '#ec4899', text: 'var(--erp-color-stat-text-6)' }, // Rose
-];
-const NAMED: Record<string, { stripe: string; text: string }> = {
-  danger: { stripe: '#ef4444', text: 'var(--erp-color-error-text)' },
-  success: { stripe: '#10955d', text: 'var(--erp-color-stat-text-1)' },
-  warning: { stripe: '#f59e0b', text: 'var(--erp-color-stat-text-4)' },
-  neutral: { stripe: '#94a3b8', text: 'var(--erp-color-text-primary, #0f172a)' },
-};
-
-/**
- * Interpolates all numbers inside a formatted string from 0 to target based on progress.
- * E.g. "AED 1,234.50" with progress 0.5 -> "AED 617.25"
- * E.g. "AED 1,200.00 · USD 500.00" -> "AED 600.00 · USD 250.00"
- */
-function formatAnimatedString(template: string, progress: number): string {
-  if (progress >= 1) return template;
-  return template.replace(/-?\d[\d,]*(\.\d+)?/g, (match) => {
-    const cleanNumStr = match.replace(/,/g, '');
-    const target = Number(cleanNumStr);
-    if (isNaN(target) || target === 0) return match;
-
-    const current = target * progress;
-    const hasCommas = match.includes(',');
-    const decIndex = match.indexOf('.');
-    const decimals = decIndex !== -1 ? match.length - decIndex - 1 : 0;
-
-    let formatted: string;
-    if (decimals > 0) {
-      formatted = current.toLocaleString('en-US', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      });
-    } else {
-      formatted = Math.round(current).toLocaleString('en-US');
-    }
-
-    if (!hasCommas) {
-      formatted = formatted.replace(/,/g, '');
-    }
-
-    return formatted;
-  });
-}
+/** How long the count-up takes, in milliseconds. */
+const COUNT_UP_MS = 1000;
 
 /**
  * The one stat / metric card of the app (look of the Overview "Executive Highlights").
@@ -109,9 +52,15 @@ export class StatCardComponent implements OnDestroy {
   private lastTargetNum = 0;
   private startNum = 0;
 
-  readonly colors = computed(() => {
-    const t = this.tone();
-    return typeof t === 'number' ? STAT_PALETTES[((t % STAT_PALETTES.length) + STAT_PALETTES.length) % STAT_PALETTES.length] : NAMED[t];
+  readonly colors = computed(() => statColors(this.tone()));
+
+  readonly text = computed(() => {
+    const v = this.value();
+    if (v === null || v === undefined || v === '') return '—';
+    const progress = this.animProgress();
+    if (typeof v === 'number') return this.numberText(v, progress >= 1 ? v : this.startNum + (v - this.startNum) * progress);
+    const str = String(v);
+    return progress >= 1 || !/\d/.test(str) ? str : formatAnimatedString(str, progress);
   });
 
   constructor() {
@@ -135,6 +84,29 @@ export class StatCardComponent implements OnDestroy {
     });
   }
 
+  ngOnDestroy(): void {
+    this.stopAnimation();
+  }
+
+  /** A number in the card's format, showing `current` (the counted-up value) on the way to `v`. */
+  private numberText(v: number, current: number): string {
+    switch (this.format()) {
+      case 'percent':
+        return `${this.i18n.number(current, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+      case 'number':
+        return this.i18n.number(Number.isInteger(v) ? Math.round(current) : current);
+      default: {
+        const currency = this.currency() ?? this.session?.me()?.workspace?.baseCurrency ?? '';
+        const isMillions = this.shortenMillions() && Math.abs(v) >= 1_000_000;
+        const body = isMillions
+          ? `${this.i18n.number(current / 1_000_000, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M`
+          : this.i18n.number(Math.round(current), { maximumFractionDigits: 0 });
+        return `${currency} ${body}`.trim();
+      }
+    }
+  }
+
+  /** Counts up from the previous number (or from zero for text) to the new value. */
   private triggerAnimation(v: number | string): void {
     this.stopAnimation();
 
@@ -155,17 +127,11 @@ export class StatCardComponent implements OnDestroy {
     }
 
     this.animProgress.set(0);
-
-    const duration = 1000;
     const startTime = performance.now();
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
     const step = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const rawProgress = Math.min(elapsed / duration, 1);
-      const eased = easeOutCubic(rawProgress);
-
-      this.animProgress.set(eased);
+      const rawProgress = Math.min((currentTime - startTime) / COUNT_UP_MS, 1);
+      this.animProgress.set(easeOutCubic(rawProgress));
       this.cdr.markForCheck();
 
       if (rawProgress < 1) {
@@ -186,43 +152,4 @@ export class StatCardComponent implements OnDestroy {
       this.animFrameId = null;
     }
   }
-
-  ngOnDestroy(): void {
-    this.stopAnimation();
-  }
-
-  readonly text = computed(() => {
-    const v = this.value();
-    if (v === null || v === undefined || v === '') return '—';
-
-    const progress = this.animProgress();
-
-    // 1. If v is a number
-    if (typeof v === 'number') {
-      const currentVal = progress >= 1 ? v : this.startNum + (v - this.startNum) * progress;
-
-      switch (this.format()) {
-        case 'percent':
-          return `${this.i18n.number(currentVal, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
-        case 'number':
-          return this.i18n.number(Number.isInteger(v) ? Math.round(currentVal) : currentVal);
-        default: {
-          const currency = this.currency() ?? this.session?.me()?.workspace?.baseCurrency ?? '';
-          const isMillions = this.shortenMillions() && Math.abs(v) >= 1_000_000;
-          const body = isMillions
-            ? `${this.i18n.number(currentVal / 1_000_000, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M`
-            : this.i18n.number(Math.round(currentVal), { maximumFractionDigits: 0 });
-          return `${currency} ${body}`.trim();
-        }
-      }
-    }
-
-    // 2. If v is a string
-    const str = String(v);
-    if (progress >= 1 || !/\d/.test(str)) {
-      return str;
-    }
-
-    return formatAnimatedString(str, progress);
-  });
 }

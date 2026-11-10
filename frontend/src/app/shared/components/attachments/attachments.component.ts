@@ -1,4 +1,3 @@
-import { doneText } from '@core/format/done-text';
 import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
@@ -10,22 +9,18 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { API_BASE_URL } from '@core/api/api-config';
-import { toIsoDate } from '@core/format/dates';
+import { AttachmentItem, AttachmentsApi } from '@core/api/attachments.api';
+import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
-import { matchText, TableToolsComponent } from '../table-tools/table-tools.component';
-import { ErpLabelPipe, ErpDatePipe } from '../../pipes/display.pipes';
+import { ErpDatePipe, ErpLabelPipe } from '../../pipes/display.pipes';
+import { saveBlob } from '../../utils/save-blob';
 import { RowActionsComponent } from '../row-actions/row-actions.component';
+import { TableToolsComponent, matchText } from '../table-tools/table-tools.component';
+import { attachmentUploadForm, expiryTone } from './attachment-expiry';
 
-export interface AttachmentItem { id: string; fileName: string; contentType: string; sizeBytes: number; createdAt: string; category?: string; description?: string; expiresOn?: string; }
-
-/** Days until a date (negative = past); null when there is no date. */
-export function daysUntil(date?: string | null): number | null {
-  if (!date) return null;
-  const [y, m, d] = date.split('-').map(Number);
-  return Math.round((new Date(y, m - 1, d).getTime() - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime()) / 86400000);
-}
+export type { AttachmentItem } from '@core/api/attachments.api';
+export { daysUntil, expiryTone } from './attachment-expiry';
 
 /** Documents of one record: list, upload (with category and optional expiry), download and delete. <erp-attachments ownerType="lease" [ownerId]="id" /> */
 @Component({
@@ -38,8 +33,7 @@ export function daysUntil(date?: string | null): number | null {
 export class AttachmentsComponent {
   readonly ownerType = input.required<string>();
   readonly ownerId = input.required<string>();
-  private readonly http = inject(HttpClient);
-  private readonly base = inject(API_BASE_URL);
+  private readonly attachmentsApi = inject(AttachmentsApi);
   private readonly message = inject(NzMessageService);
   readonly items = signal<AttachmentItem[]>([]);
   readonly q = signal('');
@@ -51,37 +45,36 @@ export class AttachmentsComponent {
 
   constructor() { effect(() => { this.ownerType(); this.ownerId(); this.load(); }); }
 
-  tone(date: string): string { const d = daysUntil(date) ?? 0; return d < 0 ? 'red' : d <= 30 ? 'orange' : 'default'; }
+  tone(date: string): string { return expiryTone(date); }
 
   load(): void {
-    this.http.get<AttachmentItem[]>(`${this.base}/attachments`, { params: { ownerType: this.ownerType(), ownerId: this.ownerId() } }).subscribe((r) => this.items.set(r));
+    this.attachmentsApi.list(this.ownerType(), this.ownerId()).subscribe((r) => this.items.set(r));
   }
 
   upload(input: HTMLInputElement): void {
     const file = input.files?.[0];
     if (!file) { this.message.warning('Choose a file first'); return; }
-    const form = new FormData();
-    form.append('ownerType', this.ownerType()); form.append('ownerId', this.ownerId()); form.append('file', file);
-    if (this.category.trim()) form.append('category', this.category.trim());
-    if (this.expires) form.append('expiresOn', toIsoDate(this.expires));
+    const form = attachmentUploadForm(this.ownerType(), this.ownerId(), file, this.category, this.expires);
     this.busy.set(true);
-    this.http.post(`${this.base}/attachments`, form).subscribe({
+    this.attachmentsApi.upload(form).subscribe({
       next: () => { this.busy.set(false); input.value = ''; this.category = ''; this.expires = null; this.message.success(`Document ${file.name} uploaded`); this.load(); },
       error: (e) => { this.busy.set(false); this.message.error(asProblem(e)?.detail ?? 'Upload failed'); },
     });
   }
 
-  download(a: { id: string; fileName: string }): void { downloadAttachment(this.http, this.base, a); }
+  download(a: { id: string; fileName: string }): void {
+    this.attachmentsApi.download(a.id).subscribe((blob) => saveBlob(blob, a.fileName));
+  }
 
-  remove(a: AttachmentItem): void { this.http.delete(`${this.base}/attachments/${a.id}`).subscribe(() => { this.message.success(doneText('removed', 'Document', a.fileName)); this.load(); }); }
+  remove(a: AttachmentItem): void {
+    this.attachmentsApi.delete(a.id).subscribe(() => { this.message.success(doneText('removed', 'Document', a.fileName)); this.load(); });
+  }
 }
 
-/** Fetches a file with the auth header and hands it to the browser as a download. */
+/**
+ * Fetches a file with the auth header and hands it to the browser as a download. Kept for callers that hold an HttpClient and API base;
+ * inside components prefer `AttachmentsApi.download` with `saveBlob`.
+ */
 export function downloadAttachment(http: HttpClient, base: string, a: { id: string; fileName: string }): void {
-  http.get(`${base}/attachments/${a.id}/download`, { responseType: 'blob' }).subscribe((blob) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url; link.download = a.fileName; link.click();
-    URL.revokeObjectURL(url);
-  });
+  http.get(`${base}/attachments/${a.id}/download`, { responseType: 'blob' }).subscribe((blob) => saveBlob(blob, a.fileName));
 }

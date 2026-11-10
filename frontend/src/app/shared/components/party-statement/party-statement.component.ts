@@ -1,28 +1,30 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { API_BASE_URL } from '@core/api/api-config';
+import { PartyLedger, PartyLedgerApi } from '@core/api/party-ledger.api';
+import { toIsoDate } from '@core/format/dates';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { SessionStore } from '@core/session/session.store';
+import { HasPermissionDirective } from '../../directives/has-permission.directive';
 import { RevealDirective } from '../../directives/reveal.directive';
 import { EmailDocumentDrawerComponent } from '../email-document-drawer/email-document-drawer.component';
-import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { statementPrintHtml } from './statement-print';
 
-export interface PartyLedgerLine { date: string; kind: 'invoice' | 'creditNote' | 'receipt' | 'bill' | 'payment' | string; documentId: string; number: string; reference: string | null; currencyCode: string; debit: number; credit: number; balance: number }
-export interface PartyLedger { partyId: string; partyName: string | null; side: 'customer' | 'vendor'; from: string; to: string; openingBalance: number; lines: PartyLedgerLine[]; totalDebit: number; totalCredit: number; closingBalance: number }
+export type { PartyLedger, PartyLedgerLine } from '@core/api/party-ledger.api';
 
 const KIND_ROUTES: Record<string, string> = { invoice: '/finance/invoices', creditNote: '/finance/invoices', receipt: '/finance/receipts', bill: '/finance/bills', payment: '/finance/payments' };
 const KIND_LABELS: Record<string, string> = { invoice: 'Invoice', creditNote: 'Credit note', receipt: 'Receipt', bill: 'Bill', payment: 'Payment' };
 
-const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+/** The server's own explanation of a failed load (detail, else title), if it sent one. */
+function serverMessage(e: { error?: { detail?: string; title?: string } } | null | undefined): string | undefined {
+  return e?.error?.detail || e?.error?.title;
+}
 
 /**
  * Statement of account for one party and side (customer: invoices, credit notes, receipts; vendor: bills, payments), with a running
@@ -37,17 +39,17 @@ const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '
   templateUrl: './party-statement.component.html',
 })
 export class PartyStatementComponent {
-  private readonly http = inject(HttpClient);
-  private readonly apiBase = inject(API_BASE_URL);
+  private readonly ledgerApi = inject(PartyLedgerApi);
   private readonly i18n = inject(I18nService);
+  private readonly session = inject(SessionStore);
 
   readonly partyId = input.required<string>();
-  readonly emailOpen = signal(false);
-  readonly emailParams = computed(() => ({ asOf: iso(this.range()[1]) }));
   readonly side = input.required<'customer' | 'vendor'>();
   readonly partyName = input<string>('');
 
+  readonly emailOpen = signal(false);
   readonly range = signal<Date[]>([new Date(new Date().getFullYear(), 0, 1), new Date()]);
+  readonly emailParams = computed(() => ({ asOf: toIsoDate(this.range()[1]) }));
   readonly data = signal<PartyLedger | null>(null);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
@@ -70,116 +72,28 @@ export class PartyStatementComponent {
     const [from, to] = this.range();
     this.loading.set(true);
     this.error.set(null);
-    this.http.get<PartyLedger>(`${this.apiBase}/finance/reports/${this.side()}-ledger`, { params: { partyId: this.partyId(), from: iso(from), to: iso(to) } }).subscribe({
+    this.ledgerApi.ledger(this.side(), this.partyId(), toIsoDate(from), toIsoDate(to)).subscribe({
       next: (d) => { this.data.set(d); this.loading.set(false); },
-      error: (e) => { this.data.set(null); this.loading.set(false); this.error.set(e?.error?.detail || e?.error?.title || this.i18n.t('statement.failed', 'Could not load the statement')); },
+      error: (e) => { this.data.set(null); this.loading.set(false); this.error.set(serverMessage(e) || this.i18n.t('statement.failed', 'Could not load the statement')); },
     });
   }
-
-  private readonly session = inject(SessionStore);
 
   /** Prints the statement on its own page (a new window), with brand color and clean document layout. */
   print(): void {
     const d = this.data();
     if (!d) return;
-    const n = (v: number) => (v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const day = (v: string) => new Date(v + 'T00:00:00').toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
-    const t = (k: string, f: string) => esc(this.i18n.t(k, f));
-    const title = `${this.side() === 'customer' ? t('statement.customerTitle', 'Customer Statement of Account') : t('statement.vendorTitle', 'Vendor Statement of Account')}`;
     const ws = this.session.me()?.workspace;
-    const orgName = esc(ws?.name || 'HigherSquare 360 ERP');
     const entity = this.session.me()?.legalEntities.find((e) => e.id === this.session.currentEntityId());
-    const currency = esc(entity?.baseCurrency || ws?.baseCurrency || '');
-    const rows = d.lines.map((l) => `<tr>
-      <td>${day(l.date)}</td>
-      <td><span class="badge">${esc(this.kindLabel(l.kind))}</span></td>
-      <td><strong>${esc(l.number)}</strong></td>
-      <td>${esc(l.reference || '—')}</td>
-      <td class="n">${l.debit ? n(l.debit) : '—'}</td>
-      <td class="n">${l.credit ? n(l.credit) : '—'}</td>
-      <td class="n balance"><strong>${n(l.balance)}</strong></td>
-    </tr>`).join('');
-    const dir = document.documentElement.dir || 'ltr';
-    const html = `<!doctype html>
-<html dir="${esc(dir)}">
-<head>
-  <meta charset="utf-8">
-  <title>${title} · ${esc(this.partyName() || d.partyName)}</title>
-  <style>
-    @page { size: A4 portrait; margin: 12mm 15mm; }
-    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; color: #0f172a; line-height: 1.45; font-size: 12px; }
-    .sheet { max-width: 800px; margin: 0 auto; border-top: 5px solid #10955d; padding-top: 14px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 2px solid #10955d; }
-    .org-name { font-size: 20px; font-weight: 800; color: #064e3b; margin: 0 0 4px; }
-    .doc-title { font-size: 18px; font-weight: 800; color: #10955d; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 4px; text-align: end; }
-    .doc-dates { font-size: 11px; color: #64748b; text-align: end; }
-    .party-block { margin: 18px 0; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
-    .party-label { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px; }
-    .party-name { font-size: 15px; font-weight: 700; color: #0f172a; }
-    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
-    th { background: #f0fdf4; color: #064e3b; border-top: 1px solid #bbf7d0; border-bottom: 2px solid #10955d; padding: 8px 8px; font-size: 10.5px; text-transform: uppercase; text-align: start; }
-    td { border-bottom: 1px solid #e2e8f0; padding: 8px 8px; text-align: start; vertical-align: middle; }
-    .n { text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .balance { color: #064e3b; }
-    .badge { display: inline-block; padding: 1px 6px; background: #e2e8f0; border-radius: 4px; font-size: 10px; font-weight: 600; }
-    tr.sum td { font-weight: 700; background: #f8fafc; }
-    tr.closing td { background: #f0fdf4; border-top: 2px solid #10955d; border-bottom: 2px solid #10955d; font-size: 13px; font-weight: 800; color: #064e3b; }
-    .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 10.5px; color: #64748b; display: flex; justify-content: space-between; }
-  </style>
-</head>
-<body>
-  <div class="sheet">
-    <div class="header">
-      <div>
-        <div class="org-name">${orgName}</div>
-        <div style="font-size: 11px; color: #64748b;">Financial Statement of Account</div>
-      </div>
-      <div>
-        <div class="doc-title">${title}</div>
-        <div class="doc-dates">${t('statement.period', 'Statement Period')}: <strong>${day(d.from)} → ${day(d.to)}</strong></div>
-        <div class="doc-dates">Currency: <strong>${currency}</strong></div>
-      </div>
-    </div>
-    <div class="party-block">
-      <div class="party-label">${this.side() === 'customer' ? 'Account Holder / Customer' : 'Payee / Vendor'}</div>
-      <div class="party-name">${esc(this.partyName() || d.partyName || 'All Records')}</div>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th>${t('statement.date', 'Date')}</th>
-          <th>${t('statement.type', 'Type')}</th>
-          <th>${t('statement.number', 'Number')}</th>
-          <th>${t('statement.reference', 'Reference')}</th>
-          <th class="n">${t('statement.debit', 'Debit')}</th>
-          <th class="n">${t('statement.credit', 'Credit')}</th>
-          <th class="n">${t('statement.balance', 'Balance')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="sum">
-          <td>${day(d.from)}</td>
-          <td colspan="5"><strong>${t('statement.opening', 'Opening Balance')}</strong></td>
-          <td class="n balance"><strong>${n(d.openingBalance)}</strong></td>
-        </tr>
-        ${rows}
-        <tr class="closing">
-          <td>${day(d.to)}</td>
-          <td colspan="3"><strong>${t('statement.closing', 'Closing Balance')}</strong></td>
-          <td class="n">${n(d.totalDebit)}</td>
-          <td class="n">${n(d.totalCredit)}</td>
-          <td class="n balance"><strong>${n(d.closingBalance)}</strong></td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="footer">
-      <div>This statement reflects posted transactions as of ${new Date().toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}.</div>
-      <div>${orgName} · HigherSquare 360 ERP</div>
-    </div>
-  </div>
-</body>
-</html>`;
+    const html = statementPrintHtml({
+      ledger: d,
+      side: this.side(),
+      partyName: this.partyName(),
+      orgName: ws?.name || 'HigherSquare 360 ERP',
+      currency: entity?.baseCurrency || ws?.baseCurrency || '',
+      dir: document.documentElement.dir || 'ltr',
+      t: (k, f) => this.i18n.t(k, f),
+      kindLabel: (kind) => this.kindLabel(kind),
+    });
     const w = window.open('', '_blank');
     if (!w) { this.error.set(this.i18n.t('statement.popupBlocked', 'Allow pop-ups for this site to print the statement')); return; }
     w.document.open(); w.document.write(html); w.document.close();
@@ -187,4 +101,3 @@ export class PartyStatementComponent {
     w.print();
   }
 }
-

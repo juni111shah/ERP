@@ -1,8 +1,5 @@
-import { Component, Input, Output, EventEmitter, computed, inject, OnInit, OnChanges } from '@angular/core';
-import { PageTitleService } from '@core/services/page-title.service';
-import { SessionStore } from '@core/session/session.store';
-import { RecordHistoryComponent } from '../record-history/record-history.component';
 import { CommonModule } from '@angular/common';
+import { Component, Input, OnChanges, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
@@ -10,12 +7,15 @@ import { NzDescriptionsModule } from 'ng-zorro-antd/descriptions';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { HasPermissionDirective } from '../../directives/has-permission.directive';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { RevealDirective } from '../../directives/reveal.directive';
-import { StatCardComponent, StatTone } from '../stat-card/stat-card.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { displayDate, displayLabel, statusTone, StatusTone as DisplayTone } from '@core/format/display';
+import { StatusTone as DisplayTone, displayDate, displayLabel, statusTone } from '@core/format/display';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { PageTitleService } from '@core/services/page-title.service';
+import { SessionStore } from '@core/session/session.store';
+import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { RevealDirective } from '../../directives/reveal.directive';
+import { RecordHistoryComponent } from '../record-history/record-history.component';
+import { StatCardComponent, StatTone } from '../stat-card/stat-card.component';
 
 const BADGE_COLOR: Record<DisplayTone, string> = { success: 'success', info: 'processing', warning: 'warning', error: 'error', orange: 'orange', neutral: 'default', plain: 'default' };
 
@@ -59,10 +59,14 @@ export interface DescriptionItem {
   routerLink?: string[];
 }
 
+/**
+ * The frame of every record detail page: back link, title and status (also sent to the top bar), actions, KPI cards, a details list,
+ * and Documents / History tabs (the history needs `core.audit.read`).
+ */
 @Component({
   selector: 'erp-detail-page',
   standalone: true,
-  imports: [StatCardComponent, TranslatePipe, 
+  imports: [StatCardComponent, TranslatePipe,
     CommonModule, RouterLink,
     NzButtonModule, NzCardModule, NzDescriptionsModule,
     NzIconModule, NzTabsModule, NzTagModule,

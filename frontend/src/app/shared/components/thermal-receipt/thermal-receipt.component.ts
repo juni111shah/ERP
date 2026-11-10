@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { code39 } from '@core/format/code39';
 import { I18nService } from '@core/i18n/i18n.service';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { receiptCustomerLabel, receiptDateTime, receiptPaymentLabel, receiptStatusLabel } from './thermal-receipt-labels';
 
 export interface ThermalReceiptLine {
   code?: string;
@@ -77,54 +78,9 @@ export class ThermalReceiptComponent {
   readonly curr = computed(() => this.receipt().currency || this.currencyService.currency());
   readonly barcode = computed(() => code39(this.receipt().receiptNumber));
 
-  readonly statusLabel = computed(() => {
-    const raw = this.receipt().status || 'Completed';
-    if (!this.isAr()) return raw;
-    switch (raw.toLowerCase()) {
-      case 'completed': return 'مكتمل';
-      case 'refunded': return 'مسترد';
-      case 'voided': return 'ملغى';
-      case 'draft': return 'مسودة';
-      case 'successful': return 'ناجح';
-      case 'paid': return 'مدفوع';
-      default: return raw;
-    }
-  });
+  readonly statusLabel = computed(() => receiptStatusLabel(this.receipt().status, this.isAr()));
+  readonly customerLabel = computed(() => receiptCustomerLabel(this.receipt().customerName || this.receipt().account, this.isAr()));
+  readonly formattedDate = computed(() => receiptDateTime(this.receipt().date, this.isAr()));
 
-  readonly customerLabel = computed(() => {
-    const cust = this.receipt().customerName || this.receipt().account;
-    if (cust && cust.toLowerCase() !== 'walk-in' && cust.toLowerCase() !== 'walk-in customer') {
-      return cust;
-    }
-    return this.isAr() ? 'عميل مباشر' : 'Walk-in Customer';
-  });
-
-  readonly formattedDate = computed(() => {
-    const raw = this.receipt().date;
-    if (!raw) return '';
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return String(raw);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const day = pad(d.getDate());
-    const mo = pad(d.getMonth() + 1);
-    const yr = d.getFullYear();
-    let hrs = d.getHours();
-    const isPm = hrs >= 12;
-    hrs = hrs % 12 || 12;
-    const min = pad(d.getMinutes());
-    const sec = pad(d.getSeconds());
-    const ampm = this.isAr() ? (isPm ? 'م' : 'ص') : (isPm ? 'PM' : 'AM');
-    return `${day}/${mo}/${yr}  ${pad(hrs)}:${min}:${sec} ${ampm}`;
-  });
-
-  paymentMethodLabel(method: string): string {
-    if (!this.isAr()) return method;
-    switch ((method || '').toLowerCase()) {
-      case 'cash': return 'نقداً';
-      case 'card': return 'بطاقة مصرفية';
-      case 'credit card': return 'بطاقة ائتمان';
-      case 'bank transfer': return 'تحويل بنكي';
-      default: return method;
-    }
-  }
+  paymentMethodLabel(method: string): string { return receiptPaymentLabel(method, this.isAr()); }
 }
