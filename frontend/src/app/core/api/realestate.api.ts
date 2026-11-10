@@ -1,11 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { API_BASE_URL } from './api-config';
 import { Observable, map } from 'rxjs';
-import { CrudApiService } from './crud-api.service';
+import { SelectOption } from '@shared/components/record-drawer/record-drawer.component';
+import { legalEntityOptions } from '@shared/utils/entity-options';
 import { LookupOption } from '../custom-fields/lookup-registry';
 import { SessionStore } from '../session/session.store';
-import { SelectOption } from '@shared/components/record-drawer/record-drawer.component';
+import { API_BASE_URL } from './api-config';
+import { CrudApiService } from './crud-api.service';
 
 type CustomFields = Record<string, unknown>;
 
@@ -124,7 +125,7 @@ export class LeasesApi extends CrudApiService<LeaseListItem, unknown> {
   moveOut(id: string): Observable<LeaseDto> { return this.http.post<LeaseDto>(`${this.url}/${id}/move-out`, {}); }
   deposit(id: string): Observable<DepositDto> { return this.http.get<DepositDto>(`${this.url}/${id}/deposit`); }
   recordDeposit(id: string, body: { bankAccountId: string; date: string; amount: number }): Observable<DepositDto> { return this.http.post<DepositDto>(`${this.url}/${id}/deposit`, body); }
-  settleDeposit(id: string, body: unknown): Observable<DepositDto> { return this.http.post<DepositDto>(`${this.url}/${id}/deposit/settle`, body); }
+  settleDeposit(id: string, body: DepositSettlementInput): Observable<DepositDto> { return this.http.post<DepositDto>(`${this.url}/${id}/deposit/settle`, body); }
   transferDeposit(id: string, toLeaseId: string): Observable<DepositDto> { return this.http.post<DepositDto>(`${this.url}/${id}/deposit/transfer`, { toLeaseId }); }
   terminationCredits(id: string): Observable<{ instalmentId: string; creditNoteId: string; number: string; amount: number; appliedToInvoice: boolean }[]> { return this.http.post<{ instalmentId: string; creditNoteId: string; number: string; amount: number; appliedToInvoice: boolean }[]>(`${this.url}/${id}/termination-credits`, {}); }
   processExpiries(): Observable<{ ended: number; heldOver: number; reservationsReleased: number }> { return this.http.post<{ ended: number; heldOver: number; reservationsReleased: number }>(`${this.url}/process-expiries`, {}); }
@@ -175,11 +176,16 @@ export class RealEstateLookups {
 
   /** Legal entities the signed-in user may work in. */
   legalEntities(): SelectOption[] {
-    return (this.session.me()?.legalEntities ?? []).map((e) => ({ value: e.id, label: `${e.code} · ${e.name}` }));
+    return legalEntityOptions(this.session);
   }
 }
 
 export interface DepositDto { leaseId: string; agreed: number; received: number; applied: number; held: number; transactions: { id: string; date: string; kind: string; amount: number; description?: string }[]; }
+/** Settling a deposit on move-out: damages kept, unpaid rent settled from it (per invoice) and the refund. */
+export interface DepositSettlementInput {
+  date: string; damages: number; damagesDescription: string | null; arrears: DepositAllocation[]; refund: number; refundBankAccountId: string | null;
+}
+export interface DepositAllocation { invoiceId: string; amount: number; }
 export interface BillingResult { invoiced: number; totalBilled: number; invoiceIds: string[]; }
 
 @Injectable({ providedIn: 'root' })
@@ -202,6 +208,12 @@ export interface AcquisitionDto {
   transferFees: number; otherCosts: number; payFromAccountId?: string; notes?: string; currencyCode: string; status: string; totalCost: number; cashAtCompletion: number; financed: number; unfunded: number;
   journalEntryId?: string; funding: FundingSourceDto[];
 }
+export interface FundingInput { type: string; lender: string; principal: number; annualRatePercent: number; termMonths: number; firstDueDate: string; }
+/** A draft acquisition as POST/PUT /acquisitions take it. */
+export interface AcquisitionInput {
+  legalEntityId: string; propertyId: string; sellerName: string; purchaseDate: string; contractReference: string | null; purchasePrice: number | null; downPayment: number;
+  transferFees: number; otherCosts: number; payFromAccountId: string | null | undefined; notes: string | null; funding: FundingInput[];
+}
 export interface AcquisitionOverview { consideration: number; count: number; downPayments: number; financing: number; outstanding: number; unfunded: number; }
 export const FUNDING_TYPES = [
   { value: 'bankMortgage', label: 'Bank mortgage' }, { value: 'developerPlan', label: 'Developer payment plan' }, { value: 'loan', label: 'Loan' }, { value: 'other', label: 'Other' },
@@ -213,7 +225,7 @@ export class AcquisitionsApi extends CrudApiService<AcquisitionSummary, unknown>
   detail(id: string): Observable<AcquisitionDto> { return this.http.get<AcquisitionDto>(`${this.url}/${id}`); }
   overview(): Observable<AcquisitionOverview> { return this.http.get<AcquisitionOverview>(`${this.url}/overview`); }
   funding(): Observable<FundingSourceDto[]> { return this.http.get<FundingSourceDto[]>(`${this.url}/funding`); }
-  save(id: string | null, body: unknown): Observable<AcquisitionDto> { return id ? this.http.put<AcquisitionDto>(`${this.url}/${id}`, body) : this.http.post<AcquisitionDto>(this.url, body); }
+  save(id: string | null, body: AcquisitionInput): Observable<AcquisitionDto> { return id ? this.http.put<AcquisitionDto>(`${this.url}/${id}`, body) : this.http.post<AcquisitionDto>(this.url, body); }
   complete(id: string): Observable<AcquisitionDto> { return this.http.post<AcquisitionDto>(`${this.url}/${id}/complete`, {}); }
   cancel(id: string): Observable<AcquisitionDto> { return this.http.post<AcquisitionDto>(`${this.url}/${id}/cancel`, {}); }
   payInstalment(id: string, bankAccountId: string, date: string): Observable<FundingSourceDto> { return this.http.post<FundingSourceDto>(`${this.url}/instalments/${id}/pay`, { bankAccountId, date }); }
@@ -252,8 +264,12 @@ export const CONDITIONS = [{ value: 'good', label: 'Good' }, { value: 'fair', la
 export interface InspectionRow { id: string; propertyId: string; unitId?: string; leaseId?: string; kind: string; inspectionDate: string; inspector?: string; status: string; damageCost: number; }
 export interface InspectionItem { id?: string; area: string; condition: string; notes?: string; repairCost: number; workOrderId?: string; }
 export interface InspectionDetail extends InspectionRow { propertyName: string; unitNumber?: string; notes?: string; items: InspectionItem[]; }
+export interface InspectionInput {
+  propertyId: string; unitId: string | null; kind: string; inspectionDate: string; inspector: string | null;
+  items: { area: string; condition: string; notes?: string; repairCost: number }[];
+}
 @Injectable({ providedIn: 'root' })
-export class InspectionsApi extends CrudApiService<InspectionRow, unknown> {
+export class InspectionsApi extends CrudApiService<InspectionRow, InspectionInput> {
   protected readonly resource = `${BASE}/inspections`;
   detail(id: string): Observable<InspectionDetail> { return this.http.get<InspectionDetail>(`${this.url}/${id}`); }
   complete(id: string, raiseWorkOrders: boolean): Observable<InspectionDetail> { return this.http.post<InspectionDetail>(`${this.url}/${id}/complete`, { raiseWorkOrders }); }

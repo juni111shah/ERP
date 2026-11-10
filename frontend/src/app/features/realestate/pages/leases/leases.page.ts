@@ -5,92 +5,54 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { FilterCriterion } from '@core/api/api.models';
 import { createPagedList } from '@core/api/paged-list';
+import { LeaseDto, LeaseListItem, LeasesApi, RealEstateLookups } from '@core/api/realestate.api';
 import { toIsoDate } from '@core/format/dates';
+import { I18nService } from '@core/i18n/i18n.service';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { MasterDataState } from '@shared/utils/master-data-state';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { LeaseDto, LeaseListItem, LeasesApi, PAYMENT_PLANS, RealEstateLookups } from '@core/api/realestate.api';
 import { StatusTagComponent } from '../../components/status-tag/status-tag.component';
-import { I18nService } from '@core/i18n/i18n.service';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { leaseFields } from '../../realestate-forms';
+import { leaseStats } from '../../realestate-stats';
 
-/**
- * Mirrors the backend rule Lease.DefaultEndDate: a one-year term, start + 1 year - 1 day. Like .NET AddYears, 29 Feb moves to
- * 28 Feb before the day is taken off.
- */
-export function defaultLeaseEnd(start: Date): Date {
-  const year = start.getFullYear() + 1, month = start.getMonth();
-  return new Date(year, month, Math.min(start.getDate(), new Date(year, month + 1, 0).getDate()) - 1);
+/** The list filters behind the view buttons (all, active, draft, past, expiring within 60 days). */
+function leaseViewFilters(view: string): FilterCriterion[] {
+  const inDays = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return toIsoDate(d); };
+  const filters: Record<string, FilterCriterion[]> = {
+    all: [],
+    active: [{ field: 'status', op: 'eq', value: 'active' }],
+    draft: [{ field: 'status', op: 'eq', value: 'draft' }],
+    past: [{ field: 'status', op: 'in', value: ['ended', 'terminated', 'renewed', 'cancelled'] }],
+    expiring: [{ field: 'status', op: 'eq', value: 'active' }, { field: 'endDate', op: 'lte', value: inDays(60) }],
+  };
+  return filters[view] ?? [];
 }
 
-const isDate = (v: unknown): v is Date => v instanceof Date && !isNaN(v.getTime());
-
-/**
- * Field specs of the lease form (new lease on the list, edit-draft on the detail page). Call in an injection context.
- * The end date follows the start date (one-year term) until the user picks another one; clearing it brings the rule back.
- */
-export function leaseFields(lookups: RealEstateLookups, editing: boolean): FieldSpec[] {
-  const i18n = inject(I18nService);
-  return [
-    { key: 'unitId', label: 'Unit', type: 'lookup', lookup: lookups.availableUnit, required: true, hint: 'Only vacant or reserved units are listed.', currentLabel: (r) => (r as unknown as { unitNumber?: string }).unitNumber },
-    { key: 'lesseePartyId', label: 'Tenant', type: 'lookup', lookup: lookups.party('customer'), required: true, currentLabel: (r) => (r as unknown as { tenantName?: string }).tenantName },
-    { key: 'startDate', label: 'Start date', type: 'date', required: true, onChange: (start, _form, previous) => {
-      if (!isDate(start)) return null;
-      const end = previous['endDate'], oldStart = previous['startDate'];
-      const auto = !isDate(end) || (isDate(oldStart) && toIsoDate(end) === toIsoDate(defaultLeaseEnd(oldStart)));
-      return auto ? { endDate: defaultLeaseEnd(start) } : null;
-    } },
-    { key: 'endDate', label: 'End date', type: 'date', hint: i18n.t('ui.re.endDateHint', 'Set to one year from the start date unless you pick another date.'),
-      onChange: (end, form) => (!isDate(end) && isDate(form['startDate']) ? { endDate: defaultLeaseEnd(form['startDate']) } : null) },
-    { key: 'annualRent', label: 'Annual rent (excl. VAT)', type: 'number', required: true, min: 0 },
-    { key: 'paymentFrequency', label: 'Payment plan', type: 'select', required: true, options: PAYMENT_PLANS, default: 4 },
-    { key: 'securityDepositAmount', label: 'Security deposit', type: 'number', min: 0, default: 0 },
-    { key: 'graceDays', label: 'Rent-free days', type: 'number', min: 0, precision: 0, default: 0, hint: 'Billing starts after the free period.' },
-    { key: 'noticePeriodDays', label: 'Notice period (days)', type: 'number', min: 0, max: 365, precision: 0, default: 90 },
-    { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 2000 },
-    ...(editing ? [] : [{ key: 'activateNow', label: 'Activate now', type: 'switch', default: false } as FieldSpec]),
-  ];
-}
-
-import { DecimalPipe } from '@angular/common';
-import { NzTagModule } from 'ng-zorro-antd/tag';
-import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
-
+/** Leases: KPI cards, the list with its views, and the new-lease drawer; a row opens the lease's detail page. */
 @Component({
   selector: 'erp-leases',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, NzTagModule, StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [NzTagModule, StatCardComponent, TranslatePipe, NzToolTipModule, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   templateUrl: './leases.page.html',
 })
 export class LeasesPage {
   private readonly i18n = inject(I18nService);
-  private readonly api = inject(LeasesApi);
+  private readonly leasesApi = inject(LeasesApi);
   private readonly router = inject(Router);
   view = 'all';
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-startDate' });
-
-  readonly stats = computed(() => {
-    const items = this.list.items();
-    const active = items.filter((l) => l.status === 'active').length;
-    const expiringSoon = items.filter((l) => l.daysToExpiry != null && l.daysToExpiry <= 60 && l.daysToExpiry >= 0).length;
-    const drafts = items.filter((l) => l.status === 'draft').length;
-    return {
-      active,
-      expiringSoon,
-      drafts,
-      count: items.length,
-      partial: this.list.total() > items.length,
-    };
-  });
+  readonly list = createPagedList((q) => this.leasesApi.list(q), { sort: '-startDate' });
+  readonly stats = computed(() => leaseStats(this.list.items(), this.list.total()));
   readonly fields = leaseFields(inject(RealEstateLookups), false);
   readonly state = new MasterDataState<LeaseDto>({
-    save: (_, body) => this.api.saveDraft(null, body), reload: () => this.list.reload(), message: inject(NzMessageService), entityName: 'Lease',
+    save: (_, body) => this.leasesApi.saveDraft(null, body), reload: () => this.list.reload(), message: inject(NzMessageService), entityName: 'Lease',
   });
   readonly columns: TableColumn<LeaseListItem>[] = [
     { key: 'number', label: 'Lease', sortField: 'number', width: '150px' },
@@ -99,23 +61,21 @@ export class LeasesPage {
     { key: 'unitNumber', label: 'Unit', width: '90px' },
     { key: 'startDate', label: 'Start', sortField: 'startDate' },
     { key: 'endDate', label: 'End', sortField: 'endDate' },
-    { key: 'daysToExpiry', label: 'Days left', value: (l) => (l.daysToExpiry == null ? '' : l.daysToExpiry >= 0 ? `${l.daysToExpiry} ${this.i18n.t('ui.re.daysLeft', 'days left')}` : `${this.i18n.t('ui.re.endedAgo', 'ended')} ${-l.daysToExpiry} ${this.i18n.t('ui.re.daysAgo', 'days ago')}`) },
+    { key: 'daysToExpiry', label: 'Days left', value: (l) => this.daysLeftText(l.daysToExpiry) },
     { key: 'annualRent', label: 'Annual rent', sortField: 'annualRent', align: 'right', value: (l) => l.annualRent.toLocaleString() },
     { key: 'status', label: 'Status', sortField: 'status' },
   ];
 
   setView(view: string): void {
     this.view = view;
-    const inDays = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return toIsoDate(d); };
-    const filters: Record<string, FilterCriterion[]> = {
-      all: [],
-      active: [{ field: 'status', op: 'eq', value: 'active' }],
-      draft: [{ field: 'status', op: 'eq', value: 'draft' }],
-      past: [{ field: 'status', op: 'in', value: ['ended', 'terminated', 'renewed', 'cancelled'] }],
-      expiring: [{ field: 'status', op: 'eq', value: 'active' }, { field: 'endDate', op: 'lte', value: inDays(60) }],
-    };
-    this.list.setFilters(filters[view] ?? []);
+    this.list.setFilters(leaseViewFilters(view));
   }
 
   open(l: LeaseListItem): void { void this.router.navigate(['/real-estate/leases', l.id]); }
+
+  /** "45 days left", "ended 3 days ago", or blank. */
+  private daysLeftText(days: number | undefined): string {
+    if (days == null) return '';
+    return days >= 0 ? `${days} ${this.i18n.t('ui.re.daysLeft', 'days left')}` : `${this.i18n.t('ui.re.endedAgo', 'ended')} ${-days} ${this.i18n.t('ui.re.daysAgo', 'days ago')}`;
+  }
 }

@@ -2,13 +2,18 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { LeaveApi, LeaveTypeDto, LeaveTypesApi } from '@core/api/hr.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
+import { asProblem } from '@core/http/problem-details';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { LeaveApi, LeaveTypeDto, LeaveTypesApi } from '@core/api/hr.api';
-import { asProblem } from '@core/http/problem-details';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
+
+/** The drawer's values as saved: empty service tiers and pay bands are sent as empty lists. */
+function leaveTypeBody(v: Record<string, unknown>): Record<string, unknown> {
+  return { ...v, tiers: v['tiers'] ?? [], payBands: v['payBands'] ?? [] };
+}
 
 /** Kinds of leave: paid or unpaid, yearly entitlement, carry-forward cap and whether a request needs approval. */
 @Component({
@@ -26,25 +31,13 @@ import { asProblem } from '@core/http/problem-details';
                        [saving]="state.saving()" [errors]="state.errors()" testId="leave-type-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class LeaveTypesPage {
-  private readonly api = inject(LeaveTypesApi);
-  private readonly message = inject(NzMessageService);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
-  readonly state = new MasterDataState<LeaveTypeDto>({
-    save: (id, body) => { const b = this.toBody(body as Record<string, unknown>); return id ? this.api.update(id, b) : this.api.create(b); }, reload: () => this.list.reload(), message: this.message, entityName: 'Leave type',
-  });
-
+  private readonly leaveTypesApi = inject(LeaveTypesApi);
   private readonly leaveApi = inject(LeaveApi);
-  applyDefaults(): void {
-    this.leaveApi.applyCountryDefaults().subscribe({ next: () => { this.message.success('Leave types and public holidays of the entity countries were added'); this.list.reload(); }, error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not apply the defaults') });
-  }
-
-  open(t: LeaveTypeDto): void {
-    this.state.edit(t);
-  }
-
-  private toBody(v: Record<string, unknown>): Record<string, unknown> {
-    return { ...v, tiers: v['tiers'] ?? [], payBands: v['payBands'] ?? [] };
-  }
+  private readonly message = inject(NzMessageService);
+  readonly list = createPagedList((q) => this.leaveTypesApi.list(q), { sort: 'code' });
+  readonly state = new MasterDataState<LeaveTypeDto>({
+    save: (id, body) => { const b = leaveTypeBody(body as Record<string, unknown>); return id ? this.leaveTypesApi.update(id, b) : this.leaveTypesApi.create(b); }, reload: () => this.list.reload(), message: this.message, entityName: 'Leave type',
+  });
   readonly columns: TableColumn<LeaveTypeDto>[] = [
     { key: 'code', label: 'Code', sortField: 'code', width: '110px' },
     { key: 'name', label: 'Name', sortField: 'name' },
@@ -69,4 +62,13 @@ export class LeaveTypesPage {
     { key: 'tiers', label: 'Service-based entitlement', type: 'rows', columns: [{ key: 'fromServiceYears', label: 'From years of service', type: 'number' }, { key: 'days', label: 'Days a year', type: 'number' }], hint: 'For example from 0 years: 21 days, from 5 years: 30 days.' },
     { key: 'payBands', label: 'Pay bands (sick leave)', type: 'rows', columns: [{ key: 'fromDay', label: 'From day', type: 'number' }, { key: 'payPercent', label: 'Pay percent', type: 'number' }], hint: 'For example from day 1: 100%, from day 16: 50%, from day 31: 0%. Counted per employee per year.' },
   ];
+
+  /** Adds the leave types and public holidays of the entities' countries. */
+  applyDefaults(): void {
+    this.leaveApi.applyCountryDefaults().subscribe({ next: () => { this.message.success('Leave types and public holidays of the entity countries were added'); this.list.reload(); }, error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not apply the defaults') });
+  }
+
+  open(t: LeaveTypeDto): void {
+    this.state.edit(t);
+  }
 }

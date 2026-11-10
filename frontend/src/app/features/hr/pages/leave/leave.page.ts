@@ -7,15 +7,15 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { EmployeeSummary, EmployeesApi, LEAVE_STATUS_LABELS, LeaveApi, LeaveRequestDto, LeaveRequestInput, LeaveRequestRow, LeaveTypeDto, LeaveTypesApi } from '@core/api/hr.api';
 import { createPagedList } from '@core/api/paged-list';
-import { doneText } from '@core/format/done-text';
 import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
+import { fromIsoDate } from '@core/format/from-iso-date';
 import { problemMessage } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { EmployeeSummary, EmployeesApi, LEAVE_STATUS_LABELS, LeaveApi, LeaveRequestDto, LeaveRequestRow, LeaveTypeDto, LeaveTypesApi } from '@core/api/hr.api';
-
+import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 
 /** Leave requests: draft, submit, then a manager approves or rejects; approved leave feeds attendance and payroll. */
 @Component({
@@ -27,15 +27,14 @@ import { EmployeeSummary, EmployeesApi, LEAVE_STATUS_LABELS, LeaveApi, LeaveRequ
   templateUrl: './leave.page.html',
 })
 export class LeavePage {
-  private readonly api = inject(LeaveApi);
+  private readonly leaveApi = inject(LeaveApi);
   private readonly employeesApi = inject(EmployeesApi);
   private readonly typesApi = inject(LeaveTypesApi);
   private readonly message = inject(NzMessageService);
   readonly statuses = Object.entries(LEAVE_STATUS_LABELS).map(([value, label]) => ({ value, label }));
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-fromDate' });
+  readonly list = createPagedList((q) => this.leaveApi.list(q), { sort: '-fromDate' });
   readonly employees = signal<EmployeeSummary[]>([]);
   readonly types = signal<LeaveTypeDto[]>([]);
-  private readonly employeeNames = computed(() => new Map(this.employees().map((e) => [e.id, e.fullName])));
   private readonly typeNames = computed(() => new Map(this.types().map((t) => [t.id, t.name])));
   readonly columns: TableColumn<LeaveRequestRow>[] = [
     { key: 'employeeName', label: 'Employee' },
@@ -77,27 +76,24 @@ export class LeavePage {
   }
 
   open(id: string): void {
-    this.api.detail(id).subscribe((d) => {
+    this.leaveApi.detail(id).subscribe((d) => {
       this.id.set(d.id); this.detail.set(d); this.employeeId = d.employeeId; this.typeId = d.leaveTypeId; this.startHalf = !!d.startHalfDay; this.endHalf = !!d.endHalfDay; this.reason = d.reason ?? ''; this.comment = ''; this.days.set(d.days);
-      this.from = this.parse(d.fromDate); this.to = this.parse(d.toDate);
+      this.from = fromIsoDate(d.fromDate); this.to = fromIsoDate(d.toDate);
       this.drawer.set(true);
     });
   }
 
-  private parse(iso: string): Date { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
-
+  /** The working days between the picked dates (holidays and weekly offs left out). */
   preview(): void {
     if (!this.from || !this.to || this.to < this.from) { this.days.set(null); return; }
-    this.api.days(toIsoDate(this.from), toIsoDate(this.to)).subscribe({ next: (r) => this.days.set(r.workingDays), error: () => this.days.set(null) });
+    this.leaveApi.days(toIsoDate(this.from), toIsoDate(this.to)).subscribe({ next: (r) => this.days.set(r.workingDays), error: () => this.days.set(null) });
   }
-
-  private fail(e: unknown, fallback: string): void { this.saving.set(false); this.message.error(problemMessage(e, fallback)); }
 
   save(submit: boolean): void {
     if (!this.employeeId || !this.typeId || !this.from || !this.to) { this.message.warning('Choose the employee, leave type and dates'); return; }
-    const body = { employeeId: this.employeeId, leaveTypeId: this.typeId, fromDate: toIsoDate(this.from), toDate: toIsoDate(this.to), reason: this.reason || null, submit, startHalfDay: this.startHalf, endHalfDay: this.endHalf };
+    const body: LeaveRequestInput = { employeeId: this.employeeId, leaveTypeId: this.typeId, fromDate: toIsoDate(this.from), toDate: toIsoDate(this.to), reason: this.reason || null, submit, startHalfDay: this.startHalf, endHalfDay: this.endHalf };
     this.saving.set(true);
-    this.api.save(this.id(), body).subscribe({
+    this.leaveApi.save(this.id(), body).subscribe({
       next: (d) => { this.saving.set(false); this.message.success(doneText(submit ? 'submitted' : 'saved', 'Leave request', d.employeeName)); this.list.reload(); if (submit) this.drawer.set(false); else { this.id.set(d.id); this.detail.set(d); } },
       error: (e) => this.fail(e, 'Could not save the request'),
     });
@@ -107,7 +103,7 @@ export class LeavePage {
     const id = this.id();
     if (!id) return;
     this.saving.set(true);
-    this.api.action(id, action, this.comment || undefined).subscribe({
+    this.leaveApi.action(id, action, this.comment || undefined).subscribe({
       next: () => { this.saving.set(false); this.message.success(doneText(action === 'approve' ? 'approved' : 'rejected', 'Leave request', this.detail()?.employeeName)); this.drawer.set(false); this.list.reload(); },
       error: (e) => this.fail(e, 'Could not record the decision'),
     });
@@ -117,9 +113,11 @@ export class LeavePage {
     const id = this.id();
     if (!id) return;
     this.saving.set(true);
-    this.api.action(id, 'cancel').subscribe({
+    this.leaveApi.action(id, 'cancel').subscribe({
       next: () => { this.saving.set(false); this.message.success(doneText('cancelled', 'Leave request', this.detail()?.employeeName)); this.drawer.set(false); this.list.reload(); },
       error: (e) => this.fail(e, 'Could not cancel the request'),
     });
   }
+
+  private fail(e: unknown, fallback: string): void { this.saving.set(false); this.message.error(problemMessage(e, fallback)); }
 }

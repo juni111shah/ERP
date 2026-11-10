@@ -1,19 +1,18 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { problemMessage } from '@core/http/problem-details';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { catchError, of } from 'rxjs';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { DepartmentDto, DepartmentsApi } from '@core/api/hr-people.api';
+import { EmployeesApi } from '@core/api/hr.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { doneText } from '@core/format/done-text';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { DepartmentDto, DepartmentsApi } from '@core/api/hr-people.api';
-import { EmployeeSummary, EmployeesApi } from '@core/api/hr.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { deleteWithConfirm } from '@shared/utils/delete-with-confirm';
+import { itemsSignal } from '@shared/utils/items-signal';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { departmentOptions, employeeOptions } from '../../hr-options';
 
 /** Departments: a tree (parent department), a head and an optional business unit that payroll cost is split to. */
 @Component({
@@ -32,13 +31,13 @@ import { EmployeeSummary, EmployeesApi } from '@core/api/hr.api';
     </erp-record-drawer>`,
 })
 export class DepartmentsPage {
-  private readonly confirm = inject(NzModalService);
-  private readonly toast = inject(NzMessageService);
-  private readonly api = inject(DepartmentsApi);
-  private readonly employeesPage = toSignal(inject(EmployeesApi).list({ page: 1, pageSize: 200, sort: 'fullName' }).pipe(catchError(() => of({ items: [] as EmployeeSummary[] }))), { initialValue: { items: [] as EmployeeSummary[] } });
-  readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
+  private readonly modal = inject(NzModalService);
+  private readonly message = inject(NzMessageService);
+  private readonly departmentsApi = inject(DepartmentsApi);
+  private readonly employeesPage = itemsSignal(inject(EmployeesApi).list({ page: 1, pageSize: 200, sort: 'fullName' }));
+  readonly list = createPagedList((q) => this.departmentsApi.list(q), { sort: 'code' });
   readonly state = new MasterDataState<DepartmentDto>({
-    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)), reload: () => this.list.reload(), message: inject(NzMessageService), entityName: 'Department',
+    save: (id, body) => (id ? this.departmentsApi.update(id, body) : this.departmentsApi.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Department',
   });
   readonly columns: TableColumn<DepartmentDto>[] = [
     { key: 'code', label: 'Code', sortField: 'code', width: '120px' },
@@ -50,19 +49,15 @@ export class DepartmentsPage {
   readonly fields = computed<FieldSpec[]>(() => [
     { key: 'code', label: 'Code', type: 'text', required: true, maxLength: 20 },
     { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 150 },
-    { key: 'parentDepartmentId', label: 'Parent department', type: 'select', options: this.list.items().filter((d) => d.id !== this.state.editing()?.id).map((d) => ({ value: d.id, label: `${d.code} · ${d.name}` })) },
-    { key: 'headEmployeeId', label: 'Head of department', type: 'select', options: this.employeesPage().items.map((e) => ({ value: e.id, label: `${e.number} · ${e.fullName}` })) },
+    { key: 'parentDepartmentId', label: 'Parent department', type: 'select', options: departmentOptions(this.list.items().filter((d) => d.id !== this.state.editing()?.id)) },
+    { key: 'headEmployeeId', label: 'Head of department', type: 'select', options: employeeOptions(this.employeesPage().items) },
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ]);
 
   remove(id: string): void {
-    const deletedName = this.state.editing()?.name;
-    this.confirm.confirm({
-      nzTitle: 'Delete this department?', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => new Promise<void>((resolve) => this.api.delete(id).subscribe({
-        next: () => { this.toast.success(doneText('deleted', 'Department', deletedName)); this.state.close(); this.list.reload(); resolve(); },
-        error: (e) => { this.toast.error(problemMessage(e, 'Could not delete the department')); resolve(); },
-      })),
+    deleteWithConfirm(this.modal, this.message, {
+      title: 'Delete this department?', remove: () => this.departmentsApi.delete(id), entity: 'Department', name: this.state.editing()?.name,
+      failure: 'Could not delete the department', done: () => { this.state.close(); this.list.reload(); },
     });
   }
 }

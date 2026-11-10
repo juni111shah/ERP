@@ -1,28 +1,21 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { problemMessage } from '@core/http/problem-details';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { CHECKLIST_KINDS, ChecklistDto, ChecklistRow, ChecklistsApi } from '@core/api/hr-people.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { doneText } from '@core/format/done-text';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { CHECKLIST_KINDS, ChecklistDto, ChecklistRow, ChecklistsApi } from '@core/api/hr-people.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { deleteWithConfirm } from '@shared/utils/delete-with-confirm';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { optionLabel } from '../../hr-options';
 
-/** One step per line, "title | days": days after the join date (onboarding) or before the last day (offboarding, negative). */
-export function parseItems(text: unknown): { title: string; dueOffsetDays: number }[] {
-  return String(text ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((line) => {
-    const [title, days] = line.split('|').map((p) => p.trim());
-    const n = Number(days ?? 0);
-    return { title, dueOffsetDays: Number.isFinite(n) ? Math.trunc(n) : 0 };
-  }).filter((i) => i.title);
-}
-
-export function itemsText(items: { title: string; dueOffsetDays: number }[] | undefined): string {
-  return (items ?? []).map((i) => `${i.title} | ${i.dueOffsetDays}`).join('\n');
+/** The drawer's values as saved: the steps without blank lines, the day offsets whole numbers. */
+function checklistBody(v: Record<string, unknown>): Record<string, unknown> {
+  const items = (Array.isArray(v['items']) ? v['items'] : []) as { title?: string; dueOffsetDays?: number }[];
+  return { ...v, items: items.filter((i) => i.title).map((i) => ({ title: i.title, dueOffsetDays: Math.trunc(i.dueOffsetDays ?? 0) })) };
 }
 
 /** Reusable onboarding and offboarding checklists. */
@@ -42,17 +35,17 @@ export function itemsText(items: { title: string; dueOffsetDays: number }[] | un
     </erp-record-drawer>`,
 })
 export class ChecklistsPage {
-  private readonly confirm = inject(NzModalService);
-  private readonly toast = inject(NzMessageService);
-  private readonly api = inject(ChecklistsApi);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: 'name' });
+  private readonly modal = inject(NzModalService);
+  private readonly message = inject(NzMessageService);
+  private readonly checklistsApi = inject(ChecklistsApi);
+  readonly list = createPagedList((q) => this.checklistsApi.list(q), { sort: 'name' });
   readonly state = new MasterDataState<ChecklistDto>({
-    save: (id, body) => { const b = this.toBody(body as Record<string, unknown>); return id ? this.api.update(id, b) : this.api.create(b); },
-    reload: () => this.list.reload(), message: inject(NzMessageService), entityName: 'Checklist',
+    save: (id, body) => { const b = checklistBody(body as Record<string, unknown>); return id ? this.checklistsApi.update(id, b) : this.checklistsApi.create(b); },
+    reload: () => this.list.reload(), message: this.message, entityName: 'Checklist',
   });
   readonly columns: TableColumn<ChecklistRow>[] = [
     { key: 'name', label: 'Name', sortField: 'name' },
-    { key: 'kind', label: 'Kind', value: (c) => CHECKLIST_KINDS.find((k) => k.value === c.kind)?.label ?? c.kind, width: '150px', filterField: 'kind', filterOptions: CHECKLIST_KINDS },
+    { key: 'kind', label: 'Kind', value: (c) => optionLabel(CHECKLIST_KINDS, c.kind), width: '150px', filterField: 'kind', filterOptions: CHECKLIST_KINDS },
     { key: 'isActive', label: 'Active', value: (c) => (c.isActive ? 'Yes' : 'No'), width: '80px' },
   ];
   readonly fields: FieldSpec[] = [
@@ -62,21 +55,12 @@ export class ChecklistsPage {
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ];
 
-  open(row: ChecklistRow): void { this.api.detail(row.id).subscribe((c) => this.state.edit(c)); }
-
-  private toBody(v: Record<string, unknown>): Record<string, unknown> {
-    const items = (Array.isArray(v['items']) ? v['items'] : []) as { title?: string; dueOffsetDays?: number }[];
-    return { ...v, items: items.filter((i) => i.title).map((i) => ({ title: i.title, dueOffsetDays: Math.trunc(i.dueOffsetDays ?? 0) })) };
-  }
+  open(row: ChecklistRow): void { this.checklistsApi.detail(row.id).subscribe((c) => this.state.edit(c)); }
 
   remove(id: string): void {
-    const deletedName = this.state.editing()?.name;
-    this.confirm.confirm({
-      nzTitle: 'Delete this checklist?', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => new Promise<void>((resolve) => this.api.delete(id).subscribe({
-        next: () => { this.toast.success(doneText('deleted', 'Checklist', deletedName)); this.state.close(); this.list.reload(); resolve(); },
-        error: (e) => { this.toast.error(problemMessage(e, 'Could not delete the checklist')); resolve(); },
-      })),
+    deleteWithConfirm(this.modal, this.message, {
+      title: 'Delete this checklist?', remove: () => this.checklistsApi.delete(id), entity: 'Checklist', name: this.state.editing()?.name,
+      failure: 'Could not delete the checklist', done: () => { this.state.close(); this.list.reload(); },
     });
   }
 }

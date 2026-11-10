@@ -5,13 +5,17 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
+import { PortalAcceptance, PortalProject, PortalService } from '@core/api/portal.api';
+import { statusLabel } from '@features/projects/projects-ui';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { statusLabel } from '@features/projects/projects-ui';
-import { PortalAcceptance, PortalProject, PortalService } from '../../portal.service';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+
+/** A failed save's message: the first field error, else the detail, else a generic hint. */
+function answerError(e: { error?: { errors?: Record<string, string[]>; detail?: string } } | null | undefined): string {
+  return e?.error?.errors ? Object.values(e.error.errors)[0]?.[0] ?? 'Check the form.' : e?.error?.detail ?? 'Could not save your answer.';
+}
 
 /** The customer's projects in the portal: progress and milestones, and the sign-offs waiting for them (a typed-name signature, or a reason to decline). */
 @Component({
@@ -33,10 +37,6 @@ export class PortalProjectsComponent implements OnInit {
   private drawing = false;
   private inked = false;
 
-  private point(e: PointerEvent): { x: number; y: number } {
-    const c = this.pad()!.nativeElement; const r = c.getBoundingClientRect();
-    return { x: (e.clientX - r.left) * (c.width / r.width), y: (e.clientY - r.top) * (c.height / r.height) };
-  }
   down(e: PointerEvent): void {
     const ctx = this.pad()?.nativeElement.getContext('2d'); if (!ctx) return;
     this.drawing = true; const p = this.point(e); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#0f172a'; ctx.beginPath(); ctx.moveTo(p.x, p.y);
@@ -67,7 +67,13 @@ export class PortalProjectsComponent implements OnInit {
   answer(a: PortalAcceptance, accept: boolean): void {
     this.portal.sign(a.id, { accept, signedByName: this.name.trim(), signature: this.signature.trim() || null, comment: this.comment.trim() || null, signatureImage: accept ? this.drawn() : null }).subscribe({
       next: () => { this.msg.success(accept ? `${a.title} signed. Thank you.` : `${a.title} declined`); this.name = this.signature = this.comment = ''; this.clearPad(); this.load(); },
-      error: (e) => this.msg.error(e?.error?.errors ? Object.values(e.error.errors as Record<string, string[]>)[0]?.[0] ?? 'Check the form.' : e?.error?.detail ?? 'Could not save your answer.'),
+      error: (e) => this.msg.error(answerError(e)),
     });
+  }
+
+  /** The pointer position in canvas pixels (the canvas may be drawn smaller than its pixel size). */
+  private point(e: PointerEvent): { x: number; y: number } {
+    const c = this.pad()!.nativeElement; const r = c.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (c.width / r.width), y: (e.clientY - r.top) * (c.height / r.height) };
   }
 }

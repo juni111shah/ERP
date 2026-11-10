@@ -4,11 +4,12 @@ import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { GratuityReport, HrOccasions, HrReportsApi, HrSummaryReport } from '@core/api/hr-people.api';
-import { MONTHS } from '@core/api/hr.api';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { toUtcIsoDate } from '@core/format/dates';
+import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
-import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { monthName } from '../../hr-format';
 
 /** HR reports: headcount and mix, joiners and leavers, payroll cost, leave and absence, birthdays and anniversaries, end-of-service liability. */
 @Component({
@@ -20,7 +21,7 @@ import { WorkspaceCurrencyService } from '@core/services/workspace-currency.serv
   templateUrl: './hr-reports.page.html',
 })
 export class HrReportsPage {
-  private readonly api = inject(HrReportsApi);
+  private readonly reportsApi = inject(HrReportsApi);
   readonly summary = signal<HrSummaryReport | null>(null);
   readonly occasions = signal<HrOccasions | null>(null);
   readonly gratuity = signal<GratuityReport | null>(null);
@@ -28,12 +29,14 @@ export class HrReportsPage {
   readonly occasionsFailed = signal(false);
   readonly gratuityFailed = signal(false);
   readonly currency = inject(WorkspaceCurrencyService).currency;
+
   constructor() {
     this.loadSummary();
     this.loadOccasions();
-    this.api.gratuity(new Date().toISOString().slice(0, 10)).subscribe({ next: (g) => this.gratuity.set(g), error: () => this.gratuityFailed.set(true) });
+    this.reportsApi.gratuity(toUtcIsoDate(new Date())).subscribe({ next: (g) => this.gratuity.set(g), error: () => this.gratuityFailed.set(true) });
   }
-  loadSummary(): void { this.summaryFailed.set(false); this.api.summary().subscribe({ next: (s) => this.summary.set(s), error: () => this.summaryFailed.set(true) }); }
-  loadOccasions(): void { this.occasionsFailed.set(false); this.api.occasions(30).subscribe({ next: (o) => this.occasions.set(o), error: () => this.occasionsFailed.set(true) }); }
-  month(m: number): string { return MONTHS[m - 1]; }
+
+  loadSummary(): void { this.summaryFailed.set(false); this.reportsApi.summary().subscribe({ next: (s) => this.summary.set(s), error: () => this.summaryFailed.set(true) }); }
+  loadOccasions(): void { this.occasionsFailed.set(false); this.reportsApi.occasions(30).subscribe({ next: (o) => this.occasions.set(o), error: () => this.occasionsFailed.set(true) }); }
+  month(m: number): string { return monthName(m); }
 }

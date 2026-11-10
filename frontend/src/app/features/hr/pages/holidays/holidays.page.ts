@@ -1,16 +1,15 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { problemMessage } from '@core/http/problem-details';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { HolidayDto, HolidaysApi } from '@core/api/hr.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { doneText } from '@core/format/done-text';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { HolidayDto, HolidaysApi } from '@core/api/hr.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { deleteWithConfirm } from '@shared/utils/delete-with-confirm';
+import { MasterDataState } from '@shared/utils/master-data-state';
 
 /** Public holidays: not counted as leave days. */
 @Component({
@@ -29,13 +28,12 @@ import { HolidayDto, HolidaysApi } from '@core/api/hr.api';
     </erp-record-drawer>`,
 })
 export class HolidaysPage {
-  private readonly confirm = inject(NzModalService);
-  private readonly toast = inject(NzMessageService);
-  private readonly api = inject(HolidaysApi);
+  private readonly modal = inject(NzModalService);
   private readonly message = inject(NzMessageService);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: 'date' });
+  private readonly holidaysApi = inject(HolidaysApi);
+  readonly list = createPagedList((q) => this.holidaysApi.list(q), { sort: 'date' });
   readonly state = new MasterDataState<HolidayDto>({
-    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Holiday',
+    save: (id, body) => (id ? this.holidaysApi.update(id, body) : this.holidaysApi.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Holiday',
   });
   readonly columns: TableColumn<HolidayDto>[] = [{ key: 'date', label: 'Date', sortField: 'date', width: '140px' }, { key: 'name', label: 'Name' }];
   readonly fields: FieldSpec[] = [
@@ -44,13 +42,9 @@ export class HolidaysPage {
   ];
 
   remove(id: string): void {
-    const deletedName = this.state.editing()?.name;
-    this.confirm.confirm({
-      nzTitle: 'Delete this holiday?', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => new Promise<void>((resolve) => this.api.delete(id).subscribe({
-        next: () => { this.toast.success(doneText('deleted', 'Holiday', deletedName)); this.state.close(); this.list.reload(); resolve(); },
-        error: (e) => { this.toast.error(problemMessage(e, 'Could not delete the holiday')); resolve(); },
-      })),
+    deleteWithConfirm(this.modal, this.message, {
+      title: 'Delete this holiday?', remove: () => this.holidaysApi.delete(id), entity: 'Holiday', name: this.state.editing()?.name,
+      failure: 'Could not delete the holiday', done: () => { this.state.close(); this.list.reload(); },
     });
   }
 }

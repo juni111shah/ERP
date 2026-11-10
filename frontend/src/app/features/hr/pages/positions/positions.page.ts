@@ -1,16 +1,15 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { problemMessage } from '@core/http/problem-details';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { PositionDto, PositionsApi } from '@core/api/hr-people.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { doneText } from '@core/format/done-text';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { PositionDto, PositionsApi } from '@core/api/hr-people.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { deleteWithConfirm } from '@shared/utils/delete-with-confirm';
+import { MasterDataState } from '@shared/utils/master-data-state';
 
 /** Job positions (title and grade) employees can be assigned to. */
 @Component({
@@ -29,12 +28,12 @@ import { PositionDto, PositionsApi } from '@core/api/hr-people.api';
     </erp-record-drawer>`,
 })
 export class PositionsPage {
-  private readonly confirm = inject(NzModalService);
-  private readonly toast = inject(NzMessageService);
-  private readonly api = inject(PositionsApi);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
+  private readonly modal = inject(NzModalService);
+  private readonly message = inject(NzMessageService);
+  private readonly positionsApi = inject(PositionsApi);
+  readonly list = createPagedList((q) => this.positionsApi.list(q), { sort: 'code' });
   readonly state = new MasterDataState<PositionDto>({
-    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)), reload: () => this.list.reload(), message: inject(NzMessageService), entityName: 'Position',
+    save: (id, body) => (id ? this.positionsApi.update(id, body) : this.positionsApi.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Position',
   });
   readonly columns: TableColumn<PositionDto>[] = [
     { key: 'code', label: 'Code', sortField: 'code', width: '120px' },
@@ -50,13 +49,9 @@ export class PositionsPage {
   ];
 
   remove(id: string): void {
-    const deletedName = this.state.editing()?.title;
-    this.confirm.confirm({
-      nzTitle: 'Delete this position?', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => new Promise<void>((resolve) => this.api.delete(id).subscribe({
-        next: () => { this.toast.success(doneText('deleted', 'Position', deletedName)); this.state.close(); this.list.reload(); resolve(); },
-        error: (e) => { this.toast.error(problemMessage(e, 'Could not delete the position')); resolve(); },
-      })),
+    deleteWithConfirm(this.modal, this.message, {
+      title: 'Delete this position?', remove: () => this.positionsApi.delete(id), entity: 'Position', name: this.state.editing()?.title,
+      failure: 'Could not delete the position', done: () => { this.state.close(); this.list.reload(); },
     });
   }
 }

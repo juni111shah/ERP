@@ -2,32 +2,29 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { REVIEW_CYCLE_STATUSES, ReviewCycleDto, ReviewCyclesApi } from '@core/api/hr.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { REVIEW_CYCLE_STATUSES, ReviewCycleDto, ReviewCyclesApi } from '@core/api/hr.api';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
-
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
 
 /** Review rounds (for example "Annual review 2026"); close a cycle to stop new reviews in it. */
 @Component({
   selector: 'erp-review-cycles',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, StatusTagComponent],
+  imports: [NzToolTipModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, StatusTagComponent],
   templateUrl: './review-cycles.page.html',
 })
 export class ReviewCyclesPage {
-  private readonly api = inject(ReviewCyclesApi);
+  private readonly cyclesApi = inject(ReviewCyclesApi);
   private readonly message = inject(NzMessageService);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-periodStart' });
+  readonly list = createPagedList((q) => this.cyclesApi.list(q), { sort: '-periodStart' });
   readonly state = new MasterDataState<ReviewCycleDto>({
-    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Review cycle',
+    save: (id, body) => (id ? this.cyclesApi.update(id, body) : this.cyclesApi.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Review cycle',
   });
   readonly columns: TableColumn<ReviewCycleDto>[] = [
     { key: 'name', label: 'Name', sortField: 'name' },

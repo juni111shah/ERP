@@ -7,18 +7,25 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { AccountsApi } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
+import { OwnerPayoutDto, OwnerPayoutsApi, RealEstateLookups } from '@core/api/realestate.api';
 import { displayDate } from '@core/format/display';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { FieldSpec, RecordDrawerComponent, SelectOption } from '@shared/components/record-drawer/record-drawer.component';
+import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ActionFormState } from '@shared/utils/action-form-state';
 import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { loadInto } from '@shared/utils/load-into';
+import { accountOptions, bankOrCashAccounts } from '@shared/utils/payment-accounts';
 import { askReason } from '@shared/utils/reason-prompt';
-import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { OwnerPayoutDto, OwnerPayoutsApi, RealEstateLookups } from '@core/api/realestate.api';
+
+/** The pay drawer's values as POST /owner-payouts takes them: a bank account for a payment, a due date for a bill. */
+function payoutBody(p: Record<string, unknown>): Record<string, unknown> {
+  return { ...p, bankAccountId: p['method'] === 'bill' ? null : p['bankAccountId'] ?? null, dueDate: p['method'] === 'bill' ? p['dueDate'] ?? null : null };
+}
 
 /** Owner payouts: paying the owner of a managed property what was collected for the period, less the management fee and maintenance recharged. */
 @Component({
@@ -29,13 +36,13 @@ import { OwnerPayoutDto, OwnerPayoutsApi, RealEstateLookups } from '@core/api/re
   templateUrl: './owner-payouts.page.html',
 })
 export class OwnerPayoutsPage {
-  private readonly api = inject(OwnerPayoutsApi);
+  private readonly payoutsApi = inject(OwnerPayoutsApi);
   private readonly lookups = inject(RealEstateLookups);
   private readonly session = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
-  private readonly accountPage = signal<{ value: string; label: string }[]>([]);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
+  private readonly bankOptions = signal<SelectOption[]>([]);
+  readonly list = createPagedList((q) => this.payoutsApi.list(q), { sort: '-date' });
 
   readonly columns: TableColumn<OwnerPayoutDto>[] = [
     { key: 'number', label: 'Number', filter: false },
@@ -58,27 +65,24 @@ export class OwnerPayoutsPage {
     { key: 'to', label: 'Period to', type: 'date', required: true, hint: 'A period that overlaps an earlier payout is refused. A shortfall carries on: choose a longer period.' },
     { key: 'date', label: 'Payout date', type: 'date', required: true },
     { key: 'method', label: 'Pay by', type: 'select', required: true, default: 'payment', options: [{ value: 'payment', label: 'Bank payment' }, { value: 'bill', label: 'Bill to the owner' }] },
-    { key: 'bankAccountId', label: 'Pay from', type: 'select', options: this.accountPage(), hidden: (v) => v['method'] === 'bill', hint: 'The bank or cash account the money leaves.' },
+    { key: 'bankAccountId', label: 'Pay from', type: 'select', options: this.bankOptions(), hidden: (v) => v['method'] === 'bill', hint: 'The bank or cash account the money leaves.' },
     { key: 'dueDate', label: 'Bill due date', type: 'date', hidden: (v) => v['method'] !== 'bill' },
     { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 500 },
   ]);
 
   readonly pay = new ActionFormState({
-    run: (p) => this.api.create({ ...p, bankAccountId: p['method'] === 'bill' ? null : p['bankAccountId'] ?? null, dueDate: p['method'] === 'bill' ? p['dueDate'] ?? null : null }),
+    run: (p) => this.payoutsApi.create(payoutBody(p)),
     success: (r) => doneText('posted', 'Owner payout', (r as OwnerPayoutDto).number), done: () => this.list.reload(), message: this.message, failure: 'Could not pay the owner',
   });
 
   constructor() {
-    inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).subscribe({
-      next: (r) => this.accountPage.set(r.items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'bank' || a.systemRole === 'cash')).map((a) => ({ value: a.id, label: `${a.code} · ${a.name}` }))),
-      error: () => undefined,
-    });
+    loadInto(this.bankOptions, inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }), (r) => accountOptions(bankOrCashAccounts(r.items)));
   }
 
   voidIt(row: OwnerPayoutDto): void {
     askReason(this.modal, 'Void this payout?', 'Void payout', 'The entry is reversed and, for a bill, the bill is voided too (refused once it has been paid). The period can then be paid again.').then((reason) => {
       if (!reason) return;
-      this.api.void(row.id, reason).subscribe({
+      this.payoutsApi.void(row.id, reason).subscribe({
         next: () => { this.message.success(doneText('voided', 'Owner payout', row.number)); this.list.reload(); },
         error: (e) => this.message.error(problemMessage(e, 'Could not void the payout', 'reason')),
       });

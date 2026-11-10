@@ -1,7 +1,5 @@
-import { parseItems, itemsText } from './pages/checklists/checklists.page';
-import { parseImport, toTime } from './pages/daily-attendance/daily-attendance.page';
-import { parseSlabs, slabsText } from './pages/statutory-rules/statutory-rules.page';
 import { PHRASES_AR } from '@core/i18n/phrases.ar';
+import { itemsText, parseImport, parseItems, parseSlabs, slabsText, toTime } from './hr-parsers';
 
 describe('statutory rule slabs', () => {
   it('reads "from:percent" pairs and ignores junk', () => {

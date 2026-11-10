@@ -8,7 +8,7 @@ import { EngagementDto, ServicesRetainersApi } from '@core/api/services.api';
 import { SessionStore } from '@core/session/session.store';
 import { APP_ICONS } from '../../icons';
 import { OwnerPayoutsPage } from '@features/realestate/pages/owner-payouts/owner-payouts.page';
-import { propertyFields } from '@features/realestate/pages/properties/properties.page';
+import { propertyFields } from '@features/realestate/realestate-forms';
 import { RealEstateLookups } from '@core/api/realestate.api';
 import { meWith } from '@features/industry/industry.fixtures.spec';
 import { EngagementTimeComponent } from './components/engagement-time/engagement-time.component';

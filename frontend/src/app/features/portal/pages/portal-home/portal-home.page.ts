@@ -1,4 +1,3 @@
-import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -11,18 +10,19 @@ import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { OperatorFunction, catchError, of } from 'rxjs';
+import { catchError, of } from 'rxjs';
+import { PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService, PortalStatement } from '@core/api/portal.api';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { ClientPager, PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { PortalProjectsComponent } from '../../components/portal-projects/portal-projects.component';
-import { portalMoney, PortalInvoice, PortalLease, PortalReceipt, PortalRequest, PortalService, PortalStatement } from '../../portal.service';
-
-/** The tenant's own view: leases and rent schedule, invoices, receipts, statement and maintenance requests. */
-import { ClientPager, PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { matchText, TableToolsComponent } from '@shared/components/table-tools/table-tools.component';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { PortalProjectsComponent } from '../../components/portal-projects/portal-projects.component';
+import { PortalLoadHandlers, portalFallback, portalMoney } from '../../portal-view';
 
+/** The tenant's own view: leases and rent schedule, invoices, receipts, statement and maintenance requests. */
 @Component({
   selector: 'erp-portal-home',
   standalone: true,
@@ -58,6 +58,7 @@ export class PortalHomePage implements OnInit {
   readonly receiptsShown = computed(() => this.receipts().filter((r) => matchText(this.q(), r.number, r.method, r.reference)));
   readonly requestsShown = computed(() => this.requests().filter((r) => matchText(this.q(), r.number, r.issue, r.status)));
   readonly form = inject(FormBuilder).nonNullable.group({ leaseId: ['', Validators.required], issue: ['', Validators.required], priority: ['normal'] });
+  private readonly onLoadError: PortalLoadHandlers = { signOut: () => this.signOut(), failed: () => this.failed.set(true) };
 
   search(q: string): void { this.q.set(q); this.invPg.page.set(1); this.recPg.page.set(1); this.reqPg.page.set(1); }
 
@@ -67,16 +68,12 @@ export class PortalHomePage implements OnInit {
     if (!this.portal.signedIn()) { void this.router.navigateByUrl('/portal/login'); return; }
     if (this.portal.kind() === 'vendor') { void this.router.navigateByUrl('/portal/vendor'); return; }
     this.failed.set(false);
-    // A disabled module answers 403: that is not a failure, the customer simply has none of those records.
-    const guard = <T>(fallback: T): OperatorFunction<T, T> => catchError((e: { status?: number }) => { if (e.status === 401) this.signOut(); else if (e.status !== 403 && e.status !== 404) this.failed.set(true); return of(fallback); });
-    this.portal.leases().pipe(guard([] as PortalLease[])).subscribe((v) => { this.leases.set(v); this.ready.set(true); if (v.length === 1) this.form.patchValue({ leaseId: v[0].id }); });
-    this.portal.invoices().pipe(guard([] as PortalInvoice[])).subscribe((v) => this.invoices.set(v));
-    this.portal.receipts().pipe(guard([] as PortalReceipt[])).subscribe((v) => this.receipts.set(v));
-    this.portal.statement().pipe(guard<PortalStatement | null>(null)).subscribe((v) => this.statement.set(v));
+    this.portal.leases().pipe(portalFallback([] as PortalLease[], this.onLoadError)).subscribe((v) => { this.leases.set(v); this.ready.set(true); if (v.length === 1) this.form.patchValue({ leaseId: v[0].id }); });
+    this.portal.invoices().pipe(portalFallback([] as PortalInvoice[], this.onLoadError)).subscribe((v) => this.invoices.set(v));
+    this.portal.receipts().pipe(portalFallback([] as PortalReceipt[], this.onLoadError)).subscribe((v) => this.receipts.set(v));
+    this.portal.statement().pipe(portalFallback<PortalStatement | null>(null, this.onLoadError)).subscribe((v) => this.statement.set(v));
     this.loadRequests();
   }
-
-  private loadRequests(): void { this.portal.requests().pipe(catchError(() => of([] as PortalRequest[]))).subscribe((v) => this.requests.set(v)); }
 
   raise(): void {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
@@ -88,4 +85,6 @@ export class PortalHomePage implements OnInit {
   }
 
   signOut(): void { this.portal.signOut(); void this.router.navigateByUrl('/portal/login'); }
+
+  private loadRequests(): void { this.portal.requests().pipe(catchError(() => of([] as PortalRequest[]))).subscribe((v) => this.requests.set(v)); }
 }
