@@ -5,17 +5,16 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { catchError, map, of, switchMap, tap, throwError } from 'rxjs';
+import { Observable, catchError, map, of, switchMap, tap, throwError } from 'rxjs';
 import { ACCOUNT_TYPES, AccountDto, AccountNodeDto, AccountsApi, CoaNumbering } from '@core/api/admin.api';
 import { asProblem } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { MasterDataState } from '@shared/utils/master-data-state';
-import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { AccountPanelsComponent, CoaCreateRequest } from '../../coa/components/account-panels/account-panels.component';
 import { AccountTreeStore } from '../../coa/account-tree.store';
+import { AccountPanelsComponent, CoaCreateRequest } from '../../coa/components/account-panels/account-panels.component';
 import { AccountsListComponent } from '../../coa/components/accounts-list/accounts-list.component';
 
 type CoaView = 'panels' | 'list';
@@ -24,11 +23,12 @@ const VIEW_KEY = 'erp.coa.view';
 /** What the drawer opens with: an existing account, or a new one prefilled from the panel it was started in. */
 type AccountDraft = Partial<AccountDto> & { id: string; _parentLabel?: string };
 
+/** The chart of accounts: the step-by-step panels or the flat list, and the account form (with codes suggested from the numbering mask). */
 @Component({
   selector: 'erp-accounts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AccountPanelsComponent, AccountsListComponent, RecordDrawerComponent, HasPermissionDirective, FormsModule, NzButtonModule, NzIconModule, NzRadioModule, NzToolTipModule, RevealDirective, TranslatePipe],
+  imports: [AccountPanelsComponent, AccountsListComponent, RecordDrawerComponent, HasPermissionDirective, FormsModule, NzButtonModule, NzIconModule, NzRadioModule, NzToolTipModule, TranslatePipe],
   templateUrl: './accounts.page.html',
   styleUrl: './accounts.page.scss',
 })
@@ -59,7 +59,7 @@ export class AccountsPage {
   constructor() { this.api.numbering().subscribe({ next: (n) => this.numbering.set(n), error: () => undefined }); }
 
   /** Saves; when an automatically suggested code was taken meanwhile (409), asks for the next one and tries once more. */
-  private persist(id: string | null, body: Record<string, unknown>) {
+  private persist(id: string | null, body: Record<string, unknown>): Observable<AccountDto> {
     if (id) return this.api.update(id, body);
     return this.api.create(body).pipe(catchError((e) => {
       const suggested = this.suggested();

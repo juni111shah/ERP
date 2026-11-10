@@ -1,10 +1,6 @@
-import { doneText } from '@core/format/done-text';
-import { ActivatedRoute, Router } from '@angular/router';
-import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { askReason } from '@shared/utils/reason-prompt';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -13,41 +9,64 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { catchError, of } from 'rxjs';
+import { InvoiceSummary, InvoicesApi, ReceiptDto, ReceiptSummary, ReceiptsApi, SETTLEMENT_METHODS } from '@core/api/admin.api';
 import { ListQuery } from '@core/api/api.models';
-import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { AllRows, countOf, fetchAllRows, moneyByCurrency, startOfMonth, startOfYear } from '../../finance-kpis';
-import { AccountDto, AccountsApi, InvoiceSummary, InvoicesApi, LegalEntitiesApi, LegalEntityDto, ReceiptDto, ReceiptSummary, ReceiptsApi, SETTLEMENT_METHODS } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
-import { toIsoDate } from '@core/format/dates';
-import { LookupOption } from '@core/custom-fields/lookup-registry';
-import { asProblem, controlError, problemMessage } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { formatMoney } from '../../components/invoice-sheet/invoice-sheet.component';
 import { PartiesApi } from '@core/api/parties.api';
+import { LookupOption } from '@core/custom-fields/lookup-registry';
+import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
+import { controlError, problemMessage } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { I18nService } from '@core/i18n/i18n.service';
-import { RevealDirective } from '@shared/directives/reveal.directive';
+import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
+import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { askReason } from '@shared/utils/reason-prompt';
+import { formatMoney, isOpenStatus } from '../../finance-format';
+import { AllRows, KpiStats } from '../../finance-kpis';
+import { FinanceLookups, documentPartyOption, mainBankAccount, partyOption } from '../../finance-lookups';
+import { allocatedAmounts, fillLateDefaults, openDocumentsQuery } from '../../finance-settlements';
+import { loadSettlementStats, settlementStats } from '../../finance-stats';
 
 /** Customer receipts: record money received, settle open invoices at the same time (or later), and void. */
 @Component({
   selector: 'erp-receipts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
-    NzInputNumberModule, NzSelectModule, NzTagModule, StatCardComponent, StatusTagComponent],
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    NzButtonModule,
+    NzDatePickerModule,
+    NzDrawerModule,
+    NzFormModule,
+    NzIconModule,
+    NzInputModule,
+    NzInputNumberModule,
+    NzModalModule,
+    NzSelectModule,
+    NzTagModule,
+    NzToolTipModule,
+    TranslatePipe,
+    PagedTableComponent,
+    StatCardComponent,
+    StatusTagComponent,
+    HasPermissionDirective,
+    ErpDatePipe,
+  ],
+  providers: [FinanceLookups],
   styleUrl: './receipts.page.scss',
   templateUrl: './receipts.page.html',
 })
-export class ReceiptsPage {
-  private readonly i18n = inject(I18nService);
+export class ReceiptsPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ReceiptsApi);
   private readonly router = inject(Router);
@@ -56,10 +75,11 @@ export class ReceiptsPage {
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
-  private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
-  private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
-  readonly entities = computed(() => this.entityPage().items);
-  readonly banks = computed(() => this.accountPage().items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'cash' || a.systemRole === 'bank')));
+  private readonly lookups = inject(FinanceLookups).load({ entities: true, accounts: true });
+  private readonly workspaceCurrency = inject(WorkspaceCurrencyService).currency;
+
+  readonly entities = this.lookups.entities;
+  readonly banks = this.lookups.cashAndBankAccounts;
   readonly methods = SETTLEMENT_METHODS;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
   readonly columns: TableColumn<ReceiptSummary>[] = [
@@ -70,46 +90,20 @@ export class ReceiptsPage {
     { key: 'unallocated', label: 'Unallocated', width: '130px', align: 'right', value: (r) => formatMoney(r.unallocated, r.currencyCode) },
     { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: [{ value: 'issued', label: 'Posted' }, { value: 'voided', label: 'Voided' }] },
   ];
-  private readonly workspaceCurrency = inject(WorkspaceCurrencyService).currency;
-  private readonly statsData = signal<AllRows<ReceiptSummary> | null>(null);
-  readonly statsLoading = signal(true);
+
+  private readonly kpis = new KpiStats<AllRows<ReceiptSummary>>();
+  readonly statsLoading = this.kpis.loading;
   /** Caption of the cards when their figures could not be read. */
-  readonly statsError = computed(() => (this.statsLoading() ? null : 'Could not load this figure'));
+  readonly statsError = this.kpis.error;
   /** The figures for the whole workspace, not the page on screen: every posted receipt is read, newest first. */
-  readonly stats = computed(() => {
-    const d = this.statsData();
-    if (!d) return null;
-    const cur = this.workspaceCurrency();
-    const month = d.items.filter((r) => r.date >= startOfMonth());
-    const year = d.items.filter((r) => r.date >= startOfYear());
-    const open = d.items.filter((r) => r.unallocated > 0);
-    return {
-      count: d.total,
-      month: moneyByCurrency(month, (r) => r.amount, cur),
-      monthCaption: countOf(month.length, 'receipt'),
-      year: moneyByCurrency(year, (r) => r.amount, cur),
-      yearCaption: countOf(year.length, 'receipt'),
-      unallocated: moneyByCurrency(open, (r) => r.unallocated, cur),
-      unallocatedCount: open.length,
-      unallocatedCaption: (open.length ? `On account, ${countOf(open.length, 'receipt')}` : 'All allocated') + (d.capped ? ' (latest rows only)' : ''),
-    };
-  });
-  reload(): void { this.list.reload(); this.loadStats(); }
-  private loadStats(): void {
-    fetchAllRows((q: ListQuery) => this.api.list(q), [{ field: 'status', op: 'eq', value: 'issued' }], '-date').subscribe({
-      next: (d) => { this.statsData.set(d); this.statsLoading.set(false); },
-      error: () => { this.statsData.set(null); this.statsLoading.set(false); },
-    });
-  }
+  readonly stats = computed(() => { const d = this.kpis.data(); return d ? settlementStats(d, this.workspaceCurrency(), 'receipt', 'On account') : null; });
+
   readonly drawerOpen = signal(false);
   /** Arriving from an invoice or bill opens the form before the legal entities and bank accounts have loaded; fill the defaults once they arrive. */
   private readonly lateDefaults = effect(() => {
     const entities = this.entities(), banks = this.banks();
     if (!this.drawerOpen() || this.receipt()) return;
-    const c = this.form.controls;
-    if (entities.length === 1 && !c.legalEntityId.value) c.legalEntityId.setValue(entities[0].id);
-    const bank = banks.find((b) => b.systemRole === 'bank') ?? banks[0];
-    if (bank && !c.bankAccountId.value) c.bankAccountId.setValue(bank.id);
+    fillLateDefaults(this.form.controls, entities, banks);
   });
   readonly saving = signal(false);
   readonly receipt = signal<ReceiptDto | null>(null);
@@ -126,8 +120,10 @@ export class ReceiptsPage {
   err(name: string): string { return controlError(this.form.get(name)); }
   setAmount(id: string, v: number | null): void { this.amounts.update((a) => ({ ...a, [id]: v ?? 0 })); }
 
+  reload(): void { this.list.reload(); this.loadStats(); }
+
   searchParties(term: string): void {
-    this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => this.partyOptions.set(r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))));
+    this.lookups.findParties(term).subscribe((found) => this.partyOptions.set(found.map(partyOption)));
   }
 
   partyChanged(partyId: string | null): void {
@@ -136,29 +132,16 @@ export class ReceiptsPage {
     this.loadOpen(partyId);
   }
 
-  private loadOpen(partyId: string, prefillInvoiceId?: string | null): void {
-    this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: partyId }, { field: 'isCreditNote', op: 'eq', value: false }, { field: 'status', op: 'in', value: ['issued', 'partlyPaid'] }] })
-      .subscribe((r) => {
-        this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid'));
-        const inv = prefillInvoiceId ? this.openInvoices().find((i) => i.id === prefillInvoiceId) : undefined;
-        if (inv) { this.setAmount(inv.id, inv.outstanding); this.form.patchValue({ amount: inv.outstanding }); }
-      });
-  }
-
   /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
   ngOnInit(): void {
     this.loadStats();
-    const id = this.route.snapshot.queryParamMap.get('open');
-    if (id) this.open({ id } as never);
+    const q = this.route.snapshot.queryParamMap;
+    const id = q.get('open');
+    if (id) this.open({ id } as ReceiptSummary);
     // `?partyId=&invoiceId=` (invoice detail's Record Payment) starts a new receipt for that customer, allocated to the invoice's balance.
-    if (this.route.snapshot.queryParamMap.get('new')) this.open(null);
-    const partyId = this.route.snapshot.queryParamMap.get('partyId');
-    if (!id && partyId) {
-      this.open(null);
-      this.form.patchValue({ partyId });
-      this.parties.get(partyId).subscribe((p) => this.partyOptions.update((o) => [{ value: p.id, label: `${p.code} · ${p.name}` }, ...o.filter((x) => x.value !== p.id)]));
-      this.loadOpen(partyId, this.route.snapshot.queryParamMap.get('invoiceId'));
-    }
+    if (q.get('new')) this.open(null);
+    const partyId = q.get('partyId');
+    if (!id && partyId) this.startFor(partyId, q.get('invoiceId'));
   }
 
   openDetails(id: string): void { void this.router.navigate(['/finance/receipts', id]); }
@@ -166,31 +149,12 @@ export class ReceiptsPage {
 
   open(row: ReceiptSummary | null): void {
     this.amounts.set({}); this.openInvoices.set([]);
-    if (!row) {
-      this.receipt.set(null);
-      const entities = this.entities();
-      this.form.reset({ legalEntityId: entities.length === 1 ? entities[0].id : '', partyId: '', date: new Date(), method: 'bankTransfer', bankAccountId: this.banks().find((b) => b.systemRole === 'bank')?.id ?? '', amount: null, reference: '', autoAllocate: false });
-      this.form.enable();
-      this.searchParties('');
-      this.drawerOpen.set(true);
-      return;
-    }
-    this.api.detail(row.id).subscribe((r) => {
-      this.receipt.set(r);
-      this.partyOptions.set([{ value: r.partyId, label: r.partyName ?? r.partyId }]);
-      this.form.reset({ legalEntityId: r.legalEntityId, partyId: r.partyId, date: new Date(r.date + 'T00:00:00'), method: r.method, bankAccountId: r.bankAccountId ?? '', amount: r.amount, reference: r.reference ?? '', autoAllocate: false });
-      this.form.disable();
-      if (r.status === 'issued' && r.unallocated > 0) this.loadOpen(r.partyId);
-      this.drawerOpen.set(true);
-    });
-  }
-
-  private allocations(): { invoiceId: string; amount: number }[] {
-    return Object.entries(this.amounts()).filter(([, a]) => a > 0).map(([invoiceId, amount]) => ({ invoiceId, amount }));
+    if (!row) { this.openNew(); return; }
+    this.api.detail(row.id).subscribe((r) => this.show(r));
   }
 
   create(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); this.message.warning('Fill in the fields marked in red'); return; }
+    if (this.form.invalid) { revealErrors(this.form, { touchAll: true }); this.message.warning('Fill in the fields marked in red'); return; }
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.create({ ...v, date: toIsoDate(v.date!), reference: v.reference || null, allocations: this.allocations() }).subscribe({
@@ -216,6 +180,46 @@ export class ReceiptsPage {
     });
   }
 
+  /** A new receipt for one customer, allocated to one invoice's balance when `invoiceId` is given. */
+  private startFor(partyId: string, invoiceId: string | null): void {
+    this.open(null);
+    this.form.patchValue({ partyId });
+    this.parties.get(partyId).subscribe((p) => this.partyOptions.update((o) => [partyOption(p), ...o.filter((x) => x.value !== p.id)]));
+    this.loadOpen(partyId, invoiceId);
+  }
+
+  private openNew(): void {
+    this.receipt.set(null);
+    this.form.reset({ legalEntityId: this.lookups.onlyEntityId(), partyId: '', date: new Date(), method: 'bankTransfer', bankAccountId: mainBankAccount(this.banks())?.id ?? '', amount: null, reference: '', autoAllocate: false });
+    this.form.enable();
+    this.searchParties('');
+    this.drawerOpen.set(true);
+  }
+
+  private show(r: ReceiptDto): void {
+    this.receipt.set(r);
+    this.partyOptions.set([documentPartyOption(r)]);
+    this.form.reset({ legalEntityId: r.legalEntityId, partyId: r.partyId, date: new Date(r.date + 'T00:00:00'), method: r.method, bankAccountId: r.bankAccountId ?? '', amount: r.amount, reference: r.reference ?? '', autoAllocate: false });
+    this.form.disable();
+    if (r.status === 'issued' && r.unallocated > 0) this.loadOpen(r.partyId);
+    this.drawerOpen.set(true);
+  }
+
+  /** The customer's open invoices; `prefillInvoiceId` gets its whole balance, which also becomes the receipt amount. */
+  private loadOpen(partyId: string, prefillInvoiceId?: string | null): void {
+    this.invoices.list(openDocumentsQuery(partyId, [{ field: 'isCreditNote', op: 'eq', value: false }, { field: 'status', op: 'in', value: ['issued', 'partlyPaid'] }]))
+      .subscribe((r) => {
+        this.openInvoices.set(r.items.filter((i) => isOpenStatus(i.status)));
+        const inv = prefillInvoiceId ? this.openInvoices().find((i) => i.id === prefillInvoiceId) : undefined;
+        if (inv) { this.setAmount(inv.id, inv.outstanding); this.form.patchValue({ amount: inv.outstanding }); }
+      });
+  }
+
+  private allocations(): { invoiceId: string; amount: number }[] {
+    return allocatedAmounts(this.amounts()).map(([invoiceId, amount]) => ({ invoiceId, amount }));
+  }
+
+  private loadStats(): void { this.kpis.load(loadSettlementStats((q: ListQuery) => this.api.list(q))); }
   private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.reload(); }
   private fail(e: unknown): void { this.saving.set(false); this.message.error(problemMessage(e, 'Could not save the receipt', 'reason')); }
 }

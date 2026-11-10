@@ -1,10 +1,7 @@
-import { doneText } from '@core/format/done-text';
-import { ActivatedRoute, Router } from '@angular/router';
-import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { askReason } from '@shared/utils/reason-prompt';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -13,89 +10,87 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { catchError, of } from 'rxjs';
-import { ListQuery } from '@core/api/api.models';
-import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { AllRows, countOf, fetchAllRows, moneyByCurrency, startOfMonth, startOfYear } from '../../finance-kpis';
-import { AccountDto, AccountsApi, BillSummary, BillsApi, LegalEntitiesApi, LegalEntityDto, PaymentDto, PaymentSummary, PaymentsApi, PAYMENT_METHODS } from '@core/api/admin.api';
-import { createPagedList } from '@core/api/paged-list';
-import { toIsoDate } from '@core/format/dates';
-import { LookupOption } from '@core/custom-fields/lookup-registry';
-import { asProblem, controlError, problemMessage } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { formatMoney } from '../../components/invoice-sheet/invoice-sheet.component';
-import { PartiesApi } from '@core/api/parties.api';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { I18nService } from '@core/i18n/i18n.service';
-import { RevealDirective } from '@shared/directives/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-
+import { BillSummary, BillsApi, PAYMENT_METHODS, PaymentDto, PaymentSummary, PaymentsApi } from '@core/api/admin.api';
+import { ListQuery } from '@core/api/api.models';
+import { createPagedList } from '@core/api/paged-list';
+import { PartiesApi } from '@core/api/parties.api';
+import { LookupOption } from '@core/custom-fields/lookup-registry';
+import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
+import { controlError, problemMessage } from '@core/http/problem-details';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
+import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { askReason } from '@shared/utils/reason-prompt';
+import { formatMoney, isOpenStatus } from '../../finance-format';
+import { AllRows, KpiStats } from '../../finance-kpis';
+import { FinanceLookups, documentPartyOption, mainBankAccount, partyOption } from '../../finance-lookups';
+import { allocatedAmounts, fillLateDefaults, openDocumentsQuery } from '../../finance-settlements';
+import { loadSettlementStats, settlementStats } from '../../finance-stats';
 
 /** Vendor payments: pay vendors by bank, cash or cheque, settle open bills at the same time (or later), clear issued cheques, and void. */
 @Component({
   selector: 'erp-payments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatCardComponent, StatusTagComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, NzModalModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
-    NzInputNumberModule, NzSelectModule, NzTagModule],
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    NzButtonModule,
+    NzDatePickerModule,
+    NzDrawerModule,
+    NzFormModule,
+    NzIconModule,
+    NzInputModule,
+    NzInputNumberModule,
+    NzModalModule,
+    NzSelectModule,
+    NzTagModule,
+    NzToolTipModule,
+    TranslatePipe,
+    PagedTableComponent,
+    StatCardComponent,
+    StatusTagComponent,
+    HasPermissionDirective,
+    ErpDatePipe,
+  ],
+  providers: [FinanceLookups],
   styleUrl: './payments.page.scss',
   templateUrl: './payments.page.html',
 })
-export class PaymentsPage {
-  private readonly i18n = inject(I18nService);
+export class PaymentsPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(PaymentsApi);
   private readonly router = inject(Router);
   private readonly modal = inject(NzModalService);
-  private readonly invoices = inject(BillsApi);
+  private readonly bills = inject(BillsApi);
   private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
-  private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
-  private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
-  readonly entities = computed(() => this.entityPage().items);
-  readonly banks = computed(() => this.accountPage().items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'cash' || a.systemRole === 'bank')));
+  private readonly lookups = inject(FinanceLookups).load({ entities: true, accounts: true });
+  private readonly workspaceCurrency = inject(WorkspaceCurrencyService).currency;
+
+  readonly entities = this.lookups.entities;
+  readonly banks = this.lookups.cashAndBankAccounts;
   readonly methods = PAYMENT_METHODS;
   readonly money = formatMoney;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
 
-  private readonly workspaceCurrency = inject(WorkspaceCurrencyService).currency;
-  private readonly statsData = signal<AllRows<PaymentSummary> | null>(null);
-  readonly statsLoading = signal(true);
+  private readonly kpis = new KpiStats<AllRows<PaymentSummary>>();
+  readonly statsLoading = this.kpis.loading;
   /** Caption of the cards when their figures could not be read. */
-  readonly statsError = computed(() => (this.statsLoading() ? null : 'Could not load this figure'));
+  readonly statsError = this.kpis.error;
   /** The figures for the whole workspace, not the page on screen: every posted payment is read, newest first. */
-  readonly stats = computed(() => {
-    const d = this.statsData();
-    if (!d) return null;
-    const cur = this.workspaceCurrency();
-    const month = d.items.filter((p) => p.date >= startOfMonth());
-    const year = d.items.filter((p) => p.date >= startOfYear());
-    const open = d.items.filter((p) => p.unallocated > 0);
-    return {
-      count: d.total,
-      month: moneyByCurrency(month, (p) => p.amount, cur),
-      monthCaption: countOf(month.length, 'payment'),
-      year: moneyByCurrency(year, (p) => p.amount, cur),
-      yearCaption: countOf(year.length, 'payment'),
-      unallocated: moneyByCurrency(open, (p) => p.unallocated, cur),
-      unallocatedCount: open.length,
-      unallocatedCaption: (open.length ? `Advances, ${countOf(open.length, 'payment')}` : 'All allocated') + (d.capped ? ' (latest rows only)' : ''),
-    };
-  });
-  reload(): void { this.list.reload(); this.loadStats(); }
-  private loadStats(): void {
-    fetchAllRows((q: ListQuery) => this.api.list(q), [{ field: 'status', op: 'eq', value: 'issued' }], '-date').subscribe({
-      next: (d) => { this.statsData.set(d); this.statsLoading.set(false); },
-      error: () => { this.statsData.set(null); this.statsLoading.set(false); },
-    });
-  }
+  readonly stats = computed(() => { const d = this.kpis.data(); return d ? settlementStats(d, this.workspaceCurrency(), 'payment', 'Advances') : null; });
 
   readonly columns: TableColumn<PaymentSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
@@ -110,12 +105,10 @@ export class PaymentsPage {
   private readonly lateDefaults = effect(() => {
     const entities = this.entities(), banks = this.banks();
     if (!this.drawerOpen() || this.receipt()) return;
-    const c = this.form.controls;
-    if (entities.length === 1 && !c.legalEntityId.value) c.legalEntityId.setValue(entities[0].id);
-    const bank = banks.find((b) => b.systemRole === 'bank') ?? banks[0];
-    if (bank && !c.bankAccountId.value) c.bankAccountId.setValue(bank.id);
+    fillLateDefaults(this.form.controls, entities, banks);
   });
   readonly saving = signal(false);
+  /** The payment open in the drawer (named like the receipts page, whose template this one mirrors). */
   readonly receipt = signal<PaymentDto | null>(null);
   readonly partyOptions = signal<LookupOption[]>([]);
   readonly openInvoices = signal<BillSummary[]>([]);
@@ -132,8 +125,10 @@ export class PaymentsPage {
   err(name: string): string { return controlError(this.form.get(name)); }
   setAmount(id: string, v: number | null): void { this.amounts.update((a) => ({ ...a, [id]: v ?? 0 })); }
 
+  reload(): void { this.list.reload(); this.loadStats(); }
+
   searchParties(term: string): void {
-    this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => this.partyOptions.set(r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))));
+    this.lookups.findParties(term).subscribe((found) => this.partyOptions.set(found.map(partyOption)));
   }
 
   partyChanged(partyId: string | null): void {
@@ -142,28 +137,16 @@ export class PaymentsPage {
     this.loadOpen(partyId);
   }
 
-  private loadOpen(partyId: string, prefillBillId?: string | null): void {
-    this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: partyId }, { field: 'status', op: 'in', value: ['issued', 'partlyPaid'] }] })
-      .subscribe((r) => {
-        this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid'));
-        const bill = prefillBillId ? this.openInvoices().find((i) => i.id === prefillBillId) : undefined;
-        if (bill) { this.setAmount(bill.id, bill.outstanding); this.form.patchValue({ amount: bill.outstanding }); }
-      });
-  }
-
   /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
   ngOnInit(): void {
     this.loadStats();
-    if (this.route.snapshot.queryParamMap.get('new')) this.open(null);
-    const id = this.route.snapshot.queryParamMap.get('open');
-    if (id) this.open({ id } as never);
-    const partyId = this.route.snapshot.queryParamMap.get('partyId');
-    if (!id && partyId) {
-      this.open(null);
-      this.form.patchValue({ partyId });
-      this.parties.get(partyId).subscribe((p) => this.partyOptions.update((o) => [{ value: p.id, label: `${p.code} · ${p.name}` }, ...o.filter((x) => x.value !== p.id)]));
-      this.loadOpen(partyId, this.route.snapshot.queryParamMap.get('billId'));
-    }
+    const q = this.route.snapshot.queryParamMap;
+    if (q.get('new')) this.open(null);
+    const id = q.get('open');
+    if (id) this.open({ id } as PaymentSummary);
+    // `?partyId=&billId=` (bill detail's Make Payment) starts a new payment for that vendor, allocated to the bill's balance.
+    const partyId = q.get('partyId');
+    if (!id && partyId) this.startFor(partyId, q.get('billId'));
   }
 
   openDetails(id: string): void { void this.router.navigate(['/finance/payments', id]); }
@@ -171,34 +154,16 @@ export class PaymentsPage {
 
   open(row: PaymentSummary | null): void {
     this.amounts.set({}); this.openInvoices.set([]);
-    if (!row) {
-      this.receipt.set(null);
-      const entities = this.entities();
-      this.form.reset({ legalEntityId: entities.length === 1 ? entities[0].id : '', partyId: '', date: new Date(), method: 'bankTransfer', bankAccountId: this.banks().find((b) => b.systemRole === 'bank')?.id ?? '', amount: null, reference: '', chequeNo: '', chequeDate: null, bankName: '' });
-      this.form.enable();
-      this.searchParties('');
-      this.drawerOpen.set(true);
-      return;
-    }
-    this.api.detail(row.id).subscribe((r) => {
-      this.receipt.set(r);
-      this.partyOptions.set([{ value: r.partyId, label: r.partyName ?? r.partyId }]);
-      this.form.reset({ legalEntityId: r.legalEntityId, partyId: r.partyId, date: new Date(r.date + 'T00:00:00'), method: r.method, bankAccountId: r.bankAccountId ?? '', amount: r.amount, reference: r.reference ?? '', chequeNo: '', chequeDate: null, bankName: '' });
-      this.form.disable();
-      if (r.status === 'issued' && r.unallocated > 0) this.loadOpen(r.partyId);
-      this.drawerOpen.set(true);
-    });
-  }
-
-  private allocations(): { billId: string; amount: number }[] {
-    return Object.entries(this.amounts()).filter(([, a]) => a > 0).map(([billId, amount]) => ({ billId, amount }));
+    if (!row) { this.openNew(); return; }
+    this.api.detail(row.id).subscribe((r) => this.show(r));
   }
 
   create(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); this.message.warning('Fill in the fields marked in red'); return; }
+    if (this.form.invalid) { revealErrors(this.form, { touchAll: true }); this.message.warning('Fill in the fields marked in red'); return; }
     const v = this.form.getRawValue();
+    const cheque = v.method === 'instrument';
     this.saving.set(true);
-    this.api.create({ ...v, date: toIsoDate(v.date!), reference: v.reference || null, chequeNo: v.method === 'instrument' ? v.chequeNo : null, chequeDate: v.method === 'instrument' && v.chequeDate ? toIsoDate(v.chequeDate) : null, bankName: v.bankName || null, allocations: this.allocations() }).subscribe({
+    this.api.create({ ...v, date: toIsoDate(v.date!), reference: v.reference || null, chequeNo: cheque ? v.chequeNo : null, chequeDate: cheque && v.chequeDate ? toIsoDate(v.chequeDate) : null, bankName: v.bankName || null, allocations: this.allocations() }).subscribe({
       next: (r) => { this.saving.set(false); this.drawerOpen.set(false); void this.router.navigate(['/finance/payments', (r as PaymentDto).id], { queryParams: { recorded: 1 } }); },
       error: (e) => this.fail(e),
     });
@@ -226,6 +191,46 @@ export class PaymentsPage {
     });
   }
 
+  /** A new payment for one vendor, allocated to one bill's balance when `billId` is given. */
+  private startFor(partyId: string, billId: string | null): void {
+    this.open(null);
+    this.form.patchValue({ partyId });
+    this.parties.get(partyId).subscribe((p) => this.partyOptions.update((o) => [partyOption(p), ...o.filter((x) => x.value !== p.id)]));
+    this.loadOpen(partyId, billId);
+  }
+
+  private openNew(): void {
+    this.receipt.set(null);
+    this.form.reset({ legalEntityId: this.lookups.onlyEntityId(), partyId: '', date: new Date(), method: 'bankTransfer', bankAccountId: mainBankAccount(this.banks())?.id ?? '', amount: null, reference: '', chequeNo: '', chequeDate: null, bankName: '' });
+    this.form.enable();
+    this.searchParties('');
+    this.drawerOpen.set(true);
+  }
+
+  private show(r: PaymentDto): void {
+    this.receipt.set(r);
+    this.partyOptions.set([documentPartyOption(r)]);
+    this.form.reset({ legalEntityId: r.legalEntityId, partyId: r.partyId, date: new Date(r.date + 'T00:00:00'), method: r.method, bankAccountId: r.bankAccountId ?? '', amount: r.amount, reference: r.reference ?? '', chequeNo: '', chequeDate: null, bankName: '' });
+    this.form.disable();
+    if (r.status === 'issued' && r.unallocated > 0) this.loadOpen(r.partyId);
+    this.drawerOpen.set(true);
+  }
+
+  /** The vendor's open bills; `prefillBillId` gets its whole balance, which also becomes the payment amount. */
+  private loadOpen(partyId: string, prefillBillId?: string | null): void {
+    this.bills.list(openDocumentsQuery(partyId, [{ field: 'status', op: 'in', value: ['issued', 'partlyPaid'] }]))
+      .subscribe((r) => {
+        this.openInvoices.set(r.items.filter((i) => isOpenStatus(i.status)));
+        const bill = prefillBillId ? this.openInvoices().find((i) => i.id === prefillBillId) : undefined;
+        if (bill) { this.setAmount(bill.id, bill.outstanding); this.form.patchValue({ amount: bill.outstanding }); }
+      });
+  }
+
+  private allocations(): { billId: string; amount: number }[] {
+    return allocatedAmounts(this.amounts()).map(([billId, amount]) => ({ billId, amount }));
+  }
+
+  private loadStats(): void { this.kpis.load(loadSettlementStats((q: ListQuery) => this.api.list(q))); }
   private done(text: string): void { this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.reload(); }
   private fail(e: unknown): void { this.saving.set(false); this.message.error(problemMessage(e, 'Could not save the payment', 'reason')); }
 }

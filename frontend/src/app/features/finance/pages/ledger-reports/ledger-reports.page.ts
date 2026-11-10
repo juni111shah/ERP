@@ -1,35 +1,59 @@
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
-import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
-import { catchError, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import {
-  AccountDto, AccountsApi, ArAgeing, CashFlowStatement, BusinessUnitDto, BusinessUnitsApi, BalanceSheet, GeneralLedger, IncomeStatement, LedgerReportsApi, LegalEntitiesApi, PartyGroupDto, PartyGroupsApi, LegalEntityDto, TrialBalance,
+  ArAgeing, BalanceSheet, BusinessUnitDto, BusinessUnitsApi, CashFlowStatement, GeneralLedger, IncomeStatement, LedgerReportsApi, PartyGroupDto, PartyGroupsApi, TrialBalance,
 } from '@core/api/admin.api';
 import { toIsoDate } from '@core/format/dates';
 import { problemMessage } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
-import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
+import { FinanceLookups } from '../../finance-lookups';
 
-/** Ledger reports on posted entries: trial balance, general ledger, income statement and balance sheet. */
+/** The tabs, in order: their index is the `?tab=` value. */
+const TAB = { trialBalance: 0, generalLedger: 1, incomeStatement: 2, balanceSheet: 3, arAgeing: 4, apAgeing: 5, cashFlow: 6 } as const;
+
+const amount = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Ledger reports on posted entries: trial balance, general ledger, income statement, balance sheet, ageing and cash flow. */
 @Component({
   selector: 'erp-ledger-reports',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, HasPermissionDirective, ErpDatePipe, StatePanelComponent, NzSpinModule, TranslatePipe, FormsModule, DecimalPipe, NgTemplateOutlet, NzTabsModule, NzTableModule, NzInputModule, NzSelectModule, NzDatePickerModule, NzButtonModule, NzAlertModule],
+  imports: [
+    DecimalPipe,
+    FormsModule,
+    NgTemplateOutlet,
+    RouterLink,
+    NzAlertModule,
+    NzButtonModule,
+    NzDatePickerModule,
+    NzInputModule,
+    NzSelectModule,
+    NzSpinModule,
+    NzTableModule,
+    NzTabsModule,
+    TranslatePipe,
+    StatePanelComponent,
+    HasPermissionDirective,
+    ErpDatePipe,
+  ],
+  providers: [FinanceLookups],
   styleUrl: './ledger-reports.page.scss',
   templateUrl: './ledger-reports.page.html',
 })
@@ -37,20 +61,19 @@ export class LedgerReportsPage {
   private readonly api = inject(LedgerReportsApi);
   private readonly message = inject(NzMessageService);
   private readonly currency = inject(WorkspaceCurrencyService);
-  private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
-  private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
-  readonly entities = computed(() => this.entityPage().items);
-  private readonly unitPage = toSignal(inject(BusinessUnitsApi).list({ page: 1, pageSize: 200 }).pipe(catchError(() => of({ items: [] as BusinessUnitDto[] }))), { initialValue: { items: [] as BusinessUnitDto[] } });
-  private readonly groupPage = toSignal(inject(PartyGroupsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as PartyGroupDto[] }))), { initialValue: { items: [] as PartyGroupDto[] } });
-  readonly partyGroups = computed(() => this.groupPage().items);
-  readonly accounts = computed(() => this.accountPage().items);
+  private readonly lookups = inject(FinanceLookups).load({ entities: true, accounts: true });
+  private readonly allUnits = signal<BusinessUnitDto[]>([]);
+
+  readonly entities = this.lookups.entities;
+  readonly partyGroups = signal<PartyGroupDto[]>([]);
+  readonly accounts = this.lookups.accounts;
   readonly tab = signal(Number(inject(ActivatedRoute).snapshot.queryParamMap.get('tab') ?? 0) || 0);
   readonly loading = signal(false);
   readonly failed = signal<string | null>(null);
   /** Balance sheet and ageing are a position at one date; the rest cover a period. */
-  readonly usesFrom = computed(() => this.tab() < 3 || this.tab() === 6);
+  readonly usesFrom = computed(() => this.tab() < TAB.balanceSheet || this.tab() === TAB.cashFlow);
   readonly chosenAccount = signal<string | null>(null);
-  readonly needsAccount = computed(() => this.tab() === 1 && !this.chosenAccount());
+  readonly needsAccount = computed(() => this.tab() === TAB.generalLedger && !this.chosenAccount());
   readonly hasResult = computed(() => !![this.tb(), this.gl(), this.pl(), this.bs(), this.ar(), this.ap(), this.cf()][this.tab()]);
   entityId: string | null = null;
   accountId: string | null = null;
@@ -64,12 +87,17 @@ export class LedgerReportsPage {
   businessUnitId: string | null = null;
   partyGroupId: string | null = null;
   sourceType = '';
-  readonly units = () => this.unitPage().items.filter((b) => !this.entityId || b.legalEntityId === this.entityId);
+  /** The business units of the chosen legal entity (all of them when none is chosen). */
+  readonly units = () => this.allUnits().filter((b) => !this.entityId || b.legalEntityId === this.entityId);
   readonly ar = signal<ArAgeing | null>(null);
   readonly ap = signal<ArAgeing | null>(null);
   readonly cf = signal<CashFlowStatement | null>(null);
 
-  constructor() { this.run(); }
+  constructor() {
+    loadInto(this.allUnits, inject(BusinessUnitsApi).list({ page: 1, pageSize: 200 }), (r) => r.items);
+    loadInto(this.partyGroups, inject(PartyGroupsApi).list({ page: 1, pageSize: 200, sort: 'code' }), (r) => r.items);
+    this.run();
+  }
 
   selectTab(index: number): void {
     if (index === this.tab()) return;
@@ -81,13 +109,14 @@ export class LedgerReportsPage {
     return category === 'operating' ? 'Cash from operating activities' : category === 'investing' ? 'Cash from investing activities' : 'Cash from financing activities';
   }
 
-  money(v: number): string { return `${this.currency.currency()} ${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+  money(v: number): string { return `${this.currency.currency()} ${amount(v)}`; }
   /** A ledger balance: debit is positive and credit is negative in the API, which reads better with the side written out. */
   drCr(v: number): string {
     if (!v) return '0.00';
-    return `${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${v > 0 ? 'Dr' : 'Cr'}`;
+    return `${amount(Math.abs(v))} ${v > 0 ? 'Dr' : 'Cr'}`;
   }
 
+  /** Runs the report of the open tab with the current filters. */
   run(): void {
     this.failed.set(null);
     this.chosenAccount.set(this.accountId);
@@ -95,22 +124,38 @@ export class LedgerReportsPage {
     const to = toIsoDate(this.to);
     const from = this.from ? toIsoDate(this.from) : undefined;
     const legalEntityId = this.entityId ?? undefined;
-    const done = <T>(set: (v: T) => void) => ({ next: (v: T) => { this.loading.set(false); set(v); }, error: (e: unknown) => { this.loading.set(false); this.failed.set(problemMessage(e, 'The server did not return the report.', 'legalEntityId')); } });
     this.loading.set(true);
     switch (this.tab()) {
-      case 0: this.api.trialBalance({ from, to, legalEntityId }).subscribe(done((v) => this.tb.set(v))); break;
-      case 1:
+      case TAB.trialBalance: return this.load(this.api.trialBalance({ from, to, legalEntityId }), this.tb);
+      case TAB.generalLedger:
         if (!this.accountId) { this.loading.set(false); return; }
-        this.api.generalLedger({ accountId: this.accountId, from, to, legalEntityId }).subscribe(done((v) => this.gl.set(v))); break;
-      case 2:
-        if (!from) { this.loading.set(false); this.message.warning('Choose the date to report from'); return; }
-        this.api.incomeStatement({ from, to, legalEntityId }).subscribe(done((v) => this.pl.set(v))); break;
-      case 3: this.api.balanceSheet({ asOf: to, legalEntityId }).subscribe(done((v) => this.bs.set(v))); break;
-      case 4: this.api.arAgeing({ asOf: to, legalEntityId, businessUnitId: this.businessUnitId ?? undefined, partyGroupId: this.partyGroupId ?? undefined, sourceType: this.sourceType.trim() || undefined, groupBy: this.groupBy === 'customer' ? undefined : this.groupBy }).subscribe(done((v) => this.ar.set(v))); break;
-      case 5: this.api.apAgeing({ asOf: to, legalEntityId }).subscribe(done((v) => this.ap.set(v))); break;
+        return this.load(this.api.generalLedger({ accountId: this.accountId, from, to, legalEntityId }), this.gl);
+      case TAB.incomeStatement:
+        if (!from) return this.needFrom();
+        return this.load(this.api.incomeStatement({ from, to, legalEntityId }), this.pl);
+      case TAB.balanceSheet: return this.load(this.api.balanceSheet({ asOf: to, legalEntityId }), this.bs);
+      case TAB.arAgeing:
+        return this.load(this.api.arAgeing({
+          asOf: to, legalEntityId, businessUnitId: this.businessUnitId ?? undefined, partyGroupId: this.partyGroupId ?? undefined,
+          sourceType: this.sourceType.trim() || undefined, groupBy: this.groupBy === 'customer' ? undefined : this.groupBy,
+        }), this.ar);
+      case TAB.apAgeing: return this.load(this.api.apAgeing({ asOf: to, legalEntityId }), this.ap);
       default:
-        if (!from) { this.loading.set(false); this.message.warning('Choose the date to report from'); return; }
-        this.api.cashFlow({ from, to, legalEntityId }).subscribe(done((v) => this.cf.set(v)));
+        if (!from) return this.needFrom();
+        return this.load(this.api.cashFlow({ from, to, legalEntityId }), this.cf);
     }
+  }
+
+  /** Shows a report once it arrives, or the server's message in the error panel. */
+  private load<T>(report: Observable<T>, into: { set(v: T): void }): void {
+    report.subscribe({
+      next: (v) => { this.loading.set(false); into.set(v); },
+      error: (e: unknown) => { this.loading.set(false); this.failed.set(problemMessage(e, 'The server did not return the report.', 'legalEntityId')); },
+    });
+  }
+
+  private needFrom(): void {
+    this.loading.set(false);
+    this.message.warning('Choose the date to report from');
   }
 }

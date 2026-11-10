@@ -1,5 +1,5 @@
+import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
@@ -12,31 +12,30 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { catchError, of } from 'rxjs';
-import {
-  AccountDto, AccountsApi, CHEQUE_KINDS, ChequeDto, ChequeRow, ChequeSummary, ChequesApi, InvoiceSummary, InvoicesApi, LegalEntitiesApi, LegalEntityDto,
-} from '@core/api/admin.api';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { Observable } from 'rxjs';
+import { CHEQUE_KINDS, ChequeDto, ChequeRow, ChequeSummary, ChequesApi, InvoiceSummary, InvoicesApi } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
-import { toIsoDate } from '@core/format/dates';
 import { LookupOption } from '@core/custom-fields/lookup-registry';
-import { asProblem, problemMessage, controlError } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { PartiesApi } from '@core/api/parties.api';
+import { toIsoDate } from '@core/format/dates';
+import { controlError, problemMessage } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { RevealDirective } from '@shared/directives/reveal.directive';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { RecordHistoryComponent } from '@shared/components/record-history/record-history.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-
-import { DecimalPipe } from '@angular/common';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
-import { formatMoney } from '../../components/invoice-sheet/invoice-sheet.component';
+import { formatMoney, isOpenStatus } from '../../finance-format';
 import { countOf } from '../../finance-kpis';
+import { FinanceLookups, isBankAccount, mainBankAccount, partyOption } from '../../finance-lookups';
+import { allocatedAmounts, openDocumentsQuery } from '../../finance-settlements';
 
+const STATUSES = ['inCustody', 'deposited', 'cleared', 'bounced', 'replaced', 'cancelled'];
 const COLORS: Record<string, string> = { inCustody: 'blue', deposited: 'gold', cleared: 'green', bounced: 'red', replaced: 'default', cancelled: 'default', issued: 'cyan' };
 const LABELS: Record<string, string> = { inCustody: 'In custody', postDatedCheque: 'Post-dated' };
+const ACTION_TITLES = { deposit: 'Deposit cheque', clear: 'Mark cheque cleared', bounce: 'Cheque bounced', followup: 'Log follow-up', null: '' };
 type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
 
 /** Cheque and post-dated cheque register for cheques received from customers. */
@@ -44,28 +43,46 @@ type Action = 'deposit' | 'clear' | 'bounce' | 'followup' | null;
   selector: 'erp-cheques',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, DecimalPipe, RecordHistoryComponent, StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
-    NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
+  imports: [
+    DecimalPipe,
+    FormsModule,
+    ReactiveFormsModule,
+    NzButtonModule,
+    NzDatePickerModule,
+    NzDrawerModule,
+    NzFormModule,
+    NzIconModule,
+    NzInputModule,
+    NzInputNumberModule,
+    NzModalModule,
+    NzSelectModule,
+    NzTagModule,
+    NzToolTipModule,
+    TranslatePipe,
+    PagedTableComponent,
+    RecordHistoryComponent,
+    StatCardComponent,
+    HasPermissionDirective,
+    ErpDatePipe,
+  ],
+  providers: [FinanceLookups],
   styleUrl: './cheques.page.scss',
   templateUrl: './cheques.page.html',
 })
 export class ChequesPage {
-  private readonly currencyService = inject(WorkspaceCurrencyService);
-  readonly currency = this.currencyService.currency;
-  readonly chequeCount = (n: number) => countOf(n, 'cheque');
-  money(v: number, currency?: string | null): string { return formatMoney(v, currency ?? this.currency()); }
   private readonly api = inject(ChequesApi);
   private readonly invoices = inject(InvoicesApi);
-  private readonly parties = inject(PartiesApi);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
   private readonly modal = inject(NzModalService);
-  private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
-  private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
-  readonly entities = computed(() => this.entityPage().items);
-  readonly banks = computed(() => this.accountPage().items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'bank')));
+  private readonly lookups = inject(FinanceLookups).load({ entities: true, accounts: true });
+
+  readonly currency = inject(WorkspaceCurrencyService).currency;
+  readonly chequeCount = (n: number) => countOf(n, 'cheque');
+  readonly entities = this.lookups.entities;
+  readonly banks = computed(() => this.lookups.accounts().filter(isBankAccount));
   readonly kinds = CHEQUE_KINDS;
-  readonly statuses = ['inCustody', 'deposited', 'cleared', 'bounced', 'replaced', 'cancelled'];
+  readonly statuses = STATUSES;
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'instrumentDate' });
   readonly summary = signal<ChequeSummary | null>(null);
   readonly columns: TableColumn<ChequeRow>[] = [
@@ -75,7 +92,7 @@ export class ChequesPage {
     { key: 'bankName', label: 'Bank' },
     { key: 'instrumentDate', label: 'Cheque date', sortField: 'instrumentDate', width: '120px' },
     { key: 'amount', label: 'Amount', sortField: 'amount', width: '120px' },
-    { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: ['inCustody', 'deposited', 'cleared', 'bounced', 'replaced', 'cancelled'] },
+    { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: STATUSES },
   ];
   readonly formOpen = signal(false);
   readonly detailOpen = signal(false);
@@ -86,7 +103,7 @@ export class ChequesPage {
   readonly openInvoices = signal<InvoiceSummary[]>([]);
   readonly amounts = signal<Record<string, number>>({});
   readonly action = signal<Action>(null);
-  readonly actionTitle = computed(() => ({ deposit: 'Deposit cheque', clear: 'Mark cheque cleared', bounce: 'Cheque bounced', followup: 'Log follow-up', null: '' })[String(this.action()) as 'deposit']);
+  readonly actionTitle = computed(() => ACTION_TITLES[String(this.action()) as 'deposit']);
   actionDate: Date | null = new Date();
   actionBank: string | null = null;
   actionReason = '';
@@ -97,32 +114,32 @@ export class ChequesPage {
 
   constructor() { this.loadSummary(); }
 
+  money(v: number, currency?: string | null): string { return formatMoney(v, currency ?? this.currency()); }
   color(s: string): string { return COLORS[s] ?? 'default'; }
   label(s: string): string { return LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1); }
   err(name: string): string { return controlError(this.form.get(name)); }
   setAmount(id: string, v: number | null): void { this.amounts.update((a) => ({ ...a, [id]: v ?? 0 })); }
   filterStatus(s: string | null): void { this.list.setFilters(s ? [{ field: 'status', op: 'eq', value: s }] : []); }
-  private loadSummary(): void { this.api.summary().subscribe((s) => this.summary.set(s)); }
 
   searchParties(term: string): void {
-    this.parties.list({ page: 1, pageSize: 20, search: term }).subscribe((r) => this.partyOptions.set(r.items.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))));
+    this.lookups.findParties(term).subscribe((found) => this.partyOptions.set(found.map(partyOption)));
   }
 
   partyChanged(partyId: string | null): void {
     this.amounts.set({}); this.openInvoices.set([]);
     if (!partyId) return;
-    this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: partyId }, { field: 'isCreditNote', op: 'eq', value: false }] })
-      .subscribe((r) => this.openInvoices.set(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid')));
+    this.invoices.list(openDocumentsQuery(partyId, [{ field: 'isCreditNote', op: 'eq', value: false }]))
+      .subscribe((r) => this.openInvoices.set(r.items.filter((i) => isOpenStatus(i.status))));
   }
 
   open(row: ChequeRow): void { this.api.detail(row.id).subscribe((c) => { this.cheque.set(c); this.detailOpen.set(true); }); }
 
+  /** The register form: a new cheque, or the replacement of `replace` (same customer, amount and bank). */
   openNew(replace: ChequeDto | null): void {
     this.replacing.set(replace);
     this.detailOpen.set(false);
-    const entities = this.entities();
     this.form.reset({
-      legalEntityId: replace?.legalEntityId ?? (entities.length === 1 ? entities[0].id : ''), partyId: replace?.partyId ?? '', kind: 'cheque', instrumentNo: '', bankName: replace?.bankName ?? '',
+      legalEntityId: replace?.legalEntityId ?? this.lookups.onlyEntityId(), partyId: replace?.partyId ?? '', kind: 'cheque', instrumentNo: '', bankName: replace?.bankName ?? '',
       amount: replace?.amount ?? null, instrumentDate: new Date(), receivedOn: new Date(), notes: '',
     });
     this.partyOptions.set(replace?.partyId ? [{ value: replace.partyId, label: replace.partyName ?? replace.partyId }] : []);
@@ -133,11 +150,11 @@ export class ChequesPage {
   }
 
   register(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { revealErrors(this.form, { touchAll: true }); return; }
     const v = this.form.getRawValue();
     const body = {
       ...v, instrumentDate: toIsoDate(v.instrumentDate!), receivedOn: v.receivedOn ? toIsoDate(v.receivedOn) : null, bankName: v.bankName || null, notes: v.notes || null,
-      allocations: Object.entries(this.amounts()).filter(([, a]) => a > 0).map(([invoiceId, amount]) => ({ invoiceId, amount })),
+      allocations: allocatedAmounts(this.amounts()).map(([invoiceId, amount]) => ({ invoiceId, amount })),
     };
     const replaced = this.replacing();
     this.saving.set(true);
@@ -146,17 +163,13 @@ export class ChequesPage {
 
   act(a: Action): void {
     this.action.set(a); this.actionDate = new Date(); this.actionReason = '';
-    this.actionBank = this.banks().find((b) => b.systemRole === 'bank')?.id ?? null;
+    this.actionBank = mainBankAccount(this.banks())?.id ?? null;
   }
 
   runAction(): void {
     const c = this.cheque(); const a = this.action();
     if (!c || !a || !this.actionDate) return;
-    const date = toIsoDate(this.actionDate);
-    const call = a === 'deposit' ? (this.actionBank ? this.api.deposit(c.id, this.actionBank, date) : null)
-      : a === 'clear' ? this.api.clear(c.id, date)
-      : a === 'followup' ? (this.actionReason.trim() ? this.api.followUp(c.id, this.actionReason.trim(), date) : null)
-      : (this.actionReason.trim() ? this.api.bounce(c.id, date, this.actionReason.trim()) : null);
+    const call = this.actionCall(c, a, toIsoDate(this.actionDate));
     if (!call) { this.message.warning(a === 'deposit' ? 'Choose a bank account' : a === 'followup' ? 'Enter the follow-up note' : 'Enter the reason'); return; }
     this.saving.set(true);
     call.subscribe({ next: () => { this.action.set(null); this.done(a === 'followup' ? `Follow-up logged for cheque ${c.instrumentNo}` : `Cheque ${c.instrumentNo} ${a === 'deposit' ? 'deposited' : a === 'clear' ? 'cleared' : 'marked as bounced'}`); }, error: (e) => this.fail(e) });
@@ -171,6 +184,18 @@ export class ChequesPage {
     });
   }
 
+  /** The request for an action, or null while what it needs (bank account, note, reason) is missing. */
+  private actionCall(c: ChequeDto, a: Exclude<Action, null>, date: string): Observable<ChequeDto> | null {
+    const reason = this.actionReason.trim();
+    switch (a) {
+      case 'deposit': return this.actionBank ? this.api.deposit(c.id, this.actionBank, date) : null;
+      case 'clear': return this.api.clear(c.id, date);
+      case 'followup': return reason ? this.api.followUp(c.id, reason, date) : null;
+      default: return reason ? this.api.bounce(c.id, date, reason) : null;
+    }
+  }
+
+  private loadSummary(): void { this.api.summary().subscribe((s) => this.summary.set(s)); }
   private done(text: string): void { this.saving.set(false); this.formOpen.set(false); this.detailOpen.set(false); this.message.success(text); this.list.reload(); this.loadSummary(); }
   private fail(e: unknown): void { this.saving.set(false); this.message.error(problemMessage(e, 'Could not complete the action')); }
 }

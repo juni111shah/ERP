@@ -7,14 +7,13 @@ import { createPagedList } from '@core/api/paged-list';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { RevealDirective } from '@shared/directives/reveal.directive';
 
 /** The flat, paged chart of accounts (the "List view" of the accounts screen). Loads only while it is shown. */
 @Component({
   selector: 'erp-accounts-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzToolTipModule, RevealDirective, TranslatePipe],
+  imports: [PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzToolTipModule, TranslatePipe],
   template: `
     <erp-paged-table [list]="list" [columns]="columns" [searchPlaceholder]="'coa.searchAccounts' | translate: 'Search code or name'" [emptyText]="'ui.coa.noAccountsYet' | translate: 'No accounts yet'" (rowClick)="edit.emit($event)">
       <button toolbar *erpHasPermission="'finance.accounts.write'" nz-button nzType="primary" (click)="create.emit()" data-testid="account-new"><span nz-icon nzType="plus"></span> New account</button>

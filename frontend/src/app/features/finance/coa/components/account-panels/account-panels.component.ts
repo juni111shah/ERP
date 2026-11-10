@@ -1,15 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, ElementRef, afterNextRender, effect, inject, output, untracked, viewChild, Injector } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, effect, inject, output, untracked, viewChild } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { AccountCategoryDto, AccountNodeDto, AccountSubcategoryDto } from '@core/api/admin.api';
-import { asProblem, problemMessage } from '@core/http/problem-details';
+import { problemMessage } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ExpandSearchComponent } from '@shared/components/expand-search/expand-search.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { RevealDirective } from '@shared/directives/reveal.directive';
 import { AccountDetailDrawerComponent } from '../account-detail-drawer/account-detail-drawer.component';
 import { AccountTreeStore, CoaCrumb, CoaPanel } from '../../account-tree.store';

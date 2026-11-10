@@ -2,23 +2,21 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TAX_KINDS, TaxCodeDto, TaxCodesApi, yesNo } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
 
-import { NzTagModule } from 'ng-zorro-antd/tag';
-
+/** Tax codes (VAT, GST, sales tax...): the rates document lines pick from, with one default for new documents. */
 @Component({
   selector: 'erp-tax-codes',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzTagModule, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [NzButtonModule, NzIconModule, NzTagModule, NzToolTipModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective],
   templateUrl: './tax-codes.page.html',
 })
 export class TaxCodesPage {

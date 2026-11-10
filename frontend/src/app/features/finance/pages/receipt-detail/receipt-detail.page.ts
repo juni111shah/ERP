@@ -1,79 +1,52 @@
-import { EmailDocumentDrawerComponent } from '@shared/components/email-document-drawer/email-document-drawer.component';
-import { SuccessPanelComponent } from '@shared/components/success-panel/success-panel.component';
-import { tNow } from '@core/i18n/translate-now';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { isFirstPaymentMoment } from '@core/format/celebrate';
-import { SessionStore } from '@core/session/session.store';
-import { NzButtonModule as NzButtonModuleForPanel } from 'ng-zorro-antd/button';
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { NzTableModule } from 'ng-zorro-antd/table';
+// Kept under its original alias so the compiled page definition stays identical.
+import { NzButtonModule as NzButtonModuleForPanel } from 'ng-zorro-antd/button';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzInputModule } from 'ng-zorro-antd/input';
-import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzIconModule } from 'ng-zorro-antd/icon';
-import { FormsModule } from '@angular/forms';
-import { API_BASE_URL } from '@core/api/api-config';
-import { ReceiptsApi } from '@core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { catchError, of } from 'rxjs';
-import { askReason } from '@shared/utils/reason-prompt';
-import { problemMessage } from '@core/http/problem-details';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
-import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
-import { displayDate, displayLabel } from '@core/format/display';
-import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '@shared/components/detail-page/detail-page.component';
+import { NzTableModule } from 'ng-zorro-antd/table';
+import { catchError, of } from 'rxjs';
+import { ReceiptsApi } from '@core/api/admin.api';
+import { FinanceDocumentsApi, ReceiptDetailDto } from '@core/api/finance-documents.api';
+import { isFirstPaymentMoment } from '@core/format/celebrate';
+import { problemMessage } from '@core/http/problem-details';
+import { tNow } from '@core/i18n/translate-now';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { formatMoney } from '../../components/invoice-sheet/invoice-sheet.component';
+import { SessionStore } from '@core/session/session.store';
+import { ActionButton, DescriptionItem, DetailPageComponent, KpiCard } from '@shared/components/detail-page/detail-page.component';
+import { EmailDocumentDrawerComponent } from '@shared/components/email-document-drawer/email-document-drawer.component';
+import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { SuccessPanelComponent } from '@shared/components/success-panel/success-panel.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { loadRecord } from '@shared/utils/load-record';
+import { askReason } from '@shared/utils/reason-prompt';
+import { formatMoney } from '../../finance-format';
+import { SettlementPageSpec, settlementActions, settlementDescriptions, settlementFacts, settlementKpis } from '../../finance-settlements';
 
-interface Allocation {
-  id: string;
-  invoiceId: string;
-  invoiceNumber: string;
-  amount: number;
-}
+const RECEIPT_PAGE: SettlementPageSpec = { listRoute: '/finance/receipts', permission: 'finance.receipts.write', printKind: 'receipt', appliedTitle: 'Invoices Applied', partyLabel: 'Customer' };
 
-interface Receipt {
-  id: string;
-  number: string;
-  legalEntityId: string;
-  partyId: string;
-  partyName: string;
-  date: string;
-  method: string;
-  bankAccountId: string | null;
-  currencyCode: string;
-  amount: number;
-  unallocated: number;
-  reference: string | null;
-  status: string;
-  journalEntryId: string | null;
-  allocations: Allocation[];
-}
-
+/** A customer receipt: the invoices it settles, and allocate / void / print / email. Right after recording it says what happened. */
 @Component({
   selector: 'erp-receipt-detail',
   standalone: true,
-  imports: [HasPermissionDirective, SuccessPanelComponent, NzButtonModuleForPanel, RouterLink, NzSpinModule, StatePanelComponent, EmailDocumentDrawerComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
-  templateUrl: './receipt-detail.page.html'
+  imports: [CommonModule, RouterLink, NzButtonModuleForPanel, NzModalModule, NzSpinModule, NzTableModule, TranslatePipe, DetailPageComponent, EmailDocumentDrawerComponent, StatePanelComponent, SuccessPanelComponent, HasPermissionDirective],
+  templateUrl: './receipt-detail.page.html',
 })
 export class ReceiptDetailPage implements OnInit {
-  readonly emailOpen = signal(false);
-  private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
-  private readonly apiBase = inject(API_BASE_URL);
   private readonly api = inject(ReceiptsApi);
+  private readonly documentsApi = inject(FinanceDocumentsApi);
   private readonly modal = inject(NzModalService);
+  private readonly session = inject(SessionStore);
 
-  money(v: number): string { return formatMoney(v, this.receipt()?.currencyCode); }
+  readonly emailOpen = signal(false);
   loading = signal(true);
   error = signal<string | null>(null);
-  receipt = signal<Receipt | null>(null);
-  private readonly session = inject(SessionStore);
+  receipt = signal<ReceiptDetailDto | null>(null);
   /** Arrived here straight after recording the money: the outcome stays on the page until it is closed or the person leaves. */
   readonly justRecorded = signal(false);
   readonly firstPayment = signal(false);
@@ -85,125 +58,21 @@ export class ReceiptDetailPage implements OnInit {
     const r = this.receipt();
     if (!r) return '';
     const applied = r.allocations.map((a) => a.invoiceNumber).join(', ');
-    const facts = `${r.number}, ${displayDate(r.date)}, ${displayLabel(r.method)}`;
+    const facts = settlementFacts(r);
     return applied ? tNow('ui.success.receiptApplied', 'Receipt {facts}, applied to {docs}.', { facts, docs: applied }) : tNow('ui.success.receiptFacts', 'Receipt {facts}.', { facts });
   });
 
+  actions = computed((): ActionButton[] => { const rec = this.receipt(); return rec ? settlementActions(rec, RECEIPT_PAGE, this.router, () => this.voidReceipt(), () => this.emailOpen.set(true)) : []; });
+  kpiCards = computed((): KpiCard[] => { const rec = this.receipt(); return rec ? settlementKpis(rec, RECEIPT_PAGE) : []; });
+  descriptions = computed((): DescriptionItem[] => { const rec = this.receipt(); return rec ? settlementDescriptions(rec, RECEIPT_PAGE) : []; });
 
-  actions = computed((): ActionButton[] => {
-    const rec = this.receipt();
-    if (!rec) return [];
-    
-    return [
-      {
-        label: 'Allocate',
-        icon: 'link',
-        type: 'primary',
-        permission: 'finance.receipts.write',
-        visible: rec.status === 'issued' && rec.unallocated > 0,
-        handler: () => this.router.navigate(['/finance/receipts'], { queryParams: { open: rec.id } })
-      },
-      {
-        label: 'Void',
-        icon: 'stop',
-        danger: true,
-        permission: 'finance.receipts.write',
-        visible: rec.status === 'issued',
-        handler: () => this.voidReceipt()
-      },
-      {
-        label: 'View Journal',
-        icon: 'book',
-        permission: 'finance.journals.read',
-        visible: !!rec.journalEntryId,
-        handler: () => this.router.navigate(['/finance/journals', rec.journalEntryId])
-      },
-      {
-        label: 'Print',
-        icon: 'printer',
-        handler: () => window.open(`/print/receipt/${rec.id}`, '_blank')
-      },
-      {
-        label: 'Email',
-        icon: 'mail',
-        permission: 'core.email.send',
-        visible: rec.status === 'issued',
-        handler: () => this.emailOpen.set(true)
-      }
-    ];
-  });
-
-  kpiCards = computed((): KpiCard[] => {
-    const rec = this.receipt();
-    if (!rec) return [];
-    
-    return [
-      {
-        title: 'Total Amount',
-        value: formatMoney(rec.amount),
-        suffix: rec.currencyCode
-      },
-      {
-        title: 'Allocated',
-        value: formatMoney(rec.allocations.reduce((s, a) => s + a.amount, 0)),
-        suffix: rec.currencyCode
-      },
-      {
-        title: 'Unallocated',
-        value: formatMoney(rec.unallocated),
-        suffix: rec.currencyCode,
-        valueStyle: { color: rec.unallocated > 0 ? '#fa8c16' : '#52c41a' }
-      },
-      {
-        title: 'Invoices Applied',
-        value: rec.allocations.length
-      }
-    ];
-  });
-
-  descriptions = computed((): DescriptionItem[] => {
-    const rec = this.receipt();
-    if (!rec) return [];
-    
-    return [
-      { label: 'Customer', value: rec.partyName, routerLink: ['/parties', rec.partyId] },
-      { label: 'Date', value: displayDate(rec.date) },
-      { label: 'Payment Method', value: displayLabel(rec.method) },
-      { label: 'Currency', value: rec.currencyCode },
-      { label: 'Reference', value: rec.reference, span: 2 }
-    ];
-  });
+  money(v: number): string { return formatMoney(v, this.receipt()?.currencyCode); }
 
   retry(): void { this.loading.set(true); this.error.set(null); this.ngOnInit(); }
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (!id) {
-      this.error.set('Invalid receipt ID');
-      this.loading.set(false);
-      return;
-    }
-
-    this.http.get<any>(`${this.apiBase}/finance/receipts/${id}`).subscribe({
-      next: (response) => {
-        this.receipt.set(response);
-        this.loading.set(false);
-        this.showRecorded(response);
-      },
-      error: (err) => {
-        this.error.set(err.error?.message || 'Failed to load receipt');
-        this.loading.set(false);
-      }
-    });
-  }
-
-  /** The message belongs to this visit, so the query flag leaves the address and a reload shows the plain record. */
-  private showRecorded(r: Receipt): void {
-    if (!this.route.snapshot.queryParamMap.get('recorded')) return;
-    this.justRecorded.set(true);
-    void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
-    this.api.list({ page: 1, pageSize: 1 }).pipe(catchError(() => of({ total: 0 }))).subscribe((page) =>
-      this.firstPayment.set(isFirstPaymentMoment(this.session.me()?.workspace?.id, page.total, r.allocations.length > 0)));
+    loadRecord(this.route.snapshot.paramMap.get('id'), (id) => this.documentsApi.receipt(id), { loading: this.loading, error: this.error, record: this.receipt },
+      { invalid: 'Invalid receipt ID', failed: 'Failed to load receipt' }, (r) => this.showRecorded(r));
   }
 
   voidReceipt(): void {
@@ -212,9 +81,18 @@ export class ReceiptDetailPage implements OnInit {
     askReason(this.modal, 'Void this receipt?', 'Void Receipt', 'This reverses its journal and removes its allocations.').then((reason) => {
       if (!reason) return;
       this.api.void(rec.id, reason).subscribe({
-        next: (res) => { this.receipt.set(res as unknown as Receipt); this.message.success('Receipt voided'); },
-        error: (err) => this.message.error(problemMessage(err, 'Failed to void receipt', 'reason'))
+        next: (res) => { this.receipt.set(res as unknown as ReceiptDetailDto); this.message.success('Receipt voided'); },
+        error: (err) => this.message.error(problemMessage(err, 'Failed to void receipt', 'reason')),
       });
     });
+  }
+
+  /** The message belongs to this visit, so the query flag leaves the address and a reload shows the plain record. */
+  private showRecorded(r: ReceiptDetailDto): void {
+    if (!this.route.snapshot.queryParamMap.get('recorded')) return;
+    this.justRecorded.set(true);
+    void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    this.api.list({ page: 1, pageSize: 1 }).pipe(catchError(() => of({ total: 0 }))).subscribe((page) =>
+      this.firstPayment.set(isFirstPaymentMoment(this.session.me()?.workspace?.id, page.total, r.allocations.length > 0)));
   }
 }

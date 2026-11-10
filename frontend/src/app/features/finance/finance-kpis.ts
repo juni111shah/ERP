@@ -1,12 +1,16 @@
+import { computed, signal } from '@angular/core';
 import { EMPTY, Observable, expand, map, reduce } from 'rxjs';
 import { FilterCriterion, ListQuery, PagedResult } from '@core/api/api.models';
-import { formatMoney } from './components/invoice-sheet/invoice-sheet.component';
+import { toIsoDate } from '@core/format/dates';
+import { formatMoney } from './finance-format';
+
+/** Helpers for the KPI cards above the finance lists: read every matching row, count rows, sum per currency. */
 
 /** The API serves at most 200 rows a page. The cards read at most this many rows, and say so when there are more. */
 const KPI_PAGE_SIZE = 200;
 export const KPI_MAX_ROWS = 5000;
 
-type Source<T> = (q: ListQuery) => Observable<PagedResult<T>>;
+export type Source<T> = (q: ListQuery) => Observable<PagedResult<T>>;
 export interface AllRows<T> { items: T[]; total: number; capped: boolean; }
 
 /** The list endpoints have no totals, so a card that needs a true sum reads every matching row, not just the page on screen. */
@@ -36,6 +40,22 @@ export function countOf(n: number, one: string, many = `${one}s`): string {
   return `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 }
 
-const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-export const startOfMonth = (today = new Date()) => iso(new Date(today.getFullYear(), today.getMonth(), 1));
-export const startOfYear = (today = new Date()) => iso(new Date(today.getFullYear(), 0, 1));
+export const startOfMonth = (today = new Date()) => toIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+export const startOfYear = (today = new Date()) => toIsoDate(new Date(today.getFullYear(), 0, 1));
+
+/**
+ * The raw figures behind a row of KPI cards: loading until the first answer, null when they could not be read.
+ * `error` is the cards' caption in that case.
+ */
+export class KpiStats<T> {
+  readonly data = signal<T | null>(null);
+  readonly loading = signal(true);
+  readonly error = computed(() => (this.loading() ? null : 'Could not load this figure'));
+
+  load(source: Observable<T>): void {
+    source.subscribe({
+      next: (d) => { this.data.set(d); this.loading.set(false); },
+      error: () => { this.data.set(null); this.loading.set(false); },
+    });
+  }
+}

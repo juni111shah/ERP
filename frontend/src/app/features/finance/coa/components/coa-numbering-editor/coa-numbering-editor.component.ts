@@ -6,7 +6,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { AccountsApi, CoaNumbering } from '@core/api/admin.api';
-import { asProblem, problemMessage } from '@core/http/problem-details';
+import { problemMessage } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -33,6 +33,7 @@ export class CoaNumberingEditorComponent {
   readonly saving = signal(false);
   private readonly saved = signal<CoaNumbering | null>(null);
 
+  /** The template's single switch for a read-only editor; always editable for now. */
   readonly canEdit = computed(() => true);
   readonly length = computed(() => this.segments().reduce((a, b) => a + b, 0) + (this.segments().length - 1) * this.separator().length);
   readonly pattern = computed(() => this.segments().map((s) => '0'.repeat(s)).join(this.separator()));
