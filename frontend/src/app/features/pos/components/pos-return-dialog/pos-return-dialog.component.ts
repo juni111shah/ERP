@@ -10,10 +10,11 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { PosOrderDto, PosOrderLineDto, PosOrdersApi, PosPaymentMethod, PosReturnDto, PosReturnsApi } from '@core/api/pos.api';
 import { problemMessage } from '@core/http/problem-details';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { SessionStore } from '@core/session/session.store';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { returnAmount, round2, roundQty, splitRefund, TENDER_LABELS } from '../../pos-cart';
 
+/** One line of the sale being returned: how much is left to return, how much comes back now and whether it goes back on the shelf. */
 interface ReturnRow {
   line: PosOrderLineDto;
   left: number;
@@ -31,8 +32,8 @@ interface ReturnRow {
   styleUrl: './pos-return-dialog.component.scss',
 })
 export class PosReturnDialogComponent {
-  private readonly orders = inject(PosOrdersApi);
-  private readonly returns = inject(PosReturnsApi);
+  private readonly ordersApi = inject(PosOrdersApi);
+  private readonly returnsApi = inject(PosReturnsApi);
   private readonly message = inject(NzMessageService);
   private readonly session = inject(SessionStore);
   /** Without this permission money goes back only the way it came: each tender refunds what it took, less earlier refunds. */
@@ -129,7 +130,7 @@ export class PosReturnDialogComponent {
     if (!number) return;
     this.finding.set(true);
     this.error.set(null);
-    this.orders.byNumber(number).subscribe({
+    this.ordersApi.byNumber(number).subscribe({
       next: (o) => {
         this.finding.set(false);
         this.order.set(o);
@@ -172,7 +173,7 @@ export class PosReturnDialogComponent {
     if (!o || !session || !this.canSubmit()) return;
     this.busy.set(true);
     this.error.set(null);
-    this.returns.submit({
+    this.returnsApi.submit({
       orderId: o.id,
       sessionId: session,
       reason: this.reason().trim(),

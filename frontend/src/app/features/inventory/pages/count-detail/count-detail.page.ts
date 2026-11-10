@@ -5,15 +5,24 @@ import { RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { doneText } from '@core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTableModule } from 'ng-zorro-antd/table';
+import { CountDetail, CountedQuantityInput, CountLine, CountsApi } from '@core/api/inventory.api';
+import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { CountDetail, CountLine, CountsApi } from '@core/api/inventory.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+
+/** The counted quantity entered per item id; null or missing is not counted yet. */
+type CountedMap = Record<string, number | null | undefined>;
+
+/** How many lines have a count, and how many of those differ from the system quantity. */
+function countProgress(lines: CountLine[], counted: CountedMap): { counted: number; differences: number } {
+  const entered = lines.filter((l) => counted[l.itemId] !== null && counted[l.itemId] !== undefined);
+  return { counted: entered.length, differences: entered.filter((l) => counted[l.itemId] !== l.systemQuantity).length };
+}
 
 /** Count sheet: enter what was found next to the system quantity, see the differences, then post them as adjustments. */
 @Component({
@@ -26,24 +35,24 @@ import { ErpDatePipe } from '@shared/pipes/display.pipes';
 })
 export class CountDetailPage {
   readonly id = input.required<string>();
-  private readonly api = inject(CountsApi);
+  private readonly countsApi = inject(CountsApi);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   readonly count = signal<CountDetail | null>(null);
-  readonly counted = signal<Record<string, number | null | undefined>>({});
+  readonly counted = signal<CountedMap>({});
   readonly busy = signal(false);
   readonly failed = signal(false);
   readonly editable = computed(() => ['draft', 'counting'].includes(this.count()?.status ?? ''));
-  readonly progress = computed(() => {
-    const lines = this.count()?.lines ?? [];
-    const entered = lines.filter((l) => this.counted()[l.itemId] !== null && this.counted()[l.itemId] !== undefined);
-    return { counted: entered.length, differences: entered.filter((l) => this.counted()[l.itemId] !== l.systemQuantity).length };
-  });
+  readonly progress = computed(() => countProgress(this.count()?.lines ?? [], this.counted()));
 
   constructor() { effect(() => { this.fetch(this.id()); }); }
 
   reload(): void { this.fetch(this.id()); }
-  private fetch(id: string): void { this.failed.set(false); this.api.detail(id).subscribe({ next: (c) => this.apply(c), error: () => this.failed.set(true) }); }
+
+  private fetch(id: string): void {
+    this.failed.set(false);
+    this.countsApi.detail(id).subscribe({ next: (c) => this.apply(c), error: () => this.failed.set(true) });
+  }
 
   private apply(c: CountDetail): void {
     this.count.set(c);
@@ -55,31 +64,48 @@ export class CountDetailPage {
 
   private fail(e: unknown, fallback: string): void { this.busy.set(false); this.message.error(asProblem(e)?.detail ?? fallback); }
 
-  private body(): { itemId: string; countedQuantity: number | null }[] {
+  private body(): CountedQuantityInput[] {
     return Object.entries(this.counted()).map(([itemId, countedQuantity]) => ({ itemId, countedQuantity: countedQuantity ?? null }));
   }
 
   save(after?: () => void): void {
     this.busy.set(true);
-    this.api.saveLines(this.id(), this.body()).subscribe({ next: (c) => { this.busy.set(false); this.apply(c); this.message.success(`Counts saved for ${c.number}`); after?.(); }, error: (e) => this.fail(e, 'Could not save the counts') });
+    this.countsApi.saveLines(this.id(), this.body()).subscribe({
+      next: (c) => {
+        this.busy.set(false);
+        this.apply(c);
+        this.message.success(`Counts saved for ${c.number}`);
+        after?.();
+      },
+      error: (e) => this.fail(e, 'Could not save the counts'),
+    });
   }
 
   post(): void {
     this.modal.confirm({
       nzTitle: 'Post the differences?', nzContent: 'One stock adjustment is booked for every item whose counted quantity differs from the system. This cannot be undone.', nzOkText: 'Post',
-      nzOnOk: () => new Promise<void>((resolve) => {
-        this.api.saveLines(this.id(), this.body()).subscribe({
-          next: () => this.api.post(this.id()).subscribe({ next: (c) => { this.apply(c); this.message.success(doneText('posted', 'Stock count', c.number)); resolve(); }, error: (e) => { this.fail(e, 'Could not post the count'); resolve(); } }),
-          error: (e) => { this.fail(e, 'Could not save the counts'); resolve(); },
-        });
+      nzOnOk: () => new Promise<void>((resolve) => this.saveAndPost(resolve)),
+    });
+  }
+
+  /** The counts on screen are saved first, so what is posted is what the person sees. */
+  private saveAndPost(resolve: () => void): void {
+    this.countsApi.saveLines(this.id(), this.body()).subscribe({
+      next: () => this.countsApi.post(this.id()).subscribe({
+        next: (c) => { this.apply(c); this.message.success(doneText('posted', 'Stock count', c.number)); resolve(); },
+        error: (e) => { this.fail(e, 'Could not post the count'); resolve(); },
       }),
+      error: (e) => { this.fail(e, 'Could not save the counts'); resolve(); },
     });
   }
 
   cancel(): void {
     this.modal.confirm({
       nzTitle: 'Cancel this count?', nzContent: 'The counted figures are kept on the sheet, but nothing is posted to stock.', nzOkText: 'Cancel count', nzOkDanger: true, nzCancelText: 'Keep counting',
-      nzOnOk: () => new Promise<void>((resolve) => this.api.cancel(this.id()).subscribe({ next: (c) => { this.apply(c); this.message.success(doneText('cancelled', 'Stock count', c.number)); resolve(); }, error: (e) => { this.fail(e, 'Could not cancel'); resolve(); } })),
+      nzOnOk: () => new Promise<void>((resolve) => this.countsApi.cancel(this.id()).subscribe({
+        next: (c) => { this.apply(c); this.message.success(doneText('cancelled', 'Stock count', c.number)); resolve(); },
+        error: (e) => { this.fail(e, 'Could not cancel'); resolve(); },
+      })),
     });
   }
 }

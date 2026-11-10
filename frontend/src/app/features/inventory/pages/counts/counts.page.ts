@@ -1,16 +1,15 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, map, of } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { CountRow, CountsApi, InventoryLookups } from '@core/api/inventory.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { CountRow, CountsApi, InventoryLookups, WarehousesApi } from '@core/api/inventory.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { injectWarehouseList, warehouseNameMap } from '../../inventory-warehouses';
 
 /** Physical stock counts: start a sheet for a warehouse, then open it to enter the counted quantities and post. */
 @Component({
@@ -27,15 +26,16 @@ import { CountRow, CountsApi, InventoryLookups, WarehousesApi } from '@core/api/
                        (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class CountsPage {
-  private readonly api = inject(CountsApi);
+  private readonly countsApi = inject(CountsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(InventoryLookups);
   private readonly router = inject(Router);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-countDate' });
+  readonly list = createPagedList((q) => this.countsApi.list(q), { sort: '-countDate' });
   readonly state = new MasterDataState<CountRow>({
-    save: (_id, body) => this.api.create(body as never), reload: () => this.list.reload(), message: this.message, entityName: 'Stock count',
+    save: (_id, body) => this.countsApi.create(body), reload: () => this.list.reload(), message: this.message, entityName: 'Stock count',
   });
-  private readonly warehouseNames = toSignal(inject(WarehousesApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(map((r) => new Map(r.items.map((w) => [w.id, w.name]))), catchError(() => of(new Map<string, string>()))), { initialValue: new Map<string, string>() });
+  private readonly warehouses = injectWarehouseList();
+  private readonly warehouseNames = computed(() => warehouseNameMap(this.warehouses()));
   readonly columns: TableColumn<CountRow>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '140px' },
     { key: 'warehouse', label: 'Warehouse', value: (c) => this.warehouseNames().get(c.warehouseId) ?? '' },

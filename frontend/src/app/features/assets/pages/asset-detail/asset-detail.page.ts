@@ -6,45 +6,46 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { catchError, map, of } from 'rxjs';
-import { BillsApi, BusinessUnitsApi } from '@core/api/admin.api';
-import { ASSET_STATUSES, AssetCategoriesApi, AssetCategoryDto, AssetDto, AssetScheduleDto, AssetsApi, CAPITALISATION_SOURCES, DEPRECIATION_METHODS } from '@core/api/assets.api';
-import { doneText } from '@core/format/done-text';
-import { displayDate } from '@core/format/display';
-import { problemMessage } from '@core/http/problem-details';
+import { catchError, of } from 'rxjs';
+import { AccountsApi, BillsApi, BusinessUnitsApi } from '@core/api/admin.api';
+import { AssetDto, AssetScheduleDto, AssetsApi } from '@core/api/assets.api';
 import { PartiesApi } from '@core/api/parties.api';
-import { SessionStore } from '@core/session/session.store';
+import { displayDate } from '@core/format/display';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { ActionFormState } from '@shared/utils/action-form-state';
+import { SessionStore } from '@core/session/session.store';
 import { ActionButton, DescriptionItem, DetailPageComponent, KpiCard } from '@shared/components/detail-page/detail-page.component';
-import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { ActionFormState } from '@shared/utils/action-form-state';
+import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
 import { MasterDataState } from '@shared/utils/master-data-state';
-import { AccountsApi } from '@core/api/admin.api';
-import { assetFields, businessUnitLookup } from '../../asset-form';
+import { assetFields, businessUnitLookup, capitaliseFields, disposeFields } from '../../asset-form';
+import { assetDescriptions, assetMoney } from '../../asset-labels';
+import { AssetLookups } from '../../asset-lookups';
 
+/** One fixed asset: its values, depreciation schedule and the capitalise, dispose, edit and delete actions. */
 @Component({
   selector: 'erp-asset-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, RouterLink, NzCardModule, NzModalModule, NzSpinModule, NzTableModule, DetailPageComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
+  providers: [AssetLookups],
   styleUrl: './asset-detail.page.scss',
   templateUrl: './asset-detail.page.html',
 })
 export class AssetDetailPage implements OnInit {
-  private readonly api = inject(AssetsApi);
+  private readonly assetsApi = inject(AssetsApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly session = inject(SessionStore);
-  private readonly accounts = inject(AccountsApi);
-  private readonly bills = inject(BillsApi);
-  private readonly parties = inject(PartiesApi);
-  private readonly units = inject(BusinessUnitsApi);
-  private readonly categoriesApi = inject(AssetCategoriesApi);
+  private readonly accountsApi = inject(AccountsApi);
+  private readonly unitsApi = inject(BusinessUnitsApi);
+  private readonly lookups = inject(AssetLookups);
   readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly fmtDate = displayDate;
 
@@ -52,49 +53,25 @@ export class AssetDetailPage implements OnInit {
   readonly error = signal<string | null>(null);
   readonly asset = signal<AssetDto | null>(null);
   readonly schedule = signal<AssetScheduleDto | null>(null);
-  readonly categories = signal<AssetCategoryDto[]>([]);
+  readonly categories = this.lookups.categories;
 
   readonly edit = new MasterDataState<AssetDto>({
-    save: (id, body) => this.api.save(id, body), reload: () => this.load(false), message: this.message, entityName: 'Asset',
+    save: (id, body) => this.assetsApi.save(id, body), reload: () => this.load(false), message: this.message, entityName: 'Asset',
   });
   readonly capitalise = new ActionFormState<AssetDto>({
-    run: (payload) => this.api.capitalise(this.asset()!.id, payload),
+    run: (payload) => this.assetsApi.capitalise(this.asset()!.id, payload),
     success: () => doneText('completed', 'Capitalisation', this.asset()?.number),
     done: () => this.load(false), message: this.message, failure: 'Could not capitalise the asset',
   });
   readonly dispose = new ActionFormState<AssetDto>({
-    run: (payload) => this.api.dispose(this.asset()!.id, payload),
+    run: (payload) => this.assetsApi.dispose(this.asset()!.id, payload),
     success: () => doneText('completed', 'Disposal', this.asset()?.number),
     done: () => this.load(false), message: this.message, failure: 'Could not dispose of the asset',
   });
 
-  readonly editFields = computed<FieldSpec[]>(() => assetFields(legalEntityOptions(this.session), defaultLegalEntityId(this.session), this.categories(), businessUnitLookup(this.units)));
-
-  /** The bill picked in the capitalise form: its lines are what the line picker offers. */
-  private pickedBill: string | null = null;
-  readonly capitaliseFields: FieldSpec[] = [
-    { key: 'source', label: 'Paid or recorded through', type: 'select', required: true, options: CAPITALISATION_SOURCES, default: 'clearing' },
-    { key: 'date', label: 'Date', type: 'date', hint: 'Left empty, the acquisition date is used.' },
-    { key: 'accountId', label: 'Account', type: 'lookup', lookup: this.accounts.lookup, hint: 'The clearing account, or the bank or cash account the asset was paid from.', hidden: (v) => v['source'] !== 'clearing' && v['source'] !== 'bank' },
-    { key: 'partyId', label: 'Vendor', type: 'lookup', lookup: (term) => this.parties.list({ page: 1, pageSize: 20, search: term, extra: { role: 'Vendor' } }).pipe(map((r) => r.items.map((p) => ({ value: p.id, label: p.name })))), hidden: (v) => v['source'] !== 'vendor', hint: 'A posted bill is raised for this vendor, so it is paid like any other bill.' },
-    {
-      key: 'billId', label: 'Bill', type: 'lookup', hidden: (v) => v['source'] !== 'bill',
-      lookup: (term) => this.bills.list({ page: 1, pageSize: 20, search: term }).pipe(map((r) => r.items.map((b) => ({ value: b.id, label: `${b.number} · ${b.partyName ?? ''}` })))),
-      onChange: (value) => { this.pickedBill = (value as string | null) ?? null; return null; },
-    },
-    {
-      key: 'billLineId', label: 'Bill line', type: 'lookup', hidden: (v) => v['source'] !== 'bill', hint: 'Only needed when the bill has several lines.',
-      lookup: () => (this.pickedBill ? this.bills.detail(this.pickedBill).pipe(map((b) => b.lines.filter((l) => !!l.id).map((l) => ({ value: l.id!, label: `${l.description} · ${l.quantity * l.price}` }))), catchError(() => of([]))) : of([])),
-    },
-    { key: 'reference', label: 'Reference', type: 'text', maxLength: 100 },
-  ];
-  readonly disposeFields: FieldSpec[] = [
-    { key: 'date', label: 'Disposal date', type: 'date', required: true },
-    { key: 'proceeds', label: 'Proceeds', type: 'number', min: 0, default: 0, hint: 'What was received. Zero for scrapping.' },
-    { key: 'proceedsAccountId', label: 'Proceeds received into', type: 'lookup', lookup: this.accounts.lookup, hint: 'Required when proceeds are above zero.', hidden: (v) => !(Number(v['proceeds']) > 0) },
-    { key: 'gainLossAccountId', label: 'Gain or loss account', type: 'lookup', lookup: this.accounts.lookup, hint: 'Left empty, the account of the category is used.' },
-    { key: 'reason', label: 'Reason', type: 'textarea', maxLength: 400 },
-  ];
+  readonly editFields = computed<FieldSpec[]>(() => assetFields(legalEntityOptions(this.session), defaultLegalEntityId(this.session), this.categories(), businessUnitLookup(this.unitsApi)));
+  readonly capitaliseFields: FieldSpec[] = capitaliseFields({ accounts: this.accountsApi, parties: inject(PartiesApi), bills: inject(BillsApi) });
+  readonly disposeFields: FieldSpec[] = disposeFields(this.accountsApi);
 
   readonly actions = computed((): ActionButton[] => {
     const a = this.asset();
@@ -113,38 +90,21 @@ export class AssetDetailPage implements OnInit {
   readonly kpiCards = computed((): KpiCard[] => {
     const a = this.asset();
     if (!a) return [];
-    const money = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
     return [
-      { title: 'Cost', value: money(a.cost), suffix: this.currency() },
-      { title: 'Accumulated depreciation', value: money(a.accumulatedDepreciation), suffix: this.currency() },
-      { title: 'Net book value', value: money(a.netBookValue), suffix: this.currency() },
-      { title: 'Salvage value', value: money(a.salvageValue), suffix: this.currency() },
+      { title: 'Cost', value: assetMoney(a.cost), suffix: this.currency() },
+      { title: 'Accumulated depreciation', value: assetMoney(a.accumulatedDepreciation), suffix: this.currency() },
+      { title: 'Net book value', value: assetMoney(a.netBookValue), suffix: this.currency() },
+      { title: 'Salvage value', value: assetMoney(a.salvageValue), suffix: this.currency() },
     ];
   });
 
   readonly descriptions = computed((): DescriptionItem[] => {
     const a = this.asset();
-    if (!a) return [];
-    const items: DescriptionItem[] = [
-      { label: 'Category', value: this.categories().find((c) => c.id === a.categoryId)?.name ?? '—' },
-      { label: 'Status', value: ASSET_STATUSES.find((s) => s.value === a.status)?.label ?? a.status },
-      { label: 'Acquired', value: a.acquisitionDate },
-      { label: 'Method', value: DEPRECIATION_METHODS.find((m) => m.value === a.method)?.label ?? a.method },
-      { label: 'Useful life (months)', value: a.lifeMonths },
-      { label: 'Custodian', value: a.custodian },
-    ];
-    if (a.capitalisedOn) items.push({ label: 'In service since', value: a.capitalisedOn });
-    if (a.description) items.push({ label: 'Description', value: a.description, span: 2 });
-    if (a.disposedOn) {
-      items.push({ label: 'Disposed on', value: a.disposedOn });
-      items.push({ label: 'Proceeds', value: a.disposalProceeds ?? 0 });
-      items.push({ label: (a.disposalGainLoss ?? 0) >= 0 ? 'Gain on disposal' : 'Loss on disposal', value: Math.abs(a.disposalGainLoss ?? 0) });
-    }
-    return items;
+    return a ? assetDescriptions(a, this.lookups.category(a.categoryId)) : [];
   });
 
   ngOnInit(): void {
-    this.categoriesApi.list({ page: 1, pageSize: 200, sort: 'code' }).subscribe({ next: (r) => this.categories.set(r.items), error: () => undefined });
+    this.lookups.loadCategories();
     this.load();
   }
 
@@ -152,11 +112,11 @@ export class AssetDetailPage implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) { this.error.set('Invalid asset'); this.loading.set(false); return; }
     if (showSpinner) { this.loading.set(true); this.error.set(null); }
-    this.api.get(id).subscribe({
+    this.assetsApi.get(id).subscribe({
       next: (a) => {
         this.asset.set(a);
         this.loading.set(false);
-        this.api.schedule(id).pipe(catchError(() => of(null))).subscribe((s) => this.schedule.set(s));
+        this.assetsApi.schedule(id).pipe(catchError(() => of(null))).subscribe((s) => this.schedule.set(s));
       },
       error: (e) => { this.error.set(problemMessage(e, 'The asset could not be loaded')); this.loading.set(false); },
     });
@@ -165,7 +125,7 @@ export class AssetDetailPage implements OnInit {
   private confirmDelete(a: AssetDto): void {
     this.modal.confirm({
       nzTitle: 'Delete this draft asset?', nzContent: 'It has not been capitalised, so nothing is posted. It is removed from the register.', nzOkText: 'Delete', nzOkDanger: true,
-      nzOnOk: () => this.api.delete(a.id).subscribe({
+      nzOnOk: () => this.assetsApi.delete(a.id).subscribe({
         next: () => { this.message.success(doneText('deleted', 'Asset', a.number)); void this.router.navigate(['/assets/register']); },
         error: (e) => this.message.error(problemMessage(e, 'Could not delete the asset')),
       }),

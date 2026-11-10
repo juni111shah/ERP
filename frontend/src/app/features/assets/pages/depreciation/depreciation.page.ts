@@ -12,18 +12,18 @@ import { displayDate } from '@core/format/display';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
-import { ActionFormState } from '@shared/utils/action-form-state';
-import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ActionFormState } from '@shared/utils/action-form-state';
+import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
+import { MONTH_OPTIONS, periodLabel, previousMonth } from '../../asset-periods';
 
-export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-/** The month before today: the latest period depreciation can be run for. */
-export function previousMonth(today = new Date()): { year: number; month: number } {
-  const d = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+/** The toast after a run: already run, nothing due, or done. */
+function runResult(run: DepreciationRunDto): string {
+  if (run.alreadyRun) return `${periodLabel(run)} had already been run. Nothing new was posted.`;
+  if (!run.journalEntryId) return `Nothing was due for ${periodLabel(run)}.`;
+  return doneText('completed', 'Depreciation', periodLabel(run));
 }
 
 /** Monthly depreciation: the runs already made and a form to run the next period. */
@@ -36,11 +36,11 @@ export function previousMonth(today = new Date()): { year: number; month: number
   templateUrl: './depreciation.page.html',
 })
 export class DepreciationPage {
-  private readonly api = inject(DepreciationRunsApi);
+  private readonly runsApi = inject(DepreciationRunsApi);
   private readonly session = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   readonly selected = signal<DepreciationRunDto | null>(null);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-periodEnd' });
+  readonly list = createPagedList((q) => this.runsApi.list(q), { sort: '-periodEnd' });
   readonly columns: TableColumn<DepreciationRunDto>[] = [
     { key: 'period', label: 'Period', sortField: 'periodEnd', filter: false, value: (r) => this.periodLabel(r) },
     { key: 'periodEnd', label: 'Period end', sortField: 'periodEnd', filter: false, value: (r) => displayDate(r.periodEnd) },
@@ -50,13 +50,8 @@ export class DepreciationPage {
     { key: 'journal', label: 'Journal', filter: false, value: (r) => (r.journalEntryId ? 'Journal' : '') },
   ];
   readonly runForm = new ActionFormState({
-    run: (p) => this.api.run({ legalEntityId: String(p['legalEntityId']), year: Number(p['year']), month: Number(p['month']) }),
-    success: (r) => {
-      const run = r as DepreciationRunDto;
-      if (run.alreadyRun) return `${this.periodLabel(run)} had already been run. Nothing new was posted.`;
-      if (!run.journalEntryId) return `Nothing was due for ${this.periodLabel(run)}.`;
-      return doneText('completed', 'Depreciation', this.periodLabel(run));
-    },
+    run: (p) => this.runsApi.run({ legalEntityId: String(p['legalEntityId']), year: Number(p['year']), month: Number(p['month']) }),
+    success: (r) => runResult(r as DepreciationRunDto),
     done: () => this.list.reload(), message: this.message, failure: 'Could not run depreciation',
   });
   readonly fields = computed<FieldSpec[]>(() => {
@@ -64,13 +59,13 @@ export class DepreciationPage {
     return [
       { key: 'legalEntityId', label: 'Legal entity', type: 'select', required: true, options: legalEntityOptions(this.session), default: defaultLegalEntityId(this.session) ?? legalEntityOptions(this.session)[0]?.value ?? null },
       { key: 'year', label: 'Year', type: 'number', required: true, min: 2000, max: 2100, precision: 0, default: prev.year },
-      { key: 'month', label: 'Month', type: 'select', required: true, options: MONTH_NAMES.map((n, i) => ({ value: i + 1, label: n })), default: prev.month, hint: 'A month that has not ended cannot be run. Skipped months are caught up by the next run.' },
+      { key: 'month', label: 'Month', type: 'select', required: true, options: MONTH_OPTIONS, default: prev.month, hint: 'A month that has not ended cannot be run. Skipped months are caught up by the next run.' },
     ];
   });
 
-  periodLabel(r: { year: number; month: number }): string { return `${MONTH_NAMES[r.month - 1]} ${r.year}`; }
+  periodLabel(r: { year: number; month: number }): string { return periodLabel(r); }
 
   show(row: DepreciationRunDto): void {
-    this.api.get(row.id).subscribe({ next: (r) => this.selected.set(r), error: (e) => this.message.error(problemMessage(e, 'Could not load this run')) });
+    this.runsApi.get(row.id).subscribe({ next: (r) => this.selected.set(r), error: (e) => this.message.error(problemMessage(e, 'Could not load this run')) });
   }
 }

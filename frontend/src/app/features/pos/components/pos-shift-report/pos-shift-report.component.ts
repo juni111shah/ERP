@@ -1,7 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { displayLabel } from '@core/format/display';
 import { PosShiftReportDto } from '@core/api/pos.api';
+import { displayLabel } from '@core/format/display';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { TENDER_LABELS } from '../../pos-cart';
 

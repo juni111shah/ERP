@@ -26,11 +26,11 @@ import { PosShiftReportComponent } from '../../components/pos-shift-report/pos-s
   styleUrl: './pos-sessions.page.scss',
 })
 export class PosSessionsPage {
-  private readonly api = inject(PosSessionsApi);
+  private readonly sessionsApi = inject(PosSessionsApi);
   private readonly currencyService = inject(WorkspaceCurrencyService);
 
   readonly currency = this.currencyService.currency;
-  readonly list = createPagedList<PosSessionSummaryDto>((q: any) => this.api.list(q), { sort: '-openedAt' });
+  readonly list = createPagedList<PosSessionSummaryDto>((q) => this.sessionsApi.list(q), { sort: '-openedAt' });
 
   readonly columns: TableColumn<PosSessionSummaryDto>[] = [
     { key: 'registerName', label: 'Register', sortField: 'registerName' },
@@ -64,14 +64,14 @@ export class PosSessionsPage {
   private loadReport(id: string): void {
     this.report.set(null);
     this.reportFailed.set(false);
-    this.api.report(id).subscribe({
+    this.sessionsApi.report(id).subscribe({
       next: (r) => this.report.set(r),
       error: () => this.reportFailed.set(true),
     });
   }
 
   startCash(): void {
-    this.api.list({ page: 1, pageSize: 50, filters: [{ field: 'status', op: 'eq', value: 'open' }] }).subscribe((res) => {
+    this.sessionsApi.list({ page: 1, pageSize: 50, filters: [{ field: 'status', op: 'eq', value: 'open' }] }).subscribe((res) => {
       this.cashShifts.set(res.items.map((s) => ({ id: s.id, label: `${s.registerName} (${s.cashierName})`, expectedCash: s.expectedCash })));
       this.cashOpen.set(true);
     });

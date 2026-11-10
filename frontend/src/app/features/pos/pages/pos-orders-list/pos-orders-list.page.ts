@@ -13,15 +13,16 @@ import { PosOrderDto, PosOrdersApi, PosOrderSummaryDto, PosRegisterDto, PosRegis
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { askReason } from '@shared/utils/reason-prompt';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '@shared/components/thermal-receipt/thermal-receipt.component';
-import { TENDER_LABELS } from '../../pos-cart';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { askReason } from '@shared/utils/reason-prompt';
+import { tenderName } from '../../pos-cart';
 import { saleReceipt } from '../../pos-receipt';
 
+/** Back-office list of till sales; a row (or /pos/orders/:id) opens the receipt, its returns and the void action. */
 @Component({
   selector: 'erp-pos-orders-list',
   standalone: true,
@@ -31,7 +32,7 @@ import { saleReceipt } from '../../pos-receipt';
   styleUrl: './pos-orders-list.page.scss',
 })
 export class PosOrdersListPage {
-  private readonly api = inject(PosOrdersApi);
+  private readonly ordersApi = inject(PosOrdersApi);
   private readonly returnsApi = inject(PosReturnsApi);
   private readonly registersApi = inject(PosRegistersApi);
   private readonly sessionStore = inject(SessionStore);
@@ -42,7 +43,7 @@ export class PosOrdersListPage {
   private readonly router = inject(Router);
 
   readonly currency = this.currencyService.currency;
-  readonly list = createPagedList<PosOrderSummaryDto>((q: any) => this.api.list(q), { sort: '-orderDate' });
+  readonly list = createPagedList<PosOrderSummaryDto>((q) => this.ordersApi.list(q), { sort: '-orderDate' });
 
   readonly columns: TableColumn<PosOrderSummaryDto>[] = [
     { key: 'number', label: 'Receipt', sortField: 'number' },
@@ -80,7 +81,7 @@ export class PosOrdersListPage {
   }
 
   tender(method: string): string {
-    return TENDER_LABELS[method as keyof typeof TENDER_LABELS] ?? method;
+    return tenderName(method);
   }
 
   open(id: string): void {
@@ -90,7 +91,7 @@ export class PosOrdersListPage {
     this.returnsOfOrder.set([]);
     // The receipt still shows if the register's wording or the returns cannot be loaded.
     forkJoin({
-      order: this.api.get(id),
+      order: this.ordersApi.get(id),
       returns: this.returnsApi.list({ page: 1, pageSize: 50, filters: [{ field: 'originalOrderId', op: 'eq', value: id }] }).pipe(catchError(() => of(null))),
     }).subscribe({
       next: ({ order, returns }) => {
@@ -113,7 +114,7 @@ export class PosOrdersListPage {
     const reason = await askReason(this.modal, `Void ${o.number}?`, 'Void sale', 'This reverses the money, tax and stock of the whole sale. It only works while its shift is still open. After that, use Return.');
     if (!reason) return;
     this.voiding.set(true);
-    this.api.voidOrder(o.id, reason).subscribe({
+    this.ordersApi.voidOrder(o.id, reason).subscribe({
       next: (updated) => {
         this.voiding.set(false);
         this.order.set(updated);
