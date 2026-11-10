@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
-import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { ListQuery, PagedResult } from '@core/api/api.models';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 
+/** How many records are in one status. */
 export interface StatusCount { value: string; count: number; }
 
 /** How many records are in each status, using the total of a filtered list so the numbers cover every record and not just a page. Null when the counts could not be loaded. */

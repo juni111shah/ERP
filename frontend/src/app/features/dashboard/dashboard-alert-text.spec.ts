@@ -1,4 +1,4 @@
-import { readableAlert } from './pages/dashboard/dashboard.page';
+import { readableAlert } from './dashboard-alerts';
 
 /** The API writes alerts as "1 document(s) have expired"; the Overview shows them as real English. */
 describe('readableAlert', () => {

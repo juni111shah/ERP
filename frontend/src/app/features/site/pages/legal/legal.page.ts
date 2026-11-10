@@ -25,7 +25,7 @@ export function legalBlocks(text: string): LegalBlock[] {
   templateUrl: './legal.page.html',
 })
 export class LegalPage {
-  private readonly api = inject(PlatformApi);
+  private readonly platformApi = inject(PlatformApi);
   readonly kind: 'terms' | 'privacy' = inject(ActivatedRoute).snapshot.data['kind'] === 'privacy' ? 'privacy' : 'terms';
   readonly title = this.kind === 'privacy' ? 'Privacy Policy' : 'Terms of Service';
   readonly docs = signal<LegalDocuments | null>(null);
@@ -41,7 +41,7 @@ export class LegalPage {
   load(): void {
     this.loading.set(true);
     this.failed.set(false);
-    this.api.legal().subscribe({
+    this.platformApi.legal().subscribe({
       next: (d) => { this.docs.set(d); this.loading.set(false); },
       error: () => { this.loading.set(false); this.failed.set(true); },
     });

@@ -31,6 +31,7 @@ import { loadInto } from '@shared/utils/load-into';
 import { DocumentTotals, PricedLine, documentTotals, lineTotal } from '@shared/forms/line-totals';
 import { SalesLineValue, fillLineFromItem, newSalesLine, toLineInputs } from '../../sales-lines';
 import { SalesLookups } from '../../sales-lookups';
+import { QUOTE_STATUSES } from '../../sales-status';
 
 /** The quote form's raw value. */
 interface QuoteFormValue {
@@ -123,7 +124,7 @@ export class QuotesListPage {
     { key: 'quoteDate', label: 'Quote Date', sortField: 'quoteDate', width: '120px', filterField: 'quoteDate' },
     { key: 'validUntil', label: 'Valid Until', sortField: 'validUntil', width: '120px', filterField: 'validUntil' },
     { key: 'totalAmount', label: 'Total Amount', sortField: 'totalAmount', width: '160px', align: 'right', filter: false },
-    { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: ['draft', 'sent', 'accepted', 'declined', 'expired', 'converted'] },
+    { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: QUOTE_STATUSES },
     { key: 'actions', label: 'Actions', width: '160px' },
   ];
 

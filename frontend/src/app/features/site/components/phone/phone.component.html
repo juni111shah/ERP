@@ -1,0 +1,80 @@
+
+    <div class="body">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span class="signal">▲ ▮▮▮</span></div>
+        <header>
+          <img src="highersquare-emblem.png" alt="" />
+          <div><strong>{{ title() }}</strong><small>Demo Workspace</small></div>
+          <span class="ic" nz-icon nzType="search"></span>
+          <span class="ic"><span nz-icon nzType="bell"></span><b>4</b></span>
+          <span class="me">DW</span>
+        </header>
+        @switch (screen()) {
+          @case ('overview') {
+            <div class="chips"><span class="on">All <b>38</b></span><span>Finance <b>6</b></span><span>Sales <b>4</b></span><span>Approvals <b>1</b></span></div>
+            <div class="content">
+              <div class="heading"><span>HIGHLIGHTS</span><span>38 metrics</span></div>
+              <div class="stats">
+                <div class="stat" style="--c:#7c3aed"><small>PENDING APPROVALS</small><strong>2</strong><em>waiting for your decision</em></div>
+                <div class="stat" style="--c:#0b83bd"><small>RECEIVABLES</small><strong>42,150</strong><em>overdue 3</em></div>
+              </div>
+              <div class="card">
+                <div class="chart-head"><div><b>Billed vs collected</b><small>Invoices net of credit notes, and receipts</small></div><div class="toggle"><span class="on">Bar</span><span>Line</span></div></div>
+                <div class="plot">
+                  <div class="tick" style="bottom:50%"><span>30K</span></div><div class="tick" style="bottom:100%"><span>60K</span></div>
+                  @for (b of bars; track $index) { <div class="m"><i class="a" [style.height.%]="b[0]" [style.animation-delay.ms]="$index * 50"></i><i class="b" [style.height.%]="b[1]" [style.animation-delay.ms]="$index * 50 + 30"></i></div> }
+                </div>
+                <div class="axis">@for (m of months; track m) { <span>{{ m }}</span> }</div>
+                <div class="legend"><span><i style="background:#2b7bdb"></i>Billed 381K</span><span><i style="background:#ee6a36"></i>Collected 362K</span><span class="pct">95%</span></div>
+              </div>
+              <div class="card"><div class="chart-head"><div><b>Receivables ageing</b><small>Open invoice balances by days past due</small></div></div></div>
+            </div>
+          }
+          @case ('invoices') {
+            <div class="chips"><span class="on">All</span><span>Draft</span><span>Issued</span><span>Partly paid</span><span>Paid</span></div>
+            <div class="content">
+              @for (i of invoices; track i.no) {
+                <div class="card inv"><div class="who"><b>{{ i.who }}</b><small>{{ i.no }}</small><small>Due {{ i.due }}</small></div><div class="amt"><small>USD </small><b>{{ i.amt }}</b><br /><span class="pill" [class]="'pill ' + i.tone">{{ i.state }}</span></div></div>
+              }
+            </div>
+            <span class="fab"><span nz-icon nzType="plus"></span>New</span>
+          }
+          @case ('hr') {
+            <div class="content" style="padding-top:2px">
+              <div class="card line"><span class="me-tile dot"><span nz-icon nzType="user"></span></span><div class="grow"><div class="name">Your profile</div><div class="sub">Employee EMP-0014</div></div></div>
+              <div class="heading"><span>LEAVE BALANCES</span></div>
+              <div class="card"><div class="line"><div class="grow"><div class="name">Annual leave</div></div><span class="sub">14 of 21 days</span></div><div class="meter"><i style="width:66%"></i></div></div>
+              <div class="card"><div class="line"><div class="grow"><div class="name">Sick leave</div></div><span class="sub">8 of 10 days</span></div><div class="meter"><i style="width:80%"></i></div></div>
+              <div class="heading"><span>MY LEAVE</span></div>
+              <div class="card line"><span class="dot"><span nz-icon nzType="calendar"></span></span><div class="grow"><div class="name">12 Mar - 14 Mar</div><div class="sub">Annual leave</div></div><span class="pill issued">Waiting for approval</span></div>
+              <div class="card line"><span class="dot"><span nz-icon nzType="file-text"></span></span><div class="grow"><div class="name">Payslips</div><div class="sub">See and download yours</div></div></div>
+            </div>
+            <span class="fab"><span nz-icon nzType="plus"></span>Request leave</span>
+          }
+          @case ('approvals') {
+            <div class="chips"><span class="on">All <b>3</b></span><span>Purchasing <b>1</b></span><span>Projects <b>1</b></span><span>HR <b>1</b></span></div>
+            <div class="content">
+              <div class="card"><div class="line"><div class="grow"><div class="name">Purchase order PO-1042</div><div class="sub">Office supplies</div></div><span class="amount">3,200</span></div><div class="buttons"><span class="approve">Approve</span><span class="decline">Reject</span></div></div>
+              <div class="card"><div class="line"><div class="grow"><div class="name">Project expense</div><div class="sub">Site visit travel</div></div><span class="amount">480</span></div><div class="buttons"><span class="approve">Approve</span><span class="decline">Reject</span></div></div>
+              <div class="card"><div class="line"><div class="grow"><div class="name">Leave request</div><div class="sub">Three days in March</div></div></div><div class="buttons"><span class="approve">Approve</span><span class="decline">Reject</span></div></div>
+            </div>
+          }
+          @case ('alerts') {
+            <div class="content" style="padding-top:2px">
+              <div class="heading"><span>NEEDS ATTENTION</span></div>
+              @for (n of alerts; track n.title) {
+                <div class="card line"><span class="dot" [class.warn]="n.warn"><span nz-icon [nzType]="n.icon"></span></span><div class="grow"><div class="name" style="white-space:normal">{{ n.title }}</div><div class="sub">{{ n.when }}</div></div></div>
+              }
+            </div>
+          }
+        }
+        <div class="pad"></div>
+        <nav>
+          <span class="item" [class.on]="screen() === 'overview'"><span nz-icon nzType="appstore"></span>Overview</span>
+          <span class="item" [class.on]="screen() === 'invoices'"><span nz-icon nzType="file-text"></span>Invoices</span>
+          <span class="item"><span nz-icon nzType="wallet"></span>Receipts</span>
+          <span class="item"><span nz-icon nzType="team"></span>Customers</span>
+          <span class="item" [class.on]="screen() === 'hr' || screen() === 'approvals' || screen() === 'alerts'"><span nz-icon nzType="appstore-add"></span>More</span>
+        </nav>
+      </div>
+    </div>

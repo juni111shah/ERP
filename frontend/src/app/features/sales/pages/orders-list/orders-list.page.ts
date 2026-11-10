@@ -32,6 +32,7 @@ import { loadInto } from '@shared/utils/load-into';
 import { DocumentTotals, PricedLine, documentTotals, lineTotal } from '@shared/forms/line-totals';
 import { SalesLineValue, fillLineFromItem, newSalesLine, toLineInputs } from '../../sales-lines';
 import { SalesLookups } from '../../sales-lookups';
+import { ORDER_STATUSES } from '../../sales-status';
 
 /** The sales-order form's raw value. */
 interface OrderFormValue {
@@ -127,7 +128,7 @@ export class OrdersListPage {
     { key: 'orderDate', label: 'Order Date', sortField: 'orderDate', width: '120px', filterField: 'orderDate' },
     { key: 'expectedDeliveryDate', label: 'Delivery Due', sortField: 'expectedDeliveryDate', width: '120px', filterField: 'expectedDeliveryDate' },
     { key: 'totalAmount', label: 'Total Amount', sortField: 'totalAmount', width: '160px', align: 'right', filter: false },
-    { key: 'status', label: 'Status', width: '120px', filterField: 'status', filterOptions: ['draft', 'confirmed', 'processing', 'delivered', 'invoiced', 'cancelled'] },
+    { key: 'status', label: 'Status', width: '120px', filterField: 'status', filterOptions: ORDER_STATUSES },
     { key: 'invoiced', label: 'Invoice', width: '110px', filter: false, value: (r) => (r.invoicedInvoiceId ? 'Invoiced' : 'Pending') },
     { key: 'actions', label: 'Actions', width: '140px' },
   ];

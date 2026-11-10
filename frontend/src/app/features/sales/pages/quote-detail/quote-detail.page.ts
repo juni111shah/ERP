@@ -1,7 +1,5 @@
-import { SuccessToastService } from '@core/services/success-toast.service';
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { problemMessage } from '@core/http/problem-details';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
@@ -10,16 +8,19 @@ import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
+import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { QuoteDto, SalesQuotesApi, SalesQuoteStatus } from '@core/api/sales.api';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { problemMessage } from '@core/http/problem-details';
+import { SuccessToastService } from '@core/services/success-toast.service';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { displayLabel } from '@core/format/display';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { statusChangedText } from '../../sales-status';
 
+/** One sales quote: its lines, status changes and converting it into a sales order. */
 @Component({
   selector: 'erp-quote-detail',
   standalone: true,
@@ -76,7 +77,7 @@ export class QuoteDetailPage {
     this.quotesApi.setStatus(q.id, status).subscribe({
       next: (updated) => {
         this.quote.set(updated);
-        this.message.success(`${q.number} is now ${displayLabel(status).toLowerCase()}.`);
+        this.message.success(statusChangedText(q.number, status));
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to update status')),
     });
@@ -93,5 +94,4 @@ export class QuoteDetailPage {
       error: (err) => this.message.error(problemMessage(err, 'Failed to convert quote')),
     });
   }
-
 }

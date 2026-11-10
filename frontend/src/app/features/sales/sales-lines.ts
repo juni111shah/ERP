@@ -1,5 +1,6 @@
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ItemDto, TaxCodeDto } from '@core/api/admin.api';
+import { SalesLineInput } from '@core/api/sales.api';
 import { PricedLine } from '@shared/forms/line-totals';
 
 /** A quote or sales-order line form row. */
@@ -41,7 +42,7 @@ export function fillLineFromItem(row: FormGroup, item: ItemDto, taxCodes: TaxCod
 }
 
 /** The lines as the API takes them. */
-export function toLineInputs(lines: SalesLineValue[]) {
+export function toLineInputs(lines: SalesLineValue[]): SalesLineInput[] {
   return lines.map((l) => ({
     itemId: l.itemId || null,
     itemCode: l.itemCode,
