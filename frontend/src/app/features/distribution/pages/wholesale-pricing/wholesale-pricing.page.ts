@@ -1,6 +1,5 @@
-import { doneText } from '@core/format/done-text';
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -16,54 +15,68 @@ import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { ItemsApi, LegalEntitiesApi } from '@core/api/admin.api';
-import { SessionStore } from '@core/session/session.store';
-import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { ItemsApi } from '@core/api/admin.api';
+import { DistributionWholesaleApi, WholesalePriceMatrixDto, WholesaleRateCalculationDto, WholesaleTier } from '@core/api/distribution.api';
 import { createPagedList } from '@core/api/paged-list';
-import {
-  CreateWholesalePriceInput,
-  DistributionWholesaleApi,
-  WholesalePriceMatrixDto,
-  WholesaleRateCalculationDto,
-  WholesaleTier
-} from '@core/api/distribution.api';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { ErpLabelPipe } from '@shared/pipes/display.pipes';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
+import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { SessionStore } from '@core/session/session.store';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
+import { setControlsEnabled } from '@shared/forms/set-controls-enabled';
+import { ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { DistributionLookups } from '../../distribution-lookups';
+import {
+  PricingCatalogItem,
+  WholesaleRuleFormValue,
+  bracketLabel,
+  emptyRuleForm,
+  roundMoney,
+  ruleFormOf,
+  tierColor,
+  toWholesaleInput,
+} from '../../distribution-pricing';
 
+/** The legal entity and item of an existing rule cannot change. */
+const KEY_FIELDS = ['legalEntityId', 'itemId'];
+
+/** Wholesale pricing: the tier price rules, the rule form and a rate calculator. */
 @Component({
   selector: 'erp-wholesale-pricing-page',
   standalone: true,
-  imports: [ErpLabelPipe, 
+  imports: [
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
-    NzCardModule,
+    NzAlertModule,
     NzButtonModule,
-    NzIconModule,
-    NzTagModule,
-    NzSwitchModule,
-    NzModalModule,
+    NzCardModule,
+    NzDividerModule,
     NzFormModule,
+    NzIconModule,
     NzInputModule,
     NzInputNumberModule,
-    NzSelectModule,
-    NzAlertModule,
-    NzDividerModule,
+    NzModalModule,
     NzPopconfirmModule,
-    StatusTagComponent,
+    NzSelectModule,
+    NzSwitchModule,
+    NzTagModule,
+    ErpLabelPipe,
     HasPermissionDirective,
-    PagedTableComponent
+    PagedTableComponent,
+    StatusTagComponent,
   ],
+  providers: [DistributionLookups],
   templateUrl: './wholesale-pricing.page.html',
   styleUrl: './wholesale-pricing.page.scss'
 })
 export class WholesalePricingPageComponent implements OnInit {
   private readonly wholesaleApi = inject(DistributionWholesaleApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
   private readonly itemsApi = inject(ItemsApi);
+  private readonly lookups = inject(DistributionLookups);
   private readonly session = inject(SessionStore);
   private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly fb = inject(FormBuilder);
@@ -71,8 +84,8 @@ export class WholesalePricingPageComponent implements OnInit {
 
   readonly currency = this.currencyService.currency;
 
-  readonly entities = signal<{ id: string; name: string }[]>([]);
-  readonly catalogItems = signal<{ id: string; name: string; sku: string; salesPrice?: number }[]>([]);
+  readonly entities = this.lookups.entities;
+  readonly catalogItems = signal<PricingCatalogItem[]>([]);
   readonly isSaving = signal(false);
   readonly editingId = signal<string | null>(null);
   readonly isCalculating = signal(false);
@@ -114,94 +127,43 @@ export class WholesalePricingPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => this.entities.set(res.items)
-    });
+    this.lookups.loadEntities();
     this.itemsApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: res => this.catalogItems.set(res.items.filter(i => i.isActive))
+      next: (res) => this.catalogItems.set(res.items.filter((i) => i.isActive))
     });
   }
 
   getTierColor(tier: WholesaleTier): string {
-    switch (tier) {
-      case 'bronze': return 'orange';
-      case 'silver': return 'default';
-      case 'gold': return 'gold';
-      case 'platinum': return 'purple';
-      default: return 'blue';
-    }
+    return tierColor(tier);
   }
 
   onItemChosen(itemId: string): void {
-    const itm = this.catalogItems().find(i => i.id === itemId);
-    if (itm) {
-      this.form.patchValue({
-        itemCode: itm.sku,
-        itemName: itm.name,
-        // A starting point from the catalog price; the person can overtype it.
-        wholesaleUnitPrice: itm.salesPrice ? this.roundMoney(itm.salesPrice * (1 - (this.form.value.discountPercentage ?? 0) / 100)) : null
-      });
-    }
-  }
-
-  private roundMoney(value: number): number {
-    return Math.round(value * 100) / 100;
+    const itm = this.catalogItems().find((i) => i.id === itemId);
+    if (!itm) return;
+    this.form.patchValue({
+      itemCode: itm.sku,
+      itemName: itm.name,
+      // A starting point from the catalog price; the person can overtype it.
+      wholesaleUnitPrice: itm.salesPrice ? roundMoney(itm.salesPrice * (1 - (this.form.value.discountPercentage ?? 0) / 100)) : null
+    });
   }
 
   bracket(row: WholesalePriceMatrixDto): string {
-    return row.maxQuantity ? `${row.minQuantity} to ${row.maxQuantity}` : `${row.minQuantity} and up`;
-  }
-
-  private setKeyFieldsEnabled(enabled: boolean): void {
-    for (const key of ['legalEntityId', 'itemId']) {
-      const control = this.form.get(key)!;
-      if (enabled) control.enable({ emitEvent: false });
-      else control.disable({ emitEvent: false });
-    }
+    return bracketLabel(row);
   }
 
   openCreateModal(): void {
     this.editingId.set(null);
-    this.setKeyFieldsEnabled(true);
-    this.form.reset({
-      legalEntityId: this.entities().find(e => e.id === this.session.currentEntityId())?.id || this.entities()[0]?.id || '',
-      itemId: '',
-      itemCode: '',
-      itemName: '',
-      tier: 'standard',
-      minQuantity: 1,
-      maxQuantity: null,
-      discountPercentage: 0,
-      wholesaleUnitPrice: null,
-      isActive: true,
-      notes: ''
-    });
+    setControlsEnabled(this.form, KEY_FIELDS, true);
+    this.form.reset(emptyRuleForm(this.lookups.defaultEntityId(this.session.currentEntityId())));
     this.isModalVisible.set(true);
-  }
-
-  /** A rule can point at an item outside the loaded catalog page; it still has to show in the pickers. */
-  private ensureCatalogItem(row: WholesalePriceMatrixDto): void {
-    if (this.catalogItems().some(i => i.id === row.itemId)) return;
-    this.catalogItems.update(items => [...items, { id: row.itemId, name: row.itemName, sku: row.itemCode }]);
   }
 
   openEditModal(row: WholesalePriceMatrixDto): void {
     this.ensureCatalogItem(row);
     this.editingId.set(row.id);
-    this.form.reset({
-      legalEntityId: row.legalEntityId,
-      itemId: row.itemId,
-      itemCode: row.itemCode,
-      itemName: row.itemName,
-      tier: row.tier,
-      minQuantity: row.minQuantity,
-      maxQuantity: row.maxQuantity ?? null,
-      discountPercentage: row.discountPercentage,
-      wholesaleUnitPrice: row.wholesaleUnitPrice,
-      isActive: row.isActive,
-      notes: row.notes ?? ''
-    });
-    this.setKeyFieldsEnabled(false);
+    this.form.reset(ruleFormOf(row));
+    setControlsEnabled(this.form, KEY_FIELDS, false);
     this.isModalVisible.set(true);
   }
 
@@ -243,7 +205,7 @@ export class WholesalePricingPageComponent implements OnInit {
 
     this.isCalculating.set(true);
     this.wholesaleApi.calculateRate(entityId, this.simItemId, this.simTier, this.simQuantity).subscribe({
-      next: res => {
+      next: (res) => {
         this.simResult.set(res);
         this.isCalculating.set(false);
       },
@@ -256,29 +218,17 @@ export class WholesalePricingPageComponent implements OnInit {
 
   saveRule(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      revealErrors(this.form, { onlySelf: true });
       return;
     }
     this.isSaving.set(true);
-    const val = this.form.getRawValue();
-    const input: CreateWholesalePriceInput = {
-      legalEntityId: val.legalEntityId,
-      itemId: val.itemId,
-      itemCode: val.itemCode,
-      itemName: val.itemName,
-      tier: val.tier,
-      minQuantity: val.minQuantity,
-      maxQuantity: val.maxQuantity,
-      discountPercentage: val.discountPercentage ?? 0,
-      wholesaleUnitPrice: val.wholesaleUnitPrice,
-      isActive: val.isActive,
-      notes: val.notes
-    };
+    const val = this.form.getRawValue() as WholesaleRuleFormValue;
+    const input = toWholesaleInput(val);
 
     const id = this.editingId();
     (id ? this.wholesaleApi.update(id, input) : this.wholesaleApi.create(input)).subscribe({
       next: () => {
-        this.msg.success(doneText('saved', 'Price rule', this.catalogItems().find(i => i.id === val.itemId)?.name));
+        this.msg.success(doneText('saved', 'Price rule', this.catalogItems().find((i) => i.id === val.itemId)?.name));
         this.isSaving.set(false);
         this.isModalVisible.set(false);
         this.list.reload();
@@ -288,5 +238,11 @@ export class WholesalePricingPageComponent implements OnInit {
         this.isSaving.set(false);
       }
     });
+  }
+
+  /** A rule can point at an item outside the loaded catalog page; it still has to show in the pickers. */
+  private ensureCatalogItem(row: WholesalePriceMatrixDto): void {
+    if (this.catalogItems().some((i) => i.id === row.itemId)) return;
+    this.catalogItems.update((items) => [...items, { id: row.itemId, name: row.itemName, sku: row.itemCode }]);
   }
 }

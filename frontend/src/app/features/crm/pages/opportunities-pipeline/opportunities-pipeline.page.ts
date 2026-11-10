@@ -1,8 +1,6 @@
-import { CreateProjectButtonComponent } from '@shared/components/create-project-button/create-project-button.component';
-import { problemMessage } from '@core/http/problem-details';
 import { CdkDrag, CdkDragDrop, CdkDropList, DragDropModule } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
@@ -17,37 +15,46 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
-import { LegalEntitiesApi } from '@core/api/admin.api';
-import {
-  CrmOpportunitiesApi,
-  OpportunityStage,
-  OpportunitySummaryDto,
-  PipelineStageSummaryDto
-} from '@core/api/crm.api';
-import { displayLabel } from '@core/format/display';
+import { CrmOpportunitiesApi, OpportunityStage, OpportunitySummaryDto, PipelineStageSummaryDto } from '@core/api/crm.api';
 import { createPagedList } from '@core/api/paged-list';
+import { toUtcIsoDate } from '@core/format/dates';
+import { displayLabel } from '@core/format/display';
+import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CreateProjectButtonComponent } from '@shared/components/create-project-button/create-project-button.component';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
+import { CrmLookups } from '../../crm-lookups';
+import { STAGES, STAGE_MOVES, STAGE_PROBABILITY, dealsText, isClosedStage, pipelineTotals } from '../../crm-pipeline';
 
-const STAGES: OpportunityStage[] = ['qualification', 'proposal', 'negotiation', 'closedWon', 'closedLost'];
-/** The same moves the server allows (CrmTransitions.Opportunity). Won and lost go through the close form, which asks for the final value and reason. */
-const STAGE_MOVES: Record<OpportunityStage, OpportunityStage[]> = {
-  qualification: ['proposal', 'closedLost'],
-  proposal: ['negotiation', 'qualification', 'closedLost'],
-  negotiation: ['closedWon', 'proposal', 'closedLost'],
-  closedWon: [],
-  closedLost: ['qualification'],
-};
-/** The win probability each open stage starts with. */
-const STAGE_PROBABILITY: Partial<Record<OpportunityStage, number>> = { qualification: 20, proposal: 50, negotiation: 80 };
 const BOARD_LIMIT = 200;
 const VIEW_KEY = 'erp.crm.pipeline.view';
+
+/** The new-deal form's raw value. */
+interface OpportunityFormValue {
+  legalEntityId: string;
+  title: string;
+  customerName: string;
+  stage: OpportunityStage;
+  probabilityPercent: number;
+  expectedRevenue: number;
+  expectedCloseDate: Date | null;
+  notes: string;
+}
+
+/** The close-deal form's raw value. */
+interface CloseDealFormValue {
+  isWon: boolean;
+  actualRevenue: number;
+  closeReason: string;
+}
 
 /** The sales pipeline: a board to see where every deal stands, and a table for the detail. */
 @Component({
@@ -55,35 +62,36 @@ const VIEW_KEY = 'erp.crm.pipeline.view';
   standalone: true,
   imports: [
     CommonModule,
-    CreateProjectButtonComponent,
     DragDropModule,
-    ErpDatePipe,
     FormsModule,
     ReactiveFormsModule,
     NzButtonModule,
-    NzIconModule,
-    NzModalModule,
+    NzDatePickerModule,
     NzDrawerModule,
+    NzDropDownModule,
     NzFormModule,
+    NzIconModule,
     NzInputModule,
     NzInputNumberModule,
-    NzDatePickerModule,
+    NzModalModule,
+    NzRadioModule,
     NzSelectModule,
     NzSkeletonModule,
-    NzDropDownModule,
-    NzRadioModule,
+    CreateProjectButtonComponent,
+    ErpDatePipe,
+    HasPermissionDirective,
     PagedTableComponent,
     StatCardComponent,
     StatePanelComponent,
     StatusTagComponent,
-    HasPermissionDirective,
   ],
+  providers: [CrmLookups],
   templateUrl: './opportunities-pipeline.page.html',
   styleUrl: './opportunities-pipeline.page.scss'
 })
 export class OpportunitiesPipelinePageComponent implements OnInit {
   private readonly api = inject(CrmOpportunitiesApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly lookups = inject(CrmLookups);
   private readonly session = inject(SessionStore);
   private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
@@ -91,8 +99,8 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
 
   readonly stages = STAGES;
   readonly currency = this.currencyService.currency;
-  readonly list = createPagedList<OpportunitySummaryDto>((q: any) => this.api.list(q));
-  readonly entities = signal<{ id: string; name: string }[]>([]);
+  readonly list = createPagedList<OpportunitySummaryDto>((q) => this.api.list(q));
+  readonly entities = this.lookups.entities;
   readonly stageSummaries = signal<PipelineStageSummaryDto[]>([]);
 
   readonly view = signal<'board' | 'table'>(localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'board');
@@ -101,10 +109,11 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
   readonly boardFailed = signal(false);
   readonly boardTruncated = signal(false);
 
-  readonly openCount = computed(() => this.stageSummaries().filter((s) => !this.isClosed(s.stage)).reduce((sum, s) => sum + s.count, 0));
-  readonly openValue = computed(() => this.stageSummaries().filter((s) => !this.isClosed(s.stage)).reduce((sum, s) => sum + s.totalExpectedRevenue, 0));
-  readonly closedCount = computed(() => (this.stageSummary('closedWon')?.count ?? 0) + (this.stageSummary('closedLost')?.count ?? 0));
-  readonly winRate = computed(() => (this.closedCount() ? Math.round(((this.stageSummary('closedWon')?.count ?? 0) / this.closedCount()) * 1000) / 10 : 0));
+  private readonly totals = computed(() => pipelineTotals(this.stageSummaries()));
+  readonly openCount = computed(() => this.totals().openCount);
+  readonly openValue = computed(() => this.totals().openValue);
+  readonly closedCount = computed(() => this.totals().closedCount);
+  readonly winRate = computed(() => this.totals().winRate);
 
   readonly createVisible = signal(false);
   readonly closeModalVisible = signal(false);
@@ -113,8 +122,22 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
   readonly selectedOpportunity = signal<OpportunitySummaryDto | null>(null);
   readonly canWin = computed(() => this.selectedOpportunity()?.stage === 'negotiation');
 
-  oppForm!: FormGroup;
-  closeForm!: FormGroup;
+  readonly oppForm: FormGroup = this.fb.group({
+    legalEntityId: ['', [Validators.required]],
+    title: ['', [Validators.required]],
+    customerName: ['', [Validators.required]],
+    stage: ['qualification', [Validators.required]],
+    probabilityPercent: [20, [Validators.required, Validators.min(0), Validators.max(100)]],
+    expectedRevenue: [0, [Validators.required, Validators.min(0)]],
+    expectedCloseDate: [null],
+    notes: ['']
+  });
+
+  readonly closeForm: FormGroup = this.fb.group({
+    isWon: [false, [Validators.required]],
+    actualRevenue: [0, [Validators.required, Validators.min(0)]],
+    closeReason: ['']
+  });
 
   // The CRM list endpoints accept no sort or filter fields yet, so the columns offer none (the header filters work on the loaded page).
   readonly columns: TableColumn<OpportunitySummaryDto>[] = [
@@ -134,70 +157,27 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
     drag.data.stage === drop.data || this.movesOf(drag.data).includes(drop.data);
 
   ngOnInit(): void {
-    this.initForms();
-    this.loadEntities();
+    this.lookups.loadEntities(this.oppForm);
     this.reloadAll();
   }
 
   canManage(): boolean { return this.session.hasPermission('crm.opportunities.manage'); }
-  deals_(n: number, kind = ''): string { return `${n} ${kind ? kind + ' ' : ''}${n === 1 ? 'deal' : 'deals'}`; }
+  deals_(n: number, kind = ''): string { return dealsText(n, kind); }
   stageName(stage: string): string { return displayLabel(stage); }
   movesOf(d: OpportunitySummaryDto): OpportunityStage[] { return STAGE_MOVES[d.stage] ?? []; }
   /** Moves that do not ask for an outcome. Winning and losing use Close Deal. */
-  openMoves(d: OpportunitySummaryDto): OpportunityStage[] { return this.movesOf(d).filter((s) => !this.isClosed(s)); }
+  openMoves(d: OpportunitySummaryDto): OpportunityStage[] { return this.movesOf(d).filter((s) => !isClosedStage(s)); }
   stageSummary(stage: OpportunityStage): PipelineStageSummaryDto | undefined { return this.stageSummaries().find((s) => s.stage === stage); }
   stageValue(stage: OpportunityStage): number { return this.stageSummary(stage)?.totalExpectedRevenue ?? this.inStage(stage).reduce((sum, d) => sum + d.expectedRevenue, 0); }
   inStage(stage: OpportunityStage): OpportunitySummaryDto[] { return this.deals().filter((d) => d.stage === stage); }
-  private isClosed(stage: OpportunityStage): boolean { return stage === 'closedWon' || stage === 'closedLost'; }
 
   setView(view: 'board' | 'table'): void {
     this.view.set(view);
     try { localStorage.setItem(VIEW_KEY, view); } catch { /* storage unavailable */ }
   }
 
-  private initForms(): void {
-    this.oppForm = this.fb.group({
-      legalEntityId: ['', [Validators.required]],
-      title: ['', [Validators.required]],
-      customerName: ['', [Validators.required]],
-      stage: ['qualification', [Validators.required]],
-      probabilityPercent: [20, [Validators.required, Validators.min(0), Validators.max(100)]],
-      expectedRevenue: [0, [Validators.required, Validators.min(0)]],
-      expectedCloseDate: [null],
-      notes: ['']
-    });
-
-    this.closeForm = this.fb.group({
-      isWon: [false, [Validators.required]],
-      actualRevenue: [0, [Validators.required, Validators.min(0)]],
-      closeReason: ['']
-    });
-  }
-
-  private loadEntities(): void {
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => {
-        if (res.items) {
-          this.entities.set(res.items.map(e => ({ id: e.id, name: e.name })));
-          if (res.items.length > 0) {
-            this.oppForm.patchValue({ legalEntityId: res.items[0].id });
-          }
-        }
-      }
-    });
-  }
-
-  private reloadAll(): void {
-    this.loadStageSummaries();
-    this.loadBoard();
-    this.list.reload();
-  }
-
   loadStageSummaries(): void {
-    this.api.getPipelineSummary().subscribe({
-      next: res => this.stageSummaries.set(res),
-      error: () => {}
-    });
+    loadInto(this.stageSummaries, this.api.getPipelineSummary());
   }
 
   loadBoard(): void {
@@ -223,7 +203,7 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
 
   moveTo(d: OpportunitySummaryDto, stage: OpportunityStage | null): void {
     if (!stage || stage === d.stage) return;
-    if (this.isClosed(stage)) {
+    if (isClosedStage(stage)) {
       this.openCloseModal(d, stage === 'closedWon');
       return;
     }
@@ -248,7 +228,8 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
   advanceStage(row: OpportunitySummaryDto, nextStage: OpportunityStage): void {
     const before = this.deals();
     const probabilityPercent = STAGE_PROBABILITY[nextStage] ?? row.probabilityPercent;
-    this.deals.set(before.map((d) => (d.id === row.id ? { ...d, stage: nextStage, probabilityPercent } : d)));   // show it at once, undo when the server refuses
+    // Shown at once, undone when the server refuses.
+    this.deals.set(before.map((d) => (d.id === row.id ? { ...d, stage: nextStage, probabilityPercent } : d)));
     this.api.updateStage(row.id, nextStage, probabilityPercent).subscribe({
       next: () => {
         this.message.success(`${row.opportunityNumber} moved to ${this.stageName(nextStage).toLowerCase()}.`);
@@ -274,12 +255,11 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
 
   saveOpportunity(): void {
     if (this.oppForm.invalid) {
-      Object.values(this.oppForm.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity({ onlySelf: true }); });
+      revealErrors(this.oppForm, { onlySelf: true });
       return;
     }
     this.isSubmitting.set(true);
-    const v = this.oppForm.value;
-    const closeDate = v.expectedCloseDate ? new Date(v.expectedCloseDate).toISOString().slice(0, 10) : undefined;
+    const v = this.oppForm.value as OpportunityFormValue;
 
     this.api.create({
       legalEntityId: v.legalEntityId,
@@ -288,7 +268,7 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
       stage: v.stage,
       probabilityPercent: v.probabilityPercent,
       expectedRevenue: v.expectedRevenue,
-      expectedCloseDate: closeDate,
+      expectedCloseDate: v.expectedCloseDate ? toUtcIsoDate(v.expectedCloseDate) : undefined,
       notes: v.notes
     }).subscribe({
       next: () => {
@@ -310,7 +290,7 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
     if (!opp) return;
 
     this.isClosing.set(true);
-    const v = this.closeForm.value;
+    const v = this.closeForm.value as CloseDealFormValue;
 
     this.api.closeDeal(opp.id, v.isWon, v.isWon ? v.actualRevenue : 0, v.closeReason).subscribe({
       next: () => {
@@ -324,5 +304,11 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
         this.isClosing.set(false);
       }
     });
+  }
+
+  private reloadAll(): void {
+    this.loadStageSummaries();
+    this.loadBoard();
+    this.list.reload();
   }
 }

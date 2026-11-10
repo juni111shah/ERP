@@ -1,8 +1,7 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe } from '@angular/common';
-import { Router } from '@angular/router';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -15,47 +14,54 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { LegalEntitiesApi } from '@core/api/admin.api';
-import {
-  BomSummaryDto,
-  ManufacturingBomsApi,
-  ManufacturingWorkOrdersApi,
-  WorkOrderSummaryDto,
-} from '@core/api/manufacturing.api';
+import { WarehouseRow, WarehousesApi } from '@core/api/inventory.api';
+import { BomSummaryDto, ManufacturingBomsApi, ManufacturingWorkOrdersApi, WorkOrderSummaryDto } from '@core/api/manufacturing.api';
 import { createPagedList } from '@core/api/paged-list';
-import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { WarehouseRow, WarehousesApi } from '@core/api/inventory.api';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { askReason } from '@shared/utils/reason-prompt';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { askReason } from '@shared/utils/reason-prompt';
+import { ManufacturingLookups } from '../../manufacturing-lookups';
+import {
+  CompleteFormValue,
+  WorkOrderFormValue,
+  canCancelWorkOrder,
+  dueBeforeStart,
+  toCompleteInput,
+  toWorkOrderInput,
+} from '../../manufacturing-work-orders';
 
+const DAY_MS = 86400000;
+
+/** Work orders: the paged list, the new-work-order drawer, and releasing, completing or cancelling an order. */
 @Component({
   selector: 'erp-work-orders-page',
   standalone: true,
   imports: [
     DecimalPipe,
-    ErpDatePipe,
     ReactiveFormsModule,
     NzButtonModule,
-    NzIconModule,
-    NzModalModule,
+    NzDatePickerModule,
     NzDrawerModule,
     NzFormModule,
+    NzIconModule,
     NzInputModule,
     NzInputNumberModule,
-    NzDatePickerModule,
+    NzModalModule,
     NzPopconfirmModule,
     NzSelectModule,
     NzToolTipModule,
-    PagedTableComponent,
+    ErpDatePipe,
     HasPermissionDirective,
+    PagedTableComponent,
     StatusTagComponent,
   ],
+  providers: [ManufacturingLookups],
   templateUrl: './work-orders.page.html',
   styleUrl: './work-orders.page.scss',
 })
@@ -63,7 +69,7 @@ export class WorkOrdersPageComponent implements OnInit {
   private readonly api = inject(ManufacturingWorkOrdersApi);
   private readonly bomsApi = inject(ManufacturingBomsApi);
   private readonly warehousesApi = inject(WarehousesApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly lookups = inject(ManufacturingLookups);
   private readonly session = inject(SessionStore);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
@@ -72,7 +78,7 @@ export class WorkOrdersPageComponent implements OnInit {
 
   readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly list = createPagedList<WorkOrderSummaryDto>((q) => this.api.list(q), { sort: '-createdAt' });
-  readonly legalEntities = signal<{ id: string; name: string }[]>([]);
+  readonly legalEntities = this.lookups.legalEntities;
   private readonly warehouses = signal<WarehouseRow[]>([]);
   private readonly boms = signal<BomSummaryDto[]>([]);
   private readonly entityId = signal<string | null>(null);
@@ -91,7 +97,7 @@ export class WorkOrdersPageComponent implements OnInit {
     plannedQuantity: [1, [Validators.required, Validators.min(0.0001)]],
     warehouseId: [null, [Validators.required]],
     startDate: [new Date(), [Validators.required]],
-    dueDate: [new Date(Date.now() + 7 * 86400000), [Validators.required]],
+    dueDate: [new Date(Date.now() + 7 * DAY_MS), [Validators.required]],
     notes: [''],
   });
 
@@ -115,9 +121,7 @@ export class WorkOrdersPageComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: (res) => this.legalEntities.set(res.items.map((e) => ({ id: e.id, name: e.name }))),
-    });
+    this.lookups.loadEntities();
     this.warehousesApi.list({ page: 1, pageSize: 100 }).subscribe({
       next: (res) => this.warehouses.set(res.items),
     });
@@ -128,11 +132,12 @@ export class WorkOrdersPageComponent implements OnInit {
 
   open(row: WorkOrderSummaryDto): void { void this.router.navigate(['/manufacturing/workorders', row.id]); }
 
-  /** Cancelling is refused once something was produced. */
+  /** A completion date cannot be in the future. */
   readonly notFuture = (d: Date): boolean => d.getTime() > Date.now();
 
+  /** Cancelling is refused once something was produced. */
   canCancel(row: WorkOrderSummaryDto): boolean {
-    return (row.status === 'draft' || row.status === 'planned' || row.status === 'inProgress') && row.completedQuantity === 0;
+    return canCancelWorkOrder(row);
   }
 
   onEntityChange(id: string): void {
@@ -146,7 +151,7 @@ export class WorkOrdersPageComponent implements OnInit {
   }
 
   openCreateDrawer(): void {
-    const entity = this.legalEntities().find((e) => e.id === this.session.currentEntityId()) ?? this.legalEntities()[0];
+    const entity = this.lookups.defaultEntity(this.session.currentEntityId());
     this.entityId.set(entity?.id ?? null);
     this.woForm.reset({
       legalEntityId: entity?.id ?? '',
@@ -154,35 +159,21 @@ export class WorkOrdersPageComponent implements OnInit {
       plannedQuantity: 1,
       warehouseId: this.entityWarehouses()[0]?.id ?? null,
       startDate: new Date(),
-      dueDate: new Date(Date.now() + 7 * 86400000),
+      dueDate: new Date(Date.now() + 7 * DAY_MS),
       notes: '',
     });
     this.createVisible.set(true);
   }
 
   saveWorkOrder(): void {
-    const dueControl = this.woForm.get('dueDate')!;
-    const { startDate, dueDate } = this.woForm.value;
-    if (startDate && dueDate && toIsoDate(new Date(dueDate)) < toIsoDate(new Date(startDate))) {
-      dueControl.setErrors({ beforeStart: true });
-    } else if (dueControl.hasError('beforeStart')) {
-      dueControl.updateValueAndValidity();
-    }
+    this.checkDueDate();
     if (this.woForm.invalid) {
       Object.values(this.woForm.controls).forEach((c) => c.markAsDirty());
       return;
     }
     this.isSubmitting.set(true);
-    const v = this.woForm.value;
-    this.api.create({
-      legalEntityId: v.legalEntityId,
-      bomId: v.bomId,
-      plannedQuantity: v.plannedQuantity,
-      warehouseId: v.warehouseId,
-      startDate: toIsoDate(new Date(v.startDate)),
-      dueDate: toIsoDate(new Date(v.dueDate)),
-      notes: v.notes || null,
-    }).subscribe({
+    const v = this.woForm.value as WorkOrderFormValue;
+    this.api.create(toWorkOrderInput(v)).subscribe({
       next: () => {
         this.message.success(doneText('created', 'Work order', this.boms().find((b) => b.id === v.bomId)?.name));
         this.createVisible.set(false);
@@ -215,15 +206,8 @@ export class WorkOrdersPageComponent implements OnInit {
   submitCompleteOrder(): void {
     const order = this.selectedOrder();
     if (!order || this.completeForm.invalid) return;
-    const v = this.completeForm.value;
     this.isCompleting.set(true);
-    this.api.complete(order.id, {
-      completedQuantity: v.completedQuantity,
-      scrappedQuantity: v.scrappedQuantity || 0,
-      actualTotalCost: order.estimatedTotalCost,
-      completionDate: v.completionDate ? toIsoDate(v.completionDate) : null,
-      notes: v.notes || null,
-    }).subscribe({
+    this.api.complete(order.id, toCompleteInput(this.completeForm.value as CompleteFormValue, order)).subscribe({
       next: () => {
         this.message.success(doneText('completed', 'Work order', order.workOrderNumber));
         this.isCompleting.set(false);
@@ -248,5 +232,16 @@ export class WorkOrdersPageComponent implements OnInit {
         error: (err) => this.message.error(problemMessage(err, 'The work order could not be cancelled')),
       });
     });
+  }
+
+  /** A due date before the start date is an error on the due date; once fixed, the error is cleared. */
+  private checkDueDate(): void {
+    const dueControl = this.woForm.get('dueDate')!;
+    const { startDate, dueDate } = this.woForm.value as WorkOrderFormValue;
+    if (dueBeforeStart(startDate, dueDate)) {
+      dueControl.setErrors({ beforeStart: true });
+    } else if (dueControl.hasError('beforeStart')) {
+      dueControl.updateValueAndValidity();
+    }
   }
 }

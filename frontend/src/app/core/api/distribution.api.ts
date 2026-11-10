@@ -223,6 +223,7 @@ export interface DistributionKpiSummaryDto {
   wholesaleRulesCount: number;
 }
 
+/** Delivery routes and their stops. */
 @Injectable({ providedIn: 'root' })
 export class DistributionRoutesApi extends CrudApiService<DistributionRouteSummaryDto, Partial<CreateRouteInput>> {
   protected readonly resource = 'm/distribution/routes';
@@ -232,6 +233,7 @@ export class DistributionRoutesApi extends CrudApiService<DistributionRouteSumma
   }
 }
 
+/** Van sales trips: dispatch, detail and end-of-day completion. */
 @Injectable({ providedIn: 'root' })
 export class DistributionTripsApi extends CrudApiService<VanSalesTripSummaryDto, Partial<CreateTripInput>> {
   protected readonly resource = 'm/distribution/trips';
@@ -245,6 +247,7 @@ export class DistributionTripsApi extends CrudApiService<VanSalesTripSummaryDto,
   }
 }
 
+/** Wholesale tier price rules and the rate calculator. */
 @Injectable({ providedIn: 'root' })
 export class DistributionWholesaleApi extends CrudApiService<WholesalePriceMatrixDto, Partial<CreateWholesalePriceInput>> {
   protected readonly resource = 'm/distribution/wholesale';
@@ -259,6 +262,7 @@ export class DistributionWholesaleApi extends CrudApiService<WholesalePriceMatri
   }
 }
 
+/** The distribution KPI summary. */
 @Injectable({ providedIn: 'root' })
 export class DistributionKpiApi {
   private readonly http = inject(HttpClient);

@@ -1,6 +1,4 @@
-import { doneText } from '@core/format/done-text';
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { problemMessage } from '@core/http/problem-details';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -19,44 +17,68 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { ItemsApi, ItemDto, LegalEntitiesApi, TaxCodeDto, TaxCodesApi } from '@core/api/admin.api';
-import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { createPagedList } from '@core/api/paged-list';
 import { PurchaseOrderInput, PurchaseOrderSummaryDto, PurchaseOrdersApi, PurchasingKpiApi, PurchasingKpiDto } from '@core/api/purchasing.api';
-import { PartiesApi, PartyDto } from '@core/api/parties.api';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { toUtcIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
+import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
+import { DocumentTotals, PricedLine, documentTotals, lineTotal } from '@shared/forms/line-totals';
+import { loadInto } from '@shared/utils/load-into';
+import { PurchaseLineValue, fillPurchaseLineFromItem, newPurchaseLine } from '../../purchasing-lines';
+import { PurchasingLookups } from '../../purchasing-lookups';
 
+/** The purchase-order form's raw value. */
+interface PurchaseOrderFormValue {
+  legalEntityId: string;
+  number: string;
+  vendorPartyId: string | null;
+  vendorName: string;
+  vendorReference: string;
+  orderDate: Date;
+  expectedDeliveryDate: Date | null;
+  currency: string;
+  paymentTerms: string;
+  deliveryAddress: string;
+  notes: string;
+  lines: PurchaseLineValue[];
+}
+
+/** Purchase orders: KPI cards, the paged list and the new-order drawer. */
 @Component({
   selector: 'erp-purchase-orders-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatusTagComponent,
+  imports: [
     CommonModule,
     DecimalPipe,
     ReactiveFormsModule,
     RouterModule,
-    NzGridModule,
-    NzCardModule,
-    NzTagModule,
     NzButtonModule,
-    NzIconModule,
-    NzToolTipModule,
+    NzCardModule,
+    NzDatePickerModule,
     NzDrawerModule,
     NzFormModule,
+    NzGridModule,
+    NzIconModule,
     NzInputModule,
     NzInputNumberModule,
-    NzSelectModule,
-    NzDatePickerModule,
-    NzTableModule,
     NzPopconfirmModule,
+    NzSelectModule,
+    NzTableModule,
+    NzTagModule,
+    NzToolTipModule,
+    HasPermissionDirective,
     PagedTableComponent,
     StatCardComponent,
-    HasPermissionDirective,
+    StatusTagComponent,
   ],
+  providers: [PurchasingLookups],
   templateUrl: './purchase-orders-list.page.html',
   styleUrl: './purchase-orders-list.page.scss',
 })
@@ -66,20 +88,17 @@ export class PurchaseOrdersListPage {
   private readonly message = inject(NzMessageService);
   private readonly ordersApi = inject(PurchaseOrdersApi);
   private readonly kpiApi = inject(PurchasingKpiApi);
-  private readonly entitiesApi = inject(LegalEntitiesApi);
-  private readonly partiesApi = inject(PartiesApi);
-  private readonly itemsApi = inject(ItemsApi);
-  private readonly taxCodesApi = inject(TaxCodesApi);
+  private readonly lookups = inject(PurchasingLookups);
   private readonly currencyService = inject(WorkspaceCurrencyService);
 
   readonly currency = this.currencyService.currency;
   readonly list = createPagedList((q) => this.ordersApi.list(q), { sort: 'number' });
   readonly kpis = signal<PurchasingKpiDto | null>(null);
-  readonly entities = signal<{ id: string; name: string }[]>([]);
-  readonly vendors = signal<PartyDto[]>([]);
-  readonly items = signal<ItemDto[]>([]);
-  readonly taxCodes = signal<TaxCodeDto[]>([]);
-  readonly defaultTaxRate = signal<number>(0);
+  readonly entities = this.lookups.entities;
+  readonly vendors = this.lookups.vendors;
+  readonly items = this.lookups.items;
+  readonly taxCodes = this.lookups.taxCodes;
+  readonly defaultTaxRate = this.lookups.defaultTaxRate;
   readonly drawerVisible = signal(false);
   readonly isSubmitting = signal(false);
 
@@ -114,109 +133,36 @@ export class PurchaseOrdersListPage {
   ];
 
   /** A plain function: the form array is not a signal, so a computed would keep its first result. */
-  readonly calculatedTotals = () => {
-    let sub = 0;
-    let tax = 0;
-    const lines = this.linesArray.value as { quantity: number; unitPrice: number; discountPercent: number; taxRate: number }[];
-    for (const l of lines) {
-      const base = (l.quantity || 0) * (l.unitPrice || 0);
-      const disc = base * ((l.discountPercent || 0) / 100);
-      const afterDisc = base - disc;
-      const taxAmt = afterDisc * ((l.taxRate || 0) / 100);
-      sub += afterDisc;
-      tax += taxAmt;
-    }
-    return { subTotal: sub, taxTotal: tax, total: sub + tax };
-  };
+  readonly calculatedTotals = (): DocumentTotals => documentTotals(this.linesArray.value as PricedLine[]);
 
   constructor() {
     this.loadKpis();
-    this.loadEntities();
-    this.loadVendors();
-    this.loadItems();
-    this.loadTaxCodes();
-  }
-
-  loadTaxCodes(): void {
-    this.taxCodesApi.list({ page: 1, pageSize: 100 }).subscribe({
-      next: (res) => {
-        const items = res.items || [];
-        this.taxCodes.set(items);
-        const def = items.find((t) => t.isDefault) || items.find((t) => t.kind === 'vat' || t.kind === 'salesTax') || items[0];
-        if (def && typeof def.rate === 'number') {
-          this.defaultTaxRate.set(def.rate);
-        }
-      },
-      error: () => {},
-    });
+    this.lookups.loadForOrders();
   }
 
   loadKpis(): void {
-    this.kpiApi.getSummary().subscribe({
-      next: (k) => this.kpis.set(k),
-      error: () => {},
-    });
-  }
-
-  loadEntities(): void {
-    this.entitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: (res) => this.entities.set(res.items.map((x) => ({ id: x.id, name: x.name }))),
-      error: () => {},
-    });
+    loadInto(this.kpis, this.kpiApi.getSummary());
   }
 
   openOrder(row: PurchaseOrderSummaryDto): void {
     this.router.navigate(['/purchasing/orders', row.id]);
   }
 
-  loadVendors(): void {
-    this.partiesApi.list({ page: 1, pageSize: 200 }).subscribe({
-      next: (res) => {
-        const vendorParties = res.items.filter((p) => p.roles?.some((r) => r.toLowerCase().includes('vendor') || r.toLowerCase().includes('supplier')));
-        this.vendors.set(vendorParties.length > 0 ? vendorParties : res.items);
-      },
-      error: () => {},
-    });
-  }
-
-  loadItems(): void {
-    this.itemsApi.list({ page: 1, pageSize: 200 }).subscribe({
-      next: (res) => this.items.set(res.items),
-      error: () => {},
-    });
-  }
-
+  /** Copies the picked vendor's name and currency onto the order. */
   onVendorSelected(partyId: string | null): void {
     if (!partyId) return;
-    const v = this.vendors().find((x) => x.id === partyId);
-    if (v) {
-      this.form.patchValue({
-        vendorName: v.name,
-        currency: v.currencyCode || this.form.value.currency || this.currencyService.code(),
-      });
-    }
+    const vendor = this.lookups.vendor(partyId);
+    if (!vendor) return;
+    this.form.patchValue({
+      vendorName: vendor.name,
+      currency: vendor.currencyCode || this.form.value.currency || this.currencyService.code(),
+    });
   }
 
   onItemSelected(index: number, itemId: string | null): void {
     if (!itemId) return;
-    const it = this.items().find((x) => x.id === itemId);
-    if (it) {
-      let taxRate = this.defaultTaxRate();
-      if (it.taxCodeId) {
-        const tc = this.taxCodes().find((t) => t.id === it.taxCodeId);
-        if (tc && typeof tc.rate === 'number') {
-          taxRate = tc.rate;
-        }
-      }
-      const lineGroup = this.linesArray.at(index);
-      lineGroup.patchValue({
-        itemCode: it.sku,
-        description: it.name,
-        unitOfMeasure: it.uom || 'EA',
-        unitPrice: it.purchasePrice || it.salesPrice || 0,
-        taxRate,
-      });
-    }
+    const item = this.lookups.item(itemId);
+    if (item) fillPurchaseLineFromItem(this.linesArray.at(index), item, this.taxCodes(), this.defaultTaxRate());
   }
 
   openCreateDrawer(): void {
@@ -239,59 +185,25 @@ export class PurchaseOrdersListPage {
   }
 
   addLine(): void {
-    this.linesArray.push(
-      this.fb.group({
-        itemId: [null],
-        itemCode: [''],
-        description: ['', Validators.required],
-        quantity: [1, [Validators.required, Validators.min(0.01)]],
-        unitOfMeasure: ['EA'],
-        unitPrice: [0, [Validators.required, Validators.min(0)]],
-        discountPercent: [0, [Validators.min(0), Validators.max(100)]],
-        taxRate: [this.defaultTaxRate(), [Validators.min(0), Validators.max(100)]],
-      })
-    );
+    this.linesArray.push(newPurchaseLine(this.fb, this.defaultTaxRate()));
   }
 
   removeLine(index: number): void {
     this.linesArray.removeAt(index);
   }
 
-  calculateLineTotal(val: { quantity: number; unitPrice: number; discountPercent: number; taxRate: number }): number {
-    const base = (val.quantity || 0) * (val.unitPrice || 0);
-    const disc = base * ((val.discountPercent || 0) / 100);
-    const afterDisc = base - disc;
-    const tax = afterDisc * ((val.taxRate || 0) / 100);
-    return afterDisc + tax;
+  calculateLineTotal(line: PricedLine): number {
+    return lineTotal(line);
   }
 
   submitForm(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach((c) => {
-        c.markAsDirty();
-        c.updateValueAndValidity({ onlySelf: true });
-      });
+      revealErrors(this.form, { onlySelf: true });
       return;
     }
 
     this.isSubmitting.set(true);
-    const raw = this.form.value;
-    const input: PurchaseOrderInput = {
-      legalEntityId: raw.legalEntityId,
-      number: raw.number || null,
-      vendorPartyId: raw.vendorPartyId || null,
-      vendorName: raw.vendorName,
-      vendorReference: raw.vendorReference || null,
-      orderDate: this.formatDate(raw.orderDate),
-      expectedDeliveryDate: raw.expectedDeliveryDate ? this.formatDate(raw.expectedDeliveryDate) : null,
-      currency: raw.currency,
-      paymentTerms: raw.paymentTerms || null,
-      deliveryAddress: raw.deliveryAddress || null,
-      notes: raw.notes || null,
-      lines: raw.lines,
-    };
-
-    this.ordersApi.create(input).subscribe({
+    this.ordersApi.create(this.toInput(this.form.value as PurchaseOrderFormValue)).subscribe({
       next: (created) => {
         this.isSubmitting.set(false);
         this.drawerVisible.set(false);
@@ -318,8 +230,21 @@ export class PurchaseOrdersListPage {
     });
   }
 
-  private formatDate(d: Date | string): string {
-    const date = new Date(d);
-    return date.toISOString().split('T')[0];
+  /** The form as the API takes it; the lines go as entered. */
+  private toInput(raw: PurchaseOrderFormValue): PurchaseOrderInput {
+    return {
+      legalEntityId: raw.legalEntityId,
+      number: raw.number || null,
+      vendorPartyId: raw.vendorPartyId || null,
+      vendorName: raw.vendorName,
+      vendorReference: raw.vendorReference || null,
+      orderDate: toUtcIsoDate(raw.orderDate),
+      expectedDeliveryDate: raw.expectedDeliveryDate ? toUtcIsoDate(raw.expectedDeliveryDate) : null,
+      currency: raw.currency,
+      paymentTerms: raw.paymentTerms || null,
+      deliveryAddress: raw.deliveryAddress || null,
+      notes: raw.notes || null,
+      lines: raw.lines,
+    };
   }
 }

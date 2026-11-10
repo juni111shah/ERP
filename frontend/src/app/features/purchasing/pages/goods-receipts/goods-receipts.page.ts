@@ -1,6 +1,4 @@
-import { doneText } from '@core/format/done-text';
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { problemMessage } from '@core/http/problem-details';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -12,26 +10,30 @@ import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { createPagedList } from '@core/api/paged-list';
 import { GoodsReceiptDto, GoodsReceiptSummaryDto, GoodsReceiptsApi } from '@core/api/purchasing.api';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 
+/** Goods receipts: the paged list, a receipt's lines in a dialog, and deleting a receipt. */
 @Component({
   selector: 'erp-goods-receipts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, 
+  imports: [
     CommonModule,
     DecimalPipe,
     RouterModule,
-    NzCardModule,
     NzButtonModule,
+    NzCardModule,
     NzIconModule,
     NzModalModule,
-    NzTableModule,
     NzPopconfirmModule,
-    PagedTableComponent,
+    NzTableModule,
+    ErpDatePipe,
     HasPermissionDirective,
+    PagedTableComponent,
   ],
   templateUrl: './goods-receipts.page.html',
   styleUrl: './goods-receipts.page.scss',
@@ -42,7 +44,7 @@ export class GoodsReceiptsPage {
 
   readonly list = createPagedList((q) => this.receiptsApi.list(q), { sort: 'number' });
   readonly detailModalVisible = signal(false);
-  readonly selectedReceipt = signal<any | null>(null);
+  readonly selectedReceipt = signal<GoodsReceiptDto | null>(null);
 
   readonly columns: TableColumn<GoodsReceiptSummaryDto>[] = [
     { key: 'number', label: 'GRN #', sortField: 'number', width: '130px' },

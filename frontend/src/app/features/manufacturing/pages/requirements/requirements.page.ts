@@ -8,12 +8,20 @@ import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ItemsApi } from '@core/api/admin.api';
+import { WarehouseRow, WarehousesApi } from '@core/api/inventory.api';
 import { ManufacturingWorkOrdersApi, RequirementsDto } from '@core/api/manufacturing.api';
 import { problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
-import { WarehouseRow, WarehousesApi } from '@core/api/inventory.api';
-import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
+import { loadInto } from '@shared/utils/load-into';
+
+/** A product as the what-if picker shows it. */
+interface ProductOption {
+  id: string;
+  sku: string;
+  name: string;
+}
 
 /** Material requirements: what the open work orders (and an optional what-if quantity) need, against stock, and what is left to make or buy. */
 @Component({
@@ -27,21 +35,24 @@ import { StatePanelComponent } from '@shared/components/state-panel/state-panel.
 export class RequirementsPage {
   private readonly api = inject(ManufacturingWorkOrdersApi);
   private readonly session = inject(SessionStore);
+  private readonly warehousesApi = inject(WarehousesApi);
+  private readonly itemsApi = inject(ItemsApi);
   readonly entities = legalEntityOptions(this.session);
   readonly entityId = signal<string | null>(defaultLegalEntityId(this.session) ?? this.entities[0]?.value as string ?? null);
   readonly warehouseId = signal<string | null>(null);
   readonly itemId = signal<string | null>(null);
   readonly quantity = signal<number | null>(null);
   readonly warehouses = signal<WarehouseRow[]>([]);
-  readonly items = signal<{ id: string; sku: string; name: string }[]>([]);
+  readonly items = signal<ProductOption[]>([]);
   readonly result = signal<RequirementsDto | null>(null);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly shortCount = computed(() => this.result()?.shortages.length ?? 0);
 
   constructor() {
-    inject(WarehousesApi).list({ page: 1, pageSize: 100, sort: 'code' }).subscribe({ next: (r) => this.warehouses.set(r.items.filter((w) => w.isActive)), error: () => undefined });
-    inject(ItemsApi).list({ page: 1, pageSize: 200, sort: 'name' }).subscribe({ next: (r) => this.items.set(r.items.filter((i) => i.type === 'product').map((i) => ({ id: i.id, sku: i.sku, name: i.name }))), error: () => undefined });
+    loadInto(this.warehouses, this.warehousesApi.list({ page: 1, pageSize: 100, sort: 'code' }), (r) => r.items.filter((w) => w.isActive));
+    loadInto(this.items, this.itemsApi.list({ page: 1, pageSize: 200, sort: 'name' }), (r) =>
+      r.items.filter((i) => i.type === 'product').map((i) => ({ id: i.id, sku: i.sku, name: i.name })));
     if (this.entityId()) this.run();
   }
 

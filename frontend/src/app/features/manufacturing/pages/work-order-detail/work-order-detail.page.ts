@@ -3,26 +3,41 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { BomComponentDto, ManufacturingBomsApi, ManufacturingWorkOrdersApi, WorkOrderDto, WorkOrderOperationDto } from '@core/api/manufacturing.api';
+import { BomComponentDto, CompleteWorkOrderInput, ManufacturingBomsApi, ManufacturingWorkOrdersApi, WorkOrderDto, WorkOrderOperationDto } from '@core/api/manufacturing.api';
 import { displayDate } from '@core/format/display';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
-import { SessionStore } from '@core/session/session.store';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { ActionFormState } from '@shared/utils/action-form-state';
+import { SessionStore } from '@core/session/session.store';
 import { ActionButton, DescriptionItem, DetailPageComponent, KpiCard } from '@shared/components/detail-page/detail-page.component';
-import { askReason } from '@shared/utils/reason-prompt';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { ActionFormState } from '@shared/utils/action-form-state';
+import { loadInto } from '@shared/utils/load-into';
+import { askReason } from '@shared/utils/reason-prompt';
+import {
+  DrawerPayload,
+  completeFieldSpecs,
+  componentItemOptions,
+  formDateOf,
+  formNotesOf,
+  issueFieldSpecs,
+  issuedItemOptions,
+  materialLinesOf,
+  returnFieldSpecs,
+  workOrderDescriptions,
+  workOrderKpis,
+} from '../../manufacturing-work-order-view';
+import { canCancelWorkOrder } from '../../manufacturing-work-orders';
 
-const money = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+const MANAGE = 'manufacturing.workorders.manage';
 
 /** One work order: cost so far, the material put into it, the hours worked per operation, and the steps that move it along or undo it. */
 @Component({
@@ -39,6 +54,7 @@ export class WorkOrderDetailPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
+  private readonly session = inject(SessionStore);
   readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly fmt = (v: unknown) => displayDate(v);
 
@@ -49,80 +65,45 @@ export class WorkOrderDetailPage implements OnInit {
   private readonly hours = signal<Record<string, number>>({});
 
   readonly issue = new ActionFormState({
-    run: (p) => this.api.issueMaterials(this.order()!.id, { lines: this.linesOf(p), date: this.dateOf(p), notes: (p['notes'] as string) || null }),
+    run: (p) => this.api.issueMaterials(this.order()!.id, { lines: materialLinesOf(p), date: formDateOf(p), notes: formNotesOf(p) }),
     success: () => doneText('recorded', 'Material issue', this.order()?.workOrderNumber), done: () => this.load(false), message: this.message, failure: 'Could not issue the material',
   });
   readonly giveBack = new ActionFormState({
-    run: (p) => this.api.returnMaterials(this.order()!.id, { lines: this.linesOf(p) ?? [], date: this.dateOf(p), notes: (p['notes'] as string) || null }),
+    run: (p) => this.api.returnMaterials(this.order()!.id, { lines: materialLinesOf(p) ?? [], date: formDateOf(p), notes: formNotesOf(p) }),
     success: () => doneText('recorded', 'Material return', this.order()?.workOrderNumber), done: () => this.load(false), message: this.message, failure: 'Could not return the material',
   });
   readonly complete = new ActionFormState({
-    run: (p) => this.api.complete(this.order()!.id, {
-      completedQuantity: Number(p['completedQuantity'] ?? 0), scrappedQuantity: Number(p['scrappedQuantity'] ?? 0), actualTotalCost: this.order()!.estimatedTotalCost,
-      completionDate: this.dateOf(p), notes: (p['notes'] as string) || null,
-      operationHours: this.order()!.operations.filter((op) => this.hours()[op.id] !== undefined).map((op) => ({ operationId: op.id, actualHours: this.hours()[op.id] })),
-    }),
+    run: (p) => this.api.complete(this.order()!.id, this.completion(p)),
     success: () => doneText('completed', 'Work order', this.order()?.workOrderNumber), done: () => this.load(false), message: this.message, failure: 'Could not complete the work order',
   });
 
-  private readonly session = inject(SessionStore);
-  readonly canManage = () => this.session.hasPermission('manufacturing.workorders.manage');
-  private readonly itemOptions = computed(() => this.components().map((c) => ({ value: c.componentItemId, label: `${c.componentItemCode} · ${c.componentItemName}` })));
-  readonly issueFields = computed<FieldSpec[]>(() => [
-    { key: 'lines', label: 'Material', type: 'rows', columns: [{ key: 'itemId', label: 'Item', type: 'select', options: this.itemOptions() }, { key: 'quantity', label: 'Quantity', type: 'number', width: '110px' }], rowDefaults: { itemId: '', quantity: 1 }, hint: 'Leave empty to issue what the bill of materials still needs for the planned quantity.' },
-    { key: 'date', label: 'Date', type: 'date', hint: 'Left empty, today. It cannot be in the future.' },
-    { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 500 },
-  ]);
-  readonly returnFields = computed<FieldSpec[]>(() => [
-    { key: 'lines', label: 'Material to return', type: 'rows', required: true, columns: [{ key: 'itemId', label: 'Item', type: 'select', options: this.issuedOptions() }, { key: 'quantity', label: 'Quantity', type: 'number', width: '110px' }], rowDefaults: { itemId: '', quantity: 1 }, hint: 'Material goes back to stock at the cost it was issued at, and no more than is on the order can be returned.' },
-    { key: 'date', label: 'Date', type: 'date' },
-    { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 500 },
-  ]);
-  private readonly issuedOptions = computed(() => {
-    const seen = new Map<string, string>();
-    for (const m of this.order()?.materialIssues ?? []) seen.set(m.itemId, `${m.itemCode} · ${m.itemName}`);
-    return [...seen].map(([value, label]) => ({ value, label }));
-  });
-  readonly completeFields = computed<FieldSpec[]>(() => [
-    { key: 'completedQuantity', label: 'Quantity produced', type: 'number', required: true, min: 0, default: this.order()?.plannedQuantity ?? 0 },
-    { key: 'scrappedQuantity', label: 'Quantity scrapped', type: 'number', min: 0, default: 0 },
-    { key: 'completionDate', label: 'Completion date', type: 'date', hint: 'The day the goods came out of production. Left empty, today. It cannot be in the future.' },
-    { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 500 },
-  ]);
+  readonly canManage = () => this.session.hasPermission(MANAGE);
+  private readonly issuedOptions = computed(() => issuedItemOptions(this.order()));
+  readonly issueFields = computed<FieldSpec[]>(() => issueFieldSpecs(componentItemOptions(this.components())));
+  readonly returnFields = computed<FieldSpec[]>(() => returnFieldSpecs(this.issuedOptions()));
+  readonly completeFields = computed<FieldSpec[]>(() => completeFieldSpecs(this.order()));
 
   readonly actions = computed((): ActionButton[] => {
     const o = this.order();
     if (!o) return [];
     return [
-      { label: 'Release', icon: 'play-circle', type: 'primary', permission: 'manufacturing.workorders.manage', visible: o.status === 'planned', handler: () => this.release() },
-      { label: 'Issue material', icon: 'export', permission: 'manufacturing.workorders.manage', visible: o.status === 'inProgress', handler: () => this.issue.show() },
-      { label: 'Return material', icon: 'rollback', permission: 'manufacturing.workorders.manage', visible: o.status === 'inProgress' && this.issuedOptions().length > 0, handler: () => this.giveBack.show() },
-      { label: 'Complete', icon: 'check-circle', type: 'primary', permission: 'manufacturing.workorders.manage', visible: o.status === 'inProgress', handler: () => this.complete.show() },
+      { label: 'Release', icon: 'play-circle', type: 'primary', permission: MANAGE, visible: o.status === 'planned', handler: () => this.release() },
+      { label: 'Issue material', icon: 'export', permission: MANAGE, visible: o.status === 'inProgress', handler: () => this.issue.show() },
+      { label: 'Return material', icon: 'rollback', permission: MANAGE, visible: o.status === 'inProgress' && this.issuedOptions().length > 0, handler: () => this.giveBack.show() },
+      { label: 'Complete', icon: 'check-circle', type: 'primary', permission: MANAGE, visible: o.status === 'inProgress', handler: () => this.complete.show() },
       { label: 'Reverse', icon: 'undo', danger: true, permission: 'manufacturing.workorders.reverse', visible: o.status === 'completed', handler: () => this.reverse() },
-      { label: 'Cancel', icon: 'close-circle', danger: true, permission: 'manufacturing.workorders.manage', visible: (o.status === 'draft' || o.status === 'planned' || o.status === 'inProgress') && o.completedQuantity === 0, handler: () => this.cancel() },
+      { label: 'Cancel', icon: 'close-circle', danger: true, permission: MANAGE, visible: canCancelWorkOrder(o), handler: () => this.cancel() },
     ];
   });
 
   readonly kpis = computed((): KpiCard[] => {
     const o = this.order();
-    if (!o) return [];
-    const cur = this.currency();
-    return [
-      { title: 'Produced', value: `${o.completedQuantity} of ${o.plannedQuantity}`, suffix: o.uom },
-      { title: 'Material cost', value: money(o.materialCost), suffix: cur },
-      { title: 'Conversion cost', value: money(o.conversionCost), suffix: cur },
-      { title: 'Scrap cost', value: money(o.scrapCost), suffix: cur },
-      { title: 'Estimated cost', value: money(o.estimatedTotalCost), suffix: cur },
-    ];
+    return o ? workOrderKpis(o, this.currency()) : [];
   });
 
   readonly descriptions = computed((): DescriptionItem[] => {
     const o = this.order();
-    if (!o) return [];
-    return [
-      { label: 'Bill of materials', value: o.bomCode }, { label: 'Start', value: o.startDate }, { label: 'Due', value: o.dueDate },
-      { label: 'Completed on', value: o.completionDate ?? null }, { label: 'Scrapped', value: o.scrappedQuantity }, { label: 'Notes', value: o.notes ?? null, span: 2 },
-    ];
+    return o ? workOrderDescriptions(o) : [];
   });
 
   ngOnInit(): void { this.load(); }
@@ -136,7 +117,7 @@ export class WorkOrderDetailPage implements OnInit {
         this.order.set(o);
         this.hours.set({});
         this.loading.set(false);
-        if (!this.components().length) this.boms.getDetail(o.bomId).subscribe({ next: (b) => this.components.set(b.components), error: () => undefined });
+        if (!this.components().length) loadInto(this.components, this.boms.getDetail(o.bomId), (b) => b.components);
       },
       error: (e) => { this.error.set(problemMessage(e, 'The work order could not be loaded')); this.loading.set(false); },
     });
@@ -154,12 +135,15 @@ export class WorkOrderDetailPage implements OnInit {
     });
   }
 
-  /** The rows of a material form as lines; null when none were entered. */
-  private linesOf(p: Record<string, unknown>): { itemId: string; quantity: number }[] | undefined {
-    const rows = ((p['lines'] as Record<string, unknown>[] | null) ?? []).filter((r) => r['itemId'] && Number(r['quantity']) > 0);
-    return rows.length ? rows.map((r) => ({ itemId: String(r['itemId']), quantity: Number(r['quantity']) })) : undefined;
+  /** The completion body: the quantities, the estimate as the cost (the server works out the actual), and the hours typed per operation. */
+  private completion(p: DrawerPayload): CompleteWorkOrderInput {
+    const o = this.order()!;
+    return {
+      completedQuantity: Number(p['completedQuantity'] ?? 0), scrappedQuantity: Number(p['scrappedQuantity'] ?? 0), actualTotalCost: o.estimatedTotalCost,
+      completionDate: formDateOf(p), notes: formNotesOf(p),
+      operationHours: o.operations.filter((op) => this.hours()[op.id] !== undefined).map((op) => ({ operationId: op.id, actualHours: this.hours()[op.id] })),
+    };
   }
-  private dateOf(p: Record<string, unknown>): string | null { return (p['date'] as string) || (p['completionDate'] as string) || null; }
 
   private release(): void {
     const o = this.order();

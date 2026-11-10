@@ -208,6 +208,7 @@ export interface PurchasingKpiDto {
   totalOrdersCount: number;
 }
 
+/** Purchase orders: CRUD, status moves and conversion to a vendor bill. */
 @Injectable({ providedIn: 'root' })
 export class PurchaseOrdersApi extends CrudApiService<PurchaseOrderSummaryDto, PurchaseOrderInput> {
   protected readonly resource = 'm/purchasing/orders';
@@ -225,6 +226,7 @@ export class PurchaseOrdersApi extends CrudApiService<PurchaseOrderSummaryDto, P
   }
 }
 
+/** Purchase requisitions: CRUD, status moves and conversion to a purchase order. */
 @Injectable({ providedIn: 'root' })
 export class PurchaseRequisitionsApi extends CrudApiService<RequisitionSummaryDto, RequisitionInput> {
   protected readonly resource = 'm/purchasing/requisitions';
@@ -242,6 +244,7 @@ export class PurchaseRequisitionsApi extends CrudApiService<RequisitionSummaryDt
   }
 }
 
+/** Goods received against purchase orders. */
 @Injectable({ providedIn: 'root' })
 export class GoodsReceiptsApi extends CrudApiService<GoodsReceiptSummaryDto, GoodsReceiptInput> {
   protected readonly resource = 'm/purchasing/receipts';
@@ -251,6 +254,7 @@ export class GoodsReceiptsApi extends CrudApiService<GoodsReceiptSummaryDto, Goo
   }
 }
 
+/** The purchasing KPI summary. */
 @Injectable({ providedIn: 'root' })
 export class PurchasingKpiApi {
   private readonly http = inject(HttpClient);
