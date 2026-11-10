@@ -4,17 +4,21 @@ import { RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { FiscalYearCloseDto, YearEndApi } from '@core/api/period-close.api';
 import { createPagedList } from '@core/api/paged-list';
+import { FiscalYearCloseDto, YearEndApi } from '@core/api/period-close.api';
 import { displayDate } from '@core/format/display';
 import { doneText } from '@core/format/done-text';
 import { SessionStore } from '@core/session/session.store';
-import { ActionFormState } from '@shared/utils/action-form-state';
-import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ActionFormState } from '@shared/utils/action-form-state';
+import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
+
+/** The message after a close: a year that was closed before posts nothing new. */
+const closedText = (y: FiscalYearCloseDto): string =>
+  y.alreadyClosed ? `Fiscal year ${y.fiscalYear} was already closed. Nothing new was posted.` : doneText('completed', 'Year-end close', y.fiscalYear);
 
 /** Year-end close: moves the year's income and expense to retained earnings, locks the books to the year end, and can be undone for the latest year. */
 @Component({
@@ -43,10 +47,7 @@ export class YearEndPage {
 
   readonly closeForm = new ActionFormState({
     run: (p) => this.api.close(String(p['legalEntityId']), Number(p['fiscalYear'])),
-    success: (r) => {
-      const y = r as FiscalYearCloseDto;
-      return y.alreadyClosed ? `Fiscal year ${y.fiscalYear} was already closed. Nothing new was posted.` : doneText('completed', 'Year-end close', y.fiscalYear);
-    },
+    success: (r) => closedText(r as FiscalYearCloseDto),
     done: () => this.list.reload(), message: this.message, failure: 'Could not close the year',
   });
   readonly reopenForm = new ActionFormState<FiscalYearCloseDto>({

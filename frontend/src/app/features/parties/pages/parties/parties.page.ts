@@ -1,12 +1,7 @@
-import { doneText } from '@core/format/done-text';
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { catchError, forkJoin, map, of } from 'rxjs';
-import { countRows } from '@features/finance/finance-kpis';
-import { FilterCriterion, ListQuery } from '@core/api/api.models';
-import { ErpLabelPipe } from '@shared/pipes/display.pipes';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -15,41 +10,59 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
-import { PartiesApi, PartyDto } from '@core/api/parties.api';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { catchError, forkJoin, map, of } from 'rxjs';
 import { PartyGroupsApi } from '@core/api/admin.api';
+import { FilterCriterion, ListQuery } from '@core/api/api.models';
 import { createPagedList } from '@core/api/paged-list';
-import { buildCustomFieldsGroup, toApiValues } from '@core/custom-fields/custom-field-form';
+import { PartiesApi, PartyDto } from '@core/api/parties.api';
+import { buildCustomFieldsGroup } from '@core/custom-fields/custom-field-form';
 import { CustomFieldMetadataService } from '@core/custom-fields/custom-field-metadata.service';
 import { FormSectionMeta } from '@core/custom-fields/custom-field.models';
 import { DynamicFieldsComponent } from '@core/custom-fields/dynamic-field.component';
+import { doneText } from '@core/format/done-text';
 import { applyProblemDetailsToForm, asProblem, controlError } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzTagModule } from 'ng-zorro-antd/tag';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
+import { ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { KpiStats, countRows } from '@features/finance/finance-kpis';
+import { PARTY_ROLES, PartyFormValue, groupFilter, partiesTitle, partyBody, partyForm, roleFilter, roleTagColor } from '../../parties-form';
 
-const ROLES = ['Customer', 'Vendor', 'Employee', 'Other'];
-const titleFor = (type: string | null) => (type === 'customer' ? 'Customers' : type === 'vendor' ? 'Vendors' : 'Parties');
-const roleFilter = (type: string | null) => (type ? [{ field: 'roles', op: 'has' as const, value: type.toLowerCase() }] : []);
-const groupFilter = (id: string | null) => (id ? [{ field: 'partyGroupId', op: 'eq' as const, value: id }] : []);
+/** The party counts on the cards. */
+interface PartyCounts { total: number; active: number; companies: number; individuals: number; }
 
+/** Customers, vendors and other parties: the list (filtered by role from the menu, or by group), counts, and the create / edit drawer. */
 @Component({
   selector: 'erp-parties',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, DynamicFieldsComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule,
-    NzFormModule, NzInputModule, NzSelectModule, NzSwitchModule, NzIconModule, NzTagModule, StatCardComponent],
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    NzButtonModule,
+    NzDrawerModule,
+    NzFormModule,
+    NzIconModule,
+    NzInputModule,
+    NzSelectModule,
+    NzSwitchModule,
+    NzTagModule,
+    NzToolTipModule,
+    DynamicFieldsComponent,
+    PagedTableComponent,
+    StatCardComponent,
+    HasPermissionDirective,
+    ErpLabelPipe,
+  ],
   templateUrl: './parties.page.html',
 })
 export class PartiesPage implements OnInit {
   private readonly api = inject(PartiesApi);
   private readonly groupsApi = inject(PartyGroupsApi);
-  readonly groups = toSignal(this.groupsApi.list({ page: 1, pageSize: 200, sort: 'code' }).pipe(map((r) => r.items), catchError(() => of([]))), { initialValue: [] });
-  private readonly groupFilterId = signal<string | null>(null);
   private readonly meta = inject(CustomFieldMetadataService);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
@@ -57,15 +70,19 @@ export class PartiesPage implements OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly session = inject(SessionStore);
-  readonly roles = ROLES;
+  private readonly groupFilterId = signal<string | null>(null);
+  private roleFilterValue: string | null = null;
+  /** `?type=` known up front, so the first request is already filtered (no unfiltered load racing the filtered one). */
+  private readonly initialType = this.route.snapshot.queryParamMap.get('type');
+
+  readonly groups = toSignal(this.groupsApi.list({ page: 1, pageSize: 200, sort: 'code' }).pipe(map((r) => r.items), catchError(() => of([]))), { initialValue: [] });
+  readonly roles = PARTY_ROLES;
   readonly restrictedHint = "Restricted: you don't have permission to view or edit this field";
   /** Editing an existing party without core.sensitive.read: ID number and IBAN arrive masked, so they are read-only. */
   readonly sensitiveLocked = signal(false);
-  /** `?type=` known up front, so the first request is already filtered (no unfiltered load racing the filtered one). */
-  private readonly initialType = this.route.snapshot.queryParamMap.get('type');
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'code', filters: roleFilter(this.initialType) });
   readonly typeFilter = signal<string | null>(this.initialType);
-  readonly pageTitle = signal(titleFor(this.initialType));
+  readonly pageTitle = signal(partiesTitle(this.initialType));
   /** Never say "No parties yet" while loading or after a failed load: both looked like an empty list. */
   readonly emptyText = computed(() => {
     if (this.list.loading()) return 'Loading…';
@@ -80,31 +97,10 @@ export class PartiesPage implements OnInit {
     { key: 'email', label: 'Email', sortField: 'email' },
     { key: 'isActive', label: 'Active', sortField: 'isActive', width: '110px' },
   ];
+  private readonly kpis = new KpiStats<PartyCounts>();
   /** Counted by the server for the whole list, not the page on screen. */
-  readonly stats = signal<{ total: number; active: number; companies: number; individuals: number } | null>(null);
-  readonly statsLoading = signal(true);
-  private loadStats(): void {
-    const base = roleFilter(this.typeFilter());
-    const count = (extra: FilterCriterion[]) => countRows((q: ListQuery) => this.api.list(q), [...base, ...extra]);
-    forkJoin({
-      total: count([]),
-      active: count([{ field: 'isActive', op: 'eq', value: true }]),
-      companies: count([{ field: 'kind', op: 'eq', value: 'company' }]),
-      individuals: count([{ field: 'kind', op: 'eq', value: 'individual' }]),
-    }).subscribe({
-      next: (s) => { this.stats.set(s); this.statsLoading.set(false); },
-      error: () => { this.stats.set(null); this.statsLoading.set(false); },
-    });
-  }
-
-  roleTagColor(role: string): string {
-    switch ((role ?? '').toLowerCase()) {
-      case 'customer': return 'blue';
-      case 'vendor': return 'purple';
-      case 'employee': return 'cyan';
-      default: return 'default';
-    }
-  }
+  readonly stats = this.kpis.data;
+  readonly statsLoading = this.kpis.loading;
   readonly drawerOpen = signal(false);
   readonly editing = signal<PartyDto | null>(null);
   readonly saving = signal(false);
@@ -119,7 +115,7 @@ export class PartiesPage implements OnInit {
       const type = qp.get('type');
       if (type !== this.typeFilter()) {
         this.typeFilter.set(type);
-        this.pageTitle.set(titleFor(type));
+        this.pageTitle.set(partiesTitle(type));
         this.list.setFilters([...roleFilter(type), ...groupFilter(this.groupFilterId())]);
         this.loadStats();
       }
@@ -129,24 +125,13 @@ export class PartiesPage implements OnInit {
     });
   }
 
-  private edit(p: PartyDto): void {
-    this.editing.set(p);
-    this.form = this.newForm(p);
-    this.meta.sections('party').subscribe((s) => {
-      this.sections.set(s);
-      const group = buildCustomFieldsGroup(s, p.customFields as never, false);
-      this.form.setControl('customFields', group);
-      this.customGroup.set(group);
-    });
-    this.drawerOpen.set(true);
-  }
+  roleTagColor(role: string): string { return roleTagColor(role); }
 
   filterRole(role: string | null): void {
     this.roleFilterValue = role;
     this.list.setFilters([...roleFilter(role), ...groupFilter(this.groupFilterId())]);
   }
 
-  private roleFilterValue: string | null = null;
   filterGroup(id: string | null): void {
     this.groupFilterId.set(id);
     this.list.setFilters([...roleFilter(this.typeFilter() ?? this.roleFilterValue), ...groupFilter(id)]);
@@ -159,12 +144,7 @@ export class PartiesPage implements OnInit {
     }
     this.editing.set(null);
     this.form = this.newForm(null);
-    this.meta.sections('party').subscribe((s) => {
-      this.sections.set(s);
-      const group = buildCustomFieldsGroup(s, null, true);
-      this.form.setControl('customFields', group);
-      this.customGroup.set(group);
-    });
+    this.loadCustomFields(null, true);
     this.drawerOpen.set(true);
   }
 
@@ -173,23 +153,23 @@ export class PartiesPage implements OnInit {
     this.clearEditParam();
   }
 
-  /** Drop `?edit=<id>` once the drawer closes, so a reload or Back does not reopen it. */
-  private clearEditParam(): void {
-    if (this.route.snapshot.queryParamMap.has('edit')) void this.router.navigate([], { relativeTo: this.route, queryParams: { edit: null }, queryParamsHandling: 'merge', replaceUrl: true });
-  }
-
   err(name: string): string { return controlError(this.form.get(name)); }
 
   save(): void {
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
-    const v = this.form.getRawValue();
-    // Never send the masked ID number / IBAN back; the API keeps the stored values for users without core.sensitive.read.
-    if (this.sensitiveLocked()) { delete v.idNumber; delete v.iban; }
-    const body = { ...v, currencyCode: v.currencyCode || null, paymentTermsDays: v.paymentTermsDays === '' || v.paymentTermsDays === null ? null : Number(v.paymentTermsDays), creditLimit: v.creditLimit === '' || v.creditLimit === null ? null : Number(v.creditLimit), clearCreditLimit: (v.creditLimit === '' || v.creditLimit === null) && (this.editing()?.creditLimit ?? null) !== null, address: v.address || null, ...(this.sensitiveLocked() ? {} : { idNumber: v.idNumber || null, iban: v.iban || null }), roles: (v.roles as string[]).join(', '), customFields: toApiValues(this.sections(), (v.customFields ?? {}) as Record<string, unknown>) };
+    if (this.form.invalid) { revealErrors(this.form); return; }
+    const v = this.form.getRawValue() as PartyFormValue;
     const p = this.editing();
+    const body = partyBody(v, this.sensitiveLocked(), p?.creditLimit ?? null, this.sections());
     this.saving.set(true);
     (p ? this.api.update(p.id, body) : this.api.create(body)).subscribe({
-      next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(doneText('saved', 'Party', v.name)); this.list.reload(); this.loadStats(); if (p) void this.router.navigate(['/parties', p.id]); else this.clearEditParam(); },
+      next: () => {
+        this.saving.set(false);
+        this.drawerOpen.set(false);
+        this.message.success(doneText('saved', 'Party', v.name));
+        this.list.reload();
+        this.loadStats();
+        if (p) void this.router.navigate(['/parties', p.id]); else this.clearEditParam();
+      },
       error: (e) => {
         this.saving.set(false);
         const problem = asProblem(e);
@@ -199,25 +179,42 @@ export class PartiesPage implements OnInit {
     });
   }
 
+  private edit(p: PartyDto): void {
+    this.editing.set(p);
+    this.form = this.newForm(p);
+    this.loadCustomFields(p.customFields, false);
+    this.drawerOpen.set(true);
+  }
+
+  /** Adds the party's custom fields to the form once their sections load. */
+  private loadCustomFields(values: PartyDto['customFields'] | null, isNew: boolean): void {
+    this.meta.sections('party').subscribe((s) => {
+      this.sections.set(s);
+      const group = buildCustomFieldsGroup(s, values as never, isNew);
+      this.form.setControl('customFields', group);
+      this.customGroup.set(group);
+    });
+  }
+
+  private loadStats(): void {
+    const base = roleFilter(this.typeFilter());
+    const count = (extra: FilterCriterion[]) => countRows((q: ListQuery) => this.api.list(q), [...base, ...extra]);
+    this.kpis.load(forkJoin({
+      total: count([]),
+      active: count([{ field: 'isActive', op: 'eq', value: true }]),
+      companies: count([{ field: 'kind', op: 'eq', value: 'company' }]),
+      individuals: count([{ field: 'kind', op: 'eq', value: 'individual' }]),
+    }));
+  }
+
+  /** Drop `?edit=<id>` once the drawer closes, so a reload or Back does not reopen it. */
+  private clearEditParam(): void {
+    if (this.route.snapshot.queryParamMap.has('edit')) void this.router.navigate([], { relativeTo: this.route, queryParams: { edit: null }, queryParamsHandling: 'merge', replaceUrl: true });
+  }
+
   private newForm(p?: PartyDto | null): FormGroup {
     const locked = !!p && !this.session.hasPermission('core.sensitive.read');
     this.sensitiveLocked.set(locked);
-    return this.fb.group({
-      name: [p?.name ?? '', [Validators.required, Validators.maxLength(200)]],
-      kind: [p?.kind?.toLowerCase() ?? 'company', Validators.required],
-      roles: [p?.roles ?? [this.typeFilter() === 'vendor' ? 'Vendor' : 'Customer'], Validators.required],
-      email: [p?.email ?? '', Validators.email],
-      phone: [p?.phone ?? ''],
-      taxNumber: [p?.taxNumber ?? ''],
-      address: [p?.address ?? ''],
-      currencyCode: [p?.currencyCode ?? '', Validators.maxLength(3)],
-      paymentTermsDays: [p?.paymentTermsDays ?? null, Validators.min(0)],
-      creditLimit: [p?.creditLimit ?? null, Validators.min(0)],
-      idNumber: [{ value: p?.idNumber ?? '', disabled: locked }],
-      iban: [{ value: p?.iban ?? '', disabled: locked }],
-      partyGroupId: [p?.partyGroupId ?? null],
-      isActive: [p?.isActive ?? true],
-      customFields: new FormGroup({}),
-    });
+    return partyForm(this.fb, p, this.typeFilter() === 'vendor' ? 'Vendor' : 'Customer', locked);
   }
 }

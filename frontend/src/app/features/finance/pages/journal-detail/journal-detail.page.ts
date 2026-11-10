@@ -1,213 +1,77 @@
-import { doneText } from '@core/format/done-text';
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { API_BASE_URL } from '@core/api/api-config';
-import { JournalsApi } from '@core/api/admin.api';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { askReason } from '@shared/utils/reason-prompt';
-import { problemMessage } from '@core/http/problem-details';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
-import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { NzTableModule } from 'ng-zorro-antd/table';
+import { JournalsApi } from '@core/api/admin.api';
+import { FinanceDocumentsApi, JournalDetailDto } from '@core/api/finance-documents.api';
 import { displayDate } from '@core/format/display';
-import { DetailPageComponent, ActionButton, KpiCard, DescriptionItem } from '@shared/components/detail-page/detail-page.component';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { formatMoney } from '../../components/invoice-sheet/invoice-sheet.component';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { ActionButton, DescriptionItem, DetailPageComponent, KpiCard } from '@shared/components/detail-page/detail-page.component';
+import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { loadRecord } from '@shared/utils/load-record';
+import { askReason } from '@shared/utils/reason-prompt';
+import { journalSourceLink, printDocument } from '../../finance-documents';
+import { formatMoney } from '../../finance-format';
 
-interface JournalLine {
-  id: string;
-  seq: number;
-  accountId: string;
-  accountCode: string;
-  accountName: string;
-  debit: number;
-  credit: number;
-  description: string | null;
-  partyId: string | null;
-}
-
-interface Journal {
-  id: string;
-  number: string;
-  legalEntityId: string;
-  date: string;
-  memo: string | null;
-  reference: string | null;
-  sourceType: string | null;
-  sourceId: string | null;
-  currencyCode: string;
-  status: string;
-  amount: number;
-  reversalOfId: string | null;
-  postedAt: string | null;
-  lines: JournalLine[];
-}
-
+/** A journal entry: its lines and totals; a manual entry can be posted, edited, deleted or reversed here, a document's journal links to its source. */
 @Component({
   selector: 'erp-journal-detail',
   standalone: true,
-  imports: [NzSpinModule, StatePanelComponent, TranslatePipe, CommonModule, DatePipe, NzTableModule, NzModalModule, DetailPageComponent],
-  templateUrl: './journal-detail.page.html'
+  imports: [CommonModule, NzModalModule, NzSpinModule, NzTableModule, TranslatePipe, DetailPageComponent, StatePanelComponent],
+  templateUrl: './journal-detail.page.html',
 })
 export class JournalDetailPage implements OnInit {
   private readonly i18n = inject(I18nService);
-  private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
-  private readonly apiBase = inject(API_BASE_URL);
   private readonly api = inject(JournalsApi);
+  private readonly documentsApi = inject(FinanceDocumentsApi);
   private readonly modal = inject(NzModalService);
 
-  money(v: number): string { return formatMoney(v, this.journal()?.currencyCode); }
   loading = signal(true);
   error = signal<string | null>(null);
-  journal = signal<Journal | null>(null);
+  journal = signal<JournalDetailDto | null>(null);
 
-  totalDebit = computed(() => {
-    const jrn = this.journal();
-    return jrn ? jrn.lines.reduce((sum, line) => sum + line.debit, 0) : 0;
-  });
+  totalDebit = computed(() => this.journal()?.lines.reduce((sum, line) => sum + line.debit, 0) ?? 0);
+  totalCredit = computed(() => this.journal()?.lines.reduce((sum, line) => sum + line.credit, 0) ?? 0);
 
-  totalCredit = computed(() => {
-    const jrn = this.journal();
-    return jrn ? jrn.lines.reduce((sum, line) => sum + line.credit, 0) : 0;
-  });
-
-  actions = computed((): ActionButton[] => {
-    const jrn = this.journal();
-    if (!jrn) return [];
-    
-    // Only manual entries can be edited, deleted or reversed here; document journals follow their document.
-    const manual = jrn.sourceType === 'manual';
-    return [
-      {
-        label: 'Post',
-        icon: 'check',
-        type: 'primary',
-        permission: 'finance.journals.post',
-        visible: jrn.status === 'draft' && manual,
-        handler: () => this.postJournal()
-      },
-      {
-        label: 'Edit',
-        icon: 'edit',
-        permission: 'finance.journals.write',
-        visible: jrn.status === 'draft' && manual,
-        handler: () => this.router.navigate(['/finance/journals'], { queryParams: { open: jrn.id } })
-      },
-      {
-        label: 'Delete',
-        icon: 'delete',
-        danger: true,
-        permission: 'finance.journals.write',
-        visible: jrn.status === 'draft' && manual,
-        handler: () => this.deleteJournal()
-      },
-      {
-        label: 'Reverse',
-        icon: 'rollback',
-        danger: true,
-        permission: 'finance.journals.reverse',
-        visible: jrn.status === 'posted' && manual,
-        handler: () => this.reverseJournal()
-      },
-      {
-        label: 'Print',
-        icon: 'printer',
-        handler: () => window.open(`/print/journal/${jrn.id}`, '_blank')
-      },
-      {
-        label: 'View Source',
-        icon: 'link',
-        visible: !!jrn.sourceType && !!jrn.sourceId,
-        handler: () => this.viewSource(jrn.sourceType!, jrn.sourceId!)
-      }
-    ];
-  });
+  actions = computed((): ActionButton[] => { const jrn = this.journal(); return jrn ? this.buildActions(jrn) : []; });
 
   kpiCards = computed((): KpiCard[] => {
     const jrn = this.journal();
     if (!jrn) return [];
-    
     return [
-      {
-        title: 'Total Amount',
-        value: jrn.amount,
-        suffix: jrn.currencyCode
-      },
-      {
-        title: 'Total Debit',
-        value: this.totalDebit(),
-        suffix: jrn.currencyCode
-      },
-      {
-        title: 'Total Credit',
-        value: this.totalCredit(),
-        suffix: jrn.currencyCode
-      },
-      {
-        title: 'Lines',
-        value: jrn.lines.length
-      }
+      { title: 'Total Amount', value: jrn.amount, suffix: jrn.currencyCode },
+      { title: 'Total Debit', value: this.totalDebit(), suffix: jrn.currencyCode },
+      { title: 'Total Credit', value: this.totalCredit(), suffix: jrn.currencyCode },
+      { title: 'Lines', value: jrn.lines.length },
     ];
   });
 
-  descriptions = computed((): DescriptionItem[] => {
-    const jrn = this.journal();
-    if (!jrn) return [];
-    
-    const items: DescriptionItem[] = [
-      { label: 'Date', value: displayDate(jrn.date) },
-      { label: 'Currency', value: jrn.currencyCode },
-      { label: 'Posted', value: jrn.postedAt ? displayDate(jrn.postedAt) : 'Not posted' }
-    ];
+  descriptions = computed((): DescriptionItem[] => { const jrn = this.journal(); return jrn ? journalDescriptions(jrn) : []; });
 
-    if (jrn.reference) {
-      items.push({ label: 'Reference', value: jrn.reference });
-    }
-
-    if (jrn.memo) {
-      items.push({ label: 'Memo', value: jrn.memo, span: 2 });
-    }
-
-    return items;
-  });
+  money(v: number): string { return formatMoney(v, this.journal()?.currencyCode); }
 
   retry(): void { this.loading.set(true); this.error.set(null); this.ngOnInit(); }
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (!id) {
-      this.error.set('Invalid journal ID');
-      this.loading.set(false);
-      return;
-    }
-
-    this.http.get<any>(`${this.apiBase}/finance/journals/${id}`).subscribe({
-      next: (response) => {
-        this.journal.set(response);
-        this.loading.set(false);
-      },
-      error: (err) => {
-        this.error.set(err.error?.message || 'Failed to load journal entry');
-        this.loading.set(false);
-      }
-    });
+    loadRecord(this.route.snapshot.paramMap.get('id'), (id) => this.documentsApi.journal(id), { loading: this.loading, error: this.error, record: this.journal },
+      { invalid: 'Invalid journal ID', failed: 'Failed to load journal entry' });
   }
-
-  private fail(err: any, fallback: string): void { this.message.error(problemMessage(err, err?.error?.message || fallback, 'memo')); }
 
   postJournal(): void {
     const jrn = this.journal();
     if (!jrn) return;
     this.api.post(jrn.id).subscribe({
-      next: (res) => { this.journal.set(res as unknown as Journal); this.message.success(`${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${res.number}`); },
-      error: (err) => this.fail(err, 'Failed to post journal')
+      next: (res) => { this.journal.set(res as unknown as JournalDetailDto); this.message.success(`${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${res.number}`); },
+      error: (err) => this.fail(err, 'Failed to post journal'),
     });
   }
 
@@ -220,8 +84,8 @@ export class JournalDetailPage implements OnInit {
       nzOkDanger: true,
       nzOnOk: () => this.api.delete(jrn.id).subscribe({
         next: () => { this.message.success(doneText('deleted', 'Draft journal', jrn.number)); this.router.navigate(['/finance/journals']); },
-        error: (err) => this.fail(err, 'Failed to delete journal')
-      })
+        error: (err) => this.fail(err, 'Failed to delete journal'),
+      }),
     });
   }
 
@@ -234,46 +98,45 @@ export class JournalDetailPage implements OnInit {
       this.api.reverse(jrn.id, reason || undefined).subscribe({
         next: (rev) => {
           this.message.success(`${this.i18n.t('ui.msg.reversedBy', 'Reversed by')} ${rev.number}`);
-          this.api.detail(jrn.id).subscribe((j) => this.journal.set(j as unknown as Journal));
+          this.api.detail(jrn.id).subscribe((j) => this.journal.set(j as unknown as JournalDetailDto));
         },
-        error: (err) => this.fail(err, 'Failed to reverse journal')
+        error: (err) => this.fail(err, 'Failed to reverse journal'),
       });
     });
   }
 
   viewSource(sourceType: string, sourceId: string): void {
-    const type = (sourceType ?? '').toLowerCase().trim();
-    const routes: Record<string, string> = {
-      'invoice': '/finance/invoices',
-      'receipt': '/finance/receipts',
-      'bill': '/finance/bills',
-      'payment': '/finance/payments',
-      'cheque': '/finance/cheques',
-      'pos': '/pos/orders',
-      'posorder': '/pos/orders',
-      'pos-order': '/pos/orders',
-      'order': '/sales/orders',
-      'sales': '/sales/orders',
-      'salesorder': '/sales/orders',
-      'quote': '/sales/quotes',
-      'purchase': '/purchasing/orders',
-      'purchaseorder': '/purchasing/orders',
-      'purchasereceipt': '/purchasing/receipts',
-      'movement': '/inventory/movements',
-      'stock': '/inventory/stock',
-      'workorder': '/manufacturing/workorders',
-      'payroll': '/hr/payroll',
-      'lease': '/real-estate/leases'
-    };
-    const basePath = routes[type];
-    if (basePath) {
-      if (sourceId && sourceId !== '00000000-0000-0000-0000-000000000000') {
-        this.router.navigate([basePath, sourceId]);
-      } else {
-        this.router.navigate([basePath]);
-      }
-    } else {
-      this.message.warning('Cannot navigate to source document');
-    }
+    const link = journalSourceLink(sourceType, sourceId);
+    if (link) this.router.navigate(link);
+    else this.message.warning('Cannot navigate to source document');
   }
+
+  private buildActions(jrn: JournalDetailDto): ActionButton[] {
+    // Only manual entries can be edited, deleted or reversed here; document journals follow their document.
+    const manual = jrn.sourceType === 'manual';
+    const draft = jrn.status === 'draft' && manual;
+    return [
+      { label: 'Post', icon: 'check', type: 'primary', permission: 'finance.journals.post', visible: draft, handler: () => this.postJournal() },
+      { label: 'Edit', icon: 'edit', permission: 'finance.journals.write', visible: draft, handler: () => this.router.navigate(['/finance/journals'], { queryParams: { open: jrn.id } }) },
+      { label: 'Delete', icon: 'delete', danger: true, permission: 'finance.journals.write', visible: draft, handler: () => this.deleteJournal() },
+      { label: 'Reverse', icon: 'rollback', danger: true, permission: 'finance.journals.reverse', visible: jrn.status === 'posted' && manual, handler: () => this.reverseJournal() },
+      { label: 'Print', icon: 'printer', handler: () => printDocument('journal', jrn.id) },
+      { label: 'View Source', icon: 'link', visible: !!jrn.sourceType && !!jrn.sourceId, handler: () => this.viewSource(jrn.sourceType!, jrn.sourceId!) },
+    ];
+  }
+
+  /** The server's message when it sent one, else `fallback`. */
+  private fail(err: { error?: { message?: string } } | null | undefined, fallback: string): void { this.message.error(problemMessage(err, err?.error?.message || fallback, 'memo')); }
+}
+
+/** Date, currency and posting date; reference and memo when there are any. */
+function journalDescriptions(jrn: JournalDetailDto): DescriptionItem[] {
+  const items: DescriptionItem[] = [
+    { label: 'Date', value: displayDate(jrn.date) },
+    { label: 'Currency', value: jrn.currencyCode },
+    { label: 'Posted', value: jrn.postedAt ? displayDate(jrn.postedAt) : 'Not posted' },
+  ];
+  if (jrn.reference) items.push({ label: 'Reference', value: jrn.reference });
+  if (jrn.memo) items.push({ label: 'Memo', value: jrn.memo, span: 2 });
+  return items;
 }

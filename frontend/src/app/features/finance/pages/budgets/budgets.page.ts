@@ -1,4 +1,3 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -11,25 +10,61 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
-import { AccountDto, AccountsApi, BudgetDetail, BudgetSummary, BudgetVsActual, BudgetsApi, LegalEntitiesApi, LegalEntityDto } from '@core/api/admin.api';
-import { createPagedList } from '@core/api/paged-list';
-import { asProblem, problemMessage } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { RevealDirective } from '@shared/directives/reveal.directive';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { AccountDto, AccountsApi, BudgetDetail, BudgetLineValue, BudgetSummary, BudgetVsActual, BudgetsApi, LegalEntitiesApi, LegalEntityDto } from '@core/api/admin.api';
+import { createPagedList } from '@core/api/paged-list';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { RevealDirective } from '@shared/directives/reveal.directive';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** One account row of the budget grid: twelve monthly amounts. */
 interface Row { accountId: string; label: string; type: string; months: number[]; }
+
+/** A saved budget's lines (one per account and month) as grid rows. */
+function budgetRows(lines: BudgetLineValue[]): Row[] {
+  const byAccount = new Map<string, Row>();
+  for (const l of lines) {
+    const row = byAccount.get(l.accountId) ?? { accountId: l.accountId, label: `${l.accountCode} · ${l.accountName}`, type: '', months: Array(12).fill(0) };
+    row.months[l.month - 1] = l.amount;
+    byAccount.set(l.accountId, row);
+  }
+  return [...byAccount.values()];
+}
+
+/** The grid as budget lines: one per account and month with an amount. */
+function budgetLines(rows: Row[]): { accountId: string; month: number; amount: number }[] {
+  return rows.flatMap((r) => r.months.map((amount, i) => ({ accountId: r.accountId, month: i + 1, amount })).filter((l) => l.amount > 0));
+}
 
 /** Budgets: a monthly grid per income/expense account, and the comparison with what the ledger actually posted. */
 @Component({
   selector: 'erp-budgets',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
+  imports: [
+    DecimalPipe,
+    FormsModule,
+    NzButtonModule,
+    NzIconModule,
+    NzInputModule,
+    NzInputNumberModule,
+    NzModalModule,
+    NzSelectModule,
+    NzTableModule,
+    NzTabsModule,
+    NzToolTipModule,
+    TranslatePipe,
+    PagedTableComponent,
+    StatCardComponent,
+    HasPermissionDirective,
+    RevealDirective,
+  ],
   styleUrl: './budgets.page.scss',
   templateUrl: './budgets.page.html',
 })
@@ -60,6 +95,7 @@ export class BudgetsPage {
   fromMonth = 1;
   toMonth = 12;
 
+  /** Postable income and expense accounts not in the grid yet. */
   readonly addable = computed(() => {
     const used = new Set(this.rows().map((r) => r.accountId));
     return this.accounts().filter((a) => (a.type === 'income' || a.type === 'expense') && a.isPostable && !used.has(a.id));
@@ -75,13 +111,7 @@ export class BudgetsPage {
   open(id: string): void {
     this.api.detail(id).subscribe((b: BudgetDetail) => {
       this.id.set(b.id); this.name = b.name; this.year = b.fiscalYear; this.entityId = b.legalEntityId; this.actual.set(null);
-      const byAccount = new Map<string, Row>();
-      for (const l of b.lines) {
-        const row = byAccount.get(l.accountId) ?? { accountId: l.accountId, label: `${l.accountCode} · ${l.accountName}`, type: '', months: Array(12).fill(0) };
-        row.months[l.month - 1] = l.amount;
-        byAccount.set(l.accountId, row);
-      }
-      this.rows.set([...byAccount.values()]);
+      this.rows.set(budgetRows(b.lines));
       this.editing.set(true);
     });
   }
@@ -103,8 +133,7 @@ export class BudgetsPage {
 
   save(): void {
     if (!this.entityId || !this.name.trim()) { this.message.warning('Choose a legal entity and enter a name'); return; }
-    const lines = this.rows().flatMap((r) => r.months.map((amount, i) => ({ accountId: r.accountId, month: i + 1, amount })).filter((l) => l.amount > 0));
-    const body = { legalEntityId: this.entityId, name: this.name, fiscalYear: this.year, isActive: true, lines };
+    const body = { legalEntityId: this.entityId, name: this.name, fiscalYear: this.year, isActive: true, lines: budgetLines(this.rows()) };
     this.saving.set(true);
     const id = this.id();
     (id ? this.api.update(id, body) : this.api.create(body)).subscribe({

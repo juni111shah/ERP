@@ -1,9 +1,7 @@
-import { doneText } from '@core/format/done-text';
-import { ActivatedRoute, Router } from '@angular/router';
-import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -12,39 +10,65 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { catchError, forkJoin, of } from 'rxjs';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { forkJoin } from 'rxjs';
+import { JournalDto, JournalSummary, JournalsApi } from '@core/api/admin.api';
 import { ListQuery } from '@core/api/api.models';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { countRows } from '../../finance-kpis';
-import { AccountDto, AccountsApi, JournalDto, JournalSummary, JournalsApi, LegalEntitiesApi, LegalEntityDto } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
 import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
 import { asProblem, controlError, problemMessage } from '@core/http/problem-details';
-import { askReason } from '@shared/utils/reason-prompt';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { formatMoney } from '../../components/invoice-sheet/invoice-sheet.component';
 import { I18nService } from '@core/i18n/i18n.service';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
-
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
+import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { revealErrors } from '@shared/forms/form-validation';
 import { ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { askReason } from '@shared/utils/reason-prompt';
+import { formatMoney } from '../../finance-format';
+import { KpiStats, countRows } from '../../finance-kpis';
+import { journalLineGroup, journalLinesBody, journalTotals, lineFieldStatus } from '../../finance-lines';
+import { FinanceLookups, isPostableAccount } from '../../finance-lookups';
+
+/** Journals counted by status for the cards. */
+interface JournalCounts { posted: number; drafts: number; reversed: number; }
 
 /** Journals: list, draft entry with a balanced-lines editor, post, reverse; plus closing the books of a legal entity. */
 @Component({
   selector: 'erp-journals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, StatCardComponent, StatusTagComponent, TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzFormModule, NzIconModule, NzInputModule,
-    NzInputNumberModule, NzModalModule, NzSelectModule, NzTagModule],
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    NzButtonModule,
+    NzDatePickerModule,
+    NzDrawerModule,
+    NzFormModule,
+    NzIconModule,
+    NzInputModule,
+    NzInputNumberModule,
+    NzModalModule,
+    NzSelectModule,
+    NzTagModule,
+    NzToolTipModule,
+    TranslatePipe,
+    PagedTableComponent,
+    StatCardComponent,
+    StatusTagComponent,
+    HasPermissionDirective,
+    ErpLabelPipe,
+  ],
+  providers: [FinanceLookups],
   styleUrl: './journals.page.scss',
   templateUrl: './journals.page.html',
 })
-export class JournalsPage {
+export class JournalsPage implements OnInit {
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(JournalsApi);
@@ -52,25 +76,18 @@ export class JournalsPage {
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
-  private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
-  private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
-  readonly entities = computed(() => this.entityPage().items);
-  readonly accounts = computed(() => this.accountPage().items.filter((a) => a.isPostable && a.isActive));
+  private readonly lookups = inject(FinanceLookups).load({ entities: true, accounts: true });
+
+  readonly entities = this.lookups.entities;
+  readonly accounts = computed(() => this.lookups.accounts().filter(isPostableAccount));
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
 
+  private readonly kpis = new KpiStats<JournalCounts>();
   /** Counted by the server for the whole workspace, not the page on screen. */
-  readonly stats = signal<{ posted: number; drafts: number; reversed: number } | null>(null);
-  readonly statsLoading = signal(true);
+  readonly stats = this.kpis.data;
+  readonly statsLoading = this.kpis.loading;
   /** Caption of the cards when their figures could not be read. */
-  readonly statsError = computed(() => (this.statsLoading() ? null : 'Could not load this figure'));
-  reload(): void { this.list.reload(); this.loadStats(); }
-  private loadStats(): void {
-    const count = (status: string) => countRows((q: ListQuery) => this.api.list(q), [{ field: 'status', op: 'eq', value: status }]);
-    forkJoin({ posted: count('posted'), drafts: count('draft'), reversed: count('reversed') }).subscribe({
-      next: (s) => { this.stats.set(s); this.statsLoading.set(false); },
-      error: () => { this.stats.set(null); this.statsLoading.set(false); },
-    });
-  }
+  readonly statsError = this.kpis.error;
   readonly columns: TableColumn<JournalSummary>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
     { key: 'date', label: 'Date', sortField: 'date', width: '120px', filterField: 'date' },
@@ -87,32 +104,28 @@ export class JournalsPage {
   lockDate: Date | null = null;
   readonly form = this.fb.group({
     legalEntityId: ['', Validators.required], date: [null as Date | null, Validators.required], memo: [''], reference: [''],
-    lines: this.fb.array<unknown>([]),
+    lines: this.fb.array<ReturnType<typeof journalLineGroup>>([]),
   });
   private readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.value });
-  readonly totals = computed(() => {
-    const lines = (this.value().lines ?? []) as { debit?: number | null; credit?: number | null }[];
-    return { debit: lines.reduce((s, l) => s + (l.debit ?? 0), 0), credit: lines.reduce((s, l) => s + (l.credit ?? 0), 0) };
-  });
+  readonly totals = computed(() => journalTotals(this.value().lines ?? []));
   readonly editable = computed(() => !this.journal() || (this.journal()!.status === 'draft' && this.journal()!.sourceType === 'manual'));
 
   get lines(): FormArray { return this.form.controls.lines as FormArray; }
   /** A line field the user has tried to save empty; these sit outside nz-form-control, so they need their own red state. */
-  lineStatus(line: unknown, name: string): 'error' | '' { const c = (line as { get(n: string): { invalid: boolean; touched: boolean } | null }).get(name); return c?.invalid && c.touched ? 'error' : ''; }
+  lineStatus(line: AbstractControl, name: string): 'error' | '' { return lineFieldStatus(line, name); }
   readonly money = formatMoney;
   err(name: string): string { return controlError(this.form.get(name)); }
 
-  private newLine(l?: { accountId?: string; debit?: number; credit?: number; description?: string }) {
-    return this.fb.group({ accountId: [l?.accountId ?? '', Validators.required], debit: [l?.debit ?? 0], credit: [l?.credit ?? 0], description: [l?.description ?? ''] });
-  }
-  addLine(): void { this.lines.push(this.newLine() as never); }
+  addLine(): void { this.lines.push(journalLineGroup(this.fb)); }
   removeLine(i: number): void { if (this.lines.length > 2) this.lines.removeAt(i); }
+
+  reload(): void { this.list.reload(); this.loadStats(); }
 
   /** `?open=<id>` opens that record's drawer (used by the detail page's Edit/Allocate actions). */
   ngOnInit(): void {
     this.loadStats();
     const id = this.route.snapshot.queryParamMap.get('open');
-    if (id) this.open({ id } as never);
+    if (id) this.open({ id } as JournalSummary);
   }
 
   openDetails(id: string): void { void this.router.navigate(['/finance/journals', id]); }
@@ -123,31 +136,15 @@ export class JournalsPage {
     this.api.detail(row.id).subscribe((j) => this.show(j));
   }
 
-  private show(j: JournalDto | null): void {
-    this.journal.set(j);
-    this.lines.clear();
-    for (const l of j?.lines ?? [{}, {}]) this.lines.push(this.newLine(l) as never);
-    const entities = this.entities();
-    this.form.patchValue({
-      legalEntityId: j?.legalEntityId ?? (entities.length === 1 ? entities[0].id : ''), memo: j?.memo ?? '', reference: j?.reference ?? '',
-      date: j ? new Date(j.date + 'T00:00:00') : new Date(),
-    });
-    this.editable() ? this.form.enable() : this.form.disable();
-    this.drawerOpen.set(true);
-  }
-
   save(post: boolean): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); this.message.warning('Fill in the fields marked in red'); return; }
+    if (this.form.invalid) { revealErrors(this.form, { touchAll: true }); this.message.warning('Fill in the fields marked in red'); return; }
     const v = this.form.getRawValue();
-    const body = {
-      legalEntityId: v.legalEntityId, date: toIsoDate(v.date!), memo: v.memo || null, reference: v.reference || null,
-      lines: (v.lines as { accountId: string; debit: number; credit: number; description: string }[]).map((l) => ({ ...l, debit: l.debit ?? 0, credit: l.credit ?? 0, description: l.description || null })),
-    };
+    const body = { legalEntityId: v.legalEntityId, date: toIsoDate(v.date!), memo: v.memo || null, reference: v.reference || null, lines: journalLinesBody(v.lines) };
     this.saving.set(true);
     this.api.save(this.journal()?.id ?? null, body).subscribe({
       next: (saved) => {
-        if (!post) return this.done(saved, doneText('saved', 'Draft journal', saved.number));
-        this.api.post(saved.id).subscribe({ next: (p) => this.done(p, `${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${p.number}`), error: (e) => { this.saving.set(false); this.fail(e, saved); } });
+        if (!post) return this.done(doneText('saved', 'Draft journal', saved.number));
+        this.api.post(saved.id).subscribe({ next: (p) => this.done(`${this.i18n.t('ui.msg.postedAs', 'Posted as')} ${p.number}`), error: (e) => { this.saving.set(false); this.fail(e, saved); } });
       },
       error: (e) => { this.saving.set(false); this.fail(e); },
     });
@@ -180,7 +177,24 @@ export class JournalsPage {
     });
   }
 
-  private done(j: JournalDto, text: string): void {
+  private show(j: JournalDto | null): void {
+    this.journal.set(j);
+    this.lines.clear();
+    for (const l of j?.lines ?? [{}, {}]) this.lines.push(journalLineGroup(this.fb, l));
+    this.form.patchValue({
+      legalEntityId: j?.legalEntityId ?? this.lookups.onlyEntityId(), memo: j?.memo ?? '', reference: j?.reference ?? '',
+      date: j ? new Date(j.date + 'T00:00:00') : new Date(),
+    });
+    if (this.editable()) this.form.enable(); else this.form.disable();
+    this.drawerOpen.set(true);
+  }
+
+  private loadStats(): void {
+    const count = (status: string) => countRows((q: ListQuery) => this.api.list(q), [{ field: 'status', op: 'eq', value: status }]);
+    this.kpis.load(forkJoin({ posted: count('posted'), drafts: count('draft'), reversed: count('reversed') }));
+  }
+
+  private done(text: string): void {
     this.saving.set(false); this.drawerOpen.set(false); this.message.success(text); this.reload();
   }
 

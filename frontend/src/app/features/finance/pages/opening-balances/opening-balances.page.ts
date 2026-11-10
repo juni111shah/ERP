@@ -10,26 +10,38 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzModalModule } from 'ng-zorro-antd/modal';
-import { NzModalService } from 'ng-zorro-antd/modal';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { AccountDto, AccountsApi, JournalSummary, JournalsApi } from '@core/api/admin.api';
-import { OpeningBalanceLine, OpeningBalancesApi } from '@core/api/period-close.api';
 import { createPagedList } from '@core/api/paged-list';
+import { PartiesApi } from '@core/api/parties.api';
+import { OpeningBalanceLine, OpeningBalancesApi } from '@core/api/period-close.api';
 import { toIsoDate } from '@core/format/dates';
 import { displayDate } from '@core/format/display';
 import { doneText } from '@core/format/done-text';
 import { asProblem, problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
-import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { askReason } from '@shared/utils/reason-prompt';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { PartiesApi } from '@core/api/parties.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
+import { loadInto } from '@shared/utils/load-into';
+import { askReason } from '@shared/utils/reason-prompt';
 
+/** One row of the opening-balances grid as typed (amounts and party may still be empty). */
 interface DraftLine { accountId: string | null; debit: number | null; credit: number | null; partyId: string | null; dueDate: Date | null; reference: string; }
 const blankLine = (): DraftLine => ({ accountId: null, debit: null, credit: null, partyId: null, dueDate: null, reference: '' });
+
+/** A row with an account and an amount: the rows that are posted. */
+const isFilled = (l: DraftLine): boolean => !!l.accountId && ((l.debit ?? 0) > 0 || (l.credit ?? 0) > 0);
+
+/** Sum of one side of the grid, rounded to cents. */
+const sideTotal = (lines: DraftLine[], key: 'debit' | 'credit'): number => Math.round(lines.reduce((s, l) => s + (l[key] ?? 0), 0) * 100) / 100;
+
+/** A filled row as the API takes it. */
+const toOpeningLine = (l: DraftLine): OpeningBalanceLine => ({
+  accountId: l.accountId!, debit: l.debit ?? 0, credit: l.credit ?? 0, partyId: l.partyId, dueDate: l.dueDate ? toIsoDate(l.dueDate) : null, reference: l.reference || null,
+});
 
 /** Receivable and payable control accounts need a party and raise open invoices and bills. */
 export const needsParty = (account: Pick<AccountDto, 'systemRole'> | undefined): boolean => account?.systemRole === 'ar.control' || account?.systemRole === 'ap.control';
@@ -39,7 +51,23 @@ export const needsParty = (account: Pick<AccountDto, 'systemRole'> | undefined):
   selector: 'erp-opening-balances',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzModalModule, DecimalPipe, FormsModule, RouterLink, NzAlertModule, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzIconModule, NzInputModule, NzInputNumberModule, NzSelectModule, HasPermissionDirective, PagedTableComponent, StatusTagComponent],
+  imports: [
+    DecimalPipe,
+    FormsModule,
+    RouterLink,
+    NzAlertModule,
+    NzButtonModule,
+    NzDatePickerModule,
+    NzDrawerModule,
+    NzIconModule,
+    NzInputModule,
+    NzInputNumberModule,
+    NzModalModule,
+    NzSelectModule,
+    PagedTableComponent,
+    StatusTagComponent,
+    HasPermissionDirective,
+  ],
   styleUrl: './opening-balances.page.scss',
   templateUrl: './opening-balances.page.html',
 })
@@ -72,18 +100,17 @@ export class OpeningBalancesPage {
   date: Date = new Date();
   memo = '';
 
-  readonly totalDebit = computed(() => this.sum('debit'));
-  readonly totalCredit = computed(() => this.sum('credit'));
+  readonly totalDebit = computed(() => sideTotal(this.lines(), 'debit'));
+  readonly totalCredit = computed(() => sideTotal(this.lines(), 'credit'));
   readonly equityDifference = computed(() => Math.round((this.totalDebit() - this.totalCredit()) * 100) / 100);
   readonly canSave = computed(() => !!this.entityId && this.filled().length > 0 && this.filled().every((l) => !this.partyRequired(l) || !!l.partyId) && !this.saving());
-  private filled = () => this.lines().filter((l) => l.accountId && ((l.debit ?? 0) > 0 || (l.credit ?? 0) > 0));
+  private readonly filled = () => this.lines().filter(isFilled);
 
   constructor() {
-    inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).subscribe({ next: (r) => this.accounts.set(r.items.filter((a) => a.isPostable && a.isActive && a.systemRole !== 'equity.opening')), error: () => undefined });
+    // The opening equity account takes the difference automatically, so it is not offered as a line.
+    loadInto(this.accounts, inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }), (r) => r.items.filter((a) => a.isPostable && a.isActive && a.systemRole !== 'equity.opening'));
   }
 
-  private sum(key: 'debit' | 'credit'): number { return Math.round(this.lines().reduce((s, l) => s + (l[key] ?? 0), 0) * 100) / 100; }
-  private account(l: DraftLine): AccountDto | undefined { return this.accounts().find((a) => a.id === l.accountId); }
   partyRequired(l: DraftLine): boolean { return needsParty(this.account(l)); }
   partyKind(l: DraftLine): string { return this.account(l)?.systemRole === 'ap.control' ? 'vendor' : 'customer'; }
 
@@ -99,16 +126,13 @@ export class OpeningBalancesPage {
   remove(i: number): void { this.lines.update((ls) => (ls.length > 1 ? ls.filter((_, n) => n !== i) : ls)); }
 
   searchParties(term: string): void {
-    this.partiesApi.list({ page: 1, pageSize: 20, search: term }).subscribe({ next: (r) => this.parties.set(r.items.map((p) => ({ value: p.id, label: p.name }))), error: () => undefined });
+    loadInto(this.parties, this.partiesApi.list({ page: 1, pageSize: 20, search: term }), (r) => r.items.map((p) => ({ value: p.id, label: p.name })));
   }
 
   save(): void {
-    const lines: OpeningBalanceLine[] = this.filled().map((l) => ({
-      accountId: l.accountId!, debit: l.debit ?? 0, credit: l.credit ?? 0, partyId: l.partyId, dueDate: l.dueDate ? toIsoDate(l.dueDate) : null, reference: l.reference || null,
-    }));
     this.saving.set(true);
     this.serverError.set(null);
-    this.api.post({ legalEntityId: this.entityId!, date: toIsoDate(this.date), memo: this.memo.trim() || null, lines }).subscribe({
+    this.api.post({ legalEntityId: this.entityId!, date: toIsoDate(this.date), memo: this.memo.trim() || null, lines: this.filled().map(toOpeningLine) }).subscribe({
       next: (r) => {
         this.saving.set(false);
         this.open.set(false);
@@ -133,4 +157,6 @@ export class OpeningBalancesPage {
       });
     });
   }
+
+  private account(l: DraftLine): AccountDto | undefined { return this.accounts().find((a) => a.id === l.accountId); }
 }

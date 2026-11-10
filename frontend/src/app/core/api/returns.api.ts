@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
+import { ListQuery, PagedResult } from './api.models';
 import { CrudApiService } from './crud-api.service';
 
 export type ReturnStatus = 'draft' | 'posted' | 'voided';
@@ -35,17 +36,29 @@ export interface PurchaseReturnInput {
   lines: { orderLineId?: string | null; billLineId?: string | null; quantity: number }[];
 }
 
+/** What the returns screen does with either kind of return, whichever API serves it. */
+export interface ReturnsApiLike {
+  list(query: ListQuery): Observable<PagedResult<ReturnSummary>>;
+  detail(id: string): Observable<ReturnDetail>;
+  post(id: string): Observable<ReturnDetail>;
+  void(id: string, reason: string): Observable<ReturnDetail>;
+  delete(id: string): Observable<void>;
+}
+
+/** List, create and delete (CRUD) plus detail, post and void of one kind of return. */
 abstract class ReturnsApiBase<S, D, I> extends CrudApiService<S, I> {
   detail(id: string): Observable<D> { return this.http.get<D>(`${this.url}/${id}`); }
   post(id: string): Observable<D> { return this.http.post<D>(`${this.url}/${id}/post`, {}); }
   void(id: string, reason: string): Observable<D> { return this.http.post<D>(`${this.url}/${id}/void`, { reason }); }
 }
 
+/** Sales returns: goods a customer sends back (/api/v1/m/sales/returns). */
 @Injectable({ providedIn: 'root' })
 export class SalesReturnsApi extends ReturnsApiBase<SalesReturnSummaryDto, SalesReturnDto, SalesReturnInput> {
   protected readonly resource = 'm/sales/returns';
 }
 
+/** Purchase returns: goods sent back to a vendor (/api/v1/m/purchasing/returns). */
 @Injectable({ providedIn: 'root' })
 export class PurchaseReturnsApi extends ReturnsApiBase<PurchaseReturnSummaryDto, PurchaseReturnDto, PurchaseReturnInput> {
   protected readonly resource = 'm/purchasing/returns';
