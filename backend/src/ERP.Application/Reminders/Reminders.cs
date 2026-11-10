@@ -4,8 +4,6 @@ using ERP.Application.Common;
 using ERP.Domain.Identity;
 using ERP.Application.Security;
 using ERP.Domain.Platform;
-using FluentValidation;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Application.Reminders;
@@ -112,36 +110,4 @@ public sealed class ReminderJob(ReminderDispatcher dispatcher) : IScheduledJob
     public string Name => "core.reminders";
     public string? ModuleKey => null;
     public Task RunAsync(DateOnly today, CancellationToken ct) => dispatcher.RunAsync(today, ct);
-}
-
-public sealed record MessageLogDto(Guid Id, string Channel, string Recipient, string Subject, string? Body, string? Link, MessageStatus Status, string? Error, DateTime SentAt, int Attempts = 0);
-
-/// <summary>Runs the reminder pass now (admins and tests); returns how many messages were sent.</summary>
-public sealed record SendRemindersNow : ICommand<int>, IRequirePermission { public string RequiredPermission => ERP.Application.Security.CorePermissions.SettingsWrite; }
-
-internal sealed class ReminderHandlers(ReminderDispatcher dispatcher, IClock clock) : IRequestHandler<SendRemindersNow, int>
-{
-    public Task<int> Handle(SendRemindersNow cmd, CancellationToken ct) => dispatcher.RunAsync(DateOnly.FromDateTime(clock.UtcNow), ct);
-}
-
-/// <summary>Sends a short test message so an administrator can check the email settings. Recorded in the message log.</summary>
-public sealed record SendTestEmail(string To) : ICommand<MessageLogDto>, IRequirePermission { public string RequiredPermission => ERP.Application.Security.CorePermissions.SettingsWrite; }
-
-public sealed class SendTestEmailValidator : AbstractValidator<SendTestEmail>
-{
-    public SendTestEmailValidator() => RuleFor(x => x.To).NotEmpty().EmailAddress().WithMessage("Enter a valid email address.");
-}
-
-internal sealed class TestEmailHandler(IEmailSender sender, IRepository<MessageLog> log, IClock clock) : IRequestHandler<SendTestEmail, MessageLogDto>
-{
-    public async Task<MessageLogDto> Handle(SendTestEmail cmd, CancellationToken ct)
-    {
-        if (!sender.IsEnabled) throw new ConflictException("Email is not configured. Set the Email section (Enabled, Host, FromAddress ...) and restart the API.");
-        var entry = new MessageLog { Channel = "email", Recipient = cmd.To.Trim(), Subject = "ERP test email", Body = "This is a test message from your ERP. Email sending works.", DedupeKey = $"test-email:{Guid.NewGuid()}", SentAt = clock.UtcNow, Attempts = 1, Status = MessageStatus.Sent };
-        try { await sender.SendAsync(entry.Recipient, entry.Subject, entry.Body, null, ct); }
-        catch (Exception e) when (e is not OperationCanceledException) { entry.Status = MessageStatus.Failed; entry.Error = e.Message.Length > 400 ? e.Message[..400] : e.Message; }
-        log.Add(entry);
-        await log.SaveChangesAsync(ct);
-        return new(entry.Id, entry.Channel, entry.Recipient, entry.Subject, entry.Body, null, entry.Status, entry.Error, entry.SentAt, entry.Attempts);
-    }
 }

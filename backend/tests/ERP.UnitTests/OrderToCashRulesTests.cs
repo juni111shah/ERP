@@ -41,14 +41,14 @@ public class OrderToCashRulesTests
     }
 
     [Theory]
-    [InlineData(typeof(CreateInvoice))]
-    [InlineData(typeof(UpdateInvoice))]
-    [InlineData(typeof(IssueInvoice))]
-    [InlineData(typeof(VoidInvoice))]
-    [InlineData(typeof(ApplyCreditNote))]
-    [InlineData(typeof(CreateReceipt))]
-    [InlineData(typeof(AllocateReceipt))]
-    [InlineData(typeof(VoidReceipt))]
+    [InlineData(typeof(CreateInvoiceCommand))]
+    [InlineData(typeof(UpdateInvoiceCommand))]
+    [InlineData(typeof(IssueInvoiceCommand))]
+    [InlineData(typeof(VoidInvoiceCommand))]
+    [InlineData(typeof(ApplyCreditNoteCommand))]
+    [InlineData(typeof(CreateReceiptCommand))]
+    [InlineData(typeof(AllocateReceiptCommand))]
+    [InlineData(typeof(VoidReceiptCommand))]
     public void Commands_that_change_balances_retry_on_a_concurrency_conflict(Type command)
         => Assert.True(typeof(IRetryOnConcurrency).IsAssignableFrom(command), command.Name);
 }

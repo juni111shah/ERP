@@ -6,7 +6,6 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Services.Domain;
 using ERP.Modules.Services.Features;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,8 +54,6 @@ public sealed class ServicesModule : ModuleBase
             new ERP.Application.Workflow.EntityAttachmentOwnerResolver<ServiceEngagement>(
                 sp.GetRequiredService<ERP.Application.Abstractions.IEntityStore>(), "engagement", Services.Permissions.EngagementsRead, Services.Permissions.EngagementsManage));
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => ServicesEndpoints.Map(group);
 
     public override void ConfigureModel(ModelBuilder modelBuilder)
     {

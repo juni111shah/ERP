@@ -7,8 +7,6 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Pos.Domain;
 using ERP.Modules.Pos.Features;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,6 +88,11 @@ public sealed class PosModule : ModuleBase
         services.AddScoped<ISearchProvider, PosSearch>();
         services.AddScoped<PosAccounts>();
         services.AddScoped<PosCalendar>();
+        services.AddScoped<PosRegisterSetup>();
+        services.AddScoped<PosSessionCaller>();
+        services.AddScoped<PosOrderPricing>();
+        services.AddScoped<PosOrderParties>();
+        services.AddScoped<PosOrderRefundable>();
     }
 
     public override void ConfigureModel(ModelBuilder mb)
@@ -221,6 +224,4 @@ public sealed class PosModule : ModuleBase
             b.HasIndex(x => new { x.OrgId, x.PosReturnId });
         });
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => PosEndpoints.Map(group);
 }

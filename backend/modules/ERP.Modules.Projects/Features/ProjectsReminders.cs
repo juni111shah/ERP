@@ -55,7 +55,7 @@ internal sealed class ProjectTaskImport(ISender sender, IReadRepository<Project>
         Guid? userId = null;
         if (r.Get("assigneeEmail") is { } email)
             userId = (await directory.ListMembersAsync(ct)).FirstOrDefault(m => m.Email.Equals(email, StringComparison.OrdinalIgnoreCase))?.Id ?? throw new ImportRowException($"No workspace member has the email '{email}'.");
-        await sender.Send(new CreateTask(new TaskInput(project.Id, null, r.Require("title"), r.Get("description"), ProjectTaskStatus.Todo, r.Enum<TaskPriority>("priority", TaskPriority.Medium), null, r.Decimal("estimatedHours") ?? 0m, 0m,
+        await sender.Send(new CreateTaskCommand(new TaskInput(project.Id, null, r.Require("title"), r.Get("description"), ProjectTaskStatus.Todo, r.Enum<TaskPriority>("priority", TaskPriority.Medium), null, r.Decimal("estimatedHours") ?? 0m, 0m,
             Date(r, "dueDate"), userId, null, Date(r, "startDate"))), ct);
     }
 

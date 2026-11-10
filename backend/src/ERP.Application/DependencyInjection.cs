@@ -28,6 +28,12 @@ public static class DependencyInjection
         // One constrained open-generic handler serves every list request (no per-table list handlers).
         services.AddTransient(typeof(IRequestHandler<,>), typeof(ListRequestHandler<,>));
         services.AddScoped<ICustomFieldService, CustomFieldService>();
+        services.AddScoped<CustomizableRecordLoader>();
+        services.AddScoped<ERP.Application.Parties.PartyMapping>();
+        services.AddScoped<AttachmentOwnerAccess>();
+        services.AddScoped<ERP.Application.Printing.PrintLookups>();
+        services.AddScoped<ERP.Application.Printing.DocumentEmailSender>();
+        services.AddScoped<ERP.Application.Imports.ImportDefinitions>();
         // Chart-of-accounts sub-categories: generic default; a module or country pack registered later replaces it.
         services.AddSingleton<ERP.Application.Finance.IAccountSubcategoryRules, ERP.Application.Finance.StandardAccountSubcategoryRules>();
         services.AddScoped<INumberingService, NumberingService>();
@@ -40,8 +46,20 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Search.ISearchProvider, ERP.Application.Search.CoreSearchProvider>();
         services.AddScoped<ERP.Application.Finance.IPostingService, ERP.Application.Finance.PostingService>();
         services.AddScoped<ERP.Application.Finance.IInvoicingService, ERP.Application.Finance.InvoicingService>();
+        services.AddScoped<ERP.Application.Finance.InvoiceCreditCaps>();
         services.AddScoped<ERP.Application.Finance.ICreditLimitService, ERP.Application.Finance.CreditLimitService>();
         services.AddScoped<ERP.Application.Finance.ISettlementService, ERP.Application.Finance.SettlementService>();
+        // Rules shared by several handlers of a finance feature (receipts, payments, bills, cheques, bank, receivables / payables reports).
+        services.AddScoped<ERP.Application.Finance.ReceiptDtoBuilder>();
+        services.AddScoped<ERP.Application.Finance.PaymentDtoBuilder>();
+        services.AddScoped<ERP.Application.Finance.PaymentIssuing>();
+        services.AddScoped<ERP.Application.Finance.BillDrafts>();
+        services.AddScoped<ERP.Application.Finance.ChequeDtoBuilder>();
+        services.AddScoped<ERP.Application.Finance.ChequeRegistration>();
+        services.AddScoped<ERP.Application.Finance.BankLedger>();
+        services.AddScoped<ERP.Application.Finance.CashAccountGuard>();
+        services.AddScoped<ERP.Application.Finance.ReceivablesAsOf>();
+        services.AddScoped<ERP.Application.Finance.PayablesAsOf>();
         services.AddScoped<ILegalEntityGuard, LegalEntityGuard>();
         services.AddScoped<ERP.Application.Audit.AuditFieldAccess>();
         services.AddScoped<IApprovalService, ApprovalService>();
@@ -70,11 +88,31 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Assistant.IAssistantAction, ERP.Application.Assistant.CreatePartyAssistantAction>();
         services.AddScoped<ERP.Application.Platform.SubscriptionInvoicing>();
         services.AddScoped<ERP.Application.Platform.ClientProvisioner>();
+        services.AddScoped<ERP.Application.Platform.SignupWorkflow>();
+        services.AddScoped<ERP.Application.Platform.PlanViews>();
+        services.AddScoped<ERP.Application.Platform.ClientReader>();
+        services.AddScoped<ERP.Application.Platform.ClientSubscriptions>();
+        services.AddScoped<ERP.Application.Platform.PlatformInvoiceDocuments>();
+        services.AddScoped<ERP.Application.Platform.BillingOverviews>();
+        services.AddScoped<ERP.Application.Platform.AssistantConsole>();
+        services.AddScoped<ERP.Application.Security.PermissionGrants>();
+        services.AddScoped<ERP.Application.Audit.AuditRows>();
         services.AddScoped<IScheduledJob, ERP.Application.Common.IdempotencyCleanupJob>();
         services.AddScoped<ERP.Application.Common.IdempotencyService>();
         services.AddScoped<IReminderSource, CoreReminderSource>();
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<ERP.Application.Finance.AccountNumbering>();
+        services.AddScoped<ERP.Application.Finance.JournalDrafts>();
+        services.AddScoped<ERP.Application.Finance.JournalDtoBuilder>();
+        services.AddScoped<ERP.Application.Finance.TrialBalanceBuilder>();
+        services.AddScoped<ERP.Application.Finance.CashMovementsCalculator>();
+        services.AddScoped<ERP.Application.Finance.TaxSummaryLineReader>();
+        services.AddScoped<ERP.Application.Finance.OpeningBalanceDocuments>();
+        services.AddScoped<ERP.Application.Finance.YearEndScope>();
+        services.AddScoped<ERP.Application.Finance.BudgetMapper>();
+        services.AddScoped<ERP.Application.Finance.TaxCodeEditing>();
+        services.AddScoped<ERP.Application.Finance.AccountEditing>();
+        services.AddScoped<ERP.Application.Finance.AccountTreeBalances>();
 
         services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Parties.Party>(sp.GetRequiredService<IEntityStore>(), "party", Security.CorePermissions.PartiesRead, Security.CorePermissions.PartiesWrite));
         services.AddScoped<IAttachmentOwnerResolver>(sp => new EntityAttachmentOwnerResolver<ERP.Domain.Finance.Invoice>(sp.GetRequiredService<IEntityStore>(), "invoice", Security.CorePermissions.InvoicesRead, Security.CorePermissions.InvoicesWrite));

@@ -122,7 +122,7 @@ public sealed class InvoicingService(
         if (invoice.SourceType == LedgerSources.Opening) throw new ConflictException("This document comes from the opening entry. Reverse the opening entry instead.");
         // Voiding under a live credit note would leave that credit in receivables with nothing behind it.
         if (!invoice.IsCreditNote && await invoices.AnyAsync(i => i.IsCreditNote && i.Status != DocumentStatus.Voided
-                && (i.CreditNoteForId == invoice.Id || (i.SourceType == CreateCreditNoteFromInvoice.LinkType && i.SourceId == invoice.Id)), ct))
+                && (i.CreditNoteForId == invoice.Id || (i.SourceType == InvoiceCreditCaps.LinkType && i.SourceId == invoice.Id)), ct))
             throw new ConflictException("This invoice has a credit note against it. Void or delete the credit note first.");
         var journal = await journals.Tracked(new Specification<JournalEntry>(j => j.Id == invoice.JournalEntryId).Include(j => j.Lines)).FirstOrDefaultAsync(ct) ?? throw new NotFoundException();
         var lockedTo = (await guard.RequireAsync(invoice.LegalEntityId, ct)).BooksLockedTo;

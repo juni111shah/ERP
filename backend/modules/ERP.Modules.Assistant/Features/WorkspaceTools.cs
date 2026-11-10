@@ -47,7 +47,7 @@ internal sealed class SearchRecordsTool(ISender sender) : IAssistantTool
     {
         var query = ToolAnswers.ReadText(argumentsJson, "query");
         if (query is null) return "Give some words to search for.";
-        var result = await sender.Send(new GlobalSearch(query), ct);
+        var result = await sender.Send(new GlobalSearchQuery(query), ct);
         return result.Hits.Count == 0 ? "Nothing matches." : ToolAnswers.Serialize(result.Hits.Take(20));
     }
 }
@@ -85,13 +85,13 @@ internal sealed class RunReportTool(ISender sender, ICurrentUser user, IClock cl
             // Each of these requests carries its own permission, which the mediator pipeline enforces.
             object? result = ToolAnswers.ReadText(argumentsJson, "report") switch
             {
-                "receivables_ageing" => await sender.Send(new GetArAgeing(to, entity), ct),
-                "payables_ageing" => await sender.Send(new GetApAgeing(to, entity), ct),
-                "income_statement" => await sender.Send(new GetIncomeStatement(from, to, entity), ct),
-                "balance_sheet" => await sender.Send(new GetBalanceSheet(to, entity), ct),
-                "trial_balance" => await sender.Send(new GetTrialBalance(from, to, entity), ct),
-                "cash_movements" => await sender.Send(new GetCashMovements(from, to, entity), ct),
-                "tax_summary" => await sender.Send(new GetTaxSummary(from, to, entity), ct),
+                "receivables_ageing" => await sender.Send(new GetArAgeingQuery(to, entity), ct),
+                "payables_ageing" => await sender.Send(new GetApAgeingQuery(to, entity), ct),
+                "income_statement" => await sender.Send(new GetIncomeStatementQuery(from, to, entity), ct),
+                "balance_sheet" => await sender.Send(new GetBalanceSheetQuery(to, entity), ct),
+                "trial_balance" => await sender.Send(new GetTrialBalanceQuery(from, to, entity), ct),
+                "cash_movements" => await sender.Send(new GetCashMovementsQuery(from, to, entity), ct),
+                "tax_summary" => await sender.Send(new GetTaxSummaryQuery(from, to, entity), ct),
                 _ => null,
             };
             return result is null ? "There is no report with that name." : ToolAnswers.Serialize(result);
@@ -108,7 +108,7 @@ internal sealed class GetOverviewTool(ISender sender, ICurrentUser user) : IAssi
 
     public async Task<string> RunAsync(string argumentsJson, CancellationToken ct)
     {
-        var d = await sender.Send(new GetDashboard(user.LegalEntityId), ct);
+        var d = await sender.Send(new GetDashboardQuery(user.LegalEntityId), ct);
         return ToolAnswers.Serialize(new { d.AsOf, Figures = d.Kpis.Select(k => new { k.Label, k.Value, k.Caption, k.Link }), NeedsAttention = d.Alerts.Select(a => new { a.Category, a.Urgency, a.Message, a.Link }) });
     }
 }
@@ -120,7 +120,7 @@ internal sealed class ListApprovalsTool(ISender sender) : IAssistantTool
 
     public async Task<string> RunAsync(string argumentsJson, CancellationToken ct)
     {
-        var list = await sender.Send(new ListApprovals(null), ct);
+        var list = await sender.Send(new ListApprovalsQuery(null), ct);
         return list.Count == 0 ? "There is nothing waiting." : ToolAnswers.Serialize(new { Link = "/approvals", Items = list.Take(20).Select(a => new { a.Subject, a.Amount, Status = a.Status.ToString(), a.RequestedAt }) });
     }
 }
@@ -133,7 +133,7 @@ internal sealed class FindScreenTool(ISender sender) : IAssistantTool
 
     public async Task<string> RunAsync(string argumentsJson, CancellationToken ct)
     {
-        var menu = await sender.Send(new GetNavigationMenu(), ct);
+        var menu = await sender.Send(new GetNavigationMenuQuery(), ct);
         var words = (ToolAnswers.ReadText(argumentsJson, "query") ?? "").ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var hits = menu.SelectMany(g => g.Items.Select(i => new { Group = g.Label, i.Label, Link = i.Route }))
             .Where(i => words.Any(w => i.Label.Contains(w, StringComparison.OrdinalIgnoreCase) || (i.Group?.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false))).Take(10).ToList();

@@ -72,7 +72,7 @@ Things it deliberately does not do yet:
 - `ERP.Domain/Platform/Subscriptions.cs`: the tables. None is org-scoped, so workspace-side reads filter on the caller's `OrgId` explicitly.
 - `ERP.Application/Platform/`: `SubscriptionCore.cs` (rules, limits, daily run), `RegistrationFeatures.cs`, `BillingFeatures.cs` (client side), `ConsoleFeatures.cs` (founder side).
 - `ERP.Infrastructure/Services/PlatformServices.cs`: everything that reads across workspaces. `PlatformBootstrap.cs`: startup.
-- `ERP.Api/Endpoints/PlatformAdminEndpoints.cs`: routes. The `platform-admin` policy sits on the whole group.
+- `ERP.Api/Controllers/PlatformAdmin/*Controller.cs`: routes. The `platform-admin` policy sits on each controller class.
 - Tests: `tests/ERP.IntegrationTests/PlatformConsoleTests.cs`, `tests/ERP.UnitTests/SubscriptionRulesTests.cs`.
 
 ## AI assistant settings

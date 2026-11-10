@@ -6,8 +6,8 @@ namespace ERP.UnitTests;
 public class GoodsReceiptRulesTests
 {
     [Theory]
-    [InlineData(typeof(CreateGoodsReceipt))]
-    [InlineData(typeof(DeleteGoodsReceipt))]
+    [InlineData(typeof(CreateGoodsReceiptCommand))]
+    [InlineData(typeof(DeleteGoodsReceiptCommand))]
     public void Goods_receipt_commands_retry_on_a_concurrency_conflict(Type command)
         => Assert.True(typeof(IRetryOnConcurrency).IsAssignableFrom(command), command.Name);
 }

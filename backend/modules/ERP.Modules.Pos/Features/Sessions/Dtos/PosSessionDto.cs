@@ -1,0 +1,60 @@
+using ERP.Modules.Pos.Domain;
+
+namespace ERP.Modules.Pos.Features;
+
+public record PosSessionDto(
+    Guid Id,
+    Guid LegalEntityId,
+    Guid RegisterId,
+    string RegisterName,
+    Guid OpenedByUserId,
+    string CashierName,
+    DateTimeOffset OpenedAt,
+    Guid? ClosedByUserId,
+    DateTimeOffset? ClosedAt,
+    decimal OpeningCash,
+    decimal TotalSales,
+    decimal TotalReturns,
+    decimal TotalPayIn,
+    decimal TotalPayOut,
+    decimal ExpectedCash,
+    decimal ActualCash,
+    decimal CashDifference,
+    PosSessionStatus Status,
+    string? Notes,
+    string? CustomFields,
+    List<CashDrawerTransactionDto> DrawerTransactions,
+    DateTimeOffset CreatedAt)
+{
+    internal static PosSessionDto From(PosSession s) => new(
+        s.Id,
+        s.LegalEntityId,
+        s.RegisterId,
+        s.RegisterName,
+        s.OpenedByUserId,
+        s.CashierName,
+        s.OpenedAt,
+        s.ClosedByUserId,
+        s.ClosedAt,
+        s.OpeningCash,
+        s.TotalSales,
+        s.TotalReturns,
+        s.TotalPayIn,
+        s.TotalPayOut,
+        s.ExpectedCash,
+        s.ActualCash,
+        s.CashDifference,
+        s.Status,
+        s.Notes,
+        s.CustomFields,
+        s.DrawerTransactions.Select(t => new CashDrawerTransactionDto(
+            t.Id,
+            t.SessionId,
+            t.Type,
+            t.Amount,
+            t.Reason,
+            t.PerformedByUserId,
+            t.Timestamp,
+            t.PerformedByName)).ToList(),
+        s.CreatedAt);
+}

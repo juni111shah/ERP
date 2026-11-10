@@ -7,8 +7,6 @@ using ERP.Application.Templates;
 using ERP.Modularity;
 using ERP.Modules.Manufacturing.Domain;
 using ERP.Modules.Manufacturing.Features;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -61,8 +59,8 @@ public sealed class ManufacturingModule : ModuleBase
         new("light_manufacturing", "Light Manufacturing & Assembly", "Assembly recipes, component stock allocation and operational routing.", IndustryAvailability.Available, [Key],
             Accounts:
             [
-                new("5060", "Conversion cost absorbed", ERP.Domain.Finance.AccountType.Expense, WorkOrderHandlers.AbsorptionRole, ReportingGroup: "Cost of sales"),
-                new("5070", "Production scrap", ERP.Domain.Finance.AccountType.Expense, WorkOrderHandlers.ScrapRole, ReportingGroup: "Cost of sales"),
+                new("5060", "Conversion cost absorbed", ERP.Domain.Finance.AccountType.Expense, WorkOrderRules.AbsorptionRole, ReportingGroup: "Cost of sales"),
+                new("5070", "Production scrap", ERP.Domain.Finance.AccountType.Expense, WorkOrderRules.ScrapRole, ReportingGroup: "Cost of sales"),
             ],
             Roles:
             [
@@ -80,6 +78,8 @@ public sealed class ManufacturingModule : ModuleBase
 
     public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<BomComponents>();
+        services.AddScoped<WorkOrderMaterials>();
         services.AddScoped<IDashboardContributor, ManufacturingDashboard>();
         services.AddScoped<ISearchProvider, ManufacturingSearch>();
         services.AddScoped<ERP.Application.Workflow.IAttachmentOwnerResolver>(sp =>
@@ -185,6 +185,4 @@ public sealed class ManufacturingModule : ModuleBase
             b.HasIndex(x => new { x.OrgId, x.ItemId });
         });
     }
-
-    public override void MapEndpoints(RouteGroupBuilder group) => ManufacturingEndpoints.Map(group);
 }

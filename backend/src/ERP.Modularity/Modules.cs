@@ -28,8 +28,8 @@ public sealed record MenuItemDefinition(
     string GroupId = "", string? GroupLabel = null, int GroupOrder = 500);
 
 /// <summary>
-/// Contract every pluggable module implements. A module registers its services, EF Core model, HTTP endpoints
-/// (mounted under /api/v1/m/{key}), permissions, menu items, settings, customizable entities and industry templates.
+/// Contract every pluggable module implements. A module registers its services, EF Core model, permissions,
+/// menu items, settings, customizable entities and industry templates. Its HTTP API is its controllers ([ModuleGate("key")], routes under /api/v1/m/{key}).
 /// The core never references module assemblies; the host composes them.
 /// </summary>
 public interface IModule
@@ -42,8 +42,6 @@ public interface IModule
     IEnumerable<IndustryTemplate> IndustryTemplates { get; }
     void ConfigureServices(IServiceCollection services, IConfiguration configuration);
     void ConfigureModel(ModelBuilder modelBuilder);
-    /// <summary>Map endpoints on a group already prefixed with /api/v1/m/{key}, authenticated and module-gated.</summary>
-    void MapEndpoints(RouteGroupBuilder group);
 }
 
 public abstract class ModuleBase : IModule
@@ -56,7 +54,6 @@ public abstract class ModuleBase : IModule
     public virtual IEnumerable<IndustryTemplate> IndustryTemplates => [];
     public virtual void ConfigureServices(IServiceCollection services, IConfiguration configuration) { }
     public virtual void ConfigureModel(ModelBuilder modelBuilder) { }
-    public virtual void MapEndpoints(RouteGroupBuilder group) { }
 }
 
 /// <summary>Installed modules of this deployment (singleton). Per-workspace enablement lives in OrganizationModules.</summary>
@@ -133,8 +130,12 @@ public static class ModuleProblems
     public const string ModuleDisabledType = "https://erp.local/problems/module-disabled";
 }
 
-/// <summary>Endpoint metadata marking an endpoint as owned by a module.</summary>
-public sealed record ModuleGateMetadata(string ModuleKey);
+/// <summary>Marks a controller (or endpoint) as owned by a module: <c>[ModuleGate("sales")]</c>. The module gate answers 403 module-disabled while the module is off.</summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = true)]
+public sealed class ModuleGateAttribute(string moduleKey) : Attribute
+{
+    public string ModuleKey { get; } = moduleKey;
+}
 
 /// <summary>
 /// Runs after authentication and before authorization: authenticated calls to a module endpoint get 403
@@ -145,7 +146,7 @@ public sealed class ModuleGateMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext http)
     {
-        var gate = http.GetEndpoint()?.Metadata.GetMetadata<ModuleGateMetadata>();
+        var gate = http.GetEndpoint()?.Metadata.GetMetadata<ModuleGateAttribute>();
         if (gate is not null && http.User.Identity?.IsAuthenticated == true)
         {
             var access = http.RequestServices.GetRequiredService<IModuleAccess>();
@@ -161,12 +162,10 @@ public sealed class ModuleGateMiddleware(RequestDelegate next)
     }
 }
 
-public static class PermissionEndpointExtensions
+/// <summary>Authorization policies named "perm:&lt;key&gt;" (see <see cref="Web.RequirePermissionAttribute"/>).</summary>
+public static class PermissionPolicies
 {
     public const string PolicyPrefix = "perm:";
-    /// <summary>Requires a permission key on an endpoint (policy "perm:&lt;key&gt;").</summary>
-    public static TBuilder RequirePermission<TBuilder>(this TBuilder builder, string permission) where TBuilder : IEndpointConventionBuilder
-        => builder.RequireAuthorization(PolicyPrefix + permission);
 }
 
 public static class ModuleDiscovery

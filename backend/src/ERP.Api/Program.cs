@@ -1,7 +1,6 @@
 using ERP.Application.Abstractions;
 using System.Text;
 using System.Threading.RateLimiting;
-using ERP.Api.Endpoints;
 using ERP.Api.Infrastructure;
 using ERP.Infrastructure;
 using ERP.Application.Auth;
@@ -143,6 +142,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddSignalR();
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
+builder.Services.AddApiControllers(modules);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -227,21 +227,9 @@ app.UseAuthorization();
 app.UseMiddleware<LegalEntityScopeMiddleware>();
 app.UseMiddleware<IdempotencyMiddleware>();
 
-// Every /api/v1 endpoint (core and modules) returns the standard ApiResponse envelope.
-var api = app.MapGroup("/api/v1");
-api.AddEndpointFilter<ApiEnvelopeFilter>();
-api.MapAuth();
-api.MapCore();
-
-// Module endpoints: /api/v1/m/{key}/..., authenticated and gated per workspace (403 module-disabled).
-var registry = app.Services.GetRequiredService<ModuleRegistry>();
-foreach (var module in registry.Modules)
-{
-    var group = api.MapGroup($"/m/{module.Manifest.Key}")
-        .WithMetadata(new ModuleGateMetadata(module.Manifest.Key))
-        .WithTags($"Module: {module.Manifest.Name}");
-    module.MapEndpoints(group);
-}
+// Every API route is a controller action (core: ERP.Api/Controllers, modules: ERP.Modules.*/Controllers), wrapped in the
+// standard ApiResponse envelope by ApiEnvelopeResultFilter. Module controllers are gated per workspace by [ModuleGate].
+app.MapControllers();
 
 app.MapHub<NotificationsHub>("/hubs/notifications");
 app.MapHealthChecks("/health").AllowAnonymous();

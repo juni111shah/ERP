@@ -25,7 +25,7 @@ public sealed class PartyImport(ISender sender) : IImportDefinition
     public async Task ImportRowAsync(ImportRow r, CancellationToken ct)
     {
         var roles = r.Get("roles") is { } v ? (Enum.TryParse<PartyRoles>(v.Replace(';', ',').Replace('|', ','), true, out var parsed) ? parsed : throw new ImportRowException("'roles' must be Customer, Vendor, Employee or Other.")) : PartyRoles.Customer;
-        await sender.Send(new CreateParty(new PartyInput(r.Require("name"), r.Enum<PartyKind>("kind", PartyKind.Company), roles, r.Get("email"), r.Get("phone"), r.Get("taxNumber"), r.Get("idNumber"),
+        await sender.Send(new CreatePartyCommand(new PartyInput(r.Require("name"), r.Enum<PartyKind>("kind", PartyKind.Company), roles, r.Get("email"), r.Get("phone"), r.Get("taxNumber"), r.Get("idNumber"),
             r.Get("iban"), r.Get("currencyCode"), r.Int("paymentTermsDays"), r.Get("address"))), ct);
     }
 }
@@ -44,5 +44,5 @@ public sealed class ItemImport(ISender sender) : IImportDefinition
     ];
 
     public async Task ImportRowAsync(ImportRow r, CancellationToken ct)
-        => await sender.Send(new CreateItem(new ItemInput(r.Require("sku"), r.Require("name"), r.Enum<ItemType>("type"), r.Require("uom"), r.Decimal("salesPrice"), r.Decimal("purchasePrice"), null)), ct);
+        => await sender.Send(new CreateItemCommand(new ItemInput(r.Require("sku"), r.Require("name"), r.Enum<ItemType>("type"), r.Require("uom"), r.Decimal("salesPrice"), r.Decimal("purchasePrice"), null)), ct);
 }
