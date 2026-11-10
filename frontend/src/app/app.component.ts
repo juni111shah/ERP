@@ -1,8 +1,8 @@
 import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { TenantThemeService } from '../theme/tenant-theme.service';
-import { TableCellTipService } from './core/services/table-cell-tip.service';
-import { TableDensityService } from './core/services/table-density.service';
+import { TableCellTipService } from '@core/services/table-cell-tip.service';
+import { TableDensityService } from '@core/services/table-density.service';
 
 @Component({
   selector: 'erp-root',

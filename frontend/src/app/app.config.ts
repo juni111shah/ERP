@@ -9,16 +9,16 @@ import { provideNzConfig } from 'ng-zorro-antd/core/config';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
 import { firstValueFrom } from 'rxjs';
 import { routes } from './app.routes';
-import { AuthService } from './core/auth/auth.service';
-import { authInterceptor } from './core/http/auth.interceptor';
-import { entityScopeInterceptor } from './core/http/entity-scope.interceptor';
-import { envelopeInterceptor } from './core/http/envelope.interceptor';
-import { moduleDisabledInterceptor } from './core/http/module-disabled.interceptor';
-import { OneToastMessageService } from './core/http/one-toast-message.service';
-import { subscriptionGateInterceptor } from './core/http/subscription-gate.interceptor';
+import { AuthService } from '@core/auth/auth.service';
+import { authInterceptor } from '@core/http/auth.interceptor';
+import { entityScopeInterceptor } from '@core/http/entity-scope.interceptor';
+import { envelopeInterceptor } from '@core/http/envelope.interceptor';
+import { moduleDisabledInterceptor } from '@core/http/module-disabled.interceptor';
+import { OneToastMessageService } from '@core/http/one-toast-message.service';
+import { subscriptionGateInterceptor } from '@core/http/subscription-gate.interceptor';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { APP_ICONS } from './icons';
-import { I18nService } from './core/i18n/i18n.service';
+import { I18nService } from '@core/i18n/i18n.service';
 import { TenantThemeService } from '../theme/tenant-theme.service';
 
 // ng-zorro's date helper formats with Angular's formatDate under the ng-zorro locale id ('ar' for ar_EG); without this Arabic locale data
